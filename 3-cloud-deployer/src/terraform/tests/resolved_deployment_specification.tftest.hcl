@@ -11,6 +11,89 @@ mock_provider "local" {}
 mock_provider "random" {}
 mock_provider "time" {}
 
+run "five_layer_v2_single_cloud_aws_binds_only_reviewed_bundle" {
+  command = plan
+
+  override_data {
+    target = data.aws_caller_identity.current
+    values = {
+      account_id = "123456789012"
+      arn        = "arn:aws:iam::123456789012:user/terraform-mock"
+      user_id    = "AIDACKCEVSQ6C2EXAMPLE"
+    }
+  }
+
+  override_data {
+    target = data.aws_ssoadmin_instances.aws_v2_layer_access
+    values = {
+      arns               = ["arn:aws:sso:::instance/ssoins-0123456789abcdef"]
+      identity_store_ids = ["d-0123456789"]
+    }
+  }
+
+  override_data {
+    target = data.aws_identitystore_users.aws_v2_layer_access
+    values = {
+      users = []
+    }
+  }
+
+  variables {
+    digital_twin_name                     = "drift-test"
+    architecture_profile_id               = "five-layer-baseline"
+    architecture_profile_version          = "2"
+    layer_1_provider                      = "aws"
+    layer_2_provider                      = "aws"
+    layer_3_hot_provider                  = "aws"
+    layer_3_cold_provider                 = "aws"
+    layer_3_archive_provider              = "aws"
+    layer_4_provider                      = "aws"
+    layer_5_provider                      = "aws"
+    layer_3_hot_to_cold_interval_days     = 30
+    layer_3_cold_to_archive_interval_days = 90
+    layer_3_archive_expiry_interval_days  = 365
+    platform_user_email                   = "researcher@example.test"
+    platform_user_first_name              = "Thesis"
+    platform_user_last_name               = "Researcher"
+    enable_aws_logging                    = false
+  }
+
+  assert {
+    condition     = length(aws_lambda_function.l1_dispatcher) == 0
+    error_message = "Five-layer v2 must not deploy the historical v1 AWS dispatcher."
+  }
+
+  assert {
+    condition     = length(aws_lambda_function.aws_aws_lambda_event_adapter) == 1
+    error_message = "Five-layer v2 must deploy the embedded AWS event adapter."
+  }
+
+  assert {
+    condition     = length(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge) == 0
+    error_message = "Single-cloud AWS must omit remote-only Kinesis streams."
+  }
+
+  assert {
+    condition     = length(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw) == 1 && length(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup) == 1
+    error_message = "Five-layer v2 must bind raw and hourly-rollup storage."
+  }
+
+  assert {
+    condition     = length(aws_ecs_task_definition.aws_aws_ecs_fargate_storage_mover) == 1
+    error_message = "DynamoDB-to-S3 tiering requires exactly one finite mover definition."
+  }
+
+  assert {
+    condition     = length(aws_s3_bucket_lifecycle_configuration.aws_aws_s3_standard_ia) == 1 && length(aws_s3_bucket_lifecycle_configuration.aws_aws_s3_glacier_deep_archive) == 0
+    error_message = "Same-cloud S3 tiering must use one non-conflicting lifecycle configuration."
+  }
+
+  assert {
+    condition     = length(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard) == 1 && length(aws_grafana_workspace.aws_aws_amazon_managed_grafana_12) == 1
+    error_message = "Five-layer v2 must expose both AWS L4 and L5 surfaces."
+  }
+}
+
 run "all_aws_selections_bind_to_resources" {
   command = plan
 

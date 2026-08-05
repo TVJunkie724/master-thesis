@@ -7626,12 +7626,12 @@
         "aws.sqs-fifo",
         "aws.step-functions-standard"
       ],
-      "repository_source_path": "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json",
+      "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2",
       "platform_handler": "handler.aws.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:748b6258fedc0e781fa2ee1769106e5a56cb27400eac043516be8ea7c893498e",
+      "source_digest": "sha256:94e104b72f997a98b6b97d45b731aad3b895bf8a11246aacb0c349b3dfcfe138",
       "included_paths": [
-        "implementation-component-manifest.json"
+        "handler.py"
       ],
       "excluded_paths": [],
       "dependency_artifact_refs": [],
@@ -7765,5 +7765,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:c9a1ea916ae6a5ea1c410911edcef6523e0259b74184b6f05131991596b5339c"
+  "content_digest": "sha256:cc3f880dfdd2cdd3b3b84cfe2b7070b150ef98ec0f4643d9b2e1d434f8892392"
 }

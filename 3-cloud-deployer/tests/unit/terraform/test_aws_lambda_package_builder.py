@@ -273,7 +273,13 @@ class TestRealLambdaFunctions:
     def test_all_lambdas_have_handler_file(self, lambda_functions_dir):
         """All Lambda function directories should have lambda_function.py."""
         # Skip special directories
-        skip_dirs = {"_shared", "__pycache__", "processor_wrapper", "default-processor"}
+        skip_dirs = {
+            "_shared",
+            "__pycache__",
+            "processor_wrapper",
+            "default-processor",
+            "five-layer-v2",  # validated as an explicit multi-handler package below
+        }
         
         for func_dir in lambda_functions_dir.iterdir():
             if not func_dir.is_dir():
@@ -286,7 +292,13 @@ class TestRealLambdaFunctions:
     
     def test_all_lambdas_define_lambda_handler(self, lambda_functions_dir):
         """All Lambda functions should define lambda_handler."""
-        skip_dirs = {"_shared", "__pycache__", "processor_wrapper", "default-processor"}
+        skip_dirs = {
+            "_shared",
+            "__pycache__",
+            "processor_wrapper",
+            "default-processor",
+            "five-layer-v2",  # validated as an explicit multi-handler package below
+        }
         
         for func_dir in lambda_functions_dir.iterdir():
             if not func_dir.is_dir():
@@ -348,6 +360,35 @@ class TestRealLambdaFunctions:
                 ast.parse(content)
             except SyntaxError as e:
                 pytest.fail(f"Syntax error in {py_file.name}: {e}")
+
+    def test_five_layer_v2_multi_handler_package(self, project_root, tmp_path):
+        """The graph-selected v2 artifact must build the exact Lambda ZIP."""
+        packages = build_aws_lambda_packages(
+            project_root / "src" / "terraform",
+            tmp_path,
+            {"layer_1_provider": "aws"},
+            selected_function_names=("five-layer-v2",),
+        )
+
+        package = packages["aws_five-layer-v2"]
+        first_bytes = package.read_bytes()
+        with zipfile.ZipFile(package) as archive:
+            assert "handler.py" in archive.namelist()
+            module = ast.parse(archive.read("handler.py").decode("utf-8"))
+            functions = {
+                node.name
+                for node in ast.walk(module)
+                if isinstance(node, ast.FunctionDef)
+            }
+            assert {"event_adapter", "processor", "raw_history_reader"} <= functions
+
+        build_aws_lambda_packages(
+            project_root / "src" / "terraform",
+            tmp_path,
+            {"layer_1_provider": "aws"},
+            selected_function_names=("five-layer-v2",),
+        )
+        assert package.read_bytes() == first_bytes
 
 
 class TestZipSizeLimits:

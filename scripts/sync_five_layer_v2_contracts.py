@@ -38,6 +38,9 @@ SERVICE_BUNDLES = SERVICE_ROOT / "complete-provider-bundles.json"
 SERVICE_WORKLOAD = SERVICE_ROOT / "workload-scenarios.json"
 SERVICE_PRICING = SERVICE_ROOT / "pricing-ownership-matrix.json"
 SERVICE_SOURCES = SERVICE_ROOT / "source-ledger.json"
+AWS_V2_RUNTIME_SOURCE = (
+    "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2"
+)
 WORKLOAD_ROOT = ROOT / "contracts" / "five-layer-workload"
 WORKLOAD_CATALOG = WORKLOAD_ROOT / "v2" / "eventing-scenario-catalog.json"
 ARCH_TARGETS = (
@@ -194,6 +197,38 @@ def tree_digest(root: Path) -> str:
         result.update(b"\0")
         result.update(path.read_bytes())
         result.update(b"\0")
+    return f"sha256:{result.hexdigest()}"
+
+
+def package_source_digest(repository_source_path: str) -> str:
+    """Mirror the Deployer's canonical platform-package digest policy."""
+
+    source_path = ROOT / repository_source_path
+    paths = [source_path] if source_path.is_file() else sorted(source_path.rglob("*"))
+    result = hashlib.sha256()
+    included = 0
+    for path in paths:
+        if (
+            not path.is_file()
+            or "__pycache__" in path.parts
+            or ".git" in path.parts
+            or path.suffix.lower() == ".zip"
+            or path.name.startswith(".git")
+            or path.name == ".DS_Store"
+        ):
+            continue
+        relative = (
+            repository_source_path
+            if source_path.is_file()
+            else f"{repository_source_path}/{path.relative_to(source_path).as_posix()}"
+        )
+        result.update(relative.encode("utf-8"))
+        result.update(b"\0")
+        result.update(path.read_bytes())
+        result.update(b"\0")
+        included += 1
+    if included == 0:
+        raise RuntimeError(f"Package source is empty: {repository_source_path}")
     return f"sha256:{result.hexdigest()}"
 
 
@@ -1106,13 +1141,22 @@ def build_catalog(
                     }
                 ),
                 "repository_source_path": (
-                    "docs/research/evidence/phase_08_service_bundles/"
-                    "implementation-component-manifest.json"
+                    AWS_V2_RUNTIME_SOURCE
+                    if provider == "aws"
+                    else "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json"
                 ),
                 "platform_handler": f"handler.{provider}.five-layer-v2",
                 "digest_policy": "sha256.canonical-source.v1",
-                "source_digest": file_digest(SERVICE_COMPONENTS),
-                "included_paths": ["implementation-component-manifest.json"],
+                "source_digest": (
+                    package_source_digest(AWS_V2_RUNTIME_SOURCE)
+                    if provider == "aws"
+                    else file_digest(SERVICE_COMPONENTS)
+                ),
+                "included_paths": (
+                    ["handler.py"]
+                    if provider == "aws"
+                    else ["implementation-component-manifest.json"]
+                ),
                 "excluded_paths": [],
                 "dependency_artifact_refs": [],
                 "builder_adapter_id": f"builder.{provider}.five-layer-v2",

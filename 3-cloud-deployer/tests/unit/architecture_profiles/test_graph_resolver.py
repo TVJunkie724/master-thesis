@@ -254,3 +254,15 @@ def test_v4_offline_contract_fixture_is_not_executable():
         validate_deployment_manifest(manifest, manifest["providers"])
 
     assert raised.value.code == "DEPLOYMENT_SPECIFICATION_NOT_READY"
+
+
+def test_v4_single_cloud_aws_graph_translates_to_declared_terraform_symbols():
+    graph = _resolve_offline_v4("single-cloud-aws-small.json")
+
+    inputs = translate_graph_inputs(graph)
+
+    assert inputs.graph_digest == graph.content_digest
+    assert inputs.values["architecture_profile_id"] == "five-layer-baseline"
+    assert inputs.values["architecture_profile_version"] == "2"
+    assert inputs.values["layer_1_provider"] == "aws"
+    assert inputs.values["layer_5_provider"] == "aws"

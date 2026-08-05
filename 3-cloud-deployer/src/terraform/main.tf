@@ -187,5 +187,13 @@ resource "terraform_data" "five_layer_v2_retention_guard" {
       )
       error_message = "Five-layer v2 requires cumulative retention boundaries 0 < hot < cool < archive."
     }
+    precondition {
+      condition = (
+        var.platform_user_email != "" &&
+        var.platform_user_first_name != "" &&
+        var.platform_user_last_name != ""
+      )
+      error_message = "Five-layer v2 requires the platform user identity used to provision usable L4/L5 access."
+    }
   }
 }

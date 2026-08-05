@@ -20,7 +20,7 @@
 # ==============================================================================
 
 locals {
-  l5_aws_enabled = var.layer_5_provider == "aws"
+  l5_aws_enabled = var.layer_5_provider == "aws" && !local.five_layer_v2_enabled
 }
 
 # ==============================================================================
@@ -198,4 +198,3 @@ resource "aws_grafana_role_association" "admin" {
 
   depends_on = [aws_identitystore_user.platform_user]
 }
-

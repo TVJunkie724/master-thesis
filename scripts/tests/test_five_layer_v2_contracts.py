@@ -25,6 +25,21 @@ class FiveLayerV2ContractTests(unittest.TestCase):
     def test_source_and_generated_copies_are_exact(self) -> None:
         contract.check()
 
+    def test_aws_platform_artifact_is_bound_to_executable_runtime_source(self) -> None:
+        artifact = next(
+            item
+            for item in self.catalog["package_artifacts"]
+            if item["artifact_id"] == "artifact.platform.aws.five-layer-v2"
+        )
+        self.assertEqual(
+            artifact["repository_source_path"], contract.AWS_V2_RUNTIME_SOURCE
+        )
+        self.assertEqual(artifact["included_paths"], ["handler.py"])
+        self.assertEqual(
+            artifact["source_digest"],
+            contract.package_source_digest(contract.AWS_V2_RUNTIME_SOURCE),
+        )
+
     def test_historical_v1_contract_trees_remain_byte_stable(self) -> None:
         self.assertEqual(
             contract.tree_digest(contract.ARCH_V1),

@@ -8,7 +8,10 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from src.providers.terraform.package_builder import build_all_packages
+from src.providers.terraform.package_builder import (
+    build_all_packages,
+    build_aws_lambda_packages,
+)
 
 
 TERRAFORM_SOURCE = Path(__file__).resolve().parents[3] / "src" / "terraform"
@@ -137,6 +140,12 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
     )
     build_all_packages(terraform_dir, project_path, all_aws)
     build_all_packages(terraform_dir, project_path, gcp_storage)
+    build_aws_lambda_packages(
+        terraform_dir,
+        project_path,
+        all_aws,
+        selected_function_names=("five-layer-v2",),
+    )
 
     _run_terraform(
         terraform_dir,
@@ -157,6 +166,6 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
         plugin_cache=plugin_cache,
     )
 
-    assert "3 passed, 0 failed" in result.stdout
+    assert "4 passed, 0 failed" in result.stdout
     assert not list(tmp_path.rglob("*.tfstate"))
     assert not list(tmp_path.rglob("*.tfplan"))
