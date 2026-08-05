@@ -70,6 +70,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "024_cloud_bootstrap_sessions",
         "migrations.add_cloud_bootstrap_sessions",
     ),
+    Migration(
+        "025_resolved_architecture_v2",
+        "migrations.allow_resolved_architecture_v2",
+    ),
 )
 
 

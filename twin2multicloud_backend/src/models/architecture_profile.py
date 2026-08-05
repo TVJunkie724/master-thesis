@@ -94,7 +94,7 @@ class ResolvedTwinArchitectureRecord(Base):
             name="ck_resolved_architecture_complete",
         ),
         CheckConstraint(
-            "origin IN ('native_v1', 'reconstructed_v1')",
+            "origin IN ('native_v1', 'reconstructed_v1', 'native_v2')",
             name="ck_resolved_architecture_origin",
         ),
         Index(

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -181,6 +181,38 @@ class ResolvedTwinArchitectureContract(BaseModel):
     content_digest: str
 
 
+class ResolvedTwinArchitectureContractV2(BaseModel):
+    """Typed top-level v2 resolution; nested data stays contract-owned."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["resolved-twin-architecture.v2"]
+    resolution_status: Literal["offline_contract_fixture", "publishable"]
+    resolution_id: str
+    calculation_run_id: str
+    architecture_profile_ref: PinnedArchitectureReference
+    optimization_bundle_ref: dict[str, Any]
+    provider_profile_refs: list[dict[str, Any]]
+    workload_contract_ref: PinnedArchitectureReference
+    pricing_evidence_refs: list[dict[str, Any]]
+    component_assignments: list[dict[str, Any]]
+    resolved_edges: list[dict[str, Any]]
+    extension_bindings: list[dict[str, Any]]
+    deployment_specification_ref: dict[str, Any]
+    cost_summary: dict[str, Any]
+    functional_completeness: dict[str, Any]
+    content_digest: str
+
+
+ResolvedTwinArchitectureDocument = Annotated[
+    Union[
+        ResolvedTwinArchitectureContract,
+        ResolvedTwinArchitectureContractV2,
+    ],
+    Field(discriminator="schema_version"),
+]
+
+
 class ResolvedArchitectureReadResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -191,8 +223,8 @@ class ResolvedArchitectureReadResponse(BaseModel):
         "ready",
         "legacy_not_resolvable",
     ]
-    origin: Literal["native_v1", "reconstructed_v1"]
-    architecture: ResolvedTwinArchitectureContract
+    origin: Literal["native_v1", "reconstructed_v1", "native_v2"]
+    architecture: ResolvedTwinArchitectureDocument
 
 
 class ArchitectureErrorResponse(BaseModel):

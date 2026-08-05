@@ -9,6 +9,7 @@ import sqlite3
 import pytest
 
 from migrations import add_resolved_twin_architecture as migration
+from migrations import allow_resolved_architecture_v2 as v2_migration
 from tests.architecture_test_data import (
     RUN_ID,
     calculation_result_and_contracts,
@@ -509,3 +510,59 @@ def test_migration_failure_rolls_back_all_partial_architecture_state(
         assert connection.execute(
             "SELECT COUNT(*) FROM cost_calculation_runs"
         ).fetchone() == (2,)
+
+
+def test_v2_origin_migration_preserves_v1_and_immutability(tmp_path, monkeypatch):
+    path = tmp_path / "architecture-v2-origin.db"
+    _create_populated_database(path)
+    linked = linked_architecture_fixture_documents()
+    monkeypatch.setattr(migration, "_provider_documents", lambda *_: linked[1:3])
+    monkeypatch.setattr(migration, "_catalog_documents", lambda: (linked[3],))
+    migration.migrate(f"sqlite:///{path}")
+
+    expected = ["ensured: resolved architecture v2 origin"]
+    assert v2_migration.migrate(f"sqlite:///{path}") == expected
+    assert v2_migration.migrate(f"sqlite:///{path}") == expected
+
+    with sqlite3.connect(path) as connection:
+        existing = connection.execute(
+            "SELECT * FROM resolved_twin_architectures LIMIT 1"
+        ).fetchone()
+        assert existing is not None
+        columns = [
+            item[1]
+            for item in connection.execute(
+                "PRAGMA table_info(resolved_twin_architectures)"
+            )
+        ]
+        row = dict(zip(columns, existing, strict=True))
+        connection.execute(
+            """
+            INSERT INTO cost_calculation_runs (
+                id, twin_id, user_id, optimizer_config_id
+            ) VALUES ('v2-run', 'twin', 'owner', 'optimizer')
+            """
+        )
+        row.update(
+            {
+                "id": "v2-resolution",
+                "calculation_run_id": "v2-run",
+                "schema_version": "resolved-twin-architecture.v2",
+                "content_digest": "sha256:" + ("f" * 64),
+                "origin": "native_v2",
+            }
+        )
+        placeholders = ", ".join("?" for _ in columns)
+        connection.execute(
+            f"INSERT INTO resolved_twin_architectures "
+            f"({', '.join(columns)}) VALUES ({placeholders})",
+            tuple(row[column] for column in columns),
+        )
+        with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+            connection.execute(
+                """
+                UPDATE resolved_twin_architectures
+                SET origin = 'native_v1'
+                WHERE id = 'v2-resolution'
+                """
+            )

@@ -44,6 +44,7 @@ from src.services.user_function_extension_service import (
 
 
 SCHEMA_VERSION = "resolved-twin-architecture.v1"
+V2_SCHEMA_VERSION = "resolved-twin-architecture.v2"
 READY = "ready"
 LEGACY_NOT_RESOLVABLE = "legacy_not_resolvable"
 BASELINE_PROFILE = ("five-layer-baseline", "1")
@@ -128,7 +129,23 @@ class ResolvedArchitectureService:
     ) -> ResolvedTwinArchitectureRecord:
         """Validate and stage one resolution and all projections atomically."""
 
-        if origin not in {"native_v1", "reconstructed_v1"}:
+        raw_schema_version = (
+            str(raw_architecture.get("schema_version"))
+            if isinstance(raw_architecture, Mapping)
+            else ""
+        )
+        expected_origin = {
+            SCHEMA_VERSION: "native_v1",
+            V2_SCHEMA_VERSION: "native_v2",
+        }.get(raw_schema_version)
+        if (
+            isinstance(raw_architecture, Mapping)
+            and origin != expected_origin
+            and not (
+                origin == "reconstructed_v1"
+                and raw_schema_version == SCHEMA_VERSION
+            )
+        ):
             raise architecture_error(
                 "ARCH_RESOLUTION_INVALID",
                 "The resolved architecture origin is invalid.",
@@ -243,7 +260,7 @@ class ResolvedArchitectureService:
             )
         except (ContractError, ValueError, TypeError) as exc:
             raise _contract_error(exc) from exc
-        architecture = validated_bundle[-1].as_dict()
+        architecture = json.loads(_json(validated_bundle[-1].as_dict()))
         self._validate_management_references(run, architecture, profile)
         self._validate_deployment_component_references(run, architecture)
         self._validate_extension_bindings(run, architecture)
@@ -570,10 +587,41 @@ class ResolvedArchitectureService:
         }
         result_profile = result.get("optimizationProfile")
         result_strategy = result.get("calculationStrategy")
-        if (
-            bundle != expected_bundle
-            or not isinstance(result_profile, dict)
-            or not isinstance(result_strategy, dict)
+        if bundle != expected_bundle or not isinstance(result_profile, dict):
+            raise architecture_error(
+                "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                "The resolution optimization bundle does not match the run.",
+            )
+        if architecture["schema_version"] == V2_SCHEMA_VERSION:
+            expected_calculation_model = (
+                f"{bundle['calculation_strategy_id']}@"
+                f"{bundle['calculation_strategy_version']}"
+            )
+            if (
+                architecture.get("resolution_status") != "publishable"
+                or result.get("result_schema_version") != "cost-result.v2"
+                or not isinstance(result.get("totalCostExact"), str)
+                or bundle["optimization_strategy_id"]
+                != result.get("optimization_profile_id")
+                or result_profile.get("profile_version")
+                != bundle["optimization_strategy_version"]
+                or result_profile.get("scoring_strategy_id")
+                != bundle["scoring_strategy_id"]
+                or result_profile.get("calculation_model_ids")
+                != [expected_calculation_model]
+                or run.optimization_profile_id
+                != bundle["optimization_strategy_id"]
+                or run.optimization_profile_version
+                != bundle["optimization_strategy_version"]
+                or run.scoring_strategy_id != bundle["scoring_strategy_id"]
+                or run.calculation_model_version != expected_calculation_model
+            ):
+                raise architecture_error(
+                    "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                    "The v2 resolution strategy metadata does not match the run.",
+                )
+        elif (
+            not isinstance(result_strategy, dict)
             or bundle["optimization_strategy_id"]
             != result.get("optimization_profile_id")
             or bundle["calculation_strategy_id"]
@@ -726,6 +774,14 @@ class ResolvedArchitectureService:
                 "ARCH_RESOLUTION_REFERENCE_MISMATCH",
                 "The run deployment specification is unavailable.",
             ) from exc
+        if specification.get("schema_version") == (
+            "resolved-deployment-specification.v2"
+        ):
+            ResolvedArchitectureService._validate_v2_deployment_components(
+                specification,
+                architecture,
+            )
+            return
         raw_components = specification.get("components")
         if not isinstance(raw_components, list):
             raise architecture_error(
@@ -760,6 +816,70 @@ class ResolvedArchitectureService:
             not in {"transition_runtime", "cross_cloud_glue"}
         }
         if assigned_ids != non_auxiliary:
+            raise architecture_error(
+                "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                "Architecture and deployment component sets differ.",
+            )
+
+    @staticmethod
+    def _validate_v2_deployment_components(
+        specification: Mapping[str, Any],
+        architecture: Mapping[str, Any],
+    ) -> None:
+        raw_selections = specification.get("component_selections")
+        if not isinstance(raw_selections, list):
+            raise architecture_error(
+                "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                "The run deployment component set is unavailable.",
+            )
+        selections_by_logical: dict[str, list[Mapping[str, Any]]] = {}
+        selected_ids: set[str] = set()
+        for selection in raw_selections:
+            if not isinstance(selection, Mapping):
+                raise architecture_error(
+                    "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                    "The run deployment component set is malformed.",
+                )
+            logical = selection.get("logical_component_id")
+            component_id = selection.get("implementation_component_id")
+            if (
+                not isinstance(logical, str)
+                or not isinstance(component_id, str)
+                or component_id in selected_ids
+            ):
+                raise architecture_error(
+                    "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                    "The run deployment component set is malformed.",
+                )
+            selections_by_logical.setdefault(logical, []).append(selection)
+            selected_ids.add(component_id)
+        assigned_ids: set[str] = set()
+        for assignment in architecture["component_assignments"]:
+            logical = assignment["logical_component_id"]
+            selections = selections_by_logical.get(logical, [])
+            actual_ids = sorted(
+                str(item["implementation_component_id"])
+                for item in selections
+            )
+            if (
+                actual_ids
+                != assignment["deployment_specification_component_ids"]
+                or any(
+                    item.get("provider") != assignment["provider"]
+                    or item.get("architecture_assignment_id")
+                    != assignment["assignment_id"]
+                    for item in selections
+                )
+            ):
+                raise architecture_error(
+                    "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                    "Architecture and deployment component references differ.",
+                )
+            assigned_ids.update(actual_ids)
+        if assigned_ids != selected_ids or set(selections_by_logical) != {
+            item["logical_component_id"]
+            for item in architecture["component_assignments"]
+        }:
             raise architecture_error(
                 "ARCH_RESOLUTION_REFERENCE_MISMATCH",
                 "Architecture and deployment component sets differ.",
