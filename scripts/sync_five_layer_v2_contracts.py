@@ -1011,8 +1011,11 @@ def build_edge_implementation(
             "source_output_id": (
                 f"output.{source}.{edge['source_component_id'].removeprefix('component.')}.v2"
             ),
+            # Graph translation binds an edge to the destination node's
+            # declared catalog port. A synthetic input.* identifier is not a
+            # node port and therefore cannot be resolved by Terraform.
             "destination_input_id": (
-                f"input.{target}.{edge['destination_component_id'].removeprefix('component.')}.v2"
+                f"catalog.{target}.{edge['destination_port_id']}"
             ),
             "dependency_keys": [],
         },

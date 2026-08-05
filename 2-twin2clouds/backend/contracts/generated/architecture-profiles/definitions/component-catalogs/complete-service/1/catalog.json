@@ -3695,7 +3695,7 @@
       "destination_input_port_id": "catalog.aws.port.archive-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.aws.cool-storage.v2",
-        "destination_input_id": "input.aws.archive-storage.v2",
+        "destination_input_id": "catalog.aws.port.archive-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -3773,7 +3773,7 @@
       "destination_input_port_id": "catalog.azure.port.archive-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.aws.cool-storage.v2",
-        "destination_input_id": "input.azure.archive-storage.v2",
+        "destination_input_id": "catalog.azure.port.archive-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -3857,7 +3857,7 @@
       "destination_input_port_id": "catalog.gcp.port.archive-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.aws.cool-storage.v2",
-        "destination_input_id": "input.gcp.archive-storage.v2",
+        "destination_input_id": "catalog.gcp.port.archive-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -3941,7 +3941,7 @@
       "destination_input_port_id": "catalog.aws.port.archive-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.azure.cool-storage.v2",
-        "destination_input_id": "input.aws.archive-storage.v2",
+        "destination_input_id": "catalog.aws.port.archive-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -4025,7 +4025,7 @@
       "destination_input_port_id": "catalog.azure.port.archive-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.azure.cool-storage.v2",
-        "destination_input_id": "input.azure.archive-storage.v2",
+        "destination_input_id": "catalog.azure.port.archive-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -4103,7 +4103,7 @@
       "destination_input_port_id": "catalog.gcp.port.archive-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.azure.cool-storage.v2",
-        "destination_input_id": "input.gcp.archive-storage.v2",
+        "destination_input_id": "catalog.gcp.port.archive-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -4187,7 +4187,7 @@
       "destination_input_port_id": "catalog.aws.port.archive-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.cool-storage.v2",
-        "destination_input_id": "input.aws.archive-storage.v2",
+        "destination_input_id": "catalog.aws.port.archive-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -4271,7 +4271,7 @@
       "destination_input_port_id": "catalog.azure.port.archive-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.cool-storage.v2",
-        "destination_input_id": "input.azure.archive-storage.v2",
+        "destination_input_id": "catalog.azure.port.archive-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -4355,7 +4355,7 @@
       "destination_input_port_id": "catalog.gcp.port.archive-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.cool-storage.v2",
-        "destination_input_id": "input.gcp.archive-storage.v2",
+        "destination_input_id": "catalog.gcp.port.archive-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -4433,7 +4433,7 @@
       "destination_input_port_id": "catalog.aws.port.twin-state.update-in",
       "terraform_binding": {
         "source_output_id": "output.aws.hot-storage.v2",
-        "destination_input_id": "input.aws.twin-state.v2",
+        "destination_input_id": "catalog.aws.port.twin-state.update-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -4511,7 +4511,7 @@
       "destination_input_port_id": "catalog.azure.port.twin-state.update-in",
       "terraform_binding": {
         "source_output_id": "output.aws.hot-storage.v2",
-        "destination_input_id": "input.azure.twin-state.v2",
+        "destination_input_id": "catalog.azure.port.twin-state.update-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -4595,7 +4595,7 @@
       "destination_input_port_id": "catalog.gcp.port.twin-state.update-in",
       "terraform_binding": {
         "source_output_id": "output.aws.hot-storage.v2",
-        "destination_input_id": "input.gcp.twin-state.v2",
+        "destination_input_id": "catalog.gcp.port.twin-state.update-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -4679,7 +4679,7 @@
       "destination_input_port_id": "catalog.aws.port.twin-state.update-in",
       "terraform_binding": {
         "source_output_id": "output.azure.hot-storage.v2",
-        "destination_input_id": "input.aws.twin-state.v2",
+        "destination_input_id": "catalog.aws.port.twin-state.update-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -4763,7 +4763,7 @@
       "destination_input_port_id": "catalog.azure.port.twin-state.update-in",
       "terraform_binding": {
         "source_output_id": "output.azure.hot-storage.v2",
-        "destination_input_id": "input.azure.twin-state.v2",
+        "destination_input_id": "catalog.azure.port.twin-state.update-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -4841,7 +4841,7 @@
       "destination_input_port_id": "catalog.gcp.port.twin-state.update-in",
       "terraform_binding": {
         "source_output_id": "output.azure.hot-storage.v2",
-        "destination_input_id": "input.gcp.twin-state.v2",
+        "destination_input_id": "catalog.gcp.port.twin-state.update-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -4925,7 +4925,7 @@
       "destination_input_port_id": "catalog.aws.port.twin-state.update-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.hot-storage.v2",
-        "destination_input_id": "input.aws.twin-state.v2",
+        "destination_input_id": "catalog.aws.port.twin-state.update-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -5009,7 +5009,7 @@
       "destination_input_port_id": "catalog.azure.port.twin-state.update-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.hot-storage.v2",
-        "destination_input_id": "input.azure.twin-state.v2",
+        "destination_input_id": "catalog.azure.port.twin-state.update-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -5093,7 +5093,7 @@
       "destination_input_port_id": "catalog.gcp.port.twin-state.update-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.hot-storage.v2",
-        "destination_input_id": "input.gcp.twin-state.v2",
+        "destination_input_id": "catalog.gcp.port.twin-state.update-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -5171,7 +5171,7 @@
       "destination_input_port_id": "catalog.aws.port.cool-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.aws.hot-storage.v2",
-        "destination_input_id": "input.aws.cool-storage.v2",
+        "destination_input_id": "catalog.aws.port.cool-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -5249,7 +5249,7 @@
       "destination_input_port_id": "catalog.azure.port.cool-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.aws.hot-storage.v2",
-        "destination_input_id": "input.azure.cool-storage.v2",
+        "destination_input_id": "catalog.azure.port.cool-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -5333,7 +5333,7 @@
       "destination_input_port_id": "catalog.gcp.port.cool-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.aws.hot-storage.v2",
-        "destination_input_id": "input.gcp.cool-storage.v2",
+        "destination_input_id": "catalog.gcp.port.cool-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -5417,7 +5417,7 @@
       "destination_input_port_id": "catalog.aws.port.cool-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.azure.hot-storage.v2",
-        "destination_input_id": "input.aws.cool-storage.v2",
+        "destination_input_id": "catalog.aws.port.cool-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -5501,7 +5501,7 @@
       "destination_input_port_id": "catalog.azure.port.cool-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.azure.hot-storage.v2",
-        "destination_input_id": "input.azure.cool-storage.v2",
+        "destination_input_id": "catalog.azure.port.cool-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -5579,7 +5579,7 @@
       "destination_input_port_id": "catalog.gcp.port.cool-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.azure.hot-storage.v2",
-        "destination_input_id": "input.gcp.cool-storage.v2",
+        "destination_input_id": "catalog.gcp.port.cool-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -5663,7 +5663,7 @@
       "destination_input_port_id": "catalog.aws.port.cool-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.hot-storage.v2",
-        "destination_input_id": "input.aws.cool-storage.v2",
+        "destination_input_id": "catalog.aws.port.cool-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -5747,7 +5747,7 @@
       "destination_input_port_id": "catalog.azure.port.cool-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.hot-storage.v2",
-        "destination_input_id": "input.azure.cool-storage.v2",
+        "destination_input_id": "catalog.azure.port.cool-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -5831,7 +5831,7 @@
       "destination_input_port_id": "catalog.gcp.port.cool-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.hot-storage.v2",
-        "destination_input_id": "input.gcp.cool-storage.v2",
+        "destination_input_id": "catalog.gcp.port.cool-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -5909,7 +5909,7 @@
       "destination_input_port_id": "catalog.aws.port.processing.telemetry-in",
       "terraform_binding": {
         "source_output_id": "output.aws.ingestion.v2",
-        "destination_input_id": "input.aws.processing.v2",
+        "destination_input_id": "catalog.aws.port.processing.telemetry-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -5987,7 +5987,7 @@
       "destination_input_port_id": "catalog.azure.port.processing.telemetry-in",
       "terraform_binding": {
         "source_output_id": "output.aws.ingestion.v2",
-        "destination_input_id": "input.azure.processing.v2",
+        "destination_input_id": "catalog.azure.port.processing.telemetry-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -6071,7 +6071,7 @@
       "destination_input_port_id": "catalog.gcp.port.processing.telemetry-in",
       "terraform_binding": {
         "source_output_id": "output.aws.ingestion.v2",
-        "destination_input_id": "input.gcp.processing.v2",
+        "destination_input_id": "catalog.gcp.port.processing.telemetry-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -6155,7 +6155,7 @@
       "destination_input_port_id": "catalog.aws.port.processing.telemetry-in",
       "terraform_binding": {
         "source_output_id": "output.azure.ingestion.v2",
-        "destination_input_id": "input.aws.processing.v2",
+        "destination_input_id": "catalog.aws.port.processing.telemetry-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -6239,7 +6239,7 @@
       "destination_input_port_id": "catalog.azure.port.processing.telemetry-in",
       "terraform_binding": {
         "source_output_id": "output.azure.ingestion.v2",
-        "destination_input_id": "input.azure.processing.v2",
+        "destination_input_id": "catalog.azure.port.processing.telemetry-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -6317,7 +6317,7 @@
       "destination_input_port_id": "catalog.gcp.port.processing.telemetry-in",
       "terraform_binding": {
         "source_output_id": "output.azure.ingestion.v2",
-        "destination_input_id": "input.gcp.processing.v2",
+        "destination_input_id": "catalog.gcp.port.processing.telemetry-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -6401,7 +6401,7 @@
       "destination_input_port_id": "catalog.aws.port.processing.telemetry-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.ingestion.v2",
-        "destination_input_id": "input.aws.processing.v2",
+        "destination_input_id": "catalog.aws.port.processing.telemetry-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -6485,7 +6485,7 @@
       "destination_input_port_id": "catalog.azure.port.processing.telemetry-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.ingestion.v2",
-        "destination_input_id": "input.azure.processing.v2",
+        "destination_input_id": "catalog.azure.port.processing.telemetry-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -6569,7 +6569,7 @@
       "destination_input_port_id": "catalog.gcp.port.processing.telemetry-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.ingestion.v2",
-        "destination_input_id": "input.gcp.processing.v2",
+        "destination_input_id": "catalog.gcp.port.processing.telemetry-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -6647,7 +6647,7 @@
       "destination_input_port_id": "catalog.aws.port.hot-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.aws.processing.v2",
-        "destination_input_id": "input.aws.hot-storage.v2",
+        "destination_input_id": "catalog.aws.port.hot-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -6725,7 +6725,7 @@
       "destination_input_port_id": "catalog.azure.port.hot-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.aws.processing.v2",
-        "destination_input_id": "input.azure.hot-storage.v2",
+        "destination_input_id": "catalog.azure.port.hot-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -6809,7 +6809,7 @@
       "destination_input_port_id": "catalog.gcp.port.hot-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.aws.processing.v2",
-        "destination_input_id": "input.gcp.hot-storage.v2",
+        "destination_input_id": "catalog.gcp.port.hot-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -6893,7 +6893,7 @@
       "destination_input_port_id": "catalog.aws.port.hot-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.azure.processing.v2",
-        "destination_input_id": "input.aws.hot-storage.v2",
+        "destination_input_id": "catalog.aws.port.hot-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -6977,7 +6977,7 @@
       "destination_input_port_id": "catalog.azure.port.hot-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.azure.processing.v2",
-        "destination_input_id": "input.azure.hot-storage.v2",
+        "destination_input_id": "catalog.azure.port.hot-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -7055,7 +7055,7 @@
       "destination_input_port_id": "catalog.gcp.port.hot-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.azure.processing.v2",
-        "destination_input_id": "input.gcp.hot-storage.v2",
+        "destination_input_id": "catalog.gcp.port.hot-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -7139,7 +7139,7 @@
       "destination_input_port_id": "catalog.aws.port.hot-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.processing.v2",
-        "destination_input_id": "input.aws.hot-storage.v2",
+        "destination_input_id": "catalog.aws.port.hot-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -7223,7 +7223,7 @@
       "destination_input_port_id": "catalog.azure.port.hot-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.processing.v2",
-        "destination_input_id": "input.azure.hot-storage.v2",
+        "destination_input_id": "catalog.azure.port.hot-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
@@ -7307,7 +7307,7 @@
       "destination_input_port_id": "catalog.gcp.port.hot-storage.write-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.processing.v2",
-        "destination_input_id": "input.gcp.hot-storage.v2",
+        "destination_input_id": "catalog.gcp.port.hot-storage.write-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -7385,7 +7385,7 @@
       "destination_input_port_id": "catalog.aws.port.visualization.raw-history-in",
       "terraform_binding": {
         "source_output_id": "output.aws.hot-storage.v2",
-        "destination_input_id": "input.aws.visualization.v2",
+        "destination_input_id": "catalog.aws.port.visualization.raw-history-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -7463,7 +7463,7 @@
       "destination_input_port_id": "catalog.azure.port.visualization.raw-history-in",
       "terraform_binding": {
         "source_output_id": "output.azure.hot-storage.v2",
-        "destination_input_id": "input.azure.visualization.v2",
+        "destination_input_id": "catalog.azure.port.visualization.raw-history-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -7541,7 +7541,7 @@
       "destination_input_port_id": "catalog.gcp.port.visualization.raw-history-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.hot-storage.v2",
-        "destination_input_id": "input.gcp.visualization.v2",
+        "destination_input_id": "catalog.gcp.port.visualization.raw-history-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
@@ -7765,5 +7765,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:688cca28efe7b64f0c06dfd278cd53dacbb85f6b73f9595f0c849206d1db51c8"
+  "content_digest": "sha256:c9a1ea916ae6a5ea1c410911edcef6523e0259b74184b6f05131991596b5339c"
 }

@@ -142,6 +142,13 @@ class FiveLayerV2ContractTests(unittest.TestCase):
             count += 1
         self.assertEqual(count, 729)
 
+    def test_edge_terraform_bindings_use_declared_destination_ports(self) -> None:
+        for edge in self.catalog["edge_implementations"]:
+            self.assertEqual(
+                edge["terraform_binding"]["destination_input_id"],
+                edge["destination_input_port_id"],
+            )
+
     def test_single_cloud_omits_remote_only_event_services(self) -> None:
         specification = contract.build_rds(
             contract.assignment_for_bundle("aws", "aws"),
