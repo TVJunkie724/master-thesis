@@ -37,7 +37,7 @@
     "layer_5_provider": "aws"
   },
   "calculation_run_id": "420bd4ff-8700-5034-8313-334244c0d0b1",
-  "resolved_twin_architecture_digest": "sha256:386580c0e7604fc4e8c982dc4ba0323b9dbf4fdd90fc5d682d1f96e8b2e8361b",
+  "resolved_twin_architecture_digest": "sha256:8210280ecc071ae55f40eb27e654057e1c8c98fab1d44fb0167f63c84e16a273",
   "resolved_twin_architecture": {
     "schema_version": "resolved-twin-architecture.v2",
     "resolution_status": "offline_contract_fixture",
@@ -601,7 +601,7 @@
     ],
     "deployment_specification_ref": {
       "schema_version": "resolved-deployment-specification.v2",
-      "digest": "sha256:4f079669f2979703006b054fc5dc263a2d42a3e3480aec24e70c05f4a48fa30f",
+      "digest": "sha256:2c47dddd018820dda5bb17ecbdcdbf7e29807a8bb2209f01c5451cccbba089b2",
       "calculation_run_id": "420bd4ff-8700-5034-8313-334244c0d0b1"
     },
     "cost_summary": {
@@ -715,11 +715,11 @@
       "provider_extra_capability_ids": [],
       "missing_capability_ids": [],
       "validator_version": "2",
-      "validation_digest": "sha256:f9b535e26026a9153c1afc81f8d5238fcc1150c4fb81d8e5f03b12e92eba1057"
+      "validation_digest": "sha256:fcf02b7af1533e1f33ec6cadbafd0f7b235a93c9656c894b4e472774bdf65bd3"
     },
-    "content_digest": "sha256:386580c0e7604fc4e8c982dc4ba0323b9dbf4fdd90fc5d682d1f96e8b2e8361b"
+    "content_digest": "sha256:8210280ecc071ae55f40eb27e654057e1c8c98fab1d44fb0167f63c84e16a273"
   },
-  "resolved_deployment_specification_digest": "sha256:4f079669f2979703006b054fc5dc263a2d42a3e3480aec24e70c05f4a48fa30f",
+  "resolved_deployment_specification_digest": "sha256:2c47dddd018820dda5bb17ecbdcdbf7e29807a8bb2209f01c5451cccbba089b2",
   "resolved_deployment_specification": {
     "schema_version": "resolved-deployment-specification.v2",
     "calculation_run_id": "420bd4ff-8700-5034-8313-334244c0d0b1",
@@ -732,12 +732,12 @@
       "service_decision_ref": {
         "id": "phase-08-complete-service-bundles",
         "version": "1",
-        "digest": "sha256:647e8bec71b8f6b92a2ed5cc76070e54a3a00f8fca0a7132200a09dc2cbb8f1c"
+        "digest": "sha256:6404a4190b3342ec267be33ec1e86626152fde612287a2b7354a576248d9cd84"
       },
       "component_catalog_ref": {
         "id": "complete-service-component-catalog",
         "version": "1",
-        "digest": "sha256:52c1755ea567ad91d9f543ba3cbafd0c0912dc47bac7f3d79e936e47b2879a5c"
+        "digest": "sha256:d9e5ee1dd0106d0cfd6f4403e33f4ef7cf5009379aeaeed2d98867d505965236"
       },
       "workload_ref": {
         "id": "five-layer-workload",
@@ -2137,7 +2137,7 @@
         "compatibility_version": "1"
       }
     ],
-    "digest": "sha256:4f079669f2979703006b054fc5dc263a2d42a3e3480aec24e70c05f4a48fa30f"
+    "digest": "sha256:2c47dddd018820dda5bb17ecbdcdbf7e29807a8bb2209f01c5451cccbba089b2"
   },
   "credentials": {
     "providers": [
@@ -2152,7 +2152,7 @@
     "component_catalog_ref": {
       "id": "complete-service-component-catalog",
       "version": "1",
-      "digest": "sha256:52c1755ea567ad91d9f543ba3cbafd0c0912dc47bac7f3d79e936e47b2879a5c"
+      "digest": "sha256:d9e5ee1dd0106d0cfd6f4403e33f4ef7cf5009379aeaeed2d98867d505965236"
     },
     "graph_resolver_version": "resolved-deployment-graph.v1",
     "package_builder_version": "graph-package-builder.v1",

@@ -10,12 +10,12 @@
     "service_decision_ref": {
       "id": "phase-08-complete-service-bundles",
       "version": "1",
-      "digest": "sha256:647e8bec71b8f6b92a2ed5cc76070e54a3a00f8fca0a7132200a09dc2cbb8f1c"
+      "digest": "sha256:6404a4190b3342ec267be33ec1e86626152fde612287a2b7354a576248d9cd84"
     },
     "component_catalog_ref": {
       "id": "complete-service-component-catalog",
       "version": "1",
-      "digest": "sha256:52c1755ea567ad91d9f543ba3cbafd0c0912dc47bac7f3d79e936e47b2879a5c"
+      "digest": "sha256:d9e5ee1dd0106d0cfd6f4403e33f4ef7cf5009379aeaeed2d98867d505965236"
     },
     "workload_ref": {
       "id": "five-layer-workload",
@@ -687,7 +687,7 @@
       "architecture_assignment_id": "assignment.ingestion",
       "logical_component_id": "component.ingestion",
       "implementation_component_id": "aws.sns-fifo-only-for-reviewed-remote-control-edge",
-      "implementation_component_digest": "sha256:9f82b3da090888a97ce18180ee9ab334573c83888f5c7285f813e6613da8e50a",
+      "implementation_component_digest": "sha256:a63b0dfb5c9db82f8eeea5ef82cd567d206e8e883920d81ba048ab7b2f9f168e",
       "provider": "aws",
       "region": "eu-central-1",
       "required": true,
@@ -723,7 +723,7 @@
       "architecture_assignment_id": "assignment.processing",
       "logical_component_id": "component.processing",
       "implementation_component_id": "azure.service-bus-standard",
-      "implementation_component_digest": "sha256:67428efc46e0f074744c9e2a9de5498dc2148aa21ada986ed64a1bbd39906e06",
+      "implementation_component_digest": "sha256:77a498536d0acbeb389bd53e81620ea3e8615eb034a7a49149ba2269dfb03562",
       "provider": "azure",
       "region": "westeurope",
       "required": true,
@@ -795,7 +795,7 @@
       "architecture_assignment_id": "assignment.processing",
       "logical_component_id": "component.processing",
       "implementation_component_id": "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
-      "implementation_component_digest": "sha256:b2ba6dcc64ec4166b0b19e3d3840ad6c2907c5a17d3a23ce4b3268b98f36e149",
+      "implementation_component_digest": "sha256:b6c57083062f2763eb52946acc282e81a4b72a62f9320f8a5338606c2e3b8a04",
       "provider": "azure",
       "region": "westeurope",
       "required": true,
@@ -2661,5 +2661,5 @@
       "compatibility_version": "1"
     }
   ],
-  "digest": "sha256:5f8d28d4ec331c2ec73ff21e2193c49dc3d2b18cbb87ee2a2dd3cb3aff4e4f90"
+  "digest": "sha256:a3a44ce993e853b59652b6d891a359a6a31aa1568e62bf4040201ec08104513c"
 }

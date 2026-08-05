@@ -1047,7 +1047,8 @@
         "six-layer-eventing@1"
       ],
       "terraform_resource_types": [
-        "aws_sns_topic"
+        "aws_sns_topic",
+        "aws_sns_topic_subscription"
       ],
       "post_terraform_operations": [],
       "runtime_state": "decision_frozen_not_implemented",
@@ -1089,7 +1090,8 @@
         "five-layer-baseline@2"
       ],
       "terraform_resource_types": [
-        "aws_sns_topic"
+        "aws_sns_topic",
+        "aws_sns_topic_subscription"
       ],
       "post_terraform_operations": [],
       "runtime_state": "decision_frozen_not_implemented",
@@ -1521,6 +1523,7 @@
       ],
       "terraform_resource_types": [
         "azurerm_eventhub_cluster",
+        "azapi_update_resource",
         "azurerm_eventhub_namespace",
         "azurerm_eventhub"
       ],
@@ -1564,6 +1567,8 @@
         "five-layer-baseline@2"
       ],
       "terraform_resource_types": [
+        "azurerm_eventhub_cluster",
+        "azapi_update_resource",
         "azurerm_eventhub_namespace",
         "azurerm_eventhub"
       ],
@@ -2098,7 +2103,8 @@
       "terraform_resource_types": [
         "azurerm_servicebus_namespace",
         "azurerm_servicebus_queue",
-        "azurerm_servicebus_topic"
+        "azurerm_servicebus_topic",
+        "azurerm_servicebus_subscription"
       ],
       "post_terraform_operations": [],
       "runtime_state": "decision_frozen_not_implemented",

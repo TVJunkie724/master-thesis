@@ -562,11 +562,32 @@ def validate() -> list[str]:
         errors.append("decision_status must be approved")
     refreeze = decision.get("pre_activation_refreeze", {})
     if refreeze != {
-        "refrozen_on": "2026-08-04",
-        "previous_package_digest": "sha256:cc142504cc8c06927569ec1cce09fe4a9133a688b5f02a2ba114105a0e422245",
-        "reason": "close the AWS-to-Azure implementation gap by admitting disclosed account-level outbound-identity enablement to thesis-demo-v2",
-        "scope_change": True,
+        "refrozen_on": "2026-08-05",
+        "previous_package_digest": "sha256:647e8bec71b8f6b92a2ed5cc76070e54a3a00f8fca0a7132200a09dc2cbb8f1c",
+        "reason": "close missing Terraform bindings for Azure six-CU Dedicated capacity and the subscriptions required by the approved Azure Service Bus and AWS SNS FIFO broker paths",
+        "scope_change": False,
         "activated_or_deployed_before_refreeze": False,
+        "prior_refreeze": {
+            "refrozen_on": "2026-08-05",
+            "previous_package_digest": "sha256:337dbf11eae56e62e69ebdbdc16d4dfe8c67277af935c8cb87b2df98f12f6646",
+            "reason": "restore the frozen directed-identity distinction: AWS outbound identity is used for Azure, while AWS-to-GCP uses GCP Workload Identity Federation's AWS provider",
+            "scope_change": False,
+            "activated_or_deployed_before_refreeze": False,
+            "prior_refreeze": {
+                "refrozen_on": "2026-08-05",
+                "previous_package_digest": "sha256:e11bbd03470434a0552151ce4b005fea7e05838c511795b45505e58bee5a7d3e",
+                "reason": "incorrectly broaden the AWS account-level outbound-identity wording to GCP before implementation review detected the mismatch",
+                "scope_change": False,
+                "activated_or_deployed_before_refreeze": False,
+                "prior_refreeze": {
+                    "refrozen_on": "2026-08-04",
+                    "previous_package_digest": "sha256:cc142504cc8c06927569ec1cce09fe4a9133a688b5f02a2ba114105a0e422245",
+                    "reason": "close the AWS-to-Azure implementation gap by admitting disclosed account-level outbound-identity enablement to thesis-demo-v2",
+                    "scope_change": True,
+                    "activated_or_deployed_before_refreeze": False,
+                },
+            },
+        },
     }:
         errors.append("pre-activation package re-freeze evidence drifted")
     if len(decision["reviews"]) < 5 or any(

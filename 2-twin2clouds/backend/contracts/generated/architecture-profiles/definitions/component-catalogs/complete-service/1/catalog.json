@@ -43,6 +43,7 @@
           "aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge",
           "aws_lambda_function.aws_aws_lambda_event_adapter",
           "aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge",
+          "aws_sns_topic_subscription.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge",
           "aws_sqs_queue.aws_aws_sqs_fifo",
           "awscc_iot_command.aws_aws_iot_commands"
         ],
@@ -209,6 +210,7 @@
           "aws_lambda_function.aws_aws_lambda_event_adapter",
           "aws_sfn_state_machine.aws_aws_step_functions_standard",
           "aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge",
+          "aws_sns_topic_subscription.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge",
           "aws_sqs_queue.aws_aws_sqs_fifo"
         ],
         "module_addresses": [],
@@ -407,6 +409,7 @@
           "aws_lambda_function.aws_aws_lambda_event_adapter",
           "aws_scheduler_schedule.aws_aws_eventbridge_scheduler",
           "aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge",
+          "aws_sns_topic_subscription.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge",
           "aws_sqs_queue.aws_aws_sqs_fifo"
         ],
         "module_addresses": [],
@@ -931,6 +934,7 @@
           "aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge",
           "aws_lambda_function.aws_aws_lambda_event_adapter",
           "aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge",
+          "aws_sns_topic_subscription.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge",
           "aws_sqs_queue.aws_aws_sqs_fifo",
           "aws_ssoadmin_account_assignment.aws_aws_iam_identity_center_layer_access",
           "aws_ssoadmin_permission_set.aws_aws_iam_identity_center_layer_access",
@@ -1241,7 +1245,9 @@
       },
       "terraform_binding": {
         "resource_addresses": [
+          "azapi_update_resource.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
+          "azurerm_eventhub_cluster.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter",
           "azurerm_iothub.azure_azure_iot_hub",
@@ -1249,6 +1255,7 @@
           "azurerm_monitor_diagnostic_setting.azure_azure_monitor",
           "azurerm_servicebus_namespace.azure_azure_service_bus_standard",
           "azurerm_servicebus_queue.azure_azure_service_bus_standard",
+          "azurerm_servicebus_subscription.azure_azure_service_bus_standard",
           "azurerm_servicebus_topic.azure_azure_service_bus_standard"
         ],
         "module_addresses": [],
@@ -1403,7 +1410,9 @@
       },
       "terraform_binding": {
         "resource_addresses": [
+          "azapi_update_resource.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
+          "azurerm_eventhub_cluster.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption",
           "azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter",
@@ -1412,6 +1421,7 @@
           "azurerm_monitor_diagnostic_setting.azure_azure_monitor",
           "azurerm_servicebus_namespace.azure_azure_service_bus_standard",
           "azurerm_servicebus_queue.azure_azure_service_bus_standard",
+          "azurerm_servicebus_subscription.azure_azure_service_bus_standard",
           "azurerm_servicebus_topic.azure_azure_service_bus_standard"
         ],
         "module_addresses": [],
@@ -1596,6 +1606,7 @@
       },
       "terraform_binding": {
         "resource_addresses": [
+          "azapi_update_resource.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_container_app_environment.azure_azure_container_apps_scheduled_storage_job",
           "azurerm_container_app_job.azure_azure_container_apps_scheduled_storage_job",
           "azurerm_container_registry.azure_azure_acr_basic_if_container_selected",
@@ -1603,12 +1614,14 @@
           "azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup",
           "azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup",
           "azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
+          "azurerm_eventhub_cluster.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter",
           "azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace",
           "azurerm_monitor_diagnostic_setting.azure_azure_monitor",
           "azurerm_servicebus_namespace.azure_azure_service_bus_standard",
           "azurerm_servicebus_queue.azure_azure_service_bus_standard",
+          "azurerm_servicebus_subscription.azure_azure_service_bus_standard",
           "azurerm_servicebus_topic.azure_azure_service_bus_standard"
         ],
         "module_addresses": [],
@@ -2127,8 +2140,10 @@
       },
       "terraform_binding": {
         "resource_addresses": [
+          "azapi_update_resource.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_digital_twins_instance.azure_azure_digital_twins",
           "azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
+          "azurerm_eventhub_cluster.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter",
           "azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace",
@@ -2136,6 +2151,7 @@
           "azurerm_role_assignment.azure_azure_entra_layer_access_bindings",
           "azurerm_servicebus_namespace.azure_azure_service_bus_standard",
           "azurerm_servicebus_queue.azure_azure_service_bus_standard",
+          "azurerm_servicebus_subscription.azure_azure_service_bus_standard",
           "azurerm_servicebus_topic.azure_azure_service_bus_standard"
         ],
         "module_addresses": [],
@@ -7730,7 +7746,7 @@
       "repository_source_path": "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:748b6258fedc0e781fa2ee1769106e5a56cb27400eac043516be8ea7c893498e",
+      "source_digest": "sha256:34bbb5b3788c41310e9610b0db4d96824a651b05831400e0a32e8e4e5cfab076",
       "included_paths": [
         "implementation-component-manifest.json"
       ],
@@ -7768,5 +7784,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:52c1755ea567ad91d9f543ba3cbafd0c0912dc47bac7f3d79e936e47b2879a5c"
+  "content_digest": "sha256:d9e5ee1dd0106d0cfd6f4403e33f4ef7cf5009379aeaeed2d98867d505965236"
 }

@@ -3,7 +3,7 @@
   "package_ref": {
     "id": "phase-08-complete-service-bundles",
     "version": "1",
-    "digest": "sha256:647e8bec71b8f6b92a2ed5cc76070e54a3a00f8fca0a7132200a09dc2cbb8f1c"
+    "digest": "sha256:6404a4190b3342ec267be33ec1e86626152fde612287a2b7354a576248d9cd84"
   },
   "capacity_evidence_digest": "sha256:1ab9763320a3cf615b3d24610832f4b72bf2920cd2286f2d51202376fd44120c",
   "pricing_ownership_digest": "sha256:18dc8a5f4ebbf64c176c2891eeaa5e6ef660595df303ac74da6f9c03f4a63b01",
@@ -747,7 +747,7 @@
     },
     {
       "component_id": "aws.sns-fifo",
-      "component_digest": "sha256:4e678867f02e55c45280e40dec8d8450e0c6bd69c4691f23722408a996e16c71",
+      "component_digest": "sha256:84cf1b0cc4ec3bee84f37b724563263517bf3a850562ba18203b2b889963ff6d",
       "provider": "aws",
       "responsibilities": [
         "event_layer"
@@ -763,7 +763,7 @@
     },
     {
       "component_id": "aws.sns-fifo-only-for-reviewed-remote-control-edge",
-      "component_digest": "sha256:9f82b3da090888a97ce18180ee9ab334573c83888f5c7285f813e6613da8e50a",
+      "component_digest": "sha256:a63b0dfb5c9db82f8eeea5ef82cd567d206e8e883920d81ba048ab7b2f9f168e",
       "provider": "aws",
       "responsibilities": [
         "embedded_event"
@@ -920,7 +920,7 @@
     },
     {
       "component_id": "azure.event-hubs-dedicated-large",
-      "component_digest": "sha256:432a0a2827422def3dce216f2d709144b79870c430e70dcf3b79daae73965152",
+      "component_digest": "sha256:e41d9d4eae477fa2e8e76429d16acb3a476f7abbbf00304526cf79439aa1e346",
       "provider": "azure",
       "responsibilities": [
         "event_layer"
@@ -936,7 +936,7 @@
     },
     {
       "component_id": "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
-      "component_digest": "sha256:b2ba6dcc64ec4166b0b19e3d3840ad6c2907c5a17d3a23ce4b3268b98f36e149",
+      "component_digest": "sha256:b6c57083062f2763eb52946acc282e81a4b72a62f9320f8a5338606c2e3b8a04",
       "provider": "azure",
       "responsibilities": [
         "embedded_event"
@@ -1132,7 +1132,7 @@
     },
     {
       "component_id": "azure.service-bus-standard",
-      "component_digest": "sha256:67428efc46e0f074744c9e2a9de5498dc2148aa21ada986ed64a1bbd39906e06",
+      "component_digest": "sha256:77a498536d0acbeb389bd53e81620ea3e8615eb034a7a49149ba2269dfb03562",
       "provider": "azure",
       "responsibilities": [
         "embedded_event",
@@ -1902,5 +1902,5 @@
       "deduplication_key": "domain_event_cross_cloud::gcp->azure"
     }
   ],
-  "content_digest": "sha256:d6f5db27d50b879d73dd7114232253f9929df1f522c548a8ffd3091985767122"
+  "content_digest": "sha256:3eacdff70d0d3ee103103946b0ad2aaa0908c7d88d5e0ae717af9045acb27dc2"
 }
