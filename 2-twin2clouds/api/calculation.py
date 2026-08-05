@@ -33,6 +33,13 @@ from backend.architecture_profiles import (
     ArchitectureProfileRegistry,
     build_resolution_context,
 )
+from backend.architecture_profiles.five_layer_v2_optimizer import (
+    FiveLayerV2OptimizationResult,
+    optimize_five_layer_v2,
+)
+from backend.architecture_profiles.five_layer_v2_workload import (
+    resolve_five_layer_v2_workload,
+)
 from backend.architecture_profiles.activation import (
     architecture_profile_resolution_enabled,
 )
@@ -327,6 +334,68 @@ class CalcParams(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
+class FiveLayerV2CalcParams(BaseModel):
+    """Closed-world request contract for ``five-layer-baseline@2``."""
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    calculationRunId: UUID
+    schemaVersion: Literal["five-layer-workload.v2"]
+    numberOfDevices: int = Field(gt=0, strict=True)
+    deviceSendingIntervalInMinutes: float = Field(gt=0, strict=True)
+    averageSizeOfMessageInKb: float = Field(gt=0, strict=True)
+    numberOfDeviceTypes: int = Field(ge=1, strict=True)
+    hotStorageDurationInMonths: int = Field(ge=1, strict=True)
+    coolStorageDurationInMonths: int = Field(ge=1, strict=True)
+    archiveStorageDurationInMonths: int = Field(ge=6, strict=True)
+    twinEntityCount: int = Field(ge=1, strict=True)
+    aggregateDashboardRefreshesPerHour: int = Field(ge=0, strict=True)
+    apiCallsPerAggregateDashboardRefresh: int = Field(ge=1, strict=True)
+    dashboardActiveHoursPerDay: int = Field(ge=0, le=24, strict=True)
+    monthlyEditorSeats: int = Field(ge=0, strict=True)
+    monthlyViewerSeats: int = Field(ge=0, strict=True)
+    twinStateMaterializationsPerSecond: float = Field(ge=0, strict=True)
+    twinGraphUpdatesPerSecond: float = Field(ge=0, strict=True)
+    eventingScenarioId: Literal[
+        "eventing-small-v1",
+        "eventing-medium-v1",
+        "eventing-large-v1",
+    ]
+    currency: Literal["USD", "EUR"] = "USD"
+    optimizationProfileId: Literal["cost-minimization-v2"] = (
+        "cost-minimization-v2"
+    )
+    providerPricingCatalogs: PricingCatalogContext
+    providerPricingContexts: ProviderPricingContexts = Field(
+        default_factory=ProviderPricingContexts
+    )
+    architectureProfile: ArchitectureProfileRequestRef
+    extensionBindings: list[ExtensionBindingRequestRef] = Field(max_length=64)
+
+    def workload_payload(self) -> dict[str, object]:
+        return self.model_dump(
+            exclude={
+                "calculationRunId",
+                "optimizationProfileId",
+                "providerPricingCatalogs",
+                "providerPricingContexts",
+                "architectureProfile",
+                "extensionBindings",
+            }
+        )
+
+    @model_validator(mode="after")
+    def validate_frozen_scenario(self) -> "FiveLayerV2CalcParams":
+        resolve_five_layer_v2_workload(self.workload_payload())
+        return self
+
+
+CalculationParams = Annotated[
+    Union[FiveLayerV2CalcParams, CalcParams],
+    Field(union_mode="left_to_right"),
+]
+
+
 # --------------------------------------------------
 # Calculation endpoint
 # --------------------------------------------------
@@ -423,7 +492,7 @@ class CalcParams(BaseModel):
         500: ERROR_RESPONSES[500],
     },
 )
-def calc(params: CalcParams, request: Request):
+def calc(params: CalculationParams, request: Request):
     """
     Perform a cloud cost optimization calculation based on Digital Twin configuration parameters.
     """
@@ -458,49 +527,53 @@ def calc(params: CalcParams, request: Request):
         architecture_log_emitted = True
 
     try:
-        # Use new component-level calculation engine (v2)
-        from backend.calculation_v2.engine import calculate_cheapest_costs
-        
-        # Convert Pydantic model to dict
-        params_dict = params.model_dump(
-            exclude={
-                "architectureProfile",
-                "extensionBindings",
-                "providerPricingCatalogs",
-            },
-        )
-        params_dict["calculationRunId"] = str(params.calculationRunId)
-        optimization_profile_id = params_dict.pop("optimizationProfileId")
-        params_dict["_assumption_sources"] = {
-            field: (
-                "explicit_input"
-                if field in params.model_fields_set
-                else "compatibility_default"
-            )
-            for field in (
-                "averageDigitalTwinQueryUnitsPerQuery",
-                "averageDigitalTwinQueryResponseSizeInKb",
-            )
-        }
         architecture_context = _resolve_architecture_context(params)
-        
         resolved_catalogs = PricingCatalogResolver(
             get_pricing_catalog_repository()
         ).resolve_context(
             params.providerPricingCatalogs,
             require_fresh=True,
         )
-        calculation_kwargs = {
-            "pricing": resolved_catalogs.detached_pricing(),
-            "pricing_catalog_context": resolved_catalogs.context,
-            "optimization_profile_id": optimization_profile_id,
-        }
-        if architecture_context is not None:
-            calculation_kwargs["architecture_context"] = architecture_context
-        result = calculate_cheapest_costs(
-            params_dict,
-            **calculation_kwargs,
-        )
+        if isinstance(params, FiveLayerV2CalcParams):
+            result = _calculate_five_layer_v2(
+                params,
+                resolved_catalogs=resolved_catalogs,
+            )
+        else:
+            # Use the historical component-level calculation engine (v2).
+            from backend.calculation_v2.engine import calculate_cheapest_costs
+
+            params_dict = params.model_dump(
+                exclude={
+                    "architectureProfile",
+                    "extensionBindings",
+                    "providerPricingCatalogs",
+                },
+            )
+            params_dict["calculationRunId"] = str(params.calculationRunId)
+            optimization_profile_id = params_dict.pop("optimizationProfileId")
+            params_dict["_assumption_sources"] = {
+                field: (
+                    "explicit_input"
+                    if field in params.model_fields_set
+                    else "compatibility_default"
+                )
+                for field in (
+                    "averageDigitalTwinQueryUnitsPerQuery",
+                    "averageDigitalTwinQueryResponseSizeInKb",
+                )
+            }
+            calculation_kwargs = {
+                "pricing": resolved_catalogs.detached_pricing(),
+                "pricing_catalog_context": resolved_catalogs.context,
+                "optimization_profile_id": optimization_profile_id,
+            }
+            if architecture_context is not None:
+                calculation_kwargs["architecture_context"] = architecture_context
+            result = calculate_cheapest_costs(
+                params_dict,
+                **calculation_kwargs,
+            )
         result["pricingCatalogs"] = resolved_catalogs.context.to_http_dict()
         if architecture_context is not None:
             _log_architecture_resolution_success(
@@ -599,7 +672,100 @@ def calc(params: CalcParams, request: Request):
         raise HTTPException(status_code=500, detail="Calculation failed. Check server logs.")
 
 
-def _resolve_architecture_context(params: CalcParams):
+def _calculate_five_layer_v2(
+    params: FiveLayerV2CalcParams,
+    *,
+    resolved_catalogs,
+) -> dict[str, object]:
+    references = {
+        provider: {
+            "id": reference.snapshot_id,
+            "version": reference.provider_schema_version,
+            "digest": reference.content_digest,
+            "provider": provider,
+            "currency": params.currency,
+        }
+        for provider, reference in resolved_catalogs.context.catalogs.items()
+    }
+    optimized = optimize_five_layer_v2(
+        calculation_run_id=str(params.calculationRunId),
+        architecture_profile=params.architectureProfile.model_dump(),
+        extension_bindings=[
+            item.model_dump() for item in params.extensionBindings
+        ],
+        workload=params.workload_payload(),
+        pricing_evidence_refs=references,
+        pricing_by_provider=resolved_catalogs.detached_pricing(),
+        resolution_status="publishable",
+    )
+    return _five_layer_v2_http_result(params, optimized)
+
+
+def _five_layer_v2_http_result(
+    params: FiveLayerV2CalcParams,
+    optimized: FiveLayerV2OptimizationResult,
+) -> dict[str, object]:
+    assignments = {
+        item["logical_component_id"]: item["provider"]
+        for item in optimized.resolved_architecture["component_assignments"]
+    }
+    provider_label = {"aws": "AWS", "azure": "Azure", "gcp": "GCP"}
+    calculation_result = {
+        "L1": provider_label[assignments["component.ingestion"]],
+        "L2": provider_label[assignments["component.processing"]],
+        "L3": {
+            "Hot": provider_label[assignments["component.hot-storage"]],
+            "Cool": provider_label[assignments["component.cool-storage"]],
+            "Archive": provider_label[assignments["component.archive-storage"]],
+        },
+        "L4": provider_label[assignments["component.twin-state"]],
+        "L5": provider_label[assignments["component.visualization"]],
+    }
+    cheapest_path = [
+        f"L1_{calculation_result['L1']}",
+        f"L2_{calculation_result['L2']}",
+        f"L3_hot_{calculation_result['L3']['Hot']}",
+        f"L3_cool_{calculation_result['L3']['Cool']}",
+        f"L3_archive_{calculation_result['L3']['Archive']}",
+        f"L4_{calculation_result['L4']}",
+        f"L5_{calculation_result['L5']}",
+    ]
+    return {
+        "calculationResult": calculation_result,
+        "cheapestPath": cheapest_path,
+        "totalCost": float(optimized.cost_evaluation.monthly_total),
+        "currency": optimized.cost_evaluation.currency,
+        "optimization_profile_id": params.optimizationProfileId,
+        "result_schema_version": "cost-result.v2",
+        "optimizationProfile": {
+            "enabled": True,
+            "profile_version": "2",
+            "scoring_strategy_id": "profile-local-min-total-cost-v2",
+            "calculation_model_ids": ["profile-resolution-v2@2"],
+            "pricing_registry_version": "phase-08-complete-service-pricing@1",
+        },
+        "evidenceReferences": {
+            "pricing_registry": "phase-08-complete-service-pricing@1"
+        },
+        "architectureResolutionDiagnostics": {
+            "schemaVersion": "architecture-resolution-diagnostics.v2",
+            "enumeratedCandidateCount": optimized.enumerated_candidate_count,
+            "admissibleCandidateCount": optimized.costed_candidate_count,
+            "rejectedCandidateCount": (
+                optimized.enumerated_candidate_count
+                - optimized.costed_candidate_count
+            ),
+            "rejectedByErrorCode": dict(optimized.rejected_by_error_code),
+            "winningCandidateId": optimized.winning_candidate_id,
+        },
+        "resolvedTwinArchitecture": dict(optimized.resolved_architecture),
+        "resolvedDeploymentSpecification": dict(
+            optimized.deployment_specification
+        ),
+    }
+
+
+def _resolve_architecture_context(params: CalculationParams):
     requested = (
         params.architectureProfile is not None
         or params.extensionBindings is not None
@@ -622,7 +788,9 @@ def _resolve_architecture_context(params: CalcParams):
             "Enabled architecture resolution requires all trusted references",
         )
     return build_resolution_context(
-        registry=ArchitectureProfileRegistry(),
+        registry=ArchitectureProfileRegistry(
+            profile_version=params.architectureProfile.profileVersion
+        ),
         calculation_run_id=str(params.calculationRunId),
         architecture_profile=params.architectureProfile.model_dump(),
         extension_bindings=[
@@ -671,7 +839,7 @@ def _log_architecture_resolution_success(
 
 def _log_architecture_resolution_failure(
     *,
-    params: CalcParams,
+    params: CalculationParams,
     context,
     correlation_id: str,
     error_code: str,

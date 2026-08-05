@@ -57,6 +57,7 @@ class FiveLayerV2OptimizationResult:
     resolved_architecture: Mapping[str, Any]
     deployment_specification: Mapping[str, Any]
     cost_evaluation: FiveLayerV2CostEvaluation
+    winning_candidate_id: str
     enumerated_candidate_count: int
     costed_candidate_count: int
     rejected_by_error_code: tuple[tuple[str, int], ...]
@@ -236,6 +237,7 @@ def optimize_five_layer_v2(
         resolved_architecture=resolved_architecture,
         deployment_specification=specification,
         cost_evaluation=winner.evaluation,
+        winning_candidate_id=winner.candidate_id,
         enumerated_candidate_count=len(candidates),
         costed_candidate_count=len(costed_candidates),
         rejected_by_error_code=frozen_rejections.rejected_by_error_code,

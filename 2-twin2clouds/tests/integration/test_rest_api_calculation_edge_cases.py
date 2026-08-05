@@ -1,14 +1,25 @@
 
+import json
+from decimal import Decimal
+from types import SimpleNamespace
+
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 from rest_api import app
-from api.calculation import CalcParams
+from api.calculation import (
+    CalcParams,
+    FiveLayerV2CalcParams,
+    _five_layer_v2_http_result,
+)
 from backend.architecture_profiles.diagnostics import (
     ArchitectureResolutionError,
     RejectionCollector,
 )
 from backend.architecture_profiles.registry import ArchitectureProfileRegistry
+from backend.architecture_profiles.five_layer_v2_workload import (
+    CONTRACT_ROOT as FIVE_LAYER_V2_WORKLOAD_ROOT,
+)
 from backend.calculation_v2.transfer_pricing import TransferPricingContractError
 from backend.pricing_catalog_models import PricingCatalogContext
 from backend.pricing_catalog_repository import (
@@ -84,6 +95,122 @@ def _architecture_fields() -> dict:
             }
         ],
     }
+
+
+def _five_layer_v2_payload() -> dict:
+    registry = ArchitectureProfileRegistry(profile_version="2")
+    workload = json.loads(
+        (
+            FIVE_LAYER_V2_WORKLOAD_ROOT
+            / "fixtures"
+            / "valid"
+            / "core-small.json"
+        ).read_text(encoding="utf-8")
+    )
+    return {
+        "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
+        **workload,
+        "optimizationProfileId": "cost-minimization-v2",
+        "providerPricingCatalogs": _catalog_context().to_http_dict(),
+        "architectureProfile": {
+            "profileId": registry.profile["profile_id"],
+            "profileVersion": registry.profile["profile_version"],
+            "contentDigest": registry.profile["content_digest"],
+        },
+        "extensionBindings": [
+            {
+                "slotId": "processor.telemetry",
+                "slotVersion": "1",
+                "artifactId": "artifact.user.processor.example",
+                "artifactDigest": "sha256:" + ("1" * 64),
+                "configurationDigest": "sha256:" + ("2" * 64),
+            }
+        ],
+    }
+
+
+def test_five_layer_v2_request_has_a_distinct_strict_shape():
+    payload = _five_layer_v2_payload()
+
+    parsed = FiveLayerV2CalcParams.model_validate(payload)
+
+    assert parsed.workload_payload()["schemaVersion"] == "five-layer-workload.v2"
+    assert "useEventChecking" not in parsed.workload_payload()
+
+
+def test_five_layer_v2_request_rejects_retired_event_flags():
+    payload = _five_layer_v2_payload()
+    payload["useEventChecking"] = True
+
+    response = client.put("/calculate", json=payload)
+
+    assert response.status_code == 422
+
+
+def test_five_layer_v2_request_rejects_coerced_numeric_fields():
+    payload = _five_layer_v2_payload()
+    payload["numberOfDevices"] = "100"
+
+    response = client.put("/calculate", json=payload)
+
+    assert response.status_code == 422
+
+
+def test_five_layer_v2_request_rejects_custom_scenario_values():
+    payload = _five_layer_v2_payload()
+    payload["numberOfDevices"] = 101
+
+    response = client.put("/calculate", json=payload)
+
+    assert response.status_code == 422
+    assert "immutable Small, Medium, or Large" in response.text
+
+
+def test_five_layer_v2_api_path_remains_dark_while_activation_gate_is_off():
+    response = client.put("/calculate", json=_five_layer_v2_payload())
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["error_code"] == (
+        "ARCH_PROFILE_BUNDLE_INCOMPATIBLE"
+    )
+
+
+def test_five_layer_v2_http_projection_uses_the_actual_winning_candidate():
+    params = FiveLayerV2CalcParams.model_validate(_five_layer_v2_payload())
+    assignments = {
+        "component.ingestion": "aws",
+        "component.processing": "azure",
+        "component.hot-storage": "gcp",
+        "component.cool-storage": "aws",
+        "component.archive-storage": "azure",
+        "component.twin-state": "aws",
+        "component.visualization": "gcp",
+    }
+    optimized = SimpleNamespace(
+        resolved_architecture={
+            "component_assignments": [
+                {"logical_component_id": key, "provider": value}
+                for key, value in assignments.items()
+            ]
+        },
+        deployment_specification={"schema_version": "resolved-deployment-specification.v2"},
+        cost_evaluation=SimpleNamespace(
+            monthly_total=Decimal("12.5"),
+            currency="USD",
+        ),
+        winning_candidate_id="candidate.actual-winner",
+        enumerated_candidate_count=729,
+        costed_candidate_count=700,
+        rejected_by_error_code=(("ARCH_PRICING_EVIDENCE_MISSING", 29),),
+    )
+
+    result = _five_layer_v2_http_result(params, optimized)
+
+    assert result["calculationResult"]["L3"]["Hot"] == "GCP"
+    assert result["calculationResult"]["L4"] == "AWS"
+    assert result["architectureResolutionDiagnostics"][
+        "winningCandidateId"
+    ] == "candidate.actual-winner"
 
 
 # -----------------------------------------------------------------------------
