@@ -99,23 +99,25 @@ run "five_layer_v2_single_cloud_azure_omits_remote_event_hubs" {
   command = plan
 
   variables {
-    digital_twin_name                     = "drift-test"
-    architecture_profile_id               = "five-layer-baseline"
-    architecture_profile_version          = "2"
-    layer_1_provider                      = "azure"
-    layer_2_provider                      = "azure"
-    layer_3_hot_provider                  = "azure"
-    layer_3_cold_provider                 = "azure"
-    layer_3_archive_provider              = "azure"
-    layer_4_provider                      = "azure"
-    layer_5_provider                      = "azure"
-    layer_3_hot_to_cold_interval_days     = 30
-    layer_3_cold_to_archive_interval_days = 90
-    layer_3_archive_expiry_interval_days  = 365
-    platform_user_email                   = "researcher@example.test"
-    platform_user_first_name              = "Thesis"
-    platform_user_last_name               = "Researcher"
-    enable_azure_logging                  = false
+    digital_twin_name                      = "drift-test"
+    architecture_profile_id                = "five-layer-baseline"
+    architecture_profile_version           = "2"
+    layer_1_provider                       = "azure"
+    layer_2_provider                       = "azure"
+    layer_3_hot_provider                   = "azure"
+    layer_3_cold_provider                  = "azure"
+    layer_3_archive_provider               = "azure"
+    layer_4_provider                       = "azure"
+    layer_5_provider                       = "azure"
+    layer_3_hot_to_cold_interval_days      = 30
+    layer_3_cold_to_archive_interval_days  = 90
+    layer_3_archive_expiry_interval_days   = 365
+    platform_user_email                    = "researcher@example.test"
+    platform_user_first_name               = "Thesis"
+    platform_user_last_name                = "Researcher"
+    azure_layer_access_principal_object_id = "11111111-1111-1111-1111-111111111111"
+    azure_layer_access_principal_label     = "researcher@example.test"
+    enable_azure_logging                   = false
   }
 
   assert {
@@ -167,30 +169,57 @@ run "five_layer_v2_single_cloud_azure_omits_remote_event_hubs" {
     condition     = length(azurerm_storage_account.main) == 1 && length(azurerm_storage_container.azure_azure_blob_cool) == 1 && length(azurerm_storage_management_policy.azure_azure_blob_archive) == 1
     error_message = "Azure tiering must reuse one provider account and bind its private cool/archive lifecycle."
   }
+
+  assert {
+    condition     = length(azurerm_digital_twins_instance.azure_azure_digital_twins) == 1 && length(azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard) == 1
+    error_message = "Five-layer v2 must expose independent Azure L4 and provider-local L5 browser surfaces."
+  }
+
+  assert {
+    condition     = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].grafana_major_version == "12" && azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].sku == "Standard"
+    error_message = "Azure L5 must use the frozen Managed Grafana 12 Standard selection."
+  }
+
+  assert {
+    condition     = length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader) == 1
+    error_message = "Azure L5 must expose L3 hot through its dedicated Flex raw-history reader."
+  }
+
+  assert {
+    condition = (
+      azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_human_reader"].role_definition_name == "Azure Digital Twins Data Reader" &&
+      azurerm_role_assignment.azure_azure_entra_layer_access_bindings["grafana_human_viewer"].role_definition_name == "Grafana Viewer" &&
+      azurerm_role_assignment.azure_azure_entra_layer_access_bindings["grafana_provisioner"].role_definition_name == "Grafana Admin"
+    )
+    error_message = "Azure browser access must remain read-only for the human principal while the deployer can provision Grafana."
+  }
+
 }
 
 run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {
   command = plan
 
   variables {
-    digital_twin_name                     = "drift-test"
-    architecture_profile_id               = "five-layer-baseline"
-    architecture_profile_version          = "2"
-    layer_1_provider                      = "aws"
-    layer_2_provider                      = "azure"
-    layer_3_hot_provider                  = "azure"
-    layer_3_cold_provider                 = "azure"
-    layer_3_archive_provider              = "azure"
-    layer_4_provider                      = "azure"
-    layer_5_provider                      = "azure"
-    layer_3_hot_to_cold_interval_days     = 30
-    layer_3_cold_to_archive_interval_days = 90
-    layer_3_archive_expiry_interval_days  = 365
-    platform_user_email                   = "researcher@example.test"
-    platform_user_first_name              = "Thesis"
-    platform_user_last_name               = "Researcher"
-    enable_aws_logging                    = false
-    enable_azure_logging                  = false
+    digital_twin_name                      = "drift-test"
+    architecture_profile_id                = "five-layer-baseline"
+    architecture_profile_version           = "2"
+    layer_1_provider                       = "aws"
+    layer_2_provider                       = "azure"
+    layer_3_hot_provider                   = "azure"
+    layer_3_cold_provider                  = "azure"
+    layer_3_archive_provider               = "azure"
+    layer_4_provider                       = "azure"
+    layer_5_provider                       = "azure"
+    layer_3_hot_to_cold_interval_days      = 30
+    layer_3_cold_to_archive_interval_days  = 90
+    layer_3_archive_expiry_interval_days   = 365
+    platform_user_email                    = "researcher@example.test"
+    platform_user_first_name               = "Thesis"
+    platform_user_last_name                = "Researcher"
+    azure_layer_access_principal_object_id = "11111111-1111-1111-1111-111111111111"
+    azure_layer_access_principal_label     = "researcher@example.test"
+    enable_aws_logging                     = false
+    enable_azure_logging                   = false
     resolved_component_dimensions = {
       "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.throughput_unit_hours" = "0"
       "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.capacity_unit_hours"   = "4380"

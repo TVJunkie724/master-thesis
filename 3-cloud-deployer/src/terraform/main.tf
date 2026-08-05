@@ -209,5 +209,16 @@ resource "terraform_data" "five_layer_v2_retention_guard" {
       )
       error_message = "Five-layer v2 requires the platform user identity used to provision usable L4/L5 access."
     }
+    precondition {
+      condition = (
+        !local.azure_v2_enabled ||
+        (var.layer_4_provider != "azure" && var.layer_5_provider != "azure") ||
+        (
+          var.azure_layer_access_principal_object_id != "" &&
+          var.azure_layer_access_principal_label != ""
+        )
+      )
+      error_message = "Five-layer v2 Azure L4/L5 requires an existing Entra principal object ID and label; create or choose the principal during the documented manual bootstrap before deployment."
+    }
   }
 }

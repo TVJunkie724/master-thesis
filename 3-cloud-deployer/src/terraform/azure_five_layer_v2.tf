@@ -9,11 +9,13 @@ locals {
   azure_v2_cool_enabled    = local.azure_v2_enabled && var.layer_3_cold_provider == "azure"
   azure_v2_archive_enabled = local.azure_v2_enabled && var.layer_3_archive_provider == "azure"
   azure_v2_l4_enabled      = local.azure_v2_enabled && var.layer_4_provider == "azure"
+  azure_v2_l5_enabled      = local.azure_v2_enabled && var.layer_5_provider == "azure"
 
   azure_v2_event_enabled = (
     local.azure_v2_l1_enabled || local.azure_v2_l2_enabled ||
     local.azure_v2_hot_enabled || local.azure_v2_l4_enabled
   )
+  azure_v2_function_infrastructure_enabled = local.azure_v2_event_enabled || local.azure_v2_l5_enabled
   azure_v2_remote_telemetry_outbound = local.five_layer_v2_enabled && (
     (var.layer_1_provider == "azure" && var.layer_2_provider != "azure") ||
     (var.layer_2_provider == "azure" && var.layer_3_hot_provider != "azure") ||
@@ -237,11 +239,25 @@ resource "azurerm_cosmosdb_sql_container" "azure_azure_cosmos_db_nosql_raw_and_r
 }
 
 resource "azurerm_cosmosdb_sql_role_assignment" "azure_azure_cosmos_db_nosql_raw_and_rollup" {
-  count               = local.azure_v2_hot_enabled ? 1 : 0
+  for_each = local.azure_v2_hot_enabled ? merge(
+    {
+      runtime_writer = {
+        principal_id = azurerm_user_assigned_identity.main[0].principal_id
+        role_id      = "00000000-0000-0000-0000-000000000002"
+      }
+    },
+    local.azure_v2_l5_enabled ? {
+      raw_history_reader = {
+        principal_id = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].identity[0].principal_id
+        role_id      = "00000000-0000-0000-0000-000000000001"
+      }
+    } : {},
+  ) : {}
+
   resource_group_name = azurerm_resource_group.main[0].name
   account_name        = azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name
-  role_definition_id  = "${azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
-  principal_id        = azurerm_user_assigned_identity.main[0].principal_id
+  role_definition_id  = "${azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].id}/sqlRoleDefinitions/${each.value.role_id}"
+  principal_id        = each.value.principal_id
   scope               = azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].id
 }
 
@@ -371,14 +387,14 @@ resource "azurerm_eventhub" "azure_azure_event_hubs_only_for_reviewed_remote_tel
 }
 
 resource "azurerm_storage_container" "azure_v2_function_package" {
-  count                 = local.azure_v2_event_enabled ? 1 : 0
+  count                 = local.azure_v2_function_infrastructure_enabled ? 1 : 0
   name                  = "five-layer-v2-functions"
   storage_account_id    = azurerm_storage_account.main[0].id
   container_access_type = "private"
 }
 
 resource "azurerm_service_plan" "azure_v2_flex" {
-  count               = local.azure_v2_event_enabled ? 1 : 0
+  count               = local.azure_v2_function_infrastructure_enabled ? 1 : 0
   name                = "${local.azure_v2_name}-v2-flex"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -576,6 +592,105 @@ resource "azurerm_logic_app_action_custom" "azure_azure_logic_apps_consumption" 
   })
 }
 
+# L4 remains independently placeable. Azure Digital Twins receives its state
+# through the canonical projection boundary; Grafana never queries ADT.
+resource "azurerm_digital_twins_instance" "azure_azure_digital_twins" {
+  count               = local.azure_v2_l4_enabled ? 1 : 0
+  name                = local.azure_adt_name
+  resource_group_name = azurerm_resource_group.main[0].name
+  location            = azurerm_resource_group.main[0].location
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  tags = local.azure_v2_tags
+}
+
+# L5 reads only provider-local L3 hot data through this narrow HTTP contract.
+# The cursor key protects continuation-token integrity and never leaves the
+# Function app settings or Terraform state.
+resource "random_password" "azure_v2_raw_history_cursor_hmac" {
+  count   = local.azure_v2_l5_enabled ? 1 : 0
+  length  = 64
+  special = false
+}
+
+resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw_history_reader" {
+  count               = local.azure_v2_l5_enabled ? 1 : 0
+  name                = "${local.azure_v2_name}-v2-history-${local.deployment_suffix}"
+  resource_group_name = azurerm_resource_group.main[0].name
+  location            = azurerm_resource_group.main[0].location
+  service_plan_id     = azurerm_service_plan.azure_v2_flex[0].id
+
+  storage_container_type      = "blobContainer"
+  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_v2_function_package[0].name}"
+  storage_authentication_type = "StorageAccountConnectionString"
+  storage_access_key          = azurerm_storage_account.main[0].primary_access_key
+
+  runtime_name    = "python"
+  runtime_version = "3.12"
+  zip_deploy_file = local.azure_v2_runtime_package
+
+  maximum_instance_count                         = 20
+  instance_memory_in_mb                          = 2048
+  https_only                                     = true
+  public_network_access_enabled                  = true
+  webdeploy_publish_basic_authentication_enabled = false
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  site_config {
+    minimum_tls_version              = "1.2"
+    scm_minimum_tls_version          = "1.2"
+    runtime_scale_monitoring_enabled = true
+  }
+
+  app_settings = {
+    FUNCTIONS_WORKER_RUNTIME = "python"
+    WEBSITE_RUN_FROM_PACKAGE = "1"
+    ARCHITECTURE_PROFILE     = "five-layer-baseline@2"
+    DEPLOYMENT_ID            = local.deployment_suffix
+    V2_RAW_HISTORY_ENABLED   = "true"
+    V2_COSMOS_ENDPOINT       = azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint
+    V2_COSMOS_DATABASE       = azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name
+    V2_COSMOS_CONTAINER      = azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name
+    V2_CURSOR_HMAC_KEY       = random_password.azure_v2_raw_history_cursor_hmac[0].result
+  }
+
+  tags = local.azure_v2_tags
+
+  lifecycle {
+    precondition {
+      condition     = fileexists(local.azure_v2_runtime_package)
+      error_message = "Azure Five-layer v2 requires its validated content-addressed Function package."
+    }
+  }
+}
+
+resource "azurerm_dashboard_grafana" "azure_azure_managed_grafana_12_standard" {
+  count                         = local.azure_v2_l5_enabled ? 1 : 0
+  name                          = local.azure_grafana_name
+  resource_group_name           = azurerm_resource_group.main[0].name
+  location                      = azurerm_resource_group.main[0].location
+  sku                           = "Standard"
+  grafana_major_version         = "12"
+  public_network_access_enabled = true
+  zone_redundancy_enabled       = false
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  tags = local.azure_v2_tags
+}
+
+data "azurerm_client_config" "azure_v2_layer_access" {
+  count = local.azure_v2_l4_enabled || local.azure_v2_l5_enabled ? 1 : 0
+}
+
 locals {
   azure_v2_event_role_bindings = merge(
     local.azure_v2_event_enabled ? {
@@ -616,6 +731,42 @@ locals {
         role  = "Storage Blob Data Contributor"
       }
     } : {},
+    local.azure_v2_l4_enabled ? {
+      twin_projection_writer = {
+        scope          = azurerm_digital_twins_instance.azure_azure_digital_twins[0].id
+        role           = "Azure Digital Twins Data Owner"
+        principal_id   = azurerm_user_assigned_identity.main[0].principal_id
+        principal_type = "ServicePrincipal"
+      }
+      twin_seed_deployer = {
+        scope          = azurerm_digital_twins_instance.azure_azure_digital_twins[0].id
+        role           = "Azure Digital Twins Data Owner"
+        principal_id   = data.azurerm_client_config.azure_v2_layer_access[0].object_id
+        principal_type = "ServicePrincipal"
+        skip_check     = true
+      }
+      twin_human_reader = {
+        scope          = azurerm_digital_twins_instance.azure_azure_digital_twins[0].id
+        role           = "Azure Digital Twins Data Reader"
+        principal_id   = var.azure_layer_access_principal_object_id
+        principal_type = "User"
+      }
+    } : {},
+    local.azure_v2_l5_enabled ? {
+      grafana_provisioner = {
+        scope          = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].id
+        role           = "Grafana Admin"
+        principal_id   = data.azurerm_client_config.azure_v2_layer_access[0].object_id
+        principal_type = "ServicePrincipal"
+        skip_check     = true
+      }
+      grafana_human_viewer = {
+        scope          = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].id
+        role           = "Grafana Viewer"
+        principal_id   = var.azure_layer_access_principal_object_id
+        principal_type = "User"
+      }
+    } : {},
   )
 }
 
@@ -623,8 +774,10 @@ resource "azurerm_role_assignment" "azure_azure_entra_layer_access_bindings" {
   for_each             = local.azure_v2_event_role_bindings
   scope                = each.value.scope
   role_definition_name = each.value.role
-  principal_id         = azurerm_user_assigned_identity.main[0].principal_id
-  principal_type       = "ServicePrincipal"
+  principal_id         = try(each.value.principal_id, azurerm_user_assigned_identity.main[0].principal_id)
+  principal_type       = try(each.value.principal_type, "ServicePrincipal")
+
+  skip_service_principal_aad_check = try(each.value.skip_check, false)
 }
 
 locals {
@@ -649,6 +802,13 @@ locals {
     local.azure_v2_remote_telemetry_enabled ? {
       event_hubs = azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].id
     } : {},
+    local.azure_v2_l4_enabled ? {
+      digital_twins = azurerm_digital_twins_instance.azure_azure_digital_twins[0].id
+    } : {},
+    local.azure_v2_l5_enabled ? {
+      raw_history_reader = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].id
+      grafana            = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].id
+    } : {},
   )
 }
 
@@ -665,4 +825,27 @@ resource "azurerm_monitor_diagnostic_setting" "azure_azure_monitor" {
   enabled_metric {
     category = "AllMetrics"
   }
+}
+
+# Catalog-owned, secret-free browser handoff. The Function key used by Grafana
+# is created and inserted into secureJsonData by the bounded post-apply step.
+output "azure_component_twin_state_output" {
+  value = local.azure_v2_l4_enabled ? {
+    instance_name   = azurerm_digital_twins_instance.azure_azure_digital_twins[0].name
+    endpoint        = "https://${azurerm_digital_twins_instance.azure_azure_digital_twins[0].host_name}"
+    access_url      = "https://explorer.digitaltwins.azure.net/?tid=${nonsensitive(var.azure_tenant_id)}&eid=${azurerm_digital_twins_instance.azure_azure_digital_twins[0].host_name}"
+    principal_label = var.azure_layer_access_principal_label
+    access_role     = "Azure Digital Twins Data Reader"
+  } : null
+}
+
+output "azure_component_visualization_output" {
+  value = local.azure_v2_l5_enabled ? {
+    workspace_name       = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].name
+    access_url           = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].endpoint
+    reader_url           = "https://${azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].default_hostname}/api/raw-history/v1"
+    reader_function_name = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].name
+    principal_label      = var.azure_layer_access_principal_label
+    access_role          = "Grafana Viewer"
+  } : null
 }

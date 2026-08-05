@@ -1,6 +1,6 @@
 """Azure Five-layer v2 canonical envelope parity tests."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import importlib.util
 from pathlib import Path
 import uuid
@@ -99,3 +99,119 @@ def test_envelope_field_set_matches_aws_v2_runtime():
 
     assert core.CANONICAL_EVENT_FIELDS == aws.CANONICAL_EVENT_FIELDS
     assert core.DOMAIN_EVENT_TYPES == aws.DOMAIN_EVENT_TYPES
+
+
+def _history_params(**overrides):
+    end = datetime(2026, 8, 4, 12, tzinfo=timezone.utc)
+    value = {
+        "device_id": "device-1",
+        "metric": "temperature",
+        "from": (end - timedelta(hours=1)).isoformat(),
+        "to": end.isoformat(),
+        "bucket_seconds": "0",
+        "limit": "1000",
+    }
+    value.update(overrides)
+    return value
+
+
+def test_raw_history_query_enforces_ranges_buckets_and_limit():
+    query, start, end = core.parse_raw_history_query(_history_params())
+
+    assert query == {
+        "device_id": "device-1",
+        "metric": "temperature",
+        "bucket_seconds": 0,
+        "limit": 1000,
+        "cursor": None,
+    }
+    assert end - start == timedelta(hours=1)
+
+    with pytest.raises(core.ContractError, match="INVALID_QUERY"):
+        core.parse_raw_history_query(_history_params(unknown="ignored"))
+    with pytest.raises(core.ContractError, match="INVALID_QUERY"):
+        core.parse_raw_history_query(_history_params(bucket_seconds="60"))
+    with pytest.raises(core.ContractError, match="INVALID_QUERY"):
+        core.parse_raw_history_query(_history_params(limit="1001"))
+
+
+def test_raw_history_query_rejects_more_than_24_hours_raw_and_allows_30_day_rollup():
+    end = datetime(2026, 8, 4, 12, tzinfo=timezone.utc)
+    with pytest.raises(core.ContractError, match="QUERY_RANGE_EXCEEDED"):
+        core.parse_raw_history_query(
+            _history_params(**{"from": (end - timedelta(hours=25)).isoformat()})
+        )
+
+    query, start, parsed_end = core.parse_raw_history_query(
+        _history_params(
+            **{
+                "from": (end - timedelta(days=30)).isoformat(),
+                "bucket_seconds": "3600",
+            }
+        )
+    )
+    assert query["bucket_seconds"] == 3600
+    assert parsed_end - start == timedelta(days=30)
+
+
+def test_cursor_is_query_bound_tamper_evident_and_expires_after_15_minutes():
+    now = datetime(2026, 8, 4, 12, tzinfo=timezone.utc)
+    query, start, end = core.parse_raw_history_query(_history_params())
+    digest = core.raw_history_query_digest(query, start, end)
+    key = "k" * 32
+    cursor = core.encode_cursor(
+        "opaque-cosmos-token",
+        hmac_key=key,
+        query_digest=digest,
+        now=now,
+    )
+
+    assert (
+        core.decode_cursor(
+            cursor,
+            hmac_key=key,
+            query_digest=digest,
+            now=now + timedelta(minutes=15),
+        )
+        == "opaque-cosmos-token"
+    )
+    with pytest.raises(core.ContractError, match="INVALID_CURSOR"):
+        core.decode_cursor(cursor + "x", hmac_key=key, query_digest=digest, now=now)
+    with pytest.raises(core.ContractError, match="INVALID_CURSOR"):
+        core.decode_cursor(cursor, hmac_key=key, query_digest="different", now=now)
+    with pytest.raises(core.ContractError, match="CURSOR_EXPIRED"):
+        core.decode_cursor(
+            cursor,
+            hmac_key=key,
+            query_digest=digest,
+            now=now + timedelta(minutes=15, seconds=1),
+        )
+
+
+def test_cosmos_queries_are_partition_scoped_and_points_are_typed():
+    raw = core.cosmos_raw_history_statement(0)
+    rollup = core.cosmos_raw_history_statement(3600)
+
+    assert "c.device_id = @device_id" in raw
+    assert "c.kind = 'raw'" in raw
+    assert "c.kind = 'hourly_rollup'" in rollup
+    assert core.normalize_history_points(
+        [
+            {
+                "bucket_start": "2026-08-04T11:00:00Z",
+                "min": 1,
+                "max": 3,
+                "sum": 4,
+                "count": 2,
+            }
+        ],
+        3600,
+    ) == [
+        {
+            "bucket_start": "2026-08-04T11:00:00Z",
+            "min": 1,
+            "max": 3,
+            "avg": 2,
+            "count": 2,
+        }
+    ]

@@ -771,6 +771,26 @@ variable "platform_user_last_name" {
   default     = "Admin"
 }
 
+variable "azure_layer_access_principal_object_id" {
+  description = "Existing Entra principal object ID receiving Five-layer v2 ADT Reader and Grafana Viewer access; the platform never creates this principal"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.azure_layer_access_principal_object_id == "" ||
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.azure_layer_access_principal_object_id))
+    )
+    error_message = "azure_layer_access_principal_object_id must be an Entra object ID UUID when provided."
+  }
+}
+
+variable "azure_layer_access_principal_label" {
+  description = "Non-secret label or UPN shown with the existing Entra layer-access principal"
+  type        = string
+  default     = ""
+}
+
 # ==============================================================================
 # GCP Credentials (from config_credentials.json)
 # ==============================================================================

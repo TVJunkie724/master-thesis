@@ -966,6 +966,19 @@ def _load_platform_user_config(project_dir: Path) -> dict:
     if user.get("admin_last_name"):
         result["platform_user_last_name"] = user["admin_last_name"]
 
+    # Five-layer v2 binds read-only browser access to an existing Entra
+    # principal. Its object ID is an identifier, not an authentication secret;
+    # account creation and passwords remain an explicit cloud-side bootstrap.
+    if user.get("azure_principal_object_id"):
+        result["azure_layer_access_principal_object_id"] = user[
+            "azure_principal_object_id"
+        ]
+
+    if user.get("azure_principal_label"):
+        result["azure_layer_access_principal_label"] = user[
+            "azure_principal_label"
+        ]
+
     return result
 
 
