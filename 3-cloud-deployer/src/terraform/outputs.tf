@@ -195,7 +195,7 @@ output "azure_storage_portal_url" {
 
 output "azure_adt_access_instructions" {
   description = "How to access Azure Digital Twins and 3D Scenes Studio"
-  value = var.layer_4_provider == "azure" ? join("\n", [
+  value = local.azure_v1_enabled && var.layer_4_provider == "azure" ? join("\n", [
     "========== Azure Digital Twins Access ==========",
     "ADT Instance: ${local.azure_adt_name}",
     "ADT Endpoint: https://${azurerm_digital_twins_instance.main[0].host_name}",

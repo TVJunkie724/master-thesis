@@ -7,6 +7,7 @@ function-to-function bridge endpoint is exposed by this package.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Iterable
 
 import azure.functions as func
@@ -15,6 +16,9 @@ from core import ContractError, decode_message_body, validate_canonical_event
 
 
 app = func.FunctionApp()
+REMOTE_TELEMETRY_ENABLED = (
+    os.getenv("V2_REMOTE_TELEMETRY_ENABLED", "false").strip().lower() == "true"
+)
 
 
 def _event_hub_events(messages: Iterable[func.EventHubEvent]):
@@ -37,22 +41,24 @@ def _consume(event: dict) -> None:
     )
 
 
-@app.function_name(name="v2-remote-telemetry-consumer")
-@app.event_hub_message_trigger(
-    arg_name="messages",
-    event_hub_name="%V2_REMOTE_TELEMETRY_HUB_NAME%",
-    connection="V2_REMOTE_TELEMETRY",
-    cardinality="many",
-    consumer_group="$Default",
-)
-def remote_telemetry_consumer(messages: list[func.EventHubEvent]) -> None:
-    """Consume provider-managed Event Hubs batches after durable landing."""
+if REMOTE_TELEMETRY_ENABLED:
 
-    try:
-        for event in _event_hub_events(messages):
-            _consume(event)
-    except ContractError as exc:
-        raise RuntimeError(exc.code) from None
+    @app.function_name(name="v2-remote-telemetry-consumer")
+    @app.event_hub_message_trigger(
+        arg_name="messages",
+        event_hub_name="%V2_REMOTE_TELEMETRY_HUB_NAME%",
+        connection="V2_REMOTE_TELEMETRY",
+        cardinality="many",
+        consumer_group="$Default",
+    )
+    def remote_telemetry_consumer(messages: list[func.EventHubEvent]) -> None:
+        """Consume provider-managed Event Hubs batches after durable landing."""
+
+        try:
+            for event in _event_hub_events(messages):
+                _consume(event)
+        except ContractError as exc:
+            raise RuntimeError(exc.code) from None
 
 
 @app.function_name(name="v2-domain-event-consumer")

@@ -12,6 +12,13 @@ terraform {
       version = "~> 4.0"
     }
 
+    # Event Hubs Dedicated exposes cluster creation through azurerm, but its
+    # evaluated six-CU capacity is set through the ARM API surface.
+    azapi = {
+      source  = "Azure/azapi"
+      version = "= 2.10.0"
+    }
+
     # Azure AD provider (for Entra ID user management)
     azuread = {
       source  = "hashicorp/azuread"

@@ -104,6 +104,41 @@ resource "aws_sqs_queue" "aws_v2_remote_failure" {
   tags                       = local.aws_v2_tags
 }
 
+resource "aws_sqs_queue" "aws_v2_remote_control" {
+  count                       = local.aws_v2_remote_control_inbound ? 1 : 0
+  name                        = "${local.aws_v2_name}-remote-control-landing.fifo"
+  fifo_queue                  = true
+  content_based_deduplication = false
+  message_retention_seconds   = 1209600
+  receive_wait_time_seconds   = 20
+  visibility_timeout_seconds  = 60
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.aws_v2_embedded_failure[0].arn
+    maxReceiveCount     = 5
+  })
+  tags = local.aws_v2_tags
+}
+
+resource "aws_sqs_queue_policy" "aws_v2_remote_control" {
+  count     = local.aws_v2_remote_control_inbound ? 1 : 0
+  queue_url = aws_sqs_queue.aws_v2_remote_control[0].url
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "AllowSelectedRemoteControlTopic"
+      Effect    = "Allow"
+      Principal = { Service = "sns.amazonaws.com" }
+      Action    = "sqs:SendMessage"
+      Resource  = aws_sqs_queue.aws_v2_remote_control[0].arn
+      Condition = {
+        ArnEquals = {
+          "aws:SourceArn" = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn
+        }
+      }
+    }]
+  })
+}
+
 resource "aws_kinesis_stream" "aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge" {
   for_each         = local.aws_v2_remote_telemetry_routes
   name             = "${local.aws_v2_name}-remote-telemetry-${each.key}"
@@ -163,6 +198,7 @@ resource "aws_iam_role_policy" "aws_v2_lambda_data" {
             aws_sqs_queue.aws_v2_embedded_failure[0].arn,
           ],
           aws_sqs_queue.aws_v2_remote_failure[*].arn,
+          aws_sqs_queue.aws_v2_remote_control[*].arn,
         )
       }] : [],
       local.aws_v2_remote_telemetry_enabled ? [{
@@ -422,32 +458,21 @@ resource "aws_lambda_event_source_mapping" "aws_v2_remote_telemetry" {
   enabled = true
 }
 
-resource "aws_lambda_function_event_invoke_config" "aws_v2_remote_control" {
-  count                        = local.aws_v2_remote_control_inbound ? 1 : 0
-  function_name                = aws_lambda_function.aws_v2_domain_consumer[0].function_name
-  maximum_event_age_in_seconds = 21600
-  maximum_retry_attempts       = 2
-  destination_config {
-    on_failure {
-      destination = aws_sqs_queue.aws_v2_remote_failure[0].arn
-    }
-  }
-}
-
-resource "aws_lambda_permission" "aws_v2_remote_control" {
-  count         = local.aws_v2_remote_control_inbound ? 1 : 0
-  statement_id  = "AllowFiveLayerV2RemoteControl"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.aws_v2_domain_consumer[0].function_name
-  principal     = "sns.amazonaws.com"
-  source_arn    = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn
-}
-
-resource "aws_sns_topic_subscription" "aws_v2_remote_control" {
+resource "aws_sns_topic_subscription" "aws_aws_sns_fifo_only_for_reviewed_remote_control_edge" {
   count     = local.aws_v2_remote_control_inbound ? 1 : 0
   topic_arn = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn
-  protocol  = "lambda"
-  endpoint  = aws_lambda_function.aws_v2_domain_consumer[0].arn
+  protocol  = "sqs"
+  endpoint  = aws_sqs_queue.aws_v2_remote_control[0].arn
+}
+
+resource "aws_lambda_event_source_mapping" "aws_v2_remote_control" {
+  count                              = local.aws_v2_remote_control_inbound ? 1 : 0
+  event_source_arn                   = aws_sqs_queue.aws_v2_remote_control[0].arn
+  function_name                      = aws_lambda_function.aws_v2_domain_consumer[0].arn
+  batch_size                         = 1
+  maximum_batching_window_in_seconds = 0
+  function_response_types            = ["ReportBatchItemFailures"]
+  enabled                            = true
 }
 
 resource "aws_iam_role" "aws_v2_step_functions" {

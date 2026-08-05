@@ -46,6 +46,17 @@ provider "azurerm" {
   tenant_id       = var.azure_tenant_id != "" ? var.azure_tenant_id : "00000000-0000-0000-0000-000000000000"
 }
 
+provider "azapi" {
+  use_cli  = false
+  use_msi  = false
+  use_oidc = false
+
+  subscription_id = var.azure_subscription_id != "" ? var.azure_subscription_id : "00000000-0000-0000-0000-000000000000"
+  client_id       = var.azure_client_id != "" ? var.azure_client_id : "00000000-0000-0000-0000-000000000000"
+  client_secret   = var.azure_client_secret != "" ? var.azure_client_secret : "placeholder-secret-not-used"
+  tenant_id       = var.azure_tenant_id != "" ? var.azure_tenant_id : "00000000-0000-0000-0000-000000000000"
+}
+
 # Azure AD Provider (for Entra ID user management - Grafana admin users)
 # Uses same service principal credentials as azurerm
 provider "azuread" {

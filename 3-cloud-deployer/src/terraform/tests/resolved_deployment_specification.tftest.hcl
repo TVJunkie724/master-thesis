@@ -1,4 +1,5 @@
 mock_provider "archive" {}
+mock_provider "azapi" {}
 mock_provider "aws" {}
 mock_provider "aws" {
   alias = "sso"
@@ -91,6 +92,94 @@ run "five_layer_v2_single_cloud_aws_binds_only_reviewed_bundle" {
   assert {
     condition     = length(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard) == 1 && length(aws_grafana_workspace.aws_aws_amazon_managed_grafana_12) == 1
     error_message = "Five-layer v2 must expose both AWS L4 and L5 surfaces."
+  }
+}
+
+run "five_layer_v2_single_cloud_azure_omits_remote_event_hubs" {
+  command = plan
+
+  variables {
+    digital_twin_name                     = "drift-test"
+    architecture_profile_id               = "five-layer-baseline"
+    architecture_profile_version          = "2"
+    layer_1_provider                      = "azure"
+    layer_2_provider                      = "azure"
+    layer_3_hot_provider                  = "azure"
+    layer_3_cold_provider                 = "azure"
+    layer_3_archive_provider              = "azure"
+    layer_4_provider                      = "azure"
+    layer_5_provider                      = "azure"
+    layer_3_hot_to_cold_interval_days     = 30
+    layer_3_cold_to_archive_interval_days = 90
+    layer_3_archive_expiry_interval_days  = 365
+    platform_user_email                   = "researcher@example.test"
+    platform_user_first_name              = "Thesis"
+    platform_user_last_name               = "Researcher"
+    enable_azure_logging                  = false
+  }
+
+  assert {
+    condition     = length(azurerm_linux_function_app.l2) == 0
+    error_message = "Five-layer v2 must not deploy the historical Azure L2 Function App."
+  }
+
+  assert {
+    condition     = length(azurerm_servicebus_namespace.azure_azure_service_bus_standard) == 1 && length(azurerm_servicebus_subscription.azure_azure_service_bus_standard) == 1
+    error_message = "Single-cloud Azure must retain the mandatory embedded Service Bus path."
+  }
+
+  assert {
+    condition     = length(azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge) == 0
+    error_message = "Single-cloud Azure must omit remote-only Event Hubs."
+  }
+
+  assert {
+    condition     = length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter) == 1
+    error_message = "Five-layer v2 must deploy the Azure event adapter on Flex Consumption."
+  }
+}
+
+run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {
+  command = plan
+
+  variables {
+    digital_twin_name                     = "drift-test"
+    architecture_profile_id               = "five-layer-baseline"
+    architecture_profile_version          = "2"
+    layer_1_provider                      = "aws"
+    layer_2_provider                      = "azure"
+    layer_3_hot_provider                  = "azure"
+    layer_3_cold_provider                 = "azure"
+    layer_3_archive_provider              = "azure"
+    layer_4_provider                      = "azure"
+    layer_5_provider                      = "azure"
+    layer_3_hot_to_cold_interval_days     = 30
+    layer_3_cold_to_archive_interval_days = 90
+    layer_3_archive_expiry_interval_days  = 365
+    platform_user_email                   = "researcher@example.test"
+    platform_user_first_name              = "Thesis"
+    platform_user_last_name               = "Researcher"
+    enable_aws_logging                    = false
+    enable_azure_logging                  = false
+    resolved_component_dimensions = {
+      "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.throughput_unit_hours" = "0"
+      "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.capacity_unit_hours"   = "4380"
+    }
+  }
+
+  assert {
+    condition     = length(azurerm_eventhub_cluster.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge) == 1 && length(azapi_update_resource.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge) == 1
+    error_message = "Large Azure remote telemetry must bind one Dedicated cluster and its AzAPI capacity update."
+  }
+
+  assert {
+    condition     = azapi_update_resource.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].body.sku.capacity == 6
+    error_message = "Large Azure remote telemetry must apply the reviewed six-CU allocation."
+  }
+
+  assert {
+    condition     = azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["inbound"].partition_count == 200
+    error_message = "Large Azure remote telemetry must retain the reviewed 200-partition Event Hub."
   }
 }
 

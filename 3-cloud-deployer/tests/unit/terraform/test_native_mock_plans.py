@@ -12,6 +12,9 @@ from src.providers.terraform.package_builder import (
     build_all_packages,
     build_aws_lambda_packages,
 )
+from src.providers.terraform.package_builders.azure_v2 import (
+    build_azure_v2_graph_apps,
+)
 
 
 TERRAFORM_SOURCE = Path(__file__).resolve().parents[3] / "src" / "terraform"
@@ -146,6 +149,7 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
         all_aws,
         selected_function_names=("five-layer-v2",),
     )
+    build_azure_v2_graph_apps(project_path, ("five-layer-v2",))
 
     _run_terraform(
         terraform_dir,
@@ -166,6 +170,6 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
         plugin_cache=plugin_cache,
     )
 
-    assert "4 passed, 0 failed" in result.stdout
+    assert "6 passed, 0 failed" in result.stdout
     assert not list(tmp_path.rglob("*.tfstate"))
     assert not list(tmp_path.rglob("*.tfplan"))
