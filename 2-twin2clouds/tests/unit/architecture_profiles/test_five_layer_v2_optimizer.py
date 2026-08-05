@@ -103,7 +103,10 @@ def _ledger(specification, assignment, workload, *, omit_azure=False):
                 "domain_flow_ids": list(route.domain_flow_ids),
                 "workload_digest": route.workload_digest,
                 "formula_reference": FORMULA_REF,
-                "pricing_evidence_digest": evidence[route.source_provider],
+                "pricing_evidence_digests": {
+                    "source": evidence[route.source_provider],
+                    "destination": evidence[route.destination_provider],
+                },
                 "monthly_amount": str(10 * len(route.allocation_item_ids)),
                 "allocations": [
                     {"item_id": item_id, "monthly_amount": "10"}

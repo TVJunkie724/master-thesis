@@ -95,7 +95,10 @@ def _ledger(specification, assignment, workload):
                 "domain_flow_ids": list(route.domain_flow_ids),
                 "workload_digest": route.workload_digest,
                 "formula_reference": FORMULA_REF,
-                "pricing_evidence_digest": evidence[route.source_provider],
+                "pricing_evidence_digests": {
+                    "source": evidence[route.source_provider],
+                    "destination": evidence[route.destination_provider],
+                },
                 "monthly_amount": str(len(route.allocation_item_ids)),
                 "allocations": [
                     {"item_id": item_id, "monthly_amount": "1"}
@@ -170,6 +173,9 @@ def test_single_cloud_has_no_cross_cloud_route_owner():
         lambda ledger: ledger["route_costs"][0].update(
             {"monthly_amount": "999"}
         ),
+        lambda ledger: ledger["route_costs"][0][
+            "pricing_evidence_digests"
+        ].update({"destination": "sha256:" + ("f" * 64)}),
     ),
 )
 def test_incomplete_or_unreconciled_cost_ledgers_fail_closed(tamper):

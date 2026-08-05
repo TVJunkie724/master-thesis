@@ -383,8 +383,13 @@ def evaluate_five_layer_v2_costs(
             != expected.domain_flow_ids
             or quote.get("workload_digest") != expected.workload_digest
             or quote.get("formula_reference") != FORMULA_REF
-            or quote.get("pricing_evidence_digest")
-            != pricing_evidence[expected.source_provider]
+            or quote.get("pricing_evidence_digests")
+            != {
+                "source": pricing_evidence[expected.source_provider],
+                "destination": pricing_evidence[
+                    expected.destination_provider
+                ],
+            }
             or len(allocation_ids) != len(set(allocation_ids))
             or set(allocation_ids) != set(expected.allocation_item_ids)
         ):
