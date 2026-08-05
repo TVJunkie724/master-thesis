@@ -25,14 +25,21 @@ SPEC = importlib.util.spec_from_file_location("azure_five_layer_v2_core", CORE_P
 assert SPEC and SPEC.loader
 core = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(core)
-sys.modules["core"] = core
 FUNCTION_APP_PATH = CORE_PATH.with_name("function_app.py")
 FUNCTION_SPEC = importlib.util.spec_from_file_location(
     "azure_five_layer_v2_function_app", FUNCTION_APP_PATH
 )
 assert FUNCTION_SPEC and FUNCTION_SPEC.loader
 function_app = importlib.util.module_from_spec(FUNCTION_SPEC)
-FUNCTION_SPEC.loader.exec_module(function_app)
+previous_core = sys.modules.get("core")
+try:
+    sys.modules["core"] = core
+    FUNCTION_SPEC.loader.exec_module(function_app)
+finally:
+    if previous_core is None:
+        sys.modules.pop("core", None)
+    else:
+        sys.modules["core"] = previous_core
 
 
 def _event(**overrides):

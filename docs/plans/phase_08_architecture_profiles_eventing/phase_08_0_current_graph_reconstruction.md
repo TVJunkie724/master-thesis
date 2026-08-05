@@ -493,6 +493,15 @@ Mixed-provider scenarios must cover:
    nonexistent source entity;
 11. print only bounded IDs and source paths, never file contents or secrets.
 
+Steps 3 and 5-10 describe the original Phase 8.0 evidence construction and
+applied only until the Phase 8.1 cut. After the corrective immutable-snapshot
+interpretation above, the non-mutating gate authenticates snapshot commit
+`04295b76c2e32e9b2ede84d6c108052f0f242fb6`, the frozen inventory/source
+digests, references, evidence, and diagram IDs. It compares semantic mutation
+tests with that frozen matrix; it does not compare later Five-layer v2 or
+Six-layer v1 source with predecessor rows. Successor source reconciliation is
+owned by the versioned profile/catalog/RDS drift gates.
+
 An allowlist entry must contain an owner, rationale, and expiry phase. Empty
 catch-all allowlists are forbidden.
 

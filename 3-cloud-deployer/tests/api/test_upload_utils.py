@@ -38,10 +38,12 @@ def test_rest_api_uses_one_canonical_api_module_namespace():
     assert rest_api.projects is projects
     assert rest_api.projects.__name__ == "src.api.projects"
     forbidden_roots = {"api", "core", "providers"}
-    assert not any(
-        name.split(".", 1)[0] in forbidden_roots
+    forbidden_modules = sorted(
+        name
         for name in sys.modules
+        if name.split(".", 1)[0] in forbidden_roots
     )
+    assert not forbidden_modules, forbidden_modules
 
 
 def test_json_base64_upload_is_strict_and_bounded():

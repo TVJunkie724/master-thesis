@@ -1,8 +1,9 @@
 # Current architecture inventory v1
 
-`current-graph.json` is the audit source of truth for the deployable
-five-layer baseline. It records current implementation evidence; it does not
-approve inherited components or make Phase 8.1 retain/replace/remove decisions.
+`current-graph.json` is the immutable predecessor audit used to derive the
+historical Five-layer v1 decision. It records the implementation evidence at
+the Phase 8.0 cut; it does not describe additive Five-layer v2/Six-layer v1
+source and does not approve inherited components.
 
 `five-layer-baseline-v1-decision.json` is the immutable Phase 8.1 historical
 target-decision source of truth. It covers the components and edges of its
@@ -26,13 +27,17 @@ does not rewrite this paper-compatible decision.
 - `source_commit` is provenance for the audited tree and is intentionally not
   compared with `HEAD`.
 
-Run the non-mutating drift gate from the repository root:
+Run the non-mutating integrity gate from the repository root:
 
 ```bash
 python3 scripts/check_architecture_inventory.py
 ```
 
-Regeneration is an explicit reviewer action:
+Regeneration was an explicit reviewer action before the Phase 8.1 cut. The
+snapshot is now authenticated by its pinned inventory/source digests and
+reviewed snapshot commit; successor source is checked by its versioned profile
+contracts instead of rewriting this evidence. The historical commands remain
+documented for reconstruction only:
 
 ```bash
 python3 scripts/check_architecture_inventory.py --write

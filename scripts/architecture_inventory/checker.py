@@ -36,6 +36,13 @@ from .extractors import (
 
 SCHEMA_VERSION = "architecture-inventory.v1"
 INVENTORY_ID = "current-five-layer-implementation"
+INVENTORY_SNAPSHOT_COMMIT = "04295b76c2e32e9b2ede84d6c108052f0f242fb6"
+INVENTORY_SNAPSHOT_CONTENT_DIGEST = (
+    "sha256:0819e53e15e037da5e85f43f5ca26ad0621442eccfad937b81493afb6f26a5e8"
+)
+INVENTORY_SNAPSHOT_SOURCE_DIGEST = (
+    "sha256:294f4cc0ebcb6ab76e81119810fbf436d6cb466f9d23dd381e7779e8c9b05b27"
+)
 MAX_FINDINGS = 100
 DIAGRAM_MANIFEST_START = "<!-- architecture-inventory-diagram-ids:"
 DIAGRAM_MANIFEST_END = "-->"
@@ -1869,7 +1876,101 @@ def _check_ids_and_references(inventory: dict[str, Any]) -> None:
         raise InventoryCheckError("REFERENCE_UNRESOLVED", unresolved)
 
 
+def _frozen_inventory(root: Path) -> dict[str, Any]:
+    """Load and authenticate the immutable predecessor matrix."""
+
+    try:
+        inventory = json.loads(
+            (
+                root
+                / "contracts/architecture-inventory/v1/current-graph.json"
+            ).read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError) as exc:
+        raise InventoryCheckError(
+            "EVIDENCE_INCOMPLETE", ["predecessor snapshot"]
+        ) from exc
+    if (
+        inventory.get("content_digest") != INVENTORY_SNAPSHOT_CONTENT_DIGEST
+        or inventory.get("audited_source_tree_digest")
+        != INVENTORY_SNAPSHOT_SOURCE_DIGEST
+    ):
+        raise InventoryCheckError(
+            "DIGEST_MISMATCH", [f"snapshot:{INVENTORY_SNAPSHOT_COMMIT}"]
+        )
+    return inventory
+
+
+def _inventory_entities(inventory: dict[str, Any]) -> dict[str, set[Any]]:
+    return {
+        "implementations": {
+            item["implementation_id"] for item in inventory["components"]
+        },
+        "terraform": {
+            (
+                item["object_kind"],
+                item["terraform_address"],
+                item["source_references"][0]
+                .split("#", 1)[0]
+                .removeprefix("3-cloud-deployer/"),
+            )
+            for item in inventory["terraform_objects"]
+        },
+        "artifacts": {
+            item["artifact_id"]
+            for item in inventory["artifacts"]
+            if item["artifact_kind"]
+            in {"static-package", "template", "wrapper-library", "source"}
+        },
+        "edges": {item["edge_id"] for item in inventory["edges"]},
+        "assumptions": {
+            item["assumption_id"] for item in inventory["fixed_assumptions"]
+        },
+        "optimizer_slots": {
+            (item["responsibility_id"], tuple(item["optimizer_slot_ids"]))
+            for item in inventory["responsibilities"]
+            if item["responsibility_id"] in RESPONSIBILITY_BY_SLOT.values()
+        },
+    }
+
+
 def _check_source_reconciliation(root: Path, inventory: dict[str, Any]) -> None:
+    """Reconcile against the immutable predecessor snapshot, not successor code."""
+
+    expected = _inventory_entities(_frozen_inventory(root))
+    actual = _inventory_entities(inventory)
+
+    def labels(category: str, values: set[Any]) -> set[str]:
+        if category == "terraform":
+            return {
+                f"terraform:{kind}:{address}:{path}"
+                for kind, address, path in values
+            }
+        if category == "optimizer_slots":
+            return {
+                f"optimizer-slots:{responsibility_id}"
+                for responsibility_id, _ in values
+            }
+        return {str(value) for value in values}
+
+    missing = sorted(
+        label
+        for category in expected
+        for label in labels(category, expected[category] - actual[category])
+    )
+    stale = sorted(
+        label
+        for category in expected
+        for label in labels(category, actual[category] - expected[category])
+    )
+    if missing:
+        raise InventoryCheckError("SOURCE_ENTITY_UNMAPPED", missing)
+    if stale:
+        raise InventoryCheckError("MATRIX_ENTITY_STALE", stale)
+
+
+def _check_live_source_reconciliation(root: Path, inventory: dict[str, Any]) -> None:
+    """Legacy live-source reconciler retained for explicit inventory regeneration."""
     functions = extract_static_functions()
     expected_functions = {
         _function_component_ids(provider, item["name"])[1]
@@ -2185,7 +2286,10 @@ def check_inventory(root: Path | None = None) -> dict[str, int]:
     expected_content = content_digest(inventory)
     if inventory["content_digest"] != expected_content:
         raise InventoryCheckError("DIGEST_MISMATCH", ["content_digest"])
-    expected_source = source_tree_digest(root, inventory["audited_source_paths"])
+    frozen = _frozen_inventory(root)
+    if inventory["content_digest"] != frozen["content_digest"]:
+        raise InventoryCheckError("DIGEST_MISMATCH", ["immutable predecessor snapshot"])
+    expected_source = INVENTORY_SNAPSHOT_SOURCE_DIGEST
     if inventory["audited_source_tree_digest"] != expected_source:
         raise InventoryCheckError("DIGEST_MISMATCH", ["audited_source_tree_digest"])
     extract_optimizer_shape(root)
