@@ -842,7 +842,8 @@ output "azure_component_twin_state_output" {
 output "azure_component_visualization_output" {
   value = local.azure_v2_l5_enabled ? {
     workspace_name       = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].name
-    access_url           = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].endpoint
+    access_url           = "${trimsuffix(azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].endpoint, "/")}/d/t2mc-raw-rollups/raw-rollups"
+    workspace_url        = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].endpoint
     reader_url           = "https://${azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].default_hostname}/api/raw-history/v1"
     reader_function_name = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].name
     principal_label      = var.azure_layer_access_principal_label

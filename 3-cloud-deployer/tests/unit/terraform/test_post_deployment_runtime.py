@@ -137,6 +137,48 @@ def test_azure_grafana_requires_hot_reader_output():
         azure_deployer.configure_azure_grafana(context, {})
 
 
+def test_azure_v2_grafana_uses_typed_component_output_and_inventory(monkeypatch):
+    provider = SimpleNamespace()
+    graph = SimpleNamespace(profile_ref={"id": "five-layer-baseline", "version": "2"})
+    context = SimpleNamespace(
+        providers={"azure": provider},
+        resolved_deployment_graph=graph,
+        config=SimpleNamespace(
+            iot_devices=[
+                {
+                    "id": "sensor-1",
+                    "properties": [{"name": "temperature"}],
+                }
+            ]
+        ),
+    )
+    configure = MagicMock()
+    monkeypatch.setattr(layer_5_grafana, "configure_five_layer_v2_grafana", configure)
+
+    azure_deployer.configure_azure_grafana(
+        context,
+        {
+            "azure_component_visualization_output": {
+                "workspace_name": "factory-grafana",
+                "workspace_url": "https://grafana.example/",
+                "access_url": "https://grafana.example/d/t2mc-raw-rollups/raw-rollups",
+                "reader_url": "https://reader.example/api/raw-history/v1",
+                "reader_function_name": "factory-history",
+            }
+        },
+    )
+
+    configure.assert_called_once_with(
+        provider,
+        workspace_name="factory-grafana",
+        grafana_url="https://grafana.example",
+        hot_reader_url="https://reader.example/api/raw-history/v1",
+        function_app_name="factory-history",
+        device_id="sensor-1",
+        metric="temperature",
+    )
+
+
 def test_azure_post_deployment_requires_initialized_provider(tmp_path):
     context = SimpleNamespace(providers={}, config=object())
 
@@ -209,10 +251,16 @@ def test_existing_aws_certificate_must_match_attached_cloud_identity(tmp_path):
 
 
 def test_azure_grafana_lookup_error_is_not_treated_as_missing(monkeypatch):
-    monkeypatch.setattr(layer_5_grafana, "get_grafana_workspace_url", lambda _p: "https://grafana")
-    monkeypatch.setattr(layer_5_grafana, "_get_grafana_service_account_token", lambda _p: "token")
+    monkeypatch.setattr(
+        layer_5_grafana, "get_grafana_workspace_url", lambda _p: "https://grafana"
+    )
+    monkeypatch.setattr(
+        layer_5_grafana, "_get_grafana_service_account_token", lambda _p: "token"
+    )
     response = SimpleNamespace(status_code=401)
-    monkeypatch.setattr(layer_5_grafana.requests, "get", lambda *_args, **_kwargs: response)
+    monkeypatch.setattr(
+        layer_5_grafana.requests, "get", lambda *_args, **_kwargs: response
+    )
     post = MagicMock()
     monkeypatch.setattr(layer_5_grafana.requests, "post", post)
     provider = SimpleNamespace(twin_name="factory")
@@ -221,6 +269,154 @@ def test_azure_grafana_lookup_error_is_not_treated_as_missing(monkeypatch):
         layer_5_grafana.configure_grafana_datasource(provider, "https://reader")
 
     post.assert_not_called()
+
+
+def test_azure_v2_datasource_stores_function_key_only_as_secure_header(monkeypatch):
+    response_not_found = SimpleNamespace(status_code=404)
+    response_created = SimpleNamespace(status_code=201)
+    monkeypatch.setattr(
+        layer_5_grafana.requests,
+        "get",
+        lambda *_args, **_kwargs: response_not_found,
+    )
+    create = MagicMock(return_value=response_created)
+    monkeypatch.setattr(layer_5_grafana.requests, "post", create)
+
+    layer_5_grafana._upsert_v2_datasource(
+        grafana_url="https://grafana.example",
+        grafana_token="grafana-token",
+        datasource_name="factory-hot-reader",
+        hot_reader_url="https://reader.example/api/raw-history/v1",
+        function_key="function-secret",
+    )
+
+    payload = create.call_args.kwargs["json"]
+    assert payload["jsonData"]["httpHeaderName1"] == "x-functions-key"
+    assert payload["secureJsonData"] == {"httpHeaderValue1": "function-secret"}
+    assert "function-secret" not in str(payload["jsonData"])
+
+
+def test_azure_v2_dashboard_has_bounded_raw_and_rollup_queries():
+    dashboard = layer_5_grafana._v2_dashboard("sensor-1", "temperature")
+
+    assert dashboard["uid"] == layer_5_grafana.V2_DASHBOARD_UID
+    targets = [
+        dashboard["panels"][1]["targets"][0],
+        dashboard["panels"][2]["targets"][0],
+    ]
+    assert [dict(target["params"])["bucket_seconds"] for target in targets] == [
+        "0",
+        "3600",
+    ]
+    assert all(dict(target["params"])["limit"] == "1000" for target in targets)
+    assert (
+        "No data is a valid initial state"
+        in dashboard["panels"][0]["options"]["content"]
+    )
+
+
+def test_azure_v2_plugin_preflight_rejects_wrong_loaded_version(monkeypatch):
+    response = SimpleNamespace(
+        status_code=200,
+        json=lambda: {"info": {"version": "1.3.28"}},
+    )
+    monkeypatch.setattr(
+        layer_5_grafana.requests, "get", lambda *_args, **_kwargs: response
+    )
+
+    with pytest.raises(RuntimeError, match="version mismatch"):
+        layer_5_grafana._wait_for_exact_plugin(
+            "https://grafana.example", "token", attempts=1, delay_seconds=0
+        )
+
+
+def test_azure_v2_plugin_readiness_retries_role_propagation(monkeypatch):
+    responses = iter(
+        [
+            SimpleNamespace(status_code=403),
+            SimpleNamespace(
+                status_code=200,
+                json=lambda: {
+                    "info": {"version": layer_5_grafana.JSON_DATASOURCE_PLUGIN_VERSION}
+                },
+            ),
+        ]
+    )
+    monkeypatch.setattr(
+        layer_5_grafana.requests,
+        "get",
+        lambda *_args, **_kwargs: next(responses),
+    )
+    sleep = MagicMock()
+    monkeypatch.setattr(layer_5_grafana.time, "sleep", sleep)
+
+    layer_5_grafana._wait_for_exact_plugin(
+        "https://grafana.example", "token", attempts=2, delay_seconds=0
+    )
+
+    sleep.assert_called_once_with(0)
+
+
+def test_azure_v2_reader_key_is_function_scoped_and_reused(monkeypatch):
+    credential = SimpleNamespace(
+        get_token=lambda _scope: SimpleNamespace(token="management-token")
+    )
+    provider = SimpleNamespace(
+        credential=credential,
+        subscription_id="11111111-1111-1111-1111-111111111111",
+        naming=SimpleNamespace(resource_group=lambda: "factory-rg"),
+    )
+    response = SimpleNamespace(
+        status_code=200,
+        json=lambda: {"properties": {"twin2multicloud-grafana": "existing-key"}},
+    )
+    lookup = MagicMock(return_value=response)
+    update = MagicMock()
+    monkeypatch.setattr(layer_5_grafana.requests, "post", lookup)
+    monkeypatch.setattr(layer_5_grafana.requests, "put", update)
+
+    value = layer_5_grafana._ensure_reader_function_key(provider, "factory-history")
+
+    assert value == "existing-key"
+    assert "/functions/v2-raw-history-reader/listkeys" in lookup.call_args.args[0]
+    update.assert_not_called()
+
+
+def test_azure_v2_reader_key_is_created_without_exposing_it_in_outputs(monkeypatch):
+    credential = SimpleNamespace(
+        get_token=lambda _scope: SimpleNamespace(token="management-token")
+    )
+    provider = SimpleNamespace(
+        credential=credential,
+        subscription_id="11111111-1111-1111-1111-111111111111",
+        naming=SimpleNamespace(resource_group=lambda: "factory-rg"),
+    )
+    lookup_response = SimpleNamespace(
+        status_code=200,
+        json=lambda: {"properties": {}},
+    )
+    create_response = SimpleNamespace(status_code=200)
+    monkeypatch.setattr(
+        layer_5_grafana.requests,
+        "post",
+        MagicMock(return_value=lookup_response),
+    )
+    create = MagicMock(return_value=create_response)
+    monkeypatch.setattr(layer_5_grafana.requests, "put", create)
+    monkeypatch.setattr(
+        layer_5_grafana.secrets,
+        "token_urlsafe",
+        lambda _length: "generated-function-key",
+    )
+
+    value = layer_5_grafana._ensure_reader_function_key(provider, "factory-history")
+
+    assert value == "generated-function-key"
+    assert "/functions/v2-raw-history-reader/keys/" in create.call_args.args[0]
+    assert create.call_args.kwargs["json"] == {
+        "name": "twin2multicloud-grafana",
+        "value": "generated-function-key",
+    }
 
 
 def test_azure_twin_failures_are_aggregated_after_relationship_attempt(monkeypatch):
@@ -266,3 +462,42 @@ def test_azure_twin_failures_are_aggregated_after_relationship_attempt(monkeypat
         ("relationship", "healthy", "contains"),
     ]
     assert "must-not-leak" not in str(exc_info.value)
+
+
+def test_azure_v2_empty_hierarchy_gets_deterministic_visible_seed(monkeypatch):
+    created = {"models": [], "twins": [], "relationships": []}
+
+    class Client:
+        def create_models(self, models):
+            created["models"].extend(models)
+            return models
+
+        def upsert_digital_twin(self, twin_id, twin):
+            created["twins"].append((twin_id, twin))
+
+        def upsert_relationship(self, source_id, relationship_id, relationship):
+            created["relationships"].append((source_id, relationship_id, relationship))
+
+    monkeypatch.setattr(layer_4_adt, "_get_adt_data_client", lambda _provider: Client())
+    config = SimpleNamespace(
+        digital_twin_name="factory",
+        iot_devices=[{"id": "sensor-1"}],
+        hierarchy={"models": [], "twins": [], "relationships": []},
+    )
+
+    layer_4_adt.upload_dtdl_models(object(), config, "unused", ensure_v2_seed=True)
+
+    assert [model["@id"] for model in created["models"]] == [
+        layer_4_adt.V2_SEED_MODEL_ID
+    ]
+    assert [twin_id for twin_id, _twin in created["twins"]] == [
+        "factory-root",
+        "sensor-1",
+    ]
+    assert created["relationships"] == [
+        (
+            "factory-root",
+            "contains-seed-device",
+            {"$targetId": "sensor-1", "$relationshipName": "contains"},
+        )
+    ]
