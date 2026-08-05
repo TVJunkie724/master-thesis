@@ -12,6 +12,16 @@ MAX_CODE_LENGTH = 1024 * 1024
 MAX_FUNCTIONS = 1_000
 
 
+class DeployerArchitectureProfileRef(BaseModel):
+    """Pinned architecture profile used to select profile-specific validation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1, max_length=128)
+    version: str = Field(pattern=r"^[1-9][0-9]*$", max_length=32)
+    digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$", max_length=71)
+
+
 class ValidationError(BaseModel):
     """Stable field-level validation error."""
 
@@ -42,6 +52,7 @@ class DeployerCompleteValidation(BaseModel):
         None,
         max_length=20,
     )
+    architecture_profile_ref: DeployerArchitectureProfileRef | None = None
 
     @field_validator("processors", "event_actions")
     @classmethod
