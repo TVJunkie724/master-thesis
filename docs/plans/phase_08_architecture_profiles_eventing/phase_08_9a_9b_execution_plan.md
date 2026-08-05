@@ -69,6 +69,16 @@ L3 hot and L5 always share a provider. L4 is independently selectable. L5
 queries only the typed L3 hot reader; L3 hot projects state/relationships to
 L4. L4 does not feed L5.
 
+For the bounded comparison workload, `functionName` and `functionNameB` are
+logical action identifiers, not uploaded executable files. Each provider
+deploys one fixed, side-effect-free synthetic action/notification sink so that
+one invocation per match and the four-action workflow are executable and
+cost-visible without introducing application-specific notification behavior.
+`processor.telemetry@1` remains the only v1 user-function extension slot.
+Real external notification delivery and arbitrary uploaded event-action code
+are explicitly outside this thesis PoC and must not be implied by the UI or
+deployment result.
+
 ### Six-layer v1
 
 Six-layer inherits the table above and adds only the Event Layer table in

@@ -50,10 +50,6 @@ locals {
 
   aws_v2_runtime_package = "${var.project_path}/.build/aws/five-layer-v2.zip"
   aws_v2_name            = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 32)
-  aws_v2_action_function_names = {
-    for action in var.aws_event_actions :
-    action.name => substr("${local.aws_v2_name}-${action.name}", 0, 64)
-  }
   aws_v2_tags = merge(local.aws_common_tags, {
     ArchitectureProfile = "five-layer-baseline@2"
   })
@@ -228,10 +224,10 @@ resource "aws_iam_role_policy" "aws_v2_lambda_data" {
           "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:thing/*",
         ]
       }] : [],
-      local.aws_v2_l2_enabled && length(aws_lambda_function.aws_v2_event_action) > 0 ? [{
+      local.aws_v2_l2_enabled ? [{
         Effect   = "Allow"
         Action   = ["lambda:InvokeFunction"]
-        Resource = [for function in aws_lambda_function.aws_v2_event_action : function.arn]
+        Resource = [aws_lambda_function.aws_v2_extension_action[0].arn]
       }] : [],
       local.aws_v2_l2_enabled ? [{
         Effect   = "Allow"
@@ -361,7 +357,7 @@ resource "aws_lambda_function" "aws_aws_lambda" {
       SOURCE_EXPIRY_GRACE_HOURS      = "48"
       TWINMAKER_WORKSPACE            = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
       RULES_JSON                     = jsonencode(var.events)
-      ACTION_FUNCTION_NAMES_JSON     = jsonencode(local.aws_v2_action_function_names)
+      ACTION_FUNCTION_NAME           = try(aws_lambda_function.aws_v2_extension_action[0].function_name, "")
       NOTIFICATION_STATE_MACHINE_ARN = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.aws_v2_name}-v2-event-workflow"
       DEVICE_COMMAND_ARN             = try(awscc_iot_command.aws_aws_iot_commands[0].command_arn, "")
       AWS_ACCOUNT_ID                 = data.aws_caller_identity.current[0].account_id
@@ -370,25 +366,46 @@ resource "aws_lambda_function" "aws_aws_lambda" {
   tags = local.aws_v2_tags
 }
 
-resource "aws_lambda_function" "aws_v2_event_action" {
-  for_each      = local.aws_v2_l2_enabled ? { for action in var.aws_event_actions : action.name => action } : {}
-  function_name = local.aws_v2_action_function_names[each.key]
-  role          = aws_iam_role.aws_v2_lambda[0].arn
-  handler       = "lambda_function.lambda_handler"
+resource "aws_iam_role" "aws_v2_extension_action" {
+  count = local.aws_v2_l2_enabled ? 1 : 0
+  name  = "${local.aws_v2_name}-v2-poc-action-${local.deployment_suffix}"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Action    = "sts:AssumeRole"
+      Principal = { Service = "lambda.amazonaws.com" }
+    }]
+  })
+  tags = local.aws_v2_tags
+}
+
+resource "aws_iam_role_policy_attachment" "aws_v2_extension_action_logs" {
+  count      = local.aws_v2_l2_enabled ? 1 : 0
+  role       = aws_iam_role.aws_v2_extension_action[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_lambda_function" "aws_v2_extension_action" {
+  count         = local.aws_v2_l2_enabled ? 1 : 0
+  function_name = "${local.aws_v2_name}-v2-poc-action"
+  role          = aws_iam_role.aws_v2_extension_action[0].arn
+  handler       = "handler.poc_boundary"
   runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 256
 
-  filename         = each.value.zip_path
-  source_code_hash = filebase64sha256(each.value.zip_path)
+  filename         = local.aws_v2_runtime_package
+  source_code_hash = filebase64sha256(local.aws_v2_runtime_package)
 
   environment {
     variables = {
       ARCHITECTURE_PROFILE = "five-layer-baseline@2"
-      DIGITAL_TWIN_INFO    = var.digital_twin_info_json
     }
   }
   tags = local.aws_v2_tags
+
+  depends_on = [aws_iam_role_policy_attachment.aws_v2_extension_action_logs]
 }
 
 resource "aws_lambda_event_source_mapping" "aws_v2_embedded_events" {
@@ -429,7 +446,7 @@ resource "aws_lambda_function" "aws_v2_domain_consumer" {
       SOURCE_EXPIRY_GRACE_HOURS      = "48"
       TWINMAKER_WORKSPACE            = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
       RULES_JSON                     = jsonencode(var.events)
-      ACTION_FUNCTION_NAMES_JSON     = jsonencode(local.aws_v2_action_function_names)
+      ACTION_FUNCTION_NAME           = try(aws_lambda_function.aws_v2_extension_action[0].function_name, "")
       NOTIFICATION_STATE_MACHINE_ARN = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.aws_v2_name}-v2-event-workflow"
       DEVICE_COMMAND_ARN             = try(awscc_iot_command.aws_aws_iot_commands[0].command_arn, "")
       AWS_ACCOUNT_ID                 = data.aws_caller_identity.current[0].account_id
@@ -498,10 +515,10 @@ resource "aws_iam_role_policy" "aws_v2_step_functions" {
     Statement = [{
       Effect = "Allow"
       Action = "lambda:InvokeFunction"
-      Resource = concat(
-        [aws_lambda_function.aws_aws_lambda[0].arn],
-        [for function in aws_lambda_function.aws_v2_event_action : function.arn],
-      )
+      Resource = [
+        aws_lambda_function.aws_aws_lambda[0].arn,
+        aws_lambda_function.aws_v2_extension_action[0].arn,
+      ]
     }]
   })
 }
@@ -529,7 +546,7 @@ resource "aws_sfn_state_machine" "aws_aws_step_functions_standard" {
         Type     = "Task"
         Resource = "arn:aws:states:::lambda:invoke"
         Parameters = {
-          "FunctionName.$" = "$.payload.delivery_function_name"
+          FunctionName = aws_lambda_function.aws_v2_extension_action[0].arn
           Payload = {
             schema_version    = "notification-delivery.v1"
             "invocation_id.$" = "$.event_id"

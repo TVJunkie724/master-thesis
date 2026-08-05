@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+from io import BytesIO
 import json
 from pathlib import Path
+
+import pytest
 
 
 SOURCE = (
@@ -52,7 +55,21 @@ class _Lambda:
 
     def invoke(self, **kwargs):
         self.calls.append(kwargs)
-        return {"FunctionError": "Unhandled"} if self.function_error else {}
+        if self.function_error:
+            return {"FunctionError": "Unhandled"}
+        request = json.loads(kwargs["Payload"])
+        return {
+            "Payload": BytesIO(
+                json.dumps(
+                    {
+                        "schema_version": "extension-action-result.v1",
+                        "invocation_id": request["invocation_id"],
+                        "action_id": request["action_id"],
+                        "status": "ACCEPTED",
+                    }
+                ).encode("utf-8")
+            )
+        }
 
 
 class _StepFunctions:
@@ -360,10 +377,7 @@ def test_matching_rule_emits_action_workflow_and_command_events(monkeypatch):
     function = _Lambda()
     monkeypatch.setenv("EVENT_QUEUE_URL", "https://sqs.example.test/events.fifo")
     monkeypatch.setenv("L1_PROVIDER", "aws")
-    monkeypatch.setenv(
-        "ACTION_FUNCTION_NAMES_JSON",
-        json.dumps({"extension": "twin-extension", "notify": "twin-notify"}),
-    )
+    monkeypatch.setenv("ACTION_FUNCTION_NAME", "twin-poc-action")
     monkeypatch.setattr(
         runtime,
         "_client",
@@ -412,14 +426,60 @@ def test_matching_rule_emits_action_workflow_and_command_events(monkeypatch):
     matched = json.loads(queue.messages.pop(0)["MessageBody"])
     runtime._dispatch_match(matched)
 
-    assert function.calls[0]["FunctionName"] == "twin-extension"
+    assert function.calls[0]["FunctionName"] == "twin-poc-action"
     emitted = [json.loads(message["MessageBody"]) for message in queue.messages]
     assert [event["event_type"] for event in emitted] == [
         "extension.action.outcome.v1",
         "notification.requested.v1",
         "device.command.requested.v1",
     ]
-    assert emitted[1]["payload"]["delivery_function_name"] == "twin-notify"
+    assert emitted[0]["payload"]["action_id"] == "extension"
+    assert emitted[1]["payload"]["notification_action_id"] == "notify"
+
+
+def test_fixed_poc_boundary_accepts_only_correlated_action_and_notification():
+    runtime = _module()
+    matched = runtime._derive_event(
+        {
+            "event_id": "processed-action-1",
+            "device_id": "device-1",
+            "metric": "temperature",
+            "value": 21.5,
+            "action": {"type": "lambda", "functionName": "extension"},
+        },
+        event_type=runtime.EVENT_MATCHED,
+        producer="component.rule-evaluator",
+    )
+    action_result = runtime.poc_boundary(
+        {
+            "schema_version": "extension-action-invocation.v1",
+            "invocation_id": matched["event_id"],
+            "action_id": "extension",
+            "event": matched,
+        },
+        None,
+    )
+    notification = runtime._derive_event(
+        matched,
+        event_type=runtime.EVENT_NOTIFICATION_REQUESTED,
+        producer="component.action-dispatcher",
+        body={"device_id": "device-1", "message": "temperature matched"},
+    )
+    notification_result = runtime.poc_boundary(
+        {
+            "schema_version": "notification-delivery.v1",
+            "invocation_id": notification["event_id"],
+            "event": notification,
+        },
+        None,
+    )
+
+    assert action_result["status"] == "ACCEPTED"
+    assert notification_result == {
+        "schema_version": "notification-delivery-result.v1",
+        "event_id": notification["event_id"],
+        "status": "ACCEPTED",
+    }
 
 
 def test_multiple_matching_rules_have_distinct_stable_event_ids(monkeypatch):
@@ -458,6 +518,43 @@ def test_multiple_matching_rules_have_distinct_stable_event_ids(monkeypatch):
 
     event_ids = [json.loads(item["MessageBody"])["event_id"] for item in queue.messages]
     assert len(set(event_ids)) == 2
+
+
+def test_rule_runtime_rejects_nonfinite_constants_and_duplicate_rule_ids(monkeypatch):
+    runtime = _module()
+    with pytest.raises(runtime.ContractError, match="INVALID_RULE_CONFIGURATION"):
+        runtime._condition_operand("DOUBLE(nan)", {})
+
+    monkeypatch.setenv(
+        "RULES_JSON",
+        json.dumps(
+            [
+                {
+                    "rule_id": "duplicate",
+                    "condition": "temperature > DOUBLE(20)",
+                    "action": {"type": "lambda", "functionName": "first"},
+                },
+                {
+                    "rule_id": "duplicate",
+                    "condition": "temperature > DOUBLE(20)",
+                    "action": {"type": "lambda", "functionName": "second"},
+                },
+            ]
+        ),
+    )
+    processed = runtime._derive_event(
+        {
+            "event_id": "received-duplicate-rule",
+            "device_id": "device-1",
+            "metric": "temperature",
+            "value": 21.5,
+        },
+        event_type=runtime.EVENT_TELEMETRY_PROCESSED,
+        producer="component.telemetry-processor",
+    )
+
+    with pytest.raises(runtime.ContractError, match="INVALID_RULE_CONFIGURATION"):
+        runtime._evaluate_rules(processed)
 
 
 def test_domain_consumer_rejects_noncanonical_broker_record():

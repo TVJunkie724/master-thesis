@@ -581,10 +581,16 @@ def _condition_operand(token: str, body: Mapping[str, Any]) -> Any:
     typed = re.fullmatch(r"(DOUBLE|INTEGER|STRING|BOOLEAN)\((.*)\)", token)
     if typed:
         kind, raw = typed.groups()
-        if kind == "DOUBLE":
-            return float(raw)
-        if kind == "INTEGER":
-            return int(raw)
+        try:
+            if kind == "DOUBLE":
+                value = float(raw)
+                if math.isfinite(value):
+                    return value
+                raise ValueError
+            if kind == "INTEGER":
+                return int(raw)
+        except ValueError as exc:
+            raise ContractError("INVALID_RULE_CONFIGURATION", 503) from exc
         if kind == "BOOLEAN" and raw.lower() in {"true", "false"}:
             return raw.lower() == "true"
         if kind == "STRING":
@@ -623,27 +629,39 @@ def _condition_matches(condition: Any, body: Mapping[str, Any]) -> bool:
 
 def _evaluate_rules(event: Mapping[str, Any]) -> None:
     body = dict(_event_body(event))
+    seen_rule_ids = set()
+    matched_events = []
     for index, rule in enumerate(_rules()):
-        if not _condition_matches(rule.get("condition"), body):
-            continue
         action = rule.get("action")
         if not isinstance(action, Mapping):
             raise ContractError("INVALID_RULE_CONFIGURATION", 503)
+        rule_id = _required_text(
+            rule.get("rule_id") or f"rule-{index + 1}",
+            code="INVALID_RULE_CONFIGURATION",
+        )
+        if rule_id in seen_rule_ids:
+            raise ContractError("INVALID_RULE_CONFIGURATION", 503)
+        seen_rule_ids.add(rule_id)
+        if not _condition_matches(rule.get("condition"), body):
+            continue
         match_body = dict(body)
         match_body.update(
             {
-                "rule_id": str(rule.get("rule_id") or f"rule-{index + 1}"),
+                "rule_id": rule_id,
                 "condition": str(rule["condition"]),
                 "action": dict(action),
             }
         )
-        matched = _derive_event(
-            event,
-            event_type=EVENT_MATCHED,
-            producer="component.rule-evaluator",
-            body=match_body,
-            identity_suffix=match_body["rule_id"],
+        matched_events.append(
+            _derive_event(
+                event,
+                event_type=EVENT_MATCHED,
+                producer="component.rule-evaluator",
+                body=match_body,
+                identity_suffix=match_body["rule_id"],
+            )
         )
+    for matched in matched_events:
         _enqueue(matched)
 
 
@@ -707,28 +725,40 @@ def _persist_and_project(event: Mapping[str, Any]) -> None:
         _put_stream(projection)
 
 
-def _action_function_name(
-    action: Mapping[str, Any], field: str = "functionName"
-) -> str:
-    configured = action.get(field)
-    if not isinstance(configured, str) or not configured:
-        raise ContractError("EXTENSION_ACTION_NOT_CONFIGURED", 503)
+def _action_id(action: Mapping[str, Any], field: str = "functionName") -> str:
+    return _required_text(
+        action.get(field),
+        code="EXTENSION_ACTION_NOT_CONFIGURED",
+        maximum=128,
+    )
+
+
+def _decode_lambda_result(response: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    payload = response.get("Payload")
+    if payload is None or response.get("FunctionError"):
+        return None
+    raw = payload.read(1024 * 1024 + 1) if hasattr(payload, "read") else payload
+    if not isinstance(raw, (bytes, bytearray)) or len(raw) > 1024 * 1024:
+        return None
     try:
-        names = json.loads(os.environ.get("ACTION_FUNCTION_NAMES_JSON", "{}"))
-    except json.JSONDecodeError as exc:
-        raise ContractError("EXTENSION_ACTION_NOT_CONFIGURED", 503) from exc
-    function_name = names.get(configured) if isinstance(names, Mapping) else None
-    return _required_text(function_name, code="EXTENSION_ACTION_NOT_CONFIGURED")
+        value = json.loads(bytes(raw).decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, Mapping) else None
 
 
 def _invoke_extension_action(
     event: Mapping[str, Any], action: Mapping[str, Any]
 ) -> bool:
-    function_name = _action_function_name(action)
+    function_name = os.environ.get("ACTION_FUNCTION_NAME", "")
+    action_id = _action_id(action)
+    if not function_name:
+        raise ContractError("EXTENSION_ACTION_NOT_CONFIGURED", 503)
     payload = _canonical_json(
         {
-            "schema_version": "extension-invocation.v1",
+            "schema_version": "extension-action-invocation.v1",
             "invocation_id": _event_id(event),
+            "action_id": action_id,
             "event": dict(event),
         }
     ).encode("utf-8")
@@ -741,7 +771,12 @@ def _invoke_extension_action(
             )
         except ClientError:
             continue
-        if not response.get("FunctionError"):
+        if _decode_lambda_result(response) == {
+            "schema_version": "extension-action-result.v1",
+            "invocation_id": _event_id(event),
+            "action_id": action_id,
+            "status": "ACCEPTED",
+        }:
             return True
     return False
 
@@ -760,6 +795,7 @@ def _dispatch_match(event: Mapping[str, Any]) -> None:
             "device_id": _partition_key(event),
             "rule_id": body.get("rule_id"),
             "invocation_id": _event_id(event),
+            "action_id": _action_id(action),
             "status": "SUCCEEDED" if action_succeeded else "FAILED",
         },
     )
@@ -776,9 +812,7 @@ def _dispatch_match(event: Mapping[str, Any]) -> None:
                 "message": str(
                     action.get("message") or body.get("condition") or "Rule matched"
                 ),
-                "delivery_function_name": _action_function_name(
-                    action, "functionNameB"
-                ),
+                "notification_action_id": _action_id(action, "functionNameB"),
             },
         )
         _enqueue(notification)
@@ -889,6 +923,54 @@ def _record_workflow_outcome(wrapper: Mapping[str, Any]) -> None:
         },
     )
     _store_outcome(outcome)
+
+
+def poc_boundary(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
+    """Execute the fixed, side-effect-free PoC action/notification boundary."""
+
+    schema = event.get("schema_version")
+    if schema == "extension-action-invocation.v1":
+        if set(event) != {"schema_version", "invocation_id", "action_id", "event"}:
+            raise ContractError("INVALID_ACTION_INVOCATION")
+        matched = event.get("event")
+        if not isinstance(matched, Mapping):
+            raise ContractError("INVALID_ACTION_INVOCATION")
+        _validate_canonical_event(matched)
+        action = _event_body(matched).get("action")
+        if (
+            _event_type(matched) != EVENT_MATCHED
+            or event.get("invocation_id") != _event_id(matched)
+            or not isinstance(action, Mapping)
+            or event.get("action_id") != _action_id(action)
+        ):
+            raise ContractError("INVALID_ACTION_INVOCATION")
+        return {
+            "schema_version": "extension-action-result.v1",
+            "invocation_id": _event_id(matched),
+            "action_id": event["action_id"],
+            "status": "ACCEPTED",
+        }
+    if schema == "notification-delivery.v1":
+        if set(event) != {"schema_version", "invocation_id", "event"}:
+            raise ContractError("INVALID_NOTIFICATION_INVOCATION")
+        notification = event.get("event")
+        if not isinstance(notification, Mapping):
+            raise ContractError("INVALID_NOTIFICATION_INVOCATION")
+        _validate_canonical_event(notification)
+        body = _event_body(notification)
+        if (
+            _event_type(notification) != EVENT_NOTIFICATION_REQUESTED
+            or event.get("invocation_id") != _event_id(notification)
+            or not isinstance(body.get("message"), str)
+            or not body["message"]
+        ):
+            raise ContractError("INVALID_NOTIFICATION_INVOCATION")
+        return {
+            "schema_version": "notification-delivery-result.v1",
+            "event_id": _event_id(notification),
+            "status": "ACCEPTED",
+        }
+    raise ContractError("INVALID_POC_BOUNDARY_INVOCATION")
 
 
 def domain_consumer(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:

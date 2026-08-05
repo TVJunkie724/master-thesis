@@ -127,6 +127,14 @@ to a separate Eventing responsibility. The exact embedded outboxes are Kinesis
 plus SNS FIFO on AWS, Event Hubs plus Service Bus on Azure, and Pub/Sub on GCP.
 They are absent in the corresponding single-cloud placement.
 
+The extension-action and external-notification members above are controlled
+synthetic PoC sinks. Event `functionName`/`functionNameB` values are correlated
+logical action IDs; they do not select uploaded application code. This keeps
+the prescribed invocation and workflow meters comparable across providers.
+Only `processor.telemetry@1` uses the reviewed user-function extension
+contract in v1. Delivery to a real notification system is a disclosed future
+integration boundary, not a runtime claim of this experiment.
+
 ### GCP Device-Boundary Qualification
 
 Pub/Sub is not an MQTT device broker, and the current repository's

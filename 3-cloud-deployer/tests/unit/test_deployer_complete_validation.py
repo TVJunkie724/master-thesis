@@ -32,7 +32,7 @@ def process(request):
 """
 
 # Valid config contents
-VALID_CONFIG_EVENTS = '[{"condition": "temp > 30", "action": {"type": "lambda", "functionName": "alert-handler"}}]'
+VALID_CONFIG_EVENTS = '[{"condition": "temp > DOUBLE(30)", "action": {"type": "lambda", "functionName": "alert-handler"}}]'
 VALID_CONFIG_IOT_DEVICES = '[{"id": "device-1", "properties": ["temperature"]}]'
 VALID_PAYLOADS = '[{"iotDeviceId": "device-1", "temperature": 25}]'
 VALID_AWS_HIERARCHY = '[{"type": "entity", "id": "root", "children": [{"type": "component", "name": "sensor", "componentTypeId": "sensor-type", "properties": [{"name": "temp", "dataType": "DOUBLE"}]}]}]'
@@ -115,7 +115,7 @@ class TestDeployerCompleteValidation:
             "cheapest_path.l5",
         }
 
-    def test_v2_requires_referenced_event_actions_without_legacy_flag(self):
+    def test_v2_uses_logical_action_ids_without_uploaded_action_code(self):
         response = client.post(
             "/validate/deployer-complete",
             json={
@@ -140,14 +140,98 @@ class TestDeployerCompleteValidation:
         )
 
         assert response.status_code == 200
+        codes = {error["code"] for error in response.json()["errors"]}
+        assert "MISSING_EVENT_ACTION" not in codes
+        assert "UNEXPECTED_EVENT_ACTION" not in codes
+
+    def test_v2_rejects_legacy_uploaded_event_action_code(self):
+        response = client.post(
+            "/validate/deployer-complete",
+            json={
+                "deployer_digital_twin_name": "my-twin",
+                "config_events": VALID_CONFIG_EVENTS,
+                "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+                "payloads": VALID_PAYLOADS,
+                "processors": {"device-1": VALID_AWS_PROCESSOR},
+                "event_actions": {"alert-handler": VALID_AWS_PROCESSOR},
+                "cheapest_path": {
+                    "L1": "aws",
+                    "L2": "aws",
+                    "L3_hot": "aws",
+                    "L3_cool": "aws",
+                    "L3_archive": "aws",
+                    "L4": "none",
+                    "L5": "none",
+                },
+                "optimizer_params": {},
+                "architecture_profile_ref": _five_layer_v2_ref(),
+            },
+        )
+
         assert {
-            "code": "MISSING_EVENT_ACTION",
+            "code": "UNEXPECTED_EVENT_ACTION",
             "field": "event_action:alert-handler",
             "message": (
-                "Event action function 'alert-handler' is required by "
-                "five-layer-baseline@2"
+                "five-layer-baseline@2 treats functionName/functionNameB as "
+                "logical action IDs and uses its fixed synthetic PoC action and "
+                "notification boundaries"
             ),
         } in response.json()["errors"]
+
+    def test_v2_rejects_untyped_empty_and_duplicate_rule_sets(self):
+        base = {
+            "deployer_digital_twin_name": "my-twin",
+            "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+            "payloads": VALID_PAYLOADS,
+            "processors": {"device-1": VALID_AWS_PROCESSOR},
+            "cheapest_path": {
+                "L1": "aws",
+                "L2": "aws",
+                "L3_hot": "aws",
+                "L3_cool": "aws",
+                "L3_archive": "aws",
+                "L4": "none",
+                "L5": "none",
+            },
+            "optimizer_params": {},
+            "architecture_profile_ref": _five_layer_v2_ref(),
+        }
+
+        empty = client.post(
+            "/validate/deployer-complete",
+            json=base | {"config_events": "[]"},
+        ).json()
+        invalid = client.post(
+            "/validate/deployer-complete",
+            json=base
+            | {
+                "config_events": json.dumps(
+                    [
+                        {
+                            "rule_id": "duplicate",
+                            "condition": "temp > 30",
+                            "action": {
+                                "type": "lambda",
+                                "functionName": "first",
+                            },
+                        },
+                        {
+                            "rule_id": "duplicate",
+                            "condition": "temp > DOUBLE(30)",
+                            "action": {
+                                "type": "lambda",
+                                "functionName": "second",
+                            },
+                        },
+                    ]
+                )
+            },
+        ).json()
+
+        assert "INVALID_V2_RULE_SET" in {error["code"] for error in empty["errors"]}
+        assert {"INVALID_V2_TYPED_RULE", "INVALID_V2_RULE_ID"} <= {
+            error["code"] for error in invalid["errors"]
+        }
 
     def test_v2_uses_fixed_workflow_and_provider_command_adapter(self):
         events = json.dumps(
@@ -174,10 +258,6 @@ class TestDeployerCompleteValidation:
                 "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
                 "payloads": VALID_PAYLOADS,
                 "processors": {"device-1": VALID_AWS_PROCESSOR},
-                "event_actions": {
-                    "extension": VALID_AWS_PROCESSOR,
-                    "notification": VALID_AWS_PROCESSOR,
-                },
                 "cheapest_path": {
                     "L1": "aws",
                     "L2": "aws",
@@ -196,6 +276,7 @@ class TestDeployerCompleteValidation:
         assert "MISSING_STATE_MACHINE" not in codes
         assert "MISSING_EVENT_FEEDBACK" not in codes
         assert "MISSING_EVENT_ACTION" not in codes
+        assert "UNEXPECTED_EVENT_ACTION" not in codes
 
     def test_v2_rejects_removed_optimizer_event_flags_even_when_false(self):
         response = client.post(

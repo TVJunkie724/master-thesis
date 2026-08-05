@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from typing import Callable
 
@@ -54,6 +55,10 @@ V2_FORBIDDEN_OPTIMIZER_FIELDS = {
     "useEventChecking",
 }
 EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+V2_CONDITION_PATTERN = re.compile(r"^\s*(\S+)\s*(<=|>=|==|!=|<|>)\s*(\S+)\s*$")
+V2_TYPED_OPERAND_PATTERN = re.compile(
+    r"^(?:DOUBLE|INTEGER|STRING|BOOLEAN)\([^()\r\n]*\)$"
+)
 
 
 def validate_complete_configuration(
@@ -479,32 +484,19 @@ def _validate_event_extensions(config, l2, params, profile, errors) -> None:
 
 
 def _validate_mandatory_v2_event_extensions(config, l2, errors) -> None:
-    expected = set(_parse_action_names(config.config_events))
-    actions = config.event_actions or {}
-    for name in sorted(expected - actions.keys()):
-        _add(
-            errors,
-            "MISSING_EVENT_ACTION",
-            f"event_action:{name}",
-            f"Event action function '{name}' is required by five-layer-baseline@2",
-        )
-    for name in sorted(actions.keys() - expected):
+    del l2
+    _validate_v2_rules(config.config_events, errors)
+    for name in sorted((config.event_actions or {}).keys()):
         _add(
             errors,
             "UNEXPECTED_EVENT_ACTION",
             f"event_action:{name}",
-            f"Event action '{name}' is not referenced by config_events.json",
+            (
+                "five-layer-baseline@2 treats functionName/functionNameB as "
+                "logical action IDs and uses its fixed synthetic PoC action and "
+                "notification boundaries"
+            ),
         )
-    if l2:
-        for name in sorted(expected & actions.keys()):
-            _validate_function(
-                errors,
-                "INVALID_EVENT_ACTION",
-                f"event_action:{name}",
-                f"Event action '{name}'",
-                l2,
-                actions[name],
-            )
     if config.event_feedback:
         _add(
             errors,
@@ -525,6 +517,82 @@ def _validate_mandatory_v2_event_extensions(config, l2, errors) -> None:
                 "of an uploaded state machine"
             ),
         )
+
+
+def _validate_v2_rules(content: str | None, errors) -> None:
+    try:
+        rules = json.loads(content) if content else []
+    except json.JSONDecodeError:
+        return
+    if not isinstance(rules, list):
+        return
+    if not 1 <= len(rules) <= 100:
+        _add(
+            errors,
+            "INVALID_V2_RULE_SET",
+            "config_events",
+            "five-layer-baseline@2 requires between 1 and 100 typed rules",
+        )
+        return
+    seen_rule_ids = set()
+    for index, rule in enumerate(rules):
+        if not isinstance(rule, dict):
+            continue
+        condition = rule.get("condition")
+        match = (
+            V2_CONDITION_PATTERN.fullmatch(condition)
+            if isinstance(condition, str)
+            else None
+        )
+        operands = (match.group(1), match.group(3)) if match else ()
+        typed_operands = [
+            operand
+            for operand in operands
+            if V2_TYPED_OPERAND_PATTERN.fullmatch(operand)
+        ]
+        if (
+            not match
+            or not typed_operands
+            or not all(_valid_v2_typed_operand(operand) for operand in typed_operands)
+        ):
+            _add(
+                errors,
+                "INVALID_V2_TYPED_RULE",
+                f"config_events[{index}].condition",
+                (
+                    "five-layer-baseline@2 conditions require the bounded "
+                    "typed operand syntax DOUBLE(...), INTEGER(...), STRING(...), "
+                    "or BOOLEAN(...)"
+                ),
+            )
+        rule_id = rule.get("rule_id")
+        if rule_id is None:
+            continue
+        if not isinstance(rule_id, str) or not rule_id or rule_id in seen_rule_ids:
+            _add(
+                errors,
+                "INVALID_V2_RULE_ID",
+                f"config_events[{index}].rule_id",
+                "five-layer-baseline@2 explicit rule IDs must be non-empty and unique",
+            )
+        else:
+            seen_rule_ids.add(rule_id)
+
+
+def _valid_v2_typed_operand(token: str) -> bool:
+    kind, raw = token.split("(", 1)
+    raw = raw[:-1]
+    try:
+        if kind == "DOUBLE":
+            return math.isfinite(float(raw))
+        if kind == "INTEGER":
+            int(raw)
+            return True
+    except ValueError:
+        return False
+    if kind == "BOOLEAN":
+        return raw.lower() in {"true", "false"}
+    return kind == "STRING"
 
 
 def _parse_action_names(content: str | None) -> list[str]:

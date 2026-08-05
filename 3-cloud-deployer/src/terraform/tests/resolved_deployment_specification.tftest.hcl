@@ -70,6 +70,15 @@ run "five_layer_v2_single_cloud_aws_binds_only_reviewed_bundle" {
   }
 
   assert {
+    condition = (
+      length(aws_lambda_function.aws_v2_extension_action) == 1 &&
+      length(aws_sfn_state_machine.aws_aws_step_functions_standard) == 1 &&
+      contains(keys(aws_lambda_function.aws_aws_lambda[0].environment[0].variables), "ACTION_FUNCTION_NAME")
+    )
+    error_message = "AWS L2 must bind the fixed synthetic PoC action and four-state notification workflow."
+  }
+
+  assert {
     condition     = length(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge) == 0
     error_message = "Single-cloud AWS must omit remote-only Kinesis streams."
   }
