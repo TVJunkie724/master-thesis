@@ -233,8 +233,10 @@ resource "azurerm_cosmosdb_sql_container" "azure_azure_cosmos_db_nosql_raw_and_r
     indexing_mode = "consistent"
     included_path { path = "/device_id/?" }
     included_path { path = "/stored_at/?" }
+    included_path { path = "/bucket_start/?" }
     included_path { path = "/kind/?" }
-    excluded_path { path = "/payload/*" }
+    included_path { path = "/metric/?" }
+    excluded_path { path = "/*" }
   }
 }
 
@@ -460,6 +462,8 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
     V2_L2_PROVIDER                               = var.layer_2_provider
     V2_HOT_PROVIDER                              = var.layer_3_hot_provider
     V2_TWIN_PROVIDER                             = var.layer_4_provider
+    V2_ADT_ENDPOINT                              = local.azure_v2_l4_enabled ? "https://${azurerm_digital_twins_instance.azure_azure_digital_twins[0].host_name}" : ""
+    V2_ADT_MODEL_ID                              = "dtmi:twin2multicloud:poc:TwinNode;1"
     V2_COSMOS_ENDPOINT                           = try(azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint, "")
     V2_COSMOS_DATABASE                           = try(azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
     V2_COSMOS_CONTAINER                          = try(azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
@@ -526,6 +530,8 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
     V2_L2_PROVIDER                          = var.layer_2_provider
     V2_HOT_PROVIDER                         = var.layer_3_hot_provider
     V2_TWIN_PROVIDER                        = var.layer_4_provider
+    V2_ADT_ENDPOINT                         = local.azure_v2_l4_enabled ? "https://${azurerm_digital_twins_instance.azure_azure_digital_twins[0].host_name}" : ""
+    V2_ADT_MODEL_ID                         = "dtmi:twin2multicloud:poc:TwinNode;1"
     V2_COSMOS_ENDPOINT                      = try(azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint, "")
     V2_COSMOS_DATABASE                      = try(azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
     V2_COSMOS_CONTAINER                     = try(azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")

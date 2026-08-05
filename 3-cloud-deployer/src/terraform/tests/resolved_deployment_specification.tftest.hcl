@@ -166,6 +166,22 @@ run "five_layer_v2_single_cloud_azure_omits_remote_event_hubs" {
   }
 
   assert {
+    condition = (
+      toset([for path in azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].indexing_policy[0].included_path : path.path]) == toset(["/device_id/?", "/stored_at/?", "/bucket_start/?", "/kind/?", "/metric/?"]) &&
+      azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].indexing_policy[0].excluded_path[0].path == "/*"
+    )
+    error_message = "Azure L3 hot must opt in only the partition and bounded raw/rollup query paths."
+  }
+
+  assert {
+    condition = (
+      contains(keys(azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].app_settings), "V2_ADT_ENDPOINT") &&
+      azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].app_settings.V2_ADT_MODEL_ID == "dtmi:twin2multicloud:poc:TwinNode;1"
+    )
+    error_message = "Azure event and processing runtimes must bind the selected local ADT projection target."
+  }
+
+  assert {
     condition     = length(azurerm_storage_account.main) == 1 && length(azurerm_storage_container.azure_azure_blob_cool) == 1 && length(azurerm_storage_management_policy.azure_azure_blob_archive) == 1
     error_message = "Azure tiering must reuse one provider account and bind its private cool/archive lifecycle."
   }

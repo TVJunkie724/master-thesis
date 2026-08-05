@@ -93,6 +93,10 @@ def five_layer_v2_seed(config) -> dict[str, list[dict[str, Any]]]:
             {"@type": "Property", "name": "provider", "schema": "string"},
             {"@type": "Property", "name": "status", "schema": "string"},
             {"@type": "Property", "name": "lastUpdate", "schema": "dateTime"},
+            {"@type": "Property", "name": "sourceSequence", "schema": "string"},
+            {"@type": "Property", "name": "lastEventId", "schema": "string"},
+            {"@type": "Property", "name": "metric", "schema": "string"},
+            {"@type": "Property", "name": "value", "schema": "double"},
             {
                 "@type": "Relationship",
                 "name": "contains",

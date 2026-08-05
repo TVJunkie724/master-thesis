@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
 import json
+import math
 from typing import Any, Mapping
 import uuid
 
@@ -17,6 +18,7 @@ MAX_POINTS = 1000
 MAX_RAW_RANGE = timedelta(hours=24)
 MAX_AGGREGATE_RANGE = timedelta(days=30)
 CURSOR_MAX_AGE = timedelta(minutes=15)
+MAX_JSON_SAFE_INTEGER = 9_007_199_254_740_991
 QUERY_PARAMETER_FIELDS = frozenset(
     {"device_id", "metric", "from", "to", "bucket_seconds", "limit", "cursor"}
 )
@@ -78,6 +80,20 @@ def required_text(value: Any, *, code: str, maximum: int = 256) -> str:
     return value
 
 
+def finite_number(value: Any) -> int | float:
+    """Return one JSON-safe finite telemetry number and reject booleans."""
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ContractError("INVALID_NUMERIC_VALUE")
+    if isinstance(value, int):
+        if abs(value) > MAX_JSON_SAFE_INTEGER:
+            raise ContractError("INVALID_NUMERIC_VALUE")
+        return value
+    if not math.isfinite(value):
+        raise ContractError("INVALID_NUMERIC_VALUE")
+    return value
+
+
 def parse_time(value: Any) -> datetime:
     if not isinstance(value, str):
         raise ContractError("INVALID_TIMESTAMP")
@@ -119,6 +135,254 @@ def validate_canonical_event(event: Mapping[str, Any]) -> dict[str, Any]:
     if len(canonical_json(event).encode("utf-8")) > MAX_EVENT_BYTES:
         raise ContractError("EVENT_TOO_LARGE")
     return dict(event)
+
+
+def event_body(event: Mapping[str, Any]) -> Mapping[str, Any]:
+    body = event.get("payload")
+    return body if isinstance(body, Mapping) else {}
+
+
+def event_id(event: Mapping[str, Any]) -> str:
+    return required_text(event.get("event_id"), code="INVALID_EVENT_ID")
+
+
+def build_ingress_event(
+    payload: Mapping[str, Any],
+    *,
+    deployment_id: str,
+    default_metric: str,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Adapt the existing provider simulator payload to the canonical v2 edge."""
+
+    if not isinstance(payload, Mapping):
+        raise ContractError("INVALID_TELEMETRY_PAYLOAD")
+    current = now or datetime.now(timezone.utc)
+    device_id = required_text(
+        payload.get("device_id") or payload.get("iotDeviceId"),
+        code="INVALID_DEVICE_ID",
+    )
+    metric = required_text(
+        payload.get("metric") or default_metric,
+        code="INVALID_METRIC",
+    )
+    raw_value = payload.get("value") if "value" in payload else payload.get(metric)
+    value = finite_number(raw_value)
+    event_time_value = (
+        payload.get("event_time") or payload.get("time") or iso_time(current)
+    )
+    event_time = iso_time(parse_time(event_time_value))
+    identity_source = {
+        "deployment_id": deployment_id,
+        "device_id": device_id,
+        "metric": metric,
+        "event_time": event_time,
+        "value": value,
+        "trace_id": payload.get("trace_id"),
+    }
+    generated_id = str(uuid.uuid5(uuid.NAMESPACE_URL, canonical_json(identity_source)))
+    source_event_id = required_text(
+        payload.get("event_id") or generated_id,
+        code="INVALID_EVENT_ID",
+    )
+    source_sequence = payload.get("source_sequence")
+    if source_sequence is None:
+        source_sequence = source_event_id
+    elif isinstance(source_sequence, bool) or not isinstance(
+        source_sequence, (str, int)
+    ):
+        raise ContractError("INVALID_SOURCE_SEQUENCE")
+    twin_id = required_text(
+        payload.get("twin_id") or device_id,
+        code="INVALID_TWIN_ID",
+    )
+    event = {
+        "schema_version": "canonical-domain-event.v1",
+        "event_id": source_event_id,
+        "event_type": EVENT_TELEMETRY_RECEIVED,
+        "deployment_id": required_text(
+            deployment_id,
+            code="INVALID_DEPLOYMENT_ID",
+        ),
+        "source_id": device_id,
+        "source_sequence": str(source_sequence),
+        "occurred_at": event_time,
+        "correlation_id": str(payload.get("correlation_id") or source_event_id),
+        "causation_id": source_event_id,
+        "producer": "component.device-ingress",
+        "payload": {
+            "device_id": device_id,
+            "twin_id": twin_id,
+            "metric": metric,
+            "value": value,
+            "unit": str(payload.get("unit") or "unspecified"),
+            "event_time": event_time,
+            "projection_candidate": payload.get("projection_candidate") is True,
+        },
+    }
+    return validate_canonical_event(event)
+
+
+def build_processed_event(
+    source: Mapping[str, Any], extension_output: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Merge one validated processor-extension result into telemetry."""
+
+    validate_canonical_event(source)
+    if source.get("event_type") != EVENT_TELEMETRY_RECEIVED:
+        raise ContractError("UNEXPECTED_PROCESSOR_EVENT")
+    if not isinstance(extension_output, Mapping):
+        raise ContractError("INVALID_PROCESSOR_RESULT")
+    quality = extension_output.get("quality")
+    if quality not in {"accepted", "suspect"} or set(extension_output) != {
+        "value",
+        "quality",
+    }:
+        raise ContractError("INVALID_PROCESSOR_RESULT")
+    payload = dict(event_body(source))
+    payload["value"] = finite_number(extension_output.get("value"))
+    payload["quality"] = quality
+    return derive_event(
+        source,
+        event_type=EVENT_TELEMETRY_PROCESSED,
+        producer="component.telemetry-processor",
+        payload=payload,
+    )
+
+
+def raw_document(
+    event: Mapping[str, Any],
+    *,
+    stored_at: datetime,
+    hot_boundary_days: int,
+    source_expiry_grace_hours: int = 48,
+) -> dict[str, Any]:
+    """Create the canonical Cosmos raw item for one processed event."""
+
+    validate_canonical_event(event)
+    if event.get("event_type") != EVENT_TELEMETRY_PROCESSED:
+        raise ContractError("UNEXPECTED_HOT_STORAGE_EVENT")
+    if hot_boundary_days < 1 or source_expiry_grace_hours < 0:
+        raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503)
+    body = event_body(event)
+    device_id = partition_key(event)
+    metric = required_text(body.get("metric"), code="INVALID_METRIC")
+    value = finite_number(body.get("value"))
+    event_time = iso_time(parse_time(body.get("event_time") or event["occurred_at"]))
+    stored_at_text = iso_time(stored_at)
+    window = stored_at.replace(
+        minute=stored_at.minute - stored_at.minute % 5,
+        second=0,
+        microsecond=0,
+    )
+    bucket = stored_at.replace(minute=0, second=0, microsecond=0)
+    payload_json = canonical_json(dict(event))
+    return {
+        "id": f"raw-{event_id(event)}",
+        "kind": "raw",
+        "device_id": device_id,
+        "event_id": event_id(event),
+        "metric": metric,
+        "value": value,
+        "event_time": event_time,
+        "stored_at": stored_at_text,
+        "storage_window": iso_time(window),
+        "bucket_start": iso_time(bucket),
+        "payload_digest": hashlib.sha256(payload_json.encode("utf-8")).hexdigest(),
+        "payload": dict(event),
+        "ttl": hot_boundary_days * 86400 + source_expiry_grace_hours * 3600,
+    }
+
+
+def rollup_id(raw: Mapping[str, Any]) -> str:
+    identity = canonical_json(
+        {
+            "device_id": raw.get("device_id"),
+            "metric": raw.get("metric"),
+            "bucket_start": raw.get("bucket_start"),
+        }
+    )
+    return f"rollup-{hashlib.sha256(identity.encode('utf-8')).hexdigest()}"
+
+
+def next_rollup_document(
+    raw: Mapping[str, Any], current: Mapping[str, Any] | None
+) -> dict[str, Any]:
+    """Return the compare-and-swap successor for one hourly rollup."""
+
+    value = finite_number(raw.get("value"))
+    expected_id = rollup_id(raw)
+    if current is None:
+        count = 0
+        total: int | float = 0
+        minimum = value
+        maximum = value
+        version = 0
+    else:
+        if (
+            current.get("id") != expected_id
+            or current.get("kind") != "hourly_rollup"
+            or current.get("device_id") != raw.get("device_id")
+            or current.get("metric") != raw.get("metric")
+            or current.get("bucket_start") != raw.get("bucket_start")
+        ):
+            raise ContractError("INVALID_ROLLUP_STATE", 503)
+        count = current.get("count")
+        version = current.get("version")
+        if (
+            isinstance(count, bool)
+            or not isinstance(count, int)
+            or count < 0
+            or count >= MAX_JSON_SAFE_INTEGER
+            or isinstance(version, bool)
+            or not isinstance(version, int)
+            or version < 1
+        ):
+            raise ContractError("INVALID_ROLLUP_STATE", 503)
+        total = finite_number(current.get("sum"))
+        minimum = finite_number(current.get("min"))
+        maximum = finite_number(current.get("max"))
+    next_total = finite_number(total + value)
+    return {
+        "id": expected_id,
+        "kind": "hourly_rollup",
+        "device_id": raw["device_id"],
+        "metric": raw["metric"],
+        "bucket_start": raw["bucket_start"],
+        "count": count + 1,
+        "sum": next_total,
+        "min": min(minimum, value),
+        "max": max(maximum, value),
+        "version": version + 1,
+        "ttl": raw["ttl"],
+    }
+
+
+def build_twin_projection(event: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Create the sparse L3-to-L4 event only for an explicit candidate."""
+
+    validate_canonical_event(event)
+    if event.get("event_type") != EVENT_TELEMETRY_PROCESSED:
+        raise ContractError("UNEXPECTED_TWIN_PROJECTION_SOURCE")
+    body = event_body(event)
+    if body.get("projection_candidate") is not True:
+        return None
+    metric = required_text(body.get("metric"), code="INVALID_METRIC")
+    value = finite_number(body.get("value"))
+    return derive_event(
+        event,
+        event_type=EVENT_TWIN_STATE_UPSERTED,
+        producer="component.historical-persistence",
+        payload={
+            "twin_id": required_text(body.get("twin_id"), code="INVALID_TWIN_ID"),
+            "source_id": partition_key(event),
+            "source_sequence": str(event.get("source_sequence")),
+            "observed_at": iso_time(
+                parse_time(body.get("event_time") or event.get("occurred_at"))
+            ),
+            "state_patch": {metric: value},
+        },
+    )
 
 
 def decode_message_body(body: bytes | str) -> dict[str, Any]:
@@ -163,7 +427,7 @@ def derive_event(
         "event_type": event_type,
         "deployment_id": source["deployment_id"],
         "source_id": source["source_id"],
-        "source_sequence": source_id,
+        "source_sequence": source["source_sequence"],
         "occurred_at": source["occurred_at"],
         "correlation_id": source["correlation_id"],
         "causation_id": source_id,
@@ -320,21 +584,28 @@ def normalize_history_points(
         for item in documents:
             points.append(
                 {
-                    "stored_at": item.get("stored_at"),
-                    "event_time": item.get("event_time"),
-                    "value": item.get("value"),
+                    "stored_at": iso_time(parse_time(item.get("stored_at"))),
+                    "event_time": iso_time(parse_time(item.get("event_time"))),
+                    "value": finite_number(item.get("value")),
                 }
             )
         return points
     for item in documents:
         count = item.get("count")
-        total = item.get("sum")
-        average = total / count if isinstance(count, (int, float)) and count else 0
+        if (
+            isinstance(count, bool)
+            or not isinstance(count, int)
+            or count < 1
+            or count > MAX_JSON_SAFE_INTEGER
+        ):
+            raise ContractError("INVALID_HISTORY_RECORD", 503)
+        total = finite_number(item.get("sum"))
+        average = finite_number(total / count)
         points.append(
             {
-                "bucket_start": item.get("bucket_start"),
-                "min": item.get("min"),
-                "max": item.get("max"),
+                "bucket_start": iso_time(parse_time(item.get("bucket_start"))),
+                "min": finite_number(item.get("min")),
+                "max": finite_number(item.get("max")),
                 "avg": average,
                 "count": count,
             }
@@ -350,16 +621,25 @@ __all__ = [
     "MAX_EVENT_BYTES",
     "MAX_POINTS",
     "PROFILE",
+    "build_ingress_event",
+    "build_processed_event",
+    "build_twin_projection",
     "canonical_json",
     "cosmos_raw_history_statement",
     "decode_cursor",
     "decode_message_body",
     "derive_event",
     "encode_cursor",
+    "event_body",
+    "event_id",
+    "finite_number",
     "iso_time",
+    "next_rollup_document",
     "normalize_history_points",
     "parse_raw_history_query",
     "partition_key",
+    "raw_document",
     "raw_history_query_digest",
+    "rollup_id",
     "validate_canonical_event",
 ]

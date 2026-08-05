@@ -3,9 +3,13 @@
 from datetime import datetime, timedelta, timezone
 import importlib.util
 from pathlib import Path
+import sys
+from unittest.mock import MagicMock
 import uuid
 
 import pytest
+from azure.core.exceptions import ResourceNotFoundError
+from azure.cosmos.exceptions import CosmosBatchOperationError
 
 
 CORE_PATH = (
@@ -21,6 +25,14 @@ SPEC = importlib.util.spec_from_file_location("azure_five_layer_v2_core", CORE_P
 assert SPEC and SPEC.loader
 core = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(core)
+sys.modules["core"] = core
+FUNCTION_APP_PATH = CORE_PATH.with_name("function_app.py")
+FUNCTION_SPEC = importlib.util.spec_from_file_location(
+    "azure_five_layer_v2_function_app", FUNCTION_APP_PATH
+)
+assert FUNCTION_SPEC and FUNCTION_SPEC.loader
+function_app = importlib.util.module_from_spec(FUNCTION_SPEC)
+FUNCTION_SPEC.loader.exec_module(function_app)
 
 
 def _event(**overrides):
@@ -80,6 +92,58 @@ def test_derived_event_is_deterministic_and_preserves_correlation():
     assert first == second
     assert first["causation_id"] == source["event_id"]
     assert first["correlation_id"] == source["correlation_id"]
+
+
+def test_existing_simulator_payload_is_adapted_to_canonical_ingress():
+    now = datetime(2026, 8, 4, 12, tzinfo=timezone.utc)
+    payload = {
+        "iotDeviceId": "temperature-sensor-1",
+        "time": "2026-08-04T11:59:59Z",
+        "temperature": 28,
+        "trace_id": "TRACE-12345678",
+    }
+
+    event = core.build_ingress_event(
+        payload,
+        deployment_id="deployment",
+        default_metric="temperature",
+        now=now,
+    )
+
+    assert event["event_type"] == "telemetry.received.v1"
+    assert event["source_sequence"] == event["event_id"]
+    assert event["payload"] == {
+        "device_id": "temperature-sensor-1",
+        "twin_id": "temperature-sensor-1",
+        "metric": "temperature",
+        "value": 28,
+        "unit": "unspecified",
+        "event_time": "2026-08-04T11:59:59Z",
+        "projection_candidate": False,
+    }
+
+
+def test_processed_event_requires_exact_extension_result():
+    source = core.build_ingress_event(
+        {
+            "iotDeviceId": "sensor-1",
+            "time": "2026-08-04T11:59:59Z",
+            "temperature": 2,
+        },
+        deployment_id="deployment",
+        default_metric="temperature",
+    )
+
+    processed = core.build_processed_event(
+        source,
+        {"value": 4, "quality": "accepted"},
+    )
+
+    assert processed["event_type"] == "telemetry.processed.v1"
+    assert processed["source_sequence"] == source["source_sequence"]
+    assert processed["payload"]["value"] == 4
+    with pytest.raises(core.ContractError, match="INVALID_PROCESSOR_RESULT"):
+        core.build_processed_event(source, {"value": 4})
 
 
 def test_envelope_field_set_matches_aws_v2_runtime():
@@ -215,3 +279,197 @@ def test_cosmos_queries_are_partition_scoped_and_points_are_typed():
             "count": 2,
         }
     ]
+
+
+def _processed_event(*, projection_candidate=True):
+    source = core.build_ingress_event(
+        {
+            "iotDeviceId": "sensor-1",
+            "time": "2026-08-04T11:59:59Z",
+            "temperature": 2,
+            "projection_candidate": projection_candidate,
+        },
+        deployment_id="deployment",
+        default_metric="temperature",
+    )
+    return core.build_processed_event(
+        source,
+        {"value": 4, "quality": "accepted"},
+    )
+
+
+def test_cosmos_raw_and_rollup_documents_are_finite_and_deterministic():
+    event = _processed_event()
+    stored_at = datetime(2026, 8, 4, 12, 3, 4, tzinfo=timezone.utc)
+
+    raw = core.raw_document(
+        event,
+        stored_at=stored_at,
+        hot_boundary_days=30,
+    )
+    first = core.next_rollup_document(raw, None)
+    second = core.next_rollup_document(raw | {"value": 3}, first)
+
+    assert raw["storage_window"] == "2026-08-04T12:00:00Z"
+    assert raw["bucket_start"] == "2026-08-04T12:00:00Z"
+    assert raw["ttl"] == 32 * 86400
+    assert first["count"] == 1
+    assert second["count"] == 2
+    assert second["sum"] == 7
+    assert second["min"] == 3
+    assert second["max"] == 4
+    assert second["version"] == 2
+
+
+def test_twin_projection_is_sparse_and_explicit():
+    assert (
+        core.build_twin_projection(_processed_event(projection_candidate=False)) is None
+    )
+
+    projection = core.build_twin_projection(_processed_event())
+
+    assert projection is not None
+    assert projection["event_type"] == "twin.state.upserted"
+    assert projection["payload"]["state_patch"] == {"temperature": 4}
+
+
+def test_cosmos_writer_executes_one_partition_transaction(monkeypatch):
+    container = MagicMock()
+    monkeypatch.setattr(function_app, "_COSMOS_CONTAINER", container)
+    monkeypatch.setattr(
+        function_app,
+        "_read_item_or_none",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setenv("V2_HOT_BOUNDARY_DAYS", "30")
+
+    function_app._write_raw_and_rollup(
+        _processed_event(),
+        stored_at=datetime(2026, 8, 4, 12, tzinfo=timezone.utc),
+    )
+
+    call = container.execute_item_batch.call_args
+    assert call.kwargs["partition_key"] == "sensor-1"
+    operations = call.kwargs["batch_operations"]
+    assert [operation[0] for operation in operations] == ["create", "create"]
+    assert operations[0][1][0]["kind"] == "raw"
+    assert operations[1][1][0]["kind"] == "hourly_rollup"
+
+
+def test_cosmos_writer_reuses_identical_raw_event_and_rejects_conflict(monkeypatch):
+    event = _processed_event()
+    raw = core.raw_document(
+        event,
+        stored_at=datetime(2026, 8, 4, 12, tzinfo=timezone.utc),
+        hot_boundary_days=30,
+    )
+    container = MagicMock()
+    monkeypatch.setattr(function_app, "_COSMOS_CONTAINER", container)
+    monkeypatch.setenv("V2_HOT_BOUNDARY_DAYS", "30")
+    monkeypatch.setattr(
+        function_app,
+        "_read_item_or_none",
+        lambda *_args, **_kwargs: {"payload_digest": raw["payload_digest"]},
+    )
+
+    function_app._write_raw_and_rollup(
+        event,
+        stored_at=datetime(2026, 8, 4, 12, tzinfo=timezone.utc),
+    )
+    container.execute_item_batch.assert_not_called()
+
+    monkeypatch.setattr(
+        function_app,
+        "_read_item_or_none",
+        lambda *_args, **_kwargs: {"payload_digest": "different"},
+    )
+    with pytest.raises(core.ContractError, match="IDEMPOTENCY_CONFLICT"):
+        function_app._write_raw_and_rollup(
+            event,
+            stored_at=datetime(2026, 8, 4, 12, tzinfo=timezone.utc),
+        )
+
+
+def test_cosmos_writer_retries_etag_conflict_with_fresh_rollup(monkeypatch):
+    event = _processed_event()
+    raw = core.raw_document(
+        event,
+        stored_at=datetime(2026, 8, 4, 12, tzinfo=timezone.utc),
+        hot_boundary_days=30,
+    )
+    old_rollup = core.next_rollup_document(raw, None) | {"_etag": "etag-1"}
+    fresh_rollup = core.next_rollup_document(raw | {"value": 1}, old_rollup) | {
+        "_etag": "etag-2"
+    }
+    container = MagicMock()
+    container.execute_item_batch.side_effect = [
+        CosmosBatchOperationError(
+            headers={},
+            status_code=412,
+            operation_responses=[{"statusCode": 412}],
+        ),
+        None,
+    ]
+    reads = iter([None, old_rollup, None, fresh_rollup])
+    monkeypatch.setattr(function_app, "_COSMOS_CONTAINER", container)
+    monkeypatch.setattr(
+        function_app,
+        "_read_item_or_none",
+        lambda *_args, **_kwargs: next(reads),
+    )
+    monkeypatch.setattr(function_app.time, "sleep", lambda _delay: None)
+    monkeypatch.setenv("V2_HOT_BOUNDARY_DAYS", "30")
+
+    function_app._write_raw_and_rollup(
+        event,
+        stored_at=datetime(2026, 8, 4, 12, tzinfo=timezone.utc),
+    )
+
+    assert container.execute_item_batch.call_count == 2
+    replacement = container.execute_item_batch.call_args.kwargs["batch_operations"][1]
+    assert replacement[0] == "replace"
+    assert replacement[2] == {"if_match_etag": "etag-2"}
+
+
+def test_adt_projection_is_idempotent_and_updates_seed_properties(monkeypatch):
+    projection = core.build_twin_projection(_processed_event())
+    assert projection is not None
+    client = MagicMock()
+    client.get_digital_twin.return_value = {"lastEventId": "older"}
+    monkeypatch.setattr(function_app, "_ADT_CLIENT", client)
+
+    function_app._materialize_twin_projection(projection)
+
+    paths = {item["path"] for item in client.update_digital_twin.call_args.args[1]}
+    assert paths == {
+        "/status",
+        "/lastUpdate",
+        "/sourceSequence",
+        "/lastEventId",
+        "/metric",
+        "/value",
+    }
+    client.reset_mock()
+    client.get_digital_twin.return_value = {"lastEventId": projection["event_id"]}
+
+    function_app._materialize_twin_projection(projection)
+
+    client.update_digital_twin.assert_not_called()
+
+
+def test_adt_projection_creates_a_missing_poc_twin(monkeypatch):
+    projection = core.build_twin_projection(_processed_event())
+    assert projection is not None
+    client = MagicMock()
+    client.get_digital_twin.side_effect = ResourceNotFoundError("missing")
+    monkeypatch.setattr(function_app, "_ADT_CLIENT", client)
+    monkeypatch.setenv("V2_HOT_PROVIDER", "gcp")
+
+    function_app._materialize_twin_projection(projection)
+
+    twin_id, twin = client.upsert_digital_twin.call_args.args
+    assert twin_id == "sensor-1"
+    assert twin["$metadata"]["$model"] == "dtmi:twin2multicloud:poc:TwinNode;1"
+    assert twin["provider"] == "gcp"
+    assert twin["metric"] == "temperature"
+    assert twin["value"] == 4

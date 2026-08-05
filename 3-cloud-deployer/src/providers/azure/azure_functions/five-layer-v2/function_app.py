@@ -6,13 +6,21 @@ function-to-function bridge endpoint is exposed by this package.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import logging
 import os
+import time
 from typing import Any, Iterable, Mapping
 import uuid
 
 import azure.functions as func
+from azure.core.exceptions import ResourceNotFoundError
 from azure.cosmos import CosmosClient
+from azure.cosmos.exceptions import (
+    CosmosBatchOperationError,
+    CosmosResourceNotFoundError,
+)
+from azure.digitaltwins.core import DigitalTwinsClient
 from azure.identity import DefaultAzureCredential
 
 from core import (
@@ -22,10 +30,17 @@ from core import (
     decode_cursor,
     decode_message_body,
     encode_cursor,
+    event_body,
+    event_id,
+    finite_number,
     iso_time,
+    next_rollup_document,
     normalize_history_points,
+    parse_time,
     parse_raw_history_query,
+    raw_document,
     raw_history_query_digest,
+    rollup_id,
     validate_canonical_event,
 )
 
@@ -44,6 +59,7 @@ RAW_HISTORY_ENABLED = (
     os.getenv("V2_RAW_HISTORY_ENABLED", "false").strip().lower() == "true"
 )
 _COSMOS_CONTAINER: Any | None = None
+_ADT_CLIENT: Any | None = None
 
 
 def _event_hub_events(messages: Iterable[func.EventHubEvent]):
@@ -89,6 +105,154 @@ def _cosmos_container():
         container
     )
     return _COSMOS_CONTAINER
+
+
+def _read_item_or_none(container, item_id: str, partition_key: str):
+    try:
+        return container.read_item(item=item_id, partition_key=partition_key)
+    except CosmosResourceNotFoundError:
+        return None
+
+
+def _batch_statuses(exc: CosmosBatchOperationError) -> set[int]:
+    responses = getattr(exc, "operation_responses", None) or []
+    statuses = {
+        int(response.get("statusCode"))
+        for response in responses
+        if isinstance(response, Mapping) and isinstance(response.get("statusCode"), int)
+    }
+    if isinstance(getattr(exc, "status_code", None), int):
+        statuses.add(exc.status_code)
+    return statuses
+
+
+def _write_raw_and_rollup(
+    event: Mapping[str, Any], *, stored_at=None, attempts: int = 3
+) -> None:
+    """Atomically create raw telemetry and CAS-update its hourly rollup."""
+
+    if attempts < 1:
+        raise ValueError("attempts must be positive")
+    container = _cosmos_container()
+    current_time = stored_at or datetime.now(timezone.utc)
+    try:
+        hot_days = int(os.getenv("V2_HOT_BOUNDARY_DAYS", "0"))
+    except ValueError as exc:
+        raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503) from exc
+    raw = raw_document(
+        event,
+        stored_at=current_time,
+        hot_boundary_days=hot_days,
+    )
+    device_id = str(raw["device_id"])
+    for attempt in range(attempts):
+        existing_raw = _read_item_or_none(container, str(raw["id"]), device_id)
+        if existing_raw is not None:
+            if existing_raw.get("payload_digest") == raw["payload_digest"]:
+                return
+            raise ContractError("IDEMPOTENCY_CONFLICT", 409)
+
+        current_rollup = _read_item_or_none(container, rollup_id(raw), device_id)
+        rollup = next_rollup_document(raw, current_rollup)
+        if current_rollup is not None and not current_rollup.get("_etag"):
+            raise ContractError("INVALID_ROLLUP_STATE", 503)
+        rollup_operation = (
+            ("create", (rollup,), {})
+            if current_rollup is None
+            else (
+                "replace",
+                (str(rollup["id"]), rollup),
+                {"if_match_etag": current_rollup.get("_etag")},
+            )
+        )
+        try:
+            container.execute_item_batch(
+                batch_operations=[("create", (raw,), {}), rollup_operation],
+                partition_key=device_id,
+            )
+            return
+        except CosmosBatchOperationError as exc:
+            statuses = _batch_statuses(exc)
+            if not statuses.intersection({409, 412, 424}):
+                raise
+            if attempt + 1 < attempts:
+                time.sleep(0.01 * (attempt + 1))
+    raise ContractError("ROLLUP_CONFLICT_EXHAUSTED", 503)
+
+
+def _adt_client():
+    global _ADT_CLIENT
+    if _ADT_CLIENT is not None:
+        return _ADT_CLIENT
+    endpoint = os.getenv("V2_ADT_ENDPOINT", "")
+    if not endpoint:
+        raise ContractError("TWIN_PROJECTION_TARGET_NOT_CONFIGURED", 503)
+    _ADT_CLIENT = DigitalTwinsClient(endpoint, DefaultAzureCredential())
+    return _ADT_CLIENT
+
+
+def _materialize_twin_projection(event: Mapping[str, Any]) -> None:
+    """Idempotently project the selected numeric state into Azure Digital Twins."""
+
+    validated = validate_canonical_event(event)
+    if validated["event_type"] != "twin.state.upserted":
+        raise ContractError("UNEXPECTED_TWIN_PROJECTION")
+    body = event_body(validated)
+    twin_id = body.get("twin_id")
+    state_patch = body.get("state_patch")
+    if (
+        not isinstance(twin_id, str)
+        or not twin_id
+        or not isinstance(state_patch, Mapping)
+    ):
+        raise ContractError("INVALID_TWIN_STATE_PATCH")
+    if len(state_patch) != 1:
+        raise ContractError("INVALID_TWIN_STATE_PATCH")
+    metric, value = next(iter(state_patch.items()))
+    if not isinstance(metric, str) or not metric:
+        raise ContractError("INVALID_TWIN_STATE_PATCH")
+    value = finite_number(value)
+    observed_at = iso_time(parse_time(body.get("observed_at")))
+    source_sequence = body.get("source_sequence")
+    if not isinstance(source_sequence, str) or not source_sequence:
+        raise ContractError("INVALID_TWIN_STATE_PATCH")
+    client = _adt_client()
+    try:
+        current = client.get_digital_twin(twin_id)
+    except ResourceNotFoundError:
+        model_id = os.getenv("V2_ADT_MODEL_ID", "dtmi:twin2multicloud:poc:TwinNode;1")
+        client.upsert_digital_twin(
+            twin_id,
+            {
+                "$metadata": {"$model": model_id},
+                "nodeId": str(body.get("source_id") or twin_id),
+                "provider": os.getenv("V2_HOT_PROVIDER", "azure"),
+                "status": "active",
+                "lastUpdate": observed_at,
+                "sourceSequence": source_sequence,
+                "lastEventId": event_id(validated),
+                "metric": metric,
+                "value": value,
+            },
+        )
+        return
+    if current.get("lastEventId") == event_id(validated):
+        return
+    client.update_digital_twin(
+        twin_id,
+        [
+            {"op": "add", "path": "/status", "value": "active"},
+            {
+                "op": "add",
+                "path": "/lastUpdate",
+                "value": observed_at,
+            },
+            {"op": "add", "path": "/sourceSequence", "value": source_sequence},
+            {"op": "add", "path": "/lastEventId", "value": event_id(validated)},
+            {"op": "add", "path": "/metric", "value": metric},
+            {"op": "add", "path": "/value", "value": value},
+        ],
+    )
 
 
 def _read_history(params: Mapping[str, Any]) -> dict[str, Any]:
