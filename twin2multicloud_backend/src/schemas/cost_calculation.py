@@ -11,7 +11,7 @@ from src.schemas.optimizer_calculation import (
 from src.schemas.pricing_catalog import PricingCatalogContext
 from src.schemas.resolved_deployment_specification import (
     DeploymentCompatibilityStatus,
-    ResolvedDeploymentSpecification,
+    ResolvedDeploymentSpecificationDocument,
 )
 
 
@@ -103,7 +103,7 @@ class CostCalculationRunDetailResponse(CostCalculationRunSummaryResponse):
     params: dict
     result_summary: Optional[dict] = None
     resolved_deployment_specification: (
-        Optional[ResolvedDeploymentSpecification]
+        Optional[ResolvedDeploymentSpecificationDocument]
     ) = None
     result_items: list[CostCalculationResultItemResponse] = Field(default_factory=list)
 
@@ -111,7 +111,7 @@ class CostCalculationRunDetailResponse(CostCalculationRunSummaryResponse):
 class CostCalculationRunSelectResponse(BaseModel):
     run: CostCalculationRunSummaryResponse
     selected_for_deployment_at: datetime
-    resolved_deployment_specification: ResolvedDeploymentSpecification
+    resolved_deployment_specification: ResolvedDeploymentSpecificationDocument
 
 
 class PricingEvidenceDetailResponse(BaseModel):

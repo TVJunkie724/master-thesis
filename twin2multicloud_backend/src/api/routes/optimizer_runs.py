@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
@@ -17,7 +17,7 @@ from src.schemas.cost_calculation import (
     PricingEvidenceDetailResponse,
 )
 from src.schemas.resolved_deployment_specification import (
-    ResolvedDeploymentSpecification,
+    ResolvedDeploymentSpecificationDocument,
 )
 from src.services.cost_calculation_run_service import (
     CostCalculationRunService,
@@ -295,12 +295,14 @@ def _run_detail_response(run: CostCalculationRun) -> CostCalculationRunDetailRes
 
 def _safe_deployment_specification(
     run: CostCalculationRun,
-) -> ResolvedDeploymentSpecification | None:
+) -> ResolvedDeploymentSpecificationDocument | None:
     raw = _json_loads(run.deployment_specification_json)
     if raw is None:
         return None
     try:
-        return ResolvedDeploymentSpecification.model_validate(raw)
+        return TypeAdapter(
+            ResolvedDeploymentSpecificationDocument
+        ).validate_python(raw)
     except ValidationError:
         return None
 

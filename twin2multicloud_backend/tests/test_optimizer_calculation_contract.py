@@ -4,11 +4,19 @@ from copy import deepcopy
 import json
 
 import pytest
+from pydantic import TypeAdapter
 
 from src.schemas.optimizer_calculation import (
     FIVE_LAYER_V2_WORKLOAD_ROOT,
     FiveLayerV2OptimizerCalculationParams,
     OptimizerCalculationParams,
+)
+from src.schemas.resolved_deployment_specification import (
+    ResolvedDeploymentSpecificationDocument,
+    ResolvedDeploymentSpecificationV2,
+)
+from src.services.resolved_deployment_specification_service import (
+    V2_CONTRACT_ROOT,
 )
 
 
@@ -19,6 +27,17 @@ def _five_layer_v2_workload() -> dict:
             / "fixtures"
             / "valid"
             / "core-small.json"
+        ).read_text(encoding="utf-8")
+    )
+
+
+def _five_layer_v2_deployment_specification() -> dict:
+    return json.loads(
+        (
+            V2_CONTRACT_ROOT
+            / "fixtures"
+            / "valid"
+            / "single-cloud-aws-small.json"
         ).read_text(encoding="utf-8")
     )
 
@@ -43,6 +62,17 @@ def _references_component(schema: dict, node: object, component_name: str) -> bo
         elif isinstance(current, list):
             pending.extend(current)
     return False
+
+
+def test_five_layer_v2_deployment_read_model_round_trips_without_shape_loss():
+    source = _five_layer_v2_deployment_specification()
+
+    parsed = TypeAdapter(ResolvedDeploymentSpecificationDocument).validate_python(
+        source
+    )
+
+    assert isinstance(parsed, ResolvedDeploymentSpecificationV2)
+    assert parsed.model_dump(mode="json", exclude_none=True) == source
 
 
 def test_omitted_adt_assumptions_remain_omitted_only_for_downstream_payload(
@@ -352,8 +382,25 @@ def test_openapi_exposes_deployment_specification_as_typed_read_only_contract(
     )
 
     selection = components["CostCalculationRunSelectResponse"]
-    assert selection["properties"]["resolved_deployment_specification"] == {
-        "$ref": "#/components/schemas/ResolvedDeploymentSpecification"
+    selection_specification = selection["properties"][
+        "resolved_deployment_specification"
+    ]
+    assert selection_specification["discriminator"] == {
+        "propertyName": "schema_version",
+        "mapping": {
+            "resolved-deployment-specification.v1": (
+                "#/components/schemas/ResolvedDeploymentSpecification"
+            ),
+            "resolved-deployment-specification.v2": (
+                "#/components/schemas/ResolvedDeploymentSpecificationV2"
+            ),
+        },
+    }
+    assert {
+        item["$ref"] for item in selection_specification["oneOf"]
+    } == {
+        "#/components/schemas/ResolvedDeploymentSpecification",
+        "#/components/schemas/ResolvedDeploymentSpecificationV2",
     }
     assert "resolved_deployment_specification" in selection["required"]
 
@@ -363,3 +410,19 @@ def test_openapi_exposes_deployment_specification_as_typed_read_only_contract(
         "resolved-deployment-specification.v1"
     )
     assert specification["properties"]["currency"]["const"] == "USD"
+
+    specification_v2 = components["ResolvedDeploymentSpecificationV2"]
+    assert specification_v2["additionalProperties"] is False
+    assert specification_v2["properties"]["schema_version"]["const"] == (
+        "resolved-deployment-specification.v2"
+    )
+    assert set(specification_v2["properties"]["currency"]["enum"]) == {
+        "USD",
+        "EUR",
+    }
+    assert {
+        "fixed_dimensions",
+        "component_selections",
+        "bindings",
+        "readiness",
+    }.issubset(specification_v2["required"])
