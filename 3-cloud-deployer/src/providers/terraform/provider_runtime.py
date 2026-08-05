@@ -16,7 +16,10 @@ from src.providers.terraform.azure_deployer import (
     register_azure_iot_devices,
     upload_dtdl_models,
 )
-from src.providers.terraform.cross_cloud_identity import ensure_aws_outbound_identity
+from src.providers.terraform.cross_cloud_identity import (
+    aws_outbound_identity_destinations,
+    ensure_aws_outbound_identity,
+)
 
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
@@ -33,7 +36,10 @@ def normalize_provider_name(provider: str) -> str:
     return "gcp" if normalized == "google" else normalized
 
 
-def configured_runtime_providers(providers_config: dict) -> set[str]:
+def configured_runtime_providers(
+    providers_config: dict,
+    graph=None,
+) -> set[str]:
     """Return providers needing postapply or graph preplan SDK clients."""
     providers = {
         normalize_provider_name(provider)
@@ -41,15 +47,9 @@ def configured_runtime_providers(providers_config: dict) -> set[str]:
         if isinstance((provider := providers_config.get(key)), str) and provider.strip()
         if normalize_provider_name(provider) in _SDK_POST_DEPLOYMENT_PROVIDERS
     }
-    if any(
-        normalize_provider_name(provider) == "aws"
-        for key, provider in providers_config.items()
-        if key.startswith("layer_")
-        and key.endswith("_provider")
-        and isinstance(provider, str)
-    ):
-        # IAM outbound identity can be required when any AWS-owned layer is
-        # the source of a resolved cross-provider edge.
+    if "azure" in aws_outbound_identity_destinations(graph):
+        # An AWS SDK client is also required when a non-L1/L4/L5 AWS node is
+        # the source of an AWS-to-Azure workload-identity edge.
         providers.add("aws")
     return providers
 
@@ -61,7 +61,10 @@ def initialize_providers(
 ) -> None:
     """Initialize each configured provider once and attach it to the context."""
     context.credentials = credentials
-    used_clouds = configured_runtime_providers(providers_config)
+    used_clouds = configured_runtime_providers(
+        providers_config,
+        getattr(context, "resolved_deployment_graph", None),
+    )
     logger.info(
         "Clouds requiring SDK initialization: %s",
         ", ".join(sorted(used_clouds)) or "none",

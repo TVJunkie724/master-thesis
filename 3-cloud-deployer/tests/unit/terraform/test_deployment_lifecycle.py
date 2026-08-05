@@ -163,6 +163,27 @@ def test_metadata_marks_only_current_built_hash_as_deployed(tmp_path):
 def test_runtime_initialization_only_includes_providers_with_sdk_owned_steps():
     assert configured_runtime_providers({"layer_1_provider": "google"}) == set()
     assert configured_runtime_providers({"layer_2_provider": "azure"}) == set()
-    assert configured_runtime_providers({"layer_2_provider": "aws"}) == {"aws"}
-    assert configured_runtime_providers({"layer_3_hot_provider": "aws"}) == {"aws"}
+    assert configured_runtime_providers({"layer_2_provider": "aws"}) == set()
     assert configured_runtime_providers({"layer_4_provider": "aws"}) == {"aws"}
+
+
+def test_runtime_initializes_aws_for_graph_owned_azure_identity_edge():
+    graph = SimpleNamespace(
+        nodes=(
+            SimpleNamespace(node_id="aws-hot", provider="aws"),
+            SimpleNamespace(node_id="azure-twin", provider="azure"),
+        ),
+        edges=(
+            SimpleNamespace(
+                source_node_id="aws-hot",
+                destination_node_id="azure-twin",
+                transfer_route_class="cross_provider",
+                trust_ref={"id": "trust.workload-identity-federation"},
+            ),
+        ),
+    )
+
+    assert configured_runtime_providers(
+        {"layer_3_hot_provider": "aws", "layer_4_provider": "azure"},
+        graph,
+    ) == {"aws", "azure"}

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 _CROSS_PROVIDER_ROUTE_CLASS = "cross_provider"
 _WORKLOAD_IDENTITY_TRUST_ID = "trust.workload-identity-federation"
-_SUPPORTED_AWS_DESTINATIONS = frozenset({"azure", "gcp"})
+_SUPPORTED_AWS_OUTBOUND_DESTINATIONS = frozenset({"azure"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,7 +56,7 @@ def aws_outbound_identity_destinations(
         and edge.transfer_route_class == _CROSS_PROVIDER_ROUTE_CLASS
         and edge.trust_ref.get("id") == _WORKLOAD_IDENTITY_TRUST_ID
     }
-    return tuple(sorted(destinations & _SUPPORTED_AWS_DESTINATIONS))
+    return tuple(sorted(destinations & _SUPPORTED_AWS_OUTBOUND_DESTINATIONS))
 
 
 def ensure_aws_outbound_identity(

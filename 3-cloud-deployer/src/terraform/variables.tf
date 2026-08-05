@@ -982,7 +982,7 @@ variable "inter_cloud_token" {
 }
 
 variable "aws_outbound_identity_required" {
-  description = "Whether the resolved graph contains an AWS-to-Azure/GCP workload-identity route"
+  description = "Whether the resolved graph contains an AWS-to-Azure workload-identity route"
   type        = bool
   default     = false
 }

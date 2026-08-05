@@ -43,7 +43,7 @@ def _context(iam=None):
     return SimpleNamespace(providers=providers)
 
 
-def test_aws_destinations_are_derived_from_graph_not_provider_presence():
+def test_only_azure_outbound_destination_is_derived_from_graph():
     graph = _graph(
         nodes=[
             _node("aws-hot", "aws"),
@@ -58,7 +58,17 @@ def test_aws_destinations_are_derived_from_graph_not_provider_presence():
         ],
     )
 
-    assert aws_outbound_identity_destinations(graph) == ("azure", "gcp")
+    assert aws_outbound_identity_destinations(graph) == ("azure",)
+
+
+def test_aws_to_gcp_uses_gcp_wif_without_aws_outbound_enablement():
+    graph = _graph(
+        nodes=[_node("aws", "aws"), _node("gcp", "gcp")],
+        edges=[_edge("aws", "gcp")],
+    )
+
+    assert aws_outbound_identity_destinations(graph) == ()
+    assert ensure_aws_outbound_identity(_context(), graph).required is False
 
 
 @pytest.mark.parametrize("graph", [None, _graph(nodes=[], edges=[])])
@@ -105,22 +115,22 @@ def test_disabled_account_feature_is_enabled_once_and_rechecked():
         "IssuerIdentifier": "https://issuer.example.aws"
     }
     graph = _graph(
-        nodes=[_node("aws", "aws"), _node("gcp", "gcp")],
-        edges=[_edge("aws", "gcp")],
+        nodes=[_node("aws", "aws"), _node("azure", "azure")],
+        edges=[_edge("aws", "azure")],
     )
 
     readiness = ensure_aws_outbound_identity(_context(iam), graph)
 
     assert readiness.enabled_during_operation is True
-    assert readiness.destination_providers == ("gcp",)
+    assert readiness.destination_providers == ("azure",)
     iam.enable_outbound_web_identity_federation.assert_called_once_with()
     assert iam.get_outbound_web_identity_federation_info.call_count == 2
 
 
 def test_required_route_fails_closed_without_initialized_aws_provider():
     graph = _graph(
-        nodes=[_node("aws", "aws"), _node("gcp", "gcp")],
-        edges=[_edge("aws", "gcp")],
+        nodes=[_node("aws", "aws"), _node("azure", "azure")],
+        edges=[_edge("aws", "azure")],
     )
 
     with pytest.raises(ValueError, match="AWS provider is not initialized"):
