@@ -39,6 +39,7 @@ azure-mgmt-storage==25.0.0
 azure-mgmt-subscription==3.1.1
 azure-mgmt-web==11.0.1
 azure-monitor-query==2.0.0
+azure-servicebus==7.14.3
 azure-storage-blob==12.30.0
 bandit==1.9.4
 blinker==1.9.0

@@ -90,6 +90,10 @@ locals {
   azure_v2_tags = merge(local.common_tags, {
     ArchitectureProfile = "five-layer-baseline@2"
   })
+  azure_v2_processor_extensions = local.azure_v2_l2_enabled ? {
+    for package in var.validated_extension_packages : package.artifact_id => package
+    if package.slot_id == "processor.telemetry" && package.slot_version == "1"
+  } : {}
 }
 
 resource "terraform_data" "azure_v2_event_capacity_guard" {
@@ -448,6 +452,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
     V2_SERVICE_BUS__fullyQualifiedNamespace      = "${azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].name}.servicebus.windows.net"
     V2_SERVICE_BUS__credential                   = "managedidentity"
     V2_SERVICE_BUS__clientId                     = azurerm_user_assigned_identity.main[0].client_id
+    V2_MANAGED_IDENTITY_CLIENT_ID                = azurerm_user_assigned_identity.main[0].client_id
     V2_DOMAIN_CONSUMER_ENABLED                   = tostring(!local.azure_v2_l2_enabled)
     V2_IOT_PROCESSOR_ENABLED                     = tostring(local.azure_v2_l1_enabled)
     V2_IOT_HUB_NAME                              = try(azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_path, "disabled")
@@ -468,6 +473,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
     V2_COSMOS_DATABASE                           = try(azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
     V2_COSMOS_CONTAINER                          = try(azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
     V2_HOT_BOUNDARY_DAYS                         = tostring(var.layer_3_hot_to_cold_interval_days)
+    V2_DEFAULT_METRIC                            = "temperature"
   }
 
   tags = local.azure_v2_tags
@@ -526,6 +532,9 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
     V2_SERVICE_BUS__fullyQualifiedNamespace = "${azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].name}.servicebus.windows.net"
     V2_SERVICE_BUS__credential              = "managedidentity"
     V2_SERVICE_BUS__clientId                = azurerm_user_assigned_identity.main[0].client_id
+    V2_MANAGED_IDENTITY_CLIENT_ID           = azurerm_user_assigned_identity.main[0].client_id
+    V2_PROCESSOR_EXTENSION_URL              = try("https://${one(values(azurerm_function_app_flex_consumption.azure_v2_processor_extension)).name}.azurewebsites.net/api/extension", "")
+    V2_PROCESSOR_EXTENSION_KEY              = try(one(values(data.azurerm_function_app_host_keys.azure_v2_processor_extension)).default_function_key, "")
     V2_LOGIC_APP_CALLBACK_URL               = azurerm_logic_app_trigger_http_request.azure_azure_logic_apps_consumption[0].callback_url
     V2_L2_PROVIDER                          = var.layer_2_provider
     V2_HOT_PROVIDER                         = var.layer_3_hot_provider
@@ -546,6 +555,57 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
       error_message = "Azure Five-layer v2 requires its validated content-addressed Function package."
     }
   }
+}
+
+resource "azurerm_function_app_flex_consumption" "azure_v2_processor_extension" {
+  for_each            = local.azure_v2_processor_extensions
+  name                = "${local.azure_v2_name}-v2-extension-${local.deployment_suffix}"
+  resource_group_name = azurerm_resource_group.main[0].name
+  location            = azurerm_resource_group.main[0].location
+  service_plan_id     = azurerm_service_plan.azure_v2_flex[0].id
+
+  storage_container_type      = "blobContainer"
+  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_v2_function_package[0].name}"
+  storage_authentication_type = "StorageAccountConnectionString"
+  storage_access_key          = azurerm_storage_account.main[0].primary_access_key
+
+  runtime_name    = "python"
+  runtime_version = "3.11"
+  zip_deploy_file = each.value.package_path
+
+  maximum_instance_count                         = 100
+  instance_memory_in_mb                          = 2048
+  https_only                                     = true
+  public_network_access_enabled                  = true
+  webdeploy_publish_basic_authentication_enabled = false
+
+  site_config {
+    minimum_tls_version     = "1.2"
+    scm_minimum_tls_version = "1.2"
+  }
+
+  app_settings = {
+    FUNCTIONS_WORKER_RUNTIME = "python"
+    WEBSITE_RUN_FROM_PACKAGE = "1"
+    ARCHITECTURE_PROFILE     = "five-layer-baseline@2"
+  }
+
+  tags = local.azure_v2_tags
+
+  lifecycle {
+    precondition {
+      condition     = each.value.adapter_id == "adapter.azure.python311" && each.value.adapter_version == "1"
+      error_message = "Azure Five-layer v2 requires the reviewed processor.telemetry@1 Azure adapter."
+    }
+  }
+
+  depends_on = [terraform_data.validated_extension_package]
+}
+
+data "azurerm_function_app_host_keys" "azure_v2_processor_extension" {
+  for_each            = azurerm_function_app_flex_consumption.azure_v2_processor_extension
+  name                = each.value.name
+  resource_group_name = each.value.resource_group_name
 }
 
 resource "azurerm_logic_app_workflow" "azure_azure_logic_apps_consumption" {
@@ -704,7 +764,11 @@ locals {
         scope = azurerm_servicebus_queue.azure_azure_service_bus_standard[0].id
         role  = "Azure Service Bus Data Receiver"
       }
-      service_bus_sender = {
+      service_bus_queue_sender = {
+        scope = azurerm_servicebus_queue.azure_azure_service_bus_standard[0].id
+        role  = "Azure Service Bus Data Sender"
+      }
+      service_bus_topic_sender = {
         scope = azurerm_servicebus_topic.azure_azure_service_bus_standard[0].id
         role  = "Azure Service Bus Data Sender"
       }

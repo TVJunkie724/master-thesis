@@ -7,10 +7,13 @@ function-to-function bridge endpoint is exposed by this package.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
 import logging
 import os
 import time
 from typing import Any, Iterable, Mapping
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 import uuid
 
 import azure.functions as func
@@ -22,12 +25,17 @@ from azure.cosmos.exceptions import (
 )
 from azure.digitaltwins.core import DigitalTwinsClient
 from azure.identity import DefaultAzureCredential
+from azure.servicebus import ServiceBusClient, ServiceBusMessage
 
 from core import (
     ContractError,
+    build_ingress_event,
+    build_processed_event,
+    build_twin_projection,
     canonical_json,
     cosmos_raw_history_statement,
     decode_cursor,
+    decode_json_object,
     decode_message_body,
     encode_cursor,
     event_body,
@@ -60,6 +68,20 @@ RAW_HISTORY_ENABLED = (
 )
 _COSMOS_CONTAINER: Any | None = None
 _ADT_CLIENT: Any | None = None
+_AZURE_CREDENTIAL: Any | None = None
+_SERVICE_BUS_CLIENT: Any | None = None
+MAX_EXTENSION_RESPONSE_BYTES = 1024 * 1024
+
+
+def _credential():
+    global _AZURE_CREDENTIAL
+    if _AZURE_CREDENTIAL is not None:
+        return _AZURE_CREDENTIAL
+    client_id = os.getenv("V2_MANAGED_IDENTITY_CLIENT_ID", "")
+    _AZURE_CREDENTIAL = DefaultAzureCredential(
+        managed_identity_client_id=client_id or None
+    )
+    return _AZURE_CREDENTIAL
 
 
 def _event_hub_events(messages: Iterable[func.EventHubEvent]):
@@ -71,10 +93,154 @@ def _service_bus_event(message: func.ServiceBusMessage):
     return decode_message_body(message.get_body())
 
 
+def _service_bus_client():
+    global _SERVICE_BUS_CLIENT
+    if _SERVICE_BUS_CLIENT is not None:
+        return _SERVICE_BUS_CLIENT
+    namespace = os.getenv("V2_SERVICE_BUS__fullyQualifiedNamespace", "")
+    if not namespace or namespace.startswith("disabled."):
+        raise ContractError("DOMAIN_ROUTE_NOT_CONFIGURED", 503)
+    _SERVICE_BUS_CLIENT = ServiceBusClient(
+        fully_qualified_namespace=namespace,
+        credential=_credential(),
+    )
+    return _SERVICE_BUS_CLIENT
+
+
+def _enqueue(event: Mapping[str, Any]) -> None:
+    validated = validate_canonical_event(event)
+    queue_name = os.getenv("V2_DOMAIN_QUEUE_NAME", "")
+    if not queue_name:
+        raise ContractError("DOMAIN_ROUTE_NOT_CONFIGURED", 503)
+    message = ServiceBusMessage(
+        canonical_json(validated),
+        content_type="application/json",
+        message_id=event_id(validated),
+        session_id=str(validated["source_id"]),
+        correlation_id=str(validated["correlation_id"]),
+    )
+    with _service_bus_client().get_queue_sender(queue_name=queue_name) as sender:
+        sender.send_messages(message)
+
+
+def _extension_envelope(event: Mapping[str, Any]) -> dict[str, Any]:
+    validated = validate_canonical_event(event)
+    body = event_body(validated)
+    invocation_id = str(
+        uuid.uuid5(uuid.NAMESPACE_URL, f"{event_id(validated)}:processor.telemetry")
+    )
+    payload = {"value": finite_number(body.get("value"))}
+    unit = body.get("unit")
+    if isinstance(unit, str) and unit:
+        payload["unit"] = unit
+    twin_id = body.get("twin_id")
+    device_id = body.get("device_id")
+    if not isinstance(twin_id, str) or not isinstance(device_id, str):
+        raise ContractError("INVALID_PROCESSOR_CONTEXT")
+    return {
+        "schema_version": "user-function-runtime-envelope.v1",
+        "invocation_id": invocation_id,
+        "correlation_id": str(validated["correlation_id"]),
+        "occurred_at": str(validated["occurred_at"]),
+        "slot_id": "processor.telemetry",
+        "payload": payload,
+        "context": {"twin_id": twin_id, "device_id": device_id},
+    }
+
+
+def _post_extension(envelope: Mapping[str, Any]) -> dict[str, Any]:
+    url = os.getenv("V2_PROCESSOR_EXTENSION_URL", "")
+    key = os.getenv("V2_PROCESSOR_EXTENSION_KEY", "")
+    if not url or not key:
+        raise ContractError("PROCESSOR_EXTENSION_NOT_CONFIGURED", 503)
+    request = Request(
+        url,
+        data=canonical_json(envelope).encode("utf-8"),
+        headers={
+            "content-type": "application/json",
+            "x-functions-key": key,
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=35) as response:  # nosec B310
+            raw = response.read(MAX_EXTENSION_RESPONSE_BYTES + 1)
+    except HTTPError as exc:
+        raw = exc.read(MAX_EXTENSION_RESPONSE_BYTES + 1)
+    except (TimeoutError, URLError, OSError) as exc:
+        raise ContractError("PROCESSOR_EXTENSION_UNAVAILABLE", 503) from exc
+    if len(raw) > MAX_EXTENSION_RESPONSE_BYTES:
+        raise ContractError("PROCESSOR_EXTENSION_RESPONSE_TOO_LARGE", 503)
+    try:
+        value = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ContractError("INVALID_PROCESSOR_EXTENSION_RESPONSE", 503) from exc
+    if not isinstance(value, dict):
+        raise ContractError("INVALID_PROCESSOR_EXTENSION_RESPONSE", 503)
+    return value
+
+
+def _invoke_processor_extension(event: Mapping[str, Any]) -> Mapping[str, Any]:
+    envelope = _extension_envelope(event)
+    response = _post_extension(envelope)
+    common = {
+        "schema_version",
+        "invocation_id",
+        "correlation_id",
+        "slot_id",
+        "status",
+    }
+    if (
+        response.get("schema_version") != "user-function-runtime-envelope.v1"
+        or response.get("invocation_id") != envelope["invocation_id"]
+        or response.get("correlation_id") != envelope["correlation_id"]
+        or response.get("slot_id") != "processor.telemetry"
+    ):
+        raise ContractError("INVALID_PROCESSOR_EXTENSION_RESPONSE", 503)
+    if response.get("status") == "success" and set(response) == common | {"payload"}:
+        payload = response.get("payload")
+        if isinstance(payload, Mapping):
+            return payload
+    if response.get("status") in {"rejected", "failed"}:
+        raise ContractError("PROCESSOR_EXTENSION_REJECTED", 422)
+    raise ContractError("INVALID_PROCESSOR_EXTENSION_RESPONSE", 503)
+
+
+def _persist_processed(processed: Mapping[str, Any]) -> None:
+    if os.getenv("V2_HOT_PROVIDER") != "azure":
+        raise ContractError("REMOTE_HOT_ROUTE_NOT_CONFIGURED", 503)
+    inserted = _write_raw_and_rollup(processed)
+    if not inserted:
+        return
+    projection = build_twin_projection(processed)
+    if projection is None:
+        return
+    if os.getenv("V2_TWIN_PROVIDER") != "azure":
+        raise ContractError("REMOTE_TWIN_ROUTE_NOT_CONFIGURED", 503)
+    _materialize_twin_projection(projection)
+
+
+def _process_received(event: Mapping[str, Any]) -> None:
+    processed = build_processed_event(event, _invoke_processor_extension(event))
+    _persist_processed(processed)
+
+
 def _consume(event: dict) -> None:
-    """Validate the landing contract before the provider-domain adapter runs."""
+    """Route one canonical event to its Azure-owned local responsibility."""
 
     validated = validate_canonical_event(event)
+    if validated["event_type"] == "telemetry.received.v1":
+        if os.getenv("V2_L2_PROVIDER") != "azure":
+            raise ContractError("REMOTE_PROCESSING_ROUTE_NOT_CONFIGURED", 503)
+        _process_received(validated)
+    elif validated["event_type"] == "telemetry.processed.v1":
+        _persist_processed(validated)
+    elif validated["event_type"] == "twin.state.upserted":
+        if os.getenv("V2_TWIN_PROVIDER") != "azure":
+            raise ContractError("REMOTE_TWIN_ROUTE_NOT_CONFIGURED", 503)
+        _materialize_twin_projection(validated)
+    else:
+        raise ContractError("UNSUPPORTED_LOCAL_DOMAIN_EVENT")
     logging.info(
         "Azure v2 event accepted type=%s event_id=%s",
         validated["event_type"],
@@ -100,7 +266,7 @@ def _cosmos_container():
     container = os.getenv("V2_COSMOS_CONTAINER", "")
     if not endpoint or not database or not container:
         raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503)
-    client = CosmosClient(endpoint, credential=DefaultAzureCredential())
+    client = CosmosClient(endpoint, credential=_credential())
     _COSMOS_CONTAINER = client.get_database_client(database).get_container_client(
         container
     )
@@ -128,7 +294,7 @@ def _batch_statuses(exc: CosmosBatchOperationError) -> set[int]:
 
 def _write_raw_and_rollup(
     event: Mapping[str, Any], *, stored_at=None, attempts: int = 3
-) -> None:
+) -> bool:
     """Atomically create raw telemetry and CAS-update its hourly rollup."""
 
     if attempts < 1:
@@ -149,7 +315,7 @@ def _write_raw_and_rollup(
         existing_raw = _read_item_or_none(container, str(raw["id"]), device_id)
         if existing_raw is not None:
             if existing_raw.get("payload_digest") == raw["payload_digest"]:
-                return
+                return False
             raise ContractError("IDEMPOTENCY_CONFLICT", 409)
 
         current_rollup = _read_item_or_none(container, rollup_id(raw), device_id)
@@ -170,7 +336,7 @@ def _write_raw_and_rollup(
                 batch_operations=[("create", (raw,), {}), rollup_operation],
                 partition_key=device_id,
             )
-            return
+            return True
         except CosmosBatchOperationError as exc:
             statuses = _batch_statuses(exc)
             if not statuses.intersection({409, 412, 424}):
@@ -187,7 +353,7 @@ def _adt_client():
     endpoint = os.getenv("V2_ADT_ENDPOINT", "")
     if not endpoint:
         raise ContractError("TWIN_PROJECTION_TARGET_NOT_CONFIGURED", 503)
-    _ADT_CLIENT = DigitalTwinsClient(endpoint, DefaultAzureCredential())
+    _ADT_CLIENT = DigitalTwinsClient(endpoint, _credential())
     return _ADT_CLIENT
 
 
@@ -343,11 +509,19 @@ if IOT_PROCESSOR_ENABLED:
         consumer_group="$Default",
     )
     def iot_telemetry_adapter(messages: list[func.EventHubEvent]) -> None:
-        """Accept canonical simulator telemetry from IoT Hub's built-in endpoint."""
+        """Adapt the existing simulator payload from IoT Hub and enqueue it."""
 
         try:
-            for event in _event_hub_events(messages):
-                _consume(event)
+            for message in messages:
+                payload = decode_json_object(message.get_body())
+                event = build_ingress_event(
+                    payload,
+                    deployment_id=os.getenv("DEPLOYMENT_ID", "local-poc"),
+                    default_metric=os.getenv("V2_DEFAULT_METRIC", "temperature"),
+                )
+                if os.getenv("V2_L2_PROVIDER") != "azure":
+                    raise ContractError("REMOTE_PROCESSING_ROUTE_NOT_CONFIGURED", 503)
+                _enqueue(event)
         except ContractError as exc:
             raise RuntimeError(exc.code) from None
 

@@ -75,6 +75,14 @@ def test_rejects_unknown_event_type_and_non_json_body():
         core.decode_message_body(b"not-json")
 
 
+def test_legacy_json_decoder_is_bounded_without_requiring_event_fields():
+    assert core.decode_json_object(b'{"iotDeviceId":"sensor-1"}') == {
+        "iotDeviceId": "sensor-1"
+    }
+    with pytest.raises(core.ContractError, match="EVENT_TOO_LARGE"):
+        core.decode_json_object(b"{" + b'"x":"' + b"a" * 300_000 + b'"}')
+
+
 def test_derived_event_is_deterministic_and_preserves_correlation():
     source = _event()
 
@@ -144,6 +152,81 @@ def test_processed_event_requires_exact_extension_result():
     assert processed["payload"]["value"] == 4
     with pytest.raises(core.ContractError, match="INVALID_PROCESSOR_RESULT"):
         core.build_processed_event(source, {"value": 4})
+
+
+def test_processor_extension_invocation_uses_closed_runtime_envelope(monkeypatch):
+    source = core.build_ingress_event(
+        {
+            "iotDeviceId": "sensor-1",
+            "time": "2026-08-04T11:59:59Z",
+            "temperature": 2,
+            "unit": "celsius",
+        },
+        deployment_id="deployment",
+        default_metric="temperature",
+    )
+    captured = {}
+
+    def response(envelope):
+        captured.update(envelope)
+        return {
+            "schema_version": "user-function-runtime-envelope.v1",
+            "invocation_id": envelope["invocation_id"],
+            "correlation_id": envelope["correlation_id"],
+            "slot_id": "processor.telemetry",
+            "status": "success",
+            "payload": {"value": 4, "quality": "accepted"},
+        }
+
+    monkeypatch.setattr(function_app, "_post_extension", response)
+
+    result = function_app._invoke_processor_extension(source)
+
+    assert result == {"value": 4, "quality": "accepted"}
+    assert set(captured) == {
+        "schema_version",
+        "invocation_id",
+        "correlation_id",
+        "occurred_at",
+        "slot_id",
+        "payload",
+        "context",
+    }
+    assert captured["payload"] == {"value": 2, "unit": "celsius"}
+    assert captured["context"] == {"twin_id": "sensor-1", "device_id": "sensor-1"}
+
+
+def test_local_azure_processing_invokes_extension_persists_and_projects(monkeypatch):
+    source = core.build_ingress_event(
+        {
+            "iotDeviceId": "sensor-1",
+            "time": "2026-08-04T11:59:59Z",
+            "temperature": 2,
+            "projection_candidate": True,
+        },
+        deployment_id="deployment",
+        default_metric="temperature",
+    )
+    writer = MagicMock(return_value=True)
+    materializer = MagicMock()
+    monkeypatch.setenv("V2_HOT_PROVIDER", "azure")
+    monkeypatch.setenv("V2_TWIN_PROVIDER", "azure")
+    monkeypatch.setattr(
+        function_app,
+        "_invoke_processor_extension",
+        lambda _event: {"value": 4, "quality": "accepted"},
+    )
+    monkeypatch.setattr(function_app, "_write_raw_and_rollup", writer)
+    monkeypatch.setattr(function_app, "_materialize_twin_projection", materializer)
+
+    function_app._process_received(source)
+
+    processed = writer.call_args.args[0]
+    assert processed["event_type"] == "telemetry.processed.v1"
+    assert processed["payload"]["value"] == 4
+    projection = materializer.call_args.args[0]
+    assert projection["event_type"] == "twin.state.upserted"
+    assert projection["payload"]["state_patch"] == {"temperature": 4}
 
 
 def test_envelope_field_set_matches_aws_v2_runtime():

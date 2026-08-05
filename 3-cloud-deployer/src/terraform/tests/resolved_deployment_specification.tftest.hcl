@@ -118,6 +118,16 @@ run "five_layer_v2_single_cloud_azure_omits_remote_event_hubs" {
     azure_layer_access_principal_object_id = "11111111-1111-1111-1111-111111111111"
     azure_layer_access_principal_label     = "researcher@example.test"
     enable_azure_logging                   = false
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "33333333-3333-4333-8333-333333333333"
+      artifact_digest = "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      package_path    = "${var.project_path}/.build/azure/five-layer-v2.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/five-layer-v2.zip")}"
+      adapter_id      = "adapter.azure.python311"
+      adapter_version = "1"
+    }]
   }
 
   assert {
@@ -148,6 +158,14 @@ run "five_layer_v2_single_cloud_azure_omits_remote_event_hubs" {
   assert {
     condition     = length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption) == 1
     error_message = "Azure L2 must deploy its reviewed Flex Consumption processor boundary."
+  }
+
+  assert {
+    condition = (
+      length(azurerm_function_app_flex_consumption.azure_v2_processor_extension) == 1 &&
+      contains(keys(azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].app_settings), "V2_PROCESSOR_EXTENSION_KEY")
+    )
+    error_message = "Azure L2 must deploy and bind the validated processor.telemetry extension package."
   }
 
   assert {

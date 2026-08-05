@@ -388,14 +388,25 @@ def build_twin_projection(event: Mapping[str, Any]) -> dict[str, Any] | None:
 def decode_message_body(body: bytes | str) -> dict[str, Any]:
     """Decode one Event Hubs or Service Bus body and validate it."""
 
+    return validate_canonical_event(decode_json_object(body))
+
+
+def decode_json_object(body: bytes | str) -> dict[str, Any]:
+    """Decode one bounded UTF-8 JSON object without assuming an event schema."""
+
+    if not isinstance(body, (bytes, str)):
+        raise ContractError("INVALID_UTF8_JSON")
+    raw = body if isinstance(body, bytes) else body.encode("utf-8")
+    if len(raw) > MAX_EVENT_BYTES:
+        raise ContractError("EVENT_TOO_LARGE")
     try:
-        text = body.decode("utf-8") if isinstance(body, bytes) else body
+        text = raw.decode("utf-8")
         value = json.loads(text)
     except (UnicodeDecodeError, json.JSONDecodeError, TypeError) as exc:
         raise ContractError("INVALID_UTF8_JSON") from exc
     if not isinstance(value, dict):
         raise ContractError("INVALID_CANONICAL_EVENT")
-    return validate_canonical_event(value)
+    return value
 
 
 def partition_key(event: Mapping[str, Any]) -> str:
@@ -627,6 +638,7 @@ __all__ = [
     "canonical_json",
     "cosmos_raw_history_statement",
     "decode_cursor",
+    "decode_json_object",
     "decode_message_body",
     "derive_event",
     "encode_cursor",
