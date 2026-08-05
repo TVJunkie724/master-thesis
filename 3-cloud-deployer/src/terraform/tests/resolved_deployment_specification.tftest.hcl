@@ -163,14 +163,23 @@ run "five_layer_v2_single_cloud_azure_omits_remote_event_hubs" {
   assert {
     condition = (
       length(azurerm_function_app_flex_consumption.azure_v2_processor_extension) == 1 &&
-      contains(keys(azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].app_settings), "V2_PROCESSOR_EXTENSION_KEY")
+      length(azurerm_function_app_flex_consumption.azure_v2_extension_action) == 1 &&
+      contains(keys(azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].app_settings), "V2_PROCESSOR_EXTENSION_KEY") &&
+      contains(keys(azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].app_settings), "V2_ACTION_FUNCTION_KEY")
     )
-    error_message = "Azure L2 must deploy and bind the validated processor.telemetry extension package."
+    error_message = "Azure L2 must deploy and bind the validated processor plus fixed PoC action boundaries."
   }
 
   assert {
-    condition     = length(azurerm_logic_app_workflow.azure_azure_logic_apps_consumption) == 1 && length(azurerm_logic_app_trigger_http_request.azure_azure_logic_apps_consumption) == 1 && length(azurerm_logic_app_action_custom.azure_azure_logic_apps_consumption) == 1
-    error_message = "Azure L2 must deploy a callable fixed PoC Logic Apps workflow, not an empty shell."
+    condition = (
+      length(azurerm_logic_app_workflow.azure_azure_logic_apps_consumption) == 1 &&
+      length(azurerm_logic_app_trigger_http_request.azure_azure_logic_apps_consumption) == 1 &&
+      length(azurerm_logic_app_action_custom.azure_v2_notification_normalize) == 1 &&
+      length(azurerm_logic_app_action_custom.azure_v2_notification_prepare) == 1 &&
+      length(azurerm_logic_app_action_custom.azure_v2_notification_deliver) == 1 &&
+      length(azurerm_logic_app_action_custom.azure_v2_notification_complete) == 1
+    )
+    error_message = "Azure L2 must deploy the four-action Logic Apps workflow with one external PoC notification delivery."
   }
 
   assert {

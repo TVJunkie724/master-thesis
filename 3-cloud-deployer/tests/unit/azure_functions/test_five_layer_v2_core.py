@@ -9,7 +9,7 @@ import uuid
 
 import pytest
 from azure.core.exceptions import ResourceNotFoundError
-from azure.cosmos.exceptions import CosmosBatchOperationError
+from azure.cosmos.exceptions import CosmosBatchOperationError, CosmosResourceExistsError
 
 
 CORE_PATH = (
@@ -196,7 +196,9 @@ def test_processor_extension_invocation_uses_closed_runtime_envelope(monkeypatch
     assert captured["context"] == {"twin_id": "sensor-1", "device_id": "sensor-1"}
 
 
-def test_local_azure_processing_invokes_extension_persists_and_projects(monkeypatch):
+def test_local_azure_processing_enqueues_processed_then_persists_projects_and_rules(
+    monkeypatch,
+):
     source = core.build_ingress_event(
         {
             "iotDeviceId": "sensor-1",
@@ -209,6 +211,8 @@ def test_local_azure_processing_invokes_extension_persists_and_projects(monkeypa
     )
     writer = MagicMock(return_value=True)
     materializer = MagicMock()
+    enqueue = MagicMock()
+    rule_evaluator = MagicMock()
     monkeypatch.setenv("V2_HOT_PROVIDER", "azure")
     monkeypatch.setenv("V2_TWIN_PROVIDER", "azure")
     monkeypatch.setattr(
@@ -216,17 +220,233 @@ def test_local_azure_processing_invokes_extension_persists_and_projects(monkeypa
         "_invoke_processor_extension",
         lambda _event: {"value": 4, "quality": "accepted"},
     )
+    monkeypatch.setattr(function_app, "_enqueue", enqueue)
     monkeypatch.setattr(function_app, "_write_raw_and_rollup", writer)
     monkeypatch.setattr(function_app, "_materialize_twin_projection", materializer)
+    monkeypatch.setattr(function_app, "_evaluate_rules", rule_evaluator)
 
     function_app._process_received(source)
 
-    processed = writer.call_args.args[0]
+    processed = enqueue.call_args.args[0]
     assert processed["event_type"] == "telemetry.processed.v1"
     assert processed["payload"]["value"] == 4
+    writer.assert_not_called()
+
+    function_app._consume(processed)
+
+    writer.assert_called_once_with(processed)
     projection = materializer.call_args.args[0]
     assert projection["event_type"] == "twin.state.upserted"
     assert projection["payload"]["state_patch"] == {"temperature": 4}
+    rule_evaluator.assert_called_once_with(processed)
+
+
+def test_rule_matches_have_distinct_ids_and_drive_all_embedded_paths(monkeypatch):
+    event = _processed_event(projection_candidate=False)
+    rules = [
+        {
+            "rule_id": "workflow-and-command",
+            "condition": "sensor-1.temperature == DOUBLE(4)",
+            "action": {
+                "type": "logic_app",
+                "functionName": "poc-action",
+                "feedback": {
+                    "iotDeviceId": "sensor-1",
+                    "payload": "cool-down",
+                },
+            },
+        },
+        {
+            "rule_id": "second-match",
+            "condition": "temperature >= INTEGER(4)",
+            "action": {"type": "lambda", "functionName": "second-action"},
+        },
+    ]
+
+    matches = core.build_rule_matches(event, rules)
+
+    assert len(matches) == 2
+    assert matches[0]["event_id"] != matches[1]["event_id"]
+    assert matches[0]["payload"]["rule_id"] == "workflow-and-command"
+    enqueued = []
+    monkeypatch.setattr(function_app, "_enqueue", enqueued.append)
+    monkeypatch.setattr(function_app, "_invoke_poc_action", lambda *_args: True)
+
+    function_app._dispatch_match(matches[0])
+
+    assert [item["event_type"] for item in enqueued] == [
+        "extension.action.outcome.v1",
+        "notification.requested.v1",
+        "device.command.requested.v1",
+    ]
+
+    with pytest.raises(core.ContractError, match="INVALID_RULE_CONFIGURATION"):
+        core.build_rule_matches(
+            event,
+            [
+                rules[0] | {"rule_id": "duplicate"},
+                rules[1] | {"rule_id": "duplicate"},
+            ],
+        )
+
+
+def test_fixed_poc_action_contract_is_closed_and_correlated():
+    matched = core.build_rule_matches(
+        _processed_event(projection_candidate=False),
+        [
+            {
+                "condition": "temperature == DOUBLE(4)",
+                "action": {"type": "lambda", "functionName": "poc-action"},
+            }
+        ],
+    )[0]
+    invocation = {
+        "schema_version": "extension-action-invocation.v1",
+        "invocation_id": matched["event_id"],
+        "action_id": "poc-action",
+        "event": matched,
+    }
+
+    assert function_app._poc_action_result(invocation) == {
+        "schema_version": "extension-action-result.v1",
+        "invocation_id": matched["event_id"],
+        "action_id": "poc-action",
+        "status": "ACCEPTED",
+    }
+    with pytest.raises(core.ContractError, match="INVALID_ACTION_INVOCATION"):
+        function_app._poc_action_result(invocation | {"unknown": True})
+
+
+def test_fixed_poc_notification_contract_accepts_only_notification_events():
+    matched = core.build_rule_matches(
+        _processed_event(projection_candidate=False),
+        [
+            {
+                "condition": "temperature == DOUBLE(4)",
+                "action": {"type": "logic_app", "functionName": "poc-action"},
+            }
+        ],
+    )[0]
+    notification = core.derive_event(
+        matched,
+        event_type="notification.requested.v1",
+        producer="component.action-dispatcher",
+        payload={"device_id": "sensor-1", "message": "temperature matched"},
+    )
+
+    assert function_app._poc_notification_result(notification) == {
+        "schema_version": "notification-delivery-result.v1",
+        "event_id": notification["event_id"],
+        "status": "ACCEPTED",
+    }
+    with pytest.raises(core.ContractError, match="INVALID_NOTIFICATION_INVOCATION"):
+        function_app._poc_notification_result(matched)
+
+
+def test_duplicate_raw_retry_still_reaches_twin_and_rule_edges(monkeypatch):
+    processed = _processed_event()
+    materializer = MagicMock()
+    evaluator = MagicMock()
+    monkeypatch.setenv("V2_HOT_PROVIDER", "azure")
+    monkeypatch.setenv("V2_TWIN_PROVIDER", "azure")
+    monkeypatch.setattr(
+        function_app, "_write_raw_and_rollup", MagicMock(return_value=False)
+    )
+    monkeypatch.setattr(function_app, "_materialize_twin_projection", materializer)
+    monkeypatch.setattr(function_app, "_evaluate_rules", evaluator)
+
+    function_app._consume(processed)
+
+    materializer.assert_called_once()
+    evaluator.assert_called_once_with(processed)
+
+
+def test_workflow_and_command_emit_correlated_terminal_outcomes(monkeypatch):
+    matched = core.build_rule_matches(
+        _processed_event(projection_candidate=False),
+        [
+            {
+                "condition": "temperature == DOUBLE(4)",
+                "action": {
+                    "type": "logic_app",
+                    "functionName": "poc-action",
+                    "feedback": {"iotDeviceId": "sensor-1", "payload": "cool-down"},
+                },
+            }
+        ],
+    )[0]
+    emitted = []
+    monkeypatch.setattr(function_app, "_enqueue", emitted.append)
+    monkeypatch.setattr(
+        function_app,
+        "_post_bound_json",
+        lambda _url, event, **_kwargs: {
+            "status": "ACCEPTED",
+            "event_id": event["event_id"],
+        },
+    )
+    monkeypatch.setattr(function_app, "_send_device_command", lambda _event: True)
+    notification = core.derive_event(
+        matched,
+        event_type="notification.requested.v1",
+        producer="component.action-dispatcher",
+        payload={"device_id": "sensor-1", "message": "test"},
+    )
+    command = core.derive_event(
+        matched,
+        event_type="device.command.requested.v1",
+        producer="component.action-dispatcher",
+        payload={"device_id": "sensor-1", "message": "test"},
+    )
+
+    function_app._start_notification_workflow(notification)
+    function_app._deliver_device_command(command)
+
+    assert [event["event_type"] for event in emitted] == [
+        "notification.workflow.outcome.v1",
+        "device.command.outcome.v1",
+    ]
+    assert all(
+        event["correlation_id"] == matched["correlation_id"] for event in emitted
+    )
+
+
+def test_terminal_outcome_storage_is_idempotent_and_non_rollup(monkeypatch):
+    processed = _processed_event(projection_candidate=False)
+    outcome = core.derive_event(
+        processed,
+        event_type="extension.action.outcome.v1",
+        producer="component.action-dispatcher",
+        payload={
+            "device_id": "sensor-1",
+            "invocation_id": processed["event_id"],
+            "status": "SUCCEEDED",
+        },
+    )
+    stored_at = datetime(2026, 8, 4, 12, tzinfo=timezone.utc)
+    expected = core.outcome_document(
+        outcome,
+        stored_at=stored_at,
+        hot_boundary_days=30,
+    )
+    container = MagicMock()
+    monkeypatch.setenv("V2_HOT_PROVIDER", "azure")
+    monkeypatch.setenv("V2_HOT_BOUNDARY_DAYS", "30")
+    monkeypatch.setattr(function_app, "_COSMOS_CONTAINER", container)
+
+    function_app._store_outcome(outcome, stored_at=stored_at)
+
+    assert container.create_item.call_args.kwargs["body"] == expected
+    assert expected["kind"] == "outcome"
+    assert "metric" not in expected
+
+    container.create_item.side_effect = CosmosResourceExistsError(message="exists")
+    container.read_item.return_value = {"payload_digest": expected["payload_digest"]}
+    function_app._store_outcome(outcome, stored_at=stored_at)
+
+    container.read_item.return_value = {"payload_digest": "different"}
+    with pytest.raises(core.ContractError, match="IDEMPOTENCY_CONFLICT"):
+        function_app._store_outcome(outcome, stored_at=stored_at)
 
 
 def test_envelope_field_set_matches_aws_v2_runtime():

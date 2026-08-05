@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import json
 import math
+import re
 from typing import Any, Mapping
 import uuid
 
@@ -19,6 +20,7 @@ MAX_RAW_RANGE = timedelta(hours=24)
 MAX_AGGREGATE_RANGE = timedelta(days=30)
 CURSOR_MAX_AGE = timedelta(minutes=15)
 MAX_JSON_SAFE_INTEGER = 9_007_199_254_740_991
+MAX_RULES = 100
 QUERY_PARAMETER_FIELDS = frozenset(
     {"device_id", "metric", "from", "to", "bucket_seconds", "limit", "cursor"}
 )
@@ -31,6 +33,9 @@ EVENT_DEVICE_COMMAND_REQUESTED = "device.command.requested.v1"
 EVENT_ACTION_OUTCOME = "extension.action.outcome.v1"
 EVENT_WORKFLOW_OUTCOME = "notification.workflow.outcome.v1"
 EVENT_COMMAND_OUTCOME = "device.command.outcome.v1"
+OUTCOME_EVENT_TYPES = frozenset(
+    {EVENT_ACTION_OUTCOME, EVENT_WORKFLOW_OUTCOME, EVENT_COMMAND_OUTCOME}
+)
 DOMAIN_EVENT_TYPES = frozenset(
     {
         EVENT_TELEMETRY_RECEIVED,
@@ -59,6 +64,7 @@ CANONICAL_EVENT_FIELDS = frozenset(
         "payload",
     }
 )
+CONDITION_PATTERN = re.compile(r"^\s*(\S+)\s*(<=|>=|==|!=|<|>)\s*(\S+)\s*$")
 
 
 class ContractError(ValueError):
@@ -385,6 +391,120 @@ def build_twin_projection(event: Mapping[str, Any]) -> dict[str, Any] | None:
     )
 
 
+def _condition_operand(token: str, body: Mapping[str, Any]) -> Any:
+    typed = re.fullmatch(r"(DOUBLE|INTEGER|STRING|BOOLEAN)\((.*)\)", token)
+    if typed:
+        kind, raw = typed.groups()
+        try:
+            if kind == "DOUBLE":
+                return finite_number(float(raw))
+            if kind == "INTEGER":
+                return finite_number(int(raw))
+        except ValueError as exc:
+            raise ContractError("INVALID_RULE_CONFIGURATION", 503) from exc
+        if kind == "BOOLEAN" and raw.lower() in {"true", "false"}:
+            return raw.lower() == "true"
+        if kind == "STRING":
+            return raw
+        raise ContractError("INVALID_RULE_CONFIGURATION", 503)
+    field = token.rsplit(".", 1)[-1]
+    if body.get("metric") == field and "value" in body:
+        return body["value"]
+    if field not in body:
+        raise ContractError("RULE_OPERAND_NOT_FOUND")
+    return body[field]
+
+
+def _condition_matches(condition: Any, body: Mapping[str, Any]) -> bool:
+    if not isinstance(condition, str):
+        raise ContractError("INVALID_RULE_CONFIGURATION", 503)
+    match = CONDITION_PATTERN.fullmatch(condition)
+    if not match:
+        raise ContractError("INVALID_RULE_CONFIGURATION", 503)
+    left, operator, right = match.groups()
+    lhs = _condition_operand(left, body)
+    rhs = _condition_operand(right, body)
+    comparisons = {
+        "<": lambda: lhs < rhs,
+        ">": lambda: lhs > rhs,
+        "<=": lambda: lhs <= rhs,
+        ">=": lambda: lhs >= rhs,
+        "==": lambda: lhs == rhs,
+        "!=": lambda: lhs != rhs,
+    }
+    try:
+        return bool(comparisons[operator]())
+    except TypeError as exc:
+        raise ContractError("RULE_TYPE_MISMATCH") from exc
+
+
+def build_rule_matches(
+    event: Mapping[str, Any], rules: list[Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """Return deterministic match events for the bounded configured rule set."""
+
+    validate_canonical_event(event)
+    if event.get("event_type") != EVENT_TELEMETRY_PROCESSED:
+        raise ContractError("UNEXPECTED_RULE_EVENT")
+    if len(rules) > MAX_RULES or not all(isinstance(rule, Mapping) for rule in rules):
+        raise ContractError("INVALID_RULE_CONFIGURATION", 503)
+    body = event_body(event)
+    matches = []
+    rule_ids = set()
+    for index, rule in enumerate(rules):
+        action = rule.get("action")
+        if not isinstance(action, Mapping):
+            raise ContractError("INVALID_RULE_CONFIGURATION", 503)
+        rule_id = required_text(
+            rule.get("rule_id") or f"rule-{index + 1}",
+            code="INVALID_RULE_CONFIGURATION",
+        )
+        if rule_id in rule_ids:
+            raise ContractError("INVALID_RULE_CONFIGURATION", 503)
+        rule_ids.add(rule_id)
+        if not _condition_matches(rule.get("condition"), body):
+            continue
+        matches.append(
+            derive_event(
+                event,
+                event_type=EVENT_MATCHED,
+                producer="component.rule-evaluator",
+                payload={
+                    **dict(body),
+                    "rule_id": rule_id,
+                    "condition": str(rule["condition"]),
+                    "action": dict(action),
+                },
+                identity_suffix=rule_id,
+            )
+        )
+    return matches
+
+
+def outcome_document(
+    event: Mapping[str, Any], *, stored_at: datetime, hot_boundary_days: int
+) -> dict[str, Any]:
+    """Create one idempotent non-rollup hot record for a terminal outcome."""
+
+    validate_canonical_event(event)
+    if event.get("event_type") not in OUTCOME_EVENT_TYPES:
+        raise ContractError("UNEXPECTED_OUTCOME_EVENT")
+    if hot_boundary_days < 1:
+        raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503)
+    payload_json = canonical_json(dict(event))
+    return {
+        "id": f"outcome-{event_id(event)}",
+        "kind": "outcome",
+        "device_id": partition_key(event),
+        "event_id": event_id(event),
+        "event_type": event["event_type"],
+        "stored_at": iso_time(stored_at),
+        "payload_digest": hashlib.sha256(payload_json.encode("utf-8")).hexdigest(),
+        "payload": dict(event),
+        "ttl": hot_boundary_days * 86400 + 48 * 3600,
+    }
+
+
 def decode_message_body(body: bytes | str) -> dict[str, Any]:
     """Decode one Event Hubs or Service Bus body and validate it."""
 
@@ -424,14 +544,16 @@ def derive_event(
     event_type: str,
     producer: str,
     payload: Mapping[str, Any] | None = None,
+    identity_suffix: str = "",
 ) -> dict[str, Any]:
     """Create an idempotent child event from one canonical source event."""
 
     validate_canonical_event(source)
     source_id = str(source["event_id"])
-    child_id = str(
-        uuid.uuid5(uuid.NAMESPACE_URL, f"{source_id}:{event_type}:{producer}")
-    )
+    identity = f"{source_id}:{event_type}:{producer}"
+    if identity_suffix:
+        identity = f"{identity}:{identity_suffix}"
+    child_id = str(uuid.uuid5(uuid.NAMESPACE_URL, identity))
     child = {
         "schema_version": "canonical-domain-event.v1",
         "event_id": child_id,
@@ -634,6 +756,7 @@ __all__ = [
     "PROFILE",
     "build_ingress_event",
     "build_processed_event",
+    "build_rule_matches",
     "build_twin_projection",
     "canonical_json",
     "cosmos_raw_history_statement",
@@ -648,6 +771,7 @@ __all__ = [
     "iso_time",
     "next_rollup_document",
     "normalize_history_points",
+    "outcome_document",
     "parse_raw_history_query",
     "partition_key",
     "raw_document",

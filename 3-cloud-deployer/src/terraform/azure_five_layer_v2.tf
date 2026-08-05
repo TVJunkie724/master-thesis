@@ -459,6 +459,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
     V2_IOT_HUB__fullyQualifiedNamespace          = local.azure_v2_l1_enabled ? "${azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_namespace}.servicebus.windows.net" : "disabled.servicebus.windows.net"
     V2_IOT_HUB__credential                       = "managedidentity"
     V2_IOT_HUB__clientId                         = azurerm_user_assigned_identity.main[0].client_id
+    V2_IOT_HUB_HOSTNAME                          = try(azurerm_iothub.azure_azure_iot_hub[0].hostname, "")
     V2_REMOTE_TELEMETRY_ENABLED                  = tostring(local.azure_v2_remote_telemetry_inbound)
     V2_REMOTE_TELEMETRY_HUB_NAME                 = try(azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["inbound"].name, "disabled")
     V2_REMOTE_TELEMETRY__fullyQualifiedNamespace = local.azure_v2_remote_telemetry_enabled ? "${azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].name}.servicebus.windows.net" : "disabled.servicebus.windows.net"
@@ -535,7 +536,11 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
     V2_MANAGED_IDENTITY_CLIENT_ID           = azurerm_user_assigned_identity.main[0].client_id
     V2_PROCESSOR_EXTENSION_URL              = try("https://${one(values(azurerm_function_app_flex_consumption.azure_v2_processor_extension)).name}.azurewebsites.net/api/extension", "")
     V2_PROCESSOR_EXTENSION_KEY              = try(one(values(data.azurerm_function_app_host_keys.azure_v2_processor_extension)).default_function_key, "")
+    V2_ACTION_FUNCTION_URL                  = "https://${azurerm_function_app_flex_consumption.azure_v2_extension_action[0].name}.azurewebsites.net/api/extension-action/v1"
+    V2_ACTION_FUNCTION_KEY                  = data.azurerm_function_app_host_keys.azure_v2_extension_action[0].default_function_key
     V2_LOGIC_APP_CALLBACK_URL               = azurerm_logic_app_trigger_http_request.azure_azure_logic_apps_consumption[0].callback_url
+    V2_IOT_HUB_HOSTNAME                     = try(azurerm_iothub.azure_azure_iot_hub[0].hostname, "")
+    V2_RULES_JSON                           = jsonencode(var.events)
     V2_L2_PROVIDER                          = var.layer_2_provider
     V2_HOT_PROVIDER                         = var.layer_3_hot_provider
     V2_TWIN_PROVIDER                        = var.layer_4_provider
@@ -608,6 +613,62 @@ data "azurerm_function_app_host_keys" "azure_v2_processor_extension" {
   resource_group_name = each.value.resource_group_name
 }
 
+# A separate fixed Function invocation keeps the mandatory extension-action
+# event and cost visible without executing the retired unvalidated action ZIPs.
+resource "azurerm_function_app_flex_consumption" "azure_v2_extension_action" {
+  count               = local.azure_v2_l2_enabled ? 1 : 0
+  name                = "${local.azure_v2_name}-v2-action-${local.deployment_suffix}"
+  resource_group_name = azurerm_resource_group.main[0].name
+  location            = azurerm_resource_group.main[0].location
+  service_plan_id     = azurerm_service_plan.azure_v2_flex[0].id
+
+  storage_container_type      = "blobContainer"
+  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_v2_function_package[0].name}"
+  storage_authentication_type = "StorageAccountConnectionString"
+  storage_access_key          = azurerm_storage_account.main[0].primary_access_key
+
+  runtime_name    = "python"
+  runtime_version = "3.12"
+  zip_deploy_file = local.azure_v2_runtime_package
+
+  maximum_instance_count                         = 100
+  instance_memory_in_mb                          = 2048
+  https_only                                     = true
+  public_network_access_enabled                  = true
+  webdeploy_publish_basic_authentication_enabled = false
+
+  site_config {
+    minimum_tls_version     = "1.2"
+    scm_minimum_tls_version = "1.2"
+  }
+
+  app_settings = {
+    FUNCTIONS_WORKER_RUNTIME    = "python"
+    WEBSITE_RUN_FROM_PACKAGE    = "1"
+    ARCHITECTURE_PROFILE        = "five-layer-baseline@2"
+    V2_ACTION_ENDPOINT_ENABLED  = "true"
+    V2_DOMAIN_CONSUMER_ENABLED  = "false"
+    V2_IOT_PROCESSOR_ENABLED    = "false"
+    V2_REMOTE_TELEMETRY_ENABLED = "false"
+    V2_RAW_HISTORY_ENABLED      = "false"
+  }
+
+  tags = local.azure_v2_tags
+
+  lifecycle {
+    precondition {
+      condition     = fileexists(local.azure_v2_runtime_package)
+      error_message = "Azure Five-layer v2 requires its validated content-addressed Function package."
+    }
+  }
+}
+
+data "azurerm_function_app_host_keys" "azure_v2_extension_action" {
+  count               = local.azure_v2_l2_enabled ? 1 : 0
+  name                = azurerm_function_app_flex_consumption.azure_v2_extension_action[0].name
+  resource_group_name = azurerm_function_app_flex_consumption.azure_v2_extension_action[0].resource_group_name
+}
+
 resource "azurerm_logic_app_workflow" "azure_azure_logic_apps_consumption" {
   count               = local.azure_v2_l2_enabled ? 1 : 0
   name                = "${local.azure_v2_name}-v2-notification"
@@ -641,9 +702,63 @@ resource "azurerm_logic_app_trigger_http_request" "azure_azure_logic_apps_consum
   })
 }
 
-resource "azurerm_logic_app_action_custom" "azure_azure_logic_apps_consumption" {
+resource "azurerm_logic_app_action_custom" "azure_v2_notification_normalize" {
   count        = local.azure_v2_l2_enabled ? 1 : 0
-  name         = "record-poc-workflow-acceptance"
+  name         = "normalize-canonical-notification"
+  logic_app_id = azurerm_logic_app_workflow.azure_azure_logic_apps_consumption[0].id
+  body = jsonencode({
+    type = "Compose"
+    inputs = {
+      event_id       = "@{triggerBody()?['event_id']}"
+      correlation_id = "@{triggerBody()?['correlation_id']}"
+      message        = "@{triggerBody()?['payload']?['message']}"
+    }
+    runAfter = {}
+  })
+}
+
+resource "azurerm_logic_app_action_custom" "azure_v2_notification_prepare" {
+  count        = local.azure_v2_l2_enabled ? 1 : 0
+  name         = "prepare-poc-notification-delivery"
+  logic_app_id = azurerm_logic_app_workflow.azure_azure_logic_apps_consumption[0].id
+  body = jsonencode({
+    type   = "Compose"
+    inputs = "@triggerBody()"
+    runAfter = {
+      (azurerm_logic_app_action_custom.azure_v2_notification_normalize[0].name) = ["Succeeded"]
+    }
+  })
+}
+
+resource "azurerm_logic_app_action_custom" "azure_v2_notification_deliver" {
+  count        = local.azure_v2_l2_enabled ? 1 : 0
+  name         = "deliver-external-poc-notification"
+  logic_app_id = azurerm_logic_app_workflow.azure_azure_logic_apps_consumption[0].id
+  body = jsonencode({
+    type = "Http"
+    inputs = {
+      method = "POST"
+      uri    = "https://${azurerm_function_app_flex_consumption.azure_v2_extension_action[0].name}.azurewebsites.net/api/notification-delivery/v1"
+      headers = {
+        "content-type"    = "application/json"
+        "x-functions-key" = data.azurerm_function_app_host_keys.azure_v2_extension_action[0].default_function_key
+      }
+      body = "@triggerBody()"
+    }
+    runAfter = {
+      (azurerm_logic_app_action_custom.azure_v2_notification_prepare[0].name) = ["Succeeded"]
+    }
+    runtimeConfiguration = {
+      secureData = {
+        properties = ["inputs"]
+      }
+    }
+  })
+}
+
+resource "azurerm_logic_app_action_custom" "azure_v2_notification_complete" {
+  count        = local.azure_v2_l2_enabled ? 1 : 0
+  name         = "complete-poc-notification-workflow"
   logic_app_id = azurerm_logic_app_workflow.azure_azure_logic_apps_consumption[0].id
   body = jsonencode({
     type = "Response"
@@ -654,7 +769,9 @@ resource "azurerm_logic_app_action_custom" "azure_azure_logic_apps_consumption" 
         event_id = "@{triggerBody()?['event_id']}"
       }
     }
-    runAfter = {}
+    runAfter = {
+      (azurerm_logic_app_action_custom.azure_v2_notification_deliver[0].name) = ["Succeeded"]
+    }
   })
 }
 

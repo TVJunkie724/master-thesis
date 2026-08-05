@@ -13,6 +13,7 @@ import os
 import time
 from typing import Any, Iterable, Mapping
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 import uuid
 
@@ -21,6 +22,7 @@ from azure.core.exceptions import ResourceNotFoundError
 from azure.cosmos import CosmosClient
 from azure.cosmos.exceptions import (
     CosmosBatchOperationError,
+    CosmosResourceExistsError,
     CosmosResourceNotFoundError,
 )
 from azure.digitaltwins.core import DigitalTwinsClient
@@ -31,12 +33,14 @@ from core import (
     ContractError,
     build_ingress_event,
     build_processed_event,
+    build_rule_matches,
     build_twin_projection,
     canonical_json,
     cosmos_raw_history_statement,
     decode_cursor,
     decode_json_object,
     decode_message_body,
+    derive_event,
     encode_cursor,
     event_body,
     event_id,
@@ -44,8 +48,10 @@ from core import (
     iso_time,
     next_rollup_document,
     normalize_history_points,
+    outcome_document,
     parse_time,
     parse_raw_history_query,
+    partition_key,
     raw_document,
     raw_history_query_digest,
     rollup_id,
@@ -65,6 +71,9 @@ IOT_PROCESSOR_ENABLED = (
 )
 RAW_HISTORY_ENABLED = (
     os.getenv("V2_RAW_HISTORY_ENABLED", "false").strip().lower() == "true"
+)
+ACTION_ENDPOINT_ENABLED = (
+    os.getenv("V2_ACTION_ENDPOINT_ENABLED", "false").strip().lower() == "true"
 )
 _COSMOS_CONTAINER: Any | None = None
 _ADT_CLIENT: Any | None = None
@@ -206,12 +215,53 @@ def _invoke_processor_extension(event: Mapping[str, Any]) -> Mapping[str, Any]:
     raise ContractError("INVALID_PROCESSOR_EXTENSION_RESPONSE", 503)
 
 
+def _post_bound_json(
+    url: str, payload: Mapping[str, Any], *, function_key: str = "", timeout: int = 10
+) -> dict[str, Any] | None:
+    if not url:
+        return None
+    headers = {"content-type": "application/json"}
+    if function_key:
+        headers["x-functions-key"] = function_key
+    request = Request(
+        url,
+        data=canonical_json(payload).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=timeout) as response:  # nosec B310
+            raw = response.read(MAX_EXTENSION_RESPONSE_BYTES + 1)
+    except (HTTPError, TimeoutError, URLError, OSError):
+        return None
+    if not raw or len(raw) > MAX_EXTENSION_RESPONSE_BYTES:
+        return None
+    try:
+        value = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def _configured_rules() -> list[Mapping[str, Any]]:
+    try:
+        rules = json.loads(os.getenv("V2_RULES_JSON", "[]"))
+    except json.JSONDecodeError as exc:
+        raise ContractError("INVALID_RULE_CONFIGURATION", 503) from exc
+    if not isinstance(rules, list):
+        raise ContractError("INVALID_RULE_CONFIGURATION", 503)
+    return rules
+
+
+def _evaluate_rules(event: Mapping[str, Any]) -> None:
+    for matched in build_rule_matches(event, _configured_rules()):
+        _enqueue(matched)
+
+
 def _persist_processed(processed: Mapping[str, Any]) -> None:
     if os.getenv("V2_HOT_PROVIDER") != "azure":
         raise ContractError("REMOTE_HOT_ROUTE_NOT_CONFIGURED", 503)
-    inserted = _write_raw_and_rollup(processed)
-    if not inserted:
-        return
+    _write_raw_and_rollup(processed)
     projection = build_twin_projection(processed)
     if projection is None:
         return
@@ -222,7 +272,163 @@ def _persist_processed(processed: Mapping[str, Any]) -> None:
 
 def _process_received(event: Mapping[str, Any]) -> None:
     processed = build_processed_event(event, _invoke_processor_extension(event))
-    _persist_processed(processed)
+    _enqueue(processed)
+
+
+def _action_name(action: Mapping[str, Any]) -> str:
+    value = action.get("functionName")
+    if not isinstance(value, str) or not value or len(value.encode("utf-8")) > 128:
+        raise ContractError("EXTENSION_ACTION_NOT_CONFIGURED", 503)
+    return value
+
+
+def _invoke_poc_action(event: Mapping[str, Any], action: Mapping[str, Any]) -> bool:
+    url = os.getenv("V2_ACTION_FUNCTION_URL", "")
+    key = os.getenv("V2_ACTION_FUNCTION_KEY", "")
+    invocation = {
+        "schema_version": "extension-action-invocation.v1",
+        "invocation_id": event_id(event),
+        "action_id": _action_name(action),
+        "event": dict(event),
+    }
+    for _ in range(3):
+        response = _post_bound_json(url, invocation, function_key=key)
+        if response == {
+            "schema_version": "extension-action-result.v1",
+            "invocation_id": event_id(event),
+            "action_id": invocation["action_id"],
+            "status": "ACCEPTED",
+        }:
+            return True
+    return False
+
+
+def _dispatch_match(event: Mapping[str, Any]) -> None:
+    body = event_body(event)
+    action = body.get("action")
+    if not isinstance(action, Mapping):
+        raise ContractError("INVALID_MATCH_EVENT")
+    action_succeeded = _invoke_poc_action(event, action)
+    _enqueue(
+        derive_event(
+            event,
+            event_type="extension.action.outcome.v1",
+            producer="component.action-dispatcher",
+            payload={
+                "device_id": partition_key(event),
+                "rule_id": body.get("rule_id"),
+                "invocation_id": event_id(event),
+                "action_id": _action_name(action),
+                "status": "SUCCEEDED" if action_succeeded else "FAILED",
+            },
+        )
+    )
+    if action.get("type") in {"step_function", "logic_app", "workflow"}:
+        _enqueue(
+            derive_event(
+                event,
+                event_type="notification.requested.v1",
+                producer="component.action-dispatcher",
+                payload={
+                    "device_id": partition_key(event),
+                    "rule_id": body.get("rule_id"),
+                    "message": str(
+                        action.get("message") or body.get("condition") or "Rule matched"
+                    ),
+                },
+            )
+        )
+    feedback = action.get("feedback")
+    if isinstance(feedback, Mapping):
+        device_id = feedback.get("device_id") or feedback.get("iotDeviceId")
+        if not isinstance(device_id, str) or not device_id:
+            device_id = partition_key(event)
+        _enqueue(
+            derive_event(
+                event,
+                event_type="device.command.requested.v1",
+                producer="component.action-dispatcher",
+                payload={
+                    "device_id": device_id,
+                    "rule_id": body.get("rule_id"),
+                    "message": str(feedback.get("payload") or "Rule matched"),
+                },
+            )
+        )
+
+
+def _start_notification_workflow(event: Mapping[str, Any]) -> None:
+    url = os.getenv("V2_LOGIC_APP_CALLBACK_URL", "")
+    accepted = False
+    for _ in range(3):
+        response = _post_bound_json(url, event)
+        if (
+            isinstance(response, Mapping)
+            and response.get("status") == "ACCEPTED"
+            and response.get("event_id") == event_id(event)
+        ):
+            accepted = True
+            break
+    _enqueue(
+        derive_event(
+            event,
+            event_type="notification.workflow.outcome.v1",
+            producer="component.notification-workflow",
+            payload={
+                "device_id": partition_key(event),
+                "invocation_id": event_id(event),
+                "status": "SUCCEEDED" if accepted else "FAILED",
+            },
+        )
+    )
+
+
+def _send_device_command(event: Mapping[str, Any]) -> bool:
+    hostname = os.getenv("V2_IOT_HUB_HOSTNAME", "")
+    body = event_body(event)
+    device_id = partition_key(event)
+    if not hostname:
+        return False
+    url = (
+        f"https://{hostname}/devices/{quote(device_id, safe='')}/messages/deviceBound"
+        "?api-version=2021-04-12"
+    )
+    payload = str(body.get("message") or "Rule matched").encode("utf-8")
+    for _ in range(3):
+        try:
+            token = _credential().get_token("https://iothubs.azure.net/.default")
+            request = Request(
+                url,
+                data=payload,
+                headers={
+                    "authorization": f"Bearer {token.token}",
+                    "content-type": "text/plain; charset=utf-8",
+                    "iothub-messageid": event_id(event),
+                },
+                method="POST",
+            )
+            with urlopen(request, timeout=10) as response:  # nosec B310
+                if response.status == 204:
+                    return True
+        except (HTTPError, TimeoutError, URLError, OSError):
+            continue
+    return False
+
+
+def _deliver_device_command(event: Mapping[str, Any]) -> None:
+    accepted = _send_device_command(event)
+    _enqueue(
+        derive_event(
+            event,
+            event_type="device.command.outcome.v1",
+            producer="component.device-command-adapter",
+            payload={
+                "device_id": partition_key(event),
+                "invocation_id": event_id(event),
+                "status": "ACCEPTED" if accepted else "FAILED",
+            },
+        )
+    )
 
 
 def _consume(event: dict) -> None:
@@ -235,10 +441,23 @@ def _consume(event: dict) -> None:
         _process_received(validated)
     elif validated["event_type"] == "telemetry.processed.v1":
         _persist_processed(validated)
+        _evaluate_rules(validated)
     elif validated["event_type"] == "twin.state.upserted":
         if os.getenv("V2_TWIN_PROVIDER") != "azure":
             raise ContractError("REMOTE_TWIN_ROUTE_NOT_CONFIGURED", 503)
         _materialize_twin_projection(validated)
+    elif validated["event_type"] == "event.matched.v1":
+        _dispatch_match(validated)
+    elif validated["event_type"] == "notification.requested.v1":
+        _start_notification_workflow(validated)
+    elif validated["event_type"] == "device.command.requested.v1":
+        _deliver_device_command(validated)
+    elif validated["event_type"] in {
+        "extension.action.outcome.v1",
+        "notification.workflow.outcome.v1",
+        "device.command.outcome.v1",
+    }:
+        _store_outcome(validated)
     else:
         raise ContractError("UNSUPPORTED_LOCAL_DOMAIN_EVENT")
     logging.info(
@@ -255,6 +474,100 @@ def _reader_response(status: int, payload: Mapping[str, Any]) -> func.HttpRespon
         mimetype="application/json",
         headers={"cache-control": "no-store"},
     )
+
+
+def _poc_action_result(invocation: Mapping[str, Any]) -> dict[str, Any]:
+    if (
+        set(invocation)
+        != {
+            "schema_version",
+            "invocation_id",
+            "action_id",
+            "event",
+        }
+        or invocation.get("schema_version") != "extension-action-invocation.v1"
+    ):
+        raise ContractError("INVALID_ACTION_INVOCATION")
+    event = invocation.get("event")
+    if not isinstance(event, Mapping):
+        raise ContractError("INVALID_ACTION_INVOCATION")
+    validated = validate_canonical_event(event)
+    action = event_body(validated).get("action")
+    if (
+        validated["event_type"] != "event.matched.v1"
+        or invocation.get("invocation_id") != event_id(validated)
+        or not isinstance(action, Mapping)
+        or invocation.get("action_id") != _action_name(action)
+    ):
+        raise ContractError("INVALID_ACTION_INVOCATION")
+    return {
+        "schema_version": "extension-action-result.v1",
+        "invocation_id": event_id(validated),
+        "action_id": invocation["action_id"],
+        "status": "ACCEPTED",
+    }
+
+
+def _poc_notification_result(event: Mapping[str, Any]) -> dict[str, Any]:
+    validated = validate_canonical_event(event)
+    if validated["event_type"] != "notification.requested.v1":
+        raise ContractError("INVALID_NOTIFICATION_INVOCATION")
+    body = event_body(validated)
+    if not isinstance(body.get("message"), str) or not body["message"]:
+        raise ContractError("INVALID_NOTIFICATION_INVOCATION")
+    return {
+        "schema_version": "notification-delivery-result.v1",
+        "event_id": event_id(validated),
+        "status": "ACCEPTED",
+    }
+
+
+if ACTION_ENDPOINT_ENABLED:
+
+    @app.function_name(name="v2-poc-extension-action")
+    @app.route(
+        route="extension-action/v1",
+        methods=["POST"],
+        auth_level=func.AuthLevel.FUNCTION,
+    )
+    def poc_extension_action(req: func.HttpRequest) -> func.HttpResponse:
+        """Execute the fixed, side-effect-free PoC extension-action boundary."""
+
+        try:
+            invocation = decode_json_object(req.get_body())
+            return _reader_response(
+                200,
+                _poc_action_result(invocation),
+            )
+        except ContractError as exc:
+            return _reader_response(
+                exc.status,
+                {
+                    "schema_version": "architecture-runtime-error.v1",
+                    "code": exc.code,
+                },
+            )
+
+    @app.function_name(name="v2-poc-notification-delivery")
+    @app.route(
+        route="notification-delivery/v1",
+        methods=["POST"],
+        auth_level=func.AuthLevel.FUNCTION,
+    )
+    def poc_notification_delivery(req: func.HttpRequest) -> func.HttpResponse:
+        """Accept the workflow's one external PoC notification action."""
+
+        try:
+            event = decode_json_object(req.get_body())
+            return _reader_response(200, _poc_notification_result(event))
+        except ContractError as exc:
+            return _reader_response(
+                exc.status,
+                {
+                    "schema_version": "architecture-runtime-error.v1",
+                    "code": exc.code,
+                },
+            )
 
 
 def _cosmos_container():
@@ -344,6 +657,29 @@ def _write_raw_and_rollup(
             if attempt + 1 < attempts:
                 time.sleep(0.01 * (attempt + 1))
     raise ContractError("ROLLUP_CONFLICT_EXHAUSTED", 503)
+
+
+def _store_outcome(event: Mapping[str, Any], *, stored_at=None) -> None:
+    if os.getenv("V2_HOT_PROVIDER") != "azure":
+        raise ContractError("REMOTE_HOT_ROUTE_NOT_CONFIGURED", 503)
+    try:
+        hot_days = int(os.getenv("V2_HOT_BOUNDARY_DAYS", "0"))
+    except ValueError as exc:
+        raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503) from exc
+    document = outcome_document(
+        event,
+        stored_at=stored_at or datetime.now(timezone.utc),
+        hot_boundary_days=hot_days,
+    )
+    container = _cosmos_container()
+    try:
+        container.create_item(body=document)
+    except CosmosResourceExistsError:
+        existing = container.read_item(
+            item=document["id"], partition_key=document["device_id"]
+        )
+        if existing.get("payload_digest") != document["payload_digest"]:
+            raise ContractError("IDEMPOTENCY_CONFLICT", 409) from None
 
 
 def _adt_client():
