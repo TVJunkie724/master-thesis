@@ -321,6 +321,59 @@ run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {
   }
 }
 
+run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
+  command = plan
+
+  variables {
+    digital_twin_name                     = "drift-test"
+    architecture_profile_id               = "five-layer-baseline"
+    architecture_profile_version          = "2"
+    layer_1_provider                      = "google"
+    layer_2_provider                      = "google"
+    layer_3_hot_provider                  = "google"
+    layer_3_cold_provider                 = "google"
+    layer_3_archive_provider              = "google"
+    layer_4_provider                      = "google"
+    layer_5_provider                      = "google"
+    layer_3_hot_to_cold_interval_days     = 30
+    layer_3_cold_to_archive_interval_days = 90
+    layer_3_archive_expiry_interval_days  = 365
+    platform_user_email                   = "researcher@example.test"
+    platform_user_first_name              = "Thesis"
+    platform_user_last_name               = "Researcher"
+    gcp_project_id                        = "phase8-poc-project"
+    gcp_region                            = "europe-west1"
+    enable_gcp_logging                    = false
+  }
+
+  assert {
+    condition = (
+      length(google_cloudfunctions2_function.dispatcher) == 0 &&
+      length(google_cloudfunctions2_function.persister) == 0 &&
+      length(google_firestore_database.main) == 0 &&
+      length(google_storage_bucket.function_source) == 0
+    )
+    error_message = "Five-layer v2 GCP must not deploy the historical Cloud Functions/Firestore bundle."
+  }
+
+  assert {
+    condition = toset(keys(google_project_service.gcp_v2_required)) == toset([
+      "artifactregistry.googleapis.com",
+      "cloudscheduler.googleapis.com",
+      "compute.googleapis.com",
+      "container.googleapis.com",
+      "firestore.googleapis.com",
+      "iap.googleapis.com",
+      "logging.googleapis.com",
+      "monitoring.googleapis.com",
+      "secretmanager.googleapis.com",
+      "storage.googleapis.com",
+      "workflows.googleapis.com",
+    ])
+    error_message = "Single-cloud GCP v2 must enable exactly its reviewed platform API foundation."
+  }
+}
+
 run "all_aws_selections_bind_to_resources" {
   command = plan
 

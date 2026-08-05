@@ -105,11 +105,11 @@ provider "aws" {
 }
 
 # Google Cloud Provider (for multi-cloud deployments)
-# Note: Project reference uses var.digital_twin_name directly here since
-# locals.gcp_project_name isn't resolved yet during provider configuration
 provider "google" {
-  project = local.deploy_gcp ? "${var.digital_twin_name}-project" : "placeholder-not-used"
-  region  = var.gcp_region != "" ? var.gcp_region : "us-central1"
+  project = local.deploy_gcp ? (
+    var.gcp_project_id != "" ? var.gcp_project_id : "${var.digital_twin_name}-project"
+  ) : "placeholder-not-used"
+  region = var.gcp_region != "" ? var.gcp_region : "us-central1"
   # Use dummy credentials when none provided to prevent Application Default Credentials
   # lookup (which fails in containers without gcloud CLI).
   credentials = var.gcp_credentials_json != "" ? var.gcp_credentials_json : "{\"type\":\"service_account\",\"project_id\":\"placeholder\",\"private_key_id\":\"\",\"private_key\":\"\",\"client_email\":\"placeholder@placeholder.iam.gserviceaccount.com\",\"client_id\":\"\",\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\",\"token_uri\":\"https://oauth2.googleapis.com/token\"}"
@@ -174,9 +174,9 @@ locals {
     var.layer_2_provider,
     var.layer_3_hot_provider,
     var.layer_3_cold_provider,
-    var.layer_3_archive_provider
-    # TODO(GCP-L4L5): L4/L5 not supported for GCP (no managed services).
-    # When GCP L4/L5 is implemented, add var.layer_4_provider and var.layer_5_provider here.
+    var.layer_3_archive_provider,
+    var.layer_4_provider,
+    var.layer_5_provider
   ], "google")
 
   # Azure region to use for IoT Hub (may differ from main region)
