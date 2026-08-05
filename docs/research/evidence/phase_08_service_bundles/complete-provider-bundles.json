@@ -39,7 +39,7 @@
         "l5_visualization": [
           "aws.amazon-managed-grafana-12",
           "aws.lambda-raw-history-reader",
-          "grafana.marcusolsson-json-datasource"
+          "aws.grafana-marcusolsson-json-datasource"
         ]
       },
       "support_components": [
@@ -95,7 +95,7 @@
         "l5_visualization": [
           "azure.managed-grafana-12-standard",
           "azure.functions-flex-raw-history-reader",
-          "grafana.marcusolsson-json-datasource"
+          "azure.grafana-marcusolsson-json-datasource"
         ]
       },
       "support_components": [

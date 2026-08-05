@@ -7,6 +7,13 @@
   "approval_scope": "offline_contract_capacity_and_implementation_authority",
   "approved_on": "2026-08-03",
   "research_cutoff": "2026-08-03",
+  "pre_activation_refreeze": {
+    "refrozen_on": "2026-08-04",
+    "previous_package_digest": "sha256:4aadd03b4cc907a26ae3c3290b8c56fe70205b9f009fc36be9c0d0e649a33bba",
+    "reason": "split the shared managed-Grafana plugin alias into provider-owned component IDs and replace composite capacity labels with atomic priced dimensions",
+    "scope_change": false,
+    "activated_or_deployed_before_refreeze": false
+  },
   "regions": {
     "aws": "eu-central-1",
     "azure": "westeurope",
@@ -31,9 +38,9 @@
     "docs/research/evidence/phase_08_service_bundles/boundary-route-matrix.json": "sha256:5f040b94df9f1d002eb1a39c40f8798b9865d072d7cb5be5ca7cb198e55fdf23",
     "docs/research/evidence/phase_08_service_bundles/capacity-matrix.json": "sha256:1ab9763320a3cf615b3d24610832f4b72bf2920cd2286f2d51202376fd44120c",
     "docs/research/evidence/phase_08_service_bundles/common-functional-contract.json": "sha256:6345f7e1e08a4b548fa0f336a97f6a1cbff2d845030c5671e5b98900f5ec37f5",
-    "docs/research/evidence/phase_08_service_bundles/complete-provider-bundles.json": "sha256:ee9a70f9cf7fdef792f17f55b63c732d9790fc9737001876b7a1cf4345c590a2",
-    "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json": "sha256:d532fc64823fc5b30c01b34ced28e3587ad4b36e3a4d69608d65cc076b898e0d",
-    "docs/research/evidence/phase_08_service_bundles/pricing-ownership-matrix.json": "sha256:8da738aee87b7661005642755860607aa935fac8015eb44c9e6ba834e80014f8",
+    "docs/research/evidence/phase_08_service_bundles/complete-provider-bundles.json": "sha256:5f6dbcc7389ce6d3970e28ecec7c344b96b2a315b9e70affd7936313bc234859",
+    "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json": "sha256:748b6258fedc0e781fa2ee1769106e5a56cb27400eac043516be8ea7c893498e",
+    "docs/research/evidence/phase_08_service_bundles/pricing-ownership-matrix.json": "sha256:18dc8a5f4ebbf64c176c2891eeaa5e6ef660595df303ac74da6f9c03f4a63b01",
     "docs/research/evidence/phase_08_service_bundles/source-ledger.json": "sha256:a32892c9f7405673e53b0aee8397fd6f83cfae6264b4ae82cfa42feb57e6545e",
     "docs/research/evidence/phase_08_service_bundles/workload-scenarios.json": "sha256:f7162f9ec34d30148f72ca4ab427cbf0c4d0d6a5dba7ccfd4455af701e373201"
   },
@@ -58,7 +65,7 @@
     "docs/research/evidence/phase_08_eventing/decision.json": "sha256:d6913db74bbcdaa758e7a05f16f2755760247521ad1b2067d99dccee5c8a637f",
     "docs/research/evidence/phase_08_eventing/source-ledger.json": "sha256:c64311e931f32213b366a2bdbe0d85da59972a94b666b39bb60ae5e2c0c7b0ee"
   },
-  "package_digest": "sha256:4aadd03b4cc907a26ae3c3290b8c56fe70205b9f009fc36be9c0d0e649a33bba",
+  "package_digest": "sha256:cc142504cc8c06927569ec1cce09fe4a9133a688b5f02a2ba114105a0e422245",
   "capacity_decision": {
     "small_medium_large": "theoretically_admissible_with_explicit_conditional_gates",
     "live_status": "live_capacity_pending",
@@ -87,6 +94,12 @@
       "review_id": "service-bundle-iac-feasibility-review-3",
       "reviewed_on": "2026-08-03",
       "scope": "real Terraform and SDK bindings, provider version floor, staged GKE application, closed edge contracts",
+      "unresolved_findings": 0
+    },
+    {
+      "review_id": "service-bundle-contract-integration-review-4",
+      "reviewed_on": "2026-08-04",
+      "scope": "provider-specific plugin ownership, atomic capacity dimensions, single-cloud omission of remote-only services, and all 729 admissible Five-layer assignments",
       "unresolved_findings": 0
     }
   ],

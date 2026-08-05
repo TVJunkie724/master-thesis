@@ -224,12 +224,14 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                     "&& python scripts/sync_user_function_extension_contracts.py --check "
                     "&& python scripts/sync_cloud_bootstrap_contracts.py --check "
                     "&& python scripts/sync_five_layer_workload_contract.py --check "
+                    "&& python scripts/sync_five_layer_v2_contracts.py --check "
                     "&& python -m unittest "
                     "scripts.tests.test_resolved_deployment_contract_sync "
                     "scripts.tests.test_architecture_profile_contract_sync "
                     "scripts.tests.test_user_function_extension_contract_sync "
                     "scripts.tests.test_cloud_bootstrap_contract_sync "
                     "scripts.tests.test_five_layer_workload_contract "
+                    "scripts.tests.test_five_layer_v2_contracts "
                     "scripts.tests.test_verify_resolved_deployment_drift "
                     "scripts.tests.test_thesis_entrypoint "
                     "&& python -m pytest -q "
@@ -255,9 +257,7 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                     "tests/unit/test_resolved_deployment_contract.py"
                 ),
                 root_mount=True,
-                environment=(
-                    "PRICING_CATALOG_STORE_ROOT=/tmp/pricing-catalogs",
-                ),
+                environment=("PRICING_CATALOG_STORE_ROOT=/tmp/pricing-catalogs",),
             ),
         ),
         Stage(
@@ -344,9 +344,7 @@ def full_stages(project: str) -> tuple[Stage, ...]:
                     "&& python -m compileall -q api backend rest_api.py "
                     "&& python -m pip check"
                 ),
-                environment=(
-                    "PRICING_CATALOG_STORE_ROOT=/tmp/pricing-catalogs",
-                ),
+                environment=("PRICING_CATALOG_STORE_ROOT=/tmp/pricing-catalogs",),
             ),
         ),
         Stage(
@@ -458,8 +456,7 @@ def run_stages(
         elapsed = time.monotonic() - stage_started
         if result.returncode != 0:
             print(
-                f"FAILED: {stage.name} after {elapsed:.1f}s\n"
-                f"Command: {rendered}",
+                f"FAILED: {stage.name} after {elapsed:.1f}s\nCommand: {rendered}",
                 file=sys.stderr,
                 flush=True,
             )

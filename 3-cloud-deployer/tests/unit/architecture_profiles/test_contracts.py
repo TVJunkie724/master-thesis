@@ -28,6 +28,19 @@ def test_deployer_accepts_catalog_without_compiling_terraform():
     assert validated.content_digest == catalog["content_digest"]
 
 
+def test_deployer_reader_dispatches_five_layer_v2_contract():
+    profile = _read(
+        contracts.CONTRACT_ROOT.parent
+        / "v2"
+        / "fixtures"
+        / "valid"
+        / "five-layer-baseline-v2-profile.json"
+    )
+    validated = contracts.read_contract(profile)
+    assert validated.schema_version == "architecture-profile.v2"
+    assert validated.content_digest == profile["content_digest"]
+
+
 def test_deployer_rejects_secret_like_fields_before_execution():
     wrapper = _read(
         contracts.CONTRACT_ROOT / "fixtures" / "invalid" / "secret-like-field.json"

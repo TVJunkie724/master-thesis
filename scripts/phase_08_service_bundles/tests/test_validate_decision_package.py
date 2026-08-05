@@ -29,7 +29,9 @@ class DecisionPackageValidatorTest(unittest.TestCase):
         self.assertEqual(self.validator.validate(), [])
 
     def test_decision_freeze_is_reproducible(self) -> None:
-        current = self.validator.load_json(self.validator.EVIDENCE_ROOT / "decision.json")
+        current = self.validator.load_json(
+            self.validator.EVIDENCE_ROOT / "decision.json"
+        )
         self.assertEqual(current, self.freezer.build())
 
     def test_route_tamper_is_rejected(self) -> None:
@@ -40,7 +42,9 @@ class DecisionPackageValidatorTest(unittest.TestCase):
         tampered["directed_cross_cloud_pairs"].pop()
         errors: list[str] = []
         self.validator.validate_routes(tampered, errors)
-        self.assertIn("directed_cross_cloud_pairs must contain all six exact pairs", errors)
+        self.assertIn(
+            "directed_cross_cloud_pairs must contain all six exact pairs", errors
+        )
 
     def test_l3_hot_l5_split_is_explicitly_rejected(self) -> None:
         routes = self.validator.load_json(
@@ -54,17 +58,28 @@ class DecisionPackageValidatorTest(unittest.TestCase):
             routes["negative_routes"],
         )
 
-    def test_component_and_pricing_manifests_cover_same_72_components(self) -> None:
+    def test_component_and_pricing_manifests_cover_same_73_components(self) -> None:
         manifest = self.validator.load_json(
             self.validator.EVIDENCE_ROOT / "implementation-component-manifest.json"
         )
         pricing = self.validator.load_json(
             self.validator.EVIDENCE_ROOT / "pricing-ownership-matrix.json"
         )
-        self.assertEqual(len(manifest["components"]), 72)
+        self.assertEqual(len(manifest["components"]), 73)
         self.assertEqual(
             {item["component_id"] for item in manifest["components"]},
             {item["component_id"] for item in pricing["component_owners"]},
+        )
+        providers_by_component = {
+            item["component_id"]: item["provider"] for item in manifest["components"]
+        }
+        self.assertEqual(
+            providers_by_component["aws.grafana-marcusolsson-json-datasource"],
+            "aws",
+        )
+        self.assertEqual(
+            providers_by_component["azure.grafana-marcusolsson-json-datasource"],
+            "azure",
         )
 
     def test_route_pricing_covers_four_classes_and_six_pairs(self) -> None:
@@ -91,7 +106,9 @@ class DecisionPackageValidatorTest(unittest.TestCase):
             "JSON API decision must not invent a hard support-end date", errors
         )
 
-    def test_gcp_permission_manifest_has_no_wildcards_or_bootstrap_authority(self) -> None:
+    def test_gcp_permission_manifest_has_no_wildcards_or_bootstrap_authority(
+        self,
+    ) -> None:
         permission = self.validator.load_json(
             self.validator.PERMISSION_ROOT / "gcp_thesis_demo_v2.json"
         )
@@ -115,9 +132,7 @@ class DecisionPackageValidatorTest(unittest.TestCase):
         manifest = self.validator.load_json(
             self.validator.EVIDENCE_ROOT / "implementation-component-manifest.json"
         )
-        components = {
-            item["component_id"]: item for item in manifest["components"]
-        }
+        components = {item["component_id"]: item for item in manifest["components"]}
         self.assertEqual(
             components["aws.iot-commands"]["terraform_resource_types"],
             ["awscc_iot_command"],
@@ -130,9 +145,7 @@ class DecisionPackageValidatorTest(unittest.TestCase):
             components["aws.iot-twinmaker-standard"]["post_terraform_operations"]
         )
         self.assertEqual(
-            manifest["terraform_provider_requirements"]["google"][
-                "version_constraint"
-            ],
+            manifest["terraform_provider_requirements"]["google"]["version_constraint"],
             ">= 7.22.0, < 8.0.0",
         )
         self.assertEqual(
@@ -169,9 +182,7 @@ class DecisionPackageValidatorTest(unittest.TestCase):
         self.assertFalse(
             definitions["storage_transition.v1"]["permanent_worker_or_cdc_allowed"]
         )
-        self.assertTrue(
-            definitions["twin_projection.v1"]["not_per_telemetry_message"]
-        )
+        self.assertTrue(definitions["twin_projection.v1"]["not_per_telemetry_message"])
 
 
 if __name__ == "__main__":

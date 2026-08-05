@@ -996,7 +996,7 @@ scripts/phase_08_service_bundles/
   tests/
 ```
 
-The approved package contains 72 selected components. Its component manifest
+The approved package contains 73 provider-owned selected components. Its component manifest
 pins every logical/deployment component, service or
 software version, image/chart/plugin digest, license, Terraform resource,
 runtime package, port, output/input, permission, formula, capacity dimension,
@@ -1285,9 +1285,10 @@ commands may receive cloud credentials or a live/apply flag.
 | 4 | Architect and builder review of concept hierarchy, FR/API datatypes, BLoC/Riverpod ownership, responsive widget tree, secret lifecycle, concurrency, accessibility, integration tests, documentation, and exact commit order | Pass on 2026-07-31 with all 20 plan-review criteria satisfied and zero unresolved findings |
 | 5 | Guided-bootstrap cross-service concept review against the live OpenAPI, implemented manual script/import baseline, provider credential realities, selected Five-layer v2 services, and exact user/manual lifecycle | Pass on 2026-07-31 with zero unresolved findings after preserving the legacy path, separating bootstrap from Twin preflight, replacing least-privilege/zeroization overclaims, adding the user runbook, and distinguishing release/expiry/revocation/manual cleanup |
 | 6 | Guided-bootstrap architect/builder readiness review across strict guide/session datatypes, authority/deployment permission packs, `thesis-demo-v1` compatibility, new immutable `thesis-demo-v2`, BLoC/reuse/token boundaries, restart/concurrency, real-API fake-adapter integration, roadmaps, FR-002, and handoff | Pass on 2026-07-31 with zero unresolved findings; Builder remains blocked until FR-002 schemas/fixtures and an approved Architect implementation plan exist |
-| 7 | Complete-service package architecture review across Five-layer/Six-layer parity, 72 component decisions, all nine online placements, every local/remote route class, current service/plugin facts, and the bounded thesis-PoC exclusions | Pass on 2026-08-03 with zero unresolved findings after removing the fabricated JSON API support date, pinning Grafana/Infinity/BifroMQ artifacts, and retaining explicit live-readiness gates |
+| 7 | Complete-service package architecture review across Five-layer/Six-layer parity, 73 provider-owned component decisions, all nine online placements, every local/remote route class, current service/plugin facts, and the bounded thesis-PoC exclusions | Pass on 2026-08-04 with zero unresolved findings after removing the fabricated JSON API support date, pinning Grafana/Infinity/BifroMQ artifacts, retaining explicit live-readiness gates, splitting the AWS/Azure managed-Grafana plugin ownership, and replacing composite capacity labels with atomic dimensions before activation |
 | 8 | Complete-service package builder review across deterministic S/M/L formulas, generated manifests, exactly-once cost ownership, `thesis-demo-v1` stability, `thesis-demo-v2` scope evidence, byte digests, source references, secret scanning, and drift-gate integration | Pass on 2026-08-03 with zero unresolved findings; package tests plus the composed offline validator pass without cloud credentials |
 | 9 | Complete-service IaC feasibility review across exact Terraform/SDK bindings, provider-version floors, GKE apply ordering, direct Cloud Run IAP, and closed edge contracts | Pass on 2026-08-03 with zero unresolved findings after replacing fictitious AWS bindings, adding the IAP service-agent binding and deployer policy permissions, recording the Google-provider upgrade, and keeping Kubernetes application as an automatic second stage |
+| 10 | Five-layer v2 shared-contract implementation review across lifecycle/readiness truthfulness, complete atomic-dimension bindings, evidence integrity, all 729 assignments, v1 byte stability, version-aware readers, and generated-copy drift | Pass on 2026-08-04 with zero unresolved findings after keeping all new definitions draft, separating offline fixtures from publishable resolutions, removing invented costs and Cosmos autoscale RU/s, binding every dimension, and validating pricing/scenario/manifest references exactly |
 
 This service/architecture slice adds no new Flutter route, but it does add a
 typed Layer Access section to the existing Twin Overview. Its authoritative
@@ -1329,6 +1330,26 @@ Guided-bootstrap planning verification on 2026-07-31:
 - `THESIS_DOCKER_CONTEXT=orbstack ./thesis.sh test deployment-contract --focused`:
   pass (66 root, 40 Optimizer, 87 Management, and 73 Deployer/Terraform tests);
 - OrbStack MkDocs strict build: pass.
+
+Five-layer v2 contract-freeze verification on 2026-08-04:
+
+- additive `architecture-profile.v2`, provider-profile v2, catalog v2,
+  Resolved Twin Architecture v2, and Resolved Deployment Specification v2
+  artifacts are generated and byte-synchronized to Optimizer, Management, and
+  Deployer without changing either historical v1 tree;
+- all new definition lifecycles remain `draft`; RTA examples are explicitly
+  `offline_contract_fixture` with zero-valued cost placeholders, not claimed
+  Optimizer price output;
+- all 27 generated nine-placement-by-S/M/L test cases and all 729 admissible
+  layer assignments retain exact activation/live-capacity blockers; three
+  persisted full fixtures cover the Single-, Two-, and Three-Cloud shapes
+  without duplicating an exhaustive generated matrix in Git;
+- Azure Large Cosmos autoscale remains unresolved at `0 RU/s` until its
+  supervised request-charge fixture supplies a measured positive value; a
+  deployment-ready contract fails closed otherwise;
+- version-aware dark readers and the composed local drift gate pass for all
+  three Python services; profile exposure, calculation, persistence,
+  deployment, and Flutter activation remain later implementation slices.
 
 ## 10. Failure Codes
 

@@ -14,7 +14,10 @@
       "pricing_catalog_key": "apache.bifromq-4.0.0-incubating-on-gke-standard",
       "dimensions": [
         "resource_count",
-        "cluster_and_node_hours"
+        "node_count",
+        "node_hours",
+        "connected_devices",
+        "messages"
       ],
       "deduplication_key": "apache.bifromq-4.0.0-incubating-on-gke-standard"
     },
@@ -26,7 +29,9 @@
       "pricing_catalog_key": "aws.amazon-managed-grafana-12",
       "dimensions": [
         "resource_count",
-        "workspace_or_compute_and_seats"
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
       ],
       "deduplication_key": "aws.amazon-managed-grafana-12"
     },
@@ -37,7 +42,9 @@
       "region": "eu-central-1",
       "pricing_catalog_key": "aws.cloudwatch",
       "dimensions": [
-        "resource_count"
+        "resource_count",
+        "log_ingestion_gib",
+        "retained_log_gib_month"
       ],
       "deduplication_key": "aws.cloudwatch"
     },
@@ -49,7 +56,9 @@
       "pricing_catalog_key": "aws.dynamodb-on-demand-hourly-rollup",
       "dimensions": [
         "resource_count",
-        "read_write_request_units"
+        "read_requests",
+        "write_requests",
+        "stored_gib_month"
       ],
       "deduplication_key": "aws.dynamodb-on-demand-hourly-rollup"
     },
@@ -61,7 +70,9 @@
       "pricing_catalog_key": "aws.dynamodb-on-demand-raw",
       "dimensions": [
         "resource_count",
-        "read_write_request_units"
+        "read_requests",
+        "write_requests",
+        "stored_gib_month"
       ],
       "deduplication_key": "aws.dynamodb-on-demand-raw"
     },
@@ -95,9 +106,24 @@
       "region": "eu-central-1",
       "pricing_catalog_key": "aws.eventbridge-scheduler",
       "dimensions": [
-        "resource_count"
+        "resource_count",
+        "scheduled_invocations"
       ],
       "deduplication_key": "aws.eventbridge-scheduler"
+    },
+    {
+      "cost_owner_id": "cost::aws.grafana-marcusolsson-json-datasource",
+      "component_id": "aws.grafana-marcusolsson-json-datasource",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "pricing_catalog_key": "aws.grafana-marcusolsson-json-datasource",
+      "dimensions": [
+        "resource_count",
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
+      ],
+      "deduplication_key": "aws.grafana-marcusolsson-json-datasource"
     },
     {
       "cost_owner_id": "cost::aws.iam-identity-center-layer-access",
@@ -117,7 +143,9 @@
       "region": "eu-central-1",
       "pricing_catalog_key": "aws.iot-commands",
       "dimensions": [
-        "resource_count"
+        "resource_count",
+        "connected_devices",
+        "messages"
       ],
       "deduplication_key": "aws.iot-commands"
     },
@@ -128,7 +156,9 @@
       "region": "eu-central-1",
       "pricing_catalog_key": "aws.iot-core",
       "dimensions": [
-        "resource_count"
+        "resource_count",
+        "connected_devices",
+        "messages"
       ],
       "deduplication_key": "aws.iot-core"
     },
@@ -139,7 +169,11 @@
       "region": "eu-central-1",
       "pricing_catalog_key": "aws.iot-twinmaker-standard",
       "dimensions": [
-        "resource_count"
+        "resource_count",
+        "connected_devices",
+        "messages",
+        "twin_entities",
+        "twin_operations"
       ],
       "deduplication_key": "aws.iot-twinmaker-standard"
     },
@@ -151,7 +185,10 @@
       "pricing_catalog_key": "aws.kinesis-data-streams",
       "dimensions": [
         "resource_count",
-        "shard_hours_and_payload_units"
+        "stream_count",
+        "shards_per_stream",
+        "shard_hours",
+        "payload_units"
       ],
       "deduplication_key": "aws.kinesis-data-streams"
     },
@@ -163,7 +200,10 @@
       "pricing_catalog_key": "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
       "dimensions": [
         "resource_count",
-        "shard_hours_and_payload_units"
+        "stream_count",
+        "shards_per_stream",
+        "shard_hours",
+        "payload_units"
       ],
       "deduplication_key": "aws.kinesis-only-for-reviewed-remote-telemetry-edge"
     },
@@ -175,7 +215,8 @@
       "pricing_catalog_key": "aws.lambda",
       "dimensions": [
         "resource_count",
-        "requests_and_gib_seconds"
+        "requests",
+        "gib_seconds"
       ],
       "deduplication_key": "aws.lambda"
     },
@@ -187,7 +228,8 @@
       "pricing_catalog_key": "aws.lambda-event-adapter",
       "dimensions": [
         "resource_count",
-        "requests_and_gib_seconds"
+        "requests",
+        "gib_seconds"
       ],
       "deduplication_key": "aws.lambda-event-adapter"
     },
@@ -199,7 +241,8 @@
       "pricing_catalog_key": "aws.lambda-event-worker",
       "dimensions": [
         "resource_count",
-        "requests_and_gib_seconds"
+        "requests",
+        "gib_seconds"
       ],
       "deduplication_key": "aws.lambda-event-worker"
     },
@@ -211,7 +254,8 @@
       "pricing_catalog_key": "aws.lambda-raw-history-reader",
       "dimensions": [
         "resource_count",
-        "requests_and_gib_seconds"
+        "requests",
+        "gib_seconds"
       ],
       "deduplication_key": "aws.lambda-raw-history-reader"
     },
@@ -259,7 +303,8 @@
       "pricing_catalog_key": "aws.sns-fifo",
       "dimensions": [
         "resource_count",
-        "publishes_and_delivery"
+        "publishes",
+        "delivery_bytes"
       ],
       "deduplication_key": "aws.sns-fifo"
     },
@@ -271,7 +316,8 @@
       "pricing_catalog_key": "aws.sns-fifo-only-for-reviewed-remote-control-edge",
       "dimensions": [
         "resource_count",
-        "publishes_and_delivery"
+        "publishes",
+        "delivery_bytes"
       ],
       "deduplication_key": "aws.sns-fifo-only-for-reviewed-remote-control-edge"
     },
@@ -295,7 +341,10 @@
       "pricing_catalog_key": "aws.step-functions-standard",
       "dimensions": [
         "resource_count",
-        "requests_and_instance_duration"
+        "requests",
+        "execution_seconds",
+        "workflow_executions",
+        "workflow_transitions"
       ],
       "deduplication_key": "aws.step-functions-standard"
     },
@@ -354,7 +403,10 @@
       "pricing_catalog_key": "azure.cosmos-db-nosql-raw-and-rollup",
       "dimensions": [
         "resource_count",
-        "request_units"
+        "request_units",
+        "stored_gib_month",
+        "capacity_mode",
+        "autoscale_max_ru_per_second"
       ],
       "deduplication_key": "azure.cosmos-db-nosql-raw-and-rollup"
     },
@@ -365,7 +417,9 @@
       "region": "westeurope",
       "pricing_catalog_key": "azure.digital-twins",
       "dimensions": [
-        "resource_count"
+        "resource_count",
+        "twin_entities",
+        "twin_operations"
       ],
       "deduplication_key": "azure.digital-twins"
     },
@@ -388,7 +442,8 @@
       "pricing_catalog_key": "azure.event-hubs-dedicated-large",
       "dimensions": [
         "resource_count",
-        "throughput_or_capacity_units"
+        "throughput_unit_hours",
+        "capacity_unit_hours"
       ],
       "deduplication_key": "azure.event-hubs-dedicated-large"
     },
@@ -400,7 +455,8 @@
       "pricing_catalog_key": "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
       "dimensions": [
         "resource_count",
-        "throughput_or_capacity_units"
+        "throughput_unit_hours",
+        "capacity_unit_hours"
       ],
       "deduplication_key": "azure.event-hubs-only-for-reviewed-remote-telemetry-edge"
     },
@@ -412,7 +468,8 @@
       "pricing_catalog_key": "azure.event-hubs-standard-small-medium",
       "dimensions": [
         "resource_count",
-        "throughput_or_capacity_units"
+        "throughput_unit_hours",
+        "capacity_unit_hours"
       ],
       "deduplication_key": "azure.event-hubs-standard-small-medium"
     },
@@ -424,7 +481,8 @@
       "pricing_catalog_key": "azure.functions-flex-consumption",
       "dimensions": [
         "resource_count",
-        "requests_and_instance_duration"
+        "requests",
+        "execution_seconds"
       ],
       "deduplication_key": "azure.functions-flex-consumption"
     },
@@ -436,7 +494,8 @@
       "pricing_catalog_key": "azure.functions-flex-event-adapter",
       "dimensions": [
         "resource_count",
-        "requests_and_instance_duration"
+        "requests",
+        "execution_seconds"
       ],
       "deduplication_key": "azure.functions-flex-event-adapter"
     },
@@ -448,7 +507,8 @@
       "pricing_catalog_key": "azure.functions-flex-event-worker",
       "dimensions": [
         "resource_count",
-        "requests_and_instance_duration"
+        "requests",
+        "execution_seconds"
       ],
       "deduplication_key": "azure.functions-flex-event-worker"
     },
@@ -460,9 +520,24 @@
       "pricing_catalog_key": "azure.functions-flex-raw-history-reader",
       "dimensions": [
         "resource_count",
-        "requests_and_instance_duration"
+        "requests",
+        "execution_seconds"
       ],
       "deduplication_key": "azure.functions-flex-raw-history-reader"
+    },
+    {
+      "cost_owner_id": "cost::azure.grafana-marcusolsson-json-datasource",
+      "component_id": "azure.grafana-marcusolsson-json-datasource",
+      "provider": "azure",
+      "region": "westeurope",
+      "pricing_catalog_key": "azure.grafana-marcusolsson-json-datasource",
+      "dimensions": [
+        "resource_count",
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
+      ],
+      "deduplication_key": "azure.grafana-marcusolsson-json-datasource"
     },
     {
       "cost_owner_id": "cost::azure.iot-hub",
@@ -471,7 +546,9 @@
       "region": "westeurope",
       "pricing_catalog_key": "azure.iot-hub",
       "dimensions": [
-        "resource_count"
+        "resource_count",
+        "connected_devices",
+        "messages"
       ],
       "deduplication_key": "azure.iot-hub"
     },
@@ -482,7 +559,9 @@
       "region": "westeurope",
       "pricing_catalog_key": "azure.log-analytics-shared-workspace",
       "dimensions": [
-        "resource_count"
+        "resource_count",
+        "log_ingestion_gib",
+        "retained_log_gib_month"
       ],
       "deduplication_key": "azure.log-analytics-shared-workspace"
     },
@@ -493,7 +572,9 @@
       "region": "westeurope",
       "pricing_catalog_key": "azure.logic-apps-consumption",
       "dimensions": [
-        "resource_count"
+        "resource_count",
+        "workflow_executions",
+        "workflow_transitions"
       ],
       "deduplication_key": "azure.logic-apps-consumption"
     },
@@ -505,7 +586,9 @@
       "pricing_catalog_key": "azure.managed-grafana-12-standard",
       "dimensions": [
         "resource_count",
-        "workspace_or_compute_and_seats"
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
       ],
       "deduplication_key": "azure.managed-grafana-12-standard"
     },
@@ -517,7 +600,8 @@
       "pricing_catalog_key": "azure.monitor",
       "dimensions": [
         "resource_count",
-        "log_ingestion_and_retention"
+        "log_ingestion_gib",
+        "retained_log_gib_month"
       ],
       "deduplication_key": "azure.monitor"
     },
@@ -529,7 +613,8 @@
       "pricing_catalog_key": "azure.service-bus-standard",
       "dimensions": [
         "resource_count",
-        "messaging_units_and_operations"
+        "messaging_unit_hours",
+        "operations"
       ],
       "deduplication_key": "azure.service-bus-standard"
     },
@@ -552,7 +637,8 @@
       "pricing_catalog_key": "gcp.cloud-logging",
       "dimensions": [
         "resource_count",
-        "log_ingestion_and_retention"
+        "log_ingestion_gib",
+        "retained_log_gib_month"
       ],
       "deduplication_key": "gcp.cloud-logging"
     },
@@ -564,7 +650,8 @@
       "pricing_catalog_key": "gcp.cloud-monitoring",
       "dimensions": [
         "resource_count",
-        "log_ingestion_and_retention"
+        "log_ingestion_gib",
+        "retained_log_gib_month"
       ],
       "deduplication_key": "gcp.cloud-monitoring"
     },
@@ -576,7 +663,9 @@
       "pricing_catalog_key": "gcp.cloud-run-event-adapter",
       "dimensions": [
         "resource_count",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
       ],
       "deduplication_key": "gcp.cloud-run-event-adapter"
     },
@@ -588,7 +677,9 @@
       "pricing_catalog_key": "gcp.cloud-run-event-service-small-medium",
       "dimensions": [
         "resource_count",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
       ],
       "deduplication_key": "gcp.cloud-run-event-service-small-medium"
     },
@@ -600,7 +691,11 @@
       "pricing_catalog_key": "gcp.cloud-run-iap-twin-explorer",
       "dimensions": [
         "resource_count",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds",
+        "twin_entities",
+        "twin_operations"
       ],
       "deduplication_key": "gcp.cloud-run-iap-twin-explorer"
     },
@@ -612,7 +707,9 @@
       "pricing_catalog_key": "gcp.cloud-run-raw-history-reader",
       "dimensions": [
         "resource_count",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
       ],
       "deduplication_key": "gcp.cloud-run-raw-history-reader"
     },
@@ -624,7 +721,9 @@
       "pricing_catalog_key": "gcp.cloud-run-service",
       "dimensions": [
         "resource_count",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
       ],
       "deduplication_key": "gcp.cloud-run-service"
     },
@@ -637,7 +736,9 @@
       "dimensions": [
         "resource_count",
         "stored_gib_month",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
       ],
       "deduplication_key": "gcp.cloud-run-storage-job"
     },
@@ -649,7 +750,11 @@
       "pricing_catalog_key": "gcp.cloud-run-twin-api-materializer",
       "dimensions": [
         "resource_count",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds",
+        "twin_entities",
+        "twin_operations"
       ],
       "deduplication_key": "gcp.cloud-run-twin-api-materializer"
     },
@@ -661,7 +766,9 @@
       "pricing_catalog_key": "gcp.cloud-run-worker-pool-fixed-large",
       "dimensions": [
         "resource_count",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
       ],
       "deduplication_key": "gcp.cloud-run-worker-pool-fixed-large"
     },
@@ -672,7 +779,8 @@
       "region": "europe-west1",
       "pricing_catalog_key": "gcp.cloud-scheduler",
       "dimensions": [
-        "resource_count"
+        "resource_count",
+        "scheduled_invocations"
       ],
       "deduplication_key": "gcp.cloud-scheduler"
     },
@@ -719,7 +827,8 @@
       "pricing_catalog_key": "gcp.external-load-balancer",
       "dimensions": [
         "resource_count",
-        "rule_hours_and_processed_bytes"
+        "rule_hours",
+        "processed_bytes"
       ],
       "deduplication_key": "gcp.external-load-balancer"
     },
@@ -731,7 +840,13 @@
       "pricing_catalog_key": "gcp.firestore-native-standard-bounded-twin",
       "dimensions": [
         "resource_count",
-        "document_operations_and_storage"
+        "document_reads",
+        "document_writes",
+        "document_deletes",
+        "stored_gib_month",
+        "timestamp_shards",
+        "twin_entities",
+        "twin_operations"
       ],
       "deduplication_key": "gcp.firestore-native-standard-bounded-twin"
     },
@@ -743,7 +858,11 @@
       "pricing_catalog_key": "gcp.firestore-native-standard-raw-and-rollup",
       "dimensions": [
         "resource_count",
-        "document_operations_and_storage"
+        "document_reads",
+        "document_writes",
+        "document_deletes",
+        "stored_gib_month",
+        "timestamp_shards"
       ],
       "deduplication_key": "gcp.firestore-native-standard-raw-and-rollup"
     },
@@ -755,8 +874,11 @@
       "pricing_catalog_key": "gcp.grafana-tls-load-balancer",
       "dimensions": [
         "resource_count",
-        "workspace_or_compute_and_seats",
-        "rule_hours_and_processed_bytes"
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats",
+        "rule_hours",
+        "processed_bytes"
       ],
       "deduplication_key": "gcp.grafana-tls-load-balancer"
     },
@@ -768,7 +890,10 @@
       "pricing_catalog_key": "gcp.ordered-mqtt-pubsub-adapter",
       "dimensions": [
         "resource_count",
-        "message_delivery_bytes"
+        "publish_bytes",
+        "delivery_bytes",
+        "connected_devices",
+        "messages"
       ],
       "deduplication_key": "gcp.ordered-mqtt-pubsub-adapter"
     },
@@ -779,7 +904,8 @@
       "region": "europe-west1",
       "pricing_catalog_key": "gcp.persistent-disk-rwo",
       "dimensions": [
-        "resource_count"
+        "resource_count",
+        "stored_gib_month"
       ],
       "deduplication_key": "gcp.persistent-disk-rwo"
     },
@@ -791,7 +917,8 @@
       "pricing_catalog_key": "gcp.pubsub-separated-embedded-topics",
       "dimensions": [
         "resource_count",
-        "message_delivery_bytes"
+        "publish_bytes",
+        "delivery_bytes"
       ],
       "deduplication_key": "gcp.pubsub-separated-embedded-topics"
     },
@@ -803,7 +930,8 @@
       "pricing_catalog_key": "gcp.pubsub-separated-event-layer-topics",
       "dimensions": [
         "resource_count",
-        "message_delivery_bytes"
+        "publish_bytes",
+        "delivery_bytes"
       ],
       "deduplication_key": "gcp.pubsub-separated-event-layer-topics"
     },
@@ -814,21 +942,11 @@
       "region": "europe-west1",
       "pricing_catalog_key": "gcp.workflows",
       "dimensions": [
-        "resource_count"
+        "resource_count",
+        "workflow_executions",
+        "workflow_transitions"
       ],
       "deduplication_key": "gcp.workflows"
-    },
-    {
-      "cost_owner_id": "cost::grafana.marcusolsson-json-datasource",
-      "component_id": "grafana.marcusolsson-json-datasource",
-      "provider": "aws",
-      "region": "eu-central-1",
-      "pricing_catalog_key": "grafana.marcusolsson-json-datasource",
-      "dimensions": [
-        "resource_count",
-        "workspace_or_compute_and_seats"
-      ],
-      "deduplication_key": "grafana.marcusolsson-json-datasource"
     },
     {
       "cost_owner_id": "cost::grafana.oss-12-on-gke",
@@ -838,8 +956,11 @@
       "pricing_catalog_key": "grafana.oss-12-on-gke",
       "dimensions": [
         "resource_count",
-        "workspace_or_compute_and_seats",
-        "cluster_and_node_hours"
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats",
+        "node_count",
+        "node_hours"
       ],
       "deduplication_key": "grafana.oss-12-on-gke"
     },
@@ -851,7 +972,9 @@
       "pricing_catalog_key": "grafana.yesoreyeram-infinity-datasource",
       "dimensions": [
         "resource_count",
-        "workspace_or_compute_and_seats"
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
       ],
       "deduplication_key": "grafana.yesoreyeram-infinity-datasource"
     }

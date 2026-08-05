@@ -1,0 +1,709 @@
+{
+  "expected_error": "ARCH_BUNDLE_INCOMPATIBLE",
+  "document": {
+    "schema_version": "resolved-twin-architecture.v2",
+    "resolution_status": "offline_contract_fixture",
+    "resolution_id": "6dd6f3f0-e856-5818-a018-9f855254db83",
+    "calculation_run_id": "5a6cddb4-41fb-548a-a13e-14c21a5b77b6",
+    "architecture_profile_ref": {
+      "id": "five-layer-baseline",
+      "version": "2",
+      "digest": "sha256:0d7f87bda7703bd71ac16081f96ecab1a8777d6aa49bc52cb94c83906a11b16a"
+    },
+    "optimization_bundle_ref": {
+      "optimization_strategy_id": "cost-minimization-v2",
+      "optimization_strategy_version": "2",
+      "calculation_strategy_id": "profile-resolution-v2",
+      "calculation_strategy_version": "2",
+      "formula_set_id": "phase-08-complete-service-bundles",
+      "formula_set_version": "1",
+      "scoring_strategy_id": "profile-local-min-total-cost-v2",
+      "scoring_strategy_version": "2",
+      "compatibility_digest": "sha256:a0c39dcae6c95c2cb25251389c6569a0f5ea4428a0403ccc4cf934541cda06f1"
+    },
+    "provider_profile_refs": [
+      {
+        "id": "provider-profile.azure.five-layer-baseline-v2",
+        "version": "1",
+        "digest": "sha256:47cd09fc810cab3466b6181dfd9ed19a73d8ca4b4862d78ff14017c3dd557407",
+        "provider": "azure"
+      },
+      {
+        "id": "provider-profile.gcp.five-layer-baseline-v2",
+        "version": "1",
+        "digest": "sha256:ea43a3cb4ae57a71935cba2a5ae2dbd0c1c0d7b47c604359348ae6685e5a9280",
+        "provider": "gcp"
+      }
+    ],
+    "workload_contract_ref": {
+      "id": "five-layer-workload",
+      "version": "2",
+      "digest": "sha256:62117c5bfe4d0951be57f00ba281e1c5212db68a72cc49c0413c45a29f65711e"
+    },
+    "pricing_evidence_refs": [
+      {
+        "id": "pricing-evidence.azure.phase-08-v2",
+        "version": "1",
+        "digest": "sha256:a32892c9f7405673e53b0aee8397fd6f83cfae6264b4ae82cfa42feb57e6545e",
+        "provider": "azure",
+        "currency": "USD"
+      },
+      {
+        "id": "pricing-evidence.gcp.phase-08-v2",
+        "version": "1",
+        "digest": "sha256:a32892c9f7405673e53b0aee8397fd6f83cfae6264b4ae82cfa42feb57e6545e",
+        "provider": "gcp",
+        "currency": "USD"
+      }
+    ],
+    "component_assignments": [
+      {
+        "assignment_id": "assignment.archive-storage",
+        "responsibility_id": "responsibility.storage",
+        "logical_component_id": "component.archive-storage",
+        "provider": "azure",
+        "provider_implementation_profile_ref": {
+          "id": "provider-profile.azure.five-layer-baseline-v2",
+          "version": "1",
+          "digest": "sha256:47cd09fc810cab3466b6181dfd9ed19a73d8ca4b4862d78ff14017c3dd557407"
+        },
+        "deployment_component_id": "deployment.azure.archive-storage.v2",
+        "deployment_component_version": "1",
+        "service_id": "azure.archive-storage.v2",
+        "region": "westeurope",
+        "capability_evidence": [
+          "capability.archive-storage"
+        ],
+        "pricing_model_refs": [
+          "pricing.azure.archive-storage.v2"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "deployment_specification_component_ids": [
+          "azure.blob-archive"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "required": true
+      },
+      {
+        "assignment_id": "assignment.cool-storage",
+        "responsibility_id": "responsibility.storage",
+        "logical_component_id": "component.cool-storage",
+        "provider": "azure",
+        "provider_implementation_profile_ref": {
+          "id": "provider-profile.azure.five-layer-baseline-v2",
+          "version": "1",
+          "digest": "sha256:47cd09fc810cab3466b6181dfd9ed19a73d8ca4b4862d78ff14017c3dd557407"
+        },
+        "deployment_component_id": "deployment.azure.cool-storage.v2",
+        "deployment_component_version": "1",
+        "service_id": "azure.cool-storage.v2",
+        "region": "westeurope",
+        "capability_evidence": [
+          "capability.cool-storage"
+        ],
+        "pricing_model_refs": [
+          "pricing.azure.cool-storage.v2"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "deployment_specification_component_ids": [
+          "azure.blob-cool"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "required": true
+      },
+      {
+        "assignment_id": "assignment.hot-storage",
+        "responsibility_id": "responsibility.storage",
+        "logical_component_id": "component.hot-storage",
+        "provider": "azure",
+        "provider_implementation_profile_ref": {
+          "id": "provider-profile.azure.five-layer-baseline-v2",
+          "version": "1",
+          "digest": "sha256:47cd09fc810cab3466b6181dfd9ed19a73d8ca4b4862d78ff14017c3dd557407"
+        },
+        "deployment_component_id": "deployment.azure.hot-storage.v2",
+        "deployment_component_version": "1",
+        "service_id": "azure.hot-storage.v2",
+        "region": "westeurope",
+        "capability_evidence": [
+          "capability.hot-storage"
+        ],
+        "pricing_model_refs": [
+          "pricing.azure.hot-storage.v2"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "deployment_specification_component_ids": [
+          "azure.cosmos-db-nosql-raw-and-rollup",
+          "azure.container-apps-scheduled-storage-job",
+          "azure.acr-basic-if-container-selected"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "required": true
+      },
+      {
+        "assignment_id": "assignment.ingestion",
+        "responsibility_id": "responsibility.ingestion",
+        "logical_component_id": "component.ingestion",
+        "provider": "azure",
+        "provider_implementation_profile_ref": {
+          "id": "provider-profile.azure.five-layer-baseline-v2",
+          "version": "1",
+          "digest": "sha256:47cd09fc810cab3466b6181dfd9ed19a73d8ca4b4862d78ff14017c3dd557407"
+        },
+        "deployment_component_id": "deployment.azure.ingestion.v2",
+        "deployment_component_version": "1",
+        "service_id": "azure.ingestion.v2",
+        "region": "westeurope",
+        "capability_evidence": [
+          "capability.ingestion",
+          "capability.embedded-domain-event-ingress"
+        ],
+        "pricing_model_refs": [
+          "pricing.azure.ingestion.v2"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "deployment_specification_component_ids": [
+          "azure.iot-hub",
+          "azure.service-bus-standard",
+          "azure.functions-flex-event-adapter",
+          "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+          "azure.monitor",
+          "azure.log-analytics-shared-workspace"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "required": true
+      },
+      {
+        "assignment_id": "assignment.processing",
+        "responsibility_id": "responsibility.processing",
+        "logical_component_id": "component.processing",
+        "provider": "azure",
+        "provider_implementation_profile_ref": {
+          "id": "provider-profile.azure.five-layer-baseline-v2",
+          "version": "1",
+          "digest": "sha256:47cd09fc810cab3466b6181dfd9ed19a73d8ca4b4862d78ff14017c3dd557407"
+        },
+        "deployment_component_id": "deployment.azure.processing.v2",
+        "deployment_component_version": "1",
+        "service_id": "azure.processing.v2",
+        "region": "westeurope",
+        "capability_evidence": [
+          "capability.processing",
+          "capability.embedded-domain-event-routing",
+          "capability.mandatory-rule-action-feedback"
+        ],
+        "pricing_model_refs": [
+          "pricing.azure.processing.v2"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "deployment_specification_component_ids": [
+          "azure.functions-flex-consumption",
+          "azure.logic-apps-consumption"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "required": true
+      },
+      {
+        "assignment_id": "assignment.twin-state",
+        "responsibility_id": "responsibility.twin-state",
+        "logical_component_id": "component.twin-state",
+        "provider": "gcp",
+        "provider_implementation_profile_ref": {
+          "id": "provider-profile.gcp.five-layer-baseline-v2",
+          "version": "1",
+          "digest": "sha256:ea43a3cb4ae57a71935cba2a5ae2dbd0c1c0d7b47c604359348ae6685e5a9280"
+        },
+        "deployment_component_id": "deployment.gcp.twin-state.v2",
+        "deployment_component_version": "1",
+        "service_id": "gcp.twin-state.v2",
+        "region": "europe-west1",
+        "capability_evidence": [
+          "capability.twin-state"
+        ],
+        "pricing_model_refs": [
+          "pricing.gcp.twin-state.v2"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "deployment_specification_component_ids": [
+          "gcp.cloud-run-twin-api-materializer",
+          "gcp.firestore-native-standard-bounded-twin",
+          "gcp.cloud-run-iap-twin-explorer",
+          "gcp.pubsub-separated-embedded-topics",
+          "gcp.cloud-run-event-adapter",
+          "gcp.cloud-logging",
+          "gcp.cloud-monitoring",
+          "gcp.direct-iap-layer-access",
+          "gcp.artifact-registry-if-container-selected"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "required": true
+      },
+      {
+        "assignment_id": "assignment.visualization",
+        "responsibility_id": "responsibility.visualization",
+        "logical_component_id": "component.visualization",
+        "provider": "gcp",
+        "provider_implementation_profile_ref": {
+          "id": "provider-profile.gcp.five-layer-baseline-v2",
+          "version": "1",
+          "digest": "sha256:ea43a3cb4ae57a71935cba2a5ae2dbd0c1c0d7b47c604359348ae6685e5a9280"
+        },
+        "deployment_component_id": "deployment.gcp.visualization.v2",
+        "deployment_component_version": "1",
+        "service_id": "gcp.visualization.v2",
+        "region": "europe-west1",
+        "capability_evidence": [
+          "capability.visualization"
+        ],
+        "pricing_model_refs": [
+          "pricing.azure.visualization.v2"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "deployment_specification_component_ids": [
+          "grafana.oss-12-on-gke",
+          "gcp.persistent-disk-rwo",
+          "gcp.cloud-run-raw-history-reader",
+          "grafana.yesoreyeram-infinity-datasource",
+          "gcp.artifact-registry-if-container-selected",
+          "gcp.cloud-logging",
+          "gcp.cloud-monitoring",
+          "gcp.direct-iap-layer-access",
+          "gcp.grafana-tls-load-balancer"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "required": true
+      }
+    ],
+    "resolved_edges": [
+      {
+        "resolved_edge_id": "resolved.cool-to-archive-storage",
+        "edge_id": "edge.cool-to-archive-storage",
+        "source_assignment_id": "assignment.cool-storage",
+        "source_port_id": "catalog.azure.port.cool-storage.transition-out",
+        "destination_assignment_id": "assignment.archive-storage",
+        "destination_port_id": "catalog.azure.port.archive-storage.write-in",
+        "edge_implementation_id": "edge-implementation.azure-to-azure.cool-to-archive-storage.v2",
+        "mechanism": "source_owned_transition_runtime",
+        "delivery_semantics": {
+          "dead_letter_policy": "provider_managed",
+          "idempotency": "consumer_deduplicated",
+          "mode": "asynchronous",
+          "ordering": "per_entity",
+          "replay": "bounded",
+          "retry_policy": "provider_managed_bounded",
+          "timeout_policy": "not_applicable"
+        },
+        "transfer_route_class": "same_provider_same_region",
+        "transfer_evidence_refs": [
+          "evidence.route.azure-to-azure"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.five-layer-v2",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.cool-to-archive-storage"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.cool-to-archive-storage"
+        ]
+      },
+      {
+        "resolved_edge_id": "resolved.hot-storage-to-twin-state",
+        "edge_id": "edge.hot-storage-to-twin-state",
+        "source_assignment_id": "assignment.hot-storage",
+        "source_port_id": "catalog.azure.port.hot-storage.twin-update-out",
+        "destination_assignment_id": "assignment.twin-state",
+        "destination_port_id": "catalog.gcp.port.twin-state.update-in",
+        "edge_implementation_id": "edge-implementation.azure-to-gcp.hot-storage-to-twin-state.v2",
+        "mechanism": "cross_provider_adapter",
+        "delivery_semantics": {
+          "dead_letter_policy": "provider_managed",
+          "idempotency": "consumer_deduplicated",
+          "mode": "asynchronous",
+          "ordering": "per_entity",
+          "replay": "bounded",
+          "retry_policy": "provider_managed_bounded",
+          "timeout_policy": "not_applicable"
+        },
+        "transfer_route_class": "cross_provider",
+        "transfer_evidence_refs": [
+          "evidence.route.azure-to-gcp"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.five-layer-v2",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.hot-storage-to-twin-state"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.hot-storage-to-twin-state"
+        ]
+      },
+      {
+        "resolved_edge_id": "resolved.hot-to-cool-storage",
+        "edge_id": "edge.hot-to-cool-storage",
+        "source_assignment_id": "assignment.hot-storage",
+        "source_port_id": "catalog.azure.port.hot-storage.transition-out",
+        "destination_assignment_id": "assignment.cool-storage",
+        "destination_port_id": "catalog.azure.port.cool-storage.write-in",
+        "edge_implementation_id": "edge-implementation.azure-to-azure.hot-to-cool-storage.v2",
+        "mechanism": "source_owned_transition_runtime",
+        "delivery_semantics": {
+          "dead_letter_policy": "provider_managed",
+          "idempotency": "consumer_deduplicated",
+          "mode": "asynchronous",
+          "ordering": "per_entity",
+          "replay": "bounded",
+          "retry_policy": "provider_managed_bounded",
+          "timeout_policy": "not_applicable"
+        },
+        "transfer_route_class": "same_provider_same_region",
+        "transfer_evidence_refs": [
+          "evidence.route.azure-to-azure"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.five-layer-v2",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.hot-to-cool-storage"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.hot-to-cool-storage"
+        ]
+      },
+      {
+        "resolved_edge_id": "resolved.ingestion-to-processing",
+        "edge_id": "edge.ingestion-to-processing",
+        "source_assignment_id": "assignment.ingestion",
+        "source_port_id": "catalog.azure.port.ingestion.telemetry-out",
+        "destination_assignment_id": "assignment.processing",
+        "destination_port_id": "catalog.azure.port.processing.telemetry-in",
+        "edge_implementation_id": "edge-implementation.azure-to-azure.ingestion-to-processing.v2",
+        "mechanism": "provider_native_trigger",
+        "delivery_semantics": {
+          "dead_letter_policy": "provider_managed",
+          "idempotency": "consumer_deduplicated",
+          "mode": "asynchronous",
+          "ordering": "per_entity",
+          "replay": "bounded",
+          "retry_policy": "provider_managed_bounded",
+          "timeout_policy": "not_applicable"
+        },
+        "transfer_route_class": "same_provider_same_region",
+        "transfer_evidence_refs": [
+          "evidence.route.azure-to-azure"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.five-layer-v2",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.ingestion-to-processing"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.ingestion-to-processing"
+        ]
+      },
+      {
+        "resolved_edge_id": "resolved.processing-to-hot-storage",
+        "edge_id": "edge.processing-to-hot-storage",
+        "source_assignment_id": "assignment.processing",
+        "source_port_id": "catalog.azure.port.processing.telemetry-out",
+        "destination_assignment_id": "assignment.hot-storage",
+        "destination_port_id": "catalog.azure.port.hot-storage.write-in",
+        "edge_implementation_id": "edge-implementation.azure-to-azure.processing-to-hot-storage.v2",
+        "mechanism": "provider_native_trigger",
+        "delivery_semantics": {
+          "dead_letter_policy": "provider_managed",
+          "idempotency": "consumer_deduplicated",
+          "mode": "asynchronous",
+          "ordering": "per_entity",
+          "replay": "bounded",
+          "retry_policy": "provider_managed_bounded",
+          "timeout_policy": "not_applicable"
+        },
+        "transfer_route_class": "same_provider_same_region",
+        "transfer_evidence_refs": [
+          "evidence.route.azure-to-azure"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.five-layer-v2",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.processing-to-hot-storage"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.processing-to-hot-storage"
+        ]
+      },
+      {
+        "resolved_edge_id": "resolved.hot-storage-to-visualization",
+        "edge_id": "edge.hot-storage-to-visualization",
+        "source_assignment_id": "assignment.hot-storage",
+        "source_port_id": "catalog.azure.port.hot-storage.raw-history-out",
+        "destination_assignment_id": "assignment.visualization",
+        "destination_port_id": "catalog.azure.port.visualization.raw-history-in",
+        "edge_implementation_id": "edge-implementation.azure-to-azure.hot-storage-to-visualization.v2",
+        "mechanism": "typed_synchronous_api",
+        "delivery_semantics": {
+          "dead_letter_policy": "not_applicable",
+          "idempotency": "required",
+          "mode": "synchronous",
+          "ordering": "not_required",
+          "replay": "not_supported",
+          "retry_policy": "bounded_backoff",
+          "timeout_policy": "bounded"
+        },
+        "transfer_route_class": "same_provider_same_region",
+        "transfer_evidence_refs": [
+          "evidence.route.azure-to-azure"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.five-layer-v2",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.hot-storage-to-visualization"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.hot-storage-to-visualization"
+        ]
+      }
+    ],
+    "extension_bindings": [
+      {
+        "slot_id": "processor.telemetry",
+        "slot_version": "1",
+        "artifact_id": "artifact.user.processor.example",
+        "artifact_digest": "sha256:c1347e5079070881707068941dde85ad1ca0223d9eef23a5973fe62fda3750b5",
+        "logical_component_id": "component.processing",
+        "configuration_digest": "sha256:98e82d959490e2177f447fa4d41ca273efcab2f2866b281f820a88b394584517",
+        "validation_contract_version": "1"
+      }
+    ],
+    "deployment_specification_ref": {
+      "schema_version": "resolved-deployment-specification.v2",
+      "digest": "sha256:8826a278476a8887aad29b924bd97b87e2fae53638321707d4f70f16facb113f",
+      "calculation_run_id": "5a6cddb4-41fb-548a-a13e-14c21a5b77b6"
+    },
+    "cost_summary": {
+      "currency": "USD",
+      "responsibility_totals": [
+        {
+          "item_id": "responsibility.ingestion",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "responsibility.processing",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "responsibility.storage",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "responsibility.twin-state",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "responsibility.visualization",
+          "monthly_amount": "0"
+        }
+      ],
+      "component_totals": [
+        {
+          "item_id": "component.archive-storage",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "component.cool-storage",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "component.hot-storage",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "component.ingestion",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "component.processing",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "component.twin-state",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "component.visualization",
+          "monthly_amount": "0"
+        }
+      ],
+      "edge_totals": [
+        {
+          "item_id": "edge.cool-to-archive-storage",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "edge.hot-storage-to-twin-state",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "edge.hot-to-cool-storage",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "edge.ingestion-to-processing",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "edge.processing-to-hot-storage",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "edge.hot-storage-to-visualization",
+          "monthly_amount": "0"
+        }
+      ],
+      "monthly_total": "0"
+    },
+    "functional_completeness": {
+      "status": "complete",
+      "required_capability_ids": [
+        "capability.archive-storage",
+        "capability.cool-storage",
+        "capability.embedded-domain-event-ingress",
+        "capability.embedded-domain-event-routing",
+        "capability.hot-storage",
+        "capability.ingestion",
+        "capability.mandatory-rule-action-feedback",
+        "capability.processing",
+        "capability.twin-state",
+        "capability.visualization"
+      ],
+      "provided_capability_ids": [
+        "capability.archive-storage",
+        "capability.cool-storage",
+        "capability.embedded-domain-event-ingress",
+        "capability.embedded-domain-event-routing",
+        "capability.hot-storage",
+        "capability.ingestion",
+        "capability.mandatory-rule-action-feedback",
+        "capability.processing",
+        "capability.twin-state",
+        "capability.visualization"
+      ],
+      "provider_extra_capability_ids": [],
+      "missing_capability_ids": [],
+      "validator_version": "2",
+      "validation_digest": "sha256:b4f3f3248a951bfc4aefae4f8ec1198879f0f46574097eb548261da759c537fa"
+    },
+    "content_digest": "sha256:9ccdb1e5f72ca730d5633a17fa6dcb539c81019c38c4a1069afaffb10ca62849"
+  }
+}

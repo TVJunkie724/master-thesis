@@ -34,67 +34,114 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
     "aws.ecs-fargate-storage-mover": ["aws_ecs_cluster", "aws_ecs_task_definition"],
     "aws.ecr-if-container-selected": ["aws_ecr_repository"],
     "aws.cloudwatch": ["aws_cloudwatch_log_group"],
-    "aws.iam-identity-center-layer-access": ["aws_ssoadmin_permission_set", "aws_ssoadmin_account_assignment"],
+    "aws.iam-identity-center-layer-access": [
+        "aws_ssoadmin_permission_set",
+        "aws_ssoadmin_account_assignment",
+    ],
     "aws.sqs-fifo": ["aws_sqs_queue"],
     "aws.lambda-event-adapter": ["aws_lambda_function"],
     "aws.kinesis-only-for-reviewed-remote-telemetry-edge": ["aws_kinesis_stream"],
     "aws.sns-fifo-only-for-reviewed-remote-control-edge": ["aws_sns_topic"],
     "aws.kinesis-data-streams": ["aws_kinesis_stream"],
     "aws.sns-fifo": ["aws_sns_topic"],
-    "aws.sqs-fifo": ["aws_sqs_queue"],
     "aws.lambda-event-worker": ["aws_lambda_function"],
     "aws.s3-event-failure-store": ["aws_s3_bucket"],
     "azure.iot-hub": ["azurerm_iothub"],
     "azure.functions-flex-consumption": ["azurerm_function_app_flex_consumption"],
     "azure.logic-apps-consumption": ["azurerm_logic_app_workflow"],
-    "azure.cosmos-db-nosql-raw-and-rollup": ["azurerm_cosmosdb_account", "azurerm_cosmosdb_sql_database", "azurerm_cosmosdb_sql_container"],
+    "azure.cosmos-db-nosql-raw-and-rollup": [
+        "azurerm_cosmosdb_account",
+        "azurerm_cosmosdb_sql_database",
+        "azurerm_cosmosdb_sql_container",
+    ],
     "azure.blob-cool": ["azurerm_storage_account", "azurerm_storage_container"],
     "azure.blob-archive": ["azurerm_storage_management_policy"],
     "azure.digital-twins": ["azurerm_digital_twins_instance"],
     "azure.managed-grafana-12-standard": ["azurerm_dashboard_grafana"],
-    "azure.functions-flex-raw-history-reader": ["azurerm_function_app_flex_consumption"],
-    "azure.container-apps-scheduled-storage-job": ["azurerm_container_app_environment", "azurerm_container_app_job"],
+    "azure.functions-flex-raw-history-reader": [
+        "azurerm_function_app_flex_consumption"
+    ],
+    "azure.container-apps-scheduled-storage-job": [
+        "azurerm_container_app_environment",
+        "azurerm_container_app_job",
+    ],
     "azure.acr-basic-if-container-selected": ["azurerm_container_registry"],
     "azure.monitor": ["azurerm_monitor_diagnostic_setting"],
     "azure.log-analytics-shared-workspace": ["azurerm_log_analytics_workspace"],
     "azure.entra-layer-access-bindings": ["azurerm_role_assignment"],
-    "azure.service-bus-standard": ["azurerm_servicebus_namespace", "azurerm_servicebus_queue", "azurerm_servicebus_topic"],
+    "azure.service-bus-standard": [
+        "azurerm_servicebus_namespace",
+        "azurerm_servicebus_queue",
+        "azurerm_servicebus_topic",
+    ],
     "azure.functions-flex-event-adapter": ["azurerm_function_app_flex_consumption"],
-    "azure.event-hubs-only-for-reviewed-remote-telemetry-edge": ["azurerm_eventhub_namespace", "azurerm_eventhub"],
-    "azure.event-hubs-standard-small-medium": ["azurerm_eventhub_namespace", "azurerm_eventhub"],
-    "azure.event-hubs-dedicated-large": ["azurerm_eventhub_cluster", "azurerm_eventhub_namespace", "azurerm_eventhub"],
+    "azure.event-hubs-only-for-reviewed-remote-telemetry-edge": [
+        "azurerm_eventhub_namespace",
+        "azurerm_eventhub",
+    ],
+    "azure.event-hubs-standard-small-medium": [
+        "azurerm_eventhub_namespace",
+        "azurerm_eventhub",
+    ],
+    "azure.event-hubs-dedicated-large": [
+        "azurerm_eventhub_cluster",
+        "azurerm_eventhub_namespace",
+        "azurerm_eventhub",
+    ],
     "azure.functions-flex-event-worker": ["azurerm_function_app_flex_consumption"],
-    "apache.bifromq-4.0.0-incubating-on-gke-standard": ["google_container_cluster", "kubernetes_deployment_v1"],
+    "apache.bifromq-4.0.0-incubating-on-gke-standard": [
+        "google_container_cluster",
+        "kubernetes_deployment_v1",
+    ],
     "gcp.external-load-balancer": ["kubernetes_service_v1"],
     "gcp.ordered-mqtt-pubsub-adapter": ["kubernetes_deployment_v1"],
     "gcp.cloud-run-service": ["google_cloud_run_v2_service"],
     "gcp.workflows": ["google_workflows_workflow"],
-    "gcp.firestore-native-standard-raw-and-rollup": ["google_firestore_database", "google_firestore_field", "google_firestore_index"],
+    "gcp.firestore-native-standard-raw-and-rollup": [
+        "google_firestore_database",
+        "google_firestore_field",
+        "google_firestore_index",
+    ],
     "gcp.cloud-storage-nearline": ["google_storage_bucket"],
     "gcp.cloud-storage-archive": ["google_storage_bucket"],
     "gcp.cloud-run-twin-api-materializer": ["google_cloud_run_v2_service"],
-    "gcp.firestore-native-standard-bounded-twin": ["google_firestore_database", "google_firestore_index"],
+    "gcp.firestore-native-standard-bounded-twin": [
+        "google_firestore_database",
+        "google_firestore_index",
+    ],
     "gcp.cloud-run-iap-twin-explorer": [
         "google_cloud_run_v2_service",
         "google_cloud_run_v2_service_iam_member",
         "google_iap_web_cloud_run_service_iam_member",
     ],
     "grafana.oss-12-on-gke": ["kubernetes_deployment_v1", "kubernetes_service_v1"],
-    "gcp.persistent-disk-rwo": ["google_compute_disk", "kubernetes_persistent_volume_claim_v1"],
+    "gcp.persistent-disk-rwo": [
+        "google_compute_disk",
+        "kubernetes_persistent_volume_claim_v1",
+    ],
     "gcp.cloud-run-raw-history-reader": ["google_cloud_run_v2_service"],
     "gcp.cloud-scheduler": ["google_cloud_scheduler_job"],
     "gcp.cloud-run-storage-job": ["google_cloud_run_v2_job"],
-    "gcp.artifact-registry-if-container-selected": ["google_artifact_registry_repository"],
+    "gcp.artifact-registry-if-container-selected": [
+        "google_artifact_registry_repository"
+    ],
     "gcp.cloud-logging": [],
     "gcp.cloud-monitoring": [],
     "gcp.direct-iap-layer-access": ["google_iap_web_cloud_run_service_iam_member"],
     "gcp.grafana-tls-load-balancer": ["kubernetes_service_v1", "kubernetes_secret_v1"],
-    "gcp.pubsub-separated-embedded-topics": ["google_pubsub_topic", "google_pubsub_subscription"],
+    "gcp.pubsub-separated-embedded-topics": [
+        "google_pubsub_topic",
+        "google_pubsub_subscription",
+    ],
     "gcp.cloud-run-event-adapter": ["google_cloud_run_v2_service"],
-    "gcp.pubsub-separated-event-layer-topics": ["google_pubsub_topic", "google_pubsub_subscription"],
+    "gcp.pubsub-separated-event-layer-topics": [
+        "google_pubsub_topic",
+        "google_pubsub_subscription",
+    ],
     "gcp.cloud-run-event-service-small-medium": ["google_cloud_run_v2_service"],
     "gcp.cloud-run-worker-pool-fixed-large": ["google_cloud_run_v2_worker_pool"],
-    "grafana.marcusolsson-json-datasource": [],
+    "aws.grafana-marcusolsson-json-datasource": [],
+    "azure.grafana-marcusolsson-json-datasource": [],
     "grafana.yesoreyeram-infinity-datasource": [],
 }
 
@@ -104,7 +151,10 @@ POST_TERRAFORM_OPERATIONS: dict[str, list[str]] = {
     ],
     "gcp.cloud-logging": ["provider_platform_capability_no_resource"],
     "gcp.cloud-monitoring": ["provider_platform_capability_no_resource"],
-    "grafana.marcusolsson-json-datasource": [
+    "aws.grafana-marcusolsson-json-datasource": [
+        "grafana_plugin_catalog_preflight_and_datasource_provisioning"
+    ],
+    "azure.grafana-marcusolsson-json-datasource": [
         "grafana_plugin_catalog_preflight_and_datasource_provisioning"
     ],
     "grafana.yesoreyeram-infinity-datasource": [
@@ -172,36 +222,69 @@ def digest(value: Any) -> str:
 def dimensions(component_id: str) -> list[str]:
     values = ["resource_count"]
     lowered = component_id.lower()
-    for token, dimension in (
-        ("storage", "stored_gib_month"),
-        ("s3", "stored_gib_month"),
-        ("blob", "stored_gib_month"),
-        ("dynamodb", "read_write_request_units"),
-        ("cosmos", "request_units"),
-        ("firestore", "document_operations_and_storage"),
-        ("lambda", "requests_and_gib_seconds"),
-        ("function", "requests_and_instance_duration"),
-        ("cloud-run", "requests_cpu_memory_duration"),
-        ("grafana", "workspace_or_compute_and_seats"),
-        ("gke", "cluster_and_node_hours"),
-        ("event-hubs", "throughput_or_capacity_units"),
-        ("kinesis", "shard_hours_and_payload_units"),
-        ("pubsub", "message_delivery_bytes"),
-        ("sqs", "requests"),
-        ("sns", "publishes_and_delivery"),
-        ("service-bus", "messaging_units_and_operations"),
-        ("monitor", "log_ingestion_and_retention"),
-        ("logging", "log_ingestion_and_retention"),
-        ("load-balancer", "rule_hours_and_processed_bytes"),
-    ):
-        if token in lowered and dimension not in values:
-            values.append(dimension)
+    mappings = (
+        (("storage", "s3", "blob", "persistent-disk"), ("stored_gib_month",)),
+        (("dynamodb",), ("read_requests", "write_requests", "stored_gib_month")),
+        (
+            ("cosmos",),
+            (
+                "request_units",
+                "stored_gib_month",
+                "capacity_mode",
+                "autoscale_max_ru_per_second",
+            ),
+        ),
+        (
+            ("firestore",),
+            (
+                "document_reads",
+                "document_writes",
+                "document_deletes",
+                "stored_gib_month",
+                "timestamp_shards",
+            ),
+        ),
+        (("lambda",), ("requests", "gib_seconds")),
+        (("function",), ("requests", "execution_seconds")),
+        (("cloud-run",), ("requests", "vcpu_seconds", "memory_gib_seconds")),
+        (("grafana",), ("workspace_count", "editor_seats", "viewer_seats")),
+        (("gke",), ("node_count", "node_hours")),
+        (("event-hubs",), ("throughput_unit_hours", "capacity_unit_hours")),
+        (
+            ("kinesis",),
+            ("stream_count", "shards_per_stream", "shard_hours", "payload_units"),
+        ),
+        (("pubsub",), ("publish_bytes", "delivery_bytes")),
+        (("sqs",), ("requests",)),
+        (("sns",), ("publishes", "delivery_bytes")),
+        (("service-bus",), ("messaging_unit_hours", "operations")),
+        (
+            ("monitor", "logging", "cloudwatch", "log-analytics"),
+            ("log_ingestion_gib", "retained_log_gib_month"),
+        ),
+        (("load-balancer",), ("rule_hours", "processed_bytes")),
+        (("iot", "bifromq", "mqtt"), ("connected_devices", "messages")),
+        (("twin",), ("twin_entities", "twin_operations")),
+        (("scheduler",), ("scheduled_invocations",)),
+        (
+            ("workflow", "step-functions", "logic-apps"),
+            ("workflow_executions", "workflow_transitions"),
+        ),
+    )
+    for tokens, mapped_dimensions in mappings:
+        if any(token in lowered for token in tokens):
+            for dimension in mapped_dimensions:
+                if dimension not in values:
+                    values.append(dimension)
     return values
 
 
 def contracts(responsibility: str) -> tuple[list[str], list[str]]:
     if responsibility == "l3_hot":
-        return (["canonical-telemetry.v1"], ["raw_history_query.v1", "twin_projection.v1"])
+        return (
+            ["canonical-telemetry.v1"],
+            ["raw_history_query.v1", "twin_projection.v1"],
+        )
     if responsibility == "l4_twin":
         return (["twin_projection.v1"], ["deployment-access.v1"])
     if responsibility == "l5_visualization":
@@ -238,12 +321,26 @@ def flatten_components(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         region = provider["region"]
         groups: list[tuple[str, list[str], list[str]]] = []
         for layer, ids in provider["layers"].items():
-            groups.append((layer, ids, ["five-layer-baseline@2", "six-layer-eventing@1"]))
+            groups.append(
+                (layer, ids, ["five-layer-baseline@2", "six-layer-eventing@1"])
+            )
         groups.extend(
             [
-                ("support", provider["support_components"], ["five-layer-baseline@2", "six-layer-eventing@1"]),
-                ("embedded_event", provider["embedded_event_components"], ["five-layer-baseline@2"]),
-                ("event_layer", provider["six_layer_event_components"], ["six-layer-eventing@1"]),
+                (
+                    "support",
+                    provider["support_components"],
+                    ["five-layer-baseline@2", "six-layer-eventing@1"],
+                ),
+                (
+                    "embedded_event",
+                    provider["embedded_event_components"],
+                    ["five-layer-baseline@2"],
+                ),
+                (
+                    "event_layer",
+                    provider["six_layer_event_components"],
+                    ["six-layer-eventing@1"],
+                ),
             ]
         )
         for responsibility, component_ids, profiles in groups:
@@ -256,7 +353,9 @@ def flatten_components(bundle: dict[str, Any]) -> list[dict[str, Any]]:
                         "region": region,
                         "responsibilities": [],
                         "profile_refs": [],
-                        "terraform_resource_types": TERRAFORM_TYPES.get(component_id, []),
+                        "terraform_resource_types": TERRAFORM_TYPES.get(
+                            component_id, []
+                        ),
                         "post_terraform_operations": POST_TERRAFORM_OPERATIONS.get(
                             component_id, []
                         ),
@@ -270,15 +369,27 @@ def flatten_components(bundle: dict[str, Any]) -> list[dict[str, Any]]:
                             "managed_provider_api"
                             if not any(
                                 token in component_id
-                                for token in ("bifromq", "grafana.oss", "adapter", "reader", "worker", "storage-mover", "storage-job", "twin-api", "twin-explorer")
+                                for token in (
+                                    "bifromq",
+                                    "grafana.oss",
+                                    "adapter",
+                                    "reader",
+                                    "worker",
+                                    "storage-mover",
+                                    "storage-job",
+                                    "twin-api",
+                                    "twin-explorer",
+                                )
                             )
                             else "content_addressed_repository_package"
                         ),
                         "network_ports": network_ports(component_id),
-                        "implementation_file_targets": file_targets(provider_id, component_id),
+                        "implementation_file_targets": file_targets(
+                            provider_id, component_id
+                        ),
                         "formula_refs": [
                             "capacity-matrix.json#formula_contract",
-                            "pricing-ownership-matrix.json"
+                            "pricing-ownership-matrix.json",
                         ],
                         "capacity_dimensions": dimensions(component_id),
                     },
@@ -288,8 +399,12 @@ def flatten_components(bundle: dict[str, Any]) -> list[dict[str, Any]]:
                 )
                 record["profile_refs"] = sorted(set(record["profile_refs"] + profiles))
                 inputs, outputs = contracts(responsibility)
-                record["input_contracts"] = sorted(set(record["input_contracts"] + inputs))
-                record["output_contracts"] = sorted(set(record["output_contracts"] + outputs))
+                record["input_contracts"] = sorted(
+                    set(record["input_contracts"] + inputs)
+                )
+                record["output_contracts"] = sorted(
+                    set(record["output_contracts"] + outputs)
+                )
     for component_id, record in records.items():
         if not (
             record["terraform_resource_types"] or record["post_terraform_operations"]
@@ -333,22 +448,22 @@ def build_manifest(bundle: dict[str, Any], routes: dict[str, Any]) -> dict[str, 
             "raw_history_query.v1",
             "twin_projection.v1",
             "storage_transition.v1",
-            "canonical-domain-event.v1"
+            "canonical-domain-event.v1",
         ],
         "route_classes": [item["route_class"] for item in routes["route_classes"]],
         "permission_artifacts": [
             "3-cloud-deployer/docs/references/permission_sets/aws_thesis_demo_v2.json",
             "3-cloud-deployer/docs/references/permission_sets/azure_thesis_demo_v2.json",
-            "3-cloud-deployer/docs/references/permission_sets/gcp_thesis_demo_v2.json"
+            "3-cloud-deployer/docs/references/permission_sets/gcp_thesis_demo_v2.json",
         ],
         "runtime_target_roots": [
             "contracts/architecture-profiles/definitions",
             "2-twin2clouds/backend",
             "twin2multicloud_backend",
             "3-cloud-deployer",
-            "twin2multicloud_flutter"
+            "twin2multicloud_flutter",
         ],
-        "activation_rule": "both_eventing_and_complete_service_digests_must_match"
+        "activation_rule": "both_eventing_and_complete_service_digests_must_match",
     }
 
 
@@ -371,8 +486,12 @@ def build_pricing(bundle: dict[str, Any], routes: dict[str, Any]) -> dict[str, A
                     "pair": pair,
                     "source_provider": source,
                     "destination_provider": destination,
-                    "dimensions": ["source_runtime", "destination_operations", "cross_cloud_egress_bytes"],
-                    "deduplication_key": f"{route_class}::{pair}"
+                    "dimensions": [
+                        "source_runtime",
+                        "destination_operations",
+                        "cross_cloud_egress_bytes",
+                    ],
+                    "deduplication_key": f"{route_class}::{pair}",
                 }
             )
     return {
@@ -390,7 +509,7 @@ def build_pricing(bundle: dict[str, Any], routes: dict[str, Any]) -> dict[str, A
                 "region": item["region"],
                 "pricing_catalog_key": item["component_id"],
                 "dimensions": dimensions(item["component_id"]),
-                "deduplication_key": item["component_id"]
+                "deduplication_key": item["component_id"],
             }
             for item in components
         ],
@@ -398,14 +517,14 @@ def build_pricing(bundle: dict[str, Any], routes: dict[str, Any]) -> dict[str, A
         "same_provider_rule": {
             "bridge_component_count": 0,
             "cross_cloud_egress_cost": 0,
-            "local_service_operations_are_still_priced": True
+            "local_service_operations_are_still_priced": True,
         },
         "shared_support_rules": [
             "one_registry_per_selected_provider_with_platform_owned_containers",
             "one_firestore_database_per_deployment_when_gcp_l3_or_l4_is_selected",
             "one_gcp_gke_cluster_control_plane_when_l1_and_l5_are_both_gcp",
-            "one_azure_log_analytics_workspace_per_selected_azure_bundle"
-        ]
+            "one_azure_log_analytics_workspace_per_selected_azure_bundle",
+        ],
     }
 
 

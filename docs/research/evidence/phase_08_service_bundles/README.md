@@ -6,6 +6,14 @@ This directory is the immutable offline decision package
 `phase-08-complete-service-bundles@1` for the complete Twin PoC service
 boundary reviewed on 2026-08-03.
 
+During contract integration on 2026-08-04, before either profile was activated
+or deployed, the package was re-frozen once: the shared managed-Grafana plugin
+alias was split into AWS- and Azure-owned component IDs, and composite capacity
+labels were replaced by atomic priced dimensions. The service scope did not
+change. `decision.json` records the superseded planning digest so this
+pre-activation correction remains explicit rather than silently rewriting the
+evidence history.
+
 The package approves implementation authority for `five-layer-baseline@2` and
 the later `six-layer-eventing@1` delta. It does **not** activate either profile,
 prove live cloud readiness, or modify the historical
@@ -94,7 +102,7 @@ not fabricate measurements.
 | `capacity-matrix.json` | Deterministic capacity derivations and honest live gates |
 | `pricing-ownership-matrix.json` | Exactly-once component/route cost ownership without stale price fallback |
 | `source-ledger.json` | Primary-source facts checked at the research cutoff |
-| `implementation-component-manifest.json` | 72 selected components, exact Terraform/SDK/platform bindings, provider requirements, apply stages, profiles, permissions, and test ownership |
+| `implementation-component-manifest.json` | 73 provider-owned selected components, exact Terraform/SDK/platform bindings, provider requirements, apply stages, profiles, permissions, atomic capacity dimensions, and test ownership |
 
 The matching `thesis-demo-v2` permission manifests and scope reviews live in
 `3-cloud-deployer/docs/references/permission_sets/`. They deliberately expose
@@ -128,3 +136,7 @@ deterministic default gate.
 3. IaC feasibility review: zero unresolved findings after replacing fictitious
    bindings, freezing the required provider upgrade, and separating managed
    cluster creation from Kubernetes-resource application.
+4. Contract-integration review: zero unresolved findings after splitting the
+   managed-Grafana plugin ownership, making capacity dimensions atomic,
+   omitting remote-only Eventing services in single-cloud resolutions, and
+   validating all 729 admissible Five-layer layer assignments.

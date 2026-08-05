@@ -3,7 +3,7 @@
   "schema_version": "1.0.0",
   "package_id": "phase-08-complete-service-bundles@1",
   "artifact_id": "implementation-component-manifest",
-  "bundle_digest": "sha256:58267b3fcaba5acbaf6f27f2461ff5a145c1aa890bcff1534300391588c1547d",
+  "bundle_digest": "sha256:becc51cf0701ccf37e64e2a4a3003ccee5c2c4489f43b7728116af3a592b0957",
   "route_digest": "sha256:e08ae2b6c2a1933adae54c5fed04b949b269b856f535b96787170e8820d32fee",
   "profile_targets": [
     "five-layer-baseline@2",
@@ -108,7 +108,10 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "cluster_and_node_hours"
+        "node_count",
+        "node_hours",
+        "connected_devices",
+        "messages"
       ],
       "artifact_refs": [
         "apache-bifromq-linux-amd64"
@@ -156,7 +159,9 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "workspace_or_compute_and_seats"
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
       ]
     },
     {
@@ -200,7 +205,9 @@
         "pricing-ownership-matrix.json"
       ],
       "capacity_dimensions": [
-        "resource_count"
+        "resource_count",
+        "log_ingestion_gib",
+        "retained_log_gib_month"
       ]
     },
     {
@@ -243,7 +250,9 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "read_write_request_units"
+        "read_requests",
+        "write_requests",
+        "stored_gib_month"
       ]
     },
     {
@@ -286,7 +295,9 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "read_write_request_units"
+        "read_requests",
+        "write_requests",
+        "stored_gib_month"
       ]
     },
     {
@@ -411,7 +422,55 @@
         "pricing-ownership-matrix.json"
       ],
       "capacity_dimensions": [
-        "resource_count"
+        "resource_count",
+        "scheduled_invocations"
+      ]
+    },
+    {
+      "component_id": "aws.grafana-marcusolsson-json-datasource",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [],
+      "post_terraform_operations": [
+        "grafana_plugin_catalog_preflight_and_datasource_provisioning"
+      ],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.grafana-marcusolsson-json-datasource",
+      "permission_set_refs": [
+        "aws_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "raw_history_query.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [
+        3000,
+        443
+      ],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/aws/aws_grafana_marcusolsson_json_datasource"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
       ]
     },
     {
@@ -494,7 +553,9 @@
         "pricing-ownership-matrix.json"
       ],
       "capacity_dimensions": [
-        "resource_count"
+        "resource_count",
+        "connected_devices",
+        "messages"
       ]
     },
     {
@@ -536,7 +597,9 @@
         "pricing-ownership-matrix.json"
       ],
       "capacity_dimensions": [
-        "resource_count"
+        "resource_count",
+        "connected_devices",
+        "messages"
       ]
     },
     {
@@ -579,7 +642,11 @@
         "pricing-ownership-matrix.json"
       ],
       "capacity_dimensions": [
-        "resource_count"
+        "resource_count",
+        "connected_devices",
+        "messages",
+        "twin_entities",
+        "twin_operations"
       ]
     },
     {
@@ -620,7 +687,10 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "shard_hours_and_payload_units"
+        "stream_count",
+        "shards_per_stream",
+        "shard_hours",
+        "payload_units"
       ]
     },
     {
@@ -661,7 +731,10 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "shard_hours_and_payload_units"
+        "stream_count",
+        "shards_per_stream",
+        "shard_hours",
+        "payload_units"
       ]
     },
     {
@@ -703,7 +776,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_and_gib_seconds"
+        "requests",
+        "gib_seconds"
       ]
     },
     {
@@ -744,7 +818,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_and_gib_seconds"
+        "requests",
+        "gib_seconds"
       ]
     },
     {
@@ -785,7 +860,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_and_gib_seconds"
+        "requests",
+        "gib_seconds"
       ]
     },
     {
@@ -830,7 +906,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_and_gib_seconds"
+        "requests",
+        "gib_seconds"
       ]
     },
     {
@@ -997,7 +1074,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "publishes_and_delivery"
+        "publishes",
+        "delivery_bytes"
       ]
     },
     {
@@ -1038,7 +1116,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "publishes_and_delivery"
+        "publishes",
+        "delivery_bytes"
       ]
     },
     {
@@ -1123,7 +1202,10 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_and_instance_duration"
+        "requests",
+        "execution_seconds",
+        "workflow_executions",
+        "workflow_transitions"
       ]
     },
     {
@@ -1337,7 +1419,10 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "request_units"
+        "request_units",
+        "stored_gib_month",
+        "capacity_mode",
+        "autoscale_max_ru_per_second"
       ]
     },
     {
@@ -1378,7 +1463,9 @@
         "pricing-ownership-matrix.json"
       ],
       "capacity_dimensions": [
-        "resource_count"
+        "resource_count",
+        "twin_entities",
+        "twin_operations"
       ]
     },
     {
@@ -1462,7 +1549,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "throughput_or_capacity_units"
+        "throughput_unit_hours",
+        "capacity_unit_hours"
       ]
     },
     {
@@ -1504,7 +1592,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "throughput_or_capacity_units"
+        "throughput_unit_hours",
+        "capacity_unit_hours"
       ]
     },
     {
@@ -1546,7 +1635,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "throughput_or_capacity_units"
+        "throughput_unit_hours",
+        "capacity_unit_hours"
       ]
     },
     {
@@ -1588,7 +1678,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_and_instance_duration"
+        "requests",
+        "execution_seconds"
       ]
     },
     {
@@ -1629,7 +1720,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_and_instance_duration"
+        "requests",
+        "execution_seconds"
       ]
     },
     {
@@ -1670,7 +1762,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_and_instance_duration"
+        "requests",
+        "execution_seconds"
       ]
     },
     {
@@ -1714,7 +1807,55 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_and_instance_duration"
+        "requests",
+        "execution_seconds"
+      ]
+    },
+    {
+      "component_id": "azure.grafana-marcusolsson-json-datasource",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "profile_refs": [
+        "five-layer-baseline@2",
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [],
+      "post_terraform_operations": [
+        "grafana_plugin_catalog_preflight_and_datasource_provisioning"
+      ],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.grafana-marcusolsson-json-datasource",
+      "permission_set_refs": [
+        "azure_thesis_demo_v2"
+      ],
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "raw_history_query.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [
+        3000,
+        443
+      ],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+        "3-cloud-deployer/src/runtime_packages/azure/azure_grafana_marcusolsson_json_datasource"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
       ]
     },
     {
@@ -1755,7 +1896,9 @@
         "pricing-ownership-matrix.json"
       ],
       "capacity_dimensions": [
-        "resource_count"
+        "resource_count",
+        "connected_devices",
+        "messages"
       ]
     },
     {
@@ -1799,7 +1942,9 @@
         "pricing-ownership-matrix.json"
       ],
       "capacity_dimensions": [
-        "resource_count"
+        "resource_count",
+        "log_ingestion_gib",
+        "retained_log_gib_month"
       ]
     },
     {
@@ -1840,7 +1985,9 @@
         "pricing-ownership-matrix.json"
       ],
       "capacity_dimensions": [
-        "resource_count"
+        "resource_count",
+        "workflow_executions",
+        "workflow_transitions"
       ]
     },
     {
@@ -1885,7 +2032,9 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "workspace_or_compute_and_seats"
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
       ]
     },
     {
@@ -1930,7 +2079,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "log_ingestion_and_retention"
+        "log_ingestion_gib",
+        "retained_log_gib_month"
       ]
     },
     {
@@ -1975,7 +2125,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "messaging_units_and_operations"
+        "messaging_unit_hours",
+        "operations"
       ]
     },
     {
@@ -2061,7 +2212,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "log_ingestion_and_retention"
+        "log_ingestion_gib",
+        "retained_log_gib_month"
       ]
     },
     {
@@ -2106,7 +2258,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "log_ingestion_and_retention"
+        "log_ingestion_gib",
+        "retained_log_gib_month"
       ]
     },
     {
@@ -2147,7 +2300,9 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
       ]
     },
     {
@@ -2188,7 +2343,9 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
       ]
     },
     {
@@ -2234,7 +2391,11 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds",
+        "twin_entities",
+        "twin_operations"
       ]
     },
     {
@@ -2278,7 +2439,9 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
       ]
     },
     {
@@ -2320,7 +2483,9 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
       ]
     },
     {
@@ -2363,7 +2528,9 @@
       "capacity_dimensions": [
         "resource_count",
         "stored_gib_month",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
       ]
     },
     {
@@ -2407,7 +2574,11 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds",
+        "twin_entities",
+        "twin_operations"
       ]
     },
     {
@@ -2448,7 +2619,9 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests_cpu_memory_duration"
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
       ]
     },
     {
@@ -2489,7 +2662,8 @@
         "pricing-ownership-matrix.json"
       ],
       "capacity_dimensions": [
-        "resource_count"
+        "resource_count",
+        "scheduled_invocations"
       ]
     },
     {
@@ -2656,7 +2830,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "rule_hours_and_processed_bytes"
+        "rule_hours",
+        "processed_bytes"
       ]
     },
     {
@@ -2699,7 +2874,13 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "document_operations_and_storage"
+        "document_reads",
+        "document_writes",
+        "document_deletes",
+        "stored_gib_month",
+        "timestamp_shards",
+        "twin_entities",
+        "twin_operations"
       ]
     },
     {
@@ -2744,7 +2925,11 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "document_operations_and_storage"
+        "document_reads",
+        "document_writes",
+        "document_deletes",
+        "stored_gib_month",
+        "timestamp_shards"
       ]
     },
     {
@@ -2790,8 +2975,11 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "workspace_or_compute_and_seats",
-        "rule_hours_and_processed_bytes"
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats",
+        "rule_hours",
+        "processed_bytes"
       ]
     },
     {
@@ -2836,7 +3024,10 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "message_delivery_bytes"
+        "publish_bytes",
+        "delivery_bytes",
+        "connected_devices",
+        "messages"
       ]
     },
     {
@@ -2878,7 +3069,8 @@
         "pricing-ownership-matrix.json"
       ],
       "capacity_dimensions": [
-        "resource_count"
+        "resource_count",
+        "stored_gib_month"
       ]
     },
     {
@@ -2920,7 +3112,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "message_delivery_bytes"
+        "publish_bytes",
+        "delivery_bytes"
       ]
     },
     {
@@ -2962,7 +3155,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "message_delivery_bytes"
+        "publish_bytes",
+        "delivery_bytes"
       ]
     },
     {
@@ -3003,52 +3197,9 @@
         "pricing-ownership-matrix.json"
       ],
       "capacity_dimensions": [
-        "resource_count"
-      ]
-    },
-    {
-      "component_id": "grafana.marcusolsson-json-datasource",
-      "provider": "aws",
-      "region": "eu-central-1",
-      "responsibilities": [
-        "l5_visualization"
-      ],
-      "profile_refs": [
-        "five-layer-baseline@2",
-        "six-layer-eventing@1"
-      ],
-      "terraform_resource_types": [],
-      "post_terraform_operations": [
-        "grafana_plugin_catalog_preflight_and_datasource_provisioning"
-      ],
-      "runtime_state": "decision_frozen_not_implemented",
-      "pricing_owner_id": "cost::grafana.marcusolsson-json-datasource",
-      "permission_set_refs": [
-        "aws_thesis_demo_v2"
-      ],
-      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
-      "input_contracts": [
-        "raw_history_query.v1"
-      ],
-      "output_contracts": [
-        "deployment-access.v1"
-      ],
-      "runtime_package": "managed_provider_api",
-      "network_ports": [
-        3000,
-        443
-      ],
-      "implementation_file_targets": [
-        "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
-        "3-cloud-deployer/src/runtime_packages/aws/grafana_marcusolsson_json_datasource"
-      ],
-      "formula_refs": [
-        "capacity-matrix.json#formula_contract",
-        "pricing-ownership-matrix.json"
-      ],
-      "capacity_dimensions": [
         "resource_count",
-        "workspace_or_compute_and_seats"
+        "workflow_executions",
+        "workflow_transitions"
       ]
     },
     {
@@ -3094,8 +3245,11 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "workspace_or_compute_and_seats",
-        "cluster_and_node_hours"
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats",
+        "node_count",
+        "node_hours"
       ],
       "artifact_refs": [
         "grafana-oss-multiarch"
@@ -3143,7 +3297,9 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "workspace_or_compute_and_seats"
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
       ],
       "artifact_refs": [
         "infinity-plugin-linux-amd64"

@@ -74,7 +74,8 @@ def build() -> dict[str, Any]:
     ) + (
         REPOSITORY_ROOT / "docs/research/evidence/phase_08_eventing/decision.json",
         REPOSITORY_ROOT / "docs/research/evidence/phase_08_eventing/source-ledger.json",
-        REPOSITORY_ROOT / "contracts/architecture-inventory/v1/five-layer-baseline-v1-decision.json",
+        REPOSITORY_ROOT
+        / "contracts/architecture-inventory/v1/five-layer-baseline-v1-decision.json",
     )
     immutable_input_digests = digest_map(immutable_input_paths)
     combined = {
@@ -91,25 +92,32 @@ def build() -> dict[str, Any]:
         "approval_scope": "offline_contract_capacity_and_implementation_authority",
         "approved_on": "2026-08-03",
         "research_cutoff": "2026-08-03",
+        "pre_activation_refreeze": {
+            "refrozen_on": "2026-08-04",
+            "previous_package_digest": "sha256:4aadd03b4cc907a26ae3c3290b8c56fe70205b9f009fc36be9c0d0e649a33bba",
+            "reason": "split the shared managed-Grafana plugin alias into provider-owned component IDs and replace composite capacity labels with atomic priced dimensions",
+            "scope_change": False,
+            "activated_or_deployed_before_refreeze": False,
+        },
         "regions": {
             "aws": "eu-central-1",
             "azure": "westeurope",
-            "gcp": "europe-west1"
+            "gcp": "europe-west1",
         },
         "profile_decisions": [
             {
                 "profile_ref": "five-layer-baseline@1",
-                "status": "historical_read_verify_destroy_only"
+                "status": "historical_read_verify_destroy_only",
             },
             {
                 "profile_ref": "five-layer-baseline@2",
-                "status": "approved_for_offline_implementation_not_activated"
+                "status": "approved_for_offline_implementation_not_activated",
             },
             {
                 "profile_ref": "six-layer-eventing@1",
                 "status": "approved_service_delta_not_activated",
-                "requires_reviewed_five_layer_digest": True
-            }
+                "requires_reviewed_five_layer_digest": True,
+            },
         ],
         "artifact_byte_digests": artifact_digests,
         "permission_artifact_byte_digests": permission_digests,
@@ -119,32 +127,38 @@ def build() -> dict[str, Any]:
             "small_medium_large": "theoretically_admissible_with_explicit_conditional_gates",
             "live_status": "live_capacity_pending",
             "azure_request_charge": "fixture_required_before_profile_activation",
-            "gcp_large_worker_pool": "preview_fixed_size_non_autoscaling_preflight_required"
+            "gcp_large_worker_pool": "preview_fixed_size_non_autoscaling_preflight_required",
         },
         "plugin_decision": {
             "managed_aws_azure": "json_api_1.4.0_maintenance_mode_catalog_preflight_required",
             "self_hosted_gcp": "infinity_3.10.1_digest_pinned",
-            "silent_substitution": False
+            "silent_substitution": False,
         },
         "reviews": [
             {
                 "review_id": "service-bundle-architecture-review-1",
                 "reviewed_on": "2026-08-03",
                 "scope": "profile parity, provider bundles, route ownership, single-cloud and multicloud cases, thesis PoC boundary",
-                "unresolved_findings": 0
+                "unresolved_findings": 0,
             },
             {
                 "review_id": "service-bundle-builder-review-2",
                 "reviewed_on": "2026-08-03",
                 "scope": "schemas, deterministic formulas, digests, permissions, sources, activation and live-readiness gates",
-                "unresolved_findings": 0
+                "unresolved_findings": 0,
             },
             {
                 "review_id": "service-bundle-iac-feasibility-review-3",
                 "reviewed_on": "2026-08-03",
                 "scope": "real Terraform and SDK bindings, provider version floor, staged GKE application, closed edge contracts",
-                "unresolved_findings": 0
-            }
+                "unresolved_findings": 0,
+            },
+            {
+                "review_id": "service-bundle-contract-integration-review-4",
+                "reviewed_on": "2026-08-04",
+                "scope": "provider-specific plugin ownership, atomic capacity dimensions, single-cloud omission of remote-only services, and all 729 admissible Five-layer assignments",
+                "unresolved_findings": 0,
+            },
         ],
         "activation_conditions": [
             "eventing_dependency_digest_matches",
@@ -155,8 +169,8 @@ def build() -> dict[str, Any]:
             "terraform_provider_versions_match_the_frozen_component_manifest",
             "gke_cloud_and_kubernetes_apply_stages_remain_separate_and_automatic",
             "azure_request_charge_fixture_passes_before_five_layer_profile_activation",
-            "no_live_cloud_claim_is_derived_from_offline_approval"
-        ]
+            "no_live_cloud_claim_is_derived_from_offline_approval",
+        ],
     }
 
 
@@ -173,7 +187,10 @@ def main() -> int:
         DECISION_PATH.write_text(expected, encoding="utf-8")
         print(f"wrote {DECISION_PATH.relative_to(REPOSITORY_ROOT)}")
         return 0
-    if not DECISION_PATH.exists() or DECISION_PATH.read_text(encoding="utf-8") != expected:
+    if (
+        not DECISION_PATH.exists()
+        or DECISION_PATH.read_text(encoding="utf-8") != expected
+    ):
         print("decision.json is stale; run freeze_decision.py --write")
         return 1
     print("phase-08-service-bundles decision digests: OK")

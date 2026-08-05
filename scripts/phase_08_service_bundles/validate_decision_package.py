@@ -75,11 +75,15 @@ def module(name: str) -> Any:
     return loaded
 
 
-def scan_secrets(name: str, value: Any, errors: list[str], path: tuple[str, ...] = ()) -> None:
+def scan_secrets(
+    name: str, value: Any, errors: list[str], path: tuple[str, ...] = ()
+) -> None:
     if isinstance(value, dict):
         for key, nested in value.items():
             if key.lower() in SECRET_KEYS:
-                errors.append(f"{name}:{'/'.join((*path, key))}: forbidden secret field")
+                errors.append(
+                    f"{name}:{'/'.join((*path, key))}: forbidden secret field"
+                )
             scan_secrets(name, nested, errors, (*path, key))
     elif isinstance(value, list):
         for index, nested in enumerate(value):
@@ -100,10 +104,16 @@ def validate_schema(artifacts: dict[str, Any], errors: list[str]) -> None:
             if field not in artifact:
                 errors.append(f"{name}: missing required field {field}")
         for field, definition in properties.items():
-            if field in artifact and "const" in definition and artifact[field] != definition["const"]:
+            if (
+                field in artifact
+                and "const" in definition
+                and artifact[field] != definition["const"]
+            ):
                 errors.append(f"{name}:{field}: value does not match schema const")
         artifact_id = artifact.get("artifact_id")
-        if not isinstance(artifact_id, str) or not re.fullmatch(r"[a-z0-9][a-z0-9-]*", artifact_id):
+        if not isinstance(artifact_id, str) or not re.fullmatch(
+            r"[a-z0-9][a-z0-9-]*", artifact_id
+        ):
             errors.append(f"{name}: artifact_id does not match schema pattern")
 
 
@@ -131,7 +141,12 @@ def validate_generated(artifacts: dict[str, Any], errors: list[str]) -> None:
 
 
 def validate_routes(routes: dict[str, Any], errors: list[str]) -> None:
-    cross = {f"{source}->{destination}" for source in PROVIDERS for destination in PROVIDERS if source != destination}
+    cross = {
+        f"{source}->{destination}"
+        for source in PROVIDERS
+        for destination in PROVIDERS
+        if source != destination
+    }
     local = {f"{provider}->{provider}" for provider in PROVIDERS}
     if set(routes["directed_cross_cloud_pairs"]) != cross:
         errors.append("directed_cross_cloud_pairs must contain all six exact pairs")
@@ -144,11 +159,15 @@ def validate_routes(routes: dict[str, Any], errors: list[str]) -> None:
         (item["l3_hot_l5_provider"], item["l4_provider"]) for item in placements
     }
     if actual_placements != expected_placements or len(placements) != 9:
-        errors.append("online_placements must contain the exact nine L3-hot/L5 plus L4 combinations")
+        errors.append(
+            "online_placements must contain the exact nine L3-hot/L5 plus L4 combinations"
+        )
     for item in placements:
         expected_route = f"{item['l3_hot_l5_provider']}->{item['l4_provider']}"
         if item["projection_route"] != expected_route:
-            errors.append(f"{item['placement_id']}: projection route does not match placement")
+            errors.append(
+                f"{item['placement_id']}: projection route does not match placement"
+            )
 
     route_map = {item["route_class"]: item for item in routes["route_classes"]}
     expected_sets = {
@@ -165,7 +184,10 @@ def validate_routes(routes: dict[str, Any], errors: list[str]) -> None:
     if set(route_map) != set(expected_sets):
         errors.append("route classes are incomplete or contain an unknown class")
     for route_class, expected in expected_sets.items():
-        if route_class in route_map and set(route_map[route_class]["pairs"]) != expected:
+        if (
+            route_class in route_map
+            and set(route_map[route_class]["pairs"]) != expected
+        ):
             errors.append(f"{route_class}: pair coverage mismatch")
     if route_map.get("raw_history_query", {}).get("cross_cloud_allowed") is not False:
         errors.append("raw history must be provider-local")
@@ -186,7 +208,9 @@ def validate_contracts(contract: dict[str, Any], errors: list[str]) -> None:
         "canonical-domain-event.v1",
     }
     if set(definitions) != expected:
-        errors.append("common functional contract definitions are incomplete or unknown")
+        errors.append(
+            "common functional contract definitions are incomplete or unknown"
+        )
 
     raw = definitions.get("raw_history_query.v1", {})
     if raw.get("transport", {}).get("provider_placement") != "l3_hot_l5_provider_only":
@@ -239,13 +263,20 @@ def validate_components(artifacts: dict[str, Any], errors: list[str]) -> None:
     for duplicate in duplicate_values(ids):
         errors.append(f"duplicate component: {duplicate}")
     if set(ids) != bundle_component_ids(bundle):
-        errors.append("component manifest does not exactly cover selected bundle components")
+        errors.append(
+            "component manifest does not exactly cover selected bundle components"
+        )
     for item in components:
         if item["provider"] not in PROVIDERS:
             errors.append(f"{item['component_id']}: invalid provider")
-        if not (
-            item["terraform_resource_types"] or item["post_terraform_operations"]
+        if not item["component_id"].startswith(f"{item['provider']}.") and not (
+            item["provider"] == "gcp"
+            and item["component_id"].startswith(("apache.", "grafana."))
         ):
+            errors.append(
+                f"{item['component_id']}: component identity is not owned by its provider"
+            )
+        if not (item["terraform_resource_types"] or item["post_terraform_operations"]):
             errors.append(f"{item['component_id']}: missing implementation binding")
         for field in (
             "input_contracts",
@@ -260,7 +291,9 @@ def validate_components(artifacts: dict[str, Any], errors: list[str]) -> None:
         if any(port <= 0 or port > 65535 for port in item["network_ports"]):
             errors.append(f"{item['component_id']}: invalid network port")
         if item["runtime_state"] != "decision_frozen_not_implemented":
-            errors.append(f"{item['component_id']}: decision package must not claim implementation")
+            errors.append(
+                f"{item['component_id']}: decision package must not claim implementation"
+            )
 
     requirements = manifest.get("terraform_provider_requirements", {})
     expected_requirements = {
@@ -274,27 +307,42 @@ def validate_components(artifacts: dict[str, Any], errors: list[str]) -> None:
     if set(requirements) != expected_requirements:
         errors.append("Terraform provider requirements are incomplete or unknown")
     if requirements.get("google", {}).get("version_constraint") != ">= 7.22.0, < 8.0.0":
-        errors.append("Google provider requirement must cover worker pools and direct Cloud Run IAP")
+        errors.append(
+            "Google provider requirement must cover worker pools and direct Cloud Run IAP"
+        )
     if requirements.get("google", {}).get("verified_version") != "7.22.0":
         errors.append("Google provider feasibility version must remain reproducible")
     if requirements.get("kubernetes", {}).get("verified_version") != "2.38.0":
-        errors.append("Kubernetes provider feasibility version must remain reproducible")
+        errors.append(
+            "Kubernetes provider feasibility version must remain reproducible"
+        )
     stages = manifest.get("terraform_apply_stages", [])
     if [item.get("stage") for item in stages] != [1, 2, 3]:
-        errors.append("Terraform/Kubernetes/post-Terraform apply stages must be explicit and ordered")
+        errors.append(
+            "Terraform/Kubernetes/post-Terraform apply stages must be explicit and ordered"
+        )
     if stages and stages[1].get("precondition") != (
         "stage_1_cluster_endpoint_and_short_lived_credentials_available"
     ):
-        errors.append("Kubernetes apply must wait for the managed cluster and short-lived credentials")
-    if "awscc_iot_command" not in next(
-        item for item in components if item["component_id"] == "aws.iot-commands"
-    )["terraform_resource_types"]:
+        errors.append(
+            "Kubernetes apply must wait for the managed cluster and short-lived credentials"
+        )
+    if (
+        "awscc_iot_command"
+        not in next(
+            item for item in components if item["component_id"] == "aws.iot-commands"
+        )["terraform_resource_types"]
+    ):
         errors.append("AWS IoT Commands must use its real AWSCC resource")
     twinmaker = next(
-        item for item in components if item["component_id"] == "aws.iot-twinmaker-standard"
+        item
+        for item in components
+        if item["component_id"] == "aws.iot-twinmaker-standard"
     )
     if twinmaker["terraform_resource_types"] != ["awscc_iottwinmaker_workspace"]:
-        errors.append("TwinMaker Terraform binding must stop at the supported workspace")
+        errors.append(
+            "TwinMaker Terraform binding must stop at the supported workspace"
+        )
     if not twinmaker["post_terraform_operations"]:
         errors.append("TwinMaker child lifecycle must be an explicit SDK operation")
     gcp_iap = next(
@@ -307,7 +355,9 @@ def validate_components(artifacts: dict[str, Any], errors: list[str]) -> None:
         "google_cloud_run_v2_service_iam_member",
         "google_iap_web_cloud_run_service_iam_member",
     }:
-        errors.append("GCP Twin Explorer must bind both IAP and its Cloud Run service agent")
+        errors.append(
+            "GCP Twin Explorer must bind both IAP and its Cloud Run service agent"
+        )
 
     pricing = artifacts["pricing-ownership-matrix.json"]
     owners = pricing["component_owners"]
@@ -318,9 +368,16 @@ def validate_components(artifacts: dict[str, Any], errors: list[str]) -> None:
     for duplicate in duplicate_values(owner_ids):
         errors.append(f"duplicate cost owner: {duplicate}")
     if len(pricing["route_owners"]) != 24:
-        errors.append("pricing route owners must cover four classes times six directed pairs")
-    if pricing["price_value_policy"] != "live_versioned_optimizer_catalog_only_no_static_fallback":
-        errors.append("pricing values must come from the live versioned catalog without fallback")
+        errors.append(
+            "pricing route owners must cover four classes times six directed pairs"
+        )
+    if (
+        pricing["price_value_policy"]
+        != "live_versioned_optimizer_catalog_only_no_static_fallback"
+    ):
+        errors.append(
+            "pricing values must come from the live versioned catalog without fallback"
+        )
 
 
 def validate_workloads(artifacts: dict[str, Any], errors: list[str]) -> None:
@@ -328,18 +385,24 @@ def validate_workloads(artifacts: dict[str, Any], errors: list[str]) -> None:
     scenarios = workloads["core_scenarios"]
     if {item["scenario_id"] for item in scenarios} != CORE_SCENARIOS:
         errors.append("core workload IDs are incomplete")
-    if {item["eventing_scenario_id"] for item in workloads["scenario_pairing"]} != EVENTING_SCENARIOS:
+    if {
+        item["eventing_scenario_id"] for item in workloads["scenario_pairing"]
+    } != EVENTING_SCENARIOS:
         errors.append("eventing scenario pairing is incomplete")
     for item in scenarios:
         if not (
-            1 <= item["hot_boundary_months"]
+            1
+            <= item["hot_boundary_months"]
             < item["cool_boundary_months"]
             < item["archive_boundary_months"]
         ):
-            errors.append(f"{item['scenario_id']}: retention boundaries are not cumulative and ordered")
+            errors.append(
+                f"{item['scenario_id']}: retention boundaries are not cumulative and ordered"
+            )
 
     capacity = {
-        item["size"]: item for item in artifacts["capacity-matrix.json"]["scenario_results"]
+        item["size"]: item
+        for item in artifacts["capacity-matrix.json"]["scenario_results"]
     }
     exact = {
         "small": (1, 2, 1, 1),
@@ -360,7 +423,10 @@ def validate_workloads(artifacts: dict[str, Any], errors: list[str]) -> None:
             errors.append(f"{size}: Cosmos per-device logical partition proof failed")
         if derived["maximum_aggregate_rollup_points"] != 720:
             errors.append(f"{size}: aggregate rollup bound must be 720")
-    if artifacts["capacity-matrix.json"]["global_live_status"] != "live_capacity_pending":
+    if (
+        artifacts["capacity-matrix.json"]["global_live_status"]
+        != "live_capacity_pending"
+    ):
         errors.append("offline capacity evidence must remain live_capacity_pending")
 
 
@@ -387,7 +453,9 @@ def validate_sources(source_ledger: dict[str, Any], errors: list[str]) -> None:
                 errors.append(f"{source['source_id']}: local source digest changed")
 
 
-def validate_permissions(decision: dict[str, Any], manifest: dict[str, Any], errors: list[str]) -> None:
+def validate_permissions(
+    decision: dict[str, Any], manifest: dict[str, Any], errors: list[str]
+) -> None:
     permission_paths = decision["permission_artifact_byte_digests"]
     for path_text, expected in permission_paths.items():
         path = REPOSITORY_ROOT / path_text
@@ -401,11 +469,16 @@ def validate_permissions(decision: dict[str, Any], manifest: dict[str, Any], err
     for provider in sorted(PROVIDERS):
         path = PERMISSION_ROOT / f"{provider}_thesis_demo_v2.json"
         item = load_json(path)
-        if item["provider"] != provider or item["permission_set_version"] != "thesis-demo-v2":
+        if (
+            item["provider"] != provider
+            or item["permission_set_version"] != "thesis-demo-v2"
+        ):
             errors.append(f"{provider}: invalid thesis-demo-v2 manifest identity")
         if item["status"] != "frozen_offline_contract":
             errors.append(f"{provider}: permission manifest overclaims offline status")
-        if provider == "gcp" and any("*" in value for value in item["custom_role_inputs"]):
+        if provider == "gcp" and any(
+            "*" in value for value in item["custom_role_inputs"]
+        ):
             errors.append("gcp: wildcard custom-role permission is forbidden")
         if provider == "gcp":
             required_iap = {
@@ -415,16 +488,22 @@ def validate_permissions(decision: dict[str, Any], manifest: dict[str, Any], err
             if not required_iap.issubset(item["custom_role_inputs"]):
                 errors.append("gcp: deployer is missing direct IAP policy permissions")
             if "iap.webServiceVersions.accessViaIAP" in item["custom_role_inputs"]:
-                errors.append("gcp: interactive IAP access must not be retained by the deployer")
+                errors.append(
+                    "gcp: interactive IAP access must not be retained by the deployer"
+                )
         scan_secrets(path.name, item, errors)
         review = load_json(PERMISSION_ROOT / item["scope_review_ref"])
         if review["findings"]:
             errors.append(f"{provider}: scope review has unresolved findings")
     expected_refs = {f"{provider}_thesis_demo_v2" for provider in PROVIDERS}
     for component in manifest["components"]:
-        if set(component["permission_set_refs"]) != {f"{component['provider']}_thesis_demo_v2"}:
+        if set(component["permission_set_refs"]) != {
+            f"{component['provider']}_thesis_demo_v2"
+        }:
             errors.append(f"{component['component_id']}: wrong permission manifest")
-    actual_refs = {ref for item in manifest["components"] for ref in item["permission_set_refs"]}
+    actual_refs = {
+        ref for item in manifest["components"] for ref in item["permission_set_refs"]
+    }
     if actual_refs != expected_refs:
         errors.append("component permission references do not cover all providers")
 
@@ -439,7 +518,10 @@ def validate_plugins(bundle: dict[str, Any], errors: list[str]) -> None:
     infinity = plugins.get("yesoreyeram-infinity-datasource", {})
     if infinity.get("selected_version") != "3.10.1":
         errors.append("Infinity plugin version must be frozen to 3.10.1")
-    if infinity.get("artifact_digest") != "sha256:39d1cac9bcd2f7f2e46607319cb27afb8592ab0fcbc57968dc9fb86f3ef69a59":
+    if (
+        infinity.get("artifact_digest")
+        != "sha256:39d1cac9bcd2f7f2e46607319cb27afb8592ab0fcbc57968dc9fb86f3ef69a59"
+    ):
         errors.append("Infinity plugin artifact digest mismatch")
 
 
@@ -478,10 +560,19 @@ def validate() -> list[str]:
     decision = artifacts["decision.json"]
     if decision["decision_status"] != "approved":
         errors.append("decision_status must be approved")
-    if len(decision["reviews"]) < 2 or any(
+    refreeze = decision.get("pre_activation_refreeze", {})
+    if refreeze != {
+        "refrozen_on": "2026-08-04",
+        "previous_package_digest": "sha256:4aadd03b4cc907a26ae3c3290b8c56fe70205b9f009fc36be9c0d0e649a33bba",
+        "reason": "split the shared managed-Grafana plugin alias into provider-owned component IDs and replace composite capacity labels with atomic priced dimensions",
+        "scope_change": False,
+        "activated_or_deployed_before_refreeze": False,
+    }:
+        errors.append("pre-activation package re-freeze evidence drifted")
+    if len(decision["reviews"]) < 4 or any(
         review["unresolved_findings"] != 0 for review in decision["reviews"]
     ):
-        errors.append("two zero-finding reviews are required")
+        errors.append("four zero-finding reviews are required")
     if not (EVIDENCE_ROOT / "README.md").is_file():
         errors.append("README.md is missing")
     return sorted(set(errors))

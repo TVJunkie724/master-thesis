@@ -17,18 +17,19 @@ from typing import Any, Iterable, Mapping
 from pydantic import ConfigDict, RootModel
 
 
-CONTRACT_ROOT = (
+CONTRACT_BUNDLE_ROOT = (
     Path(__file__).resolve().parents[1]
     / "contracts"
     / "generated"
     / "architecture-profiles"
-    / "v1"
 )
+CONTRACT_ROOT = CONTRACT_BUNDLE_ROOT / "v1"
 
 
-def _load_runtime() -> ModuleType:
-    path = CONTRACT_ROOT / "runtime.py"
-    module_name = "_management_architecture_profile_contract_runtime"
+def _load_runtime(version: str) -> ModuleType:
+    root = CONTRACT_BUNDLE_ROOT / version
+    path = root / "runtime.py"
+    module_name = f"_management_architecture_profile_contract_runtime_{version}"
     existing = sys.modules.get(module_name)
     if existing is not None:
         return existing
@@ -41,12 +42,40 @@ def _load_runtime() -> ModuleType:
     return module
 
 
-_runtime = _load_runtime()
-ContractError = _runtime.ContractError
-ValidatedContract = _runtime.ValidatedContract
-calculate_digest = _runtime.calculate_digest
-calculate_resolution_id = _runtime.calculate_resolution_id
-canonical_json = _runtime.canonical_json
+_runtimes = {version: _load_runtime(version) for version in ("v1", "v2")}
+ValidatedContract = _runtimes["v1"].ValidatedContract
+calculate_digest = _runtimes["v1"].calculate_digest
+calculate_resolution_id = _runtimes["v1"].calculate_resolution_id
+canonical_json = _runtimes["v1"].canonical_json
+
+
+class ContractError(ValueError):
+    """Version-neutral architecture-contract validation failure."""
+
+    def __init__(self, code: str, path: str, message: str) -> None:
+        super().__init__(message.replace("\n", " ")[:400])
+        self.code = code
+        self.path = path[:240]
+
+
+def _version(document: Mapping[str, Any]) -> str:
+    schema_version = str(document.get("schema_version", ""))
+    if (
+        schema_version == "architecture-profile.v2"
+        and str(document.get("profile_version", "")) != "2"
+    ):
+        return "v1"
+    if schema_version.endswith(".v2"):
+        return "v2"
+    return "v1"
+
+
+def _translate(exc: Exception) -> ContractError:
+    return ContractError(
+        str(getattr(exc, "code", "ARCH_SCHEMA_INVALID")),
+        str(getattr(exc, "path", "$")),
+        str(exc),
+    )
 
 
 class ArchitectureContractReadModel(RootModel[dict[str, Any]]):
@@ -67,13 +96,19 @@ class ArchitectureContractService:
         correlation_id: str | None = None,
     ) -> Any:
         typed = ArchitectureContractReadModel.model_validate(dict(document))
-        return _runtime.validate_document(
-            typed.root,
-            bundle_root=CONTRACT_ROOT,
-            linked_documents=linked_documents,
-            logger=logger,
-            correlation_id=correlation_id,
-        )
+        version = _version(typed.root)
+        runtime = _runtimes[version]
+        linked = tuple(item for item in linked_documents if _version(item) == version)
+        try:
+            return runtime.validate_document(
+                typed.root,
+                bundle_root=CONTRACT_BUNDLE_ROOT / version,
+                linked_documents=linked,
+                logger=logger,
+                correlation_id=correlation_id,
+            )
+        except runtime.ContractError as exc:
+            raise _translate(exc) from exc
 
     @staticmethod
     def read_file(
@@ -105,4 +140,19 @@ class ArchitectureContractService:
             ArchitectureContractReadModel.model_validate(dict(document)).root
             for document in documents
         )
-        return _runtime.validate_bundle(typed, bundle_root=CONTRACT_ROOT)
+        validated: list[Any] = []
+        for version in ("v1", "v2"):
+            selected = tuple(item for item in typed if _version(item) == version)
+            if not selected:
+                continue
+            runtime = _runtimes[version]
+            try:
+                validated.extend(
+                    runtime.validate_bundle(
+                        selected,
+                        bundle_root=CONTRACT_BUNDLE_ROOT / version,
+                    )
+                )
+            except runtime.ContractError as exc:
+                raise _translate(exc) from exc
+        return tuple(validated)
