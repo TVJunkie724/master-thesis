@@ -137,6 +137,21 @@ run "five_layer_v2_single_cloud_azure_omits_remote_event_hubs" {
     condition     = length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter) == 1
     error_message = "Five-layer v2 must deploy the Azure event adapter on Flex Consumption."
   }
+
+  assert {
+    condition     = azurerm_iothub.azure_azure_iot_hub[0].sku[0].name == "S1" && azurerm_iothub.azure_azure_iot_hub[0].sku[0].capacity == 1
+    error_message = "The default Small Azure fixture must bind the reviewed S1 x1 IoT Hub allocation."
+  }
+
+  assert {
+    condition     = length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption) == 1
+    error_message = "Azure L2 must deploy its reviewed Flex Consumption processor boundary."
+  }
+
+  assert {
+    condition     = length(azurerm_logic_app_workflow.azure_azure_logic_apps_consumption) == 1 && length(azurerm_logic_app_trigger_http_request.azure_azure_logic_apps_consumption) == 1 && length(azurerm_logic_app_action_custom.azure_azure_logic_apps_consumption) == 1
+    error_message = "Azure L2 must deploy a callable fixed PoC Logic Apps workflow, not an empty shell."
+  }
 }
 
 run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {

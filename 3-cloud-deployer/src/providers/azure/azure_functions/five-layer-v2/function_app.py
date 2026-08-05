@@ -19,6 +19,12 @@ app = func.FunctionApp()
 REMOTE_TELEMETRY_ENABLED = (
     os.getenv("V2_REMOTE_TELEMETRY_ENABLED", "false").strip().lower() == "true"
 )
+DOMAIN_CONSUMER_ENABLED = (
+    os.getenv("V2_DOMAIN_CONSUMER_ENABLED", "false").strip().lower() == "true"
+)
+IOT_PROCESSOR_ENABLED = (
+    os.getenv("V2_IOT_PROCESSOR_ENABLED", "false").strip().lower() == "true"
+)
 
 
 def _event_hub_events(messages: Iterable[func.EventHubEvent]):
@@ -61,17 +67,39 @@ if REMOTE_TELEMETRY_ENABLED:
             raise RuntimeError(exc.code) from None
 
 
-@app.function_name(name="v2-domain-event-consumer")
-@app.service_bus_queue_trigger(
-    arg_name="message",
-    queue_name="%V2_DOMAIN_QUEUE_NAME%",
-    connection="V2_SERVICE_BUS",
-    is_sessions_enabled=True,
-)
-def domain_event_consumer(message: func.ServiceBusMessage) -> None:
-    """Consume ordered domain/control events from a session-enabled queue."""
+if DOMAIN_CONSUMER_ENABLED:
 
-    try:
-        _consume(_service_bus_event(message))
-    except ContractError as exc:
-        raise RuntimeError(exc.code) from None
+    @app.function_name(name="v2-domain-event-consumer")
+    @app.service_bus_queue_trigger(
+        arg_name="message",
+        queue_name="%V2_DOMAIN_QUEUE_NAME%",
+        connection="V2_SERVICE_BUS",
+        is_sessions_enabled=True,
+    )
+    def domain_event_consumer(message: func.ServiceBusMessage) -> None:
+        """Consume ordered domain/control events from a session-enabled queue."""
+
+        try:
+            _consume(_service_bus_event(message))
+        except ContractError as exc:
+            raise RuntimeError(exc.code) from None
+
+
+if IOT_PROCESSOR_ENABLED:
+
+    @app.function_name(name="v2-iot-telemetry-adapter")
+    @app.event_hub_message_trigger(
+        arg_name="messages",
+        event_hub_name="%V2_IOT_HUB_NAME%",
+        connection="V2_IOT_HUB",
+        cardinality="many",
+        consumer_group="$Default",
+    )
+    def iot_telemetry_adapter(messages: list[func.EventHubEvent]) -> None:
+        """Accept canonical simulator telemetry from IoT Hub's built-in endpoint."""
+
+        try:
+            for event in _event_hub_events(messages):
+                _consume(event)
+        except ContractError as exc:
+            raise RuntimeError(exc.code) from None
