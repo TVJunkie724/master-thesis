@@ -20,7 +20,10 @@ from src.models.cost_calculation import CostCalculationResultItem, CostCalculati
 from src.models.optimizer_config import OptimizerConfiguration
 from src.models.user_function_extension import TwinExtensionBinding
 from src.repositories.twin_repository import TwinRepository
-from src.schemas.optimizer_calculation import OptimizerCalculationParams
+from src.schemas.optimizer_calculation import (
+    FiveLayerV2OptimizerCalculationParams,
+    OptimizerCalculationParams,
+)
 from src.schemas.pricing_catalog import PricingCatalogContext
 from src.services.aws_twinmaker_pricing_context_service import (
     OPTIMIZER_CONTEXT_COMPARABLE_FIELDS,
@@ -59,7 +62,7 @@ from src.services.resolved_architecture_service import (
     READY as ARCHITECTURE_READY,
     ResolvedArchitectureService,
 )
-from src.services.architecture_errors import ArchitectureDomainError
+from src.services.architecture_errors import ArchitectureDomainError, architecture_error
 from src.services.architecture_profile_service import ArchitectureProfileService
 from src.services.user_function_extension_service import (
     runtime as extension_contract,
@@ -72,6 +75,24 @@ FAILED = "failed"
 SELECTABLE_STATUSES = {SUCCESS}
 ENABLED_OPTIMIZATION_PROFILES = {"cost_minimization_v1"}
 SECRET_FIELD_PATTERN = re.compile(rf"(?i)^({SECRET_FIELD_NAMES})$")
+
+
+def _validate_profile_workload_pair(
+    params: OptimizerCalculationParams | FiveLayerV2OptimizerCalculationParams,
+    profile: Mapping[str, Any],
+) -> None:
+    expected_version = (
+        "2" if isinstance(params, FiveLayerV2OptimizerCalculationParams) else "1"
+    )
+    if (
+        profile.get("profileId") != "five-layer-baseline"
+        or profile.get("profileVersion") != expected_version
+    ):
+        raise architecture_error(
+            "ARCH_WORKLOAD_INCOMPATIBLE",
+            "The calculation workload does not match the selected architecture profile.",
+            field="params.schemaVersion",
+        )
 
 
 class CostCalculationRunService:
@@ -110,13 +131,34 @@ class CostCalculationRunService:
         self,
         twin_id: str,
         user_id: str,
-        params: OptimizerCalculationParams,
+        params: OptimizerCalculationParams | FiveLayerV2OptimizerCalculationParams,
         *,
         pricing_evidence_version: str | None = None,
     ) -> CostCalculationRun:
         twin = self.twin_repository.get_with_configs_for_user(twin_id, user_id)
         if not twin:
             raise TwinNotFound("Twin not found")
+
+        if (
+            isinstance(params, FiveLayerV2OptimizerCalculationParams)
+            and not self.architecture_resolution_enabled
+        ):
+            raise architecture_error(
+                "ARCH_PROFILE_NOT_ACTIVE",
+                "Five-layer v2 calculations require architecture profile resolution.",
+                field="params.schemaVersion",
+            )
+
+        trusted_architecture_request = None
+        if self.architecture_resolution_enabled:
+            trusted_architecture_request = self._trusted_architecture_request(
+                twin_id=twin_id,
+                user_id=user_id,
+            )
+            _validate_profile_workload_pair(
+                params,
+                trusted_architecture_request["architectureProfile"],
+            )
 
         optimizer_params = params.to_optimizer_payload()
         persisted_params = params.to_persisted_payload()
@@ -132,13 +174,8 @@ class CostCalculationRunService:
             "awsTwinMaker": aws_context.payload
         }
         failed_run = None
-        if self.architecture_resolution_enabled:
-            optimizer_params.update(
-                self._trusted_architecture_request(
-                    twin_id=twin_id,
-                    user_id=user_id,
-                )
-            )
+        if trusted_architecture_request is not None:
+            optimizer_params.update(trusted_architecture_request)
             failed_run = self._build_failed_run_source(
                 twin=twin,
                 run_id=run_id,

@@ -1,10 +1,26 @@
 """Cross-route contract tests for canonical optimizer calculation parameters."""
 
 from copy import deepcopy
+import json
 
 import pytest
 
-from src.schemas.optimizer_calculation import OptimizerCalculationParams
+from src.schemas.optimizer_calculation import (
+    FIVE_LAYER_V2_WORKLOAD_ROOT,
+    FiveLayerV2OptimizerCalculationParams,
+    OptimizerCalculationParams,
+)
+
+
+def _five_layer_v2_workload() -> dict:
+    return json.loads(
+        (
+            FIVE_LAYER_V2_WORKLOAD_ROOT
+            / "fixtures"
+            / "valid"
+            / "core-small.json"
+        ).read_text(encoding="utf-8")
+    )
 
 
 def _references_component(schema: dict, node: object, component_name: str) -> bool:
@@ -164,6 +180,29 @@ def test_optimizer_params_accept_false_or_omitted_error_handling(
     assert omitted.integrateErrorHandling is False
 
 
+def test_five_layer_v2_run_params_accept_only_frozen_scenarios():
+    payload = _five_layer_v2_workload()
+
+    parsed = FiveLayerV2OptimizerCalculationParams.model_validate(payload)
+    mutated = deepcopy(payload)
+    mutated["numberOfDevices"] = 101
+
+    assert parsed.optimizationProfileId == "cost-minimization-v2"
+    with pytest.raises(ValueError, match="immutable Small, Medium, or Large"):
+        FiveLayerV2OptimizerCalculationParams.model_validate(mutated)
+
+
+def test_five_layer_v2_run_params_reject_legacy_event_and_scene_fields():
+    payload = {
+        **_five_layer_v2_workload(),
+        "useEventChecking": True,
+        "needs3DModel": False,
+    }
+
+    with pytest.raises(ValueError):
+        FiveLayerV2OptimizerCalculationParams.model_validate(payload)
+
+
 @pytest.mark.parametrize(
     ("method", "path", "body_factory"),
     [
@@ -253,6 +292,12 @@ def test_openapi_reuses_one_optimizer_parameter_schema_for_all_write_paths(
     assert component["properties"]["integrateErrorHandling"]["const"] is False
     assert "architectureProfile" not in component["properties"]
     assert "extensionBindings" not in component["properties"]
+
+    assert _references_component(
+        schema,
+        schema["paths"]["/twins/{twin_id}/optimizer-runs/"],
+        "FiveLayerV2OptimizerCalculationParams",
+    )
 
 
 def test_openapi_exposes_only_server_owned_optimizer_result_writes(

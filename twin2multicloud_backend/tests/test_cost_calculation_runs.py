@@ -17,7 +17,11 @@ from src.models.user_function_extension import (
     TwinExtensionBinding,
     UserFunctionArtifact,
 )
-from src.schemas.optimizer_calculation import OptimizerCalculationParams
+from src.schemas.optimizer_calculation import (
+    FIVE_LAYER_V2_WORKLOAD_ROOT,
+    FiveLayerV2OptimizerCalculationParams,
+    OptimizerCalculationParams,
+)
 from src.services.architecture_contract_service import (
     calculate_digest as calculate_architecture_digest,
     calculate_resolution_id,
@@ -275,6 +279,63 @@ def _architecture_twin_state(db_session):
     db_session.add_all([artifact, binding])
     db_session.commit()
     return user, twin, artifact
+
+
+def _five_layer_v2_params() -> FiveLayerV2OptimizerCalculationParams:
+    payload = json.loads(
+        (
+            FIVE_LAYER_V2_WORKLOAD_ROOT
+            / "fixtures"
+            / "valid"
+            / "core-small.json"
+        ).read_text(encoding="utf-8")
+    )
+    return FiveLayerV2OptimizerCalculationParams.model_validate(payload)
+
+
+@pytest.mark.asyncio
+async def test_five_layer_v2_run_requires_architecture_resolution_gate(db_session):
+    user = User(email="v2-gate@example.test", name="V2 Gate")
+    db_session.add(user)
+    db_session.flush()
+    twin = DigitalTwin(
+        name="V2 Gate Twin",
+        user_id=user.id,
+        state=TwinState.DRAFT,
+    )
+    db_session.add(twin)
+    db_session.commit()
+    optimizer = FakeOptimizerClient()
+    service = CostCalculationRunService(
+        db_session,
+        optimizer_client=optimizer,
+        architecture_resolution_enabled=False,
+    )
+
+    with pytest.raises(ArchitectureDomainError) as raised:
+        await service.create_run(twin.id, user.id, _five_layer_v2_params())
+
+    assert raised.value.code == "ARCH_PROFILE_NOT_ACTIVE"
+    assert optimizer.calls == []
+
+
+@pytest.mark.asyncio
+async def test_five_layer_v2_workload_rejects_historical_profile_selection(
+    db_session,
+):
+    user, twin, _artifact = _architecture_twin_state(db_session)
+    optimizer = FakeOptimizerClient()
+    service = CostCalculationRunService(
+        db_session,
+        optimizer_client=optimizer,
+        architecture_resolution_enabled=True,
+    )
+
+    with pytest.raises(ArchitectureDomainError) as raised:
+        await service.create_run(twin.id, user.id, _five_layer_v2_params())
+
+    assert raised.value.code == "ARCH_WORKLOAD_INCOMPATIBLE"
+    assert optimizer.calls == []
 
 
 def _optimizer_payload_with_compatible_aws_context(context):

@@ -1,9 +1,13 @@
 from datetime import datetime
-from typing import Literal, Optional
+from collections.abc import Mapping
+from typing import Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from src.schemas.optimizer_calculation import OptimizerCalculationParams
+from src.schemas.optimizer_calculation import (
+    FiveLayerV2OptimizerCalculationParams,
+    OptimizerCalculationParams,
+)
 from src.schemas.pricing_catalog import PricingCatalogContext
 from src.schemas.resolved_deployment_specification import (
     DeploymentCompatibilityStatus,
@@ -14,11 +18,29 @@ from src.schemas.resolved_deployment_specification import (
 class CostCalculationRunCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    params: OptimizerCalculationParams = Field(
+    params: Union[
+        FiveLayerV2OptimizerCalculationParams,
+        OptimizerCalculationParams,
+    ] = Field(
         ...,
         description="Optimizer calculation parameters",
     )
     pricing_evidence_version: Optional[str] = None
+
+    @field_validator("params", mode="before")
+    @classmethod
+    def parse_profile_specific_params(cls, value):
+        if isinstance(
+            value,
+            (FiveLayerV2OptimizerCalculationParams, OptimizerCalculationParams),
+        ):
+            return value
+        if (
+            isinstance(value, Mapping)
+            and value.get("schemaVersion") == "five-layer-workload.v2"
+        ):
+            return FiveLayerV2OptimizerCalculationParams.model_validate(value)
+        return OptimizerCalculationParams.model_validate(value)
 
 
 class CostCalculationResultItemResponse(BaseModel):

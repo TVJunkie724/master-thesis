@@ -1,5 +1,8 @@
-"""Canonical Management API contract for Optimizer calculation parameters."""
+"""Profile-specific Management contracts for Optimizer calculation inputs."""
 
+from functools import lru_cache
+import json
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -17,6 +20,31 @@ COMPATIBILITY_ASSUMPTION_FIELDS = (
     "averageDigitalTwinQueryUnitsPerQuery",
     "averageDigitalTwinQueryResponseSizeInKb",
 )
+FIVE_LAYER_V2_WORKLOAD_ROOT = (
+    Path(__file__).resolve().parents[1]
+    / "contracts"
+    / "generated"
+    / "five-layer-workload"
+    / "v2"
+)
+
+
+@lru_cache(maxsize=1)
+def _five_layer_v2_scenarios() -> tuple[dict, ...]:
+    try:
+        return tuple(
+            json.loads(
+                (
+                    FIVE_LAYER_V2_WORKLOAD_ROOT
+                    / "fixtures"
+                    / "valid"
+                    / f"core-{size}.json"
+                ).read_text(encoding="utf-8")
+            )
+            for size in ("small", "medium", "large")
+        )
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Five-layer v2 workload fixtures are unavailable") from exc
 
 
 class OptimizerCalculationParams(BaseModel):
@@ -112,4 +140,52 @@ class OptimizerCalculationParams(BaseModel):
 
     def to_persisted_payload(self) -> dict:
         """Return the complete canonical representation used for persistence."""
+        return self.model_dump()
+
+
+class FiveLayerV2OptimizerCalculationParams(BaseModel):
+    """Closed S/M/L workload accepted only with ``five-layer-baseline@2``."""
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    schemaVersion: Literal["five-layer-workload.v2"]
+    numberOfDevices: int = Field(gt=0, strict=True)
+    deviceSendingIntervalInMinutes: float = Field(gt=0, strict=True)
+    averageSizeOfMessageInKb: float = Field(gt=0, strict=True)
+    numberOfDeviceTypes: int = Field(ge=1, strict=True)
+    hotStorageDurationInMonths: int = Field(ge=1, strict=True)
+    coolStorageDurationInMonths: int = Field(ge=1, strict=True)
+    archiveStorageDurationInMonths: int = Field(ge=6, strict=True)
+    twinEntityCount: int = Field(ge=1, strict=True)
+    aggregateDashboardRefreshesPerHour: int = Field(ge=0, strict=True)
+    apiCallsPerAggregateDashboardRefresh: int = Field(ge=1, strict=True)
+    dashboardActiveHoursPerDay: int = Field(ge=0, le=24, strict=True)
+    monthlyEditorSeats: int = Field(ge=0, strict=True)
+    monthlyViewerSeats: int = Field(ge=0, strict=True)
+    twinStateMaterializationsPerSecond: float = Field(ge=0, strict=True)
+    twinGraphUpdatesPerSecond: float = Field(ge=0, strict=True)
+    eventingScenarioId: Literal[
+        "eventing-small-v1",
+        "eventing-medium-v1",
+        "eventing-large-v1",
+    ]
+    currency: Literal["USD", "EUR"] = "USD"
+    optimizationProfileId: Literal["cost-minimization-v2"] = (
+        "cost-minimization-v2"
+    )
+
+    @model_validator(mode="after")
+    def validate_frozen_scenario(self) -> "FiveLayerV2OptimizerCalculationParams":
+        payload = self.model_dump(exclude={"optimizationProfileId"})
+        if payload not in _five_layer_v2_scenarios():
+            raise ValueError(
+                "Five-layer v2 accepts only the immutable Small, Medium, or "
+                "Large Core scenario"
+            )
+        return self
+
+    def to_optimizer_payload(self) -> dict:
+        return self.model_dump()
+
+    def to_persisted_payload(self) -> dict:
         return self.model_dump()
