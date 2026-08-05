@@ -165,6 +165,8 @@ def test_graph_terraform_inputs_are_allowlisted_and_symbol_checked():
     assert inputs.graph_digest == graph.content_digest
     assert inputs.values["layer_1_provider"] == "azure"
     assert inputs.values["layer_5_provider"] == "azure"
+    assert inputs.values["architecture_profile_id"] == "five-layer-baseline"
+    assert inputs.values["architecture_profile_version"] == "1"
     assert "azure_iot_hub_sku" in inputs.values
     assert "unknown_variable" not in inputs.values
 

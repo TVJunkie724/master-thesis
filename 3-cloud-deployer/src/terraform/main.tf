@@ -129,6 +129,11 @@ locals {
     Environment = var.environment
   }
 
+  five_layer_v2_enabled = (
+    var.architecture_profile_id == "five-layer-baseline" &&
+    var.architecture_profile_version == "2"
+  )
+
   # Provider-to-layer mapping for conditional deployments
   deploy_azure = contains([
     var.layer_1_provider,

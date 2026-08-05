@@ -28,6 +28,23 @@ variable "project_path" {
   type        = string
 }
 
+variable "architecture_profile_id" {
+  description = "Resolved immutable architecture profile identifier"
+  type        = string
+  default     = "five-layer-baseline"
+}
+
+variable "architecture_profile_version" {
+  description = "Resolved immutable architecture profile version"
+  type        = string
+  default     = "1"
+
+  validation {
+    condition     = contains(["1", "2"], var.architecture_profile_version)
+    error_message = "architecture_profile_version must be a supported immutable version."
+  }
+}
+
 variable "digital_twin_info_json" {
   description = "JSON string containing full Digital Twin configuration (config, config_iot_devices, config_providers, config_events)"
   type        = string
