@@ -1004,6 +1004,35 @@ variable "aws_outbound_identity_issuer" {
   }
 }
 
+variable "resolved_cross_cloud_routes" {
+  description = "Non-secret directed edge contracts compiled from the immutable deployment graph"
+  type = list(object({
+    route_id             = string
+    logical_edge_id      = string
+    source_provider      = string
+    destination_provider = string
+    execution_kind       = string
+    identity_exchange    = string
+    payload_contract_id  = string
+    trust_contract_id    = string
+  }))
+  default = []
+
+  validation {
+    condition = alltrue([
+      for route in var.resolved_cross_cloud_routes :
+      contains(["aws", "azure", "gcp"], route.source_provider) &&
+      contains(["aws", "azure", "gcp"], route.destination_provider) &&
+      route.source_provider != route.destination_provider &&
+      contains(["source_event_forwarder", "finite_storage_job"], route.execution_kind) &&
+      route.identity_exchange != "" &&
+      route.payload_contract_id != "" &&
+      route.trust_contract_id == "trust.workload-identity-federation"
+    ])
+    error_message = "Every resolved cross-cloud route must use a closed provider pair, execution kind, payload, and workload-identity trust."
+  }
+}
+
 # ==============================================================================
 # Azure Function ZIP Deployment Paths
 # These paths are populated by tfvars_generator.py with pre-built function ZIPs.

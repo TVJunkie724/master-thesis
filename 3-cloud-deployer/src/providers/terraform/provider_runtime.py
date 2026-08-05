@@ -20,6 +20,7 @@ from src.providers.terraform.cross_cloud_identity import (
     aws_outbound_identity_destinations,
     ensure_aws_outbound_identity,
 )
+from src.providers.terraform.cross_cloud_routes import cross_cloud_route_tfvars
 
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
@@ -105,7 +106,10 @@ def prepare_shared_identity_capabilities(
             "AWS outbound workload identity ready for: %s",
             ", ".join(readiness.destination_providers),
         )
-    return readiness.to_tfvars()
+    return {
+        **readiness.to_tfvars(),
+        **cross_cloud_route_tfvars(getattr(context, "resolved_deployment_graph", None)),
+    }
 
 
 def run_post_deployment(
