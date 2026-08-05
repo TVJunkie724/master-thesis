@@ -50,6 +50,7 @@ from src.providers.terraform.package_builders.gcp import (
 )
 from src.providers.terraform.package_builders.gcp_v2 import (
     build_gcp_v2_container_contexts,
+    build_gcp_v2_extension_container_context,
 )
 from src.providers.terraform.package_builders.user import (
     _compute_source_hash,
@@ -146,6 +147,14 @@ def build_all_packages(
         packages.update(
             build_gcp_v2_container_contexts(project_path, gcp_container_names)
         )
+        if (
+            providers_config.get("layer_2_provider") in {"gcp", "google"}
+            and "extension:processor.telemetry" in packages
+        ):
+            build_gcp_v2_extension_container_context(
+                project_path,
+                packages["extension:processor.telemetry"],
+            )
         expected_packages = (
             expected_static_packages
             | expected_gcp_container_packages

@@ -24,6 +24,7 @@ import subprocess  # nosec B404
 import json
 import logging
 from pathlib import Path
+import re
 from typing import Optional
 
 from src.core.observability import redact_sensitive
@@ -34,6 +35,7 @@ _ALLOWED_TERRAFORM_COMMANDS = frozenset(
     {"apply", "destroy", "init", "output", "plan", "show", "state", "validate"}
 )
 _STATEFUL_COMMANDS = frozenset({"apply", "destroy", "output", "plan", "show"})
+_TERRAFORM_TARGET = re.compile(r'^[A-Za-z0-9_.-]+(?:\[[A-Za-z0-9_".-]+\])?$')
 
 
 class TerraformError(Exception):
@@ -325,6 +327,19 @@ class TerraformRunner:
         logger.info("Applying Terraform configuration...")
         self._run_command(args, stream_output=True)
         logger.info("✓ Apply complete")
+
+    def apply_targets(self, var_file: str, targets: tuple[str, ...]) -> None:
+        """Apply one closed foundation target set before the normal full apply."""
+
+        if not var_file:
+            raise ValueError("var_file is required")
+        if not targets or any(_TERRAFORM_TARGET.fullmatch(item) is None for item in targets):
+            raise ValueError("Terraform targets are invalid")
+        args = ["apply", "-auto-approve", f"-var-file={var_file}"]
+        args.extend(f"-target={target}" for target in targets)
+        logger.info("Applying Terraform foundation targets...")
+        self._run_command(args, stream_output=True)
+        logger.info("✓ Foundation target apply complete")
     
     def destroy(
         self,
@@ -484,6 +499,20 @@ class TerraformRunner:
         async for line in self._run_command_async(args):
             yield line
         yield "✓ Apply complete"
+
+    async def apply_targets_async(self, var_file: str, targets: tuple[str, ...]):
+        """Stream one closed foundation target set before the normal full apply."""
+
+        if not var_file:
+            raise ValueError("var_file is required")
+        if not targets or any(_TERRAFORM_TARGET.fullmatch(item) is None for item in targets):
+            raise ValueError("Terraform targets are invalid")
+        args = ["apply", "-auto-approve", f"-var-file={var_file}"]
+        args.extend(f"-target={target}" for target in targets)
+        yield "Applying Terraform foundation targets..."
+        async for line in self._run_command_async(args):
+            yield line
+        yield "✓ Foundation target apply complete"
     
     async def destroy_async(self, var_file: str):
         """

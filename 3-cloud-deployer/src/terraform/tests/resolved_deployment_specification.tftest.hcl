@@ -376,6 +376,7 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
   assert {
     condition = toset(keys(google_project_service.gcp_v2_required)) == toset([
       "artifactregistry.googleapis.com",
+      "cloudbuild.googleapis.com",
       "cloudscheduler.googleapis.com",
       "compute.googleapis.com",
       "container.googleapis.com",
@@ -393,6 +394,11 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
   assert {
     condition = (
       length(google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected) == 1 &&
+      length(google_storage_bucket.gcp_v2_cloud_build_sources) == 1 &&
+      contains(keys(google_service_account.gcp_v2_runtime), "build") &&
+      length(google_artifact_registry_repository_iam_member.gcp_v2_build_writer) == 1 &&
+      length(google_storage_bucket_iam_member.gcp_v2_build_source_reader) == 1 &&
+      length(google_project_iam_member.gcp_v2_build_log_writer) == 1 &&
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter) == 3 &&
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_service) == 1 &&
       length(google_cloud_run_v2_service.gcp_v2_processor_extension) == 1 &&

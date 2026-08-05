@@ -5,8 +5,10 @@ from __future__ import annotations
 import gzip
 import io
 from pathlib import Path
+import stat
 import tarfile
 from typing import Collection, Dict
+import zipfile
 
 from src.core.secure_files import atomic_write_private_bytes
 from src.providers.terraform.package_builders.common import _should_include_file
@@ -14,6 +16,27 @@ from src.providers.terraform.package_builders.common import _should_include_file
 
 PROVIDERS_ROOT = Path(__file__).resolve().parents[2]
 GCP_V2_CONTEXTS = frozenset({"five-layer-v2"})
+GCP_V2_EXTENSION_DOCKERFILE = """# syntax=docker/dockerfile:1.7
+
+FROM python:3.11-slim@sha256:baf89808ec37adeaab83cec287adb4a2afa4a11c1d51e961c7ec737877e61af6
+
+ENV PYTHONDONTWRITEBYTECODE=1 \\
+    PYTHONUNBUFFERED=1 \\
+    PORT=8080
+
+WORKDIR /app
+COPY . /app
+RUN pip install --no-cache-dir -r /app/requirements.txt \\
+ && find /app -maxdepth 1 -type f -name '*.whl' -exec pip install --no-cache-dir --no-deps {} + \\
+ && rm -f /app/*.whl \\
+ && groupadd --gid 10001 runtime \\
+ && useradd --uid 10001 --gid 10001 --home-dir /app --no-create-home --shell /usr/sbin/nologin runtime \\
+ && chown -R runtime:runtime /app
+
+USER runtime
+EXPOSE 8080
+CMD ["functions-framework", "--target=main", "--host=0.0.0.0", "--port=8080"]
+"""
 
 
 def _context_bytes(source: Path) -> bytes:
@@ -60,3 +83,51 @@ def build_gcp_v2_container_contexts(
         atomic_write_private_bytes(output, _context_bytes(source))
         packages[f"gcp_{name}"] = output
     return packages
+
+
+def build_gcp_v2_extension_container_context(
+    project_path: Path,
+    extension_package: Path,
+) -> Path:
+    """Wrap one validated GCP extension ZIP in a deterministic image context."""
+
+    extension_package = Path(extension_package)
+    if not extension_package.is_file() or extension_package.is_symlink():
+        raise ValueError("Validated GCP processor extension package is unavailable")
+    files: dict[str, bytes] = {"Dockerfile": GCP_V2_EXTENSION_DOCKERFILE.encode()}
+    with zipfile.ZipFile(extension_package) as archive:
+        for info in sorted(archive.infolist(), key=lambda item: item.filename):
+            if info.is_dir():
+                continue
+            path = Path(info.filename)
+            mode = info.external_attr >> 16
+            if (
+                path.is_absolute()
+                or ".." in path.parts
+                or "\\" in info.filename
+                or stat.S_ISLNK(mode)
+                or info.filename in files
+            ):
+                raise ValueError("Validated GCP extension package has an unsafe path")
+            files[info.filename] = archive.read(info)
+    if "main.py" not in files or "requirements.txt" not in files:
+        raise ValueError("Validated GCP extension package lacks its runtime wrapper")
+
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w", format=tarfile.PAX_FORMAT) as archive:
+        for name, content in sorted(files.items()):
+            info = tarfile.TarInfo(name)
+            info.size = len(content)
+            info.mode = 0o644
+            info.mtime = 0
+            info.uid = info.gid = 0
+            info.uname = info.gname = ""
+            archive.addfile(info, io.BytesIO(content))
+
+    output = Path(project_path) / ".build" / "gcp" / "processor-extension.tar.gz"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_private_bytes(
+        output,
+        gzip.compress(buffer.getvalue(), compresslevel=9, mtime=0),
+    )
+    return output

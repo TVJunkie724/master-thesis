@@ -29,6 +29,12 @@ class _StreamingRunner:
         self.events.append("output")
         return {"resource": "created"}
 
+    def state_list(self):
+        return SimpleNamespace(returncode=0, stdout="")
+
+    def apply_targets(self, var_file, targets):
+        self.events.append(("apply_targets", var_file, targets))
+
     async def init_async(self):
         self.events.append("init_async")
         yield "init output"
@@ -36,6 +42,10 @@ class _StreamingRunner:
     async def apply_async(self, var_file):
         self.events.append(("apply_async", var_file))
         yield "apply output"
+
+    async def apply_targets_async(self, var_file, targets):
+        self.events.append(("apply_targets_async", var_file, targets))
+        yield "foundation output"
 
 
 def _strategy(tmp_path, events):
@@ -57,6 +67,7 @@ def _strategy(tmp_path, events):
     strategy._build_packages = MagicMock(side_effect=lambda: events.append("build"))
     strategy._validate_project = MagicMock()
     strategy._generate_tfvars = MagicMock(side_effect=lambda: events.append("tfvars"))
+    strategy._prepare_gcp_v2_image_foundation = MagicMock(return_value=False)
     strategy._run_post_deployment = MagicMock(
         side_effect=lambda context: events.append("post")
     )
@@ -102,6 +113,56 @@ def test_sync_deployment_does_not_advance_metadata_when_apply_fails(tmp_path):
 
     assert "metadata" not in events
     assert "post" not in events
+
+
+def test_sync_gcp_deployment_applies_foundation_images_cloud_then_kubernetes(tmp_path):
+    events = []
+    strategy = _strategy(tmp_path, events)
+    strategy._prepare_gcp_v2_image_foundation.return_value = True
+    strategy._gcp_kubernetes_state_exists = MagicMock(return_value=False)
+    strategy._publish_gcp_v2_images = MagicMock(
+        side_effect=lambda: events.append("publish")
+    )
+    strategy._merge_tfvars = MagicMock(
+        side_effect=lambda value: events.append(("merge", value))
+    )
+
+    strategy.deploy_all(_context())
+
+    foundation = (
+        "apply_targets",
+        str(strategy.tfvars_path),
+        strategy.GCP_V2_IMAGE_FOUNDATION_TARGETS,
+    )
+    assert events.index(foundation) < events.index("publish")
+    apply_positions = [
+        index
+        for index, event in enumerate(events)
+        if isinstance(event, tuple) and event[0] == "apply"
+    ]
+    assert len(apply_positions) == 2
+    assert apply_positions[0] < events.index(
+        ("merge", {"gcp_v2_kubernetes_stage_enabled": True})
+    ) < apply_positions[1]
+
+
+def test_sync_gcp_resume_does_not_remove_existing_kubernetes_resources(tmp_path):
+    events = []
+    strategy = _strategy(tmp_path, events)
+    strategy._prepare_gcp_v2_image_foundation.return_value = True
+    strategy._gcp_kubernetes_state_exists = MagicMock(return_value=True)
+    strategy._publish_gcp_v2_images = MagicMock(
+        side_effect=lambda: events.append("publish")
+    )
+    strategy._merge_tfvars = MagicMock(
+        side_effect=lambda value: events.append(("merge", value))
+    )
+
+    strategy.deploy_all(_context())
+
+    applies = [event for event in events if isinstance(event, tuple) and event[0] == "apply"]
+    assert len(applies) == 1
+    assert ("merge", {"gcp_v2_kubernetes_stage_enabled": True}) in events
 
 
 def test_streaming_deployment_uses_same_canonical_order(tmp_path):

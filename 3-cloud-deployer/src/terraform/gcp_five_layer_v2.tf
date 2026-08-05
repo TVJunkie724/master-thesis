@@ -34,6 +34,7 @@ locals {
     local.gcp_v2_hot_enabled ||
     (local.gcp_v2_cool_enabled && var.layer_3_archive_provider != "google")
   )
+  gcp_v2_storage_task_count = local.gcp_v2_large_scenario ? 3 : 1
   gcp_v2_timestamp_shards = tonumber(lookup(
     var.resolved_component_dimensions,
     "dimension.gcp.gcp.firestore-native-standard-raw-and-rollup.timestamp_shards",
@@ -42,12 +43,13 @@ locals {
 
   gcp_v2_required_apis = local.gcp_v2_any_enabled ? toset(compact([
     local.gcp_v2_container_enabled ? "artifactregistry.googleapis.com" : "",
+    local.gcp_v2_container_enabled ? "cloudbuild.googleapis.com" : "",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
     local.gcp_v2_l1_enabled || local.gcp_v2_l5_enabled ? "compute.googleapis.com" : "",
     local.gcp_v2_l1_enabled || local.gcp_v2_l5_enabled ? "container.googleapis.com" : "",
     local.gcp_v2_hot_enabled || local.gcp_v2_l4_enabled ? "firestore.googleapis.com" : "",
-    local.gcp_v2_cool_enabled || local.gcp_v2_archive_enabled ? "storage.googleapis.com" : "",
+    local.gcp_v2_container_enabled ? "storage.googleapis.com" : "",
     local.gcp_v2_l2_enabled ? "workflows.googleapis.com" : "",
     local.gcp_v2_storage_mover_enabled ? "cloudscheduler.googleapis.com" : "",
     local.gcp_v2_l4_enabled ? "iap.googleapis.com" : "",
@@ -161,7 +163,7 @@ locals {
       hot-to-cool = {
         source_provider      = "google"
         destination_provider = var.layer_3_cold_provider
-        schedule             = "0 2 * * *"
+        schedule             = "*/5 * * * *"
       }
     } : {},
     local.gcp_v2_cool_enabled && var.layer_3_archive_provider != "google" ? {
@@ -314,6 +316,27 @@ resource "google_artifact_registry_repository" "gcp_gcp_artifact_registry_if_con
     google_project_service.gcp_v2_required,
     terraform_data.gcp_v2_foundation_guard,
   ]
+}
+
+# Deterministic local build contexts enter regional Cloud Build through this
+# deployment-owned, short-lived source bucket. Terraform therefore retains
+# cleanup and cost ownership instead of relying on an implicit shared bucket.
+resource "google_storage_bucket" "gcp_v2_cloud_build_sources" {
+  count                       = local.gcp_v2_container_enabled ? 1 : 0
+  project                     = local.gcp_project_id
+  name                        = "${local.gcp_v2_name}-v2-build-${local.deployment_suffix}"
+  location                    = var.gcp_region
+  force_destroy               = true
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  labels                      = local.gcp_v2_labels
+
+  lifecycle_rule {
+    condition { age = 1 }
+    action { type = "Delete" }
+  }
+
+  depends_on = [google_project_service.gcp_v2_required]
 }
 
 # L1 owns the shared Standard cluster when BifroMQ is selected. The default
@@ -503,7 +526,7 @@ data "google_client_config" "gcp_v2_kubernetes" {
 }
 
 resource "kubernetes_namespace_v1" "gcp_apache_bifromq_4_0_0_incubating_on_gke_standard" {
-  count = local.gcp_v2_l1_enabled ? 1 : 0
+  count = local.gcp_v2_l1_enabled && var.gcp_v2_kubernetes_stage_enabled ? 1 : 0
 
   metadata {
     name   = local.gcp_v2_bifromq_namespace
@@ -514,7 +537,7 @@ resource "kubernetes_namespace_v1" "gcp_apache_bifromq_4_0_0_incubating_on_gke_s
 }
 
 resource "kubernetes_namespace_v1" "gcp_grafana_oss_12_on_gke" {
-  count = local.gcp_v2_l5_enabled ? 1 : 0
+  count = local.gcp_v2_l5_enabled && var.gcp_v2_kubernetes_stage_enabled ? 1 : 0
 
   metadata {
     name   = local.gcp_v2_grafana_namespace
@@ -569,12 +592,36 @@ resource "google_service_account" "gcp_v2_runtime" {
       storage   = "storage"
       scheduler = "scheduler"
     } : {},
+    local.gcp_v2_container_enabled ? { build = "build" } : {},
   )
   project      = local.gcp_project_id
   account_id   = substr("${local.gcp_v2_name}-v2-${each.value}", 0, 30)
   display_name = "${var.digital_twin_name} v2 ${each.value}"
 
   depends_on = [google_project_service.iam]
+}
+
+resource "google_artifact_registry_repository_iam_member" "gcp_v2_build_writer" {
+  count      = local.gcp_v2_container_enabled ? 1 : 0
+  project    = local.gcp_project_id
+  location   = var.gcp_region
+  repository = google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected[0].repository_id
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${google_service_account.gcp_v2_runtime["build"].email}"
+}
+
+resource "google_storage_bucket_iam_member" "gcp_v2_build_source_reader" {
+  count  = local.gcp_v2_container_enabled ? 1 : 0
+  bucket = google_storage_bucket.gcp_v2_cloud_build_sources[0].name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.gcp_v2_runtime["build"].email}"
+}
+
+resource "google_project_iam_member" "gcp_v2_build_log_writer" {
+  count   = local.gcp_v2_container_enabled ? 1 : 0
+  project = local.gcp_project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.gcp_v2_runtime["build"].email}"
 }
 
 resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
@@ -1128,7 +1175,7 @@ resource "random_password" "gcp_v2_grafana_viewer" {
 }
 
 resource "kubernetes_persistent_volume_v1" "gcp_gcp_persistent_disk_rwo" {
-  count = local.gcp_v2_l5_enabled ? 1 : 0
+  count = local.gcp_v2_l5_enabled && var.gcp_v2_kubernetes_stage_enabled ? 1 : 0
 
   metadata {
     name = "${local.gcp_v2_name}-grafana-pv"
@@ -1162,7 +1209,7 @@ resource "kubernetes_persistent_volume_v1" "gcp_gcp_persistent_disk_rwo" {
 }
 
 resource "kubernetes_persistent_volume_claim_v1" "gcp_gcp_persistent_disk_rwo" {
-  count            = local.gcp_v2_l5_enabled ? 1 : 0
+  count            = local.gcp_v2_l5_enabled && var.gcp_v2_kubernetes_stage_enabled ? 1 : 0
   wait_until_bound = true
 
   metadata {
@@ -1187,7 +1234,7 @@ resource "kubernetes_persistent_volume_claim_v1" "gcp_gcp_persistent_disk_rwo" {
 }
 
 resource "kubernetes_secret_v1" "gcp_gcp_grafana_tls_load_balancer" {
-  count = local.gcp_v2_l5_enabled ? 1 : 0
+  count = local.gcp_v2_l5_enabled && var.gcp_v2_kubernetes_stage_enabled ? 1 : 0
 
   metadata {
     name      = "grafana-runtime"
@@ -1210,7 +1257,7 @@ resource "kubernetes_secret_v1" "gcp_gcp_grafana_tls_load_balancer" {
 }
 
 resource "kubernetes_deployment_v1" "gcp_grafana_oss_12_on_gke" {
-  count            = local.gcp_v2_l5_enabled ? 1 : 0
+  count            = local.gcp_v2_l5_enabled && var.gcp_v2_kubernetes_stage_enabled ? 1 : 0
   wait_for_rollout = true
 
   metadata {
@@ -1429,7 +1476,7 @@ resource "kubernetes_deployment_v1" "gcp_grafana_oss_12_on_gke" {
 }
 
 resource "kubernetes_service_v1" "gcp_gcp_grafana_tls_load_balancer" {
-  count                  = local.gcp_v2_l5_enabled ? 1 : 0
+  count                  = local.gcp_v2_l5_enabled && var.gcp_v2_kubernetes_stage_enabled ? 1 : 0
   wait_for_load_balancer = true
 
   metadata {
@@ -2016,8 +2063,8 @@ resource "google_cloud_run_v2_job" "gcp_gcp_cloud_run_storage_job" {
   labels              = local.gcp_v2_labels
 
   template {
-    task_count  = 1
-    parallelism = 1
+    task_count  = local.gcp_v2_storage_task_count
+    parallelism = local.gcp_v2_storage_task_count
 
     template {
       service_account = google_service_account.gcp_v2_runtime["storage"].email
@@ -2053,6 +2100,10 @@ resource "google_cloud_run_v2_job" "gcp_gcp_cloud_run_storage_job" {
         env {
           name  = "FIRESTORE_DATABASE"
           value = try(google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name, "")
+        }
+        env {
+          name  = "TIMESTAMP_SHARDS"
+          value = tostring(local.gcp_v2_timestamp_shards)
         }
         env {
           name  = "HISTORY_BUCKET"

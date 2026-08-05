@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from src.api.deployment_trace import sanitize_deployment_message
+from src.core.secure_files import atomic_write_private_bytes
 from src.core.config_loader import load_credentials, load_providers_config
 from src.providers.terraform.deployment_lifecycle import DeploymentLifecycleMixin
 from src.providers.terraform.destruction_lifecycle import (
@@ -19,6 +20,13 @@ from src.providers.terraform.provider_runtime import (
     prepare_shared_identity_capabilities,
     run_post_deployment,
 )
+from src.providers.terraform.gcp_v2_image_publisher import (
+    GcpV2ImagePublisher,
+    gcp_v2_container_deployment,
+    image_requests,
+    image_tfvars,
+    placeholder_image_tfvars,
+)
 from src.terraform_runner import TerraformRunner
 from src.tfvars_generator import ConfigurationError, generate_tfvars
 from src.validation.directory_validator import validate_project_directory
@@ -29,10 +37,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 PREFLIGHT_VALID_STATUS = "valid"
+GCP_V2_IMAGE_FOUNDATION_TARGETS = (
+    "google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected",
+    "google_storage_bucket.gcp_v2_cloud_build_sources",
+    'google_service_account.gcp_v2_runtime["build"]',
+    "google_artifact_registry_repository_iam_member.gcp_v2_build_writer",
+    "google_storage_bucket_iam_member.gcp_v2_build_source_reader",
+    "google_project_iam_member.gcp_v2_build_log_writer",
+)
 
 
 class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMixin):
     """Coordinate Terraform with explicitly SDK-owned lifecycle operations."""
+
+    GCP_V2_IMAGE_FOUNDATION_TARGETS = GCP_V2_IMAGE_FOUNDATION_TARGETS
 
     def __init__(self, terraform_dir: str, project_path: str):
         if not terraform_dir:
@@ -48,6 +66,7 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
         self._providers_config: dict | None = None
         self._terraform_outputs: dict | None = None
         self._preplan_tfvars: dict = {}
+        self._built_packages: dict[str, Path] = {}
 
     @property
     def runner(self) -> TerraformRunner:
@@ -82,10 +101,49 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
                 encoding="utf-8",
             )
 
+    def _read_tfvars(self) -> dict:
+        value = json.loads(self.tfvars_path.read_text(encoding="utf-8"))
+        if not isinstance(value, dict):
+            raise ConfigurationError("Generated Terraform variables are invalid")
+        return value
+
+    def _merge_tfvars(self, values: dict) -> dict:
+        generated = self._read_tfvars()
+        generated.update(values)
+        atomic_write_private_bytes(
+            self.tfvars_path,
+            (json.dumps(generated, indent=2, sort_keys=True) + "\n").encode(),
+        )
+        return generated
+
+    def _prepare_gcp_v2_image_foundation(self) -> bool:
+        generated = self._read_tfvars()
+        if not gcp_v2_container_deployment(generated):
+            return False
+        self._merge_tfvars(placeholder_image_tfvars(generated))
+        return True
+
+    def _publish_gcp_v2_images(self) -> None:
+        generated = self._read_tfvars()
+        outputs = self.runner.output()
+        publisher = GcpV2ImagePublisher.from_tfvars_and_outputs(
+            project_path=self.project_path,
+            tfvars=generated,
+            outputs=outputs,
+        )
+        images = publisher.publish(image_requests(self.project_path, generated))
+        self._merge_tfvars(image_tfvars(images, generated))
+
+    def _gcp_kubernetes_state_exists(self) -> bool:
+        result = self.runner.state_list()
+        return result.returncode == 0 and any(
+            line.startswith("kubernetes_") for line in result.stdout.splitlines()
+        )
+
     def _build_packages(self) -> None:
         from src.providers.terraform.package_builder import build_all_packages
 
-        build_all_packages(
+        self._built_packages = build_all_packages(
             self.terraform_dir,
             self.project_path,
             self._load_providers_config(),

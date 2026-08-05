@@ -84,7 +84,7 @@ resource "tls_self_signed_cert" "gcp_v2_mqtt" {
 }
 
 resource "kubernetes_config_map_v1" "gcp_v2_bifromq" {
-  count = local.gcp_v2_l1_enabled ? 1 : 0
+  count = local.gcp_v2_l1_enabled && var.gcp_v2_kubernetes_stage_enabled ? 1 : 0
 
   metadata {
     name      = "bifromq-config"
@@ -127,7 +127,7 @@ resource "kubernetes_config_map_v1" "gcp_v2_bifromq" {
 }
 
 resource "kubernetes_secret_v1" "gcp_v2_bifromq" {
-  count = local.gcp_v2_l1_enabled ? 1 : 0
+  count = local.gcp_v2_l1_enabled && var.gcp_v2_kubernetes_stage_enabled ? 1 : 0
 
   metadata {
     name      = "bifromq-runtime"
@@ -151,7 +151,7 @@ resource "kubernetes_secret_v1" "gcp_v2_bifromq" {
 }
 
 resource "kubernetes_service_v1" "gcp_v2_bifromq_headless" {
-  count = local.gcp_v2_l1_enabled ? 1 : 0
+  count = local.gcp_v2_l1_enabled && var.gcp_v2_kubernetes_stage_enabled ? 1 : 0
 
   metadata {
     name      = "bifromq-headless"
@@ -183,7 +183,7 @@ resource "kubernetes_service_v1" "gcp_v2_bifromq_headless" {
 }
 
 resource "kubernetes_deployment_v1" "gcp_apache_bifromq_4_0_0_incubating_on_gke_standard" {
-  count            = local.gcp_v2_l1_enabled ? 1 : 0
+  count            = local.gcp_v2_l1_enabled && var.gcp_v2_kubernetes_stage_enabled ? 1 : 0
   wait_for_rollout = true
 
   metadata {
@@ -345,7 +345,7 @@ resource "kubernetes_deployment_v1" "gcp_apache_bifromq_4_0_0_incubating_on_gke_
 }
 
 resource "kubernetes_service_v1" "gcp_gcp_external_load_balancer" {
-  count = local.gcp_v2_l1_enabled ? 1 : 0
+  count = local.gcp_v2_l1_enabled && var.gcp_v2_kubernetes_stage_enabled ? 1 : 0
 
   metadata {
     name      = "bifromq-mqtt"
@@ -374,7 +374,7 @@ resource "kubernetes_service_v1" "gcp_gcp_external_load_balancer" {
 }
 
 resource "kubernetes_service_account_v1" "gcp_v2_mqtt_adapter" {
-  count = local.gcp_v2_l1_enabled ? 1 : 0
+  count = local.gcp_v2_l1_enabled && var.gcp_v2_kubernetes_stage_enabled ? 1 : 0
 
   metadata {
     name      = "mqtt-adapter"
@@ -446,7 +446,7 @@ resource "google_pubsub_subscription_iam_member" "gcp_v2_command_failure_service
 }
 
 resource "kubernetes_service_v1" "gcp_v2_bifromq_auth" {
-  count = local.gcp_v2_l1_enabled ? 1 : 0
+  count = local.gcp_v2_l1_enabled && var.gcp_v2_kubernetes_stage_enabled ? 1 : 0
 
   metadata {
     name      = "bifromq-auth"
@@ -468,7 +468,7 @@ resource "kubernetes_service_v1" "gcp_v2_bifromq_auth" {
 }
 
 resource "kubernetes_deployment_v1" "gcp_gcp_ordered_mqtt_pubsub_adapter" {
-  count            = local.gcp_v2_l1_enabled ? 1 : 0
+  count            = local.gcp_v2_l1_enabled && var.gcp_v2_kubernetes_stage_enabled ? 1 : 0
   wait_for_rollout = true
 
   metadata {

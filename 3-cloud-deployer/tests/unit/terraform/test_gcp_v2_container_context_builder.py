@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import tarfile
 from types import MappingProxyType
+import zipfile
 
 import pytest
 
@@ -20,6 +21,7 @@ from src.providers.terraform.package_builder import (
 )
 from src.providers.terraform.package_builders.gcp_v2 import (
     build_gcp_v2_container_contexts,
+    build_gcp_v2_extension_container_context,
 )
 
 
@@ -98,6 +100,36 @@ def test_gcp_v2_container_context_is_deterministic_and_complete(tmp_path):
 def test_gcp_v2_container_context_rejects_unknown_builder_target(tmp_path):
     with pytest.raises(ValueError, match="Unknown GCP Five-layer v2 context"):
         build_gcp_v2_container_contexts(tmp_path, ("unreviewed",))
+
+
+def test_gcp_v2_extension_context_is_deterministic_and_closed(tmp_path):
+    package = tmp_path / "processor.zip"
+    with zipfile.ZipFile(package, "w") as archive:
+        archive.writestr("process.py", "def process(payload, config, context): return payload\n")
+        archive.writestr("main.py", "def main(request): return ('{}', 200, {})\n")
+        archive.writestr("requirements.txt", "functions-framework==3.8.3\n")
+
+    first = build_gcp_v2_extension_container_context(tmp_path, package)
+    first_bytes = first.read_bytes()
+    second = build_gcp_v2_extension_container_context(tmp_path, package)
+
+    assert second.read_bytes() == first_bytes
+    with tarfile.open(second, "r:gz") as archive:
+        names = {item.name for item in archive.getmembers()}
+        dockerfile = archive.extractfile("Dockerfile")
+        assert names == {"Dockerfile", "main.py", "process.py", "requirements.txt"}
+        assert dockerfile is not None
+        assert b"functions-framework" in dockerfile.read()
+
+
+def test_gcp_v2_extension_context_rejects_unsafe_zip_member(tmp_path):
+    package = tmp_path / "processor.zip"
+    with zipfile.ZipFile(package, "w") as archive:
+        archive.writestr("../main.py", "unsafe")
+        archive.writestr("requirements.txt", "functions-framework==3.8.3\n")
+
+    with pytest.raises(ValueError, match="unsafe path"):
+        build_gcp_v2_extension_container_context(tmp_path, package)
 
 
 def test_gcp_v2_container_context_is_selected_by_v4_graph():

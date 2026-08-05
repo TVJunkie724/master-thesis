@@ -628,6 +628,21 @@ output "gcp_v2_mqtt_device_credentials" {
   } : null
 }
 
+output "gcp_v2_build_source_bucket" {
+  description = "Internal deployment-owned Cloud Build source bucket"
+  value       = try(google_storage_bucket.gcp_v2_cloud_build_sources[0].name, null)
+}
+
+output "gcp_v2_build_service_account" {
+  description = "Internal least-privilege Cloud Build execution identity"
+  value       = try(google_service_account.gcp_v2_runtime["build"].email, null)
+}
+
+output "gcp_v2_registry_prefix" {
+  description = "Internal Artifact Registry prefix for content-addressed Five-layer v2 images"
+  value       = local.gcp_v2_container_enabled ? local.gcp_v2_registry_prefix : null
+}
+
 output "gcp_hot_writer_url" {
   description = "URL of the hot writer function (multi-cloud)"
   value       = try(google_cloudfunctions2_function.hot_writer[0].url, null)

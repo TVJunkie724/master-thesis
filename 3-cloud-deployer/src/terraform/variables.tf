@@ -875,6 +875,12 @@ variable "gcp_v2_grafana_image" {
   }
 }
 
+variable "gcp_v2_kubernetes_stage_enabled" {
+  description = "Activate the automatic post-cluster Kubernetes apply stage for Five-layer v2"
+  type        = bool
+  default     = true
+}
+
 variable "gcp_grafana_source_cidrs" {
   description = "Non-empty researcher CIDR allowlist for the GCP Grafana TLS LoadBalancer"
   type        = list(string)
