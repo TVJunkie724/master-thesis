@@ -1345,6 +1345,7 @@ def _build_main_config(
     # The optional fallback keeps this helper usable for historical read/tests.
     hot_days = 30  # default: 1 month
     cold_days = 90  # default: 3 months
+    archive_days = 360  # default: 12 months
     params = optimizer_params
     if params is None and twin.optimizer_config and twin.optimizer_config.params:
         params = _json_object_from_content(
@@ -1354,6 +1355,9 @@ def _build_main_config(
     if params is not None:
         hot_days = _months_to_days(params.get("hotStorageDurationInMonths"), 1)
         cold_days = _months_to_days(params.get("coolStorageDurationInMonths"), 3)
+        archive_days = _months_to_days(
+            params.get("archiveStorageDurationInMonths"), 12
+        )
 
     # Mode from Step 1 debug toggle
     mode = (
@@ -1366,6 +1370,7 @@ def _build_main_config(
         "digital_twin_name": get_resource_name(twin),
         "hot_storage_size_in_days": hot_days,
         "cold_storage_size_in_days": cold_days,
+        "archive_storage_size_in_days": archive_days,
         "mode": mode,
     }
 

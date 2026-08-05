@@ -628,6 +628,11 @@ def _load_config(project_dir: Path) -> dict:
             "cold_storage_size_in_days"
         ]
 
+    if "archive_storage_size_in_days" in config:
+        result["layer_3_archive_expiry_interval_days"] = config[
+            "archive_storage_size_in_days"
+        ]
+
     return result
 
 

@@ -816,6 +816,12 @@ variable "layer_3_cold_to_archive_interval_days" {
   default     = 90
 }
 
+variable "layer_3_archive_expiry_interval_days" {
+  description = "Cumulative age in days after which archived data expires"
+  type        = number
+  default     = 360
+}
+
 # ==============================================================================
 # Feature Flags (from config_optimization.json inputParamsUsed)
 # ==============================================================================

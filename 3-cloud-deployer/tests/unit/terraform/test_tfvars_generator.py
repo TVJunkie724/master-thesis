@@ -44,7 +44,8 @@ class TestLoadConfig:
         config = {
             "digital_twin_name": "test-twin",
             "hot_storage_size_in_days": 30,
-            "cold_storage_size_in_days": 90
+            "cold_storage_size_in_days": 90,
+            "archive_storage_size_in_days": 360,
         }
         config_file = tmp_path / "config.json"
         config_file.write_text(json.dumps(config))
@@ -54,6 +55,7 @@ class TestLoadConfig:
         assert result["digital_twin_name"] == "test-twin"
         assert result["layer_3_hot_to_cold_interval_days"] == 30
         assert result["layer_3_cold_to_archive_interval_days"] == 90
+        assert result["layer_3_archive_expiry_interval_days"] == 360
     
     def test_minimal_config(self, tmp_path):
         """Should work with only digital_twin_name."""

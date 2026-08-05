@@ -571,6 +571,7 @@ class TestBuildMainConfig:
             {
                 "hotStorageDurationInMonths": 2,
                 "coolStorageDurationInMonths": 6,
+                "archiveStorageDurationInMonths": 18,
             }
         )
         twin.configuration = Mock()
@@ -582,6 +583,7 @@ class TestBuildMainConfig:
         assert result["mode"] == "production"
         assert result["hot_storage_size_in_days"] == 60
         assert result["cold_storage_size_in_days"] == 180
+        assert result["archive_storage_size_in_days"] == 540
 
     def test_storage_days_from_optimizer_params(self):
         """Should convert months to days from optimizer params."""
@@ -593,6 +595,7 @@ class TestBuildMainConfig:
             {
                 "hotStorageDurationInMonths": 1,
                 "coolStorageDurationInMonths": 3,
+                "archiveStorageDurationInMonths": 12,
             }
         )
         twin.configuration = None
@@ -601,6 +604,7 @@ class TestBuildMainConfig:
 
         assert result["hot_storage_size_in_days"] == 30
         assert result["cold_storage_size_in_days"] == 90
+        assert result["archive_storage_size_in_days"] == 360
 
     def test_storage_days_defaults_when_no_params(self):
         """Should use defaults (30/90) when no optimizer params."""
@@ -614,6 +618,7 @@ class TestBuildMainConfig:
 
         assert result["hot_storage_size_in_days"] == 30
         assert result["cold_storage_size_in_days"] == 90
+        assert result["archive_storage_size_in_days"] == 360
 
     def test_mode_from_debug_mode(self):
         """Should set mode based on debug_mode flag."""
@@ -1223,6 +1228,7 @@ class TestBuildProjectZip:
 
         assert main_config["hot_storage_size_in_days"] == 30
         assert main_config["cold_storage_size_in_days"] == 90
+        assert main_config["archive_storage_size_in_days"] == 360
         assert flags["useEventChecking"] is True
         assert flags["needs3DModel"] is False
 

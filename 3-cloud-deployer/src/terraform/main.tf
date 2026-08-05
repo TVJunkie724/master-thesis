@@ -168,3 +168,24 @@ locals {
   # Azure region to use for IoT Hub (may differ from main region)
   azure_iothub_region = var.azure_region_iothub != "" ? var.azure_region_iothub : var.azure_region
 }
+
+resource "terraform_data" "five_layer_v2_retention_guard" {
+  count = local.five_layer_v2_enabled ? 1 : 0
+
+  input = {
+    hot_boundary_days     = var.layer_3_hot_to_cold_interval_days
+    cool_boundary_days    = var.layer_3_cold_to_archive_interval_days
+    archive_boundary_days = var.layer_3_archive_expiry_interval_days
+  }
+
+  lifecycle {
+    precondition {
+      condition = (
+        var.layer_3_hot_to_cold_interval_days > 0 &&
+        var.layer_3_hot_to_cold_interval_days < var.layer_3_cold_to_archive_interval_days &&
+        var.layer_3_cold_to_archive_interval_days < var.layer_3_archive_expiry_interval_days
+      )
+      error_message = "Five-layer v2 requires cumulative retention boundaries 0 < hot < cool < archive."
+    }
+  }
+}
