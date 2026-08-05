@@ -324,6 +324,18 @@ does not expose a general MQTT device interface. The pair is shared by Five-
 layer v2 and Six-layer v1 whenever GCP owns L1, so BifroMQ is not a Six-layer
 addition.
 
+The executable thesis boundary pins the official amd64 BifroMQ image by digest
+and exposes only MQTT over TLS on port 8883. BifroMQ's bundled webhook provider
+delegates authentication and topic authorization to the ordered adapter. One
+generated deployment-scoped device credential is shared by the simulated PoC
+devices; a separate, non-exported bridge credential may only subscribe to the
+shared telemetry filter and publish device commands. The adapter forwards
+telemetry to the authenticated Cloud Run ingress, pulls the ordered Pub/Sub
+command subscription, and acknowledges a command only after its QoS-1 MQTT
+publish completes. Per-device identities, client certificates, a public CA,
+broker persistence, and a general device registry remain explicit live/future
+hardening boundaries rather than hidden product infrastructure.
+
 Firestore Native Standard edition remains L3 hot, matching the existing
 deployer, writer, reader, mover, Optimizer, and pricing model instead of
 changing the storage technology merely to gain a native Grafana datasource.

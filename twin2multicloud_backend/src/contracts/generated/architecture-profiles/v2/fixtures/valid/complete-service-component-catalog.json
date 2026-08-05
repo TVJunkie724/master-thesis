@@ -7746,7 +7746,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:7126883c3df175410bc764e789517743d01c710f0c7e81a66151cdd062c38b5b",
+      "source_digest": "sha256:04d8b6fad9ffc2f5de5900a08530173fa838b8b82db4ed53802528d1636097ef",
       "included_paths": [
         "Dockerfile",
         "grafana/Dockerfile",
@@ -7757,6 +7757,7 @@
         "platform/app.py",
         "platform/constraints.txt",
         "platform/core.py",
+        "platform/mqtt_adapter.py",
         "platform/requirements.txt"
       ],
       "excluded_paths": [],
@@ -7793,5 +7794,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:0f25b2b069e6e931d397f561da377953b4764b15f3454773980477063fc55083"
+  "content_digest": "sha256:0824b9b317a3b0d8c9645ff1d69cede30054dec1839c505ba8d673ead4d7dd1e"
 }

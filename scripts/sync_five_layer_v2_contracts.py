@@ -1222,6 +1222,7 @@ def build_catalog(
                         "platform/app.py",
                         "platform/constraints.txt",
                         "platform/core.py",
+                        "platform/mqtt_adapter.py",
                         "platform/requirements.txt",
                     ]
                 ),

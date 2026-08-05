@@ -87,6 +87,7 @@ def test_gcp_v2_container_context_is_deterministic_and_complete(tmp_path):
             "platform/app.py",
             "platform/constraints.txt",
             "platform/core.py",
+            "platform/mqtt_adapter.py",
             "platform/requirements.txt",
         } <= names
         assert all(member.mtime == 0 for member in members)

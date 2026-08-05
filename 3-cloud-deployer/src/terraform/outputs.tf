@@ -601,6 +601,33 @@ output "gcp_ingestion_url" {
   value       = try(google_cloudfunctions2_function.ingestion[0].url, null)
 }
 
+output "gcp_component_ingestion_output" {
+  description = "Five-layer v2 GCP ingestion output topic consumed by the selected processing route"
+  value       = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["received"].id, null)
+}
+
+output "gcp_v2_mqtt_endpoint" {
+  description = "Authenticated TLS MQTT endpoint for the Five-layer v2 GCP device edge"
+  value = try(
+    "mqtts://${google_compute_address.gcp_v2_mqtt[0].address}:8883",
+    null,
+  )
+}
+
+output "gcp_v2_mqtt_server_certificate" {
+  description = "Self-signed PoC server certificate to trust for the GCP MQTT endpoint"
+  value       = try(tls_self_signed_cert.gcp_v2_mqtt[0].cert_pem, null)
+}
+
+output "gcp_v2_mqtt_device_credentials" {
+  description = "Generated deployment-scoped shared device credential for the bounded GCP MQTT PoC"
+  sensitive   = true
+  value = local.gcp_v2_l1_enabled ? {
+    username = random_password.gcp_v2_mqtt_device_username[0].result
+    password = random_password.gcp_v2_mqtt_device_password[0].result
+  } : null
+}
+
 output "gcp_hot_writer_url" {
   description = "URL of the hot writer function (multi-cloud)"
   value       = try(google_cloudfunctions2_function.hot_writer[0].url, null)

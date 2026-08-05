@@ -182,6 +182,18 @@ region.
 | L4 Twin | IoT TwinMaker Standard pricing plan for current semantic state and relationships | Azure Digital Twins with current graph/state | Cloud Run Twin API/materializer backed by the deployment Firestore Native database, plus one read-only Cloud Run Twin Explorer protected by direct IAP |
 | L5 visualization | Amazon Managed Grafana 12 with a typed provider-local raw-history reader datasource | Azure Managed Grafana 12 with its supported JSON API datasource and a typed provider-local Cosmos reader | One Grafana OSS 12 pod on GKE with a Persistent Disk PVC, the signed Infinity datasource, and a typed provider-local Firestore reader |
 
+The bounded GCP L1 implementation pins the official BifroMQ image by digest,
+exposes only TLS MQTT on port 8883, and uses the broker's bundled webhook auth
+provider. Terraform generates distinct deployment-scoped device and bridge
+credentials. Simulated PoC devices share the revealable device credential;
+the internal bridge credential is not exported and is authorized only for the
+shared telemetry subscription plus device-command publication. The adapter
+calls the authenticated Cloud Run ingress, consumes the ordered Pub/Sub
+command subscription, and ACKs only after QoS-1 destination publication.
+Per-device identities, client certificates, a public CA, durable broker state,
+and a general registry are deliberately outside this thesis PoC and remain
+live/future hardening gates.
+
 AWS keeps raw history in DynamoDB and Azure keeps it in Cosmos DB. Their
 provider-local reader APIs expose the same bounded `raw_history_query.v1`
 contract to managed Grafana. GCP keeps raw history and the bounded Twin model

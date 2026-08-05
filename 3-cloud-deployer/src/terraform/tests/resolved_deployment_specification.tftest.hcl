@@ -430,6 +430,30 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
 
   assert {
     condition = (
+      length(kubernetes_deployment_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard) == 1 &&
+      kubernetes_deployment_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].spec[0].replicas == "3" &&
+      kubernetes_deployment_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].spec[0].template[0].spec[0].container[0].image == "docker.io/apache/bifromq@sha256:14856495892e3b84d25092a90de3c2fc149a3482afd283abb95fdff18effd924" &&
+      length(kubernetes_deployment_v1.gcp_gcp_ordered_mqtt_pubsub_adapter) == 1 &&
+      kubernetes_deployment_v1.gcp_gcp_ordered_mqtt_pubsub_adapter[0].spec[0].replicas == "1" &&
+      length(kubernetes_service_v1.gcp_gcp_external_load_balancer) == 1 &&
+      kubernetes_service_v1.gcp_gcp_external_load_balancer[0].spec[0].port[0].port == 8883 &&
+      length(google_pubsub_subscription.gcp_v2_command_adapter) == 1 &&
+      length(google_cloud_run_v2_service_iam_member.gcp_v2_ingress_invoker) == 1
+    )
+    error_message = "Single-cloud GCP v2 must materialize the pinned authenticated BifroMQ edge, one ordered MQTT adapter, its TLS LoadBalancer, and the command return path."
+  }
+
+  assert {
+    condition = (
+      strcontains(kubernetes_config_map_v1.gcp_v2_bifromq[0].data["standalone.yml"], "org.apache.bifromq.demo.plugin.DemoAuthProvider") &&
+      strcontains(kubernetes_config_map_v1.gcp_v2_bifromq[0].data["standalone.yml"], "tlsListener:") &&
+      !strcontains(kubernetes_config_map_v1.gcp_v2_bifromq[0].data["standalone.yml"], "wsListener:\n            enable: true")
+    )
+    error_message = "The GCP v2 device edge must delegate auth and expose TLS without enabling the unreviewed WebSocket listener."
+  }
+
+  assert {
+    condition = (
       toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["received", "processed", "domain", "command", "failure"]) &&
       length(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics) == 4
     )
