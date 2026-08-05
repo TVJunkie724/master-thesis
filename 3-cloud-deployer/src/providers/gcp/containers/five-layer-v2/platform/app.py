@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime, timezone
+import hashlib
+import html
 import json
 import logging
 import os
 from typing import Any, Mapping
+from urllib.parse import quote
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.cloud import firestore, pubsub_v1
+from google.cloud.firestore_v1.base_query import FieldFilter
 from google.cloud.workflows import executions_v1
 from google.oauth2 import id_token
 import requests
@@ -32,7 +36,13 @@ def _database() -> firestore.Client:
     if _firestore_client is None:
         database = os.environ.get("FIRESTORE_DATABASE", "")
         if not database:
-            raise core.ContractError("HOT_STORAGE_NOT_CONFIGURED", 503)
+            role = os.environ.get("RUNTIME_ROLE", "")
+            code = (
+                "TWIN_STORAGE_NOT_CONFIGURED"
+                if role in {"twin-materializer", "twin-explorer"}
+                else "HOT_STORAGE_NOT_CONFIGURED"
+            )
+            raise core.ContractError(code, 503)
         _firestore_client = firestore.Client(database=database)
     return _firestore_client
 
@@ -239,8 +249,12 @@ def _materialize_twin_projection(event: Mapping[str, Any]) -> bool:
     if kind == core.EVENT_TWIN_STATE_UPSERTED:
         twin_id = str(body["twin_id"])
         source_id = str(body["source_id"])
-        twin_ref = client.collection("twins").document(twin_id)
-        source_ref = twin_ref.collection("sources").document(source_id)
+        twin_ref = client.collection("twins").document(
+            core.firestore_document_id(twin_id, code="INVALID_TWIN_PROJECTION")
+        )
+        source_ref = twin_ref.collection("sources").document(
+            core.firestore_document_id(source_id, code="INVALID_TWIN_PROJECTION")
+        )
 
         @firestore.transactional
         def write_state(transaction: firestore.Transaction) -> bool:
@@ -284,7 +298,9 @@ def _materialize_twin_projection(event: Mapping[str, Any]) -> bool:
         if kind == core.EVENT_TWIN_MODEL_UPSERTED
         else body["relationship_id"]
     )
-    reference = client.collection(collection).document(document_id)
+    reference = client.collection(collection).document(
+        core.firestore_document_id(document_id, code="INVALID_TWIN_PROJECTION")
+    )
 
     @firestore.transactional
     def write_graph(transaction: firestore.Transaction) -> bool:
@@ -451,6 +467,160 @@ def _poc_boundary(value: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _document_reference(client: firestore.Client, path: str):
+    parts = path.split("/")
+    if len(parts) == 2:
+        return client.collection(parts[0]).document(parts[1])
+    if len(parts) == 4:
+        return (
+            client.collection(parts[0])
+            .document(parts[1])
+            .collection(parts[2])
+            .document(parts[3])
+        )
+    raise core.ContractError("INVALID_TWIN_SEED", 503)
+
+
+def _ensure_seeded_twin_content() -> bool:
+    try:
+        configured = json.loads(os.environ.get("IOT_DEVICES_JSON", "[]"))
+    except json.JSONDecodeError as exc:
+        raise core.ContractError("INVALID_TWIN_SEED", 503) from exc
+    if not isinstance(configured, list):
+        raise core.ContractError("INVALID_TWIN_SEED", 503)
+    documents = core.build_seed_twin_documents(
+        configured,
+        deployment_id=os.environ.get("DEPLOYMENT_ID", "local-poc"),
+    )
+    client = _database()
+    marker = client.collection("_twin2multicloud").document("l4-seed-v1")
+    transaction = client.transaction(max_attempts=3)
+
+    @firestore.transactional
+    def seed(transaction: firestore.Transaction) -> bool:
+        if marker.get(transaction=transaction).exists:
+            return False
+        for path, document in documents.items():
+            transaction.set(_document_reference(client, path), document)
+        transaction.set(
+            marker,
+            {
+                "seed_revision": "gcp-l4-seed.v1",
+                "content_digest": hashlib.sha256(
+                    core.canonical_json(documents).encode("utf-8")
+                ).hexdigest(),
+                "document_count": len(documents),
+            },
+        )
+        return True
+
+    return seed(transaction)
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, datetime):
+        return core.iso_time(value)
+    if isinstance(value, Mapping):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    return value
+
+
+def _snapshot_document(snapshot) -> dict[str, Any]:
+    value = snapshot.to_dict() or {}
+    if not isinstance(value, Mapping):
+        raise core.ContractError("INVALID_TWIN_MATERIALIZATION_STATE", 503)
+    return _json_safe(dict(value))
+
+
+def _bounded_twin_limit(raw: object, maximum: int = 100) -> int:
+    try:
+        value = int(str(raw or maximum))
+    except ValueError as exc:
+        raise core.ContractError("INVALID_TWIN_QUERY") from exc
+    if not 1 <= value <= maximum:
+        raise core.ContractError("INVALID_TWIN_QUERY")
+    return value
+
+
+def _list_twin_collection(collection: str, *, limit: int) -> list[dict[str, Any]]:
+    if collection not in {"models", "twins"}:
+        raise core.ContractError("INVALID_TWIN_QUERY")
+    documents = [
+        _snapshot_document(snapshot)
+        for snapshot in _database().collection(collection).limit(limit).stream()
+    ]
+    identifier = "model_id" if collection == "models" else "twin_id"
+    return sorted(documents, key=lambda item: str(item.get(identifier, "")))
+
+
+def _twin_detail(twin_id: str) -> dict[str, Any]:
+    logical_id = core.required_text(twin_id, code="INVALID_TWIN_QUERY")
+    client = _database()
+    reference = client.collection("twins").document(
+        core.firestore_document_id(logical_id, code="INVALID_TWIN_QUERY")
+    )
+    snapshot = reference.get()
+    if not snapshot.exists:
+        raise core.ContractError("TWIN_NOT_FOUND", 404)
+    sources = [
+        _snapshot_document(item)
+        for item in reference.collection("sources").limit(32).stream()
+    ]
+    relationships: list[dict[str, Any]] = []
+    for field in ("from_id", "to_id"):
+        query = (
+            client.collection("relationships")
+            .where(filter=FieldFilter(field, "==", logical_id))
+            .limit(100)
+        )
+        relationships.extend(
+            _snapshot_document(item)
+            for item in query.stream()
+            if not (item.to_dict() or {}).get("deleted")
+        )
+    unique_relationships = {
+        str(item.get("relationship_id")): item for item in relationships
+    }
+    return {
+        "schema_version": "bounded-twin-read.v1",
+        "twin": _snapshot_document(snapshot),
+        "sources": sorted(sources, key=lambda item: str(item.get("source_id", ""))),
+        "relationships": sorted(
+            unique_relationships.values(),
+            key=lambda item: str(item.get("relationship_id", "")),
+        ),
+    }
+
+
+def _model_detail(model_id: str) -> dict[str, Any]:
+    logical_id = core.required_text(model_id, code="INVALID_TWIN_QUERY")
+    snapshot = (
+        _database()
+        .collection("models")
+        .document(core.firestore_document_id(logical_id, code="INVALID_TWIN_QUERY"))
+        .get()
+    )
+    if not snapshot.exists:
+        raise core.ContractError("MODEL_NOT_FOUND", 404)
+    return {
+        "schema_version": "bounded-twin-model.v1",
+        "model": _snapshot_document(snapshot),
+    }
+
+
+def _twin_materializer(value: Mapping[str, Any]) -> dict[str, Any]:
+    _ensure_seeded_twin_content()
+    event = _decode_pubsub_push(value)
+    changed = _materialize_twin_projection(event)
+    return {
+        "schema_version": "twin-materializer-result.v1",
+        "accepted": 1,
+        "changed": changed,
+    }
+
+
 def _domain(value: Mapping[str, Any]) -> dict[str, Any]:
     if value.get("schema_version") == "workflow-outcome.v1":
         _record_workflow_outcome(value)
@@ -477,14 +647,6 @@ def _domain(value: Mapping[str, Any]) -> dict[str, Any]:
     elif kind in core.OUTCOME_EVENT_TYPES and os.environ.get("HOT_PROVIDER") == "google":
         _store_outcome(event)
         handled = True
-    elif kind in {
-        core.EVENT_TWIN_STATE_UPSERTED,
-        core.EVENT_TWIN_MODEL_UPSERTED,
-        core.EVENT_TWIN_RELATIONSHIP_UPSERTED,
-        core.EVENT_TWIN_RELATIONSHIP_DELETED,
-    } and os.environ.get("TWIN_PROVIDER") == "google":
-        _materialize_twin_projection(event)
-        handled = True
     return {
         "schema_version": "domain-consumer-result.v1",
         "accepted": 1,
@@ -495,6 +657,8 @@ def _domain(value: Mapping[str, Any]) -> dict[str, Any]:
 
 @app.get("/healthz")
 def healthz():
+    if os.environ.get("RUNTIME_ROLE") == "twin-materializer":
+        _ensure_seeded_twin_content()
     return jsonify(
         {
             "status": "ok",
@@ -502,6 +666,104 @@ def healthz():
             "role": os.environ.get("RUNTIME_ROLE", "unset"),
         }
     )
+
+
+@app.get("/")
+def twin_explorer():
+    if os.environ.get("RUNTIME_ROLE") != "twin-explorer":
+        return jsonify({"error": {"code": "RUNTIME_ROLE_NOT_CONFIGURED"}}), 404
+    try:
+        twins = _list_twin_collection("twins", limit=100)
+        models = _list_twin_collection("models", limit=100)
+        selected_id = request.args.get("twin_id", "")
+        detail = _twin_detail(selected_id) if selected_id else None
+        twin_links = "".join(
+            '<li><a href="/?twin_id={0}">{1}</a></li>'.format(
+                quote(str(item.get("twin_id", "")), safe=""),
+                html.escape(str(item.get("twin_id", ""))),
+            )
+            for item in twins
+        ) or "<li>No Twins materialized yet.</li>"
+        model_items = "".join(
+            f"<li>{html.escape(str(item.get('model_id', '')))}</li>" for item in models
+        ) or "<li>No models materialized yet.</li>"
+        detail_html = (
+            "<p>Select a Twin to inspect current source state and direct relationships.</p>"
+            if detail is None
+            else f"<pre>{html.escape(json.dumps(detail, indent=2, sort_keys=True))}</pre>"
+        )
+        body = f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Twin2MultiCloud Twin Explorer</title><style>
+body{{font:16px system-ui;max-width:1100px;margin:2rem auto;padding:0 1rem;color:#182230}}
+main{{display:grid;grid-template-columns:minmax(16rem,1fr) 2fr;gap:1.5rem}}section{{border:1px solid #ccd5df;border-radius:12px;padding:1rem}}
+pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f7fa;padding:1rem;border-radius:8px}}a{{color:#0759b0}}
+@media(max-width:720px){{main{{grid-template-columns:1fr}}}}</style></head>
+<body><h1>Twin2MultiCloud Twin Explorer</h1><p>Read-only Five-layer v2 semantic state. No scenes or raw telemetry.</p>
+<main><section><h2>Twins</h2><ul>{twin_links}</ul><h2>Models</h2><ul>{model_items}</ul></section>
+<section><h2>Twin detail</h2>{detail_html}</section></main></body></html>"""
+        response = Response(body, content_type="text/html; charset=utf-8")
+        response.headers["content-security-policy"] = (
+            "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; "
+            "form-action 'self'; frame-ancestors 'none'"
+        )
+        response.headers["x-content-type-options"] = "nosniff"
+        response.headers["cache-control"] = "no-store"
+        return response
+    except core.ContractError as exc:
+        return jsonify({"error": {"code": exc.code}}), exc.status
+
+
+@app.get("/twin-api/v1/models")
+def twin_models():
+    if os.environ.get("RUNTIME_ROLE") != "twin-explorer":
+        return jsonify({"error": {"code": "RUNTIME_ROLE_NOT_CONFIGURED"}}), 404
+    try:
+        limit = _bounded_twin_limit(request.args.get("limit"))
+        return jsonify(
+            {
+                "schema_version": "bounded-twin-list.v1",
+                "models": _list_twin_collection("models", limit=limit),
+            }
+        )
+    except core.ContractError as exc:
+        return jsonify({"error": {"code": exc.code}}), exc.status
+
+
+@app.get("/twin-api/v1/twins")
+def twin_list():
+    if os.environ.get("RUNTIME_ROLE") != "twin-explorer":
+        return jsonify({"error": {"code": "RUNTIME_ROLE_NOT_CONFIGURED"}}), 404
+    try:
+        limit = _bounded_twin_limit(request.args.get("limit"))
+        return jsonify(
+            {
+                "schema_version": "bounded-twin-list.v1",
+                "twins": _list_twin_collection("twins", limit=limit),
+            }
+        )
+    except core.ContractError as exc:
+        return jsonify({"error": {"code": exc.code}}), exc.status
+
+
+@app.get("/twin-api/v1/models/<path:model_id>")
+def twin_model_detail(model_id: str):
+    if os.environ.get("RUNTIME_ROLE") != "twin-explorer":
+        return jsonify({"error": {"code": "RUNTIME_ROLE_NOT_CONFIGURED"}}), 404
+    try:
+        return jsonify(_model_detail(model_id))
+    except core.ContractError as exc:
+        return jsonify({"error": {"code": exc.code}}), exc.status
+
+
+@app.get("/twin-api/v1/twins/<path:twin_id>")
+def twin_detail(twin_id: str):
+    if os.environ.get("RUNTIME_ROLE") != "twin-explorer":
+        return jsonify({"error": {"code": "RUNTIME_ROLE_NOT_CONFIGURED"}}), 404
+    try:
+        return jsonify(_twin_detail(twin_id))
+    except core.ContractError as exc:
+        return jsonify({"error": {"code": exc.code}}), exc.status
 
 
 @app.post("/")
@@ -517,6 +779,8 @@ def dispatch():
             result = _persistence(value)
         elif role == "domain-consumer":
             result = _domain(value)
+        elif role == "twin-materializer":
+            result = _twin_materializer(value)
         elif role == "poc-boundary":
             result = _poc_boundary(value)
         else:

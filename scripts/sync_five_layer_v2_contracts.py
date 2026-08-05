@@ -902,6 +902,17 @@ def terraform_resource_address(
             "google_firestore_database."
             "gcp_gcp_firestore_native_standard_raw_and_rollup"
         )
+    if (
+        provider == "gcp"
+        and component_id == "gcp.direct-iap-layer-access"
+        and resource_type == "google_iap_web_cloud_run_service_iam_member"
+    ):
+        # Direct IAP support and the Explorer share one exact human-principal
+        # accessor binding. A duplicate IAM member would conflict at apply.
+        return (
+            "google_iap_web_cloud_run_service_iam_member."
+            "gcp_gcp_cloud_run_iap_twin_explorer"
+        )
     return f"{resource_type}.{safe_tf_name(provider + '_' + component_id)}"
 
 

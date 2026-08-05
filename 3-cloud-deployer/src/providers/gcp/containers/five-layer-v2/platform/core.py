@@ -14,6 +14,7 @@ import uuid
 PROFILE = "five-layer-baseline@2"
 MAX_EVENT_BYTES = 256 * 1024
 MAX_RULES = 100
+MAX_TWIN_ENTITIES = 100
 MAX_JSON_SAFE_INTEGER = 9_007_199_254_740_991
 CONDITION_PATTERN = re.compile(r"^\s*(\S+)\s*(<=|>=|==|!=|<|>)\s*(\S+)\s*$")
 
@@ -562,6 +563,13 @@ def action_id(action: Mapping[str, Any], field: str = "functionName") -> str:
     )
 
 
+def firestore_document_id(value: object, *, code: str) -> str:
+    """Map an unconstrained logical ID to one Firestore-safe document ID."""
+
+    logical_id = required_text(value, code=code)
+    return hashlib.sha256(logical_id.encode("utf-8")).hexdigest()
+
+
 def build_match_dispatch_events(
     event: Mapping[str, Any], *, action_accepted: bool
 ) -> list[dict[str, Any]]:
@@ -756,3 +764,91 @@ def projection_is_newer(
         ),
     )
     return incoming_key > current_key
+
+
+def build_seed_twin_documents(
+    devices: list[Mapping[str, Any]], *, deployment_id: str
+) -> dict[str, dict[str, Any]]:
+    """Build the deterministic, bounded L4 content required by the PoC."""
+
+    deployment = required_text(deployment_id, code="INVALID_DEPLOYMENT_ID")
+    if len(devices) > MAX_TWIN_ENTITIES or not all(
+        isinstance(device, Mapping) for device in devices
+    ):
+        raise ContractError("INVALID_TWIN_SEED", 503)
+    normalized = list(devices) or [{"id": "poc-device-001", "properties": []}]
+    device_ids: list[str] = []
+    documents: dict[str, dict[str, Any]] = {
+        f"models/{firestore_document_id('Twin2MultiCloudPoCDevice', code='INVALID_TWIN_SEED')}": {
+            "model_id": "Twin2MultiCloudPoCDevice",
+            "model_version": "1",
+            "model_document": {
+                "display_name": "Twin2MultiCloud PoC Device",
+                "description": "Bounded Five-layer v2 inspection model",
+            },
+            "last_observed_at": "1970-01-01T00:00:00.000000Z",
+            "last_source_sequence": "0",
+            "last_event_id": "seed-model-v1",
+            "seed_revision": "gcp-l4-seed.v1",
+        }
+    }
+    for device in sorted(normalized, key=lambda item: str(item.get("id", ""))):
+        device_id = required_text(device.get("id"), code="INVALID_TWIN_SEED")
+        if device_id in device_ids:
+            raise ContractError("INVALID_TWIN_SEED", 503)
+        device_ids.append(device_id)
+        current_values: dict[str, Any] = {
+            "provider": "gcp",
+            "deployment": deployment,
+            "status": "seeded",
+        }
+        properties = device.get("properties", [])
+        if not isinstance(properties, list) or len(properties) > 32:
+            raise ContractError("INVALID_TWIN_SEED", 503)
+        for property_value in properties:
+            if not isinstance(property_value, Mapping):
+                raise ContractError("INVALID_TWIN_SEED", 503)
+            name = required_text(
+                property_value.get("name"), code="INVALID_TWIN_SEED"
+            )
+            initial = property_value.get("initValue")
+            if initial is not None:
+                current_values[name] = finite_number(initial)
+        twin_document_id = firestore_document_id(device_id, code="INVALID_TWIN_SEED")
+        documents[f"twins/{twin_document_id}"] = {
+            "twin_id": device_id,
+            "model_id": "Twin2MultiCloudPoCDevice",
+            "updated_at": "1970-01-01T00:00:00.000000Z",
+            "last_observed_at": "1970-01-01T00:00:00.000000Z",
+            "last_source_sequence": "0",
+            "last_event_id": f"seed-twin-{device_id}",
+            "seed_revision": "gcp-l4-seed.v1",
+        }
+        source_document_id = firestore_document_id(
+            "bootstrap", code="INVALID_TWIN_SEED"
+        )
+        documents[f"twins/{twin_document_id}/sources/{source_document_id}"] = {
+            "source_id": "bootstrap",
+            "current_values": current_values,
+            "last_observed_at": "1970-01-01T00:00:00.000000Z",
+            "last_source_sequence": "0",
+            "last_event_id": f"seed-source-{device_id}",
+            "seed_revision": "gcp-l4-seed.v1",
+        }
+    if len(device_ids) >= 2:
+        relationship_id = f"seed-contains-{device_ids[0]}-{device_ids[1]}"
+        relationship_document_id = firestore_document_id(
+            relationship_id, code="INVALID_TWIN_SEED"
+        )
+        documents[f"relationships/{relationship_document_id}"] = {
+            "relationship_id": relationship_id,
+            "from_id": device_ids[0],
+            "to_id": device_ids[1],
+            "type": "contains",
+            "deleted": False,
+            "last_observed_at": "1970-01-01T00:00:00.000000Z",
+            "last_source_sequence": "0",
+            "last_event_id": f"seed-relationship-{relationship_id}",
+            "seed_revision": "gcp-l4-seed.v1",
+        }
+    return documents

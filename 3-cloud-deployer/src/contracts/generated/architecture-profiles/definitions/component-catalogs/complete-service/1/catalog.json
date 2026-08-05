@@ -3372,7 +3372,6 @@
           "google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup",
           "google_firestore_index.gcp_gcp_firestore_native_standard_bounded_twin",
           "google_iap_web_cloud_run_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer",
-          "google_iap_web_cloud_run_service_iam_member.gcp_gcp_direct_iap_layer_access",
           "google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics",
           "google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics"
         ],
@@ -3550,7 +3549,7 @@
           "google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected",
           "google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader",
           "google_compute_disk.gcp_gcp_persistent_disk_rwo",
-          "google_iap_web_cloud_run_service_iam_member.gcp_gcp_direct_iap_layer_access",
+          "google_iap_web_cloud_run_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer",
           "kubernetes_deployment_v1.gcp_grafana_oss_12_on_gke",
           "kubernetes_persistent_volume_claim_v1.gcp_gcp_persistent_disk_rwo",
           "kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer",
@@ -7749,7 +7748,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:35718888afd0191e5d8b4283c83c1ddd663ee3e11a232d61b695662bb0547c2b",
+      "source_digest": "sha256:7126632868833a8239371a51730a115cf2cb3ae3548e84b91a93e046c34051f1",
       "included_paths": [
         "Dockerfile",
         "platform/app.py",
@@ -7791,5 +7790,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:514478fa41bed4292e01f3f9fcbb0b71a9d8ff93791379145ddd739017a27e9a"
+  "content_digest": "sha256:05f3f988b03577c266cbef026baaba90134657c964f7e9bbf23ff3209218c2f2"
 }

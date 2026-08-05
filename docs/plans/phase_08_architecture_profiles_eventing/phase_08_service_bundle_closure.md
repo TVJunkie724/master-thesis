@@ -660,6 +660,10 @@ twins/{twin_id}/sources/{source_id}   # current values + last event/sequence
 relationships/{relationship_id}      # from_id, to_id, type
 ```
 
+These are logical paths. The GCP adapter stores each logical ID in the
+document and maps it to a deterministic SHA-256 Firestore document ID, so a
+valid logical ID containing `/` cannot escape its allowlisted collection.
+
 Composite indexes cover only `(from_id, type)` and `(to_id, type)` relationship
 queries. A transaction compares the stored source sequence/event ID before
 updating current state, so duplicate or stale delivery does not create a
@@ -689,7 +693,9 @@ open their provider explorers. GCP deploys one separate read-only Twin
 Explorer Cloud Run service from the same content-addressed image as its L4
 API, with direct IAP for human access. The materializer endpoint remains on
 its workload-identity path; IAP is not placed in front of machine projection
-traffic.
+traffic. The GCP materializer creates the closed seed transaction once under
+an internal revision marker during its startup probe; the Explorer identity
+cannot create or update that content.
 
 ### 4.5 Minimal Storage Movement
 

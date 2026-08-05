@@ -357,6 +357,84 @@ def test_model_and_relationship_projection_variants_are_closed():
         core.validate_twin_projection(invalid)
 
 
+def test_l4_seed_is_deterministic_bounded_and_firestore_path_safe():
+    core = _load("core")
+    devices = [
+        {
+            "id": "building/floor/device-1",
+            "properties": [
+                {"name": "temperature", "dataType": "DOUBLE", "initValue": 21.5}
+            ],
+        },
+        {"id": "device-2", "properties": []},
+    ]
+
+    first = core.build_seed_twin_documents(devices, deployment_id="deployment-1")
+    second = core.build_seed_twin_documents(devices, deployment_id="deployment-1")
+
+    assert first == second
+    assert len(first) == 6
+    assert all(len(path.split("/")) in {2, 4} for path in first)
+    assert any(
+        document.get("twin_id") == "building/floor/device-1"
+        for document in first.values()
+    )
+    assert any(
+        document.get("current_values", {}).get("temperature") == 21.5
+        for document in first.values()
+    )
+
+    fallback = core.build_seed_twin_documents([], deployment_id="deployment-1")
+    assert any(
+        document.get("twin_id") == "poc-device-001"
+        for document in fallback.values()
+    )
+
+
+def test_twin_materializer_is_a_separate_runtime_boundary(monkeypatch):
+    core = _load("core")
+    runtime = _load("app")
+    projection = core.build_twin_projection(
+        core.build_processed_event(
+            _received(core),
+            _extension_response(_received(core)),
+        )
+    )
+    assert projection is not None
+    encoded = base64.b64encode(core.canonical_json(projection).encode()).decode()
+    monkeypatch.setattr(runtime, "_ensure_seeded_twin_content", lambda: False)
+    monkeypatch.setattr(runtime, "_materialize_twin_projection", lambda event: True)
+
+    result = runtime._twin_materializer({"message": {"data": encoded}})
+
+    assert result == {
+        "schema_version": "twin-materializer-result.v1",
+        "accepted": 1,
+        "changed": True,
+    }
+
+
+def test_twin_explorer_is_read_only_bounded_and_escapes_content(monkeypatch):
+    runtime = _load("app")
+    monkeypatch.setenv("RUNTIME_ROLE", "twin-explorer")
+    monkeypatch.setattr(
+        runtime,
+        "_list_twin_collection",
+        lambda collection, limit: (
+            [{"twin_id": '<device&1>'}] if collection == "twins" else []
+        ),
+    )
+    monkeypatch.setattr(runtime, "_twin_detail", lambda twin_id: {"twin": twin_id})
+
+    response = runtime.app.test_client().get("/?twin_id=%3Cdevice%261%3E")
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert "default-src 'none'" in response.headers["content-security-policy"]
+    assert b"&lt;device&amp;1&gt;" in response.data
+    assert b"<device&1>" not in response.data
+
+
 def test_cloud_run_ingress_publishes_one_ordered_canonical_event(monkeypatch):
     core = _load("core")
     runtime = _load("app")

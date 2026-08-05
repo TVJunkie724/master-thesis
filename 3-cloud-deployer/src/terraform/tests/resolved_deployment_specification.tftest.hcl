@@ -394,16 +394,20 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_service) == 1 &&
       length(google_cloud_run_v2_service.gcp_v2_processor_extension) == 1 &&
       length(google_cloud_run_v2_service.gcp_v2_action_sink) == 1 &&
+      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer) == 1 &&
+      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
       length(google_cloud_run_v2_service_iam_member.gcp_v2_action_sink_invoker) == 2 &&
+      length(google_cloud_run_v2_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
+      length(google_iap_web_cloud_run_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
       length(google_workflows_workflow.gcp_gcp_workflows) == 1
     )
-    error_message = "Single-cloud GCP v2 must bind its event adapter, validated processor, action boundary, and workflow."
+    error_message = "Single-cloud GCP v2 must bind its event adapter, validated processor, action boundary, workflow, Twin API, and IAP Explorer."
   }
 
   assert {
     condition = (
       toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["received", "processed", "domain", "command", "failure"]) &&
-      length(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics) == 3
+      length(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics) == 4
     )
     error_message = "Single-cloud GCP v2 must retain separated ordered telemetry, domain, command, and failure channels."
   }
@@ -605,10 +609,14 @@ run "five_layer_v2_gcp_l4_stays_independent_from_aws_l3_l5" {
       length(google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup) == 0 &&
       length(google_firestore_index.gcp_gcp_firestore_native_standard_bounded_twin) == 2 &&
       toset(keys(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter)) == toset(["domain"]) &&
+      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer) == 1 &&
+      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
+      length(google_cloud_run_v2_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
+      length(google_iap_web_cloud_run_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
       toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["domain", "failure"]) &&
-      toset(keys(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["domain"])
+      toset(keys(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["domain", "twin"])
     )
-    error_message = "Independent GCP L4 must create only its shared data database, bounded relationship indexes, and domain materializer path while AWS retains L3/L5."
+    error_message = "Independent GCP L4 must create only its shared data database, bounded relationship indexes, Twin materializer, read-only IAP Explorer, and domain path while AWS retains L3/L5."
   }
 }
 

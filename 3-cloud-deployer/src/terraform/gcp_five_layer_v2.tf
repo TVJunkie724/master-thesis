@@ -107,6 +107,12 @@ locals {
         role  = "domain"
       }
     } : {},
+    local.gcp_v2_l4_enabled ? {
+      twin = {
+        topic = "domain"
+        role  = "twin"
+      }
+    } : {},
   )
   gcp_v2_storage_jobs = merge(
     local.gcp_v2_hot_enabled ? {
@@ -269,6 +275,10 @@ resource "google_service_account" "gcp_v2_runtime" {
     } : {},
     local.gcp_v2_hot_enabled ? { persistence = "persistence" } : {},
     local.gcp_v2_domain_enabled ? { domain = "domain" } : {},
+    local.gcp_v2_l4_enabled ? {
+      twin     = "twin"
+      explorer = "explorer"
+    } : {},
     local.gcp_v2_storage_mover_enabled ? {
       storage   = "storage"
       scheduler = "scheduler"
@@ -553,6 +563,139 @@ resource "google_cloud_run_v2_service" "gcp_v2_action_sink" {
   depends_on = [google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected]
 }
 
+resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_twin_api_materializer" {
+  count               = local.gcp_v2_l4_enabled ? 1 : 0
+  project             = local.gcp_project_id
+  location            = var.gcp_region
+  name                = "${local.gcp_v2_name}-v2-twin-api"
+  description         = "Bounded Five-layer v2 Twin API and materializer"
+  deletion_protection = false
+  ingress             = "INGRESS_TRAFFIC_ALL"
+  labels              = local.gcp_v2_labels
+
+  template {
+    service_account                  = google_service_account.gcp_v2_runtime["twin"].email
+    timeout                          = "30s"
+    max_instance_request_concurrency = 8
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 100
+    }
+
+    containers {
+      image = var.gcp_v2_platform_image
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "512Mi"
+        }
+        cpu_idle = true
+      }
+
+      startup_probe {
+        initial_delay_seconds = 0
+        timeout_seconds       = 3
+        period_seconds        = 5
+        failure_threshold     = 12
+
+        http_get {
+          path = "/healthz"
+          port = 8080
+        }
+      }
+
+      env {
+        name  = "ARCHITECTURE_PROFILE"
+        value = "five-layer-baseline@2"
+      }
+      env {
+        name  = "RUNTIME_ROLE"
+        value = "twin-materializer"
+      }
+      env {
+        name  = "DEPLOYMENT_ID"
+        value = local.deployment_suffix
+      }
+      env {
+        name  = "FIRESTORE_DATABASE"
+        value = google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name
+      }
+      env {
+        name  = "IOT_DEVICES_JSON"
+        value = jsonencode(var.iot_devices)
+      }
+    }
+  }
+
+  depends_on = [
+    google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected,
+    google_firestore_index.gcp_gcp_firestore_native_standard_bounded_twin,
+    google_project_iam_member.gcp_v2_twin_firestore_operator,
+  ]
+}
+
+resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_iap_twin_explorer" {
+  count                = local.gcp_v2_l4_enabled ? 1 : 0
+  project              = local.gcp_project_id
+  location             = var.gcp_region
+  name                 = "${local.gcp_v2_name}-v2-twin-explorer"
+  description          = "Read-only Five-layer v2 Twin Explorer"
+  deletion_protection  = false
+  ingress              = "INGRESS_TRAFFIC_ALL"
+  iap_enabled          = true
+  invoker_iam_disabled = false
+  default_uri_disabled = false
+  labels               = local.gcp_v2_labels
+
+  template {
+    service_account                  = google_service_account.gcp_v2_runtime["explorer"].email
+    timeout                          = "30s"
+    max_instance_request_concurrency = 8
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 3
+    }
+
+    containers {
+      image = var.gcp_v2_platform_image
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "256Mi"
+        }
+        cpu_idle = true
+      }
+
+      env {
+        name  = "ARCHITECTURE_PROFILE"
+        value = "five-layer-baseline@2"
+      }
+      env {
+        name  = "RUNTIME_ROLE"
+        value = "twin-explorer"
+      }
+      env {
+        name  = "DEPLOYMENT_ID"
+        value = local.deployment_suffix
+      }
+      env {
+        name  = "FIRESTORE_DATABASE"
+        value = google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name
+      }
+    }
+  }
+
+  depends_on = [
+    google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected,
+    google_firestore_index.gcp_gcp_firestore_native_standard_bounded_twin,
+    google_project_iam_member.gcp_v2_explorer_firestore_reader,
+  ]
+}
+
 resource "google_cloud_run_v2_service_iam_member" "gcp_v2_processor_extension_invoker" {
   count    = local.gcp_v2_l2_enabled ? 1 : 0
   project  = local.gcp_project_id
@@ -608,6 +751,37 @@ resource "google_cloud_run_v2_service_iam_member" "gcp_v2_workflow_callback_invo
   name     = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["domain"].name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.gcp_v2_runtime["workflow"].email}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "gcp_v2_twin_push_invoker" {
+  count    = local.gcp_v2_l4_enabled ? 1 : 0
+  project  = local.gcp_project_id
+  location = var.gcp_region
+  name     = google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.gcp_v2_runtime["twin"].email}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "gcp_gcp_cloud_run_iap_twin_explorer" {
+  count    = local.gcp_v2_l4_enabled ? 1 : 0
+  project  = local.gcp_project_id
+  location = var.gcp_region
+  name     = google_cloud_run_v2_service.gcp_gcp_cloud_run_iap_twin_explorer[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:service-${data.google_project.gcp_v2_current[0].number}@gcp-sa-iap.iam.gserviceaccount.com"
+
+  depends_on = [google_project_service.gcp_v2_required]
+}
+
+resource "google_iap_web_cloud_run_service_iam_member" "gcp_gcp_cloud_run_iap_twin_explorer" {
+  count                  = local.gcp_v2_l4_enabled ? 1 : 0
+  project                = local.gcp_project_id
+  location               = var.gcp_region
+  cloud_run_service_name = google_cloud_run_v2_service.gcp_gcp_cloud_run_iap_twin_explorer[0].name
+  role                   = "roles/iap.httpsResourceAccessor"
+  member                 = "user:${var.platform_user_email}"
+
+  depends_on = [google_cloud_run_v2_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer]
 }
 
 resource "google_service_account_iam_member" "gcp_v2_pubsub_push_token_creator" {
@@ -667,7 +841,7 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_domain_publishers" {
 }
 
 resource "google_project_iam_member" "gcp_v2_domain_firestore_operator" {
-  count   = local.gcp_v2_domain_enabled && (local.gcp_v2_hot_enabled || local.gcp_v2_l4_enabled) ? 1 : 0
+  count   = local.gcp_v2_domain_enabled && local.gcp_v2_hot_enabled ? 1 : 0
   project = local.gcp_project_id
   role    = "roles/datastore.user"
   member  = "serviceAccount:${google_service_account.gcp_v2_runtime["domain"].email}"
@@ -675,6 +849,40 @@ resource "google_project_iam_member" "gcp_v2_domain_firestore_operator" {
   condition {
     title       = "five-layer-v2-domain-database"
     description = "Limit the domain consumer to the deployment Firestore database"
+    expression = format(
+      "resource.name == %q || resource.name.startsWith(%q)",
+      "projects/${local.gcp_project_id}/databases/${google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name}",
+      "projects/${local.gcp_project_id}/databases/${google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name}/documents/",
+    )
+  }
+}
+
+resource "google_project_iam_member" "gcp_v2_twin_firestore_operator" {
+  count   = local.gcp_v2_l4_enabled ? 1 : 0
+  project = local.gcp_project_id
+  role    = "roles/datastore.user"
+  member  = "serviceAccount:${google_service_account.gcp_v2_runtime["twin"].email}"
+
+  condition {
+    title       = "five-layer-v2-twin-database"
+    description = "Limit the Twin API and materializer to the deployment Firestore database"
+    expression = format(
+      "resource.name == %q || resource.name.startsWith(%q)",
+      "projects/${local.gcp_project_id}/databases/${google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name}",
+      "projects/${local.gcp_project_id}/databases/${google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name}/documents/",
+    )
+  }
+}
+
+resource "google_project_iam_member" "gcp_v2_explorer_firestore_reader" {
+  count   = local.gcp_v2_l4_enabled ? 1 : 0
+  project = local.gcp_project_id
+  role    = "roles/datastore.viewer"
+  member  = "serviceAccount:${google_service_account.gcp_v2_runtime["explorer"].email}"
+
+  condition {
+    title       = "five-layer-v2-explorer-database"
+    description = "Limit the read-only Twin Explorer to the deployment Firestore database"
     expression = format(
       "resource.name == %q || resource.name.startsWith(%q)",
       "projects/${local.gcp_project_id}/databases/${google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name}",
@@ -716,6 +924,8 @@ resource "google_pubsub_subscription" "gcp_gcp_pubsub_separated_embedded_topics"
     push_endpoint = (
       each.key == "processor"
       ? google_cloud_run_v2_service.gcp_gcp_cloud_run_service[0].uri
+      : each.key == "twin"
+      ? google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer[0].uri
       : google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter[each.key].uri
     )
     oidc_token {
@@ -723,6 +933,8 @@ resource "google_pubsub_subscription" "gcp_gcp_pubsub_separated_embedded_topics"
       audience = (
         each.key == "processor"
         ? google_cloud_run_v2_service.gcp_gcp_cloud_run_service[0].uri
+        : each.key == "twin"
+        ? google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer[0].uri
         : google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter[each.key].uri
       )
     }
@@ -742,10 +954,13 @@ resource "google_pubsub_subscription" "gcp_gcp_pubsub_separated_embedded_topics"
     google_cloud_run_v2_service_iam_member.gcp_v2_processor_push_invoker,
     google_cloud_run_v2_service_iam_member.gcp_v2_persistence_push_invoker,
     google_cloud_run_v2_service_iam_member.gcp_v2_domain_push_invoker,
+    google_cloud_run_v2_service_iam_member.gcp_v2_twin_push_invoker,
     google_pubsub_topic_iam_member.gcp_v2_persistence_domain_publisher,
     google_pubsub_topic_iam_member.gcp_v2_domain_publishers,
     google_project_iam_member.gcp_v2_persistence_firestore_writer,
     google_project_iam_member.gcp_v2_domain_firestore_operator,
+    google_project_iam_member.gcp_v2_twin_firestore_operator,
+    google_project_iam_member.gcp_v2_explorer_firestore_reader,
     google_project_iam_member.gcp_v2_domain_workflow_invoker,
     google_service_account_iam_member.gcp_v2_pubsub_push_token_creator,
   ]
@@ -1184,4 +1399,19 @@ resource "google_workflows_workflow" "gcp_gcp_workflows" {
     google_cloud_run_v2_service_iam_member.gcp_v2_workflow_callback_invoker,
     google_project_service.gcp_v2_required,
   ]
+}
+
+output "gcp_component_twin_state_output" {
+  description = "Safe Five-layer v2 GCP L4 browser access and deterministic content evidence"
+  value = local.gcp_v2_l4_enabled ? {
+    service                 = "Cloud Run Twin API + read-only IAP Twin Explorer"
+    materializer_service_id = google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer[0].id
+    explorer_url            = google_cloud_run_v2_service.gcp_gcp_cloud_run_iap_twin_explorer[0].uri
+    principal_label         = var.platform_user_email
+    authentication          = "Google Identity-Aware Proxy"
+    capabilities            = ["models", "twins", "current-source-state", "direct-relationships"]
+    limitations             = ["read-only", "bounded-queries", "no-scenes", "no-raw-telemetry"]
+    seed_revision           = "gcp-l4-seed.v1"
+    seed_input_digest       = sha256(jsonencode(var.iot_devices))
+  } : null
 }
