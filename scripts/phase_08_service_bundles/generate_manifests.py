@@ -51,7 +51,11 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
     "aws.s3-event-failure-store": ["aws_s3_bucket"],
     "azure.iot-hub": ["azurerm_iothub"],
     "azure.functions-flex-consumption": ["azurerm_function_app_flex_consumption"],
-    "azure.logic-apps-consumption": ["azurerm_logic_app_workflow"],
+    "azure.logic-apps-consumption": [
+        "azurerm_logic_app_workflow",
+        "azurerm_logic_app_trigger_http_request",
+        "azurerm_logic_app_action_custom",
+    ],
     "azure.cosmos-db-nosql-raw-and-rollup": [
         "azurerm_cosmosdb_account",
         "azurerm_cosmosdb_sql_database",

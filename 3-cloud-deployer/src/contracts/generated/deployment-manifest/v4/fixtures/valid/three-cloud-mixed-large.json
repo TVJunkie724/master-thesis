@@ -37,7 +37,7 @@
     "layer_5_provider": "gcp"
   },
   "calculation_run_id": "bb7ddd5f-930c-5028-87a8-067b716d805f",
-  "resolved_twin_architecture_digest": "sha256:860812d8f2fb13d173e65603a6bd21dc315b021188c25763084e52349fe9e329",
+  "resolved_twin_architecture_digest": "sha256:a3a1fb729b4d479ee84970fa263fb49b5a350bd52cf027f94b7f6949325bce82",
   "resolved_twin_architecture": {
     "schema_version": "resolved-twin-architecture.v2",
     "resolution_status": "offline_contract_fixture",
@@ -643,7 +643,7 @@
     ],
     "deployment_specification_ref": {
       "schema_version": "resolved-deployment-specification.v2",
-      "digest": "sha256:a3a44ce993e853b59652b6d891a359a6a31aa1568e62bf4040201ec08104513c",
+      "digest": "sha256:b3b25cdb4f8a08fe22f6662ee4f8a7c3f7c97f91f9b7d6dd56e52a10819adf2d",
       "calculation_run_id": "bb7ddd5f-930c-5028-87a8-067b716d805f"
     },
     "cost_summary": {
@@ -757,11 +757,11 @@
       "provider_extra_capability_ids": [],
       "missing_capability_ids": [],
       "validator_version": "2",
-      "validation_digest": "sha256:fcf02b7af1533e1f33ec6cadbafd0f7b235a93c9656c894b4e472774bdf65bd3"
+      "validation_digest": "sha256:5f59d064584c7ef344626221d732f90081748c81696833b2b64ce9a82ad09bd8"
     },
-    "content_digest": "sha256:860812d8f2fb13d173e65603a6bd21dc315b021188c25763084e52349fe9e329"
+    "content_digest": "sha256:a3a1fb729b4d479ee84970fa263fb49b5a350bd52cf027f94b7f6949325bce82"
   },
-  "resolved_deployment_specification_digest": "sha256:a3a44ce993e853b59652b6d891a359a6a31aa1568e62bf4040201ec08104513c",
+  "resolved_deployment_specification_digest": "sha256:b3b25cdb4f8a08fe22f6662ee4f8a7c3f7c97f91f9b7d6dd56e52a10819adf2d",
   "resolved_deployment_specification": {
     "schema_version": "resolved-deployment-specification.v2",
     "calculation_run_id": "bb7ddd5f-930c-5028-87a8-067b716d805f",
@@ -774,12 +774,12 @@
       "service_decision_ref": {
         "id": "phase-08-complete-service-bundles",
         "version": "1",
-        "digest": "sha256:6404a4190b3342ec267be33ec1e86626152fde612287a2b7354a576248d9cd84"
+        "digest": "sha256:aec13fde178fb9bc4ba9943b206d0aa7e2a7d60aeb685d4076c83c6492e2515a"
       },
       "component_catalog_ref": {
         "id": "complete-service-component-catalog",
         "version": "1",
-        "digest": "sha256:d9e5ee1dd0106d0cfd6f4403e33f4ef7cf5009379aeaeed2d98867d505965236"
+        "digest": "sha256:ba4d2fec6267e8c63efa33cd4389483e812c56acfc6e1507ea743765ea826137"
       },
       "workload_ref": {
         "id": "five-layer-workload",
@@ -955,7 +955,7 @@
         "architecture_assignment_id": "assignment.processing",
         "logical_component_id": "component.processing",
         "implementation_component_id": "azure.logic-apps-consumption",
-        "implementation_component_digest": "sha256:737c5e0f7f6fb0d1e1f8a4184f782e7f0e27eb4a293c5ac8bc6a2bfce2cbe128",
+        "implementation_component_digest": "sha256:42eac9875f9db4209cfd05089d8a91d4c34e73a3ac456d0f752d87541c031d97",
         "provider": "azure",
         "region": "westeurope",
         "required": true,
@@ -3425,7 +3425,7 @@
         "compatibility_version": "1"
       }
     ],
-    "digest": "sha256:a3a44ce993e853b59652b6d891a359a6a31aa1568e62bf4040201ec08104513c"
+    "digest": "sha256:b3b25cdb4f8a08fe22f6662ee4f8a7c3f7c97f91f9b7d6dd56e52a10819adf2d"
   },
   "credentials": {
     "providers": [
@@ -3444,7 +3444,7 @@
     "component_catalog_ref": {
       "id": "complete-service-component-catalog",
       "version": "1",
-      "digest": "sha256:d9e5ee1dd0106d0cfd6f4403e33f4ef7cf5009379aeaeed2d98867d505965236"
+      "digest": "sha256:ba4d2fec6267e8c63efa33cd4389483e812c56acfc6e1507ea743765ea826137"
     },
     "graph_resolver_version": "resolved-deployment-graph.v1",
     "package_builder_version": "graph-package-builder.v1",

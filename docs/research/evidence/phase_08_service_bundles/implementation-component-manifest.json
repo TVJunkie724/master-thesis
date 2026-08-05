@@ -1964,7 +1964,9 @@
         "six-layer-eventing@1"
       ],
       "terraform_resource_types": [
-        "azurerm_logic_app_workflow"
+        "azurerm_logic_app_workflow",
+        "azurerm_logic_app_trigger_http_request",
+        "azurerm_logic_app_action_custom"
       ],
       "post_terraform_operations": [],
       "runtime_state": "decision_frozen_not_implemented",

@@ -3,7 +3,7 @@
   "package_ref": {
     "id": "phase-08-complete-service-bundles",
     "version": "1",
-    "digest": "sha256:6404a4190b3342ec267be33ec1e86626152fde612287a2b7354a576248d9cd84"
+    "digest": "sha256:aec13fde178fb9bc4ba9943b206d0aa7e2a7d60aeb685d4076c83c6492e2515a"
   },
   "capacity_evidence_digest": "sha256:1ab9763320a3cf615b3d24610832f4b72bf2920cd2286f2d51202376fd44120c",
   "pricing_ownership_digest": "sha256:18dc8a5f4ebbf64c176c2891eeaa5e6ef660595df303ac74da6f9c03f4a63b01",
@@ -1082,7 +1082,7 @@
     },
     {
       "component_id": "azure.logic-apps-consumption",
-      "component_digest": "sha256:737c5e0f7f6fb0d1e1f8a4184f782e7f0e27eb4a293c5ac8bc6a2bfce2cbe128",
+      "component_digest": "sha256:42eac9875f9db4209cfd05089d8a91d4c34e73a3ac456d0f752d87541c031d97",
       "provider": "azure",
       "responsibilities": [
         "l2_processing"
@@ -1902,5 +1902,5 @@
       "deduplication_key": "domain_event_cross_cloud::gcp->azure"
     }
   ],
-  "content_digest": "sha256:3eacdff70d0d3ee103103946b0ad2aaa0908c7d88d5e0ae717af9045acb27dc2"
+  "content_digest": "sha256:991866ce5c52d4ed45d4193d11c571923b5b947e201b76994e783ea7468ec3b2"
 }

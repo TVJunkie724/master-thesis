@@ -1417,6 +1417,8 @@
           "azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption",
           "azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter",
           "azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace",
+          "azurerm_logic_app_action_custom.azure_azure_logic_apps_consumption",
+          "azurerm_logic_app_trigger_http_request.azure_azure_logic_apps_consumption",
           "azurerm_logic_app_workflow.azure_azure_logic_apps_consumption",
           "azurerm_monitor_diagnostic_setting.azure_azure_monitor",
           "azurerm_servicebus_namespace.azure_azure_service_bus_standard",
@@ -7691,7 +7693,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2",
       "platform_handler": "handler.azure.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:a1eb7fcafed8e26da5c5cd72e6dd37efc9277cfdfef4518087a2eb668ada66c3",
+      "source_digest": "sha256:e48d99c7e02c4bd8df535913918e8ee7c91ec87d9334c091b531d3f2b24ea44c",
       "included_paths": [
         "core.py",
         "function_app.py",
@@ -7746,7 +7748,7 @@
       "repository_source_path": "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:34bbb5b3788c41310e9610b0db4d96824a651b05831400e0a32e8e4e5cfab076",
+      "source_digest": "sha256:6fa91107f1366c35f71177aff3216c1051c1ae73075b25edc5be743455e6326f",
       "included_paths": [
         "implementation-component-manifest.json"
       ],
@@ -7784,5 +7786,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:d9e5ee1dd0106d0cfd6f4403e33f4ef7cf5009379aeaeed2d98867d505965236"
+  "content_digest": "sha256:ba4d2fec6267e8c63efa33cd4389483e812c56acfc6e1507ea743765ea826137"
 }
