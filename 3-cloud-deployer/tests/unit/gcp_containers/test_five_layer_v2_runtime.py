@@ -435,6 +435,117 @@ def test_twin_explorer_is_read_only_bounded_and_escapes_content(monkeypatch):
     assert b"<device&1>" not in response.data
 
 
+def test_raw_history_query_cursor_and_points_are_closed():
+    core = _load("core")
+    params = {
+        "device_id": "device-1",
+        "metric": "temperature",
+        "from": "2026-08-05T00:00:00Z",
+        "to": "2026-08-05T01:00:00Z",
+        "bucket_seconds": "0",
+        "limit": "10",
+    }
+    query, start, end = core.parse_raw_history_query(params)
+    query_digest = core.raw_history_query_digest(query, start, end)
+    now = datetime(2026, 8, 5, 1, 0, tzinfo=timezone.utc)
+    cursor = core.encode_history_cursor(
+        {
+            "kind": "raw",
+            "shards": {
+                "0": {
+                    "stored_at": "2026-08-05T00:10:00Z",
+                    "document_id": "document-1",
+                }
+            },
+        },
+        hmac_key="c" * 32,
+        query_digest=query_digest,
+        deployment_id="deployment-1",
+        now=now,
+    )
+
+    decoded = core.decode_history_cursor(
+        cursor,
+        hmac_key="c" * 32,
+        query_digest=query_digest,
+        deployment_id="deployment-1",
+        now=now,
+    )
+    assert decoded["kind"] == "raw"
+    with pytest.raises(core.ContractError, match="INVALID_CURSOR"):
+        core.decode_history_cursor(
+            cursor,
+            hmac_key="c" * 32,
+            query_digest=query_digest,
+            deployment_id="other-deployment",
+            now=now,
+        )
+
+    points = core.normalize_history_points(
+        [
+            {
+                "stored_at": "2026-08-05T00:10:00Z",
+                "event_time": "2026-08-05T00:09:59Z",
+                "value": 21.5,
+            }
+        ],
+        0,
+    )
+    assert points == [
+        {
+            "stored_at": "2026-08-05T00:10:00.000000Z",
+            "event_time": "2026-08-05T00:09:59.000000Z",
+            "value": 21.5,
+        }
+    ]
+
+
+def test_raw_history_reader_uses_hashed_deployment_key_and_closed_response(monkeypatch):
+    runtime = _load("app")
+    reader_key = "reader-secret"
+    monkeypatch.setenv("RUNTIME_ROLE", "raw-history-reader")
+    monkeypatch.setenv(
+        "READER_KEY_SHA256", hashlib.sha256(reader_key.encode()).hexdigest()
+    )
+    monkeypatch.setattr(
+        runtime,
+        "_read_raw_history",
+        lambda params: {
+            "schema_version": "raw-history-query.v1",
+            "device_id": params["device_id"],
+            "metric": params["metric"],
+            "points": [],
+            "next_cursor": None,
+            "truncated": False,
+            "correlation_id": "correlation-1",
+        },
+    )
+    path = (
+        "/raw-history/v1?device_id=device-1&metric=temperature"
+        "&from=2026-08-05T00:00:00Z&to=2026-08-05T01:00:00Z"
+    )
+
+    unauthorized = runtime.app.test_client().get(path)
+    accepted = runtime.app.test_client().get(
+        path,
+        headers={"x-twin2multicloud-reader-key": reader_key},
+    )
+
+    assert unauthorized.status_code == 401
+    assert unauthorized.get_json()["code"] == "READER_UNAUTHORIZED"
+    assert accepted.status_code == 200
+    assert set(accepted.get_json()) == {
+        "schema_version",
+        "device_id",
+        "metric",
+        "points",
+        "next_cursor",
+        "truncated",
+        "correlation_id",
+    }
+    assert accepted.headers["cache-control"] == "no-store"
+
+
 def test_cloud_run_ingress_publishes_one_ordered_canonical_event(monkeypatch):
     core = _load("core")
     runtime = _load("app")

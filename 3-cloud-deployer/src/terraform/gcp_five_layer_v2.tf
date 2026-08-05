@@ -279,6 +279,7 @@ resource "google_service_account" "gcp_v2_runtime" {
       twin     = "twin"
       explorer = "explorer"
     } : {},
+    local.gcp_v2_l5_enabled ? { reader = "reader" } : {},
     local.gcp_v2_storage_mover_enabled ? {
       storage   = "storage"
       scheduler = "scheduler"
@@ -696,6 +697,89 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_iap_twin_explorer" {
   ]
 }
 
+resource "random_password" "gcp_v2_raw_history_reader_key" {
+  count   = local.gcp_v2_l5_enabled ? 1 : 0
+  length  = 48
+  special = false
+}
+
+resource "random_password" "gcp_v2_raw_history_cursor_hmac" {
+  count   = local.gcp_v2_l5_enabled ? 1 : 0
+  length  = 64
+  special = false
+}
+
+resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_raw_history_reader" {
+  count                = local.gcp_v2_l5_enabled ? 1 : 0
+  project              = local.gcp_project_id
+  location             = var.gcp_region
+  name                 = "${local.gcp_v2_name}-v2-raw-history"
+  description          = "Typed and bounded Five-layer v2 Firestore history reader"
+  deletion_protection  = false
+  ingress              = "INGRESS_TRAFFIC_ALL"
+  invoker_iam_disabled = true
+  default_uri_disabled = false
+  labels               = local.gcp_v2_labels
+
+  template {
+    service_account                  = google_service_account.gcp_v2_runtime["reader"].email
+    timeout                          = "15s"
+    max_instance_request_concurrency = 8
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 100
+    }
+
+    containers {
+      image = var.gcp_v2_platform_image
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "512Mi"
+        }
+        cpu_idle = true
+      }
+
+      env {
+        name  = "ARCHITECTURE_PROFILE"
+        value = "five-layer-baseline@2"
+      }
+      env {
+        name  = "RUNTIME_ROLE"
+        value = "raw-history-reader"
+      }
+      env {
+        name  = "DEPLOYMENT_ID"
+        value = local.deployment_suffix
+      }
+      env {
+        name  = "FIRESTORE_DATABASE"
+        value = google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name
+      }
+      env {
+        name  = "TIMESTAMP_SHARDS"
+        value = tostring(local.gcp_v2_timestamp_shards)
+      }
+      env {
+        name  = "READER_KEY_SHA256"
+        value = sha256(random_password.gcp_v2_raw_history_reader_key[0].result)
+      }
+      env {
+        name  = "CURSOR_HMAC_KEY"
+        value = random_password.gcp_v2_raw_history_cursor_hmac[0].result
+      }
+    }
+  }
+
+  depends_on = [
+    google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected,
+    google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup,
+    google_project_iam_member.gcp_v2_reader_firestore_reader,
+  ]
+}
+
 resource "google_cloud_run_v2_service_iam_member" "gcp_v2_processor_extension_invoker" {
   count    = local.gcp_v2_l2_enabled ? 1 : 0
   project  = local.gcp_project_id
@@ -883,6 +967,23 @@ resource "google_project_iam_member" "gcp_v2_explorer_firestore_reader" {
   condition {
     title       = "five-layer-v2-explorer-database"
     description = "Limit the read-only Twin Explorer to the deployment Firestore database"
+    expression = format(
+      "resource.name == %q || resource.name.startsWith(%q)",
+      "projects/${local.gcp_project_id}/databases/${google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name}",
+      "projects/${local.gcp_project_id}/databases/${google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name}/documents/",
+    )
+  }
+}
+
+resource "google_project_iam_member" "gcp_v2_reader_firestore_reader" {
+  count   = local.gcp_v2_l5_enabled ? 1 : 0
+  project = local.gcp_project_id
+  role    = "roles/datastore.viewer"
+  member  = "serviceAccount:${google_service_account.gcp_v2_runtime["reader"].email}"
+
+  condition {
+    title       = "five-layer-v2-history-database"
+    description = "Limit the typed raw-history reader to the deployment Firestore database"
     expression = format(
       "resource.name == %q || resource.name.startsWith(%q)",
       "projects/${local.gcp_project_id}/databases/${google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name}",

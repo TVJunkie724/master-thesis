@@ -396,6 +396,7 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
       length(google_cloud_run_v2_service.gcp_v2_action_sink) == 1 &&
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer) == 1 &&
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
+      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader) == 1 &&
       length(google_cloud_run_v2_service_iam_member.gcp_v2_action_sink_invoker) == 2 &&
       length(google_cloud_run_v2_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
       length(google_iap_web_cloud_run_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
@@ -611,6 +612,7 @@ run "five_layer_v2_gcp_l4_stays_independent_from_aws_l3_l5" {
       toset(keys(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter)) == toset(["domain"]) &&
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer) == 1 &&
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
+      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader) == 0 &&
       length(google_cloud_run_v2_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
       length(google_iap_web_cloud_run_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
       toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["domain", "failure"]) &&

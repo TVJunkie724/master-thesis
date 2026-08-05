@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import base64
 from datetime import datetime, timedelta, timezone
 import hashlib
+import hmac
 import json
 import math
 import re
@@ -16,6 +18,14 @@ MAX_EVENT_BYTES = 256 * 1024
 MAX_RULES = 100
 MAX_TWIN_ENTITIES = 100
 MAX_JSON_SAFE_INTEGER = 9_007_199_254_740_991
+MAX_HISTORY_POINTS = 1000
+MAX_CURSOR_BYTES = 16 * 1024
+MAX_RAW_RANGE = timedelta(hours=24)
+MAX_AGGREGATE_RANGE = timedelta(days=30)
+CURSOR_MAX_AGE = timedelta(minutes=15)
+QUERY_PARAMETER_FIELDS = frozenset(
+    {"device_id", "metric", "from", "to", "bucket_seconds", "limit", "cursor"}
+)
 CONDITION_PATTERN = re.compile(r"^\s*(\S+)\s*(<=|>=|==|!=|<|>)\s*(\S+)\s*$")
 
 EVENT_TELEMETRY_RECEIVED = "telemetry.received.v1"
@@ -568,6 +578,182 @@ def firestore_document_id(value: object, *, code: str) -> str:
 
     logical_id = required_text(value, code=code)
     return hashlib.sha256(logical_id.encode("utf-8")).hexdigest()
+
+
+def parse_raw_history_query(
+    params: Mapping[str, Any],
+) -> tuple[dict[str, Any], datetime, datetime]:
+    """Validate the closed and bounded raw-history request."""
+
+    if not isinstance(params, Mapping) or set(params) - QUERY_PARAMETER_FIELDS:
+        raise ContractError("INVALID_QUERY")
+    device_id = required_text(params.get("device_id"), code="INVALID_DEVICE_ID")
+    metric = required_text(params.get("metric"), code="INVALID_METRIC")
+    start = parse_time(params.get("from"))
+    end = parse_time(params.get("to"))
+    if start >= end:
+        raise ContractError("INVALID_TIME_RANGE")
+    try:
+        bucket_seconds = int(params.get("bucket_seconds", "0"))
+        limit = int(params.get("limit", str(MAX_HISTORY_POINTS)))
+    except (TypeError, ValueError) as exc:
+        raise ContractError("INVALID_QUERY") from exc
+    if bucket_seconds not in {0, 3600} or not 1 <= limit <= MAX_HISTORY_POINTS:
+        raise ContractError("INVALID_QUERY")
+    maximum_range = MAX_RAW_RANGE if bucket_seconds == 0 else MAX_AGGREGATE_RANGE
+    if end - start > maximum_range:
+        raise ContractError("QUERY_RANGE_EXCEEDED")
+    cursor = params.get("cursor")
+    if cursor not in (None, "") and not isinstance(cursor, str):
+        raise ContractError("INVALID_CURSOR")
+    return (
+        {
+            "device_id": device_id,
+            "metric": metric,
+            "bucket_seconds": bucket_seconds,
+            "limit": limit,
+            "cursor": cursor,
+        },
+        start,
+        end,
+    )
+
+
+def raw_history_query_digest(
+    query: Mapping[str, Any], start: datetime, end: datetime
+) -> str:
+    value = {
+        **query,
+        "cursor": None,
+        "from": iso_time(start),
+        "to": iso_time(end),
+    }
+    return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
+
+
+def _cursor_key(value: str) -> bytes:
+    if not isinstance(value, str) or len(value.encode("utf-8")) < 32:
+        raise ContractError("READER_NOT_PROVISIONED", 503)
+    return value.encode("utf-8")
+
+
+def encode_history_cursor(
+    state: Mapping[str, Any],
+    *,
+    hmac_key: str,
+    query_digest: str,
+    deployment_id: str,
+    now: datetime | None = None,
+) -> str:
+    if not isinstance(state, Mapping) or not state:
+        raise ContractError("INVALID_CURSOR")
+    current = now or datetime.now(timezone.utc)
+    payload = {
+        "profile": PROFILE,
+        "provider": "gcp",
+        "deployment": required_text(deployment_id, code="INVALID_DEPLOYMENT_ID"),
+        "query": query_digest,
+        "expires_at": int((current + CURSOR_MAX_AGE).timestamp()),
+        "state": dict(state),
+    }
+    encoded = (
+        base64.urlsafe_b64encode(canonical_json(payload).encode("utf-8"))
+        .decode("ascii")
+        .rstrip("=")
+    )
+    signature = hmac.new(
+        _cursor_key(hmac_key), encoded.encode("ascii"), hashlib.sha256
+    ).hexdigest()
+    value = f"{encoded}.{signature}"
+    if len(value.encode("utf-8")) > MAX_CURSOR_BYTES:
+        raise ContractError("INVALID_CURSOR")
+    return value
+
+
+def decode_history_cursor(
+    value: Any,
+    *,
+    hmac_key: str,
+    query_digest: str,
+    deployment_id: str,
+    now: datetime | None = None,
+) -> dict[str, Any] | None:
+    if value in (None, ""):
+        return None
+    if (
+        not isinstance(value, str)
+        or len(value.encode("utf-8")) > MAX_CURSOR_BYTES
+        or "." not in value
+    ):
+        raise ContractError("INVALID_CURSOR")
+    encoded, signature = value.split(".", 1)
+    expected = hmac.new(
+        _cursor_key(hmac_key), encoded.encode("ascii"), hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(signature, expected):
+        raise ContractError("INVALID_CURSOR")
+    try:
+        padding = "=" * (-len(encoded) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(encoded + padding))
+    except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ContractError("INVALID_CURSOR") from exc
+    if not isinstance(payload, Mapping):
+        raise ContractError("INVALID_CURSOR")
+    if (
+        payload.get("profile") != PROFILE
+        or payload.get("provider") != "gcp"
+        or payload.get("deployment") != deployment_id
+        or payload.get("query") != query_digest
+    ):
+        raise ContractError("INVALID_CURSOR")
+    current = now or datetime.now(timezone.utc)
+    if int(payload.get("expires_at", 0)) < int(current.timestamp()):
+        raise ContractError("CURSOR_EXPIRED")
+    state = payload.get("state")
+    if not isinstance(state, dict) or not state:
+        raise ContractError("INVALID_CURSOR")
+    return state
+
+
+def normalize_history_points(
+    documents: list[Mapping[str, Any]], bucket_seconds: int
+) -> list[dict[str, Any]]:
+    points: list[dict[str, Any]] = []
+
+    def normalized_time(value: Any) -> str:
+        return iso_time(value) if isinstance(value, datetime) else iso_time(parse_time(value))
+
+    if bucket_seconds == 0:
+        for item in documents:
+            points.append(
+                {
+                    "stored_at": normalized_time(item.get("stored_at")),
+                    "event_time": normalized_time(item.get("event_time")),
+                    "value": finite_number(item.get("value")),
+                }
+            )
+        return points
+    if bucket_seconds != 3600:
+        raise ContractError("INVALID_QUERY")
+    for item in documents:
+        count = item.get("count")
+        if (
+            isinstance(count, bool)
+            or not isinstance(count, int)
+            or not 1 <= count <= MAX_JSON_SAFE_INTEGER
+        ):
+            raise ContractError("INVALID_HISTORY_RECORD", 503)
+        total = finite_number(item.get("sum"))
+        points.append(
+            {
+                "bucket_start": normalized_time(item.get("bucket_start")),
+                "min": finite_number(item.get("min")),
+                "max": finite_number(item.get("max")),
+                "avg": finite_number(total / count),
+                "count": count,
+            }
+        )
+    return points
 
 
 def build_match_dispatch_events(

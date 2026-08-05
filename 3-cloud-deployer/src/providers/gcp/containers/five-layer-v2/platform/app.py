@@ -5,12 +5,15 @@ from __future__ import annotations
 import base64
 from datetime import datetime, timezone
 import hashlib
+import hmac
 import html
 import json
 import logging
 import os
+import time
 from typing import Any, Mapping
 from urllib.parse import quote
+import uuid
 
 from flask import Flask, Response, jsonify, request
 from google.auth.transport.requests import Request as GoogleAuthRequest
@@ -610,6 +613,219 @@ def _model_detail(model_id: str) -> dict[str, Any]:
     }
 
 
+def _verify_reader_key() -> None:
+    expected = os.environ.get("READER_KEY_SHA256", "")
+    supplied = request.headers.get("x-twin2multicloud-reader-key", "")
+    if len(expected) != 64 or any(character not in "0123456789abcdef" for character in expected):
+        raise core.ContractError("READER_NOT_PROVISIONED", 503)
+    actual = hashlib.sha256(supplied.encode("utf-8")).hexdigest()
+    if not hmac.compare_digest(actual, expected):
+        raise core.ContractError("READER_UNAUTHORIZED", 401)
+
+
+def _history_deadline_timeout(deadline: float) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise core.ContractError("READER_TIMEOUT", 503)
+    return remaining
+
+
+def _cursor_position(value: object, *, key: str) -> tuple[datetime, str] | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping) or set(value) != {key, "document_id"}:
+        raise core.ContractError("INVALID_CURSOR")
+    return (
+        core.parse_time(value.get(key)),
+        core.required_text(value.get("document_id"), code="INVALID_CURSOR"),
+    )
+
+
+def _raw_history_documents(
+    query: Mapping[str, Any],
+    start: datetime,
+    end: datetime,
+    cursor_state: Mapping[str, Any] | None,
+    *,
+    deadline: float,
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None, bool]:
+    try:
+        shard_count = int(os.environ.get("TIMESTAMP_SHARDS", "1"))
+    except ValueError as exc:
+        raise core.ContractError("HOT_STORAGE_NOT_CONFIGURED", 503) from exc
+    if shard_count not in {1, 16}:
+        raise core.ContractError("HOT_STORAGE_NOT_CONFIGURED", 503)
+    if cursor_state is not None and (
+        set(cursor_state) != {"kind", "shards"}
+        or cursor_state.get("kind") != "raw"
+        or not isinstance(cursor_state.get("shards"), Mapping)
+    ):
+        raise core.ContractError("INVALID_CURSOR")
+    previous = dict((cursor_state or {}).get("shards") or {})
+    if set(previous) - {str(shard) for shard in range(shard_count)}:
+        raise core.ContractError("INVALID_CURSOR")
+    collection = _database().collection("telemetry")
+    candidates: list[dict[str, Any]] = []
+    for shard in range(shard_count):
+        history_query = (
+            collection.where(filter=FieldFilter("device_id", "==", query["device_id"]))
+            .where(filter=FieldFilter("metric", "==", query["metric"]))
+            .where(filter=FieldFilter("timestamp_shard", "==", shard))
+            .where(filter=FieldFilter("stored_at", ">=", start))
+            .where(filter=FieldFilter("stored_at", "<=", end))
+            .select(["stored_at", "event_time", "value", "timestamp_shard"])
+            .order_by("stored_at")
+            .order_by("__name__")
+        )
+        position = _cursor_position(previous.get(str(shard)), key="stored_at")
+        if position is not None:
+            stored_at, document_id = position
+            history_query = history_query.start_after(
+                {
+                    "stored_at": stored_at,
+                    "__name__": collection.document(document_id),
+                }
+            )
+        snapshots = history_query.limit(int(query["limit"]) + 1).stream(
+            timeout=_history_deadline_timeout(deadline)
+        )
+        for snapshot in snapshots:
+            document = _snapshot_document(snapshot)
+            stored_at = core.parse_time(document.get("stored_at"))
+            candidates.append(
+                {
+                    **document,
+                    "_document_id": snapshot.id,
+                    "_shard": shard,
+                    "_sort_time": stored_at,
+                }
+            )
+        _history_deadline_timeout(deadline)
+    candidates.sort(key=lambda item: (item["_sort_time"], item["_document_id"]))
+    selected = candidates[: int(query["limit"])]
+    has_more = len(candidates) > len(selected)
+    next_shards = previous
+    for item in selected:
+        next_shards[str(item["_shard"])] = {
+            "stored_at": core.iso_time(item["_sort_time"]),
+            "document_id": item["_document_id"],
+        }
+    documents = [
+        {
+            key: value
+            for key, value in item.items()
+            if not key.startswith("_")
+        }
+        for item in selected
+    ]
+    return documents, ({"kind": "raw", "shards": next_shards} if has_more else None), has_more
+
+
+def _aggregate_history_documents(
+    query: Mapping[str, Any],
+    start: datetime,
+    end: datetime,
+    cursor_state: Mapping[str, Any] | None,
+    *,
+    deadline: float,
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None, bool]:
+    if cursor_state is not None and (
+        set(cursor_state) != {"kind", "last"}
+        or cursor_state.get("kind") != "aggregate"
+    ):
+        raise core.ContractError("INVALID_CURSOR")
+    collection = _database().collection("hourly_rollups")
+    history_query = (
+        collection.where(filter=FieldFilter("device_id", "==", query["device_id"]))
+        .where(filter=FieldFilter("metric", "==", query["metric"]))
+        .where(filter=FieldFilter("bucket_start", ">=", start))
+        .where(filter=FieldFilter("bucket_start", "<=", end))
+        .select(["bucket_start", "min", "max", "sum", "count"])
+        .order_by("bucket_start")
+        .order_by("__name__")
+    )
+    position = _cursor_position(
+        (cursor_state or {}).get("last"), key="bucket_start"
+    )
+    if position is not None:
+        bucket_start, document_id = position
+        history_query = history_query.start_after(
+            {
+                "bucket_start": bucket_start,
+                "__name__": collection.document(document_id),
+            }
+        )
+    snapshots = list(
+        history_query.limit(int(query["limit"]) + 1).stream(
+            timeout=_history_deadline_timeout(deadline)
+        )
+    )
+    _history_deadline_timeout(deadline)
+    selected = snapshots[: int(query["limit"])]
+    has_more = len(snapshots) > len(selected)
+    documents = [_snapshot_document(snapshot) for snapshot in selected]
+    next_state = None
+    if has_more and selected:
+        final = documents[-1]
+        next_state = {
+            "kind": "aggregate",
+            "last": {
+                "bucket_start": core.iso_time(
+                    core.parse_time(final.get("bucket_start"))
+                ),
+                "document_id": selected[-1].id,
+            },
+        }
+    return documents, next_state, has_more
+
+
+def _read_raw_history(params: Mapping[str, Any]) -> dict[str, Any]:
+    query, start, end = core.parse_raw_history_query(params)
+    deployment_id = core.required_text(
+        os.environ.get("DEPLOYMENT_ID"), code="READER_NOT_PROVISIONED"
+    )
+    cursor_hmac_key = os.environ.get("CURSOR_HMAC_KEY", "")
+    if len(cursor_hmac_key.encode("utf-8")) < 32:
+        raise core.ContractError("READER_NOT_PROVISIONED", 503)
+    query_digest = core.raw_history_query_digest(query, start, end)
+    cursor_state = core.decode_history_cursor(
+        query["cursor"],
+        hmac_key=cursor_hmac_key,
+        query_digest=query_digest,
+        deployment_id=deployment_id,
+    )
+    deadline = time.monotonic() + 10
+    if query["bucket_seconds"] == 0:
+        documents, next_state, truncated = _raw_history_documents(
+            query, start, end, cursor_state, deadline=deadline
+        )
+    else:
+        documents, next_state, truncated = _aggregate_history_documents(
+            query, start, end, cursor_state, deadline=deadline
+        )
+    next_cursor = (
+        core.encode_history_cursor(
+            next_state,
+            hmac_key=cursor_hmac_key,
+            query_digest=query_digest,
+            deployment_id=deployment_id,
+        )
+        if next_state is not None
+        else None
+    )
+    return {
+        "schema_version": "raw-history-query.v1",
+        "device_id": query["device_id"],
+        "metric": query["metric"],
+        "points": core.normalize_history_points(
+            documents, int(query["bucket_seconds"])
+        ),
+        "next_cursor": next_cursor,
+        "truncated": truncated,
+        "correlation_id": str(uuid.uuid4()),
+    }
+
+
 def _twin_materializer(value: Mapping[str, Any]) -> dict[str, Any]:
     _ensure_seeded_twin_content()
     event = _decode_pubsub_push(value)
@@ -764,6 +980,43 @@ def twin_detail(twin_id: str):
         return jsonify(_twin_detail(twin_id))
     except core.ContractError as exc:
         return jsonify({"error": {"code": exc.code}}), exc.status
+
+
+@app.get("/raw-history/v1")
+def raw_history_reader():
+    correlation_id = str(uuid.uuid4())
+    if os.environ.get("RUNTIME_ROLE") != "raw-history-reader":
+        return jsonify({"error": {"code": "RUNTIME_ROLE_NOT_CONFIGURED"}}), 404
+    try:
+        _verify_reader_key()
+        if any(len(request.args.getlist(key)) != 1 for key in request.args):
+            raise core.ContractError("INVALID_QUERY")
+        payload = _read_raw_history(request.args.to_dict(flat=True))
+        response = jsonify(payload)
+        response.headers["cache-control"] = "no-store"
+        response.headers["x-content-type-options"] = "nosniff"
+        return response, 200
+    except core.ContractError as exc:
+        response = jsonify(
+            {
+                "schema_version": "architecture-runtime-error.v1",
+                "code": exc.code,
+                "correlation_id": correlation_id,
+            }
+        )
+        response.headers["cache-control"] = "no-store"
+        return response, exc.status
+    except Exception:
+        LOGGER.exception("GCP Five-layer v2 raw-history retryable failure")
+        response = jsonify(
+            {
+                "schema_version": "architecture-runtime-error.v1",
+                "code": "RUNTIME_RETRYABLE_FAILURE",
+                "correlation_id": correlation_id,
+            }
+        )
+        response.headers["cache-control"] = "no-store"
+        return response, 503
 
 
 @app.post("/")

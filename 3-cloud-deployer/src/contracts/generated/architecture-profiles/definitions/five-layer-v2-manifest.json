@@ -29,7 +29,7 @@
   "catalog_ref": {
     "id": "complete-service-component-catalog",
     "version": "1",
-    "digest": "sha256:05f3f988b03577c266cbef026baaba90134657c964f7e9bbf23ff3209218c2f2"
+    "digest": "sha256:a3bb484c2ce5fc1ce01bb3e4368b49b7f32639a7690b6d5a2ee074b49fd8845d"
   },
   "service_decision_ref": {
     "id": "phase-08-complete-service-bundles",
@@ -52,5 +52,5 @@
     "gcp-l3l5-azure-l4",
     "gcp-l3l5-gcp-l4"
   ],
-  "content_digest": "sha256:36b64b5640909bca484ed6249f9aebc23240844ad94bd6d69342ef83a5ee542b"
+  "content_digest": "sha256:bdd0eb08b83ece8d16dbc746cb7516e1a98eafc2654364008ff432bc990de55b"
 }

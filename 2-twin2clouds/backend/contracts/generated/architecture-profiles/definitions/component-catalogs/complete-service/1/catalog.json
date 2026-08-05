@@ -7748,7 +7748,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:7126632868833a8239371a51730a115cf2cb3ae3548e84b91a93e046c34051f1",
+      "source_digest": "sha256:06e72f6aa9a77a362bc7f3ebec682b683b4a40621ee96051e0094cd40ffb2962",
       "included_paths": [
         "Dockerfile",
         "platform/app.py",
@@ -7790,5 +7790,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:05f3f988b03577c266cbef026baaba90134657c964f7e9bbf23ff3209218c2f2"
+  "content_digest": "sha256:a3bb484c2ce5fc1ce01bb3e4368b49b7f32639a7690b6d5a2ee074b49fd8845d"
 }
