@@ -734,6 +734,7 @@ def _five_layer_v2_http_result(
         "calculationResult": calculation_result,
         "cheapestPath": cheapest_path,
         "totalCost": float(optimized.cost_evaluation.monthly_total),
+        "totalCostExact": str(optimized.cost_evaluation.monthly_total),
         "currency": optimized.cost_evaluation.currency,
         "optimization_profile_id": params.optimizationProfileId,
         "result_schema_version": "cost-result.v2",

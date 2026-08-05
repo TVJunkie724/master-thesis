@@ -208,6 +208,7 @@ def test_five_layer_v2_http_projection_uses_the_actual_winning_candidate():
 
     assert result["calculationResult"]["L3"]["Hot"] == "GCP"
     assert result["calculationResult"]["L4"] == "AWS"
+    assert result["totalCostExact"] == "12.5"
     assert result["architectureResolutionDiagnostics"][
         "winningCandidateId"
     ] == "candidate.actual-winner"
