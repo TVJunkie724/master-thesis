@@ -287,6 +287,8 @@ def test_legacy_permission_inventory_matches_current_v1_terraform_provider_types
     for provider, prefixes in expected_prefixes.items():
         actual_types = set()
         for path in terraform_dir.glob("*.tf"):
+            if path.name.endswith(("_five_layer_v2.tf", "_six_layer_eventing_v1.tf")):
+                continue
             for resource_type in re.findall(r'^(?:resource|data) "([^"]+)"', path.read_text(), flags=re.M):
                 if resource_type.startswith(prefixes):
                     actual_types.add(resource_type)
@@ -321,6 +323,21 @@ def test_active_v2_permission_manifests_are_frozen_and_scope_reviewed():
         assert review["permission_set_version"] == ACTIVE_PERMISSION_SET_VERSION
         assert review["review_status"] == "approved_for_offline_implementation"
         assert review["findings"] == []
+
+
+def test_aws_v2_can_activate_outbound_identity_for_remote_azure_routes():
+    artifact = json.loads(
+        (PERMISSION_SET_DIR / "aws_thesis_demo_v2.json").read_text()
+    )
+    actions = {
+        action
+        for group in artifact["policy_inputs"]
+        for action in group["actions"]
+    }
+
+    assert "iam:GetOutboundWebIdentityFederationInfo" in actions
+    assert "iam:EnableOutboundWebIdentityFederation" in actions
+    assert "iam:DisableOutboundWebIdentityFederation" not in actions
 
 
 def _aws_allowed_actions(policy: dict) -> set[str]:

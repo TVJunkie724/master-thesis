@@ -789,6 +789,20 @@ ownership:
 | GCP -> AWS | Google service-account OIDC -> `AssumeRoleWithWebIdentity` | Exact S3 prefix write |
 | GCP -> Azure | Google service-account OIDC -> Entra federated credential | Exact Blob container object write |
 
+For AWS -> Azure only, deployment preflight first calls
+`GetOutboundWebIdentityFederationInfo`. If the account feature is disabled, the
+review screen must disclose that `EnableOutboundWebIdentityFederation` is an
+account-level shared enablement and require the user's normal deployment
+confirmation before the bounded `thesis-demo-v2` connection enables it. The
+deployer then records only the safe issuer identifier needed to create the
+exact Entra federated credential. Twin deletion never disables this shared
+account feature. The AWS bridge execution role receives
+`sts:GetWebIdentityToken` constrained to the exact Azure token-exchange
+audience, five-minute maximum duration, and `RS256`; the
+deployment identity does not mint bridge tokens itself. No additional manual
+cloud-console step is required when the submitted deployment connection still
+has the reviewed v2 permissions.
+
 The plan escalates to CDC/outbox machinery only if deterministic load or
 failure tests show missed closed-window records, unacceptable recovery time,
 or inability to sustain the reviewed Large input. Such escalation requires a

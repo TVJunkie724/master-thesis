@@ -143,6 +143,7 @@ commit.
 | L3 hot and L4 on different providers | One database for each provider-owned responsibility; no artificial shared database |
 | Same-provider hot-to-cool/archive | Reviewed local export and native lifecycle where selected |
 | Cross-provider storage stage | Source-owned finite job, short-lived target identity, manifest/checksum, delayed source cleanup |
+| AWS workload targets Azure | Preflight discloses and, after normal deployment confirmation, idempotently enables account-level shared AWS outbound identity federation; the source runtime alone may mint audience-, duration-, and algorithm-bound JWTs, and destroy never disables the shared account feature |
 | Late/duplicate data | Idempotent raw and hourly rollup semantics; logical retention remains authoritative |
 | Missing price/tier/plugin/quota evidence | Candidate or deployment readiness fails closed; no fallback service |
 | Historical Twin | `five-layer-baseline@1` remains readable/verifiable/destroyable and cannot be newly selected |

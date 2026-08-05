@@ -12,7 +12,7 @@
       "service_decision_ref": {
         "id": "phase-08-complete-service-bundles",
         "version": "1",
-        "digest": "sha256:cc142504cc8c06927569ec1cce09fe4a9133a688b5f02a2ba114105a0e422245"
+        "digest": "sha256:e11bbd03470434a0552151ce4b005fea7e05838c511795b45505e58bee5a7d3e"
       },
       "component_catalog_ref": {
         "id": "complete-service-component-catalog",
@@ -2048,6 +2048,6 @@
         "compatibility_version": "1"
       }
     ],
-    "digest": "sha256:3bdda8f159911c565d2dd6c782c5205dd6b16b16a286cc6d540fea588de35acf"
+    "digest": "sha256:e54423703d2da600b9d6e6ee2947fb05513366b92cfda64f06e6b5a5e013e658"
   }
 }

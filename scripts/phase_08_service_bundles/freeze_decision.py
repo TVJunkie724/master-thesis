@@ -94,9 +94,9 @@ def build() -> dict[str, Any]:
         "research_cutoff": "2026-08-03",
         "pre_activation_refreeze": {
             "refrozen_on": "2026-08-04",
-            "previous_package_digest": "sha256:4aadd03b4cc907a26ae3c3290b8c56fe70205b9f009fc36be9c0d0e649a33bba",
-            "reason": "split the shared managed-Grafana plugin alias into provider-owned component IDs and replace composite capacity labels with atomic priced dimensions",
-            "scope_change": False,
+            "previous_package_digest": "sha256:cc142504cc8c06927569ec1cce09fe4a9133a688b5f02a2ba114105a0e422245",
+            "reason": "close the AWS-to-Azure implementation gap by admitting disclosed account-level outbound-identity enablement to thesis-demo-v2",
+            "scope_change": True,
             "activated_or_deployed_before_refreeze": False,
         },
         "regions": {
@@ -157,6 +157,12 @@ def build() -> dict[str, Any]:
                 "review_id": "service-bundle-contract-integration-review-4",
                 "reviewed_on": "2026-08-04",
                 "scope": "provider-specific plugin ownership, atomic capacity dimensions, single-cloud omission of remote-only services, and all 729 admissible Five-layer assignments",
+                "unresolved_findings": 0,
+            },
+            {
+                "review_id": "service-bundle-aws-outbound-identity-review-5",
+                "reviewed_on": "2026-08-04",
+                "scope": "current AWS IAM outbound identity federation, Azure workload federation, account enablement, runtime token permission, and destroy ownership",
                 "unresolved_findings": 0,
             },
         ],

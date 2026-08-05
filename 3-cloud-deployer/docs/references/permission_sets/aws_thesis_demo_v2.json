@@ -22,7 +22,7 @@
   "policy_inputs": [
     {
       "group": "identity_and_self_check",
-      "actions": ["sts:GetCallerIdentity", "iam:GetRole", "iam:ListAttachedRolePolicies", "iam:ListRolePolicies", "iam:GetRolePolicy"]
+      "actions": ["sts:GetCallerIdentity", "iam:GetRole", "iam:ListAttachedRolePolicies", "iam:ListRolePolicies", "iam:GetRolePolicy", "iam:GetOutboundWebIdentityFederationInfo", "iam:EnableOutboundWebIdentityFederation"]
     },
     {
       "group": "deployment_identities",
@@ -57,6 +57,7 @@
   "forbidden_bootstrap_actions": ["organizations:CreateAccount", "iam:CreateUser", "iam:CreateAccessKey"],
   "known_gaps": [
     "Create-before-ARN and account-level discovery actions cannot all be resource-scoped offline.",
+    "AWS outbound identity federation is an account-level shared enablement used only when an AWS workload has a remote Azure destination; the deployment preflight must disclose and confirm the mutation before applying it.",
     "IAM Identity Center organization-instance activation remains a manual deployment-preflight prerequisite.",
     "Exact action/resource compatibility requires IAM Access Analyzer and a supervised deploy/destroy smoke."
   ],

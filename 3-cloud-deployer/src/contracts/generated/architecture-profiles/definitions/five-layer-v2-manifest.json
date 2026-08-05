@@ -34,7 +34,7 @@
   "service_decision_ref": {
     "id": "phase-08-complete-service-bundles",
     "version": "1",
-    "digest": "sha256:cc142504cc8c06927569ec1cce09fe4a9133a688b5f02a2ba114105a0e422245"
+    "digest": "sha256:e11bbd03470434a0552151ce4b005fea7e05838c511795b45505e58bee5a7d3e"
   },
   "workload_ref": {
     "id": "five-layer-workload",
@@ -52,5 +52,5 @@
     "gcp-l3l5-azure-l4",
     "gcp-l3l5-gcp-l4"
   ],
-  "content_digest": "sha256:c18a22aa95f05a1b6a8a2c2cbc9f2a4583e615d375b0d216d034559d2f8d8426"
+  "content_digest": "sha256:955e7e5a43cd72780aecaf5acdee91a0d2b0fc3e4a40ae8bbc55770c0fe8fc3a"
 }

@@ -2,10 +2,11 @@
   "provider": "aws",
   "permission_set_version": "thesis-demo-v2",
   "review_status": "approved_for_offline_implementation",
-  "reviewed_on": "2026-08-03",
+  "reviewed_on": "2026-08-04",
   "source_manifest": "aws_thesis_demo_v2.json",
   "scope_classes": {
     "account_discovery": "Wildcard resource scope is expected for identity and catalog discovery.",
+    "account_identity_enablement": "iam:GetOutboundWebIdentityFederationInfo and iam:EnableOutboundWebIdentityFederation are account-level and are exercised only for a confirmed AWS-to-Azure remote workload-identity route.",
     "create_before_arn": "Create actions remain wildcard-scoped until the created ARN exists.",
     "deployment_prefix_candidate": "Lifecycle actions target twin2mc-* resources after supervised ARN validation.",
     "conditioned_pass_role": "iam:PassRole is constrained by iam:PassedToService."
@@ -13,6 +14,7 @@
   "findings": [],
   "accepted_gaps": [
     "The offline manifest is bounded by service/action family and region but is not a formal least-privilege proof.",
+    "AWS outbound identity federation cannot be resource-scoped; preflight must show its account-wide shared enablement before mutation and must not disable it during Twin destroy.",
     "IAM Identity Center setup is an interactive-account prerequisite and cannot be inferred from deployment credentials.",
     "Provider-side Access Analyzer and CloudTrail evidence require an explicitly approved live run."
   ],

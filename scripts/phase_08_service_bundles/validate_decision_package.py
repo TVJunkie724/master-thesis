@@ -563,16 +563,16 @@ def validate() -> list[str]:
     refreeze = decision.get("pre_activation_refreeze", {})
     if refreeze != {
         "refrozen_on": "2026-08-04",
-        "previous_package_digest": "sha256:4aadd03b4cc907a26ae3c3290b8c56fe70205b9f009fc36be9c0d0e649a33bba",
-        "reason": "split the shared managed-Grafana plugin alias into provider-owned component IDs and replace composite capacity labels with atomic priced dimensions",
-        "scope_change": False,
+        "previous_package_digest": "sha256:cc142504cc8c06927569ec1cce09fe4a9133a688b5f02a2ba114105a0e422245",
+        "reason": "close the AWS-to-Azure implementation gap by admitting disclosed account-level outbound-identity enablement to thesis-demo-v2",
+        "scope_change": True,
         "activated_or_deployed_before_refreeze": False,
     }:
         errors.append("pre-activation package re-freeze evidence drifted")
-    if len(decision["reviews"]) < 4 or any(
+    if len(decision["reviews"]) < 5 or any(
         review["unresolved_findings"] != 0 for review in decision["reviews"]
     ):
-        errors.append("four zero-finding reviews are required")
+        errors.append("five zero-finding reviews are required")
     if not (EVIDENCE_ROOT / "README.md").is_file():
         errors.append("README.md is missing")
     return sorted(set(errors))
