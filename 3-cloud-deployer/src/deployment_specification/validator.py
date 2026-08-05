@@ -17,9 +17,11 @@ from .contract import (
     MANIFEST_VERSION,
     PROVIDERS,
     SCHEMA_VERSION,
+    V2_SCHEMA_VERSION,
     SLOT_ORDER,
     load_contract,
     load_manifest_schema,
+    load_v2_contract,
 )
 from .errors import DeploymentSpecificationError
 from .models import (
@@ -453,7 +455,7 @@ def _providers_from_architecture(
 def validate_resolved_deployment_specification(
     raw_specification: object,
 ) -> ValidatedResolvedDeploymentSpecification:
-    """Validate and canonicalize an untrusted v1 specification."""
+    """Validate and canonicalize an untrusted versioned specification."""
 
     if not isinstance(raw_specification, Mapping):
         _fail(
@@ -461,6 +463,8 @@ def validate_resolved_deployment_specification(
             "resolved_deployment_specification",
             "Resolved deployment specification is missing",
         )
+    if raw_specification.get("schema_version") == V2_SCHEMA_VERSION:
+        return _validate_v2_resolved_deployment_specification(raw_specification)
     _scan_payload(raw_specification)
     serialized = canonical_json(raw_specification)
     if len(serialized.encode("utf-8")) > MAX_CANONICAL_BYTES:
@@ -512,6 +516,185 @@ def validate_resolved_deployment_specification(
         digest=expected_digest,
         schema_version=SCHEMA_VERSION,
     )
+
+
+def _validate_v2_resolved_deployment_specification(
+    raw_specification: Mapping[str, Any],
+) -> ValidatedResolvedDeploymentSpecification:
+    """Validate the generic v2 component selections without pricing again."""
+
+    _scan_payload(raw_specification)
+    serialized = canonical_json(raw_specification)
+    if len(serialized.encode("utf-8")) > MAX_CANONICAL_BYTES:
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_TOO_LARGE",
+            "resolved_deployment_specification",
+            "Resolved deployment specification exceeds the size limit",
+        )
+    specification = json.loads(serialized)
+    schema, registry = load_v2_contract()
+    errors = sorted(
+        Draft202012Validator(
+            schema,
+            format_checker=FormatChecker(),
+        ).iter_errors(specification),
+        key=lambda error: [str(part) for part in error.absolute_path],
+    )
+    if errors:
+        location = ".".join(str(part) for part in errors[0].absolute_path)
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_INVALID",
+            f"resolved_deployment_specification.{location}".rstrip("."),
+            "Resolved deployment specification does not match schema v2",
+        )
+    if specification["currency"] != "USD":
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_INVALID",
+            "resolved_deployment_specification.currency",
+            "Five-layer v2 deployment selections must use canonical USD",
+        )
+    expected_digest = calculate_digest(specification)
+    if not hmac.compare_digest(specification["digest"], expected_digest):
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_DIGEST_MISMATCH",
+            "resolved_deployment_specification.digest",
+            "Resolved deployment specification digest does not match its content",
+        )
+    _validate_v2_component_selections(specification, registry)
+    return ValidatedResolvedDeploymentSpecification(
+        specification=MappingProxyType(specification),
+        canonical_json=serialized,
+        digest=expected_digest,
+        schema_version=V2_SCHEMA_VERSION,
+    )
+
+
+def _validate_v2_component_selections(
+    specification: Mapping[str, Any],
+    registry: Mapping[str, Any],
+) -> None:
+    """Bind every v2 selection and input binding to the frozen registry."""
+
+    registered_components = {
+        item["component_id"]: item for item in registry["components"]
+    }
+    context = specification["optimization_context"]
+    expected_formula_ref = {
+        "id": "phase-08-complete-service-bundles",
+        "version": "1",
+        "digest": registry["pricing_ownership_digest"],
+    }
+    if (
+        context["service_decision_ref"] != registry["package_ref"]
+        or context["formula_set_ref"] != expected_formula_ref
+    ):
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_CONTEXT_MISMATCH",
+            "resolved_deployment_specification.optimization_context",
+            "Five-layer v2 service or formula evidence differs from the registry",
+        )
+
+    selection_ids: set[str] = set()
+    dimension_owners: dict[str, str] = {}
+    provider_by_logical: dict[str, str] = {}
+    for selection in specification["component_selections"]:
+        selection_id = selection["selection_id"]
+        component_id = selection["implementation_component_id"]
+        registered = registered_components.get(component_id)
+        expected_selection_id = f"selection.{selection['provider']}.{component_id}"
+        if (
+            registered is None
+            or selection_id in selection_ids
+            or selection_id != expected_selection_id
+            or selection["required"] is not True
+            or selection["provider"] != registered["provider"]
+            or selection["implementation_component_digest"]
+            != registered["component_digest"]
+        ):
+            _fail(
+                "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
+                "resolved_deployment_specification.component_selections",
+                "Five-layer v2 selection differs from the component registry",
+            )
+        logical_id = selection["logical_component_id"]
+        previous_provider = provider_by_logical.setdefault(
+            logical_id, selection["provider"]
+        )
+        if previous_provider != selection["provider"]:
+            _fail(
+                "DEPLOYMENT_SPECIFICATION_PROVIDER_MISMATCH",
+                f"resolved_deployment_specification.{selection_id}.provider",
+                "One logical component resolves to multiple providers",
+            )
+        selection_ids.add(selection_id)
+        dimension_suffixes = [
+            item["dimension_id"].rsplit(".", 1)[-1]
+            for item in selection["dimensions"]
+        ]
+        if dimension_suffixes != registered["capacity_dimensions"]:
+            _fail(
+                "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
+                f"resolved_deployment_specification.{selection_id}.dimensions",
+                "Five-layer v2 dimensions differ from the component registry",
+            )
+        for dimension in selection["dimensions"]:
+            dimension_id = dimension["dimension_id"]
+            suffix = dimension_id.rsplit(".", 1)[-1]
+            expected_id = f"dimension.{selection['provider']}.{component_id}.{suffix}"
+            if (
+                dimension_id != expected_id
+                or dimension_id in dimension_owners
+                or dimension["formula_reference"]
+                != "formula.phase-08-complete-service-bundles"
+                or dimension["evidence_reference"]
+                != registry["capacity_evidence_digest"]
+            ):
+                _fail(
+                    "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
+                    f"resolved_deployment_specification.{selection_id}.dimensions",
+                    "Five-layer v2 dimension identity or evidence is invalid",
+                )
+            dimension_owners[dimension_id] = selection_id
+
+    expected_logical_ids = set(LOGICAL_COMPONENT_TO_SLOT)
+    if set(provider_by_logical) != expected_logical_ids:
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
+            "resolved_deployment_specification.component_selections",
+            "Five-layer v2 must cover every logical component",
+        )
+    if (
+        provider_by_logical["component.hot-storage"]
+        != provider_by_logical["component.visualization"]
+    ):
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_PROVIDER_MISMATCH",
+            "resolved_deployment_specification.component_selections",
+            "Five-layer v2 requires L3 hot and L5 provider co-location",
+        )
+
+    binding_sources: set[str] = set()
+    for binding in specification["bindings"]:
+        source_ref = binding["source_ref"]
+        if (
+            source_ref in binding_sources
+            or source_ref not in dimension_owners
+            or binding["destination_selection_id"] != dimension_owners[source_ref]
+            or binding["source_kind"] != "deployment_dimension"
+            or binding["resolution_stage"] != "preplan"
+        ):
+            _fail(
+                "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
+                "resolved_deployment_specification.bindings",
+                "Five-layer v2 binding ownership is incomplete or duplicated",
+            )
+        binding_sources.add(source_ref)
+    if binding_sources != set(dimension_owners):
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
+            "resolved_deployment_specification.bindings",
+            "Every Five-layer v2 dimension requires exactly one binding",
+        )
 
 
 def _scan_payload(value: object, *, path: str = "$", depth: int = 0) -> None:
