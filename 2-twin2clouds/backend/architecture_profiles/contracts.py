@@ -45,6 +45,18 @@ calculate_resolution_id = _runtimes["v1"].calculate_resolution_id
 canonical_json = _runtimes["v1"].canonical_json
 
 
+def calculate_document_digest(document: Mapping[str, Any]) -> str:
+    """Calculate a digest with the runtime matching the document version."""
+
+    return _runtimes[_version(document)].calculate_digest(document)
+
+
+def calculate_document_resolution_id(document: Mapping[str, Any]) -> str:
+    """Calculate a resolution ID with the matching contract runtime."""
+
+    return _runtimes[_version(document)].calculate_resolution_id(document)
+
+
 class ContractError(ValueError):
     """Version-neutral architecture-contract validation failure."""
 

@@ -168,10 +168,16 @@ def validate_architecture_strategy_readiness(
 def _build_strategy_registry(
     profile: Mapping[str, Any],
 ) -> ArchitectureStrategyRegistry:
+    if str(profile.get("profile_version")) == "2":
+        from .five_layer_v2_strategy import FiveLayerV2CandidateStrategy
+
+        strategy = FiveLayerV2CandidateStrategy(profile)
+    else:
+        strategy = FiveLayerCompletePathStrategy(profile)
     registry = ArchitectureStrategyRegistry()
     registry.register(
         profile,
-        FiveLayerCompletePathStrategy(profile),
+        strategy,
     )
     registry.freeze()
     registry.resolve(profile)

@@ -12,6 +12,9 @@ from backend.architecture_profiles.diagnostics import ArchitectureResolutionErro
 from backend.architecture_profiles.five_layer_v2_strategy import (
     FiveLayerV2CandidateStrategy,
 )
+from backend.architecture_profiles.five_layer_strategy import (
+    build_default_strategy_registry,
+)
 from backend.architecture_profiles.five_layer_v2_workload import (
     CONTRACT_ROOT,
     resolve_five_layer_v2_workload,
@@ -162,3 +165,11 @@ def test_v2_registry_is_explicit_and_does_not_change_v1_default():
     assert historical.catalog["catalog_id"] == "baseline-component-catalog"
     assert current.profile["profile_version"] == "2"
     assert current.catalog["catalog_id"] == "complete-service-component-catalog"
+
+
+def test_strategy_registry_dispatches_exact_v2_bundle():
+    _, context = _context()
+
+    strategy = build_default_strategy_registry(context).resolve(context.profile)
+
+    assert isinstance(strategy, FiveLayerV2CandidateStrategy)

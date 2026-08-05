@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
+from dataclasses import dataclass
 from typing import Any, Mapping
-
-from backend.calculation_v2.path_optimizer import CompletePathEvaluation
 
 from .candidate_factory import (
     ArchitectureCandidate,
@@ -19,6 +17,11 @@ from .completeness import (
     validate_candidate_completeness,
 )
 from .diagnostics import ArchitectureResolutionError
+from .five_layer_v2_costing import (
+    FiveLayerV2CostEvaluation,
+    FiveLayerV2CostedCandidate,
+)
+from .five_layer_v2_resolution_builder import FiveLayerV2ResolutionBuilder
 from .strategy import (
     ArchitectureProfileRef,
     ArchitectureResolutionContext,
@@ -46,6 +49,14 @@ FIVE_LAYER_V2_BUNDLE_REF = OptimizationBundleRef(
         "sha256:a0c39dcae6c95c2cb25251389c6569a0f5ea4428a0403ccc4cf934541cda06f1"
     ),
 )
+
+
+@dataclass(frozen=True)
+class FiveLayerV2ResolutionWinner:
+    candidate: CompleteArchitectureCandidate
+    costed_candidate: FiveLayerV2CostedCandidate
+    deployment_specification: Mapping[str, Any]
+    pricing_evidence_refs: Mapping[str, Mapping[str, str]]
 
 
 class FiveLayerV2CandidateStrategy:
@@ -122,14 +133,10 @@ class FiveLayerV2CandidateStrategy:
 
     def calculate_candidate(
         self,
-        candidate: CompletePathEvaluation,
+        candidate: FiveLayerV2CostedCandidate,
         context: ArchitectureResolutionContext,
-    ) -> CompletePathEvaluation:
-        if (
-            not isinstance(candidate.total_cost, Decimal)
-            or not candidate.total_cost.is_finite()
-            or candidate.total_cost < 0
-        ):
+    ) -> FiveLayerV2CostedCandidate:
+        if not isinstance(candidate.evaluation, FiveLayerV2CostEvaluation):
             raise ArchitectureResolutionError(
                 "ARCH_NO_ADMISSIBLE_CANDIDATE",
                 candidate.candidate_id,
@@ -149,8 +156,22 @@ class FiveLayerV2CandidateStrategy:
         winner: Any,
         context: ArchitectureResolutionContext,
     ) -> Mapping[str, Any]:
-        raise ArchitectureResolutionError(
-            "ARCH_RESOLUTION_BUILD_FAILED",
-            "resolvedTwinArchitecture",
-            "Five-layer v2 cost and deployment resolution is not active yet",
+        if not isinstance(winner, FiveLayerV2ResolutionWinner):
+            raise ArchitectureResolutionError(
+                "ARCH_RESOLUTION_BUILD_FAILED",
+                "winner",
+                "Five-layer v2 winner evidence is incomplete",
+            )
+        if winner.candidate.candidate_id != winner.costed_candidate.candidate_id:
+            raise ArchitectureResolutionError(
+                "ARCH_RESOLUTION_BUILD_FAILED",
+                "winner",
+                "Five-layer v2 topology and cost winners differ",
+            )
+        return FiveLayerV2ResolutionBuilder().build(
+            candidate=winner.candidate,
+            context=context,
+            deployment_specification=winner.deployment_specification,
+            cost_evaluation=winner.costed_candidate.evaluation,
+            pricing_evidence_refs=winner.pricing_evidence_refs,
         )
