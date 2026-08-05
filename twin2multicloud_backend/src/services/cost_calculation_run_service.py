@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 import hashlib
 import hmac
 import json
@@ -39,6 +40,9 @@ from src.services.errors import (
     PricingCatalogUnavailable,
     TwinNotFound,
 )
+from src.services.five_layer_v2_cost_ledger_service import (
+    validate_five_layer_v2_cost_ledger,
+)
 from src.services.pricing_catalog_context_service import (
     PricingCatalogContextService,
     parse_pricing_catalog_context,
@@ -73,7 +77,10 @@ from src.security.request_context import current_request_id
 SUCCESS = "succeeded"
 FAILED = "failed"
 SELECTABLE_STATUSES = {SUCCESS}
-ENABLED_OPTIMIZATION_PROFILES = {"cost_minimization_v1"}
+ENABLED_OPTIMIZATION_PROFILES = {
+    "cost_minimization_v1",
+    "cost-minimization-v2",
+}
 SECRET_FIELD_PATTERN = re.compile(rf"(?i)^({SECRET_FIELD_NAMES})$")
 
 
@@ -212,10 +219,6 @@ class CostCalculationRunService:
             result = self._extract_optimizer_result(optimizer_payload)
             contract = self._validate_optimizer_result(result)
             _validate_optimizer_pricing_catalog_context(result, catalog_context)
-            transfer_pricing = validate_optimizer_transfer_pricing_result(
-                result,
-                catalog_context,
-            )
             _validate_optimizer_aws_selection_context(result, aws_context)
             cheapest_path = self._extract_cheapest_path(result)
             deployment_specification = _validate_optimizer_deployment_specification(
@@ -224,17 +227,42 @@ class CostCalculationRunService:
                 cheapest_path=cheapest_path,
                 catalog_context=catalog_context,
             )
-            result_items = self._build_result_items(
-                result,
-                cheapest_path,
-                contract["currency"],
-                transfer_pricing,
-            )
             resolved_architecture = (
                 self._require_optimizer_resolved_architecture(result)
                 if self.architecture_resolution_enabled
                 else None
             )
+            if isinstance(params, FiveLayerV2OptimizerCalculationParams):
+                if resolved_architecture is None:
+                    raise OptimizerContractError(
+                        "Optimizer response did not contain a resolved architecture",
+                        [
+                            {
+                                "field": "resolvedTwinArchitecture",
+                                "message": "Expected v2 object",
+                            }
+                        ],
+                    )
+                validated_ledger = validate_five_layer_v2_cost_ledger(
+                    result.get("costLedger"),
+                    specification=deployment_specification.specification,
+                    architecture=resolved_architecture,
+                    persisted_params=persisted_params,
+                    catalog_context=catalog_context,
+                    expected_total_exact=result.get("totalCostExact"),
+                )
+                result_items = list(validated_ledger.result_items)
+            else:
+                transfer_pricing = validate_optimizer_transfer_pricing_result(
+                    result,
+                    catalog_context,
+                )
+                result_items = self._build_result_items(
+                    result,
+                    cheapest_path,
+                    contract["currency"],
+                    transfer_pricing,
+                )
         except Exception as exc:
             if failed_run is not None:
                 self._persist_failed_run(
@@ -288,6 +316,19 @@ class CostCalculationRunService:
                 pricing_catalog_context=catalog_context,
                 calculated_at=now,
             )
+            if isinstance(params, FiveLayerV2OptimizerCalculationParams):
+                self._apply_cheapest_path(
+                    config,
+                    {
+                        "l1": None,
+                        "l2": None,
+                        "l3_hot": None,
+                        "l3_cool": None,
+                        "l3_archive": None,
+                        "l4": None,
+                        "l5": None,
+                    },
+                )
             try:
                 return self.persist_successful_run(
                     result,
@@ -399,6 +440,21 @@ class CostCalculationRunService:
                 expected_catalog_context=catalog_context,
                 expected_result=result,
             )
+            persisted_items = list(result_items or [])
+            is_v2 = deployment.schema_version == (
+                "resolved-deployment-specification.v2"
+            )
+            if is_v2:
+                params = _json_loads(run.params_json) or {}
+                validated_ledger = validate_five_layer_v2_cost_ledger(
+                    result.get("costLedger"),
+                    specification=deployment.specification,
+                    architecture=resolved_twin_architecture,
+                    persisted_params=params,
+                    catalog_context=catalog_context,
+                    expected_total_exact=result.get("totalCostExact"),
+                )
+                persisted_items = list(validated_ledger.result_items)
             result["resolvedDeploymentSpecification"] = deployment.specification
             run.result_summary_json = _json_dumps(result)
             run.cheapest_path_json = _json_dumps(cheapest_path)
@@ -409,12 +465,14 @@ class CostCalculationRunService:
             run.status = SUCCESS
             run.completed_at = datetime.now(timezone.utc)
             self.db.add(run)
-            for item in result_items or []:
+            for item in persisted_items:
                 self.db.add(CostCalculationResultItem(run_id=run.id, **item))
             ResolvedArchitectureService(self.db).persist(
                 run=run,
                 raw_architecture=resolved_twin_architecture,
+                origin="native_v2" if is_v2 else "native_v1",
                 linked_documents=linked_architecture_documents,
+                apply_legacy_projection=not is_v2,
             )
             self._before_commit()
             self.db.commit()
@@ -945,6 +1003,26 @@ class CostCalculationRunService:
             errors.append(
                 {"field": "totalCost", "message": "Missing numeric total cost"}
             )
+        if profile_id == "cost-minimization-v2":
+            raw_exact = result.get("totalCostExact")
+            try:
+                exact = Decimal(str(raw_exact))
+            except (InvalidOperation, ValueError):
+                exact = Decimal("NaN")
+            if (
+                result.get("result_schema_version") != "cost-result.v2"
+                or not isinstance(raw_exact, str)
+                or not exact.is_finite()
+                or exact < 0
+                or not isinstance(total_cost, (int, float))
+                or float(exact) != float(total_cost)
+            ):
+                errors.append(
+                    {
+                        "field": "totalCostExact",
+                        "message": "Missing or inconsistent exact v2 total",
+                    }
+                )
 
         if not isinstance(result.get("calculationResult"), dict):
             errors.append({"field": "calculationResult", "message": "Missing object"})

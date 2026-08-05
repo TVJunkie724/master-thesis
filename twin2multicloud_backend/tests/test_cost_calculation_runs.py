@@ -338,6 +338,36 @@ async def test_five_layer_v2_workload_rejects_historical_profile_selection(
     assert optimizer.calls == []
 
 
+def test_five_layer_v2_result_requires_exact_reconciled_total(db_session):
+    result = _optimizer_payload()["result"]
+    result.update(
+        {
+            "optimization_profile_id": "cost-minimization-v2",
+            "result_schema_version": "cost-result.v2",
+            "totalCost": 12.5,
+            "totalCostExact": "12.5",
+        }
+    )
+    result["optimizationProfile"].update(
+        {
+            "profile_version": "2",
+            "scoring_strategy_id": "profile-local-min-total-cost-v2",
+            "calculation_model_ids": ["profile-resolution-v2@2"],
+        }
+    )
+    service = CostCalculationRunService(db_session)
+
+    validated = service._validate_optimizer_result(result)
+
+    assert validated["optimization_profile_id"] == "cost-minimization-v2"
+    assert validated["total_monthly_cost"] == 12.5
+
+    result["totalCostExact"] = "12.6"
+    with pytest.raises(OptimizerContractError) as raised:
+        service._validate_optimizer_result(result)
+    assert raised.value.errors[0]["field"] == "totalCostExact"
+
+
 def _optimizer_payload_with_compatible_aws_context(context):
     payload = _optimizer_payload()
     payload["result"]["calculationResult"]["L4"] = "AWS"
