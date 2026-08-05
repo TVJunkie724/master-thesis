@@ -1467,6 +1467,7 @@ def component_capacity_registry() -> dict[str, Any]:
 
     manifest = read_json(SERVICE_COMPONENTS)
     pricing = read_json(SERVICE_PRICING)
+    capacity = read_json(SERVICE_ROOT / "capacity-matrix.json")
     owners = {
         item["component_id"]: item for item in pricing["component_owners"]
     }
@@ -1509,6 +1510,7 @@ def component_capacity_registry() -> dict[str, Any]:
         "same_provider_rule": pricing["same_provider_rule"],
         "shared_support_rules": pricing["shared_support_rules"],
         "provider_bundles": read_json(SERVICE_BUNDLES)["providers"],
+        "scenario_capacity": capacity["scenario_results"],
         "components": sorted(components, key=lambda item: item["component_id"]),
         "route_owners": pricing["route_owners"],
         "content_digest": "",

@@ -215,6 +215,179 @@
       ]
     }
   ],
+  "scenario_capacity": [
+    {
+      "scenario_id": "core-small-v2",
+      "size": "small",
+      "derived": {
+        "canonical_payload_bytes": "256",
+        "canonical_batch_bytes": "64000",
+        "canonical_batch_mib": "0.06103515625",
+        "storage_byte_derived_tasks": 1,
+        "azure_partition_derived_tasks": 1,
+        "aws_storage_tasks": 1,
+        "azure_storage_tasks": 1,
+        "gcp_storage_tasks": 1,
+        "storage_objects_per_batch_lower_bound": 1,
+        "aggregate_dashboard_query_rate_per_second": "0.003333333333",
+        "reader_max_concurrent_requests": 2,
+        "firestore_timestamp_shards": 1,
+        "firestore_planned_raw_writes_per_shard_second": "0.833333333333",
+        "monthly_raw_payload_bytes": "552960000",
+        "hot_payload_gib": "0.514984130859",
+        "cool_payload_gib": "1.029968261719",
+        "archive_payload_gib": "4.634857177734",
+        "cosmos_max_hot_payload_bytes_per_device": "5529600",
+        "cosmos_logical_partition_below_20_gb": true,
+        "maximum_aggregate_rollup_points": 720,
+        "l4_inspection_reads_per_month": 240
+      },
+      "provider_admission": {
+        "aws": {
+          "status": "theoretically_admissible",
+          "live_gates": [
+            "dynamodb_partition_distribution",
+            "reader_latency_and_quota",
+            "twinmaker_query_behavior"
+          ]
+        },
+        "azure": {
+          "status": "conditionally_theoretically_admissible",
+          "cosmos_capacity_mode": "serverless",
+          "published_serverless_partition_ru_per_second": 5000,
+          "published_logical_partition_limit_bytes": 20000000000,
+          "request_charge_fixture_required_before_activation": true,
+          "live_gates": [
+            "cosmos_request_charge_fixture",
+            "cosmos_partition_distribution",
+            "reader_latency_and_quota"
+          ]
+        },
+        "gcp": {
+          "status": "conditionally_theoretically_admissible",
+          "live_gates": [
+            "firestore_gradual_ramp_and_transaction_contention",
+            "reader_latency_and_quota",
+            "bifromq_cluster_behavior"
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "core-medium-v2",
+      "size": "medium",
+      "derived": {
+        "canonical_payload_bytes": "512",
+        "canonical_batch_bytes": "20480000",
+        "canonical_batch_mib": "19.53125",
+        "storage_byte_derived_tasks": 1,
+        "azure_partition_derived_tasks": 4,
+        "aws_storage_tasks": 1,
+        "azure_storage_tasks": 4,
+        "gcp_storage_tasks": 1,
+        "storage_objects_per_batch_lower_bound": 1,
+        "aggregate_dashboard_query_rate_per_second": "0.166666666667",
+        "reader_max_concurrent_requests": 3,
+        "firestore_timestamp_shards": 1,
+        "firestore_planned_raw_writes_per_shard_second": "133.333333333333",
+        "monthly_raw_payload_bytes": "176947200000",
+        "hot_payload_gib": "164.794921875",
+        "cool_payload_gib": "329.58984375",
+        "archive_payload_gib": "1483.154296875",
+        "cosmos_max_hot_payload_bytes_per_device": "44236800",
+        "cosmos_logical_partition_below_20_gb": true,
+        "maximum_aggregate_rollup_points": 720,
+        "l4_inspection_reads_per_month": 240
+      },
+      "provider_admission": {
+        "aws": {
+          "status": "theoretically_admissible",
+          "live_gates": [
+            "dynamodb_partition_distribution",
+            "reader_latency_and_quota",
+            "twinmaker_query_behavior"
+          ]
+        },
+        "azure": {
+          "status": "conditionally_theoretically_admissible",
+          "cosmos_capacity_mode": "serverless",
+          "published_serverless_partition_ru_per_second": 5000,
+          "published_logical_partition_limit_bytes": 20000000000,
+          "request_charge_fixture_required_before_activation": true,
+          "live_gates": [
+            "cosmos_request_charge_fixture",
+            "cosmos_partition_distribution",
+            "reader_latency_and_quota"
+          ]
+        },
+        "gcp": {
+          "status": "conditionally_theoretically_admissible",
+          "live_gates": [
+            "firestore_gradual_ramp_and_transaction_contention",
+            "reader_latency_and_quota",
+            "bifromq_cluster_behavior"
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "core-large-v2",
+      "size": "large",
+      "derived": {
+        "canonical_payload_bytes": "819.2",
+        "canonical_batch_bytes": "1228800000",
+        "canonical_batch_mib": "1171.875",
+        "storage_byte_derived_tasks": 3,
+        "azure_partition_derived_tasks": 30,
+        "aws_storage_tasks": 3,
+        "azure_storage_tasks": 30,
+        "gcp_storage_tasks": 3,
+        "storage_objects_per_batch_lower_bound": 19,
+        "aggregate_dashboard_query_rate_per_second": "3.333333333333",
+        "reader_max_concurrent_requests": 42,
+        "firestore_timestamp_shards": 16,
+        "firestore_planned_raw_writes_per_shard_second": "312.5",
+        "monthly_raw_payload_bytes": "10616832000000",
+        "hot_payload_gib": "9887.6953125",
+        "cool_payload_gib": "19775.390625",
+        "archive_payload_gib": "88989.2578125",
+        "cosmos_max_hot_payload_bytes_per_device": "353894400",
+        "cosmos_logical_partition_below_20_gb": true,
+        "maximum_aggregate_rollup_points": 720,
+        "l4_inspection_reads_per_month": 240
+      },
+      "provider_admission": {
+        "aws": {
+          "status": "theoretically_admissible",
+          "live_gates": [
+            "dynamodb_partition_distribution",
+            "reader_latency_and_quota",
+            "twinmaker_query_behavior"
+          ]
+        },
+        "azure": {
+          "status": "conditionally_theoretically_admissible",
+          "cosmos_capacity_mode": "autoscale",
+          "published_serverless_partition_ru_per_second": 5000,
+          "published_logical_partition_limit_bytes": 20000000000,
+          "request_charge_fixture_required_before_activation": true,
+          "live_gates": [
+            "cosmos_request_charge_fixture",
+            "cosmos_partition_distribution",
+            "reader_latency_and_quota"
+          ]
+        },
+        "gcp": {
+          "status": "conditionally_theoretically_admissible",
+          "live_gates": [
+            "firestore_gradual_ramp_and_transaction_contention",
+            "reader_latency_and_quota",
+            "bifromq_cluster_behavior"
+          ]
+        }
+      }
+    }
+  ],
   "components": [
     {
       "component_id": "apache.bifromq-4.0.0-incubating-on-gke-standard",
@@ -1729,5 +1902,5 @@
       "deduplication_key": "domain_event_cross_cloud::gcp->azure"
     }
   ],
-  "content_digest": "sha256:5c71861ab6df147419805827232431538e31b38815a11dc3a6d6b5e737f96e2c"
+  "content_digest": "sha256:350588c418f600cdaa6c953e06598f6c2b5054f8105100074713622b5034c2b7"
 }

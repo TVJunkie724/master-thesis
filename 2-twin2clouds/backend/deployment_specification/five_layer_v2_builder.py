@@ -1,0 +1,719 @@
+"""Deterministic ResolvedDeploymentSpecification v2 builder for Five-layer v2."""
+
+from __future__ import annotations
+
+from decimal import Decimal, ROUND_CEILING
+from functools import lru_cache
+import hashlib
+import json
+from pathlib import Path
+import re
+from typing import Any, Mapping
+from uuid import UUID
+
+from jsonschema import Draft202012Validator, FormatChecker
+
+from backend.architecture_profiles.diagnostics import ArchitectureResolutionError
+from backend.architecture_profiles.five_layer_v2_workload import (
+    ResolvedFiveLayerV2Workload,
+)
+
+
+CONTRACT_ROOT = (
+    Path(__file__).resolve().parents[1]
+    / "contracts"
+    / "generated"
+    / "resolved-deployment-specification"
+    / "v2"
+)
+PROVIDERS = ("aws", "azure", "gcp")
+REGIONS = {
+    "aws": "eu-central-1",
+    "azure": "westeurope",
+    "gcp": "europe-west1",
+}
+LOGICAL_COMPONENTS = (
+    "component.ingestion",
+    "component.processing",
+    "component.hot-storage",
+    "component.cool-storage",
+    "component.archive-storage",
+    "component.twin-state",
+    "component.visualization",
+)
+LOGICAL_TO_LAYER = {
+    "component.ingestion": "l1_acquisition",
+    "component.processing": "l2_processing",
+    "component.hot-storage": "l3_hot",
+    "component.cool-storage": "l3_cool",
+    "component.archive-storage": "l3_archive",
+    "component.twin-state": "l4_twin",
+    "component.visualization": "l5_visualization",
+}
+EVENT_LOGICAL_COMPONENTS = (
+    "component.ingestion",
+    "component.processing",
+    "component.hot-storage",
+    "component.twin-state",
+)
+_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+
+
+def _read(path: Path) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Five-layer v2 deployment contract is unavailable: {path}") from exc
+    if not isinstance(value, dict):
+        raise RuntimeError(f"Five-layer v2 deployment contract must be an object: {path}")
+    return value
+
+
+def _canonical_json(value: object) -> str:
+    return json.dumps(
+        value,
+        ensure_ascii=True,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def _digest(value: object) -> str:
+    return f"sha256:{hashlib.sha256(_canonical_json(value).encode()).hexdigest()}"
+
+
+@lru_cache(maxsize=1)
+def _contract() -> tuple[
+    Draft202012Validator,
+    dict[str, Any],
+    dict[str, Any],
+]:
+    schema = _read(CONTRACT_ROOT / "schema.json")
+    Draft202012Validator.check_schema(schema)
+    registry = _read(CONTRACT_ROOT / "component-capacity-registry.json")
+    supplied = registry["content_digest"]
+    registry["content_digest"] = ""
+    if supplied != _digest(registry):
+        raise RuntimeError("Five-layer v2 component capacity registry digest drifted")
+    registry["content_digest"] = supplied
+    fixed = {
+        key: definition["const"]
+        for key, definition in schema["properties"]["fixed_dimensions"][
+            "properties"
+        ].items()
+    }
+    return (
+        Draft202012Validator(schema, format_checker=FormatChecker()),
+        registry,
+        fixed,
+    )
+
+
+def _ceil(value: Decimal) -> int:
+    return int(value.to_integral_value(rounding=ROUND_CEILING))
+
+
+def _dimension_classification(dimension_id: str) -> str:
+    if dimension_id == "capacity_mode":
+        return "deployable_selection"
+    if dimension_id in {
+        "resource_count",
+        "node_count",
+        "stream_count",
+        "shards_per_stream",
+        "timestamp_shards",
+        "autoscale_max_ru_per_second",
+    }:
+        return "capacity"
+    return "usage"
+
+
+def _dimension_value_type(value: str | int) -> str:
+    return "integer" if isinstance(value, int) else "string"
+
+
+def _dimension_validator(dimension_id: str, value: str | int) -> str:
+    if dimension_id == "capacity_mode":
+        return "validator.capacity-mode.v1"
+    if isinstance(value, int):
+        return "validator.non-negative-integer.v1"
+    return "validator.non-negative-decimal-string.v1"
+
+
+def _scenario_capacity(registry: Mapping[str, Any], size: str) -> Mapping[str, Any]:
+    return next(
+        item for item in registry["scenario_capacity"] if item["size"] == size
+    )
+
+
+def _dimension_value(
+    component_id: str,
+    logical: str,
+    dimension_id: str,
+    resolved: ResolvedFiveLayerV2Workload,
+    registry: Mapping[str, Any],
+    *,
+    azure_large_autoscale_ru_per_second: int | None,
+) -> tuple[str | int, str]:
+    workload = resolved.workload
+    event = resolved.eventing_scenario
+    derived = _scenario_capacity(registry, resolved.size)["derived"]
+    month_seconds = Decimal("2592000")
+    interval_seconds = Decimal(str(workload["deviceSendingIntervalInMinutes"])) * 60
+    messages = _ceil(
+        Decimal(int(workload["numberOfDevices"]))
+        * month_seconds
+        / interval_seconds
+    )
+    event_count = int(event["events_per_month"])
+    event_attempts = _ceil(
+        Decimal(event_count)
+        * (
+            Decimal("1")
+            + Decimal(str(event["retry_share"]))
+            + Decimal(str(event["replay_share"]))
+        )
+    )
+    consumer_count = len(event["mandatory_processed_consumers"]) + len(
+        event["extra_processed_consumers"]
+    )
+    dashboard_requests = (
+        int(workload["aggregateDashboardRefreshesPerHour"])
+        * int(workload["apiCallsPerAggregateDashboardRefresh"])
+        * int(workload["dashboardActiveHoursPerDay"])
+        * 30
+    )
+    twin_operations = _ceil(
+        (
+            Decimal(str(workload["twinStateMaterializationsPerSecond"]))
+            + Decimal(str(workload["twinGraphUpdatesPerSecond"]))
+        )
+        * month_seconds
+    ) + int(derived["l4_inspection_reads_per_month"])
+    request_count = (
+        dashboard_requests
+        if "reader" in component_id or logical == "component.visualization"
+        else event_attempts
+        if any(
+            token in component_id
+            for token in (
+                "event-adapter",
+                "sqs",
+                "sns",
+                "pubsub",
+                "event-hubs",
+                "kinesis",
+            )
+        )
+        else messages
+    )
+    storage_gib = {
+        "component.hot-storage": str(derived["hot_payload_gib"]),
+        "component.cool-storage": str(derived["cool_payload_gib"]),
+        "component.archive-storage": str(derived["archive_payload_gib"]),
+    }.get(logical, "0")
+    event_bytes = event_attempts * int(event["average_event_payload_bytes"])
+    units = {
+        "resource_count": "count",
+        "stored_gib_month": "GiB-month",
+        "read_requests": "requests/month",
+        "write_requests": "requests/month",
+        "request_units": "RU/month",
+        "capacity_mode": "enum",
+        "autoscale_max_ru_per_second": "RU/s",
+        "document_reads": "operations/month",
+        "document_writes": "operations/month",
+        "document_deletes": "operations/month",
+        "timestamp_shards": "count",
+        "requests": "requests/month",
+        "gib_seconds": "GiB-s/month",
+        "execution_seconds": "seconds/month",
+        "vcpu_seconds": "vCPU-s/month",
+        "memory_gib_seconds": "GiB-s/month",
+        "workspace_count": "count",
+        "editor_seats": "seats/month",
+        "viewer_seats": "seats/month",
+        "node_count": "count",
+        "node_hours": "hours/month",
+        "throughput_unit_hours": "TU-hours/month",
+        "capacity_unit_hours": "CU-hours/month",
+        "stream_count": "count",
+        "shards_per_stream": "count",
+        "shard_hours": "shard-hours/month",
+        "payload_units": "units/month",
+        "publish_bytes": "bytes/month",
+        "delivery_bytes": "bytes/month",
+        "publishes": "requests/month",
+        "messaging_unit_hours": "MU-hours/month",
+        "operations": "operations/month",
+        "log_ingestion_gib": "GiB/month",
+        "retained_log_gib_month": "GiB-month",
+        "rule_hours": "hours/month",
+        "processed_bytes": "bytes/month",
+        "connected_devices": "count",
+        "messages": "messages/month",
+        "twin_entities": "count",
+        "twin_operations": "operations/month",
+        "scheduled_invocations": "invocations/month",
+        "workflow_executions": "executions/month",
+        "workflow_transitions": "transitions/month",
+    }
+    if dimension_id == "resource_count":
+        count = (
+            {"small": 3, "medium": 3, "large": 12}[resolved.size]
+            if "bifromq" in component_id
+            else 1
+        )
+        return count, units[dimension_id]
+    values: dict[str, str | int] = {
+        "stored_gib_month": storage_gib,
+        "read_requests": dashboard_requests
+        + int(derived["l4_inspection_reads_per_month"]),
+        "write_requests": messages * 2,
+        "request_units": messages * 2 + dashboard_requests + twin_operations,
+        "capacity_mode": (
+            "autoscale"
+            if resolved.size == "large" and "cosmos" in component_id
+            else "serverless"
+            if "cosmos" in component_id
+            else "not_applicable"
+        ),
+        "autoscale_max_ru_per_second": (
+            azure_large_autoscale_ru_per_second or 0
+        ),
+        "document_reads": dashboard_requests
+        + int(derived["l4_inspection_reads_per_month"]),
+        "document_writes": messages * 2 + twin_operations,
+        "document_deletes": messages,
+        "timestamp_shards": int(derived["firestore_timestamp_shards"]),
+        "requests": request_count,
+        "gib_seconds": str(Decimal(request_count) * Decimal("0.125")),
+        "execution_seconds": request_count,
+        "vcpu_seconds": request_count,
+        "memory_gib_seconds": str(Decimal(request_count) * Decimal("0.5")),
+        "workspace_count": 1,
+        "editor_seats": int(workload["monthlyEditorSeats"]),
+        "viewer_seats": int(workload["monthlyViewerSeats"]),
+        "node_count": 1,
+        "node_hours": 730,
+        "throughput_unit_hours": {
+            "small": 730,
+            "medium": 8030,
+            "large": 0,
+        }[resolved.size],
+        "capacity_unit_hours": {
+            "small": 0,
+            "medium": 0,
+            "large": 4380,
+        }[resolved.size],
+        "stream_count": 2,
+        "shards_per_stream": {
+            "small": 1,
+            "medium": 6,
+            "large": 200,
+        }[resolved.size],
+        "shard_hours": {
+            "small": 1460,
+            "medium": 8760,
+            "large": 292000,
+        }[resolved.size],
+        "payload_units": event_attempts,
+        "publish_bytes": event_bytes,
+        "delivery_bytes": event_bytes * max(1, consumer_count),
+        "publishes": event_attempts,
+        "messaging_unit_hours": 730,
+        "operations": event_attempts,
+        "log_ingestion_gib": str(
+            Decimal(messages + event_attempts)
+            * Decimal("256")
+            / Decimal(1073741824)
+        ),
+        "retained_log_gib_month": str(
+            Decimal(messages + event_attempts)
+            * Decimal("256")
+            / Decimal(1073741824)
+        ),
+        "rule_hours": 730,
+        "processed_bytes": int(Decimal(str(derived["monthly_raw_payload_bytes"]))),
+        "connected_devices": int(workload["numberOfDevices"]),
+        "messages": messages,
+        "twin_entities": int(workload["twinEntityCount"]),
+        "twin_operations": twin_operations,
+        "scheduled_invocations": 8640,
+        "workflow_executions": _ceil(
+            Decimal(event_count)
+            * Decimal(str(event["rule_match_share"]))
+            * Decimal(str(event["workflow_start_share_of_matches"]))
+        ),
+        "workflow_transitions": _ceil(
+            Decimal(event_count)
+            * Decimal(str(event["rule_match_share"]))
+            * Decimal(str(event["workflow_start_share_of_matches"]))
+            * Decimal("3")
+        ),
+    }
+    try:
+        return values[dimension_id], units[dimension_id]
+    except KeyError as exc:
+        raise RuntimeError(
+            f"Unknown Five-layer v2 capacity dimension: {dimension_id}"
+        ) from exc
+
+
+def _selected_groups(
+    assignment: Mapping[str, str],
+    registry: Mapping[str, Any],
+) -> list[tuple[str, str, str]]:
+    if set(assignment) != set(LOGICAL_COMPONENTS) or any(
+        provider not in PROVIDERS for provider in assignment.values()
+    ):
+        raise ArchitectureResolutionError(
+            "ARCH_WORKLOAD_INCOMPATIBLE",
+            "assignment",
+            "Five-layer v2 assignment must cover every logical component",
+        )
+    if assignment["component.hot-storage"] != assignment["component.visualization"]:
+        raise ArchitectureResolutionError(
+            "ARCH_FUNCTIONAL_INCOMPLETE",
+            "assignment",
+            "Five-layer v2 requires provider-local L3 hot and L5",
+        )
+    bundle_index = {
+        item["provider"]: item for item in registry["provider_bundles"]
+    }
+    selected: list[tuple[str, str, str]] = []
+    seen: set[tuple[str, str]] = set()
+
+    def add(provider: str, logical: str, component_ids: list[str]) -> None:
+        for component_id in component_ids:
+            key = (provider, component_id)
+            if key not in seen:
+                seen.add(key)
+                selected.append((provider, logical, component_id))
+
+    for logical in LOGICAL_COMPONENTS:
+        provider = assignment[logical]
+        add(
+            provider,
+            logical,
+            list(bundle_index[provider]["layers"][LOGICAL_TO_LAYER[logical]]),
+        )
+    event_providers = {assignment[item] for item in EVENT_LOGICAL_COMPONENTS}
+    for provider in sorted(event_providers):
+        owner = next(
+            logical
+            for logical in EVENT_LOGICAL_COMPONENTS
+            if assignment[logical] == provider
+        )
+        embedded = list(bundle_index[provider]["embedded_event_components"])
+        if len(event_providers) == 1:
+            embedded = [
+                item
+                for item in embedded
+                if "only-for-reviewed-remote" not in item
+            ]
+        add(provider, owner, embedded)
+    provider_logicals = {
+        provider: [
+            logical for logical in LOGICAL_COMPONENTS if assignment[logical] == provider
+        ]
+        for provider in PROVIDERS
+    }
+    for provider, logicals in provider_logicals.items():
+        if not logicals:
+            continue
+        supports = list(bundle_index[provider]["support_components"])
+        add(
+            provider,
+            logicals[0],
+            [
+                item
+                for item in supports
+                if any(
+                    marker in item
+                    for marker in (
+                        "cloudwatch",
+                        ".monitor",
+                        "cloud-monitoring",
+                        "cloud-logging",
+                        "log-analytics",
+                    )
+                )
+            ],
+        )
+        if any(
+            assignment[logical] == provider
+            for logical in ("component.twin-state", "component.visualization")
+        ):
+            owner = (
+                "component.twin-state"
+                if assignment["component.twin-state"] == provider
+                else "component.visualization"
+            )
+            add(
+                provider,
+                owner,
+                [
+                    item
+                    for item in supports
+                    if any(
+                        marker in item
+                        for marker in (
+                            "identity-center-layer-access",
+                            "entra-layer-access",
+                            "direct-iap-layer-access",
+                        )
+                    )
+                ],
+            )
+        if assignment["component.visualization"] == provider:
+            add(
+                provider,
+                "component.visualization",
+                [item for item in supports if "grafana-tls-load-balancer" in item],
+            )
+    hot = assignment["component.hot-storage"]
+    cool = assignment["component.cool-storage"]
+    archive = assignment["component.archive-storage"]
+    mover_owners = [(hot, "component.hot-storage")]
+    if cool != archive:
+        mover_owners.append((cool, "component.cool-storage"))
+    for provider, logical in mover_owners:
+        add(
+            provider,
+            logical,
+            [
+                item
+                for item in bundle_index[provider]["support_components"]
+                if any(
+                    marker in item
+                    for marker in (
+                        "scheduler",
+                        "storage-mover",
+                        "scheduled-storage-job",
+                        "storage-job",
+                        "artifact-registry",
+                        ".ecr-",
+                        ".acr-",
+                    )
+                )
+            ],
+        )
+    if any(
+        assignment[logical] == "gcp"
+        for logical in (
+            "component.ingestion",
+            "component.processing",
+            "component.twin-state",
+            "component.visualization",
+        )
+    ):
+        owner = next(
+            logical
+            for logical in (
+                "component.ingestion",
+                "component.processing",
+                "component.twin-state",
+                "component.visualization",
+            )
+            if assignment[logical] == "gcp"
+        )
+        add(
+            "gcp",
+            owner,
+            [
+                item
+                for item in bundle_index["gcp"]["support_components"]
+                if "artifact-registry" in item
+            ],
+        )
+    return selected
+
+
+def build_five_layer_v2_deployment_specification(
+    *,
+    calculation_run_id: str,
+    assignment: Mapping[str, str],
+    resolved_workload: ResolvedFiveLayerV2Workload,
+    architecture_profile_ref: Mapping[str, str],
+    component_catalog_ref: Mapping[str, str],
+    workload_contract_digest: str,
+    pricing_evidence_digests: Mapping[str, str],
+    resolution_status: str = "offline_contract_fixture",
+    definition_lifecycle_statuses: Mapping[str, str] | None = None,
+    satisfied_live_gate_ids: frozenset[str] = frozenset(),
+    azure_large_autoscale_ru_per_second: int | None = None,
+) -> dict[str, Any]:
+    """Build an atomic, deduplicated v2 specification and fail closed."""
+
+    try:
+        UUID(calculation_run_id)
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise ArchitectureResolutionError(
+            "ARCH_WORKLOAD_INCOMPATIBLE",
+            "calculationRunId",
+            "Calculation run ID must be a UUID",
+        ) from exc
+    validator, registry, fixed = _contract()
+    selected_groups = _selected_groups(assignment, registry)
+    selected_providers = sorted({provider for provider, _, _ in selected_groups})
+    if set(pricing_evidence_digests) != set(selected_providers) or any(
+        not isinstance(value, str) or not _DIGEST.fullmatch(value)
+        for value in pricing_evidence_digests.values()
+    ):
+        raise ArchitectureResolutionError(
+            "ARCH_PRICING_EVIDENCE_MISSING",
+            "pricingEvidence",
+            "Every selected provider requires one pinned pricing-evidence digest",
+        )
+    component_index = {
+        item["component_id"]: item for item in registry["components"]
+    }
+    selections = []
+    bindings = []
+    for provider, logical, component_id in selected_groups:
+        component = component_index[component_id]
+        selection_id = f"selection.{provider}.{component_id}"
+        dimensions = []
+        for dimension_id in component["capacity_dimensions"]:
+            value, unit = _dimension_value(
+                component_id,
+                logical,
+                dimension_id,
+                resolved_workload,
+                registry,
+                azure_large_autoscale_ru_per_second=(
+                    azure_large_autoscale_ru_per_second
+                ),
+            )
+            classification = _dimension_classification(dimension_id)
+            dimension = {
+                "dimension_id": f"dimension.{provider}.{component_id}.{dimension_id}",
+                "classification": classification,
+                "value": value,
+                "unit": unit,
+                "formula_reference": "formula.phase-08-complete-service-bundles",
+                "evidence_reference": registry["capacity_evidence_digest"],
+            }
+            dimensions.append(dimension)
+            bindings.append(
+                {
+                    "binding_id": f"binding.{provider}.{component_id}.{dimension_id}",
+                    "source_kind": "deployment_dimension",
+                    "source_ref": dimension["dimension_id"],
+                    "destination_selection_id": selection_id,
+                    "destination_input_id": f"input.{classification}.{dimension_id}",
+                    "value_type": _dimension_value_type(value),
+                    "sensitivity": "internal",
+                    "resolution_stage": "preplan",
+                    "validator_id": _dimension_validator(dimension_id, value),
+                    "compatibility_version": "1",
+                }
+            )
+        selections.append(
+            {
+                "selection_id": selection_id,
+                "architecture_assignment_id": (
+                    f"assignment.{logical.removeprefix('component.')}"
+                ),
+                "logical_component_id": logical,
+                "implementation_component_id": component_id,
+                "implementation_component_digest": component["component_digest"],
+                "provider": provider,
+                "region": REGIONS[provider],
+                "required": True,
+                "dimensions": dimensions,
+            }
+        )
+    capacity = _scenario_capacity(registry, resolved_workload.size)
+    live_blockers = []
+    for provider in selected_providers:
+        live_blockers.extend(
+            f"gate.live-capacity.{provider}.{gate.replace('_', '-')}"
+            for gate in capacity["provider_admission"][provider]["live_gates"]
+        )
+    if (
+        resolved_workload.size == "large"
+        and assignment["component.hot-storage"] == "azure"
+        and (azure_large_autoscale_ru_per_second or 0) <= 0
+    ):
+        live_blockers.append("gate.live-capacity.azure.cosmos-autoscale-ru")
+    blockers = sorted(set(live_blockers) - set(satisfied_live_gate_ids))
+    required_definition_keys = {
+        "profile",
+        "catalog",
+        *(f"provider:{provider}" for provider in selected_providers),
+    }
+    definitions_active = (
+        definition_lifecycle_statuses is not None
+        and set(definition_lifecycle_statuses) == required_definition_keys
+        and set(definition_lifecycle_statuses.values()) == {"active"}
+    )
+    if not definitions_active:
+        blockers.append("gate.profile-activation-pending")
+        blockers.sort()
+    if resolution_status == "deployment_ready" and blockers:
+        raise ArchitectureResolutionError(
+            "ARCH_NO_ADMISSIBLE_CANDIDATE",
+            "capacity",
+            "Five-layer v2 candidate has unresolved activation or live-capacity gates",
+        )
+    if resolution_status not in {"offline_contract_fixture", "deployment_ready"}:
+        raise ArchitectureResolutionError(
+            "ARCH_WORKLOAD_INCOMPATIBLE",
+            "resolutionStatus",
+            "Five-layer v2 deployment resolution status is unsupported",
+        )
+    specification = {
+        "schema_version": "resolved-deployment-specification.v2",
+        "calculation_run_id": calculation_run_id,
+        "architecture_profile_ref": dict(architecture_profile_ref),
+        "optimization_context": {
+            "service_decision_ref": dict(registry["package_ref"]),
+            "component_catalog_ref": dict(component_catalog_ref),
+            "workload_ref": {
+                "id": "five-layer-workload",
+                "version": "2",
+                "digest": workload_contract_digest,
+            },
+            "eventing_scenario_ref": dict(
+                resolved_workload.eventing_scenario_ref
+            ),
+            "formula_set_ref": {
+                "id": "phase-08-complete-service-bundles",
+                "version": "1",
+                "digest": registry["pricing_ownership_digest"],
+            },
+            "pricing_evidence_refs": [
+                {
+                    "provider": provider,
+                    "digest": pricing_evidence_digests[provider],
+                }
+                for provider in selected_providers
+            ],
+        },
+        "readiness": {
+            "status": resolution_status,
+            "blocking_gate_ids": blockers,
+        },
+        "currency": str(resolved_workload.workload["currency"]),
+        "fixed_dimensions": fixed,
+        "component_selections": selections,
+        "bindings": bindings,
+        "digest": "",
+    }
+    specification["digest"] = _digest(
+        {key: value for key, value in specification.items() if key != "digest"}
+    )
+    errors = sorted(
+        validator.iter_errors(specification),
+        key=lambda error: tuple(str(part) for part in error.absolute_path),
+    )
+    if errors:
+        raise ArchitectureResolutionError(
+            "ARCH_RESOLUTION_BUILD_FAILED",
+            "resolvedDeploymentSpecification",
+            errors[0].message,
+        )
+    return specification
