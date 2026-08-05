@@ -106,7 +106,7 @@ def test_prepare_context_rejects_historical_manifest_for_new_deploy():
         patch.object(deployment, "create_context", return_value=context),
         pytest.raises(
             ValueError,
-            match="new deployment operations require DeploymentManifest v3",
+            match="new deployment operations require DeploymentManifest v3 or v4",
         ),
     ):
         deployment._prepare_deployment_context(

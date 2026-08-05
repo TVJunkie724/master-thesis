@@ -213,7 +213,7 @@ class DeploymentContext:
         "ValidatedDeploymentManifest"
     ] = None
 
-    # Deterministic graph compiled from Manifest v3 before package/Terraform work.
+    # Deterministic graph compiled from Manifest v3/v4 before package/Terraform work.
     resolved_deployment_graph: Optional["ResolvedDeploymentGraph"] = None
     
     # Currently active layer (for logging context)

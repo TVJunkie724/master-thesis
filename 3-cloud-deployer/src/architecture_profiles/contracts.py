@@ -40,8 +40,6 @@ def _load_runtime(version: str) -> ModuleType:
 
 _runtimes = {version: _load_runtime(version) for version in ("v1", "v2")}
 ValidatedContract = _runtimes["v1"].ValidatedContract
-calculate_digest = _runtimes["v1"].calculate_digest
-calculate_resolution_id = _runtimes["v1"].calculate_resolution_id
 canonical_json = _runtimes["v1"].canonical_json
 
 
@@ -72,6 +70,18 @@ def _translate(exc: Exception) -> ContractError:
         str(getattr(exc, "path", "$")),
         str(exc),
     )
+
+
+def calculate_digest(document: Mapping[str, Any]) -> str:
+    """Calculate a digest with the runtime selected by schema version."""
+
+    return str(_runtimes[_version(document)].calculate_digest(document))
+
+
+def calculate_resolution_id(document: Mapping[str, Any]) -> str:
+    """Calculate a resolution ID with the matching versioned runtime."""
+
+    return str(_runtimes[_version(document)].calculate_resolution_id(document))
 
 
 def read_contract(

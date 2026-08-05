@@ -95,7 +95,7 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
     )
     resolved_graph = (
         resolve_deployment_graph(validated_manifest)
-        if validated_manifest.manifest_version == "3.0"
+        if validated_manifest.manifest_version in {"3.0", "4.0"}
         else None
     )
     deployment_tfvars = (

@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 import json
 from pathlib import Path
+from types import MappingProxyType
 
 import pytest
 
@@ -14,7 +15,11 @@ from src.architecture_profiles.contracts import (
 )
 from src.architecture_profiles.graph_evidence import graph_evidence
 from src.architecture_profiles.graph_resolver import resolve_deployment_graph
-from src.deployment_specification import validate_deployment_manifest
+from src.deployment_specification import (
+    ValidatedDeploymentManifest,
+    validate_deployment_manifest,
+    validate_resolved_deployment_specification,
+)
 from src.deployment_specification.errors import DeploymentSpecificationError
 from src.terraform_inputs import translate_graph_inputs
 
@@ -29,6 +34,16 @@ MANIFEST_ROOT = (
     / "fixtures"
     / "valid"
 )
+MANIFEST_V4_ROOT = MANIFEST_ROOT.parents[2] / "v4" / "fixtures" / "valid"
+LOGICAL_TO_SLOT = {
+    "component.ingestion": "l1_ingestion",
+    "component.processing": "l2_processing",
+    "component.hot-storage": "l3_hot_storage",
+    "component.cool-storage": "l3_cool_storage",
+    "component.archive-storage": "l3_archive_storage",
+    "component.twin-state": "l4_twin_state",
+    "component.visualization": "l5_visualization",
+}
 
 
 def _manifest(name: str = "all-aws.json") -> dict:
@@ -39,6 +54,27 @@ def _resolve(manifest: dict):
     validated = validate_deployment_manifest(
         manifest,
         manifest["providers"],
+    )
+    return resolve_deployment_graph(validated)
+
+
+def _resolve_offline_v4(name: str):
+    """Compile canonical offline evidence without weakening deployment readiness."""
+
+    manifest = json.loads((MANIFEST_V4_ROOT / name).read_text("utf-8"))
+    specification = validate_resolved_deployment_specification(
+        manifest["resolved_deployment_specification"]
+    )
+    provider_by_slot = {
+        LOGICAL_TO_SLOT[item["logical_component_id"]]: item["provider"]
+        for item in manifest["resolved_twin_architecture"]["component_assignments"]
+    }
+    validated = ValidatedDeploymentManifest(
+        manifest=MappingProxyType(manifest),
+        specification=specification,
+        provider_by_slot=MappingProxyType(provider_by_slot),
+        manifest_version="4.0",
+        architecture=MappingProxyType(manifest["resolved_twin_architecture"]),
     )
     return resolve_deployment_graph(validated)
 
@@ -182,3 +218,37 @@ def test_invalid_v3_never_falls_back_to_historical_v2():
         validate_deployment_manifest(manifest, manifest["providers"])
 
     assert raised.value.code == "DEPLOYMENT_MANIFEST_INVALID"
+
+
+@pytest.mark.parametrize(
+    "fixture",
+    (
+        "single-cloud-aws-small.json",
+        "two-cloud-azure-l3l5-gcp-l4-medium.json",
+        "three-cloud-mixed-large.json",
+    ),
+)
+def test_v4_graph_compiles_every_representative_cloud_shape(fixture):
+    graph = _resolve_offline_v4(fixture)
+
+    assert len(graph.nodes) == 7
+    assert len(graph.edges) == 6
+    assert {node.node_role for node in graph.nodes} == {"architecture_component"}
+    assert all(node.deployment_dimensions for node in graph.nodes)
+    assert "edge.hot-storage-to-visualization" in {
+        edge.logical_edge_id for edge in graph.edges
+    }
+    assert "edge.twin-state-to-visualization" not in {
+        edge.logical_edge_id for edge in graph.edges
+    }
+
+
+def test_v4_offline_contract_fixture_is_not_executable():
+    manifest = json.loads(
+        (MANIFEST_V4_ROOT / "single-cloud-aws-small.json").read_text("utf-8")
+    )
+
+    with pytest.raises(DeploymentSpecificationError) as raised:
+        validate_deployment_manifest(manifest, manifest["providers"])
+
+    assert raised.value.code == "DEPLOYMENT_SPECIFICATION_NOT_READY"

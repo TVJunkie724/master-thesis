@@ -18,6 +18,7 @@ from .contract import (
     PROVIDERS,
     SCHEMA_VERSION,
     V2_SCHEMA_VERSION,
+    V4_MANIFEST_VERSION,
     SLOT_ORDER,
     load_contract,
     load_manifest_schema,
@@ -100,15 +101,19 @@ def validate_deployment_manifest(
             "DeploymentManifest is required for deployment operations",
         )
     version = raw_manifest.get("manifest_version")
-    if version not in {MANIFEST_VERSION, HISTORICAL_MANIFEST_VERSION}:
+    if version not in {
+        V4_MANIFEST_VERSION,
+        MANIFEST_VERSION,
+        HISTORICAL_MANIFEST_VERSION,
+    }:
         _fail(
             "DEPLOYMENT_MANIFEST_VERSION_UNSUPPORTED",
             "deployment_manifest.manifest_version",
             "DeploymentManifest version is unsupported",
         )
     architecture = None
-    if version == MANIFEST_VERSION:
-        architecture = _validate_manifest_v3(raw_manifest)
+    if version in {MANIFEST_VERSION, V4_MANIFEST_VERSION}:
+        architecture = _validate_current_manifest(raw_manifest, str(version))
 
     specification = validate_resolved_deployment_specification(
         raw_manifest.get("resolved_deployment_specification")
@@ -169,18 +174,31 @@ def validate_deployment_manifest(
                 "Deployment provider projection differs from resolved architecture",
             )
         provider_by_slot[slot_id] = configured
-    if version == MANIFEST_VERSION:
+    if version in {MANIFEST_VERSION, V4_MANIFEST_VERSION}:
         _validate_manifest_v3_metadata(
             raw_manifest,
             set(provider_by_slot.values()),
         )
 
-    _validate_components(
-        list(specification.specification["components"]),
-        provider_by_slot=provider_by_slot,
-        registry=registry,
-        optimization_context=specification.specification["optimization_context"],
-    )
+    if version == V4_MANIFEST_VERSION:
+        if specification.schema_version != V2_SCHEMA_VERSION:
+            _fail(
+                "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+                "deployment_manifest.resolved_deployment_specification",
+                "DeploymentManifest v4 requires RDS v2",
+            )
+        _validate_v4_architecture_specification(
+            raw_manifest,
+            architecture,
+            specification.specification,
+        )
+    else:
+        _validate_components(
+            list(specification.specification["components"]),
+            provider_by_slot=provider_by_slot,
+            registry=registry,
+            optimization_context=specification.specification["optimization_context"],
+        )
     return ValidatedDeploymentManifest(
         manifest=MappingProxyType(dict(raw_manifest)),
         specification=specification,
@@ -192,8 +210,9 @@ def validate_deployment_manifest(
     )
 
 
-def _validate_manifest_v3(
+def _validate_current_manifest(
     raw_manifest: Mapping[str, Any],
+    version: str,
 ) -> dict[str, Any]:
     _scan_manifest_payload(raw_manifest)
     serialized = canonical_json(raw_manifest)
@@ -205,7 +224,7 @@ def _validate_manifest_v3(
         )
     errors = sorted(
         Draft202012Validator(
-            load_manifest_schema(),
+            load_manifest_schema(version),
             format_checker=FormatChecker(),
         ).iter_errors(json.loads(serialized)),
         key=lambda error: [str(part) for part in error.absolute_path],
@@ -215,7 +234,7 @@ def _validate_manifest_v3(
         _fail(
             "DEPLOYMENT_MANIFEST_INVALID",
             f"deployment_manifest.{location}".rstrip("."),
-            "DeploymentManifest does not match schema v3",
+            "DeploymentManifest does not match its versioned schema",
         )
 
     architecture = raw_manifest.get("resolved_twin_architecture")
@@ -264,7 +283,18 @@ def _validate_manifest_v3(
             "Manifest architecture and deployment specification references differ",
         )
 
-    registry = ArchitectureProfileRegistry()
+    profile_ref = architecture.get("architecture_profile_ref")
+    profile_version = (
+        str(profile_ref.get("version")) if isinstance(profile_ref, Mapping) else ""
+    )
+    expected_profile_version = "2" if version == V4_MANIFEST_VERSION else "1"
+    if profile_version != expected_profile_version:
+        _fail(
+            "DEPLOYMENT_PROFILE_CATALOG_MISMATCH",
+            "deployment_manifest.resolved_twin_architecture.architecture_profile_ref",
+            "Manifest and architecture profile versions are incompatible",
+        )
+    registry = ArchitectureProfileRegistry(profile_version=profile_version)
     linked_documents = (
         registry.profile,
         *registry.providers.values(),
@@ -295,7 +325,6 @@ def _validate_manifest_v3(
             "deployment_manifest.resolved_twin_architecture",
             "Resolved architecture does not satisfy its pinned contract",
         )
-    profile_ref = architecture.get("architecture_profile_ref")
     catalog_ref = raw_manifest.get("compatibility", {}).get("component_catalog_ref")
     expected_profile = {
         "id": registry.profile["profile_id"],
@@ -314,6 +343,82 @@ def _validate_manifest_v3(
             "Manifest profile or component catalog reference is unsupported",
         )
     return json.loads(canonical_json(architecture))
+
+
+def _validate_v4_architecture_specification(
+    manifest: Mapping[str, Any],
+    architecture: Mapping[str, Any] | None,
+    specification: Mapping[str, Any],
+) -> None:
+    """Require an exact, publishable RTA-v2/RDS-v2 execution pair."""
+
+    if architecture is None:
+        _fail(
+            "DEPLOYMENT_ARCHITECTURE_MISSING",
+            "deployment_manifest.resolved_twin_architecture",
+            "DeploymentManifest v4 requires a resolved architecture",
+        )
+    if (
+        architecture.get("schema_version") != "resolved-twin-architecture.v2"
+        or architecture.get("resolution_status") != "publishable"
+        or architecture.get("functional_completeness", {}).get("status")
+        != "complete"
+        or specification.get("readiness")
+        != {"status": "deployment_ready", "blocking_gate_ids": []}
+    ):
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_NOT_READY",
+            "deployment_manifest.resolved_deployment_specification.readiness",
+            "Only a blocker-free publishable Five-layer v2 pair may deploy",
+        )
+
+    profile_ref = architecture["architecture_profile_ref"]
+    context = specification["optimization_context"]
+    catalog_ref = manifest["compatibility"]["component_catalog_ref"]
+    if (
+        specification["architecture_profile_ref"] != profile_ref
+        or context["component_catalog_ref"] != catalog_ref
+        or context["workload_ref"] != architecture["workload_contract_ref"]
+    ):
+        _fail(
+            "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+            "deployment_manifest.resolved_deployment_specification.optimization_context",
+            "Manifest v4 profile, catalog, or workload references differ",
+        )
+
+    assignments = {
+        item["assignment_id"]: item for item in architecture["component_assignments"]
+    }
+    selected_by_assignment: dict[str, list[Mapping[str, Any]]] = {
+        assignment_id: [] for assignment_id in assignments
+    }
+    for selection in specification["component_selections"]:
+        assignment_id = selection["architecture_assignment_id"]
+        assignment = assignments.get(assignment_id)
+        if (
+            assignment is None
+            or selection["logical_component_id"]
+            != assignment["logical_component_id"]
+            or selection["provider"] != assignment["provider"]
+            or selection["region"] != assignment["region"]
+        ):
+            _fail(
+                "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+                "deployment_manifest.resolved_deployment_specification.component_selections",
+                "Five-layer v2 selection differs from its architecture assignment",
+            )
+        selected_by_assignment[assignment_id].append(selection)
+    for assignment_id, assignment in assignments.items():
+        actual_ids = [
+            item["implementation_component_id"]
+            for item in selected_by_assignment[assignment_id]
+        ]
+        if actual_ids != assignment["deployment_specification_component_ids"]:
+            _fail(
+                "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+                f"deployment_manifest.resolved_twin_architecture.{assignment_id}",
+                "Architecture component ownership differs from RDS v2",
+            )
 
 
 def _scan_manifest_payload(
@@ -356,7 +461,7 @@ def _scan_manifest_payload(
                 _fail(
                     "DEPLOYMENT_MANIFEST_INVALID",
                     path,
-                    "Secret-bearing fields are forbidden in DeploymentManifest v3",
+                    "Secret-bearing fields are forbidden in DeploymentManifest",
                 )
             _scan_manifest_payload(
                 nested,

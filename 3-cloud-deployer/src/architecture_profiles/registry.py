@@ -33,19 +33,34 @@ def _freeze(value: Any) -> Any:
 class ArchitectureProfileRegistry:
     """Load definitions without compiling Terraform or building packages."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, profile_version: str = "1") -> None:
+        if profile_version not in {"1", "2"}:
+            raise contracts.ContractError(
+                "ARCH_PROFILE_UNAVAILABLE",
+                "architecture_profile_ref.version",
+                "Architecture profile version is unsupported",
+            )
+        catalog_family = "baseline" if profile_version == "1" else "complete-service"
         profile = _read(
-            DEFINITIONS_ROOT / "profiles" / "five-layer-baseline" / "1" / "profile.json"
+            DEFINITIONS_ROOT
+            / "profiles"
+            / "five-layer-baseline"
+            / profile_version
+            / "profile.json"
         )
         catalog = _read(
-            DEFINITIONS_ROOT / "component-catalogs" / "baseline" / "1" / "catalog.json"
+            DEFINITIONS_ROOT
+            / "component-catalogs"
+            / catalog_family
+            / "1"
+            / "catalog.json"
         )
         providers = {
             provider: _read(
                 DEFINITIONS_ROOT
                 / "provider-implementations"
                 / "five-layer-baseline"
-                / "1"
+                / profile_version
                 / provider
                 / "1.json"
             )

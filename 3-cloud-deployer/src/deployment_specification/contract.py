@@ -14,6 +14,7 @@ SCHEMA_VERSION = "resolved-deployment-specification.v1"
 V2_SCHEMA_VERSION = "resolved-deployment-specification.v2"
 REGISTRY_VERSION = "resolved-deployment-dimensions.v1"
 MANIFEST_VERSION = "3.0"
+V4_MANIFEST_VERSION = "4.0"
 HISTORICAL_MANIFEST_VERSION = "2.0"
 PROVIDERS = ("aws", "azure", "gcp")
 SLOT_ORDER = (
@@ -40,6 +41,7 @@ MANIFEST_CONTRACT_ROOT = (
     / "deployment-manifest"
     / "v3"
 )
+V4_MANIFEST_CONTRACT_ROOT = MANIFEST_CONTRACT_ROOT.parent / "v4"
 
 
 @lru_cache(maxsize=1)
@@ -84,13 +86,22 @@ def load_v2_contract() -> tuple[dict[str, Any], dict[str, Any]]:
     return schema, registry
 
 
-@lru_cache(maxsize=1)
-def load_manifest_schema() -> dict[str, Any]:
-    """Load the synchronized DeploymentManifest v3 schema."""
+@lru_cache(maxsize=2)
+def load_manifest_schema(version: str = MANIFEST_VERSION) -> dict[str, Any]:
+    """Load a synchronized current DeploymentManifest schema."""
 
+    root = (
+        MANIFEST_CONTRACT_ROOT
+        if version == MANIFEST_VERSION
+        else V4_MANIFEST_CONTRACT_ROOT
+        if version == V4_MANIFEST_VERSION
+        else None
+    )
+    if root is None:
+        raise RuntimeError("DeploymentManifest contract version is unsupported")
     try:
-        schema = json.loads((MANIFEST_CONTRACT_ROOT / "schema.json").read_text("utf-8"))
+        schema = json.loads((root / "schema.json").read_text("utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise RuntimeError("DeploymentManifest v3 contract is unavailable") from exc
+        raise RuntimeError("DeploymentManifest contract is unavailable") from exc
     Draft202012Validator.check_schema(schema)
     return schema

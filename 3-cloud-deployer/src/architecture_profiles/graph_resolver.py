@@ -38,18 +38,32 @@ def resolve_deployment_graph(
 ) -> ResolvedDeploymentGraph:
     """Resolve every architecture assignment and edge before side effects."""
 
-    if manifest.manifest_version != "3.0" or manifest.architecture is None:
+    if manifest.manifest_version not in {"3.0", "4.0"} or manifest.architecture is None:
         _fail(
             "DEPLOYMENT_MANIFEST_VERSION_UNSUPPORTED",
             "deployment_manifest.manifest_version",
-            "New graph resolution requires DeploymentManifest v3",
+            "Graph resolution requires DeploymentManifest v3 or v4",
         )
-    registry = registry or ArchitectureProfileRegistry()
-    catalog = DeploymentComponentCatalog(registry)
     architecture = manifest.architecture
+    profile_ref = architecture["architecture_profile_ref"]
+    registry = registry or ArchitectureProfileRegistry(
+        profile_version=str(profile_ref["version"])
+    )
+    catalog = DeploymentComponentCatalog(registry)
     specification = manifest.specification.specification
+    specification_components = (
+        specification["component_selections"]
+        if manifest.specification.schema_version
+        == "resolved-deployment-specification.v2"
+        else specification["components"]
+    )
     specification_by_id = {
-        item["component_id"]: item for item in specification["components"]
+        (
+            item["implementation_component_id"]
+            if "implementation_component_id" in item
+            else item["component_id"]
+        ): item
+        for item in specification_components
     }
     assignments = sorted(
         architecture["component_assignments"],
@@ -175,6 +189,10 @@ def resolve_deployment_graph(
         used_specification_ids.update(specification_ids)
         component_by_assignment[assignment["assignment_id"]] = component
 
+    node_by_deployment_component = {
+        node.deployment_component_id: node for node in nodes
+    }
+
     edges: list[GraphEdge] = []
     support_node_by_component: dict[str, GraphNode] = {}
     destination_bindings: set[tuple[str, str]] = set()
@@ -216,7 +234,9 @@ def resolve_deployment_graph(
             )
         support_node_ids: list[str] = []
         for support_component_id in edge["glue_component_ids"]:
-            support_node = support_node_by_component.get(support_component_id)
+            support_node = node_by_deployment_component.get(
+                support_component_id
+            ) or support_node_by_component.get(support_component_id)
             if support_node is None:
                 try:
                     support_component = catalog.component(support_component_id)
@@ -320,6 +340,7 @@ def resolve_deployment_graph(
                     (),
                 )
                 support_node_by_component[support_component_id] = support_node
+                node_by_deployment_component[support_component_id] = support_node
                 nodes.append(support_node)
                 component_by_assignment[support_assignment_id] = support_component
                 used_specification_ids.update(support_specification_ids)

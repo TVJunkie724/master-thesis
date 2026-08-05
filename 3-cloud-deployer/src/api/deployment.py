@@ -70,7 +70,7 @@ def _prepare_deployment_context(
     if operation != "destroy" and context.resolved_deployment_graph is None:
         raise ValueError(
             "DEPLOYMENT_MANIFEST_VERSION_UNSUPPORTED: "
-            "new deployment operations require DeploymentManifest v3"
+            "new deployment operations require DeploymentManifest v3 or v4"
         )
     return DeploymentRequest(
         project_name=project_name, provider=normalized_provider
