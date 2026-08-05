@@ -63,6 +63,7 @@ logger = logging.getLogger(__name__)
 
 DEPLOYMENT_MANIFEST_FILE = "deployment_manifest.json"
 DEPLOYMENT_MANIFEST_VERSION = "3.0"
+DEPLOYMENT_MANIFEST_V4_VERSION = "4.0"
 RESOLVED_GRAPH_VERSION = "resolved-deployment-graph.v1"
 PACKAGE_BUILDER_VERSION = "graph-package-builder.v1"
 TERRAFORM_INPUT_CONTRACT_VERSION = "graph-terraform-inputs.v1"
@@ -1454,8 +1455,12 @@ def _build_deployment_manifest(
     must never contain credential payloads or decrypted secret values.
     """
     normalized_extension_references = list(extension_references)
+    manifest_version = _manifest_version_for_contracts(
+        resolved_architecture,
+        deployment_specification,
+    )
     return {
-        "manifest_version": DEPLOYMENT_MANIFEST_VERSION,
+        "manifest_version": manifest_version,
         "generated_at": datetime.now(timezone.utc)
         .isoformat(timespec="seconds")
         .replace("+00:00", "Z"),
@@ -1493,12 +1498,46 @@ def _build_deployment_manifest(
             "bindings": normalized_extension_references,
         },
         "compatibility": {
-            "component_catalog_ref": _component_catalog_ref(),
+            "component_catalog_ref": _component_catalog_ref(
+                resolved_architecture.get("architecture_profile_ref")
+            ),
             "graph_resolver_version": RESOLVED_GRAPH_VERSION,
             "package_builder_version": PACKAGE_BUILDER_VERSION,
             "terraform_input_contract_version": (TERRAFORM_INPUT_CONTRACT_VERSION),
         },
     }
+
+
+def _manifest_version_for_contracts(
+    architecture: dict[str, Any],
+    specification: dict[str, Any],
+) -> str:
+    """Select only an explicitly supported RTA/RDS manifest pairing."""
+
+    pair = (
+        architecture.get("schema_version"),
+        specification.get("schema_version"),
+    )
+    if pair == (
+        "resolved-twin-architecture.v1",
+        "resolved-deployment-specification.v1",
+    ):
+        return DEPLOYMENT_MANIFEST_VERSION
+    if pair == (
+        "resolved-twin-architecture.v2",
+        "resolved-deployment-specification.v2",
+    ):
+        return DEPLOYMENT_MANIFEST_V4_VERSION
+    raise DeploymentPackageBuildFailed(
+        "The selected deployment contracts cannot share a manifest",
+        [
+            {
+                "code": "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+                "field": "deployment_manifest.manifest_version",
+                "message": "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+            }
+        ],
+    )
 
 
 def _selected_deployment_contracts(
@@ -1671,11 +1710,27 @@ def _validate_architecture_specification_path(
         )
 
 
-def _component_catalog_ref() -> dict[str, str]:
+def _component_catalog_ref(
+    profile_ref: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    profile_version = (
+        str(profile_ref.get("version")) if isinstance(profile_ref, dict) else "1"
+    )
+    if profile_version not in {"1", "2"}:
+        raise DeploymentPackageBuildFailed(
+            "The deployment architecture profile is unsupported",
+            [
+                {
+                    "field": "compatibility.component_catalog_ref",
+                    "message": "DEPLOYMENT_PROFILE_CATALOG_MISMATCH",
+                }
+            ],
+        )
+    catalog_family = "baseline" if profile_version == "1" else "complete-service"
     path = (
         ARCHITECTURE_CONTRACT_ROOT
         / "component-catalogs"
-        / "baseline"
+        / catalog_family
         / "1"
         / "catalog.json"
     )
@@ -1705,7 +1760,9 @@ def _validate_returned_graph_evidence(
     """Bind Deployer preflight evidence to the exact selected contracts."""
 
     profile_ref = contracts.architecture.get("architecture_profile_ref")
-    catalog_ref = _component_catalog_ref()
+    catalog_ref = _component_catalog_ref(
+        profile_ref if isinstance(profile_ref, dict) else None
+    )
     expected = {
         "graph_schema_version": RESOLVED_GRAPH_VERSION,
         "calculation_run_id": contracts.run.id,

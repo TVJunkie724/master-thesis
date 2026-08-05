@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 
 import pytest
 
@@ -10,6 +11,8 @@ from src.services.architecture_contract_service import (
     ArchitectureContractService,
     CONTRACT_ROOT,
     ContractError,
+    calculate_digest,
+    canonical_json,
 )
 
 
@@ -40,6 +43,21 @@ def test_management_reader_dispatches_five_layer_v2_contract():
     validated = ArchitectureContractService.read(profile)
     assert validated.schema_version == "architecture-profile.v2"
     assert validated.content_digest == profile["content_digest"]
+
+
+def test_exported_digest_and_canonical_json_dispatch_to_v2_runtime():
+    resolution = _read(
+        CONTRACT_ROOT.parent
+        / "v2"
+        / "fixtures"
+        / "valid"
+        / "single-cloud-aws-small-resolved.json"
+    )
+    reordered = deepcopy(resolution)
+    reordered["component_assignments"].reverse()
+
+    assert calculate_digest(reordered) == resolution["content_digest"]
+    assert canonical_json(reordered) == canonical_json(resolution)
 
 
 def test_management_reader_rejects_unknown_version():

@@ -1436,3 +1436,77 @@ class TestBuildDeploymentManifest:
         }
         assert "must-not-leak" not in manifest_text
         assert "azure_client_secret" not in manifest_text
+
+    def test_v2_contract_pair_produces_manifest_v4_and_complete_catalog(self):
+        root = (
+            Path(__file__).resolve().parents[1]
+            / "src"
+            / "contracts"
+            / "generated"
+            / "deployment-manifest"
+            / "v4"
+            / "fixtures"
+            / "valid"
+        )
+        fixture = json.loads(
+            (root / "single-cloud-aws-small.json").read_text(encoding="utf-8")
+        )
+        twin = Mock()
+        twin.id = "twin-v2"
+        twin.name = "Five Layer V2"
+        twin.deployer_config = Mock()
+        twin.deployer_config.deployer_digital_twin_name = "five-layer-v2"
+
+        result = _build_deployment_manifest(
+            twin,
+            fixture["providers"],
+            DeploymentCredentials(
+                providers=("aws",),
+                config_credentials={},
+                sources={"aws": "cloud_connection"},
+            ),
+            ["config.json", "config_credentials.json"],
+            resolved_architecture=fixture["resolved_twin_architecture"],
+            deployment_specification=fixture[
+                "resolved_deployment_specification"
+            ],
+        )
+
+        assert result["manifest_version"] == "4.0"
+        assert result["compatibility"]["component_catalog_ref"] == fixture[
+            "compatibility"
+        ]["component_catalog_ref"]
+
+    def test_cross_version_contract_pair_is_rejected(self):
+        _, _, architecture = calculation_result_and_contracts("aws")
+        v2_specification = json.loads(
+            (
+                Path(__file__).resolve().parents[1]
+                / "src"
+                / "contracts"
+                / "generated"
+                / "resolved-deployment-specification"
+                / "v2"
+                / "fixtures"
+                / "valid"
+                / "single-cloud-aws-small.json"
+            ).read_text(encoding="utf-8")
+        )
+
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            _build_deployment_manifest(
+                Mock(),
+                {},
+                DeploymentCredentials(
+                    providers=("aws",),
+                    config_credentials={},
+                    sources={"aws": "cloud_connection"},
+                ),
+                [],
+                resolved_architecture=architecture,
+                deployment_specification=v2_specification,
+            )
+
+        assert exc_info.value.errors[0]["message"] == (
+            "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH"
+        )
