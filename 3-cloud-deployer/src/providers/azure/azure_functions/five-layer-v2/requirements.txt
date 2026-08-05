@@ -1,0 +1,6 @@
+azure-functions
+azure-identity
+azure-eventhub
+azure-servicebus
+azure-cosmos
+azure-digitaltwins-core

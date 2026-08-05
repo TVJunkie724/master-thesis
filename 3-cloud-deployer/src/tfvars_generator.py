@@ -316,7 +316,7 @@ def _load_graph_azure_function_zips(
     expected_azure = {
         package_id
         for package_id in expected_package_ids
-        if package_id.startswith("azure_bundle_")
+        if package_id.startswith("azure_bundle_") or package_id == "azure_five-layer-v2"
     }
     evidence_path = project_dir / ".twin2multicloud" / "graph" / "package-evidence.json"
     try:
@@ -340,6 +340,7 @@ def _load_graph_azure_function_zips(
         "azure_l2_zip_path": "",
         "azure_l3_zip_path": "",
         "azure_user_zip_path": "",
+        "azure_v2_zip_path": "",
     }
     for group in ("l0", "l1", "l2", "l3"):
         matches = sorted(build_dir.glob(f"{group}_functions_*.zip"))
@@ -362,6 +363,18 @@ def _load_graph_azure_function_zips(
         for group in ("l0", "l1", "l2", "l3")
         if result[f"azure_{group}_zip_path"]
     }
+    v2_package = project_dir / ".build" / "azure" / "five-layer-v2.zip"
+    if "azure_five-layer-v2" in expected_azure:
+        item = evidence_packages.get("azure_five-layer-v2")
+        if (
+            item is None
+            or not v2_package.is_file()
+            or v2_package.is_symlink()
+            or item.get("sha256") != hashlib.sha256(v2_package.read_bytes()).hexdigest()
+        ):
+            raise ConfigurationError("Graph-built Azure v2 package digest is invalid.")
+        result["azure_v2_zip_path"] = str(v2_package)
+        discovered.add("azure_five-layer-v2")
     if discovered != expected_azure:
         raise ConfigurationError("Graph-built Azure package set is incomplete.")
     return result

@@ -30,6 +30,11 @@ from src.providers.terraform.package_builders.azure import (
     build_azure_user_bundle,
     get_azure_zip_path,
 )
+from src.providers.terraform.package_builders.azure_v2 import (
+    AZURE_V2_GRAPH_APPS,
+    azure_v2_graph_package_ids,
+    build_azure_v2_graph_apps,
+)
 from src.providers.terraform.package_builders.common import (
     _clean_old_versioned_zips,
     _compute_content_hash,
@@ -113,12 +118,16 @@ def build_all_packages(
                 selected_function_names=selected_functions["aws"],
             )
         )
-        packages.update(
-            build_azure_graph_bundles(
-                project_path,
-                selected_functions["azure"],
-            )
+        azure_v2_names = tuple(
+            name for name in selected_functions["azure"] if name in AZURE_V2_GRAPH_APPS
         )
+        azure_v1_names = tuple(
+            name
+            for name in selected_functions["azure"]
+            if name not in AZURE_V2_GRAPH_APPS
+        )
+        packages.update(build_azure_graph_bundles(project_path, azure_v1_names))
+        packages.update(build_azure_v2_graph_apps(project_path, azure_v2_names))
         packages.update(
             build_gcp_cloud_function_packages(
                 terraform_dir,
@@ -322,7 +331,10 @@ def _selected_static_function_packages(
         selected[provider].add(source_path.name)
         if provider != "azure":
             package_ids.add(f"{provider}_{source_path.name}")
-    package_ids.update(azure_graph_package_ids(selected["azure"]))
+    azure_v2_names = selected["azure"].intersection(AZURE_V2_GRAPH_APPS)
+    azure_v1_names = selected["azure"] - azure_v2_names
+    package_ids.update(azure_graph_package_ids(azure_v1_names))
+    package_ids.update(azure_v2_graph_package_ids(azure_v2_names))
     return (
         {
             provider: tuple(sorted(functions))

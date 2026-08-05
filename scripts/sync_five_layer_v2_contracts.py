@@ -41,6 +41,9 @@ SERVICE_SOURCES = SERVICE_ROOT / "source-ledger.json"
 AWS_V2_RUNTIME_SOURCE = (
     "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2"
 )
+AZURE_V2_RUNTIME_SOURCE = (
+    "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2"
+)
 WORKLOAD_ROOT = ROOT / "contracts" / "five-layer-workload"
 WORKLOAD_CATALOG = WORKLOAD_ROOT / "v2" / "eventing-scenario-catalog.json"
 ARCH_TARGETS = (
@@ -1143,6 +1146,8 @@ def build_catalog(
                 "repository_source_path": (
                     AWS_V2_RUNTIME_SOURCE
                     if provider == "aws"
+                    else AZURE_V2_RUNTIME_SOURCE
+                    if provider == "azure"
                     else "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json"
                 ),
                 "platform_handler": f"handler.{provider}.five-layer-v2",
@@ -1150,11 +1155,15 @@ def build_catalog(
                 "source_digest": (
                     package_source_digest(AWS_V2_RUNTIME_SOURCE)
                     if provider == "aws"
+                    else package_source_digest(AZURE_V2_RUNTIME_SOURCE)
+                    if provider == "azure"
                     else file_digest(SERVICE_COMPONENTS)
                 ),
                 "included_paths": (
                     ["handler.py"]
                     if provider == "aws"
+                    else ["core.py", "function_app.py", "host.json", "requirements.txt"]
+                    if provider == "azure"
                     else ["implementation-component-manifest.json"]
                 ),
                 "excluded_paths": [],

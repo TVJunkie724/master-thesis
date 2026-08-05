@@ -7672,12 +7672,15 @@
         "azure.monitor",
         "azure.service-bus-standard"
       ],
-      "repository_source_path": "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json",
+      "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2",
       "platform_handler": "handler.azure.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:748b6258fedc0e781fa2ee1769106e5a56cb27400eac043516be8ea7c893498e",
+      "source_digest": "sha256:a1eb7fcafed8e26da5c5cd72e6dd37efc9277cfdfef4518087a2eb668ada66c3",
       "included_paths": [
-        "implementation-component-manifest.json"
+        "core.py",
+        "function_app.py",
+        "host.json",
+        "requirements.txt"
       ],
       "excluded_paths": [],
       "dependency_artifact_refs": [],
@@ -7765,5 +7768,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:aa2972e8dd1ca42afb64cb95186f6f3c6b42183c06ee014fa8fe5f5a5bf18c1c"
+  "content_digest": "sha256:52c1755ea567ad91d9f543ba3cbafd0c0912dc47bac7f3d79e936e47b2879a5c"
 }

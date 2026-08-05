@@ -1070,6 +1070,12 @@ variable "azure_user_zip_path" {
   default     = ""
 }
 
+variable "azure_v2_zip_path" {
+  description = "Content-addressed Five-layer v2 Azure Function App package"
+  type        = string
+  default     = ""
+}
+
 # ==============================================================================
 # Validated User-Function Extension Packages
 # Phase 8.3 provider catalogs bind these reviewed packages to executable slots.

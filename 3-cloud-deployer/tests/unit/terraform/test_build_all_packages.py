@@ -17,6 +17,9 @@ from src.deployment_specification import validate_deployment_manifest
 from src.providers.terraform.package_builders.azure import (
     build_azure_graph_bundles,
 )
+from src.providers.terraform.package_builders.azure_v2 import (
+    build_azure_v2_graph_apps,
+)
 
 
 MANIFEST_ROOT = (
@@ -48,6 +51,21 @@ def test_azure_graph_bundles_are_selected_and_deterministic(tmp_path):
     assert "ingestion/function_app.py" in names
     assert "hot_writer/function_app.py" not in names
     assert "ingestion_bp" in main
+
+
+def test_azure_v2_graph_app_is_a_standalone_deterministic_package(tmp_path):
+    first = build_azure_v2_graph_apps(tmp_path, ("five-layer-v2",))
+    first_bytes = first["azure_five-layer-v2"].read_bytes()
+    second = build_azure_v2_graph_apps(tmp_path, ("five-layer-v2",))
+
+    assert second["azure_five-layer-v2"].read_bytes() == first_bytes
+    with zipfile.ZipFile(second["azure_five-layer-v2"]) as archive:
+        assert set(archive.namelist()) == {
+            "core.py",
+            "function_app.py",
+            "host.json",
+            "requirements.txt",
+        }
 
 
 class TestBuildAllPackages:

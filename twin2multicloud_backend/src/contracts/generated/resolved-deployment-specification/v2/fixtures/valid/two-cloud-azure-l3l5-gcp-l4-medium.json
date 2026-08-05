@@ -10,12 +10,12 @@
     "service_decision_ref": {
       "id": "phase-08-complete-service-bundles",
       "version": "1",
-      "digest": "sha256:e11bbd03470434a0552151ce4b005fea7e05838c511795b45505e58bee5a7d3e"
+      "digest": "sha256:647e8bec71b8f6b92a2ed5cc76070e54a3a00f8fca0a7132200a09dc2cbb8f1c"
     },
     "component_catalog_ref": {
       "id": "complete-service-component-catalog",
       "version": "1",
-      "digest": "sha256:aa2972e8dd1ca42afb64cb95186f6f3c6b42183c06ee014fa8fe5f5a5bf18c1c"
+      "digest": "sha256:52c1755ea567ad91d9f543ba3cbafd0c0912dc47bac7f3d79e936e47b2879a5c"
     },
     "workload_ref": {
       "id": "five-layer-workload",
@@ -2046,5 +2046,5 @@
       "compatibility_version": "1"
     }
   ],
-  "digest": "sha256:2d37f06c85447556dc46b0cfe0a1df329c7ca3d937f1019b412582a0366f6d9f"
+  "digest": "sha256:ca2a9e329928a633e5ca39a15b1fc8e6d7627cdfec47a511e4724abd52cf5bf9"
 }
