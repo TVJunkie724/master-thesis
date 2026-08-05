@@ -207,28 +207,33 @@ def _build_event_actions(
         if not isinstance(action, dict):
             raise ValueError("Event config entry requires an action object")
         action_type = action.get("type", "")
+        names = [action.get("functionName")]
         if action_type in WORKFLOW_ACTION_TYPES:
+            names.append(action.get("functionNameB"))
+        if action_type in WORKFLOW_ACTION_TYPES and not any(names):
+            # Historical projects may carry an unused workflow placeholder.
+            # New profile validation rejects it before deployment.
             continue
-        name = action.get("functionName")
-        if not isinstance(name, str) or not name:
+        if not all(isinstance(name, str) and name for name in names):
             raise ValueError("Event action requires a non-empty functionName")
-        validate_path_component(name, "function name")
-        if name in built:
-            continue
-        source_dir = layout.event_actions_dir / name
-        source_hash = _hash_source(name, source_dir)
-        target = layout.build_dir / f"{name}.zip"
-        _build_archive(layout, source_dir, target)
-        _publish_build_metadata(
-            project_path,
-            layout,
-            name,
-            source_hash,
-            target,
-            active,
-        )
-        packages[name] = target
-        built.add(name)
+        for name in names:
+            validate_path_component(name, "function name")
+            if name in built:
+                continue
+            source_dir = layout.event_actions_dir / name
+            source_hash = _hash_source(name, source_dir)
+            target = layout.build_dir / f"{name}.zip"
+            _build_archive(layout, source_dir, target)
+            _publish_build_metadata(
+                project_path,
+                layout,
+                name,
+                source_hash,
+                target,
+                active,
+            )
+            packages[name] = target
+            built.add(name)
 
 
 def _build_processors(

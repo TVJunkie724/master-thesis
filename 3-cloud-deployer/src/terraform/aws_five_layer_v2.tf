@@ -46,9 +46,14 @@ locals {
   aws_v2_remote_control_outbound = local.five_layer_v2_enabled && var.layer_2_provider == "aws" && var.layer_1_provider != "aws"
   aws_v2_remote_control_inbound  = local.five_layer_v2_enabled && var.layer_2_provider != "aws" && var.layer_1_provider == "aws"
   aws_v2_remote_control_enabled  = local.aws_v2_remote_control_outbound || local.aws_v2_remote_control_inbound
+  aws_v2_domain_consumer_enabled = local.aws_v2_remote_telemetry_inbound || local.aws_v2_remote_control_inbound
 
   aws_v2_runtime_package = "${var.project_path}/.build/aws/five-layer-v2.zip"
   aws_v2_name            = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 32)
+  aws_v2_action_function_names = {
+    for action in var.aws_event_actions :
+    action.name => substr("${local.aws_v2_name}-${action.name}", 0, 64)
+  }
   aws_v2_tags = merge(local.aws_common_tags, {
     ArchitectureProfile = "five-layer-baseline@2"
   })
@@ -73,7 +78,30 @@ resource "aws_sqs_queue" "aws_aws_sqs_fifo" {
   visibility_timeout_seconds  = 60
   message_retention_seconds   = 1209600
   receive_wait_time_seconds   = 20
-  tags                        = local.aws_v2_tags
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.aws_v2_embedded_failure[0].arn
+    maxReceiveCount     = 5
+  })
+  tags = local.aws_v2_tags
+}
+
+resource "aws_sqs_queue" "aws_v2_embedded_failure" {
+  count                      = local.aws_v2_event_enabled ? 1 : 0
+  name                       = "${local.aws_v2_name}-embedded-failure.fifo"
+  fifo_queue                 = true
+  message_retention_seconds  = 1209600
+  receive_wait_time_seconds  = 20
+  visibility_timeout_seconds = 60
+  tags                       = local.aws_v2_tags
+}
+
+resource "aws_sqs_queue" "aws_v2_remote_failure" {
+  count                      = local.aws_v2_remote_telemetry_inbound || local.aws_v2_remote_control_inbound ? 1 : 0
+  name                       = "${local.aws_v2_name}-remote-failure"
+  message_retention_seconds  = 1209600
+  receive_wait_time_seconds  = 20
+  visibility_timeout_seconds = 60
+  tags                       = local.aws_v2_tags
 }
 
 resource "aws_kinesis_stream" "aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge" {
@@ -127,9 +155,15 @@ resource "aws_iam_role_policy" "aws_v2_lambda_data" {
     Version = "2012-10-17"
     Statement = concat(
       local.aws_v2_event_enabled ? [{
-        Effect   = "Allow"
-        Action   = ["sqs:GetQueueAttributes", "sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:SendMessage"]
-        Resource = [aws_sqs_queue.aws_aws_sqs_fifo[0].arn]
+        Effect = "Allow"
+        Action = ["sqs:GetQueueAttributes", "sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:SendMessage"]
+        Resource = concat(
+          [
+            aws_sqs_queue.aws_aws_sqs_fifo[0].arn,
+            aws_sqs_queue.aws_v2_embedded_failure[0].arn,
+          ],
+          aws_sqs_queue.aws_v2_remote_failure[*].arn,
+        )
       }] : [],
       local.aws_v2_remote_telemetry_enabled ? [{
         Effect   = "Allow"
@@ -143,7 +177,7 @@ resource "aws_iam_role_policy" "aws_v2_lambda_data" {
       }] : [],
       local.aws_v2_hot_enabled ? [{
         Effect = "Allow"
-        Action = ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:TransactWriteItems"]
+        Action = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query", "dynamodb:TransactWriteItems"]
         Resource = [
           aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].arn,
           "${aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].arn}/index/*",
@@ -151,9 +185,22 @@ resource "aws_iam_role_policy" "aws_v2_lambda_data" {
         ]
       }] : [],
       local.aws_v2_l1_enabled ? [{
+        Effect = "Allow"
+        Action = ["iot:StartCommandExecution"]
+        Resource = [
+          "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:command/*",
+          "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:thing/*",
+        ]
+      }] : [],
+      local.aws_v2_l2_enabled && length(aws_lambda_function.aws_v2_event_action) > 0 ? [{
         Effect   = "Allow"
-        Action   = ["iot:Publish"]
-        Resource = ["arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:topic/dt/${var.digital_twin_name}/*"]
+        Action   = ["lambda:InvokeFunction"]
+        Resource = [for function in aws_lambda_function.aws_v2_event_action : function.arn]
+      }] : [],
+      local.aws_v2_l2_enabled ? [{
+        Effect   = "Allow"
+        Action   = ["states:StartExecution"]
+        Resource = [aws_sfn_state_machine.aws_aws_step_functions_standard[0].arn]
       }] : [],
       local.aws_v2_l4_enabled ? [{
         Effect = "Allow"
@@ -236,6 +283,14 @@ resource "awscc_iot_command" "aws_aws_iot_commands" {
   count        = local.aws_v2_l1_enabled ? 1 : 0
   command_id   = "${local.aws_v2_name}-device-command"
   display_name = "${var.digital_twin_name} PoC device command"
+  namespace    = "AWS-IoT"
+  payload_template = jsonencode({
+    message = "$${aws:iot:commandexecution::parameter:message}"
+  })
+  mandatory_parameters = [{
+    name = "message"
+    type = "STRING"
+  }]
 }
 
 # -----------------------------------------------------------------------------
@@ -246,7 +301,7 @@ resource "aws_lambda_function" "aws_aws_lambda" {
   count         = local.aws_v2_l2_enabled ? 1 : 0
   function_name = "${local.aws_v2_name}-v2-processor"
   role          = aws_iam_role.aws_v2_lambda[0].arn
-  handler       = "handler.processor"
+  handler       = "handler.domain_consumer"
   runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 512
@@ -256,16 +311,45 @@ resource "aws_lambda_function" "aws_aws_lambda" {
 
   environment {
     variables = {
-      ARCHITECTURE_PROFILE      = "five-layer-baseline@2"
-      DEPLOYMENT_ID             = local.deployment_suffix
-      RAW_TABLE_NAME            = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
-      ROLLUP_TABLE_NAME         = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
-      HOT_PROVIDER              = var.layer_3_hot_provider
-      TWIN_PROVIDER             = var.layer_4_provider
-      TELEMETRY_STREAM_ARN      = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
-      HOT_BOUNDARY_DAYS         = tostring(var.layer_3_hot_to_cold_interval_days)
-      SOURCE_EXPIRY_GRACE_HOURS = "48"
-      TWINMAKER_WORKSPACE       = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
+      ARCHITECTURE_PROFILE           = "five-layer-baseline@2"
+      DEPLOYMENT_ID                  = local.deployment_suffix
+      EVENT_QUEUE_URL                = aws_sqs_queue.aws_aws_sqs_fifo[0].url
+      CONTROL_TOPIC_ARN              = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn, "")
+      L1_PROVIDER                    = var.layer_1_provider
+      RAW_TABLE_NAME                 = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
+      ROLLUP_TABLE_NAME              = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
+      HOT_PROVIDER                   = var.layer_3_hot_provider
+      TWIN_PROVIDER                  = var.layer_4_provider
+      TELEMETRY_STREAM_ARN           = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
+      HOT_BOUNDARY_DAYS              = tostring(var.layer_3_hot_to_cold_interval_days)
+      SOURCE_EXPIRY_GRACE_HOURS      = "48"
+      TWINMAKER_WORKSPACE            = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
+      RULES_JSON                     = jsonencode(var.events)
+      ACTION_FUNCTION_NAMES_JSON     = jsonencode(local.aws_v2_action_function_names)
+      NOTIFICATION_STATE_MACHINE_ARN = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.aws_v2_name}-v2-event-workflow"
+      DEVICE_COMMAND_ARN             = try(awscc_iot_command.aws_aws_iot_commands[0].command_arn, "")
+      AWS_ACCOUNT_ID                 = data.aws_caller_identity.current[0].account_id
+    }
+  }
+  tags = local.aws_v2_tags
+}
+
+resource "aws_lambda_function" "aws_v2_event_action" {
+  for_each      = local.aws_v2_l2_enabled ? { for action in var.aws_event_actions : action.name => action } : {}
+  function_name = local.aws_v2_action_function_names[each.key]
+  role          = aws_iam_role.aws_v2_lambda[0].arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = local.python_runtime_aws
+  timeout       = 30
+  memory_size   = 256
+
+  filename         = each.value.zip_path
+  source_code_hash = filebase64sha256(each.value.zip_path)
+
+  environment {
+    variables = {
+      ARCHITECTURE_PROFILE = "five-layer-baseline@2"
+      DIGITAL_TWIN_INFO    = var.digital_twin_info_json
     }
   }
   tags = local.aws_v2_tags
@@ -275,13 +359,14 @@ resource "aws_lambda_event_source_mapping" "aws_v2_embedded_events" {
   count                              = local.aws_v2_l2_enabled ? 1 : 0
   event_source_arn                   = aws_sqs_queue.aws_aws_sqs_fifo[0].arn
   function_name                      = aws_lambda_function.aws_aws_lambda[0].arn
-  batch_size                         = 10
+  batch_size                         = 1
   maximum_batching_window_in_seconds = 0
+  function_response_types            = ["ReportBatchItemFailures"]
   enabled                            = true
 }
 
 resource "aws_lambda_function" "aws_v2_domain_consumer" {
-  count         = local.aws_v2_remote_telemetry_inbound ? 1 : 0
+  count         = local.aws_v2_domain_consumer_enabled ? 1 : 0
   function_name = "${local.aws_v2_name}-v2-domain-consumer"
   role          = aws_iam_role.aws_v2_lambda[0].arn
   handler       = "handler.domain_consumer"
@@ -294,18 +379,24 @@ resource "aws_lambda_function" "aws_v2_domain_consumer" {
 
   environment {
     variables = {
-      ARCHITECTURE_PROFILE      = "five-layer-baseline@2"
-      DEPLOYMENT_ID             = local.deployment_suffix
-      EVENT_QUEUE_URL           = try(aws_sqs_queue.aws_aws_sqs_fifo[0].url, "")
-      TELEMETRY_STREAM_ARN      = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
-      CONTROL_TOPIC_ARN         = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn, "")
-      HOT_PROVIDER              = var.layer_3_hot_provider
-      TWIN_PROVIDER             = var.layer_4_provider
-      RAW_TABLE_NAME            = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
-      ROLLUP_TABLE_NAME         = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
-      HOT_BOUNDARY_DAYS         = tostring(var.layer_3_hot_to_cold_interval_days)
-      SOURCE_EXPIRY_GRACE_HOURS = "48"
-      TWINMAKER_WORKSPACE       = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
+      ARCHITECTURE_PROFILE           = "five-layer-baseline@2"
+      DEPLOYMENT_ID                  = local.deployment_suffix
+      EVENT_QUEUE_URL                = try(aws_sqs_queue.aws_aws_sqs_fifo[0].url, "")
+      TELEMETRY_STREAM_ARN           = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
+      CONTROL_TOPIC_ARN              = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn, "")
+      L1_PROVIDER                    = var.layer_1_provider
+      HOT_PROVIDER                   = var.layer_3_hot_provider
+      TWIN_PROVIDER                  = var.layer_4_provider
+      RAW_TABLE_NAME                 = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
+      ROLLUP_TABLE_NAME              = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
+      HOT_BOUNDARY_DAYS              = tostring(var.layer_3_hot_to_cold_interval_days)
+      SOURCE_EXPIRY_GRACE_HOURS      = "48"
+      TWINMAKER_WORKSPACE            = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
+      RULES_JSON                     = jsonencode(var.events)
+      ACTION_FUNCTION_NAMES_JSON     = jsonencode(local.aws_v2_action_function_names)
+      NOTIFICATION_STATE_MACHINE_ARN = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.aws_v2_name}-v2-event-workflow"
+      DEVICE_COMMAND_ARN             = try(awscc_iot_command.aws_aws_iot_commands[0].command_arn, "")
+      AWS_ACCOUNT_ID                 = data.aws_caller_identity.current[0].account_id
     }
   }
   tags = local.aws_v2_tags
@@ -316,10 +407,47 @@ resource "aws_lambda_event_source_mapping" "aws_v2_remote_telemetry" {
   event_source_arn                   = aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["inbound"].arn
   function_name                      = aws_lambda_function.aws_v2_domain_consumer[0].arn
   starting_position                  = "LATEST"
-  batch_size                         = 10
+  batch_size                         = 1
   maximum_batching_window_in_seconds = 1
   parallelization_factor             = 1
-  enabled                            = true
+  function_response_types            = ["ReportBatchItemFailures"]
+  maximum_retry_attempts             = 5
+  maximum_record_age_in_seconds      = 86400
+  bisect_batch_on_function_error     = true
+  destination_config {
+    on_failure {
+      destination_arn = aws_sqs_queue.aws_v2_remote_failure[0].arn
+    }
+  }
+  enabled = true
+}
+
+resource "aws_lambda_function_event_invoke_config" "aws_v2_remote_control" {
+  count                        = local.aws_v2_remote_control_inbound ? 1 : 0
+  function_name                = aws_lambda_function.aws_v2_domain_consumer[0].function_name
+  maximum_event_age_in_seconds = 21600
+  maximum_retry_attempts       = 2
+  destination_config {
+    on_failure {
+      destination = aws_sqs_queue.aws_v2_remote_failure[0].arn
+    }
+  }
+}
+
+resource "aws_lambda_permission" "aws_v2_remote_control" {
+  count         = local.aws_v2_remote_control_inbound ? 1 : 0
+  statement_id  = "AllowFiveLayerV2RemoteControl"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.aws_v2_domain_consumer[0].function_name
+  principal     = "sns.amazonaws.com"
+  source_arn    = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn
+}
+
+resource "aws_sns_topic_subscription" "aws_v2_remote_control" {
+  count     = local.aws_v2_remote_control_inbound ? 1 : 0
+  topic_arn = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.aws_v2_domain_consumer[0].arn
 }
 
 resource "aws_iam_role" "aws_v2_step_functions" {
@@ -343,9 +471,12 @@ resource "aws_iam_role_policy" "aws_v2_step_functions" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow"
-      Action   = "lambda:InvokeFunction"
-      Resource = aws_lambda_function.aws_aws_lambda[0].arn
+      Effect = "Allow"
+      Action = "lambda:InvokeFunction"
+      Resource = concat(
+        [aws_lambda_function.aws_aws_lambda[0].arn],
+        [for function in aws_lambda_function.aws_v2_event_action : function.arn],
+      )
     }]
   })
 }
@@ -355,11 +486,63 @@ resource "aws_sfn_state_machine" "aws_aws_step_functions_standard" {
   name     = "${local.aws_v2_name}-v2-event-workflow"
   role_arn = aws_iam_role.aws_v2_step_functions[0].arn
   type     = "STANDARD"
-  definition = var.step_function_definition_file != "" ? file(var.step_function_definition_file) : jsonencode({
-    Comment = "Bounded five-layer v2 PoC workflow"
-    StartAt = "Accepted"
+  definition = jsonencode({
+    Comment = "Fixed four-action five-layer v2 notification workflow"
+    StartAt = "ValidateNotification"
     States = {
-      Accepted = { Type = "Succeed" }
+      ValidateNotification = {
+        Type       = "Pass"
+        ResultPath = null
+        Next       = "PrepareDelivery"
+      }
+      PrepareDelivery = {
+        Type       = "Pass"
+        ResultPath = null
+        Next       = "DeliverNotification"
+      }
+      DeliverNotification = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          "FunctionName.$" = "$.payload.delivery_function_name"
+          Payload = {
+            schema_version    = "notification-delivery.v1"
+            "invocation_id.$" = "$.event_id"
+            "event.$"         = "$"
+          }
+        }
+        ResultPath = "$.delivery_result"
+        Next       = "RecordSuccess"
+        Catch = [{
+          ErrorEquals = ["States.ALL"]
+          ResultPath  = "$.workflow_error"
+          Next        = "RecordFailure"
+        }]
+      }
+      RecordSuccess = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = aws_lambda_function.aws_aws_lambda[0].arn
+          Payload = {
+            "workflow_request.$" = "$"
+            status               = "SUCCEEDED"
+          }
+        }
+        End = true
+      }
+      RecordFailure = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = aws_lambda_function.aws_aws_lambda[0].arn
+          Payload = {
+            "workflow_request.$" = "$"
+            status               = "FAILED"
+          }
+        }
+        End = true
+      }
     }
   })
   tags = local.aws_v2_tags

@@ -588,7 +588,7 @@
     ],
     "deployment_specification_ref": {
       "schema_version": "resolved-deployment-specification.v2",
-      "digest": "sha256:a6ff3610fca9fd769d2d886a6c7c88da537a984bfd02456a3f065dfd56d5934e",
+      "digest": "sha256:2d37f06c85447556dc46b0cfe0a1df329c7ca3d937f1019b412582a0366f6d9f",
       "calculation_run_id": "5a6cddb4-41fb-548a-a13e-14c21a5b77b6"
     },
     "cost_summary": {
@@ -702,8 +702,8 @@
       "provider_extra_capability_ids": [],
       "missing_capability_ids": [],
       "validator_version": "2",
-      "validation_digest": "sha256:da603e802a750543cfd691ad75e0c8435c384026f282e94daf656d845a4e8cc2"
+      "validation_digest": "sha256:c6f012c1a58f368bed8edd3a4142485958eee34d155f59c7eff0f6e4e585bb32"
     },
-    "content_digest": "sha256:bed8d7b396ca6b0641d770ce9b9f88a2149f315849edc6e8e32ebf3aae8644d1"
+    "content_digest": "sha256:8ae6c9125edae7bb5e63554042ea1bba1c38d583605e0378deabd74149a8e5eb"
   }
 }

@@ -581,15 +581,25 @@ def _get_aws_user_function_vars(project_dir: Path, providers: dict) -> dict:
         with open(events_path, "r") as f:
             events = json.load(f)
 
+        functions_seen = set()
         for event in events:
             action = event.get("action", {})
-            if action.get("type") == "lambda" and "functionName" in action:
-                func_name = event["action"]["functionName"]
+            function_names = [action.get("functionName")]
+            if action.get("type") in {"step_function", "logic_app", "workflow"}:
+                function_names.append(action.get("functionNameB"))
+            for func_name in function_names:
+                if (
+                    not isinstance(func_name, str)
+                    or not func_name
+                    or func_name in functions_seen
+                ):
+                    continue
                 zip_path = build_dir / f"{func_name}.zip"
                 if zip_path.exists():
                     aws_vars["aws_event_actions"].append(
                         {"name": func_name, "zip_path": str(zip_path)}
                     )
+                    functions_seen.add(func_name)
 
     # Check for event feedback
     feedback_zip = build_dir / "event-feedback.zip"
