@@ -890,6 +890,18 @@ def terraform_resource_address(
         # Flex package hosting and bounded Blob history share the provider
         # foundation account; a second account adds no thesis value.
         return "azurerm_storage_account.main"
+    if (
+        provider == "gcp"
+        and component_id == "gcp.firestore-native-standard-bounded-twin"
+        and resource_type == "google_firestore_database"
+    ):
+        # L3 and L4 use separate collections, indexes, identities, and cost
+        # ownership in one deployment database; a second database adds no PoC
+        # capability and would contradict the reviewed service decision.
+        return (
+            "google_firestore_database."
+            "gcp_gcp_firestore_native_standard_raw_and_rollup"
+        )
     return f"{resource_type}.{safe_tf_name(provider + '_' + component_id)}"
 
 

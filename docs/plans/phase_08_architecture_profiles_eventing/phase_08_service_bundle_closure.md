@@ -665,6 +665,13 @@ queries. A transaction compares the stored source sequence/event ID before
 updating current state, so duplicate or stale delivery does not create a
 separate unbounded idempotency collection.
 
+The bounded state policy orders updates per source by `observed_at`, then
+by `source_sequence`, then by canonical `event_id`. Decimal source sequences
+of at most sixteen digits compare numerically; all other non-empty sequences
+compare bytewise. An equal event ID is an idempotent duplicate, and a lower
+ordering tuple is acknowledged as stale without changing current state. Model
+and relationship mutations use canonical `occurred_at` in the same tuple.
+
 Five-layer v2 has no scene asset, scene binding, browser scene editor, or 3D
 overlay contract. Historical scene inputs remain readable only for
 `five-layer-baseline@1`. A later profile version must add an explicit

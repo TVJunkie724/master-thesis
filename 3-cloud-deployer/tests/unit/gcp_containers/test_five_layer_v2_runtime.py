@@ -24,14 +24,39 @@ SOURCE_ROOT = (
 )
 
 
+def _load_from_path(module_name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _load(name: str):
     sys.path.insert(0, str(SOURCE_ROOT))
     try:
-        spec = importlib.util.spec_from_file_location(name, SOURCE_ROOT / f"{name}.py")
-        assert spec is not None and spec.loader is not None
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
+        if name == "core":
+            return _load_from_path(
+                "gcp_five_layer_v2_core",
+                SOURCE_ROOT / "core.py",
+            )
+
+        core = _load_from_path(
+            "gcp_five_layer_v2_app_core",
+            SOURCE_ROOT / "core.py",
+        )
+        previous_core = sys.modules.get("core")
+        sys.modules["core"] = core
+        try:
+            return _load_from_path(
+                "gcp_five_layer_v2_app",
+                SOURCE_ROOT / "app.py",
+            )
+        finally:
+            if previous_core is None:
+                sys.modules.pop("core", None)
+            else:
+                sys.modules["core"] = previous_core
     finally:
         sys.path.remove(str(SOURCE_ROOT))
 
@@ -61,6 +86,26 @@ def _extension_response(received):
         "status": "success",
         "payload": {"value": 21.75, "quality": "accepted"},
     }
+
+
+def _matched(core):
+    received = _received(core)
+    processed = core.build_processed_event(received, _extension_response(received))
+    return core.build_rule_matches(
+        processed,
+        [
+            {
+                "rule_id": "hot",
+                "condition": "temperature > DOUBLE(20)",
+                "action": {
+                    "type": "workflow",
+                    "functionName": "fixed-action",
+                    "functionNameB": "fixed-notification",
+                    "feedback": {"payload": "cool-down"},
+                },
+            }
+        ],
+    )[0]
 
 
 def test_ingress_event_is_deterministic_and_provider_neutral():
@@ -156,6 +201,160 @@ def test_rule_matches_are_typed_and_idempotent():
     assert first == second
     assert first[0]["event_type"] == "event.matched.v1"
     assert first[0]["payload"]["rule_id"] == "hot"
+
+
+def test_match_dispatch_derives_each_terminal_flow_deterministically():
+    core = _load("core")
+    matched = _matched(core)
+
+    first = core.build_match_dispatch_events(matched, action_accepted=True)
+    second = core.build_match_dispatch_events(matched, action_accepted=True)
+
+    assert first == second
+    assert [event["event_type"] for event in first] == [
+        core.EVENT_ACTION_OUTCOME,
+        core.EVENT_NOTIFICATION_REQUESTED,
+        core.EVENT_DEVICE_COMMAND_REQUESTED,
+    ]
+    assert first[0]["payload"]["status"] == "SUCCEEDED"
+
+
+def test_twin_projection_order_rejects_duplicate_and_stale_state():
+    core = _load("core")
+    received = _received(core)
+    processed = core.build_processed_event(received, _extension_response(received))
+    projection = core.build_twin_projection(processed)
+    assert projection is not None
+
+    current = {
+        "last_observed_at": projection["payload"]["observed_at"],
+        "last_source_sequence": projection["payload"]["source_sequence"],
+        "last_event_id": projection["event_id"],
+    }
+    assert core.projection_is_newer(None, projection) is True
+    assert core.projection_is_newer(current, projection) is False
+
+    stale = dict(projection)
+    stale["event_id"] = "stale-event"
+    stale["payload"] = {
+        **projection["payload"],
+        "observed_at": "2026-08-04T23:59:59Z",
+    }
+    assert core.projection_is_newer(current, stale) is False
+
+    numeric_current = {**current, "last_source_sequence": "1"}
+    same_time_newer_sequence = dict(projection)
+    same_time_newer_sequence["event_id"] = "newer-event"
+    same_time_newer_sequence["payload"] = {
+        **projection["payload"],
+        "source_sequence": "2",
+    }
+    assert core.projection_is_newer(numeric_current, same_time_newer_sequence) is True
+
+
+def test_poc_boundary_closes_action_and_notification_invocations():
+    core = _load("core")
+    runtime = _load("app")
+    matched = _matched(core)
+    action = matched["payload"]["action"]
+
+    action_result = runtime._poc_boundary(
+        {
+            "schema_version": "extension-action-invocation.v1",
+            "invocation_id": matched["event_id"],
+            "action_id": action["functionName"],
+            "event": matched,
+        }
+    )
+    notification = core.build_match_dispatch_events(
+        matched, action_accepted=True
+    )[1]
+    notification_result = runtime._poc_boundary(notification)
+
+    assert action_result["status"] == "ACCEPTED"
+    assert notification_result == {
+        "schema_version": "notification-delivery-result.v1",
+        "event_id": notification["event_id"],
+        "status": "ACCEPTED",
+    }
+
+
+def test_domain_consumer_routes_match_only_for_local_l2(monkeypatch):
+    core = _load("core")
+    runtime = _load("app")
+    matched = _matched(core)
+    encoded = base64.b64encode(core.canonical_json(matched).encode()).decode()
+    push = {"message": {"data": encoded}}
+    monkeypatch.setenv("L2_PROVIDER", "google")
+    monkeypatch.setattr(runtime, "_dispatch_match", lambda event: 3)
+
+    result = runtime._domain(push)
+
+    assert result == {
+        "schema_version": "domain-consumer-result.v1",
+        "accepted": 1,
+        "handled": True,
+        "derived": 3,
+    }
+
+
+def test_workflow_callback_publishes_one_terminal_outcome(monkeypatch):
+    core = _load("core")
+    runtime = _load("app")
+    notification = core.build_match_dispatch_events(
+        _matched(core), action_accepted=True
+    )[1]
+    published = []
+    monkeypatch.setenv("DOMAIN_TOPIC", "projects/test/topics/domain")
+    monkeypatch.setattr(
+        runtime, "_publish", lambda topic, event: published.append((topic, event))
+    )
+
+    runtime._record_workflow_outcome(
+        {
+            "schema_version": "workflow-outcome.v1",
+            "workflow_request": notification,
+            "status": "SUCCEEDED",
+        }
+    )
+
+    assert len(published) == 1
+    assert published[0][1]["event_type"] == core.EVENT_WORKFLOW_OUTCOME
+    assert published[0][1]["payload"]["status"] == "SUCCEEDED"
+
+
+def test_model_and_relationship_projection_variants_are_closed():
+    core = _load("core")
+    source = _received(core)
+    model = core.derive_event(
+        source,
+        event_type=core.EVENT_TWIN_MODEL_UPSERTED,
+        producer="component.twin-management",
+        payload={
+            "model_id": "poc-device",
+            "model_version": "1",
+            "model_document": {"display_name": "PoC Device"},
+        },
+    )
+    relationship = core.derive_event(
+        source,
+        event_type=core.EVENT_TWIN_RELATIONSHIP_UPSERTED,
+        producer="component.twin-management",
+        payload={
+            "relationship_id": "contains-1",
+            "from_twin_id": "twin-1",
+            "to_twin_id": "twin-2",
+            "type": "contains",
+        },
+    )
+
+    assert core.validate_twin_projection(model) == model
+    assert core.validate_twin_projection(relationship) == relationship
+
+    invalid = dict(relationship)
+    invalid["payload"] = {**relationship["payload"], "unbounded": True}
+    with pytest.raises(core.ContractError, match="INVALID_TWIN_PROJECTION"):
+        core.validate_twin_projection(invalid)
 
 
 def test_cloud_run_ingress_publishes_one_ordered_canonical_event(monkeypatch):

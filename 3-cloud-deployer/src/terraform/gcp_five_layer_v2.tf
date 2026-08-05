@@ -23,6 +23,7 @@ locals {
     local.gcp_v2_l1_enabled || local.gcp_v2_l2_enabled ||
     local.gcp_v2_hot_enabled || local.gcp_v2_l4_enabled
   )
+  gcp_v2_domain_enabled = local.gcp_v2_event_enabled
   gcp_v2_container_enabled = (
     local.gcp_v2_l1_enabled || local.gcp_v2_l2_enabled ||
     local.gcp_v2_hot_enabled || local.gcp_v2_cool_enabled ||
@@ -52,7 +53,8 @@ locals {
     local.gcp_v2_l5_enabled ? "secretmanager.googleapis.com" : "",
   ])) : toset([])
 
-  gcp_v2_name = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 24)
+  gcp_v2_name          = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 24)
+  gcp_v2_workflow_name = "${local.gcp_v2_name}-v2-event-workflow"
   gcp_v2_registry_prefix = (
     "${var.gcp_region}-docker.pkg.dev/${local.gcp_project_id}/${local.gcp_v2_name}-v2/"
   )
@@ -70,17 +72,21 @@ locals {
     local.gcp_v2_l1_enabled || local.gcp_v2_l2_enabled ? {
       received = "${local.gcp_v2_name}-v2-telemetry-received"
     } : {},
-    local.gcp_v2_l2_enabled || local.gcp_v2_hot_enabled || local.gcp_v2_l4_enabled ? {
+    local.gcp_v2_l2_enabled || local.gcp_v2_hot_enabled ? {
       processed = "${local.gcp_v2_name}-v2-telemetry-processed"
     } : {},
-    local.gcp_v2_l2_enabled || local.gcp_v2_hot_enabled || local.gcp_v2_l4_enabled ? {
+    local.gcp_v2_domain_enabled ? {
       domain = "${local.gcp_v2_name}-v2-domain-control"
+    } : {},
+    local.gcp_v2_l1_enabled ? {
+      command = "${local.gcp_v2_name}-v2-device-command"
     } : {},
   ) : {}
 
   gcp_v2_event_adapters = merge(
     local.gcp_v2_l1_enabled ? { ingress = "event-adapter" } : {},
     local.gcp_v2_hot_enabled ? { persistence = "persistence" } : {},
+    local.gcp_v2_domain_enabled ? { domain = "domain-consumer" } : {},
   )
   gcp_v2_subscriptions = merge(
     local.gcp_v2_l2_enabled ? {
@@ -93,6 +99,12 @@ locals {
       persistence = {
         topic = "processed"
         role  = "persistence"
+      }
+    } : {},
+    local.gcp_v2_domain_enabled ? {
+      domain = {
+        topic = "domain"
+        role  = "domain"
       }
     } : {},
   )
@@ -253,8 +265,10 @@ resource "google_service_account" "gcp_v2_runtime" {
       processor = "processor"
       extension = "extension"
       workflow  = "workflow"
+      action    = "action"
     } : {},
     local.gcp_v2_hot_enabled ? { persistence = "persistence" } : {},
+    local.gcp_v2_domain_enabled ? { domain = "domain" } : {},
     local.gcp_v2_storage_mover_enabled ? {
       storage   = "storage"
       scheduler = "scheduler"
@@ -333,6 +347,34 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
       env {
         name  = "TIMESTAMP_SHARDS"
         value = tostring(local.gcp_v2_timestamp_shards)
+      }
+      env {
+        name  = "ACTION_URL"
+        value = try(google_cloud_run_v2_service.gcp_v2_action_sink[0].uri, "")
+      }
+      env {
+        name  = "WORKFLOW_NAME"
+        value = local.gcp_v2_l2_enabled ? "projects/${local.gcp_project_id}/locations/${var.gcp_region}/workflows/${local.gcp_v2_workflow_name}" : ""
+      }
+      env {
+        name  = "COMMAND_TOPIC"
+        value = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["command"].id, "")
+      }
+      env {
+        name  = "L1_PROVIDER"
+        value = var.layer_1_provider
+      }
+      env {
+        name  = "L2_PROVIDER"
+        value = var.layer_2_provider
+      }
+      env {
+        name  = "HOT_PROVIDER"
+        value = var.layer_3_hot_provider
+      }
+      env {
+        name  = "TWIN_PROVIDER"
+        value = var.layer_4_provider
       }
     }
   }
@@ -457,10 +499,6 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_service" {
         name  = "RULES_JSON"
         value = jsonencode(var.events)
       }
-      env {
-        name  = "WORKFLOW_NAME"
-        value = google_workflows_workflow.gcp_gcp_workflows[0].id
-      }
     }
   }
 
@@ -481,7 +519,7 @@ resource "google_cloud_run_v2_service" "gcp_v2_action_sink" {
   labels              = local.gcp_v2_labels
 
   template {
-    service_account                  = google_service_account.gcp_v2_runtime["workflow"].email
+    service_account                  = google_service_account.gcp_v2_runtime["action"].email
     timeout                          = "30s"
     max_instance_request_concurrency = 1
 
@@ -525,12 +563,15 @@ resource "google_cloud_run_v2_service_iam_member" "gcp_v2_processor_extension_in
 }
 
 resource "google_cloud_run_v2_service_iam_member" "gcp_v2_action_sink_invoker" {
-  count    = local.gcp_v2_l2_enabled ? 1 : 0
+  for_each = local.gcp_v2_l2_enabled ? {
+    domain   = google_service_account.gcp_v2_runtime["domain"].email
+    workflow = google_service_account.gcp_v2_runtime["workflow"].email
+  } : {}
   project  = local.gcp_project_id
   location = var.gcp_region
   name     = google_cloud_run_v2_service.gcp_v2_action_sink[0].name
   role     = "roles/run.invoker"
-  member   = "serviceAccount:${google_service_account.gcp_v2_runtime["workflow"].email}"
+  member   = "serviceAccount:${each.value}"
 }
 
 resource "google_cloud_run_v2_service_iam_member" "gcp_v2_processor_push_invoker" {
@@ -551,6 +592,24 @@ resource "google_cloud_run_v2_service_iam_member" "gcp_v2_persistence_push_invok
   member   = "serviceAccount:${google_service_account.gcp_v2_runtime["persistence"].email}"
 }
 
+resource "google_cloud_run_v2_service_iam_member" "gcp_v2_domain_push_invoker" {
+  count    = local.gcp_v2_domain_enabled ? 1 : 0
+  project  = local.gcp_project_id
+  location = var.gcp_region
+  name     = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["domain"].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.gcp_v2_runtime["domain"].email}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "gcp_v2_workflow_callback_invoker" {
+  count    = local.gcp_v2_l2_enabled ? 1 : 0
+  project  = local.gcp_project_id
+  location = var.gcp_region
+  name     = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["domain"].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.gcp_v2_runtime["workflow"].email}"
+}
+
 resource "google_service_account_iam_member" "gcp_v2_pubsub_push_token_creator" {
   for_each           = local.gcp_v2_subscriptions
   service_account_id = google_service_account.gcp_v2_runtime[each.value.role].name
@@ -558,11 +617,11 @@ resource "google_service_account_iam_member" "gcp_v2_pubsub_push_token_creator" 
   member             = "serviceAccount:service-${data.google_project.gcp_v2_current[0].number}@gcp-sa-pubsub.iam.gserviceaccount.com"
 }
 
-resource "google_project_iam_member" "gcp_v2_processor_workflow_invoker" {
+resource "google_project_iam_member" "gcp_v2_domain_workflow_invoker" {
   count   = local.gcp_v2_l2_enabled ? 1 : 0
   project = local.gcp_project_id
   role    = "roles/workflows.invoker"
-  member  = "serviceAccount:${google_service_account.gcp_v2_runtime["processor"].email}"
+  member  = "serviceAccount:${google_service_account.gcp_v2_runtime["domain"].email}"
 }
 
 resource "google_pubsub_topic_iam_member" "gcp_v2_ingress_publisher" {
@@ -590,6 +649,38 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_persistence_domain_publisher" 
   topic   = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name
   role    = "roles/pubsub.publisher"
   member  = "serviceAccount:${google_service_account.gcp_v2_runtime["persistence"].email}"
+}
+
+resource "google_pubsub_topic_iam_member" "gcp_v2_domain_publishers" {
+  for_each = local.gcp_v2_domain_enabled ? merge(
+    {
+      domain = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name
+    },
+    local.gcp_v2_l1_enabled ? {
+      command = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["command"].name
+    } : {},
+  ) : {}
+  project = local.gcp_project_id
+  topic   = each.value
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${google_service_account.gcp_v2_runtime["domain"].email}"
+}
+
+resource "google_project_iam_member" "gcp_v2_domain_firestore_operator" {
+  count   = local.gcp_v2_domain_enabled && (local.gcp_v2_hot_enabled || local.gcp_v2_l4_enabled) ? 1 : 0
+  project = local.gcp_project_id
+  role    = "roles/datastore.user"
+  member  = "serviceAccount:${google_service_account.gcp_v2_runtime["domain"].email}"
+
+  condition {
+    title       = "five-layer-v2-domain-database"
+    description = "Limit the domain consumer to the deployment Firestore database"
+    expression = format(
+      "resource.name == %q || resource.name.startsWith(%q)",
+      "projects/${local.gcp_project_id}/databases/${google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name}",
+      "projects/${local.gcp_project_id}/databases/${google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name}/documents/",
+    )
+  }
 }
 
 resource "google_project_iam_member" "gcp_v2_persistence_firestore_writer" {
@@ -650,8 +741,12 @@ resource "google_pubsub_subscription" "gcp_gcp_pubsub_separated_embedded_topics"
   depends_on = [
     google_cloud_run_v2_service_iam_member.gcp_v2_processor_push_invoker,
     google_cloud_run_v2_service_iam_member.gcp_v2_persistence_push_invoker,
+    google_cloud_run_v2_service_iam_member.gcp_v2_domain_push_invoker,
     google_pubsub_topic_iam_member.gcp_v2_persistence_domain_publisher,
+    google_pubsub_topic_iam_member.gcp_v2_domain_publishers,
     google_project_iam_member.gcp_v2_persistence_firestore_writer,
+    google_project_iam_member.gcp_v2_domain_firestore_operator,
+    google_project_iam_member.gcp_v2_domain_workflow_invoker,
     google_service_account_iam_member.gcp_v2_pubsub_push_token_creator,
   ]
 }
@@ -672,13 +767,12 @@ resource "google_pubsub_subscription_iam_member" "gcp_v2_failure_service_agent_s
   member       = "serviceAccount:service-${data.google_project.gcp_v2_current[0].number}@gcp-sa-pubsub.iam.gserviceaccount.com"
 }
 
-# L3 Hot intentionally uses one Firestore database with separate raw and
-# hourly-rollup collections. This preserves the thesis comparison boundary
-# without paying for or operating a second PoC database.
+# GCP L3 and L4 share one deployment Firestore database when both are selected.
+# Their collections, indexes, runtimes, and cost ownership remain separate.
 resource "google_firestore_database" "gcp_gcp_firestore_native_standard_raw_and_rollup" {
-  count                       = local.gcp_v2_hot_enabled ? 1 : 0
+  count                       = local.gcp_v2_hot_enabled || local.gcp_v2_l4_enabled ? 1 : 0
   project                     = local.gcp_project_id
-  name                        = "${local.gcp_v2_name}-v2-l3-${local.deployment_suffix}"
+  name                        = "${local.gcp_v2_name}-v2-data-${local.deployment_suffix}"
   location_id                 = var.gcp_region
   type                        = "FIRESTORE_NATIVE"
   database_edition            = "STANDARD"
@@ -690,37 +784,49 @@ resource "google_firestore_database" "gcp_gcp_firestore_native_standard_raw_and_
   depends_on = [google_project_service.gcp_v2_required]
 }
 
-resource "google_firestore_field" "gcp_v2_hot_ttl" {
-  for_each = local.gcp_v2_hot_enabled ? toset([
-    "telemetry",
-    "hourly_rollups",
-  ]) : toset([])
-
-  project    = local.gcp_project_id
-  database   = google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name
-  collection = each.value
-  field      = "expires_at"
-
-  ttl_config {}
-}
-
-resource "google_firestore_field" "gcp_v2_hot_index_exemption" {
+resource "google_firestore_field" "gcp_gcp_firestore_native_standard_raw_and_rollup" {
   for_each = local.gcp_v2_hot_enabled ? {
+    telemetry_ttl = {
+      collection       = "telemetry"
+      field            = "expires_at"
+      ttl              = true
+      disable_indexing = false
+    }
+    rollup_ttl = {
+      collection       = "hourly_rollups"
+      field            = "expires_at"
+      ttl              = true
+      disable_indexing = false
+    }
+    outcome_ttl = {
+      collection       = "outcomes"
+      field            = "expires_at"
+      ttl              = true
+      disable_indexing = false
+    }
     raw_stored_at = {
-      collection = "telemetry"
-      field      = "stored_at"
+      collection       = "telemetry"
+      field            = "stored_at"
+      ttl              = false
+      disable_indexing = true
     }
     raw_event_time = {
-      collection = "telemetry"
-      field      = "event_time"
+      collection       = "telemetry"
+      field            = "event_time"
+      ttl              = false
+      disable_indexing = true
     }
     raw_timestamp_shard = {
-      collection = "telemetry"
-      field      = "timestamp_shard"
+      collection       = "telemetry"
+      field            = "timestamp_shard"
+      ttl              = false
+      disable_indexing = true
     }
     rollup_bucket_start = {
-      collection = "hourly_rollups"
-      field      = "bucket_start"
+      collection       = "hourly_rollups"
+      field            = "bucket_start"
+      ttl              = false
+      disable_indexing = true
     }
   } : {}
 
@@ -729,10 +835,18 @@ resource "google_firestore_field" "gcp_v2_hot_index_exemption" {
   collection = each.value.collection
   field      = each.value.field
 
-  index_config {}
+  dynamic "ttl_config" {
+    for_each = each.value.ttl ? [1] : []
+    content {}
+  }
+
+  dynamic "index_config" {
+    for_each = each.value.disable_indexing ? [1] : []
+    content {}
+  }
 }
 
-resource "google_firestore_index" "gcp_v2_hot_query" {
+resource "google_firestore_index" "gcp_gcp_firestore_native_standard_raw_and_rollup" {
   for_each = local.gcp_v2_hot_enabled ? {
     raw_history = {
       collection = "telemetry"
@@ -771,6 +885,27 @@ resource "google_firestore_index" "gcp_v2_hot_query" {
       field_path = fields.value.field_path
       order      = fields.value.order
     }
+  }
+}
+
+resource "google_firestore_index" "gcp_gcp_firestore_native_standard_bounded_twin" {
+  for_each = local.gcp_v2_l4_enabled ? {
+    outgoing = "from_id"
+    incoming = "to_id"
+  } : {}
+
+  project     = local.gcp_project_id
+  database    = google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name
+  collection  = "relationships"
+  query_scope = "COLLECTION"
+
+  fields {
+    field_path = each.value
+    order      = "ASCENDING"
+  }
+  fields {
+    field_path = "type"
+    order      = "ASCENDING"
   }
 }
 
@@ -996,7 +1131,7 @@ resource "google_workflows_workflow" "gcp_gcp_workflows" {
   count           = local.gcp_v2_l2_enabled ? 1 : 0
   project         = local.gcp_project_id
   region          = var.gcp_region
-  name            = "${local.gcp_v2_name}-v2-event-workflow"
+  name            = local.gcp_v2_workflow_name
   description     = "Fixed four-action Five-layer v2 notification workflow"
   service_account = google_service_account.gcp_v2_runtime["workflow"].id
   labels          = local.gcp_v2_labels
@@ -1005,24 +1140,48 @@ resource "google_workflows_workflow" "gcp_gcp_workflows" {
     main = {
       params = ["args"]
       steps = [
-        { validate_notification = { assign = [{ notification = "$${args}" }] } },
-        { prepare_delivery = { assign = [{ request = "$${notification}" }] } },
+        { validate_notification = { assign = [
+          { notification = "$${args}" },
+          { outcome_status = "SUCCEEDED" },
+        ] } },
         { deliver_notification = {
+          try = {
+            call = "http.post"
+            args = {
+              url  = google_cloud_run_v2_service.gcp_v2_action_sink[0].uri
+              auth = { type = "OIDC" }
+              body = "$${notification}"
+            }
+            result = "delivery_result"
+          }
+          except = {
+            as = "delivery_error"
+            steps = [{ mark_failed = { assign = [
+              { outcome_status = "FAILED" },
+            ] } }]
+          }
+        } },
+        { record_outcome = {
           call = "http.post"
           args = {
-            url  = google_cloud_run_v2_service.gcp_v2_action_sink[0].uri
+            url  = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["domain"].uri
             auth = { type = "OIDC" }
-            body = "$${request}"
+            body = {
+              schema_version   = "workflow-outcome.v1"
+              workflow_request = "$${notification}"
+              status           = "$${outcome_status}"
+            }
           }
-          result = "delivery_result"
+          result = "outcome_result"
         } },
-        { record_success = { return = "$${delivery_result.body}" } },
+        { record_success = { return = "$${outcome_result.body}" } },
       ]
     }
   })
 
   depends_on = [
     google_cloud_run_v2_service_iam_member.gcp_v2_action_sink_invoker,
+    google_cloud_run_v2_service_iam_member.gcp_v2_workflow_callback_invoker,
     google_project_service.gcp_v2_required,
   ]
 }

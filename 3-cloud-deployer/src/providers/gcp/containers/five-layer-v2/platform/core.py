@@ -20,18 +20,27 @@ CONDITION_PATTERN = re.compile(r"^\s*(\S+)\s*(<=|>=|==|!=|<|>)\s*(\S+)\s*$")
 EVENT_TELEMETRY_RECEIVED = "telemetry.received.v1"
 EVENT_TELEMETRY_PROCESSED = "telemetry.processed.v1"
 EVENT_TWIN_STATE_UPSERTED = "twin.state.upserted"
+EVENT_TWIN_MODEL_UPSERTED = "twin.model.upserted"
+EVENT_TWIN_RELATIONSHIP_UPSERTED = "twin.relationship.upserted"
+EVENT_TWIN_RELATIONSHIP_DELETED = "twin.relationship.deleted"
 EVENT_MATCHED = "event.matched.v1"
 EVENT_NOTIFICATION_REQUESTED = "notification.requested.v1"
 EVENT_DEVICE_COMMAND_REQUESTED = "device.command.requested.v1"
 EVENT_ACTION_OUTCOME = "extension.action.outcome.v1"
 EVENT_WORKFLOW_OUTCOME = "notification.workflow.outcome.v1"
 EVENT_COMMAND_OUTCOME = "device.command.outcome.v1"
+OUTCOME_EVENT_TYPES = frozenset(
+    {EVENT_ACTION_OUTCOME, EVENT_WORKFLOW_OUTCOME, EVENT_COMMAND_OUTCOME}
+)
 
 DOMAIN_EVENT_TYPES = frozenset(
     {
         EVENT_TELEMETRY_RECEIVED,
         EVENT_TELEMETRY_PROCESSED,
         EVENT_TWIN_STATE_UPSERTED,
+        EVENT_TWIN_MODEL_UPSERTED,
+        EVENT_TWIN_RELATIONSHIP_UPSERTED,
+        EVENT_TWIN_RELATIONSHIP_DELETED,
         EVENT_MATCHED,
         EVENT_NOTIFICATION_REQUESTED,
         EVENT_DEVICE_COMMAND_REQUESTED,
@@ -541,3 +550,209 @@ def build_rule_matches(
                 )
             )
     return matches
+
+
+def action_id(action: Mapping[str, Any], field: str = "functionName") -> str:
+    if not isinstance(action, Mapping):
+        raise ContractError("INVALID_ACTION_CONFIGURATION", 503)
+    return required_text(
+        action.get(field),
+        code="INVALID_ACTION_CONFIGURATION",
+        maximum=128,
+    )
+
+
+def build_match_dispatch_events(
+    event: Mapping[str, Any], *, action_accepted: bool
+) -> list[dict[str, Any]]:
+    """Derive the closed action, workflow, and command events for one match."""
+
+    validate_canonical_event(event)
+    if event.get("event_type") != EVENT_MATCHED:
+        raise ContractError("INVALID_MATCH_EVENT")
+    body = event_body(event)
+    action = body.get("action")
+    if not isinstance(action, Mapping):
+        raise ContractError("INVALID_MATCH_EVENT")
+    primary_action_id = action_id(action)
+    derived = [
+        derive_event(
+            event,
+            event_type=EVENT_ACTION_OUTCOME,
+            producer="component.action-dispatcher",
+            payload={
+                "device_id": partition_key(event),
+                "rule_id": body.get("rule_id"),
+                "invocation_id": event_id(event),
+                "action_id": primary_action_id,
+                "status": "SUCCEEDED" if action_accepted else "FAILED",
+            },
+        )
+    ]
+    if action.get("type") in {"step_function", "logic_app", "workflow"}:
+        derived.append(
+            derive_event(
+                event,
+                event_type=EVENT_NOTIFICATION_REQUESTED,
+                producer="component.action-dispatcher",
+                payload={
+                    "device_id": partition_key(event),
+                    "rule_id": body.get("rule_id"),
+                    "message": str(
+                        action.get("message")
+                        or body.get("condition")
+                        or "Rule matched"
+                    ),
+                    "notification_action_id": action_id(action, "functionNameB"),
+                },
+            )
+        )
+    feedback = action.get("feedback")
+    if isinstance(feedback, Mapping):
+        derived.append(
+            derive_event(
+                event,
+                event_type=EVENT_DEVICE_COMMAND_REQUESTED,
+                producer="component.action-dispatcher",
+                payload={
+                    "device_id": required_text(
+                        feedback.get("device_id")
+                        or feedback.get("iotDeviceId")
+                        or partition_key(event),
+                        code="INVALID_COMMAND_DEVICE",
+                    ),
+                    "rule_id": body.get("rule_id"),
+                    "message": str(feedback.get("payload") or "Rule matched"),
+                },
+            )
+        )
+    return derived
+
+
+def outcome_document(
+    event: Mapping[str, Any], *, stored_at: datetime, hot_boundary_days: int
+) -> dict[str, Any]:
+    validate_canonical_event(event)
+    if event.get("event_type") not in OUTCOME_EVENT_TYPES:
+        raise ContractError("UNEXPECTED_OUTCOME_EVENT")
+    if hot_boundary_days < 1:
+        raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503)
+    stored_at = stored_at.astimezone(timezone.utc)
+    payload_digest = hashlib.sha256(
+        canonical_json(dict(event)).encode("utf-8")
+    ).hexdigest()
+    return {
+        "kind": "outcome",
+        "device_id": partition_key(event),
+        "event_id": event_id(event),
+        "event_type": event["event_type"],
+        "stored_at": stored_at,
+        "payload_digest": payload_digest,
+        "payload": dict(event),
+        "expires_at": stored_at + timedelta(days=hot_boundary_days, hours=48),
+    }
+
+
+def validate_twin_projection(event: Mapping[str, Any]) -> dict[str, Any]:
+    validated = validate_canonical_event(event)
+    kind = validated["event_type"]
+    body = event_body(validated)
+    expected_fields = {
+        EVENT_TWIN_STATE_UPSERTED: {
+            "twin_id",
+            "source_id",
+            "source_sequence",
+            "observed_at",
+            "state_patch",
+        },
+        EVENT_TWIN_MODEL_UPSERTED: {
+            "model_id",
+            "model_version",
+            "model_document",
+        },
+        EVENT_TWIN_RELATIONSHIP_UPSERTED: {
+            "relationship_id",
+            "from_twin_id",
+            "to_twin_id",
+            "type",
+        },
+        EVENT_TWIN_RELATIONSHIP_DELETED: {
+            "relationship_id",
+            "from_twin_id",
+            "to_twin_id",
+            "type",
+        },
+    }
+    if kind not in expected_fields or set(body) != expected_fields[kind]:
+        raise ContractError("INVALID_TWIN_PROJECTION")
+    if kind == EVENT_TWIN_STATE_UPSERTED:
+        for field in ("twin_id", "source_id", "source_sequence"):
+            required_text(body.get(field), code="INVALID_TWIN_PROJECTION")
+        parse_time(body.get("observed_at"))
+        patch = body.get("state_patch")
+        if not isinstance(patch, Mapping) or not 1 <= len(patch) <= 32:
+            raise ContractError("INVALID_TWIN_PROJECTION")
+        for metric, value in patch.items():
+            required_text(metric, code="INVALID_TWIN_PROJECTION")
+            finite_number(value)
+    elif kind == EVENT_TWIN_MODEL_UPSERTED:
+        required_text(body.get("model_id"), code="INVALID_TWIN_PROJECTION")
+        required_text(body.get("model_version"), code="INVALID_TWIN_PROJECTION")
+        if not isinstance(body.get("model_document"), Mapping):
+            raise ContractError("INVALID_TWIN_PROJECTION")
+    else:
+        for field in (
+            "relationship_id",
+            "from_twin_id",
+            "to_twin_id",
+            "type",
+        ):
+            required_text(body.get(field), code="INVALID_TWIN_PROJECTION")
+    return validated
+
+
+def projection_is_newer(
+    current: Mapping[str, Any] | None, event: Mapping[str, Any]
+) -> bool:
+    """Apply observed-time ordering, then a stable source-sequence tie-break."""
+
+    validated = validate_twin_projection(event)
+    if current is None:
+        return True
+    if current.get("last_event_id") == event_id(validated):
+        return False
+    body = event_body(validated)
+    observed_at = (
+        body.get("observed_at")
+        if validated["event_type"] == EVENT_TWIN_STATE_UPSERTED
+        else validated["occurred_at"]
+    )
+    incoming_time = parse_time(observed_at)
+    try:
+        current_time = parse_time(current.get("last_observed_at"))
+    except ContractError:
+        raise ContractError("INVALID_TWIN_MATERIALIZATION_STATE", 503) from None
+    if incoming_time != current_time:
+        return incoming_time > current_time
+    incoming_sequence = str(
+        body.get("source_sequence") or validated.get("source_sequence")
+    )
+    current_sequence = required_text(
+        current.get("last_source_sequence"),
+        code="INVALID_TWIN_MATERIALIZATION_STATE",
+    )
+
+    def sequence_key(value: str) -> tuple[int, int | str]:
+        if re.fullmatch(r"[0-9]{1,16}", value):
+            return (1, int(value))
+        return (0, value)
+
+    incoming_key = (sequence_key(incoming_sequence), event_id(validated))
+    current_key = (
+        sequence_key(current_sequence),
+        required_text(
+            current.get("last_event_id"),
+            code="INVALID_TWIN_MATERIALIZATION_STATE",
+        ),
+    )
+    return incoming_key > current_key

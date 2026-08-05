@@ -3369,7 +3369,7 @@
           "google_cloud_run_v2_service.gcp_gcp_cloud_run_iap_twin_explorer",
           "google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer",
           "google_cloud_run_v2_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer",
-          "google_firestore_database.gcp_gcp_firestore_native_standard_bounded_twin",
+          "google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup",
           "google_firestore_index.gcp_gcp_firestore_native_standard_bounded_twin",
           "google_iap_web_cloud_run_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer",
           "google_iap_web_cloud_run_service_iam_member.gcp_gcp_direct_iap_layer_access",
@@ -7749,7 +7749,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:0c5e587a120cc9389518edb9464c0c5dd6e230191eb830cdae672247ce9a5296",
+      "source_digest": "sha256:35718888afd0191e5d8b4283c83c1ddd663ee3e11a232d61b695662bb0547c2b",
       "included_paths": [
         "Dockerfile",
         "platform/app.py",
@@ -7791,5 +7791,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:6e39192d72b89394ab827bd465f3e1dbf6375191a4e7fd15375b5f450cb53829"
+  "content_digest": "sha256:514478fa41bed4292e01f3f9fcbb0b71a9d8ff93791379145ddd739017a27e9a"
 }

@@ -390,10 +390,11 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
   assert {
     condition = (
       length(google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected) == 1 &&
-      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter) == 2 &&
+      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter) == 3 &&
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_service) == 1 &&
       length(google_cloud_run_v2_service.gcp_v2_processor_extension) == 1 &&
       length(google_cloud_run_v2_service.gcp_v2_action_sink) == 1 &&
+      length(google_cloud_run_v2_service_iam_member.gcp_v2_action_sink_invoker) == 2 &&
       length(google_workflows_workflow.gcp_gcp_workflows) == 1
     )
     error_message = "Single-cloud GCP v2 must bind its event adapter, validated processor, action boundary, and workflow."
@@ -401,18 +402,18 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
 
   assert {
     condition = (
-      toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["received", "processed", "domain", "failure"]) &&
-      length(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics) == 2
+      toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["received", "processed", "domain", "command", "failure"]) &&
+      length(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics) == 3
     )
-    error_message = "Single-cloud GCP v2 must retain separated ordered embedded Pub/Sub channels."
+    error_message = "Single-cloud GCP v2 must retain separated ordered telemetry, domain, command, and failure channels."
   }
 
   assert {
     condition = (
       length(google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup) == 1 &&
-      length(google_firestore_field.gcp_v2_hot_ttl) == 2 &&
-      length(google_firestore_field.gcp_v2_hot_index_exemption) == 4 &&
-      length(google_firestore_index.gcp_v2_hot_query) == 3 &&
+      length(google_firestore_field.gcp_gcp_firestore_native_standard_raw_and_rollup) == 7 &&
+      length(google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup) == 3 &&
+      length(google_firestore_index.gcp_gcp_firestore_native_standard_bounded_twin) == 2 &&
       length(google_storage_bucket.gcp_gcp_cloud_storage_nearline) == 1 &&
       length(google_storage_bucket.gcp_gcp_cloud_storage_archive) == 0 &&
       length(google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job) == 1 &&
@@ -479,10 +480,10 @@ run "five_layer_v2_gcp_source_owns_both_remote_archive_transitions" {
   assert {
     condition = (
       terraform_data.gcp_v2_hot_capacity_guard[0].input.timestamp_shards == 16 &&
-      toset(keys(google_firestore_index.gcp_v2_hot_query)) == toset(["raw_history", "raw_mover", "rollup_history"]) &&
-      contains([for field in google_firestore_index.gcp_v2_hot_query["raw_history"].fields : field.field_path], "timestamp_shard") &&
-      contains([for field in google_firestore_index.gcp_v2_hot_query["raw_mover"].fields : field.field_path], "timestamp_shard") &&
-      !contains([for field in google_firestore_index.gcp_v2_hot_query["rollup_history"].fields : field.field_path], "timestamp_shard")
+      toset(keys(google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup)) == toset(["raw_history", "raw_mover", "rollup_history"]) &&
+      contains([for field in google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup["raw_history"].fields : field.field_path], "timestamp_shard") &&
+      contains([for field in google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup["raw_mover"].fields : field.field_path], "timestamp_shard") &&
+      !contains([for field in google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup["rollup_history"].fields : field.field_path], "timestamp_shard")
     )
     error_message = "Large GCP hot storage must preserve its reviewed sixteen-way timestamp shard in the raw history and mover indexes only."
   }
@@ -528,12 +529,86 @@ run "five_layer_v2_gcp_archive_only_accepts_remote_cool_objects" {
 
   assert {
     condition = (
-      length(google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup) == 0 &&
+      length(google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup) == 1 &&
       length(google_storage_bucket.gcp_gcp_cloud_storage_nearline) == 0 &&
       length(google_storage_bucket.gcp_gcp_cloud_storage_archive) == 1 &&
       length(google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job) == 0
     )
-    error_message = "Archive-only GCP must create one direct-ingress Archive bucket and no source-side mover."
+    error_message = "GCP L4 plus archive-only storage must share one L4 database, create one direct-ingress Archive bucket, and omit source-side movers."
+  }
+}
+
+run "five_layer_v2_gcp_l4_stays_independent_from_aws_l3_l5" {
+  command = plan
+
+  override_data {
+    target = data.aws_caller_identity.current
+    values = {
+      account_id = "123456789012"
+      arn        = "arn:aws:iam::123456789012:user/terraform-mock"
+      user_id    = "AIDACKCEVSQ6C2EXAMPLE"
+    }
+  }
+
+  override_data {
+    target = data.aws_ssoadmin_instances.aws_v2_layer_access
+    values = {
+      arns               = ["arn:aws:sso:::instance/ssoins-0123456789abcdef"]
+      identity_store_ids = ["d-0123456789"]
+    }
+  }
+
+  override_data {
+    target = data.aws_identitystore_users.aws_v2_layer_access
+    values = {
+      users = []
+    }
+  }
+
+  variables {
+    digital_twin_name                     = "drift-test"
+    architecture_profile_id               = "five-layer-baseline"
+    architecture_profile_version          = "2"
+    layer_1_provider                      = "aws"
+    layer_2_provider                      = "aws"
+    layer_3_hot_provider                  = "aws"
+    layer_3_cold_provider                 = "aws"
+    layer_3_archive_provider              = "aws"
+    layer_4_provider                      = "google"
+    layer_5_provider                      = "aws"
+    layer_3_hot_to_cold_interval_days     = 30
+    layer_3_cold_to_archive_interval_days = 90
+    layer_3_archive_expiry_interval_days  = 365
+    platform_user_email                   = "researcher@example.test"
+    platform_user_first_name              = "Thesis"
+    platform_user_last_name               = "Researcher"
+    gcp_project_id                        = "phase8-poc-project"
+    gcp_region                            = "europe-west1"
+    gcp_v2_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    enable_aws_logging                    = false
+    enable_gcp_logging                    = false
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "88888888-8888-4888-8888-888888888888"
+      artifact_digest = "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+      package_path    = "${var.project_path}/.build/aws/five-layer-v2.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/aws/five-layer-v2.zip")}"
+      adapter_id      = "adapter.aws.python311"
+      adapter_version = "1"
+    }]
+  }
+
+  assert {
+    condition = (
+      length(google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup) == 1 &&
+      length(google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup) == 0 &&
+      length(google_firestore_index.gcp_gcp_firestore_native_standard_bounded_twin) == 2 &&
+      toset(keys(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter)) == toset(["domain"]) &&
+      toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["domain", "failure"]) &&
+      toset(keys(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["domain"])
+    )
+    error_message = "Independent GCP L4 must create only its shared data database, bounded relationship indexes, and domain materializer path while AWS retains L3/L5."
   }
 }
 

@@ -34,6 +34,26 @@ NON_HTTP_RUNTIMES = {
         "timer_trigger",
     ),
 }
+EXPECTED_NON_HTTP_TRIGGERS = {
+    (directory, function_name, trigger)
+    for directory, (function_name, trigger) in NON_HTTP_RUNTIMES.items()
+} | {
+    (
+        "five-layer-v2",
+        "remote_telemetry_consumer",
+        "event_hub_message_trigger",
+    ),
+    (
+        "five-layer-v2",
+        "domain_event_consumer",
+        "service_bus_queue_trigger",
+    ),
+    (
+        "five-layer-v2",
+        "iot_telemetry_adapter",
+        "event_hub_message_trigger",
+    ),
+}
 FORBIDDEN_LOG_NAMES = {
     "blob_name",
     "cutoff",
@@ -314,11 +334,7 @@ def test_non_http_trigger_inventory_is_closed_and_source_safe():
                         )
                     )
 
-    expected = {
-        (directory, function_name, trigger)
-        for directory, (function_name, trigger) in NON_HTTP_RUNTIMES.items()
-    }
-    assert discovered == expected
+    assert discovered == EXPECTED_NON_HTTP_TRIGGERS
 
     for directory in NON_HTTP_RUNTIMES:
         path = AZURE_FUNCTIONS_ROOT / directory / "function_app.py"
