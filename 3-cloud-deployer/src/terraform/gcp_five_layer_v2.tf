@@ -28,6 +28,10 @@ locals {
     local.gcp_v2_hot_enabled || local.gcp_v2_cool_enabled ||
     local.gcp_v2_l4_enabled || local.gcp_v2_l5_enabled
   )
+  gcp_v2_storage_mover_enabled = (
+    local.gcp_v2_hot_enabled ||
+    (local.gcp_v2_cool_enabled && var.layer_3_archive_provider != "google")
+  )
 
   gcp_v2_required_apis = local.gcp_v2_any_enabled ? toset(compact([
     "artifactregistry.googleapis.com",
@@ -68,6 +72,41 @@ locals {
       domain = "${local.gcp_v2_name}-v2-domain-control"
     } : {},
   ) : {}
+
+  gcp_v2_event_adapters = merge(
+    local.gcp_v2_l1_enabled ? { ingress = "event-adapter" } : {},
+    local.gcp_v2_hot_enabled ? { persistence = "persistence" } : {},
+  )
+  gcp_v2_subscriptions = merge(
+    local.gcp_v2_l2_enabled ? {
+      processor = {
+        topic = "received"
+        role  = "processor"
+      }
+    } : {},
+    local.gcp_v2_hot_enabled ? {
+      persistence = {
+        topic = "processed"
+        role  = "persistence"
+      }
+    } : {},
+  )
+  gcp_v2_storage_jobs = merge(
+    local.gcp_v2_hot_enabled ? {
+      hot-to-cool = {
+        source_provider      = "google"
+        destination_provider = var.layer_3_cold_provider
+        schedule             = "0 2 * * *"
+      }
+    } : {},
+    local.gcp_v2_cool_enabled && var.layer_3_archive_provider != "google" ? {
+      cool-to-archive = {
+        source_provider      = "google"
+        destination_provider = var.layer_3_archive_provider
+        schedule             = "0 3 * * 0"
+      }
+    } : {},
+  )
 }
 
 resource "google_project_service" "gcp_v2_required" {
@@ -107,6 +146,17 @@ resource "terraform_data" "gcp_v2_foundation_guard" {
         startswith(var.gcp_v2_platform_image, local.gcp_v2_registry_prefix)
       )
       error_message = "GCP Five-layer v2 platform images must come from the deployment Artifact Registry repository."
+    }
+    precondition {
+      condition     = !local.gcp_v2_storage_mover_enabled || var.gcp_v2_storage_mover_image != ""
+      error_message = "GCP Five-layer v2 storage movement requires a content-addressed storage-mover image."
+    }
+    precondition {
+      condition = (
+        !local.gcp_v2_storage_mover_enabled ||
+        startswith(var.gcp_v2_storage_mover_image, local.gcp_v2_registry_prefix)
+      )
+      error_message = "GCP Five-layer v2 storage-mover images must come from the deployment Artifact Registry repository."
     }
   }
 }
@@ -177,14 +227,19 @@ data "google_project" "gcp_v2_current" {
 }
 
 resource "google_service_account" "gcp_v2_runtime" {
-  for_each = local.gcp_v2_event_enabled ? merge(
+  for_each = merge(
     local.gcp_v2_l1_enabled ? { ingress = "ingress" } : {},
     local.gcp_v2_l2_enabled ? {
       processor = "processor"
       extension = "extension"
       workflow  = "workflow"
     } : {},
-  ) : {}
+    local.gcp_v2_hot_enabled ? { persistence = "persistence" } : {},
+    local.gcp_v2_storage_mover_enabled ? {
+      storage   = "storage"
+      scheduler = "scheduler"
+    } : {},
+  )
   project      = local.gcp_project_id
   account_id   = substr("${local.gcp_v2_name}-v2-${each.value}", 0, 30)
   display_name = "${var.digital_twin_name} v2 ${each.value}"
@@ -193,17 +248,17 @@ resource "google_service_account" "gcp_v2_runtime" {
 }
 
 resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
-  count               = local.gcp_v2_l1_enabled ? 1 : 0
+  for_each            = local.gcp_v2_event_adapters
   project             = local.gcp_project_id
   location            = var.gcp_region
-  name                = "${local.gcp_v2_name}-v2-event-adapter"
-  description         = "Authenticated Five-layer v2 MQTT/PubSub event adapter"
+  name                = "${local.gcp_v2_name}-v2-${each.value}"
+  description         = "Authenticated Five-layer v2 ${each.value}"
   deletion_protection = false
   ingress             = "INGRESS_TRAFFIC_ALL"
   labels              = local.gcp_v2_labels
 
   template {
-    service_account                  = google_service_account.gcp_v2_runtime["ingress"].email
+    service_account                  = google_service_account.gcp_v2_runtime[each.key].email
     timeout                          = "30s"
     max_instance_request_concurrency = 1
 
@@ -233,11 +288,27 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
       }
       env {
         name  = "RUNTIME_ROLE"
-        value = "event-adapter"
+        value = each.value
       }
       env {
         name  = "RECEIVED_TOPIC"
-        value = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["received"].id
+        value = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["received"].id, "")
+      }
+      env {
+        name  = "PROCESSED_TOPIC"
+        value = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["processed"].id, "")
+      }
+      env {
+        name  = "DOMAIN_TOPIC"
+        value = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].id, "")
+      }
+      env {
+        name  = "FIRESTORE_DATABASE"
+        value = try(google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name, "")
+      }
+      env {
+        name  = "HOT_BOUNDARY_DAYS"
+        value = tostring(var.layer_3_hot_to_cold_interval_days)
       }
     }
   }
@@ -443,9 +514,18 @@ resource "google_cloud_run_v2_service_iam_member" "gcp_v2_processor_push_invoker
   member   = "serviceAccount:${google_service_account.gcp_v2_runtime["processor"].email}"
 }
 
+resource "google_cloud_run_v2_service_iam_member" "gcp_v2_persistence_push_invoker" {
+  count    = local.gcp_v2_hot_enabled ? 1 : 0
+  project  = local.gcp_project_id
+  location = var.gcp_region
+  name     = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["persistence"].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.gcp_v2_runtime["persistence"].email}"
+}
+
 resource "google_service_account_iam_member" "gcp_v2_pubsub_push_token_creator" {
-  count              = local.gcp_v2_l2_enabled ? 1 : 0
-  service_account_id = google_service_account.gcp_v2_runtime["processor"].name
+  for_each           = local.gcp_v2_subscriptions
+  service_account_id = google_service_account.gcp_v2_runtime[each.value.role].name
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = "serviceAccount:service-${data.google_project.gcp_v2_current[0].number}@gcp-sa-pubsub.iam.gserviceaccount.com"
 }
@@ -476,11 +556,18 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_processor_publishers" {
   member  = "serviceAccount:${google_service_account.gcp_v2_runtime["processor"].email}"
 }
 
-resource "google_pubsub_subscription" "gcp_gcp_pubsub_separated_embedded_topics" {
-  count   = local.gcp_v2_l2_enabled ? 1 : 0
+resource "google_project_iam_member" "gcp_v2_persistence_firestore_writer" {
+  count   = local.gcp_v2_hot_enabled ? 1 : 0
   project = local.gcp_project_id
-  name    = "${local.gcp_v2_name}-v2-processor"
-  topic   = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["received"].id
+  role    = "roles/datastore.user"
+  member  = "serviceAccount:${google_service_account.gcp_v2_runtime["persistence"].email}"
+}
+
+resource "google_pubsub_subscription" "gcp_gcp_pubsub_separated_embedded_topics" {
+  for_each = local.gcp_v2_subscriptions
+  project  = local.gcp_project_id
+  name     = "${local.gcp_v2_name}-v2-${each.key}"
+  topic    = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics[each.value.topic].id
 
   ack_deadline_seconds       = 60
   message_retention_duration = "1209600s"
@@ -489,10 +576,18 @@ resource "google_pubsub_subscription" "gcp_gcp_pubsub_separated_embedded_topics"
   labels                     = local.gcp_v2_labels
 
   push_config {
-    push_endpoint = google_cloud_run_v2_service.gcp_gcp_cloud_run_service[0].uri
+    push_endpoint = (
+      each.key == "processor"
+      ? google_cloud_run_v2_service.gcp_gcp_cloud_run_service[0].uri
+      : google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter[each.key].uri
+    )
     oidc_token {
-      service_account_email = google_service_account.gcp_v2_runtime["processor"].email
-      audience              = google_cloud_run_v2_service.gcp_gcp_cloud_run_service[0].uri
+      service_account_email = google_service_account.gcp_v2_runtime[each.value.role].email
+      audience = (
+        each.key == "processor"
+        ? google_cloud_run_v2_service.gcp_gcp_cloud_run_service[0].uri
+        : google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter[each.key].uri
+      )
     }
   }
 
@@ -506,11 +601,16 @@ resource "google_pubsub_subscription" "gcp_gcp_pubsub_separated_embedded_topics"
     max_delivery_attempts = 5
   }
 
-  depends_on = [google_cloud_run_v2_service_iam_member.gcp_v2_processor_push_invoker]
+  depends_on = [
+    google_cloud_run_v2_service_iam_member.gcp_v2_processor_push_invoker,
+    google_cloud_run_v2_service_iam_member.gcp_v2_persistence_push_invoker,
+    google_project_iam_member.gcp_v2_persistence_firestore_writer,
+    google_service_account_iam_member.gcp_v2_pubsub_push_token_creator,
+  ]
 }
 
 resource "google_pubsub_topic_iam_member" "gcp_v2_failure_service_agent_publisher" {
-  count   = local.gcp_v2_l2_enabled ? 1 : 0
+  count   = length(local.gcp_v2_subscriptions) > 0 ? 1 : 0
   project = local.gcp_project_id
   topic   = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["failure"].name
   role    = "roles/pubsub.publisher"
@@ -518,11 +618,283 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_failure_service_agent_publishe
 }
 
 resource "google_pubsub_subscription_iam_member" "gcp_v2_failure_service_agent_subscriber" {
-  count        = local.gcp_v2_l2_enabled ? 1 : 0
+  for_each     = local.gcp_v2_subscriptions
   project      = local.gcp_project_id
-  subscription = google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics[0].name
+  subscription = google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics[each.key].name
   role         = "roles/pubsub.subscriber"
   member       = "serviceAccount:service-${data.google_project.gcp_v2_current[0].number}@gcp-sa-pubsub.iam.gserviceaccount.com"
+}
+
+# L3 Hot intentionally uses one Firestore database with separate raw and
+# hourly-rollup collections. This preserves the thesis comparison boundary
+# without paying for or operating a second PoC database.
+resource "google_firestore_database" "gcp_gcp_firestore_native_standard_raw_and_rollup" {
+  count                       = local.gcp_v2_hot_enabled ? 1 : 0
+  project                     = local.gcp_project_id
+  name                        = "${local.gcp_v2_name}-v2-l3-${local.deployment_suffix}"
+  location_id                 = var.gcp_region
+  type                        = "FIRESTORE_NATIVE"
+  database_edition            = "STANDARD"
+  concurrency_mode            = "PESSIMISTIC"
+  app_engine_integration_mode = "DISABLED"
+  delete_protection_state     = "DELETE_PROTECTION_DISABLED"
+  deletion_policy             = "DELETE"
+
+  depends_on = [google_project_service.gcp_v2_required]
+}
+
+resource "google_firestore_field" "gcp_v2_hot_ttl" {
+  for_each = local.gcp_v2_hot_enabled ? toset([
+    "telemetry_raw",
+    "telemetry_hourly_rollups",
+  ]) : toset([])
+
+  project    = local.gcp_project_id
+  database   = google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name
+  collection = each.value
+  field      = "expires_at"
+
+  ttl_config {}
+}
+
+resource "google_firestore_index" "gcp_v2_hot_query" {
+  for_each = local.gcp_v2_hot_enabled ? {
+    raw = {
+      collection = "telemetry_raw"
+      time_field = "stored_at"
+    }
+    rollup = {
+      collection = "telemetry_hourly_rollups"
+      time_field = "bucket_start"
+    }
+  } : {}
+
+  project     = local.gcp_project_id
+  database    = google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name
+  collection  = each.value.collection
+  query_scope = "COLLECTION"
+
+  fields {
+    field_path = "device_id"
+    order      = "ASCENDING"
+  }
+  fields {
+    field_path = "metric"
+    order      = "ASCENDING"
+  }
+  fields {
+    field_path = each.value.time_field
+    order      = "DESCENDING"
+  }
+}
+
+# A single Nearline bucket owns the cool tier. When GCP also owns archive,
+# Cloud Storage performs the second transition natively; a second bucket and
+# a permanent worker would add no thesis value.
+resource "google_storage_bucket" "gcp_gcp_cloud_storage_nearline" {
+  count                       = local.gcp_v2_cool_enabled ? 1 : 0
+  project                     = local.gcp_project_id
+  name                        = "${local.gcp_v2_name}-v2-history-${local.deployment_suffix}"
+  location                    = var.gcp_region
+  storage_class               = "NEARLINE"
+  force_destroy               = true
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  labels                      = local.gcp_v2_labels
+
+  soft_delete_policy {
+    retention_duration_seconds = 0
+  }
+
+  dynamic "lifecycle_rule" {
+    for_each = local.gcp_v2_archive_enabled ? [1] : []
+    content {
+      action {
+        type          = "SetStorageClass"
+        storage_class = "ARCHIVE"
+      }
+      condition {
+        age                   = var.layer_3_cold_to_archive_interval_days - var.layer_3_hot_to_cold_interval_days
+        matches_storage_class = ["NEARLINE"]
+      }
+    }
+  }
+
+  lifecycle_rule {
+    action { type = "Delete" }
+    condition {
+      age = local.gcp_v2_archive_enabled ? (
+        var.layer_3_archive_expiry_interval_days - var.layer_3_hot_to_cold_interval_days
+        ) : (
+        var.layer_3_cold_to_archive_interval_days - var.layer_3_hot_to_cold_interval_days + 2
+      )
+    }
+  }
+
+  depends_on = [google_project_service.gcp_v2_required]
+}
+
+# GCP creates a dedicated Archive bucket only when a remote cool-tier mover
+# lands objects directly in GCP. The same-provider path uses the bucket above.
+resource "google_storage_bucket" "gcp_gcp_cloud_storage_archive" {
+  count                       = local.gcp_v2_archive_enabled && !local.gcp_v2_cool_enabled ? 1 : 0
+  project                     = local.gcp_project_id
+  name                        = "${local.gcp_v2_name}-v2-archive-${local.deployment_suffix}"
+  location                    = var.gcp_region
+  storage_class               = "ARCHIVE"
+  force_destroy               = true
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  labels                      = local.gcp_v2_labels
+
+  soft_delete_policy {
+    retention_duration_seconds = 0
+  }
+
+  lifecycle_rule {
+    action { type = "Delete" }
+    condition {
+      age = var.layer_3_archive_expiry_interval_days - var.layer_3_cold_to_archive_interval_days
+    }
+  }
+
+  depends_on = [google_project_service.gcp_v2_required]
+}
+
+# Firestore's predefined data role is project-scoped. The mover needs reads
+# plus post-copy deletes, so roles/datastore.user is the narrow managed role
+# that covers its complete finite-window operation.
+resource "google_project_iam_member" "gcp_v2_storage_firestore_operator" {
+  count   = local.gcp_v2_hot_enabled ? 1 : 0
+  project = local.gcp_project_id
+  role    = "roles/datastore.user"
+  member  = "serviceAccount:${google_service_account.gcp_v2_runtime["storage"].email}"
+}
+
+resource "google_storage_bucket_iam_member" "gcp_v2_storage_bucket_operator" {
+  count  = local.gcp_v2_cool_enabled && local.gcp_v2_storage_mover_enabled ? 1 : 0
+  bucket = google_storage_bucket.gcp_gcp_cloud_storage_nearline[0].name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.gcp_v2_runtime["storage"].email}"
+}
+
+# Exactly one finite execution is scheduled for each source-owned transition.
+# The job exits after a bounded age window; no long-running tiering service,
+# checkpoint database, or enterprise orchestration layer is introduced.
+resource "google_cloud_run_v2_job" "gcp_gcp_cloud_run_storage_job" {
+  for_each            = local.gcp_v2_storage_jobs
+  project             = local.gcp_project_id
+  location            = var.gcp_region
+  name                = substr("${local.gcp_v2_name}-v2-${each.key}", 0, 49)
+  deletion_protection = false
+  labels              = local.gcp_v2_labels
+
+  template {
+    task_count  = 1
+    parallelism = 1
+
+    template {
+      service_account = google_service_account.gcp_v2_runtime["storage"].email
+      max_retries     = 1
+      timeout         = "900s"
+
+      containers {
+        image = var.gcp_v2_storage_mover_image
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "2Gi"
+          }
+        }
+
+        env {
+          name  = "ARCHITECTURE_PROFILE"
+          value = "five-layer-baseline@2"
+        }
+        env {
+          name  = "TRANSITION"
+          value = each.key
+        }
+        env {
+          name  = "SOURCE_PROVIDER"
+          value = each.value.source_provider
+        }
+        env {
+          name  = "DESTINATION_PROVIDER"
+          value = each.value.destination_provider
+        }
+        env {
+          name  = "FIRESTORE_DATABASE"
+          value = try(google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name, "")
+        }
+        env {
+          name  = "HISTORY_BUCKET"
+          value = try(google_storage_bucket.gcp_gcp_cloud_storage_nearline[0].name, "")
+        }
+        env {
+          name  = "ARCHIVE_BUCKET"
+          value = try(google_storage_bucket.gcp_gcp_cloud_storage_archive[0].name, "")
+        }
+        env {
+          name  = "HOT_BOUNDARY_DAYS"
+          value = tostring(var.layer_3_hot_to_cold_interval_days)
+        }
+        env {
+          name  = "COOL_BOUNDARY_DAYS"
+          value = tostring(var.layer_3_cold_to_archive_interval_days)
+        }
+        env {
+          name  = "ARCHIVE_BOUNDARY_DAYS"
+          value = tostring(var.layer_3_archive_expiry_interval_days)
+        }
+      }
+    }
+  }
+
+  depends_on = [
+    google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected,
+    google_project_iam_member.gcp_v2_storage_firestore_operator,
+    google_storage_bucket_iam_member.gcp_v2_storage_bucket_operator,
+  ]
+}
+
+resource "google_cloud_run_v2_job_iam_member" "gcp_v2_scheduler_job_invoker" {
+  for_each = local.gcp_v2_storage_jobs
+  project  = local.gcp_project_id
+  location = var.gcp_region
+  name     = google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job[each.key].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.gcp_v2_runtime["scheduler"].email}"
+}
+
+resource "google_cloud_scheduler_job" "gcp_gcp_cloud_scheduler" {
+  for_each         = local.gcp_v2_storage_jobs
+  project          = local.gcp_project_id
+  region           = var.gcp_region
+  name             = substr("${local.gcp_v2_name}-v2-${each.key}", 0, 49)
+  description      = "Run the finite Five-layer v2 ${each.key} storage window"
+  schedule         = each.value.schedule
+  time_zone        = "Etc/UTC"
+  attempt_deadline = "900s"
+
+  retry_config {
+    retry_count          = 1
+    min_backoff_duration = "30s"
+    max_backoff_duration = "300s"
+    max_doublings        = 1
+  }
+
+  http_target {
+    uri         = "https://run.googleapis.com/v2/projects/${local.gcp_project_id}/locations/${var.gcp_region}/jobs/${google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job[each.key].name}:run"
+    http_method = "POST"
+    oauth_token {
+      service_account_email = google_service_account.gcp_v2_runtime["scheduler"].email
+      scope                 = "https://www.googleapis.com/auth/cloud-platform"
+    }
+  }
+
+  depends_on = [google_cloud_run_v2_job_iam_member.gcp_v2_scheduler_job_invoker]
 }
 
 resource "google_workflows_workflow" "gcp_gcp_workflows" {

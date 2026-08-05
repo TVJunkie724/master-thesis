@@ -345,6 +345,7 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
     gcp_region                            = "europe-west1"
     gcp_v2_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     gcp_v2_processor_extension_image      = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    gcp_v2_storage_mover_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     enable_gcp_logging                    = false
     validated_extension_packages = [{
       slot_id         = "processor.telemetry"
@@ -389,7 +390,7 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
   assert {
     condition = (
       length(google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected) == 1 &&
-      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter) == 1 &&
+      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter) == 2 &&
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_service) == 1 &&
       length(google_cloud_run_v2_service.gcp_v2_processor_extension) == 1 &&
       length(google_cloud_run_v2_service.gcp_v2_action_sink) == 1 &&
@@ -401,9 +402,123 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
   assert {
     condition = (
       toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["received", "processed", "domain", "failure"]) &&
-      length(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics) == 1
+      length(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics) == 2
     )
     error_message = "Single-cloud GCP v2 must retain separated ordered embedded Pub/Sub channels."
+  }
+
+  assert {
+    condition = (
+      length(google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup) == 1 &&
+      length(google_firestore_field.gcp_v2_hot_ttl) == 2 &&
+      length(google_firestore_index.gcp_v2_hot_query) == 2 &&
+      length(google_storage_bucket.gcp_gcp_cloud_storage_nearline) == 1 &&
+      length(google_storage_bucket.gcp_gcp_cloud_storage_archive) == 0 &&
+      length(google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job) == 1 &&
+      length(google_cloud_scheduler_job.gcp_gcp_cloud_scheduler) == 1
+    )
+    error_message = "Single-cloud GCP v2 must bind one Firestore hot store, one Nearline bucket with native archive transition, and one finite source-owned mover."
+  }
+}
+
+run "five_layer_v2_gcp_source_owns_both_remote_archive_transitions" {
+  command = plan
+
+  variables {
+    digital_twin_name                      = "drift-test"
+    architecture_profile_id                = "five-layer-baseline"
+    architecture_profile_version           = "2"
+    layer_1_provider                       = "google"
+    layer_2_provider                       = "google"
+    layer_3_hot_provider                   = "google"
+    layer_3_cold_provider                  = "google"
+    layer_3_archive_provider               = "azure"
+    layer_4_provider                       = "google"
+    layer_5_provider                       = "google"
+    layer_3_hot_to_cold_interval_days      = 30
+    layer_3_cold_to_archive_interval_days  = 90
+    layer_3_archive_expiry_interval_days   = 365
+    platform_user_email                    = "researcher@example.test"
+    platform_user_first_name               = "Thesis"
+    platform_user_last_name                = "Researcher"
+    gcp_project_id                         = "phase8-poc-project"
+    gcp_region                             = "europe-west1"
+    gcp_v2_platform_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    gcp_v2_processor_extension_image       = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    gcp_v2_storage_mover_image             = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    azure_layer_access_principal_object_id = "11111111-1111-1111-1111-111111111111"
+    azure_layer_access_principal_label     = "researcher@example.test"
+    enable_gcp_logging                     = false
+    enable_azure_logging                   = false
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "66666666-6666-4666-8666-666666666666"
+      artifact_digest = "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+      package_path    = "${var.project_path}/.build/azure/five-layer-v2.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/five-layer-v2.zip")}"
+      adapter_id      = "adapter.gcp.python311"
+      adapter_version = "1"
+    }]
+  }
+
+  assert {
+    condition = (
+      toset(keys(google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job)) == toset(["hot-to-cool", "cool-to-archive"]) &&
+      toset(keys(google_cloud_scheduler_job.gcp_gcp_cloud_scheduler)) == toset(["hot-to-cool", "cool-to-archive"]) &&
+      length(google_storage_bucket.gcp_gcp_cloud_storage_nearline) == 1 &&
+      length(google_storage_bucket.gcp_gcp_cloud_storage_archive) == 0
+    )
+    error_message = "GCP must own both finite source-side transitions when archive is remote and must not create a local Archive bucket."
+  }
+}
+
+run "five_layer_v2_gcp_archive_only_accepts_remote_cool_objects" {
+  command = plan
+
+  variables {
+    digital_twin_name                     = "drift-test"
+    architecture_profile_id               = "five-layer-baseline"
+    architecture_profile_version          = "2"
+    layer_1_provider                      = "google"
+    layer_2_provider                      = "google"
+    layer_3_hot_provider                  = "aws"
+    layer_3_cold_provider                 = "aws"
+    layer_3_archive_provider              = "google"
+    layer_4_provider                      = "google"
+    layer_5_provider                      = "google"
+    layer_3_hot_to_cold_interval_days     = 30
+    layer_3_cold_to_archive_interval_days = 90
+    layer_3_archive_expiry_interval_days  = 365
+    platform_user_email                   = "researcher@example.test"
+    platform_user_first_name              = "Thesis"
+    platform_user_last_name               = "Researcher"
+    gcp_project_id                        = "phase8-poc-project"
+    gcp_region                            = "europe-west1"
+    gcp_v2_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    gcp_v2_processor_extension_image      = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    enable_gcp_logging                    = false
+    enable_aws_logging                    = false
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "77777777-7777-4777-8777-777777777777"
+      artifact_digest = "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+      package_path    = "${var.project_path}/.build/azure/five-layer-v2.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/five-layer-v2.zip")}"
+      adapter_id      = "adapter.gcp.python311"
+      adapter_version = "1"
+    }]
+  }
+
+  assert {
+    condition = (
+      length(google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup) == 0 &&
+      length(google_storage_bucket.gcp_gcp_cloud_storage_nearline) == 0 &&
+      length(google_storage_bucket.gcp_gcp_cloud_storage_archive) == 1 &&
+      length(google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job) == 0
+    )
+    error_message = "Archive-only GCP must create one direct-ingress Archive bucket and no source-side mover."
   }
 }
 

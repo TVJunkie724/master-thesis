@@ -847,6 +847,20 @@ variable "gcp_v2_processor_extension_image" {
   }
 }
 
+variable "gcp_v2_storage_mover_image" {
+  description = "Content-addressed GCP Five-layer v2 finite storage-mover image"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.gcp_v2_storage_mover_image == "" ||
+      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_v2_storage_mover_image))
+    )
+    error_message = "gcp_v2_storage_mover_image must be an Artifact Registry image pinned by sha256 digest."
+  }
+}
+
 variable "gcp_billing_account" {
   description = "GCP Billing Account ID for project creation (for organization accounts)"
   type        = string
