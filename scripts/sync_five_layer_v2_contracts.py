@@ -44,6 +44,9 @@ AWS_V2_RUNTIME_SOURCE = (
 AZURE_V2_RUNTIME_SOURCE = (
     "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2"
 )
+GCP_V2_RUNTIME_SOURCE = (
+    "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2"
+)
 WORKLOAD_ROOT = ROOT / "contracts" / "five-layer-workload"
 WORKLOAD_CATALOG = WORKLOAD_ROOT / "v2" / "eventing-scenario-catalog.json"
 ARCH_TARGETS = (
@@ -1170,7 +1173,7 @@ def build_catalog(
                     if provider == "aws"
                     else AZURE_V2_RUNTIME_SOURCE
                     if provider == "azure"
-                    else "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json"
+                    else GCP_V2_RUNTIME_SOURCE
                 ),
                 "platform_handler": f"handler.{provider}.five-layer-v2",
                 "digest_policy": "sha256.canonical-source.v1",
@@ -1179,14 +1182,20 @@ def build_catalog(
                     if provider == "aws"
                     else package_source_digest(AZURE_V2_RUNTIME_SOURCE)
                     if provider == "azure"
-                    else file_digest(SERVICE_COMPONENTS)
+                    else package_source_digest(GCP_V2_RUNTIME_SOURCE)
                 ),
                 "included_paths": (
                     ["handler.py"]
                     if provider == "aws"
                     else ["core.py", "function_app.py", "host.json", "requirements.txt"]
                     if provider == "azure"
-                    else ["implementation-component-manifest.json"]
+                    else [
+                        "Dockerfile",
+                        "platform/app.py",
+                        "platform/constraints.txt",
+                        "platform/core.py",
+                        "platform/requirements.txt",
+                    ]
                 ),
                 "excluded_paths": [],
                 "dependency_artifact_refs": [],

@@ -1,0 +1,543 @@
+"""Provider-neutral contracts for the GCP Five-layer v2 Cloud Run runtime."""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+import hashlib
+import json
+import math
+import re
+from typing import Any, Mapping
+import uuid
+
+
+PROFILE = "five-layer-baseline@2"
+MAX_EVENT_BYTES = 256 * 1024
+MAX_RULES = 100
+MAX_JSON_SAFE_INTEGER = 9_007_199_254_740_991
+CONDITION_PATTERN = re.compile(r"^\s*(\S+)\s*(<=|>=|==|!=|<|>)\s*(\S+)\s*$")
+
+EVENT_TELEMETRY_RECEIVED = "telemetry.received.v1"
+EVENT_TELEMETRY_PROCESSED = "telemetry.processed.v1"
+EVENT_TWIN_STATE_UPSERTED = "twin.state.upserted"
+EVENT_MATCHED = "event.matched.v1"
+EVENT_NOTIFICATION_REQUESTED = "notification.requested.v1"
+EVENT_DEVICE_COMMAND_REQUESTED = "device.command.requested.v1"
+EVENT_ACTION_OUTCOME = "extension.action.outcome.v1"
+EVENT_WORKFLOW_OUTCOME = "notification.workflow.outcome.v1"
+EVENT_COMMAND_OUTCOME = "device.command.outcome.v1"
+
+DOMAIN_EVENT_TYPES = frozenset(
+    {
+        EVENT_TELEMETRY_RECEIVED,
+        EVENT_TELEMETRY_PROCESSED,
+        EVENT_TWIN_STATE_UPSERTED,
+        EVENT_MATCHED,
+        EVENT_NOTIFICATION_REQUESTED,
+        EVENT_DEVICE_COMMAND_REQUESTED,
+        EVENT_ACTION_OUTCOME,
+        EVENT_WORKFLOW_OUTCOME,
+        EVENT_COMMAND_OUTCOME,
+    }
+)
+CANONICAL_EVENT_FIELDS = frozenset(
+    {
+        "schema_version",
+        "event_id",
+        "event_type",
+        "deployment_id",
+        "source_id",
+        "source_sequence",
+        "occurred_at",
+        "correlation_id",
+        "causation_id",
+        "producer",
+        "payload",
+    }
+)
+
+
+class ContractError(ValueError):
+    """Stable, payload-free runtime contract failure."""
+
+    def __init__(self, code: str, status: int = 400):
+        super().__init__(code)
+        self.code = code
+        self.status = status
+
+
+def canonical_json(value: Mapping[str, Any]) -> str:
+    return json.dumps(
+        value,
+        ensure_ascii=True,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def required_text(value: Any, *, code: str, maximum: int = 256) -> str:
+    if not isinstance(value, str) or not value or len(value.encode("utf-8")) > maximum:
+        raise ContractError(code)
+    return value
+
+
+def finite_number(value: Any) -> int | float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ContractError("INVALID_NUMERIC_VALUE")
+    if isinstance(value, int):
+        if abs(value) > MAX_JSON_SAFE_INTEGER:
+            raise ContractError("INVALID_NUMERIC_VALUE")
+        return value
+    if not math.isfinite(value):
+        raise ContractError("INVALID_NUMERIC_VALUE")
+    return value
+
+
+def parse_time(value: Any) -> datetime:
+    if not isinstance(value, str):
+        raise ContractError("INVALID_TIMESTAMP")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ContractError("INVALID_TIMESTAMP") from exc
+    if parsed.tzinfo is None:
+        raise ContractError("INVALID_TIMESTAMP")
+    return parsed.astimezone(timezone.utc)
+
+
+def iso_time(value: datetime) -> str:
+    return (
+        value.astimezone(timezone.utc)
+        .isoformat(timespec="microseconds")
+        .replace("+00:00", "Z")
+    )
+
+
+def validate_canonical_event(event: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(event, Mapping) or set(event) != CANONICAL_EVENT_FIELDS:
+        raise ContractError("INVALID_CANONICAL_EVENT")
+    if event.get("schema_version") != "canonical-domain-event.v1":
+        raise ContractError("UNSUPPORTED_EVENT_SCHEMA")
+    if event.get("event_type") not in DOMAIN_EVENT_TYPES:
+        raise ContractError("UNKNOWN_DOMAIN_EVENT")
+    for field in (
+        "event_id",
+        "deployment_id",
+        "source_id",
+        "source_sequence",
+        "correlation_id",
+        "causation_id",
+        "producer",
+    ):
+        required_text(event.get(field), code="INVALID_CANONICAL_EVENT")
+    parse_time(event.get("occurred_at"))
+    if not isinstance(event.get("payload"), Mapping):
+        raise ContractError("INVALID_CANONICAL_EVENT")
+    try:
+        encoded = canonical_json(event).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ContractError("INVALID_CANONICAL_EVENT") from exc
+    if len(encoded) > MAX_EVENT_BYTES:
+        raise ContractError("EVENT_TOO_LARGE")
+    return dict(event)
+
+
+def event_body(event: Mapping[str, Any]) -> Mapping[str, Any]:
+    value = event.get("payload")
+    return value if isinstance(value, Mapping) else {}
+
+
+def event_id(event: Mapping[str, Any]) -> str:
+    return required_text(event.get("event_id"), code="INVALID_EVENT_ID")
+
+
+def partition_key(event: Mapping[str, Any]) -> str:
+    body = event_body(event)
+    return required_text(
+        body.get("device_id") or event.get("source_id"),
+        code="INVALID_PARTITION_KEY",
+    )
+
+
+def build_ingress_event(
+    payload: Mapping[str, Any],
+    *,
+    deployment_id: str,
+    default_metric: str = "value",
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Adapt one bounded MQTT/HTTP payload to the canonical event envelope."""
+
+    if not isinstance(payload, Mapping):
+        raise ContractError("INVALID_TELEMETRY_PAYLOAD")
+    current = now or datetime.now(timezone.utc)
+    device_id = required_text(
+        payload.get("device_id") or payload.get("iotDeviceId"),
+        code="INVALID_DEVICE_ID",
+    )
+    metric = required_text(payload.get("metric") or default_metric, code="INVALID_METRIC")
+    value = finite_number(payload.get("value", payload.get(metric)))
+    occurred_at = iso_time(
+        parse_time(payload.get("event_time") or payload.get("time") or iso_time(current))
+    )
+    identity = {
+        "deployment_id": deployment_id,
+        "device_id": device_id,
+        "metric": metric,
+        "event_time": occurred_at,
+        "value": value,
+    }
+    generated_id = str(uuid.uuid5(uuid.NAMESPACE_URL, canonical_json(identity)))
+    source_event_id = required_text(
+        payload.get("event_id") or generated_id,
+        code="INVALID_EVENT_ID",
+    )
+    source_sequence = payload.get("source_sequence", source_event_id)
+    if isinstance(source_sequence, bool) or not isinstance(source_sequence, (str, int)):
+        raise ContractError("INVALID_SOURCE_SEQUENCE")
+    event = {
+        "schema_version": "canonical-domain-event.v1",
+        "event_id": source_event_id,
+        "event_type": EVENT_TELEMETRY_RECEIVED,
+        "deployment_id": required_text(deployment_id, code="INVALID_DEPLOYMENT_ID"),
+        "source_id": device_id,
+        "source_sequence": str(source_sequence),
+        "occurred_at": occurred_at,
+        "correlation_id": str(payload.get("correlation_id") or source_event_id),
+        "causation_id": source_event_id,
+        "producer": "component.device-ingress",
+        "payload": {
+            "device_id": device_id,
+            "twin_id": required_text(
+                payload.get("twin_id") or device_id,
+                code="INVALID_TWIN_ID",
+            ),
+            "metric": metric,
+            "value": value,
+            "unit": str(payload.get("unit") or "unspecified"),
+            "event_time": occurred_at,
+            "projection_candidate": payload.get("projection_candidate") is True,
+        },
+    }
+    return validate_canonical_event(event)
+
+
+def derive_event(
+    source: Mapping[str, Any],
+    *,
+    event_type: str,
+    producer: str,
+    payload: Mapping[str, Any] | None = None,
+    identity_suffix: str = "",
+) -> dict[str, Any]:
+    validate_canonical_event(source)
+    identity = f"{source['event_id']}:{event_type}:{producer}"
+    if identity_suffix:
+        identity = f"{identity}:{identity_suffix}"
+    child = {
+        "schema_version": "canonical-domain-event.v1",
+        "event_id": str(uuid.uuid5(uuid.NAMESPACE_URL, identity)),
+        "event_type": event_type,
+        "deployment_id": source["deployment_id"],
+        "source_id": source["source_id"],
+        "source_sequence": source["source_sequence"],
+        "occurred_at": source["occurred_at"],
+        "correlation_id": source["correlation_id"],
+        "causation_id": source["event_id"],
+        "producer": producer,
+        "payload": dict(payload if payload is not None else source["payload"]),
+    }
+    return validate_canonical_event(child)
+
+
+def processor_extension_request(event: Mapping[str, Any]) -> dict[str, Any]:
+    validate_canonical_event(event)
+    body = event_body(event)
+    unit = body.get("unit")
+    if unit is not None and not isinstance(unit, str):
+        raise ContractError("INVALID_PROCESSOR_UNIT")
+    return {
+        "schema_version": "user-function-runtime-envelope.v1",
+        "invocation_id": event_id(event),
+        "correlation_id": event["correlation_id"],
+        "occurred_at": event["occurred_at"],
+        "slot_id": "processor.telemetry",
+        "payload": {
+            "value": finite_number(body.get("value")),
+            "unit": unit or "unspecified",
+        },
+        "context": {
+            "device_id": partition_key(event),
+            "twin_id": required_text(body.get("twin_id"), code="INVALID_TWIN_ID"),
+        },
+    }
+
+
+def build_processed_event(
+    source: Mapping[str, Any], extension_response: Mapping[str, Any]
+) -> dict[str, Any]:
+    request = processor_extension_request(source)
+    if not isinstance(extension_response, Mapping) or set(extension_response) != {
+        "schema_version",
+        "invocation_id",
+        "correlation_id",
+        "slot_id",
+        "status",
+        "payload",
+    }:
+        raise ContractError("INVALID_PROCESSOR_EXTENSION_RESPONSE", 503)
+    if (
+        extension_response.get("schema_version")
+        != "user-function-runtime-envelope.v1"
+        or extension_response.get("invocation_id") != request["invocation_id"]
+        or extension_response.get("correlation_id") != request["correlation_id"]
+        or extension_response.get("slot_id") != "processor.telemetry"
+        or extension_response.get("status") != "success"
+    ):
+        raise ContractError("INVALID_PROCESSOR_EXTENSION_RESPONSE", 503)
+    result = extension_response.get("payload")
+    if not isinstance(result, Mapping) or set(result) != {"value", "quality"}:
+        raise ContractError("INVALID_PROCESSOR_EXTENSION_RESPONSE", 503)
+    if result.get("quality") not in {"accepted", "suspect"}:
+        raise ContractError("INVALID_PROCESSOR_EXTENSION_RESPONSE", 503)
+    body = dict(event_body(source))
+    body["value"] = finite_number(result.get("value"))
+    body["quality"] = result["quality"]
+    return derive_event(
+        source,
+        event_type=EVENT_TELEMETRY_PROCESSED,
+        producer="component.telemetry-processor",
+        payload=body,
+    )
+
+
+def raw_identity_digest(deployment_id: str, event_identifier: str) -> bytes:
+    identity = (
+        required_text(deployment_id, code="INVALID_DEPLOYMENT_ID").encode("utf-8")
+        + b"\0"
+        + required_text(event_identifier, code="INVALID_EVENT_ID").encode("utf-8")
+    )
+    return hashlib.sha256(identity).digest()
+
+
+def raw_document_id(event: Mapping[str, Any]) -> str:
+    validate_canonical_event(event)
+    return raw_identity_digest(str(event["deployment_id"]), event_id(event)).hex()
+
+
+def timestamp_shard(
+    deployment_id: str, event_identifier: str, shard_count: int
+) -> int:
+    if shard_count not in {1, 16}:
+        raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503)
+    digest = raw_identity_digest(deployment_id, event_identifier)
+    return int.from_bytes(digest[:4], "big") % shard_count
+
+
+def raw_document(
+    event: Mapping[str, Any],
+    *,
+    stored_at: datetime,
+    hot_boundary_days: int,
+    shard_count: int,
+) -> dict[str, Any]:
+    validate_canonical_event(event)
+    if event.get("event_type") != EVENT_TELEMETRY_PROCESSED:
+        raise ContractError("UNEXPECTED_HOT_STORAGE_EVENT")
+    if hot_boundary_days < 1:
+        raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503)
+    body = event_body(event)
+    device_id = partition_key(event)
+    metric = required_text(body.get("metric"), code="INVALID_METRIC")
+    value = finite_number(body.get("value"))
+    stored_at = stored_at.astimezone(timezone.utc)
+    storage_window = stored_at.replace(
+        minute=stored_at.minute - stored_at.minute % 5,
+        second=0,
+        microsecond=0,
+    )
+    bucket_start = stored_at.replace(minute=0, second=0, microsecond=0)
+    payload_digest = hashlib.sha256(
+        canonical_json(dict(event)).encode("utf-8")
+    ).hexdigest()
+    return {
+        "kind": "raw",
+        "device_id": device_id,
+        "event_id": event_id(event),
+        "metric": metric,
+        "value": value,
+        "event_time": iso_time(parse_time(body.get("event_time") or event["occurred_at"])),
+        "stored_at": stored_at,
+        "storage_window": iso_time(storage_window),
+        "bucket_start": bucket_start,
+        "timestamp_shard": timestamp_shard(
+            str(event["deployment_id"]), event_id(event), shard_count
+        ),
+        "payload_digest": payload_digest,
+        "payload": dict(event),
+        "expires_at": stored_at + timedelta(days=hot_boundary_days, hours=48),
+    }
+
+
+def rollup_document(
+    raw: Mapping[str, Any], current: Mapping[str, Any] | None
+) -> dict[str, Any]:
+    value = finite_number(raw.get("value"))
+    if current is None:
+        count = 0
+        total: int | float = 0
+        minimum = value
+        maximum = value
+        version = 0
+    else:
+        if (
+            current.get("kind") != "hourly_rollup"
+            or current.get("device_id") != raw.get("device_id")
+            or current.get("metric") != raw.get("metric")
+            or current.get("bucket_start") != raw.get("bucket_start")
+        ):
+            raise ContractError("INVALID_ROLLUP_STATE", 503)
+        count = current.get("count")
+        version = current.get("version")
+        if (
+            isinstance(count, bool)
+            or not isinstance(count, int)
+            or count < 0
+            or isinstance(version, bool)
+            or not isinstance(version, int)
+            or version < 1
+        ):
+            raise ContractError("INVALID_ROLLUP_STATE", 503)
+        total = finite_number(current.get("sum"))
+        minimum = finite_number(current.get("min"))
+        maximum = finite_number(current.get("max"))
+    return {
+        "kind": "hourly_rollup",
+        "device_id": raw["device_id"],
+        "metric": raw["metric"],
+        "bucket_start": raw["bucket_start"],
+        "timestamp_shard": raw["timestamp_shard"],
+        "count": count + 1,
+        "sum": finite_number(total + value),
+        "min": min(minimum, value),
+        "max": max(maximum, value),
+        "version": version + 1,
+        "expires_at": raw["expires_at"],
+    }
+
+
+def rollup_document_id(raw: Mapping[str, Any]) -> str:
+    identity = canonical_json(
+        {
+            "device_id": raw.get("device_id"),
+            "metric": raw.get("metric"),
+            "bucket_start": iso_time(raw["bucket_start"]),
+        }
+    )
+    return hashlib.sha256(identity.encode("utf-8")).hexdigest()
+
+
+def build_twin_projection(event: Mapping[str, Any]) -> dict[str, Any] | None:
+    validate_canonical_event(event)
+    body = event_body(event)
+    if body.get("projection_candidate") is not True:
+        return None
+    metric = required_text(body.get("metric"), code="INVALID_METRIC")
+    return derive_event(
+        event,
+        event_type=EVENT_TWIN_STATE_UPSERTED,
+        producer="component.historical-persistence",
+        payload={
+            "twin_id": required_text(body.get("twin_id"), code="INVALID_TWIN_ID"),
+            "source_id": partition_key(event),
+            "source_sequence": str(event["source_sequence"]),
+            "observed_at": iso_time(
+                parse_time(body.get("event_time") or event["occurred_at"])
+            ),
+            "state_patch": {metric: finite_number(body.get("value"))},
+        },
+    )
+
+
+def _condition_operand(token: str, body: Mapping[str, Any]) -> Any:
+    typed = re.fullmatch(r"(DOUBLE|INTEGER|STRING|BOOLEAN)\((.*)\)", token)
+    if typed:
+        kind, raw = typed.groups()
+        try:
+            if kind == "DOUBLE":
+                return finite_number(float(raw))
+            if kind == "INTEGER":
+                return finite_number(int(raw))
+        except ValueError as exc:
+            raise ContractError("INVALID_RULE_CONFIGURATION", 503) from exc
+        if kind == "BOOLEAN" and raw.lower() in {"true", "false"}:
+            return raw.lower() == "true"
+        if kind == "STRING":
+            return raw
+        raise ContractError("INVALID_RULE_CONFIGURATION", 503)
+    field = token.rsplit(".", 1)[-1]
+    if body.get("metric") == field and "value" in body:
+        return body["value"]
+    if field not in body:
+        raise ContractError("RULE_OPERAND_NOT_FOUND")
+    return body[field]
+
+
+def build_rule_matches(
+    event: Mapping[str, Any], rules: list[Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    validate_canonical_event(event)
+    if event.get("event_type") != EVENT_TELEMETRY_PROCESSED:
+        raise ContractError("UNEXPECTED_RULE_EVENT")
+    if len(rules) > MAX_RULES or not all(isinstance(rule, Mapping) for rule in rules):
+        raise ContractError("INVALID_RULE_CONFIGURATION", 503)
+    body = event_body(event)
+    matches: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for index, rule in enumerate(rules):
+        action = rule.get("action")
+        rule_id = required_text(
+            rule.get("rule_id") or f"rule-{index + 1}",
+            code="INVALID_RULE_CONFIGURATION",
+        )
+        if rule_id in seen or not isinstance(action, Mapping):
+            raise ContractError("INVALID_RULE_CONFIGURATION", 503)
+        seen.add(rule_id)
+        condition = rule.get("condition")
+        if not isinstance(condition, str):
+            raise ContractError("INVALID_RULE_CONFIGURATION", 503)
+        match = CONDITION_PATTERN.fullmatch(condition)
+        if not match:
+            raise ContractError("INVALID_RULE_CONFIGURATION", 503)
+        left, operator, right = match.groups()
+        lhs = _condition_operand(left, body)
+        rhs = _condition_operand(right, body)
+        comparisons = {
+            "<": lambda: lhs < rhs,
+            ">": lambda: lhs > rhs,
+            "<=": lambda: lhs <= rhs,
+            ">=": lambda: lhs >= rhs,
+            "==": lambda: lhs == rhs,
+            "!=": lambda: lhs != rhs,
+        }
+        try:
+            matched = comparisons[operator]()
+        except TypeError as exc:
+            raise ContractError("RULE_TYPE_MISMATCH") from exc
+        if matched:
+            matches.append(
+                derive_event(
+                    event,
+                    event_type=EVENT_MATCHED,
+                    producer="component.rule-evaluator",
+                    payload={
+                        **dict(body),
+                        "rule_id": rule_id,
+                        "condition": condition,
+                        "action": dict(action),
+                    },
+                    identity_suffix=rule_id,
+                )
+            )
+    return matches

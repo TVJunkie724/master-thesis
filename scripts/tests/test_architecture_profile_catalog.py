@@ -81,8 +81,9 @@ def test_production_definitions_are_a_valid_linked_bundle():
         for document in documents
         if document["schema_version"] == "provider-implementation-profile.v1"
     }
-    assert providers["aws"]["supported"] is False
-    assert providers["azure"]["supported"] is False
+    assert providers["aws"]["supported"] is True
+    assert providers["azure"]["supported"] is True
+    assert providers["gcp"]["supported"] is False
     assert providers["gcp"]["capability_claims"]["missing_capability_ids"] == [
         "capability.twin-state",
         "capability.visualization",
@@ -331,10 +332,16 @@ def test_catalog_covers_every_phase_8_3_decision_and_deployment_dimension():
         for edge in catalog["edge_implementations"]
         for decision_id in edge["decision_edge_ids"]
     ]
+    activated_phase_8_6_edges = {
+        "target.edge.runtime.aws.l4-to-l5",
+        "target.edge.runtime.azure.l4-to-l5",
+        "target.edge.runtime.mixed.l4-to-l5",
+    }
     expected_edge_decisions = {
         item["target_edge_id"]
         for item in decision["edge_decisions"]
         if item["implementation_owner_phase"] == "Phase 8.3"
+        or item["target_edge_id"] in activated_phase_8_6_edges
     }
     dimension_bindings = [
         binding["component_id"]
@@ -344,7 +351,7 @@ def test_catalog_covers_every_phase_8_3_decision_and_deployment_dimension():
 
     assert len(component_decisions) == len(set(component_decisions)) == 51
     assert set(component_decisions) == expected_component_decisions
-    assert len(edge_decisions) == len(set(edge_decisions)) == 33
+    assert len(edge_decisions) == len(set(edge_decisions)) == 36
     assert set(edge_decisions) == expected_edge_decisions
     assert len(dimension_bindings) == len(set(dimension_bindings)) == 42
     assert set(dimension_bindings) == set(dimensions["components"])

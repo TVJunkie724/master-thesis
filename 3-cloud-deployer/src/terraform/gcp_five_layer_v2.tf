@@ -32,9 +32,14 @@ locals {
     local.gcp_v2_hot_enabled ||
     (local.gcp_v2_cool_enabled && var.layer_3_archive_provider != "google")
   )
+  gcp_v2_timestamp_shards = tonumber(lookup(
+    var.resolved_component_dimensions,
+    "dimension.gcp.gcp.firestore-native-standard-raw-and-rollup.timestamp_shards",
+    "1",
+  ))
 
   gcp_v2_required_apis = local.gcp_v2_any_enabled ? toset(compact([
-    "artifactregistry.googleapis.com",
+    local.gcp_v2_container_enabled ? "artifactregistry.googleapis.com" : "",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
     local.gcp_v2_l1_enabled || local.gcp_v2_l5_enabled ? "compute.googleapis.com" : "",
@@ -42,7 +47,7 @@ locals {
     local.gcp_v2_hot_enabled || local.gcp_v2_l4_enabled ? "firestore.googleapis.com" : "",
     local.gcp_v2_cool_enabled || local.gcp_v2_archive_enabled ? "storage.googleapis.com" : "",
     local.gcp_v2_l2_enabled ? "workflows.googleapis.com" : "",
-    local.gcp_v2_hot_enabled || local.gcp_v2_cool_enabled ? "cloudscheduler.googleapis.com" : "",
+    local.gcp_v2_storage_mover_enabled ? "cloudscheduler.googleapis.com" : "",
     local.gcp_v2_l4_enabled || local.gcp_v2_l5_enabled ? "iap.googleapis.com" : "",
     local.gcp_v2_l5_enabled ? "secretmanager.googleapis.com" : "",
   ])) : toset([])
@@ -68,7 +73,7 @@ locals {
     local.gcp_v2_l2_enabled || local.gcp_v2_hot_enabled || local.gcp_v2_l4_enabled ? {
       processed = "${local.gcp_v2_name}-v2-telemetry-processed"
     } : {},
-    local.gcp_v2_l2_enabled ? {
+    local.gcp_v2_l2_enabled || local.gcp_v2_hot_enabled || local.gcp_v2_l4_enabled ? {
       domain = "${local.gcp_v2_name}-v2-domain-control"
     } : {},
   ) : {}
@@ -181,6 +186,21 @@ resource "terraform_data" "gcp_v2_processor_extension_guard" {
     precondition {
       condition     = startswith(var.gcp_v2_processor_extension_image, local.gcp_v2_registry_prefix)
       error_message = "GCP Five-layer v2 processor images must come from the deployment Artifact Registry repository."
+    }
+  }
+}
+
+resource "terraform_data" "gcp_v2_hot_capacity_guard" {
+  count = local.gcp_v2_hot_enabled ? 1 : 0
+
+  input = {
+    timestamp_shards = local.gcp_v2_timestamp_shards
+  }
+
+  lifecycle {
+    precondition {
+      condition     = contains([1, 16], local.gcp_v2_timestamp_shards)
+      error_message = "GCP Five-layer v2 Firestore hot storage requires the reviewed one- or sixteen-shard capacity selection."
     }
   }
 }
@@ -310,6 +330,10 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
         name  = "HOT_BOUNDARY_DAYS"
         value = tostring(var.layer_3_hot_to_cold_interval_days)
       }
+      env {
+        name  = "TIMESTAMP_SHARDS"
+        value = tostring(local.gcp_v2_timestamp_shards)
+      }
     }
   }
 
@@ -432,6 +456,10 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_service" {
       env {
         name  = "RULES_JSON"
         value = jsonencode(var.events)
+      }
+      env {
+        name  = "WORKFLOW_NAME"
+        value = google_workflows_workflow.gcp_gcp_workflows[0].id
       }
     }
   }
@@ -556,11 +584,29 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_processor_publishers" {
   member  = "serviceAccount:${google_service_account.gcp_v2_runtime["processor"].email}"
 }
 
+resource "google_pubsub_topic_iam_member" "gcp_v2_persistence_domain_publisher" {
+  count   = local.gcp_v2_hot_enabled ? 1 : 0
+  project = local.gcp_project_id
+  topic   = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${google_service_account.gcp_v2_runtime["persistence"].email}"
+}
+
 resource "google_project_iam_member" "gcp_v2_persistence_firestore_writer" {
   count   = local.gcp_v2_hot_enabled ? 1 : 0
   project = local.gcp_project_id
   role    = "roles/datastore.user"
   member  = "serviceAccount:${google_service_account.gcp_v2_runtime["persistence"].email}"
+
+  condition {
+    title       = "five-layer-v2-l3-database"
+    description = "Limit the persistence runtime to the deployment Firestore database"
+    expression = format(
+      "resource.name == %q || resource.name.startsWith(%q)",
+      "projects/${local.gcp_project_id}/databases/${google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name}",
+      "projects/${local.gcp_project_id}/databases/${google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name}/documents/",
+    )
+  }
 }
 
 resource "google_pubsub_subscription" "gcp_gcp_pubsub_separated_embedded_topics" {
@@ -604,6 +650,7 @@ resource "google_pubsub_subscription" "gcp_gcp_pubsub_separated_embedded_topics"
   depends_on = [
     google_cloud_run_v2_service_iam_member.gcp_v2_processor_push_invoker,
     google_cloud_run_v2_service_iam_member.gcp_v2_persistence_push_invoker,
+    google_pubsub_topic_iam_member.gcp_v2_persistence_domain_publisher,
     google_project_iam_member.gcp_v2_persistence_firestore_writer,
     google_service_account_iam_member.gcp_v2_pubsub_push_token_creator,
   ]
@@ -645,8 +692,8 @@ resource "google_firestore_database" "gcp_gcp_firestore_native_standard_raw_and_
 
 resource "google_firestore_field" "gcp_v2_hot_ttl" {
   for_each = local.gcp_v2_hot_enabled ? toset([
-    "telemetry_raw",
-    "telemetry_hourly_rollups",
+    "telemetry",
+    "hourly_rollups",
   ]) : toset([])
 
   project    = local.gcp_project_id
@@ -657,15 +704,59 @@ resource "google_firestore_field" "gcp_v2_hot_ttl" {
   ttl_config {}
 }
 
+resource "google_firestore_field" "gcp_v2_hot_index_exemption" {
+  for_each = local.gcp_v2_hot_enabled ? {
+    raw_stored_at = {
+      collection = "telemetry"
+      field      = "stored_at"
+    }
+    raw_event_time = {
+      collection = "telemetry"
+      field      = "event_time"
+    }
+    raw_timestamp_shard = {
+      collection = "telemetry"
+      field      = "timestamp_shard"
+    }
+    rollup_bucket_start = {
+      collection = "hourly_rollups"
+      field      = "bucket_start"
+    }
+  } : {}
+
+  project    = local.gcp_project_id
+  database   = google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name
+  collection = each.value.collection
+  field      = each.value.field
+
+  index_config {}
+}
+
 resource "google_firestore_index" "gcp_v2_hot_query" {
   for_each = local.gcp_v2_hot_enabled ? {
-    raw = {
-      collection = "telemetry_raw"
-      time_field = "stored_at"
+    raw_history = {
+      collection = "telemetry"
+      fields = [
+        { field_path = "device_id", order = "ASCENDING" },
+        { field_path = "metric", order = "ASCENDING" },
+        { field_path = "timestamp_shard", order = "ASCENDING" },
+        { field_path = "stored_at", order = "DESCENDING" },
+      ]
     }
-    rollup = {
-      collection = "telemetry_hourly_rollups"
-      time_field = "bucket_start"
+    raw_mover = {
+      collection = "telemetry"
+      fields = [
+        { field_path = "timestamp_shard", order = "ASCENDING" },
+        { field_path = "stored_at", order = "ASCENDING" },
+      ]
+    }
+    rollup_history = {
+      collection = "hourly_rollups"
+      fields = [
+        { field_path = "device_id", order = "ASCENDING" },
+        { field_path = "metric", order = "ASCENDING" },
+        { field_path = "bucket_start", order = "ASCENDING" },
+      ]
     }
   } : {}
 
@@ -674,17 +765,12 @@ resource "google_firestore_index" "gcp_v2_hot_query" {
   collection  = each.value.collection
   query_scope = "COLLECTION"
 
-  fields {
-    field_path = "device_id"
-    order      = "ASCENDING"
-  }
-  fields {
-    field_path = "metric"
-    order      = "ASCENDING"
-  }
-  fields {
-    field_path = each.value.time_field
-    order      = "DESCENDING"
+  dynamic "fields" {
+    for_each = each.value.fields
+    content {
+      field_path = fields.value.field_path
+      order      = fields.value.order
+    }
   }
 }
 
@@ -761,14 +847,23 @@ resource "google_storage_bucket" "gcp_gcp_cloud_storage_archive" {
   depends_on = [google_project_service.gcp_v2_required]
 }
 
-# Firestore's predefined data role is project-scoped. The mover needs reads
-# plus post-copy deletes, so roles/datastore.user is the narrow managed role
-# that covers its complete finite-window operation.
+# The mover needs reads plus post-copy deletes. The predefined data role is
+# therefore narrowed to this deployment database with an IAM condition.
 resource "google_project_iam_member" "gcp_v2_storage_firestore_operator" {
   count   = local.gcp_v2_hot_enabled ? 1 : 0
   project = local.gcp_project_id
   role    = "roles/datastore.user"
   member  = "serviceAccount:${google_service_account.gcp_v2_runtime["storage"].email}"
+
+  condition {
+    title       = "five-layer-v2-l3-storage-database"
+    description = "Limit the storage mover to the deployment Firestore database"
+    expression = format(
+      "resource.name == %q || resource.name.startsWith(%q)",
+      "projects/${local.gcp_project_id}/databases/${google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name}",
+      "projects/${local.gcp_project_id}/databases/${google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name}/documents/",
+    )
+  }
 }
 
 resource "google_storage_bucket_iam_member" "gcp_v2_storage_bucket_operator" {

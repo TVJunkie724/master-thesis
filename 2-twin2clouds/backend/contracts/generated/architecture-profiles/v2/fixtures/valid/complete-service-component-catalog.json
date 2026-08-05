@@ -7648,7 +7648,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2",
       "platform_handler": "handler.aws.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:c2e6be85263615bd63a99020fd04e681e1737d99b59e25785b8aa45962ca37ae",
+      "source_digest": "sha256:bcc0e2fe35644f71b9cd06e8a1749b818b80f31f9b7d10babecaa71cc6616345",
       "included_paths": [
         "handler.py"
       ],
@@ -7694,7 +7694,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2",
       "platform_handler": "handler.azure.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:0569020f4ac3fdd1131d5ce9b779ef239723bac8b9ed8a86af148d66860c5db6",
+      "source_digest": "sha256:b7753e389167f387b8895c108efa916ec3944e7a1b9f13901af5c322759e1d57",
       "included_paths": [
         "core.py",
         "function_app.py",
@@ -7746,12 +7746,16 @@
         "grafana.oss-12-on-gke",
         "grafana.yesoreyeram-infinity-datasource"
       ],
-      "repository_source_path": "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json",
+      "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:bc0360f7491780a8123cc579d6809397729cdb654fad8366610863d4405cb5fe",
+      "source_digest": "sha256:0c5e587a120cc9389518edb9464c0c5dd6e230191eb830cdae672247ce9a5296",
       "included_paths": [
-        "implementation-component-manifest.json"
+        "Dockerfile",
+        "platform/app.py",
+        "platform/constraints.txt",
+        "platform/core.py",
+        "platform/requirements.txt"
       ],
       "excluded_paths": [],
       "dependency_artifact_refs": [],
@@ -7787,5 +7791,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:4a85ec47d718df9840d2c1f0b88526ba95e23190e57fb7a314559356c17d850d"
+  "content_digest": "sha256:6e39192d72b89394ab827bd465f3e1dbf6375191a4e7fd15375b5f450cb53829"
 }

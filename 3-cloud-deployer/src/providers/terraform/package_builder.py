@@ -48,6 +48,9 @@ from src.providers.terraform.package_builders.gcp import (
     build_gcp_cloud_function_packages,
     get_gcp_zip_path,
 )
+from src.providers.terraform.package_builders.gcp_v2 import (
+    build_gcp_v2_container_contexts,
+)
 from src.providers.terraform.package_builders.user import (
     _compute_source_hash,
     _reconcile_user_hash_metadata,
@@ -74,6 +77,7 @@ FUNCTION_SOURCE_PARTS = {
     "azure": ("src", "providers", "azure", "azure_functions"),
     "gcp": ("src", "providers", "gcp", "cloud_functions"),
 }
+GCP_CONTAINER_SOURCE_PARTS = ("src", "providers", "gcp", "containers")
 
 
 def build_all_packages(
@@ -94,6 +98,9 @@ def build_all_packages(
         _validate_graph_package_selection(graph, providers_config)
         selected_functions, expected_static_packages = (
             _selected_static_function_packages(graph)
+        )
+        gcp_container_names, expected_gcp_container_packages = (
+            _selected_gcp_container_packages(graph)
         )
 
     packages: Dict[str, Path] = {}
@@ -136,9 +143,17 @@ def build_all_packages(
                 selected_function_names=selected_functions["gcp"],
             )
         )
-        expected_packages = expected_static_packages | {
-            f"extension:{item['slot_id']}" for item in _selected_extension_refs(graph)
-        }
+        packages.update(
+            build_gcp_v2_container_contexts(project_path, gcp_container_names)
+        )
+        expected_packages = (
+            expected_static_packages
+            | expected_gcp_container_packages
+            | {
+                f"extension:{item['slot_id']}"
+                for item in _selected_extension_refs(graph)
+            }
+        )
         if set(packages) != expected_packages:
             raise DeploymentSpecificationError(
                 "DEPLOYMENT_PACKAGE_CATALOG_MISMATCH",
@@ -344,6 +359,23 @@ def _selected_static_function_packages(
     )
 
 
+def _selected_gcp_container_packages(
+    graph: ResolvedDeploymentGraph,
+) -> tuple[tuple[str, ...], set[str]]:
+    selected: set[str] = set()
+    for artifact in _selected_artifacts(graph).values():
+        source_path = _local_artifact_source(str(artifact["repository_source_path"]))
+        relative = source_path.relative_to(DEPLOYER_ROOT)
+        if (
+            relative.parts[: len(GCP_CONTAINER_SOURCE_PARTS)]
+            != GCP_CONTAINER_SOURCE_PARTS
+        ):
+            continue
+        selected.add(source_path.name)
+    names = tuple(sorted(selected))
+    return names, {f"gcp_{name}" for name in names}
+
+
 def _selected_extension_refs(
     graph: ResolvedDeploymentGraph,
 ) -> list[Mapping[str, Any]]:
@@ -467,6 +499,7 @@ __all__ = [
     "build_azure_l3_bundle",
     "build_azure_user_bundle",
     "build_gcp_cloud_function_packages",
+    "build_gcp_v2_container_contexts",
     "build_user_packages",
     "get_azure_zip_path",
     "get_functions_for_provider_build",

@@ -411,7 +411,8 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
     condition = (
       length(google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup) == 1 &&
       length(google_firestore_field.gcp_v2_hot_ttl) == 2 &&
-      length(google_firestore_index.gcp_v2_hot_query) == 2 &&
+      length(google_firestore_field.gcp_v2_hot_index_exemption) == 4 &&
+      length(google_firestore_index.gcp_v2_hot_query) == 3 &&
       length(google_storage_bucket.gcp_gcp_cloud_storage_nearline) == 1 &&
       length(google_storage_bucket.gcp_gcp_cloud_storage_archive) == 0 &&
       length(google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job) == 1 &&
@@ -450,6 +451,9 @@ run "five_layer_v2_gcp_source_owns_both_remote_archive_transitions" {
     azure_layer_access_principal_label     = "researcher@example.test"
     enable_gcp_logging                     = false
     enable_azure_logging                   = false
+    resolved_component_dimensions = {
+      "dimension.gcp.gcp.firestore-native-standard-raw-and-rollup.timestamp_shards" = "16"
+    }
     validated_extension_packages = [{
       slot_id         = "processor.telemetry"
       slot_version    = "1"
@@ -470,6 +474,17 @@ run "five_layer_v2_gcp_source_owns_both_remote_archive_transitions" {
       length(google_storage_bucket.gcp_gcp_cloud_storage_archive) == 0
     )
     error_message = "GCP must own both finite source-side transitions when archive is remote and must not create a local Archive bucket."
+  }
+
+  assert {
+    condition = (
+      terraform_data.gcp_v2_hot_capacity_guard[0].input.timestamp_shards == 16 &&
+      toset(keys(google_firestore_index.gcp_v2_hot_query)) == toset(["raw_history", "raw_mover", "rollup_history"]) &&
+      contains([for field in google_firestore_index.gcp_v2_hot_query["raw_history"].fields : field.field_path], "timestamp_shard") &&
+      contains([for field in google_firestore_index.gcp_v2_hot_query["raw_mover"].fields : field.field_path], "timestamp_shard") &&
+      !contains([for field in google_firestore_index.gcp_v2_hot_query["rollup_history"].fields : field.field_path], "timestamp_shard")
+    )
+    error_message = "Large GCP hot storage must preserve its reviewed sixteen-way timestamp shard in the raw history and mover indexes only."
   }
 }
 

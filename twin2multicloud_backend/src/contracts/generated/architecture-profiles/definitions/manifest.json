@@ -18,7 +18,7 @@
   },
   "manifest_version": "architecture-profile-definitions.v1",
   "source_digests": {
-    "architecture_inventory": "sha256:665565c2195e6b52d7cd7153d31304a713294b1b3a22ef6cac7670e6f03479b8",
+    "architecture_inventory": "sha256:0819e53e15e037da5e85f43f5ca26ad0621442eccfad937b81493afb6f26a5e8",
     "baseline_decision": "sha256:1227f56f13f9e3eb60387fec8c66c5b77e338ad81b7674f29bd137265f3c5642",
     "deployment_dimensions": "sha256:16b5212542f3e0a7805ea4a270df542dbfe135624efc3acafb5c9664d805aeac",
     "package_builders": {
@@ -26,7 +26,7 @@
       "azure": "sha256:f69383268752eb164026e399847795da4a0990303f8875525d9b26fcbce56cf5",
       "common": "sha256:6d2d7d4a2ef2578e895a847c95ebb33e4981a1ccfd3c84d98b9be3f8c5b03caf",
       "gcp": "sha256:227071ca702da25462f96d96079874849f5b0a2c351e9733b459a8ccf2b7a07a",
-      "user": "sha256:9463585e256c83401e01970537f900df1a200d3d5ade7eb51c98ee226ccad281"
+      "user": "sha256:aa02e54fc4f49ba194c4c364bc435f6aa921db052fc2a1d1fffd31f8ee80769e"
     },
     "pricing_registries": {
       "calculation_strategies": "sha256:5597f9902302a57300e8cc0472d58f5f6cf969e86a2d5547d7e285ada5d74405",
