@@ -28,6 +28,9 @@ ARCH_V2 = ARCH_ROOT / "v2"
 DEFINITIONS = ARCH_ROOT / "definitions"
 RDS_ROOT = ROOT / "contracts" / "resolved-deployment-specification"
 RDS_V2 = RDS_ROOT / "v2"
+DEPLOYMENT_MANIFEST_ROOT = ROOT / "contracts" / "deployment-manifest"
+DEPLOYMENT_MANIFEST_V3 = DEPLOYMENT_MANIFEST_ROOT / "v3"
+DEPLOYMENT_MANIFEST_V4 = DEPLOYMENT_MANIFEST_ROOT / "v4"
 SERVICE_ROOT = ROOT / "docs" / "research" / "evidence" / "phase_08_service_bundles"
 SERVICE_DECISION = SERVICE_ROOT / "decision.json"
 SERVICE_COMPONENTS = SERVICE_ROOT / "implementation-component-manifest.json"
@@ -2349,6 +2352,141 @@ def build_rta(
     return resolution
 
 
+def generate_deployment_manifest_v4(
+    valid_rds: dict[str, dict[str, Any]],
+    valid_rtas: dict[str, dict[str, Any]],
+    catalog: dict[str, Any],
+) -> None:
+    """Generate the additive RTA-v2/RDS-v2 package envelope."""
+
+    schema = copy.deepcopy(read_json(DEPLOYMENT_MANIFEST_V3 / "schema.json"))
+    schema["$id"] = (
+        "https://twin2multicloud.local/contracts/deployment-manifest/v4/schema.json"
+    )
+    schema["title"] = "DeploymentManifest v4"
+    schema["properties"]["manifest_version"]["const"] = "4.0"
+    architecture_schema = schema["$defs"]["resolved_twin_architecture"]
+    architecture_schema["properties"]["schema_version"]["const"] = (
+        "resolved-twin-architecture.v2"
+    )
+    specification_schema = schema["$defs"]["resolved_deployment_specification"]
+    specification_schema["required"] = [
+        "schema_version",
+        "calculation_run_id",
+        "component_selections",
+        "digest",
+    ]
+    specification_schema["properties"].pop("components")
+    specification_schema["properties"]["schema_version"]["const"] = (
+        "resolved-deployment-specification.v2"
+    )
+    specification_schema["properties"]["component_selections"] = {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 512,
+    }
+
+    if DEPLOYMENT_MANIFEST_V4.exists():
+        shutil.rmtree(DEPLOYMENT_MANIFEST_V4)
+    write_json(DEPLOYMENT_MANIFEST_V4 / "schema.json", schema)
+    valid_manifests: dict[str, dict[str, Any]] = {}
+    provider_key_by_logical = {
+        logical: {
+            "component.ingestion": "layer_1_provider",
+            "component.processing": "layer_2_provider",
+            "component.hot-storage": "layer_3_hot_provider",
+            "component.cool-storage": "layer_3_cold_provider",
+            "component.archive-storage": "layer_3_archive_provider",
+            "component.twin-state": "layer_4_provider",
+            "component.visualization": "layer_5_provider",
+        }[logical]
+        for logical in LOGICAL_COMPONENTS
+    }
+    for fixture_id in sorted(valid_rds):
+        specification = valid_rds[fixture_id]
+        architecture = valid_rtas[fixture_id]
+        providers = {
+            provider_key_by_logical[item["logical_component_id"]]: item["provider"]
+            for item in architecture["component_assignments"]
+        }
+        used_providers = sorted(set(providers.values()))
+        manifest = {
+            "manifest_version": "4.0",
+            "generated_at": "2026-08-03T00:00:00Z",
+            "producer": "twin2multicloud_backend",
+            "package": {
+                "format": "deployer-project-zip",
+                "files": [
+                    "config.json",
+                    "config_credentials.json",
+                    "config_events.json",
+                    "config_iot_devices.json",
+                    "config_providers.json",
+                ],
+                "required_files": [
+                    "config.json",
+                    "config_iot_devices.json",
+                    "config_events.json",
+                    "config_credentials.json",
+                    "config_providers.json",
+                ],
+                "secret_bearing_files": ["config_credentials.json"],
+            },
+            "twin": {
+                "id": None,
+                "name": f"Five-layer v2 {fixture_id}",
+                "resource_name": f"five-layer-v2-{fixture_id}",
+            },
+            "providers": providers,
+            "calculation_run_id": specification["calculation_run_id"],
+            "resolved_twin_architecture_digest": architecture["content_digest"],
+            "resolved_twin_architecture": architecture,
+            "resolved_deployment_specification_digest": specification["digest"],
+            "resolved_deployment_specification": specification,
+            "credentials": {
+                "providers": used_providers,
+                "sources": {
+                    provider: "cloud_connection" for provider in used_providers
+                },
+                "contains_secret_payloads": False,
+            },
+            "compatibility": {
+                "component_catalog_ref": {
+                    "id": catalog["catalog_id"],
+                    "version": catalog["catalog_version"],
+                    "digest": catalog["content_digest"],
+                },
+                "graph_resolver_version": "resolved-deployment-graph.v1",
+                "package_builder_version": "graph-package-builder.v1",
+                "terraform_input_contract_version": "graph-terraform-inputs.v1",
+            },
+            "extensions": {"binding_index": None, "bindings": []},
+        }
+        valid_manifests[fixture_id] = manifest
+        write_json(
+            DEPLOYMENT_MANIFEST_V4 / "fixtures" / "valid" / f"{fixture_id}.json",
+            manifest,
+        )
+
+    cross_version = copy.deepcopy(valid_manifests["single-cloud-aws-small"])
+    cross_version["resolved_deployment_specification"]["schema_version"] = (
+        "resolved-deployment-specification.v1"
+    )
+    write_json(
+        DEPLOYMENT_MANIFEST_V4 / "fixtures" / "invalid" / "cross-version-rds.json",
+        {"manifest": cross_version},
+    )
+    (DEPLOYMENT_MANIFEST_V4 / "README.md").write_text(
+        "# DeploymentManifest v4\n\n"
+        "Additive package envelope for RTA v2 and RDS v2. Canonical fixtures "
+        "remain offline contract evidence and are not executable deployment "
+        "claims. Deployment readiness is enforced semantically by Management "
+        "and the Deployer. Generated by "
+        "`scripts/sync_five_layer_v2_contracts.py`.\n",
+        encoding="utf-8",
+    )
+
+
 def generate() -> None:
     generate_v2_schemas()
     profile = build_profile()
@@ -2455,6 +2593,8 @@ def generate() -> None:
     }
     for filename, document in valid_documents.items():
         write_json(ARCH_V2 / "fixtures" / "valid" / filename, document)
+
+    generate_deployment_manifest_v4(valid_rds, valid_rtas, catalog)
 
     cross_version = copy.deepcopy(valid_rtas["two-cloud-azure-l3l5-gcp-l4-medium"])
     cross_version["deployment_specification_ref"]["schema_version"] = (

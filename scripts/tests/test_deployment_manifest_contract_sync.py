@@ -1,4 +1,4 @@
-"""Regression tests for DeploymentManifest v3 synchronization."""
+"""Regression tests for versioned DeploymentManifest synchronization."""
 
 from __future__ import annotations
 
@@ -27,6 +27,30 @@ def test_every_top_level_field_is_required():
         mutated = copy.deepcopy(fixture)
         del mutated[field]
         assert list(validator.iter_errors(mutated)), field
+
+
+def test_v4_pairs_only_rta_v2_with_rds_v2():
+    schema = contract_sync._read_json(contract_sync.SOURCE_V4 / "schema.json")
+    fixture = contract_sync._read_json(
+        contract_sync.SOURCE_V4
+        / "fixtures"
+        / "valid"
+        / "single-cloud-aws-small.json"
+    )
+    Draft202012Validator(
+        schema,
+        format_checker=FormatChecker(),
+    ).validate(fixture)
+
+    assert fixture["manifest_version"] == "4.0"
+    assert (
+        fixture["resolved_twin_architecture"]["schema_version"]
+        == "resolved-twin-architecture.v2"
+    )
+    assert (
+        fixture["resolved_deployment_specification"]["schema_version"]
+        == "resolved-deployment-specification.v2"
+    )
 
 
 def test_secret_payload_declaration_is_rejected():

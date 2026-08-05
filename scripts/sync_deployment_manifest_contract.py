@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate and synchronize the repository-owned DeploymentManifest v3 contract."""
+"""Validate and synchronize the repository-owned DeploymentManifest contracts."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ SOURCE_V3 = SOURCE_ROOT / "v3"
 SCHEMA_PATH = SOURCE_V3 / "schema.json"
 VALID_ROOT = SOURCE_V3 / "fixtures" / "valid"
 INVALID_ROOT = SOURCE_V3 / "fixtures" / "invalid"
+SOURCE_V4 = SOURCE_ROOT / "v4"
 TARGETS = (
     ROOT
     / "twin2multicloud_backend"
@@ -36,6 +37,16 @@ TARGETS = (
 EXPECTED_VALID = frozenset(
     {"all-aws.json", "all-azure.json", "mixed-providers.json"}
 )
+EXPECTED_VALID_BY_VERSION = {
+    "v3": EXPECTED_VALID,
+    "v4": frozenset(
+        {
+            "single-cloud-aws-small.json",
+            "two-cloud-azure-l3l5-gcp-l4-medium.json",
+            "three-cloud-mixed-large.json",
+        }
+    ),
+}
 
 
 def canonical_json(value: object) -> str:
@@ -62,7 +73,7 @@ def _source_files() -> tuple[Path, ...]:
     return tuple(
         sorted(
             path
-            for path in SOURCE_V3.rglob("*")
+            for path in SOURCE_ROOT.rglob("*")
             if path.is_file() and path.name != ".contract-sha256"
         )
     )
@@ -71,7 +82,7 @@ def _source_files() -> tuple[Path, ...]:
 def _tree_digest() -> str:
     entries = [
         {
-            "path": path.relative_to(SOURCE_V3).as_posix(),
+            "path": path.relative_to(SOURCE_ROOT).as_posix(),
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         }
         for path in _source_files()
@@ -80,32 +91,39 @@ def _tree_digest() -> str:
 
 
 def validate_source() -> str:
-    schema = _read_json(SCHEMA_PATH)
-    Draft202012Validator.check_schema(schema)
-    validator = Draft202012Validator(schema, format_checker=FormatChecker())
-    valid_names = {path.name for path in VALID_ROOT.glob("*.json")}
-    if valid_names != EXPECTED_VALID:
-        raise RuntimeError(
-            "DeploymentManifest valid fixtures must be exactly "
-            f"{sorted(EXPECTED_VALID)}"
-        )
-    for path in sorted(VALID_ROOT.glob("*.json")):
-        errors = sorted(
-            validator.iter_errors(_read_json(path)),
-            key=lambda error: [str(part) for part in error.absolute_path],
-        )
-        if errors:
-            location = ".".join(str(part) for part in errors[0].absolute_path)
+    for version, expected_valid in EXPECTED_VALID_BY_VERSION.items():
+        version_root = SOURCE_ROOT / version
+        schema = _read_json(version_root / "schema.json")
+        Draft202012Validator.check_schema(schema)
+        validator = Draft202012Validator(schema, format_checker=FormatChecker())
+        valid_root = version_root / "fixtures" / "valid"
+        invalid_root = version_root / "fixtures" / "invalid"
+        valid_names = {path.name for path in valid_root.glob("*.json")}
+        if valid_names != expected_valid:
             raise RuntimeError(
-                f"{path.name} is invalid at {location or '$'}: {errors[0].message}"
+                f"DeploymentManifest {version} valid fixtures must be exactly "
+                f"{sorted(expected_valid)}"
             )
-    for path in sorted(INVALID_ROOT.glob("*.json")):
-        wrapper = _read_json(path)
-        manifest = wrapper.get("manifest")
-        if not isinstance(manifest, dict) or not list(
-            validator.iter_errors(manifest)
-        ):
-            raise RuntimeError(f"{path.name} must contain an invalid manifest")
+        for path in sorted(valid_root.glob("*.json")):
+            errors = sorted(
+                validator.iter_errors(_read_json(path)),
+                key=lambda error: [str(part) for part in error.absolute_path],
+            )
+            if errors:
+                location = ".".join(str(part) for part in errors[0].absolute_path)
+                raise RuntimeError(
+                    f"{version}/{path.name} is invalid at "
+                    f"{location or '$'}: {errors[0].message}"
+                )
+        for path in sorted(invalid_root.glob("*.json")):
+            wrapper = _read_json(path)
+            manifest = wrapper.get("manifest")
+            if not isinstance(manifest, dict) or not list(
+                validator.iter_errors(manifest)
+            ):
+                raise RuntimeError(
+                    f"{version}/{path.name} must contain an invalid manifest"
+                )
     return _tree_digest()
 
 
