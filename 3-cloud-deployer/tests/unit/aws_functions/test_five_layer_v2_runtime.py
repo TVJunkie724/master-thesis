@@ -45,25 +45,39 @@ class _Stream:
         return {"SequenceNumber": "1", "ShardId": "shard-1"}
 
 
+class _TwinMaker:
+    def __init__(self):
+        self.entries = []
+
+    def batch_put_property_values(self, **kwargs):
+        self.entries.append(kwargs)
+        return {"errorEntries": []}
+
+
 class _Dynamo:
-    def __init__(self, *, query_response=None):
+    def __init__(self, *, existing_raw=None, query_response=None):
         self.get_calls = 0
+        self.existing_raw = existing_raw
         self.transaction = None
         self.query_response = query_response or {"Items": []}
+        self.last_query = None
 
-    def get_item(self, **_kwargs):
+    def get_item(self, **kwargs):
         self.get_calls += 1
+        if "event_id" in kwargs.get("Key", {}):
+            return {"Item": self.existing_raw} if self.existing_raw else {}
         return {}
 
     def transact_write_items(self, **kwargs):
         self.transaction = kwargs
         return {}
 
-    def query(self, **_kwargs):
+    def query(self, **kwargs):
+        self.last_query = kwargs
         return self.query_response
 
 
-def test_event_adapter_stamps_once_and_enqueues_fifo(monkeypatch):
+def test_event_adapter_emits_canonical_received_event_to_local_fifo(monkeypatch):
     runtime = _module()
     queue = _Queue()
     monkeypatch.setenv("LOCAL_PROCESSING", "true")
@@ -85,7 +99,10 @@ def test_event_adapter_stamps_once_and_enqueues_fifo(monkeypatch):
     message = queue.messages[0]
     assert message["MessageGroupId"] == "device-1"
     assert message["MessageDeduplicationId"] == "event-1"
-    assert json.loads(message["MessageBody"])["stored_at"].endswith("Z")
+    envelope = json.loads(message["MessageBody"])
+    assert envelope["event_type"] == "telemetry.received.v1"
+    assert envelope["producer"] == "component.device-ingress"
+    assert "stored_at" not in envelope["payload"]
 
 
 def test_event_adapter_uses_outbox_when_processing_is_remote(monkeypatch):
@@ -102,6 +119,7 @@ def test_event_adapter_uses_outbox_when_processing_is_remote(monkeypatch):
 
     assert stream.records[0]["PartitionKey"] == "device-2"
     assert stream.records[0]["StreamARN"] == "arn:aws:kinesis:eu:test"
+    assert json.loads(stream.records[0]["Data"])["event_type"] == "telemetry.received.v1"
 
 
 def test_processor_atomically_writes_raw_and_hourly_rollup(monkeypatch):
@@ -132,7 +150,121 @@ def test_processor_atomically_writes_raw_and_hourly_rollup(monkeypatch):
     assert [item["Put"]["TableName"] for item in items] == ["raw", "rollup"]
     raw = items[0]["Put"]["Item"]
     assert raw["storage_window"]["S"] == "2026-08-05T00:00:00.000000Z"
-    assert raw["stored_at_event_id"]["S"].endswith("#event-3")
+    expected_event_id = str(
+        runtime.uuid.uuid5(
+            runtime.uuid.NAMESPACE_URL,
+            "event-3:telemetry.processed.v1",
+        )
+    )
+    assert raw["event_id"]["S"] == expected_event_id
+    assert raw["stored_at_event_id"]["S"].endswith(f"#{expected_event_id}")
+
+
+def test_remote_processed_event_is_persisted_before_projection_routing(monkeypatch):
+    runtime = _module()
+    dynamo = _Dynamo()
+    monkeypatch.setenv("HOT_PROVIDER", "aws")
+    monkeypatch.setenv("TWIN_PROVIDER", "azure")
+    monkeypatch.setenv("RAW_TABLE_NAME", "raw")
+    monkeypatch.setenv("ROLLUP_TABLE_NAME", "rollup")
+    monkeypatch.setenv("HOT_BOUNDARY_DAYS", "30")
+    monkeypatch.setenv("SOURCE_EXPIRY_GRACE_HOURS", "48")
+    monkeypatch.setattr(runtime, "_client", lambda service: dynamo if service == "dynamodb" else None)
+
+    result = runtime.domain_consumer(
+        {
+            "schema_version": "canonical-domain-event.v1",
+            "event_id": "processed-1",
+            "event_type": "telemetry.processed.v1",
+            "deployment_id": "deployment-1",
+            "source_id": "device-1",
+            "source_sequence": "1",
+            "occurred_at": "2026-08-05T00:00:00Z",
+            "correlation_id": "correlation-1",
+            "causation_id": "received-1",
+            "producer": "component.telemetry-processor",
+            "payload": {
+                "device_id": "device-1",
+                "twin_id": "twin-1",
+                "metric": "temperature",
+                "value": 19.5,
+                "event_time": "2026-08-05T00:00:00Z",
+            },
+        },
+        None,
+    )
+
+    assert result == {
+        "schema_version": "domain-consumer-result.v1",
+        "accepted": 1,
+        "batchItemFailures": [],
+    }
+    assert dynamo.transaction is not None
+
+
+def test_processed_event_retry_is_idempotent_across_new_storage_timestamp(monkeypatch):
+    runtime = _module()
+    processed = {
+        "schema_version": "canonical-domain-event.v1",
+        "event_id": "processed-retry-1",
+        "event_type": "telemetry.processed.v1",
+        "deployment_id": "deployment-1",
+        "source_id": "device-1",
+        "source_sequence": "1",
+        "occurred_at": "2026-08-05T00:00:00Z",
+        "correlation_id": "correlation-1",
+        "causation_id": "received-1",
+        "producer": "component.telemetry-processor",
+        "payload": {
+            "device_id": "device-1",
+            "metric": "temperature",
+            "value": 19.5,
+            "event_time": "2026-08-05T00:00:00Z",
+        },
+    }
+    digest = hashlib.sha256(runtime._canonical_json(processed).encode("utf-8")).hexdigest()
+    dynamo = _Dynamo(existing_raw={"payload_digest": {"S": digest}})
+    monkeypatch.setenv("RAW_TABLE_NAME", "raw")
+    monkeypatch.setenv("ROLLUP_TABLE_NAME", "rollup")
+    monkeypatch.setattr(runtime, "_client", lambda service: dynamo if service == "dynamodb" else None)
+
+    runtime._write_raw_and_rollup(processed)
+
+    assert dynamo.transaction is None
+    assert dynamo.get_calls == 1
+
+
+def test_projection_candidate_updates_local_twin_with_observation_time(monkeypatch):
+    runtime = _module()
+    dynamo = _Dynamo()
+    twinmaker = _TwinMaker()
+    monkeypatch.setenv("HOT_PROVIDER", "aws")
+    monkeypatch.setenv("TWIN_PROVIDER", "aws")
+    monkeypatch.setenv("RAW_TABLE_NAME", "raw")
+    monkeypatch.setenv("ROLLUP_TABLE_NAME", "rollup")
+    monkeypatch.setenv("TWINMAKER_WORKSPACE", "workspace-1")
+    monkeypatch.setattr(
+        runtime,
+        "_client",
+        lambda service: dynamo if service == "dynamodb" else twinmaker,
+    )
+
+    runtime.processor(
+        {
+            "event_id": "event-projection-1",
+            "device_id": "device-1",
+            "twin_id": "twin-1",
+            "metric": "temperature",
+            "value": 20.5,
+            "event_time": "2026-08-05T00:00:00Z",
+            "projection_candidate": True,
+        },
+        None,
+    )
+
+    assert twinmaker.entries[0]["workspaceId"] == "workspace-1"
+    value = twinmaker.entries[0]["entries"][0]["propertyValues"][0]
+    assert runtime._iso(value["timestamp"]) == "2026-08-05T00:00:00.000000Z"
 
 
 def test_reader_fails_closed_until_secure_stage_provisions_key(monkeypatch):
@@ -191,3 +323,4 @@ def test_reader_returns_only_closed_raw_history_shape(monkeypatch):
         "truncated",
     }
     assert payload["points"][0]["value"] == 21.5
+    assert dynamo.last_query["IndexName"] == "device-stored-at-index"

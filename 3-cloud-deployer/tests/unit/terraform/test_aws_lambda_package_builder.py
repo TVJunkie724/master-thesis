@@ -380,7 +380,12 @@ class TestRealLambdaFunctions:
                 for node in ast.walk(module)
                 if isinstance(node, ast.FunctionDef)
             }
-            assert {"event_adapter", "processor", "raw_history_reader"} <= functions
+            assert {
+                "domain_consumer",
+                "event_adapter",
+                "processor",
+                "raw_history_reader",
+            } <= functions
 
         build_aws_lambda_packages(
             project_root / "src" / "terraform",

@@ -25,6 +25,10 @@ PROFILE = "five-layer-baseline@2"
 MAX_POINTS = 1000
 MAX_RAW_RANGE = timedelta(hours=24)
 MAX_AGGREGATE_RANGE = timedelta(days=30)
+EVENT_TELEMETRY_RECEIVED = "telemetry.received.v1"
+EVENT_TELEMETRY_PROCESSED = "telemetry.processed.v1"
+EVENT_TWIN_STATE_UPSERTED = "twin.state.upserted"
+EVENT_DEVICE_COMMAND_REQUESTED = "device.command.requested.v1"
 
 
 class ContractError(ValueError):
@@ -51,8 +55,12 @@ def _required_text(value: Any, *, code: str, maximum: int = 256) -> str:
 
 
 def _partition_key(payload: Mapping[str, Any]) -> str:
+    body = _event_body(payload)
     return _required_text(
-        payload.get("device_id") or payload.get("source_id") or payload.get("twin_id"),
+        body.get("device_id")
+        or payload.get("source_id")
+        or body.get("source_id")
+        or body.get("twin_id"),
         code="INVALID_PARTITION_KEY",
     )
 
@@ -62,6 +70,69 @@ def _event_id(payload: Mapping[str, Any]) -> str:
     if value is None:
         value = str(uuid.uuid5(uuid.NAMESPACE_URL, _canonical_json(payload)))
     return _required_text(value, code="INVALID_EVENT_ID")
+
+
+def _event_body(event: Mapping[str, Any]) -> Mapping[str, Any]:
+    body = event.get("payload")
+    return body if isinstance(body, Mapping) else event
+
+
+def _event_type(event: Mapping[str, Any]) -> str:
+    value = event.get("event_type") or event.get("channel")
+    return str(value or EVENT_TELEMETRY_RECEIVED)
+
+
+def _derive_event(
+    source: Mapping[str, Any],
+    *,
+    event_type: str,
+    producer: str,
+    body: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Create one deterministic child event without provider route metadata."""
+
+    source_id = _event_id(source)
+    child_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{source_id}:{event_type}"))
+    occurred_at = source.get("occurred_at") or _event_body(source).get("event_time")
+    if not isinstance(occurred_at, str):
+        occurred_at = _iso(datetime.now(timezone.utc))
+    return {
+        "schema_version": "canonical-domain-event.v1",
+        "event_id": child_id,
+        "event_type": event_type,
+        "deployment_id": str(source.get("deployment_id") or os.environ.get("DEPLOYMENT_ID", "local-poc")),
+        "source_id": _partition_key(source),
+        "source_sequence": str(source.get("source_sequence") or source_id),
+        "occurred_at": occurred_at,
+        "correlation_id": str(source.get("correlation_id") or source_id),
+        "causation_id": source_id,
+        "producer": producer,
+        "payload": dict(body or _event_body(source)),
+    }
+
+
+def _ingress_event(payload: Mapping[str, Any]) -> dict[str, Any]:
+    event_id = _event_id(payload)
+    source_body = _event_body(payload)
+    occurred_at = source_body.get("event_time")
+    if not isinstance(occurred_at, str):
+        occurred_at = _iso(datetime.now(timezone.utc))
+    body = dict(source_body)
+    body.pop("event_type", None)
+    body.pop("channel", None)
+    return {
+        "schema_version": "canonical-domain-event.v1",
+        "event_id": event_id,
+        "event_type": EVENT_TELEMETRY_RECEIVED,
+        "deployment_id": os.environ.get("DEPLOYMENT_ID", "local-poc"),
+        "source_id": _partition_key(payload),
+        "source_sequence": str(payload.get("source_sequence") or event_id),
+        "occurred_at": occurred_at,
+        "correlation_id": str(payload.get("correlation_id") or event_id),
+        "causation_id": event_id,
+        "producer": "component.device-ingress",
+        "payload": body,
+    }
 
 
 def _decoded_records(event: Mapping[str, Any]) -> Iterable[tuple[str, dict[str, Any]]]:
@@ -118,19 +189,20 @@ def _materialize_twin_projection(payload: Mapping[str, Any]) -> None:
     workspace = os.environ.get("TWINMAKER_WORKSPACE", "")
     if not workspace:
         raise ContractError("TWIN_PROJECTION_TARGET_NOT_CONFIGURED", 503)
-    value = payload.get("value")
+    body = _event_body(payload)
+    value = body.get("value")
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
         raise ContractError("INVALID_TWIN_VALUE")
-    observed_at = _parse_time(payload.get("observed_at") or payload.get("stored_at"))
+    observed_at = _parse_time(body.get("observed_at") or body.get("stored_at"))
     _client("iottwinmaker").batch_put_property_values(
         workspaceId=workspace,
         entries=[
             {
                 "entryId": _event_id(payload)[:64],
                 "entityPropertyReference": {
-                    "entityId": _required_text(payload.get("twin_id"), code="INVALID_TWIN_ID"),
+                    "entityId": _required_text(body.get("twin_id"), code="INVALID_TWIN_ID"),
                     "componentName": "telemetry",
-                    "propertyName": _required_text(payload.get("metric"), code="INVALID_METRIC"),
+                    "propertyName": _required_text(body.get("metric"), code="INVALID_METRIC"),
                 },
                 "propertyValues": [
                     {
@@ -149,12 +221,8 @@ def event_adapter(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
     try:
         accepted = 0
         for _, decoded in _decoded_records(event):
-            payload = dict(decoded)
-            payload.setdefault("stored_at", _iso(datetime.now(timezone.utc)))
-            channel = str(payload.get("channel") or "telemetry")
-            if channel == "twin_projection":
-                _materialize_twin_projection(payload)
-            elif os.environ.get("LOCAL_PROCESSING", "false").lower() == "true":
+            payload = _ingress_event(decoded)
+            if os.environ.get("LOCAL_PROCESSING", "false").lower() == "true":
                 _enqueue(payload)
             else:
                 _put_stream(payload)
@@ -194,10 +262,10 @@ def _number(value: Any) -> Decimal:
     return result
 
 
-def _existing_raw(table: str, device_id: str, sort_key: str) -> dict[str, Any] | None:
+def _existing_raw(table: str, device_id: str, event_id: str) -> dict[str, Any] | None:
     response = _client("dynamodb").get_item(
         TableName=table,
-        Key={"device_id": {"S": device_id}, "stored_at_event_id": {"S": sort_key}},
+        Key={"device_id": {"S": device_id}, "event_id": {"S": event_id}},
         ConsistentRead=True,
     )
     return response.get("Item")
@@ -209,12 +277,14 @@ def _write_raw_and_rollup(payload: Mapping[str, Any]) -> None:
     if not raw_table or not rollup_table:
         raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503)
 
+    body = dict(_event_body(payload))
     event_id = _event_id(payload)
     device_id = _partition_key(payload)
-    metric = _required_text(payload.get("metric"), code="INVALID_METRIC")
-    value = _number(payload.get("value"))
-    event_time = _parse_time(payload.get("event_time"))
-    stored_at = _parse_time(payload.get("stored_at"))
+    metric = _required_text(body.get("metric"), code="INVALID_METRIC")
+    value = _number(body.get("value"))
+    event_time = _parse_time(body.get("event_time") or payload.get("occurred_at"))
+    stored_at = _parse_time(body.get("stored_at") or _iso(datetime.now(timezone.utc)))
+    body["stored_at"] = _iso(stored_at)
     stored_at_text = _iso(stored_at)
     sort_key = f"{stored_at_text}#{event_id}"
     canonical_payload = _canonical_json(dict(payload))
@@ -229,7 +299,7 @@ def _write_raw_and_rollup(payload: Mapping[str, Any]) -> None:
     dynamodb = _client("dynamodb")
 
     for _ in range(3):
-        existing_raw = _existing_raw(raw_table, device_id, sort_key)
+        existing_raw = _existing_raw(raw_table, device_id, event_id)
         if existing_raw:
             if existing_raw.get("payload_digest", {}).get("S") == payload_digest:
                 return
@@ -276,9 +346,9 @@ def _write_raw_and_rollup(payload: Mapping[str, Any]) -> None:
                             "TableName": raw_table,
                             "Item": {
                                 "device_id": {"S": device_id},
+                                "event_id": {"S": event_id},
                                 "stored_at_event_id": {"S": sort_key},
                                 "storage_window": {"S": storage_window},
-                                "event_id": {"S": event_id},
                                 "metric": {"S": metric},
                                 "value": {"N": str(value)},
                                 "event_time": {"S": _iso(event_time)},
@@ -287,7 +357,7 @@ def _write_raw_and_rollup(payload: Mapping[str, Any]) -> None:
                                 "payload_json": {"S": canonical_payload},
                                 "expires_at": {"N": str(expires_at)},
                             },
-                            "ConditionExpression": "attribute_not_exists(device_id)",
+                            "ConditionExpression": "attribute_not_exists(device_id) AND attribute_not_exists(event_id)",
                         }
                     },
                     {"Put": rollup_put},
@@ -308,12 +378,17 @@ def processor(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
     accepted = 0
     for record_id, payload in _decoded_records(event):
         try:
+            if _event_type(payload) != EVENT_TELEMETRY_RECEIVED:
+                raise ContractError("UNEXPECTED_PROCESSOR_EVENT")
+            processed = _derive_event(
+                payload,
+                event_type=EVENT_TELEMETRY_PROCESSED,
+                producer="component.telemetry-processor",
+            )
             if os.environ.get("HOT_PROVIDER") == "aws":
-                _write_raw_and_rollup(payload)
+                _persist_and_project(processed)
             else:
-                outbound = dict(payload)
-                outbound["channel"] = "processed_telemetry"
-                _put_stream(outbound)
+                _put_stream(processed)
             accepted += 1
         except Exception:
             if isinstance(event.get("Records"), list):
@@ -322,6 +397,61 @@ def processor(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
                 raise RuntimeError("PROCESSING_RETRYABLE_FAILURE") from None
     return {
         "schema_version": "processor-result.v1",
+        "accepted": accepted,
+        "batchItemFailures": failures,
+    }
+
+
+def _persist_and_project(event: Mapping[str, Any]) -> None:
+    _write_raw_and_rollup(event)
+    body = dict(_event_body(event))
+    if body.get("projection_candidate") is not True:
+        return
+    body["observed_at"] = (
+        body.get("observed_at")
+        or body.get("event_time")
+        or event.get("occurred_at")
+    )
+    projection = _derive_event(
+        event,
+        event_type=EVENT_TWIN_STATE_UPSERTED,
+        producer="component.historical-persistence",
+        body=body,
+    )
+    if os.environ.get("TWIN_PROVIDER") == "aws":
+        _materialize_twin_projection(projection)
+    else:
+        _put_stream(projection)
+
+
+def domain_consumer(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
+    """Dispatch target-broker records to the responsibility named by event type."""
+
+    failures = []
+    accepted = 0
+    for record_id, payload in _decoded_records(event):
+        try:
+            kind = _event_type(payload)
+            if kind == EVENT_TELEMETRY_RECEIVED:
+                result = processor(payload, None)
+                if result["batchItemFailures"]:
+                    raise ContractError("PROCESSING_RETRYABLE_FAILURE", 503)
+            elif kind == EVENT_TELEMETRY_PROCESSED:
+                _persist_and_project(payload)
+            elif kind == EVENT_TWIN_STATE_UPSERTED:
+                _materialize_twin_projection(payload)
+            elif kind == EVENT_DEVICE_COMMAND_REQUESTED:
+                raise ContractError("DEVICE_COMMAND_ADAPTER_NOT_CONFIGURED", 503)
+            else:
+                raise ContractError("UNKNOWN_DOMAIN_EVENT")
+            accepted += 1
+        except Exception:
+            if isinstance(event.get("Records"), list):
+                failures.append({"itemIdentifier": record_id})
+            else:
+                raise RuntimeError("DOMAIN_CONSUMER_RETRYABLE_FAILURE") from None
+    return {
+        "schema_version": "domain-consumer-result.v1",
         "accepted": accepted,
         "batchItemFailures": failures,
     }
@@ -433,6 +563,7 @@ def raw_history_reader(event: Mapping[str, Any], _context: Any) -> dict[str, Any
             table = os.environ["RAW_TABLE_NAME"]
             response = dynamodb.query(
                 TableName=table,
+                IndexName="device-stored-at-index",
                 KeyConditionExpression="device_id = :device AND stored_at_event_id BETWEEN :start AND :end",
                 FilterExpression="metric = :metric",
                 ExpressionAttributeValues={

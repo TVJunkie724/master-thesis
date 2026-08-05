@@ -159,7 +159,8 @@ resource "aws_iam_role_policy" "aws_v2_lambda_data" {
         Effect = "Allow"
         Action = [
           "iottwinmaker:CreateEntity", "iottwinmaker:GetEntity",
-          "iottwinmaker:UpdateEntity", "iottwinmaker:DeleteEntity"
+          "iottwinmaker:UpdateEntity", "iottwinmaker:DeleteEntity",
+          "iottwinmaker:BatchPutPropertyValues"
         ]
         Resource = ["*"]
       }] : []
@@ -181,12 +182,19 @@ resource "aws_lambda_function" "aws_aws_lambda_event_adapter" {
 
   environment {
     variables = {
-      ARCHITECTURE_PROFILE = "five-layer-baseline@2"
-      EVENT_QUEUE_URL      = aws_sqs_queue.aws_aws_sqs_fifo[0].url
-      TELEMETRY_STREAM_ARN = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
-      CONTROL_TOPIC_ARN    = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn, "")
-      LOCAL_PROCESSING     = tostring(local.aws_v2_l2_enabled)
-      TWINMAKER_WORKSPACE  = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
+      ARCHITECTURE_PROFILE      = "five-layer-baseline@2"
+      DEPLOYMENT_ID             = local.deployment_suffix
+      EVENT_QUEUE_URL           = aws_sqs_queue.aws_aws_sqs_fifo[0].url
+      TELEMETRY_STREAM_ARN      = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
+      CONTROL_TOPIC_ARN         = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn, "")
+      LOCAL_PROCESSING          = tostring(local.aws_v2_l2_enabled)
+      HOT_PROVIDER              = var.layer_3_hot_provider
+      TWIN_PROVIDER             = var.layer_4_provider
+      RAW_TABLE_NAME            = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
+      ROLLUP_TABLE_NAME         = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
+      HOT_BOUNDARY_DAYS         = tostring(var.layer_3_hot_to_cold_interval_days)
+      SOURCE_EXPIRY_GRACE_HOURS = "48"
+      TWINMAKER_WORKSPACE       = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
     }
   }
   tags = local.aws_v2_tags
@@ -249,12 +257,15 @@ resource "aws_lambda_function" "aws_aws_lambda" {
   environment {
     variables = {
       ARCHITECTURE_PROFILE      = "five-layer-baseline@2"
+      DEPLOYMENT_ID             = local.deployment_suffix
       RAW_TABLE_NAME            = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
       ROLLUP_TABLE_NAME         = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
       HOT_PROVIDER              = var.layer_3_hot_provider
+      TWIN_PROVIDER             = var.layer_4_provider
       TELEMETRY_STREAM_ARN      = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
       HOT_BOUNDARY_DAYS         = tostring(var.layer_3_hot_to_cold_interval_days)
       SOURCE_EXPIRY_GRACE_HOURS = "48"
+      TWINMAKER_WORKSPACE       = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
     }
   }
   tags = local.aws_v2_tags
@@ -269,10 +280,41 @@ resource "aws_lambda_event_source_mapping" "aws_v2_embedded_events" {
   enabled                            = true
 }
 
+resource "aws_lambda_function" "aws_v2_domain_consumer" {
+  count         = local.aws_v2_remote_telemetry_inbound ? 1 : 0
+  function_name = "${local.aws_v2_name}-v2-domain-consumer"
+  role          = aws_iam_role.aws_v2_lambda[0].arn
+  handler       = "handler.domain_consumer"
+  runtime       = local.python_runtime_aws
+  timeout       = 30
+  memory_size   = 512
+
+  filename         = local.aws_v2_runtime_package
+  source_code_hash = filebase64sha256(local.aws_v2_runtime_package)
+
+  environment {
+    variables = {
+      ARCHITECTURE_PROFILE      = "five-layer-baseline@2"
+      DEPLOYMENT_ID             = local.deployment_suffix
+      EVENT_QUEUE_URL           = try(aws_sqs_queue.aws_aws_sqs_fifo[0].url, "")
+      TELEMETRY_STREAM_ARN      = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
+      CONTROL_TOPIC_ARN         = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn, "")
+      HOT_PROVIDER              = var.layer_3_hot_provider
+      TWIN_PROVIDER             = var.layer_4_provider
+      RAW_TABLE_NAME            = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
+      ROLLUP_TABLE_NAME         = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
+      HOT_BOUNDARY_DAYS         = tostring(var.layer_3_hot_to_cold_interval_days)
+      SOURCE_EXPIRY_GRACE_HOURS = "48"
+      TWINMAKER_WORKSPACE       = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
+    }
+  }
+  tags = local.aws_v2_tags
+}
+
 resource "aws_lambda_event_source_mapping" "aws_v2_remote_telemetry" {
   count                              = local.aws_v2_remote_telemetry_inbound ? 1 : 0
   event_source_arn                   = aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["inbound"].arn
-  function_name                      = aws_lambda_function.aws_aws_lambda_event_adapter[0].arn
+  function_name                      = aws_lambda_function.aws_v2_domain_consumer[0].arn
   starting_position                  = "LATEST"
   batch_size                         = 10
   maximum_batching_window_in_seconds = 1
@@ -332,10 +374,14 @@ resource "aws_dynamodb_table" "aws_aws_dynamodb_on_demand_raw" {
   name         = "${local.aws_v2_name}-v2-raw"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "device_id"
-  range_key    = "stored_at_event_id"
+  range_key    = "event_id"
 
   attribute {
     name = "device_id"
+    type = "S"
+  }
+  attribute {
+    name = "event_id"
     type = "S"
   }
   attribute {
@@ -345,6 +391,13 @@ resource "aws_dynamodb_table" "aws_aws_dynamodb_on_demand_raw" {
   attribute {
     name = "storage_window"
     type = "S"
+  }
+
+  global_secondary_index {
+    name            = "device-stored-at-index"
+    hash_key        = "device_id"
+    range_key       = "stored_at_event_id"
+    projection_type = "ALL"
   }
 
   global_secondary_index {
