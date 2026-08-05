@@ -152,6 +152,21 @@ run "five_layer_v2_single_cloud_azure_omits_remote_event_hubs" {
     condition     = length(azurerm_logic_app_workflow.azure_azure_logic_apps_consumption) == 1 && length(azurerm_logic_app_trigger_http_request.azure_azure_logic_apps_consumption) == 1 && length(azurerm_logic_app_action_custom.azure_azure_logic_apps_consumption) == 1
     error_message = "Azure L2 must deploy a callable fixed PoC Logic Apps workflow, not an empty shell."
   }
+
+  assert {
+    condition     = length(azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup) == 1 && length(azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup) == 1
+    error_message = "Azure L3 hot must deploy one Cosmos database boundary with a shared raw/rollup container."
+  }
+
+  assert {
+    condition     = contains([for capability in azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].capabilities : capability.name], "EnableServerless")
+    error_message = "The default Small Azure fixture must select Cosmos Serverless."
+  }
+
+  assert {
+    condition     = length(azurerm_storage_account.main) == 1 && length(azurerm_storage_container.azure_azure_blob_cool) == 1 && length(azurerm_storage_management_policy.azure_azure_blob_archive) == 1
+    error_message = "Azure tiering must reuse one provider account and bind its private cool/archive lifecycle."
+  }
 }
 
 run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {

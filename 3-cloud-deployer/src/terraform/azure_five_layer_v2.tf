@@ -3,10 +3,12 @@
 # edges; Service Bus remains the ordered low-rate domain/control broker.
 
 locals {
-  azure_v2_l1_enabled  = local.azure_v2_enabled && var.layer_1_provider == "azure"
-  azure_v2_l2_enabled  = local.azure_v2_enabled && var.layer_2_provider == "azure"
-  azure_v2_hot_enabled = local.azure_v2_enabled && var.layer_3_hot_provider == "azure"
-  azure_v2_l4_enabled  = local.azure_v2_enabled && var.layer_4_provider == "azure"
+  azure_v2_l1_enabled      = local.azure_v2_enabled && var.layer_1_provider == "azure"
+  azure_v2_l2_enabled      = local.azure_v2_enabled && var.layer_2_provider == "azure"
+  azure_v2_hot_enabled     = local.azure_v2_enabled && var.layer_3_hot_provider == "azure"
+  azure_v2_cool_enabled    = local.azure_v2_enabled && var.layer_3_cold_provider == "azure"
+  azure_v2_archive_enabled = local.azure_v2_enabled && var.layer_3_archive_provider == "azure"
+  azure_v2_l4_enabled      = local.azure_v2_enabled && var.layer_4_provider == "azure"
 
   azure_v2_event_enabled = (
     local.azure_v2_l1_enabled || local.azure_v2_l2_enabled ||
@@ -31,6 +33,22 @@ locals {
   azure_v2_remote_telemetry_enabled = length(local.azure_v2_remote_telemetry_routes) > 0
   azure_v2_remote_control_outbound  = local.five_layer_v2_enabled && var.layer_2_provider == "azure" && var.layer_1_provider != "azure"
   azure_v2_remote_control_inbound   = local.five_layer_v2_enabled && var.layer_2_provider != "azure" && var.layer_1_provider == "azure"
+  azure_v2_object_store_enabled     = local.azure_v2_cool_enabled || local.azure_v2_archive_enabled
+  azure_v2_storage_mover_enabled = local.five_layer_v2_enabled && (
+    local.azure_v2_hot_enabled ||
+    (local.azure_v2_cool_enabled && var.layer_3_archive_provider != "azure")
+  )
+
+  azure_v2_cosmos_capacity_mode = lookup(
+    var.resolved_component_dimensions,
+    "dimension.azure.azure.cosmos-db-nosql-raw-and-rollup.capacity_mode",
+    "serverless",
+  )
+  azure_v2_cosmos_autoscale_max_ru = tonumber(lookup(
+    var.resolved_component_dimensions,
+    "dimension.azure.azure.cosmos-db-nosql-raw-and-rollup.autoscale_max_ru_per_second",
+    "0",
+  ))
 
   azure_v2_event_hubs_tu_hours = tonumber(lookup(
     var.resolved_component_dimensions,
@@ -92,6 +110,29 @@ resource "terraform_data" "azure_v2_event_capacity_guard" {
   }
 }
 
+resource "terraform_data" "azure_v2_cosmos_capacity_guard" {
+  count = local.azure_v2_hot_enabled ? 1 : 0
+
+  input = {
+    capacity_mode               = local.azure_v2_cosmos_capacity_mode
+    autoscale_max_ru_per_second = local.azure_v2_cosmos_autoscale_max_ru
+  }
+
+  lifecycle {
+    precondition {
+      condition = (
+        (local.azure_v2_cosmos_capacity_mode == "serverless" && local.azure_v2_cosmos_autoscale_max_ru == 0) ||
+        (
+          local.azure_v2_cosmos_capacity_mode == "autoscale" &&
+          local.azure_v2_cosmos_autoscale_max_ru >= 1000 &&
+          local.azure_v2_cosmos_autoscale_max_ru % 1000 == 0
+        )
+      )
+      error_message = "Azure L3 hot must use reviewed Serverless capacity or a positive 1,000-RU-rounded Large autoscale fixture."
+    }
+  }
+}
+
 resource "azurerm_log_analytics_workspace" "azure_azure_log_analytics_shared_workspace" {
   count               = local.azure_v2_enabled ? 1 : 0
   name                = "${local.azure_v2_name}-v2-logs-${local.deployment_suffix}"
@@ -127,6 +168,112 @@ resource "azurerm_iothub" "azure_azure_iot_hub" {
   }
 
   tags = local.azure_v2_tags
+}
+
+resource "azurerm_cosmosdb_account" "azure_azure_cosmos_db_nosql_raw_and_rollup" {
+  count                         = local.azure_v2_hot_enabled ? 1 : 0
+  name                          = "${local.azure_v2_name}-v2-cosmos-${local.deployment_suffix}"
+  location                      = azurerm_resource_group.main[0].location
+  resource_group_name           = azurerm_resource_group.main[0].name
+  offer_type                    = "Standard"
+  kind                          = "GlobalDocumentDB"
+  automatic_failover_enabled    = false
+  local_authentication_disabled = true
+  public_network_access_enabled = true
+
+  dynamic "capabilities" {
+    for_each = local.azure_v2_cosmos_capacity_mode == "serverless" ? [1] : []
+    content {
+      name = "EnableServerless"
+    }
+  }
+
+  consistency_policy {
+    consistency_level = "Session"
+  }
+
+  geo_location {
+    location          = azurerm_resource_group.main[0].location
+    failover_priority = 0
+  }
+
+  tags = local.azure_v2_tags
+}
+
+resource "azurerm_cosmosdb_sql_database" "azure_azure_cosmos_db_nosql_raw_and_rollup" {
+  count               = local.azure_v2_hot_enabled ? 1 : 0
+  name                = "twin-history"
+  resource_group_name = azurerm_resource_group.main[0].name
+  account_name        = azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name
+
+  dynamic "autoscale_settings" {
+    for_each = local.azure_v2_cosmos_capacity_mode == "autoscale" ? [1] : []
+    content {
+      max_throughput = local.azure_v2_cosmos_autoscale_max_ru
+    }
+  }
+}
+
+# Raw telemetry and hourly rollups intentionally share one container and
+# /device_id partition. The item kind retains a single transactional-batch
+# boundary without inventing another database for the thesis PoC.
+resource "azurerm_cosmosdb_sql_container" "azure_azure_cosmos_db_nosql_raw_and_rollup" {
+  count               = local.azure_v2_hot_enabled ? 1 : 0
+  name                = "telemetry-history"
+  resource_group_name = azurerm_resource_group.main[0].name
+  account_name        = azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name
+  database_name       = azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name
+  partition_key_paths = ["/device_id"]
+  partition_key_kind  = "Hash"
+  default_ttl         = (var.layer_3_hot_to_cold_interval_days + 2) * 86400
+
+  indexing_policy {
+    indexing_mode = "consistent"
+    included_path { path = "/device_id/?" }
+    included_path { path = "/stored_at/?" }
+    included_path { path = "/kind/?" }
+    excluded_path { path = "/payload/*" }
+  }
+}
+
+resource "azurerm_cosmosdb_sql_role_assignment" "azure_azure_cosmos_db_nosql_raw_and_rollup" {
+  count               = local.azure_v2_hot_enabled ? 1 : 0
+  resource_group_name = azurerm_resource_group.main[0].name
+  account_name        = azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name
+  role_definition_id  = "${azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
+  principal_id        = azurerm_user_assigned_identity.main[0].principal_id
+  scope               = azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].id
+}
+
+resource "azurerm_storage_container" "azure_azure_blob_cool" {
+  count                 = local.azure_v2_object_store_enabled ? 1 : 0
+  name                  = "history"
+  storage_account_id    = azurerm_storage_account.main[0].id
+  container_access_type = "private"
+}
+
+resource "azurerm_storage_management_policy" "azure_azure_blob_archive" {
+  count              = local.azure_v2_archive_enabled ? 1 : 0
+  storage_account_id = azurerm_storage_account.main[0].id
+
+  rule {
+    name    = "five-layer-v2-history"
+    enabled = true
+    filters {
+      prefix_match = ["${azurerm_storage_container.azure_azure_blob_cool[0].name}/history/"]
+      blob_types   = ["blockBlob"]
+    }
+    actions {
+      base_blob {
+        tier_to_archive_after_days_since_modification_greater_than = local.azure_v2_cool_enabled ? var.layer_3_cold_to_archive_interval_days - var.layer_3_hot_to_cold_interval_days : 0
+        delete_after_days_since_modification_greater_than = local.azure_v2_cool_enabled ? (
+          var.layer_3_archive_expiry_interval_days - var.layer_3_hot_to_cold_interval_days
+          ) : (
+          var.layer_3_archive_expiry_interval_days - var.layer_3_cold_to_archive_interval_days
+        )
+      }
+    }
+  }
 }
 
 resource "azurerm_servicebus_namespace" "azure_azure_service_bus_standard" {
@@ -294,6 +441,13 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
     V2_REMOTE_TELEMETRY__fullyQualifiedNamespace = local.azure_v2_remote_telemetry_enabled ? "${azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].name}.servicebus.windows.net" : "disabled.servicebus.windows.net"
     V2_REMOTE_TELEMETRY__credential              = "managedidentity"
     V2_REMOTE_TELEMETRY__clientId                = azurerm_user_assigned_identity.main[0].client_id
+    V2_L2_PROVIDER                               = var.layer_2_provider
+    V2_HOT_PROVIDER                              = var.layer_3_hot_provider
+    V2_TWIN_PROVIDER                             = var.layer_4_provider
+    V2_COSMOS_ENDPOINT                           = try(azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint, "")
+    V2_COSMOS_DATABASE                           = try(azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
+    V2_COSMOS_CONTAINER                          = try(azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
+    V2_HOT_BOUNDARY_DAYS                         = tostring(var.layer_3_hot_to_cold_interval_days)
   }
 
   tags = local.azure_v2_tags
@@ -353,6 +507,13 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
     V2_SERVICE_BUS__credential              = "managedidentity"
     V2_SERVICE_BUS__clientId                = azurerm_user_assigned_identity.main[0].client_id
     V2_LOGIC_APP_CALLBACK_URL               = azurerm_logic_app_trigger_http_request.azure_azure_logic_apps_consumption[0].callback_url
+    V2_L2_PROVIDER                          = var.layer_2_provider
+    V2_HOT_PROVIDER                         = var.layer_3_hot_provider
+    V2_TWIN_PROVIDER                        = var.layer_4_provider
+    V2_COSMOS_ENDPOINT                      = try(azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint, "")
+    V2_COSMOS_DATABASE                      = try(azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
+    V2_COSMOS_CONTAINER                     = try(azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
+    V2_HOT_BOUNDARY_DAYS                    = tostring(var.layer_3_hot_to_cold_interval_days)
   }
 
   tags = local.azure_v2_tags
@@ -449,6 +610,12 @@ locals {
         role  = "IoT Hub Data Contributor"
       }
     } : {},
+    local.azure_v2_object_store_enabled ? {
+      history_blob_contributor = {
+        scope = azurerm_storage_account.main[0].id
+        role  = "Storage Blob Data Contributor"
+      }
+    } : {},
   )
 }
 
@@ -472,6 +639,12 @@ locals {
     local.azure_v2_l2_enabled ? {
       processing = azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].id
       workflow   = azurerm_logic_app_workflow.azure_azure_logic_apps_consumption[0].id
+    } : {},
+    local.azure_v2_hot_enabled ? {
+      cosmos = azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].id
+    } : {},
+    local.azure_v2_object_store_enabled ? {
+      history_storage = azurerm_storage_account.main[0].id
     } : {},
     local.azure_v2_remote_telemetry_enabled ? {
       event_hubs = azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].id

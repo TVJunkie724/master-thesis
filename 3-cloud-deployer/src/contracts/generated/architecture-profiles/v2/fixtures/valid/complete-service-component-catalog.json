@@ -1842,7 +1842,7 @@
           "azurerm_container_registry.azure_azure_acr_basic_if_container_selected",
           "azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace",
           "azurerm_monitor_diagnostic_setting.azure_azure_monitor",
-          "azurerm_storage_account.azure_azure_blob_cool",
+          "azurerm_storage_account.main",
           "azurerm_storage_container.azure_azure_blob_cool"
         ],
         "module_addresses": [],
@@ -7787,5 +7787,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:77b9333da406cccd8f2820487177f636d1e05f5f03a92e825c8079d16ef52b64"
+  "content_digest": "sha256:4a85ec47d718df9840d2c1f0b88526ba95e23190e57fb7a314559356c17d850d"
 }

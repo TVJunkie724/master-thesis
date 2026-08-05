@@ -872,6 +872,24 @@ def safe_tf_name(value: str) -> str:
     return normalized[:100] or "component"
 
 
+def terraform_resource_address(
+    provider: str,
+    component_id: str,
+    resource_type: str,
+) -> str:
+    """Return the reviewed address, including intentional PoC sharing."""
+
+    if (
+        provider == "azure"
+        and component_id == "azure.blob-cool"
+        and resource_type == "azurerm_storage_account"
+    ):
+        # Flex package hosting and bounded Blob history share the provider
+        # foundation account; a second account adds no thesis value.
+        return "azurerm_storage_account.main"
+    return f"{resource_type}.{safe_tf_name(provider + '_' + component_id)}"
+
+
 def component_kind(logical: str) -> str:
     return {
         "component.ingestion": "managed_service",
@@ -897,7 +915,11 @@ def build_catalog_component(
     selected = [service_index[(provider, item)] for item in service_ids]
     resource_addresses = sorted(
         {
-            f"{resource_type}.{safe_tf_name(provider + '_' + item['component_id'])}"
+            terraform_resource_address(
+                provider,
+                item["component_id"],
+                resource_type,
+            )
             for item in selected
             for resource_type in item["terraform_resource_types"]
         }
