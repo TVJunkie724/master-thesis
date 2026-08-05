@@ -79,6 +79,11 @@ def test_gcp_v2_container_context_is_deterministic_and_complete(tmp_path):
         assert {
             ".dockerignore",
             "Dockerfile",
+            "grafana/Dockerfile",
+            "grafana/dashboard.json.template",
+            "grafana/entrypoint.sh",
+            "grafana/provisioning/dashboards/twin2multicloud.yaml",
+            "grafana/provisioning/datasources/twin2multicloud.yaml",
             "platform/app.py",
             "platform/constraints.txt",
             "platform/core.py",

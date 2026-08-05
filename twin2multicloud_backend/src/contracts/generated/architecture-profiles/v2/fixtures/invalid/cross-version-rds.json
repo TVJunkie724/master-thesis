@@ -3,7 +3,7 @@
   "document": {
     "schema_version": "resolved-twin-architecture.v2",
     "resolution_status": "offline_contract_fixture",
-    "resolution_id": "fd500829-354c-56ef-827f-781174acf410",
+    "resolution_id": "8b4897be-cb65-5a46-b25c-654265662260",
     "calculation_run_id": "5a6cddb4-41fb-548a-a13e-14c21a5b77b6",
     "architecture_profile_ref": {
       "id": "five-layer-baseline",
@@ -31,7 +31,7 @@
       {
         "id": "provider-profile.gcp.five-layer-baseline-v2",
         "version": "1",
-        "digest": "sha256:ea43a3cb4ae57a71935cba2a5ae2dbd0c1c0d7b47c604359348ae6685e5a9280",
+        "digest": "sha256:f7f1b06ab40043f6a6207c5271c1462ff3d5a47e2749faad57139b7d3011bf33",
         "provider": "gcp"
       }
     ],
@@ -44,14 +44,14 @@
       {
         "id": "pricing-evidence.azure.phase-08-v2",
         "version": "1",
-        "digest": "sha256:a32892c9f7405673e53b0aee8397fd6f83cfae6264b4ae82cfa42feb57e6545e",
+        "digest": "sha256:acf00dccd0521168da97afa7833d8216a02c6fe9ef868738fc32caee334f2942",
         "provider": "azure",
         "currency": "USD"
       },
       {
         "id": "pricing-evidence.gcp.phase-08-v2",
         "version": "1",
-        "digest": "sha256:a32892c9f7405673e53b0aee8397fd6f83cfae6264b4ae82cfa42feb57e6545e",
+        "digest": "sha256:acf00dccd0521168da97afa7833d8216a02c6fe9ef868738fc32caee334f2942",
         "provider": "gcp",
         "currency": "USD"
       }
@@ -236,7 +236,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.gcp.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:ea43a3cb4ae57a71935cba2a5ae2dbd0c1c0d7b47c604359348ae6685e5a9280"
+          "digest": "sha256:f7f1b06ab40043f6a6207c5271c1462ff3d5a47e2749faad57139b7d3011bf33"
         },
         "deployment_component_id": "deployment.gcp.twin-state.v2",
         "deployment_component_version": "1",
@@ -255,11 +255,11 @@
           "gcp.cloud-run-twin-api-materializer",
           "gcp.firestore-native-standard-bounded-twin",
           "gcp.cloud-run-iap-twin-explorer",
+          "gcp.direct-iap-layer-access",
           "gcp.pubsub-separated-embedded-topics",
           "gcp.cloud-run-event-adapter",
           "gcp.cloud-logging",
           "gcp.cloud-monitoring",
-          "gcp.direct-iap-layer-access",
           "gcp.artifact-registry-if-container-selected"
         ],
         "cost_contribution": {
@@ -583,7 +583,7 @@
     ],
     "deployment_specification_ref": {
       "schema_version": "resolved-deployment-specification.v1",
-      "digest": "sha256:bb6a63a70937b278406dd3dd1786625d878f38cf425ccbb1597ca7bde5a4e9cb",
+      "digest": "sha256:4e4701538e60e5f9824b5a452760767032dac5d95a734884cb7553219fc826cc",
       "calculation_run_id": "5a6cddb4-41fb-548a-a13e-14c21a5b77b6"
     },
     "cost_summary": {
@@ -697,8 +697,8 @@
       "provider_extra_capability_ids": [],
       "missing_capability_ids": [],
       "validator_version": "2",
-      "validation_digest": "sha256:d37c4d694bcd9ffb385a283b6414a776a71b617b6077951bbfe6012ebca718e8"
+      "validation_digest": "sha256:5b1a2420bcc4c00359001b66a4f82e12de4528087ad127ba08b40f7309aeacca"
     },
-    "content_digest": "sha256:ed0ba844bc74e36b2c25b0b9cf66cf48c3b571a7103a3aac41c4dba6a6c5d798"
+    "content_digest": "sha256:8c80c8ffca6ce8ead440d09c4fcec6032da4292a543758990229e61a5d75d6e5"
   }
 }

@@ -1,5 +1,8 @@
 {
     "admin_email": "platform-user@challerlive560.onmicrosoft.com",
     "admin_first_name": "Platform",
-    "admin_last_name": "Admin"
+    "admin_last_name": "Admin",
+    "gcp_grafana_source_cidrs": [
+        "203.0.113.42/32"
+    ]
 }

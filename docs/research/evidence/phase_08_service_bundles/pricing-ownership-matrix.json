@@ -893,7 +893,9 @@
         "publish_bytes",
         "delivery_bytes",
         "connected_devices",
-        "messages"
+        "messages",
+        "node_count",
+        "node_hours"
       ],
       "deduplication_key": "gcp.ordered-mqtt-pubsub-adapter"
     },

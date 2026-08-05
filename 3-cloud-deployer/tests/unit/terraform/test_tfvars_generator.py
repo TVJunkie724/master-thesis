@@ -235,6 +235,7 @@ def test_load_platform_user_maps_existing_azure_principal_without_credentials(tm
                 "admin_last_name": "Researcher",
                 "azure_principal_object_id": "11111111-1111-1111-1111-111111111111",
                 "azure_principal_label": "researcher@example.test",
+                "gcp_grafana_source_cidrs": ["203.0.113.42/32"],
             }
         )
     )
@@ -245,6 +246,7 @@ def test_load_platform_user_maps_existing_azure_principal_without_credentials(tm
         "11111111-1111-1111-1111-111111111111"
     )
     assert result["azure_layer_access_principal_label"] == "researcher@example.test"
+    assert result["gcp_grafana_source_cidrs"] == ["203.0.113.42/32"]
     assert "password" not in result
 
 

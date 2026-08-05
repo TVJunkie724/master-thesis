@@ -3,7 +3,7 @@
   "schema_version": "1.0.0",
   "package_id": "phase-08-complete-service-bundles@1",
   "artifact_id": "source-ledger",
-  "research_cutoff": "2026-08-03",
+  "research_cutoff": "2026-08-05",
   "source_policy": "primary_provider_or_upstream_project_documentation",
   "facts": [
     {
@@ -129,6 +129,7 @@
     {"source_id":"terraform-google-worker-pool-7-22","title":"Google provider 7.22.0 Cloud Run v2 Worker Pool resource","url":"https://registry.terraform.io/providers/hashicorp/google/7.22.0/docs/resources/cloud_run_v2_worker_pool","checked_on":"2026-08-03"},
     {"source_id":"terraform-google-direct-iap-7-22","title":"Google provider 7.22.0 direct Cloud Run IAP IAM resource","url":"https://registry.terraform.io/providers/hashicorp/google/7.22.0/docs/resources/iap_web_cloud_run_service_iam","checked_on":"2026-08-03"},
     {"source_id":"terraform-kubernetes-2-38","title":"Kubernetes provider 2.38.0","url":"https://registry.terraform.io/providers/hashicorp/kubernetes/2.38.0","checked_on":"2026-08-03"},
+    {"source_id":"terraform-tls-4-3","title":"TLS provider 4.3.0","url":"https://registry.terraform.io/providers/hashicorp/tls/4.3.0","checked_on":"2026-08-05"},
     {"source_id":"phase-08-eventing-ledger","title":"Immutable Phase 8 Eventing source ledger","path":"docs/research/evidence/phase_08_eventing/source-ledger.json","byte_digest":"sha256:c64311e931f32213b366a2bdbe0d85da59972a94b666b39bb60ae5e2c0c7b0ee"}
   ]
 }

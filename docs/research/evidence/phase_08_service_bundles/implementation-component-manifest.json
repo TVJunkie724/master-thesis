@@ -3,7 +3,7 @@
   "schema_version": "1.0.0",
   "package_id": "phase-08-complete-service-bundles@1",
   "artifact_id": "implementation-component-manifest",
-  "bundle_digest": "sha256:becc51cf0701ccf37e64e2a4a3003ccee5c2c4489f43b7728116af3a592b0957",
+  "bundle_digest": "sha256:bbd24265510e851deff78383269633924479d0aa0b8df5c649370c5ceb4762f6",
   "route_digest": "sha256:e08ae2b6c2a1933adae54c5fed04b949b269b856f535b96787170e8820d32fee",
   "profile_targets": [
     "five-layer-baseline@2",
@@ -44,6 +44,12 @@
       "verified_version": "2.38.0",
       "version_constraint": ">= 2.38.0, < 3.0.0",
       "reason": "declarative BifroMQ and Grafana GKE workloads"
+    },
+    "tls": {
+      "source": "hashicorp/tls",
+      "verified_version": "4.3.0",
+      "version_constraint": ">= 4.3.0, < 5.0.0",
+      "reason": "deployment-generated self-signed certificate for the CIDR-scoped Grafana PoC endpoint"
     }
   },
   "terraform_apply_stages": [
@@ -78,6 +84,8 @@
       ],
       "terraform_resource_types": [
         "google_container_cluster",
+        "google_container_node_pool",
+        "kubernetes_namespace_v1",
         "kubernetes_deployment_v1"
       ],
       "post_terraform_operations": [],
@@ -2764,7 +2772,7 @@
       "provider": "gcp",
       "region": "europe-west1",
       "responsibilities": [
-        "support"
+        "l4_twin"
       ],
       "profile_refs": [
         "five-layer-baseline@2",
@@ -2781,10 +2789,10 @@
       ],
       "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
       "input_contracts": [
-        "storage_transition.v1"
+        "twin_projection.v1"
       ],
       "output_contracts": [
-        "storage_transition.v1"
+        "deployment-access.v1"
       ],
       "runtime_package": "managed_provider_api",
       "network_ports": [],
@@ -2946,13 +2954,14 @@
       "provider": "gcp",
       "region": "europe-west1",
       "responsibilities": [
-        "support"
+        "l5_visualization"
       ],
       "profile_refs": [
         "five-layer-baseline@2",
         "six-layer-eventing@1"
       ],
       "terraform_resource_types": [
+        "google_compute_address",
         "kubernetes_service_v1",
         "kubernetes_secret_v1"
       ],
@@ -2964,10 +2973,10 @@
       ],
       "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
       "input_contracts": [
-        "storage_transition.v1"
+        "raw_history_query.v1"
       ],
       "output_contracts": [
-        "storage_transition.v1"
+        "deployment-access.v1"
       ],
       "runtime_package": "managed_provider_api",
       "network_ports": [
@@ -3003,6 +3012,7 @@
         "six-layer-eventing@1"
       ],
       "terraform_resource_types": [
+        "google_container_node_pool",
         "kubernetes_deployment_v1"
       ],
       "post_terraform_operations": [],
@@ -3036,7 +3046,9 @@
         "publish_bytes",
         "delivery_bytes",
         "connected_devices",
-        "messages"
+        "messages",
+        "node_count",
+        "node_hours"
       ]
     },
     {
@@ -3052,6 +3064,7 @@
       ],
       "terraform_resource_types": [
         "google_compute_disk",
+        "kubernetes_persistent_volume_v1",
         "kubernetes_persistent_volume_claim_v1"
       ],
       "post_terraform_operations": [],
@@ -3223,8 +3236,9 @@
         "six-layer-eventing@1"
       ],
       "terraform_resource_types": [
-        "kubernetes_deployment_v1",
-        "kubernetes_service_v1"
+        "google_container_cluster",
+        "kubernetes_namespace_v1",
+        "kubernetes_deployment_v1"
       ],
       "post_terraform_operations": [],
       "runtime_state": "decision_frozen_not_implemented",

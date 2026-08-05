@@ -199,6 +199,61 @@ class FiveLayerV2ContractTests(unittest.TestCase):
         self.assertIn("azure.entra-layer-access-bindings", component_ids)
         self.assertIn("azure.monitor", component_ids)
 
+    def test_gcp_iap_is_l4_only_and_grafana_has_complete_platform_resources(
+        self,
+    ) -> None:
+        gcp_l5_aws_l4 = contract.build_rds(
+            contract.assignment_for_bundle("gcp", "aws"),
+            self.profile,
+            self.catalog,
+        )
+        selected = {
+            item["implementation_component_id"]
+            for item in gcp_l5_aws_l4["component_selections"]
+        }
+        self.assertNotIn("gcp.direct-iap-layer-access", selected)
+        self.assertIn("gcp.grafana-tls-load-balancer", selected)
+
+        gcp_visualization = next(
+            item
+            for item in self.catalog["components"]
+            if item["deployment_component_id"]
+            == "deployment.gcp.visualization.v2"
+        )
+        resources = set(
+            gcp_visualization["terraform_binding"]["resource_addresses"]
+        )
+        self.assertIn(
+            "google_container_cluster.gcp_grafana_oss_12_on_gke", resources
+        )
+        self.assertIn(
+            "kubernetes_namespace_v1.gcp_grafana_oss_12_on_gke", resources
+        )
+        self.assertIn(
+            "kubernetes_persistent_volume_v1.gcp_gcp_persistent_disk_rwo",
+            resources,
+        )
+        self.assertIn(
+            "google_compute_address.gcp_gcp_grafana_tls_load_balancer",
+            resources,
+        )
+        self.assertNotIn(
+            "kubernetes_service_v1.gcp_grafana_oss_12_on_gke", resources
+        )
+        self.assertFalse(any("direct_iap" in item for item in resources))
+
+        aws_l5_gcp_l4 = contract.build_rds(
+            contract.assignment_for_bundle("aws", "gcp"),
+            self.profile,
+            self.catalog,
+        )
+        selected = {
+            item["implementation_component_id"]
+            for item in aws_l5_gcp_l4["component_selections"]
+        }
+        self.assertIn("gcp.direct-iap-layer-access", selected)
+        self.assertNotIn("gcp.grafana-tls-load-balancer", selected)
+
     def test_capacity_dimensions_change_with_scenario(self) -> None:
         specifications = {
             provider: {
@@ -262,6 +317,75 @@ class FiveLayerV2ContractTests(unittest.TestCase):
                 "autoscale_max_ru_per_second",
             ),
             0,
+        )
+        self.assertEqual(
+            dimension(
+                "gcp",
+                "large",
+                "gcp.persistent-disk-rwo",
+                "stored_gib_month",
+            ),
+            "10",
+        )
+        self.assertEqual(
+            [
+                dimension(
+                    "gcp",
+                    size,
+                    "apache.bifromq-4.0.0-incubating-on-gke-standard",
+                    "resource_count",
+                )
+                for size in ("small", "medium", "large")
+            ],
+            [3, 3, 12],
+        )
+        self.assertEqual(
+            [
+                dimension(
+                    "gcp",
+                    size,
+                    "apache.bifromq-4.0.0-incubating-on-gke-standard",
+                    "node_count",
+                )
+                for size in ("small", "medium", "large")
+            ],
+            [3, 3, 12],
+        )
+        self.assertEqual(
+            [
+                dimension(
+                    "gcp",
+                    size,
+                    "apache.bifromq-4.0.0-incubating-on-gke-standard",
+                    "node_hours",
+                )
+                for size in ("small", "medium", "large")
+            ],
+            [2190, 2190, 8760],
+        )
+        self.assertEqual(
+            [
+                dimension(
+                    "gcp",
+                    size,
+                    "gcp.ordered-mqtt-pubsub-adapter",
+                    "node_count",
+                )
+                for size in ("small", "medium", "large")
+            ],
+            [0, 0, 4],
+        )
+        self.assertEqual(
+            [
+                dimension(
+                    "gcp",
+                    size,
+                    "gcp.ordered-mqtt-pubsub-adapter",
+                    "node_hours",
+                )
+                for size in ("small", "medium", "large")
+            ],
+            [0, 0, 2920],
         )
 
     def test_offline_fixtures_retain_exact_capacity_gates(self) -> None:

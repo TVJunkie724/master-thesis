@@ -115,6 +115,19 @@ provider "google" {
   credentials = var.gcp_credentials_json != "" ? var.gcp_credentials_json : "{\"type\":\"service_account\",\"project_id\":\"placeholder\",\"private_key_id\":\"\",\"private_key\":\"\",\"client_email\":\"placeholder@placeholder.iam.gserviceaccount.com\",\"client_id\":\"\",\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\",\"token_uri\":\"https://oauth2.googleapis.com/token\"}"
 }
 
+# Five-layer v2 GKE workloads are applied only after the Google resources in
+# stage 1 expose a cluster endpoint and short-lived access token.
+provider "kubernetes" {
+  host = local.gcp_v2_gke_enabled ? (
+    "https://${local.gcp_v2_gke_endpoint}"
+  ) : "https://127.0.0.1"
+  token = try(data.google_client_config.gcp_v2_kubernetes[0].access_token, "")
+  cluster_ca_certificate = try(
+    base64decode(local.gcp_v2_gke_ca_certificate),
+    "",
+  )
+}
+
 # ==============================================================================
 # Local Values
 # ==============================================================================

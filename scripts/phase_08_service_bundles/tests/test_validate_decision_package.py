@@ -164,6 +164,63 @@ class DecisionPackageValidatorTest(unittest.TestCase):
                 "google_iap_web_cloud_run_service_iam_member",
             },
         )
+        self.assertEqual(
+            set(components["grafana.oss-12-on-gke"]["terraform_resource_types"]),
+            {
+                "google_container_cluster",
+                "kubernetes_namespace_v1",
+                "kubernetes_deployment_v1",
+            },
+        )
+        self.assertEqual(
+            set(
+                components[
+                    "apache.bifromq-4.0.0-incubating-on-gke-standard"
+                ]["terraform_resource_types"]
+            ),
+            {
+                "google_container_cluster",
+                "google_container_node_pool",
+                "kubernetes_namespace_v1",
+                "kubernetes_deployment_v1",
+            },
+        )
+        self.assertEqual(
+            set(
+                components["gcp.ordered-mqtt-pubsub-adapter"][
+                    "terraform_resource_types"
+                ]
+            ),
+            {
+                "google_container_node_pool",
+                "kubernetes_deployment_v1",
+            },
+        )
+        self.assertIn(
+            "kubernetes_persistent_volume_v1",
+            components["gcp.persistent-disk-rwo"]["terraform_resource_types"],
+        )
+        self.assertIn(
+            "google_compute_address",
+            components["gcp.grafana-tls-load-balancer"][
+                "terraform_resource_types"
+            ],
+        )
+
+    def test_gcp_human_access_support_is_owned_by_the_exact_layer(self) -> None:
+        bundle = self.validator.load_json(
+            self.validator.EVIDENCE_ROOT / "complete-provider-bundles.json"
+        )
+        gcp = next(item for item in bundle["providers"] if item["provider"] == "gcp")
+        self.assertIn("gcp.direct-iap-layer-access", gcp["layers"]["l4_twin"])
+        self.assertNotIn("gcp.direct-iap-layer-access", gcp["support_components"])
+        self.assertIn(
+            "gcp.grafana-tls-load-balancer",
+            gcp["layers"]["l5_visualization"],
+        )
+        self.assertNotIn(
+            "gcp.grafana-tls-load-balancer", gcp["support_components"]
+        )
 
     def test_common_edge_contracts_are_closed_and_poc_bounded(self) -> None:
         contract = self.validator.load_json(

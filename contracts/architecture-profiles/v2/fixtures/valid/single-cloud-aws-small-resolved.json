@@ -36,7 +36,7 @@
     {
       "id": "pricing-evidence.aws.phase-08-v2",
       "version": "1",
-      "digest": "sha256:a32892c9f7405673e53b0aee8397fd6f83cfae6264b4ae82cfa42feb57e6545e",
+      "digest": "sha256:acf00dccd0521168da97afa7833d8216a02c6fe9ef868738fc32caee334f2942",
       "provider": "aws",
       "currency": "USD"
     }
@@ -561,7 +561,7 @@
   ],
   "deployment_specification_ref": {
     "schema_version": "resolved-deployment-specification.v2",
-    "digest": "sha256:8eda10d96b6db630afed5643478ace11cc9195f4df6924994b88cc79f4a2518b",
+    "digest": "sha256:c1a0e154010d29fede5711f0edab7daa5c329713741d9e0d6aacd296c8a595d0",
     "calculation_run_id": "420bd4ff-8700-5034-8313-334244c0d0b1"
   },
   "cost_summary": {
@@ -675,7 +675,7 @@
     "provider_extra_capability_ids": [],
     "missing_capability_ids": [],
     "validator_version": "2",
-    "validation_digest": "sha256:d37c4d694bcd9ffb385a283b6414a776a71b617b6077951bbfe6012ebca718e8"
+    "validation_digest": "sha256:5b1a2420bcc4c00359001b66a4f82e12de4528087ad127ba08b40f7309aeacca"
   },
-  "content_digest": "sha256:18772aa1841b3e6014dbc5a7d7e8428c473c6d7445952b8da3bb0373da2dc18d"
+  "content_digest": "sha256:088573fefbba53878d59c5a3d52288814ec0790038a98381971ab7ae3b0595d3"
 }

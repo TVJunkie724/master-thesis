@@ -103,10 +103,15 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
     "azure.functions-flex-event-worker": ["azurerm_function_app_flex_consumption"],
     "apache.bifromq-4.0.0-incubating-on-gke-standard": [
         "google_container_cluster",
+        "google_container_node_pool",
+        "kubernetes_namespace_v1",
         "kubernetes_deployment_v1",
     ],
     "gcp.external-load-balancer": ["kubernetes_service_v1"],
-    "gcp.ordered-mqtt-pubsub-adapter": ["kubernetes_deployment_v1"],
+    "gcp.ordered-mqtt-pubsub-adapter": [
+        "google_container_node_pool",
+        "kubernetes_deployment_v1",
+    ],
     "gcp.cloud-run-service": ["google_cloud_run_v2_service"],
     "gcp.workflows": ["google_workflows_workflow"],
     "gcp.firestore-native-standard-raw-and-rollup": [
@@ -126,9 +131,14 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
         "google_cloud_run_v2_service_iam_member",
         "google_iap_web_cloud_run_service_iam_member",
     ],
-    "grafana.oss-12-on-gke": ["kubernetes_deployment_v1", "kubernetes_service_v1"],
+    "grafana.oss-12-on-gke": [
+        "google_container_cluster",
+        "kubernetes_namespace_v1",
+        "kubernetes_deployment_v1",
+    ],
     "gcp.persistent-disk-rwo": [
         "google_compute_disk",
+        "kubernetes_persistent_volume_v1",
         "kubernetes_persistent_volume_claim_v1",
     ],
     "gcp.cloud-run-raw-history-reader": ["google_cloud_run_v2_service"],
@@ -140,7 +150,11 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
     "gcp.cloud-logging": [],
     "gcp.cloud-monitoring": [],
     "gcp.direct-iap-layer-access": ["google_iap_web_cloud_run_service_iam_member"],
-    "gcp.grafana-tls-load-balancer": ["kubernetes_service_v1", "kubernetes_secret_v1"],
+    "gcp.grafana-tls-load-balancer": [
+        "google_compute_address",
+        "kubernetes_service_v1",
+        "kubernetes_secret_v1",
+    ],
     "gcp.pubsub-separated-embedded-topics": [
         "google_pubsub_topic",
         "google_pubsub_subscription",
@@ -209,6 +223,12 @@ TERRAFORM_PROVIDER_REQUIREMENTS = {
         "verified_version": "2.38.0",
         "version_constraint": ">= 2.38.0, < 3.0.0",
         "reason": "declarative BifroMQ and Grafana GKE workloads",
+    },
+    "tls": {
+        "source": "hashicorp/tls",
+        "verified_version": "4.3.0",
+        "version_constraint": ">= 4.3.0, < 5.0.0",
+        "reason": "deployment-generated self-signed certificate for the CIDR-scoped Grafana PoC endpoint",
     },
 }
 
@@ -288,6 +308,8 @@ def dimensions(component_id: str) -> list[str]:
             for dimension in mapped_dimensions:
                 if dimension not in values:
                     values.append(dimension)
+    if component_id == "gcp.ordered-mqtt-pubsub-adapter":
+        values.extend(["node_count", "node_hours"])
     return values
 
 

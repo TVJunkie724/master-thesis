@@ -8,9 +8,11 @@ mock_provider "awscc" {}
 mock_provider "azuread" {}
 mock_provider "azurerm" {}
 mock_provider "google" {}
+mock_provider "kubernetes" {}
 mock_provider "local" {}
 mock_provider "random" {}
 mock_provider "time" {}
+mock_provider "tls" {}
 
 run "five_layer_v2_single_cloud_aws_binds_only_reviewed_bundle" {
   command = plan
@@ -346,6 +348,8 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
     gcp_v2_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     gcp_v2_processor_extension_image      = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     gcp_v2_storage_mover_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    gcp_v2_grafana_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    gcp_grafana_source_cidrs              = ["203.0.113.42/32"]
     enable_gcp_logging                    = false
     validated_extension_packages = [{
       slot_id         = "processor.telemetry"
@@ -379,7 +383,6 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
       "iap.googleapis.com",
       "logging.googleapis.com",
       "monitoring.googleapis.com",
-      "secretmanager.googleapis.com",
       "storage.googleapis.com",
       "workflows.googleapis.com",
     ])
@@ -403,6 +406,26 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
       length(google_workflows_workflow.gcp_gcp_workflows) == 1
     )
     error_message = "Single-cloud GCP v2 must bind its event adapter, validated processor, action boundary, workflow, Twin API, and IAP Explorer."
+  }
+
+  assert {
+    condition = (
+      length(google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard) == 1 &&
+      length(google_container_cluster.gcp_grafana_oss_12_on_gke) == 0 &&
+      google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].initial_node_count == 1 &&
+      !google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].remove_default_node_pool &&
+      google_container_node_pool.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].node_count == 3 &&
+      length(google_container_node_pool.gcp_gcp_ordered_mqtt_pubsub_adapter) == 0 &&
+      length(kubernetes_namespace_v1.gcp_grafana_oss_12_on_gke) == 1 &&
+      length(google_compute_disk.gcp_gcp_persistent_disk_rwo) == 1 &&
+      length(kubernetes_persistent_volume_v1.gcp_gcp_persistent_disk_rwo) == 1 &&
+      length(kubernetes_persistent_volume_claim_v1.gcp_gcp_persistent_disk_rwo) == 1 &&
+      length(kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer) == 1 &&
+      length(kubernetes_deployment_v1.gcp_grafana_oss_12_on_gke) == 1 &&
+      length(kubernetes_service_v1.gcp_gcp_grafana_tls_load_balancer) == 1 &&
+      length(google_compute_address.gcp_gcp_grafana_tls_load_balancer) == 1
+    )
+    error_message = "Single-cloud GCP v2 must retain one general L5 node beside the three-node BifroMQ pool and bind exactly one Grafana pod, disk, TLS secret, and CIDR-scoped LoadBalancer."
   }
 
   assert {
@@ -453,6 +476,8 @@ run "five_layer_v2_gcp_source_owns_both_remote_archive_transitions" {
     gcp_v2_platform_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     gcp_v2_processor_extension_image       = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     gcp_v2_storage_mover_image             = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    gcp_v2_grafana_image                   = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    gcp_grafana_source_cidrs               = ["203.0.113.42/32"]
     azure_layer_access_principal_object_id = "11111111-1111-1111-1111-111111111111"
     azure_layer_access_principal_label     = "researcher@example.test"
     enable_gcp_logging                     = false
@@ -485,6 +510,8 @@ run "five_layer_v2_gcp_source_owns_both_remote_archive_transitions" {
   assert {
     condition = (
       terraform_data.gcp_v2_hot_capacity_guard[0].input.timestamp_shards == 16 &&
+      google_container_node_pool.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].node_count == 12 &&
+      google_container_node_pool.gcp_gcp_ordered_mqtt_pubsub_adapter[0].node_count == 4 &&
       toset(keys(google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup)) == toset(["raw_history", "raw_mover", "rollup_history"]) &&
       contains([for field in google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup["raw_history"].fields : field.field_path], "timestamp_shard") &&
       contains([for field in google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup["raw_mover"].fields : field.field_path], "timestamp_shard") &&
@@ -497,6 +524,30 @@ run "five_layer_v2_gcp_source_owns_both_remote_archive_transitions" {
 run "five_layer_v2_gcp_archive_only_accepts_remote_cool_objects" {
   command = plan
 
+  override_data {
+    target = data.aws_caller_identity.current
+    values = {
+      account_id = "123456789012"
+      arn        = "arn:aws:iam::123456789012:user/terraform-mock"
+      user_id    = "AIDACKCEVSQ6C2EXAMPLE"
+    }
+  }
+
+  override_data {
+    target = data.aws_ssoadmin_instances.aws_v2_layer_access
+    values = {
+      arns               = ["arn:aws:sso:::instance/ssoins-0123456789abcdef"]
+      identity_store_ids = ["d-0123456789"]
+    }
+  }
+
+  override_data {
+    target = data.aws_identitystore_users.aws_v2_layer_access
+    values = {
+      users = []
+    }
+  }
+
   variables {
     digital_twin_name                     = "drift-test"
     architecture_profile_id               = "five-layer-baseline"
@@ -507,7 +558,7 @@ run "five_layer_v2_gcp_archive_only_accepts_remote_cool_objects" {
     layer_3_cold_provider                 = "aws"
     layer_3_archive_provider              = "google"
     layer_4_provider                      = "google"
-    layer_5_provider                      = "google"
+    layer_5_provider                      = "aws"
     layer_3_hot_to_cold_interval_days     = 30
     layer_3_cold_to_archive_interval_days = 90
     layer_3_archive_expiry_interval_days  = 365

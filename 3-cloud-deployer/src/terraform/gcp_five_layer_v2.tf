@@ -11,6 +11,7 @@ locals {
   gcp_v2_archive_enabled = local.five_layer_v2_enabled && var.layer_3_archive_provider == "google"
   gcp_v2_l4_enabled      = local.five_layer_v2_enabled && var.layer_4_provider == "google"
   gcp_v2_l5_enabled      = local.five_layer_v2_enabled && var.layer_5_provider == "google"
+  gcp_v2_gke_enabled     = local.gcp_v2_l1_enabled || local.gcp_v2_l5_enabled
 
   gcp_v2_any_enabled = (
     local.gcp_v2_l1_enabled || local.gcp_v2_l2_enabled ||
@@ -49,8 +50,7 @@ locals {
     local.gcp_v2_cool_enabled || local.gcp_v2_archive_enabled ? "storage.googleapis.com" : "",
     local.gcp_v2_l2_enabled ? "workflows.googleapis.com" : "",
     local.gcp_v2_storage_mover_enabled ? "cloudscheduler.googleapis.com" : "",
-    local.gcp_v2_l4_enabled || local.gcp_v2_l5_enabled ? "iap.googleapis.com" : "",
-    local.gcp_v2_l5_enabled ? "secretmanager.googleapis.com" : "",
+    local.gcp_v2_l4_enabled ? "iap.googleapis.com" : "",
   ])) : toset([])
 
   gcp_v2_name          = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 24)
@@ -61,6 +61,48 @@ locals {
   gcp_v2_labels = merge(local.gcp_common_labels, {
     architecture-profile = "five-layer-v2"
   })
+
+  gcp_v2_large_scenario = (
+    local.gcp_v2_timestamp_shards == 16 ||
+    tonumber(lookup(
+      var.resolved_component_dimensions,
+      "dimension.gcp.apache.bifromq-4.0.0-incubating-on-gke-standard.resource_count",
+      "3",
+    )) > 3
+  )
+  gcp_v2_bifromq_broker_nodes = tonumber(lookup(
+    var.resolved_component_dimensions,
+    "dimension.gcp.apache.bifromq-4.0.0-incubating-on-gke-standard.resource_count",
+    local.gcp_v2_large_scenario ? "12" : "3",
+  ))
+  gcp_v2_bifromq_integration_nodes = tonumber(lookup(
+    var.resolved_component_dimensions,
+    "dimension.gcp.gcp.ordered-mqtt-pubsub-adapter.node_count",
+    local.gcp_v2_large_scenario ? "4" : "0",
+  ))
+  gcp_v2_gke_zone             = "${var.gcp_region}-b"
+  gcp_v2_grafana_machine_type = local.gcp_v2_large_scenario ? "e2-standard-8" : "e2-standard-4"
+  gcp_v2_grafana_disk_gib = tonumber(lookup(
+    var.resolved_component_dimensions,
+    "dimension.gcp.gcp.persistent-disk-rwo.stored_gib_month",
+    "10",
+  ))
+  gcp_v2_grafana_namespace = "${local.gcp_v2_name}-grafana"
+  gcp_v2_bifromq_namespace = "${local.gcp_v2_name}-bifromq"
+  gcp_v2_gke_endpoint = local.gcp_v2_l1_enabled ? try(
+    google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].endpoint,
+    "127.0.0.1",
+    ) : local.gcp_v2_l5_enabled ? try(
+    google_container_cluster.gcp_grafana_oss_12_on_gke[0].endpoint,
+    "127.0.0.1",
+  ) : "127.0.0.1"
+  gcp_v2_gke_ca_certificate = local.gcp_v2_l1_enabled ? try(
+    google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].master_auth[0].cluster_ca_certificate,
+    "",
+    ) : local.gcp_v2_l5_enabled ? try(
+    google_container_cluster.gcp_grafana_oss_12_on_gke[0].master_auth[0].cluster_ca_certificate,
+    "",
+  ) : ""
 
   gcp_v2_processor_extensions = local.gcp_v2_l2_enabled ? {
     for package in var.validated_extension_packages : package.artifact_id => package
@@ -181,6 +223,38 @@ resource "terraform_data" "gcp_v2_foundation_guard" {
       )
       error_message = "GCP Five-layer v2 storage-mover images must come from the deployment Artifact Registry repository."
     }
+    precondition {
+      condition     = !local.gcp_v2_l5_enabled || var.gcp_v2_grafana_image != ""
+      error_message = "GCP Five-layer v2 L5 requires the content-addressed Grafana 12 image with the reviewed Infinity plugin."
+    }
+    precondition {
+      condition = (
+        !local.gcp_v2_l5_enabled ||
+        startswith(var.gcp_v2_grafana_image, local.gcp_v2_registry_prefix)
+      )
+      error_message = "GCP Five-layer v2 Grafana images must come from the deployment Artifact Registry repository."
+    }
+    precondition {
+      condition     = !local.gcp_v2_l5_enabled || length(var.gcp_grafana_source_cidrs) > 0
+      error_message = "GCP Five-layer v2 L5 requires a non-empty Grafana LoadBalancer source CIDR allowlist."
+    }
+    precondition {
+      condition     = !local.gcp_v2_l5_enabled || local.gcp_v2_grafana_disk_gib == 10
+      error_message = "GCP Five-layer v2 Grafana requires the reviewed fixed 10 GiB PoC Persistent Disk allocation."
+    }
+    precondition {
+      condition = (
+        !local.gcp_v2_l1_enabled ||
+        (
+          local.gcp_v2_bifromq_broker_nodes == 3 &&
+          local.gcp_v2_bifromq_integration_nodes == 0
+          ) || (
+          local.gcp_v2_bifromq_broker_nodes == 12 &&
+          local.gcp_v2_bifromq_integration_nodes == 4
+        )
+      )
+      error_message = "GCP Five-layer v2 requires the reviewed 3/0 Small-Medium or 12/4 Large BifroMQ broker/integration node allocation."
+    }
   }
 }
 
@@ -239,6 +313,217 @@ resource "google_artifact_registry_repository" "gcp_gcp_artifact_registry_if_con
   depends_on = [
     google_project_service.gcp_v2_required,
     terraform_data.gcp_v2_foundation_guard,
+  ]
+}
+
+# L1 owns the shared Standard cluster when BifroMQ is selected. The default
+# pool is retained only for L5's one general-workload node; otherwise it is
+# removed. BifroMQ broker and Large-only integration capacity are explicit
+# fixed-count pools, matching the frozen 3/3/12 + 0/0/4 allocation.
+resource "google_container_cluster" "gcp_apache_bifromq_4_0_0_incubating_on_gke_standard" {
+  count    = local.gcp_v2_l1_enabled ? 1 : 0
+  project  = local.gcp_project_id
+  name     = "${local.gcp_v2_name}-v2-gke"
+  location = local.gcp_v2_gke_zone
+
+  description              = "Twin2MultiCloud Five-layer v2 shared BifroMQ and Grafana PoC cluster"
+  deletion_protection      = false
+  remove_default_node_pool = !local.gcp_v2_l5_enabled
+  initial_node_count       = 1
+  networking_mode          = "VPC_NATIVE"
+  enable_shielded_nodes    = true
+  resource_labels          = local.gcp_v2_labels
+
+  release_channel {
+    channel = "REGULAR"
+  }
+
+  ip_allocation_policy {}
+
+  workload_identity_config {
+    workload_pool = "${local.gcp_project_id}.svc.id.goog"
+  }
+
+  node_config {
+    machine_type = local.gcp_v2_grafana_machine_type
+    disk_type    = "pd-balanced"
+    disk_size_gb = 50
+    oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+    labels       = local.gcp_v2_labels
+
+    metadata = {
+      disable-legacy-endpoints = "true"
+    }
+
+    workload_metadata_config {
+      mode = "GKE_METADATA"
+    }
+
+    shielded_instance_config {
+      enable_secure_boot          = true
+      enable_integrity_monitoring = true
+    }
+  }
+
+  depends_on = [google_project_service.gcp_v2_required]
+}
+
+resource "google_container_node_pool" "gcp_apache_bifromq_4_0_0_incubating_on_gke_standard" {
+  count      = local.gcp_v2_l1_enabled ? 1 : 0
+  project    = local.gcp_project_id
+  name       = "${local.gcp_v2_name}-v2-broker"
+  location   = local.gcp_v2_gke_zone
+  cluster    = google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].name
+  node_count = local.gcp_v2_bifromq_broker_nodes
+
+  management {
+    auto_repair  = true
+    auto_upgrade = true
+  }
+
+  node_config {
+    machine_type = "e2-standard-8"
+    disk_type    = "pd-balanced"
+    disk_size_gb = 100
+    oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+    labels = merge(local.gcp_v2_labels, {
+      workload = "bifromq-broker"
+    })
+
+    metadata = {
+      disable-legacy-endpoints = "true"
+    }
+
+    workload_metadata_config {
+      mode = "GKE_METADATA"
+    }
+
+    shielded_instance_config {
+      enable_secure_boot          = true
+      enable_integrity_monitoring = true
+    }
+  }
+}
+
+resource "google_container_node_pool" "gcp_gcp_ordered_mqtt_pubsub_adapter" {
+  count      = local.gcp_v2_l1_enabled && local.gcp_v2_bifromq_integration_nodes > 0 ? 1 : 0
+  project    = local.gcp_project_id
+  name       = "${local.gcp_v2_name}-v2-integration"
+  location   = local.gcp_v2_gke_zone
+  cluster    = google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].name
+  node_count = local.gcp_v2_bifromq_integration_nodes
+
+  management {
+    auto_repair  = true
+    auto_upgrade = true
+  }
+
+  node_config {
+    machine_type = "e2-standard-8"
+    disk_type    = "pd-balanced"
+    disk_size_gb = 100
+    oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+    labels = merge(local.gcp_v2_labels, {
+      workload = "bifromq-integration"
+    })
+
+    metadata = {
+      disable-legacy-endpoints = "true"
+    }
+
+    workload_metadata_config {
+      mode = "GKE_METADATA"
+    }
+
+    shielded_instance_config {
+      enable_secure_boot          = true
+      enable_integrity_monitoring = true
+    }
+  }
+}
+
+# When L1 is elsewhere, L5 owns one zonal one-node Standard cluster. This is
+# the only additional cluster permitted by the reviewed GCP visualization
+# bundle.
+resource "google_container_cluster" "gcp_grafana_oss_12_on_gke" {
+  count    = local.gcp_v2_l5_enabled && !local.gcp_v2_l1_enabled ? 1 : 0
+  project  = local.gcp_project_id
+  name     = "${local.gcp_v2_name}-v2-grafana-gke"
+  location = local.gcp_v2_gke_zone
+
+  description              = "Twin2MultiCloud Five-layer v2 single-node Grafana PoC cluster"
+  deletion_protection      = false
+  remove_default_node_pool = false
+  initial_node_count       = 1
+  networking_mode          = "VPC_NATIVE"
+  enable_shielded_nodes    = true
+  resource_labels          = local.gcp_v2_labels
+
+  release_channel {
+    channel = "REGULAR"
+  }
+
+  ip_allocation_policy {}
+
+  workload_identity_config {
+    workload_pool = "${local.gcp_project_id}.svc.id.goog"
+  }
+
+  node_config {
+    machine_type = local.gcp_v2_grafana_machine_type
+    disk_type    = "pd-balanced"
+    disk_size_gb = 50
+    oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+    labels       = local.gcp_v2_labels
+
+    metadata = {
+      disable-legacy-endpoints = "true"
+    }
+
+    workload_metadata_config {
+      mode = "GKE_METADATA"
+    }
+
+    shielded_instance_config {
+      enable_secure_boot          = true
+      enable_integrity_monitoring = true
+    }
+  }
+
+  depends_on = [google_project_service.gcp_v2_required]
+}
+
+data "google_client_config" "gcp_v2_kubernetes" {
+  count = local.gcp_v2_gke_enabled ? 1 : 0
+
+  depends_on = [
+    google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard,
+    google_container_cluster.gcp_grafana_oss_12_on_gke,
+  ]
+}
+
+resource "kubernetes_namespace_v1" "gcp_apache_bifromq_4_0_0_incubating_on_gke_standard" {
+  count = local.gcp_v2_l1_enabled ? 1 : 0
+
+  metadata {
+    name   = local.gcp_v2_bifromq_namespace
+    labels = local.gcp_v2_labels
+  }
+
+  depends_on = [google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard]
+}
+
+resource "kubernetes_namespace_v1" "gcp_grafana_oss_12_on_gke" {
+  count = local.gcp_v2_l5_enabled ? 1 : 0
+
+  metadata {
+    name   = local.gcp_v2_grafana_namespace
+    labels = local.gcp_v2_labels
+  }
+
+  depends_on = [
+    google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard,
+    google_container_cluster.gcp_grafana_oss_12_on_gke,
   ]
 }
 
@@ -778,6 +1063,401 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_raw_history_reader" {
     google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup,
     google_project_iam_member.gcp_v2_reader_firestore_reader,
   ]
+}
+
+resource "google_compute_disk" "gcp_gcp_persistent_disk_rwo" {
+  count   = local.gcp_v2_l5_enabled ? 1 : 0
+  project = local.gcp_project_id
+  zone    = local.gcp_v2_gke_zone
+  name    = "${local.gcp_v2_name}-v2-grafana"
+  type    = "pd-balanced"
+  size    = local.gcp_v2_grafana_disk_gib
+  labels  = local.gcp_v2_labels
+
+  depends_on = [google_project_service.gcp_v2_required]
+}
+
+resource "google_compute_address" "gcp_gcp_grafana_tls_load_balancer" {
+  count        = local.gcp_v2_l5_enabled ? 1 : 0
+  project      = local.gcp_project_id
+  region       = var.gcp_region
+  name         = "${local.gcp_v2_name}-v2-grafana"
+  description  = "Static address for the CIDR-scoped Five-layer v2 Grafana PoC endpoint"
+  address_type = "EXTERNAL"
+  network_tier = "PREMIUM"
+  labels       = local.gcp_v2_labels
+
+  depends_on = [google_project_service.gcp_v2_required]
+}
+
+resource "tls_private_key" "gcp_v2_grafana" {
+  count       = local.gcp_v2_l5_enabled ? 1 : 0
+  algorithm   = "ECDSA"
+  ecdsa_curve = "P256"
+}
+
+resource "tls_self_signed_cert" "gcp_v2_grafana" {
+  count           = local.gcp_v2_l5_enabled ? 1 : 0
+  private_key_pem = tls_private_key.gcp_v2_grafana[0].private_key_pem
+
+  subject {
+    common_name  = google_compute_address.gcp_gcp_grafana_tls_load_balancer[0].address
+    organization = "Twin2MultiCloud thesis PoC"
+  }
+
+  ip_addresses          = [google_compute_address.gcp_gcp_grafana_tls_load_balancer[0].address]
+  validity_period_hours = 8760
+  early_renewal_hours   = 168
+  allowed_uses = [
+    "digital_signature",
+    "key_encipherment",
+    "server_auth",
+  ]
+}
+
+resource "random_password" "gcp_v2_grafana_admin" {
+  count   = local.gcp_v2_l5_enabled ? 1 : 0
+  length  = 32
+  special = false
+}
+
+resource "random_password" "gcp_v2_grafana_viewer" {
+  count   = local.gcp_v2_l5_enabled ? 1 : 0
+  length  = 24
+  special = false
+}
+
+resource "kubernetes_persistent_volume_v1" "gcp_gcp_persistent_disk_rwo" {
+  count = local.gcp_v2_l5_enabled ? 1 : 0
+
+  metadata {
+    name = "${local.gcp_v2_name}-grafana-pv"
+    labels = merge(local.gcp_v2_labels, {
+      component = "grafana"
+    })
+  }
+
+  spec {
+    access_modes                     = ["ReadWriteOnce"]
+    persistent_volume_reclaim_policy = "Retain"
+    storage_class_name               = ""
+
+    capacity = {
+      storage = "${local.gcp_v2_grafana_disk_gib}Gi"
+    }
+
+    persistent_volume_source {
+      csi {
+        driver        = "pd.csi.storage.gke.io"
+        volume_handle = google_compute_disk.gcp_gcp_persistent_disk_rwo[0].id
+        fs_type       = "ext4"
+      }
+    }
+  }
+
+  depends_on = [
+    google_compute_disk.gcp_gcp_persistent_disk_rwo,
+    kubernetes_namespace_v1.gcp_grafana_oss_12_on_gke,
+  ]
+}
+
+resource "kubernetes_persistent_volume_claim_v1" "gcp_gcp_persistent_disk_rwo" {
+  count            = local.gcp_v2_l5_enabled ? 1 : 0
+  wait_until_bound = true
+
+  metadata {
+    name      = "grafana-data"
+    namespace = local.gcp_v2_grafana_namespace
+    labels = merge(local.gcp_v2_labels, {
+      component = "grafana"
+    })
+  }
+
+  spec {
+    access_modes       = ["ReadWriteOnce"]
+    storage_class_name = ""
+    volume_name        = kubernetes_persistent_volume_v1.gcp_gcp_persistent_disk_rwo[0].metadata[0].name
+
+    resources {
+      requests = {
+        storage = "${local.gcp_v2_grafana_disk_gib}Gi"
+      }
+    }
+  }
+}
+
+resource "kubernetes_secret_v1" "gcp_gcp_grafana_tls_load_balancer" {
+  count = local.gcp_v2_l5_enabled ? 1 : 0
+
+  metadata {
+    name      = "grafana-runtime"
+    namespace = local.gcp_v2_grafana_namespace
+    labels = merge(local.gcp_v2_labels, {
+      component = "grafana"
+    })
+  }
+
+  data = {
+    "tls.crt"         = tls_self_signed_cert.gcp_v2_grafana[0].cert_pem
+    "tls.key"         = tls_private_key.gcp_v2_grafana[0].private_key_pem
+    "admin-user"      = "provisioner"
+    "admin-password"  = random_password.gcp_v2_grafana_admin[0].result
+    "viewer-user"     = var.platform_user_email
+    "viewer-password" = random_password.gcp_v2_grafana_viewer[0].result
+    "reader-key"      = random_password.gcp_v2_raw_history_reader_key[0].result
+  }
+  type = "Opaque"
+}
+
+resource "kubernetes_deployment_v1" "gcp_grafana_oss_12_on_gke" {
+  count            = local.gcp_v2_l5_enabled ? 1 : 0
+  wait_for_rollout = true
+
+  metadata {
+    name      = "grafana"
+    namespace = local.gcp_v2_grafana_namespace
+    labels = merge(local.gcp_v2_labels, {
+      component = "grafana"
+    })
+  }
+
+  spec {
+    replicas = 1
+
+    strategy {
+      type = "Recreate"
+    }
+
+    selector {
+      match_labels = {
+        app = "grafana"
+      }
+    }
+
+    template {
+      metadata {
+        labels = merge(local.gcp_v2_labels, {
+          app       = "grafana"
+          component = "grafana"
+        })
+      }
+
+      spec {
+        security_context {
+          fs_group        = 472
+          run_as_non_root = true
+          run_as_user     = 472
+          run_as_group    = 472
+        }
+
+        container {
+          name  = "grafana"
+          image = var.gcp_v2_grafana_image
+
+          image_pull_policy = "IfNotPresent"
+
+          port {
+            name           = "https"
+            container_port = 3000
+            protocol       = "TCP"
+          }
+
+          env {
+            name  = "GF_SERVER_PROTOCOL"
+            value = "https"
+          }
+          env {
+            name  = "GF_SERVER_HTTP_PORT"
+            value = "3000"
+          }
+          env {
+            name  = "GF_SERVER_CERT_FILE"
+            value = "/etc/grafana/tls/tls.crt"
+          }
+          env {
+            name  = "GF_SERVER_CERT_KEY"
+            value = "/etc/grafana/tls/tls.key"
+          }
+          env {
+            name  = "GF_USERS_ALLOW_SIGN_UP"
+            value = "false"
+          }
+          env {
+            name  = "GF_AUTH_ANONYMOUS_ENABLED"
+            value = "false"
+          }
+          env {
+            name  = "GF_PLUGINS_PLUGIN_ADMIN_ENABLED"
+            value = "false"
+          }
+          env {
+            name = "GF_SECURITY_ADMIN_USER"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer[0].metadata[0].name
+                key  = "admin-user"
+              }
+            }
+          }
+          env {
+            name = "GF_SECURITY_ADMIN_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer[0].metadata[0].name
+                key  = "admin-password"
+              }
+            }
+          }
+          env {
+            name = "GRAFANA_VIEWER_USER"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer[0].metadata[0].name
+                key  = "viewer-user"
+              }
+            }
+          }
+          env {
+            name = "GRAFANA_VIEWER_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer[0].metadata[0].name
+                key  = "viewer-password"
+              }
+            }
+          }
+          env {
+            name  = "RAW_HISTORY_READER_URL"
+            value = google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader[0].uri
+          }
+          env {
+            name = "RAW_HISTORY_READER_KEY"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer[0].metadata[0].name
+                key  = "reader-key"
+              }
+            }
+          }
+
+          resources {
+            limits = {
+              cpu    = local.gcp_v2_large_scenario ? "4" : "2"
+              memory = local.gcp_v2_large_scenario ? "8Gi" : "4Gi"
+            }
+            requests = {
+              cpu    = local.gcp_v2_large_scenario ? "2" : "1"
+              memory = local.gcp_v2_large_scenario ? "4Gi" : "2Gi"
+            }
+          }
+
+          readiness_probe {
+            initial_delay_seconds = 10
+            period_seconds        = 10
+            timeout_seconds       = 3
+            failure_threshold     = 12
+
+            http_get {
+              path   = "/api/health"
+              port   = "https"
+              scheme = "HTTPS"
+            }
+          }
+
+          liveness_probe {
+            initial_delay_seconds = 30
+            period_seconds        = 20
+            timeout_seconds       = 3
+            failure_threshold     = 3
+
+            http_get {
+              path   = "/api/health"
+              port   = "https"
+              scheme = "HTTPS"
+            }
+          }
+
+          volume_mount {
+            name       = "data"
+            mount_path = "/var/lib/grafana"
+          }
+
+          volume_mount {
+            name       = "tls"
+            mount_path = "/etc/grafana/tls"
+            read_only  = true
+          }
+
+          security_context {
+            allow_privilege_escalation = false
+            capabilities {
+              drop = ["ALL"]
+            }
+          }
+        }
+
+        volume {
+          name = "data"
+          persistent_volume_claim {
+            claim_name = kubernetes_persistent_volume_claim_v1.gcp_gcp_persistent_disk_rwo[0].metadata[0].name
+          }
+        }
+
+        volume {
+          name = "tls"
+          secret {
+            secret_name = kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer[0].metadata[0].name
+            items {
+              key  = "tls.crt"
+              path = "tls.crt"
+            }
+            items {
+              key  = "tls.key"
+              path = "tls.key"
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [
+    google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader,
+    kubernetes_persistent_volume_claim_v1.gcp_gcp_persistent_disk_rwo,
+    kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer,
+  ]
+}
+
+resource "kubernetes_service_v1" "gcp_gcp_grafana_tls_load_balancer" {
+  count                  = local.gcp_v2_l5_enabled ? 1 : 0
+  wait_for_load_balancer = true
+
+  metadata {
+    name      = "grafana"
+    namespace = local.gcp_v2_grafana_namespace
+    labels = merge(local.gcp_v2_labels, {
+      component = "grafana"
+    })
+  }
+
+  spec {
+    selector = {
+      app = "grafana"
+    }
+    type                        = "LoadBalancer"
+    external_traffic_policy     = "Local"
+    load_balancer_ip            = google_compute_address.gcp_gcp_grafana_tls_load_balancer[0].address
+    load_balancer_source_ranges = var.gcp_grafana_source_cidrs
+
+    port {
+      name        = "https"
+      port        = 443
+      target_port = "https"
+      protocol    = "TCP"
+    }
+  }
+
+  depends_on = [kubernetes_deployment_v1.gcp_grafana_oss_12_on_gke]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "gcp_v2_processor_extension_invoker" {
@@ -1514,5 +2194,24 @@ output "gcp_component_twin_state_output" {
     limitations             = ["read-only", "bounded-queries", "no-scenes", "no-raw-telemetry"]
     seed_revision           = "gcp-l4-seed.v1"
     seed_input_digest       = sha256(jsonencode(var.iot_devices))
+  } : null
+}
+
+output "gcp_component_visualization_output" {
+  description = "Safe Five-layer v2 GCP L5 browser access and deterministic dashboard evidence"
+  value = local.gcp_v2_l5_enabled ? {
+    service                 = "Grafana OSS 12 on one selected/shared GKE Standard cluster"
+    endpoint                = "https://${google_compute_address.gcp_gcp_grafana_tls_load_balancer[0].address}"
+    viewer_username         = var.platform_user_email
+    authentication          = "Grafana local Viewer credential"
+    certificate_sha256      = sha256(tls_self_signed_cert.gcp_v2_grafana[0].cert_pem)
+    source_cidrs            = var.gcp_grafana_source_cidrs
+    dashboard_uid           = "twin2multicloud-raw-rollups"
+    dashboard_title         = "Twin2MultiCloud Raw & Rollups"
+    reader_service_id       = google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader[0].id
+    viewer_credential       = "owner-scoped rotate-and-reveal operation required"
+    internal_secrets_output = false
+    replica_count           = 1
+    persistent_disk_gib     = local.gcp_v2_grafana_disk_gib
   } : null
 }

@@ -6,43 +6,50 @@
   "decision_status": "approved",
   "approval_scope": "offline_contract_capacity_and_implementation_authority",
   "approved_on": "2026-08-03",
-  "research_cutoff": "2026-08-03",
+  "research_cutoff": "2026-08-05",
   "pre_activation_refreeze": {
     "refrozen_on": "2026-08-05",
-    "previous_package_digest": "sha256:aec13fde178fb9bc4ba9943b206d0aa7e2a7d60aeb685d4076c83c6492e2515a",
-    "reason": "bind the selected Cosmos DB data plane to its required managed-identity SQL role assignment",
+    "previous_package_digest": "sha256:9c85a4c9ef2207a8e5b0eccadf8e24d6ae04fe968519d0b8b7056b523dd2e73a",
+    "reason": "close the approved GCP L5 platform bindings for its conditional GKE cluster, static Persistent Disk PV, fixed load-balancer address, and L4-only direct IAP ownership",
     "scope_change": false,
     "activated_or_deployed_before_refreeze": false,
     "prior_refreeze": {
       "refrozen_on": "2026-08-05",
-      "previous_package_digest": "sha256:6404a4190b3342ec267be33ec1e86626152fde612287a2b7354a576248d9cd84",
-      "reason": "bind the already approved Azure Logic Apps Consumption workflow to its required HTTP trigger and fixed PoC action definition",
+      "previous_package_digest": "sha256:aec13fde178fb9bc4ba9943b206d0aa7e2a7d60aeb685d4076c83c6492e2515a",
+      "reason": "bind the selected Cosmos DB data plane to its required managed-identity SQL role assignment",
       "scope_change": false,
       "activated_or_deployed_before_refreeze": false,
       "prior_refreeze": {
         "refrozen_on": "2026-08-05",
-        "previous_package_digest": "sha256:647e8bec71b8f6b92a2ed5cc76070e54a3a00f8fca0a7132200a09dc2cbb8f1c",
-        "reason": "close missing Terraform bindings for Azure six-CU Dedicated capacity and the subscriptions required by the approved Azure Service Bus and AWS SNS FIFO broker paths",
+        "previous_package_digest": "sha256:6404a4190b3342ec267be33ec1e86626152fde612287a2b7354a576248d9cd84",
+        "reason": "bind the already approved Azure Logic Apps Consumption workflow to its required HTTP trigger and fixed PoC action definition",
         "scope_change": false,
         "activated_or_deployed_before_refreeze": false,
         "prior_refreeze": {
           "refrozen_on": "2026-08-05",
-          "previous_package_digest": "sha256:337dbf11eae56e62e69ebdbdc16d4dfe8c67277af935c8cb87b2df98f12f6646",
-          "reason": "restore the frozen directed-identity distinction: AWS outbound identity is used for Azure, while AWS-to-GCP uses GCP Workload Identity Federation's AWS provider",
+          "previous_package_digest": "sha256:647e8bec71b8f6b92a2ed5cc76070e54a3a00f8fca0a7132200a09dc2cbb8f1c",
+          "reason": "close missing Terraform bindings for Azure six-CU Dedicated capacity and the subscriptions required by the approved Azure Service Bus and AWS SNS FIFO broker paths",
           "scope_change": false,
           "activated_or_deployed_before_refreeze": false,
           "prior_refreeze": {
             "refrozen_on": "2026-08-05",
-            "previous_package_digest": "sha256:e11bbd03470434a0552151ce4b005fea7e05838c511795b45505e58bee5a7d3e",
-            "reason": "incorrectly broaden the AWS account-level outbound-identity wording to GCP before implementation review detected the mismatch",
+            "previous_package_digest": "sha256:337dbf11eae56e62e69ebdbdc16d4dfe8c67277af935c8cb87b2df98f12f6646",
+            "reason": "restore the frozen directed-identity distinction: AWS outbound identity is used for Azure, while AWS-to-GCP uses GCP Workload Identity Federation's AWS provider",
             "scope_change": false,
             "activated_or_deployed_before_refreeze": false,
             "prior_refreeze": {
-              "refrozen_on": "2026-08-04",
-              "previous_package_digest": "sha256:cc142504cc8c06927569ec1cce09fe4a9133a688b5f02a2ba114105a0e422245",
-              "reason": "close the AWS-to-Azure implementation gap by admitting disclosed account-level outbound-identity enablement to thesis-demo-v2",
-              "scope_change": true,
-              "activated_or_deployed_before_refreeze": false
+              "refrozen_on": "2026-08-05",
+              "previous_package_digest": "sha256:e11bbd03470434a0552151ce4b005fea7e05838c511795b45505e58bee5a7d3e",
+              "reason": "incorrectly broaden the AWS account-level outbound-identity wording to GCP before implementation review detected the mismatch",
+              "scope_change": false,
+              "activated_or_deployed_before_refreeze": false,
+              "prior_refreeze": {
+                "refrozen_on": "2026-08-04",
+                "previous_package_digest": "sha256:cc142504cc8c06927569ec1cce09fe4a9133a688b5f02a2ba114105a0e422245",
+                "reason": "close the AWS-to-Azure implementation gap by admitting disclosed account-level outbound-identity enablement to thesis-demo-v2",
+                "scope_change": true,
+                "activated_or_deployed_before_refreeze": false
+              }
             }
           }
         }
@@ -71,13 +78,13 @@
   ],
   "artifact_byte_digests": {
     "docs/research/evidence/phase_08_service_bundles/boundary-route-matrix.json": "sha256:5f040b94df9f1d002eb1a39c40f8798b9865d072d7cb5be5ca7cb198e55fdf23",
-    "docs/research/evidence/phase_08_service_bundles/capacity-matrix.json": "sha256:1ab9763320a3cf615b3d24610832f4b72bf2920cd2286f2d51202376fd44120c",
+    "docs/research/evidence/phase_08_service_bundles/capacity-matrix.json": "sha256:4b472c7a23439e37ba699aa126a39215b4ac8a6b03aa62fa428a5af6635e745e",
     "docs/research/evidence/phase_08_service_bundles/common-functional-contract.json": "sha256:6345f7e1e08a4b548fa0f336a97f6a1cbff2d845030c5671e5b98900f5ec37f5",
-    "docs/research/evidence/phase_08_service_bundles/complete-provider-bundles.json": "sha256:5f6dbcc7389ce6d3970e28ecec7c344b96b2a315b9e70affd7936313bc234859",
-    "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json": "sha256:bc0360f7491780a8123cc579d6809397729cdb654fad8366610863d4405cb5fe",
-    "docs/research/evidence/phase_08_service_bundles/pricing-ownership-matrix.json": "sha256:18dc8a5f4ebbf64c176c2891eeaa5e6ef660595df303ac74da6f9c03f4a63b01",
-    "docs/research/evidence/phase_08_service_bundles/source-ledger.json": "sha256:a32892c9f7405673e53b0aee8397fd6f83cfae6264b4ae82cfa42feb57e6545e",
-    "docs/research/evidence/phase_08_service_bundles/workload-scenarios.json": "sha256:f7162f9ec34d30148f72ca4ab427cbf0c4d0d6a5dba7ccfd4455af701e373201"
+    "docs/research/evidence/phase_08_service_bundles/complete-provider-bundles.json": "sha256:f28faf84fbc985e7f315c50cb7089a8e289555aca5cc1006b600b68cf47399a9",
+    "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json": "sha256:47798f0f46f3301b88fdde9245c03d2c6e6062804be1c704f5d758ab3745764c",
+    "docs/research/evidence/phase_08_service_bundles/pricing-ownership-matrix.json": "sha256:b6483da5a7ca775029a9cfdf4f7688bddcd60f69bdd4df262db5509e242b34f1",
+    "docs/research/evidence/phase_08_service_bundles/source-ledger.json": "sha256:acf00dccd0521168da97afa7833d8216a02c6fe9ef868738fc32caee334f2942",
+    "docs/research/evidence/phase_08_service_bundles/workload-scenarios.json": "sha256:47a1b81be1e8beb394aa95371a627e729b0ca893c63a83215667eeeaac227912"
   },
   "permission_artifact_byte_digests": {
     "3-cloud-deployer/docs/references/permission_sets/aws_thesis_demo_v2.json": "sha256:38ac2da175b5c9ddb435024c0a93234da502ef52f375549418d2f4867a909d7b",
@@ -100,7 +107,7 @@
     "docs/research/evidence/phase_08_eventing/decision.json": "sha256:d6913db74bbcdaa758e7a05f16f2755760247521ad1b2067d99dccee5c8a637f",
     "docs/research/evidence/phase_08_eventing/source-ledger.json": "sha256:c64311e931f32213b366a2bdbe0d85da59972a94b666b39bb60ae5e2c0c7b0ee"
   },
-  "package_digest": "sha256:9c85a4c9ef2207a8e5b0eccadf8e24d6ae04fe968519d0b8b7056b523dd2e73a",
+  "package_digest": "sha256:73a78f62858fcd3563205b84fd937a40a243a2d342e0e97b67c2b76f78f6243a",
   "capacity_decision": {
     "small_medium_large": "theoretically_admissible_with_explicit_conditional_gates",
     "live_status": "live_capacity_pending",

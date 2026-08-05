@@ -2475,10 +2475,13 @@
           "google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected",
           "google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter",
           "google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard",
+          "google_container_node_pool.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard",
+          "google_container_node_pool.gcp_gcp_ordered_mqtt_pubsub_adapter",
           "google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics",
           "google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics",
           "kubernetes_deployment_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard",
           "kubernetes_deployment_v1.gcp_gcp_ordered_mqtt_pubsub_adapter",
+          "kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard",
           "kubernetes_service_v1.gcp_gcp_external_load_balancer"
         ],
         "module_addresses": [],
@@ -3338,24 +3341,24 @@
         "gcp.cloud-run-twin-api-materializer",
         "gcp.firestore-native-standard-bounded-twin",
         "gcp.cloud-run-iap-twin-explorer",
+        "gcp.direct-iap-layer-access",
         "gcp.pubsub-separated-embedded-topics",
         "gcp.cloud-run-event-adapter",
         "gcp.artifact-registry-if-container-selected",
         "gcp.cloud-logging",
-        "gcp.cloud-monitoring",
-        "gcp.direct-iap-layer-access"
+        "gcp.cloud-monitoring"
       ],
       "service_id": "gcp.twin-state.v2",
       "service_ids": [
         "gcp.cloud-run-twin-api-materializer",
         "gcp.firestore-native-standard-bounded-twin",
         "gcp.cloud-run-iap-twin-explorer",
+        "gcp.direct-iap-layer-access",
         "gcp.pubsub-separated-embedded-topics",
         "gcp.cloud-run-event-adapter",
         "gcp.artifact-registry-if-container-selected",
         "gcp.cloud-logging",
-        "gcp.cloud-monitoring",
-        "gcp.direct-iap-layer-access"
+        "gcp.cloud-monitoring"
       ],
       "component_kind": "twin_service",
       "package_artifact_ref": {
@@ -3449,6 +3452,11 @@
         },
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "gcp.direct-iap-layer-access",
+          "slot_id": "l4_twin_state"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "gcp.pubsub-separated-embedded-topics",
           "slot_id": "l4_twin_state"
         },
@@ -3470,11 +3478,6 @@
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "gcp.cloud-monitoring",
-          "slot_id": "l4_twin_state"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "gcp.direct-iap-layer-access",
           "slot_id": "l4_twin_state"
         }
       ],
@@ -3521,11 +3524,10 @@
         "gcp.persistent-disk-rwo",
         "gcp.cloud-run-raw-history-reader",
         "grafana.yesoreyeram-infinity-datasource",
+        "gcp.grafana-tls-load-balancer",
         "gcp.artifact-registry-if-container-selected",
         "gcp.cloud-logging",
-        "gcp.cloud-monitoring",
-        "gcp.direct-iap-layer-access",
-        "gcp.grafana-tls-load-balancer"
+        "gcp.cloud-monitoring"
       ],
       "service_id": "gcp.visualization.v2",
       "service_ids": [
@@ -3533,11 +3535,10 @@
         "gcp.persistent-disk-rwo",
         "gcp.cloud-run-raw-history-reader",
         "grafana.yesoreyeram-infinity-datasource",
+        "gcp.grafana-tls-load-balancer",
         "gcp.artifact-registry-if-container-selected",
         "gcp.cloud-logging",
-        "gcp.cloud-monitoring",
-        "gcp.direct-iap-layer-access",
-        "gcp.grafana-tls-load-balancer"
+        "gcp.cloud-monitoring"
       ],
       "component_kind": "visualization_service",
       "package_artifact_ref": {
@@ -3548,13 +3549,15 @@
         "resource_addresses": [
           "google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected",
           "google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader",
+          "google_compute_address.gcp_gcp_grafana_tls_load_balancer",
           "google_compute_disk.gcp_gcp_persistent_disk_rwo",
-          "google_iap_web_cloud_run_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer",
+          "google_container_cluster.gcp_grafana_oss_12_on_gke",
           "kubernetes_deployment_v1.gcp_grafana_oss_12_on_gke",
+          "kubernetes_namespace_v1.gcp_grafana_oss_12_on_gke",
           "kubernetes_persistent_volume_claim_v1.gcp_gcp_persistent_disk_rwo",
+          "kubernetes_persistent_volume_v1.gcp_gcp_persistent_disk_rwo",
           "kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer",
-          "kubernetes_service_v1.gcp_gcp_grafana_tls_load_balancer",
-          "kubernetes_service_v1.gcp_grafana_oss_12_on_gke"
+          "kubernetes_service_v1.gcp_gcp_grafana_tls_load_balancer"
         ],
         "module_addresses": [],
         "allowed_input_variable_ids": [],
@@ -3635,6 +3638,11 @@
         },
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "gcp.grafana-tls-load-balancer",
+          "slot_id": "l5_visualization"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "gcp.artifact-registry-if-container-selected",
           "slot_id": "l5_visualization"
         },
@@ -3646,16 +3654,6 @@
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "gcp.cloud-monitoring",
-          "slot_id": "l5_visualization"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "gcp.direct-iap-layer-access",
-          "slot_id": "l5_visualization"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "gcp.grafana-tls-load-balancer",
           "slot_id": "l5_visualization"
         }
       ],
@@ -7748,9 +7746,14 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:06e72f6aa9a77a362bc7f3ebec682b683b4a40621ee96051e0094cd40ffb2962",
+      "source_digest": "sha256:7126883c3df175410bc764e789517743d01c710f0c7e81a66151cdd062c38b5b",
       "included_paths": [
         "Dockerfile",
+        "grafana/Dockerfile",
+        "grafana/dashboard.json.template",
+        "grafana/entrypoint.sh",
+        "grafana/provisioning/dashboards/twin2multicloud.yaml",
+        "grafana/provisioning/datasources/twin2multicloud.yaml",
         "platform/app.py",
         "platform/constraints.txt",
         "platform/core.py",
@@ -7790,5 +7793,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:a3bb484c2ce5fc1ce01bb3e4368b49b7f32639a7690b6d5a2ee074b49fd8845d"
+  "content_digest": "sha256:0f25b2b069e6e931d397f561da377953b4764b15f3454773980477063fc55083"
 }

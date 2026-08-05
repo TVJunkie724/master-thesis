@@ -979,6 +979,11 @@ def _load_platform_user_config(project_dir: Path) -> dict:
             "azure_principal_label"
         ]
 
+    if user.get("gcp_grafana_source_cidrs"):
+        result["gcp_grafana_source_cidrs"] = user[
+            "gcp_grafana_source_cidrs"
+        ]
+
     return result
 
 

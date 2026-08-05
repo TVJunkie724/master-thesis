@@ -1214,6 +1214,11 @@ def build_catalog(
                     if provider == "azure"
                     else [
                         "Dockerfile",
+                        "grafana/Dockerfile",
+                        "grafana/dashboard.json.template",
+                        "grafana/entrypoint.sh",
+                        "grafana/provisioning/dashboards/twin2multicloud.yaml",
+                        "grafana/provisioning/datasources/twin2multicloud.yaml",
                         "platform/app.py",
                         "platform/constraints.txt",
                         "platform/core.py",
@@ -1745,6 +1750,7 @@ def dimension_value(
     size: str,
 ) -> tuple[str | int, str]:
     core, derived, event = scenario_inputs(size)
+    fixed = read_json(SERVICE_WORKLOAD)["fixed_dimensions"]
     month_seconds = Decimal("2592000")
     messages = int(core["messages_per_month"])
     event_count = int(event["events_per_month"])
@@ -1789,11 +1795,15 @@ def dimension_value(
         )
         else messages
     )
-    storage_gib = {
-        "component.hot-storage": str(derived["hot_payload_gib"]),
-        "component.cool-storage": str(derived["cool_payload_gib"]),
-        "component.archive-storage": str(derived["archive_payload_gib"]),
-    }.get(logical, "0")
+    storage_gib = (
+        str(fixed["gcp_grafana_persistent_disk_gib"])
+        if component_id == "gcp.persistent-disk-rwo"
+        else {
+            "component.hot-storage": str(derived["hot_payload_gib"]),
+            "component.cool-storage": str(derived["cool_payload_gib"]),
+            "component.archive-storage": str(derived["archive_payload_gib"]),
+        }.get(logical, "0")
+    )
     event_bytes = event_attempts * int(event["average_event_payload_bytes"])
     units: dict[str, str] = {
         "resource_count": "count",
@@ -1873,8 +1883,20 @@ def dimension_value(
         "workspace_count": 1,
         "editor_seats": int(core["monthly_editor_seats"]),
         "viewer_seats": int(core["monthly_viewer_seats"]),
-        "node_count": 1,
-        "node_hours": 730,
+        "node_count": (
+            {"small": 3, "medium": 3, "large": 12}[size]
+            if "bifromq" in component_id
+            else {"small": 0, "medium": 0, "large": 4}[size]
+            if component_id == "gcp.ordered-mqtt-pubsub-adapter"
+            else 1
+        ),
+        "node_hours": (
+            {"small": 2190, "medium": 2190, "large": 8760}[size]
+            if "bifromq" in component_id
+            else {"small": 0, "medium": 0, "large": 2920}[size]
+            if component_id == "gcp.ordered-mqtt-pubsub-adapter"
+            else 730
+        ),
         "throughput_unit_hours": {"small": 730, "medium": 8030, "large": 0}[size],
         "capacity_unit_hours": {"small": 0, "medium": 0, "large": 4380}[size],
         "stream_count": 2,

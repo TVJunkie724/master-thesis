@@ -51,6 +51,13 @@ terraform {
       version = ">= 2.38.0, < 3.0.0"
     }
 
+    # Generates the self-signed certificate for the CIDR-scoped GCP Grafana
+    # PoC endpoint. The private key remains in Terraform state/Kubernetes.
+    tls = {
+      source  = "hashicorp/tls"
+      version = ">= 4.3.0, < 5.0.0"
+    }
+
     # Archive provider for creating ZIP files
     archive = {
       source  = "hashicorp/archive"

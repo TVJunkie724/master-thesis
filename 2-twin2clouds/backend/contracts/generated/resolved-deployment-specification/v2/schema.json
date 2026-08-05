@@ -250,6 +250,7 @@
         "rollup_bucket_seconds",
         "reader_timeout_seconds",
         "reader_maximum_points",
+        "gcp_grafana_persistent_disk_gib",
         "storage_batch_interval_minutes",
         "storage_task_max_input_mib",
         "storage_object_max_uncompressed_mib",
@@ -281,6 +282,10 @@
         "reader_maximum_points": {
           "type": "integer",
           "const": 1000
+        },
+        "gcp_grafana_persistent_disk_gib": {
+          "type": "integer",
+          "const": 10
         },
         "storage_batch_interval_minutes": {
           "type": "integer",

@@ -152,13 +152,15 @@
         "l4_twin": [
           "gcp.cloud-run-twin-api-materializer",
           "gcp.firestore-native-standard-bounded-twin",
-          "gcp.cloud-run-iap-twin-explorer"
+          "gcp.cloud-run-iap-twin-explorer",
+          "gcp.direct-iap-layer-access"
         ],
         "l5_visualization": [
           "grafana.oss-12-on-gke",
           "gcp.persistent-disk-rwo",
           "gcp.cloud-run-raw-history-reader",
-          "grafana.yesoreyeram-infinity-datasource"
+          "grafana.yesoreyeram-infinity-datasource",
+          "gcp.grafana-tls-load-balancer"
         ]
       },
       "support_components": [
@@ -166,9 +168,7 @@
         "gcp.cloud-run-storage-job",
         "gcp.artifact-registry-if-container-selected",
         "gcp.cloud-logging",
-        "gcp.cloud-monitoring",
-        "gcp.direct-iap-layer-access",
-        "gcp.grafana-tls-load-balancer"
+        "gcp.cloud-monitoring"
       ],
       "embedded_event_components": [
         "gcp.pubsub-separated-embedded-topics",

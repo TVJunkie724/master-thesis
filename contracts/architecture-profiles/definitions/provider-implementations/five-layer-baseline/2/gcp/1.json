@@ -229,12 +229,12 @@
         "service-model.gcp.gcp.cloud-run-twin-api-materializer",
         "service-model.gcp.gcp.firestore-native-standard-bounded-twin",
         "service-model.gcp.gcp.cloud-run-iap-twin-explorer",
+        "service-model.gcp.gcp.direct-iap-layer-access",
         "service-model.gcp.gcp.pubsub-separated-embedded-topics",
         "service-model.gcp.gcp.cloud-run-event-adapter",
         "service-model.gcp.gcp.artifact-registry-if-container-selected",
         "service-model.gcp.gcp.cloud-logging",
-        "service-model.gcp.gcp.cloud-monitoring",
-        "service-model.gcp.gcp.direct-iap-layer-access"
+        "service-model.gcp.gcp.cloud-monitoring"
       ],
       "formula_refs": [
         "formula.phase-08-complete-service-bundles"
@@ -246,12 +246,12 @@
         "gcp.cloud-run-twin-api-materializer",
         "gcp.firestore-native-standard-bounded-twin",
         "gcp.cloud-run-iap-twin-explorer",
+        "gcp.direct-iap-layer-access",
         "gcp.pubsub-separated-embedded-topics",
         "gcp.cloud-run-event-adapter",
         "gcp.artifact-registry-if-container-selected",
         "gcp.cloud-logging",
-        "gcp.cloud-monitoring",
-        "gcp.direct-iap-layer-access"
+        "gcp.cloud-monitoring"
       ],
       "deployment_specification_slot_ids": [
         "l4_twin_state"
@@ -273,11 +273,10 @@
         "service-model.gcp.gcp.persistent-disk-rwo",
         "service-model.gcp.gcp.cloud-run-raw-history-reader",
         "service-model.gcp.grafana.yesoreyeram-infinity-datasource",
+        "service-model.gcp.gcp.grafana-tls-load-balancer",
         "service-model.gcp.gcp.artifact-registry-if-container-selected",
         "service-model.gcp.gcp.cloud-logging",
-        "service-model.gcp.gcp.cloud-monitoring",
-        "service-model.gcp.gcp.direct-iap-layer-access",
-        "service-model.gcp.gcp.grafana-tls-load-balancer"
+        "service-model.gcp.gcp.cloud-monitoring"
       ],
       "formula_refs": [
         "formula.phase-08-complete-service-bundles"
@@ -290,11 +289,10 @@
         "gcp.persistent-disk-rwo",
         "gcp.cloud-run-raw-history-reader",
         "grafana.yesoreyeram-infinity-datasource",
+        "gcp.grafana-tls-load-balancer",
         "gcp.artifact-registry-if-container-selected",
         "gcp.cloud-logging",
-        "gcp.cloud-monitoring",
-        "gcp.direct-iap-layer-access",
-        "gcp.grafana-tls-load-balancer"
+        "gcp.cloud-monitoring"
       ],
       "deployment_specification_slot_ids": [
         "l5_visualization"
@@ -454,5 +452,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:ea43a3cb4ae57a71935cba2a5ae2dbd0c1c0d7b47c604359348ae6685e5a9280"
+  "content_digest": "sha256:f7f1b06ab40043f6a6207c5271c1462ff3d5a47e2749faad57139b7d3011bf33"
 }
