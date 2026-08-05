@@ -42,7 +42,13 @@ terraform {
     # Google Cloud provider (for multi-cloud deployments)
     google = {
       source  = "hashicorp/google"
-      version = "~> 5.12"
+      version = ">= 7.22.0, < 8.0.0"
+    }
+
+    # GKE workloads are applied in the reviewed post-cluster Terraform stage.
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = ">= 2.38.0, < 3.0.0"
     }
 
     # Archive provider for creating ZIP files
