@@ -17,6 +17,9 @@ from .five_layer_v2_costing import (
     evaluate_five_layer_v2_costs,
     select_lowest_cost_five_layer_v2_candidate,
 )
+from .five_layer_v2_pricing import (
+    build_five_layer_v2_catalog_cost_ledger_resolver,
+)
 from .five_layer_v2_strategy import FiveLayerV2ResolutionWinner
 from .five_layer_v2_workload import (
     ResolvedFiveLayerV2Workload,
@@ -66,7 +69,8 @@ def optimize_five_layer_v2(
     extension_bindings: object,
     workload: Mapping[str, Any],
     pricing_evidence_refs: Mapping[str, Mapping[str, str]],
-    cost_ledger_resolver: CostLedgerResolver,
+    cost_ledger_resolver: CostLedgerResolver | None = None,
+    pricing_by_provider: Mapping[str, Mapping[str, Any]] | None = None,
     providers: tuple[str, ...] = ("aws", "azure", "gcp"),
     resolution_status: str = "offline_contract_fixture",
     satisfied_live_gate_ids: frozenset[str] = frozenset(),
@@ -74,6 +78,18 @@ def optimize_five_layer_v2(
     registry: ArchitectureProfileRegistry | None = None,
 ) -> FiveLayerV2OptimizationResult:
     """Resolve, cost, rank, and materialize one v2 architecture."""
+
+    if (cost_ledger_resolver is None) == (pricing_by_provider is None):
+        raise ArchitectureResolutionError(
+            "ARCH_PRICING_EVIDENCE_MISSING",
+            "pricing",
+            "Supply exactly one live catalog or explicit test-ledger resolver",
+        )
+    ledger_resolver = cost_ledger_resolver or (
+        build_five_layer_v2_catalog_cost_ledger_resolver(
+            pricing_by_provider or {}
+        )
+    )
 
     if (
         not providers
@@ -166,7 +182,7 @@ def optimize_five_layer_v2(
                     azure_large_autoscale_ru_per_second
                 ),
             )
-            ledger = cost_ledger_resolver(
+            ledger = ledger_resolver(
                 specification,
                 assignment,
                 resolved_workload,

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
+from backend.architecture_profiles.diagnostics import ArchitectureResolutionError
 from backend.architecture_profiles.five_layer_v2_costing import (
     CONTRACT_ROOT as RDS_ROOT,
     FORMULA_REF,
@@ -158,3 +161,19 @@ def test_optimizer_rejects_incomplete_provider_price_coverage_per_candidate():
     assert dict(result.rejected_by_error_code) == {
         "ARCH_PRICING_EVIDENCE_MISSING": 63
     }
+
+
+def test_optimizer_requires_exactly_one_production_or_test_pricing_source():
+    _, request = _request()
+
+    with pytest.raises(ArchitectureResolutionError) as missing:
+        optimize_five_layer_v2(**request)
+    with pytest.raises(ArchitectureResolutionError) as ambiguous:
+        optimize_five_layer_v2(
+            **request,
+            cost_ledger_resolver=_ledger,
+            pricing_by_provider={},
+        )
+
+    assert missing.value.code == "ARCH_PRICING_EVIDENCE_MISSING"
+    assert ambiguous.value.code == "ARCH_PRICING_EVIDENCE_MISSING"
