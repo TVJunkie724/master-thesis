@@ -627,6 +627,118 @@ def _condition_matches(condition: Any, body: Mapping[str, Any]) -> bool:
         raise ContractError("RULE_TYPE_MISMATCH") from exc
 
 
+def _canonical_received_event(payload: Mapping[str, Any]) -> dict[str, Any]:
+    if payload.get("schema_version") == "canonical-domain-event.v1":
+        validated = dict(payload)
+        _validate_canonical_event(validated)
+        if _event_type(validated) != EVENT_TELEMETRY_RECEIVED:
+            raise ContractError("UNEXPECTED_PROCESSOR_EVENT")
+        return validated
+    validated = _ingress_event(payload)
+    _validate_canonical_event(validated)
+    return validated
+
+
+def _processor_extension_envelope(event: Mapping[str, Any]) -> dict[str, Any]:
+    _validate_canonical_event(event)
+    body = _event_body(event)
+    device_id = _required_text(body.get("device_id"), code="INVALID_PROCESSOR_CONTEXT")
+    twin_id = _required_text(
+        body.get("twin_id") or device_id,
+        code="INVALID_PROCESSOR_CONTEXT",
+    )
+    value = body.get("value")
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+    ):
+        raise ContractError("INVALID_PROCESSOR_VALUE")
+    invocation_id = str(
+        uuid.uuid5(uuid.NAMESPACE_URL, f"{_event_id(event)}:processor.telemetry")
+    )
+    payload = {"value": value}
+    unit = body.get("unit")
+    if unit is not None:
+        if not isinstance(unit, str) or not unit or len(unit) > 32:
+            raise ContractError("INVALID_PROCESSOR_UNIT")
+        payload["unit"] = unit
+    return {
+        "schema_version": "user-function-runtime-envelope.v1",
+        "invocation_id": invocation_id,
+        "correlation_id": str(event["correlation_id"]),
+        "occurred_at": str(event["occurred_at"]),
+        "slot_id": "processor.telemetry",
+        "payload": payload,
+        "context": {"twin_id": twin_id, "device_id": device_id},
+    }
+
+
+def _invoke_processor_extension(event: Mapping[str, Any]) -> Mapping[str, Any]:
+    function_name = os.environ.get("PROCESSOR_EXTENSION_FUNCTION_NAME", "")
+    if not function_name:
+        raise ContractError("PROCESSOR_EXTENSION_NOT_CONFIGURED", 503)
+    envelope = _processor_extension_envelope(event)
+    encoded = _canonical_json(envelope).encode("utf-8")
+    for _ in range(3):
+        try:
+            response = _client("lambda").invoke(
+                FunctionName=function_name,
+                InvocationType="RequestResponse",
+                Payload=encoded,
+            )
+        except ClientError:
+            continue
+        result = _decode_lambda_result(response)
+        if result is None:
+            continue
+        common = {
+            "schema_version",
+            "invocation_id",
+            "correlation_id",
+            "slot_id",
+            "status",
+        }
+        if (
+            result.get("schema_version") != "user-function-runtime-envelope.v1"
+            or result.get("invocation_id") != envelope["invocation_id"]
+            or result.get("correlation_id") != envelope["correlation_id"]
+            or result.get("slot_id") != "processor.telemetry"
+        ):
+            continue
+        if result.get("status") == "success" and set(result) == common | {"payload"}:
+            output = result.get("payload")
+            if isinstance(output, Mapping):
+                return output
+        if result.get("status") in {"rejected", "failed"}:
+            raise ContractError("PROCESSOR_EXTENSION_REJECTED", 422)
+    raise ContractError("INVALID_PROCESSOR_EXTENSION_RESPONSE", 503)
+
+
+def _processed_event(
+    source: Mapping[str, Any], extension_output: Mapping[str, Any]
+) -> dict[str, Any]:
+    quality = extension_output.get("quality")
+    value = extension_output.get("value")
+    if (
+        set(extension_output) != {"value", "quality"}
+        or quality not in {"accepted", "suspect"}
+        or isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+    ):
+        raise ContractError("INVALID_PROCESSOR_RESULT")
+    body = dict(_event_body(source))
+    body["value"] = value
+    body["quality"] = quality
+    return _derive_event(
+        source,
+        event_type=EVENT_TELEMETRY_PROCESSED,
+        producer="component.telemetry-processor",
+        body=body,
+    )
+
+
 def _evaluate_rules(event: Mapping[str, Any]) -> None:
     body = dict(_event_body(event))
     seen_rule_ids = set()
@@ -674,10 +786,10 @@ def processor(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
         try:
             if _event_type(payload) != EVENT_TELEMETRY_RECEIVED:
                 raise ContractError("UNEXPECTED_PROCESSOR_EVENT")
-            processed = _derive_event(
-                payload,
-                event_type=EVENT_TELEMETRY_PROCESSED,
-                producer="component.telemetry-processor",
+            source = _canonical_received_event(payload)
+            processed = _processed_event(
+                source,
+                _invoke_processor_extension(source),
             )
             if os.environ.get("HOT_PROVIDER") == "aws":
                 _persist_and_project(processed)

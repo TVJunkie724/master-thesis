@@ -57,6 +57,16 @@ run "five_layer_v2_single_cloud_aws_binds_only_reviewed_bundle" {
     platform_user_first_name              = "Thesis"
     platform_user_last_name               = "Researcher"
     enable_aws_logging                    = false
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "22222222-2222-4222-8222-222222222222"
+      artifact_digest = "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      package_path    = "${var.project_path}/.build/aws/five-layer-v2.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/aws/five-layer-v2.zip")}"
+      adapter_id      = "adapter.aws.python311"
+      adapter_version = "1"
+    }]
   }
 
   assert {
@@ -72,10 +82,12 @@ run "five_layer_v2_single_cloud_aws_binds_only_reviewed_bundle" {
   assert {
     condition = (
       length(aws_lambda_function.aws_v2_extension_action) == 1 &&
+      length(aws_lambda_function.aws_v2_processor_extension) == 1 &&
       length(aws_sfn_state_machine.aws_aws_step_functions_standard) == 1 &&
-      contains(keys(aws_lambda_function.aws_aws_lambda[0].environment[0].variables), "ACTION_FUNCTION_NAME")
+      contains(keys(aws_lambda_function.aws_aws_lambda[0].environment[0].variables), "ACTION_FUNCTION_NAME") &&
+      contains(keys(aws_lambda_function.aws_aws_lambda[0].environment[0].variables), "PROCESSOR_EXTENSION_FUNCTION_NAME")
     )
-    error_message = "AWS L2 must bind the fixed synthetic PoC action and four-state notification workflow."
+    error_message = "AWS L2 must bind the validated processor, fixed synthetic action, and four-state notification workflow."
   }
 
   assert {
@@ -276,6 +288,16 @@ run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {
       "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.throughput_unit_hours" = "0"
       "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.capacity_unit_hours"   = "4380"
     }
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "44444444-4444-4444-8444-444444444444"
+      artifact_digest = "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+      package_path    = "${var.project_path}/.build/azure/five-layer-v2.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/five-layer-v2.zip")}"
+      adapter_id      = "adapter.azure.python311"
+      adapter_version = "1"
+    }]
   }
 
   assert {
@@ -291,6 +313,11 @@ run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {
   assert {
     condition     = azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["inbound"].partition_count == 200
     error_message = "Large Azure remote telemetry must retain the reviewed 200-partition Event Hub."
+  }
+
+  assert {
+    condition     = length(azurerm_function_app_flex_consumption.azure_v2_processor_extension) == 1
+    error_message = "Cross-cloud Azure L2 must retain its validated processor extension boundary."
   }
 }
 

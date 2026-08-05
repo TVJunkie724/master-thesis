@@ -72,6 +72,33 @@ class _Lambda:
         }
 
 
+class _ProcessorExtension:
+    def __init__(self, *, response_overrides=None):
+        self.calls = []
+        self.response_overrides = response_overrides or {}
+
+    def invoke(self, **kwargs):
+        self.calls.append(kwargs)
+        request = json.loads(kwargs["Payload"])
+        response = {
+            "schema_version": "user-function-runtime-envelope.v1",
+            "invocation_id": request["invocation_id"],
+            "correlation_id": request["correlation_id"],
+            "slot_id": "processor.telemetry",
+            "status": "success",
+            "payload": {
+                "value": request["payload"]["value"],
+                "quality": "accepted",
+            },
+        }
+        response.update(self.response_overrides)
+        return {"Payload": BytesIO(json.dumps(response).encode("utf-8"))}
+
+
+def _passthrough_processor_extension(event):
+    return {"value": event["payload"]["value"], "quality": "accepted"}
+
+
 class _StepFunctions:
     def __init__(self):
         self.executions = []
@@ -187,6 +214,9 @@ def test_processor_atomically_writes_raw_and_hourly_rollup(monkeypatch):
     monkeypatch.setenv("HOT_BOUNDARY_DAYS", "30")
     monkeypatch.setenv("SOURCE_EXPIRY_GRACE_HOURS", "48")
     monkeypatch.setattr(
+        runtime, "_invoke_processor_extension", _passthrough_processor_extension
+    )
+    monkeypatch.setattr(
         runtime, "_client", lambda service: dynamo if service == "dynamodb" else None
     )
 
@@ -216,6 +246,94 @@ def test_processor_atomically_writes_raw_and_hourly_rollup(monkeypatch):
     )
     assert raw["event_id"]["S"] == expected_event_id
     assert raw["stored_at_event_id"]["S"].endswith(f"#{expected_event_id}")
+
+
+def test_processor_extension_invocation_uses_closed_runtime_envelope(monkeypatch):
+    runtime = _module()
+    extension = _ProcessorExtension()
+    monkeypatch.setenv("PROCESSOR_EXTENSION_FUNCTION_NAME", "validated-processor")
+    monkeypatch.setattr(runtime, "_client", lambda service: extension)
+    source = runtime._derive_event(
+        {
+            "event_id": "received-extension-1",
+            "device_id": "device-1",
+            "twin_id": "twin-1",
+            "metric": "temperature",
+            "value": 2.5,
+            "unit": "celsius",
+            "event_time": "2026-08-05T00:00:00Z",
+        },
+        event_type=runtime.EVENT_TELEMETRY_RECEIVED,
+        producer="component.device-ingress",
+    )
+
+    result = runtime._invoke_processor_extension(source)
+
+    assert result == {"value": 2.5, "quality": "accepted"}
+    assert len(extension.calls) == 1
+    assert extension.calls[0]["FunctionName"] == "validated-processor"
+    assert extension.calls[0]["InvocationType"] == "RequestResponse"
+    envelope = json.loads(extension.calls[0]["Payload"])
+    assert set(envelope) == {
+        "schema_version",
+        "invocation_id",
+        "correlation_id",
+        "occurred_at",
+        "slot_id",
+        "payload",
+        "context",
+    }
+    assert envelope["payload"] == {"unit": "celsius", "value": 2.5}
+    assert envelope["context"] == {"device_id": "device-1", "twin_id": "twin-1"}
+
+
+def test_processor_extension_rejects_mismatched_response_after_bounded_retries(
+    monkeypatch,
+):
+    runtime = _module()
+    extension = _ProcessorExtension(response_overrides={"correlation_id": "wrong"})
+    monkeypatch.setenv("PROCESSOR_EXTENSION_FUNCTION_NAME", "validated-processor")
+    monkeypatch.setattr(runtime, "_client", lambda service: extension)
+    source = runtime._derive_event(
+        {
+            "event_id": "received-extension-invalid-1",
+            "device_id": "device-1",
+            "value": 2.5,
+        },
+        event_type=runtime.EVENT_TELEMETRY_RECEIVED,
+        producer="component.device-ingress",
+    )
+
+    with pytest.raises(
+        runtime.ContractError, match="INVALID_PROCESSOR_EXTENSION_RESPONSE"
+    ):
+        runtime._invoke_processor_extension(source)
+
+    assert len(extension.calls) == 3
+
+
+def test_processor_extension_rejects_invalid_optional_unit_before_invocation(
+    monkeypatch,
+):
+    runtime = _module()
+    extension = _ProcessorExtension()
+    monkeypatch.setenv("PROCESSOR_EXTENSION_FUNCTION_NAME", "validated-processor")
+    monkeypatch.setattr(runtime, "_client", lambda service: extension)
+    source = runtime._derive_event(
+        {
+            "event_id": "received-extension-invalid-unit-1",
+            "device_id": "device-1",
+            "value": 2.5,
+            "unit": 123,
+        },
+        event_type=runtime.EVENT_TELEMETRY_RECEIVED,
+        producer="component.device-ingress",
+    )
+
+    with pytest.raises(runtime.ContractError, match="INVALID_PROCESSOR_UNIT"):
+        runtime._invoke_processor_extension(source)
+
+    assert extension.calls == []
 
 
 def test_remote_processed_event_is_persisted_before_projection_routing(monkeypatch):
@@ -308,6 +426,9 @@ def test_projection_candidate_updates_local_twin_with_observation_time(monkeypat
     monkeypatch.setenv("ROLLUP_TABLE_NAME", "rollup")
     monkeypatch.setenv("TWINMAKER_WORKSPACE", "workspace-1")
     monkeypatch.setattr(
+        runtime, "_invoke_processor_extension", _passthrough_processor_extension
+    )
+    monkeypatch.setattr(
         runtime,
         "_client",
         lambda service: dynamo if service == "dynamodb" else twinmaker,
@@ -340,6 +461,9 @@ def test_projection_candidate_emits_closed_remote_projection_contract(monkeypatc
     monkeypatch.setenv("RAW_TABLE_NAME", "raw")
     monkeypatch.setenv("ROLLUP_TABLE_NAME", "rollup")
     monkeypatch.setenv("TELEMETRY_STREAM_ARN", "arn:aws:kinesis:eu:test")
+    monkeypatch.setattr(
+        runtime, "_invoke_processor_extension", _passthrough_processor_extension
+    )
     monkeypatch.setattr(
         runtime,
         "_client",

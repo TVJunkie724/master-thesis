@@ -50,9 +50,28 @@ locals {
 
   aws_v2_runtime_package = "${var.project_path}/.build/aws/five-layer-v2.zip"
   aws_v2_name            = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 32)
+  aws_v2_processor_extensions = local.aws_v2_l2_enabled ? {
+    for package in var.validated_extension_packages : package.artifact_id => package
+    if package.slot_id == "processor.telemetry" && package.slot_version == "1"
+  } : {}
   aws_v2_tags = merge(local.aws_common_tags, {
     ArchitectureProfile = "five-layer-baseline@2"
   })
+}
+
+resource "terraform_data" "aws_v2_processor_extension_guard" {
+  count = local.aws_v2_l2_enabled ? 1 : 0
+
+  input = {
+    package_count = length(local.aws_v2_processor_extensions)
+  }
+
+  lifecycle {
+    precondition {
+      condition     = length(local.aws_v2_processor_extensions) == 1
+      error_message = "AWS Five-layer v2 requires exactly one validated processor.telemetry@1 package."
+    }
+  }
 }
 
 # -----------------------------------------------------------------------------
@@ -225,9 +244,12 @@ resource "aws_iam_role_policy" "aws_v2_lambda_data" {
         ]
       }] : [],
       local.aws_v2_l2_enabled ? [{
-        Effect   = "Allow"
-        Action   = ["lambda:InvokeFunction"]
-        Resource = [aws_lambda_function.aws_v2_extension_action[0].arn]
+        Effect = "Allow"
+        Action = ["lambda:InvokeFunction"]
+        Resource = [
+          aws_lambda_function.aws_v2_extension_action[0].arn,
+          one(values(aws_lambda_function.aws_v2_processor_extension)).arn,
+        ]
       }] : [],
       local.aws_v2_l2_enabled ? [{
         Effect   = "Allow"
@@ -343,24 +365,25 @@ resource "aws_lambda_function" "aws_aws_lambda" {
 
   environment {
     variables = {
-      ARCHITECTURE_PROFILE           = "five-layer-baseline@2"
-      DEPLOYMENT_ID                  = local.deployment_suffix
-      EVENT_QUEUE_URL                = aws_sqs_queue.aws_aws_sqs_fifo[0].url
-      CONTROL_TOPIC_ARN              = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn, "")
-      L1_PROVIDER                    = var.layer_1_provider
-      RAW_TABLE_NAME                 = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
-      ROLLUP_TABLE_NAME              = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
-      HOT_PROVIDER                   = var.layer_3_hot_provider
-      TWIN_PROVIDER                  = var.layer_4_provider
-      TELEMETRY_STREAM_ARN           = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
-      HOT_BOUNDARY_DAYS              = tostring(var.layer_3_hot_to_cold_interval_days)
-      SOURCE_EXPIRY_GRACE_HOURS      = "48"
-      TWINMAKER_WORKSPACE            = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
-      RULES_JSON                     = jsonencode(var.events)
-      ACTION_FUNCTION_NAME           = try(aws_lambda_function.aws_v2_extension_action[0].function_name, "")
-      NOTIFICATION_STATE_MACHINE_ARN = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.aws_v2_name}-v2-event-workflow"
-      DEVICE_COMMAND_ARN             = try(awscc_iot_command.aws_aws_iot_commands[0].command_arn, "")
-      AWS_ACCOUNT_ID                 = data.aws_caller_identity.current[0].account_id
+      ARCHITECTURE_PROFILE              = "five-layer-baseline@2"
+      DEPLOYMENT_ID                     = local.deployment_suffix
+      EVENT_QUEUE_URL                   = aws_sqs_queue.aws_aws_sqs_fifo[0].url
+      CONTROL_TOPIC_ARN                 = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn, "")
+      L1_PROVIDER                       = var.layer_1_provider
+      RAW_TABLE_NAME                    = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
+      ROLLUP_TABLE_NAME                 = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
+      HOT_PROVIDER                      = var.layer_3_hot_provider
+      TWIN_PROVIDER                     = var.layer_4_provider
+      TELEMETRY_STREAM_ARN              = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
+      HOT_BOUNDARY_DAYS                 = tostring(var.layer_3_hot_to_cold_interval_days)
+      SOURCE_EXPIRY_GRACE_HOURS         = "48"
+      TWINMAKER_WORKSPACE               = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
+      RULES_JSON                        = jsonencode(var.events)
+      PROCESSOR_EXTENSION_FUNCTION_NAME = try(one(values(aws_lambda_function.aws_v2_processor_extension)).function_name, "")
+      ACTION_FUNCTION_NAME              = try(aws_lambda_function.aws_v2_extension_action[0].function_name, "")
+      NOTIFICATION_STATE_MACHINE_ARN    = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.aws_v2_name}-v2-event-workflow"
+      DEVICE_COMMAND_ARN                = try(awscc_iot_command.aws_aws_iot_commands[0].command_arn, "")
+      AWS_ACCOUNT_ID                    = data.aws_caller_identity.current[0].account_id
     }
   }
   tags = local.aws_v2_tags
@@ -378,6 +401,59 @@ resource "aws_iam_role" "aws_v2_extension_action" {
     }]
   })
   tags = local.aws_v2_tags
+}
+
+resource "aws_iam_role" "aws_v2_processor_extension" {
+  count = local.aws_v2_l2_enabled ? 1 : 0
+  name  = "${local.aws_v2_name}-v2-processor-extension-${local.deployment_suffix}"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Action    = "sts:AssumeRole"
+      Principal = { Service = "lambda.amazonaws.com" }
+    }]
+  })
+  tags = local.aws_v2_tags
+}
+
+resource "aws_iam_role_policy_attachment" "aws_v2_processor_extension_logs" {
+  count      = local.aws_v2_l2_enabled ? 1 : 0
+  role       = aws_iam_role.aws_v2_processor_extension[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_lambda_function" "aws_v2_processor_extension" {
+  for_each      = local.aws_v2_processor_extensions
+  function_name = "${local.aws_v2_name}-v2-processor-extension"
+  role          = aws_iam_role.aws_v2_processor_extension[0].arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.11"
+  timeout       = 30
+  memory_size   = 256
+
+  filename         = each.value.package_path
+  source_code_hash = filebase64sha256(each.value.package_path)
+
+  environment {
+    variables = {
+      ARCHITECTURE_PROFILE = "five-layer-baseline@2"
+    }
+  }
+  tags = local.aws_v2_tags
+
+  lifecycle {
+    precondition {
+      condition     = each.value.adapter_id == "adapter.aws.python311" && each.value.adapter_version == "1"
+      error_message = "AWS Five-layer v2 requires the reviewed processor.telemetry@1 AWS adapter."
+    }
+  }
+
+  depends_on = [
+    terraform_data.aws_v2_processor_extension_guard,
+    terraform_data.validated_extension_package,
+    aws_iam_role_policy_attachment.aws_v2_processor_extension_logs,
+  ]
 }
 
 resource "aws_iam_role_policy_attachment" "aws_v2_extension_action_logs" {
@@ -432,24 +508,25 @@ resource "aws_lambda_function" "aws_v2_domain_consumer" {
 
   environment {
     variables = {
-      ARCHITECTURE_PROFILE           = "five-layer-baseline@2"
-      DEPLOYMENT_ID                  = local.deployment_suffix
-      EVENT_QUEUE_URL                = try(aws_sqs_queue.aws_aws_sqs_fifo[0].url, "")
-      TELEMETRY_STREAM_ARN           = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
-      CONTROL_TOPIC_ARN              = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn, "")
-      L1_PROVIDER                    = var.layer_1_provider
-      HOT_PROVIDER                   = var.layer_3_hot_provider
-      TWIN_PROVIDER                  = var.layer_4_provider
-      RAW_TABLE_NAME                 = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
-      ROLLUP_TABLE_NAME              = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
-      HOT_BOUNDARY_DAYS              = tostring(var.layer_3_hot_to_cold_interval_days)
-      SOURCE_EXPIRY_GRACE_HOURS      = "48"
-      TWINMAKER_WORKSPACE            = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
-      RULES_JSON                     = jsonencode(var.events)
-      ACTION_FUNCTION_NAME           = try(aws_lambda_function.aws_v2_extension_action[0].function_name, "")
-      NOTIFICATION_STATE_MACHINE_ARN = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.aws_v2_name}-v2-event-workflow"
-      DEVICE_COMMAND_ARN             = try(awscc_iot_command.aws_aws_iot_commands[0].command_arn, "")
-      AWS_ACCOUNT_ID                 = data.aws_caller_identity.current[0].account_id
+      ARCHITECTURE_PROFILE              = "five-layer-baseline@2"
+      DEPLOYMENT_ID                     = local.deployment_suffix
+      EVENT_QUEUE_URL                   = try(aws_sqs_queue.aws_aws_sqs_fifo[0].url, "")
+      TELEMETRY_STREAM_ARN              = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
+      CONTROL_TOPIC_ARN                 = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn, "")
+      L1_PROVIDER                       = var.layer_1_provider
+      HOT_PROVIDER                      = var.layer_3_hot_provider
+      TWIN_PROVIDER                     = var.layer_4_provider
+      RAW_TABLE_NAME                    = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
+      ROLLUP_TABLE_NAME                 = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
+      HOT_BOUNDARY_DAYS                 = tostring(var.layer_3_hot_to_cold_interval_days)
+      SOURCE_EXPIRY_GRACE_HOURS         = "48"
+      TWINMAKER_WORKSPACE               = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
+      RULES_JSON                        = jsonencode(var.events)
+      PROCESSOR_EXTENSION_FUNCTION_NAME = try(one(values(aws_lambda_function.aws_v2_processor_extension)).function_name, "")
+      ACTION_FUNCTION_NAME              = try(aws_lambda_function.aws_v2_extension_action[0].function_name, "")
+      NOTIFICATION_STATE_MACHINE_ARN    = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.aws_v2_name}-v2-event-workflow"
+      DEVICE_COMMAND_ARN                = try(awscc_iot_command.aws_aws_iot_commands[0].command_arn, "")
+      AWS_ACCOUNT_ID                    = data.aws_caller_identity.current[0].account_id
     }
   }
   tags = local.aws_v2_tags

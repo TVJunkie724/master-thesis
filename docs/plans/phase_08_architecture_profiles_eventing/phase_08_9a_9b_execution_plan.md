@@ -75,6 +75,13 @@ deploys one fixed, side-effect-free synthetic action/notification sink so that
 one invocation per match and the four-action workflow are executable and
 cost-visible without introducing application-specific notification behavior.
 `processor.telemetry@1` remains the only v1 user-function extension slot.
+Whenever AWS or Azure owns L2, deployment requires exactly one immutable,
+contract-validated package for that slot. AWS runs it as a dedicated Python
+3.11 Lambda with a logs-only execution role and grants the main runtime only
+`lambda:InvokeFunction` on that package plus the fixed synthetic action.
+Azure deploys the corresponding Flex Function and authenticates the main
+runtime with its Function key. A missing or ambiguous package is a plan error,
+not an implicit identity processor.
 Real external notification delivery and arbitrary uploaded event-action code
 are explicitly outside this thesis PoC and must not be implied by the UI or
 deployment result.

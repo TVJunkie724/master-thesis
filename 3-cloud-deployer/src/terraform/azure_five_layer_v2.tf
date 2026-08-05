@@ -96,6 +96,21 @@ locals {
   } : {}
 }
 
+resource "terraform_data" "azure_v2_processor_extension_guard" {
+  count = local.azure_v2_l2_enabled ? 1 : 0
+
+  input = {
+    package_count = length(local.azure_v2_processor_extensions)
+  }
+
+  lifecycle {
+    precondition {
+      condition     = length(local.azure_v2_processor_extensions) == 1
+      error_message = "Azure Five-layer v2 requires exactly one validated processor.telemetry@1 package."
+    }
+  }
+}
+
 resource "terraform_data" "azure_v2_event_capacity_guard" {
   count = local.azure_v2_remote_telemetry_enabled ? 1 : 0
 
@@ -604,7 +619,10 @@ resource "azurerm_function_app_flex_consumption" "azure_v2_processor_extension" 
     }
   }
 
-  depends_on = [terraform_data.validated_extension_package]
+  depends_on = [
+    terraform_data.azure_v2_processor_extension_guard,
+    terraform_data.validated_extension_package,
+  ]
 }
 
 data "azurerm_function_app_host_keys" "azure_v2_processor_extension" {

@@ -135,6 +135,15 @@ Only `processor.telemetry@1` uses the reviewed user-function extension
 contract in v1. Delivery to a real notification system is a disclosed future
 integration boundary, not a runtime claim of this experiment.
 
+For implemented AWS and Azure L2 targets, Terraform rejects zero or multiple
+packages for that slot. AWS binds the immutable package to a dedicated Python
+3.11 Lambda with a logs-only role and invokes it synchronously through a
+closed, correlated envelope with three bounded attempts. Azure binds the
+provider adapter to a dedicated Flex Function and invokes its authenticated
+HTTP trigger. Both runtimes reject mismatched correlation data and invalid
+output before creating `telemetry.processed.v1`; this is a deployable provider
+binding, while live-cloud qualification remains pending.
+
 ### GCP Device-Boundary Qualification
 
 Pub/Sub is not an MQTT device broker, and the current repository's
