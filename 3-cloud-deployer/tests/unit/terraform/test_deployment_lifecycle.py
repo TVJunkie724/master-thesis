@@ -45,12 +45,21 @@ def _strategy(tmp_path, events):
     project_path.mkdir()
     strategy = TerraformDeployerStrategy(str(terraform_dir), str(project_path))
     strategy._runner = _StreamingRunner(events)
-    strategy._validate_credentials = MagicMock(side_effect=lambda: events.append("validate"))
-    strategy._initialize_providers = MagicMock(side_effect=lambda context: events.append("providers"))
+    strategy._validate_credentials = MagicMock(
+        side_effect=lambda: events.append("validate")
+    )
+    strategy._initialize_providers = MagicMock(
+        side_effect=lambda context: events.append("providers")
+    )
+    strategy._prepare_shared_identity_capabilities = MagicMock(
+        side_effect=lambda context: events.append("identity")
+    )
     strategy._build_packages = MagicMock(side_effect=lambda: events.append("build"))
     strategy._validate_project = MagicMock()
     strategy._generate_tfvars = MagicMock(side_effect=lambda: events.append("tfvars"))
-    strategy._run_post_deployment = MagicMock(side_effect=lambda context: events.append("post"))
+    strategy._run_post_deployment = MagicMock(
+        side_effect=lambda context: events.append("post")
+    )
     strategy._record_applied_packages = MagicMock(
         side_effect=lambda: events.append("metadata") or 2
     )
@@ -72,6 +81,7 @@ def test_sync_deployment_records_packages_after_apply_before_post_deployment(tmp
     assert events == [
         "validate",
         "providers",
+        "identity",
         "build",
         "tfvars",
         "init",
@@ -105,9 +115,7 @@ def test_streaming_deployment_uses_same_canonical_order(tmp_path):
 
     assert "init output" in lines
     assert "apply output" in lines
-    assert [
-        line for line in lines if line.startswith("T2MC_STAGE_COMPLETED:")
-    ] == [
+    assert [line for line in lines if line.startswith("T2MC_STAGE_COMPLETED:")] == [
         "T2MC_STAGE_COMPLETED:package",
         "T2MC_STAGE_COMPLETED:preplan",
         "T2MC_STAGE_COMPLETED:terraform",
@@ -116,6 +124,7 @@ def test_streaming_deployment_uses_same_canonical_order(tmp_path):
     assert events == [
         "validate",
         "providers",
+        "identity",
         "build",
         "tfvars",
         "init_async",
@@ -154,4 +163,6 @@ def test_metadata_marks_only_current_built_hash_as_deployed(tmp_path):
 def test_runtime_initialization_only_includes_providers_with_sdk_owned_steps():
     assert configured_runtime_providers({"layer_1_provider": "google"}) == set()
     assert configured_runtime_providers({"layer_2_provider": "azure"}) == set()
+    assert configured_runtime_providers({"layer_2_provider": "aws"}) == {"aws"}
+    assert configured_runtime_providers({"layer_3_hot_provider": "aws"}) == {"aws"}
     assert configured_runtime_providers({"layer_4_provider": "aws"}) == {"aws"}

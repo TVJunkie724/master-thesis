@@ -16,6 +16,7 @@ from src.providers.terraform.azure_deployer import (
     register_azure_iot_devices,
     upload_dtdl_models,
 )
+from src.providers.terraform.cross_cloud_identity import ensure_aws_outbound_identity
 
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
@@ -33,13 +34,24 @@ def normalize_provider_name(provider: str) -> str:
 
 
 def configured_runtime_providers(providers_config: dict) -> set[str]:
-    """Return normalized providers that require SDK clients."""
-    return {
+    """Return providers needing postapply or graph preplan SDK clients."""
+    providers = {
         normalize_provider_name(provider)
         for key in _SDK_LAYER_KEYS
         if isinstance((provider := providers_config.get(key)), str) and provider.strip()
         if normalize_provider_name(provider) in _SDK_POST_DEPLOYMENT_PROVIDERS
     }
+    if any(
+        normalize_provider_name(provider) == "aws"
+        for key, provider in providers_config.items()
+        if key.startswith("layer_")
+        and key.endswith("_provider")
+        and isinstance(provider, str)
+    ):
+        # IAM outbound identity can be required when any AWS-owned layer is
+        # the source of a resolved cross-provider edge.
+        providers.add("aws")
+    return providers
 
 
 def initialize_providers(
@@ -74,6 +86,24 @@ def initialize_providers(
             context.config.digital_twin_name,
         )
         context.providers["aws"] = provider
+
+
+def prepare_shared_identity_capabilities(
+    context: "DeploymentContext",
+) -> dict:
+    """Prepare graph-required account capabilities after deploy confirmation."""
+
+    readiness = ensure_aws_outbound_identity(
+        context,
+        getattr(context, "resolved_deployment_graph", None),
+    )
+    if readiness.required:
+        logger.info(
+            "AWS outbound workload identity ready for: %s",
+            ", ".join(readiness.destination_providers),
+        )
+    return readiness.to_tfvars()
+
 
 def run_post_deployment(
     context: "DeploymentContext",

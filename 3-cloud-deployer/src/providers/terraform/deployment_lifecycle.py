@@ -7,6 +7,7 @@ import logging
 from typing import TYPE_CHECKING, AsyncIterator
 
 from src.providers.terraform.deployment_metadata import mark_built_packages_deployed
+
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
 
@@ -33,6 +34,7 @@ class DeploymentLifecycleMixin:
             "resolved_deployment_graph",
             None,
         )
+        self._prepare_shared_identity_capabilities(context)
         self._build_packages()
         self._generate_tfvars()
 
@@ -88,6 +90,7 @@ class DeploymentLifecycleMixin:
             "resolved_deployment_graph",
             None,
         )
+        self._prepare_shared_identity_capabilities(context)
         self._build_packages()
         yield f"{STAGE_COMPLETED_MARKER}package"
         self._generate_tfvars()

@@ -981,6 +981,29 @@ variable "inter_cloud_token" {
   sensitive   = true
 }
 
+variable "aws_outbound_identity_required" {
+  description = "Whether the resolved graph contains an AWS-to-Azure/GCP workload-identity route"
+  type        = bool
+  default     = false
+}
+
+variable "aws_outbound_identity_destinations" {
+  description = "Remote providers that trust the account-scoped AWS outbound identity issuer"
+  type        = list(string)
+  default     = []
+}
+
+variable "aws_outbound_identity_issuer" {
+  description = "Non-secret AWS outbound identity issuer discovered during preplan"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.aws_outbound_identity_issuer == "" || startswith(var.aws_outbound_identity_issuer, "https://")
+    error_message = "The AWS outbound identity issuer must be empty or use HTTPS."
+  }
+}
+
 # ==============================================================================
 # Azure Function ZIP Deployment Paths
 # These paths are populated by tfvars_generator.py with pre-built function ZIPs.

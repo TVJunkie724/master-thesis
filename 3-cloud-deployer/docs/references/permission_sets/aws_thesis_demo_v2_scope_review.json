@@ -6,7 +6,7 @@
   "source_manifest": "aws_thesis_demo_v2.json",
   "scope_classes": {
     "account_discovery": "Wildcard resource scope is expected for identity and catalog discovery.",
-    "account_identity_enablement": "iam:GetOutboundWebIdentityFederationInfo and iam:EnableOutboundWebIdentityFederation are account-level and are exercised only for a confirmed AWS-to-Azure remote workload-identity route.",
+  "account_identity_enablement": "iam:GetOutboundWebIdentityFederationInfo and iam:EnableOutboundWebIdentityFederation are account-level and are exercised only for a confirmed AWS-to-Azure or AWS-to-GCP remote workload-identity route.",
     "create_before_arn": "Create actions remain wildcard-scoped until the created ARN exists.",
     "deployment_prefix_candidate": "Lifecycle actions target twin2mc-* resources after supervised ARN validation.",
     "conditioned_pass_role": "iam:PassRole is constrained by iam:PassedToService."

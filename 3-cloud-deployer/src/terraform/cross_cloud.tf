@@ -111,3 +111,21 @@ resource "random_password" "inter_cloud_token" {
   length  = 64
   special = false
 }
+# SDK-owned, account-scoped AWS outbound identity is discovered before plan.
+# terraform_data owns only the per-plan assertion and never the shared feature,
+# so destroying a Twin cannot disable account-wide JWT vending.
+resource "terraform_data" "aws_outbound_identity_preplan" {
+  count = var.aws_outbound_identity_required ? 1 : 0
+
+  input = {
+    destinations = var.aws_outbound_identity_destinations
+    issuer       = var.aws_outbound_identity_issuer
+  }
+
+  lifecycle {
+    precondition {
+      condition     = length(var.aws_outbound_identity_destinations) > 0 && startswith(var.aws_outbound_identity_issuer, "https://")
+      error_message = "An AWS remote workload-identity route requires at least one destination and a ready HTTPS issuer."
+    }
+  }
+}

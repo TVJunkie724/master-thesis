@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -15,6 +16,7 @@ from src.providers.terraform.destruction_lifecycle import (
 )
 from src.providers.terraform.provider_runtime import (
     initialize_providers,
+    prepare_shared_identity_capabilities,
     run_post_deployment,
 )
 from src.terraform_runner import TerraformRunner
@@ -45,6 +47,7 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
         self._runner: TerraformRunner | None = None
         self._providers_config: dict | None = None
         self._terraform_outputs: dict | None = None
+        self._preplan_tfvars: dict = {}
 
     @property
     def runner(self) -> TerraformRunner:
@@ -71,6 +74,13 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
     def _generate_tfvars(self) -> None:
         self.tfvars_path.parent.mkdir(parents=True, exist_ok=True)
         generate_tfvars(str(self.project_path), str(self.tfvars_path))
+        if self._preplan_tfvars:
+            generated = json.loads(self.tfvars_path.read_text(encoding="utf-8"))
+            generated.update(self._preplan_tfvars)
+            self.tfvars_path.write_text(
+                json.dumps(generated, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
 
     def _build_packages(self) -> None:
         from src.providers.terraform.package_builder import build_all_packages
@@ -119,7 +129,9 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
 
             aws_credentials = credentials.get("aws")
             if not aws_credentials:
-                raise ValueError("AWS is configured but no AWS credentials were provided")
+                raise ValueError(
+                    "AWS is configured but no AWS credentials were provided"
+                )
             self._assert_preflight_valid(
                 "AWS",
                 check_aws_credentials(aws_credentials),
@@ -130,7 +142,9 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
 
             gcp_credentials = credentials.get("gcp")
             if not gcp_credentials:
-                raise ValueError("GCP is configured but no GCP credentials were provided")
+                raise ValueError(
+                    "GCP is configured but no GCP credentials were provided"
+                )
             self._assert_preflight_valid(
                 "GCP",
                 check_gcp_credentials(gcp_credentials),
@@ -154,6 +168,12 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
             self._load_providers_config(),
             self._load_credentials(),
         )
+
+    def _prepare_shared_identity_capabilities(
+        self,
+        context: "DeploymentContext",
+    ) -> None:
+        self._preplan_tfvars = prepare_shared_identity_capabilities(context)
 
     def _run_post_deployment(self, context: "DeploymentContext") -> None:
         run_post_deployment(

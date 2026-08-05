@@ -93,11 +93,18 @@ def build() -> dict[str, Any]:
         "approved_on": "2026-08-03",
         "research_cutoff": "2026-08-03",
         "pre_activation_refreeze": {
-            "refrozen_on": "2026-08-04",
-            "previous_package_digest": "sha256:cc142504cc8c06927569ec1cce09fe4a9133a688b5f02a2ba114105a0e422245",
-            "reason": "close the AWS-to-Azure implementation gap by admitting disclosed account-level outbound-identity enablement to thesis-demo-v2",
-            "scope_change": True,
+            "refrozen_on": "2026-08-05",
+            "previous_package_digest": "sha256:e11bbd03470434a0552151ce4b005fea7e05838c511795b45505e58bee5a7d3e",
+            "reason": "correct the already-approved AWS outbound-identity scope so the implementation and permission wording cover both remote destinations in the frozen route matrix: Azure and GCP",
+            "scope_change": False,
             "activated_or_deployed_before_refreeze": False,
+            "prior_refreeze": {
+                "refrozen_on": "2026-08-04",
+                "previous_package_digest": "sha256:cc142504cc8c06927569ec1cce09fe4a9133a688b5f02a2ba114105a0e422245",
+                "reason": "close the AWS-to-Azure implementation gap by admitting disclosed account-level outbound-identity enablement to thesis-demo-v2",
+                "scope_change": True,
+                "activated_or_deployed_before_refreeze": False,
+            },
         },
         "regions": {
             "aws": "eu-central-1",
