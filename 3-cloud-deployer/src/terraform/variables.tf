@@ -51,6 +51,12 @@ variable "digital_twin_info_json" {
   default     = "{}"
 }
 
+variable "resolved_component_dimensions" {
+  description = "Validated component capacity and usage dimensions projected from the resolved graph"
+  type        = map(string)
+  default     = {}
+}
+
 # ==============================================================================
 # Layer Provider Mapping (from config_providers.json)
 # ==============================================================================

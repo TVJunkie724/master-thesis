@@ -103,6 +103,11 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
         if resolved_graph is not None
         else translate_deployment_tfvars(validated_manifest.specification)
     )
+    tfvars["resolved_component_dimensions"] = (
+        _project_graph_component_dimensions(resolved_graph)
+        if resolved_graph is not None
+        else {}
+    )
 
     # Load config_iot_devices.json (device definitions)
     tfvars.update(_load_iot_devices(project_dir))
@@ -378,6 +383,38 @@ def _load_graph_azure_function_zips(
     if discovered != expected_azure:
         raise ConfigurationError("Graph-built Azure package set is incomplete.")
     return result
+
+
+def _project_graph_component_dimensions(graph) -> dict[str, str]:
+    """Project globally qualified v2 dimensions into an immutable Terraform map."""
+
+    dimensions: dict[str, str] = {}
+    for node in graph.nodes:
+        for item in node.deployment_dimensions:
+            dimension_id = item.get("dimension_id")
+            value = item.get("value")
+            if not isinstance(dimension_id, str) or not dimension_id:
+                raise ConfigurationError("Resolved component dimension ID is invalid.")
+            if not dimension_id.startswith("dimension."):
+                # Historical v1 dimension IDs are scoped by component and can
+                # intentionally repeat with different values. Their existing
+                # explicit Terraform bindings remain authoritative.
+                continue
+            if isinstance(value, bool):
+                normalized = "true" if value else "false"
+            elif isinstance(value, (int, float, str)) and not isinstance(value, bool):
+                normalized = str(value)
+            else:
+                raise ConfigurationError(
+                    "Resolved component dimension value is not a Terraform scalar."
+                )
+            previous = dimensions.get(dimension_id)
+            if previous is not None and previous != normalized:
+                raise ConfigurationError(
+                    "Resolved component dimensions contradict across graph nodes."
+                )
+            dimensions[dimension_id] = normalized
+    return dict(sorted(dimensions.items()))
 
 
 def _build_azure_function_zips(
