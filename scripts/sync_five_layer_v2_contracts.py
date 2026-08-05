@@ -798,9 +798,13 @@ def catalog_port(provider: str, port_id: str) -> dict[str, Any]:
         if "raw-history" in port_id
         else (
             "storage-transition-record.v1"
-            if "storage" in port_id
-            and "write-in" in port_id
-            or "transition-out" in port_id
+            if (
+                "transition-out" in port_id
+                or any(
+                    layer in port_id
+                    for layer in ("cool-storage.write-in", "archive-storage.write-in")
+                )
+            )
             else (
                 "telemetry-to-twin-state.v1"
                 if "twin" in port_id
@@ -1456,6 +1460,61 @@ def rds_digest(specification: dict[str, Any]) -> str:
     payload = dict(specification)
     payload.pop("digest", None)
     return digest(payload)
+
+
+def component_capacity_registry() -> dict[str, Any]:
+    """Build the minimal runtime registry needed to resolve atomic v2 costs."""
+
+    manifest = read_json(SERVICE_COMPONENTS)
+    pricing = read_json(SERVICE_PRICING)
+    owners = {
+        item["component_id"]: item for item in pricing["component_owners"]
+    }
+    components = []
+    for component in manifest["components"]:
+        component_id = component["component_id"]
+        owner = owners.get(component_id)
+        if owner is None:
+            raise RuntimeError(
+                f"Missing pricing owner for implementation component {component_id}"
+            )
+        if owner["dimensions"] != component["capacity_dimensions"]:
+            raise RuntimeError(
+                f"Capacity/pricing dimensions differ for {component_id}"
+            )
+        components.append(
+            {
+                "component_id": component_id,
+                "component_digest": digest(component),
+                "provider": component["provider"],
+                "responsibilities": component["responsibilities"],
+                "capacity_dimensions": component["capacity_dimensions"],
+                "pricing_owner_id": owner["cost_owner_id"],
+                "pricing_catalog_key": owner["pricing_catalog_key"],
+                "deduplication_key": owner["deduplication_key"],
+            }
+        )
+    registry = {
+        "schema_version": "five-layer-v2-component-capacity-registry.v1",
+        "package_ref": {
+            "id": "phase-08-complete-service-bundles",
+            "version": "1",
+            "digest": service_decision_digest(),
+        },
+        "capacity_evidence_digest": file_digest(
+            SERVICE_ROOT / "capacity-matrix.json"
+        ),
+        "pricing_ownership_digest": file_digest(SERVICE_PRICING),
+        "price_value_policy": pricing["price_value_policy"],
+        "same_provider_rule": pricing["same_provider_rule"],
+        "shared_support_rules": pricing["shared_support_rules"],
+        "provider_bundles": read_json(SERVICE_BUNDLES)["providers"],
+        "components": sorted(components, key=lambda item: item["component_id"]),
+        "route_owners": pricing["route_owners"],
+        "content_digest": "",
+    }
+    registry["content_digest"] = digest(registry)
+    return registry
 
 
 def scenario_reference(size: str) -> dict[str, str]:
@@ -2327,6 +2386,10 @@ def generate() -> None:
 
     schema = rds_schema()
     write_json(RDS_V2 / "schema.json", schema)
+    write_json(
+        RDS_V2 / "component-capacity-registry.json",
+        component_capacity_registry(),
+    )
     if (RDS_V2 / "fixtures").exists():
         shutil.rmtree(RDS_V2 / "fixtures")
     fixture_cases = {
@@ -2594,6 +2657,15 @@ def validate_source() -> None:
 
     schema = read_json(RDS_V2 / "schema.json")
     Draft202012Validator.check_schema(schema)
+    component_registry = read_json(
+        RDS_V2 / "component-capacity-registry.json"
+    )
+    if component_registry != component_capacity_registry():
+        raise RuntimeError("RDS v2 component capacity registry drifted")
+    supplied_registry_digest = component_registry["content_digest"]
+    component_registry["content_digest"] = ""
+    if supplied_registry_digest != digest(component_registry):
+        raise RuntimeError("RDS v2 component capacity registry digest drifted")
     valid_paths = sorted((RDS_V2 / "fixtures" / "valid").glob("*.json"))
     if {path.stem for path in valid_paths} != {
         "single-cloud-aws-small",

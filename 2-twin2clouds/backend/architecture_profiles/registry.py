@@ -41,18 +41,22 @@ class ArchitectureProfileRegistry:
         profile: Mapping[str, Any] | None = None,
         catalog: Mapping[str, Any] | None = None,
         providers: Mapping[str, Mapping[str, Any]] | None = None,
+        profile_version: str = "1",
     ) -> None:
+        if profile_version not in {"1", "2"}:
+            raise ValueError("Unsupported five-layer profile version")
+        catalog_id = "baseline" if profile_version == "1" else "complete-service"
         profile = dict(profile) if profile is not None else _read(
             DEFINITIONS_ROOT
             / "profiles"
             / "five-layer-baseline"
-            / "1"
+            / profile_version
             / "profile.json"
         )
         catalog = dict(catalog) if catalog is not None else _read(
             DEFINITIONS_ROOT
             / "component-catalogs"
-            / "baseline"
+            / catalog_id
             / "1"
             / "catalog.json"
         )
@@ -67,7 +71,7 @@ class ArchitectureProfileRegistry:
                     DEFINITIONS_ROOT
                     / "provider-implementations"
                     / "five-layer-baseline"
-                    / "1"
+                    / profile_version
                     / provider
                     / "1.json"
                 )

@@ -166,6 +166,20 @@ def enumerate_component_candidates(
 
     candidates = []
     for selected in product(*option_matrix):
+        if (
+            context.profile_ref.profile_version == "2"
+            and next(
+                option.provider
+                for option in selected
+                if option.layer_key == "L3_hot"
+            )
+            != next(
+                option.provider
+                for option in selected
+                if option.layer_key == "L5"
+            )
+        ):
+            continue
         candidate_id = "|".join(option.provider for option in selected)
         candidates.append(
             ArchitectureCandidate(
@@ -192,7 +206,10 @@ def _build_component_option(
     if (
         cost is None
         or profile is None
-        or profile["lifecycle_status"] != "active"
+        or (
+            context.resolution_status == "publishable"
+            and profile["lifecycle_status"] != "active"
+        )
         or profile["supported"] is not True
         or not isinstance(region, str)
     ):
@@ -308,7 +325,7 @@ def _component_incompatibility(
         for binding in component["deployment_specification_bindings"]
         if binding["slot_id"] in {slot_id, "transition_runtime"}
         and binding["specification_schema_version"]
-        == "resolved-deployment-specification.v1"
+        == _deployment_specification_version(architecture_profile_ref[1])
     }
     mapped_bindings = set(mapping["deployment_specification_component_ids"])
     if not mapped_bindings or not mapped_bindings.issubset(catalog_bindings):
@@ -331,7 +348,7 @@ def _component_incompatibility(
             (str(item["id"]), str(item["version"]))
             for item in compatibility["provider_profile_versions"]
         }
-        or "resolved-deployment-specification.v1"
+        or _deployment_specification_version(architecture_profile_ref[1])
         not in compatibility["deployment_specification_versions"]
     ):
         return "ARCH_COMPONENT_CANDIDATE_MISSING"
@@ -353,11 +370,19 @@ def _provider_profile_is_compatible(
             (str(item["id"]), str(item["version"]))
             for item in compatibility["compatible_catalog_versions"]
         }
-        and "resolved-deployment-specification.v1"
+        and _deployment_specification_version(
+            context.profile_ref.profile_version
+        )
         in compatibility["compatible_deployment_specification_versions"]
-        and "1" in compatibility["compatible_resolver_versions"]
-        and "1" in compatibility["compatible_runtime_versions"]
+        and context.profile_ref.profile_version
+        in compatibility["compatible_resolver_versions"]
+        and context.profile_ref.profile_version
+        in compatibility["compatible_runtime_versions"]
     )
+
+
+def _deployment_specification_version(profile_version: str) -> str:
+    return f"resolved-deployment-specification.v{profile_version}"
 
 
 def _provider_key(label: str) -> str:

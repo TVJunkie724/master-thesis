@@ -267,7 +267,7 @@ def _edge_incompatibility(
             for item in compatibility["architecture_profile_versions"]
         }
         or not required_profiles.issubset(compatible_profiles)
-        or "resolved-deployment-specification.v1"
+        or f"resolved-deployment-specification.v{context.profile_ref.profile_version}"
         not in compatibility["deployment_specification_versions"]
     ):
         return "ARCH_EDGE_IMPLEMENTATION_MISSING"

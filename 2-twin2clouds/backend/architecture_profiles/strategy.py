@@ -107,6 +107,7 @@ class ArchitectureResolutionContext:
     catalog: Mapping[str, Any]
     provider_profiles: Mapping[str, Mapping[str, Any]]
     extension_bindings: tuple[ExtensionBindingRef, ...]
+    resolution_status: str = "publishable"
     layer_options: Mapping[
         str,
         tuple[tuple[str, Decimal], ...],
@@ -245,6 +246,7 @@ def build_resolution_context(
     calculation_run_id: str,
     architecture_profile: Mapping[str, Any],
     extension_bindings: object,
+    resolution_status: str = "publishable",
 ) -> ArchitectureResolutionContext:
     """Validate references only and return immutable repository definitions."""
 
@@ -287,7 +289,25 @@ def build_resolution_context(
             exc.path,
             str(exc),
         ) from exc
-    if profile["lifecycle_status"] != "active":
+    if resolution_status not in {"publishable", "offline_contract_fixture"}:
+        raise ArchitectureResolutionError(
+            "ARCH_WORKLOAD_INCOMPATIBLE",
+            "resolutionStatus",
+            "Architecture resolution status is unsupported",
+        )
+    if (
+        resolution_status == "offline_contract_fixture"
+        and profile["schema_version"] != "architecture-profile.v2"
+    ):
+        raise ArchitectureResolutionError(
+            "ARCH_PROFILE_BUNDLE_INCOMPATIBLE",
+            "resolutionStatus",
+            "Offline draft resolution is restricted to v2 implementation evidence",
+        )
+    if (
+        resolution_status == "publishable"
+        and profile["lifecycle_status"] != "active"
+    ):
         raise ArchitectureResolutionError(
             "ARCH_PROFILE_NOT_FOUND",
             "architectureProfile",
@@ -305,6 +325,7 @@ def build_resolution_context(
         catalog=registry.catalog,
         provider_profiles=MappingProxyType(dict(registry.providers)),
         extension_bindings=normalized_bindings,
+        resolution_status=resolution_status,
     )
 
 

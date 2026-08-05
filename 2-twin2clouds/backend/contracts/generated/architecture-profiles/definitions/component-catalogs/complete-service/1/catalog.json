@@ -440,7 +440,7 @@
         {
           "port_id": "catalog.aws.port.hot-storage.write-in",
           "schema_ref": {
-            "id": "storage-transition-record.v1",
+            "id": "telemetry-envelope.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -1642,7 +1642,7 @@
         {
           "port_id": "catalog.azure.port.hot-storage.write-in",
           "schema_ref": {
-            "id": "storage-transition-record.v1",
+            "id": "telemetry-envelope.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -2854,7 +2854,7 @@
         {
           "port_id": "catalog.gcp.port.hot-storage.write-in",
           "schema_ref": {
-            "id": "storage-transition-record.v1",
+            "id": "telemetry-envelope.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -7765,5 +7765,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:b727d5c13626b5055935fffed5f02b7b57ab3af202d9fb080f42fa2ba111fa8f"
+  "content_digest": "sha256:688cca28efe7b64f0c06dfd278cd53dacbb85f6b73f9595f0c849206d1db51c8"
 }
