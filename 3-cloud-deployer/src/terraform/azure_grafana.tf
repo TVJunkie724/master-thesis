@@ -22,7 +22,7 @@
 # ==============================================================================
 
 resource "azurerm_dashboard_grafana" "main" {
-  count               = var.layer_5_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_5_provider == "azure" ? 1 : 0
   name                = local.azure_grafana_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -68,7 +68,7 @@ resource "azurerm_dashboard_grafana" "main" {
 
 locals {
   # L5 Azure Grafana enabled when provider is Azure AND email is provided
-  azure_grafana_enabled = var.layer_5_provider == "azure" && var.platform_user_email != ""
+  azure_grafana_enabled = local.azure_v1_enabled && var.layer_5_provider == "azure" && var.platform_user_email != ""
 }
 
 # Assign Grafana Admin role (with deterministic UUID for idempotency)
@@ -94,19 +94,21 @@ resource "azurerm_role_assignment" "grafana_admin" {
 # Manual users don't need this - they have time for propagation naturally.
 # ==============================================================================
 
-data "azurerm_client_config" "current" {}
+data "azurerm_client_config" "current" {
+  count = local.azure_v1_enabled && var.layer_5_provider == "azure" ? 1 : 0
+}
 
 resource "azurerm_role_assignment" "grafana_deployer" {
-  count                            = var.layer_5_provider == "azure" ? 1 : 0
+  count                            = local.azure_v1_enabled && var.layer_5_provider == "azure" ? 1 : 0
   scope                            = azurerm_dashboard_grafana.main[0].id
   role_definition_name             = "Grafana Admin"
-  principal_id                     = data.azurerm_client_config.current.object_id
+  principal_id                     = data.azurerm_client_config.current[0].object_id
   skip_service_principal_aad_check = true
 }
 
 # Wait for Azure RBAC propagation (typically 5-10 min, using 180s + test retry logic)
 resource "time_sleep" "wait_for_grafana_role" {
-  count           = var.layer_5_provider == "azure" ? 1 : 0
+  count           = local.azure_v1_enabled && var.layer_5_provider == "azure" ? 1 : 0
   create_duration = "180s"
   depends_on      = [azurerm_role_assignment.grafana_deployer]
 }

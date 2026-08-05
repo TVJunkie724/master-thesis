@@ -20,7 +20,7 @@
 # ==============================================================================
 
 resource "azurerm_iothub" "main" {
-  count               = var.layer_1_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_1_provider == "azure" ? 1 : 0
   name                = local.azure_iothub_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = local.azure_iothub_region
@@ -36,7 +36,7 @@ resource "azurerm_iothub" "main" {
 # Data source to get the built-in iothubowner shared access policy connection string
 # Used by E2E tests to verify device registration
 data "azurerm_iothub_shared_access_policy" "iothubowner" {
-  count               = var.layer_1_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_1_provider == "azure" ? 1 : 0
   name                = "iothubowner"
   resource_group_name = azurerm_resource_group.main[0].name
   iothub_name         = azurerm_iothub.main[0].name
@@ -47,7 +47,7 @@ data "azurerm_iothub_shared_access_policy" "iothubowner" {
 # ==============================================================================
 
 resource "azurerm_role_assignment" "identity_iothub_contributor" {
-  count                = var.layer_1_provider == "azure" ? 1 : 0
+  count                = local.azure_v1_enabled && var.layer_1_provider == "azure" ? 1 : 0
   scope                = azurerm_iothub.main[0].id
   role_definition_name = "IoT Hub Data Contributor"
   principal_id         = azurerm_user_assigned_identity.main[0].principal_id
@@ -58,7 +58,7 @@ resource "azurerm_role_assignment" "identity_iothub_contributor" {
 # ==============================================================================
 
 resource "azurerm_service_plan" "l1" {
-  count               = var.layer_1_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_1_provider == "azure" ? 1 : 0
   name                = local.azure_l1_plan_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -73,7 +73,7 @@ resource "azurerm_service_plan" "l1" {
 # ==============================================================================
 
 resource "azurerm_linux_function_app" "l1" {
-  count               = var.layer_1_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_1_provider == "azure" ? 1 : 0
   name                = local.azure_l1_functions_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -167,7 +167,7 @@ resource "azurerm_linux_function_app" "l1" {
 # ==============================================================================
 
 resource "azurerm_eventgrid_system_topic" "iothub" {
-  count               = var.layer_1_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_1_provider == "azure" ? 1 : 0
   name                = local.azure_iothub_events_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = local.azure_iothub_region
@@ -184,7 +184,7 @@ resource "azurerm_eventgrid_system_topic" "iothub" {
 # Azure Functions needs time to sync and recognize functions after zip_deploy_file.
 # This delay ensures the dispatcher function is registered before EventGrid tries to subscribe.
 resource "time_sleep" "wait_for_function_sync" {
-  count           = var.layer_1_provider == "azure" && var.azure_l1_zip_path != "" ? 1 : 0
+  count           = local.azure_v1_enabled && var.layer_1_provider == "azure" && var.azure_l1_zip_path != "" ? 1 : 0
   depends_on      = [azurerm_linux_function_app.l1]
   create_duration = "180s" # Wait 3 minutes for Oryx build + function indexing
 }
@@ -198,7 +198,7 @@ resource "time_sleep" "wait_for_function_sync" {
 # function exists before this subscription is created.
 resource "azurerm_eventgrid_system_topic_event_subscription" "iothub_to_dispatcher" {
   # Only create if L1 is Azure AND we have a ZIP file (function code deployed)
-  count               = var.layer_1_provider == "azure" && var.azure_l1_zip_path != "" ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_1_provider == "azure" && var.azure_l1_zip_path != "" ? 1 : 0
   name                = local.azure_iothub_subscription
   system_topic        = azurerm_eventgrid_system_topic.iothub[0].name
   resource_group_name = azurerm_resource_group.main[0].name

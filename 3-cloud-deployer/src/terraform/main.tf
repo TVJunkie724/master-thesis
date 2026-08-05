@@ -145,6 +145,9 @@ locals {
     var.layer_5_provider
   ], "azure")
 
+  azure_v1_enabled = local.deploy_azure && !local.five_layer_v2_enabled
+  azure_v2_enabled = local.deploy_azure && local.five_layer_v2_enabled
+
   deploy_aws = contains([
     var.layer_1_provider,
     var.layer_2_provider,
