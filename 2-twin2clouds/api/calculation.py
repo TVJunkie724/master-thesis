@@ -730,6 +730,12 @@ def _five_layer_v2_http_result(
         f"L4_{calculation_result['L4']}",
         f"L5_{calculation_result['L5']}",
     ]
+    provider_pricing_contexts = params.providerPricingContexts.model_dump(
+        mode="json"
+    )
+    aws_twinmaker = provider_pricing_contexts["awsTwinMaker"]
+    if calculation_result["L4"] == "AWS" and aws_twinmaker["status"] == "available":
+        aws_twinmaker["status"] = "compatible"
     return {
         "calculationResult": calculation_result,
         "cheapestPath": cheapest_path,
@@ -759,6 +765,8 @@ def _five_layer_v2_http_result(
             "rejectedByErrorCode": dict(optimized.rejected_by_error_code),
             "winningCandidateId": optimized.winning_candidate_id,
         },
+        "providerPricingContexts": provider_pricing_contexts,
+        "costLedger": dict(optimized.cost_ledger),
         "resolvedTwinArchitecture": dict(optimized.resolved_architecture),
         "resolvedDeploymentSpecification": dict(
             optimized.deployment_specification

@@ -57,6 +57,7 @@ class FiveLayerV2OptimizationResult:
     resolved_architecture: Mapping[str, Any]
     deployment_specification: Mapping[str, Any]
     cost_evaluation: FiveLayerV2CostEvaluation
+    cost_ledger: Mapping[str, Any]
     winning_candidate_id: str
     enumerated_candidate_count: int
     costed_candidate_count: int
@@ -130,6 +131,7 @@ def optimize_five_layer_v2(
     complete_candidates = {}
     costed_candidates = []
     specifications = {}
+    cost_ledgers = {}
     for candidate in candidates:
         try:
             complete = strategy.validate_functional_completeness(candidate, context)
@@ -211,6 +213,7 @@ def optimize_five_layer_v2(
             continue
         complete_candidates[candidate.candidate_id] = complete
         specifications[candidate.candidate_id] = specification
+        cost_ledgers[candidate.candidate_id] = dict(ledger)
         costed_candidates.append(costed)
     winner = select_lowest_cost_five_layer_v2_candidate(
         tuple(costed_candidates)
@@ -237,6 +240,7 @@ def optimize_five_layer_v2(
         resolved_architecture=resolved_architecture,
         deployment_specification=specification,
         cost_evaluation=winner.evaluation,
+        cost_ledger=cost_ledgers[winner.candidate_id],
         winning_candidate_id=winner.candidate_id,
         enumerated_candidate_count=len(candidates),
         costed_candidate_count=len(costed_candidates),

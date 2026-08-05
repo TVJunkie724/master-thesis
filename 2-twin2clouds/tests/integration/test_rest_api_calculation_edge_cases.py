@@ -112,6 +112,27 @@ def _five_layer_v2_payload() -> dict:
         **workload,
         "optimizationProfileId": "cost-minimization-v2",
         "providerPricingCatalogs": _catalog_context().to_http_dict(),
+        "providerPricingContexts": {
+            "awsTwinMaker": {
+                "schemaVersion": "aws-twinmaker-account-pricing-context.v1",
+                "status": "available",
+                "sourceRefreshRunId": "aws-refresh-v2",
+                "connectionFingerprint": "sha256:" + ("a" * 64),
+                "providerAccountId": "123456789012",
+                "pricingRegion": "eu-central-1",
+                "catalogSnapshotDigest": "sha256:" + ("b" * 64),
+                "observedAt": "2026-08-04T12:00:00Z",
+                "currentPlan": {
+                    "mode": "STANDARD",
+                    "billableEntityCount": 100,
+                    "effectiveAt": None,
+                    "updatedAt": None,
+                    "updateReason": None,
+                    "bundle": None,
+                },
+                "pendingPlan": None,
+            }
+        },
         "architectureProfile": {
             "profileId": registry.profile["profile_id"],
             "profileVersion": registry.profile["profile_version"],
@@ -198,6 +219,12 @@ def test_five_layer_v2_http_projection_uses_the_actual_winning_candidate():
             monthly_total=Decimal("12.5"),
             currency="USD",
         ),
+        cost_ledger={
+            "schema_version": "five-layer-v2-cost-ledger.v1",
+            "currency": "USD",
+            "component_costs": [],
+            "route_costs": [],
+        },
         winning_candidate_id="candidate.actual-winner",
         enumerated_candidate_count=729,
         costed_candidate_count=700,
@@ -209,6 +236,12 @@ def test_five_layer_v2_http_projection_uses_the_actual_winning_candidate():
     assert result["calculationResult"]["L3"]["Hot"] == "GCP"
     assert result["calculationResult"]["L4"] == "AWS"
     assert result["totalCostExact"] == "12.5"
+    assert result["providerPricingContexts"]["awsTwinMaker"]["status"] == (
+        "compatible"
+    )
+    assert result["costLedger"]["schema_version"] == (
+        "five-layer-v2-cost-ledger.v1"
+    )
     assert result["architectureResolutionDiagnostics"][
         "winningCandidateId"
     ] == "candidate.actual-winner"

@@ -141,6 +141,13 @@ def test_optimizer_costs_all_64_two_provider_candidates_and_selects_aws():
         for assignment in result.resolved_architecture["component_assignments"]
     } == {"aws"}
     assert result.resolved_architecture["cost_summary"]["monthly_total"] == "19"
+    assert result.cost_ledger["schema_version"] == (
+        "five-layer-v2-cost-ledger.v1"
+    )
+    assert len(result.cost_ledger["component_costs"]) == len(
+        result.deployment_specification["component_selections"]
+    )
+    assert result.cost_ledger["route_costs"] == []
 
 
 def test_optimizer_rejects_incomplete_provider_price_coverage_per_candidate():
