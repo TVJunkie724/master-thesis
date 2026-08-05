@@ -1393,7 +1393,8 @@
       "terraform_resource_types": [
         "azurerm_cosmosdb_account",
         "azurerm_cosmosdb_sql_database",
-        "azurerm_cosmosdb_sql_container"
+        "azurerm_cosmosdb_sql_container",
+        "azurerm_cosmosdb_sql_role_assignment"
       ],
       "post_terraform_operations": [],
       "runtime_state": "decision_frozen_not_implemented",

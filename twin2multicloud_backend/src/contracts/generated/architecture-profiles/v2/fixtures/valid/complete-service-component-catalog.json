@@ -1615,6 +1615,7 @@
           "azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup",
           "azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup",
           "azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup",
+          "azurerm_cosmosdb_sql_role_assignment.azure_azure_cosmos_db_nosql_raw_and_rollup",
           "azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_eventhub_cluster.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
@@ -7693,7 +7694,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2",
       "platform_handler": "handler.azure.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:e48d99c7e02c4bd8df535913918e8ee7c91ec87d9334c091b531d3f2b24ea44c",
+      "source_digest": "sha256:0569020f4ac3fdd1131d5ce9b779ef239723bac8b9ed8a86af148d66860c5db6",
       "included_paths": [
         "core.py",
         "function_app.py",
@@ -7748,7 +7749,7 @@
       "repository_source_path": "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:6fa91107f1366c35f71177aff3216c1051c1ae73075b25edc5be743455e6326f",
+      "source_digest": "sha256:bc0360f7491780a8123cc579d6809397729cdb654fad8366610863d4405cb5fe",
       "included_paths": [
         "implementation-component-manifest.json"
       ],
@@ -7786,5 +7787,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:ba4d2fec6267e8c63efa33cd4389483e812c56acfc6e1507ea743765ea826137"
+  "content_digest": "sha256:77b9333da406cccd8f2820487177f636d1e05f5f03a92e825c8079d16ef52b64"
 }

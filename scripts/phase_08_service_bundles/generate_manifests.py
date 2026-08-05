@@ -60,6 +60,7 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
         "azurerm_cosmosdb_account",
         "azurerm_cosmosdb_sql_database",
         "azurerm_cosmosdb_sql_container",
+        "azurerm_cosmosdb_sql_role_assignment",
     ],
     "azure.blob-cool": ["azurerm_storage_account", "azurerm_storage_container"],
     "azure.blob-archive": ["azurerm_storage_management_policy"],

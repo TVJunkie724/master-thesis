@@ -3,7 +3,7 @@
   "package_ref": {
     "id": "phase-08-complete-service-bundles",
     "version": "1",
-    "digest": "sha256:aec13fde178fb9bc4ba9943b206d0aa7e2a7d60aeb685d4076c83c6492e2515a"
+    "digest": "sha256:9c85a4c9ef2207a8e5b0eccadf8e24d6ae04fe968519d0b8b7056b523dd2e73a"
   },
   "capacity_evidence_digest": "sha256:1ab9763320a3cf615b3d24610832f4b72bf2920cd2286f2d51202376fd44120c",
   "pricing_ownership_digest": "sha256:18dc8a5f4ebbf64c176c2891eeaa5e6ef660595df303ac74da6f9c03f4a63b01",
@@ -872,7 +872,7 @@
     },
     {
       "component_id": "azure.cosmos-db-nosql-raw-and-rollup",
-      "component_digest": "sha256:0704f78d8f514492f2036abb64b6b9a1a4798bad6cab8987589b2c86283bedd7",
+      "component_digest": "sha256:8c0f8eaf8742371b23b8d8f6a3de2a01ae5b442e93db426d92ecb3a5d783fd29",
       "provider": "azure",
       "responsibilities": [
         "l3_hot"
@@ -1902,5 +1902,5 @@
       "deduplication_key": "domain_event_cross_cloud::gcp->azure"
     }
   ],
-  "content_digest": "sha256:991866ce5c52d4ed45d4193d11c571923b5b947e201b76994e783ea7468ec3b2"
+  "content_digest": "sha256:0c401e241294294b5a9d3f7a6bacd28175b8dbee1bdc196eee57f26af5f6ccbd"
 }
