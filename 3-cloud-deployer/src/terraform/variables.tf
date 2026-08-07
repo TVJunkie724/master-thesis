@@ -127,6 +127,20 @@ variable "aws_v2_storage_mover_image" {
   }
 }
 
+variable "azure_v2_storage_mover_image" {
+  description = "Content-addressed Azure Five-layer v2 finite storage-mover image"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.azure_v2_storage_mover_image == "" ||
+      can(regex("^[a-z0-9]+\\.azurecr\\.io/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.azure_v2_storage_mover_image))
+    )
+    error_message = "azure_v2_storage_mover_image must be an ACR image pinned by sha256 digest."
+  }
+}
+
 variable "aws_l1_lambda_memory_mb" {
   description = "Specification-selected memory for AWS L1 Lambda functions"
   type        = number

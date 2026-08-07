@@ -33,6 +33,12 @@ from src.providers.terraform.aws_v2_image_publisher import (
     image_requests as aws_v2_image_requests,
     image_tfvars as aws_v2_image_tfvars,
 )
+from src.providers.terraform.azure_v2_image_publisher import (
+    AzureV2ImagePublisher,
+    azure_v2_container_deployment,
+    image_requests as azure_v2_image_requests,
+    image_tfvars as azure_v2_image_tfvars,
+)
 from src.terraform_runner import TerraformRunner
 from src.tfvars_generator import ConfigurationError, generate_tfvars
 from src.validation.directory_validator import validate_project_directory
@@ -61,6 +67,9 @@ AWS_V2_IMAGE_FOUNDATION_TARGETS = (
     "aws_iam_role_policy.aws_aws_ecr_if_container_selected",
     "aws_codebuild_project.aws_aws_ecr_if_container_selected",
 )
+AZURE_V2_IMAGE_FOUNDATION_TARGETS = (
+    "azurerm_container_registry.azure_azure_acr_basic_if_container_selected",
+)
 
 
 class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMixin):
@@ -68,6 +77,7 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
 
     GCP_V2_IMAGE_FOUNDATION_TARGETS = GCP_V2_IMAGE_FOUNDATION_TARGETS
     AWS_V2_IMAGE_FOUNDATION_TARGETS = AWS_V2_IMAGE_FOUNDATION_TARGETS
+    AZURE_V2_IMAGE_FOUNDATION_TARGETS = AZURE_V2_IMAGE_FOUNDATION_TARGETS
 
     def __init__(self, terraform_dir: str, project_path: str):
         if not terraform_dir:
@@ -143,10 +153,15 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
     def _prepare_aws_v2_image_foundation(self) -> bool:
         return aws_v2_container_deployment(self._read_tfvars())
 
+    def _prepare_azure_v2_image_foundation(self) -> bool:
+        return azure_v2_container_deployment(self._read_tfvars())
+
     def _image_foundation_targets(self) -> tuple[str, ...]:
         values: list[str] = []
         if getattr(self, "_aws_v2_image_foundation_required", False):
             values.extend(self.AWS_V2_IMAGE_FOUNDATION_TARGETS)
+        if getattr(self, "_azure_v2_image_foundation_required", False):
+            values.extend(self.AZURE_V2_IMAGE_FOUNDATION_TARGETS)
         if getattr(self, "_gcp_v2_image_foundation_required", False):
             values.extend(self.GCP_V2_IMAGE_FOUNDATION_TARGETS)
         return tuple(values)
@@ -172,6 +187,19 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
         )
         images = publisher.publish(gcp_v2_image_requests(self.project_path, generated))
         self._merge_tfvars(gcp_v2_image_tfvars(images, generated))
+
+    def _publish_azure_v2_images(self) -> None:
+        generated = self._read_tfvars()
+        outputs = self.runner.output()
+        publisher = AzureV2ImagePublisher.from_tfvars_and_outputs(
+            project_path=self.project_path,
+            tfvars=generated,
+            outputs=outputs,
+        )
+        images = publisher.publish(
+            azure_v2_image_requests(self.project_path, generated)
+        )
+        self._merge_tfvars(azure_v2_image_tfvars(images, generated))
 
     def _gcp_kubernetes_state_exists(self) -> bool:
         result = self.runner.state_list()

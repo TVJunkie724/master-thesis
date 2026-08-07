@@ -1216,7 +1216,16 @@ def build_catalog(
                         "storage-mover/storage_mover.py",
                     ]
                     if provider == "aws"
-                    else ["core.py", "function_app.py", "host.json", "requirements.txt"]
+                    else [
+                        "core.py",
+                        "function_app.py",
+                        "host.json",
+                        "requirements.txt",
+                        "storage-mover/Dockerfile",
+                        "storage-mover/constraints.txt",
+                        "storage-mover/requirements.txt",
+                        "storage-mover/storage_mover.py",
+                    ]
                     if provider == "azure"
                     else [
                         "Dockerfile",

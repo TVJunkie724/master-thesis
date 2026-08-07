@@ -5,11 +5,24 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Collection, Dict
 
-from src.providers.terraform.package_builders.azure import _create_azure_function_zip
+from src.core.deterministic_zip import atomic_zip_archive, write_zip_file
+from src.providers.terraform.package_builders.common import _should_include_file
 
 
 PROVIDERS_ROOT = Path(__file__).resolve().parents[2]
 AZURE_V2_GRAPH_APPS = frozenset({"five-layer-v2"})
+
+
+def _create_azure_v2_function_zip(source: Path, output: Path) -> None:
+    with atomic_zip_archive(output) as archive:
+        for path in sorted(source.rglob("*")):
+            relative = path.relative_to(source)
+            if (
+                path.is_file()
+                and relative.parts[0] != "storage-mover"
+                and _should_include_file(path)
+            ):
+                write_zip_file(archive, path, relative)
 
 
 def azure_v2_graph_package_ids(
@@ -39,7 +52,7 @@ def build_azure_v2_graph_apps(
             raise ValueError("Selected Azure v2 app source is unavailable")
         output = project_path / ".build" / "azure" / f"{name}.zip"
         output.parent.mkdir(parents=True, exist_ok=True)
-        _create_azure_function_zip(source, output)
+        _create_azure_v2_function_zip(source, output)
         packages[f"azure_{name}"] = output
     return packages
 

@@ -199,3 +199,24 @@ def test_aws_v2_storage_mover_uses_only_digest_input_and_exact_task_dimension():
         '"dimension.aws.aws.ecs-fargate-storage-mover.task_count"' in terraform_source
     )
     assert ":storage-mover-v1" not in terraform_source
+
+
+def test_azure_v2_storage_mover_uses_digest_and_explicit_exact_task_jobs():
+    terraform_source = (TERRAFORM_SOURCE / "azure_five_layer_v2.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert "image  = var.azure_v2_storage_mover_image" in terraform_source
+    assert (
+        '"dimension.azure.azure.container-apps-scheduled-storage-job.task_count"'
+        in terraform_source
+    )
+    assert (
+        'resource "azurerm_container_app_job" '
+        '"azure_azure_container_apps_scheduled_storage_job"'
+        in terraform_source
+    )
+    assert "for_each                     = local.azure_v2_storage_schedule_tasks" in terraform_source
+    assert "parallelism              = 1" in terraform_source
+    assert "contains([1, 4, 30], local.azure_v2_storage_task_count)" in terraform_source
+    assert ":latest" not in terraform_source

@@ -69,6 +69,7 @@ def _strategy(tmp_path, events):
     strategy._generate_tfvars = MagicMock(side_effect=lambda: events.append("tfvars"))
     strategy._prepare_gcp_v2_image_foundation = MagicMock(return_value=False)
     strategy._prepare_aws_v2_image_foundation = MagicMock(return_value=False)
+    strategy._prepare_azure_v2_image_foundation = MagicMock(return_value=False)
     strategy._run_post_deployment = MagicMock(
         side_effect=lambda context: events.append("post")
     )
@@ -189,6 +190,60 @@ def test_sync_aws_deployment_publishes_image_before_runtime_apply(tmp_path):
     assert (
         events.index(foundation)
         < events.index("publish-aws")
+        < events.index(runtime_apply)
+    )
+
+
+def test_sync_azure_deployment_publishes_image_before_runtime_apply(tmp_path):
+    events = []
+    strategy = _strategy(tmp_path, events)
+    strategy._prepare_azure_v2_image_foundation.return_value = True
+    strategy._publish_azure_v2_images = MagicMock(
+        side_effect=lambda: events.append("publish-azure")
+    )
+
+    strategy.deploy_all(_context())
+
+    foundation = (
+        "apply_targets",
+        str(strategy.tfvars_path),
+        strategy.AZURE_V2_IMAGE_FOUNDATION_TARGETS,
+    )
+    runtime_apply = ("apply", str(strategy.tfvars_path))
+    assert (
+        events.index(foundation)
+        < events.index("publish-azure")
+        < events.index(runtime_apply)
+    )
+
+
+def test_sync_combined_foundations_publish_in_canonical_provider_order(tmp_path):
+    events = []
+    strategy = _strategy(tmp_path, events)
+    strategy._prepare_aws_v2_image_foundation.return_value = True
+    strategy._prepare_azure_v2_image_foundation.return_value = True
+    strategy._publish_aws_v2_images = MagicMock(
+        side_effect=lambda: events.append("publish-aws")
+    )
+    strategy._publish_azure_v2_images = MagicMock(
+        side_effect=lambda: events.append("publish-azure")
+    )
+
+    strategy.deploy_all(_context())
+
+    foundation = (
+        "apply_targets",
+        str(strategy.tfvars_path),
+        (
+            *strategy.AWS_V2_IMAGE_FOUNDATION_TARGETS,
+            *strategy.AZURE_V2_IMAGE_FOUNDATION_TARGETS,
+        ),
+    )
+    runtime_apply = ("apply", str(strategy.tfvars_path))
+    assert (
+        events.index(foundation)
+        < events.index("publish-aws")
+        < events.index("publish-azure")
         < events.index(runtime_apply)
     )
 

@@ -1401,7 +1401,7 @@
       "network_ports": [],
       "implementation_file_targets": [
         "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
-        "3-cloud-deployer/src/providers/azure/containers/five-layer-v2/storage-mover"
+        "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2/storage-mover"
       ],
       "formula_refs": [
         "capacity-matrix.json#formula_contract",

@@ -653,6 +653,26 @@ output "aws_v2_ecr_repository_name" {
   value       = try(aws_ecr_repository.aws_aws_ecr_if_container_selected[0].name, null)
 }
 
+output "azure_v2_resource_group_name" {
+  description = "Internal Azure Five-layer v2 image publication resource group"
+  value       = try(azurerm_resource_group.main[0].name, null)
+}
+
+output "azure_v2_location" {
+  description = "Internal Azure Five-layer v2 image publication location"
+  value       = try(azurerm_resource_group.main[0].location, null)
+}
+
+output "azure_v2_acr_name" {
+  description = "Internal ACR name for content-addressed Five-layer v2 images"
+  value       = try(azurerm_container_registry.azure_azure_acr_basic_if_container_selected[0].name, null)
+}
+
+output "azure_v2_acr_login_server" {
+  description = "Internal ACR login server for content-addressed Five-layer v2 images"
+  value       = try(azurerm_container_registry.azure_azure_acr_basic_if_container_selected[0].login_server, null)
+}
+
 output "gcp_v2_build_service_account" {
   description = "Internal least-privilege Cloud Build execution identity"
   value       = try(google_service_account.gcp_v2_runtime["build"].email, null)

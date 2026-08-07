@@ -262,13 +262,18 @@ def raw_document(
     stored_at: datetime,
     hot_boundary_days: int,
     source_expiry_grace_hours: int = 48,
+    storage_task_count: int = 1,
 ) -> dict[str, Any]:
     """Create the canonical Cosmos raw item for one processed event."""
 
     validate_canonical_event(event)
     if event.get("event_type") != EVENT_TELEMETRY_PROCESSED:
         raise ContractError("UNEXPECTED_HOT_STORAGE_EVENT")
-    if hot_boundary_days < 1 or source_expiry_grace_hours < 0:
+    if (
+        hot_boundary_days < 1
+        or source_expiry_grace_hours < 0
+        or storage_task_count < 1
+    ):
         raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503)
     body = event_body(event)
     device_id = partition_key(event)
@@ -283,6 +288,10 @@ def raw_document(
     )
     bucket = stored_at.replace(minute=0, second=0, microsecond=0)
     payload_json = canonical_json(dict(event))
+    storage_task = int.from_bytes(
+        hashlib.sha256(device_id.encode("utf-8")).digest()[:8],
+        byteorder="big",
+    ) % storage_task_count
     return {
         "id": f"raw-{event_id(event)}",
         "kind": "raw",
@@ -293,6 +302,7 @@ def raw_document(
         "event_time": event_time,
         "stored_at": stored_at_text,
         "storage_window": iso_time(window),
+        "storage_task": storage_task,
         "bucket_start": iso_time(bucket),
         "payload_digest": hashlib.sha256(payload_json.encode("utf-8")).hexdigest(),
         "payload": dict(event),
@@ -482,23 +492,40 @@ def build_rule_matches(
 
 
 def outcome_document(
-    event: Mapping[str, Any], *, stored_at: datetime, hot_boundary_days: int
+    event: Mapping[str, Any],
+    *,
+    stored_at: datetime,
+    hot_boundary_days: int,
+    storage_task_count: int = 1,
 ) -> dict[str, Any]:
     """Create one idempotent non-rollup hot record for a terminal outcome."""
 
     validate_canonical_event(event)
     if event.get("event_type") not in OUTCOME_EVENT_TYPES:
         raise ContractError("UNEXPECTED_OUTCOME_EVENT")
-    if hot_boundary_days < 1:
+    if hot_boundary_days < 1 or storage_task_count < 1:
         raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503)
     payload_json = canonical_json(dict(event))
+    identity = event_id(event)
+    device_id = partition_key(event)
+    window = stored_at.replace(
+        minute=stored_at.minute - stored_at.minute % 5,
+        second=0,
+        microsecond=0,
+    )
+    storage_task = int.from_bytes(
+        hashlib.sha256(device_id.encode("utf-8")).digest()[:8],
+        byteorder="big",
+    ) % storage_task_count
     return {
-        "id": f"outcome-{event_id(event)}",
+        "id": f"outcome-{identity}",
         "kind": "outcome",
-        "device_id": partition_key(event),
-        "event_id": event_id(event),
+        "device_id": device_id,
+        "event_id": identity,
         "event_type": event["event_type"],
         "stored_at": iso_time(stored_at),
+        "storage_window": iso_time(window),
+        "storage_task": storage_task,
         "payload_digest": hashlib.sha256(payload_json.encode("utf-8")).hexdigest(),
         "payload": dict(event),
         "ttl": hot_boundary_days * 86400 + 48 * 3600,

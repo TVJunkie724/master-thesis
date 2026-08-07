@@ -7,6 +7,7 @@ including build_user_packages (which was previously missing).
 
 import json
 from pathlib import Path
+import tarfile
 from unittest.mock import patch
 import zipfile
 
@@ -19,6 +20,10 @@ from src.providers.terraform.package_builders.azure import (
 )
 from src.providers.terraform.package_builders.azure_v2 import (
     build_azure_v2_graph_apps,
+)
+from src.providers.terraform.package_builders.azure_v2_container import (
+    PACKAGE_ID as AZURE_V2_STORAGE_MOVER_PACKAGE_ID,
+    build_azure_v2_storage_mover_context,
 )
 
 
@@ -65,6 +70,21 @@ def test_azure_v2_graph_app_is_a_standalone_deterministic_package(tmp_path):
             "function_app.py",
             "host.json",
             "requirements.txt",
+        }
+
+
+def test_azure_v2_storage_mover_context_is_complete_and_deterministic(tmp_path):
+    first = build_azure_v2_storage_mover_context(tmp_path)
+    first_bytes = first[AZURE_V2_STORAGE_MOVER_PACKAGE_ID].read_bytes()
+    second = build_azure_v2_storage_mover_context(tmp_path)
+
+    assert second[AZURE_V2_STORAGE_MOVER_PACKAGE_ID].read_bytes() == first_bytes
+    with tarfile.open(second[AZURE_V2_STORAGE_MOVER_PACKAGE_ID], mode="r:gz") as archive:
+        assert set(archive.getnames()) == {
+            "Dockerfile",
+            "constraints.txt",
+            "requirements.txt",
+            "storage_mover.py",
         }
 
 

@@ -7739,12 +7739,16 @@
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2",
       "platform_handler": "handler.azure.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:b7753e389167f387b8895c108efa916ec3944e7a1b9f13901af5c322759e1d57",
+      "source_digest": "sha256:e00e68964fb46813e21526bb23981b0c840622eb07a70a3d337dcf6b72bceee3",
       "included_paths": [
         "core.py",
         "function_app.py",
         "host.json",
-        "requirements.txt"
+        "requirements.txt",
+        "storage-mover/Dockerfile",
+        "storage-mover/constraints.txt",
+        "storage-mover/requirements.txt",
+        "storage-mover/storage_mover.py"
       ],
       "excluded_paths": [],
       "dependency_artifact_refs": [],
@@ -7842,5 +7846,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:23557b3fdabafc7c9002b6716cdb1165b575e702930d7d77ab6de9db2d5fbdb3"
+  "content_digest": "sha256:eb9304c723a95305387920b66a52462d4ab2a4ed771056ed47e25622b0cbb64d"
 }

@@ -149,6 +149,10 @@ run "five_layer_v2_single_cloud_azure_omits_remote_event_hubs" {
     azure_layer_access_principal_object_id = "11111111-1111-1111-1111-111111111111"
     azure_layer_access_principal_label     = "researcher@example.test"
     enable_azure_logging                   = false
+    azure_v2_storage_mover_image           = "drifttestv2mock.azurecr.io/storage-mover@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    resolved_component_dimensions = {
+      "dimension.azure.azure.container-apps-scheduled-storage-job.task_count" = "1"
+    }
     validated_extension_packages = [{
       slot_id         = "processor.telemetry"
       slot_version    = "1"
@@ -225,7 +229,7 @@ run "five_layer_v2_single_cloud_azure_omits_remote_event_hubs" {
 
   assert {
     condition = (
-      toset([for path in azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].indexing_policy[0].included_path : path.path]) == toset(["/device_id/?", "/stored_at/?", "/bucket_start/?", "/kind/?", "/metric/?"]) &&
+      toset([for path in azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].indexing_policy[0].included_path : path.path]) == toset(["/device_id/?", "/stored_at/?", "/storage_window/?", "/storage_task/?", "/bucket_start/?", "/kind/?", "/metric/?"]) &&
       azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].indexing_policy[0].excluded_path[0].path == "/*"
     )
     error_message = "Azure L3 hot must opt in only the partition and bounded raw/rollup query paths."
@@ -242,6 +246,16 @@ run "five_layer_v2_single_cloud_azure_omits_remote_event_hubs" {
   assert {
     condition     = length(azurerm_storage_account.main) == 1 && length(azurerm_storage_container.azure_azure_blob_cool) == 1 && length(azurerm_storage_management_policy.azure_azure_blob_archive) == 1
     error_message = "Azure tiering must reuse one provider account and bind its private cool/archive lifecycle."
+  }
+
+  assert {
+    condition = (
+      length(azurerm_container_registry.azure_azure_acr_basic_if_container_selected) == 1 &&
+      length(azurerm_container_app_environment.azure_azure_container_apps_scheduled_storage_job) == 1 &&
+      toset(keys(azurerm_container_app_job.azure_azure_container_apps_scheduled_storage_job)) == toset(["hot-to-cool-000"]) &&
+      azurerm_container_app_job.azure_azure_container_apps_scheduled_storage_job["hot-to-cool-000"].template[0].container[0].image == var.azure_v2_storage_mover_image
+    )
+    error_message = "Azure hot-to-cool tiering requires one digest-bound finite mover job for the Small fixture."
   }
 
   assert {
@@ -294,9 +308,11 @@ run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {
     azure_layer_access_principal_label     = "researcher@example.test"
     enable_aws_logging                     = false
     enable_azure_logging                   = false
+    azure_v2_storage_mover_image           = "drifttestv2mock.azurecr.io/storage-mover@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     resolved_component_dimensions = {
       "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.throughput_unit_hours" = "0"
       "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.capacity_unit_hours"   = "4380"
+      "dimension.azure.azure.container-apps-scheduled-storage-job.task_count"                          = "30"
     }
     validated_extension_packages = [{
       slot_id         = "processor.telemetry"
@@ -328,6 +344,11 @@ run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {
   assert {
     condition     = length(azurerm_function_app_flex_consumption.azure_v2_processor_extension) == 1
     error_message = "Cross-cloud Azure L2 must retain its validated processor extension boundary."
+  }
+
+  assert {
+    condition     = length(azurerm_container_app_job.azure_azure_container_apps_scheduled_storage_job) == 30
+    error_message = "The Large Azure fixture must materialize all 30 reviewed finite storage tasks."
   }
 }
 

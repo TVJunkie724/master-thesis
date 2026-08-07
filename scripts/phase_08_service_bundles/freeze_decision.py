@@ -93,6 +93,12 @@ def build() -> dict[str, Any]:
         "approved_on": "2026-08-03",
         "research_cutoff": "2026-08-05",
         "pre_activation_refreeze": {
+            "refrozen_on": "2026-08-08",
+            "previous_package_digest": "sha256:f5bbbb4d052458d70b3b079321729fc4f46a439f1bcde3e710b960b412968d90",
+            "reason": "bind the approved Azure ACR Task and Container Apps scheduled storage mover to its actual source path before activation",
+            "scope_change": False,
+            "activated_or_deployed_before_refreeze": False,
+            "prior_refreeze": {
             "refrozen_on": "2026-08-07",
             "previous_package_digest": "sha256:a3eef3b52915b8a3d696933fe3a91d7d24c2e7ea66099a55d7fb95b57d317c49",
             "reason": "expose exact provider storage task counts and provider-neutral content-addressed image publication stages before AWS and Azure runtime activation",
@@ -153,6 +159,7 @@ def build() -> dict[str, Any]:
                     },
                 },
             },
+        },
         },
         },
         "regions": {

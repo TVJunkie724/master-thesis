@@ -435,16 +435,22 @@ def test_terminal_outcome_storage_is_idempotent_and_non_rollup(monkeypatch):
         outcome,
         stored_at=stored_at,
         hot_boundary_days=30,
+        storage_task_count=4,
     )
     container = MagicMock()
     monkeypatch.setenv("V2_HOT_PROVIDER", "azure")
     monkeypatch.setenv("V2_HOT_BOUNDARY_DAYS", "30")
+    monkeypatch.setenv("V2_STORAGE_TASK_COUNT", "4")
     monkeypatch.setattr(function_app, "_COSMOS_CONTAINER", container)
 
     function_app._store_outcome(outcome, stored_at=stored_at)
 
     assert container.create_item.call_args.kwargs["body"] == expected
     assert expected["kind"] == "outcome"
+    assert expected["storage_task"] == int.from_bytes(
+        core.hashlib.sha256(b"sensor-1").digest()[:8],
+        byteorder="big",
+    ) % 4
     assert "metric" not in expected
 
     container.create_item.side_effect = CosmosResourceExistsError(message="exists")
@@ -629,6 +635,31 @@ def test_cosmos_raw_and_rollup_documents_are_finite_and_deterministic():
     assert second["min"] == 3
     assert second["max"] == 4
     assert second["version"] == 2
+
+
+def test_cosmos_raw_document_binds_device_partition_to_one_storage_task():
+    event = _processed_event()
+    stored_at = datetime(2026, 8, 4, 12, 3, 4, tzinfo=timezone.utc)
+
+    first = core.raw_document(
+        event,
+        stored_at=stored_at,
+        hot_boundary_days=30,
+        storage_task_count=4,
+    )
+    retried = core.raw_document(
+        event,
+        stored_at=stored_at,
+        hot_boundary_days=30,
+        storage_task_count=4,
+    )
+
+    assert first["storage_task"] == retried["storage_task"]
+    assert first["storage_task"] == int.from_bytes(
+        core.hashlib.sha256(b"sensor-1").digest()[:8],
+        byteorder="big",
+    ) % 4
+    assert first["storage_task"] in range(4)
 
 
 def test_twin_projection_is_sparse_and_explicit():

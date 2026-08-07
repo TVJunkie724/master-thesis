@@ -39,6 +39,9 @@ class DeploymentLifecycleMixin:
         self._generate_tfvars()
         self._gcp_v2_image_foundation_required = self._prepare_gcp_v2_image_foundation()
         self._aws_v2_image_foundation_required = self._prepare_aws_v2_image_foundation()
+        self._azure_v2_image_foundation_required = (
+            self._prepare_azure_v2_image_foundation()
+        )
 
     def _apply_infrastructure(self) -> None:
         """Apply the reviewed GCP image/Kubernetes stages or one normal apply."""
@@ -57,6 +60,8 @@ class DeploymentLifecycleMixin:
         )
         if getattr(self, "_aws_v2_image_foundation_required", False):
             self._publish_aws_v2_images()
+        if getattr(self, "_azure_v2_image_foundation_required", False):
+            self._publish_azure_v2_images()
         if gcp_required:
             self._publish_gcp_v2_images()
         if not gcp_required or not kubernetes_already_applied:
@@ -123,6 +128,9 @@ class DeploymentLifecycleMixin:
         self._generate_tfvars()
         self._gcp_v2_image_foundation_required = self._prepare_gcp_v2_image_foundation()
         self._aws_v2_image_foundation_required = self._prepare_aws_v2_image_foundation()
+        self._azure_v2_image_foundation_required = (
+            self._prepare_azure_v2_image_foundation()
+        )
         yield f"{STAGE_COMPLETED_MARKER}preplan"
 
         yield "[4/7] Terraform init"
@@ -145,6 +153,8 @@ class DeploymentLifecycleMixin:
             yield "[6/9] Publishing content-addressed provider images"
             if getattr(self, "_aws_v2_image_foundation_required", False):
                 await asyncio.to_thread(self._publish_aws_v2_images)
+            if getattr(self, "_azure_v2_image_foundation_required", False):
+                await asyncio.to_thread(self._publish_azure_v2_images)
             if gcp_required:
                 await asyncio.to_thread(self._publish_gcp_v2_images)
             if not gcp_required or not kubernetes_already_applied:

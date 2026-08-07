@@ -39,6 +39,10 @@ from src.providers.terraform.package_builders.azure_v2 import (
     azure_v2_graph_package_ids,
     build_azure_v2_graph_apps,
 )
+from src.providers.terraform.package_builders.azure_v2_container import (
+    PACKAGE_ID as AZURE_V2_STORAGE_MOVER_PACKAGE_ID,
+    build_azure_v2_storage_mover_context,
+)
 from src.providers.terraform.package_builders.common import (
     _clean_old_versioned_zips,
     _compute_content_hash,
@@ -108,6 +112,7 @@ def build_all_packages(
             _selected_gcp_container_packages(graph)
         )
         aws_v2_storage_mover_selected = _aws_v2_storage_mover_selected(graph)
+        azure_v2_storage_mover_selected = _azure_v2_storage_mover_selected(graph)
 
     packages: Dict[str, Path] = {}
     extension_packages = build_bound_extension_packages(
@@ -154,6 +159,8 @@ def build_all_packages(
         )
         if aws_v2_storage_mover_selected:
             packages.update(build_aws_v2_storage_mover_context(project_path))
+        if azure_v2_storage_mover_selected:
+            packages.update(build_azure_v2_storage_mover_context(project_path))
         if (
             providers_config.get("layer_2_provider") in {"gcp", "google"}
             and "extension:processor.telemetry" in packages
@@ -168,6 +175,11 @@ def build_all_packages(
             | (
                 {AWS_V2_STORAGE_MOVER_PACKAGE_ID}
                 if aws_v2_storage_mover_selected
+                else set()
+            )
+            | (
+                {AZURE_V2_STORAGE_MOVER_PACKAGE_ID}
+                if azure_v2_storage_mover_selected
                 else set()
             )
             | {
@@ -400,6 +412,14 @@ def _selected_gcp_container_packages(
 def _aws_v2_storage_mover_selected(graph: ResolvedDeploymentGraph) -> bool:
     return any(
         "aws.ecs-fargate-storage-mover" in component_id
+        for node in graph.nodes
+        for component_id in node.deployment_specification_component_ids
+    )
+
+
+def _azure_v2_storage_mover_selected(graph: ResolvedDeploymentGraph) -> bool:
+    return any(
+        "azure.container-apps-scheduled-storage-job" in component_id
         for node in graph.nodes
         for component_id in node.deployment_specification_component_ids
     )

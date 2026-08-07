@@ -22,7 +22,10 @@ from src.deployment_specification import (
 )
 from src.deployment_specification.errors import DeploymentSpecificationError
 from src.terraform_inputs import translate_graph_inputs
-from src.providers.terraform.package_builder import _aws_v2_storage_mover_selected
+from src.providers.terraform.package_builder import (
+    _aws_v2_storage_mover_selected,
+    _azure_v2_storage_mover_selected,
+)
 
 
 MANIFEST_ROOT = (
@@ -268,3 +271,9 @@ def test_v4_single_cloud_aws_graph_translates_to_declared_terraform_symbols():
     assert inputs.values["layer_1_provider"] == "aws"
     assert inputs.values["layer_5_provider"] == "aws"
     assert _aws_v2_storage_mover_selected(graph) is True
+
+
+def test_v4_azure_storage_graph_selects_containerized_storage_mover():
+    graph = _resolve_offline_v4("two-cloud-azure-l3l5-gcp-l4-medium.json")
+
+    assert _azure_v2_storage_mover_selected(graph) is True

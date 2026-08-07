@@ -605,6 +605,16 @@ def _batch_statuses(exc: CosmosBatchOperationError) -> set[int]:
     return statuses
 
 
+def _storage_task_count() -> int:
+    try:
+        value = int(os.getenv("V2_STORAGE_TASK_COUNT", "1"))
+    except ValueError as exc:
+        raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503) from exc
+    if value < 1:
+        raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503)
+    return value
+
+
 def _write_raw_and_rollup(
     event: Mapping[str, Any], *, stored_at=None, attempts: int = 3
 ) -> bool:
@@ -622,6 +632,7 @@ def _write_raw_and_rollup(
         event,
         stored_at=current_time,
         hot_boundary_days=hot_days,
+        storage_task_count=_storage_task_count(),
     )
     device_id = str(raw["device_id"])
     for attempt in range(attempts):
@@ -670,6 +681,7 @@ def _store_outcome(event: Mapping[str, Any], *, stored_at=None) -> None:
         event,
         stored_at=stored_at or datetime.now(timezone.utc),
         hot_boundary_days=hot_days,
+        storage_task_count=_storage_task_count(),
     )
     container = _cosmos_container()
     try:

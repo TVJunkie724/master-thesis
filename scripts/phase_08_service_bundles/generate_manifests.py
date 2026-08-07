@@ -387,7 +387,7 @@ def file_targets(provider: str, component_id: str) -> list[str]:
         ],
         "azure.container-apps-scheduled-storage-job": [
             "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
-            "3-cloud-deployer/src/providers/azure/containers/five-layer-v2/storage-mover",
+            "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2/storage-mover",
         ],
         "gcp.artifact-registry-if-container-selected": [
             "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",

@@ -40,6 +40,44 @@ locals {
     local.azure_v2_hot_enabled ||
     (local.azure_v2_cool_enabled && var.layer_3_archive_provider != "azure")
   )
+  azure_v2_storage_task_count = tonumber(lookup(
+    var.resolved_component_dimensions,
+    "dimension.azure.azure.container-apps-scheduled-storage-job.task_count",
+    "0",
+  ))
+  azure_v2_storage_jobs = merge(
+    local.azure_v2_hot_enabled ? {
+      hot-to-cool = {
+        source_provider      = "azure"
+        destination_provider = var.layer_3_cold_provider
+        schedule             = "*/5 * * * *"
+        code                 = "hc"
+      }
+    } : {},
+    local.azure_v2_cool_enabled && var.layer_3_archive_provider != "azure" ? {
+      cool-to-archive = {
+        source_provider      = "azure"
+        destination_provider = var.layer_3_archive_provider
+        schedule             = "0 0 * * *"
+        code                 = "ca"
+      }
+    } : {},
+  )
+  azure_v2_storage_schedule_tasks = {
+    for item in flatten([
+      for transition, job in local.azure_v2_storage_jobs : [
+        for task_index in range(local.azure_v2_storage_task_count) : {
+          key         = "${transition}-${format("%03d", task_index)}"
+          transition  = transition
+          task_index  = task_index
+          source      = job.source_provider
+          destination = job.destination_provider
+          schedule    = job.schedule
+          code        = job.code
+        }
+      ]
+    ]) : item.key => item
+  }
 
   azure_v2_cosmos_capacity_mode = lookup(
     var.resolved_component_dimensions,
@@ -82,6 +120,11 @@ locals {
   )
 
   azure_v2_name = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 22)
+  azure_v2_acr_name = substr(
+    replace("${local.azure_v2_name}v2${local.deployment_suffix}", "-", ""),
+    0,
+    50,
+  )
   azure_v2_runtime_package = (
     var.azure_v2_zip_path != ""
     ? var.azure_v2_zip_path
@@ -252,6 +295,8 @@ resource "azurerm_cosmosdb_sql_container" "azure_azure_cosmos_db_nosql_raw_and_r
     indexing_mode = "consistent"
     included_path { path = "/device_id/?" }
     included_path { path = "/stored_at/?" }
+    included_path { path = "/storage_window/?" }
+    included_path { path = "/storage_task/?" }
     included_path { path = "/bucket_start/?" }
     included_path { path = "/kind/?" }
     included_path { path = "/metric/?" }
@@ -311,6 +356,152 @@ resource "azurerm_storage_management_policy" "azure_azure_blob_archive" {
       }
     }
   }
+}
+
+resource "azurerm_container_registry" "azure_azure_acr_basic_if_container_selected" {
+  count                         = local.azure_v2_storage_mover_enabled ? 1 : 0
+  name                          = local.azure_v2_acr_name
+  resource_group_name           = azurerm_resource_group.main[0].name
+  location                      = azurerm_resource_group.main[0].location
+  sku                           = "Basic"
+  admin_enabled                 = false
+  anonymous_pull_enabled        = false
+  public_network_access_enabled = true
+  tags                          = local.azure_v2_tags
+}
+
+resource "azurerm_container_app_environment" "azure_azure_container_apps_scheduled_storage_job" {
+  count                      = local.azure_v2_storage_mover_enabled ? 1 : 0
+  name                       = "${local.azure_v2_name}-v2-mover"
+  resource_group_name        = azurerm_resource_group.main[0].name
+  location                   = azurerm_resource_group.main[0].location
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace[0].id
+  tags                       = local.azure_v2_tags
+}
+
+resource "terraform_data" "azure_v2_storage_mover_guard" {
+  count = local.azure_v2_storage_mover_enabled ? 1 : 0
+  input = {
+    image      = var.azure_v2_storage_mover_image
+    task_count = local.azure_v2_storage_task_count
+  }
+  lifecycle {
+    precondition {
+      condition     = contains([1, 4, 30], local.azure_v2_storage_task_count)
+      error_message = "Azure Five-layer v2 storage movement requires the exact reviewed 1/4/30 task_count capacity dimension."
+    }
+    precondition {
+      condition = (
+        var.azure_v2_storage_mover_image != "" &&
+        startswith(var.azure_v2_storage_mover_image, "${azurerm_container_registry.azure_azure_acr_basic_if_container_selected[0].login_server}/storage-mover@sha256:")
+      )
+      error_message = "Azure Five-layer v2 storage movement requires a digest-pinned image from the deployment ACR."
+    }
+  }
+}
+
+resource "azurerm_container_app_job" "azure_azure_container_apps_scheduled_storage_job" {
+  for_each                     = local.azure_v2_storage_schedule_tasks
+  name                         = "${substr(local.azure_v2_name, 0, 12)}-v2-${each.value.code}-${format("%02d", each.value.task_index)}-${substr(local.deployment_suffix, 0, 6)}"
+  resource_group_name          = azurerm_resource_group.main[0].name
+  location                     = azurerm_resource_group.main[0].location
+  container_app_environment_id = azurerm_container_app_environment.azure_azure_container_apps_scheduled_storage_job[0].id
+  replica_timeout_in_seconds   = 1800
+  replica_retry_limit          = 3
+
+  schedule_trigger_config {
+    cron_expression          = each.value.schedule
+    parallelism              = 1
+    replica_completion_count = 1
+  }
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.main[0].id]
+  }
+
+  registry {
+    server   = azurerm_container_registry.azure_azure_acr_basic_if_container_selected[0].login_server
+    identity = azurerm_user_assigned_identity.main[0].id
+  }
+
+  template {
+    container {
+      name   = "storage-mover"
+      image  = var.azure_v2_storage_mover_image
+      cpu    = 1
+      memory = "2Gi"
+
+      env {
+        name  = "ARCHITECTURE_PROFILE"
+        value = "five-layer-baseline@2"
+      }
+      env {
+        name  = "TRANSITION"
+        value = each.value.transition
+      }
+      env {
+        name  = "SOURCE_PROVIDER"
+        value = each.value.source
+      }
+      env {
+        name  = "DESTINATION_PROVIDER"
+        value = each.value.destination
+      }
+      env {
+        name  = "STORAGE_TASK_INDEX"
+        value = tostring(each.value.task_index)
+      }
+      env {
+        name  = "STORAGE_TASK_COUNT"
+        value = tostring(local.azure_v2_storage_task_count)
+      }
+      env {
+        name  = "HOT_BOUNDARY_DAYS"
+        value = tostring(var.layer_3_hot_to_cold_interval_days)
+      }
+      env {
+        name  = "COOL_BOUNDARY_DAYS"
+        value = tostring(var.layer_3_cold_to_archive_interval_days)
+      }
+      env {
+        name  = "ARCHIVE_BOUNDARY_DAYS"
+        value = tostring(var.layer_3_archive_expiry_interval_days)
+      }
+      env {
+        name  = "COSMOS_ENDPOINT"
+        value = try(azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint, "")
+      }
+      env {
+        name  = "COSMOS_DATABASE"
+        value = try(azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
+      }
+      env {
+        name  = "COSMOS_CONTAINER"
+        value = try(azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
+      }
+      env {
+        name  = "BLOB_ACCOUNT_URL"
+        value = azurerm_storage_account.main[0].primary_blob_endpoint
+      }
+      env {
+        name  = "BLOB_CONTAINER"
+        value = try(azurerm_storage_container.azure_azure_blob_cool[0].name, "")
+      }
+      env {
+        name  = "MANAGED_IDENTITY_CLIENT_ID"
+        value = azurerm_user_assigned_identity.main[0].client_id
+      }
+    }
+  }
+
+  tags = local.azure_v2_tags
+
+  depends_on = [
+    azurerm_role_assignment.azure_azure_entra_layer_access_bindings,
+    azurerm_cosmosdb_sql_role_assignment.azure_azure_cosmos_db_nosql_raw_and_rollup,
+    terraform_data.azure_v2_storage_mover_guard,
+  ]
 }
 
 resource "azurerm_servicebus_namespace" "azure_azure_service_bus_standard" {
@@ -489,6 +680,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
     V2_COSMOS_DATABASE                           = try(azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
     V2_COSMOS_CONTAINER                          = try(azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
     V2_HOT_BOUNDARY_DAYS                         = tostring(var.layer_3_hot_to_cold_interval_days)
+    V2_STORAGE_TASK_COUNT                        = tostring(local.azure_v2_storage_task_count)
     V2_DEFAULT_METRIC                            = "temperature"
   }
 
@@ -565,6 +757,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
     V2_COSMOS_DATABASE                      = try(azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
     V2_COSMOS_CONTAINER                     = try(azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
     V2_HOT_BOUNDARY_DAYS                    = tostring(var.layer_3_hot_to_cold_interval_days)
+    V2_STORAGE_TASK_COUNT                   = tostring(local.azure_v2_storage_task_count)
   }
 
   tags = local.azure_v2_tags
@@ -934,6 +1127,12 @@ locals {
       history_blob_contributor = {
         scope = azurerm_storage_account.main[0].id
         role  = "Storage Blob Data Contributor"
+      }
+    } : {},
+    local.azure_v2_storage_mover_enabled ? {
+      storage_mover_acr_pull = {
+        scope = azurerm_container_registry.azure_azure_acr_basic_if_container_selected[0].id
+        role  = "AcrPull"
       }
     } : {},
     local.azure_v2_l4_enabled ? {
