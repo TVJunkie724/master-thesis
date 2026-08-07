@@ -124,6 +124,7 @@ def _dimension_classification(dimension_id: str) -> str:
         "shards_per_stream",
         "timestamp_shards",
         "autoscale_max_ru_per_second",
+        "task_count",
     }:
         return "capacity"
     return "usage"
@@ -153,6 +154,7 @@ def _dimension_value(
     dimension_id: str,
     resolved: ResolvedFiveLayerV2Workload,
     registry: Mapping[str, Any],
+    fixed: Mapping[str, Any],
     *,
     azure_large_autoscale_ru_per_second: int | None,
 ) -> tuple[str | int, str]:
@@ -208,11 +210,15 @@ def _dimension_value(
         )
         else messages
     )
-    storage_gib = {
-        "component.hot-storage": str(derived["hot_payload_gib"]),
-        "component.cool-storage": str(derived["cool_payload_gib"]),
-        "component.archive-storage": str(derived["archive_payload_gib"]),
-    }.get(logical, "0")
+    storage_gib = (
+        str(fixed["gcp_grafana_persistent_disk_gib"])
+        if component_id == "gcp.persistent-disk-rwo"
+        else {
+            "component.hot-storage": str(derived["hot_payload_gib"]),
+            "component.cool-storage": str(derived["cool_payload_gib"]),
+            "component.archive-storage": str(derived["archive_payload_gib"]),
+        }.get(logical, "0")
+    )
     event_bytes = event_attempts * int(event["average_event_payload_bytes"])
     units = {
         "resource_count": "count",
@@ -258,6 +264,7 @@ def _dimension_value(
         "scheduled_invocations": "invocations/month",
         "workflow_executions": "executions/month",
         "workflow_transitions": "transitions/month",
+        "task_count": "count",
     }
     if dimension_id == "resource_count":
         count = (
@@ -266,6 +273,17 @@ def _dimension_value(
             else 1
         )
         return count, units[dimension_id]
+    if dimension_id == "task_count":
+        task_count_key = {
+            "aws.ecs-fargate-storage-mover": "aws_storage_tasks",
+            "azure.container-apps-scheduled-storage-job": "azure_storage_tasks",
+            "gcp.cloud-run-storage-job": "gcp_storage_tasks",
+        }.get(component_id)
+        if task_count_key is None:
+            raise RuntimeError(
+                f"No exact storage task-count binding for component: {component_id}"
+            )
+        return int(derived[task_count_key]), units[dimension_id]
     values: dict[str, str | int] = {
         "stored_gib_month": storage_gib,
         "read_requests": dashboard_requests
@@ -295,8 +313,20 @@ def _dimension_value(
         "workspace_count": 1,
         "editor_seats": int(workload["monthlyEditorSeats"]),
         "viewer_seats": int(workload["monthlyViewerSeats"]),
-        "node_count": 1,
-        "node_hours": 730,
+        "node_count": (
+            {"small": 3, "medium": 3, "large": 12}[resolved.size]
+            if "bifromq" in component_id
+            else {"small": 0, "medium": 0, "large": 4}[resolved.size]
+            if component_id == "gcp.ordered-mqtt-pubsub-adapter"
+            else 1
+        ),
+        "node_hours": (
+            {"small": 2190, "medium": 2190, "large": 8760}[resolved.size]
+            if "bifromq" in component_id
+            else {"small": 0, "medium": 0, "large": 2920}[resolved.size]
+            if component_id == "gcp.ordered-mqtt-pubsub-adapter"
+            else 730
+        ),
         "throughput_unit_hours": {
             "small": 730,
             "medium": 8030,
@@ -583,6 +613,7 @@ def build_five_layer_v2_deployment_specification(
                 dimension_id,
                 resolved_workload,
                 registry,
+                fixed,
                 azure_large_autoscale_ru_per_second=(
                     azure_large_autoscale_ru_per_second
                 ),

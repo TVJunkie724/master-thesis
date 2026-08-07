@@ -166,6 +166,7 @@ class ResolvedDeploymentFixedDimensionsV2(BaseModel):
     storage_transfer_retry_horizon_hours: Literal[24]
     storage_source_expiry_grace_hours: Literal[48]
     azure_mover_max_device_partitions_per_task: Literal[1000]
+    gcp_grafana_persistent_disk_gib: Literal[10]
 
 
 ResolvedDeploymentScalarV2 = Union[

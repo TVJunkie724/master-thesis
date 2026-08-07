@@ -45,6 +45,14 @@ CASES = {
         "large",
     ),
 }
+EXPECTED_STORAGE_TASK_COUNTS = {
+    "single-cloud-aws-small": ("aws.ecs-fargate-storage-mover", 1),
+    "two-cloud-azure-l3l5-gcp-l4-medium": (
+        "azure.container-apps-scheduled-storage-job",
+        4,
+    ),
+    "three-cloud-mixed-large": ("gcp.cloud-run-storage-job", 3),
+}
 
 
 def _read(path):
@@ -100,6 +108,24 @@ def test_builder_matches_frozen_atomic_selections_and_dimensions(case_id):
             for selection in actual["component_selections"]
         }
     ) == len(actual["component_selections"])
+
+
+@pytest.mark.parametrize("case_id", tuple(CASES))
+def test_builder_binds_exact_provider_storage_task_count(case_id):
+    specification = _build(case_id)
+    component_id, expected = EXPECTED_STORAGE_TASK_COUNTS[case_id]
+    selection = next(
+        item
+        for item in specification["component_selections"]
+        if item["implementation_component_id"] == component_id
+    )
+    task_count = next(
+        dimension["value"]
+        for dimension in selection["dimensions"]
+        if dimension["dimension_id"].endswith(".task_count")
+    )
+
+    assert task_count == expected
 
 
 def test_single_cloud_omits_remote_only_event_transport():
@@ -194,6 +220,18 @@ def test_large_azure_requires_measured_positive_autoscale_ru_before_ready():
         if dimension["dimension_id"].endswith(".autoscale_max_ru_per_second")
     )
     assert autoscale["value"] == 10000
+    mover = next(
+        item
+        for item in ready["component_selections"]
+        if item["implementation_component_id"]
+        == "azure.container-apps-scheduled-storage-job"
+    )
+    task_count = next(
+        dimension["value"]
+        for dimension in mover["dimensions"]
+        if dimension["dimension_id"].endswith(".task_count")
+    )
+    assert task_count == 30
 
 
 @pytest.mark.parametrize("size", ("small", "medium", "large"))
