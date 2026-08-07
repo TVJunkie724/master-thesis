@@ -214,6 +214,18 @@ class FiveLayerV2ContractTests(unittest.TestCase):
             {item["cycle_id"] for item in self.registry["cycle_contracts"]},
         )
 
+    def test_device_command_outcome_has_one_source_owned_edge(self) -> None:
+        functional = contract.read_json(
+            contract.SERVICE_ROOT / "common-functional-contract.json"
+        )
+        owners = [
+            edge["edge_id"]
+            for edge in functional["logical_edges"]
+            if "device.command.outcome.v1" in edge.get("channels", [])
+        ]
+
+        self.assertEqual(owners, ["ingestion-to-hot-storage-domain-events"])
+
     def test_single_cloud_omits_remote_only_event_services(self) -> None:
         specification = contract.build_rds(
             contract.assignment_for_bundle("aws", "aws"),

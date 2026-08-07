@@ -94,6 +94,12 @@ def build() -> dict[str, Any]:
         "research_cutoff": "2026-08-05",
         "pre_activation_refreeze": {
             "refrozen_on": "2026-08-08",
+            "previous_package_digest": "sha256:1009870a995648ad646bd54fa4465488a34e66c6a3856363f6b346c756182bd3",
+            "reason": "remove the duplicate device-command outcome assignment from the L2-to-L3 route after the direct L1-to-L3 contract was added before activation",
+            "scope_change": False,
+            "activated_or_deployed_before_refreeze": False,
+            "prior_refreeze": {
+            "refrozen_on": "2026-08-08",
             "previous_package_digest": "sha256:f0ddf4dd60c898dcc23867e3e3bda8974fa8f20a0dc850fe1942b60947ec5f2f",
             "reason": "repair the mandatory bidirectional L1-L2 domain-event cycle and align all Five-layer v2 edge contract identifiers with the approved common functional contract before activation",
             "scope_change": False,
@@ -165,6 +171,7 @@ def build() -> dict[str, Any]:
                     },
                 },
             },
+        },
         },
         },
         },

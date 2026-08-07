@@ -3,7 +3,7 @@
   "package_ref": {
     "id": "phase-08-complete-service-bundles",
     "version": "1",
-    "digest": "sha256:1009870a995648ad646bd54fa4465488a34e66c6a3856363f6b346c756182bd3"
+    "digest": "sha256:546b980ce1b3d8dfc74cfb54f31ca0f0e87cb3cefeaa6cc037b77e4ec92a26b9"
   },
   "capacity_evidence_digest": "sha256:4b472c7a23439e37ba699aa126a39215b4ac8a6b03aa62fa428a5af6635e745e",
   "pricing_ownership_digest": "sha256:a25799ee9a15a409036222cab676c2c1e9fada0873d53f59ba83d7942a3324ec",
@@ -1907,5 +1907,5 @@
       "deduplication_key": "domain_event_cross_cloud::gcp->azure"
     }
   ],
-  "content_digest": "sha256:fdb06edd113df00c92b1ffc82c0d46d9b631763e71ff47a8338d64790d78d6fa"
+  "content_digest": "sha256:f8b2f51cbc01e1537bba966d9c35813f1d526aeb3c39be2bbf78cb2f405a80b2"
 }

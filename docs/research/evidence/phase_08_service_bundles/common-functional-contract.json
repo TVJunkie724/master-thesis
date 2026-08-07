@@ -215,8 +215,7 @@
       "channels": [
         "telemetry.processed.v1",
         "extension.action.outcome.v1",
-        "notification.workflow.outcome.v1",
-        "device.command.outcome.v1"
+        "notification.workflow.outcome.v1"
       ],
       "placement": "local_or_cross_cloud",
       "owner_five_layer": "l2_source_owned_embedded_forwarder",
