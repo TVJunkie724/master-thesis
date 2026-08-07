@@ -47,6 +47,7 @@ AZURE_V2_RUNTIME_SOURCE = (
 GCP_V2_RUNTIME_SOURCE = (
     "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2"
 )
+BRIDGE_RUNTIME_SOURCE = "3-cloud-deployer/src/runtime/eventing"
 WORKLOAD_ROOT = ROOT / "contracts" / "five-layer-workload"
 WORKLOAD_CATALOG = WORKLOAD_ROOT / "v2" / "eventing-scenario-catalog.json"
 ARCH_TARGETS = (
@@ -1410,7 +1411,12 @@ def build_catalog(
                     ]
                 ),
                 "excluded_paths": [],
-                "dependency_artifact_refs": [],
+                "dependency_artifact_refs": [
+                    {
+                        "id": "artifact.shared.phase8-bridge-runtime",
+                        "version": "1",
+                    }
+                ],
                 "builder_adapter_id": f"builder.{provider}.five-layer-v2",
                 "supported_runtimes": [f"runtime.{provider}.five-layer-v2"],
                 "user_source_policy": "platform_only",
@@ -1420,6 +1426,31 @@ def build_catalog(
                 },
             }
             for provider in PROVIDERS
+        ]
+        + [
+            {
+                "artifact_id": "artifact.shared.phase8-bridge-runtime",
+                "artifact_version": "1",
+                "decision_implementation_ids": [],
+                "repository_source_path": BRIDGE_RUNTIME_SOURCE,
+                "platform_handler": "provider.shared-runtime",
+                "digest_policy": "sha256.canonical-source.v1",
+                "source_digest": package_source_digest(BRIDGE_RUNTIME_SOURCE),
+                "included_paths": ["__init__.py", "bridge_core.py"],
+                "excluded_paths": [],
+                "dependency_artifact_refs": [],
+                "builder_adapter_id": "builder.shared.phase8-bridge-runtime",
+                "supported_runtimes": [
+                    "runtime.aws.five-layer-v2",
+                    "runtime.azure.five-layer-v2",
+                    "runtime.gcp.five-layer-v2",
+                ],
+                "user_source_policy": "platform_only",
+                "compatibility": {
+                    "component_versions": ["1"],
+                    "builder_versions": ["2"],
+                },
+            }
         ],
         "compatibility": {
             "architecture_profile_schema_versions": ["architecture-profile.v2"],

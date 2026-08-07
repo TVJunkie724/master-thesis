@@ -256,6 +256,11 @@ def test_v4_graph_compiles_every_representative_cloud_shape(fixture):
     assert "edge.twin-state-to-visualization" not in {
         edge.logical_edge_id for edge in graph.edges
     }
+    assert all(
+        "artifact.shared.phase8-bridge-runtime"
+        in {artifact["id"] for artifact in node.package_artifacts}
+        for node in graph.nodes
+    )
 
 
 def test_v4_offline_contract_fixture_is_not_executable():

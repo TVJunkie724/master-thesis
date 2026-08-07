@@ -15,6 +15,7 @@ from src.providers.terraform.package_builders.common import _should_include_file
 
 
 PROVIDERS_ROOT = Path(__file__).resolve().parents[2]
+BRIDGE_CORE_SOURCE = PROVIDERS_ROOT.parent / "runtime" / "eventing" / "bridge_core.py"
 GCP_V2_CONTEXTS = frozenset({"five-layer-v2"})
 GCP_V2_EXTENSION_DOCKERFILE = """# syntax=docker/dockerfile:1.7
 
@@ -39,7 +40,7 @@ CMD ["functions-framework", "--target=main", "--host=0.0.0.0", "--port=8080"]
 """
 
 
-def _context_bytes(source: Path) -> bytes:
+def _context_bytes(source: Path, *, additional_files: dict[str, Path] | None = None) -> bytes:
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w", format=tarfile.PAX_FORMAT) as archive:
         for path in sorted(source.rglob("*")):
@@ -55,6 +56,23 @@ def _context_bytes(source: Path) -> bytes:
             info.gid = 0
             info.uname = ""
             info.gname = ""
+            archive.addfile(info, io.BytesIO(content))
+        for relative, path in sorted((additional_files or {}).items()):
+            if (
+                Path(relative).is_absolute()
+                or ".." in Path(relative).parts
+                or path.is_symlink()
+                or not path.is_file()
+                or not _should_include_file(path)
+            ):
+                raise ValueError("Additional GCP context source is unsafe")
+            content = path.read_bytes()
+            info = tarfile.TarInfo(relative)
+            info.size = len(content)
+            info.mode = 0o644
+            info.mtime = 0
+            info.uid = info.gid = 0
+            info.uname = info.gname = ""
             archive.addfile(info, io.BytesIO(content))
     return gzip.compress(buffer.getvalue(), compresslevel=9, mtime=0)
 
@@ -80,7 +98,15 @@ def build_gcp_v2_container_contexts(
         if not source.is_dir() or source.is_symlink():
             raise ValueError(f"Unavailable GCP Five-layer v2 context: {name}")
         output = build_dir / f"{name}.tar.gz"
-        atomic_write_private_bytes(output, _context_bytes(source))
+        if not BRIDGE_CORE_SOURCE.is_file() or BRIDGE_CORE_SOURCE.is_symlink():
+            raise ValueError("Shared Phase 8 bridge runtime is unavailable")
+        atomic_write_private_bytes(
+            output,
+            _context_bytes(
+                source,
+                additional_files={"bridge_core.py": BRIDGE_CORE_SOURCE},
+            ),
+        )
         packages[f"gcp_{name}"] = output
     return packages
 

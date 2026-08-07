@@ -80,6 +80,7 @@ def test_gcp_v2_container_context_is_deterministic_and_complete(tmp_path):
         names = {member.name for member in members}
         assert {
             ".dockerignore",
+            "bridge_core.py",
             "Dockerfile",
             "grafana/Dockerfile",
             "grafana/dashboard.json.template",

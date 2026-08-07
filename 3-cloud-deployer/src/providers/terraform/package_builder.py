@@ -15,7 +15,8 @@ from src.providers.terraform.package_builders.aws import (
     get_lambda_zip_path,
 )
 from src.providers.terraform.package_builders.aws_v2 import (
-    PACKAGE_ID as AWS_V2_STORAGE_MOVER_PACKAGE_ID,
+    STORAGE_MOVER_PACKAGE_ID as AWS_V2_STORAGE_MOVER_PACKAGE_ID,
+    build_aws_v2_graph_app,
     build_aws_v2_storage_mover_context,
 )
 from src.providers.terraform.package_builders.azure import (
@@ -128,14 +129,20 @@ def build_all_packages(
             extension_packages,
             correlation_id=operation_id,
         )
+        aws_v2_selected = "five-layer-v2" in selected_functions["aws"]
+        aws_v1_names = tuple(
+            name for name in selected_functions["aws"] if name != "five-layer-v2"
+        )
         packages.update(
             build_aws_lambda_packages(
                 terraform_dir,
                 project_path,
                 providers_config,
-                selected_function_names=selected_functions["aws"],
+                selected_function_names=aws_v1_names,
             )
         )
+        if aws_v2_selected:
+            packages.update(build_aws_v2_graph_app(project_path))
         azure_v2_names = tuple(
             name for name in selected_functions["azure"] if name in AZURE_V2_GRAPH_APPS
         )

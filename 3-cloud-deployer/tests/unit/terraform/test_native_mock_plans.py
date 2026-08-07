@@ -10,7 +10,7 @@ import subprocess
 
 from src.providers.terraform.package_builder import (
     build_all_packages,
-    build_aws_lambda_packages,
+    build_aws_v2_graph_app,
 )
 from src.providers.terraform.package_builders.azure_v2 import (
     build_azure_v2_graph_apps,
@@ -143,12 +143,7 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
     )
     build_all_packages(terraform_dir, project_path, all_aws)
     build_all_packages(terraform_dir, project_path, gcp_storage)
-    build_aws_lambda_packages(
-        terraform_dir,
-        project_path,
-        all_aws,
-        selected_function_names=("five-layer-v2",),
-    )
+    build_aws_v2_graph_app(project_path)
     build_azure_v2_graph_apps(project_path, ("five-layer-v2",))
 
     _run_terraform(

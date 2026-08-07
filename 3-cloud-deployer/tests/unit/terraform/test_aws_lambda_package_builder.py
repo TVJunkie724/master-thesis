@@ -24,6 +24,7 @@ sys.path.insert(
 from src.providers.terraform.package_builder import (
     _create_lambda_zip,
     build_aws_lambda_packages,
+    build_aws_v2_graph_app,
     build_aws_v2_storage_mover_context,
 )
 
@@ -381,19 +382,15 @@ class TestRealLambdaFunctions:
             except SyntaxError as e:
                 pytest.fail(f"Syntax error in {py_file.name}: {e}")
 
-    def test_five_layer_v2_multi_handler_package(self, project_root, tmp_path):
+    def test_five_layer_v2_multi_handler_package(self, tmp_path):
         """The graph-selected v2 artifact must build the exact Lambda ZIP."""
-        packages = build_aws_lambda_packages(
-            project_root / "src" / "terraform",
-            tmp_path,
-            {"layer_1_provider": "aws"},
-            selected_function_names=("five-layer-v2",),
-        )
+        packages = build_aws_v2_graph_app(tmp_path)
 
         package = packages["aws_five-layer-v2"]
         first_bytes = package.read_bytes()
         with zipfile.ZipFile(package) as archive:
             assert "handler.py" in archive.namelist()
+            assert "bridge_core.py" in archive.namelist()
             assert "storage-mover/Dockerfile" in archive.namelist()
             module = ast.parse(archive.read("handler.py").decode("utf-8"))
             functions = {
@@ -409,12 +406,7 @@ class TestRealLambdaFunctions:
                 "raw_history_reader",
             } <= functions
 
-        build_aws_lambda_packages(
-            project_root / "src" / "terraform",
-            tmp_path,
-            {"layer_1_provider": "aws"},
-            selected_function_names=("five-layer-v2",),
-        )
+        build_aws_v2_graph_app(tmp_path)
         assert package.read_bytes() == first_bytes
 
     def test_five_layer_v2_storage_mover_context_is_deterministic(self, tmp_path):

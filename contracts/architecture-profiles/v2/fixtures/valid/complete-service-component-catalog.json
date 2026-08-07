@@ -9381,7 +9381,12 @@
         "storage-mover/storage_mover.py"
       ],
       "excluded_paths": [],
-      "dependency_artifact_refs": [],
+      "dependency_artifact_refs": [
+        {
+          "id": "artifact.shared.phase8-bridge-runtime",
+          "version": "1"
+        }
+      ],
       "builder_adapter_id": "builder.aws.five-layer-v2",
       "supported_runtimes": [
         "runtime.aws.five-layer-v2"
@@ -9434,7 +9439,12 @@
         "storage-mover/storage_mover.py"
       ],
       "excluded_paths": [],
-      "dependency_artifact_refs": [],
+      "dependency_artifact_refs": [
+        {
+          "id": "artifact.shared.phase8-bridge-runtime",
+          "version": "1"
+        }
+      ],
       "builder_adapter_id": "builder.azure.five-layer-v2",
       "supported_runtimes": [
         "runtime.azure.five-layer-v2"
@@ -9481,7 +9491,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:7a98bc981f95f9fb0b514d8f324e91358b139acc908c225a324f2270b86c2961",
+      "source_digest": "sha256:63c7352d08e725dc560937a7fa132191f4abe8de7bce060e01e636768641d404",
       "included_paths": [
         "Dockerfile",
         "grafana/Dockerfile",
@@ -9496,9 +9506,44 @@
         "platform/requirements.txt"
       ],
       "excluded_paths": [],
-      "dependency_artifact_refs": [],
+      "dependency_artifact_refs": [
+        {
+          "id": "artifact.shared.phase8-bridge-runtime",
+          "version": "1"
+        }
+      ],
       "builder_adapter_id": "builder.gcp.five-layer-v2",
       "supported_runtimes": [
+        "runtime.gcp.five-layer-v2"
+      ],
+      "user_source_policy": "platform_only",
+      "compatibility": {
+        "component_versions": [
+          "1"
+        ],
+        "builder_versions": [
+          "2"
+        ]
+      }
+    },
+    {
+      "artifact_id": "artifact.shared.phase8-bridge-runtime",
+      "artifact_version": "1",
+      "decision_implementation_ids": [],
+      "repository_source_path": "3-cloud-deployer/src/runtime/eventing",
+      "platform_handler": "provider.shared-runtime",
+      "digest_policy": "sha256.canonical-source.v1",
+      "source_digest": "sha256:a95524427ed9ba1128d600f404d41e57e662fd94bbfa075956420845b3607eae",
+      "included_paths": [
+        "__init__.py",
+        "bridge_core.py"
+      ],
+      "excluded_paths": [],
+      "dependency_artifact_refs": [],
+      "builder_adapter_id": "builder.shared.phase8-bridge-runtime",
+      "supported_runtimes": [
+        "runtime.aws.five-layer-v2",
+        "runtime.azure.five-layer-v2",
         "runtime.gcp.five-layer-v2"
       ],
       "user_source_policy": "platform_only",
@@ -9529,5 +9574,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:b305cc39508621590d43e4b85a41999261a7eeade595bd855d2b0dffdaa9b867"
+  "content_digest": "sha256:da0efebbe1499323bb1909ac7bd58fd480ae729e420b910143ef895f3b58306e"
 }

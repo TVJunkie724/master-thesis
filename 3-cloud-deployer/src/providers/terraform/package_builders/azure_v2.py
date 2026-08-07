@@ -10,10 +10,13 @@ from src.providers.terraform.package_builders.common import _should_include_file
 
 
 PROVIDERS_ROOT = Path(__file__).resolve().parents[2]
+BRIDGE_CORE_SOURCE = PROVIDERS_ROOT.parent / "runtime" / "eventing" / "bridge_core.py"
 AZURE_V2_GRAPH_APPS = frozenset({"five-layer-v2"})
 
 
 def _create_azure_v2_function_zip(source: Path, output: Path) -> None:
+    if not BRIDGE_CORE_SOURCE.is_file() or BRIDGE_CORE_SOURCE.is_symlink():
+        raise ValueError("Shared Phase 8 bridge runtime is unavailable")
     with atomic_zip_archive(output) as archive:
         for path in sorted(source.rglob("*")):
             relative = path.relative_to(source)
@@ -23,6 +26,7 @@ def _create_azure_v2_function_zip(source: Path, output: Path) -> None:
                 and _should_include_file(path)
             ):
                 write_zip_file(archive, path, relative)
+        write_zip_file(archive, BRIDGE_CORE_SOURCE, "bridge_core.py")
 
 
 def azure_v2_graph_package_ids(
