@@ -7794,7 +7794,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:3e711370de7a9c1386fa2ff9c138da73c578e8bbb80b6385bcb71ec88afe837d",
+      "source_digest": "sha256:d561194846a3a201e8a2a235bb1c6c8d33c6f78dcbde0d66a6ffb8dbfb4fc825",
       "included_paths": [
         "Dockerfile",
         "grafana/Dockerfile",
@@ -7842,5 +7842,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:49bff381c3340a0580362765697287fe55eb7bff0deb22d6a0b1e9ae8e5e2a00"
+  "content_digest": "sha256:23557b3fdabafc7c9002b6716cdb1165b575e702930d7d77ab6de9db2d5fbdb3"
 }

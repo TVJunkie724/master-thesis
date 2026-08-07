@@ -21,6 +21,55 @@ sys.modules[SPEC.name] = mover
 SPEC.loader.exec_module(mover)
 
 
+class _Snapshot:
+    id = "document-1"
+
+    @staticmethod
+    def to_dict():
+        return {"event_id": "event-1", "value": 1}
+
+
+class _Query:
+    def where(self, **_kwargs):
+        return self
+
+    def order_by(self, _field):
+        return self
+
+    @staticmethod
+    def stream():
+        return [_Snapshot()]
+
+
+class _Database:
+    @staticmethod
+    def collection(_name):
+        return _Query()
+
+
+class _Blob:
+    def __init__(self, name):
+        self.name = name
+        self.metadata = None
+        self.content = None
+
+    def upload_from_string(self, content, **_kwargs):
+        if self.content is not None:
+            raise mover.PreconditionFailed("already exists")
+        self.content = content
+
+    def reload(self):
+        return None
+
+
+class _Bucket:
+    def __init__(self):
+        self.objects = {}
+
+    def blob(self, name):
+        return self.objects.setdefault(name, _Blob(name))
+
+
 def test_due_window_is_the_last_closed_boundary_window():
     window = mover.due_window(
         datetime(2026, 8, 5, 12, 7, 51, tzinfo=timezone.utc),
@@ -49,3 +98,31 @@ def test_partition_lines_respects_object_and_task_limits(monkeypatch):
     )
     with pytest.raises(mover.StorageTransitionError, match="TASK_INPUT"):
         mover.partition_lines((b"aaaaaa", b"bbbbbb", b"c"))
+
+
+def test_retry_produces_the_same_immutable_manifest():
+    window = mover.due_window(
+        datetime(2026, 8, 5, 12, 7, 51, tzinfo=timezone.utc),
+        30,
+    )
+    bucket = _Bucket()
+
+    first = mover.export_hot_window(
+        database=_Database(),
+        bucket=bucket,
+        window=window,
+        shards=(0,),
+        task_index=0,
+        task_count=1,
+    )
+    retried = mover.export_hot_window(
+        database=_Database(),
+        bucket=bucket,
+        window=window,
+        shards=(0,),
+        task_index=0,
+        task_count=1,
+    )
+
+    assert retried == first
+    assert "actual_at" not in first

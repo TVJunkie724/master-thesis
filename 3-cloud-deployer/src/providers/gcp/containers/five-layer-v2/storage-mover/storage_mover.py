@@ -147,7 +147,6 @@ def export_hot_window(
     shards: tuple[int, ...],
     task_index: int,
     task_count: int,
-    actual_at: datetime,
 ) -> dict[str, Any]:
     records: list[tuple[str, bytes]] = []
     for shard in shards:
@@ -197,7 +196,6 @@ def export_hot_window(
         "transition": "hot-to-cool",
         "window_start": window.start.isoformat().replace("+00:00", "Z"),
         "window_end": window.end.isoformat().replace("+00:00", "Z"),
-        "actual_at": actual_at.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
         "task_index": task_index,
         "task_count": task_count,
         "shards": list(shards),
@@ -259,7 +257,6 @@ def main() -> None:
         shards=assigned_shards(shard_count, task_count, task_index),
         task_index=task_index,
         task_count=task_count,
-        actual_at=actual_at,
     )
     _write_window_manifest(bucket, window, task_count)
 
