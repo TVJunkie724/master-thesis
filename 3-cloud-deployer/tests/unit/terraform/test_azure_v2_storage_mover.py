@@ -46,6 +46,11 @@ class _Blob:
     def get_blob_properties(self):
         return SimpleNamespace(metadata=self.metadata)
 
+    def download_blob(self):
+        if self.content is None:
+            raise mover.ResourceNotFoundError("missing")
+        return SimpleNamespace(readall=lambda: self.content)
+
 
 class _BlobContainer:
     def __init__(self):
@@ -120,6 +125,25 @@ def test_retry_produces_the_same_immutable_manifest():
 
     assert retried == first
     assert "actual_at" not in first
+    assert {
+        "deployment_id",
+        "transition",
+        "batch_id",
+        "source_provider",
+        "destination_provider",
+        "object_count",
+        "payload_bytes",
+        "started_at",
+        "completed_at",
+        "status",
+    }.issubset(first)
+    assert first["schema_version"] == "storage_transition.v1"
+    assert first["transition"] == "hot_to_cool"
+    assert first["source_provider"] == first["destination_provider"] == "azure"
+    assert first["object_count"] == 1
+    assert first["payload_bytes"] > 0
+    assert first["status"] == "completed"
+    assert first["started_at"] != first["window_start"]
     assert blobs.objects[
         "hot-to-cool/2026/07/06/1200/task-000/part-00000.ndjson.gz"
     ].metadata["first_event_id"] == "event-1"

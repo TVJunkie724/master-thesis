@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import importlib.util
+import io
 import json
 from pathlib import Path
 import sys
@@ -47,6 +48,12 @@ class _S3:
 
     def head_object(self, *, Bucket, Key):
         return {"Metadata": self.objects[(Bucket, Key)]["Metadata"]}
+
+    def get_object(self, *, Bucket, Key):
+        item = self.objects.get((Bucket, Key))
+        if item is None:
+            raise ClientError({"Error": {"Code": "NoSuchKey"}}, "GetObject")
+        return {"Body": io.BytesIO(item["Body"])}
 
 
 def test_due_window_and_sharded_query_are_exact():
@@ -118,3 +125,22 @@ def test_retry_produces_the_same_immutable_manifest():
 
     assert retried == first
     assert "actual_at" not in first
+    assert {
+        "deployment_id",
+        "transition",
+        "batch_id",
+        "source_provider",
+        "destination_provider",
+        "object_count",
+        "payload_bytes",
+        "started_at",
+        "completed_at",
+        "status",
+    }.issubset(first)
+    assert first["schema_version"] == "storage_transition.v1"
+    assert first["transition"] == "hot_to_cool"
+    assert first["source_provider"] == first["destination_provider"] == "aws"
+    assert first["object_count"] == 1
+    assert first["payload_bytes"] > 0
+    assert first["status"] == "completed"
+    assert first["started_at"] != first["window_start"]

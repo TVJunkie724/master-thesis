@@ -61,6 +61,12 @@ class _Blob:
     def reload(self):
         return None
 
+    def exists(self):
+        return self.content is not None
+
+    def download_as_bytes(self):
+        return self.content
+
 
 class _Bucket:
     def __init__(self):
@@ -126,3 +132,22 @@ def test_retry_produces_the_same_immutable_manifest():
 
     assert retried == first
     assert "actual_at" not in first
+    assert {
+        "deployment_id",
+        "transition",
+        "batch_id",
+        "source_provider",
+        "destination_provider",
+        "object_count",
+        "payload_bytes",
+        "started_at",
+        "completed_at",
+        "status",
+    }.issubset(first)
+    assert first["schema_version"] == "storage_transition.v1"
+    assert first["transition"] == "hot_to_cool"
+    assert first["source_provider"] == first["destination_provider"] == "gcp"
+    assert first["object_count"] == 1
+    assert first["payload_bytes"] > 0
+    assert first["status"] == "completed"
+    assert first["started_at"] != first["window_start"]

@@ -2097,6 +2097,10 @@ resource "google_cloud_run_v2_job" "gcp_gcp_cloud_run_storage_job" {
           value = "five-layer-baseline@2"
         }
         env {
+          name  = "DEPLOYMENT_ID"
+          value = local.deployment_suffix
+        }
+        env {
           name  = "TRANSITION"
           value = each.key
         }

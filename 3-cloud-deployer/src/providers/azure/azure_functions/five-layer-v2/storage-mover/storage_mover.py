@@ -19,7 +19,10 @@ from azure.storage.blob import BlobServiceClient, ContentSettings, StandardBlobT
 WINDOW = timedelta(minutes=5)
 MAX_OBJECT_BYTES = 64 * 1024 * 1024
 MAX_TASK_INPUT_BYTES = 512 * 1024 * 1024
-SCHEMA = "five-layer-v2-storage-window.v1"
+MAX_MANIFEST_BYTES = 2 * 1024 * 1024
+ARTIFACT_SCHEMA = "five-layer-v2-storage-window.v1"
+TRANSITION_SCHEMA = "storage_transition.v1"
+INDEX_SCHEMA = "five-layer-v2-storage-index.v1"
 SYSTEM_FIELDS = frozenset({"_rid", "_self", "_etag", "_attachments", "_ts"})
 
 
@@ -153,6 +156,80 @@ def _task_prefix(window: Window, task_index: int) -> str:
     return f"hot-to-cool/{window.key}/task-{task_index:03d}"
 
 
+def _contract_provider(provider: str) -> str:
+    return "gcp" if provider == "google" else provider
+
+
+def _batch_id(
+    deployment_id: str,
+    transition: str,
+    source_provider: str,
+    destination_provider: str,
+    window: Window,
+    task_index: int,
+) -> str:
+    material = "|".join(
+        (
+            deployment_id,
+            transition,
+            _contract_provider(source_provider),
+            _contract_provider(destination_provider),
+            window.source_key,
+            f"{task_index:03d}",
+        )
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _existing_manifest(
+    blob_container: Any,
+    name: str,
+    *,
+    deployment_id: str,
+    transition: str,
+    source_provider: str,
+    destination_provider: str,
+    window: Window,
+    task_index: int,
+    task_count: int,
+) -> dict[str, Any] | None:
+    try:
+        raw = blob_container.get_blob_client(name).download_blob().readall()
+    except ResourceNotFoundError:
+        return None
+    if not isinstance(raw, bytes) or len(raw) > MAX_MANIFEST_BYTES:
+        raise StorageTransitionError("INVALID_STORAGE_TRANSITION_MANIFEST")
+    try:
+        manifest = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise StorageTransitionError("INVALID_STORAGE_TRANSITION_MANIFEST") from exc
+    expected = {
+        "schema_version": TRANSITION_SCHEMA,
+        "deployment_id": deployment_id,
+        "transition": transition,
+        "batch_id": _batch_id(
+            deployment_id,
+            transition,
+            source_provider,
+            destination_provider,
+            window,
+            task_index,
+        ),
+        "source_provider": _contract_provider(source_provider),
+        "destination_provider": _contract_provider(destination_provider),
+        "window_start": window.start.isoformat().replace("+00:00", "Z"),
+        "window_end": window.end.isoformat().replace("+00:00", "Z"),
+        "task_index": task_index,
+        "task_count": task_count,
+        "status": "completed",
+    }
+    if not isinstance(manifest, dict) or any(
+        manifest.get(field) != value for field, value in expected.items()
+    ):
+        raise StorageTransitionError("INVALID_STORAGE_TRANSITION_MANIFEST")
+    return manifest
+
+
 def export_hot_window(
     *,
     cosmos_container: Any,
@@ -160,10 +237,29 @@ def export_hot_window(
     window: Window,
     task_index: int,
     task_count: int,
+    deployment_id: str = "local-poc",
+    source_provider: str = "azure",
+    destination_provider: str = "azure",
 ) -> dict[str, Any]:
+    transition = "hot_to_cool"
+    prefix = _task_prefix(window, task_index)
+    manifest_name = f"{prefix}/manifest.json"
+    existing = _existing_manifest(
+        blob_container,
+        manifest_name,
+        deployment_id=deployment_id,
+        transition=transition,
+        source_provider=source_provider,
+        destination_provider=destination_provider,
+        window=window,
+        task_index=task_index,
+        task_count=task_count,
+    )
+    if existing is not None:
+        return existing
+    started_at = datetime.now(timezone.utc)
     records = query_window(cosmos_container, window, task_index)
     parts = partition_lines(line for _, line in records)
-    prefix = _task_prefix(window, task_index)
     objects: list[dict[str, Any]] = []
     offset = 0
     for index, part in enumerate(parts):
@@ -177,7 +273,7 @@ def export_hot_window(
             name,
             compressed,
             {
-                "schema": SCHEMA,
+                "schema": ARTIFACT_SCHEMA,
                 "count": str(len(part)),
                 "first_event_id": event_ids[0],
                 "last_event_id": event_ids[-1],
@@ -188,12 +284,30 @@ def export_hot_window(
                 "name": name,
                 "count": len(part),
                 "sha256": hashlib.sha256(compressed).hexdigest(),
+                "payload_bytes": len(compressed),
                 "uncompressed_bytes": len(raw),
             }
         )
+    completed_at = datetime.now(timezone.utc)
     manifest = {
-        "schema_version": SCHEMA,
-        "transition": "hot-to-cool",
+        "schema_version": TRANSITION_SCHEMA,
+        "deployment_id": deployment_id,
+        "transition": transition,
+        "batch_id": _batch_id(
+            deployment_id,
+            transition,
+            source_provider,
+            destination_provider,
+            window,
+            task_index,
+        ),
+        "source_provider": _contract_provider(source_provider),
+        "destination_provider": _contract_provider(destination_provider),
+        "object_count": len(objects),
+        "payload_bytes": sum(item["payload_bytes"] for item in objects),
+        "started_at": started_at.isoformat().replace("+00:00", "Z"),
+        "completed_at": completed_at.isoformat().replace("+00:00", "Z"),
+        "status": "completed",
         "window_start": window.start.isoformat().replace("+00:00", "Z"),
         "window_end": window.end.isoformat().replace("+00:00", "Z"),
         "task_index": task_index,
@@ -204,9 +318,9 @@ def export_hot_window(
     encoded = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
     _write_once(
         blob_container,
-        f"{prefix}/manifest.json",
+        manifest_name,
         encoded,
-        {"schema": SCHEMA},
+        {"schema": TRANSITION_SCHEMA},
     )
     return manifest
 
@@ -223,7 +337,7 @@ def _write_window_manifest(
             return
         manifests.append(name)
     document = {
-        "schema_version": SCHEMA,
+        "schema_version": INDEX_SCHEMA,
         "transition": "hot-to-cool",
         "window_start": window.start.isoformat().replace("+00:00", "Z"),
         "window_end": window.end.isoformat().replace("+00:00", "Z"),
@@ -234,7 +348,7 @@ def _write_window_manifest(
         blob_container,
         f"hot-to-cool/{window.key}/manifest.json",
         encoded,
-        {"schema": SCHEMA},
+        {"schema": INDEX_SCHEMA},
     )
 
 
@@ -263,6 +377,9 @@ def main() -> None:
     if task_index < 0 or task_index >= task_count:
         raise StorageTransitionError("INVALID_STORAGE_TASK_INDEX")
     boundary_days = _positive_int("HOT_BOUNDARY_DAYS", "30")
+    deployment_id = os.environ.get("DEPLOYMENT_ID", "")
+    if not deployment_id:
+        raise StorageTransitionError("STORAGE_TRANSITION_NOT_CONFIGURED")
     now = datetime.now(timezone.utc)
     window = due_window(now, boundary_days)
     credential = DefaultAzureCredential(
@@ -282,6 +399,9 @@ def main() -> None:
         window=window,
         task_index=task_index,
         task_count=task_count,
+        deployment_id=deployment_id,
+        source_provider=source_provider,
+        destination_provider=destination_provider,
     )
     _write_window_manifest(blob_container, window, task_count)
 

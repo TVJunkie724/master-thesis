@@ -437,6 +437,10 @@ resource "azurerm_container_app_job" "azure_azure_container_apps_scheduled_stora
         value = "five-layer-baseline@2"
       }
       env {
+        name  = "DEPLOYMENT_ID"
+        value = local.deployment_suffix
+      }
+      env {
         name  = "TRANSITION"
         value = each.value.transition
       }

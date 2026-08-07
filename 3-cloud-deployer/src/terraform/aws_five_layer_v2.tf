@@ -1134,6 +1134,7 @@ resource "aws_ecs_task_definition" "aws_aws_ecs_fargate_storage_mover" {
     essential = true
     environment = [
       { name = "ARCHITECTURE_PROFILE", value = "five-layer-baseline@2" },
+      { name = "DEPLOYMENT_ID", value = local.deployment_suffix },
       { name = "HOT_PROVIDER", value = var.layer_3_hot_provider },
       { name = "COOL_PROVIDER", value = var.layer_3_cold_provider },
       { name = "ARCHIVE_PROVIDER", value = var.layer_3_archive_provider },
