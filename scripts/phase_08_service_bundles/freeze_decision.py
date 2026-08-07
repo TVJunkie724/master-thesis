@@ -94,6 +94,12 @@ def build() -> dict[str, Any]:
         "research_cutoff": "2026-08-05",
         "pre_activation_refreeze": {
             "refrozen_on": "2026-08-08",
+            "previous_package_digest": "sha256:f0ddf4dd60c898dcc23867e3e3bda8974fa8f20a0dc850fe1942b60947ec5f2f",
+            "reason": "repair the mandatory bidirectional L1-L2 domain-event cycle and align all Five-layer v2 edge contract identifiers with the approved common functional contract before activation",
+            "scope_change": False,
+            "activated_or_deployed_before_refreeze": False,
+            "prior_refreeze": {
+            "refrozen_on": "2026-08-08",
             "previous_package_digest": "sha256:f5bbbb4d052458d70b3b079321729fc4f46a439f1bcde3e710b960b412968d90",
             "reason": "bind the approved Azure ACR Task and Container Apps scheduled storage mover to its actual source path before activation",
             "scope_change": False,
@@ -159,6 +165,7 @@ def build() -> dict[str, Any]:
                     },
                 },
             },
+        },
         },
         },
         },

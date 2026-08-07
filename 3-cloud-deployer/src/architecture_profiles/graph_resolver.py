@@ -455,7 +455,13 @@ def resolve_deployment_graph(
             "bindings",
             "Graph binding identifier is duplicated",
         )
-    topological_node_ids = _topological_order(node_tuple, edge_tuple)
+    topological_node_ids = _topological_order(
+        node_tuple,
+        edge_tuple,
+        allowed_cycle_ids=frozenset(
+            registry.profile["graph_policy"]["allowed_cycle_ids"]
+        ),
+    )
     stages = plan_stages(
         node_tuple,
         edge_tuple,
@@ -594,26 +600,115 @@ def _artifact_closure(
 def _topological_order(
     nodes: tuple[GraphNode, ...],
     edges: tuple[GraphEdge, ...],
+    *,
+    allowed_cycle_ids: frozenset[str] = frozenset(),
 ) -> tuple[str, ...]:
-    indegree = {node.node_id: 0 for node in nodes}
-    outgoing: dict[str, list[str]] = defaultdict(list)
+    """Order the condensation graph and expand only profile-allowlisted cycles."""
+
+    nodes_by_id = {node.node_id: node for node in nodes}
+    outgoing: dict[str, set[str]] = defaultdict(set)
     for edge in edges:
-        outgoing[edge.source_node_id].append(edge.destination_node_id)
-        indegree[edge.destination_node_id] += 1
-    ready = sorted(node_id for node_id, count in indegree.items() if count == 0)
-    ordered: list[str] = []
-    while ready:
-        node_id = ready.pop(0)
-        ordered.append(node_id)
+        outgoing[edge.source_node_id].add(edge.destination_node_id)
+
+    next_index = 0
+    indexes: dict[str, int] = {}
+    lowlinks: dict[str, int] = {}
+    stack: list[str] = []
+    on_stack: set[str] = set()
+    components: list[tuple[str, ...]] = []
+
+    def visit(node_id: str) -> None:
+        nonlocal next_index
+        indexes[node_id] = next_index
+        lowlinks[node_id] = next_index
+        next_index += 1
+        stack.append(node_id)
+        on_stack.add(node_id)
         for destination in sorted(outgoing[node_id]):
-            indegree[destination] -= 1
-            if indegree[destination] == 0:
-                ready.append(destination)
-                ready.sort()
-    if len(ordered) != len(nodes):
+            if destination not in indexes:
+                visit(destination)
+                lowlinks[node_id] = min(lowlinks[node_id], lowlinks[destination])
+            elif destination in on_stack:
+                lowlinks[node_id] = min(lowlinks[node_id], indexes[destination])
+        if lowlinks[node_id] != indexes[node_id]:
+            return
+        connected: list[str] = []
+        while stack:
+            member = stack.pop()
+            on_stack.remove(member)
+            connected.append(member)
+            if member == node_id:
+                break
+        components.append(tuple(sorted(connected)))
+
+    for node_id in sorted(nodes_by_id):
+        if node_id not in indexes:
+            visit(node_id)
+
+    cyclic_components = [
+        component
+        for component in components
+        if len(component) > 1
+        or any(node_id in outgoing[node_id] for node_id in component)
+    ]
+    actual_cycle_ids = {
+        "cycle."
+        + ".".join(
+            sorted(
+                nodes_by_id[node_id].logical_component_id.removeprefix("component.")
+                for node_id in component
+            )
+        )
+        for component in cyclic_components
+    }
+    if actual_cycle_ids != set(allowed_cycle_ids):
         _fail(
             "DEPLOYMENT_GRAPH_CYCLE_FORBIDDEN",
             "resolved_twin_architecture.resolved_edges",
-            "Resolved deployment graph contains a forbidden cycle",
+            "Resolved deployment graph cycles differ from the profile allowlist",
         )
-    return tuple(ordered)
+
+    component_by_node = {
+        node_id: index
+        for index, component in enumerate(components)
+        for node_id in component
+    }
+    component_outgoing: dict[int, set[int]] = defaultdict(set)
+    indegree = {index: 0 for index in range(len(components))}
+    for source, destinations in outgoing.items():
+        source_component = component_by_node[source]
+        for destination in destinations:
+            destination_component = component_by_node[destination]
+            if source_component == destination_component:
+                continue
+            if destination_component not in component_outgoing[source_component]:
+                component_outgoing[source_component].add(destination_component)
+                indegree[destination_component] += 1
+
+    ready = sorted(
+        (index for index, count in indegree.items() if count == 0),
+        key=lambda index: components[index],
+    )
+    ordered_components: list[int] = []
+    while ready:
+        component_index = ready.pop(0)
+        ordered_components.append(component_index)
+        for destination in sorted(
+            component_outgoing[component_index],
+            key=lambda index: components[index],
+        ):
+            indegree[destination] -= 1
+            if indegree[destination] == 0:
+                ready.append(destination)
+                ready.sort(key=lambda index: components[index])
+    if len(ordered_components) != len(components):
+        _fail(
+            "DEPLOYMENT_GRAPH_CYCLE_FORBIDDEN",
+            "resolved_twin_architecture.resolved_edges",
+            "Resolved deployment condensation graph contains a cycle",
+        )
+    return tuple(
+        node_id
+        for component_index in ordered_components
+        for node_id in components[component_index]
+    )

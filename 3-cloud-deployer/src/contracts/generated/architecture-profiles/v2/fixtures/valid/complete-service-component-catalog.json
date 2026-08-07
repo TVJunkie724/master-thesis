@@ -74,12 +74,47 @@
         "id": "configuration.aws.ingestion.v2",
         "version": "1"
       },
-      "input_ports": [],
+      "input_ports": [
+        {
+          "port_id": "catalog.aws.port.ingestion.device-command-in",
+          "schema_ref": {
+            "id": "canonical-domain-event.v1",
+            "version": "1"
+          },
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "value_type": "json_document",
+          "sensitivity": "internal",
+          "cardinality": "many",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "catalog",
+          "compatibility_version": "1"
+        }
+      ],
       "output_ports": [
         {
-          "port_id": "catalog.aws.port.ingestion.telemetry-out",
+          "port_id": "catalog.aws.port.ingestion.telemetry-event-out",
           "schema_ref": {
-            "id": "telemetry-envelope.v1",
+            "id": "canonical-domain-event.v1",
+            "version": "1"
+          },
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "value_type": "json_document",
+          "sensitivity": "internal",
+          "cardinality": "many",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "catalog",
+          "compatibility_version": "1"
+        },
+        {
+          "port_id": "catalog.aws.port.ingestion.command-outcome-event-out",
+          "schema_ref": {
+            "id": "canonical-domain-event.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -242,9 +277,9 @@
       },
       "input_ports": [
         {
-          "port_id": "catalog.aws.port.processing.telemetry-in",
+          "port_id": "catalog.aws.port.processing.telemetry-event-in",
           "schema_ref": {
-            "id": "telemetry-envelope.v1",
+            "id": "canonical-domain-event.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -261,9 +296,26 @@
       ],
       "output_ports": [
         {
-          "port_id": "catalog.aws.port.processing.telemetry-out",
+          "port_id": "catalog.aws.port.processing.persistence-event-out",
           "schema_ref": {
-            "id": "telemetry-envelope.v1",
+            "id": "canonical-domain-event.v1",
+            "version": "1"
+          },
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "value_type": "json_document",
+          "sensitivity": "internal",
+          "cardinality": "many",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "catalog",
+          "compatibility_version": "1"
+        },
+        {
+          "port_id": "catalog.aws.port.processing.device-command-out",
+          "schema_ref": {
+            "id": "canonical-domain-event.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -448,9 +500,26 @@
       },
       "input_ports": [
         {
-          "port_id": "catalog.aws.port.hot-storage.write-in",
+          "port_id": "catalog.aws.port.hot-storage.processing-event-in",
           "schema_ref": {
-            "id": "telemetry-envelope.v1",
+            "id": "canonical-domain-event.v1",
+            "version": "1"
+          },
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "value_type": "json_document",
+          "sensitivity": "internal",
+          "cardinality": "many",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "catalog",
+          "compatibility_version": "1"
+        },
+        {
+          "port_id": "catalog.aws.port.hot-storage.command-outcome-event-in",
+          "schema_ref": {
+            "id": "canonical-domain-event.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -469,7 +538,7 @@
         {
           "port_id": "catalog.aws.port.hot-storage.transition-out",
           "schema_ref": {
-            "id": "storage-transition-record.v1",
+            "id": "storage_transition.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -484,9 +553,9 @@
           "compatibility_version": "1"
         },
         {
-          "port_id": "catalog.aws.port.hot-storage.twin-update-out",
+          "port_id": "catalog.aws.port.hot-storage.twin-projection-out",
           "schema_ref": {
-            "id": "telemetry-to-twin-state.v1",
+            "id": "twin_projection.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -503,7 +572,7 @@
         {
           "port_id": "catalog.aws.port.hot-storage.raw-history-out",
           "schema_ref": {
-            "id": "raw-history-query.v1",
+            "id": "raw_history_query.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -685,7 +754,7 @@
         {
           "port_id": "catalog.aws.port.cool-storage.write-in",
           "schema_ref": {
-            "id": "storage-transition-record.v1",
+            "id": "storage_transition.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -704,7 +773,7 @@
         {
           "port_id": "catalog.aws.port.cool-storage.transition-out",
           "schema_ref": {
-            "id": "storage-transition-record.v1",
+            "id": "storage_transition.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -843,7 +912,7 @@
         {
           "port_id": "catalog.aws.port.archive-storage.write-in",
           "schema_ref": {
-            "id": "storage-transition-record.v1",
+            "id": "storage_transition.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -983,9 +1052,9 @@
       },
       "input_ports": [
         {
-          "port_id": "catalog.aws.port.twin-state.update-in",
+          "port_id": "catalog.aws.port.twin-state.projection-in",
           "schema_ref": {
-            "id": "telemetry-to-twin-state.v1",
+            "id": "twin_projection.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -1145,7 +1214,7 @@
         {
           "port_id": "catalog.aws.port.visualization.raw-history-in",
           "schema_ref": {
-            "id": "raw-history-query.v1",
+            "id": "raw_history_query.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -1299,12 +1368,47 @@
         "id": "configuration.azure.ingestion.v2",
         "version": "1"
       },
-      "input_ports": [],
+      "input_ports": [
+        {
+          "port_id": "catalog.azure.port.ingestion.device-command-in",
+          "schema_ref": {
+            "id": "canonical-domain-event.v1",
+            "version": "1"
+          },
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "value_type": "json_document",
+          "sensitivity": "internal",
+          "cardinality": "many",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "catalog",
+          "compatibility_version": "1"
+        }
+      ],
       "output_ports": [
         {
-          "port_id": "catalog.azure.port.ingestion.telemetry-out",
+          "port_id": "catalog.azure.port.ingestion.telemetry-event-out",
           "schema_ref": {
-            "id": "telemetry-envelope.v1",
+            "id": "canonical-domain-event.v1",
+            "version": "1"
+          },
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "value_type": "json_document",
+          "sensitivity": "internal",
+          "cardinality": "many",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "catalog",
+          "compatibility_version": "1"
+        },
+        {
+          "port_id": "catalog.azure.port.ingestion.command-outcome-event-out",
+          "schema_ref": {
+            "id": "canonical-domain-event.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -1469,9 +1573,9 @@
       },
       "input_ports": [
         {
-          "port_id": "catalog.azure.port.processing.telemetry-in",
+          "port_id": "catalog.azure.port.processing.telemetry-event-in",
           "schema_ref": {
-            "id": "telemetry-envelope.v1",
+            "id": "canonical-domain-event.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -1488,9 +1592,26 @@
       ],
       "output_ports": [
         {
-          "port_id": "catalog.azure.port.processing.telemetry-out",
+          "port_id": "catalog.azure.port.processing.persistence-event-out",
           "schema_ref": {
-            "id": "telemetry-envelope.v1",
+            "id": "canonical-domain-event.v1",
+            "version": "1"
+          },
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "value_type": "json_document",
+          "sensitivity": "internal",
+          "cardinality": "many",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "catalog",
+          "compatibility_version": "1"
+        },
+        {
+          "port_id": "catalog.azure.port.processing.device-command-out",
+          "schema_ref": {
+            "id": "canonical-domain-event.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -1670,9 +1791,26 @@
       },
       "input_ports": [
         {
-          "port_id": "catalog.azure.port.hot-storage.write-in",
+          "port_id": "catalog.azure.port.hot-storage.processing-event-in",
           "schema_ref": {
-            "id": "telemetry-envelope.v1",
+            "id": "canonical-domain-event.v1",
+            "version": "1"
+          },
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "value_type": "json_document",
+          "sensitivity": "internal",
+          "cardinality": "many",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "catalog",
+          "compatibility_version": "1"
+        },
+        {
+          "port_id": "catalog.azure.port.hot-storage.command-outcome-event-in",
+          "schema_ref": {
+            "id": "canonical-domain-event.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -1691,7 +1829,7 @@
         {
           "port_id": "catalog.azure.port.hot-storage.transition-out",
           "schema_ref": {
-            "id": "storage-transition-record.v1",
+            "id": "storage_transition.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -1706,9 +1844,9 @@
           "compatibility_version": "1"
         },
         {
-          "port_id": "catalog.azure.port.hot-storage.twin-update-out",
+          "port_id": "catalog.azure.port.hot-storage.twin-projection-out",
           "schema_ref": {
-            "id": "telemetry-to-twin-state.v1",
+            "id": "twin_projection.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -1725,7 +1863,7 @@
         {
           "port_id": "catalog.azure.port.hot-storage.raw-history-out",
           "schema_ref": {
-            "id": "raw-history-query.v1",
+            "id": "raw_history_query.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -1890,7 +2028,7 @@
         {
           "port_id": "catalog.azure.port.cool-storage.write-in",
           "schema_ref": {
-            "id": "storage-transition-record.v1",
+            "id": "storage_transition.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -1909,7 +2047,7 @@
         {
           "port_id": "catalog.azure.port.cool-storage.transition-out",
           "schema_ref": {
-            "id": "storage-transition-record.v1",
+            "id": "storage_transition.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -2051,7 +2189,7 @@
         {
           "port_id": "catalog.azure.port.archive-storage.write-in",
           "schema_ref": {
-            "id": "storage-transition-record.v1",
+            "id": "storage_transition.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -2200,9 +2338,9 @@
       },
       "input_ports": [
         {
-          "port_id": "catalog.azure.port.twin-state.update-in",
+          "port_id": "catalog.azure.port.twin-state.projection-in",
           "schema_ref": {
-            "id": "telemetry-to-twin-state.v1",
+            "id": "twin_projection.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -2363,7 +2501,7 @@
         {
           "port_id": "catalog.azure.port.visualization.raw-history-in",
           "schema_ref": {
-            "id": "raw-history-query.v1",
+            "id": "raw_history_query.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -2530,12 +2668,47 @@
         "id": "configuration.gcp.ingestion.v2",
         "version": "1"
       },
-      "input_ports": [],
+      "input_ports": [
+        {
+          "port_id": "catalog.gcp.port.ingestion.device-command-in",
+          "schema_ref": {
+            "id": "canonical-domain-event.v1",
+            "version": "1"
+          },
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "value_type": "json_document",
+          "sensitivity": "internal",
+          "cardinality": "many",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "catalog",
+          "compatibility_version": "1"
+        }
+      ],
       "output_ports": [
         {
-          "port_id": "catalog.gcp.port.ingestion.telemetry-out",
+          "port_id": "catalog.gcp.port.ingestion.telemetry-event-out",
           "schema_ref": {
-            "id": "telemetry-envelope.v1",
+            "id": "canonical-domain-event.v1",
+            "version": "1"
+          },
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "value_type": "json_document",
+          "sensitivity": "internal",
+          "cardinality": "many",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "catalog",
+          "compatibility_version": "1"
+        },
+        {
+          "port_id": "catalog.gcp.port.ingestion.command-outcome-event-out",
+          "schema_ref": {
+            "id": "canonical-domain-event.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -2706,9 +2879,9 @@
       },
       "input_ports": [
         {
-          "port_id": "catalog.gcp.port.processing.telemetry-in",
+          "port_id": "catalog.gcp.port.processing.telemetry-event-in",
           "schema_ref": {
-            "id": "telemetry-envelope.v1",
+            "id": "canonical-domain-event.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -2725,9 +2898,26 @@
       ],
       "output_ports": [
         {
-          "port_id": "catalog.gcp.port.processing.telemetry-out",
+          "port_id": "catalog.gcp.port.processing.persistence-event-out",
           "schema_ref": {
-            "id": "telemetry-envelope.v1",
+            "id": "canonical-domain-event.v1",
+            "version": "1"
+          },
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "value_type": "json_document",
+          "sensitivity": "internal",
+          "cardinality": "many",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "catalog",
+          "compatibility_version": "1"
+        },
+        {
+          "port_id": "catalog.gcp.port.processing.device-command-out",
+          "schema_ref": {
+            "id": "canonical-domain-event.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -2903,9 +3093,26 @@
       },
       "input_ports": [
         {
-          "port_id": "catalog.gcp.port.hot-storage.write-in",
+          "port_id": "catalog.gcp.port.hot-storage.processing-event-in",
           "schema_ref": {
-            "id": "telemetry-envelope.v1",
+            "id": "canonical-domain-event.v1",
+            "version": "1"
+          },
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "value_type": "json_document",
+          "sensitivity": "internal",
+          "cardinality": "many",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "catalog",
+          "compatibility_version": "1"
+        },
+        {
+          "port_id": "catalog.gcp.port.hot-storage.command-outcome-event-in",
+          "schema_ref": {
+            "id": "canonical-domain-event.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -2924,7 +3131,7 @@
         {
           "port_id": "catalog.gcp.port.hot-storage.transition-out",
           "schema_ref": {
-            "id": "storage-transition-record.v1",
+            "id": "storage_transition.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -2939,9 +3146,9 @@
           "compatibility_version": "1"
         },
         {
-          "port_id": "catalog.gcp.port.hot-storage.twin-update-out",
+          "port_id": "catalog.gcp.port.hot-storage.twin-projection-out",
           "schema_ref": {
-            "id": "telemetry-to-twin-state.v1",
+            "id": "twin_projection.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -2958,7 +3165,7 @@
         {
           "port_id": "catalog.gcp.port.hot-storage.raw-history-out",
           "schema_ref": {
-            "id": "raw-history-query.v1",
+            "id": "raw_history_query.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -3127,7 +3334,7 @@
         {
           "port_id": "catalog.gcp.port.cool-storage.write-in",
           "schema_ref": {
-            "id": "storage-transition-record.v1",
+            "id": "storage_transition.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -3146,7 +3353,7 @@
         {
           "port_id": "catalog.gcp.port.cool-storage.transition-out",
           "schema_ref": {
-            "id": "storage-transition-record.v1",
+            "id": "storage_transition.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -3291,7 +3498,7 @@
         {
           "port_id": "catalog.gcp.port.archive-storage.write-in",
           "schema_ref": {
-            "id": "storage-transition-record.v1",
+            "id": "storage_transition.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -3446,9 +3653,9 @@
       },
       "input_ports": [
         {
-          "port_id": "catalog.gcp.port.twin-state.update-in",
+          "port_id": "catalog.gcp.port.twin-state.projection-in",
           "schema_ref": {
-            "id": "telemetry-to-twin-state.v1",
+            "id": "twin_projection.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -3634,7 +3841,7 @@
         {
           "port_id": "catalog.gcp.port.visualization.raw-history-in",
           "schema_ref": {
-            "id": "raw-history-query.v1",
+            "id": "raw_history_query.v1",
             "version": "1"
           },
           "envelope_ref": {
@@ -3760,7 +3967,7 @@
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -3838,7 +4045,7 @@
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -3922,7 +4129,7 @@
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -4006,7 +4213,7 @@
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -4090,7 +4297,7 @@
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -4168,7 +4375,7 @@
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -4252,7 +4459,7 @@
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -4336,7 +4543,7 @@
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -4420,7 +4627,7 @@
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -4489,16 +4696,16 @@
       "destination_component_ids": [
         "deployment.aws.twin-state.v2"
       ],
-      "source_output_port_id": "catalog.aws.port.hot-storage.twin-update-out",
-      "destination_input_port_id": "catalog.aws.port.twin-state.update-in",
+      "source_output_port_id": "catalog.aws.port.hot-storage.twin-projection-out",
+      "destination_input_port_id": "catalog.aws.port.twin-state.projection-in",
       "terraform_binding": {
         "source_output_id": "output.aws.hot-storage.v2",
-        "destination_input_id": "catalog.aws.port.twin-state.update-in",
+        "destination_input_id": "catalog.aws.port.twin-state.projection-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "telemetry-to-twin-state.v1",
+        "id": "twin_projection.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -4567,16 +4774,16 @@
       "destination_component_ids": [
         "deployment.azure.twin-state.v2"
       ],
-      "source_output_port_id": "catalog.aws.port.hot-storage.twin-update-out",
-      "destination_input_port_id": "catalog.azure.port.twin-state.update-in",
+      "source_output_port_id": "catalog.aws.port.hot-storage.twin-projection-out",
+      "destination_input_port_id": "catalog.azure.port.twin-state.projection-in",
       "terraform_binding": {
         "source_output_id": "output.aws.hot-storage.v2",
-        "destination_input_id": "catalog.azure.port.twin-state.update-in",
+        "destination_input_id": "catalog.azure.port.twin-state.projection-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-to-twin-state.v1",
+        "id": "twin_projection.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -4651,16 +4858,16 @@
       "destination_component_ids": [
         "deployment.gcp.twin-state.v2"
       ],
-      "source_output_port_id": "catalog.aws.port.hot-storage.twin-update-out",
-      "destination_input_port_id": "catalog.gcp.port.twin-state.update-in",
+      "source_output_port_id": "catalog.aws.port.hot-storage.twin-projection-out",
+      "destination_input_port_id": "catalog.gcp.port.twin-state.projection-in",
       "terraform_binding": {
         "source_output_id": "output.aws.hot-storage.v2",
-        "destination_input_id": "catalog.gcp.port.twin-state.update-in",
+        "destination_input_id": "catalog.gcp.port.twin-state.projection-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-to-twin-state.v1",
+        "id": "twin_projection.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -4735,16 +4942,16 @@
       "destination_component_ids": [
         "deployment.aws.twin-state.v2"
       ],
-      "source_output_port_id": "catalog.azure.port.hot-storage.twin-update-out",
-      "destination_input_port_id": "catalog.aws.port.twin-state.update-in",
+      "source_output_port_id": "catalog.azure.port.hot-storage.twin-projection-out",
+      "destination_input_port_id": "catalog.aws.port.twin-state.projection-in",
       "terraform_binding": {
         "source_output_id": "output.azure.hot-storage.v2",
-        "destination_input_id": "catalog.aws.port.twin-state.update-in",
+        "destination_input_id": "catalog.aws.port.twin-state.projection-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-to-twin-state.v1",
+        "id": "twin_projection.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -4819,16 +5026,16 @@
       "destination_component_ids": [
         "deployment.azure.twin-state.v2"
       ],
-      "source_output_port_id": "catalog.azure.port.hot-storage.twin-update-out",
-      "destination_input_port_id": "catalog.azure.port.twin-state.update-in",
+      "source_output_port_id": "catalog.azure.port.hot-storage.twin-projection-out",
+      "destination_input_port_id": "catalog.azure.port.twin-state.projection-in",
       "terraform_binding": {
         "source_output_id": "output.azure.hot-storage.v2",
-        "destination_input_id": "catalog.azure.port.twin-state.update-in",
+        "destination_input_id": "catalog.azure.port.twin-state.projection-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "telemetry-to-twin-state.v1",
+        "id": "twin_projection.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -4897,16 +5104,16 @@
       "destination_component_ids": [
         "deployment.gcp.twin-state.v2"
       ],
-      "source_output_port_id": "catalog.azure.port.hot-storage.twin-update-out",
-      "destination_input_port_id": "catalog.gcp.port.twin-state.update-in",
+      "source_output_port_id": "catalog.azure.port.hot-storage.twin-projection-out",
+      "destination_input_port_id": "catalog.gcp.port.twin-state.projection-in",
       "terraform_binding": {
         "source_output_id": "output.azure.hot-storage.v2",
-        "destination_input_id": "catalog.gcp.port.twin-state.update-in",
+        "destination_input_id": "catalog.gcp.port.twin-state.projection-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-to-twin-state.v1",
+        "id": "twin_projection.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -4981,16 +5188,16 @@
       "destination_component_ids": [
         "deployment.aws.twin-state.v2"
       ],
-      "source_output_port_id": "catalog.gcp.port.hot-storage.twin-update-out",
-      "destination_input_port_id": "catalog.aws.port.twin-state.update-in",
+      "source_output_port_id": "catalog.gcp.port.hot-storage.twin-projection-out",
+      "destination_input_port_id": "catalog.aws.port.twin-state.projection-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.hot-storage.v2",
-        "destination_input_id": "catalog.aws.port.twin-state.update-in",
+        "destination_input_id": "catalog.aws.port.twin-state.projection-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-to-twin-state.v1",
+        "id": "twin_projection.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -5065,16 +5272,16 @@
       "destination_component_ids": [
         "deployment.azure.twin-state.v2"
       ],
-      "source_output_port_id": "catalog.gcp.port.hot-storage.twin-update-out",
-      "destination_input_port_id": "catalog.azure.port.twin-state.update-in",
+      "source_output_port_id": "catalog.gcp.port.hot-storage.twin-projection-out",
+      "destination_input_port_id": "catalog.azure.port.twin-state.projection-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.hot-storage.v2",
-        "destination_input_id": "catalog.azure.port.twin-state.update-in",
+        "destination_input_id": "catalog.azure.port.twin-state.projection-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-to-twin-state.v1",
+        "id": "twin_projection.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -5149,16 +5356,16 @@
       "destination_component_ids": [
         "deployment.gcp.twin-state.v2"
       ],
-      "source_output_port_id": "catalog.gcp.port.hot-storage.twin-update-out",
-      "destination_input_port_id": "catalog.gcp.port.twin-state.update-in",
+      "source_output_port_id": "catalog.gcp.port.hot-storage.twin-projection-out",
+      "destination_input_port_id": "catalog.gcp.port.twin-state.projection-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.hot-storage.v2",
-        "destination_input_id": "catalog.gcp.port.twin-state.update-in",
+        "destination_input_id": "catalog.gcp.port.twin-state.projection-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "telemetry-to-twin-state.v1",
+        "id": "twin_projection.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -5236,7 +5443,7 @@
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -5314,7 +5521,7 @@
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -5398,7 +5605,7 @@
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -5482,7 +5689,7 @@
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -5566,7 +5773,7 @@
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -5644,7 +5851,7 @@
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -5728,7 +5935,7 @@
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -5812,7 +6019,7 @@
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -5896,7 +6103,7 @@
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "storage-transition-record.v1",
+        "id": "storage_transition.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -5965,16 +6172,16 @@
       "destination_component_ids": [
         "deployment.aws.processing.v2"
       ],
-      "source_output_port_id": "catalog.aws.port.ingestion.telemetry-out",
-      "destination_input_port_id": "catalog.aws.port.processing.telemetry-in",
+      "source_output_port_id": "catalog.aws.port.ingestion.telemetry-event-out",
+      "destination_input_port_id": "catalog.aws.port.processing.telemetry-event-in",
       "terraform_binding": {
         "source_output_id": "output.aws.ingestion.v2",
-        "destination_input_id": "catalog.aws.port.processing.telemetry-in",
+        "destination_input_id": "catalog.aws.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -6043,16 +6250,16 @@
       "destination_component_ids": [
         "deployment.azure.processing.v2"
       ],
-      "source_output_port_id": "catalog.aws.port.ingestion.telemetry-out",
-      "destination_input_port_id": "catalog.azure.port.processing.telemetry-in",
+      "source_output_port_id": "catalog.aws.port.ingestion.telemetry-event-out",
+      "destination_input_port_id": "catalog.azure.port.processing.telemetry-event-in",
       "terraform_binding": {
         "source_output_id": "output.aws.ingestion.v2",
-        "destination_input_id": "catalog.azure.port.processing.telemetry-in",
+        "destination_input_id": "catalog.azure.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -6127,16 +6334,16 @@
       "destination_component_ids": [
         "deployment.gcp.processing.v2"
       ],
-      "source_output_port_id": "catalog.aws.port.ingestion.telemetry-out",
-      "destination_input_port_id": "catalog.gcp.port.processing.telemetry-in",
+      "source_output_port_id": "catalog.aws.port.ingestion.telemetry-event-out",
+      "destination_input_port_id": "catalog.gcp.port.processing.telemetry-event-in",
       "terraform_binding": {
         "source_output_id": "output.aws.ingestion.v2",
-        "destination_input_id": "catalog.gcp.port.processing.telemetry-in",
+        "destination_input_id": "catalog.gcp.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -6211,16 +6418,16 @@
       "destination_component_ids": [
         "deployment.aws.processing.v2"
       ],
-      "source_output_port_id": "catalog.azure.port.ingestion.telemetry-out",
-      "destination_input_port_id": "catalog.aws.port.processing.telemetry-in",
+      "source_output_port_id": "catalog.azure.port.ingestion.telemetry-event-out",
+      "destination_input_port_id": "catalog.aws.port.processing.telemetry-event-in",
       "terraform_binding": {
         "source_output_id": "output.azure.ingestion.v2",
-        "destination_input_id": "catalog.aws.port.processing.telemetry-in",
+        "destination_input_id": "catalog.aws.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -6295,16 +6502,16 @@
       "destination_component_ids": [
         "deployment.azure.processing.v2"
       ],
-      "source_output_port_id": "catalog.azure.port.ingestion.telemetry-out",
-      "destination_input_port_id": "catalog.azure.port.processing.telemetry-in",
+      "source_output_port_id": "catalog.azure.port.ingestion.telemetry-event-out",
+      "destination_input_port_id": "catalog.azure.port.processing.telemetry-event-in",
       "terraform_binding": {
         "source_output_id": "output.azure.ingestion.v2",
-        "destination_input_id": "catalog.azure.port.processing.telemetry-in",
+        "destination_input_id": "catalog.azure.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -6373,16 +6580,16 @@
       "destination_component_ids": [
         "deployment.gcp.processing.v2"
       ],
-      "source_output_port_id": "catalog.azure.port.ingestion.telemetry-out",
-      "destination_input_port_id": "catalog.gcp.port.processing.telemetry-in",
+      "source_output_port_id": "catalog.azure.port.ingestion.telemetry-event-out",
+      "destination_input_port_id": "catalog.gcp.port.processing.telemetry-event-in",
       "terraform_binding": {
         "source_output_id": "output.azure.ingestion.v2",
-        "destination_input_id": "catalog.gcp.port.processing.telemetry-in",
+        "destination_input_id": "catalog.gcp.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -6457,16 +6664,16 @@
       "destination_component_ids": [
         "deployment.aws.processing.v2"
       ],
-      "source_output_port_id": "catalog.gcp.port.ingestion.telemetry-out",
-      "destination_input_port_id": "catalog.aws.port.processing.telemetry-in",
+      "source_output_port_id": "catalog.gcp.port.ingestion.telemetry-event-out",
+      "destination_input_port_id": "catalog.aws.port.processing.telemetry-event-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.ingestion.v2",
-        "destination_input_id": "catalog.aws.port.processing.telemetry-in",
+        "destination_input_id": "catalog.aws.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -6541,16 +6748,16 @@
       "destination_component_ids": [
         "deployment.azure.processing.v2"
       ],
-      "source_output_port_id": "catalog.gcp.port.ingestion.telemetry-out",
-      "destination_input_port_id": "catalog.azure.port.processing.telemetry-in",
+      "source_output_port_id": "catalog.gcp.port.ingestion.telemetry-event-out",
+      "destination_input_port_id": "catalog.azure.port.processing.telemetry-event-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.ingestion.v2",
-        "destination_input_id": "catalog.azure.port.processing.telemetry-in",
+        "destination_input_id": "catalog.azure.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -6625,16 +6832,16 @@
       "destination_component_ids": [
         "deployment.gcp.processing.v2"
       ],
-      "source_output_port_id": "catalog.gcp.port.ingestion.telemetry-out",
-      "destination_input_port_id": "catalog.gcp.port.processing.telemetry-in",
+      "source_output_port_id": "catalog.gcp.port.ingestion.telemetry-event-out",
+      "destination_input_port_id": "catalog.gcp.port.processing.telemetry-event-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.ingestion.v2",
-        "destination_input_id": "catalog.gcp.port.processing.telemetry-in",
+        "destination_input_id": "catalog.gcp.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -6703,16 +6910,16 @@
       "destination_component_ids": [
         "deployment.aws.hot-storage.v2"
       ],
-      "source_output_port_id": "catalog.aws.port.processing.telemetry-out",
-      "destination_input_port_id": "catalog.aws.port.hot-storage.write-in",
+      "source_output_port_id": "catalog.aws.port.processing.persistence-event-out",
+      "destination_input_port_id": "catalog.aws.port.hot-storage.processing-event-in",
       "terraform_binding": {
         "source_output_id": "output.aws.processing.v2",
-        "destination_input_id": "catalog.aws.port.hot-storage.write-in",
+        "destination_input_id": "catalog.aws.port.hot-storage.processing-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -6781,16 +6988,16 @@
       "destination_component_ids": [
         "deployment.azure.hot-storage.v2"
       ],
-      "source_output_port_id": "catalog.aws.port.processing.telemetry-out",
-      "destination_input_port_id": "catalog.azure.port.hot-storage.write-in",
+      "source_output_port_id": "catalog.aws.port.processing.persistence-event-out",
+      "destination_input_port_id": "catalog.azure.port.hot-storage.processing-event-in",
       "terraform_binding": {
         "source_output_id": "output.aws.processing.v2",
-        "destination_input_id": "catalog.azure.port.hot-storage.write-in",
+        "destination_input_id": "catalog.azure.port.hot-storage.processing-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -6865,16 +7072,16 @@
       "destination_component_ids": [
         "deployment.gcp.hot-storage.v2"
       ],
-      "source_output_port_id": "catalog.aws.port.processing.telemetry-out",
-      "destination_input_port_id": "catalog.gcp.port.hot-storage.write-in",
+      "source_output_port_id": "catalog.aws.port.processing.persistence-event-out",
+      "destination_input_port_id": "catalog.gcp.port.hot-storage.processing-event-in",
       "terraform_binding": {
         "source_output_id": "output.aws.processing.v2",
-        "destination_input_id": "catalog.gcp.port.hot-storage.write-in",
+        "destination_input_id": "catalog.gcp.port.hot-storage.processing-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -6949,16 +7156,16 @@
       "destination_component_ids": [
         "deployment.aws.hot-storage.v2"
       ],
-      "source_output_port_id": "catalog.azure.port.processing.telemetry-out",
-      "destination_input_port_id": "catalog.aws.port.hot-storage.write-in",
+      "source_output_port_id": "catalog.azure.port.processing.persistence-event-out",
+      "destination_input_port_id": "catalog.aws.port.hot-storage.processing-event-in",
       "terraform_binding": {
         "source_output_id": "output.azure.processing.v2",
-        "destination_input_id": "catalog.aws.port.hot-storage.write-in",
+        "destination_input_id": "catalog.aws.port.hot-storage.processing-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -7033,16 +7240,16 @@
       "destination_component_ids": [
         "deployment.azure.hot-storage.v2"
       ],
-      "source_output_port_id": "catalog.azure.port.processing.telemetry-out",
-      "destination_input_port_id": "catalog.azure.port.hot-storage.write-in",
+      "source_output_port_id": "catalog.azure.port.processing.persistence-event-out",
+      "destination_input_port_id": "catalog.azure.port.hot-storage.processing-event-in",
       "terraform_binding": {
         "source_output_id": "output.azure.processing.v2",
-        "destination_input_id": "catalog.azure.port.hot-storage.write-in",
+        "destination_input_id": "catalog.azure.port.hot-storage.processing-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -7111,16 +7318,16 @@
       "destination_component_ids": [
         "deployment.gcp.hot-storage.v2"
       ],
-      "source_output_port_id": "catalog.azure.port.processing.telemetry-out",
-      "destination_input_port_id": "catalog.gcp.port.hot-storage.write-in",
+      "source_output_port_id": "catalog.azure.port.processing.persistence-event-out",
+      "destination_input_port_id": "catalog.gcp.port.hot-storage.processing-event-in",
       "terraform_binding": {
         "source_output_id": "output.azure.processing.v2",
-        "destination_input_id": "catalog.gcp.port.hot-storage.write-in",
+        "destination_input_id": "catalog.gcp.port.hot-storage.processing-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -7195,16 +7402,16 @@
       "destination_component_ids": [
         "deployment.aws.hot-storage.v2"
       ],
-      "source_output_port_id": "catalog.gcp.port.processing.telemetry-out",
-      "destination_input_port_id": "catalog.aws.port.hot-storage.write-in",
+      "source_output_port_id": "catalog.gcp.port.processing.persistence-event-out",
+      "destination_input_port_id": "catalog.aws.port.hot-storage.processing-event-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.processing.v2",
-        "destination_input_id": "catalog.aws.port.hot-storage.write-in",
+        "destination_input_id": "catalog.aws.port.hot-storage.processing-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -7279,16 +7486,16 @@
       "destination_component_ids": [
         "deployment.azure.hot-storage.v2"
       ],
-      "source_output_port_id": "catalog.gcp.port.processing.telemetry-out",
-      "destination_input_port_id": "catalog.azure.port.hot-storage.write-in",
+      "source_output_port_id": "catalog.gcp.port.processing.persistence-event-out",
+      "destination_input_port_id": "catalog.azure.port.hot-storage.processing-event-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.processing.v2",
-        "destination_input_id": "catalog.azure.port.hot-storage.write-in",
+        "destination_input_id": "catalog.azure.port.hot-storage.processing-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "cross_provider",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -7363,16 +7570,16 @@
       "destination_component_ids": [
         "deployment.gcp.hot-storage.v2"
       ],
-      "source_output_port_id": "catalog.gcp.port.processing.telemetry-out",
-      "destination_input_port_id": "catalog.gcp.port.hot-storage.write-in",
+      "source_output_port_id": "catalog.gcp.port.processing.persistence-event-out",
+      "destination_input_port_id": "catalog.gcp.port.hot-storage.processing-event-in",
       "terraform_binding": {
         "source_output_id": "output.gcp.processing.v2",
-        "destination_input_id": "catalog.gcp.port.hot-storage.write-in",
+        "destination_input_id": "catalog.gcp.port.hot-storage.processing-event-in",
         "dependency_keys": []
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "telemetry-envelope.v1",
+        "id": "canonical-domain-event.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -7450,7 +7657,7 @@
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "raw-history-query.v1",
+        "id": "raw_history_query.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -7528,7 +7735,7 @@
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "raw-history-query.v1",
+        "id": "raw_history_query.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -7606,7 +7813,7 @@
       },
       "transfer_route_class": "same_provider_same_region",
       "payload_contract_ref": {
-        "id": "raw-history-query.v1",
+        "id": "raw_history_query.v1",
         "version": "1"
       },
       "delivery_requirements": {
@@ -7617,6 +7824,1482 @@
         "replay": "not_supported",
         "retry_policy": "bounded_backoff",
         "timeout_policy": "bounded"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.gcp-to-gcp.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "gcp_thesis_demo_v2"
+      ],
+      "glue_component_ids": [],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.gcp.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.aws-to-aws.processing-to-ingestion.v2",
+      "edge_implementation_version": "1",
+      "provider": "aws",
+      "decision_edge_ids": [
+        "decision.route.aws-to-aws.processing-to-ingestion"
+      ],
+      "logical_edge_ids": [
+        "edge.processing-to-ingestion"
+      ],
+      "mechanism": "provider_native_trigger",
+      "source_component_ids": [
+        "deployment.aws.processing.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.aws.ingestion.v2"
+      ],
+      "source_output_port_id": "catalog.aws.port.processing.device-command-out",
+      "destination_input_port_id": "catalog.aws.port.ingestion.device-command-in",
+      "terraform_binding": {
+        "source_output_id": "output.aws.processing.v2",
+        "destination_input_id": "catalog.aws.port.ingestion.device-command-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.aws-to-aws.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "aws_thesis_demo_v2"
+      ],
+      "glue_component_ids": [],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.aws-to-azure.processing-to-ingestion.v2",
+      "edge_implementation_version": "1",
+      "provider": "aws",
+      "decision_edge_ids": [
+        "decision.route.aws-to-azure.processing-to-ingestion"
+      ],
+      "logical_edge_ids": [
+        "edge.processing-to-ingestion"
+      ],
+      "mechanism": "cross_provider_adapter",
+      "source_component_ids": [
+        "deployment.aws.processing.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.azure.ingestion.v2"
+      ],
+      "source_output_port_id": "catalog.aws.port.processing.device-command-out",
+      "destination_input_port_id": "catalog.azure.port.ingestion.device-command-in",
+      "terraform_binding": {
+        "source_output_id": "output.aws.processing.v2",
+        "destination_input_id": "catalog.azure.port.ingestion.device-command-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "cross_provider",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.aws-to-azure.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "aws_thesis_demo_v2"
+      ],
+      "glue_component_ids": [
+        "deployment.aws.processing.v2"
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.five-layer-baseline-v2",
+            "version": "1"
+          },
+          {
+            "id": "provider-profile.azure.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.aws-to-gcp.processing-to-ingestion.v2",
+      "edge_implementation_version": "1",
+      "provider": "aws",
+      "decision_edge_ids": [
+        "decision.route.aws-to-gcp.processing-to-ingestion"
+      ],
+      "logical_edge_ids": [
+        "edge.processing-to-ingestion"
+      ],
+      "mechanism": "cross_provider_adapter",
+      "source_component_ids": [
+        "deployment.aws.processing.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.gcp.ingestion.v2"
+      ],
+      "source_output_port_id": "catalog.aws.port.processing.device-command-out",
+      "destination_input_port_id": "catalog.gcp.port.ingestion.device-command-in",
+      "terraform_binding": {
+        "source_output_id": "output.aws.processing.v2",
+        "destination_input_id": "catalog.gcp.port.ingestion.device-command-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "cross_provider",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.aws-to-gcp.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "aws_thesis_demo_v2"
+      ],
+      "glue_component_ids": [
+        "deployment.aws.processing.v2"
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.five-layer-baseline-v2",
+            "version": "1"
+          },
+          {
+            "id": "provider-profile.gcp.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.azure-to-aws.processing-to-ingestion.v2",
+      "edge_implementation_version": "1",
+      "provider": "azure",
+      "decision_edge_ids": [
+        "decision.route.azure-to-aws.processing-to-ingestion"
+      ],
+      "logical_edge_ids": [
+        "edge.processing-to-ingestion"
+      ],
+      "mechanism": "cross_provider_adapter",
+      "source_component_ids": [
+        "deployment.azure.processing.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.aws.ingestion.v2"
+      ],
+      "source_output_port_id": "catalog.azure.port.processing.device-command-out",
+      "destination_input_port_id": "catalog.aws.port.ingestion.device-command-in",
+      "terraform_binding": {
+        "source_output_id": "output.azure.processing.v2",
+        "destination_input_id": "catalog.aws.port.ingestion.device-command-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "cross_provider",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.azure-to-aws.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "azure_thesis_demo_v2"
+      ],
+      "glue_component_ids": [
+        "deployment.azure.processing.v2"
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.five-layer-baseline-v2",
+            "version": "1"
+          },
+          {
+            "id": "provider-profile.aws.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.azure-to-azure.processing-to-ingestion.v2",
+      "edge_implementation_version": "1",
+      "provider": "azure",
+      "decision_edge_ids": [
+        "decision.route.azure-to-azure.processing-to-ingestion"
+      ],
+      "logical_edge_ids": [
+        "edge.processing-to-ingestion"
+      ],
+      "mechanism": "provider_native_trigger",
+      "source_component_ids": [
+        "deployment.azure.processing.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.azure.ingestion.v2"
+      ],
+      "source_output_port_id": "catalog.azure.port.processing.device-command-out",
+      "destination_input_port_id": "catalog.azure.port.ingestion.device-command-in",
+      "terraform_binding": {
+        "source_output_id": "output.azure.processing.v2",
+        "destination_input_id": "catalog.azure.port.ingestion.device-command-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.azure-to-azure.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "azure_thesis_demo_v2"
+      ],
+      "glue_component_ids": [],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.azure-to-gcp.processing-to-ingestion.v2",
+      "edge_implementation_version": "1",
+      "provider": "azure",
+      "decision_edge_ids": [
+        "decision.route.azure-to-gcp.processing-to-ingestion"
+      ],
+      "logical_edge_ids": [
+        "edge.processing-to-ingestion"
+      ],
+      "mechanism": "cross_provider_adapter",
+      "source_component_ids": [
+        "deployment.azure.processing.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.gcp.ingestion.v2"
+      ],
+      "source_output_port_id": "catalog.azure.port.processing.device-command-out",
+      "destination_input_port_id": "catalog.gcp.port.ingestion.device-command-in",
+      "terraform_binding": {
+        "source_output_id": "output.azure.processing.v2",
+        "destination_input_id": "catalog.gcp.port.ingestion.device-command-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "cross_provider",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.azure-to-gcp.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "azure_thesis_demo_v2"
+      ],
+      "glue_component_ids": [
+        "deployment.azure.processing.v2"
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.five-layer-baseline-v2",
+            "version": "1"
+          },
+          {
+            "id": "provider-profile.gcp.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.gcp-to-aws.processing-to-ingestion.v2",
+      "edge_implementation_version": "1",
+      "provider": "gcp",
+      "decision_edge_ids": [
+        "decision.route.gcp-to-aws.processing-to-ingestion"
+      ],
+      "logical_edge_ids": [
+        "edge.processing-to-ingestion"
+      ],
+      "mechanism": "cross_provider_adapter",
+      "source_component_ids": [
+        "deployment.gcp.processing.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.aws.ingestion.v2"
+      ],
+      "source_output_port_id": "catalog.gcp.port.processing.device-command-out",
+      "destination_input_port_id": "catalog.aws.port.ingestion.device-command-in",
+      "terraform_binding": {
+        "source_output_id": "output.gcp.processing.v2",
+        "destination_input_id": "catalog.aws.port.ingestion.device-command-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "cross_provider",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.gcp-to-aws.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "gcp_thesis_demo_v2"
+      ],
+      "glue_component_ids": [
+        "deployment.gcp.processing.v2"
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.gcp.five-layer-baseline-v2",
+            "version": "1"
+          },
+          {
+            "id": "provider-profile.aws.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.gcp-to-azure.processing-to-ingestion.v2",
+      "edge_implementation_version": "1",
+      "provider": "gcp",
+      "decision_edge_ids": [
+        "decision.route.gcp-to-azure.processing-to-ingestion"
+      ],
+      "logical_edge_ids": [
+        "edge.processing-to-ingestion"
+      ],
+      "mechanism": "cross_provider_adapter",
+      "source_component_ids": [
+        "deployment.gcp.processing.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.azure.ingestion.v2"
+      ],
+      "source_output_port_id": "catalog.gcp.port.processing.device-command-out",
+      "destination_input_port_id": "catalog.azure.port.ingestion.device-command-in",
+      "terraform_binding": {
+        "source_output_id": "output.gcp.processing.v2",
+        "destination_input_id": "catalog.azure.port.ingestion.device-command-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "cross_provider",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.gcp-to-azure.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "gcp_thesis_demo_v2"
+      ],
+      "glue_component_ids": [
+        "deployment.gcp.processing.v2"
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.gcp.five-layer-baseline-v2",
+            "version": "1"
+          },
+          {
+            "id": "provider-profile.azure.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.gcp-to-gcp.processing-to-ingestion.v2",
+      "edge_implementation_version": "1",
+      "provider": "gcp",
+      "decision_edge_ids": [
+        "decision.route.gcp-to-gcp.processing-to-ingestion"
+      ],
+      "logical_edge_ids": [
+        "edge.processing-to-ingestion"
+      ],
+      "mechanism": "provider_native_trigger",
+      "source_component_ids": [
+        "deployment.gcp.processing.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.gcp.ingestion.v2"
+      ],
+      "source_output_port_id": "catalog.gcp.port.processing.device-command-out",
+      "destination_input_port_id": "catalog.gcp.port.ingestion.device-command-in",
+      "terraform_binding": {
+        "source_output_id": "output.gcp.processing.v2",
+        "destination_input_id": "catalog.gcp.port.ingestion.device-command-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.gcp-to-gcp.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "gcp_thesis_demo_v2"
+      ],
+      "glue_component_ids": [],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.gcp.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.aws-to-aws.ingestion-to-hot-storage.v2",
+      "edge_implementation_version": "1",
+      "provider": "aws",
+      "decision_edge_ids": [
+        "decision.route.aws-to-aws.ingestion-to-hot-storage"
+      ],
+      "logical_edge_ids": [
+        "edge.ingestion-to-hot-storage"
+      ],
+      "mechanism": "provider_native_trigger",
+      "source_component_ids": [
+        "deployment.aws.ingestion.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.aws.hot-storage.v2"
+      ],
+      "source_output_port_id": "catalog.aws.port.ingestion.command-outcome-event-out",
+      "destination_input_port_id": "catalog.aws.port.hot-storage.command-outcome-event-in",
+      "terraform_binding": {
+        "source_output_id": "output.aws.ingestion.v2",
+        "destination_input_id": "catalog.aws.port.hot-storage.command-outcome-event-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.aws-to-aws.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "aws_thesis_demo_v2"
+      ],
+      "glue_component_ids": [],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.aws-to-azure.ingestion-to-hot-storage.v2",
+      "edge_implementation_version": "1",
+      "provider": "aws",
+      "decision_edge_ids": [
+        "decision.route.aws-to-azure.ingestion-to-hot-storage"
+      ],
+      "logical_edge_ids": [
+        "edge.ingestion-to-hot-storage"
+      ],
+      "mechanism": "cross_provider_adapter",
+      "source_component_ids": [
+        "deployment.aws.ingestion.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.azure.hot-storage.v2"
+      ],
+      "source_output_port_id": "catalog.aws.port.ingestion.command-outcome-event-out",
+      "destination_input_port_id": "catalog.azure.port.hot-storage.command-outcome-event-in",
+      "terraform_binding": {
+        "source_output_id": "output.aws.ingestion.v2",
+        "destination_input_id": "catalog.azure.port.hot-storage.command-outcome-event-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "cross_provider",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.aws-to-azure.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "aws_thesis_demo_v2"
+      ],
+      "glue_component_ids": [
+        "deployment.aws.ingestion.v2"
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.five-layer-baseline-v2",
+            "version": "1"
+          },
+          {
+            "id": "provider-profile.azure.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.aws-to-gcp.ingestion-to-hot-storage.v2",
+      "edge_implementation_version": "1",
+      "provider": "aws",
+      "decision_edge_ids": [
+        "decision.route.aws-to-gcp.ingestion-to-hot-storage"
+      ],
+      "logical_edge_ids": [
+        "edge.ingestion-to-hot-storage"
+      ],
+      "mechanism": "cross_provider_adapter",
+      "source_component_ids": [
+        "deployment.aws.ingestion.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.gcp.hot-storage.v2"
+      ],
+      "source_output_port_id": "catalog.aws.port.ingestion.command-outcome-event-out",
+      "destination_input_port_id": "catalog.gcp.port.hot-storage.command-outcome-event-in",
+      "terraform_binding": {
+        "source_output_id": "output.aws.ingestion.v2",
+        "destination_input_id": "catalog.gcp.port.hot-storage.command-outcome-event-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "cross_provider",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.aws-to-gcp.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "aws_thesis_demo_v2"
+      ],
+      "glue_component_ids": [
+        "deployment.aws.ingestion.v2"
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.five-layer-baseline-v2",
+            "version": "1"
+          },
+          {
+            "id": "provider-profile.gcp.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.azure-to-aws.ingestion-to-hot-storage.v2",
+      "edge_implementation_version": "1",
+      "provider": "azure",
+      "decision_edge_ids": [
+        "decision.route.azure-to-aws.ingestion-to-hot-storage"
+      ],
+      "logical_edge_ids": [
+        "edge.ingestion-to-hot-storage"
+      ],
+      "mechanism": "cross_provider_adapter",
+      "source_component_ids": [
+        "deployment.azure.ingestion.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.aws.hot-storage.v2"
+      ],
+      "source_output_port_id": "catalog.azure.port.ingestion.command-outcome-event-out",
+      "destination_input_port_id": "catalog.aws.port.hot-storage.command-outcome-event-in",
+      "terraform_binding": {
+        "source_output_id": "output.azure.ingestion.v2",
+        "destination_input_id": "catalog.aws.port.hot-storage.command-outcome-event-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "cross_provider",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.azure-to-aws.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "azure_thesis_demo_v2"
+      ],
+      "glue_component_ids": [
+        "deployment.azure.ingestion.v2"
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.five-layer-baseline-v2",
+            "version": "1"
+          },
+          {
+            "id": "provider-profile.aws.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.azure-to-azure.ingestion-to-hot-storage.v2",
+      "edge_implementation_version": "1",
+      "provider": "azure",
+      "decision_edge_ids": [
+        "decision.route.azure-to-azure.ingestion-to-hot-storage"
+      ],
+      "logical_edge_ids": [
+        "edge.ingestion-to-hot-storage"
+      ],
+      "mechanism": "provider_native_trigger",
+      "source_component_ids": [
+        "deployment.azure.ingestion.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.azure.hot-storage.v2"
+      ],
+      "source_output_port_id": "catalog.azure.port.ingestion.command-outcome-event-out",
+      "destination_input_port_id": "catalog.azure.port.hot-storage.command-outcome-event-in",
+      "terraform_binding": {
+        "source_output_id": "output.azure.ingestion.v2",
+        "destination_input_id": "catalog.azure.port.hot-storage.command-outcome-event-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.azure-to-azure.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "azure_thesis_demo_v2"
+      ],
+      "glue_component_ids": [],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.azure-to-gcp.ingestion-to-hot-storage.v2",
+      "edge_implementation_version": "1",
+      "provider": "azure",
+      "decision_edge_ids": [
+        "decision.route.azure-to-gcp.ingestion-to-hot-storage"
+      ],
+      "logical_edge_ids": [
+        "edge.ingestion-to-hot-storage"
+      ],
+      "mechanism": "cross_provider_adapter",
+      "source_component_ids": [
+        "deployment.azure.ingestion.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.gcp.hot-storage.v2"
+      ],
+      "source_output_port_id": "catalog.azure.port.ingestion.command-outcome-event-out",
+      "destination_input_port_id": "catalog.gcp.port.hot-storage.command-outcome-event-in",
+      "terraform_binding": {
+        "source_output_id": "output.azure.ingestion.v2",
+        "destination_input_id": "catalog.gcp.port.hot-storage.command-outcome-event-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "cross_provider",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.azure-to-gcp.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "azure_thesis_demo_v2"
+      ],
+      "glue_component_ids": [
+        "deployment.azure.ingestion.v2"
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.five-layer-baseline-v2",
+            "version": "1"
+          },
+          {
+            "id": "provider-profile.gcp.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.gcp-to-aws.ingestion-to-hot-storage.v2",
+      "edge_implementation_version": "1",
+      "provider": "gcp",
+      "decision_edge_ids": [
+        "decision.route.gcp-to-aws.ingestion-to-hot-storage"
+      ],
+      "logical_edge_ids": [
+        "edge.ingestion-to-hot-storage"
+      ],
+      "mechanism": "cross_provider_adapter",
+      "source_component_ids": [
+        "deployment.gcp.ingestion.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.aws.hot-storage.v2"
+      ],
+      "source_output_port_id": "catalog.gcp.port.ingestion.command-outcome-event-out",
+      "destination_input_port_id": "catalog.aws.port.hot-storage.command-outcome-event-in",
+      "terraform_binding": {
+        "source_output_id": "output.gcp.ingestion.v2",
+        "destination_input_id": "catalog.aws.port.hot-storage.command-outcome-event-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "cross_provider",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.gcp-to-aws.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "gcp_thesis_demo_v2"
+      ],
+      "glue_component_ids": [
+        "deployment.gcp.ingestion.v2"
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.gcp.five-layer-baseline-v2",
+            "version": "1"
+          },
+          {
+            "id": "provider-profile.aws.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.gcp-to-azure.ingestion-to-hot-storage.v2",
+      "edge_implementation_version": "1",
+      "provider": "gcp",
+      "decision_edge_ids": [
+        "decision.route.gcp-to-azure.ingestion-to-hot-storage"
+      ],
+      "logical_edge_ids": [
+        "edge.ingestion-to-hot-storage"
+      ],
+      "mechanism": "cross_provider_adapter",
+      "source_component_ids": [
+        "deployment.gcp.ingestion.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.azure.hot-storage.v2"
+      ],
+      "source_output_port_id": "catalog.gcp.port.ingestion.command-outcome-event-out",
+      "destination_input_port_id": "catalog.azure.port.hot-storage.command-outcome-event-in",
+      "terraform_binding": {
+        "source_output_id": "output.gcp.ingestion.v2",
+        "destination_input_id": "catalog.azure.port.hot-storage.command-outcome-event-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "cross_provider",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.transfer.gcp-to-azure.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "required_permission_capabilities": [
+        "gcp_thesis_demo_v2"
+      ],
+      "glue_component_ids": [
+        "deployment.gcp.ingestion.v2"
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "2"
+          }
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.gcp.five-layer-baseline-v2",
+            "version": "1"
+          },
+          {
+            "id": "provider-profile.azure.five-layer-baseline-v2",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v2"
+        ]
+      }
+    },
+    {
+      "edge_implementation_id": "edge-implementation.gcp-to-gcp.ingestion-to-hot-storage.v2",
+      "edge_implementation_version": "1",
+      "provider": "gcp",
+      "decision_edge_ids": [
+        "decision.route.gcp-to-gcp.ingestion-to-hot-storage"
+      ],
+      "logical_edge_ids": [
+        "edge.ingestion-to-hot-storage"
+      ],
+      "mechanism": "provider_native_trigger",
+      "source_component_ids": [
+        "deployment.gcp.ingestion.v2"
+      ],
+      "destination_component_ids": [
+        "deployment.gcp.hot-storage.v2"
+      ],
+      "source_output_port_id": "catalog.gcp.port.ingestion.command-outcome-event-out",
+      "destination_input_port_id": "catalog.gcp.port.hot-storage.command-outcome-event-in",
+      "terraform_binding": {
+        "source_output_id": "output.gcp.ingestion.v2",
+        "destination_input_id": "catalog.gcp.port.hot-storage.command-outcome-event-in",
+        "dependency_keys": []
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "payload_contract_ref": {
+        "id": "canonical-domain-event.v1",
+        "version": "1"
+      },
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
       },
       "trust_contract_ref": {
         "id": "trust.workload-identity-federation",
@@ -7846,5 +9529,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:eb9304c723a95305387920b66a52462d4ab2a4ed771056ed47e25622b0cbb64d"
+  "content_digest": "sha256:bce6afdb488841ff5ce45f19557cdb68d54ea6c2e7e046c9cc548b43f0c07d58"
 }

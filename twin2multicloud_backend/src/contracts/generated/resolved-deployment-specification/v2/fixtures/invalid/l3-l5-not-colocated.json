@@ -6,18 +6,18 @@
     "architecture_profile_ref": {
       "id": "five-layer-baseline",
       "version": "2",
-      "digest": "sha256:0d7f87bda7703bd71ac16081f96ecab1a8777d6aa49bc52cb94c83906a11b16a"
+      "digest": "sha256:1d5f6e070fb8c7d5765f33aba0f8c197ccd9f740c618bbe3e27606dd130aaad4"
     },
     "optimization_context": {
       "service_decision_ref": {
         "id": "phase-08-complete-service-bundles",
         "version": "1",
-        "digest": "sha256:f0ddf4dd60c898dcc23867e3e3bda8974fa8f20a0dc850fe1942b60947ec5f2f"
+        "digest": "sha256:1009870a995648ad646bd54fa4465488a34e66c6a3856363f6b346c756182bd3"
       },
       "component_catalog_ref": {
         "id": "complete-service-component-catalog",
         "version": "1",
-        "digest": "sha256:eb9304c723a95305387920b66a52462d4ab2a4ed771056ed47e25622b0cbb64d"
+        "digest": "sha256:bce6afdb488841ff5ce45f19557cdb68d54ea6c2e7e046c9cc548b43f0c07d58"
       },
       "workload_ref": {
         "id": "five-layer-workload",
@@ -2069,6 +2069,6 @@
         "compatibility_version": "1"
       }
     ],
-    "digest": "sha256:7ef5212455bd07c1978107eaa328214329e155fd4394918ccd5618e3e67384f7"
+    "digest": "sha256:4772b48bf6b8a8017e6074c561110b8e0aa27f541d49a259e897f9ef395086e2"
   }
 }

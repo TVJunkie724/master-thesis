@@ -61,12 +61,13 @@
       ],
       "extension_slot_ids": [],
       "input_port_ids": [
-        "port.hot-storage.write-in"
+        "port.hot-storage.processing-event-in",
+        "port.hot-storage.command-outcome-event-in"
       ],
       "observability_contract_id": "observability.baseline",
       "output_port_ids": [
         "port.hot-storage.transition-out",
-        "port.hot-storage.twin-update-out",
+        "port.hot-storage.twin-projection-out",
         "port.hot-storage.raw-history-out"
       ],
       "required": true,
@@ -82,10 +83,13 @@
         "cost.ingestion"
       ],
       "extension_slot_ids": [],
-      "input_port_ids": [],
+      "input_port_ids": [
+        "port.ingestion.device-command-in"
+      ],
       "observability_contract_id": "observability.baseline",
       "output_port_ids": [
-        "port.ingestion.telemetry-out"
+        "port.ingestion.telemetry-event-out",
+        "port.ingestion.command-outcome-event-out"
       ],
       "required": true,
       "required_capability_ids": [
@@ -104,11 +108,12 @@
         "processor.telemetry"
       ],
       "input_port_ids": [
-        "port.processing.telemetry-in"
+        "port.processing.telemetry-event-in"
       ],
       "observability_contract_id": "observability.baseline",
       "output_port_ids": [
-        "port.processing.telemetry-out"
+        "port.processing.persistence-event-out",
+        "port.processing.device-command-out"
       ],
       "required": true,
       "required_capability_ids": [
@@ -126,7 +131,7 @@
       ],
       "extension_slot_ids": [],
       "input_port_ids": [
-        "port.twin-state.update-in"
+        "port.twin-state.projection-in"
       ],
       "observability_contract_id": "observability.baseline",
       "output_port_ids": [],
@@ -155,7 +160,7 @@
       "responsibility_id": "responsibility.visualization"
     }
   ],
-  "content_digest": "sha256:0d7f87bda7703bd71ac16081f96ecab1a8777d6aa49bc52cb94c83906a11b16a",
+  "content_digest": "sha256:1d5f6e070fb8c7d5765f33aba0f8c197ccd9f740c618bbe3e27606dd130aaad4",
   "description": "Functionally complete thesis-PoC profile with mandatory embedded domain events, provider-local L3-hot/L5 raw history, and an independently placeable L4 Twin.",
   "display_name": "Five-layer baseline v2",
   "edges": [
@@ -174,7 +179,7 @@
       },
       "destination_component_id": "component.archive-storage",
       "destination_port_id": "port.archive-storage.write-in",
-      "edge_contract_id": "storage-transition-record.v1",
+      "edge_contract_id": "storage_transition.v1",
       "edge_contract_version": "1",
       "edge_id": "edge.cool-to-archive-storage",
       "observability_requirements": {
@@ -209,8 +214,8 @@
         "timeout_policy": "not_applicable"
       },
       "destination_component_id": "component.twin-state",
-      "destination_port_id": "port.twin-state.update-in",
-      "edge_contract_id": "telemetry-to-twin-state.v1",
+      "destination_port_id": "port.twin-state.projection-in",
+      "edge_contract_id": "twin_projection.v1",
       "edge_contract_version": "1",
       "edge_id": "edge.hot-storage-to-twin-state",
       "observability_requirements": {
@@ -220,7 +225,7 @@
       },
       "required": true,
       "source_component_id": "component.hot-storage",
-      "source_port_id": "port.hot-storage.twin-update-out",
+      "source_port_id": "port.hot-storage.twin-projection-out",
       "transfer_workload_ref": {
         "id": "telemetry-update-count",
         "version": "1"
@@ -246,7 +251,7 @@
       },
       "destination_component_id": "component.cool-storage",
       "destination_port_id": "port.cool-storage.write-in",
-      "edge_contract_id": "storage-transition-record.v1",
+      "edge_contract_id": "storage_transition.v1",
       "edge_contract_version": "1",
       "edge_id": "edge.hot-to-cool-storage",
       "observability_requirements": {
@@ -281,8 +286,8 @@
         "timeout_policy": "not_applicable"
       },
       "destination_component_id": "component.processing",
-      "destination_port_id": "port.processing.telemetry-in",
-      "edge_contract_id": "telemetry-envelope.v1",
+      "destination_port_id": "port.processing.telemetry-event-in",
+      "edge_contract_id": "canonical-domain-event.v1",
       "edge_contract_version": "1",
       "edge_id": "edge.ingestion-to-processing",
       "observability_requirements": {
@@ -292,7 +297,7 @@
       },
       "required": true,
       "source_component_id": "component.ingestion",
-      "source_port_id": "port.ingestion.telemetry-out",
+      "source_port_id": "port.ingestion.telemetry-event-out",
       "transfer_workload_ref": {
         "id": "telemetry-update-count",
         "version": "1"
@@ -317,8 +322,8 @@
         "timeout_policy": "not_applicable"
       },
       "destination_component_id": "component.hot-storage",
-      "destination_port_id": "port.hot-storage.write-in",
-      "edge_contract_id": "telemetry-envelope.v1",
+      "destination_port_id": "port.hot-storage.processing-event-in",
+      "edge_contract_id": "canonical-domain-event.v1",
       "edge_contract_version": "1",
       "edge_id": "edge.processing-to-hot-storage",
       "observability_requirements": {
@@ -328,7 +333,7 @@
       },
       "required": true,
       "source_component_id": "component.processing",
-      "source_port_id": "port.processing.telemetry-out",
+      "source_port_id": "port.processing.persistence-event-out",
       "transfer_workload_ref": {
         "id": "telemetry-update-count",
         "version": "1"
@@ -354,7 +359,7 @@
       },
       "destination_component_id": "component.visualization",
       "destination_port_id": "port.visualization.raw-history-in",
-      "edge_contract_id": "raw-history-query.v1",
+      "edge_contract_id": "raw_history_query.v1",
       "edge_contract_version": "1",
       "edge_id": "edge.hot-storage-to-visualization",
       "observability_requirements": {
@@ -367,6 +372,78 @@
       "source_port_id": "port.hot-storage.raw-history-out",
       "transfer_workload_ref": {
         "id": "logical-query-count",
+        "version": "1"
+      },
+      "trust_requirements": {
+        "authentication": "workload_identity",
+        "authorization": "least_privilege_capability_set",
+        "transport": "tls"
+      }
+    },
+    {
+      "cost_owner_ids": [
+        "cost.ingestion-to-processing"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_id": "component.ingestion",
+      "destination_port_id": "port.ingestion.device-command-in",
+      "edge_contract_id": "canonical-domain-event.v1",
+      "edge_contract_version": "1",
+      "edge_id": "edge.processing-to-ingestion",
+      "observability_requirements": {
+        "bounded_error_contract": "required",
+        "correlation": "required",
+        "metrics": "required"
+      },
+      "required": true,
+      "source_component_id": "component.processing",
+      "source_port_id": "port.processing.device-command-out",
+      "transfer_workload_ref": {
+        "id": "telemetry-update-count",
+        "version": "1"
+      },
+      "trust_requirements": {
+        "authentication": "workload_identity",
+        "authorization": "least_privilege_capability_set",
+        "transport": "tls"
+      }
+    },
+    {
+      "cost_owner_ids": [
+        "cost.ingestion-to-processing"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_id": "component.hot-storage",
+      "destination_port_id": "port.hot-storage.command-outcome-event-in",
+      "edge_contract_id": "canonical-domain-event.v1",
+      "edge_contract_version": "1",
+      "edge_id": "edge.ingestion-to-hot-storage",
+      "observability_requirements": {
+        "bounded_error_contract": "required",
+        "correlation": "required",
+        "metrics": "required"
+      },
+      "required": true,
+      "source_component_id": "component.ingestion",
+      "source_port_id": "port.ingestion.command-outcome-event-out",
+      "transfer_workload_ref": {
+        "id": "telemetry-update-count",
         "version": "1"
       },
       "trust_requirements": {
@@ -474,8 +551,10 @@
     }
   ],
   "graph_policy": {
-    "allowed_cycle_ids": [],
-    "cycle_policy": "acyclic",
+    "cycle_policy": "allowlisted",
+    "allowed_cycle_ids": [
+      "cycle.ingestion.processing"
+    ],
     "optional_components": [],
     "user_topology_editable": false
   },

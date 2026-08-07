@@ -27,8 +27,10 @@ PROFILE_EDGE_IDS = (
     "edge.cool-to-archive-storage",
     "edge.hot-storage-to-twin-state",
     "edge.hot-to-cool-storage",
+    "edge.ingestion-to-hot-storage",
     "edge.ingestion-to-processing",
     "edge.processing-to-hot-storage",
+    "edge.processing-to-ingestion",
     "edge.hot-storage-to-visualization",
 )
 DOMAIN_EVENT_FLOWS = (

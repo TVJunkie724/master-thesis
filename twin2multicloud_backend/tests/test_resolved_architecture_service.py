@@ -419,7 +419,7 @@ def test_five_layer_v2_resolution_persists_without_legacy_projection(
     assert record.schema_version == "resolved-twin-architecture.v2"
     assert record.origin == "native_v2"
     assert len(record.components) == 7
-    assert len(record.edges) == 6
+    assert len(record.edges) == 8
     assert config.cheapest_l1 is None
     canonical = json.loads(record.canonical_json)
     assert service.reproduce_components(record) == canonical[

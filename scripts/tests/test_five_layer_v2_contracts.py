@@ -173,6 +173,47 @@ class FiveLayerV2ContractTests(unittest.TestCase):
                 edge["destination_input_port_id"],
             )
 
+    def test_graph_models_bidirectional_device_events_and_canonical_contracts(
+        self,
+    ) -> None:
+        edges = {item["edge_id"]: item for item in self.profile["edges"]}
+
+        self.assertIn("edge.processing-to-ingestion", edges)
+        self.assertIn("edge.ingestion-to-hot-storage", edges)
+        self.assertEqual(
+            edges["edge.ingestion-to-processing"]["edge_contract_id"],
+            contract.DOMAIN_EVENT_CONTRACT_ID,
+        )
+        self.assertEqual(
+            edges["edge.processing-to-ingestion"]["edge_contract_id"],
+            contract.DOMAIN_EVENT_CONTRACT_ID,
+        )
+        self.assertEqual(
+            edges["edge.ingestion-to-hot-storage"]["edge_contract_id"],
+            contract.DOMAIN_EVENT_CONTRACT_ID,
+        )
+        self.assertEqual(
+            edges["edge.processing-to-hot-storage"]["edge_contract_id"],
+            contract.DOMAIN_EVENT_CONTRACT_ID,
+        )
+        self.assertEqual(
+            edges["edge.hot-storage-to-twin-state"]["edge_contract_id"],
+            contract.TWIN_PROJECTION_CONTRACT_ID,
+        )
+        self.assertEqual(
+            self.profile["graph_policy"],
+            {
+                "cycle_policy": "allowlisted",
+                "allowed_cycle_ids": ["cycle.ingestion.processing"],
+                "optional_components": [],
+                "user_topology_editable": False,
+            },
+        )
+        self.assertIn(
+            "cycle.ingestion.processing",
+            {item["cycle_id"] for item in self.registry["cycle_contracts"]},
+        )
+
     def test_single_cloud_omits_remote_only_event_services(self) -> None:
         specification = contract.build_rds(
             contract.assignment_for_bundle("aws", "aws"),

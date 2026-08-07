@@ -180,6 +180,49 @@
   },
   "logical_edges": [
     {
+      "edge_id": "ingestion-to-processing-domain-events",
+      "contract": "canonical-domain-event.v1",
+      "channels": [
+        "telemetry.received.v1"
+      ],
+      "placement": "local_or_cross_cloud",
+      "owner_five_layer": "l1_source_owned_embedded_forwarder",
+      "owner_six_layer": "eventing_responsibility"
+    },
+    {
+      "edge_id": "ingestion-to-hot-storage-domain-events",
+      "contract": "canonical-domain-event.v1",
+      "channels": [
+        "device.command.outcome.v1"
+      ],
+      "placement": "local_or_cross_cloud",
+      "owner_five_layer": "l1_source_owned_embedded_forwarder",
+      "owner_six_layer": "eventing_responsibility"
+    },
+    {
+      "edge_id": "processing-to-ingestion-domain-events",
+      "contract": "canonical-domain-event.v1",
+      "channels": [
+        "device.command.requested.v1"
+      ],
+      "placement": "local_or_cross_cloud",
+      "owner_five_layer": "l2_source_owned_embedded_forwarder",
+      "owner_six_layer": "eventing_responsibility"
+    },
+    {
+      "edge_id": "processing-to-hot-storage-domain-events",
+      "contract": "canonical-domain-event.v1",
+      "channels": [
+        "telemetry.processed.v1",
+        "extension.action.outcome.v1",
+        "notification.workflow.outcome.v1",
+        "device.command.outcome.v1"
+      ],
+      "placement": "local_or_cross_cloud",
+      "owner_five_layer": "l2_source_owned_embedded_forwarder",
+      "owner_six_layer": "eventing_responsibility"
+    },
+    {
       "edge_id": "l3-hot-to-l5-raw-history",
       "contract": "raw_history_query.v1",
       "placement": "provider_local",
@@ -191,6 +234,20 @@
       "placement": "local_or_cross_cloud",
       "owner_five_layer": "producer_and_consumer_responsibilities",
       "owner_six_layer": "eventing_responsibility"
+    },
+    {
+      "edge_id": "l3-hot-to-l3-cool-storage",
+      "contract": "storage_transition.v1",
+      "placement": "local_or_cross_cloud",
+      "owner_five_layer": "l3_hot_source_bundle",
+      "owner_six_layer": "l3_hot_source_bundle"
+    },
+    {
+      "edge_id": "l3-cool-to-l3-archive-storage",
+      "contract": "storage_transition.v1",
+      "placement": "local_or_cross_cloud",
+      "owner_five_layer": "l3_cool_source_bundle",
+      "owner_six_layer": "l3_cool_source_bundle"
     }
   ],
   "event_classes": [

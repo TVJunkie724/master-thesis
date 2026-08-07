@@ -21,12 +21,17 @@
       "compatibility_digest": "sha256:a0c39dcae6c95c2cb25251389c6569a0f5ea4428a0403ccc4cf934541cda06f1"
     }
   ],
-  "content_digest": "sha256:da7fb4bc88f968dc380913f3a3a4b4f2895785cdedaee452d287bfe20a5c876a",
+  "content_digest": "sha256:48526cd8c32e8335f17c4e5193ea74f8d24457187c5480b9d342917891635896",
   "cycle_contracts": [
     {
       "compatibility_version": "1",
       "cycle_id": "cycle.hot-storage.twin-state",
       "workflow_semantics": "Bounded, explicitly correlated reconciliation between hot storage and Twin state; not enabled by the baseline profile."
+    },
+    {
+      "cycle_id": "cycle.ingestion.processing",
+      "workflow_semantics": "Bounded mandatory device-command request and outcome feedback between L2 processing and L1 ingestion.",
+      "compatibility_version": "1"
     }
   ],
   "deployment_specification_compatibility": [
@@ -182,82 +187,110 @@
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.archive-storage.write-in",
-      "schema_ref": "storage-transition-record.v1",
+      "schema_ref": "storage_transition.v1",
       "semantics": "Normalized telemetry or storage transition payload."
     },
     {
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.cool-storage.transition-out",
-      "schema_ref": "storage-transition-record.v1",
+      "schema_ref": "storage_transition.v1",
       "semantics": "Normalized telemetry or storage transition payload."
     },
     {
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.cool-storage.write-in",
-      "schema_ref": "storage-transition-record.v1",
+      "schema_ref": "storage_transition.v1",
       "semantics": "Normalized telemetry or storage transition payload."
     },
     {
       "compatibility_version": "1",
       "envelope_ref": "contract-envelope",
       "port_id": "port.hot-storage.transition-out",
-      "schema_ref": "storage-transition-record.v1",
+      "schema_ref": "storage_transition.v1",
       "semantics": "Normalized telemetry or storage transition payload."
     },
     {
-      "compatibility_version": "1",
+      "port_id": "port.ingestion.device-command-in",
+      "schema_ref": "canonical-domain-event.v1",
       "envelope_ref": "contract-envelope",
-      "port_id": "port.hot-storage.twin-update-out",
-      "schema_ref": "telemetry-to-twin-state.v1",
-      "semantics": "Normalized telemetry or storage transition payload."
+      "semantics": "Canonical device-command request consumed by L1.",
+      "compatibility_version": "1"
     },
     {
-      "compatibility_version": "1",
+      "port_id": "port.ingestion.telemetry-event-out",
+      "schema_ref": "canonical-domain-event.v1",
       "envelope_ref": "contract-envelope",
-      "port_id": "port.hot-storage.write-in",
-      "schema_ref": "telemetry-envelope.v1",
-      "semantics": "Normalized telemetry or storage transition payload."
+      "semantics": "Canonical telemetry-received events emitted by L1 for L2.",
+      "compatibility_version": "1"
     },
     {
-      "compatibility_version": "1",
+      "port_id": "port.ingestion.command-outcome-event-out",
+      "schema_ref": "canonical-domain-event.v1",
       "envelope_ref": "contract-envelope",
-      "port_id": "port.ingestion.telemetry-out",
-      "schema_ref": "telemetry-envelope.v1",
-      "semantics": "Normalized telemetry or storage transition payload."
+      "semantics": "Canonical device-command-outcome events emitted by L1 for L3 hot.",
+      "compatibility_version": "1"
     },
     {
-      "compatibility_version": "1",
+      "port_id": "port.processing.telemetry-event-in",
+      "schema_ref": "canonical-domain-event.v1",
       "envelope_ref": "contract-envelope",
-      "port_id": "port.processing.telemetry-in",
-      "schema_ref": "telemetry-envelope.v1",
-      "semantics": "Normalized telemetry or storage transition payload."
+      "semantics": "Canonical telemetry-received events consumed by L2.",
+      "compatibility_version": "1"
     },
     {
-      "compatibility_version": "1",
+      "port_id": "port.processing.persistence-event-out",
+      "schema_ref": "canonical-domain-event.v1",
       "envelope_ref": "contract-envelope",
-      "port_id": "port.processing.telemetry-out",
-      "schema_ref": "telemetry-envelope.v1",
-      "semantics": "Normalized telemetry or storage transition payload."
+      "semantics": "Canonical processed and terminal-outcome events emitted by L2 for L3 hot.",
+      "compatibility_version": "1"
     },
     {
-      "compatibility_version": "1",
+      "port_id": "port.processing.device-command-out",
+      "schema_ref": "canonical-domain-event.v1",
       "envelope_ref": "contract-envelope",
-      "port_id": "port.twin-state.update-in",
-      "schema_ref": "telemetry-to-twin-state.v1",
-      "semantics": "Normalized telemetry or storage transition payload."
+      "semantics": "Canonical device-command request emitted by L2 for L1.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.hot-storage.processing-event-in",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical processed and processing-owned outcome events persisted by L3 hot.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.hot-storage.command-outcome-event-in",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical device-command-outcome events persisted directly by L3 hot.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.hot-storage.twin-projection-out",
+      "schema_ref": "twin_projection.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Typed canonical Twin projection emitted after durable L3 acceptance.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.twin-state.projection-in",
+      "schema_ref": "twin_projection.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Typed canonical Twin projection consumed by L4.",
+      "compatibility_version": "1"
     },
     {
       "port_id": "port.hot-storage.raw-history-out",
-      "schema_ref": "raw-history-query.v1",
+      "schema_ref": "raw_history_query.v1",
       "envelope_ref": "contract-envelope",
       "semantics": "Typed bounded raw or hourly-rollup history response.",
       "compatibility_version": "1"
     },
     {
       "port_id": "port.visualization.raw-history-in",
-      "schema_ref": "raw-history-query.v1",
+      "schema_ref": "raw_history_query.v1",
       "envelope_ref": "contract-envelope",
       "semantics": "Typed bounded raw-history query consumed by L5.",
       "compatibility_version": "1"

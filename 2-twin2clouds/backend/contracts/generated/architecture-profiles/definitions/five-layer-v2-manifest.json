@@ -4,37 +4,37 @@
   "profile_ref": {
     "id": "five-layer-baseline",
     "version": "2",
-    "digest": "sha256:0d7f87bda7703bd71ac16081f96ecab1a8777d6aa49bc52cb94c83906a11b16a"
+    "digest": "sha256:1d5f6e070fb8c7d5765f33aba0f8c197ccd9f740c618bbe3e27606dd130aaad4"
   },
   "provider_profile_refs": [
     {
       "provider": "aws",
       "id": "provider-profile.aws.five-layer-baseline-v2",
       "version": "1",
-      "digest": "sha256:69e9ca0247d42dd2098e3c99774a8a80bafd842aff3dc3e486a97f40df2651d5"
+      "digest": "sha256:233ea8c1ce0163b0a3a56ede15018a061be973704ff072a31d94804c1218834a"
     },
     {
       "provider": "azure",
       "id": "provider-profile.azure.five-layer-baseline-v2",
       "version": "1",
-      "digest": "sha256:47cd09fc810cab3466b6181dfd9ed19a73d8ca4b4862d78ff14017c3dd557407"
+      "digest": "sha256:dccb0017c8fc3608e6de0c7002c0cf0321a749be976304b29ebbb8c5fdfbc4f3"
     },
     {
       "provider": "gcp",
       "id": "provider-profile.gcp.five-layer-baseline-v2",
       "version": "1",
-      "digest": "sha256:f7f1b06ab40043f6a6207c5271c1462ff3d5a47e2749faad57139b7d3011bf33"
+      "digest": "sha256:7a268bf302d782e5527caf0114aeb6a0a557ac47d6f730846f406a6e2e8d6123"
     }
   ],
   "catalog_ref": {
     "id": "complete-service-component-catalog",
     "version": "1",
-    "digest": "sha256:eb9304c723a95305387920b66a52462d4ab2a4ed771056ed47e25622b0cbb64d"
+    "digest": "sha256:bce6afdb488841ff5ce45f19557cdb68d54ea6c2e7e046c9cc548b43f0c07d58"
   },
   "service_decision_ref": {
     "id": "phase-08-complete-service-bundles",
     "version": "1",
-    "digest": "sha256:f0ddf4dd60c898dcc23867e3e3bda8974fa8f20a0dc850fe1942b60947ec5f2f"
+    "digest": "sha256:1009870a995648ad646bd54fa4465488a34e66c6a3856363f6b346c756182bd3"
   },
   "workload_ref": {
     "id": "five-layer-workload",
@@ -52,5 +52,5 @@
     "gcp-l3l5-azure-l4",
     "gcp-l3l5-gcp-l4"
   ],
-  "content_digest": "sha256:04a94b0ff51595b39c718bf702eded0721b76cde9bf1f5e1027a0ea69dcf77b3"
+  "content_digest": "sha256:fc6c4255335160e11f3b0049cbb792ad2d0cfdfc0235498a9cca5d7fc730c1b8"
 }

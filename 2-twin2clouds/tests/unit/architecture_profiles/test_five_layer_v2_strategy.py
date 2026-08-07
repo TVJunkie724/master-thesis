@@ -143,13 +143,15 @@ def test_offline_resolution_enumerates_all_729_admissible_assignments():
         == candidate.candidate.component("component.visualization").provider
         for candidate in complete
     )
-    assert all(len(candidate.edges) == 6 for candidate in complete)
+    assert all(len(candidate.edges) == 8 for candidate in complete)
     assert {
         edge.logical_edge["edge_id"]
         for edge in complete[0].edges
     } >= {
         "edge.hot-storage-to-visualization",
         "edge.hot-storage-to-twin-state",
+        "edge.ingestion-to-hot-storage",
+        "edge.processing-to-ingestion",
     }
     assert all(
         edge.logical_edge["edge_id"] != "edge.twin-state-to-visualization"

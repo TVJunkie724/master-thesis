@@ -37,16 +37,16 @@
     "layer_5_provider": "aws"
   },
   "calculation_run_id": "420bd4ff-8700-5034-8313-334244c0d0b1",
-  "resolved_twin_architecture_digest": "sha256:c081c5fe75bac0a9477fbe0d275e45aaa786c5fd4833b886adc95e8853ee31d9",
+  "resolved_twin_architecture_digest": "sha256:83c6190f8d7cff1a89c1bc02f4146f2832ee0753ff20cfcc708c6acb6374b9de",
   "resolved_twin_architecture": {
     "schema_version": "resolved-twin-architecture.v2",
     "resolution_status": "offline_contract_fixture",
-    "resolution_id": "90fa0643-b202-5243-a2c9-e98bcc73b9fc",
+    "resolution_id": "0f80d11c-c6d8-52d4-8c1d-aa4263070b4b",
     "calculation_run_id": "420bd4ff-8700-5034-8313-334244c0d0b1",
     "architecture_profile_ref": {
       "id": "five-layer-baseline",
       "version": "2",
-      "digest": "sha256:0d7f87bda7703bd71ac16081f96ecab1a8777d6aa49bc52cb94c83906a11b16a"
+      "digest": "sha256:1d5f6e070fb8c7d5765f33aba0f8c197ccd9f740c618bbe3e27606dd130aaad4"
     },
     "optimization_bundle_ref": {
       "optimization_strategy_id": "cost-minimization-v2",
@@ -63,7 +63,7 @@
       {
         "id": "provider-profile.aws.five-layer-baseline-v2",
         "version": "1",
-        "digest": "sha256:69e9ca0247d42dd2098e3c99774a8a80bafd842aff3dc3e486a97f40df2651d5",
+        "digest": "sha256:233ea8c1ce0163b0a3a56ede15018a061be973704ff072a31d94804c1218834a",
         "provider": "aws"
       }
     ],
@@ -90,7 +90,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.aws.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:69e9ca0247d42dd2098e3c99774a8a80bafd842aff3dc3e486a97f40df2651d5"
+          "digest": "sha256:233ea8c1ce0163b0a3a56ede15018a061be973704ff072a31d94804c1218834a"
         },
         "deployment_component_id": "deployment.aws.archive-storage.v2",
         "deployment_component_version": "1",
@@ -122,7 +122,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.aws.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:69e9ca0247d42dd2098e3c99774a8a80bafd842aff3dc3e486a97f40df2651d5"
+          "digest": "sha256:233ea8c1ce0163b0a3a56ede15018a061be973704ff072a31d94804c1218834a"
         },
         "deployment_component_id": "deployment.aws.cool-storage.v2",
         "deployment_component_version": "1",
@@ -154,7 +154,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.aws.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:69e9ca0247d42dd2098e3c99774a8a80bafd842aff3dc3e486a97f40df2651d5"
+          "digest": "sha256:233ea8c1ce0163b0a3a56ede15018a061be973704ff072a31d94804c1218834a"
         },
         "deployment_component_id": "deployment.aws.hot-storage.v2",
         "deployment_component_version": "1",
@@ -190,7 +190,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.aws.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:69e9ca0247d42dd2098e3c99774a8a80bafd842aff3dc3e486a97f40df2651d5"
+          "digest": "sha256:233ea8c1ce0163b0a3a56ede15018a061be973704ff072a31d94804c1218834a"
         },
         "deployment_component_id": "deployment.aws.ingestion.v2",
         "deployment_component_version": "1",
@@ -227,7 +227,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.aws.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:69e9ca0247d42dd2098e3c99774a8a80bafd842aff3dc3e486a97f40df2651d5"
+          "digest": "sha256:233ea8c1ce0163b0a3a56ede15018a061be973704ff072a31d94804c1218834a"
         },
         "deployment_component_id": "deployment.aws.processing.v2",
         "deployment_component_version": "1",
@@ -262,7 +262,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.aws.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:69e9ca0247d42dd2098e3c99774a8a80bafd842aff3dc3e486a97f40df2651d5"
+          "digest": "sha256:233ea8c1ce0163b0a3a56ede15018a061be973704ff072a31d94804c1218834a"
         },
         "deployment_component_id": "deployment.aws.twin-state.v2",
         "deployment_component_version": "1",
@@ -295,7 +295,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.aws.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:69e9ca0247d42dd2098e3c99774a8a80bafd842aff3dc3e486a97f40df2651d5"
+          "digest": "sha256:233ea8c1ce0163b0a3a56ede15018a061be973704ff072a31d94804c1218834a"
         },
         "deployment_component_id": "deployment.aws.visualization.v2",
         "deployment_component_version": "1",
@@ -371,9 +371,9 @@
         "resolved_edge_id": "resolved.hot-storage-to-twin-state",
         "edge_id": "edge.hot-storage-to-twin-state",
         "source_assignment_id": "assignment.hot-storage",
-        "source_port_id": "catalog.aws.port.hot-storage.twin-update-out",
+        "source_port_id": "catalog.aws.port.hot-storage.twin-projection-out",
         "destination_assignment_id": "assignment.twin-state",
-        "destination_port_id": "catalog.aws.port.twin-state.update-in",
+        "destination_port_id": "catalog.aws.port.twin-state.projection-in",
         "edge_implementation_id": "edge-implementation.aws-to-aws.hot-storage-to-twin-state.v2",
         "mechanism": "provider_native_trigger",
         "delivery_semantics": {
@@ -459,9 +459,9 @@
         "resolved_edge_id": "resolved.ingestion-to-processing",
         "edge_id": "edge.ingestion-to-processing",
         "source_assignment_id": "assignment.ingestion",
-        "source_port_id": "catalog.aws.port.ingestion.telemetry-out",
+        "source_port_id": "catalog.aws.port.ingestion.telemetry-event-out",
         "destination_assignment_id": "assignment.processing",
-        "destination_port_id": "catalog.aws.port.processing.telemetry-in",
+        "destination_port_id": "catalog.aws.port.processing.telemetry-event-in",
         "edge_implementation_id": "edge-implementation.aws-to-aws.ingestion-to-processing.v2",
         "mechanism": "provider_native_trigger",
         "delivery_semantics": {
@@ -503,9 +503,9 @@
         "resolved_edge_id": "resolved.processing-to-hot-storage",
         "edge_id": "edge.processing-to-hot-storage",
         "source_assignment_id": "assignment.processing",
-        "source_port_id": "catalog.aws.port.processing.telemetry-out",
+        "source_port_id": "catalog.aws.port.processing.persistence-event-out",
         "destination_assignment_id": "assignment.hot-storage",
-        "destination_port_id": "catalog.aws.port.hot-storage.write-in",
+        "destination_port_id": "catalog.aws.port.hot-storage.processing-event-in",
         "edge_implementation_id": "edge-implementation.aws-to-aws.processing-to-hot-storage.v2",
         "mechanism": "provider_native_trigger",
         "delivery_semantics": {
@@ -586,6 +586,94 @@
         "deployment_output_binding_ids": [
           "binding.output.hot-storage-to-visualization"
         ]
+      },
+      {
+        "resolved_edge_id": "resolved.processing-to-ingestion",
+        "edge_id": "edge.processing-to-ingestion",
+        "source_assignment_id": "assignment.processing",
+        "source_port_id": "catalog.aws.port.processing.device-command-out",
+        "destination_assignment_id": "assignment.ingestion",
+        "destination_port_id": "catalog.aws.port.ingestion.device-command-in",
+        "edge_implementation_id": "edge-implementation.aws-to-aws.processing-to-ingestion.v2",
+        "mechanism": "provider_native_trigger",
+        "delivery_semantics": {
+          "dead_letter_policy": "provider_managed",
+          "idempotency": "consumer_deduplicated",
+          "mode": "asynchronous",
+          "ordering": "per_entity",
+          "replay": "bounded",
+          "retry_policy": "provider_managed_bounded",
+          "timeout_policy": "not_applicable"
+        },
+        "transfer_route_class": "same_provider_same_region",
+        "transfer_evidence_refs": [
+          "evidence.route.aws-to-aws"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.five-layer-v2",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.processing-to-ingestion"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.processing-to-ingestion"
+        ]
+      },
+      {
+        "resolved_edge_id": "resolved.ingestion-to-hot-storage",
+        "edge_id": "edge.ingestion-to-hot-storage",
+        "source_assignment_id": "assignment.ingestion",
+        "source_port_id": "catalog.aws.port.ingestion.command-outcome-event-out",
+        "destination_assignment_id": "assignment.hot-storage",
+        "destination_port_id": "catalog.aws.port.hot-storage.command-outcome-event-in",
+        "edge_implementation_id": "edge-implementation.aws-to-aws.ingestion-to-hot-storage.v2",
+        "mechanism": "provider_native_trigger",
+        "delivery_semantics": {
+          "dead_letter_policy": "provider_managed",
+          "idempotency": "consumer_deduplicated",
+          "mode": "asynchronous",
+          "ordering": "per_entity",
+          "replay": "bounded",
+          "retry_policy": "provider_managed_bounded",
+          "timeout_policy": "not_applicable"
+        },
+        "transfer_route_class": "same_provider_same_region",
+        "transfer_evidence_refs": [
+          "evidence.route.aws-to-aws"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.five-layer-v2",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.ingestion-to-hot-storage"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.ingestion-to-hot-storage"
+        ]
       }
     ],
     "extension_bindings": [
@@ -601,7 +689,7 @@
     ],
     "deployment_specification_ref": {
       "schema_version": "resolved-deployment-specification.v2",
-      "digest": "sha256:364bc3abaeb4ea5585eb9c5272693e9817313d74ee3d2204d7bbe7b2b767c20b",
+      "digest": "sha256:0101f44eb5e7e2437e6aea4d40568cea3120a348d372749a1f1b68d8c00b4ed9",
       "calculation_run_id": "420bd4ff-8700-5034-8313-334244c0d0b1"
     },
     "cost_summary": {
@@ -682,6 +770,14 @@
         {
           "item_id": "edge.hot-storage-to-visualization",
           "monthly_amount": "0"
+        },
+        {
+          "item_id": "edge.processing-to-ingestion",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "edge.ingestion-to-hot-storage",
+          "monthly_amount": "0"
         }
       ],
       "monthly_total": "0"
@@ -715,29 +811,29 @@
       "provider_extra_capability_ids": [],
       "missing_capability_ids": [],
       "validator_version": "2",
-      "validation_digest": "sha256:07c70fc8f4395b030eeec19813e75b42feed5069e5487d168598710dacc10264"
+      "validation_digest": "sha256:d3da75970e0d10335bf08ab08959bb374fe84d70fd8cd93d96c15fe9104eae93"
     },
-    "content_digest": "sha256:c081c5fe75bac0a9477fbe0d275e45aaa786c5fd4833b886adc95e8853ee31d9"
+    "content_digest": "sha256:83c6190f8d7cff1a89c1bc02f4146f2832ee0753ff20cfcc708c6acb6374b9de"
   },
-  "resolved_deployment_specification_digest": "sha256:364bc3abaeb4ea5585eb9c5272693e9817313d74ee3d2204d7bbe7b2b767c20b",
+  "resolved_deployment_specification_digest": "sha256:0101f44eb5e7e2437e6aea4d40568cea3120a348d372749a1f1b68d8c00b4ed9",
   "resolved_deployment_specification": {
     "schema_version": "resolved-deployment-specification.v2",
     "calculation_run_id": "420bd4ff-8700-5034-8313-334244c0d0b1",
     "architecture_profile_ref": {
       "id": "five-layer-baseline",
       "version": "2",
-      "digest": "sha256:0d7f87bda7703bd71ac16081f96ecab1a8777d6aa49bc52cb94c83906a11b16a"
+      "digest": "sha256:1d5f6e070fb8c7d5765f33aba0f8c197ccd9f740c618bbe3e27606dd130aaad4"
     },
     "optimization_context": {
       "service_decision_ref": {
         "id": "phase-08-complete-service-bundles",
         "version": "1",
-        "digest": "sha256:f0ddf4dd60c898dcc23867e3e3bda8974fa8f20a0dc850fe1942b60947ec5f2f"
+        "digest": "sha256:1009870a995648ad646bd54fa4465488a34e66c6a3856363f6b346c756182bd3"
       },
       "component_catalog_ref": {
         "id": "complete-service-component-catalog",
         "version": "1",
-        "digest": "sha256:eb9304c723a95305387920b66a52462d4ab2a4ed771056ed47e25622b0cbb64d"
+        "digest": "sha256:bce6afdb488841ff5ce45f19557cdb68d54ea6c2e7e046c9cc548b43f0c07d58"
       },
       "workload_ref": {
         "id": "five-layer-workload",
@@ -2158,7 +2254,7 @@
         "compatibility_version": "1"
       }
     ],
-    "digest": "sha256:364bc3abaeb4ea5585eb9c5272693e9817313d74ee3d2204d7bbe7b2b767c20b"
+    "digest": "sha256:0101f44eb5e7e2437e6aea4d40568cea3120a348d372749a1f1b68d8c00b4ed9"
   },
   "credentials": {
     "providers": [
@@ -2173,7 +2269,7 @@
     "component_catalog_ref": {
       "id": "complete-service-component-catalog",
       "version": "1",
-      "digest": "sha256:eb9304c723a95305387920b66a52462d4ab2a4ed771056ed47e25622b0cbb64d"
+      "digest": "sha256:bce6afdb488841ff5ce45f19557cdb68d54ea6c2e7e046c9cc548b43f0c07d58"
     },
     "graph_resolver_version": "resolved-deployment-graph.v1",
     "package_builder_version": "graph-package-builder.v1",

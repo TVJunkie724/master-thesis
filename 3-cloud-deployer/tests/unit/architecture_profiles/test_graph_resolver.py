@@ -5,7 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 import json
 from pathlib import Path
-from types import MappingProxyType
+from types import MappingProxyType, SimpleNamespace
 
 import pytest
 
@@ -14,7 +14,10 @@ from src.architecture_profiles.contracts import (
     calculate_resolution_id,
 )
 from src.architecture_profiles.graph_evidence import graph_evidence
-from src.architecture_profiles.graph_resolver import resolve_deployment_graph
+from src.architecture_profiles.graph_resolver import (
+    _topological_order,
+    resolve_deployment_graph,
+)
 from src.deployment_specification import (
     ValidatedDeploymentManifest,
     validate_deployment_manifest,
@@ -238,10 +241,16 @@ def test_v4_graph_compiles_every_representative_cloud_shape(fixture):
     graph = _resolve_offline_v4(fixture)
 
     assert len(graph.nodes) == 7
-    assert len(graph.edges) == 6
+    assert len(graph.edges) == 8
     assert {node.node_role for node in graph.nodes} == {"architecture_component"}
     assert all(node.deployment_dimensions for node in graph.nodes)
     assert "edge.hot-storage-to-visualization" in {
+        edge.logical_edge_id for edge in graph.edges
+    }
+    assert "edge.processing-to-ingestion" in {
+        edge.logical_edge_id for edge in graph.edges
+    }
+    assert "edge.ingestion-to-hot-storage" in {
         edge.logical_edge_id for edge in graph.edges
     }
     assert "edge.twin-state-to-visualization" not in {
@@ -277,3 +286,44 @@ def test_v4_azure_storage_graph_selects_containerized_storage_mover():
     graph = _resolve_offline_v4("two-cloud-azure-l3l5-gcp-l4-medium.json")
 
     assert _azure_v2_storage_mover_selected(graph) is True
+
+
+def test_topological_order_collapses_only_the_profile_allowlisted_feedback_cycle():
+    nodes = (
+        SimpleNamespace(
+            node_id="node.ingestion",
+            logical_component_id="component.ingestion",
+        ),
+        SimpleNamespace(
+            node_id="node.processing",
+            logical_component_id="component.processing",
+        ),
+        SimpleNamespace(
+            node_id="node.storage",
+            logical_component_id="component.hot-storage",
+        ),
+    )
+    edges = (
+        SimpleNamespace(
+            source_node_id="node.ingestion",
+            destination_node_id="node.processing",
+        ),
+        SimpleNamespace(
+            source_node_id="node.processing",
+            destination_node_id="node.ingestion",
+        ),
+        SimpleNamespace(
+            source_node_id="node.processing",
+            destination_node_id="node.storage",
+        ),
+    )
+
+    assert _topological_order(
+        nodes,
+        edges,
+        allowed_cycle_ids=frozenset({"cycle.ingestion.processing"}),
+    ) == ("node.ingestion", "node.processing", "node.storage")
+
+    with pytest.raises(DeploymentSpecificationError) as rejected:
+        _topological_order(nodes, edges)
+    assert rejected.value.code == "DEPLOYMENT_GRAPH_CYCLE_FORBIDDEN"

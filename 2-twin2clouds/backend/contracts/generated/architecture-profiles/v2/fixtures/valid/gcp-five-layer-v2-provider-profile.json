@@ -5,7 +5,7 @@
   "architecture_profile_ref": {
     "id": "five-layer-baseline",
     "version": "2",
-    "digest": "sha256:0d7f87bda7703bd71ac16081f96ecab1a8777d6aa49bc52cb94c83906a11b16a"
+    "digest": "sha256:1d5f6e070fb8c7d5765f33aba0f8c197ccd9f740c618bbe3e27606dd130aaad4"
   },
   "provider": "gcp",
   "lifecycle_status": "draft",
@@ -327,8 +327,8 @@
         "deployment.gcp.twin-state.v2"
       ],
       "mechanism": "provider_native_trigger",
-      "catalog_input_port_id": "catalog.gcp.port.twin-state.update-in",
-      "catalog_output_port_id": "catalog.gcp.port.hot-storage.twin-update-out",
+      "catalog_input_port_id": "catalog.gcp.port.twin-state.projection-in",
+      "catalog_output_port_id": "catalog.gcp.port.hot-storage.twin-projection-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.hot-storage-to-twin-state"
@@ -361,8 +361,8 @@
         "deployment.gcp.processing.v2"
       ],
       "mechanism": "provider_native_trigger",
-      "catalog_input_port_id": "catalog.gcp.port.processing.telemetry-in",
-      "catalog_output_port_id": "catalog.gcp.port.ingestion.telemetry-out",
+      "catalog_input_port_id": "catalog.gcp.port.processing.telemetry-event-in",
+      "catalog_output_port_id": "catalog.gcp.port.ingestion.telemetry-event-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.ingestion-to-processing"
@@ -378,8 +378,8 @@
         "deployment.gcp.hot-storage.v2"
       ],
       "mechanism": "provider_native_trigger",
-      "catalog_input_port_id": "catalog.gcp.port.hot-storage.write-in",
-      "catalog_output_port_id": "catalog.gcp.port.processing.telemetry-out",
+      "catalog_input_port_id": "catalog.gcp.port.hot-storage.processing-event-in",
+      "catalog_output_port_id": "catalog.gcp.port.processing.persistence-event-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.processing-to-hot-storage"
@@ -400,6 +400,40 @@
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.hot-storage-to-visualization"
+      ]
+    },
+    {
+      "edge_id": "edge.processing-to-ingestion",
+      "edge_implementation_id": "edge-implementation.gcp-to-gcp.processing-to-ingestion.v2",
+      "source_deployment_component_ids": [
+        "deployment.gcp.processing.v2"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.gcp.ingestion.v2"
+      ],
+      "mechanism": "provider_native_trigger",
+      "catalog_input_port_id": "catalog.gcp.port.ingestion.device-command-in",
+      "catalog_output_port_id": "catalog.gcp.port.processing.device-command-out",
+      "transfer_route_class": "same_provider_same_region",
+      "cost_owner_ids": [
+        "cost.ingestion-to-processing"
+      ]
+    },
+    {
+      "edge_id": "edge.ingestion-to-hot-storage",
+      "edge_implementation_id": "edge-implementation.gcp-to-gcp.ingestion-to-hot-storage.v2",
+      "source_deployment_component_ids": [
+        "deployment.gcp.ingestion.v2"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.gcp.hot-storage.v2"
+      ],
+      "mechanism": "provider_native_trigger",
+      "catalog_input_port_id": "catalog.gcp.port.hot-storage.command-outcome-event-in",
+      "catalog_output_port_id": "catalog.gcp.port.ingestion.command-outcome-event-out",
+      "transfer_route_class": "same_provider_same_region",
+      "cost_owner_ids": [
+        "cost.ingestion-to-processing"
       ]
     }
   ],
@@ -452,5 +486,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:f7f1b06ab40043f6a6207c5271c1462ff3d5a47e2749faad57139b7d3011bf33"
+  "content_digest": "sha256:7a268bf302d782e5527caf0114aeb6a0a557ac47d6f730846f406a6e2e8d6123"
 }

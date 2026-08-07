@@ -140,6 +140,10 @@ EVENT_LOGICAL_COMPONENTS = (
     "component.hot-storage",
     "component.twin-state",
 )
+DOMAIN_EVENT_CONTRACT_ID = "canonical-domain-event.v1"
+TWIN_PROJECTION_CONTRACT_ID = "twin_projection.v1"
+STORAGE_TRANSITION_CONTRACT_ID = "storage_transition.v1"
+RAW_HISTORY_CONTRACT_ID = "raw_history_query.v1"
 
 
 class ContractError(ValueError):
@@ -453,35 +457,125 @@ def build_profile() -> dict[str, Any]:
         "catalog_schema_versions": ["deployment-component-catalog.v2"],
         "resolved_architecture_schema_versions": ["resolved-twin-architecture.v2"],
     }
+    profile["graph_policy"] = {
+        "cycle_policy": "allowlisted",
+        "allowed_cycle_ids": ["cycle.ingestion.processing"],
+        "optional_components": [],
+        "user_topology_editable": False,
+    }
     components = {item["component_id"]: item for item in profile["components"]}
     components["component.ingestion"]["required_capability_ids"].append(
         "capability.embedded-domain-event-ingress"
     )
+    components["component.ingestion"]["input_port_ids"] = [
+        "port.ingestion.device-command-in"
+    ]
+    components["component.ingestion"]["output_port_ids"] = [
+        "port.ingestion.telemetry-event-out",
+        "port.ingestion.command-outcome-event-out",
+    ]
     components["component.processing"]["required_capability_ids"].extend(
         [
             "capability.embedded-domain-event-routing",
             "capability.mandatory-rule-action-feedback",
         ]
     )
+    components["component.processing"]["input_port_ids"] = [
+        "port.processing.telemetry-event-in"
+    ]
+    components["component.processing"]["output_port_ids"] = [
+        "port.processing.persistence-event-out",
+        "port.processing.device-command-out",
+    ]
+    components["component.hot-storage"]["input_port_ids"] = [
+        "port.hot-storage.processing-event-in",
+        "port.hot-storage.command-outcome-event-in",
+    ]
+    components["component.hot-storage"]["output_port_ids"] = [
+        "port.hot-storage.transition-out",
+        "port.hot-storage.twin-projection-out",
+    ]
     components["component.hot-storage"]["output_port_ids"].append(
         "port.hot-storage.raw-history-out"
     )
+    components["component.twin-state"]["input_port_ids"] = [
+        "port.twin-state.projection-in"
+    ]
     components["component.twin-state"]["output_port_ids"] = []
     components["component.visualization"]["input_port_ids"] = [
         "port.visualization.raw-history-in"
     ]
     for edge in profile["edges"]:
-        if edge["edge_id"] == "edge.twin-state-to-visualization":
+        edge_id = edge["edge_id"]
+        if edge_id == "edge.ingestion-to-processing":
+            edge.update(
+                {
+                    "source_port_id": "port.ingestion.telemetry-event-out",
+                    "destination_port_id": "port.processing.telemetry-event-in",
+                    "edge_contract_id": DOMAIN_EVENT_CONTRACT_ID,
+                }
+            )
+        elif edge_id == "edge.processing-to-hot-storage":
+            edge.update(
+                {
+                    "source_port_id": "port.processing.persistence-event-out",
+                    "destination_port_id": "port.hot-storage.processing-event-in",
+                    "edge_contract_id": DOMAIN_EVENT_CONTRACT_ID,
+                }
+            )
+        elif edge_id == "edge.hot-storage-to-twin-state":
+            edge.update(
+                {
+                    "source_port_id": "port.hot-storage.twin-projection-out",
+                    "destination_port_id": "port.twin-state.projection-in",
+                    "edge_contract_id": TWIN_PROJECTION_CONTRACT_ID,
+                }
+            )
+        elif edge_id in {
+            "edge.hot-to-cool-storage",
+            "edge.cool-to-archive-storage",
+        }:
+            edge["edge_contract_id"] = STORAGE_TRANSITION_CONTRACT_ID
+        elif edge_id == "edge.twin-state-to-visualization":
             edge.update(
                 {
                     "edge_id": "edge.hot-storage-to-visualization",
                     "source_component_id": "component.hot-storage",
                     "source_port_id": "port.hot-storage.raw-history-out",
                     "destination_port_id": "port.visualization.raw-history-in",
-                    "edge_contract_id": "raw-history-query.v1",
+                    "edge_contract_id": RAW_HISTORY_CONTRACT_ID,
                     "cost_owner_ids": ["cost.hot-storage-to-visualization"],
                 }
             )
+    ingress_edge = next(
+        edge
+        for edge in profile["edges"]
+        if edge["edge_id"] == "edge.ingestion-to-processing"
+    )
+    command_edge = copy.deepcopy(ingress_edge)
+    command_edge.update(
+        {
+            "edge_id": "edge.processing-to-ingestion",
+            "source_component_id": "component.processing",
+            "source_port_id": "port.processing.device-command-out",
+            "destination_component_id": "component.ingestion",
+            "destination_port_id": "port.ingestion.device-command-in",
+            "edge_contract_id": DOMAIN_EVENT_CONTRACT_ID,
+        }
+    )
+    profile["edges"].append(command_edge)
+    outcome_edge = copy.deepcopy(ingress_edge)
+    outcome_edge.update(
+        {
+            "edge_id": "edge.ingestion-to-hot-storage",
+            "source_component_id": "component.ingestion",
+            "source_port_id": "port.ingestion.command-outcome-event-out",
+            "destination_component_id": "component.hot-storage",
+            "destination_port_id": "port.hot-storage.command-outcome-event-in",
+            "edge_contract_id": DOMAIN_EVENT_CONTRACT_ID,
+        }
+    )
+    profile["edges"].append(outcome_edge)
     profile["functional_completeness_rules"].extend(
         [
             {
@@ -519,6 +613,16 @@ def build_semantic_registry(profile: dict[str, Any]) -> dict[str, Any]:
             "architecture_profile_versions": ["2"],
         }
     ]
+    registry["cycle_contracts"].append(
+        {
+            "cycle_id": "cycle.ingestion.processing",
+            "workflow_semantics": (
+                "Bounded mandatory device-command request and outcome feedback "
+                "between L2 processing and L1 ingestion."
+            ),
+            "compatibility_version": "1",
+        }
+    )
     registry["field_ownership"].append(
         {
             "contract_kind": "resolved-twin-architecture.v2",
@@ -528,18 +632,82 @@ def build_semantic_registry(profile: dict[str, Any]) -> dict[str, Any]:
         }
     )
     port_contracts = {item["port_id"]: item for item in registry["port_contracts"]}
-    port_contracts.pop("port.twin-state.query-out", None)
-    port_contracts.pop("port.visualization.query-in", None)
+    for obsolete in (
+        "port.ingestion.telemetry-out",
+        "port.processing.telemetry-in",
+        "port.processing.telemetry-out",
+        "port.hot-storage.write-in",
+        "port.hot-storage.twin-update-out",
+        "port.twin-state.update-in",
+        "port.twin-state.query-out",
+        "port.visualization.query-in",
+    ):
+        port_contracts.pop(obsolete, None)
+    for port_id in (
+        "port.hot-storage.transition-out",
+        "port.cool-storage.write-in",
+        "port.cool-storage.transition-out",
+        "port.archive-storage.write-in",
+    ):
+        port_contracts[port_id]["schema_ref"] = STORAGE_TRANSITION_CONTRACT_ID
+    for port_id, semantics in {
+        "port.ingestion.device-command-in": (
+            "Canonical device-command request consumed by L1."
+        ),
+        "port.ingestion.telemetry-event-out": (
+            "Canonical telemetry-received events emitted by L1 for L2."
+        ),
+        "port.ingestion.command-outcome-event-out": (
+            "Canonical device-command-outcome events emitted by L1 for L3 hot."
+        ),
+        "port.processing.telemetry-event-in": (
+            "Canonical telemetry-received events consumed by L2."
+        ),
+        "port.processing.persistence-event-out": (
+            "Canonical processed and terminal-outcome events emitted by L2 for L3 hot."
+        ),
+        "port.processing.device-command-out": (
+            "Canonical device-command request emitted by L2 for L1."
+        ),
+        "port.hot-storage.processing-event-in": (
+            "Canonical processed and processing-owned outcome events persisted by L3 hot."
+        ),
+        "port.hot-storage.command-outcome-event-in": (
+            "Canonical device-command-outcome events persisted directly by L3 hot."
+        ),
+    }.items():
+        port_contracts[port_id] = {
+            "port_id": port_id,
+            "schema_ref": DOMAIN_EVENT_CONTRACT_ID,
+            "envelope_ref": "contract-envelope",
+            "semantics": semantics,
+            "compatibility_version": "1",
+        }
+    for port_id, semantics in {
+        "port.hot-storage.twin-projection-out": (
+            "Typed canonical Twin projection emitted after durable L3 acceptance."
+        ),
+        "port.twin-state.projection-in": (
+            "Typed canonical Twin projection consumed by L4."
+        ),
+    }.items():
+        port_contracts[port_id] = {
+            "port_id": port_id,
+            "schema_ref": TWIN_PROJECTION_CONTRACT_ID,
+            "envelope_ref": "contract-envelope",
+            "semantics": semantics,
+            "compatibility_version": "1",
+        }
     port_contracts["port.hot-storage.raw-history-out"] = {
         "port_id": "port.hot-storage.raw-history-out",
-        "schema_ref": "raw-history-query.v1",
+        "schema_ref": RAW_HISTORY_CONTRACT_ID,
         "envelope_ref": "contract-envelope",
         "semantics": "Typed bounded raw or hourly-rollup history response.",
         "compatibility_version": "1",
     }
     port_contracts["port.visualization.raw-history-in"] = {
         "port_id": "port.visualization.raw-history-in",
-        "schema_ref": "raw-history-query.v1",
+        "schema_ref": RAW_HISTORY_CONTRACT_ID,
         "envelope_ref": "contract-envelope",
         "semantics": "Typed bounded raw-history query consumed by L5.",
         "compatibility_version": "1",
@@ -838,10 +1006,10 @@ def provider_profile_id(provider: str) -> str:
 
 def catalog_port(provider: str, port_id: str) -> dict[str, Any]:
     contract_id = (
-        "raw-history-query.v1"
+        RAW_HISTORY_CONTRACT_ID
         if "raw-history" in port_id
         else (
-            "storage-transition-record.v1"
+            STORAGE_TRANSITION_CONTRACT_ID
             if (
                 "transition-out" in port_id
                 or any(
@@ -850,9 +1018,9 @@ def catalog_port(provider: str, port_id: str) -> dict[str, Any]:
                 )
             )
             else (
-                "telemetry-to-twin-state.v1"
-                if "twin" in port_id
-                else "telemetry-envelope.v1"
+                TWIN_PROJECTION_CONTRACT_ID
+                if "projection" in port_id
+                else DOMAIN_EVENT_CONTRACT_ID
             )
         )
     )

@@ -5,7 +5,7 @@
   "architecture_profile_ref": {
     "id": "five-layer-baseline",
     "version": "2",
-    "digest": "sha256:0d7f87bda7703bd71ac16081f96ecab1a8777d6aa49bc52cb94c83906a11b16a"
+    "digest": "sha256:1d5f6e070fb8c7d5765f33aba0f8c197ccd9f740c618bbe3e27606dd130aaad4"
   },
   "provider": "aws",
   "lifecycle_status": "draft",
@@ -315,8 +315,8 @@
         "deployment.aws.twin-state.v2"
       ],
       "mechanism": "provider_native_trigger",
-      "catalog_input_port_id": "catalog.aws.port.twin-state.update-in",
-      "catalog_output_port_id": "catalog.aws.port.hot-storage.twin-update-out",
+      "catalog_input_port_id": "catalog.aws.port.twin-state.projection-in",
+      "catalog_output_port_id": "catalog.aws.port.hot-storage.twin-projection-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.hot-storage-to-twin-state"
@@ -349,8 +349,8 @@
         "deployment.aws.processing.v2"
       ],
       "mechanism": "provider_native_trigger",
-      "catalog_input_port_id": "catalog.aws.port.processing.telemetry-in",
-      "catalog_output_port_id": "catalog.aws.port.ingestion.telemetry-out",
+      "catalog_input_port_id": "catalog.aws.port.processing.telemetry-event-in",
+      "catalog_output_port_id": "catalog.aws.port.ingestion.telemetry-event-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.ingestion-to-processing"
@@ -366,8 +366,8 @@
         "deployment.aws.hot-storage.v2"
       ],
       "mechanism": "provider_native_trigger",
-      "catalog_input_port_id": "catalog.aws.port.hot-storage.write-in",
-      "catalog_output_port_id": "catalog.aws.port.processing.telemetry-out",
+      "catalog_input_port_id": "catalog.aws.port.hot-storage.processing-event-in",
+      "catalog_output_port_id": "catalog.aws.port.processing.persistence-event-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.processing-to-hot-storage"
@@ -388,6 +388,40 @@
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.hot-storage-to-visualization"
+      ]
+    },
+    {
+      "edge_id": "edge.processing-to-ingestion",
+      "edge_implementation_id": "edge-implementation.aws-to-aws.processing-to-ingestion.v2",
+      "source_deployment_component_ids": [
+        "deployment.aws.processing.v2"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.aws.ingestion.v2"
+      ],
+      "mechanism": "provider_native_trigger",
+      "catalog_input_port_id": "catalog.aws.port.ingestion.device-command-in",
+      "catalog_output_port_id": "catalog.aws.port.processing.device-command-out",
+      "transfer_route_class": "same_provider_same_region",
+      "cost_owner_ids": [
+        "cost.ingestion-to-processing"
+      ]
+    },
+    {
+      "edge_id": "edge.ingestion-to-hot-storage",
+      "edge_implementation_id": "edge-implementation.aws-to-aws.ingestion-to-hot-storage.v2",
+      "source_deployment_component_ids": [
+        "deployment.aws.ingestion.v2"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.aws.hot-storage.v2"
+      ],
+      "mechanism": "provider_native_trigger",
+      "catalog_input_port_id": "catalog.aws.port.hot-storage.command-outcome-event-in",
+      "catalog_output_port_id": "catalog.aws.port.ingestion.command-outcome-event-out",
+      "transfer_route_class": "same_provider_same_region",
+      "cost_owner_ids": [
+        "cost.ingestion-to-processing"
       ]
     }
   ],
@@ -440,5 +474,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:69e9ca0247d42dd2098e3c99774a8a80bafd842aff3dc3e486a97f40df2651d5"
+  "content_digest": "sha256:233ea8c1ce0163b0a3a56ede15018a061be973704ff072a31d94804c1218834a"
 }
