@@ -4,8 +4,14 @@ import json
 from pathlib import Path
 import re
 
-from src.api.azure_credentials_checker import REQUIRED_AZURE_PERMISSIONS, _action_matches
-from src.api.credentials_checker import SELF_CHECK_PERMISSIONS, _get_all_required_permissions
+from src.api.azure_credentials_checker import (
+    REQUIRED_AZURE_PERMISSIONS,
+    _action_matches,
+)
+from src.api.credentials_checker import (
+    SELF_CHECK_PERMISSIONS,
+    _get_all_required_permissions,
+)
 from src.api.gcp_credentials_checker import REQUIRED_GCP_APIS, REQUIRED_GCP_PERMISSIONS
 from src.api.permission_sets import ACTIVE_PERMISSION_SET_VERSION
 
@@ -24,9 +30,7 @@ def test_aws_bootstrap_policy_covers_required_deployer_and_self_check_permission
         for action in service["actions"]
     }
     self_check_actions = {
-        action
-        for actions in SELF_CHECK_PERMISSIONS.values()
-        for action in actions
+        action for actions in SELF_CHECK_PERMISSIONS.values() for action in actions
     }
 
     missing = sorted(
@@ -54,8 +58,7 @@ def test_aws_scope_review_covers_every_policy_statement_and_required_action():
         for statement in policy["Statement"]
     }
     reviewed_statements = {
-        statement["sid"]: statement
-        for statement in review["statements"]
+        statement["sid"]: statement for statement in review["statements"]
     }
 
     assert sorted(reviewed_statements) == sorted(policy_statements)
@@ -66,9 +69,7 @@ def test_aws_scope_review_covers_every_policy_statement_and_required_action():
         assert statement["reason"]
 
     policy_actions = {
-        action
-        for actions in policy_statements.values()
-        for action in actions
+        action for actions in policy_statements.values() for action in actions
     }
     required_actions = {
         action
@@ -76,9 +77,7 @@ def test_aws_scope_review_covers_every_policy_statement_and_required_action():
         for action in service["actions"]
     }
     checked_actions = required_actions | {
-        action
-        for actions in SELF_CHECK_PERMISSIONS.values()
-        for action in actions
+        action for actions in SELF_CHECK_PERMISSIONS.values() for action in actions
     }
     assert sorted(required_actions - policy_actions) == []
     assert sorted(policy_actions - checked_actions) == []
@@ -221,9 +220,7 @@ def test_gcp_scope_review_covers_every_custom_role_permission():
 
 def test_gcp_workflows_api_and_permissions_are_in_permission_contract():
     required_apis = {
-        api
-        for group in REQUIRED_GCP_APIS.values()
-        for api in group["apis"]
+        api for group in REQUIRED_GCP_APIS.values() for api in group["apis"]
     }
     required_permissions = {
         permission
@@ -262,8 +259,7 @@ def test_legacy_v1_artifacts_remain_bound_to_reference_artifacts():
         assert artifact["verification"]["offline"]
 
         source_paths = [
-            source["path"]
-            for source in artifact["actions"]["source_artifacts"]
+            source["path"] for source in artifact["actions"]["source_artifacts"]
         ]
         assert f"3-cloud-deployer/docs/references/{reference_file}" in source_paths
         for source_path in source_paths:
@@ -283,13 +279,16 @@ def test_legacy_permission_inventory_matches_current_v1_terraform_provider_types
         "gcp": ("google_",),
     }
     terraform_dir = ROOT / "src/terraform"
+    profile_specific_markers = ("_five_layer_v2", "_six_layer_eventing_v1")
 
     for provider, prefixes in expected_prefixes.items():
         actual_types = set()
         for path in terraform_dir.glob("*.tf"):
-            if path.name.endswith(("_five_layer_v2.tf", "_six_layer_eventing_v1.tf")):
+            if any(marker in path.stem for marker in profile_specific_markers):
                 continue
-            for resource_type in re.findall(r'^(?:resource|data) "([^"]+)"', path.read_text(), flags=re.M):
+            for resource_type in re.findall(
+                r'^(?:resource|data) "([^"]+)"', path.read_text(), flags=re.M
+            ):
                 if resource_type.startswith(prefixes):
                     actual_types.add(resource_type)
 
@@ -310,8 +309,7 @@ def test_active_v2_permission_manifests_are_frozen_and_scope_reviewed():
         )
         review = json.loads(
             (
-                PERMISSION_SET_DIR
-                / f"{provider}_thesis_demo_v2_scope_review.json"
+                PERMISSION_SET_DIR / f"{provider}_thesis_demo_v2_scope_review.json"
             ).read_text()
         )
         assert artifact["provider"] == provider
@@ -326,13 +324,9 @@ def test_active_v2_permission_manifests_are_frozen_and_scope_reviewed():
 
 
 def test_aws_v2_can_activate_outbound_identity_for_remote_azure_routes():
-    artifact = json.loads(
-        (PERMISSION_SET_DIR / "aws_thesis_demo_v2.json").read_text()
-    )
+    artifact = json.loads((PERMISSION_SET_DIR / "aws_thesis_demo_v2.json").read_text())
     actions = {
-        action
-        for group in artifact["policy_inputs"]
-        for action in group["actions"]
+        action for group in artifact["policy_inputs"] for action in group["actions"]
     }
 
     assert "iam:GetOutboundWebIdentityFederationInfo" in actions

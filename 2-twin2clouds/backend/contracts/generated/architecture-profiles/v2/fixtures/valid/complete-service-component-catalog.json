@@ -2473,12 +2473,17 @@
       "terraform_binding": {
         "resource_addresses": [
           "google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected",
+          "google_artifact_registry_repository_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter",
           "google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard",
           "google_container_node_pool.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard",
           "google_container_node_pool.gcp_gcp_ordered_mqtt_pubsub_adapter",
+          "google_project_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics",
           "google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics",
+          "google_service_account.gcp_gcp_artifact_registry_if_container_selected",
+          "google_storage_bucket.gcp_gcp_artifact_registry_if_container_selected",
+          "google_storage_bucket_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "kubernetes_deployment_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard",
           "kubernetes_deployment_v1.gcp_gcp_ordered_mqtt_pubsub_adapter",
           "kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard",
@@ -2647,10 +2652,15 @@
       "terraform_binding": {
         "resource_addresses": [
           "google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected",
+          "google_artifact_registry_repository_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter",
           "google_cloud_run_v2_service.gcp_gcp_cloud_run_service",
+          "google_project_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics",
           "google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics",
+          "google_service_account.gcp_gcp_artifact_registry_if_container_selected",
+          "google_storage_bucket.gcp_gcp_artifact_registry_if_container_selected",
+          "google_storage_bucket_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "google_workflows_workflow.gcp_gcp_workflows"
         ],
         "module_addresses": [],
@@ -2836,14 +2846,19 @@
       "terraform_binding": {
         "resource_addresses": [
           "google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected",
+          "google_artifact_registry_repository_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job",
           "google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter",
           "google_cloud_scheduler_job.gcp_gcp_cloud_scheduler",
           "google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup",
           "google_firestore_field.gcp_gcp_firestore_native_standard_raw_and_rollup",
           "google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup",
+          "google_project_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics",
-          "google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics"
+          "google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics",
+          "google_service_account.gcp_gcp_artifact_registry_if_container_selected",
+          "google_storage_bucket.gcp_gcp_artifact_registry_if_container_selected",
+          "google_storage_bucket_iam_member.gcp_gcp_artifact_registry_if_container_selected"
         ],
         "module_addresses": [],
         "allowed_input_variable_ids": [],
@@ -3058,9 +3073,14 @@
       "terraform_binding": {
         "resource_addresses": [
           "google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected",
+          "google_artifact_registry_repository_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job",
           "google_cloud_scheduler_job.gcp_gcp_cloud_scheduler",
-          "google_storage_bucket.gcp_gcp_cloud_storage_nearline"
+          "google_project_iam_member.gcp_gcp_artifact_registry_if_container_selected",
+          "google_service_account.gcp_gcp_artifact_registry_if_container_selected",
+          "google_storage_bucket.gcp_gcp_artifact_registry_if_container_selected",
+          "google_storage_bucket.gcp_gcp_cloud_storage_nearline",
+          "google_storage_bucket_iam_member.gcp_gcp_artifact_registry_if_container_selected"
         ],
         "module_addresses": [],
         "allowed_input_variable_ids": [],
@@ -3368,6 +3388,7 @@
       "terraform_binding": {
         "resource_addresses": [
           "google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected",
+          "google_artifact_registry_repository_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter",
           "google_cloud_run_v2_service.gcp_gcp_cloud_run_iap_twin_explorer",
           "google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer",
@@ -3375,8 +3396,12 @@
           "google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup",
           "google_firestore_index.gcp_gcp_firestore_native_standard_bounded_twin",
           "google_iap_web_cloud_run_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer",
+          "google_project_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics",
-          "google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics"
+          "google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics",
+          "google_service_account.gcp_gcp_artifact_registry_if_container_selected",
+          "google_storage_bucket.gcp_gcp_artifact_registry_if_container_selected",
+          "google_storage_bucket_iam_member.gcp_gcp_artifact_registry_if_container_selected"
         ],
         "module_addresses": [],
         "allowed_input_variable_ids": [],
@@ -3548,10 +3573,15 @@
       "terraform_binding": {
         "resource_addresses": [
           "google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected",
+          "google_artifact_registry_repository_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader",
           "google_compute_address.gcp_gcp_grafana_tls_load_balancer",
           "google_compute_disk.gcp_gcp_persistent_disk_rwo",
           "google_container_cluster.gcp_grafana_oss_12_on_gke",
+          "google_project_iam_member.gcp_gcp_artifact_registry_if_container_selected",
+          "google_service_account.gcp_gcp_artifact_registry_if_container_selected",
+          "google_storage_bucket.gcp_gcp_artifact_registry_if_container_selected",
+          "google_storage_bucket_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "kubernetes_deployment_v1.gcp_grafana_oss_12_on_gke",
           "kubernetes_namespace_v1.gcp_grafana_oss_12_on_gke",
           "kubernetes_persistent_volume_claim_v1.gcp_gcp_persistent_disk_rwo",
@@ -7746,7 +7776,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:04d8b6fad9ffc2f5de5900a08530173fa838b8b82db4ed53802528d1636097ef",
+      "source_digest": "sha256:3e711370de7a9c1386fa2ff9c138da73c578e8bbb80b6385bcb71ec88afe837d",
       "included_paths": [
         "Dockerfile",
         "grafana/Dockerfile",
@@ -7794,5 +7824,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:0824b9b317a3b0d8c9645ff1d69cede30054dec1839c505ba8d673ead4d7dd1e"
+  "content_digest": "sha256:13dc37220f2b8092be9cd530404cc537485da4b4056244b11c7204ca4d57504a"
 }

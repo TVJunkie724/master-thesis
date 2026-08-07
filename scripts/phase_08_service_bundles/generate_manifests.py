@@ -145,7 +145,12 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
     "gcp.cloud-scheduler": ["google_cloud_scheduler_job"],
     "gcp.cloud-run-storage-job": ["google_cloud_run_v2_job"],
     "gcp.artifact-registry-if-container-selected": [
-        "google_artifact_registry_repository"
+        "google_artifact_registry_repository",
+        "google_artifact_registry_repository_iam_member",
+        "google_storage_bucket",
+        "google_storage_bucket_iam_member",
+        "google_service_account",
+        "google_project_iam_member",
     ],
     "gcp.cloud-logging": [],
     "gcp.cloud-monitoring": [],
@@ -185,6 +190,9 @@ POST_TERRAFORM_OPERATIONS: dict[str, list[str]] = {
     ],
     "grafana.yesoreyeram-infinity-datasource": [
         "content_addressed_image_build_and_datasource_provisioning"
+    ],
+    "gcp.artifact-registry-if-container-selected": [
+        "regional_cloud_build_publish_content_addressed_images"
     ],
 }
 
@@ -341,6 +349,19 @@ def network_ports(component_id: str) -> list[int]:
 
 
 def file_targets(provider: str, component_id: str) -> list[str]:
+    exact = {
+        "gcp.artifact-registry-if-container-selected": [
+            "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+            "3-cloud-deployer/src/providers/terraform/gcp_v2_image_publisher.py",
+            "3-cloud-deployer/src/providers/terraform/package_builders/gcp_v2.py",
+        ],
+        "gcp.cloud-run-storage-job": [
+            "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+            "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2/storage-mover",
+        ],
+    }
+    if component_id in exact:
+        return exact[component_id]
     slug = component_id.replace(".", "_").replace("-", "_")
     return [
         f"3-cloud-deployer/src/terraform/{provider}_five_layer_v2.tf",
@@ -462,17 +483,28 @@ def build_manifest(bundle: dict[str, Any], routes: dict[str, Any]) -> dict[str, 
         "terraform_apply_stages": [
             {
                 "stage": 1,
+                "owner": "gcp_image_foundation_when_required",
+                "includes": "deployment registry, short-lived source bucket, build identity and scoped bindings",
+            },
+            {
+                "stage": 2,
+                "owner": "gcp_content_addressed_image_publication_when_required",
+                "includes": "regional Cloud Build publication and digest resolution without a local Docker socket",
+                "precondition": "stage_1_registry_source_bucket_and_build_identity_available",
+            },
+            {
+                "stage": 3,
                 "owner": "cloud_provider_resources",
                 "includes": "GKE cluster and all non-Kubernetes provider resources",
             },
             {
-                "stage": 2,
+                "stage": 4,
                 "owner": "kubernetes_resources",
                 "includes": "BifroMQ, adapter, Grafana, services, PVC and TLS bindings",
-                "precondition": "stage_1_cluster_endpoint_and_short_lived_credentials_available",
+                "precondition": "stage_3_cluster_endpoint_and_short_lived_credentials_available",
             },
             {
-                "stage": 3,
+                "stage": 5,
                 "owner": "bounded_post_terraform_operations",
                 "includes": "TwinMaker children and Grafana plugin/datasource provisioning",
             },

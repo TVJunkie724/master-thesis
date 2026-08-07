@@ -55,17 +55,28 @@
   "terraform_apply_stages": [
     {
       "stage": 1,
+      "owner": "gcp_image_foundation_when_required",
+      "includes": "deployment registry, short-lived source bucket, build identity and scoped bindings"
+    },
+    {
+      "stage": 2,
+      "owner": "gcp_content_addressed_image_publication_when_required",
+      "includes": "regional Cloud Build publication and digest resolution without a local Docker socket",
+      "precondition": "stage_1_registry_source_bucket_and_build_identity_available"
+    },
+    {
+      "stage": 3,
       "owner": "cloud_provider_resources",
       "includes": "GKE cluster and all non-Kubernetes provider resources"
     },
     {
-      "stage": 2,
+      "stage": 4,
       "owner": "kubernetes_resources",
       "includes": "BifroMQ, adapter, Grafana, services, PVC and TLS bindings",
-      "precondition": "stage_1_cluster_endpoint_and_short_lived_credentials_available"
+      "precondition": "stage_3_cluster_endpoint_and_short_lived_credentials_available"
     },
     {
-      "stage": 3,
+      "stage": 5,
       "owner": "bounded_post_terraform_operations",
       "includes": "TwinMaker children and Grafana plugin/datasource provisioning"
     }
@@ -2158,9 +2169,16 @@
         "six-layer-eventing@1"
       ],
       "terraform_resource_types": [
-        "google_artifact_registry_repository"
+        "google_artifact_registry_repository",
+        "google_artifact_registry_repository_iam_member",
+        "google_storage_bucket",
+        "google_storage_bucket_iam_member",
+        "google_service_account",
+        "google_project_iam_member"
       ],
-      "post_terraform_operations": [],
+      "post_terraform_operations": [
+        "regional_cloud_build_publish_content_addressed_images"
+      ],
       "runtime_state": "decision_frozen_not_implemented",
       "pricing_owner_id": "cost::gcp.artifact-registry-if-container-selected",
       "permission_set_refs": [
@@ -2177,7 +2195,8 @@
       "network_ports": [],
       "implementation_file_targets": [
         "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
-        "3-cloud-deployer/src/runtime_packages/gcp/gcp_artifact_registry_if_container_selected"
+        "3-cloud-deployer/src/providers/terraform/gcp_v2_image_publisher.py",
+        "3-cloud-deployer/src/providers/terraform/package_builders/gcp_v2.py"
       ],
       "formula_refs": [
         "capacity-matrix.json#formula_contract",
@@ -2536,7 +2555,7 @@
       "network_ports": [],
       "implementation_file_targets": [
         "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
-        "3-cloud-deployer/src/runtime_packages/gcp/gcp_cloud_run_storage_job"
+        "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2/storage-mover"
       ],
       "formula_refs": [
         "capacity-matrix.json#formula_contract",

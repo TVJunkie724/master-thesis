@@ -37,7 +37,7 @@
     "layer_5_provider": "gcp"
   },
   "calculation_run_id": "bb7ddd5f-930c-5028-87a8-067b716d805f",
-  "resolved_twin_architecture_digest": "sha256:a065b7030752b7b5cdb0b2cb872ee5c611c733b90413ab54a1fff9af290012b6",
+  "resolved_twin_architecture_digest": "sha256:8400102a0bd2144e64f8add894a3f238571c5d0164f2c4b54fc00f1ca52b3888",
   "resolved_twin_architecture": {
     "schema_version": "resolved-twin-architecture.v2",
     "resolution_status": "offline_contract_fixture",
@@ -642,7 +642,7 @@
     ],
     "deployment_specification_ref": {
       "schema_version": "resolved-deployment-specification.v2",
-      "digest": "sha256:665fa1a6a4b8e1231461f64c4b3ba16293bb917f8e2924b30980cd488d570e83",
+      "digest": "sha256:bd670e074e4c3f69ce324d46f75193ed0fa6161d5f5c24db9db7431c2efd1148",
       "calculation_run_id": "bb7ddd5f-930c-5028-87a8-067b716d805f"
     },
     "cost_summary": {
@@ -756,11 +756,11 @@
       "provider_extra_capability_ids": [],
       "missing_capability_ids": [],
       "validator_version": "2",
-      "validation_digest": "sha256:5b1a2420bcc4c00359001b66a4f82e12de4528087ad127ba08b40f7309aeacca"
+      "validation_digest": "sha256:c3cd622dec3ae1c398d69dce940016b3c4b48832fcf62536efa9249ab1c52e9b"
     },
-    "content_digest": "sha256:a065b7030752b7b5cdb0b2cb872ee5c611c733b90413ab54a1fff9af290012b6"
+    "content_digest": "sha256:8400102a0bd2144e64f8add894a3f238571c5d0164f2c4b54fc00f1ca52b3888"
   },
-  "resolved_deployment_specification_digest": "sha256:665fa1a6a4b8e1231461f64c4b3ba16293bb917f8e2924b30980cd488d570e83",
+  "resolved_deployment_specification_digest": "sha256:bd670e074e4c3f69ce324d46f75193ed0fa6161d5f5c24db9db7431c2efd1148",
   "resolved_deployment_specification": {
     "schema_version": "resolved-deployment-specification.v2",
     "calculation_run_id": "bb7ddd5f-930c-5028-87a8-067b716d805f",
@@ -773,12 +773,12 @@
       "service_decision_ref": {
         "id": "phase-08-complete-service-bundles",
         "version": "1",
-        "digest": "sha256:73a78f62858fcd3563205b84fd937a40a243a2d342e0e97b67c2b76f78f6243a"
+        "digest": "sha256:a3eef3b52915b8a3d696933fe3a91d7d24c2e7ea66099a55d7fb95b57d317c49"
       },
       "component_catalog_ref": {
         "id": "complete-service-component-catalog",
         "version": "1",
-        "digest": "sha256:0f25b2b069e6e931d397f561da377953b4764b15f3454773980477063fc55083"
+        "digest": "sha256:13dc37220f2b8092be9cd530404cc537485da4b4056244b11c7204ca4d57504a"
       },
       "workload_ref": {
         "id": "five-layer-workload",
@@ -1963,7 +1963,7 @@
         "architecture_assignment_id": "assignment.hot-storage",
         "logical_component_id": "component.hot-storage",
         "implementation_component_id": "gcp.cloud-run-storage-job",
-        "implementation_component_digest": "sha256:5badaa866d0fee632d1cfb0b3b9ad5114ce2a000c345862814fcaa7a959d22ae",
+        "implementation_component_digest": "sha256:1b6c566582cf0c175381784893abc2eccd9ebd5ac73b3667515c60caf0935390",
         "provider": "gcp",
         "region": "europe-west1",
         "required": true,
@@ -2015,7 +2015,7 @@
         "architecture_assignment_id": "assignment.hot-storage",
         "logical_component_id": "component.hot-storage",
         "implementation_component_id": "gcp.artifact-registry-if-container-selected",
-        "implementation_component_digest": "sha256:72f462ac6ebba4c1fb282a0261b164d4c090e30e932f062aeede587e3cbfbfef",
+        "implementation_component_digest": "sha256:12a3f6e7a1f717755f591d41de5406e852aa49d921ed8fecc34a49ecf413a2aa",
         "provider": "gcp",
         "region": "europe-west1",
         "required": true,
@@ -3393,7 +3393,7 @@
         "compatibility_version": "1"
       }
     ],
-    "digest": "sha256:665fa1a6a4b8e1231461f64c4b3ba16293bb917f8e2924b30980cd488d570e83"
+    "digest": "sha256:bd670e074e4c3f69ce324d46f75193ed0fa6161d5f5c24db9db7431c2efd1148"
   },
   "credentials": {
     "providers": [
@@ -3412,7 +3412,7 @@
     "component_catalog_ref": {
       "id": "complete-service-component-catalog",
       "version": "1",
-      "digest": "sha256:0f25b2b069e6e931d397f561da377953b4764b15f3454773980477063fc55083"
+      "digest": "sha256:13dc37220f2b8092be9cd530404cc537485da4b4056244b11c7204ca4d57504a"
     },
     "graph_resolver_version": "resolved-deployment-graph.v1",
     "package_builder_version": "graph-package-builder.v1",

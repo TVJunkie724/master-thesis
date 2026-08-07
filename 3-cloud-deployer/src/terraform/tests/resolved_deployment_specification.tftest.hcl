@@ -531,10 +531,13 @@ run "five_layer_v2_gcp_source_owns_both_remote_archive_transitions" {
     condition = (
       toset(keys(google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job)) == toset(["hot-to-cool", "cool-to-archive"]) &&
       toset(keys(google_cloud_scheduler_job.gcp_gcp_cloud_scheduler)) == toset(["hot-to-cool", "cool-to-archive"]) &&
+      google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job["hot-to-cool"].template[0].task_count == 3 &&
+      google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job["hot-to-cool"].template[0].parallelism == 3 &&
+      google_cloud_scheduler_job.gcp_gcp_cloud_scheduler["hot-to-cool"].schedule == "*/5 * * * *" &&
       length(google_storage_bucket.gcp_gcp_cloud_storage_nearline) == 1 &&
       length(google_storage_bucket.gcp_gcp_cloud_storage_archive) == 0
     )
-    error_message = "GCP must own both finite source-side transitions when archive is remote and must not create a local Archive bucket."
+    error_message = "GCP must bind the reviewed finite source-side transitions, Large task count, five-minute hot schedule, and remote archive placement."
   }
 
   assert {

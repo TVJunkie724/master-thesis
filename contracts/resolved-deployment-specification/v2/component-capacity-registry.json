@@ -3,7 +3,7 @@
   "package_ref": {
     "id": "phase-08-complete-service-bundles",
     "version": "1",
-    "digest": "sha256:73a78f62858fcd3563205b84fd937a40a243a2d342e0e97b67c2b76f78f6243a"
+    "digest": "sha256:a3eef3b52915b8a3d696933fe3a91d7d24c2e7ea66099a55d7fb95b57d317c49"
   },
   "capacity_evidence_digest": "sha256:4b472c7a23439e37ba699aa126a39215b4ac8a6b03aa62fa428a5af6635e745e",
   "pricing_ownership_digest": "sha256:b6483da5a7ca775029a9cfdf4f7688bddcd60f69bdd4df262db5509e242b34f1",
@@ -1149,7 +1149,7 @@
     },
     {
       "component_id": "gcp.artifact-registry-if-container-selected",
-      "component_digest": "sha256:72f462ac6ebba4c1fb282a0261b164d4c090e30e932f062aeede587e3cbfbfef",
+      "component_digest": "sha256:12a3f6e7a1f717755f591d41de5406e852aa49d921ed8fecc34a49ecf413a2aa",
       "provider": "gcp",
       "responsibilities": [
         "support"
@@ -1284,7 +1284,7 @@
     },
     {
       "component_id": "gcp.cloud-run-storage-job",
-      "component_digest": "sha256:5badaa866d0fee632d1cfb0b3b9ad5114ce2a000c345862814fcaa7a959d22ae",
+      "component_digest": "sha256:1b6c566582cf0c175381784893abc2eccd9ebd5ac73b3667515c60caf0935390",
       "provider": "gcp",
       "responsibilities": [
         "support"
@@ -1904,5 +1904,5 @@
       "deduplication_key": "domain_event_cross_cloud::gcp->azure"
     }
   ],
-  "content_digest": "sha256:6fb921beb3f97537ecfeeb75855c71629cf7b37e903178a27acde948cee6a585"
+  "content_digest": "sha256:7e5ccd3a6c4f0a38269c856a675662976407ce514f33f18c906d52ed8474f4b9"
 }

@@ -118,6 +118,16 @@ class DecisionPackageValidatorTest(unittest.TestCase):
                 permission["custom_role_inputs"]
             )
         )
+        self.assertTrue(
+            {
+                "artifactregistry.repositories.getIamPolicy",
+                "artifactregistry.repositories.setIamPolicy",
+                "cloudbuild.builds.create",
+                "cloudbuild.builds.get",
+                "storage.buckets.getIamPolicy",
+                "storage.buckets.setIamPolicy",
+            }.issubset(permission["custom_role_inputs"])
+        )
 
     def test_runtime_manifest_does_not_claim_implementation(self) -> None:
         manifest = self.validator.load_json(
@@ -150,7 +160,19 @@ class DecisionPackageValidatorTest(unittest.TestCase):
         )
         self.assertEqual(
             [item["stage"] for item in manifest["terraform_apply_stages"]],
-            [1, 2, 3],
+            [1, 2, 3, 4, 5],
+        )
+        self.assertIn(
+            "regional_cloud_build_publish_content_addressed_images",
+            components["gcp.artifact-registry-if-container-selected"][
+                "post_terraform_operations"
+            ],
+        )
+        self.assertIn(
+            "google_storage_bucket",
+            components["gcp.artifact-registry-if-container-selected"][
+                "terraform_resource_types"
+            ],
         )
         self.assertEqual(
             set(
@@ -174,9 +196,9 @@ class DecisionPackageValidatorTest(unittest.TestCase):
         )
         self.assertEqual(
             set(
-                components[
-                    "apache.bifromq-4.0.0-incubating-on-gke-standard"
-                ]["terraform_resource_types"]
+                components["apache.bifromq-4.0.0-incubating-on-gke-standard"][
+                    "terraform_resource_types"
+                ]
             ),
             {
                 "google_container_cluster",
@@ -202,9 +224,7 @@ class DecisionPackageValidatorTest(unittest.TestCase):
         )
         self.assertIn(
             "google_compute_address",
-            components["gcp.grafana-tls-load-balancer"][
-                "terraform_resource_types"
-            ],
+            components["gcp.grafana-tls-load-balancer"]["terraform_resource_types"],
         )
 
     def test_gcp_human_access_support_is_owned_by_the_exact_layer(self) -> None:
@@ -218,9 +238,7 @@ class DecisionPackageValidatorTest(unittest.TestCase):
             "gcp.grafana-tls-load-balancer",
             gcp["layers"]["l5_visualization"],
         )
-        self.assertNotIn(
-            "gcp.grafana-tls-load-balancer", gcp["support_components"]
-        )
+        self.assertNotIn("gcp.grafana-tls-load-balancer", gcp["support_components"])
 
     def test_common_edge_contracts_are_closed_and_poc_bounded(self) -> None:
         contract = self.validator.load_json(

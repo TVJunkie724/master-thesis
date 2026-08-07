@@ -2,7 +2,7 @@
   "provider": "gcp",
   "permission_set_version": "thesis-demo-v2",
   "review_status": "approved_for_offline_implementation",
-  "reviewed_on": "2026-08-03",
+  "reviewed_on": "2026-08-07",
   "source_manifest": "gcp_thesis_demo_v2.json",
   "scope_classes": {
     "project_deployment": "Selected service resources and runtime identities live in one supplied project.",
@@ -14,7 +14,9 @@
   "accepted_gaps": [
     "Project IAM mutation remains broad until resource-level bindings pass a supervised smoke.",
     "Cloud Run worker pools are Preview, fixed-size, and non-autoscaling for the Large Six-layer scenario.",
-    "No organization, project-creation, or billing authority is retained."
+    "No organization, project-creation, or billing authority is retained.",
+    "Cloud Build create/get and its source-bucket/repository IAM mutations are retained only for deployment-owned content-addressed images; one-time build execution is excluded from steady-state monthly architecture ranking.",
+    "Exact GKE project-network permissions remain a fail-closed supervised activation gate rather than an offline least-privilege claim."
   ],
   "activation_gates": [
     "manifest digest matches phase-08-complete-service-bundles@1",

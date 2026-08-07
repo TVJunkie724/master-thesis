@@ -318,16 +318,30 @@ def validate_components(artifacts: dict[str, Any], errors: list[str]) -> None:
             "Kubernetes provider feasibility version must remain reproducible"
         )
     stages = manifest.get("terraform_apply_stages", [])
-    if [item.get("stage") for item in stages] != [1, 2, 3]:
+    if [item.get("stage") for item in stages] != [1, 2, 3, 4, 5]:
         errors.append(
             "Terraform/Kubernetes/post-Terraform apply stages must be explicit and ordered"
         )
-    if stages and stages[1].get("precondition") != (
-        "stage_1_cluster_endpoint_and_short_lived_credentials_available"
+    if stages and stages[3].get("precondition") != (
+        "stage_3_cluster_endpoint_and_short_lived_credentials_available"
     ):
         errors.append(
             "Kubernetes apply must wait for the managed cluster and short-lived credentials"
         )
+    registry = next(
+        item
+        for item in components
+        if item["component_id"] == "gcp.artifact-registry-if-container-selected"
+    )
+    if (
+        "regional_cloud_build_publish_content_addressed_images"
+        not in registry["post_terraform_operations"]
+    ):
+        errors.append(
+            "GCP container images must have an explicit publication operation"
+        )
+    if "google_storage_bucket" not in registry["terraform_resource_types"]:
+        errors.append("GCP image publication must bind its finite source bucket")
     if (
         "awscc_iot_command"
         not in next(
@@ -492,6 +506,18 @@ def validate_permissions(
                 errors.append(
                     "gcp: interactive IAP access must not be retained by the deployer"
                 )
+            required_image_publication = {
+                "artifactregistry.repositories.getIamPolicy",
+                "artifactregistry.repositories.setIamPolicy",
+                "cloudbuild.builds.create",
+                "cloudbuild.builds.get",
+                "storage.buckets.getIamPolicy",
+                "storage.buckets.setIamPolicy",
+            }
+            if not required_image_publication.issubset(item["custom_role_inputs"]):
+                errors.append(
+                    "gcp: deployment-owned image publication permissions are incomplete"
+                )
         scan_secrets(path.name, item, errors)
         review = load_json(PERMISSION_ROOT / item["scope_review_ref"])
         if review["findings"]:
@@ -562,9 +588,7 @@ def validate() -> list[str]:
     if decision["decision_status"] != "approved":
         errors.append("decision_status must be approved")
     refreeze = decision.get("pre_activation_refreeze", {})
-    expected_refreeze = module("freeze_decision.py").build()[
-        "pre_activation_refreeze"
-    ]
+    expected_refreeze = module("freeze_decision.py").build()["pre_activation_refreeze"]
     if refreeze != expected_refreeze:
         errors.append("pre-activation package re-freeze evidence drifted")
     if len(decision["reviews"]) < 5 or any(
