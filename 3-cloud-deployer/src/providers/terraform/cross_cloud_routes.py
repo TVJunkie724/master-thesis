@@ -25,6 +25,45 @@ _STORAGE_EDGE_IDS = frozenset(
     }
 )
 
+_EVENT_CHANNELS_BY_EDGE: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
+    "edge.ingestion-to-processing": (
+        ("telemetry", ("telemetry.received.v1",)),
+    ),
+    "edge.ingestion-to-hot-storage": (
+        ("control", ("device.command.outcome.v1",)),
+    ),
+    "edge.processing-to-ingestion": (
+        ("control", ("device.command.requested.v1",)),
+    ),
+    "edge.processing-to-hot-storage": (
+        ("telemetry", ("telemetry.processed.v1",)),
+        (
+            "control",
+            (
+                "extension.action.outcome.v1",
+                "notification.workflow.outcome.v1",
+            ),
+        ),
+    ),
+    "edge.hot-storage-to-twin-state": (
+        (
+            "control",
+            (
+                "twin.state.upserted",
+                "twin.model.upserted",
+                "twin.relationship.upserted",
+                "twin.relationship.deleted",
+            ),
+        ),
+    ),
+}
+
+_BROKER_KIND_BY_CHANNEL = {
+    "telemetry": "telemetry_stream",
+    "control": "control_topic",
+    "storage": "object_storage",
+}
+
 
 @dataclass(frozen=True, slots=True)
 class CrossCloudRoute:
@@ -35,6 +74,10 @@ class CrossCloudRoute:
     source_provider: str
     destination_provider: str
     execution_kind: str
+    channel_class: str
+    event_types: tuple[str, ...]
+    source_broker_kind: str
+    destination_broker_kind: str
     identity_exchange: str
     payload_contract_id: str
     trust_contract_id: str
@@ -64,22 +107,37 @@ def resolve_cross_cloud_routes(
                 "Resolved cross-cloud edge has no approved directed identity "
                 f"exchange: {source or '<missing>'}->{destination or '<missing>'}"
             )
-        routes.append(
-            CrossCloudRoute(
-                route_id=edge.graph_edge_id,
-                logical_edge_id=edge.logical_edge_id,
-                source_provider=source,
-                destination_provider=destination,
-                execution_kind=(
-                    "finite_storage_job"
-                    if edge.logical_edge_id in _STORAGE_EDGE_IDS
-                    else "source_event_forwarder"
-                ),
-                identity_exchange=exchange,
-                payload_contract_id=str(edge.payload_ref.get("id", "")),
-                trust_contract_id=str(edge.trust_ref.get("id", "")),
+        if edge.logical_edge_id in _STORAGE_EDGE_IDS:
+            channels = (("storage", ()),)
+        else:
+            channels = _EVENT_CHANNELS_BY_EDGE.get(edge.logical_edge_id, ())
+            if not channels:
+                raise ValueError(
+                    "Resolved cross-cloud edge has no approved channel route: "
+                    f"{edge.logical_edge_id}"
+                )
+        for channel_class, event_types in channels:
+            broker_kind = _BROKER_KIND_BY_CHANNEL[channel_class]
+            routes.append(
+                CrossCloudRoute(
+                    route_id=f"{edge.graph_edge_id}.{channel_class}",
+                    logical_edge_id=edge.logical_edge_id,
+                    source_provider=source,
+                    destination_provider=destination,
+                    execution_kind=(
+                        "finite_storage_job"
+                        if channel_class == "storage"
+                        else "source_event_forwarder"
+                    ),
+                    channel_class=channel_class,
+                    event_types=event_types,
+                    source_broker_kind=broker_kind,
+                    destination_broker_kind=broker_kind,
+                    identity_exchange=exchange,
+                    payload_contract_id=str(edge.payload_ref.get("id", "")),
+                    trust_contract_id=str(edge.trust_ref.get("id", "")),
+                )
             )
-        )
     return tuple(sorted(routes, key=lambda route: route.route_id))
 
 

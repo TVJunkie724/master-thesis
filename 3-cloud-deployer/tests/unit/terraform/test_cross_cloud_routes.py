@@ -20,7 +20,7 @@ def _edge(
     source: str,
     destination: str,
     *,
-    logical_edge_id: str = "edge.processing-to-hot-storage",
+    logical_edge_id: str = "edge.ingestion-to-processing",
     route_class: str = "cross_provider",
 ):
     return SimpleNamespace(
@@ -57,6 +57,10 @@ def test_every_directed_provider_pair_has_one_exact_identity_exchange(
     assert route.destination_provider == destination
     assert route.identity_exchange == exchange
     assert route.execution_kind == "source_event_forwarder"
+    assert route.channel_class == "telemetry"
+    assert route.event_types == ("telemetry.received.v1",)
+    assert route.source_broker_kind == "telemetry_stream"
+    assert route.destination_broker_kind == "telemetry_stream"
 
 
 @pytest.mark.parametrize(
@@ -79,6 +83,60 @@ def test_storage_routes_select_finite_source_owned_job(logical_edge_id):
     route = resolve_cross_cloud_routes(graph)[0]
 
     assert route.execution_kind == "finite_storage_job"
+    assert route.channel_class == "storage"
+    assert route.event_types == ()
+    assert route.source_broker_kind == "object_storage"
+    assert route.destination_broker_kind == "object_storage"
+
+
+def test_mixed_processing_to_hot_edge_expands_into_telemetry_and_control_routes():
+    graph = SimpleNamespace(
+        nodes=(_node("aws", "aws"), _node("gcp", "gcp")),
+        edges=(
+            _edge(
+                "mixed-route",
+                "aws",
+                "gcp",
+                logical_edge_id="edge.processing-to-hot-storage",
+            ),
+        ),
+    )
+
+    routes = resolve_cross_cloud_routes(graph)
+
+    assert [route.route_id for route in routes] == [
+        "mixed-route.control",
+        "mixed-route.telemetry",
+    ]
+    assert routes[0].event_types == (
+        "extension.action.outcome.v1",
+        "notification.workflow.outcome.v1",
+    )
+    assert routes[1].event_types == ("telemetry.processed.v1",)
+
+
+def test_twin_projection_uses_ordered_control_landing():
+    graph = SimpleNamespace(
+        nodes=(_node("hot", "azure"), _node("twin", "aws")),
+        edges=(
+            _edge(
+                "projection-route",
+                "hot",
+                "twin",
+                logical_edge_id="edge.hot-storage-to-twin-state",
+            ),
+        ),
+    )
+
+    route = resolve_cross_cloud_routes(graph)[0]
+
+    assert route.channel_class == "control"
+    assert route.event_types == (
+        "twin.state.upserted",
+        "twin.model.upserted",
+        "twin.relationship.upserted",
+        "twin.relationship.deleted",
+    )
 
 
 def test_single_cloud_edges_create_no_remote_route_or_egress_input():
@@ -113,7 +171,10 @@ def test_routes_are_deterministic_and_do_not_contain_credentials_or_endpoints():
 
     tfvars = cross_cloud_route_tfvars(graph)["resolved_cross_cloud_routes"]
 
-    assert [route["route_id"] for route in tfvars] == ["route-a", "route-z"]
+    assert [route["route_id"] for route in tfvars] == [
+        "route-a.telemetry",
+        "route-z.telemetry",
+    ]
     forbidden_keys = {"credential", "secret", "endpoint", "token", "url"}
     assert all(forbidden_keys.isdisjoint(route) for route in tfvars)
 
@@ -125,4 +186,21 @@ def test_unknown_provider_pair_fails_closed():
     )
 
     with pytest.raises(ValueError, match="no approved directed identity exchange"):
+        resolve_cross_cloud_routes(graph)
+
+
+def test_unknown_cross_cloud_edge_fails_closed():
+    graph = SimpleNamespace(
+        nodes=(_node("source", "aws"), _node("destination", "azure")),
+        edges=(
+            _edge(
+                "route",
+                "source",
+                "destination",
+                logical_edge_id="edge.unreviewed",
+            ),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="no approved channel route"):
         resolve_cross_cloud_routes(graph)
