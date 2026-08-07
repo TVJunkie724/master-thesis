@@ -322,26 +322,62 @@ def validate_components(artifacts: dict[str, Any], errors: list[str]) -> None:
         errors.append(
             "Terraform/Kubernetes/post-Terraform apply stages must be explicit and ordered"
         )
+    expected_stage_owners = [
+        "provider_image_foundation_when_required",
+        "provider_content_addressed_image_publication_when_required",
+        "cloud_provider_resources",
+        "kubernetes_resources",
+        "bounded_post_terraform_operations",
+    ]
+    if [item.get("owner") for item in stages] != expected_stage_owners:
+        errors.append("provider-neutral five-stage apply ownership must remain frozen")
     if stages and stages[3].get("precondition") != (
         "stage_3_cluster_endpoint_and_short_lived_credentials_available"
     ):
         errors.append(
             "Kubernetes apply must wait for the managed cluster and short-lived credentials"
         )
-    registry = next(
+    registry_expectations = {
+        "aws.ecr-if-container-selected": (
+            "regional_codebuild_publish_content_addressed_images",
+            "aws_codebuild_project",
+        ),
+        "azure.acr-basic-if-container-selected": (
+            "regional_acr_task_publish_content_addressed_images",
+            "azurerm_container_registry",
+        ),
+        "gcp.artifact-registry-if-container-selected": (
+            "regional_cloud_build_publish_content_addressed_images",
+            "google_storage_bucket",
+        ),
+    }
+    for component_id, (operation, resource_type) in registry_expectations.items():
+        registry = next(
+            item for item in components if item["component_id"] == component_id
+        )
+        if operation not in registry["post_terraform_operations"]:
+            errors.append(
+                f"{component_id}: missing explicit content-addressed image publication"
+            )
+        if resource_type not in registry["terraform_resource_types"]:
+            errors.append(
+                f"{component_id}: missing image-publication foundation binding"
+            )
+    gcp_registry = next(
         item
         for item in components
         if item["component_id"] == "gcp.artifact-registry-if-container-selected"
     )
-    if (
-        "regional_cloud_build_publish_content_addressed_images"
-        not in registry["post_terraform_operations"]
-    ):
-        errors.append(
-            "GCP container images must have an explicit publication operation"
-        )
-    if "google_storage_bucket" not in registry["terraform_resource_types"]:
+    if "google_storage_bucket" not in gcp_registry["terraform_resource_types"]:
         errors.append("GCP image publication must bind its finite source bucket")
+    for mover_id in (
+        "aws.ecs-fargate-storage-mover",
+        "azure.container-apps-scheduled-storage-job",
+        "gcp.cloud-run-storage-job",
+    ):
+        mover = next(item for item in components if item["component_id"] == mover_id)
+        if "task_count" not in mover["capacity_dimensions"]:
+            errors.append(f"{mover_id}: exact task_count dimension is required")
     if (
         "awscc_iot_command"
         not in next(
@@ -518,6 +554,34 @@ def validate_permissions(
                 errors.append(
                     "gcp: deployment-owned image publication permissions are incomplete"
                 )
+        if provider == "aws":
+            actions = {
+                action
+                for group in item["policy_inputs"]
+                for action in group["actions"]
+            }
+            required_image_publication = {
+                "codebuild:CreateProject",
+                "codebuild:StartBuild",
+                "codebuild:BatchGetBuilds",
+                "ecr:DescribeImages",
+                "s3:PutObject",
+                "s3:GetObject",
+            }
+            if not required_image_publication.issubset(actions):
+                errors.append(
+                    "aws: deployment-owned image publication permissions are incomplete"
+                )
+            pass_role = next(
+                (
+                    condition
+                    for condition in item["conditions"]
+                    if condition.get("condition") == "iam:PassedToService"
+                ),
+                {},
+            )
+            if "codebuild.amazonaws.com" not in pass_role.get("values", []):
+                errors.append("aws: CodeBuild PassRole condition is missing")
         scan_secrets(path.name, item, errors)
         review = load_json(PERMISSION_ROOT / item["scope_review_ref"])
         if review["findings"]:

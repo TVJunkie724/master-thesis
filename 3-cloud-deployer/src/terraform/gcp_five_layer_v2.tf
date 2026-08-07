@@ -34,7 +34,11 @@ locals {
     local.gcp_v2_hot_enabled ||
     (local.gcp_v2_cool_enabled && var.layer_3_archive_provider != "google")
   )
-  gcp_v2_storage_task_count = local.gcp_v2_large_scenario ? 3 : 1
+  gcp_v2_storage_task_count = tonumber(lookup(
+    var.resolved_component_dimensions,
+    "dimension.gcp.gcp.cloud-run-storage-job.task_count",
+    "0",
+  ))
   gcp_v2_timestamp_shards = tonumber(lookup(
     var.resolved_component_dimensions,
     "dimension.gcp.gcp.firestore-native-standard-raw-and-rollup.timestamp_shards",
@@ -217,6 +221,13 @@ resource "terraform_data" "gcp_v2_foundation_guard" {
     precondition {
       condition     = !local.gcp_v2_storage_mover_enabled || var.gcp_v2_storage_mover_image != ""
       error_message = "GCP Five-layer v2 storage movement requires a content-addressed storage-mover image."
+    }
+    precondition {
+      condition = (
+        !local.gcp_v2_storage_mover_enabled ||
+        contains([1, 3], local.gcp_v2_storage_task_count)
+      )
+      error_message = "GCP Five-layer v2 storage movement requires the exact reviewed 1/1/3 task_count capacity dimension."
     }
     precondition {
       condition = (

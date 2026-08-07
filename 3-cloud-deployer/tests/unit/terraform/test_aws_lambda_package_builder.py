@@ -24,6 +24,7 @@ sys.path.insert(
 from src.providers.terraform.package_builder import (
     _create_lambda_zip,
     build_aws_lambda_packages,
+    build_aws_v2_storage_mover_context,
 )
 
 
@@ -393,6 +394,7 @@ class TestRealLambdaFunctions:
         first_bytes = package.read_bytes()
         with zipfile.ZipFile(package) as archive:
             assert "handler.py" in archive.namelist()
+            assert "storage-mover/Dockerfile" in archive.namelist()
             module = ast.parse(archive.read("handler.py").decode("utf-8"))
             functions = {
                 node.name
@@ -413,6 +415,23 @@ class TestRealLambdaFunctions:
             {"layer_1_provider": "aws"},
             selected_function_names=("five-layer-v2",),
         )
+        assert package.read_bytes() == first_bytes
+
+    def test_five_layer_v2_storage_mover_context_is_deterministic(self, tmp_path):
+        package = build_aws_v2_storage_mover_context(tmp_path)[
+            "aws_five-layer-v2-storage-mover"
+        ]
+        first_bytes = package.read_bytes()
+
+        with zipfile.ZipFile(package) as archive:
+            assert set(archive.namelist()) == {
+                "Dockerfile",
+                "constraints.txt",
+                "requirements.txt",
+                "storage_mover.py",
+            }
+
+        build_aws_v2_storage_mover_context(tmp_path)
         assert package.read_bytes() == first_bytes
 
 

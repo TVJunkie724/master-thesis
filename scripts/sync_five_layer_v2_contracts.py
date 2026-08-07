@@ -1208,7 +1208,13 @@ def build_catalog(
                     else package_source_digest(GCP_V2_RUNTIME_SOURCE)
                 ),
                 "included_paths": (
-                    ["handler.py"]
+                    [
+                        "handler.py",
+                        "storage-mover/Dockerfile",
+                        "storage-mover/constraints.txt",
+                        "storage-mover/requirements.txt",
+                        "storage-mover/storage_mover.py",
+                    ]
                     if provider == "aws"
                     else ["core.py", "function_app.py", "host.json", "requirements.txt"]
                     if provider == "azure"
@@ -1701,6 +1707,7 @@ def dimension_classification(dimension_id: str) -> str:
         "shards_per_stream",
         "timestamp_shards",
         "autoscale_max_ru_per_second",
+        "task_count",
     }:
         return "capacity"
     return "usage"
@@ -1850,11 +1857,23 @@ def dimension_value(
         "scheduled_invocations": "invocations/month",
         "workflow_executions": "executions/month",
         "workflow_transitions": "transitions/month",
+        "task_count": "count",
     }
     if dimension_id == "resource_count":
         if "bifromq" in component_id:
             return ({"small": 3, "medium": 3, "large": 12}[size], units[dimension_id])
         return (1, units[dimension_id])
+    if dimension_id == "task_count":
+        task_count_key = {
+            "aws.ecs-fargate-storage-mover": "aws_storage_tasks",
+            "azure.container-apps-scheduled-storage-job": "azure_storage_tasks",
+            "gcp.cloud-run-storage-job": "gcp_storage_tasks",
+        }.get(component_id)
+        if task_count_key is None:
+            raise RuntimeError(
+                f"No exact storage task-count binding for component: {component_id}"
+            )
+        return int(derived[task_count_key]), units[dimension_id]
     values: dict[str, str | int] = {
         "stored_gib_month": storage_gib,
         "read_requests": dashboard_requests

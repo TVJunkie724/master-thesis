@@ -237,7 +237,7 @@ def test_processor_atomically_writes_raw_and_hourly_rollup(monkeypatch):
     items = dynamo.transaction["TransactItems"]
     assert [item["Put"]["TableName"] for item in items] == ["raw", "rollup"]
     raw = items[0]["Put"]["Item"]
-    assert raw["storage_window"]["S"] == "2026-08-05T00:00:00.000000Z"
+    assert raw["storage_window"]["S"] == "2026-08-05T00:00:00.000000Z#000"
     expected_event_id = str(
         runtime.uuid.uuid5(
             runtime.uuid.NAMESPACE_URL,

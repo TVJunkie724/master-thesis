@@ -3,7 +3,7 @@ title: "Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure"
 description: "PoC-focused corrective plan for the executable five-layer-baseline@2 placement experiment."
 tags: [architecture, services, multicloud, identity, capacity, optimizer, deployer, phase-8]
 lastUpdated: "2026-08-07"
-version: "1.16"
+version: "1.17"
 ---
 
 <!-- SOURCES:
@@ -18,7 +18,7 @@ version: "1.16"
 - User-approved functionality-first PoC selection, L3-hot/L5 co-location,
   independent L4 placement, Cosmos DB and Firestore L3 continuity, and mandatory
   single-cloud/multicloud coverage
-EXTRACTED: 2026-08-07 | VERSION: 1.16
+EXTRACTED: 2026-08-07 | VERSION: 1.17
 -->
 
 # Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure
@@ -1148,14 +1148,14 @@ Google provider must move from the current v5 constraint to
 resources. GKE objects use Kubernetes provider `>= 2.38.0, < 3.0.0`.
 
 The Deployer orchestrates five automatic stages under one deployment trace.
-The first two are conditional GCP image-delivery support and become no-ops
-when no GCP platform-owned container is selected:
+The first two are conditional provider image-delivery support and become
+no-ops for a provider when no provider-owned container is selected:
 
 1. create the deployment Artifact Registry, one-day build-source bucket,
    dedicated build identity, and scoped bindings;
-2. publish deterministic container contexts with regional Cloud Build and
-   resolve digest-only image references without requiring a local Docker
-   socket;
+2. publish deterministic container contexts with regional CodeBuild, ACR
+   Tasks, or Cloud Build and resolve digest-only image references without
+   requiring a local Docker socket;
 3. create cloud-provider resources, including GKE;
 4. after the cluster endpoint and short-lived credentials exist, apply
    BifroMQ/Grafana Kubernetes resources;
@@ -1333,7 +1333,8 @@ commands may receive cloud credentials or a live/apply flag.
 | 6 | Guided-bootstrap architect/builder readiness review across strict guide/session datatypes, authority/deployment permission packs, `thesis-demo-v1` compatibility, new immutable `thesis-demo-v2`, BLoC/reuse/token boundaries, restart/concurrency, real-API fake-adapter integration, roadmaps, FR-002, and handoff | Pass on 2026-07-31 with zero unresolved findings; Builder remains blocked until FR-002 schemas/fixtures and an approved Architect implementation plan exist |
 | 7 | Complete-service package architecture review across Five-layer/Six-layer parity, 73 provider-owned component decisions, all nine online placements, every local/remote route class, current service/plugin facts, and the bounded thesis-PoC exclusions | Pass on 2026-08-04 with zero unresolved findings after removing the fabricated JSON API support date, pinning Grafana/Infinity/BifroMQ artifacts, retaining explicit live-readiness gates, splitting the AWS/Azure managed-Grafana plugin ownership, and replacing composite capacity labels with atomic dimensions before activation |
 | 8 | Complete-service package builder review across deterministic S/M/L formulas, generated manifests, exactly-once cost ownership, `thesis-demo-v1` stability, `thesis-demo-v2` scope evidence, byte digests, source references, secret scanning, and drift-gate integration | Pass on 2026-08-03 with zero unresolved findings; package tests plus the composed offline validator pass without cloud credentials |
-| 9 | Complete-service IaC feasibility review across exact Terraform/SDK bindings, provider-version floors, image delivery, GKE apply ordering, direct Cloud Run IAP, and closed edge contracts | Pass on 2026-08-07 with zero unresolved findings after replacing fictitious AWS bindings, adding the IAP service-agent binding and deployer policy permissions, recording the Google-provider upgrade, and separating GCP image foundation, regional content-addressed publication, cloud resources, Kubernetes resources, and bounded post-apply work into five automatic stages |
+| 9 | Complete-service IaC feasibility review across exact Terraform/SDK bindings, provider-version floors, image delivery, GKE apply ordering, direct Cloud Run IAP, and closed edge contracts | Pass on 2026-08-07 with zero unresolved findings after replacing fictitious AWS bindings, adding the IAP service-agent binding and deployer policy permissions, recording the Google-provider upgrade, and separating provider image foundation, regional content-addressed publication, cloud resources, Kubernetes resources, and bounded post-apply work into five automatic stages |
+| 10 | Cross-provider storage-mover capacity and image-delivery review | Pass on 2026-08-07 with zero unresolved contract findings after exposing exact AWS 1/1/3, Azure 1/4/30, and GCP 1/1/3 `task_count` dimensions, binding CodeBuild/ACR Tasks/Cloud Build publication, and recording the Azure free-credit preflight without adding a local-Docker fallback |
 | 10 | Five-layer v2 shared-contract implementation review across lifecycle/readiness truthfulness, complete atomic-dimension bindings, evidence integrity, all 729 assignments, v1 byte stability, version-aware readers, and generated-copy drift | Pass on 2026-08-04 with zero unresolved findings after keeping all new definitions draft, separating offline fixtures from publishable resolutions, removing invented costs and Cosmos autoscale RU/s, binding every dimension, and validating pricing/scenario/manifest references exactly |
 
 This service/architecture slice adds no new Flutter route, but it does add a

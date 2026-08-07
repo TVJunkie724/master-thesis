@@ -633,6 +633,26 @@ output "gcp_v2_build_source_bucket" {
   value       = try(google_storage_bucket.gcp_v2_cloud_build_sources[0].name, null)
 }
 
+output "aws_v2_build_source_bucket" {
+  description = "Internal deployment-owned CodeBuild source bucket"
+  value       = try(aws_s3_bucket.aws_aws_ecr_if_container_selected[0].bucket, null)
+}
+
+output "aws_v2_codebuild_project" {
+  description = "Internal regional CodeBuild project for content-addressed Five-layer v2 images"
+  value       = try(aws_codebuild_project.aws_aws_ecr_if_container_selected[0].name, null)
+}
+
+output "aws_v2_ecr_repository_url" {
+  description = "Internal ECR repository URL for content-addressed Five-layer v2 images"
+  value       = try(aws_ecr_repository.aws_aws_ecr_if_container_selected[0].repository_url, null)
+}
+
+output "aws_v2_ecr_repository_name" {
+  description = "Internal ECR repository name for image digest resolution"
+  value       = try(aws_ecr_repository.aws_aws_ecr_if_container_selected[0].name, null)
+}
+
 output "gcp_v2_build_service_account" {
   description = "Internal least-privilege Cloud Build execution identity"
   value       = try(google_service_account.gcp_v2_runtime["build"].email, null)

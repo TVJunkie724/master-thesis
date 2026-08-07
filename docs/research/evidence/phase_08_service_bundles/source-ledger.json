@@ -70,6 +70,17 @@
         "terraform-google-direct-iap-7-22",
         "terraform-kubernetes-2-38"
       ]
+    },
+    {
+      "fact_id": "provider-native-content-addressed-container-publication",
+      "source_ids": [
+        "aws-codebuild-publish-ecr",
+        "aws-ecr-describe-images",
+        "azure-acr-tasks-overview",
+        "azure-acr-task-run-api",
+        "gcp-cloud-build-push-artifact-registry",
+        "gcp-artifact-registry-image-digests"
+      ]
     }
   ],
   "sources": [
@@ -130,6 +141,12 @@
     {"source_id":"terraform-google-direct-iap-7-22","title":"Google provider 7.22.0 direct Cloud Run IAP IAM resource","url":"https://registry.terraform.io/providers/hashicorp/google/7.22.0/docs/resources/iap_web_cloud_run_service_iam","checked_on":"2026-08-03"},
     {"source_id":"terraform-kubernetes-2-38","title":"Kubernetes provider 2.38.0","url":"https://registry.terraform.io/providers/hashicorp/kubernetes/2.38.0","checked_on":"2026-08-03"},
     {"source_id":"terraform-tls-4-3","title":"TLS provider 4.3.0","url":"https://registry.terraform.io/providers/hashicorp/tls/4.3.0","checked_on":"2026-08-05"},
+    {"source_id":"aws-codebuild-publish-ecr","title":"Publish Docker image to Amazon ECR with CodeBuild","url":"https://docs.aws.amazon.com/codebuild/latest/userguide/sample-docker.html","checked_on":"2026-08-07"},
+    {"source_id":"aws-ecr-describe-images","title":"Amazon ECR DescribeImages API","url":"https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DescribeImages.html","checked_on":"2026-08-07"},
+    {"source_id":"azure-acr-tasks-overview","title":"Azure Container Registry Tasks overview","url":"https://learn.microsoft.com/en-us/azure/container-registry/container-registry-tasks-overview","checked_on":"2026-08-07"},
+    {"source_id":"azure-acr-task-run-api","title":"Azure Container Registry Task Runs API","url":"https://learn.microsoft.com/en-us/rest/api/container-registry-tasks/task-runs/get?view=rest-container-registry-tasks-2025-03-01-preview","checked_on":"2026-08-07"},
+    {"source_id":"gcp-cloud-build-push-artifact-registry","title":"Build and push a Docker image with Cloud Build","url":"https://cloud.google.com/build/docs/build-push-docker-image","checked_on":"2026-08-07"},
+    {"source_id":"gcp-artifact-registry-image-digests","title":"Artifact Registry container image names and digests","url":"https://cloud.google.com/artifact-registry/docs/docker/names","checked_on":"2026-08-07"},
     {"source_id":"phase-08-eventing-ledger","title":"Immutable Phase 8 Eventing source ledger","path":"docs/research/evidence/phase_08_eventing/source-ledger.json","byte_digest":"sha256:c64311e931f32213b366a2bdbe0d85da59972a94b666b39bb60ae5e2c0c7b0ee"}
   ]
 }

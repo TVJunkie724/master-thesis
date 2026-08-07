@@ -10,12 +10,12 @@
     "service_decision_ref": {
       "id": "phase-08-complete-service-bundles",
       "version": "1",
-      "digest": "sha256:a3eef3b52915b8a3d696933fe3a91d7d24c2e7ea66099a55d7fb95b57d317c49"
+      "digest": "sha256:f5bbbb4d052458d70b3b079321729fc4f46a439f1bcde3e710b960b412968d90"
     },
     "component_catalog_ref": {
       "id": "complete-service-component-catalog",
       "version": "1",
-      "digest": "sha256:13dc37220f2b8092be9cd530404cc537485da4b4056244b11c7204ca4d57504a"
+      "digest": "sha256:49bff381c3340a0580362765697287fe55eb7bff0deb22d6a0b1e9ae8e5e2a00"
     },
     "workload_ref": {
       "id": "five-layer-workload",
@@ -30,16 +30,16 @@
     "formula_set_ref": {
       "id": "phase-08-complete-service-bundles",
       "version": "1",
-      "digest": "sha256:b6483da5a7ca775029a9cfdf4f7688bddcd60f69bdd4df262db5509e242b34f1"
+      "digest": "sha256:a25799ee9a15a409036222cab676c2c1e9fada0873d53f59ba83d7942a3324ec"
     },
     "pricing_evidence_refs": [
       {
         "provider": "azure",
-        "digest": "sha256:acf00dccd0521168da97afa7833d8216a02c6fe9ef868738fc32caee334f2942"
+        "digest": "sha256:274a7463a18f18839bcd8f78b7ac3a04451bdd7cde54e418f3775fca4ef982fa"
       },
       {
         "provider": "gcp",
-        "digest": "sha256:acf00dccd0521168da97afa7833d8216a02c6fe9ef868738fc32caee334f2942"
+        "digest": "sha256:274a7463a18f18839bcd8f78b7ac3a04451bdd7cde54e418f3775fca4ef982fa"
       }
     ]
   },
@@ -985,7 +985,7 @@
       "architecture_assignment_id": "assignment.hot-storage",
       "logical_component_id": "component.hot-storage",
       "implementation_component_id": "azure.container-apps-scheduled-storage-job",
-      "implementation_component_digest": "sha256:1b125cd65869d1c6027088337084b7c95a694c7418c35328cd27bf768df4dda8",
+      "implementation_component_digest": "sha256:6a5fbc7375912aee4a2d390b038e04965a253b2c84b97d0b3db6929dab93c92b",
       "provider": "azure",
       "region": "westeurope",
       "required": true,
@@ -1005,6 +1005,14 @@
           "unit": "GiB-month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
           "evidence_reference": "sha256:4b472c7a23439e37ba699aa126a39215b4ac8a6b03aa62fa428a5af6635e745e"
+        },
+        {
+          "dimension_id": "dimension.azure.azure.container-apps-scheduled-storage-job.task_count",
+          "classification": "capacity",
+          "value": 4,
+          "unit": "count",
+          "formula_reference": "formula.phase-08-complete-service-bundles",
+          "evidence_reference": "sha256:4b472c7a23439e37ba699aa126a39215b4ac8a6b03aa62fa428a5af6635e745e"
         }
       ]
     },
@@ -1013,7 +1021,7 @@
       "architecture_assignment_id": "assignment.hot-storage",
       "logical_component_id": "component.hot-storage",
       "implementation_component_id": "azure.acr-basic-if-container-selected",
-      "implementation_component_digest": "sha256:ce7e510c6b6809a29a748432349f0ddbafbe3e803aa80ef762f1eed07892262e",
+      "implementation_component_digest": "sha256:f4b4f4899c355509660701faec6dc94488030dde47bc50842016b782cae076a1",
       "provider": "azure",
       "region": "westeurope",
       "required": true,
@@ -2023,6 +2031,18 @@
       "compatibility_version": "1"
     },
     {
+      "binding_id": "binding.azure.azure.container-apps-scheduled-storage-job.task_count",
+      "source_kind": "deployment_dimension",
+      "source_ref": "dimension.azure.azure.container-apps-scheduled-storage-job.task_count",
+      "destination_selection_id": "selection.azure.azure.container-apps-scheduled-storage-job",
+      "destination_input_id": "input.capacity.task_count",
+      "value_type": "integer",
+      "sensitivity": "internal",
+      "resolution_stage": "preplan",
+      "validator_id": "validator.non-negative-integer.v1",
+      "compatibility_version": "1"
+    },
+    {
       "binding_id": "binding.azure.azure.acr-basic-if-container-selected.resource_count",
       "source_kind": "deployment_dimension",
       "source_ref": "dimension.azure.azure.acr-basic-if-container-selected.resource_count",
@@ -2047,5 +2067,5 @@
       "compatibility_version": "1"
     }
   ],
-  "digest": "sha256:9af720ea8194a5487ca4a357ffb99d79615372687f06689e90de9a5ac486fd34"
+  "digest": "sha256:43e01ccb459e5430cb090faeeb2d5a34678bc701d7a9822d5e54376027a7ee22"
 }

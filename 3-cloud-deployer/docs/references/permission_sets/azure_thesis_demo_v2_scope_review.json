@@ -14,6 +14,7 @@
   "accepted_gaps": [
     "Service-family wildcards are explicit PoC inputs and not a formal least-privilege proof.",
     "The subscription/resource-group split and Graph grants need supervised provider validation.",
+    "Regional ACR Tasks are deployment-time image-packaging support. Their one-off build consumption is recorded as deployment evidence and excluded from steady-state monthly Twin ranking; ACR storage remains owned by the selected deployment graph.",
     "No billing, tenant creation, or subscription creation authority is retained."
   ],
   "activation_gates": [

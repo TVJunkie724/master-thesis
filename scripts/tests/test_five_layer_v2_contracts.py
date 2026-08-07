@@ -34,7 +34,16 @@ class FiveLayerV2ContractTests(unittest.TestCase):
         self.assertEqual(
             artifact["repository_source_path"], contract.AWS_V2_RUNTIME_SOURCE
         )
-        self.assertEqual(artifact["included_paths"], ["handler.py"])
+        self.assertEqual(
+            artifact["included_paths"],
+            [
+                "handler.py",
+                "storage-mover/Dockerfile",
+                "storage-mover/constraints.txt",
+                "storage-mover/requirements.txt",
+                "storage-mover/storage_mover.py",
+            ],
+        )
         self.assertEqual(
             artifact["source_digest"],
             contract.package_source_digest(contract.AWS_V2_RUNTIME_SOURCE),

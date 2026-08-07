@@ -14,15 +14,16 @@ change. `decision.json` records the superseded planning digest so this
 pre-activation correction remains explicit rather than silently rewriting the
 evidence history.
 
-The pre-activation implementation review on 2026-08-07 also made the already
-required GCP container-delivery mechanism explicit: Terraform first creates a
-deployment registry, one-day source bucket, build identity, and bindings;
-regional Cloud Build then publishes content-addressed images; provider
-resources and Kubernetes workloads follow in separate stages. The source
-bucket and build identity are implementation support owned by the existing
-conditional registry component, not a new Twin responsibility. Cloud Build is
-a bounded deployment-time operation and is therefore recorded as deployment
-evidence rather than added to steady-state monthly architecture ranking.
+The pre-activation implementation reviews on 2026-08-07 also made the already
+required container-delivery mechanism explicit for all three providers:
+Terraform creates each selected deployment registry and its bounded build
+foundation; regional CodeBuild, ACR Tasks, or Cloud Build then publish
+content-addressed images; provider resources and Kubernetes workloads follow
+in separate stages. Finite build support is owned by the existing conditional
+registry component, not a new Twin responsibility. Build invocations are
+deployment evidence rather than steady-state monthly architecture load. ACR
+Task availability for Azure free-credit subscriptions remains a fail-closed
+preflight because the provider currently documents a temporary pause.
 
 The package approves implementation authority for `five-layer-baseline@2` and
 the later `six-layer-eventing@1` delta. It does **not** activate either profile,
@@ -151,8 +152,9 @@ deterministic default gate.
    managed-Grafana plugin ownership, making capacity dimensions atomic,
    omitting remote-only Eventing services in single-cloud resolutions, and
    validating all 729 admissible Five-layer layer assignments.
-5. GCP implementation-support review: zero unresolved contract findings after
-   binding regional Cloud Build publication, the one-day source bucket,
-   dedicated build identity, digest-only runtime images, five-minute storage
-   batches, and the reviewed 1/1/3 GCP mover task counts. GKE project-network
-   permission completeness remains an explicit supervised activation gate.
+5. Provider image/tiering implementation-support review: zero unresolved
+   contract findings after binding CodeBuild, ACR Tasks, and Cloud Build
+   publication, digest-only runtime images, five-minute storage batches, and
+   the exact reviewed AWS 1/1/3, Azure 1/4/30, and GCP 1/1/3 mover task counts.
+   Azure free-credit ACR Task availability and GKE project-network permission
+   completeness remain explicit supervised activation gates.

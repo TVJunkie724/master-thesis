@@ -37,26 +37,33 @@ class DeploymentLifecycleMixin:
         self._prepare_shared_identity_capabilities(context)
         self._build_packages()
         self._generate_tfvars()
-        self._gcp_v2_image_foundation_required = (
-            self._prepare_gcp_v2_image_foundation()
-        )
+        self._gcp_v2_image_foundation_required = self._prepare_gcp_v2_image_foundation()
+        self._aws_v2_image_foundation_required = self._prepare_aws_v2_image_foundation()
 
     def _apply_infrastructure(self) -> None:
         """Apply the reviewed GCP image/Kubernetes stages or one normal apply."""
 
-        if not getattr(self, "_gcp_v2_image_foundation_required", False):
+        targets = self._image_foundation_targets()
+        if not targets:
             self.runner.apply(var_file=str(self.tfvars_path))
             return
-        kubernetes_already_applied = self._gcp_kubernetes_state_exists()
+        gcp_required = getattr(self, "_gcp_v2_image_foundation_required", False)
+        kubernetes_already_applied = (
+            self._gcp_kubernetes_state_exists() if gcp_required else False
+        )
         self.runner.apply_targets(
             str(self.tfvars_path),
-            self.GCP_V2_IMAGE_FOUNDATION_TARGETS,
+            targets,
         )
-        self._publish_gcp_v2_images()
-        if not kubernetes_already_applied:
+        if getattr(self, "_aws_v2_image_foundation_required", False):
+            self._publish_aws_v2_images()
+        if gcp_required:
+            self._publish_gcp_v2_images()
+        if not gcp_required or not kubernetes_already_applied:
             self.runner.apply(var_file=str(self.tfvars_path))
-        self._merge_tfvars({"gcp_v2_kubernetes_stage_enabled": True})
-        self.runner.apply(var_file=str(self.tfvars_path))
+        if gcp_required:
+            self._merge_tfvars({"gcp_v2_kubernetes_stage_enabled": True})
+            self.runner.apply(var_file=str(self.tfvars_path))
 
     def _record_applied_packages(self) -> int:
         return mark_built_packages_deployed(self.project_path)
@@ -114,34 +121,41 @@ class DeploymentLifecycleMixin:
         self._build_packages()
         yield f"{STAGE_COMPLETED_MARKER}package"
         self._generate_tfvars()
-        self._gcp_v2_image_foundation_required = (
-            self._prepare_gcp_v2_image_foundation()
-        )
+        self._gcp_v2_image_foundation_required = self._prepare_gcp_v2_image_foundation()
+        self._aws_v2_image_foundation_required = self._prepare_aws_v2_image_foundation()
         yield f"{STAGE_COMPLETED_MARKER}preplan"
 
         yield "[4/7] Terraform init"
         async for line in self.runner.init_async():
             yield line
-        if getattr(self, "_gcp_v2_image_foundation_required", False):
-            kubernetes_already_applied = await asyncio.to_thread(
-                self._gcp_kubernetes_state_exists
+        targets = self._image_foundation_targets()
+        if targets:
+            gcp_required = getattr(self, "_gcp_v2_image_foundation_required", False)
+            kubernetes_already_applied = (
+                await asyncio.to_thread(self._gcp_kubernetes_state_exists)
+                if gcp_required
+                else False
             )
-            yield "[5/9] Creating the GCP image foundation"
+            yield "[5/9] Creating provider image foundations"
             async for line in self.runner.apply_targets_async(
                 str(self.tfvars_path),
-                self.GCP_V2_IMAGE_FOUNDATION_TARGETS,
+                targets,
             ):
                 yield line
-            yield "[6/9] Publishing content-addressed GCP images"
-            await asyncio.to_thread(self._publish_gcp_v2_images)
-            if not kubernetes_already_applied:
+            yield "[6/9] Publishing content-addressed provider images"
+            if getattr(self, "_aws_v2_image_foundation_required", False):
+                await asyncio.to_thread(self._publish_aws_v2_images)
+            if gcp_required:
+                await asyncio.to_thread(self._publish_gcp_v2_images)
+            if not gcp_required or not kubernetes_already_applied:
                 yield "[7/9] Applying cloud-provider resources"
                 async for line in self.runner.apply_async(str(self.tfvars_path)):
                     yield line
-            self._merge_tfvars({"gcp_v2_kubernetes_stage_enabled": True})
-            yield "[8/9] Applying post-cluster Kubernetes resources"
-            async for line in self.runner.apply_async(str(self.tfvars_path)):
-                yield line
+            if gcp_required:
+                self._merge_tfvars({"gcp_v2_kubernetes_stage_enabled": True})
+                yield "[8/9] Applying post-cluster Kubernetes resources"
+                async for line in self.runner.apply_async(str(self.tfvars_path)):
+                    yield line
         else:
             yield "[5/7] Terraform apply"
             async for line in self.runner.apply_async(str(self.tfvars_path)):

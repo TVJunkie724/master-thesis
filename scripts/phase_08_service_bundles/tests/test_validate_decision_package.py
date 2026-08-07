@@ -62,6 +62,10 @@ class DecisionPackageValidatorTest(unittest.TestCase):
         manifest = self.validator.load_json(
             self.validator.EVIDENCE_ROOT / "implementation-component-manifest.json"
         )
+        self.assertEqual(
+            {item["runtime_state"] for item in manifest["components"]},
+            {"decision_frozen_not_implemented"},
+        )
         pricing = self.validator.load_json(
             self.validator.EVIDENCE_ROOT / "pricing-ownership-matrix.json"
         )
@@ -133,10 +137,32 @@ class DecisionPackageValidatorTest(unittest.TestCase):
         manifest = self.validator.load_json(
             self.validator.EVIDENCE_ROOT / "implementation-component-manifest.json"
         )
-        self.assertEqual(
-            {item["runtime_state"] for item in manifest["components"]},
-            {"decision_frozen_not_implemented"},
+
+    def test_aws_image_publication_permissions_are_frozen(self) -> None:
+        permission = self.validator.load_json(
+            self.validator.PERMISSION_ROOT / "aws_thesis_demo_v2.json"
         )
+        actions = {
+            action
+            for group in permission["policy_inputs"]
+            for action in group["actions"]
+        }
+        self.assertTrue(
+            {
+                "codebuild:CreateProject",
+                "codebuild:StartBuild",
+                "codebuild:BatchGetBuilds",
+                "ecr:DescribeImages",
+                "s3:PutObject",
+                "s3:GetObject",
+            }.issubset(actions)
+        )
+        pass_role = next(
+            item
+            for item in permission["conditions"]
+            if item["condition"] == "iam:PassedToService"
+        )
+        self.assertIn("codebuild.amazonaws.com", pass_role["values"])
 
     def test_exact_iac_boundaries_and_provider_upgrade_are_frozen(self) -> None:
         manifest = self.validator.load_json(
@@ -162,6 +188,34 @@ class DecisionPackageValidatorTest(unittest.TestCase):
             [item["stage"] for item in manifest["terraform_apply_stages"]],
             [1, 2, 3, 4, 5],
         )
+        self.assertEqual(
+            [item["owner"] for item in manifest["terraform_apply_stages"]],
+            [
+                "provider_image_foundation_when_required",
+                "provider_content_addressed_image_publication_when_required",
+                "cloud_provider_resources",
+                "kubernetes_resources",
+                "bounded_post_terraform_operations",
+            ],
+        )
+        self.assertIn(
+            "regional_codebuild_publish_content_addressed_images",
+            components["aws.ecr-if-container-selected"][
+                "post_terraform_operations"
+            ],
+        )
+        self.assertIn(
+            "aws_codebuild_project",
+            components["aws.ecr-if-container-selected"][
+                "terraform_resource_types"
+            ],
+        )
+        self.assertIn(
+            "regional_acr_task_publish_content_addressed_images",
+            components["azure.acr-basic-if-container-selected"][
+                "post_terraform_operations"
+            ],
+        )
         self.assertIn(
             "regional_cloud_build_publish_content_addressed_images",
             components["gcp.artifact-registry-if-container-selected"][
@@ -174,6 +228,12 @@ class DecisionPackageValidatorTest(unittest.TestCase):
                 "terraform_resource_types"
             ],
         )
+        for mover_id in (
+            "aws.ecs-fargate-storage-mover",
+            "azure.container-apps-scheduled-storage-job",
+            "gcp.cloud-run-storage-job",
+        ):
+            self.assertIn("task_count", components[mover_id]["capacity_dimensions"])
         self.assertEqual(
             set(
                 components["gcp.cloud-run-iap-twin-explorer"][

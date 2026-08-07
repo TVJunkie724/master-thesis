@@ -55,13 +55,13 @@
   "terraform_apply_stages": [
     {
       "stage": 1,
-      "owner": "gcp_image_foundation_when_required",
-      "includes": "deployment registry, short-lived source bucket, build identity and scoped bindings"
+      "owner": "provider_image_foundation_when_required",
+      "includes": "deployment registry, finite build-source storage, build identity and scoped bindings"
     },
     {
       "stage": 2,
-      "owner": "gcp_content_addressed_image_publication_when_required",
-      "includes": "regional Cloud Build publication and digest resolution without a local Docker socket",
+      "owner": "provider_content_addressed_image_publication_when_required",
+      "includes": "regional CodeBuild, ACR Task or Cloud Build publication and digest resolution without a local Docker socket",
       "precondition": "stage_1_registry_source_bucket_and_build_identity_available"
     },
     {
@@ -331,9 +331,18 @@
         "six-layer-eventing@1"
       ],
       "terraform_resource_types": [
-        "aws_ecr_repository"
+        "aws_ecr_repository",
+        "aws_s3_bucket",
+        "aws_s3_bucket_lifecycle_configuration",
+        "aws_s3_bucket_public_access_block",
+        "aws_s3_bucket_server_side_encryption_configuration",
+        "aws_iam_role",
+        "aws_iam_role_policy",
+        "aws_codebuild_project"
       ],
-      "post_terraform_operations": [],
+      "post_terraform_operations": [
+        "regional_codebuild_publish_content_addressed_images"
+      ],
       "runtime_state": "decision_frozen_not_implemented",
       "pricing_owner_id": "cost::aws.ecr-if-container-selected",
       "permission_set_refs": [
@@ -350,7 +359,8 @@
       "network_ports": [],
       "implementation_file_targets": [
         "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
-        "3-cloud-deployer/src/runtime_packages/aws/aws_ecr_if_container_selected"
+        "3-cloud-deployer/src/providers/terraform/aws_v2_image_publisher.py",
+        "3-cloud-deployer/src/providers/terraform/package_builders/aws_v2.py"
       ],
       "formula_refs": [
         "capacity-matrix.json#formula_contract",
@@ -392,7 +402,7 @@
       "network_ports": [],
       "implementation_file_targets": [
         "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
-        "3-cloud-deployer/src/runtime_packages/aws/aws_ecs_fargate_storage_mover"
+        "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2/storage-mover"
       ],
       "formula_refs": [
         "capacity-matrix.json#formula_contract",
@@ -400,7 +410,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "stored_gib_month"
+        "stored_gib_month",
+        "task_count"
       ]
     },
     {
@@ -1243,7 +1254,9 @@
       "terraform_resource_types": [
         "azurerm_container_registry"
       ],
-      "post_terraform_operations": [],
+      "post_terraform_operations": [
+        "regional_acr_task_publish_content_addressed_images"
+      ],
       "runtime_state": "decision_frozen_not_implemented",
       "pricing_owner_id": "cost::azure.acr-basic-if-container-selected",
       "permission_set_refs": [
@@ -1260,7 +1273,8 @@
       "network_ports": [],
       "implementation_file_targets": [
         "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
-        "3-cloud-deployer/src/runtime_packages/azure/azure_acr_basic_if_container_selected"
+        "3-cloud-deployer/src/providers/terraform/azure_v2_image_publisher.py",
+        "3-cloud-deployer/src/providers/terraform/package_builders/azure_v2_container.py"
       ],
       "formula_refs": [
         "capacity-matrix.json#formula_contract",
@@ -1387,7 +1401,7 @@
       "network_ports": [],
       "implementation_file_targets": [
         "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
-        "3-cloud-deployer/src/runtime_packages/azure/azure_container_apps_scheduled_storage_job"
+        "3-cloud-deployer/src/providers/azure/containers/five-layer-v2/storage-mover"
       ],
       "formula_refs": [
         "capacity-matrix.json#formula_contract",
@@ -1395,7 +1409,8 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "stored_gib_month"
+        "stored_gib_month",
+        "task_count"
       ]
     },
     {
@@ -2566,7 +2581,8 @@
         "stored_gib_month",
         "requests",
         "vcpu_seconds",
-        "memory_gib_seconds"
+        "memory_gib_seconds",
+        "task_count"
       ]
     },
     {

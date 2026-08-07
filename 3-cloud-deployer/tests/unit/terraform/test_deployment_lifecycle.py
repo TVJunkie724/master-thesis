@@ -68,6 +68,7 @@ def _strategy(tmp_path, events):
     strategy._validate_project = MagicMock()
     strategy._generate_tfvars = MagicMock(side_effect=lambda: events.append("tfvars"))
     strategy._prepare_gcp_v2_image_foundation = MagicMock(return_value=False)
+    strategy._prepare_aws_v2_image_foundation = MagicMock(return_value=False)
     strategy._run_post_deployment = MagicMock(
         side_effect=lambda context: events.append("post")
     )
@@ -141,9 +142,11 @@ def test_sync_gcp_deployment_applies_foundation_images_cloud_then_kubernetes(tmp
         if isinstance(event, tuple) and event[0] == "apply"
     ]
     assert len(apply_positions) == 2
-    assert apply_positions[0] < events.index(
-        ("merge", {"gcp_v2_kubernetes_stage_enabled": True})
-    ) < apply_positions[1]
+    assert (
+        apply_positions[0]
+        < events.index(("merge", {"gcp_v2_kubernetes_stage_enabled": True}))
+        < apply_positions[1]
+    )
 
 
 def test_sync_gcp_resume_does_not_remove_existing_kubernetes_resources(tmp_path):
@@ -160,9 +163,34 @@ def test_sync_gcp_resume_does_not_remove_existing_kubernetes_resources(tmp_path)
 
     strategy.deploy_all(_context())
 
-    applies = [event for event in events if isinstance(event, tuple) and event[0] == "apply"]
+    applies = [
+        event for event in events if isinstance(event, tuple) and event[0] == "apply"
+    ]
     assert len(applies) == 1
     assert ("merge", {"gcp_v2_kubernetes_stage_enabled": True}) in events
+
+
+def test_sync_aws_deployment_publishes_image_before_runtime_apply(tmp_path):
+    events = []
+    strategy = _strategy(tmp_path, events)
+    strategy._prepare_aws_v2_image_foundation.return_value = True
+    strategy._publish_aws_v2_images = MagicMock(
+        side_effect=lambda: events.append("publish-aws")
+    )
+
+    strategy.deploy_all(_context())
+
+    foundation = (
+        "apply_targets",
+        str(strategy.tfvars_path),
+        strategy.AWS_V2_IMAGE_FOUNDATION_TARGETS,
+    )
+    runtime_apply = ("apply", str(strategy.tfvars_path))
+    assert (
+        events.index(foundation)
+        < events.index("publish-aws")
+        < events.index(runtime_apply)
+    )
 
 
 def test_streaming_deployment_uses_same_canonical_order(tmp_path):

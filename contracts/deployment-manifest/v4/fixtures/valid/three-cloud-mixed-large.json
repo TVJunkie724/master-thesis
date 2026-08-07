@@ -37,7 +37,7 @@
     "layer_5_provider": "gcp"
   },
   "calculation_run_id": "bb7ddd5f-930c-5028-87a8-067b716d805f",
-  "resolved_twin_architecture_digest": "sha256:8400102a0bd2144e64f8add894a3f238571c5d0164f2c4b54fc00f1ca52b3888",
+  "resolved_twin_architecture_digest": "sha256:c056752f432d34c9bce831adddd38a8423049ae5c10329104c8de69e1e26911f",
   "resolved_twin_architecture": {
     "schema_version": "resolved-twin-architecture.v2",
     "resolution_status": "offline_contract_fixture",
@@ -88,21 +88,21 @@
       {
         "id": "pricing-evidence.aws.phase-08-v2",
         "version": "1",
-        "digest": "sha256:acf00dccd0521168da97afa7833d8216a02c6fe9ef868738fc32caee334f2942",
+        "digest": "sha256:274a7463a18f18839bcd8f78b7ac3a04451bdd7cde54e418f3775fca4ef982fa",
         "provider": "aws",
         "currency": "USD"
       },
       {
         "id": "pricing-evidence.azure.phase-08-v2",
         "version": "1",
-        "digest": "sha256:acf00dccd0521168da97afa7833d8216a02c6fe9ef868738fc32caee334f2942",
+        "digest": "sha256:274a7463a18f18839bcd8f78b7ac3a04451bdd7cde54e418f3775fca4ef982fa",
         "provider": "azure",
         "currency": "USD"
       },
       {
         "id": "pricing-evidence.gcp.phase-08-v2",
         "version": "1",
-        "digest": "sha256:acf00dccd0521168da97afa7833d8216a02c6fe9ef868738fc32caee334f2942",
+        "digest": "sha256:274a7463a18f18839bcd8f78b7ac3a04451bdd7cde54e418f3775fca4ef982fa",
         "provider": "gcp",
         "currency": "USD"
       }
@@ -642,7 +642,7 @@
     ],
     "deployment_specification_ref": {
       "schema_version": "resolved-deployment-specification.v2",
-      "digest": "sha256:bd670e074e4c3f69ce324d46f75193ed0fa6161d5f5c24db9db7431c2efd1148",
+      "digest": "sha256:4f995f29c16b1c87fa0b51d244b03089edb6ec299c3f33d6154dfa6359719b2f",
       "calculation_run_id": "bb7ddd5f-930c-5028-87a8-067b716d805f"
     },
     "cost_summary": {
@@ -756,11 +756,11 @@
       "provider_extra_capability_ids": [],
       "missing_capability_ids": [],
       "validator_version": "2",
-      "validation_digest": "sha256:c3cd622dec3ae1c398d69dce940016b3c4b48832fcf62536efa9249ab1c52e9b"
+      "validation_digest": "sha256:083774bf7942f42182ec97d82443515330250355bbdf97efebce6653c7e5e79a"
     },
-    "content_digest": "sha256:8400102a0bd2144e64f8add894a3f238571c5d0164f2c4b54fc00f1ca52b3888"
+    "content_digest": "sha256:c056752f432d34c9bce831adddd38a8423049ae5c10329104c8de69e1e26911f"
   },
-  "resolved_deployment_specification_digest": "sha256:bd670e074e4c3f69ce324d46f75193ed0fa6161d5f5c24db9db7431c2efd1148",
+  "resolved_deployment_specification_digest": "sha256:4f995f29c16b1c87fa0b51d244b03089edb6ec299c3f33d6154dfa6359719b2f",
   "resolved_deployment_specification": {
     "schema_version": "resolved-deployment-specification.v2",
     "calculation_run_id": "bb7ddd5f-930c-5028-87a8-067b716d805f",
@@ -773,12 +773,12 @@
       "service_decision_ref": {
         "id": "phase-08-complete-service-bundles",
         "version": "1",
-        "digest": "sha256:a3eef3b52915b8a3d696933fe3a91d7d24c2e7ea66099a55d7fb95b57d317c49"
+        "digest": "sha256:f5bbbb4d052458d70b3b079321729fc4f46a439f1bcde3e710b960b412968d90"
       },
       "component_catalog_ref": {
         "id": "complete-service-component-catalog",
         "version": "1",
-        "digest": "sha256:13dc37220f2b8092be9cd530404cc537485da4b4056244b11c7204ca4d57504a"
+        "digest": "sha256:49bff381c3340a0580362765697287fe55eb7bff0deb22d6a0b1e9ae8e5e2a00"
       },
       "workload_ref": {
         "id": "five-layer-workload",
@@ -793,20 +793,20 @@
       "formula_set_ref": {
         "id": "phase-08-complete-service-bundles",
         "version": "1",
-        "digest": "sha256:b6483da5a7ca775029a9cfdf4f7688bddcd60f69bdd4df262db5509e242b34f1"
+        "digest": "sha256:a25799ee9a15a409036222cab676c2c1e9fada0873d53f59ba83d7942a3324ec"
       },
       "pricing_evidence_refs": [
         {
           "provider": "aws",
-          "digest": "sha256:acf00dccd0521168da97afa7833d8216a02c6fe9ef868738fc32caee334f2942"
+          "digest": "sha256:274a7463a18f18839bcd8f78b7ac3a04451bdd7cde54e418f3775fca4ef982fa"
         },
         {
           "provider": "azure",
-          "digest": "sha256:acf00dccd0521168da97afa7833d8216a02c6fe9ef868738fc32caee334f2942"
+          "digest": "sha256:274a7463a18f18839bcd8f78b7ac3a04451bdd7cde54e418f3775fca4ef982fa"
         },
         {
           "provider": "gcp",
-          "digest": "sha256:acf00dccd0521168da97afa7833d8216a02c6fe9ef868738fc32caee334f2942"
+          "digest": "sha256:274a7463a18f18839bcd8f78b7ac3a04451bdd7cde54e418f3775fca4ef982fa"
         }
       ]
     },
@@ -1963,7 +1963,7 @@
         "architecture_assignment_id": "assignment.hot-storage",
         "logical_component_id": "component.hot-storage",
         "implementation_component_id": "gcp.cloud-run-storage-job",
-        "implementation_component_digest": "sha256:1b6c566582cf0c175381784893abc2eccd9ebd5ac73b3667515c60caf0935390",
+        "implementation_component_digest": "sha256:0cb4069fc4a636adae39e34a49c72d5488d206aa189df3fd66a091df7f9ca1c1",
         "provider": "gcp",
         "region": "europe-west1",
         "required": true,
@@ -2005,6 +2005,14 @@
             "classification": "usage",
             "value": "6480000000.0",
             "unit": "GiB-s/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:4b472c7a23439e37ba699aa126a39215b4ac8a6b03aa62fa428a5af6635e745e"
+          },
+          {
+            "dimension_id": "dimension.gcp.gcp.cloud-run-storage-job.task_count",
+            "classification": "capacity",
+            "value": 3,
+            "unit": "count",
             "formula_reference": "formula.phase-08-complete-service-bundles",
             "evidence_reference": "sha256:4b472c7a23439e37ba699aa126a39215b4ac8a6b03aa62fa428a5af6635e745e"
           }
@@ -2063,7 +2071,7 @@
         "architecture_assignment_id": "assignment.cool-storage",
         "logical_component_id": "component.cool-storage",
         "implementation_component_id": "aws.ecs-fargate-storage-mover",
-        "implementation_component_digest": "sha256:2aa107e261123dd4db63c80ea885e60692c5cf74303dc29e586c511688fe8eb2",
+        "implementation_component_digest": "sha256:707ab195b6150644e229e5428ef0b4288fe82780a278eda01180495839188ea6",
         "provider": "aws",
         "region": "eu-central-1",
         "required": true,
@@ -2083,6 +2091,14 @@
             "unit": "GiB-month",
             "formula_reference": "formula.phase-08-complete-service-bundles",
             "evidence_reference": "sha256:4b472c7a23439e37ba699aa126a39215b4ac8a6b03aa62fa428a5af6635e745e"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.ecs-fargate-storage-mover.task_count",
+            "classification": "capacity",
+            "value": 3,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:4b472c7a23439e37ba699aa126a39215b4ac8a6b03aa62fa428a5af6635e745e"
           }
         ]
       },
@@ -2091,7 +2107,7 @@
         "architecture_assignment_id": "assignment.cool-storage",
         "logical_component_id": "component.cool-storage",
         "implementation_component_id": "aws.ecr-if-container-selected",
-        "implementation_component_digest": "sha256:26304292a34b17210109e6ebd68a96642afa4b4e42b8696915f716638e22bb66",
+        "implementation_component_digest": "sha256:7ea6e0b1359b9a63a49fed6ba678cd828f6b178899aba08f532f183b0a2d3179",
         "provider": "aws",
         "region": "eu-central-1",
         "required": true,
@@ -3321,6 +3337,18 @@
         "compatibility_version": "1"
       },
       {
+        "binding_id": "binding.gcp.gcp.cloud-run-storage-job.task_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.gcp.gcp.cloud-run-storage-job.task_count",
+        "destination_selection_id": "selection.gcp.gcp.cloud-run-storage-job",
+        "destination_input_id": "input.capacity.task_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
         "binding_id": "binding.gcp.gcp.artifact-registry-if-container-selected.resource_count",
         "source_kind": "deployment_dimension",
         "source_ref": "dimension.gcp.gcp.artifact-registry-if-container-selected.resource_count",
@@ -3381,6 +3409,18 @@
         "compatibility_version": "1"
       },
       {
+        "binding_id": "binding.aws.aws.ecs-fargate-storage-mover.task_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.ecs-fargate-storage-mover.task_count",
+        "destination_selection_id": "selection.aws.aws.ecs-fargate-storage-mover",
+        "destination_input_id": "input.capacity.task_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
         "binding_id": "binding.aws.aws.ecr-if-container-selected.resource_count",
         "source_kind": "deployment_dimension",
         "source_ref": "dimension.aws.aws.ecr-if-container-selected.resource_count",
@@ -3393,7 +3433,7 @@
         "compatibility_version": "1"
       }
     ],
-    "digest": "sha256:bd670e074e4c3f69ce324d46f75193ed0fa6161d5f5c24db9db7431c2efd1148"
+    "digest": "sha256:4f995f29c16b1c87fa0b51d244b03089edb6ec299c3f33d6154dfa6359719b2f"
   },
   "credentials": {
     "providers": [
@@ -3412,7 +3452,7 @@
     "component_catalog_ref": {
       "id": "complete-service-component-catalog",
       "version": "1",
-      "digest": "sha256:13dc37220f2b8092be9cd530404cc537485da4b4056244b11c7204ca4d57504a"
+      "digest": "sha256:49bff381c3340a0580362765697287fe55eb7bff0deb22d6a0b1e9ae8e5e2a00"
     },
     "graph_resolver_version": "resolved-deployment-graph.v1",
     "package_builder_version": "graph-package-builder.v1",

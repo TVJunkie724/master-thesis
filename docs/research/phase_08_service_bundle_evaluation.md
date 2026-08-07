@@ -520,14 +520,21 @@ container images in a provider deployment and priced once. A provider with no
 selected platform-owned container receives no registry. It is supporting
 deployment infrastructure, not another scientific responsibility.
 
-For GCP, the Deployer materializes that image without requiring a local Docker
-daemon: a deployment-owned regional Cloud Build invocation consumes a
-deterministic context from a one-day source bucket and publishes into the
-deployment Artifact Registry. The build identity can read only that source,
-write only that repository, and emit build logs. This finite deployment-time
-mechanism is evidence and packaging overhead, not a steady-state Twin service;
-the monthly Optimizer therefore prices registry storage but does not pretend a
-one-time build minute is recurring architecture load.
+The Deployer materializes each required image without a local Docker daemon:
+AWS uses regional CodeBuild with a deterministic context in a one-day S3
+source bucket, Azure uses an on-demand ACR Task run with an uploaded
+deterministic context, and GCP uses regional Cloud Build with a deterministic
+context in a one-day Cloud Storage source bucket. Each build publishes to the
+deployment-owned provider registry and the Deployer resolves the immutable
+image digest before runtime Terraform is allowed to continue. The build
+identities can read only their finite source context, write only their selected
+registry, and emit build logs. These bounded deployment-time invocations are
+packaging evidence, not steady-state Twin services; the monthly Optimizer
+prices registry storage but does not present one-time build minutes as
+recurring architecture load. Current Azure documentation warns that ACR Task
+runs are temporarily paused for Azure free-credit subscriptions, so that
+condition is an explicit pre-mutation activation gate rather than a silent
+fallback to local Docker.
 
 For Five-layer v2, the three existing duration inputs are cumulative data
 age boundaries measured from provider-assigned `stored_at`: hot `[0,H)`, cool

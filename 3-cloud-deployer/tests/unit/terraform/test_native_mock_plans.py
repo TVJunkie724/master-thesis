@@ -176,9 +176,9 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
 
 
 def test_gcp_v2_workflow_reports_one_terminal_outcome_to_domain_consumer():
-    terraform_source = (
-        TERRAFORM_SOURCE / "gcp_five_layer_v2.tf"
-    ).read_text(encoding="utf-8")
+    terraform_source = (TERRAFORM_SOURCE / "gcp_five_layer_v2.tf").read_text(
+        encoding="utf-8"
+    )
 
     assert 'schema_version   = "workflow-outcome.v1"' in terraform_source
     assert '{ outcome_status = "SUCCEEDED" }' in terraform_source
@@ -187,3 +187,15 @@ def test_gcp_v2_workflow_reports_one_terminal_outcome_to_domain_consumer():
         'google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["domain"].uri'
         in terraform_source
     )
+
+
+def test_aws_v2_storage_mover_uses_only_digest_input_and_exact_task_dimension():
+    terraform_source = (TERRAFORM_SOURCE / "aws_five_layer_v2.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert "image     = var.aws_v2_storage_mover_image" in terraform_source
+    assert (
+        '"dimension.aws.aws.ecs-fargate-storage-mover.task_count"' in terraform_source
+    )
+    assert ":storage-mover-v1" not in terraform_source

@@ -29,12 +29,12 @@
   "catalog_ref": {
     "id": "complete-service-component-catalog",
     "version": "1",
-    "digest": "sha256:13dc37220f2b8092be9cd530404cc537485da4b4056244b11c7204ca4d57504a"
+    "digest": "sha256:49bff381c3340a0580362765697287fe55eb7bff0deb22d6a0b1e9ae8e5e2a00"
   },
   "service_decision_ref": {
     "id": "phase-08-complete-service-bundles",
     "version": "1",
-    "digest": "sha256:a3eef3b52915b8a3d696933fe3a91d7d24c2e7ea66099a55d7fb95b57d317c49"
+    "digest": "sha256:f5bbbb4d052458d70b3b079321729fc4f46a439f1bcde3e710b960b412968d90"
   },
   "workload_ref": {
     "id": "five-layer-workload",
@@ -52,5 +52,5 @@
     "gcp-l3l5-azure-l4",
     "gcp-l3l5-gcp-l4"
   ],
-  "content_digest": "sha256:9b230d8fc70b4f55a25a4785e0d5b7827c905cb1a239eae2bba28429cb7ce9e4"
+  "content_digest": "sha256:44f93616bd5e6b8e0caa3c19c05e7266d2a89538317b562d5ced3075f17ce28b"
 }

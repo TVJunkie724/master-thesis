@@ -94,6 +94,12 @@ def build() -> dict[str, Any]:
         "research_cutoff": "2026-08-05",
         "pre_activation_refreeze": {
             "refrozen_on": "2026-08-07",
+            "previous_package_digest": "sha256:a3eef3b52915b8a3d696933fe3a91d7d24c2e7ea66099a55d7fb95b57d317c49",
+            "reason": "expose exact provider storage task counts and provider-neutral content-addressed image publication stages before AWS and Azure runtime activation",
+            "scope_change": False,
+            "activated_or_deployed_before_refreeze": False,
+            "prior_refreeze": {
+            "refrozen_on": "2026-08-07",
             "previous_package_digest": "sha256:73a78f62858fcd3563205b84fd937a40a243a2d342e0e97b67c2b76f78f6243a",
             "reason": "bind the approved GCP content-addressed image publication stages, finite build-source bucket, dedicated build identity, and five-minute 1/1/3-task storage batches",
             "scope_change": False,
@@ -147,6 +153,7 @@ def build() -> dict[str, Any]:
                     },
                 },
             },
+        },
         },
         "regions": {
             "aws": "eu-central-1",
@@ -238,6 +245,12 @@ def build() -> dict[str, Any]:
                 "scope": "GCP staged content-addressed image publication, bounded build support, five-minute storage windows, and 1/1/3 task capacity binding",
                 "unresolved_findings": 0,
             },
+            {
+                "review_id": "service-bundle-provider-image-tiering-contract-review-10",
+                "reviewed_on": "2026-08-07",
+                "scope": "exact AWS 1/1/3, Azure 1/4/30, and GCP 1/1/3 storage task dimensions plus provider-native content-addressed image publication without a local Docker dependency",
+                "unresolved_findings": 0,
+            },
         ],
         "activation_conditions": [
             "eventing_dependency_digest_matches",
@@ -246,7 +259,8 @@ def build() -> dict[str, Any]:
             "thesis_demo_v2_permission_manifest_matches_selected_graph",
             "provider_plugin_and_preview_resource_preflights_pass_before_mutation",
             "terraform_provider_versions_match_the_frozen_component_manifest",
-            "gcp_image_cloud_kubernetes_and_post_apply_stages_remain_separate_and_automatic",
+            "provider_image_cloud_kubernetes_and_post_apply_stages_remain_separate_and_automatic",
+            "azure_acr_task_subscription_eligibility_passes_before_mutation",
             "azure_request_charge_fixture_passes_before_five_layer_profile_activation",
             "no_live_cloud_claim_is_derived_from_offline_approval",
         ],

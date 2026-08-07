@@ -14,6 +14,10 @@ from src.providers.terraform.package_builders.aws import (
     build_aws_lambda_packages,
     get_lambda_zip_path,
 )
+from src.providers.terraform.package_builders.aws_v2 import (
+    PACKAGE_ID as AWS_V2_STORAGE_MOVER_PACKAGE_ID,
+    build_aws_v2_storage_mover_context,
+)
 from src.providers.terraform.package_builders.azure import (
     _add_azure_function_app_directly,
     _create_azure_function_zip,
@@ -103,6 +107,7 @@ def build_all_packages(
         gcp_container_names, expected_gcp_container_packages = (
             _selected_gcp_container_packages(graph)
         )
+        aws_v2_storage_mover_selected = _aws_v2_storage_mover_selected(graph)
 
     packages: Dict[str, Path] = {}
     extension_packages = build_bound_extension_packages(
@@ -147,6 +152,8 @@ def build_all_packages(
         packages.update(
             build_gcp_v2_container_contexts(project_path, gcp_container_names)
         )
+        if aws_v2_storage_mover_selected:
+            packages.update(build_aws_v2_storage_mover_context(project_path))
         if (
             providers_config.get("layer_2_provider") in {"gcp", "google"}
             and "extension:processor.telemetry" in packages
@@ -158,6 +165,11 @@ def build_all_packages(
         expected_packages = (
             expected_static_packages
             | expected_gcp_container_packages
+            | (
+                {AWS_V2_STORAGE_MOVER_PACKAGE_ID}
+                if aws_v2_storage_mover_selected
+                else set()
+            )
             | {
                 f"extension:{item['slot_id']}"
                 for item in _selected_extension_refs(graph)
@@ -385,6 +397,14 @@ def _selected_gcp_container_packages(
     return names, {f"gcp_{name}" for name in names}
 
 
+def _aws_v2_storage_mover_selected(graph: ResolvedDeploymentGraph) -> bool:
+    return any(
+        "aws.ecs-fargate-storage-mover" in component_id
+        for node in graph.nodes
+        for component_id in node.deployment_specification_component_ids
+    )
+
+
 def _selected_extension_refs(
     graph: ResolvedDeploymentGraph,
 ) -> list[Mapping[str, Any]]:
@@ -501,6 +521,7 @@ __all__ = [
     "_should_include_file",
     "build_all_packages",
     "build_aws_lambda_packages",
+    "build_aws_v2_storage_mover_context",
     "build_azure_function_packages",
     "build_azure_l0_bundle",
     "build_azure_l1_bundle",

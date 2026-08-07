@@ -23,6 +23,41 @@ locals {
     local.aws_v2_hot_enabled ||
     (local.aws_v2_cool_enabled && var.layer_3_archive_provider != "aws")
   )
+  aws_v2_storage_task_count = tonumber(lookup(
+    var.resolved_component_dimensions,
+    "dimension.aws.aws.ecs-fargate-storage-mover.task_count",
+    "0",
+  ))
+  aws_v2_storage_jobs = merge(
+    local.aws_v2_hot_enabled ? {
+      hot-to-cool = {
+        source_provider      = "aws"
+        destination_provider = var.layer_3_cold_provider
+        schedule             = "rate(5 minutes)"
+      }
+    } : {},
+    local.aws_v2_cool_enabled && var.layer_3_archive_provider != "aws" ? {
+      cool-to-archive = {
+        source_provider      = "aws"
+        destination_provider = var.layer_3_archive_provider
+        schedule             = "rate(1 day)"
+      }
+    } : {},
+  )
+  aws_v2_storage_schedule_tasks = {
+    for item in flatten([
+      for transition, job in local.aws_v2_storage_jobs : [
+        for task_index in range(local.aws_v2_storage_task_count) : {
+          key         = "${transition}-${format("%03d", task_index)}"
+          transition  = transition
+          task_index  = task_index
+          source      = job.source_provider
+          destination = job.destination_provider
+          schedule    = job.schedule
+        }
+      ]
+    ]) : item.key => item
+  }
   aws_v2_object_store_enabled = local.aws_v2_cool_enabled || local.aws_v2_archive_enabled
 
   aws_v2_remote_telemetry_outbound = local.five_layer_v2_enabled && (
@@ -295,6 +330,7 @@ resource "aws_lambda_function" "aws_aws_lambda_event_adapter" {
       ROLLUP_TABLE_NAME         = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
       HOT_BOUNDARY_DAYS         = tostring(var.layer_3_hot_to_cold_interval_days)
       SOURCE_EXPIRY_GRACE_HOURS = "48"
+      STORAGE_TASK_COUNT        = tostring(local.aws_v2_storage_task_count)
       TWINMAKER_WORKSPACE       = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
     }
   }
@@ -377,6 +413,7 @@ resource "aws_lambda_function" "aws_aws_lambda" {
       TELEMETRY_STREAM_ARN              = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
       HOT_BOUNDARY_DAYS                 = tostring(var.layer_3_hot_to_cold_interval_days)
       SOURCE_EXPIRY_GRACE_HOURS         = "48"
+      STORAGE_TASK_COUNT                = tostring(local.aws_v2_storage_task_count)
       TWINMAKER_WORKSPACE               = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
       RULES_JSON                        = jsonencode(var.events)
       PROCESSOR_EXTENSION_FUNCTION_NAME = try(one(values(aws_lambda_function.aws_v2_processor_extension)).function_name, "")
@@ -520,6 +557,7 @@ resource "aws_lambda_function" "aws_v2_domain_consumer" {
       ROLLUP_TABLE_NAME                 = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
       HOT_BOUNDARY_DAYS                 = tostring(var.layer_3_hot_to_cold_interval_days)
       SOURCE_EXPIRY_GRACE_HOURS         = "48"
+      STORAGE_TASK_COUNT                = tostring(local.aws_v2_storage_task_count)
       TWINMAKER_WORKSPACE               = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
       RULES_JSON                        = jsonencode(var.events)
       PROCESSOR_EXTENSION_FUNCTION_NAME = try(one(values(aws_lambda_function.aws_v2_processor_extension)).function_name, "")
@@ -823,6 +861,148 @@ resource "aws_ecr_repository" "aws_aws_ecr_if_container_selected" {
   tags = local.aws_v2_tags
 }
 
+resource "aws_s3_bucket" "aws_aws_ecr_if_container_selected" {
+  count         = local.aws_v2_storage_mover_enabled ? 1 : 0
+  bucket        = "${local.aws_v2_name}-v2-build-${local.deployment_suffix}"
+  force_destroy = true
+  tags          = local.aws_v2_tags
+}
+
+resource "aws_s3_bucket_public_access_block" "aws_aws_ecr_if_container_selected" {
+  count                   = local.aws_v2_storage_mover_enabled ? 1 : 0
+  bucket                  = aws_s3_bucket.aws_aws_ecr_if_container_selected[0].id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "aws_aws_ecr_if_container_selected" {
+  count  = local.aws_v2_storage_mover_enabled ? 1 : 0
+  bucket = aws_s3_bucket.aws_aws_ecr_if_container_selected[0].id
+  rule {
+    apply_server_side_encryption_by_default { sse_algorithm = "AES256" }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "aws_aws_ecr_if_container_selected" {
+  count  = local.aws_v2_storage_mover_enabled ? 1 : 0
+  bucket = aws_s3_bucket.aws_aws_ecr_if_container_selected[0].id
+  rule {
+    id     = "expire-build-contexts"
+    status = "Enabled"
+    filter { prefix = "contexts/" }
+    expiration { days = 1 }
+  }
+}
+
+resource "aws_iam_role" "aws_aws_ecr_if_container_selected" {
+  count = local.aws_v2_storage_mover_enabled ? 1 : 0
+  name  = "${local.aws_v2_name}-v2-build-${local.deployment_suffix}"
+  assume_role_policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [{ Effect = "Allow", Action = "sts:AssumeRole", Principal = { Service = "codebuild.amazonaws.com" } }]
+  })
+  tags = local.aws_v2_tags
+}
+
+resource "aws_iam_role_policy" "aws_aws_ecr_if_container_selected" {
+  count = local.aws_v2_storage_mover_enabled ? 1 : 0
+  name  = "publish-content-addressed-image"
+  role  = aws_iam_role.aws_aws_ecr_if_container_selected[0].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = "${aws_s3_bucket.aws_aws_ecr_if_container_selected[0].arn}/contexts/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ecr:GetAuthorizationToken"]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:CompleteLayerUpload",
+          "ecr:InitiateLayerUpload",
+          "ecr:PutImage",
+          "ecr:UploadLayerPart",
+        ]
+        Resource = aws_ecr_repository.aws_aws_ecr_if_container_selected[0].arn
+      },
+      {
+        Effect = "Allow"
+        Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = [
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:log-group:/aws/codebuild/${local.aws_v2_name}-v2-images*",
+        ]
+      },
+    ]
+  })
+}
+
+resource "aws_codebuild_project" "aws_aws_ecr_if_container_selected" {
+  count         = local.aws_v2_storage_mover_enabled ? 1 : 0
+  name          = "${local.aws_v2_name}-v2-images"
+  description   = "Bounded Five-layer v2 container publication"
+  service_role  = aws_iam_role.aws_aws_ecr_if_container_selected[0].arn
+  build_timeout = 20
+
+  artifacts { type = "NO_ARTIFACTS" }
+  environment {
+    compute_type                = "BUILD_GENERAL1_SMALL"
+    image                       = "aws/codebuild/standard:7.0"
+    type                        = "LINUX_CONTAINER"
+    image_pull_credentials_type = "CODEBUILD"
+    privileged_mode             = true
+  }
+  source {
+    type     = "S3"
+    location = "${aws_s3_bucket.aws_aws_ecr_if_container_selected[0].bucket}/contexts/placeholder.zip"
+    buildspec = yamlencode({
+      version = "0.2"
+      phases = {
+        pre_build = { commands = [
+          "aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $IMAGE_URI",
+        ] }
+        build = { commands = [
+          "docker build --platform linux/amd64 --tag $IMAGE_URI:$IMAGE_TAG .",
+        ] }
+        post_build = { commands = [
+          "docker push $IMAGE_URI:$IMAGE_TAG",
+        ] }
+      }
+    })
+  }
+  tags       = local.aws_v2_tags
+  depends_on = [aws_iam_role_policy.aws_aws_ecr_if_container_selected]
+}
+
+resource "terraform_data" "aws_v2_storage_mover_guard" {
+  count = local.aws_v2_storage_mover_enabled ? 1 : 0
+  input = {
+    image      = var.aws_v2_storage_mover_image
+    task_count = local.aws_v2_storage_task_count
+  }
+  lifecycle {
+    precondition {
+      condition     = contains([1, 3], local.aws_v2_storage_task_count)
+      error_message = "AWS Five-layer v2 storage movement requires the exact reviewed 1/1/3 task_count capacity dimension."
+    }
+    precondition {
+      condition = (
+        var.aws_v2_storage_mover_image != "" &&
+        startswith(var.aws_v2_storage_mover_image, "${aws_ecr_repository.aws_aws_ecr_if_container_selected[0].repository_url}@sha256:")
+      )
+      error_message = "AWS Five-layer v2 storage movement requires a digest-pinned image from the deployment ECR repository."
+    }
+  }
+}
+
 resource "aws_ecs_cluster" "aws_aws_ecs_fargate_storage_mover" {
   count = local.aws_v2_storage_mover_enabled ? 1 : 0
   name  = "${local.aws_v2_name}-v2-storage-mover"
@@ -868,7 +1048,7 @@ resource "aws_iam_role_policy" "aws_v2_storage_mover" {
     Statement = concat(
       local.aws_v2_hot_enabled ? [{
         Effect = "Allow"
-        Action = ["dynamodb:Query", "dynamodb:DeleteItem"]
+        Action = ["dynamodb:Query"]
         Resource = [
           aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].arn,
           "${aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].arn}/index/storage-window-index",
@@ -876,7 +1056,7 @@ resource "aws_iam_role_policy" "aws_v2_storage_mover" {
       }] : [],
       local.aws_v2_object_store_enabled ? [{
         Effect = "Allow"
-        Action = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]
+        Action = ["s3:GetObject", "s3:PutObject"]
         Resource = [
           aws_s3_bucket.aws_aws_s3_standard_ia[0].arn,
           "${aws_s3_bucket.aws_aws_s3_standard_ia[0].arn}/history/*",
@@ -950,7 +1130,7 @@ resource "aws_ecs_task_definition" "aws_aws_ecs_fargate_storage_mover" {
 
   container_definitions = jsonencode([{
     name      = "storage-mover"
-    image     = "${aws_ecr_repository.aws_aws_ecr_if_container_selected[0].repository_url}:storage-mover-v1"
+    image     = var.aws_v2_storage_mover_image
     essential = true
     environment = [
       { name = "ARCHITECTURE_PROFILE", value = "five-layer-baseline@2" },
@@ -960,6 +1140,7 @@ resource "aws_ecs_task_definition" "aws_aws_ecs_fargate_storage_mover" {
       { name = "HOT_BOUNDARY_DAYS", value = tostring(var.layer_3_hot_to_cold_interval_days) },
       { name = "COOL_BOUNDARY_DAYS", value = tostring(var.layer_3_cold_to_archive_interval_days) },
       { name = "ARCHIVE_BOUNDARY_DAYS", value = tostring(var.layer_3_archive_expiry_interval_days) },
+      { name = "STORAGE_TASK_COUNT", value = tostring(local.aws_v2_storage_task_count) },
       { name = "RAW_TABLE_NAME", value = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "") },
       { name = "HISTORY_BUCKET", value = try(aws_s3_bucket.aws_aws_s3_standard_ia[0].bucket, "") },
     ]
@@ -999,9 +1180,9 @@ resource "aws_iam_role_policy" "aws_v2_scheduler" {
 }
 
 resource "aws_scheduler_schedule" "aws_aws_eventbridge_scheduler" {
-  count               = local.aws_v2_storage_mover_enabled ? 1 : 0
-  name                = "${local.aws_v2_name}-v2-storage-mover"
-  schedule_expression = "rate(5 minutes)"
+  for_each            = local.aws_v2_storage_schedule_tasks
+  name                = "${local.aws_v2_name}-v2-${each.key}"
+  schedule_expression = each.value.schedule
   state               = "ENABLED"
 
   flexible_time_window { mode = "OFF" }
@@ -1018,6 +1199,18 @@ resource "aws_scheduler_schedule" "aws_aws_eventbridge_scheduler" {
         security_groups  = [aws_security_group.aws_v2_storage_mover[0].id]
       }
     }
+    input = jsonencode({
+      containerOverrides = [{
+        name = "storage-mover"
+        environment = [
+          { name = "TRANSITION", value = each.value.transition },
+          { name = "SOURCE_PROVIDER", value = each.value.source },
+          { name = "DESTINATION_PROVIDER", value = each.value.destination },
+          { name = "STORAGE_TASK_INDEX", value = tostring(each.value.task_index) },
+          { name = "STORAGE_TASK_COUNT", value = tostring(local.aws_v2_storage_task_count) },
+        ]
+      }]
+    })
     retry_policy {
       maximum_event_age_in_seconds = 86400
       maximum_retry_attempts       = 6

@@ -38,7 +38,7 @@
     },
     {
       "group": "data_and_eventing",
-      "actions": ["dynamodb:CreateTable", "dynamodb:DeleteTable", "dynamodb:DescribeTable", "dynamodb:UpdateTable", "s3:CreateBucket", "s3:DeleteBucket", "s3:GetBucketLocation", "s3:GetLifecycleConfiguration", "s3:PutLifecycleConfiguration", "s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:ListBucket", "kinesis:CreateStream", "kinesis:DeleteStream", "kinesis:DescribeStreamSummary", "sns:CreateTopic", "sns:DeleteTopic", "sns:Subscribe", "sns:Unsubscribe", "sqs:CreateQueue", "sqs:DeleteQueue", "sqs:GetQueueAttributes", "sqs:SetQueueAttributes"]
+      "actions": ["dynamodb:CreateTable", "dynamodb:DeleteTable", "dynamodb:DescribeTable", "dynamodb:UpdateTable", "s3:CreateBucket", "s3:DeleteBucket", "s3:GetBucketLocation", "s3:GetBucketTagging", "s3:PutBucketTagging", "s3:GetBucketPublicAccessBlock", "s3:PutBucketPublicAccessBlock", "s3:GetEncryptionConfiguration", "s3:PutEncryptionConfiguration", "s3:GetLifecycleConfiguration", "s3:PutLifecycleConfiguration", "s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:ListBucket", "kinesis:CreateStream", "kinesis:DeleteStream", "kinesis:DescribeStreamSummary", "sns:CreateTopic", "sns:DeleteTopic", "sns:Subscribe", "sns:Unsubscribe", "sqs:CreateQueue", "sqs:DeleteQueue", "sqs:GetQueueAttributes", "sqs:SetQueueAttributes"]
     },
     {
       "group": "twin_and_visualization",
@@ -46,11 +46,11 @@
     },
     {
       "group": "registry_and_observability",
-      "actions": ["ecr:CreateRepository", "ecr:DeleteRepository", "ecr:DescribeRepositories", "ecr:BatchGetImage", "ecr:GetAuthorizationToken", "logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:DescribeLogGroups", "cloudwatch:PutMetricAlarm", "cloudwatch:DeleteAlarms"]
+      "actions": ["ecr:CreateRepository", "ecr:DeleteRepository", "ecr:DescribeRepositories", "ecr:DescribeImages", "ecr:BatchGetImage", "ecr:GetAuthorizationToken", "ecr:ListTagsForResource", "ecr:TagResource", "ecr:UntagResource", "codebuild:CreateProject", "codebuild:DeleteProject", "codebuild:BatchGetProjects", "codebuild:UpdateProject", "codebuild:StartBuild", "codebuild:BatchGetBuilds", "codebuild:ListTagsForResource", "codebuild:TagResource", "codebuild:UntagResource", "logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:DescribeLogGroups", "cloudwatch:PutMetricAlarm", "cloudwatch:DeleteAlarms"]
     }
   ],
   "conditions": [
-    {"condition":"iam:PassedToService","values":["lambda.amazonaws.com","ecs-tasks.amazonaws.com","scheduler.amazonaws.com"],"required":true},
+    {"condition":"iam:PassedToService","values":["lambda.amazonaws.com","ecs-tasks.amazonaws.com","scheduler.amazonaws.com","codebuild.amazonaws.com"],"required":true},
     {"condition":"aws:RequestedRegion","values":["eu-central-1"],"required_for_regional_actions":true},
     {"condition":"resource_prefix","value":"twin2mc-*","status":"requires_live_arn_validation"}
   ],

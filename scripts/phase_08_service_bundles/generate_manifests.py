@@ -32,7 +32,16 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
     "aws.lambda-raw-history-reader": ["aws_lambda_function", "aws_lambda_function_url"],
     "aws.eventbridge-scheduler": ["aws_scheduler_schedule"],
     "aws.ecs-fargate-storage-mover": ["aws_ecs_cluster", "aws_ecs_task_definition"],
-    "aws.ecr-if-container-selected": ["aws_ecr_repository"],
+    "aws.ecr-if-container-selected": [
+        "aws_ecr_repository",
+        "aws_s3_bucket",
+        "aws_s3_bucket_lifecycle_configuration",
+        "aws_s3_bucket_public_access_block",
+        "aws_s3_bucket_server_side_encryption_configuration",
+        "aws_iam_role",
+        "aws_iam_role_policy",
+        "aws_codebuild_project",
+    ],
     "aws.cloudwatch": ["aws_cloudwatch_log_group"],
     "aws.iam-identity-center-layer-access": [
         "aws_ssoadmin_permission_set",
@@ -194,6 +203,12 @@ POST_TERRAFORM_OPERATIONS: dict[str, list[str]] = {
     "gcp.artifact-registry-if-container-selected": [
         "regional_cloud_build_publish_content_addressed_images"
     ],
+    "aws.ecr-if-container-selected": [
+        "regional_codebuild_publish_content_addressed_images"
+    ],
+    "azure.acr-basic-if-container-selected": [
+        "regional_acr_task_publish_content_addressed_images"
+    ],
 }
 
 TERRAFORM_PROVIDER_REQUIREMENTS = {
@@ -318,6 +333,12 @@ def dimensions(component_id: str) -> list[str]:
                     values.append(dimension)
     if component_id == "gcp.ordered-mqtt-pubsub-adapter":
         values.extend(["node_count", "node_hours"])
+    if component_id in {
+        "aws.ecs-fargate-storage-mover",
+        "azure.container-apps-scheduled-storage-job",
+        "gcp.cloud-run-storage-job",
+    }:
+        values.append("task_count")
     return values
 
 
@@ -350,6 +371,24 @@ def network_ports(component_id: str) -> list[int]:
 
 def file_targets(provider: str, component_id: str) -> list[str]:
     exact = {
+        "aws.ecr-if-container-selected": [
+            "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+            "3-cloud-deployer/src/providers/terraform/aws_v2_image_publisher.py",
+            "3-cloud-deployer/src/providers/terraform/package_builders/aws_v2.py",
+        ],
+        "aws.ecs-fargate-storage-mover": [
+            "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+            "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2/storage-mover",
+        ],
+        "azure.acr-basic-if-container-selected": [
+            "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+            "3-cloud-deployer/src/providers/terraform/azure_v2_image_publisher.py",
+            "3-cloud-deployer/src/providers/terraform/package_builders/azure_v2_container.py",
+        ],
+        "azure.container-apps-scheduled-storage-job": [
+            "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+            "3-cloud-deployer/src/providers/azure/containers/five-layer-v2/storage-mover",
+        ],
         "gcp.artifact-registry-if-container-selected": [
             "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
             "3-cloud-deployer/src/providers/terraform/gcp_v2_image_publisher.py",
@@ -483,13 +522,13 @@ def build_manifest(bundle: dict[str, Any], routes: dict[str, Any]) -> dict[str, 
         "terraform_apply_stages": [
             {
                 "stage": 1,
-                "owner": "gcp_image_foundation_when_required",
-                "includes": "deployment registry, short-lived source bucket, build identity and scoped bindings",
+                "owner": "provider_image_foundation_when_required",
+                "includes": "deployment registry, finite build-source storage, build identity and scoped bindings",
             },
             {
                 "stage": 2,
-                "owner": "gcp_content_addressed_image_publication_when_required",
-                "includes": "regional Cloud Build publication and digest resolution without a local Docker socket",
+                "owner": "provider_content_addressed_image_publication_when_required",
+                "includes": "regional CodeBuild, ACR Task or Cloud Build publication and digest resolution without a local Docker socket",
                 "precondition": "stage_1_registry_source_bucket_and_build_identity_available",
             },
             {

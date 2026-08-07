@@ -95,7 +95,8 @@
       "pricing_catalog_key": "aws.ecs-fargate-storage-mover",
       "dimensions": [
         "resource_count",
-        "stored_gib_month"
+        "stored_gib_month",
+        "task_count"
       ],
       "deduplication_key": "aws.ecs-fargate-storage-mover"
     },
@@ -391,7 +392,8 @@
       "pricing_catalog_key": "azure.container-apps-scheduled-storage-job",
       "dimensions": [
         "resource_count",
-        "stored_gib_month"
+        "stored_gib_month",
+        "task_count"
       ],
       "deduplication_key": "azure.container-apps-scheduled-storage-job"
     },
@@ -738,7 +740,8 @@
         "stored_gib_month",
         "requests",
         "vcpu_seconds",
-        "memory_gib_seconds"
+        "memory_gib_seconds",
+        "task_count"
       ],
       "deduplication_key": "gcp.cloud-run-storage-job"
     },

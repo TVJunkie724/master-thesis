@@ -400,13 +400,20 @@
       "terraform_binding": {
         "resource_addresses": [
           "aws_cloudwatch_log_group.aws_aws_cloudwatch",
+          "aws_codebuild_project.aws_aws_ecr_if_container_selected",
           "aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup",
           "aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw",
           "aws_ecr_repository.aws_aws_ecr_if_container_selected",
           "aws_ecs_cluster.aws_aws_ecs_fargate_storage_mover",
           "aws_ecs_task_definition.aws_aws_ecs_fargate_storage_mover",
+          "aws_iam_role.aws_aws_ecr_if_container_selected",
+          "aws_iam_role_policy.aws_aws_ecr_if_container_selected",
           "aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge",
           "aws_lambda_function.aws_aws_lambda_event_adapter",
+          "aws_s3_bucket.aws_aws_ecr_if_container_selected",
+          "aws_s3_bucket_lifecycle_configuration.aws_aws_ecr_if_container_selected",
+          "aws_s3_bucket_public_access_block.aws_aws_ecr_if_container_selected",
+          "aws_s3_bucket_server_side_encryption_configuration.aws_aws_ecr_if_container_selected",
           "aws_scheduler_schedule.aws_aws_eventbridge_scheduler",
           "aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge",
           "aws_sns_topic_subscription.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge",
@@ -633,11 +640,18 @@
       "terraform_binding": {
         "resource_addresses": [
           "aws_cloudwatch_log_group.aws_aws_cloudwatch",
+          "aws_codebuild_project.aws_aws_ecr_if_container_selected",
           "aws_ecr_repository.aws_aws_ecr_if_container_selected",
           "aws_ecs_cluster.aws_aws_ecs_fargate_storage_mover",
           "aws_ecs_task_definition.aws_aws_ecs_fargate_storage_mover",
+          "aws_iam_role.aws_aws_ecr_if_container_selected",
+          "aws_iam_role_policy.aws_aws_ecr_if_container_selected",
+          "aws_s3_bucket.aws_aws_ecr_if_container_selected",
           "aws_s3_bucket.aws_aws_s3_standard_ia",
+          "aws_s3_bucket_lifecycle_configuration.aws_aws_ecr_if_container_selected",
           "aws_s3_bucket_lifecycle_configuration.aws_aws_s3_standard_ia",
+          "aws_s3_bucket_public_access_block.aws_aws_ecr_if_container_selected",
+          "aws_s3_bucket_server_side_encryption_configuration.aws_aws_ecr_if_container_selected",
           "aws_scheduler_schedule.aws_aws_eventbridge_scheduler"
         ],
         "module_addresses": [],
@@ -7675,9 +7689,13 @@
       "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2",
       "platform_handler": "handler.aws.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:bcc0e2fe35644f71b9cd06e8a1749b818b80f31f9b7d10babecaa71cc6616345",
+      "source_digest": "sha256:00e2abf2f6f4f44c6d63bf5b33d722b5451a596a4f5de7a66175bd4b42c5348c",
       "included_paths": [
-        "handler.py"
+        "handler.py",
+        "storage-mover/Dockerfile",
+        "storage-mover/constraints.txt",
+        "storage-mover/requirements.txt",
+        "storage-mover/storage_mover.py"
       ],
       "excluded_paths": [],
       "dependency_artifact_refs": [],
@@ -7824,5 +7842,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:13dc37220f2b8092be9cd530404cc537485da4b4056244b11c7204ca4d57504a"
+  "content_digest": "sha256:49bff381c3340a0580362765697287fe55eb7bff0deb22d6a0b1e9ae8e5e2a00"
 }

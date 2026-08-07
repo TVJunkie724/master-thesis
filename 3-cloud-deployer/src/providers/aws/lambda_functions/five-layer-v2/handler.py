@@ -356,6 +356,23 @@ def _iso(value: datetime) -> str:
     )
 
 
+def _storage_window_key(stored_at: datetime, event_id: str) -> str:
+    try:
+        task_count = int(os.environ.get("STORAGE_TASK_COUNT", "1"))
+    except ValueError as exc:
+        raise ContractError("INVALID_STORAGE_TASK_COUNT", 503) from exc
+    if task_count < 1:
+        raise ContractError("INVALID_STORAGE_TASK_COUNT", 503)
+    digest = hashlib.sha256(event_id.encode("utf-8")).digest()
+    task_index = int.from_bytes(digest[:8], byteorder="big") % task_count
+    window = stored_at.replace(
+        minute=stored_at.minute - stored_at.minute % 5,
+        second=0,
+        microsecond=0,
+    )
+    return f"{_iso(window)}#{task_index:03d}"
+
+
 def _number(value: Any) -> Decimal:
     if isinstance(value, bool):
         raise ContractError("INVALID_NUMERIC_VALUE")
@@ -400,8 +417,7 @@ def _write_raw_and_rollup(payload: Mapping[str, Any]) -> None:
     expires_at = int(
         (stored_at + timedelta(days=hot_days, hours=grace_hours)).timestamp()
     )
-    minute = stored_at.minute - stored_at.minute % 5
-    storage_window = _iso(stored_at.replace(minute=minute, second=0, microsecond=0))
+    storage_window = _storage_window_key(stored_at, event_id)
     bucket_start = _iso(stored_at.replace(minute=0, second=0, microsecond=0))
     rollup_key = f"{device_id}#{metric}"
     dynamodb = _client("dynamodb")
@@ -526,15 +542,7 @@ def _write_outcome(event: Mapping[str, Any]) -> None:
                 "device_id": {"S": device_id},
                 "event_id": {"S": event_id},
                 "stored_at_event_id": {"S": f"{stored_at_text}#{event_id}"},
-                "storage_window": {
-                    "S": _iso(
-                        stored_at.replace(
-                            minute=stored_at.minute - stored_at.minute % 5,
-                            second=0,
-                            microsecond=0,
-                        )
-                    )
-                },
+                "storage_window": {"S": _storage_window_key(stored_at, event_id)},
                 "event_type": {"S": _event_type(event)},
                 "status": {"S": str(_event_body(event).get("status") or "UNKNOWN")},
                 "stored_at": {"S": stored_at_text},

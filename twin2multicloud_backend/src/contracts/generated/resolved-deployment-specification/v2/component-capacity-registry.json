@@ -3,10 +3,10 @@
   "package_ref": {
     "id": "phase-08-complete-service-bundles",
     "version": "1",
-    "digest": "sha256:a3eef3b52915b8a3d696933fe3a91d7d24c2e7ea66099a55d7fb95b57d317c49"
+    "digest": "sha256:f5bbbb4d052458d70b3b079321729fc4f46a439f1bcde3e710b960b412968d90"
   },
   "capacity_evidence_digest": "sha256:4b472c7a23439e37ba699aa126a39215b4ac8a6b03aa62fa428a5af6635e745e",
-  "pricing_ownership_digest": "sha256:b6483da5a7ca775029a9cfdf4f7688bddcd60f69bdd4df262db5509e242b34f1",
+  "pricing_ownership_digest": "sha256:a25799ee9a15a409036222cab676c2c1e9fada0873d53f59ba83d7942a3324ec",
   "price_value_policy": "live_versioned_optimizer_catalog_only_no_static_fallback",
   "same_provider_rule": {
     "bridge_component_count": 0,
@@ -477,7 +477,7 @@
     },
     {
       "component_id": "aws.ecr-if-container-selected",
-      "component_digest": "sha256:26304292a34b17210109e6ebd68a96642afa4b4e42b8696915f716638e22bb66",
+      "component_digest": "sha256:7ea6e0b1359b9a63a49fed6ba678cd828f6b178899aba08f532f183b0a2d3179",
       "provider": "aws",
       "responsibilities": [
         "support"
@@ -491,14 +491,15 @@
     },
     {
       "component_id": "aws.ecs-fargate-storage-mover",
-      "component_digest": "sha256:2aa107e261123dd4db63c80ea885e60692c5cf74303dc29e586c511688fe8eb2",
+      "component_digest": "sha256:707ab195b6150644e229e5428ef0b4288fe82780a278eda01180495839188ea6",
       "provider": "aws",
       "responsibilities": [
         "support"
       ],
       "capacity_dimensions": [
         "resource_count",
-        "stored_gib_month"
+        "stored_gib_month",
+        "task_count"
       ],
       "pricing_owner_id": "cost::aws.ecs-fargate-storage-mover",
       "pricing_catalog_key": "aws.ecs-fargate-storage-mover",
@@ -813,7 +814,7 @@
     },
     {
       "component_id": "azure.acr-basic-if-container-selected",
-      "component_digest": "sha256:ce7e510c6b6809a29a748432349f0ddbafbe3e803aa80ef762f1eed07892262e",
+      "component_digest": "sha256:f4b4f4899c355509660701faec6dc94488030dde47bc50842016b782cae076a1",
       "provider": "azure",
       "responsibilities": [
         "support"
@@ -857,14 +858,15 @@
     },
     {
       "component_id": "azure.container-apps-scheduled-storage-job",
-      "component_digest": "sha256:1b125cd65869d1c6027088337084b7c95a694c7418c35328cd27bf768df4dda8",
+      "component_digest": "sha256:6a5fbc7375912aee4a2d390b038e04965a253b2c84b97d0b3db6929dab93c92b",
       "provider": "azure",
       "responsibilities": [
         "support"
       ],
       "capacity_dimensions": [
         "resource_count",
-        "stored_gib_month"
+        "stored_gib_month",
+        "task_count"
       ],
       "pricing_owner_id": "cost::azure.container-apps-scheduled-storage-job",
       "pricing_catalog_key": "azure.container-apps-scheduled-storage-job",
@@ -1284,7 +1286,7 @@
     },
     {
       "component_id": "gcp.cloud-run-storage-job",
-      "component_digest": "sha256:1b6c566582cf0c175381784893abc2eccd9ebd5ac73b3667515c60caf0935390",
+      "component_digest": "sha256:0cb4069fc4a636adae39e34a49c72d5488d206aa189df3fd66a091df7f9ca1c1",
       "provider": "gcp",
       "responsibilities": [
         "support"
@@ -1294,7 +1296,8 @@
         "stored_gib_month",
         "requests",
         "vcpu_seconds",
-        "memory_gib_seconds"
+        "memory_gib_seconds",
+        "task_count"
       ],
       "pricing_owner_id": "cost::gcp.cloud-run-storage-job",
       "pricing_catalog_key": "gcp.cloud-run-storage-job",
@@ -1904,5 +1907,5 @@
       "deduplication_key": "domain_event_cross_cloud::gcp->azure"
     }
   ],
-  "content_digest": "sha256:7e5ccd3a6c4f0a38269c856a675662976407ce514f33f18c906d52ed8474f4b9"
+  "content_digest": "sha256:5ef67c252757a83b067d262d994e2839645948ab82aaab65c5eeccbdded75b59"
 }

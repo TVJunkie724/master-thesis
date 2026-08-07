@@ -59,6 +59,10 @@ run "five_layer_v2_single_cloud_aws_binds_only_reviewed_bundle" {
     platform_user_first_name              = "Thesis"
     platform_user_last_name               = "Researcher"
     enable_aws_logging                    = false
+    aws_v2_storage_mover_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-v2-storage-mover@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    resolved_component_dimensions = {
+      "dimension.aws.aws.ecs-fargate-storage-mover.task_count" = "1"
+    }
     validated_extension_packages = [{
       slot_id         = "processor.telemetry"
       slot_version    = "1"
@@ -103,8 +107,12 @@ run "five_layer_v2_single_cloud_aws_binds_only_reviewed_bundle" {
   }
 
   assert {
-    condition     = length(aws_ecs_task_definition.aws_aws_ecs_fargate_storage_mover) == 1
-    error_message = "DynamoDB-to-S3 tiering requires exactly one finite mover definition."
+    condition = (
+      length(aws_ecs_task_definition.aws_aws_ecs_fargate_storage_mover) == 1 &&
+      length(aws_codebuild_project.aws_aws_ecr_if_container_selected) == 1 &&
+      toset(keys(aws_scheduler_schedule.aws_aws_eventbridge_scheduler)) == toset(["hot-to-cool-000"])
+    )
+    error_message = "DynamoDB-to-S3 tiering requires one digest-bound finite mover plus its automatic build foundation and task schedule."
   }
 
   assert {
@@ -351,6 +359,9 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
     gcp_v2_grafana_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     gcp_grafana_source_cidrs              = ["203.0.113.42/32"]
     enable_gcp_logging                    = false
+    resolved_component_dimensions = {
+      "dimension.gcp.gcp.cloud-run-storage-job.task_count" = "1"
+    }
     validated_extension_packages = [{
       slot_id         = "processor.telemetry"
       slot_version    = "1"
@@ -514,6 +525,7 @@ run "five_layer_v2_gcp_source_owns_both_remote_archive_transitions" {
     enable_azure_logging                   = false
     resolved_component_dimensions = {
       "dimension.gcp.gcp.firestore-native-standard-raw-and-rollup.timestamp_shards" = "16"
+      "dimension.gcp.gcp.cloud-run-storage-job.task_count"                          = "3"
     }
     validated_extension_packages = [{
       slot_id         = "processor.telemetry"
@@ -604,6 +616,10 @@ run "five_layer_v2_gcp_archive_only_accepts_remote_cool_objects" {
     gcp_v2_processor_extension_image      = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     enable_gcp_logging                    = false
     enable_aws_logging                    = false
+    aws_v2_storage_mover_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-v2-storage-mover@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    resolved_component_dimensions = {
+      "dimension.aws.aws.ecs-fargate-storage-mover.task_count" = "1"
+    }
     validated_extension_packages = [{
       slot_id         = "processor.telemetry"
       slot_version    = "1"
@@ -676,6 +692,10 @@ run "five_layer_v2_gcp_l4_stays_independent_from_aws_l3_l5" {
     gcp_v2_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     enable_aws_logging                    = false
     enable_gcp_logging                    = false
+    aws_v2_storage_mover_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-v2-storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    resolved_component_dimensions = {
+      "dimension.aws.aws.ecs-fargate-storage-mover.task_count" = "1"
+    }
     validated_extension_packages = [{
       slot_id         = "processor.telemetry"
       slot_version    = "1"
