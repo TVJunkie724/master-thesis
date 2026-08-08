@@ -542,9 +542,19 @@ def test_raw_history_reader_uses_hashed_deployment_key_and_closed_response(monke
         path,
         headers={"x-twin2multicloud-reader-key": reader_key},
     )
+    health_unauthorized = runtime.app.test_client().get("/raw-history-health/v1")
+    health = runtime.app.test_client().get(
+        "/raw-history-health/v1",
+        headers={"x-twin2multicloud-reader-key": reader_key},
+    )
 
     assert unauthorized.status_code == 401
     assert unauthorized.get_json()["code"] == "READER_UNAUTHORIZED"
+    assert health_unauthorized.status_code == 401
+    assert health.get_json() == {
+        "schema_version": "raw-history-health.v1",
+        "status": "ready",
+    }
     assert accepted.status_code == 200
     assert set(accepted.get_json()) == {
         "schema_version",

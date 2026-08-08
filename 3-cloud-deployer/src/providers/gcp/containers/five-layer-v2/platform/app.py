@@ -1145,6 +1145,31 @@ def raw_history_reader():
         return response, 503
 
 
+@app.get("/raw-history-health/v1")
+def raw_history_health():
+    if os.environ.get("RUNTIME_ROLE") != "raw-history-reader":
+        return jsonify({"error": {"code": "RUNTIME_ROLE_NOT_CONFIGURED"}}), 404
+    try:
+        _verify_reader_key()
+        response = jsonify(
+            {
+                "schema_version": "raw-history-health.v1",
+                "status": "ready",
+            }
+        )
+        response.headers["cache-control"] = "no-store"
+        return response, 200
+    except core.ContractError as exc:
+        response = jsonify(
+            {
+                "schema_version": "architecture-runtime-error.v1",
+                "code": exc.code,
+            }
+        )
+        response.headers["cache-control"] = "no-store"
+        return response, exc.status
+
+
 @app.post("/")
 def dispatch():
     try:

@@ -338,6 +338,8 @@ def test_azure_v2_surface_probe_executes_reader_health_and_dashboard(monkeypatch
                 status_code=200,
                 json=lambda: {"schema_version": "raw-history-query.v1"},
             )
+        if url.endswith("/health"):
+            return SimpleNamespace(status_code=200, json=lambda: {"status": "OK"})
         return SimpleNamespace(status_code=200)
 
     monkeypatch.setattr(layer_5_grafana.requests, "get", get)
@@ -379,6 +381,28 @@ def test_aws_v2_dashboard_has_bounded_raw_and_rollup_queries():
     ]
     assert all(dict(target["params"])["limit"] == "1000" for target in targets)
     assert "test-message utility" in dashboard["panels"][0]["options"]["content"]
+
+
+def test_aws_v2_surface_probe_rejects_non_ok_datasource_health(monkeypatch):
+    def get(url, **_kwargs):
+        if url == "https://reader.example/":
+            return SimpleNamespace(
+                status_code=200,
+                json=lambda: {"schema_version": "raw-history-query.v1"},
+            )
+        return SimpleNamespace(status_code=200, json=lambda: {"status": "ERROR"})
+
+    monkeypatch.setattr(aws_layer_5_grafana.requests, "get", get)
+
+    with pytest.raises(RuntimeError, match="health probe was not OK"):
+        aws_layer_5_grafana._probe_v2_surface(
+            grafana_url="https://grafana.example",
+            token="short-lived-token",
+            reader_url="https://reader.example/",
+            reader_key="reader-secret",
+            device_id="sensor-1",
+            metric="temperature",
+        )
 
 
 def test_aws_v2_datasource_keeps_reader_key_only_in_secure_data(monkeypatch):

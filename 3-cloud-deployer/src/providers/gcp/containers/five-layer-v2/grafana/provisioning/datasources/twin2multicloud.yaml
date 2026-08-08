@@ -21,7 +21,7 @@ datasources:
         - ${RAW_HISTORY_READER_URL}
       timeoutInSeconds: 10
       customHealthCheckEnabled: true
-      customHealthCheckUrl: ${RAW_HISTORY_READER_URL}/healthz
+      customHealthCheckUrl: ${RAW_HISTORY_READER_URL}/raw-history-health/v1
       allowDangerousHTTPMethods: false
     secureJsonData:
       apiKeyValue: ${RAW_HISTORY_READER_KEY}

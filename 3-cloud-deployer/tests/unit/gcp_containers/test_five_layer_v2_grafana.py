@@ -46,6 +46,7 @@ def test_datasource_is_read_only_bounded_and_secret_backed():
     assert "apiKeyKey: x-twin2multicloud-reader-key" in datasource
     assert "apiKeyType: header" in datasource
     assert "allowedHosts:" in datasource
+    assert "customHealthCheckUrl: ${RAW_HISTORY_READER_URL}/raw-history-health/v1" in datasource
     assert "allowDangerousHTTPMethods: false" in datasource
     assert "apiKeyValue: ${RAW_HISTORY_READER_KEY}" in datasource
     assert "ReaderKey123" not in datasource
@@ -106,3 +107,14 @@ def test_entrypoint_bootstraps_only_a_viewer_without_logging_secrets():
         for line in entrypoint.splitlines()
         if line.lstrip().startswith("echo ")
     )
+
+
+def test_entrypoint_fails_closed_until_content_and_reader_probes_pass():
+    entrypoint = (ROOT / "entrypoint.sh").read_text("utf-8")
+
+    assert "probe_reader 0 '2026-01-01T00:00:00Z' '2026-01-02T00:00:00Z'" in entrypoint
+    assert "probe_reader 3600 '2026-01-01T00:00:00Z' '2026-01-31T00:00:00Z'" in entrypoint
+    assert "/api/datasources/uid/twin2multicloud-raw-history/health" in entrypoint
+    assert '"status"[[:space:]]*:[[:space:]]*"OK"' in entrypoint
+    assert "/api/dashboards/uid/twin2multicloud-raw-rollups" in entrypoint
+    assert '"x-twin2multicloud-reader-key: ${RAW_HISTORY_READER_KEY}"' in entrypoint

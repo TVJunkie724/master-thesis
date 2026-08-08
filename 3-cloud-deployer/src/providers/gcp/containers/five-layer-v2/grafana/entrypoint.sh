@@ -78,4 +78,45 @@ curl --fail --silent --show-error --insecure \
   --data '{"role":"Viewer"}' \
   "https://127.0.0.1:3000/api/org/users/${viewer_id}" >/dev/null
 
+probe_reader() {
+  bucket_seconds="$1"
+  from_time="$2"
+  to_time="$3"
+  response=$(curl --fail --silent --show-error \
+    --header "x-twin2multicloud-reader-key: ${RAW_HISTORY_READER_KEY}" \
+    --get \
+    --data-urlencode 'device_id=poc-device-001' \
+    --data-urlencode 'metric=temperature' \
+    --data-urlencode "from=${from_time}" \
+    --data-urlencode "to=${to_time}" \
+    --data-urlencode "bucket_seconds=${bucket_seconds}" \
+    --data-urlencode 'limit=1' \
+    "${RAW_HISTORY_READER_URL%/}/raw-history/v1") || return 1
+  printf '%s' "${response}" | grep -q '"schema_version":"raw-history-query.v1"'
+}
+
+probe_datasource_health() {
+  response=$(curl --fail --silent --show-error --insecure \
+    --user "${GF_SECURITY_ADMIN_USER}:${GF_SECURITY_ADMIN_PASSWORD}" \
+    https://127.0.0.1:3000/api/datasources/uid/twin2multicloud-raw-history/health) || return 1
+  printf '%s' "${response}" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"OK"'
+}
+
+attempt=0
+until probe_reader 0 '2026-01-01T00:00:00Z' '2026-01-02T00:00:00Z' \
+  && probe_reader 3600 '2026-01-01T00:00:00Z' '2026-01-31T00:00:00Z' \
+  && probe_datasource_health \
+  && curl --fail --silent --show-error --insecure \
+    --user "${GF_SECURITY_ADMIN_USER}:${GF_SECURITY_ADMIN_PASSWORD}" \
+    https://127.0.0.1:3000/api/dashboards/uid/twin2multicloud-raw-rollups >/dev/null; do
+  attempt=$((attempt + 1))
+  if [ "${attempt}" -ge 60 ]; then
+    echo "Grafana datasource, dashboard, or bounded reader probes did not become ready" >&2
+    kill -TERM "${grafana_pid}" 2>/dev/null || true
+    wait "${grafana_pid}" || true
+    exit 1
+  fi
+  sleep 1
+done
+
 wait "${grafana_pid}"

@@ -773,6 +773,8 @@ def _probe_v2_surface(
         timeout=30,
     )
     _require_status(response, (200,), "Azure Grafana datasource health probe")
+    if response.json().get("status") != "OK":
+        raise RuntimeError("Azure Grafana datasource health probe was not OK")
     response = requests.get(
         f"{grafana_url}/api/dashboards/uid/{V2_DASHBOARD_UID}",
         headers=headers,

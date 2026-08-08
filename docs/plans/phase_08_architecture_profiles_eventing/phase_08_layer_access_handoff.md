@@ -495,6 +495,7 @@ propagation, and cleanup. No row becomes `live_verified` from a mock plan.
 - [Amazon Managed Grafana Terraform role association](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/grafana_role_association)
 - [Azure Terraform resource-scoped role assignment](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment)
 - [Grafana dashboard Terraform resource](https://registry.terraform.io/providers/grafana/grafana/latest/docs/resources/dashboard)
+- [Grafana datasource health HTTP API](https://grafana.com/docs/grafana/latest/developer-resources/api-reference/http-api/api-legacy/data_source/)
 
 The GCP source explicitly records the non-automatable edge: first-time IAP in
 a project without an organization can require Cloud Console setup because

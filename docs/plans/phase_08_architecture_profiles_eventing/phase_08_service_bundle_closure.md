@@ -233,6 +233,14 @@ bundle is unsupported until a newly reviewed datasource decision replaces it.
 Implementation must not silently substitute Infinity, ADX, or another
 storage/query path.
 
+Across all three provider bundles, a datasource health gate requires both HTTP
+200 and the Grafana response field `status=OK`; transport success alone is not
+readiness. GCP points Infinity at a dedicated authenticated reader-health path,
+while the anonymous `/healthz` endpoint remains only a Cloud Run platform
+probe. The GCP Grafana startup gate additionally executes one bounded raw and
+one bounded rollup query and retrieves the provisioned dashboard before the
+pod is considered ready.
+
 Amazon Managed Grafana 12 no longer accepts legacy workspace API keys. The
 bounded post-apply step therefore creates or reuses one deployment-named
 `ADMIN` service account, creates a one-hour token, installs and verifies JSON
