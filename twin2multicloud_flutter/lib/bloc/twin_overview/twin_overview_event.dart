@@ -41,10 +41,10 @@ class TwinOverviewRotateGcpGrafanaViewerCredential extends TwinOverviewEvent {
 }
 
 /// Acknowledge that the reveal dialog consumed a one-time credential.
-class TwinOverviewLayerAccessCredentialConsumed extends TwinOverviewEvent {
+class TwinOverviewAccessCredentialConsumed extends TwinOverviewEvent {
   final int requestToken;
 
-  const TwinOverviewLayerAccessCredentialConsumed(this.requestToken);
+  const TwinOverviewAccessCredentialConsumed(this.requestToken);
 
   @override
   List<Object?> get props => [requestToken];

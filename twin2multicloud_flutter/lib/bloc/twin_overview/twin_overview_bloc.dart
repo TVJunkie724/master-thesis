@@ -58,9 +58,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     on<TwinOverviewRotateGcpGrafanaViewerCredential>(
       _onRotateGcpGrafanaViewerCredential,
     );
-    on<TwinOverviewLayerAccessCredentialConsumed>(
-      _onLayerAccessCredentialConsumed,
-    );
+    on<TwinOverviewAccessCredentialConsumed>(_onLayerAccessCredentialConsumed);
     on<TwinOverviewDeploy>(_onDeploy);
     on<TwinOverviewDestroy>(_onDestroy);
     on<TwinOverviewDelete>(_onDelete);
@@ -1690,7 +1688,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   }
 
   void _onLayerAccessCredentialConsumed(
-    TwinOverviewLayerAccessCredentialConsumed event,
+    TwinOverviewAccessCredentialConsumed event,
     Emitter<TwinOverviewState> emit,
   ) {
     final currentState = state;

@@ -278,9 +278,9 @@ void main() {
         bloc.add(const TwinOverviewRotateGcpGrafanaViewerCredential());
         bloc.add(const TwinOverviewRotateGcpGrafanaViewerCredential());
         await pumpEventQueue();
-        bloc.add(const TwinOverviewLayerAccessCredentialConsumed(999));
+        bloc.add(const TwinOverviewAccessCredentialConsumed(999));
         await pumpEventQueue();
-        bloc.add(const TwinOverviewLayerAccessCredentialConsumed(1));
+        bloc.add(const TwinOverviewAccessCredentialConsumed(1));
       },
       expect: () => [
         isA<TwinOverviewLoaded>().having(
