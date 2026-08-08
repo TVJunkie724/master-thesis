@@ -33,7 +33,7 @@ FIVE_LAYER_V2_PROFILE_REF = ArchitectureProfileRef(
     profile_id="five-layer-baseline",
     profile_version="2",
     content_digest=(
-        "sha256:1d5f6e070fb8c7d5765f33aba0f8c197ccd9f740c618bbe3e27606dd130aaad4"
+        "sha256:0a06f746d6a2ebff8aa183501bd123e31c8e7c4df49f0a509fef2b0303239efc"
     ),
 )
 FIVE_LAYER_V2_BUNDLE_REF = OptimizationBundleRef(

@@ -97,6 +97,7 @@ _TERMINAL_CODES = frozenset(
         "EVENT_TOO_LARGE",
         "DESTINATION_PAYLOAD_REJECTED",
         "DELIVERY_ATTEMPTS_EXHAUSTED",
+        "ROUTE_BLOCKED_ATTEMPTS_EXHAUSTED",
     }
 )
 _ROUTE_BLOCKING_CODES = frozenset(
@@ -201,7 +202,12 @@ class RouteCircuitBreaker:
     def permits(self, at: datetime) -> bool:
         at = _aware_utc(at)
         if self.operator_blocked:
-            return False
+            if self.open_until is None or at < self.open_until:
+                return False
+            self.operator_blocked = False
+            self.open_until = None
+            self.consecutive_failures = 0
+            return True
         if self.open_until is None:
             return True
         if at < self.open_until:
@@ -221,8 +227,9 @@ class RouteCircuitBreaker:
         self.open_until = _aware_utc(at) + timedelta(seconds=CIRCUIT_OPEN_SECONDS)
         return True
 
-    def block_for_operator(self) -> None:
+    def block_for_operator(self, at: datetime) -> None:
         self.operator_blocked = True
+        self.open_until = _aware_utc(at) + timedelta(seconds=CIRCUIT_OPEN_SECONDS)
 
     def reset_after_operator_correction(self) -> None:
         self.consecutive_failures = 0
@@ -362,9 +369,9 @@ def deliver_batch(
 ) -> BatchResult:
     """Deliver records and acknowledge only destination or source-DLQ acceptance.
 
-    Message failures enter the source DLQ. Route/trust/permission failures are
-    returned separately so the provider adapter can pause the route without
-    acknowledging the source record or consuming its message retry budget.
+    Message failures enter the safe source failure store. Route, trust, and
+    permission failures remain separately observable, retry without source
+    acknowledgement, and use the same bounded provider attempt budget.
     """
 
     if len(records) > MAX_IN_MEMORY_EVENTS:
@@ -383,6 +390,7 @@ def deliver_batch(
     blocked: list[str] = []
     blocked_routes: set[str] = set()
     blocked_keys: set[str] = set()
+    source_provider = routes[0].source_provider if routes else "unknown"
     for record in records:
         _validate_source_record(record)
         source_key = _safe_source_key(record.event)
@@ -415,11 +423,15 @@ def deliver_batch(
         except RouteBlockingBridgeError as exc:
             route_id = route.route_id if route is not None else "unresolved"
             if route is not None and exc.code != "CIRCUIT_OPEN":
-                breakers.setdefault(route_id, RouteCircuitBreaker()).block_for_operator()
-            blocked.append(record.record_id)
+                breakers.setdefault(route_id, RouteCircuitBreaker()).block_for_operator(
+                    clock()
+                )
             blocked_routes.add(route_id)
-            blocked_keys.add(source_key)
-            continue
+            if record.attempt_count < MAX_DELIVERY_ATTEMPTS:
+                blocked.append(record.record_id)
+                blocked_keys.add(source_key)
+                continue
+            terminal_code = "ROUTE_BLOCKED_ATTEMPTS_EXHAUSTED"
         except RetryableBridgeError:
             if _record_retryable_failure(
                 record, route, breakers, retry, blocked_routes, clock()
@@ -435,7 +447,13 @@ def deliver_batch(
                 continue
             terminal_code = "DELIVERY_ATTEMPTS_EXHAUSTED"
 
-        failure = _failure_record(record, route, terminal_code, clock())
+        failure = _failure_record(
+            record,
+            route,
+            terminal_code,
+            clock(),
+            source_provider=source_provider,
+        )
         try:
             dlq_accepted = write_dlq(failure)
         except Exception:
@@ -476,6 +494,8 @@ def _failure_record(
     route: BridgeRoute | None,
     code: str,
     terminal_at: datetime,
+    *,
+    source_provider: str,
 ) -> dict[str, Any]:
     if code not in _TERMINAL_CODES:
         code = "INVALID_CANONICAL_EVENT"
@@ -485,7 +505,7 @@ def _failure_record(
     return {
         "schema_version": "cross-cloud-bridge-failure.v1",
         "canonical_envelope": envelope,
-        "source_provider": route.source_provider if route else "unknown",
+        "source_provider": route.source_provider if route else source_provider,
         "destination_provider": route.destination_provider if route else "unknown",
         "route_id": route.route_id if route else "unresolved",
         "attempt_count": record.attempt_count,

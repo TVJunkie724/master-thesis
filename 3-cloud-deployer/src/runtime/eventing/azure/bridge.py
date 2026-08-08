@@ -78,11 +78,14 @@ def decode_service_bus_record(message: object) -> SourceRecord:
     """Decode one session-enabled Service Bus message."""
 
     message_id = getattr(message, "message_id", None)
-    delivery_count = getattr(message, "delivery_count", 1)
+    delivery_count = getattr(message, "delivery_count", 0)
     try:
-        attempt_count = min(6, int(delivery_count or 1))
+        prior_failed_deliveries = int(delivery_count or 0)
+        attempt_count = min(6, prior_failed_deliveries + 1)
     except (TypeError, ValueError) as exc:
         raise BridgeContractError("INVALID_SOURCE_RECORD") from exc
+    if prior_failed_deliveries < 0:
+        raise BridgeContractError("INVALID_SOURCE_RECORD")
     if not isinstance(message_id, str) or not message_id:
         raise BridgeContractError("INVALID_SOURCE_RECORD")
     return SourceRecord(

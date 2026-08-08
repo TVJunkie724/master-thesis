@@ -9372,7 +9372,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2",
       "platform_handler": "handler.aws.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:a2c6886bc0963d63a87fc7a7bcb627d1779c6cf7decc0bb0f120f206b5293a91",
+      "source_digest": "sha256:85218080432845d4894df6850082b5be1d561bb7dae1e538aff86ccb7b8d6c38",
       "included_paths": [
         "handler.py",
         "storage-mover/Dockerfile",
@@ -9427,7 +9427,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2",
       "platform_handler": "handler.azure.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:4a74fd8a1c2c03e008417eb8c0112e74b015690ad76667af6d5cf4964f43e4fd",
+      "source_digest": "sha256:7714806e84db75bedbe71f22f4a759ea2c27cfeb2e6ef5d3b57b3469d9db1ec3",
       "included_paths": [
         "core.py",
         "function_app.py",
@@ -9491,7 +9491,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:fae55847b90890427ff701ed2b9cd3ea94c842cd0f4619fd533785b843530a47",
+      "source_digest": "sha256:4994b850f2591994fe447a52df14e27aaaae87c73603bdac2ffcc06c33752088",
       "included_paths": [
         "Dockerfile",
         "grafana/Dockerfile",
@@ -9533,7 +9533,7 @@
       "repository_source_path": "3-cloud-deployer/src/runtime/eventing",
       "platform_handler": "provider.shared-runtime",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:2c570436e352a0c83f641750d81d7e30a9b2a414d14409b1c1ffc505769c6156",
+      "source_digest": "sha256:b6b0bcead9bdb79fc0b4931b1e48faf408b2d1ad0db40f289489fecf2e68b8f6",
       "included_paths": [
         "__init__.py",
         "bridge_core.py"
@@ -9574,5 +9574,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:712637c0de2530f2fcce8a8d1e07f32cc5ddb59bc502cb98f6ad4f0d7b8a9408"
+  "content_digest": "sha256:a4e0274f41163490c3c16fc32e98eefe6437ba8ac5ca1383ca20eca048e05c16"
 }

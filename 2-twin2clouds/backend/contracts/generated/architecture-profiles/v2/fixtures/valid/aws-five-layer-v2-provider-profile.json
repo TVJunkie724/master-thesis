@@ -5,7 +5,7 @@
   "architecture_profile_ref": {
     "id": "five-layer-baseline",
     "version": "2",
-    "digest": "sha256:1d5f6e070fb8c7d5765f33aba0f8c197ccd9f740c618bbe3e27606dd130aaad4"
+    "digest": "sha256:0a06f746d6a2ebff8aa183501bd123e31c8e7c4df49f0a509fef2b0303239efc"
   },
   "provider": "aws",
   "lifecycle_status": "draft",
@@ -474,5 +474,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:233ea8c1ce0163b0a3a56ede15018a061be973704ff072a31d94804c1218834a"
+  "content_digest": "sha256:9d4d224bafe165a3c93ead905ce0ccd518a06bc6096c2896e1615bb99626805d"
 }

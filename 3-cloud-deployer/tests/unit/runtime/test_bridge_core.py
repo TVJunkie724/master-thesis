@@ -192,18 +192,20 @@ def test_unknown_closed_event_is_terminal_but_known_unconfigured_route_blocks():
     assert unknown.acknowledged_record_ids == ("record-1",)
     assert failures[0]["failure_code"] == "UNKNOWN_EVENT_TYPE"
     assert failures[0]["canonical_envelope"]["event_id"] == "event-1"
+    assert failures[0]["source_provider"] == "aws"
     assert unconfigured.blocked_record_ids == ("record-2",)
     assert unconfigured.blocked_route_ids == ("unresolved",)
     assert unconfigured.acknowledged_record_ids == ()
     assert unconfigured.retry_record_ids == ()
 
 
-def test_route_blocking_publish_error_never_acks_or_uses_message_dlq():
+def test_route_blocking_publish_error_uses_safe_dlq_on_final_provider_attempt():
     routes = load_routes(
         [_route("azure", "aws", "device.command.outcome.v1")],
         source_provider="azure",
     )
     breakers = {}
+    failures = []
 
     result = deliver_batch(
         [SourceRecord("record-1", _event("event-1"), 6)],
@@ -211,13 +213,45 @@ def test_route_blocking_publish_error_never_acks_or_uses_message_dlq():
         publish=lambda _route, _event: (_ for _ in ()).throw(
             RouteBlockingBridgeError("DESTINATION_PERMISSION_REJECTED")
         ),
-        write_dlq=lambda _failure: pytest.fail("route fault entered the DLQ"),
+        write_dlq=lambda failure: failures.append(failure) or True,
         circuit_breakers=breakers,
     )
 
-    assert result.blocked_record_ids == ("record-1",)
+    assert result.acknowledged_record_ids == ("record-1",)
+    assert result.blocked_record_ids == ()
     assert result.blocked_route_ids == (routes[0].route_id,)
     assert breakers[routes[0].route_id].operator_blocked is True
+    assert failures[0]["failure_code"] == "ROUTE_BLOCKED_ATTEMPTS_EXHAUSTED"
+
+
+def test_route_blocking_publish_error_retries_before_final_provider_attempt():
+    routes = load_routes(
+        [_route("azure", "aws", "device.command.outcome.v1")],
+        source_provider="azure",
+    )
+
+    result = deliver_batch(
+        [SourceRecord("record-1", _event("event-1"), 5)],
+        routes,
+        publish=lambda _route, _event: (_ for _ in ()).throw(
+            RouteBlockingBridgeError("DESTINATION_PERMISSION_REJECTED")
+        ),
+        write_dlq=lambda _failure: pytest.fail("route fault exhausted too early"),
+    )
+
+    assert result.acknowledged_record_ids == ()
+    assert result.blocked_record_ids == ("record-1",)
+
+
+def test_operator_blocked_route_is_probed_again_after_circuit_interval():
+    breaker = RouteCircuitBreaker()
+    blocked_at = datetime(2026, 8, 8, tzinfo=timezone.utc)
+
+    breaker.block_for_operator(blocked_at)
+
+    assert breaker.permits(blocked_at + timedelta(seconds=29)) is False
+    assert breaker.permits(blocked_at + timedelta(seconds=30)) is True
+    assert breaker.operator_blocked is False
 
 
 def test_sixth_transient_attempt_moves_to_dlq_and_preserves_event_identity():

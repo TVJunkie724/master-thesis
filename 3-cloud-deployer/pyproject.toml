@@ -1,6 +1,6 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--strict-markers"
+addopts = "--strict-markers --import-mode=importlib"
 markers = [
   "e2e: opt-in tests that may access live cloud APIs",
   "live: opt-in tests that create or mutate live cloud resources",

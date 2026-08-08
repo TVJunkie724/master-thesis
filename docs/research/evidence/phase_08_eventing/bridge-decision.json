@@ -166,9 +166,9 @@
       "identity_exchange_4xx_claim_rejection",
       "destination_401_or_403_permission_failure"
     ],
-    "route_blocking_behavior": "open_circuit_do_not_ack_source_do_not_consume_message_retry_budget_and_require_operator_correction",
+    "route_blocking_behavior": "open_circuit_and_retry_without_ack_within_the_same_six_attempt_provider_budget; on_current_attempt_6_write_the_safe_source_bridge_failure_record_and_ack_only_after_its_acceptance; retain_the_provider_native_terminal_destination_as_fallback; require_operator_correction_and_explicit_redrive",
     "terminal_message_behavior": "write_safe_source_bridge_DLQ_record_and_ack_or_checkpoint_only_after_DLQ_acceptance",
-    "retry_exhaustion_behavior": "write_safe_source_bridge_DLQ_record_on_attempt_6_and_ack_or_checkpoint_only_after_DLQ_acceptance",
+    "retry_exhaustion_behavior": "write_safe_source_bridge_DLQ_record_on_current_attempt_6_for_transient_or_route_blocking_failure_and_ack_or_checkpoint_only_after_DLQ_acceptance; provider_native_terminal_destination_remains_the_fallback_when_the_trigger_does_not_expose_the_current_attempt_or_intercepts_delivery",
     "destination_acceptance_requirement": "provider_data_plane_success_identifier_or_successful_send_completion_from_destination_acceptance_signals",
     "maximum_delivery_attempts": 6
   },
@@ -178,18 +178,18 @@
     "provider_retry_realizations": [
       {
         "provider": "aws",
-        "telemetry": "Lambda Kinesis MaximumRetryAttempts=5, BisectBatchOnFunctionError=true, ReportBatchItemFailures",
-        "control": "SQS FIFO maxReceiveCount=6 with receive-count-based visibility delay"
+        "telemetry": "Lambda Kinesis MaximumRetryAttempts=5, BisectBatchOnFunctionError=true, ReportBatchItemFailures, and S3 full-record on-failure fallback because Kinesis records do not expose the current invocation attempt to the function",
+        "control": "SQS FIFO maxReceiveCount=6 with ApproximateReceiveCount passed to the application-safe failure writer on attempt 6 and the native SQS DLQ retained as fallback"
       },
       {
         "provider": "azure",
-        "telemetry": "Functions exponential retry, maxRetryCount=5, minimumInterval=1s, maximumInterval=32s",
-        "control": "Service Bus MaxDeliveryCount=6 with manual settlement and session lock renewal"
+        "telemetry": "Functions exponential retry, maxRetryCount=5, minimumInterval=1s, maximumInterval=32s, with the application-safe failure Event Hub written on current attempt 6 before checkpoint",
+        "control": "Service Bus MaxDeliveryCount=6 with delivery_count interpreted as prior failed deliveries, application-safe failure queue on current attempt 6, and the native Service Bus DLQ retained as fallback"
       },
       {
         "provider": "gcp",
-        "telemetry": "PubSub dead-letter maxDeliveryAttempts=6, minimumBackoff=1s, maximumBackoff=32s",
-        "control": "PubSub dead-letter maxDeliveryAttempts=6, minimumBackoff=1s, maximumBackoff=32s"
+        "telemetry": "PubSub dead-letter maxDeliveryAttempts=6, minimumBackoff=1s, maximumBackoff=32s, with the application-safe failure topic used when deliveryAttempt 6 is visible and the provider dead-letter topic retained as fallback",
+        "control": "PubSub dead-letter maxDeliveryAttempts=6, minimumBackoff=1s, maximumBackoff=32s, with the application-safe failure topic used when deliveryAttempt 6 is visible and the provider dead-letter topic retained as fallback"
       }
     ],
     "backpressure": {

@@ -127,6 +127,23 @@ class _ServiceBusMessage:
         yield json.dumps(_event()).encode()
 
 
+class _ServiceBusDelivery:
+    message_id = "service-bus-delivery"
+
+    def __init__(self, delivery_count):
+        self.delivery_count = delivery_count
+
+    def __iter__(self):
+        yield json.dumps(_event()).encode()
+
+
+class _ServiceBusFirstDelivery:
+    message_id = "service-bus-first-delivery"
+
+    def __iter__(self):
+        yield json.dumps(_event()).encode()
+
+
 def test_azure_event_hub_result_requires_wrapper_retry_when_route_is_blocked():
     result = azure_bridge.handle_event_hub_batch(
         [_EventHubMessage()],
@@ -164,6 +181,27 @@ def test_azure_service_bus_caps_provider_delivery_attempt_at_contract_limit():
     assert decoded.record_id == "service-bus-1"
     assert decoded.attempt_count == 6
     assert decoded.event == _event()
+
+
+@pytest.mark.parametrize(
+    ("provider_delivery_count", "contract_attempt"),
+    [(0, 1), (1, 2), (5, 6)],
+)
+def test_azure_service_bus_converts_prior_failures_to_current_attempt(
+    provider_delivery_count,
+    contract_attempt,
+):
+    decoded = azure_bridge.decode_service_bus_record(
+        _ServiceBusDelivery(provider_delivery_count)
+    )
+
+    assert decoded.attempt_count == contract_attempt
+
+
+def test_azure_service_bus_defaults_missing_delivery_count_to_first_attempt():
+    decoded = azure_bridge.decode_service_bus_record(_ServiceBusFirstDelivery())
+
+    assert decoded.attempt_count == 1
 
 
 def test_gcp_push_acks_only_after_destination_acceptance():

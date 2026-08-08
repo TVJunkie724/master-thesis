@@ -162,7 +162,7 @@ class _EventHubMessage:
 
 class _ServiceBusMessage:
     message_id = "message-1"
-    delivery_count = 1
+    delivery_count = 0
 
     def get_body(self):
         return json.dumps(_event("device.command.outcome.v1")).encode()
@@ -193,3 +193,13 @@ def test_service_bus_trigger_retries_when_target_did_not_accept(monkeypatch):
 
     with pytest.raises(RetryableBridgeError, match="SOURCE_NOT_ACKNOWLEDGED"):
         runtime.service_bus_message(_ServiceBusMessage())
+
+
+def test_service_bus_final_route_block_is_acknowledged_after_failure_store(
+    monkeypatch,
+):
+    _configure(monkeypatch, _route("gcp", "control"), accepted=False)
+    message = _ServiceBusMessage()
+    message.delivery_count = 5
+
+    assert runtime.service_bus_message(message) is None

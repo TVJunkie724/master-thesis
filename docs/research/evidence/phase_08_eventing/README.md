@@ -441,10 +441,15 @@ JSON, required/forbidden fields, the closed event/schema registry, partition
 key, and route before requesting the target credential.
 
 Bad envelopes are terminal message failures and enter the source bridge DLQ.
-Network failures, throttling, provider 5xx responses, and transient identity
-errors use the six-attempt retry budget. TLS, endpoint, route, claim, and
-permission mismatches block the route without acknowledging the source or
-burning a message retry budget; they require an operator correction. Metrics
+Network failures, throttling, provider 5xx responses, transient identity
+errors, and TLS/endpoint/route/claim/permission mismatches use the same bounded
+six-attempt provider budget without acknowledging the source. A route mismatch
+also opens its circuit. On the current sixth attempt, the bridge writes a
+bounded safe source failure record and acknowledges or checkpoints only after
+that store accepts it; the route still requires operator correction and an
+explicit redrive. The provider-native terminal destination remains mandatory
+as a fallback because Kinesis does not expose its current invocation attempt
+to the function and Pub/Sub dead-letter forwarding is approximate. Metrics
 carry only bounded provider/route/channel/scenario dimensions, while messages,
 credentials, device/Twin IDs, endpoints, resource IDs, and raw exceptions are
 forbidden from logs and metric labels.
@@ -549,7 +554,7 @@ because fan-out occurs after the landing broker.
 `scenario-cost-results.json` is generated offline by
 `scripts/phase_08_eventing/calculate_scenarios.py`. Its normalized result digest
 is
-`sha256:64b8059c4bd6a051624802252bd5922b39ba3d1249a388ebd9bf1ef91f59dc27`.
+`sha256:85365d54cade5cb33fabdae45d94ef05452a68e0e1aee3316f3e8bf1c46f9346`.
 The generator emits per-channel publication, delivery, retry, DLQ, replay,
 retention, compute, workflow, observability, outbox, landing, and transfer
 traces. Reordering source-ledger or pricing-matrix rows does not change the

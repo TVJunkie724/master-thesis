@@ -94,6 +94,12 @@ def build() -> dict[str, Any]:
         "research_cutoff": "2026-08-05",
         "pre_activation_refreeze": {
             "refrozen_on": "2026-08-08",
+            "previous_package_digest": "sha256:546b980ce1b3d8dfc74cfb54f31ca0f0e87cb3cefeaa6cc037b77e4ec92a26b9",
+            "reason": "replace the planning-only unlimited route-fault wait with the selected six-attempt provider budget, application-safe terminal recording where the trigger exposes the attempt, and the already selected provider-native terminal fallback before activation",
+            "scope_change": False,
+            "activated_or_deployed_before_refreeze": False,
+            "prior_refreeze": {
+            "refrozen_on": "2026-08-08",
             "previous_package_digest": "sha256:1009870a995648ad646bd54fa4465488a34e66c6a3856363f6b346c756182bd3",
             "reason": "remove the duplicate device-command outcome assignment from the L2-to-L3 route after the direct L1-to-L3 contract was added before activation",
             "scope_change": False,
@@ -171,6 +177,7 @@ def build() -> dict[str, Any]:
                     },
                 },
             },
+        },
         },
         },
         },
@@ -270,6 +277,12 @@ def build() -> dict[str, Any]:
                 "review_id": "service-bundle-provider-image-tiering-contract-review-10",
                 "reviewed_on": "2026-08-07",
                 "scope": "exact AWS 1/1/3, Azure 1/4/30, and GCP 1/1/3 storage task dimensions plus provider-native content-addressed image publication without a local Docker dependency",
+                "unresolved_findings": 0,
+            },
+            {
+                "review_id": "service-bundle-bounded-route-failure-review-11",
+                "reviewed_on": "2026-08-08",
+                "scope": "bounded route and trust failure retries, safe application terminal records, provider-native trigger fallbacks, and Azure Service Bus delivery-count semantics",
                 "unresolved_findings": 0,
             },
         ],

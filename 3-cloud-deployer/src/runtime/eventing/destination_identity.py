@@ -20,13 +20,16 @@ from .bridge_core import (
 
 AWS_REGION = "eu-central-1"
 AWS_REGIONAL_STS_ENDPOINT = f"https://sts.{AWS_REGION}.amazonaws.com"
-AZURE_TOKEN_EXCHANGE_AUDIENCE = "api://AzureADTokenExchange"
-GCP_STS_TOKEN_URL = "https://sts.googleapis.com/v1/token"
-GCP_AWS_SUBJECT_TOKEN_TYPE = "urn:ietf:params:aws:token-type:aws4_request"
-GCP_OIDC_SUBJECT_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:jwt"
+AZURE_TOKEN_EXCHANGE_AUDIENCE = "api://AzureADTokenExchange"  # nosec B105
+GCP_STS_TOKEN_URL = "https://sts.googleapis.com/v1/token"  # nosec B105
+GCP_AWS_SUBJECT_TOKEN_TYPE = (  # nosec B105
+    "urn:ietf:params:aws:token-type:aws4_request"
+)
+GCP_OIDC_SUBJECT_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:jwt"  # nosec B105
 GCP_PUBSUB_SCOPE = "https://www.googleapis.com/auth/pubsub"
 _REFRESH_SKEW = timedelta(minutes=5)
 _MAX_CACHE_AGE = timedelta(hours=1)
+_GCP_IMPERSONATION_LIFETIME_SECONDS = int(timedelta(hours=1).total_seconds())
 _AWS_ROLE_ARN = re.compile(
     r"^arn:aws:iam::(?P<account>\d{12}):role/(?P<role>[A-Za-z0-9+=,.@_/-]{1,512})$"
 )
@@ -487,7 +490,9 @@ def build_gcp_credentials(
         "audience": target.provider_audience,
         "token_url": GCP_STS_TOKEN_URL,
         "service_account_impersonation_url": target.service_account_impersonation_url,
-        "service_account_impersonation_options": {"token_lifetime_seconds": 3600},
+        "service_account_impersonation_options": {
+            "token_lifetime_seconds": _GCP_IMPERSONATION_LIFETIME_SECONDS
+        },
         "scopes": [GCP_PUBSUB_SCOPE],
     }
     if source_provider == "aws":

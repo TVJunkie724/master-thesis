@@ -274,7 +274,9 @@ def _command_callback(message) -> None:
                 message.ack()
                 return
             except Exception:
-                pass
+                LOGGER.exception(
+                    "Failed to persist final command outcome; requesting Pub/Sub redelivery"
+                )
         LOGGER.exception("Command delivery failed; requesting Pub/Sub redelivery")
         message.nack()
 
@@ -326,4 +328,9 @@ def start_bridge_once() -> None:
 
 if __name__ == "__main__":
     start_bridge_once()
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "8080")), threaded=True)
+    # Cloud Run requires the container listener on every interface.
+    app.run(
+        host="0.0.0.0",  # nosec B104
+        port=int(os.environ.get("PORT", "8080")),
+        threaded=True,
+    )

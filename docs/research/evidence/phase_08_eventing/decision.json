@@ -12,15 +12,15 @@
   "profile_parity_decision_ref": "phase-08-eventing-profile-parity@1",
   "domain_event_flow_contract_ref": "domain-event-flow@1",
   "input_digests": {
-    "bridge_decision": "sha256:5f666a39ed1bdbb6723e2af79357c86fc5570a13c4e2d2ce5ee0a25cd2351345",
+    "bridge_decision": "sha256:2e6c711cc518b6f6a9e1029fdd9e738998ba0666b4e843a76a7c2e9e6179c1f5",
     "domain_event_flow_contract": "sha256:44d530c06af795948c41ad46384ed7a5479b681c8841d2de7ce22fd33f3b5590",
     "formula_and_unit_ledger": "sha256:acf0b42bd2d2d5f0e8980f38f8ee03b5aa8661b07c5a96475406924fa315701a",
-    "implementation_component_manifest": "sha256:7758a81f40d119fec8a61d03d3a8eb36c3825f732129a0edfcc925df26a85ab5",
+    "implementation_component_manifest": "sha256:3539fb2ad98c38b6b289fb87da761fea1fa386ce3e59d8112657ad74442cf0ee",
     "mandatory_capabilities": "sha256:4f390a62c6e5f42d4f84be3e3dc6677b585f69b114b7e7078cdffc73859ab66f",
     "pricing_model_matrix": "sha256:9cb3ac4ea4a3ee690ae68131b7975c1cff43bbdf83435fea6020b45bf168e16b",
     "profile_parity_decision": "sha256:14bfd44260c2be4e01e15f83c16d65a183d12ceaf12695dc7a156e53c338cdbb",
     "provider_capability_matrix": "sha256:45aeb0fcecfb03efd9677c15a4330b8dc9dae0d7547310049f62de329835e9b9",
-    "scenario_cost_results": "sha256:d3c8ad970747793510ec9f2fd1a83eff756ecfe057391f052112f9a340b30650",
+    "scenario_cost_results": "sha256:1e81e86ff568f7d91e5a075cb5ce6671a9750fcbd9394f4580039bbd5212c352",
     "scenario_inputs": "sha256:1391c4463df31027e6f08bc67c538669a7b18777a9e42136af9d3f79db1f327b",
     "source_ledger": "sha256:1eac77342f4def391a6cb2071a87c57bad02d181eb1fc9503db59f52dc452a96"
   },
@@ -58,13 +58,14 @@
     "selection_used_cost": false,
     "scope": "incremental embedded domain-event, Event-Layer, bridge, landing, transfer, retention, workflow, device boundary, and observability costs; not full-profile totals"
   },
-  "scenario_result_digest": "sha256:64b8059c4bd6a051624802252bd5922b39ba3d1249a388ebd9bf1ef91f59dc27",
+  "scenario_result_digest": "sha256:85365d54cade5cb33fabdae45d94ef05452a68e0e1aee3316f3e8bf1c46f9346",
   "known_differences": [
     "five-layer-baseline@2 embeds mandatory domain-event behavior in ingestion and processing responsibilities; six-layer-eventing@1 owns transport semantics in an independent Eventing responsibility.",
     "Provider bundles are functionally aligned compositions, not one-to-one service equivalents.",
     "Single-cloud paths use the complete local event-domain bundle and no bridge; this does not claim a complete executable whole Twin. Cross-cloud paths use source-owned durable forwarding to the destination broker data plane.",
     "EMQX Cloud Dedicated Flex is functionally admissible but not selected because its public reproducible price matrix stops below the 100,000-session Large scenario; cost was not used to choose the cheapest service.",
-    "The published cost results are separate event-scope estimates and intentionally do not rank full Twin profiles."
+    "The published cost results are separate event-scope estimates and intentionally do not rank full Twin profiles.",
+    "A pre-activation implementation review on 2026-08-08 replaced the planning-only unlimited operator wait for route faults with the already costed six-attempt provider budget, an application-safe terminal record where the trigger exposes the current attempt, and the selected provider-native terminal destination as fallback; functional scope and selected services did not change."
   ],
   "residual_risks": [
     {

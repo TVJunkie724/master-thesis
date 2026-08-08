@@ -279,7 +279,7 @@ def test_legacy_permission_inventory_matches_current_v1_terraform_provider_types
         "gcp": ("google_",),
     }
     terraform_dir = ROOT / "src/terraform"
-    profile_specific_markers = ("_five_layer_v2", "_six_layer_eventing_v1")
+    profile_specific_markers = ("five_layer_v2", "six_layer_eventing_v1")
 
     for provider, prefixes in expected_prefixes.items():
         actual_types = set()
