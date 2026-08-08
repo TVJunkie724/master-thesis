@@ -107,6 +107,16 @@ run "five_layer_v2_single_cloud_aws_binds_only_reviewed_bundle" {
   }
 
   assert {
+    condition = (
+      length(aws_lambda_function.aws_v2_cross_cloud_bridge) == 0 &&
+      length(aws_iam_role.aws_v2_bridge) == 0 &&
+      length(aws_sqs_queue.aws_v2_bridge_control_source) == 0 &&
+      length(aws_s3_bucket.aws_v2_bridge_telemetry_failure) == 0
+    )
+    error_message = "Single-cloud AWS must omit the source bridge runtime and its failure resources."
+  }
+
+  assert {
     condition     = length(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw) == 1 && length(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup) == 1
     error_message = "Five-layer v2 must bind raw and hourly-rollup storage."
   }
@@ -322,6 +332,9 @@ run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {
     enable_aws_logging                     = false
     enable_azure_logging                   = false
     aws_v2_bridge_image                    = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-v2-images@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    aws_outbound_identity_required         = true
+    aws_outbound_identity_destinations     = ["azure"]
+    aws_outbound_identity_issuer           = "https://issuer.example.aws"
     azure_v2_storage_mover_image           = "drifttestv2mock.azurecr.io/storage-mover@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     resolved_component_dimensions = {
       "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.throughput_unit_hours" = "0"
@@ -427,6 +440,32 @@ run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {
       length(aws_codebuild_project.aws_aws_ecr_if_container_selected) == 1
     )
     error_message = "AWS outbound event routes must request one digest-bound bridge image and its automatic build foundation."
+  }
+
+  assert {
+    condition = (
+      length(aws_lambda_function.aws_v2_cross_cloud_bridge) == 1 &&
+      length(aws_lambda_event_source_mapping.aws_v2_bridge_telemetry) == 1 &&
+      length(aws_lambda_event_source_mapping.aws_v2_bridge_control) == 1 &&
+      length(aws_s3_bucket.aws_v2_bridge_telemetry_failure) == 1 &&
+      length(aws_sqs_queue.aws_v2_bridge_control_source) == 1 &&
+      length(aws_sqs_queue.aws_v2_bridge_control_failure) == 1 &&
+      length(azurerm_federated_identity_credential.azure_v2_bridge_from_aws) == 1 &&
+      length(azurerm_role_assignment.azure_v2_bridge_from_aws_telemetry) == 1 &&
+      length(azurerm_role_assignment.azure_v2_bridge_from_aws_control) == 1
+    )
+    error_message = "AWS source routes must bind one digest-pinned bridge to directional sources, bounded failures, and the federated Azure target identity."
+  }
+
+  assert {
+    condition = (
+      contains(keys(aws_lambda_function.aws_v2_cross_cloud_bridge[0].environment[0].variables), "BRIDGE_ROUTES_JSON") &&
+      contains(keys(aws_lambda_function.aws_v2_cross_cloud_bridge[0].environment[0].variables), "BRIDGE_DESTINATIONS_JSON") &&
+      contains(keys(aws_lambda_function.aws_v2_cross_cloud_bridge[0].environment[0].variables), "BRIDGE_IDENTITIES_JSON") &&
+      azurerm_federated_identity_credential.azure_v2_bridge_from_aws[0].issuer == var.aws_outbound_identity_issuer &&
+      one(azurerm_federated_identity_credential.azure_v2_bridge_from_aws[0].audience) == "api://AzureADTokenExchange"
+    )
+    error_message = "The AWS bridge must bind graph routes, destination/identity identifiers, and the exact AWS-role-to-Azure federated trust."
   }
 }
 
@@ -921,6 +960,20 @@ run "five_layer_v2_gcp_l4_stays_independent_from_aws_l3_l5" {
       toset(keys(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["domain", "twin"])
     )
     error_message = "Independent GCP L4 must create only its shared data database, bounded relationship indexes, Twin materializer, read-only IAP Explorer, and domain path while AWS retains L3/L5."
+  }
+
+  assert {
+    condition = (
+      length(aws_lambda_function.aws_v2_cross_cloud_bridge) == 1 &&
+      length(aws_lambda_event_source_mapping.aws_v2_bridge_telemetry) == 0 &&
+      length(aws_lambda_event_source_mapping.aws_v2_bridge_control) == 1 &&
+      length(google_iam_workload_identity_pool.gcp_v2_bridge_from_aws) == 1 &&
+      length(google_iam_workload_identity_pool_provider.gcp_v2_bridge_from_aws) == 1 &&
+      length(google_service_account.gcp_v2_bridge_target_from_aws) == 1 &&
+      length(google_service_account_iam_member.gcp_v2_bridge_from_aws) == 1 &&
+      toset(keys(google_pubsub_topic_iam_member.gcp_v2_bridge_from_aws)) == toset(["control"])
+    )
+    error_message = "AWS-to-GCP control must use one source bridge and one role-restricted Google workload-identity target without telemetry-only resources."
   }
 }
 

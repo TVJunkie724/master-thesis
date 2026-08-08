@@ -571,7 +571,7 @@ def _store_outcome(event: Mapping[str, Any]) -> None:
     if os.environ.get("HOT_PROVIDER") == "aws":
         _write_outcome(event)
     else:
-        _put_stream(event)
+        _publish_control(event)
 
 
 def _rules() -> list[Mapping[str, Any]]:
@@ -843,7 +843,7 @@ def _persist_and_project(event: Mapping[str, Any]) -> None:
     if os.environ.get("TWIN_PROVIDER") == "aws":
         _materialize_twin_projection(projection)
     else:
-        _put_stream(projection)
+        _publish_control(projection)
 
 
 def _action_id(action: Mapping[str, Any], field: str = "functionName") -> str:

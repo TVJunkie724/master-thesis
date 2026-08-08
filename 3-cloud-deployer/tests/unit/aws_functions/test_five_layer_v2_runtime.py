@@ -48,6 +48,15 @@ class _Stream:
         return {"SequenceNumber": "1", "ShardId": "shard-1"}
 
 
+class _Topic:
+    def __init__(self):
+        self.messages = []
+
+    def publish(self, **kwargs):
+        self.messages.append(kwargs)
+        return {"MessageId": "message-1", "SequenceNumber": "1"}
+
+
 class _Lambda:
     def __init__(self, *, function_error=False):
         self.calls = []
@@ -472,19 +481,19 @@ def test_projection_candidate_updates_local_twin_with_observation_time(monkeypat
 def test_projection_candidate_emits_closed_remote_projection_contract(monkeypatch):
     runtime = _module()
     dynamo = _Dynamo()
-    stream = _Stream()
+    topic = _Topic()
     monkeypatch.setenv("HOT_PROVIDER", "aws")
     monkeypatch.setenv("TWIN_PROVIDER", "azure")
     monkeypatch.setenv("RAW_TABLE_NAME", "raw")
     monkeypatch.setenv("ROLLUP_TABLE_NAME", "rollup")
-    monkeypatch.setenv("TELEMETRY_STREAM_ARN", "arn:aws:kinesis:eu:test")
+    monkeypatch.setenv("CONTROL_TOPIC_ARN", "arn:aws:sns:eu:test.fifo")
     monkeypatch.setattr(
         runtime, "_invoke_processor_extension", _passthrough_processor_extension
     )
     monkeypatch.setattr(
         runtime,
         "_client",
-        lambda service: dynamo if service == "dynamodb" else stream,
+        lambda service: dynamo if service == "dynamodb" else topic,
     )
 
     runtime.processor(
@@ -500,7 +509,7 @@ def test_projection_candidate_emits_closed_remote_projection_contract(monkeypatc
         None,
     )
 
-    projection = json.loads(stream.records[0]["Data"])
+    projection = json.loads(topic.messages[0]["Message"])
     assert projection["event_type"] == "twin.state.upserted"
     assert set(projection["payload"]) == {
         "twin_id",
@@ -510,6 +519,29 @@ def test_projection_candidate_emits_closed_remote_projection_contract(monkeypatc
         "state_patch",
     }
     assert projection["payload"]["state_patch"] == {"temperature": 20.5}
+
+
+def test_remote_outcome_uses_ordered_control_outbox(monkeypatch):
+    runtime = _module()
+    topic = _Topic()
+    monkeypatch.setenv("HOT_PROVIDER", "azure")
+    monkeypatch.setenv("CONTROL_TOPIC_ARN", "arn:aws:sns:eu:test.fifo")
+    monkeypatch.setattr(runtime, "_client", lambda service: topic)
+    outcome = runtime._derive_event(
+        {
+            "event_id": "command-outcome-source-1",
+            "device_id": "device-1",
+        },
+        event_type=runtime.EVENT_COMMAND_OUTCOME,
+        producer="component.device-command-adapter",
+    )
+
+    runtime._store_outcome(outcome)
+
+    assert json.loads(topic.messages[0]["Message"])["event_type"] == (
+        "device.command.outcome.v1"
+    )
+    assert topic.messages[0]["MessageGroupId"] == "device-1"
 
 
 def test_matching_rule_emits_action_workflow_and_command_events(monkeypatch):
