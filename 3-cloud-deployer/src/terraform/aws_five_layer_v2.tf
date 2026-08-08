@@ -1363,6 +1363,7 @@ resource "aws_grafana_workspace" "aws_aws_amazon_managed_grafana_12" {
   permission_type          = "SERVICE_MANAGED"
   role_arn                 = aws_iam_role.aws_v2_grafana[0].arn
   grafana_version          = "12.0"
+  configuration            = jsonencode({ plugins = { pluginAdminEnabled = true } })
   tags                     = local.aws_v2_tags
 }
 
@@ -1394,7 +1395,25 @@ locals {
     for user in coalesce(try(data.aws_identitystore_users.aws_v2_layer_access[0].users, []), []) :
     user if user.user_name == var.platform_user_email
   ] : []
-  aws_v2_create_layer_user = local.aws_v2_layer_access_enabled && length(local.aws_v2_matching_users) == 0
+  aws_v2_create_layer_user = (
+    local.aws_v2_layer_access_enabled &&
+    length(local.aws_v2_matching_users) == 0 &&
+    var.aws_layer_access_principal_intent == "invite_builtin"
+  )
+}
+
+resource "terraform_data" "aws_v2_layer_access_principal_admission" {
+  count = local.aws_v2_layer_access_enabled ? 1 : 0
+
+  lifecycle {
+    precondition {
+      condition = (
+        length(local.aws_v2_matching_users) == 1 ||
+        var.aws_layer_access_principal_intent == "invite_builtin"
+      )
+      error_message = "INTERACTIVE_PRINCIPAL_NOT_FOUND: select an existing IAM Identity Center user or explicitly choose invite_builtin."
+    }
+  }
 }
 
 resource "aws_identitystore_user" "aws_v2_layer_access" {
@@ -1411,6 +1430,8 @@ resource "aws_identitystore_user" "aws_v2_layer_access" {
     value   = var.platform_user_email
     primary = true
   }
+
+  depends_on = [terraform_data.aws_v2_layer_access_principal_admission]
 }
 
 locals {
@@ -1429,6 +1450,7 @@ resource "aws_ssoadmin_permission_set" "aws_aws_iam_identity_center_layer_access
   description      = "Read-only TwinMaker and Grafana access for the thesis PoC"
   session_duration = "PT4H"
   tags             = local.aws_v2_tags
+  depends_on       = [terraform_data.aws_v2_layer_access_principal_admission]
 }
 
 resource "aws_ssoadmin_permission_set_inline_policy" "aws_v2_layer_access" {
@@ -1512,9 +1534,11 @@ output "aws_component_twin_state_output" {
 
 output "aws_component_visualization_output" {
   value = local.aws_v2_l5_enabled ? {
-    workspace_id    = aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].id
-    access_url      = "https://${aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].endpoint}/d/t2mc-raw-rollups/raw-rollups"
-    reader_url      = aws_lambda_function_url.aws_aws_lambda_raw_history_reader[0].function_url
-    principal_label = var.platform_user_email
+    workspace_id         = aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].id
+    access_url           = "https://${aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].endpoint}/d/t2mc-raw-rollups/raw-rollups"
+    workspace_url        = "https://${aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].endpoint}"
+    reader_url           = aws_lambda_function_url.aws_aws_lambda_raw_history_reader[0].function_url
+    reader_function_name = aws_lambda_function.aws_aws_lambda_raw_history_reader[0].function_name
+    principal_label      = var.platform_user_email
   } : null
 }

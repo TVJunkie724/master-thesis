@@ -556,9 +556,7 @@ def validate_permissions(
                 )
         if provider == "aws":
             actions = {
-                action
-                for group in item["policy_inputs"]
-                for action in group["actions"]
+                action for group in item["policy_inputs"] for action in group["actions"]
             }
             required_image_publication = {
                 "codebuild:CreateProject",
@@ -604,8 +602,8 @@ def validate_plugins(bundle: dict[str, Any], errors: list[str]) -> None:
     json_api = plugins.get("marcusolsson-json-datasource", {})
     if json_api.get("selected_version") != "1.4.0":
         errors.append("JSON API plugin version must be frozen to 1.4.0")
-    if json_api.get("hard_end_date") is not None:
-        errors.append("JSON API decision must not invent a hard support-end date")
+    if json_api.get("hard_end_date") != "2027-02-01":
+        errors.append("JSON API support-end date must match current provider evidence")
     infinity = plugins.get("yesoreyeram-infinity-datasource", {})
     if infinity.get("selected_version") != "3.10.1":
         errors.append("Infinity plugin version must be frozen to 3.10.1")

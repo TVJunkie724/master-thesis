@@ -18,6 +18,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _is_five_layer_v2(context: "DeploymentContext") -> bool:
+    graph = getattr(context, "resolved_deployment_graph", None)
+    profile_ref = getattr(graph, "profile_ref", {}) if graph is not None else {}
+    return (
+        profile_ref.get("id") == "five-layer-baseline"
+        and str(profile_ref.get("version")) == "2"
+    )
+
+
 def _simulator_iot_policy(*, region: str, account_id: str, device_id: str, topic: str) -> dict:
     """Return the exact runtime permissions needed by one simulator device."""
     return {
@@ -525,9 +534,42 @@ def configure_aws_grafana(
     terraform_outputs: dict,
 ) -> None:
     """Create the required Grafana datasource or fail the deployment."""
+    provider = _require_aws_provider(context)
+    if _is_five_layer_v2(context):
+        from src.providers.aws.layers.layer_5_grafana import (
+            configure_five_layer_v2_grafana,
+        )
+
+        bundle = terraform_outputs.get("aws_component_visualization_output")
+        if not isinstance(bundle, dict):
+            raise RuntimeError(
+                "Terraform output aws_component_visualization_output is required"
+            )
+        required = {
+            "workspace_id",
+            "workspace_url",
+            "reader_url",
+            "reader_function_name",
+        }
+        missing = sorted(key for key in required if not bundle.get(key))
+        if missing:
+            raise RuntimeError(
+                "AWS visualization output is missing: " + ", ".join(missing)
+            )
+        device_id, metric = _default_v2_dashboard_series(context.config)
+        configure_five_layer_v2_grafana(
+            provider,
+            workspace_id=str(bundle["workspace_id"]),
+            grafana_url=str(bundle["workspace_url"]).rstrip("/"),
+            reader_url=str(bundle["reader_url"]),
+            reader_function_name=str(bundle["reader_function_name"]),
+            device_id=device_id,
+            metric=metric,
+        )
+        return
+
     import requests
 
-    _require_aws_provider(context)
     required = {
         "endpoint": terraform_outputs.get("aws_grafana_endpoint"),
         "api_key": terraform_outputs.get("aws_grafana_api_key"),
@@ -553,3 +595,19 @@ def configure_aws_grafana(
     )
     if response.status_code not in {200, 201, 409}:
         raise RuntimeError(f"Grafana API returned HTTP {response.status_code}")
+
+
+def _default_v2_dashboard_series(config) -> tuple[str, str]:
+    devices = config.iot_devices if isinstance(config.iot_devices, list) else []
+    device = devices[0] if devices and isinstance(devices[0], dict) else {}
+    device_id = str(device.get("id") or device.get("device_id") or "poc-device-001")
+    properties = device.get("properties", [])
+    first_property = (
+        properties[0]
+        if isinstance(properties, list)
+        and properties
+        and isinstance(properties[0], dict)
+        else {}
+    )
+    metric = str(first_property.get("name") or "temperature")
+    return device_id, metric

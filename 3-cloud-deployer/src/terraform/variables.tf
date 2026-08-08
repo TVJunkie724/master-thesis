@@ -813,6 +813,17 @@ variable "platform_user_last_name" {
   default     = "Admin"
 }
 
+variable "aws_layer_access_principal_intent" {
+  description = "Five-layer v2 AWS browser principal behavior: resolve an existing Identity Center user, or explicitly invite one in the built-in directory"
+  type        = string
+  default     = "existing"
+
+  validation {
+    condition     = contains(["existing", "invite_builtin"], var.aws_layer_access_principal_intent)
+    error_message = "aws_layer_access_principal_intent must be existing or invite_builtin."
+  }
+}
+
 variable "azure_layer_access_principal_object_id" {
   description = "Existing Entra principal object ID receiving Five-layer v2 ADT Reader and Grafana Viewer access; the platform never creates this principal"
   type        = string

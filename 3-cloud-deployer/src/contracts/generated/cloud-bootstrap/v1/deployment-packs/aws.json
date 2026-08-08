@@ -42,7 +42,7 @@
     },
     {
       "group": "twin_and_visualization",
-      "actions": ["iottwinmaker:CreateWorkspace", "iottwinmaker:DeleteWorkspace", "iottwinmaker:GetWorkspace", "iottwinmaker:CreateEntity", "iottwinmaker:DeleteEntity", "iottwinmaker:CreateComponentType", "iottwinmaker:DeleteComponentType", "grafana:CreateWorkspace", "grafana:DeleteWorkspace", "grafana:DescribeWorkspace", "grafana:UpdatePermissions", "sso:ListInstances", "sso:CreatePermissionSet", "sso:DeletePermissionSet", "sso:CreateAccountAssignment", "sso:DeleteAccountAssignment", "identitystore:ListUsers"]
+      "actions": ["iottwinmaker:CreateWorkspace", "iottwinmaker:DeleteWorkspace", "iottwinmaker:GetWorkspace", "iottwinmaker:CreateEntity", "iottwinmaker:DeleteEntity", "iottwinmaker:CreateComponentType", "iottwinmaker:DeleteComponentType", "grafana:CreateWorkspace", "grafana:DeleteWorkspace", "grafana:DescribeWorkspace", "grafana:DescribeWorkspaceConfiguration", "grafana:UpdateWorkspaceConfiguration", "grafana:UpdatePermissions", "grafana:CreateWorkspaceServiceAccount", "grafana:DeleteWorkspaceServiceAccount", "grafana:ListWorkspaceServiceAccounts", "grafana:CreateWorkspaceServiceAccountToken", "grafana:DeleteWorkspaceServiceAccountToken", "grafana:ListWorkspaceServiceAccountTokens", "sso:ListInstances", "sso:CreatePermissionSet", "sso:DeletePermissionSet", "sso:CreateAccountAssignment", "sso:DeleteAccountAssignment", "identitystore:ListUsers", "identitystore:DescribeUser", "identitystore:CreateUser", "identitystore:DeleteUser", "identitystore:UpdateUser"]
     },
     {
       "group": "registry_and_observability",

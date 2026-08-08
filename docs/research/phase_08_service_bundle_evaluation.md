@@ -184,16 +184,16 @@ restriction, backend parsing, and GET-only operation. The three routes remain
 authenticated internet-reachable PoC read boundaries; private networking is
 not implied.
 
-Grafana marks the JSON API datasource as being in maintenance mode and
-recommends Infinity for new work. The upstream page publishes no fixed hard
-support-end date, so the decision must not invent one. JSON API remains
-admissible only as a frozen thesis-PoC dependency: the
-complete-service package records the plugin ID, selected version,
+Grafana now marks the JSON API datasource deprecated, recommends Infinity for
+new work, and publishes 1 February 2027 as its support end. JSON API remains
+admissible only as a frozen thesis-PoC dependency before that boundary: the
+complete-service package records the plugin ID, selected version, end date,
 Grafana-12 compatibility, the Amazon Managed Grafana catalog result, and Azure
-Managed Grafana Standard support evidence. Deployment preflight repeats those
-checks, and the affected bundle fails closed if the plugin is absent or
-incompatible. Infinity is not assumed to exist in either managed-provider
-catalog and may not be substituted without a new reviewed decision. GCP can
+Managed Grafana Standard support evidence. The runtime gate repeats those
+checks before datasource/dashboard content mutation, and the affected bundle
+fails closed if the plugin is absent, incompatible, or past the published
+boundary. Infinity is not assumed to exist in either managed-provider catalog
+and may not be substituted without a new reviewed decision. GCP can
 select Infinity because that Grafana runtime and its content-addressed plugin
 image are owned by this deployment.
 
@@ -786,7 +786,7 @@ directions remain observable and costed.
 | Give GCP Grafana a dedicated node pool by default | Adds capacity before a test demonstrates isolation is necessary |
 | Use Grafana JSON/Infinity as a universal cross-cloud adapter | No single reviewed secretless automation path across the selected managed/self-hosted Grafana environments |
 | Let Grafana read Firestore directly | There is no selected native Firestore datasource; giving the visualization pod database credentials would also bypass the common bounded query contract |
-| Use the maintenance-only JSON API plugin for new self-hosted GCP Grafana | The Grafana-maintained Infinity plugin supplies the needed backend parser, API-key header, allowed-host, and current maintenance path; JSON API remains only a frozen managed-AWS/Azure PoC dependency whose exact catalog availability and Grafana-12 compatibility are checked before mutation |
+| Use the deprecated JSON API plugin for new self-hosted GCP Grafana | The Grafana-maintained Infinity plugin supplies the needed backend parser, API-key header, allowed-host, and current maintenance path; JSON API remains only a frozen managed-AWS/Azure PoC dependency whose exact catalog availability, Grafana-12 compatibility, and support boundary are checked before content mutation |
 | Enable Grafana development mode or generally allow unsigned plugins | Broader code-loading authority is unnecessary; the PoC installs only the signed, version- and digest-pinned Infinity datasource |
 | Implement storage with CDC, dedicated outboxes/brokers, and permanent workers | Production-scale complexity without a PoC requirement or failing test |
 | Add L4-to-L5 and 3D scenes to the base | Changes the predecessor-compatible visualization contract and introduces six additional cross-cloud query integrations; requires a later profile version |

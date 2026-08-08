@@ -44,7 +44,9 @@ def _outputs() -> dict:
         "aws_component_visualization_output": {
             "workspace_id": "aws-grafana-workspace",
             "access_url": "https://g-example.grafana-workspace.eu-central-1.amazonaws.com/d/t2mc-raw-rollups/raw-rollups",
+            "workspace_url": "https://g-example.grafana-workspace.eu-central-1.amazonaws.com",
             "reader_url": "https://reader.lambda-url.eu-central-1.on.aws/",
+            "reader_function_name": "factory-v2-raw-history-reader",
             "principal_label": "researcher@example.invalid",
         },
         "azure_component_twin_state_output": {

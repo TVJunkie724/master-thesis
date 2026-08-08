@@ -96,18 +96,21 @@ class DecisionPackageValidatorTest(unittest.TestCase):
             24,
         )
 
-    def test_json_plugin_has_no_invented_end_date(self) -> None:
+    def test_json_plugin_has_current_published_end_date(self) -> None:
         bundle = self.validator.load_json(
             self.validator.EVIDENCE_ROOT / "complete-provider-bundles.json"
         )
         plugins = {item["plugin_id"]: item for item in bundle["plugin_decisions"]}
-        self.assertIsNone(plugins["marcusolsson-json-datasource"]["hard_end_date"])
+        self.assertEqual(
+            plugins["marcusolsson-json-datasource"]["hard_end_date"],
+            "2027-02-01",
+        )
         tampered = copy.deepcopy(bundle)
-        tampered["plugin_decisions"][0]["hard_end_date"] = "2027-02-01"
+        tampered["plugin_decisions"][0]["hard_end_date"] = "2027-03-01"
         errors: list[str] = []
         self.validator.validate_plugins(tampered, errors)
         self.assertIn(
-            "JSON API decision must not invent a hard support-end date", errors
+            "JSON API support-end date must match current provider evidence", errors
         )
 
     def test_gcp_permission_manifest_has_no_wildcards_or_bootstrap_authority(
@@ -204,15 +207,11 @@ class DecisionPackageValidatorTest(unittest.TestCase):
         )
         self.assertIn(
             "regional_codebuild_publish_content_addressed_images",
-            components["aws.ecr-if-container-selected"][
-                "post_terraform_operations"
-            ],
+            components["aws.ecr-if-container-selected"]["post_terraform_operations"],
         )
         self.assertIn(
             "aws_codebuild_project",
-            components["aws.ecr-if-container-selected"][
-                "terraform_resource_types"
-            ],
+            components["aws.ecr-if-container-selected"]["terraform_resource_types"],
         )
         self.assertIn(
             "regional_acr_task_publish_content_addressed_images",

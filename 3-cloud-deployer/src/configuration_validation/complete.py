@@ -666,6 +666,14 @@ def _validate_user_config(content, l5, errors) -> None:
             "user_config",
             "Azure admin_email must use the tenant onmicrosoft.com domain",
         )
+    aws_intent = value.get("aws_layer_access_principal_intent", "existing")
+    if aws_intent not in {"existing", "invite_builtin"}:
+        _add(
+            errors,
+            "INVALID_USER_CONFIG",
+            "user_config",
+            "aws_layer_access_principal_intent must be existing or invite_builtin",
+        )
 
 
 def _validate_function(errors, code, field, label, provider, content) -> None:

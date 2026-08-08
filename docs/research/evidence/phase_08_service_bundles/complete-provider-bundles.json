@@ -237,8 +237,8 @@
       "runtime": "aws_and_azure_managed_grafana_12",
       "selected_version": "1.4.0",
       "grafana_requirement": ">=12.0.0-0",
-      "status": "maintenance_mode_poc_dependency",
-      "hard_end_date": null,
+      "status": "deprecated_poc_dependency",
+      "hard_end_date": "2027-02-01",
       "deployment_preflight": "exact_catalog_version_and_grafana_12_compatibility_required",
       "silent_substitute": false
     },

@@ -250,6 +250,21 @@ def test_load_platform_user_maps_existing_azure_principal_without_credentials(tm
     assert "password" not in result
 
 
+def test_load_platform_user_maps_explicit_aws_invitation_intent(tmp_path):
+    (tmp_path / "config_user.json").write_text(
+        json.dumps(
+            {
+                "admin_email": "researcher@example.test",
+                "aws_layer_access_principal_intent": "invite_builtin",
+            }
+        )
+    )
+
+    result = _load_platform_user_config(tmp_path)
+
+    assert result["aws_layer_access_principal_intent"] == "invite_builtin"
+
+
 class TestGenerateTfvars:
     """Tests for generate_tfvars function."""
 

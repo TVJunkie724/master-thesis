@@ -146,6 +146,15 @@ inside that provider, but the two resource-role bindings remain distinct. In a
 two-provider placement the configuration requires one interactive principal
 for each involved provider. L3 alone adds no browser identity requirement.
 
+For the AWS built-in directory, `config_user.json` carries
+`aws_layer_access_principal_intent=existing|invite_builtin`. Absence defaults
+to `existing`; a missing principal then fails closed with
+`INTERACTIVE_PRINCIPAL_NOT_FOUND`. Terraform may create the directory user and
+trigger the provider-owned invitation only for the explicit `invite_builtin`
+choice. Amazon Managed Grafana 12 content provisioning separately uses a
+short-lived service-account token and deletes that automation identity after
+the exact plugin, datasource, dashboard, and query probes complete.
+
 The platform must not create AWS, Entra, or Google user accounts silently. It
 may create and invite a user in the built-in AWS Identity Center directory only
 after the user explicitly selects that behavior and confirms the email. Azure,
@@ -470,6 +479,11 @@ propagation, and cleanup. No row becomes `live_verified` from a mock plan.
 - [AWS IoT TwinMaker identity-policy examples](https://docs.aws.amazon.com/iot-twinmaker/latest/guide/security_iam_id-based-policy-examples.html)
 - [Amazon Managed Grafana authentication](https://docs.aws.amazon.com/grafana/latest/userguide/authentication-in-AMG.html)
 - [Amazon Managed Grafana user roles](https://docs.aws.amazon.com/grafana/latest/userguide/Grafana-user-roles.html)
+- [Amazon Managed Grafana v12 differences and API-key removal](https://docs.aws.amazon.com/grafana/latest/userguide/version-differences.html)
+- [Amazon Managed Grafana service-account API](https://docs.aws.amazon.com/grafana/latest/APIReference/API_CreateWorkspaceServiceAccount.html)
+- [Amazon Managed Grafana service-account-token API](https://docs.aws.amazon.com/grafana/latest/APIReference/API_CreateWorkspaceServiceAccountToken.html)
+- [Amazon Managed Grafana v12 plugin API](https://docs.aws.amazon.com/grafana/latest/userguide/v12-Grafana-API-Plugin.html)
+- [Amazon Managed Grafana v12 dashboard API](https://docs.aws.amazon.com/grafana/latest/userguide/v12-Grafana-API-Dashboard.html)
 - [Azure Digital Twins Explorer](https://learn.microsoft.com/en-us/azure/digital-twins/how-to-use-azure-digital-twins-explorer)
 - [Azure Digital Twins data-plane roles](https://learn.microsoft.com/en-us/azure/digital-twins/concepts-security)
 - [Azure Managed Grafana access roles](https://learn.microsoft.com/en-us/azure/managed-grafana/how-to-manage-access-permissions-users-identities)

@@ -3,7 +3,7 @@
   "schema_version": "1.0.0",
   "package_id": "phase-08-complete-service-bundles@1",
   "artifact_id": "implementation-component-manifest",
-  "bundle_digest": "sha256:bbd24265510e851deff78383269633924479d0aa0b8df5c649370c5ceb4762f6",
+  "bundle_digest": "sha256:30aa83481ab7d961cc92864285801ee74e51c549fd7977d04432f3c73c096d70",
   "route_digest": "sha256:e08ae2b6c2a1933adae54c5fed04b949b269b856f535b96787170e8820d32fee",
   "profile_targets": [
     "five-layer-baseline@2",

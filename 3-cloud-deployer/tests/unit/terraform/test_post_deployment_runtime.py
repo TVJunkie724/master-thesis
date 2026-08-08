@@ -1,11 +1,13 @@
 """Fail-closed contracts for SDK-owned post-deployment resources."""
 
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
 from src.providers.terraform import aws_deployer, azure_deployer
+from src.providers.aws.layers import layer_5_grafana as aws_layer_5_grafana
 from src.providers.azure.layers import layer_5_grafana
 from src.providers.azure.layers import layer_4_adt
 from src.providers.terraform.runtime_outcome import ProviderRuntimeError, RuntimeRun
@@ -17,6 +19,9 @@ class ConflictError(Exception):
 
 class ResourceNotFoundError(Exception):
     pass
+
+
+TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
 
 
 def _aws_context(*, hierarchy=None, devices=None):
@@ -54,6 +59,14 @@ def test_runtime_run_redacts_and_aggregates_without_stopping_siblings():
     assert calls == ["continued"]
     assert "must-not-leak" not in str(exc_info.value)
     assert exc_info.value.failures[0].resource == "device-one"
+
+
+def test_aws_v2_identity_center_user_requires_explicit_invite_intent():
+    terraform = (TERRAFORM_ROOT / "aws_five_layer_v2.tf").read_text("utf-8")
+
+    assert 'var.aws_layer_access_principal_intent == "invite_builtin"' in terraform
+    assert "INTERACTIVE_PRINCIPAL_NOT_FOUND" in terraform
+    assert "terraform_data.aws_v2_layer_access_principal_admission" in terraform
 
 
 def test_twinmaker_requires_workspace_output(tmp_path):
@@ -312,6 +325,124 @@ def test_azure_v2_dashboard_has_bounded_raw_and_rollup_queries():
     assert (
         "No data is a valid initial state"
         in dashboard["panels"][0]["options"]["content"]
+    )
+
+
+def test_aws_v2_dashboard_has_bounded_raw_and_rollup_queries():
+    dashboard = aws_layer_5_grafana._v2_dashboard("sensor-1", "temperature")
+
+    assert dashboard["uid"] == aws_layer_5_grafana.V2_DASHBOARD_UID
+    assert dashboard["title"] == "Twin2MultiCloud Raw & Rollups"
+    targets = [
+        dashboard["panels"][1]["targets"][0],
+        dashboard["panels"][2]["targets"][0],
+    ]
+    assert [dict(target["params"])["bucket_seconds"] for target in targets] == [
+        "0",
+        "3600",
+    ]
+    assert all(dict(target["params"])["limit"] == "1000" for target in targets)
+    assert "test-message utility" in dashboard["panels"][0]["options"]["content"]
+
+
+def test_aws_v2_datasource_keeps_reader_key_only_in_secure_data(monkeypatch):
+    not_found = SimpleNamespace(status_code=404)
+    created = SimpleNamespace(status_code=201)
+    create = MagicMock(return_value=created)
+    monkeypatch.setattr(
+        aws_layer_5_grafana.requests,
+        "get",
+        lambda *_args, **_kwargs: not_found,
+    )
+    monkeypatch.setattr(aws_layer_5_grafana.requests, "post", create)
+
+    aws_layer_5_grafana._upsert_v2_datasource(
+        grafana_url="https://grafana.example",
+        token="short-lived-token",
+        reader_url="https://reader.example/",
+        reader_key="reader-secret",
+    )
+
+    payload = create.call_args.kwargs["json"]
+    assert payload["jsonData"]["httpHeaderName1"] == "X-Twin-Reader-Key"
+    assert payload["secureJsonData"] == {"httpHeaderValue1": "reader-secret"}
+    assert "reader-secret" not in str(payload["jsonData"])
+
+
+def test_aws_v2_provisioner_is_deleted_when_content_setup_fails(monkeypatch):
+    provider = SimpleNamespace()
+    deleted = MagicMock()
+    monkeypatch.setattr(aws_layer_5_grafana, "_install_reader_key", MagicMock())
+    monkeypatch.setattr(
+        aws_layer_5_grafana,
+        "_provisioning_service_account",
+        lambda *_args: ("service-account", "short-lived-token"),
+    )
+    monkeypatch.setattr(
+        aws_layer_5_grafana,
+        "_ensure_exact_plugin",
+        MagicMock(side_effect=RuntimeError("plugin unavailable")),
+    )
+    monkeypatch.setattr(
+        aws_layer_5_grafana,
+        "_delete_provisioning_service_account",
+        deleted,
+    )
+
+    with pytest.raises(RuntimeError, match="plugin unavailable"):
+        aws_layer_5_grafana.configure_five_layer_v2_grafana(
+            provider,
+            workspace_id="g-1234567890",
+            grafana_url="https://grafana.example",
+            reader_url="https://reader.example/",
+            reader_function_name="reader",
+            device_id="sensor-1",
+            metric="temperature",
+        )
+
+    deleted.assert_called_once_with(provider, "g-1234567890", "service-account")
+
+
+def test_aws_deployer_routes_five_layer_v2_to_the_exact_configurator(monkeypatch):
+    provider = SimpleNamespace()
+    config = SimpleNamespace(
+        iot_devices=[
+            {
+                "id": "sensor-1",
+                "properties": [{"name": "temperature"}],
+            }
+        ]
+    )
+    context = SimpleNamespace(
+        providers={"aws": provider},
+        config=config,
+        resolved_deployment_graph=SimpleNamespace(
+            profile_ref={"id": "five-layer-baseline", "version": "2"}
+        ),
+    )
+    configure = MagicMock()
+    monkeypatch.setattr(aws_layer_5_grafana, "configure_five_layer_v2_grafana", configure)
+
+    aws_deployer.configure_aws_grafana(
+        context,
+        {
+            "aws_component_visualization_output": {
+                "workspace_id": "g-1234567890",
+                "workspace_url": "https://grafana.example/",
+                "reader_url": "https://reader.example/",
+                "reader_function_name": "reader",
+            }
+        },
+    )
+
+    configure.assert_called_once_with(
+        provider,
+        workspace_id="g-1234567890",
+        grafana_url="https://grafana.example",
+        reader_url="https://reader.example/",
+        reader_function_name="reader",
+        device_id="sensor-1",
+        metric="temperature",
     )
 
 

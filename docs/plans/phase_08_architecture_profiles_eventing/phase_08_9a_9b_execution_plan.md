@@ -104,7 +104,7 @@ already approved Eventing package. It must pin:
 - all supported and rejected topology fixtures;
 - current source metadata and digests;
 - `thesis-demo-v2` deployment/bootstrap permission packs;
-- exact plugin versions/catalog evidence without an invented support-end date.
+- exact plugin versions/catalog evidence and the currently published support-end date.
 
 The contract freeze is data and tests only. It creates no cloud resources.
 

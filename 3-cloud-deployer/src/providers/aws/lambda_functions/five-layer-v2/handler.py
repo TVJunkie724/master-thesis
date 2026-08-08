@@ -1256,6 +1256,15 @@ def raw_history_reader(event: Mapping[str, Any], _context: Any) -> dict[str, Any
     correlation_id = str(uuid.uuid4())
     try:
         cursor_key = _verify_reader_key(event)
+        if not event.get("queryStringParameters"):
+            return _reader_response(
+                200,
+                {
+                    "schema_version": "raw-history-health.v1",
+                    "status": "ready",
+                    "correlation_id": correlation_id,
+                },
+            )
         query, start, end = _query_params(event)
         query_digest = hashlib.sha256(
             _canonical_json(

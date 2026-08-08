@@ -876,6 +876,22 @@ def test_reader_fails_closed_until_secure_stage_provisions_key(monkeypatch):
     assert json.loads(response["body"])["code"] == "READER_NOT_PROVISIONED"
 
 
+def test_reader_exposes_only_authenticated_datasource_health(monkeypatch):
+    runtime = _module()
+    secret = "reader-secret"
+    monkeypatch.setenv("READER_KEY_SHA256", hashlib.sha256(secret.encode()).hexdigest())
+
+    response = runtime.raw_history_reader(
+        {"headers": {"X-Twin-Reader-Key": secret}},
+        None,
+    )
+
+    assert response["statusCode"] == 200
+    payload = json.loads(response["body"])
+    assert payload["schema_version"] == "raw-history-health.v1"
+    assert payload["status"] == "ready"
+
+
 def test_reader_returns_only_closed_raw_history_shape(monkeypatch):
     runtime = _module()
     secret = "reader-secret"

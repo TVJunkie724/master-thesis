@@ -966,6 +966,11 @@ def _load_platform_user_config(project_dir: Path) -> dict:
     if user.get("admin_last_name"):
         result["platform_user_last_name"] = user["admin_last_name"]
 
+    if user.get("aws_layer_access_principal_intent"):
+        result["aws_layer_access_principal_intent"] = user[
+            "aws_layer_access_principal_intent"
+        ]
+
     # Five-layer v2 binds read-only browser access to an existing Entra
     # principal. Its object ID is an identifier, not an authentication secret;
     # account creation and passwords remain an explicit cloud-side bootstrap.

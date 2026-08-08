@@ -217,19 +217,30 @@ not another scientific layer:
 | GCP | Cloud Run HTTPS service with application-level reader-key validation and a read-only Firestore identity | Signed `yesoreyeram-infinity-datasource`; `jsonData.httpHeaderName1=X-Twin-Reader-Key`, one generated 256-bit deployment-scoped key in `secureJsonData.httpHeaderValue1`; the service stores only its hash |
 
 The JSON API datasource is a deliberately bounded PoC dependency, not a
-long-term platform recommendation. Grafana marks it as maintenance-only and
-recommends Infinity for new functionality, but the current primary
-documentation does not publish a fixed support-end date. The
-complete-service package must therefore freeze its plugin ID, selected
-version, Grafana-12 compatibility evidence, and provider-specific availability
-evidence: the exact version in the Amazon Managed Grafana plugin catalog and
-JSON API support in Azure Managed Grafana Standard. Deployment preflight
-repeats the catalog/support check before any workspace mutation and `Save &
-test` plus the bounded raw/rollup queries are live-readiness gates. If the
-plugin is unavailable or incompatible, the affected AWS/Azure L3-hot/L5 bundle
-is unsupported until a newly reviewed datasource decision replaces it.
-Implementation must not invent a calendar expiry or silently substitute
-Infinity, ADX, or another storage/query path.
+long-term platform recommendation. Grafana marks it deprecated, recommends
+Infinity for new functionality, and now publishes 1 February 2027 as its
+support end. That still covers this thesis PoC, but the date is an explicit
+activation and reproducibility boundary. The complete-service package freezes
+the plugin ID, selected version, end date, Grafana-12 compatibility evidence,
+and provider-specific availability evidence: the exact version in the Amazon
+Managed Grafana plugin catalog and JSON API support in Azure Managed Grafana
+Standard. For a new workspace the runtime gate necessarily creates the empty
+workspace first, then repeats the catalog/support check before datasource or
+dashboard content mutation. Authenticated `Save & test` plus the bounded
+raw/rollup queries are live-readiness gates. If the plugin is unavailable,
+incompatible, or past that support boundary, the affected AWS/Azure L3-hot/L5
+bundle is unsupported until a newly reviewed datasource decision replaces it.
+Implementation must not silently substitute Infinity, ADX, or another
+storage/query path.
+
+Amazon Managed Grafana 12 no longer accepts legacy workspace API keys. The
+bounded post-apply step therefore creates or reuses one deployment-named
+`ADMIN` service account, creates a one-hour token, installs and verifies JSON
+API `1.4.0`, provisions and probes the datasource/dashboard, and deletes the
+service account again in the same operation. The token is held only in process
+memory and is never a Terraform or Management output. Plugin management is
+enabled declaratively on the workspace. This temporary automation identity is
+not an additional interactive study seat.
 
 The three HTTPS routes are internet-reachable PoC read boundaries. AWS and
 Azure use managed Grafana outside a selected private network; GCP deliberately
@@ -1325,17 +1336,18 @@ commands may receive cloud credentials or a live/apply flag.
 
 | Pass | Scope | Result |
 |---|---|---|
-| 1 | Revised Five-layer v2 architecture and concept consistency across service evaluation, every Phase 8 plan, Handoff, research design, and current docs | Pass on 2026-07-30 with zero unresolved findings after retaining Firestore L3 and correcting stale L3/L4/L5 diagrams; the 2026-08-03 review corrected the unsupported JSON API end-date claim to maintenance-mode plus frozen availability/version evidence |
+| 1 | Revised Five-layer v2 architecture and concept consistency across service evaluation, every Phase 8 plan, Handoff, research design, and current docs | Pass on 2026-07-30 with zero unresolved findings after retaining Firestore L3 and correcting stale L3/L4/L5 diagrams; the then-current 2026-08-03 evidence had no published JSON API end date and was superseded by review 14 when Grafana published one |
 | 2 | Builder/API contract, workload math, identity/security, failure behavior, implementation sequence, compatibility, Flutter boundary, and testability | Pass on 2026-07-30 with zero unresolved findings; exact Firestore sharding/transactions, raw/rollup reader contract, plugin fail-closed gates, nine placements, capacity math, and credential-free integration commands are implementation-ready |
 | 3 | Layer-access architecture feasibility across AWS/Azure/GCP, all nine placements, single-cloud/multicloud identity, one-Firestore tradeoff, visible content, cost ownership, and live/offline claim boundary | Pass on 2026-07-31 with zero unresolved findings after adding interactive-principal preflight, direct Cloud Run IAP, safe Viewer rotation, explicit L4 inspection load, Small Viewer cost, and provider Terraform evidence |
 | 4 | Architect and builder review of concept hierarchy, FR/API datatypes, BLoC/Riverpod ownership, responsive widget tree, secret lifecycle, concurrency, accessibility, integration tests, documentation, and exact commit order | Pass on 2026-07-31 with all 20 plan-review criteria satisfied and zero unresolved findings |
 | 5 | Guided-bootstrap cross-service concept review against the live OpenAPI, implemented manual script/import baseline, provider credential realities, selected Five-layer v2 services, and exact user/manual lifecycle | Pass on 2026-07-31 with zero unresolved findings after preserving the legacy path, separating bootstrap from Twin preflight, replacing least-privilege/zeroization overclaims, adding the user runbook, and distinguishing release/expiry/revocation/manual cleanup |
 | 6 | Guided-bootstrap architect/builder readiness review across strict guide/session datatypes, authority/deployment permission packs, `thesis-demo-v1` compatibility, new immutable `thesis-demo-v2`, BLoC/reuse/token boundaries, restart/concurrency, real-API fake-adapter integration, roadmaps, FR-002, and handoff | Pass on 2026-07-31 with zero unresolved findings; Builder remains blocked until FR-002 schemas/fixtures and an approved Architect implementation plan exist |
-| 7 | Complete-service package architecture review across Five-layer/Six-layer parity, 73 provider-owned component decisions, all nine online placements, every local/remote route class, current service/plugin facts, and the bounded thesis-PoC exclusions | Pass on 2026-08-04 with zero unresolved findings after removing the fabricated JSON API support date, pinning Grafana/Infinity/BifroMQ artifacts, retaining explicit live-readiness gates, splitting the AWS/Azure managed-Grafana plugin ownership, and replacing composite capacity labels with atomic dimensions before activation |
+| 7 | Complete-service package architecture review across Five-layer/Six-layer parity, 73 provider-owned component decisions, all nine online placements, every local/remote route class, current service/plugin facts, and the bounded thesis-PoC exclusions | Pass on 2026-08-04 with zero unresolved findings against the then-current provider evidence after removing an unsupported JSON API date, pinning Grafana/Infinity/BifroMQ artifacts, retaining explicit live-readiness gates, splitting the AWS/Azure managed-Grafana plugin ownership, and replacing composite capacity labels with atomic dimensions before activation; review 14 records the later published date |
 | 8 | Complete-service package builder review across deterministic S/M/L formulas, generated manifests, exactly-once cost ownership, `thesis-demo-v1` stability, `thesis-demo-v2` scope evidence, byte digests, source references, secret scanning, and drift-gate integration | Pass on 2026-08-03 with zero unresolved findings; package tests plus the composed offline validator pass without cloud credentials |
 | 9 | Complete-service IaC feasibility review across exact Terraform/SDK bindings, provider-version floors, image delivery, GKE apply ordering, direct Cloud Run IAP, and closed edge contracts | Pass on 2026-08-07 with zero unresolved findings after replacing fictitious AWS bindings, adding the IAP service-agent binding and deployer policy permissions, recording the Google-provider upgrade, and separating provider image foundation, regional content-addressed publication, cloud resources, Kubernetes resources, and bounded post-apply work into five automatic stages |
 | 10 | Cross-provider storage-mover capacity and image-delivery review | Pass on 2026-08-07 with zero unresolved contract findings after exposing exact AWS 1/1/3, Azure 1/4/30, and GCP 1/1/3 `task_count` dimensions, binding CodeBuild/ACR Tasks/Cloud Build publication, and recording the Azure free-credit preflight without adding a local-Docker fallback |
 | 10 | Five-layer v2 shared-contract implementation review across lifecycle/readiness truthfulness, complete atomic-dimension bindings, evidence integrity, all 729 assignments, v1 byte stability, version-aware readers, and generated-copy drift | Pass on 2026-08-04 with zero unresolved findings after keeping all new definitions draft, separating offline fixtures from publishable resolutions, removing invented costs and Cosmos autoscale RU/s, binding every dimension, and validating pricing/scenario/manifest references exactly |
+| 14 | Amazon Managed Grafana v12 access implementation and refreshed JSON API lifecycle evidence | Pass on 2026-08-08 with zero unresolved findings after replacing API keys with bounded service-account automation, adding authenticated datasource health plus raw/rollup probes, requiring explicit built-in-directory invitation intent, and freezing the now-published 1 February 2027 support end |
 
 This service/architecture slice adds no new Flutter route, but it does add a
 typed Layer Access section to the existing Twin Overview. Its authoritative
@@ -1489,9 +1501,10 @@ and correlation ID.
 - [ ] The signed Infinity plugin artifact, applicable license notice, version,
       and digest are frozen, or GCP fails closed pending a new datasource
       decision.
-- [ ] The maintenance-only JSON API datasource has exact AWS/Azure availability
-      and Grafana-12 compatibility evidence frozen, and deployment preflight
-      fails closed when the selected plugin version is absent or incompatible.
+- [ ] The deprecated JSON API datasource has exact AWS/Azure availability,
+      Grafana-12 compatibility, and 1 February 2027 support-end evidence frozen;
+      the runtime gate fails closed when it is absent, incompatible, or past
+      that boundary.
 - [ ] Storage uses finite scheduled jobs and deterministic object manifests;
       unproven CDC/outbox/broker pipelines are absent.
 - [ ] All six event routes and all twelve storage stage routes use the six

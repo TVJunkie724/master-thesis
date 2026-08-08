@@ -3,7 +3,7 @@
   "schema_version": "1.0.0",
   "package_id": "phase-08-complete-service-bundles@1",
   "artifact_id": "source-ledger",
-  "research_cutoff": "2026-08-05",
+  "research_cutoff": "2026-08-08",
   "source_policy": "primary_provider_or_upstream_project_documentation",
   "facts": [
     {
@@ -126,7 +126,7 @@
     {"source_id":"gcp-workload-identity","title":"Google Cloud workload identity federation","url":"https://cloud.google.com/iam/docs/workload-identities","checked_on":"2026-08-03"},
     {"source_id":"grafana-infinity-overview","title":"Infinity data source documentation","url":"https://grafana.com/docs/plugins/yesoreyeram-infinity-datasource/latest/","checked_on":"2026-08-03"},
     {"source_id":"grafana-infinity-install","title":"Install the Infinity data source","url":"https://grafana.com/docs/plugins/yesoreyeram-infinity-datasource/latest/installation/","checked_on":"2026-08-03"},
-    {"source_id":"grafana-json-plugin","title":"JSON API plugin for Grafana","url":"https://grafana.com/grafana/plugins/marcusolsson-json-datasource/","checked_on":"2026-08-03"},
+    {"source_id":"grafana-json-plugin","title":"JSON API plugin for Grafana","url":"https://grafana.com/grafana/plugins/marcusolsson-json-datasource/","checked_on":"2026-08-08"},
     {"source_id":"grafana-plugin-signatures","title":"Grafana plugin signatures","url":"https://grafana.com/docs/grafana/latest/administration/plugin-management/plugin-sign/","checked_on":"2026-08-03"},
     {"source_id":"grafana-12-4-security","title":"Grafana 12.4.2 security release","url":"https://grafana.com/blog/grafana-security-release-critical-and-high-severity-security-fixes-for-cve-2026-27876-and-cve-2026-27880/","checked_on":"2026-08-03"},
     {"source_id":"bifromq-release","title":"Apache BifroMQ 4.0.0-incubating release","url":"https://github.com/apache/bifromq/releases/tag/v4.0.0-incubating","checked_on":"2026-08-03"},

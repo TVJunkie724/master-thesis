@@ -951,6 +951,13 @@ def check_user_config_for_l4_l5(accessor: FileAccessor, ctx: ValidationContext) 
         )
     
     admin_email = ctx.user_config.get("admin_email", "")
+    aws_intent = ctx.user_config.get(
+        "aws_layer_access_principal_intent", "existing"
+    )
+    if aws_intent not in {"existing", "invite_builtin"}:
+        raise ValueError(
+            "aws_layer_access_principal_intent must be existing or invite_builtin"
+        )
     
     # Allow empty email to skip user provisioning (only deployer role will be assigned)
     if not admin_email:
