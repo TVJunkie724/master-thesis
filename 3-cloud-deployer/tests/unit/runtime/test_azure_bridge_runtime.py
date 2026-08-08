@@ -182,6 +182,12 @@ def test_event_hub_batch_returns_only_after_acceptance(monkeypatch):
     assert runtime.event_hub_batch([_EventHubMessage()]) is None
 
 
+def test_event_hub_final_retry_is_acknowledged_after_failure_store(monkeypatch):
+    _configure(monkeypatch, _route("aws", "telemetry"), accepted=False)
+
+    assert runtime.event_hub_batch([_EventHubMessage()], attempt_count=6) is None
+
+
 def test_service_bus_trigger_retries_when_target_did_not_accept(monkeypatch):
     _configure(monkeypatch, _route("gcp", "control"), accepted=False)
 

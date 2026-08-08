@@ -40,13 +40,24 @@ def _event(raw: bytes) -> dict[str, Any]:
     return value
 
 
-def decode_event_hub_records(messages: Iterable[object]) -> tuple[SourceRecord, ...]:
+def decode_event_hub_records(
+    messages: Iterable[object],
+    *,
+    attempt_count: int = 1,
+) -> tuple[SourceRecord, ...]:
     """Decode a bounded Event Hubs trigger batch.
 
     Event Hubs owns the five retries and final failure destination, so the
     source event does not expose a portable delivery count to Python.
     """
 
+    if (
+        isinstance(attempt_count, bool)
+        or not isinstance(attempt_count, int)
+        or attempt_count < 1
+        or attempt_count > 6
+    ):
+        raise BridgeContractError("INVALID_SOURCE_RECORD")
     decoded: list[SourceRecord] = []
     for index, message in enumerate(messages):
         sequence = getattr(message, "sequence_number", None)
@@ -55,7 +66,7 @@ def decode_event_hub_records(messages: Iterable[object]) -> tuple[SourceRecord, 
             SourceRecord(
                 record_id=record_id,
                 event=_event(_body(message)),
-                attempt_count=1,
+                attempt_count=attempt_count,
             )
         )
     if not decoded:
@@ -84,6 +95,7 @@ def decode_service_bus_record(message: object) -> SourceRecord:
 def handle_event_hub_batch(
     messages: Iterable[object],
     *,
+    attempt_count: int = 1,
     routes_json: str,
     publish: Callable[[BridgeRoute, Mapping[str, Any]], object],
     write_dlq: Callable[[Mapping[str, Any]], bool],
@@ -92,7 +104,7 @@ def handle_event_hub_batch(
     """Deliver one Event Hubs batch; the wrapper checkpoints only on success."""
 
     return deliver_batch(
-        decode_event_hub_records(messages),
+        decode_event_hub_records(messages, attempt_count=attempt_count),
         load_routes_json(routes_json, source_provider="azure"),
         publish=publish,
         write_dlq=write_dlq,

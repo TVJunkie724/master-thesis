@@ -176,6 +176,15 @@ def _publish_control(event: Mapping[str, Any]) -> None:
         sender.send_messages(message)
 
 
+def _event_hub_delivery_attempt(context: func.Context) -> int:
+    retry_context = getattr(context, "retry_context", None)
+    retry_count = getattr(retry_context, "retry_count", 0)
+    try:
+        return min(6, max(1, int(retry_count or 0) + 1))
+    except (TypeError, ValueError):
+        return 1
+
+
 def _extension_envelope(event: Mapping[str, Any]) -> dict[str, Any]:
     validated = validate_canonical_event(event)
     body = event_body(validated)
@@ -883,6 +892,12 @@ if REMOTE_TELEMETRY_ENABLED:
 if BRIDGE_TELEMETRY_ENABLED:
 
     @app.function_name(name="v2-cross-cloud-telemetry-bridge")
+    @app.retry(
+        strategy="exponential_backoff",
+        max_retry_count="5",
+        minimum_interval="00:00:01",
+        maximum_interval="00:01:00",
+    )
     @app.event_hub_message_trigger(
         arg_name="messages",
         event_hub_name="%V2_BRIDGE_TELEMETRY_HUB_NAME%",
@@ -892,12 +907,16 @@ if BRIDGE_TELEMETRY_ENABLED:
     )
     def cross_cloud_telemetry_bridge(
         messages: list[func.EventHubEvent],
+        context: func.Context,
     ) -> None:
         """Checkpoint the source Event Hub only after durable target acceptance."""
 
         from phase8_eventing.azure.runtime import event_hub_batch
 
-        event_hub_batch(messages)
+        event_hub_batch(
+            messages,
+            attempt_count=_event_hub_delivery_attempt(context),
+        )
 
 
 if BRIDGE_CONTROL_ENABLED:

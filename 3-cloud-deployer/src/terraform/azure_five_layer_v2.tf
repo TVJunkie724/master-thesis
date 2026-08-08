@@ -593,7 +593,7 @@ resource "azurerm_servicebus_queue" "azure_v2_remote_control_outbound" {
   dead_lettering_on_message_expiration    = true
   default_message_ttl                     = "P14D"
   lock_duration                           = "PT1M"
-  max_delivery_count                      = 5
+  max_delivery_count                      = 6
 }
 
 resource "azurerm_servicebus_subscription" "azure_v2_remote_control_inbound" {
@@ -742,6 +742,19 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
     V2_REMOTE_TELEMETRY__fullyQualifiedNamespace = local.azure_v2_remote_telemetry_enabled ? "${azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].name}.servicebus.windows.net" : "disabled.servicebus.windows.net"
     V2_REMOTE_TELEMETRY__credential              = "managedidentity"
     V2_REMOTE_TELEMETRY__clientId                = azurerm_user_assigned_identity.main[0].client_id
+    V2_BRIDGE_TELEMETRY_ENABLED                  = tostring(local.azure_v2_remote_telemetry_outbound)
+    V2_BRIDGE_TELEMETRY_HUB_NAME                 = try(azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["outbound"].name, "disabled")
+    V2_BRIDGE_TELEMETRY__fullyQualifiedNamespace = local.azure_v2_remote_telemetry_outbound ? "${azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].name}.servicebus.windows.net" : "disabled.servicebus.windows.net"
+    V2_BRIDGE_TELEMETRY__credential              = "managedidentity"
+    V2_BRIDGE_TELEMETRY__clientId                = azurerm_user_assigned_identity.main[0].client_id
+    V2_BRIDGE_CONTROL_ENABLED                    = tostring(local.azure_v2_remote_control_outbound)
+    V2_BRIDGE_CONTROL_QUEUE_NAME                 = try(azurerm_servicebus_queue.azure_v2_remote_control_outbound[0].name, "disabled")
+    V2_BRIDGE_CONTROL_TOPIC_NAME                 = try(azurerm_servicebus_topic.azure_v2_remote_control["outbound"].name, "disabled")
+    BRIDGE_ROUTES_JSON                           = jsonencode(values(local.azure_v2_outbound_event_routes))
+    BRIDGE_DESTINATIONS_JSON                     = jsonencode(local.azure_v2_bridge_destinations)
+    BRIDGE_IDENTITIES_JSON                       = jsonencode(local.azure_v2_bridge_identities)
+    BRIDGE_SOURCE_IDENTITY_JSON                  = jsonencode({ managed_identity_client_id = azurerm_user_assigned_identity.main[0].client_id })
+    BRIDGE_FAILURE_DESTINATION_JSON              = jsonencode(local.azure_v2_bridge_failure_destination)
     V2_L2_PROVIDER                               = var.layer_2_provider
     V2_HOT_PROVIDER                              = var.layer_3_hot_provider
     V2_TWIN_PROVIDER                             = var.layer_4_provider
@@ -763,6 +776,14 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
       error_message = "Azure Five-layer v2 requires its validated content-addressed Function package."
     }
   }
+
+  depends_on = [
+    azuread_app_role_assignment.azure_v2_bridge_source,
+    aws_iam_role_policy.aws_v2_bridge_target_from_azure,
+    google_service_account_iam_member.gcp_v2_bridge_from_azure,
+    google_pubsub_topic_iam_member.gcp_v2_bridge_from_azure,
+    azurerm_role_assignment.azure_azure_entra_layer_access_bindings,
+  ]
 }
 
 resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_consumption" {
@@ -1183,6 +1204,10 @@ locals {
         scope = azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["outbound"].id
         role  = "Azure Event Hubs Data Sender"
       }
+      bridge_telemetry_failure_sender = {
+        scope = azurerm_eventhub.azure_v2_bridge_telemetry_failure[0].id
+        role  = "Azure Event Hubs Data Sender"
+      }
     } : {},
     local.azure_v2_remote_control_outbound ? {
       remote_control_topic_sender = {
@@ -1192,6 +1217,10 @@ locals {
       remote_control_queue_receiver = {
         scope = azurerm_servicebus_queue.azure_v2_remote_control_outbound[0].id
         role  = "Azure Service Bus Data Receiver"
+      }
+      bridge_control_failure_sender = {
+        scope = azurerm_servicebus_queue.azure_v2_bridge_control_failure[0].id
+        role  = "Azure Service Bus Data Sender"
       }
     } : {},
     local.azure_v2_l1_enabled ? {

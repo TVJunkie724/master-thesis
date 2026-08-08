@@ -198,13 +198,24 @@ run "five_layer_v2_single_cloud_azure_omits_remote_event_hubs" {
   assert {
     condition = (
       length(azurerm_servicebus_topic.azure_v2_remote_control) == 0 &&
-      length(azurerm_servicebus_queue.azure_v2_remote_control_outbound) == 0
+      length(azurerm_servicebus_queue.azure_v2_remote_control_outbound) == 0 &&
+      length(azurerm_eventhub.azure_v2_bridge_telemetry_failure) == 0 &&
+      length(azurerm_servicebus_queue.azure_v2_bridge_control_failure) == 0 &&
+      length(azuread_application.azure_v2_bridge_audience) == 0 &&
+      length(azuread_service_principal.azure_v2_bridge_audience) == 0 &&
+      length(azuread_app_role_assignment.azure_v2_bridge_source) == 0 &&
+      length(aws_iam_openid_connect_provider.azure_v2_bridge) == 0 &&
+      length(google_iam_workload_identity_pool.gcp_v2_bridge_from_azure) == 0
     )
-    error_message = "Single-cloud Azure must omit cross-cloud control brokers."
+    error_message = "Single-cloud Azure must omit every remote broker, bridge failure destination, and federated trust resource."
   }
 
   assert {
-    condition     = length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter) == 1
+    condition = (
+      length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter) == 1 &&
+      azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].app_settings.V2_BRIDGE_TELEMETRY_ENABLED == "false" &&
+      azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].app_settings.V2_BRIDGE_CONTROL_ENABLED == "false"
+    )
     error_message = "Five-layer v2 must deploy the Azure event adapter on Flex Consumption."
   }
 
@@ -416,6 +427,7 @@ run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {
     condition = (
       toset(keys(azurerm_servicebus_topic.azure_v2_remote_control)) == toset(["inbound", "outbound"]) &&
       length(azurerm_servicebus_queue.azure_v2_remote_control_outbound) == 1 &&
+      azurerm_servicebus_queue.azure_v2_remote_control_outbound[0].max_delivery_count == 6 &&
       length(azurerm_servicebus_subscription.azure_v2_remote_control_inbound) == 1 &&
       length(azurerm_servicebus_subscription.azure_v2_remote_control_outbound) == 1 &&
       azurerm_servicebus_subscription.azure_v2_remote_control_inbound[0].forward_to == azurerm_servicebus_queue.azure_azure_service_bus_standard[0].name &&
@@ -466,6 +478,153 @@ run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {
       one(azurerm_federated_identity_credential.azure_v2_bridge_from_aws[0].audience) == "api://AzureADTokenExchange"
     )
     error_message = "The AWS bridge must bind graph routes, destination/identity identifiers, and the exact AWS-role-to-Azure federated trust."
+  }
+
+  assert {
+    condition = (
+      length(azuread_application.azure_v2_bridge_audience) == 1 &&
+      length(azuread_application_identifier_uri.azure_v2_bridge_audience) == 1 &&
+      length(azuread_application_app_role.azure_v2_bridge_exchange) == 1 &&
+      length(azuread_service_principal.azure_v2_bridge_audience) == 1 &&
+      azuread_service_principal.azure_v2_bridge_audience[0].app_role_assignment_required &&
+      length(azuread_app_role_assignment.azure_v2_bridge_source) == 1 &&
+      length(aws_iam_openid_connect_provider.azure_v2_bridge) == 1 &&
+      length(aws_iam_role.aws_v2_bridge_target_from_azure) == 1 &&
+      length(aws_iam_role_policy.aws_v2_bridge_target_from_azure) == 1
+    )
+    error_message = "Azure-to-AWS control must bind one assignment-required Entra audience to the exact managed identity and one destination publishing role."
+  }
+
+  assert {
+    condition = (
+      length(azurerm_eventhub.azure_v2_bridge_telemetry_failure) == 0 &&
+      length(azurerm_servicebus_queue.azure_v2_bridge_control_failure) == 1 &&
+      azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].app_settings.V2_BRIDGE_TELEMETRY_ENABLED == "false" &&
+      azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].app_settings.V2_BRIDGE_CONTROL_ENABLED == "true" &&
+      contains(keys(azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].app_settings), "BRIDGE_ROUTES_JSON") &&
+      contains(keys(azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].app_settings), "BRIDGE_DESTINATIONS_JSON") &&
+      contains(keys(azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].app_settings), "BRIDGE_IDENTITIES_JSON") &&
+      contains(keys(azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].app_settings), "BRIDGE_FAILURE_DESTINATION_JSON")
+    )
+    error_message = "Azure control-only source routes must activate only the Service Bus bridge trigger and its bounded failure queue."
+  }
+}
+
+run "five_layer_v2_azure_source_federates_to_gcp_for_both_channels" {
+  command = plan
+
+  variables {
+    digital_twin_name                      = "drift-test"
+    architecture_profile_id                = "five-layer-baseline"
+    architecture_profile_version           = "2"
+    layer_1_provider                       = "azure"
+    layer_2_provider                       = "azure"
+    layer_3_hot_provider                   = "google"
+    layer_3_cold_provider                  = "google"
+    layer_3_archive_provider               = "google"
+    layer_4_provider                       = "google"
+    layer_5_provider                       = "google"
+    layer_3_hot_to_cold_interval_days      = 30
+    layer_3_cold_to_archive_interval_days  = 90
+    layer_3_archive_expiry_interval_days   = 365
+    platform_user_email                    = "researcher@example.test"
+    platform_user_first_name               = "Thesis"
+    platform_user_last_name                = "Researcher"
+    azure_tenant_id                        = "22222222-2222-4222-8222-222222222222"
+    azure_layer_access_principal_object_id = "11111111-1111-1111-1111-111111111111"
+    azure_layer_access_principal_label     = "researcher@example.test"
+    gcp_project_id                         = "phase8-poc-project"
+    gcp_region                             = "europe-west1"
+    gcp_v2_platform_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    gcp_v2_storage_mover_image             = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/storage-mover@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    gcp_v2_grafana_image                   = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/grafana@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    gcp_grafana_source_cidrs               = ["203.0.113.10/32"]
+    enable_azure_logging                   = false
+    enable_gcp_logging                     = false
+    resolved_component_dimensions = {
+      "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.throughput_unit_hours" = "730"
+      "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.capacity_unit_hours"   = "0"
+      "dimension.gcp.gcp.cloud-run-storage-job.task_count"                                            = "1"
+    }
+    resolved_cross_cloud_routes = [
+      {
+        route_id                = "graph.processing.hot.telemetry"
+        logical_edge_id         = "edge.processing-to-hot-storage"
+        source_provider         = "azure"
+        destination_provider    = "gcp"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "telemetry"
+        event_types             = ["telemetry.processed.v1"]
+        source_broker_kind      = "telemetry_stream"
+        destination_broker_kind = "telemetry_stream"
+        identity_exchange       = "entra_managed_identity_oidc_to_gcp_workload_identity_federation"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id             = "graph.processing.hot.control"
+        logical_edge_id      = "edge.processing-to-hot-storage"
+        source_provider      = "azure"
+        destination_provider = "gcp"
+        execution_kind       = "source_event_forwarder"
+        channel_class        = "control"
+        event_types = [
+          "extension.action.outcome.v1",
+          "notification.workflow.outcome.v1",
+        ]
+        source_broker_kind      = "control_topic"
+        destination_broker_kind = "control_topic"
+        identity_exchange       = "entra_managed_identity_oidc_to_gcp_workload_identity_federation"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+    ]
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "99999999-9999-4999-8999-999999999999"
+      artifact_digest = "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+      package_path    = "${var.project_path}/.build/azure/five-layer-v2.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/five-layer-v2.zip")}"
+      adapter_id      = "adapter.azure.python311"
+      adapter_version = "1"
+    }]
+  }
+
+  assert {
+    condition = (
+      length(azuread_application.azure_v2_bridge_audience) == 1 &&
+      length(azuread_application_identifier_uri.azure_v2_bridge_audience) == 1 &&
+      length(azuread_application_app_role.azure_v2_bridge_exchange) == 1 &&
+      length(azuread_service_principal.azure_v2_bridge_audience) == 1 &&
+      azuread_service_principal.azure_v2_bridge_audience[0].app_role_assignment_required &&
+      length(azuread_app_role_assignment.azure_v2_bridge_source) == 1
+    )
+    error_message = "Azure source federation must expose one secretless, assignment-required bridge audience for its exact managed identity."
+  }
+
+  assert {
+    condition = (
+      length(azurerm_eventhub.azure_v2_bridge_telemetry_failure) == 1 &&
+      length(azurerm_servicebus_queue.azure_v2_bridge_control_failure) == 1 &&
+      azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].app_settings.V2_BRIDGE_TELEMETRY_ENABLED == "true" &&
+      azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].app_settings.V2_BRIDGE_CONTROL_ENABLED == "true"
+    )
+    error_message = "Azure source routes on both channels must bind both directional triggers and only their two bounded failure destinations."
+  }
+
+  assert {
+    condition = (
+      length(google_iam_workload_identity_pool.gcp_v2_bridge_from_azure) == 1 &&
+      length(google_iam_workload_identity_pool_provider.gcp_v2_bridge_from_azure) == 1 &&
+      length(google_service_account.gcp_v2_bridge_target_from_azure) == 1 &&
+      length(google_service_account_iam_member.gcp_v2_bridge_from_azure) == 1 &&
+      toset(keys(google_pubsub_topic_iam_member.gcp_v2_bridge_from_azure)) == toset(["telemetry", "control"]) &&
+      contains(keys(google_project_service.gcp_v2_required), "sts.googleapis.com") &&
+      contains(keys(google_project_service.gcp_v2_required), "iamcredentials.googleapis.com") &&
+      length(aws_iam_openid_connect_provider.azure_v2_bridge) == 0
+    )
+    error_message = "Azure-to-GCP must create one claim-restricted WIF target, exact Pub/Sub publisher rights for both channels, and no AWS trust."
   }
 }
 

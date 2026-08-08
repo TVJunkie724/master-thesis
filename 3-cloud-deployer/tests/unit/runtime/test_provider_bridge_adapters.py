@@ -141,6 +141,23 @@ def test_azure_event_hub_result_requires_wrapper_retry_when_route_is_blocked():
     assert result.blocked_record_ids == ("42",)
 
 
+def test_azure_event_hub_passes_final_function_retry_to_delivery_core():
+    failures = []
+    result = azure_bridge.handle_event_hub_batch(
+        [_EventHubMessage()],
+        attempt_count=6,
+        routes_json=_routes("azure", "gcp"),
+        publish=lambda _route, _value: (_ for _ in ()).throw(
+            RetryableBridgeError("unavailable")
+        ),
+        write_dlq=lambda failure: not failures.append(failure),
+    )
+
+    assert result.acknowledged_record_ids == ("42",)
+    assert result.retry_record_ids == ()
+    assert failures[0]["failure_code"] == "DELIVERY_ATTEMPTS_EXHAUSTED"
+
+
 def test_azure_service_bus_caps_provider_delivery_attempt_at_contract_limit():
     decoded = azure_bridge.decode_service_bus_record(_ServiceBusMessage())
 

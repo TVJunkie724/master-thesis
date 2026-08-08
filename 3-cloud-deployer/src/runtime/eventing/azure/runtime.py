@@ -169,12 +169,13 @@ def _require_acknowledged(result: object) -> None:
         raise RetryableBridgeError("SOURCE_NOT_ACKNOWLEDGED")
 
 
-def event_hub_batch(messages: list[object]) -> None:
+def event_hub_batch(messages: list[object], *, attempt_count: int = 1) -> None:
     """Let Functions checkpoint a batch only after all records are accepted."""
 
     app = _application()
     result = handle_event_hub_batch(
         messages,
+        attempt_count=attempt_count,
         routes_json=_required_environment("BRIDGE_ROUTES_JSON"),
         publish=app.publish,
         write_dlq=_failure_writer(app),

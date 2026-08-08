@@ -57,8 +57,8 @@ locals {
     local.gcp_v2_l2_enabled ? "workflows.googleapis.com" : "",
     local.gcp_v2_storage_mover_enabled ? "cloudscheduler.googleapis.com" : "",
     local.gcp_v2_l4_enabled ? "iap.googleapis.com" : "",
-    local.aws_v2_bridge_to_gcp_enabled ? "sts.googleapis.com" : "",
-    local.aws_v2_bridge_to_gcp_enabled ? "iamcredentials.googleapis.com" : "",
+    local.aws_v2_bridge_to_gcp_enabled || local.azure_v2_bridge_to_gcp_enabled ? "sts.googleapis.com" : "",
+    local.aws_v2_bridge_to_gcp_enabled || local.azure_v2_bridge_to_gcp_enabled ? "iamcredentials.googleapis.com" : "",
   ])) : toset([])
 
   gcp_v2_name          = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 24)
