@@ -43,6 +43,12 @@ locals {
   azure_v2_remote_control_inbound = anytrue([
     for route in values(local.azure_v2_inbound_event_routes) : route.channel_class == "control"
   ])
+  azure_v2_remote_control_routes = {
+    for direction, enabled in {
+      inbound  = local.azure_v2_remote_control_inbound
+      outbound = local.azure_v2_remote_control_outbound
+    } : direction => direction if enabled
+  }
   azure_v2_object_store_enabled = local.azure_v2_cool_enabled || local.azure_v2_archive_enabled
   azure_v2_storage_mover_enabled = local.five_layer_v2_enabled && (
     local.azure_v2_hot_enabled ||
@@ -561,6 +567,59 @@ resource "azurerm_servicebus_subscription" "azure_azure_service_bus_standard" {
   default_message_ttl                       = "P14D"
   lock_duration                             = "PT1M"
   forward_to                                = azurerm_servicebus_queue.azure_azure_service_bus_standard[0].name
+}
+
+# Cross-cloud control traffic is directionally isolated from the embedded
+# domain topic. Inbound events can only flow into the local domain queue;
+# outbound events enter a bridge-only queue and can never be re-exported after
+# landing. This is the Service Bus equivalent of the directional Kinesis/SNS
+# and Pub/Sub resources used by AWS and GCP.
+resource "azurerm_servicebus_topic" "azure_v2_remote_control" {
+  for_each                                = local.azure_v2_remote_control_routes
+  name                                    = "remote-control-${each.key}"
+  namespace_id                            = azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].id
+  requires_duplicate_detection            = true
+  duplicate_detection_history_time_window = "PT10M"
+  default_message_ttl                     = "P14D"
+}
+
+resource "azurerm_servicebus_queue" "azure_v2_remote_control_outbound" {
+  count                                   = local.azure_v2_remote_control_outbound ? 1 : 0
+  name                                    = "remote-control-outbound-bridge"
+  namespace_id                            = azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].id
+  requires_session                        = true
+  requires_duplicate_detection            = true
+  duplicate_detection_history_time_window = "PT10M"
+  dead_lettering_on_message_expiration    = true
+  default_message_ttl                     = "P14D"
+  lock_duration                           = "PT1M"
+  max_delivery_count                      = 5
+}
+
+resource "azurerm_servicebus_subscription" "azure_v2_remote_control_inbound" {
+  count                                     = local.azure_v2_remote_control_inbound ? 1 : 0
+  name                                      = "local-domain-landing"
+  topic_id                                  = azurerm_servicebus_topic.azure_v2_remote_control["inbound"].id
+  max_delivery_count                        = 5
+  requires_session                          = true
+  dead_lettering_on_message_expiration      = true
+  dead_lettering_on_filter_evaluation_error = true
+  default_message_ttl                       = "P14D"
+  lock_duration                             = "PT1M"
+  forward_to                                = azurerm_servicebus_queue.azure_azure_service_bus_standard[0].name
+}
+
+resource "azurerm_servicebus_subscription" "azure_v2_remote_control_outbound" {
+  count                                     = local.azure_v2_remote_control_outbound ? 1 : 0
+  name                                      = "cross-cloud-bridge"
+  topic_id                                  = azurerm_servicebus_topic.azure_v2_remote_control["outbound"].id
+  max_delivery_count                        = 5
+  requires_session                          = true
+  dead_lettering_on_message_expiration      = true
+  dead_lettering_on_filter_evaluation_error = true
+  default_message_ttl                       = "P14D"
+  lock_duration                             = "PT1M"
+  forward_to                                = azurerm_servicebus_queue.azure_v2_remote_control_outbound[0].name
 }
 
 resource "azurerm_eventhub_cluster" "azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge" {
@@ -1123,6 +1182,16 @@ locals {
       event_hubs_sender = {
         scope = azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["outbound"].id
         role  = "Azure Event Hubs Data Sender"
+      }
+    } : {},
+    local.azure_v2_remote_control_outbound ? {
+      remote_control_topic_sender = {
+        scope = azurerm_servicebus_topic.azure_v2_remote_control["outbound"].id
+        role  = "Azure Service Bus Data Sender"
+      }
+      remote_control_queue_receiver = {
+        scope = azurerm_servicebus_queue.azure_v2_remote_control_outbound[0].id
+        role  = "Azure Service Bus Data Receiver"
       }
     } : {},
     local.azure_v2_l1_enabled ? {

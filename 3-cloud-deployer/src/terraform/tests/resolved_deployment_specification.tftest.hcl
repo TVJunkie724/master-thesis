@@ -186,6 +186,14 @@ run "five_layer_v2_single_cloud_azure_omits_remote_event_hubs" {
   }
 
   assert {
+    condition = (
+      length(azurerm_servicebus_topic.azure_v2_remote_control) == 0 &&
+      length(azurerm_servicebus_queue.azure_v2_remote_control_outbound) == 0
+    )
+    error_message = "Single-cloud Azure must omit cross-cloud control brokers."
+  }
+
+  assert {
     condition     = length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter) == 1
     error_message = "Five-layer v2 must deploy the Azure event adapter on Flex Consumption."
   }
@@ -389,6 +397,18 @@ run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {
   assert {
     condition     = azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["inbound"].partition_count == 200
     error_message = "Large Azure remote telemetry must retain the reviewed 200-partition Event Hub."
+  }
+
+  assert {
+    condition = (
+      toset(keys(azurerm_servicebus_topic.azure_v2_remote_control)) == toset(["inbound", "outbound"]) &&
+      length(azurerm_servicebus_queue.azure_v2_remote_control_outbound) == 1 &&
+      length(azurerm_servicebus_subscription.azure_v2_remote_control_inbound) == 1 &&
+      length(azurerm_servicebus_subscription.azure_v2_remote_control_outbound) == 1 &&
+      azurerm_servicebus_subscription.azure_v2_remote_control_inbound[0].forward_to == azurerm_servicebus_queue.azure_azure_service_bus_standard[0].name &&
+      azurerm_servicebus_subscription.azure_v2_remote_control_outbound[0].forward_to == azurerm_servicebus_queue.azure_v2_remote_control_outbound[0].name
+    )
+    error_message = "Azure control routes must use separate inbound landing and outbound bridge paths without a feedback loop."
   }
 
   assert {
