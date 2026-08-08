@@ -6,6 +6,7 @@ import 'package:twin2multicloud_flutter/demo/demo_fixture_store.dart';
 import 'package:twin2multicloud_flutter/demo/demo_management_api.dart';
 import 'package:twin2multicloud_flutter/models/cloud_bootstrap.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
+import 'package:twin2multicloud_flutter/models/deployment_access.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/pricing_refresh_run.dart';
 import 'package:twin2multicloud_flutter/models/resolved_deployment_specification.dart';
@@ -606,6 +607,13 @@ void main() {
         (await api.getDeploymentOutputs('demo-configured')).outputs,
         isNotEmpty,
       );
+      final access = await api.getDeploymentAccess('demo-configured');
+      expect(access.surfaceFor(DeploymentLayer.l4)?.provider.name, 'azure');
+      expect(access.surfaceFor(DeploymentLayer.l5)?.provider.name, 'aws');
+      await expectLater(
+        api.rotateGcpGrafanaViewerCredential('demo-configured'),
+        throwsDemoCode('DEMO_GCP_GRAFANA_ROTATION_UNAVAILABLE'),
+      );
       expect(
         (await api.getDeploymentLogs('demo-configured')).logs,
         hasLength(1),
@@ -644,6 +652,35 @@ void main() {
         'destroyed',
       );
     });
+
+    test(
+      'demo GCP viewer rotation is typed, deterministic, and one-time',
+      () async {
+        final optimizer = store.optimizerConfig('demo-deployed')!;
+        (optimizer['cheapest_path'] as Map)['l5'] = 'GCP';
+        store.setOptimizerConfig('demo-deployed', optimizer);
+
+        final access = await api.getDeploymentAccess('demo-deployed');
+        expect(access.surfaceFor(DeploymentLayer.l5)?.provider.name, 'gcp');
+        final first = await api.rotateGcpGrafanaViewerCredential(
+          'demo-deployed',
+        );
+        final second = await api.rotateGcpGrafanaViewerCredential(
+          'demo-deployed',
+        );
+
+        expect(
+          first.password,
+          matches(RegExp(r'^demo-viewer-demo-grafana-viewer-rotation-\d{4}$')),
+        );
+        expect(
+          second.password,
+          matches(RegExp(r'^demo-viewer-demo-grafana-viewer-rotation-\d{4}$')),
+        );
+        expect(second.password, isNot(first.password));
+        expect(first.toString(), isNot(contains(first.password)));
+      },
+    );
 
     test(
       'pages deployment logs in event order and within one session',

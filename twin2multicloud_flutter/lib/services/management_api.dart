@@ -10,6 +10,7 @@ import '../models/cloud_bootstrap.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
 import '../models/deployment_operations.dart';
+import '../models/deployment_access.dart';
 import '../models/deployment_readiness.dart';
 import '../models/deployer_config.dart';
 import '../models/optimizer_config.dart';
@@ -301,6 +302,12 @@ abstract interface class DeploymentLifecycleApi {
   Future<DeploymentStatusSnapshot> getDeploymentStatus(String twinId);
 
   Future<DeploymentOutputsSnapshot> getDeploymentOutputs(String twinId);
+
+  Future<DeploymentAccessSnapshot> getDeploymentAccess(String twinId);
+
+  Future<DeploymentAccessCredential> rotateGcpGrafanaViewerCredential(
+    String twinId,
+  );
 
   Future<DeploymentHistory> getDeploymentHistory(
     String twinId, {

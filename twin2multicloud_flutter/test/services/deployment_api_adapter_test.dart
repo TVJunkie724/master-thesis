@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/core/result.dart';
+import 'package:twin2multicloud_flutter/models/deployment_access.dart';
 import 'package:twin2multicloud_flutter/models/deployment_operations.dart';
 import 'package:twin2multicloud_flutter/models/deployment_readiness.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
@@ -41,6 +42,18 @@ void main() {
           'source_deployment': null,
           'redacted': true,
         }),
+        '/twins/twin-1/deployment-access' => jsonResponse(
+          deploymentAccessResponse(),
+        ),
+        '/twins/twin-1/deployment-access/l5/credentials:rotate' =>
+          jsonResponse({
+            'schema_version': 'deployment-access-credential.v1',
+            'layer': 'l5',
+            'provider': 'gcp',
+            'username': 'viewer@example.invalid',
+            'password': 'one-time-secret',
+            'issued_at': '2026-07-14T08:31:00Z',
+          }),
         '/twins/twin-1/deployments' => jsonResponse({
           'schema_version': 'deployment-history.v1',
           'deployments': <Object>[],
@@ -85,6 +98,16 @@ void main() {
       'endpoint': 'https://example.test',
     });
     expect(
+      (await api.getDeploymentAccess(
+        'twin-1',
+      )).surfaceFor(DeploymentLayer.l5)?.provider.name,
+      'gcp',
+    );
+    expect(
+      (await api.rotateGcpGrafanaViewerCredential('twin-1')).password,
+      'one-time-secret',
+    );
+    expect(
       (await api.getDeploymentHistory('twin-1', limit: 7)).deployments,
       isEmpty,
     );
@@ -106,6 +129,8 @@ void main() {
       'POST /twins/twin-1/destroy',
       'GET /twins/twin-1/deployment-status',
       'GET /twins/twin-1/outputs',
+      'GET /twins/twin-1/deployment-access',
+      'POST /twins/twin-1/deployment-access/l5/credentials:rotate',
       'GET /twins/twin-1/deployments',
       'GET /twins/twin-1/logs',
       'POST /twins/twin-1/log-trace/start',
@@ -291,3 +316,56 @@ Map<String, dynamic> readinessResponse(String schemaVersion) {
     'issues': <Object>[],
   };
 }
+
+Map<String, dynamic> deploymentAccessResponse() => {
+  'schema_version': 'deployment-access.v1',
+  'twin_id': 'twin-1',
+  'deployment_id': 'deployment-1',
+  'generated_at': '2026-07-14T08:30:00Z',
+  'availability': 'available',
+  'reason_code': null,
+  'surfaces': [
+    {
+      'layer': 'l4',
+      'provider': 'azure',
+      'service_id': 'azure_digital_twins',
+      'display_name': 'Azure Digital Twins Explorer',
+      'url': 'https://l4.example.invalid/',
+      'auth': {
+        'mode': 'azure_entra',
+        'principal_label': 'researcher@example.invalid',
+        'credential_action': 'none',
+      },
+      'readiness': {
+        'resource': 'ready',
+        'access_binding': 'ready',
+        'content': 'pending',
+        'data_probe': 'pending',
+        'browser_sign_in': 'unverified',
+      },
+      'capabilities': ['browse'],
+      'limitations': <String>[],
+    },
+    {
+      'layer': 'l5',
+      'provider': 'gcp',
+      'service_id': 'gcp_grafana_oss',
+      'display_name': 'Grafana OSS',
+      'url': 'https://l5.example.invalid/',
+      'auth': {
+        'mode': 'generated_viewer',
+        'principal_label': 'viewer@example.invalid',
+        'credential_action': 'rotate',
+      },
+      'readiness': {
+        'resource': 'ready',
+        'access_binding': 'ready',
+        'content': 'pending',
+        'data_probe': 'pending',
+        'browser_sign_in': 'unverified',
+      },
+      'capabilities': ['dashboard'],
+      'limitations': <String>[],
+    },
+  ],
+};

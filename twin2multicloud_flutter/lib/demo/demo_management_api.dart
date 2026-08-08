@@ -11,6 +11,7 @@ import '../models/cloud_access_inventory.dart';
 import '../models/cloud_bootstrap.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
+import '../models/deployment_access.dart';
 import '../models/deployment_operations.dart';
 import '../models/deployment_readiness.dart';
 import '../models/deployer_config.dart';
@@ -1780,6 +1781,61 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
+  Future<DeploymentAccessSnapshot> getDeploymentAccess(String twinId) async {
+    await _pause();
+    final twin = store.twin(twinId);
+    if (twin['state'] != 'deployed') {
+      throw DemoApiException(
+        'DEMO_DEPLOYMENT_ACCESS_STATE_CONFLICT',
+        'Twin "$twinId" must be deployed before layer access is available.',
+      );
+    }
+    final path = store.optimizerConfig(twinId)?['cheapest_path'];
+    final providers = path is Map ? path : const <String, dynamic>{};
+    final l4 = _demoProvider(providers['l4'], fallback: CloudProvider.azure);
+    final l5 = _demoProvider(providers['l5'], fallback: CloudProvider.aws);
+    final generatedAt =
+        store.deploymentOutput(twinId)?['deployed_at']?.toString() ??
+        store.clock().toUtc().toIso8601String();
+    return DeploymentAccessSnapshot.fromJson({
+      'schema_version': DeploymentAccessSnapshot.supportedSchemaVersion,
+      'twin_id': twinId,
+      'deployment_id': 'demo-deployment-$twinId',
+      'generated_at': generatedAt,
+      'availability': 'available',
+      'reason_code': null,
+      'surfaces': [
+        _demoAccessSurface(DeploymentLayer.l4, l4, twinId),
+        _demoAccessSurface(DeploymentLayer.l5, l5, twinId),
+      ],
+    }, expectedTwinId: twinId);
+  }
+
+  @override
+  Future<DeploymentAccessCredential> rotateGcpGrafanaViewerCredential(
+    String twinId,
+  ) async {
+    final access = await getDeploymentAccess(twinId);
+    final l5 = access.surfaceFor(DeploymentLayer.l5);
+    if (l5?.provider != CloudProvider.gcp ||
+        l5?.auth.credentialAction != DeploymentAccessCredentialAction.rotate) {
+      throw const DemoApiException(
+        'DEMO_GCP_GRAFANA_ROTATION_UNAVAILABLE',
+        'Viewer credential rotation is only available for GCP Grafana.',
+      );
+    }
+    final requestId = store.nextId('demo-grafana-viewer-rotation');
+    return DeploymentAccessCredential.fromJson({
+      'schema_version': DeploymentAccessCredential.supportedSchemaVersion,
+      'layer': 'l5',
+      'provider': 'gcp',
+      'username': l5!.auth.principalLabel,
+      'password': 'demo-viewer-$requestId',
+      'issued_at': store.clock().toUtc().toIso8601String(),
+    });
+  }
+
+  @override
   Future<DeploymentHistory> getDeploymentHistory(
     String twinId, {
     int limit = 10,
@@ -3159,6 +3215,92 @@ class DemoManagementApi implements ManagementApi {
   static Map<String, dynamic> _copyMap(Map<dynamic, dynamic> value) {
     return Map<String, dynamic>.from(jsonDecode(jsonEncode(value)) as Map);
   }
+}
+
+CloudProvider _demoProvider(Object? value, {required CloudProvider fallback}) {
+  if (value == null) return fallback;
+  try {
+    return CloudProvider.fromApiValue(value.toString());
+  } on ArgumentError {
+    return fallback;
+  }
+}
+
+Map<String, dynamic> _demoAccessSurface(
+  DeploymentLayer layer,
+  CloudProvider provider,
+  String twinId,
+) {
+  final configuration = switch ((layer, provider)) {
+    (DeploymentLayer.l4, CloudProvider.aws) => (
+      'aws_iot_twinmaker',
+      'AWS IoT TwinMaker workspace',
+      'aws_identity_center',
+      'demo@twin2multicloud.local',
+      'none',
+    ),
+    (DeploymentLayer.l4, CloudProvider.azure) => (
+      'azure_digital_twins',
+      'Azure Digital Twins Explorer',
+      'azure_entra',
+      'demo@twin2multicloud.local',
+      'none',
+    ),
+    (DeploymentLayer.l4, CloudProvider.gcp) => (
+      'gcp_twin_explorer',
+      'GCP Twin Explorer',
+      'gcp_iap',
+      'demo@twin2multicloud.local',
+      'none',
+    ),
+    (DeploymentLayer.l5, CloudProvider.aws) => (
+      'aws_managed_grafana',
+      'Amazon Managed Grafana',
+      'aws_identity_center',
+      'demo@twin2multicloud.local',
+      'none',
+    ),
+    (DeploymentLayer.l5, CloudProvider.azure) => (
+      'azure_managed_grafana',
+      'Azure Managed Grafana',
+      'azure_entra',
+      'demo@twin2multicloud.local',
+      'none',
+    ),
+    (DeploymentLayer.l5, CloudProvider.gcp) => (
+      'gcp_grafana_oss',
+      'Grafana OSS on GKE',
+      'generated_viewer',
+      'demo-viewer',
+      'rotate',
+    ),
+  };
+  return {
+    'layer': layer.name,
+    'provider': provider.apiValue,
+    'service_id': configuration.$1,
+    'display_name': configuration.$2,
+    'url':
+        'https://${layer.name}-${provider.apiValue}-$twinId.demo.twin2multicloud.local/',
+    'auth': {
+      'mode': configuration.$3,
+      'principal_label': configuration.$4,
+      'credential_action': configuration.$5,
+    },
+    'readiness': {
+      'resource': 'ready',
+      'access_binding': 'ready',
+      'content': 'ready',
+      'data_probe': 'ready',
+      'browser_sign_in': 'unverified',
+    },
+    'capabilities': [
+      layer == DeploymentLayer.l4
+          ? 'Inspect the modeled twin surface.'
+          : 'Inspect the provisioned thesis dashboard.',
+    ],
+    'limitations': ['Demo links do not create live cloud resources.'],
+  };
 }
 
 int _deploymentLogEventId(Map<String, dynamic> item) {

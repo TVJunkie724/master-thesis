@@ -9,6 +9,7 @@ import '../models/cloud_access_inventory.dart';
 import '../models/cloud_bootstrap.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
+import '../models/deployment_access.dart';
 import '../models/deployment_operations.dart';
 import '../models/deployment_readiness.dart';
 import '../models/deployer_config.dart';
@@ -1203,6 +1204,25 @@ class ApiService implements ManagementApi {
   Future<DeploymentOutputsSnapshot> getDeploymentOutputs(String twinId) async {
     final response = await _dio.get('/twins/$twinId/outputs');
     return DeploymentOutputsSnapshot.fromJson(_responseMap(response.data));
+  }
+
+  @override
+  Future<DeploymentAccessSnapshot> getDeploymentAccess(String twinId) async {
+    final response = await _dio.get('/twins/$twinId/deployment-access');
+    return DeploymentAccessSnapshot.fromJson(
+      _responseMap(response.data),
+      expectedTwinId: twinId,
+    );
+  }
+
+  @override
+  Future<DeploymentAccessCredential> rotateGcpGrafanaViewerCredential(
+    String twinId,
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/deployment-access/l5/credentials:rotate',
+    );
+    return DeploymentAccessCredential.fromJson(_responseMap(response.data));
   }
 
   @override
