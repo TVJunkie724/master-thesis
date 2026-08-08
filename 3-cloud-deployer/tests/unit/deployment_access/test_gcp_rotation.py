@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -15,6 +16,7 @@ from src.deployment_access.gcp_rotation import (
 
 
 CA = b"-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----\n"
+TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
 
 
 class _Config:
@@ -141,3 +143,17 @@ def test_generic_terraform_projection_redacts_internal_rotation_bundle() -> None
 
     assert sanitized == {"gcp_grafana_rotation_secret": "[REDACTED]"}
     assert "cluster_ca_certificate" not in str(sanitized)
+
+
+def test_terraform_does_not_revert_a_rotated_viewer_password() -> None:
+    terraform = (TERRAFORM_ROOT / "gcp_five_layer_v2.tf").read_text("utf-8")
+    secret_start = terraform.index(
+        'resource "kubernetes_secret_v1" "gcp_gcp_grafana_tls_load_balancer"'
+    )
+    deployment_start = terraform.index(
+        'resource "kubernetes_deployment_v1" "gcp_grafana_oss_12_on_gke"'
+    )
+    secret_resource = terraform[secret_start:deployment_start]
+
+    assert 'ignore_changes = [data["viewer-password"]]' in secret_resource
+    assert 'ignore_changes = [data]' not in secret_resource

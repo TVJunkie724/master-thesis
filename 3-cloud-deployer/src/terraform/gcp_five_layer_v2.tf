@@ -1349,6 +1349,13 @@ resource "kubernetes_secret_v1" "gcp_gcp_grafana_tls_load_balancer" {
     "reader-key"      = random_password.gcp_v2_raw_history_reader_key[0].result
   }
   type = "Opaque"
+
+  # The owner-scoped rotation endpoint deliberately changes only this key.
+  # Keeping every other secret under Terraform ownership prevents a later
+  # apply from reverting a successfully rotated Viewer credential.
+  lifecycle {
+    ignore_changes = [data["viewer-password"]]
+  }
 }
 
 resource "kubernetes_deployment_v1" "gcp_grafana_oss_12_on_gke" {
