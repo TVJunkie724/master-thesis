@@ -869,6 +869,15 @@ def _read_history(params: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _raw_history_payload(params: Mapping[str, Any]) -> dict[str, Any]:
+    if not params:
+        return {
+            "schema_version": "raw-history-health.v1",
+            "status": "ready",
+        }
+    return _read_history(params)
+
+
 if REMOTE_TELEMETRY_ENABLED:
 
     @app.function_name(name="v2-remote-telemetry-consumer")
@@ -996,7 +1005,7 @@ if RAW_HISTORY_ENABLED:
 
         correlation_id = str(uuid.uuid4())
         try:
-            payload = _read_history(dict(req.params))
+            payload = _raw_history_payload(dict(req.params))
             payload["correlation_id"] = correlation_id
             return _reader_response(200, payload)
         except ContractError as exc:

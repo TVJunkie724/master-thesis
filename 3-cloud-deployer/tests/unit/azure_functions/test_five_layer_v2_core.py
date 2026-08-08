@@ -583,6 +583,13 @@ def test_raw_history_query_enforces_ranges_buckets_and_limit():
         core.parse_raw_history_query(_history_params(limit="1001"))
 
 
+def test_raw_history_reader_exposes_datasource_health_payload():
+    assert function_app._raw_history_payload({}) == {
+        "schema_version": "raw-history-health.v1",
+        "status": "ready",
+    }
+
+
 def test_raw_history_query_rejects_more_than_24_hours_raw_and_allows_30_day_rollup():
     end = datetime(2026, 8, 4, 12, tzinfo=timezone.utc)
     with pytest.raises(core.ContractError, match="QUERY_RANGE_EXCEEDED"):

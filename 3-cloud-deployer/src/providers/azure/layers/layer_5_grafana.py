@@ -20,6 +20,7 @@ Note:
     This file handles SDK-managed datasource configuration.
 """
 
+from datetime import datetime, timedelta, timezone
 import logging
 import secrets
 import time
@@ -733,6 +734,53 @@ def _upsert_v2_folder_and_dashboard(
     _require_status(response, (200,), "Azure Grafana dashboard provisioning")
 
 
+def _probe_v2_surface(
+    *,
+    grafana_url: str,
+    grafana_token: str,
+    hot_reader_url: str,
+    function_key: str,
+    device_id: str,
+    metric: str,
+) -> None:
+    now = datetime.now(timezone.utc)
+    for bucket, start in (
+        (0, now - timedelta(hours=24)),
+        (3600, now - timedelta(days=30)),
+    ):
+        response = requests.get(
+            hot_reader_url,
+            headers={"x-functions-key": function_key},
+            params={
+                "device_id": device_id,
+                "metric": metric,
+                "from": start.isoformat().replace("+00:00", "Z"),
+                "to": now.isoformat().replace("+00:00", "Z"),
+                "bucket_seconds": str(bucket),
+                "limit": "1",
+            },
+            timeout=30,
+        )
+        _require_status(response, (200,), "Azure raw-history query probe")
+        if response.json().get("schema_version") != "raw-history-query.v1":
+            raise RuntimeError(
+                "Azure raw-history query probe returned an invalid contract"
+            )
+    headers = _headers(grafana_token)
+    response = requests.get(
+        f"{grafana_url}/api/datasources/uid/{V2_DATASOURCE_UID}/health",
+        headers=headers,
+        timeout=30,
+    )
+    _require_status(response, (200,), "Azure Grafana datasource health probe")
+    response = requests.get(
+        f"{grafana_url}/api/dashboards/uid/{V2_DASHBOARD_UID}",
+        headers=headers,
+        timeout=30,
+    )
+    _require_status(response, (200,), "Azure Grafana dashboard probe")
+
+
 def configure_five_layer_v2_grafana(
     provider: "AzureProvider",
     *,
@@ -772,6 +820,14 @@ def configure_five_layer_v2_grafana(
     _upsert_v2_folder_and_dashboard(
         grafana_url=grafana_url,
         grafana_token=grafana_token,
+        device_id=device_id,
+        metric=metric,
+    )
+    _probe_v2_surface(
+        grafana_url=grafana_url,
+        grafana_token=grafana_token,
+        hot_reader_url=hot_reader_url,
+        function_key=function_key,
         device_id=device_id,
         metric=metric,
     )

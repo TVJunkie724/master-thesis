@@ -328,6 +328,42 @@ def test_azure_v2_dashboard_has_bounded_raw_and_rollup_queries():
     )
 
 
+def test_azure_v2_surface_probe_executes_reader_health_and_dashboard(monkeypatch):
+    calls = []
+
+    def get(url, **kwargs):
+        calls.append((url, kwargs))
+        if url == "https://reader.example/api/raw-history/v1":
+            return SimpleNamespace(
+                status_code=200,
+                json=lambda: {"schema_version": "raw-history-query.v1"},
+            )
+        return SimpleNamespace(status_code=200)
+
+    monkeypatch.setattr(layer_5_grafana.requests, "get", get)
+
+    layer_5_grafana._probe_v2_surface(
+        grafana_url="https://grafana.example",
+        grafana_token="short-lived-token",
+        hot_reader_url="https://reader.example/api/raw-history/v1",
+        function_key="function-secret",
+        device_id="sensor-1",
+        metric="temperature",
+    )
+
+    reader_calls = [call for call in calls if call[0].startswith("https://reader")]
+    assert [call[1]["params"]["bucket_seconds"] for call in reader_calls] == [
+        "0",
+        "3600",
+    ]
+    assert all(
+        call[1]["headers"] == {"x-functions-key": "function-secret"}
+        for call in reader_calls
+    )
+    assert calls[-2][0].endswith("/api/datasources/uid/t2mc-azure-hot-reader/health")
+    assert calls[-1][0].endswith("/api/dashboards/uid/t2mc-raw-rollups")
+
+
 def test_aws_v2_dashboard_has_bounded_raw_and_rollup_queries():
     dashboard = aws_layer_5_grafana._v2_dashboard("sensor-1", "temperature")
 
