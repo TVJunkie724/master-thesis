@@ -201,6 +201,7 @@
         "required_fields",
         "optional_fields",
         "routing_fields",
+        "event_type_registry",
         "forbidden_fields",
         "unknown_event_type_or_schema",
         "consumer_idempotency_key"
@@ -224,6 +225,52 @@
           "items": {"$ref": "#/$defs/field"}
         },
         "routing_fields": {"$ref": "#/$defs/stringArray"},
+        "event_type_registry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "core_flow_contract_ref",
+            "core_event_types",
+            "profile_extension_contract_ref",
+            "profile_extension_event_types",
+            "closed_union_rule",
+            "cost_scope_rule"
+          ],
+          "properties": {
+            "core_flow_contract_ref": {
+              "const": "domain-event-flow@1#channels"
+            },
+            "core_event_types": {
+              "const": [
+                "telemetry.received.v1",
+                "telemetry.processed.v1",
+                "event.matched.v1",
+                "notification.requested.v1",
+                "device.command.requested.v1",
+                "extension.action.outcome.v1",
+                "notification.workflow.outcome.v1",
+                "device.command.outcome.v1"
+              ]
+            },
+            "profile_extension_contract_ref": {
+              "const": "twin_projection.v1"
+            },
+            "profile_extension_event_types": {
+              "const": [
+                "twin.state.upserted",
+                "twin.model.upserted",
+                "twin.relationship.upserted",
+                "twin.relationship.deleted"
+              ]
+            },
+            "closed_union_rule": {
+              "const": "only_core_and_profile_extension_event_types_are_allowed"
+            },
+            "cost_scope_rule": {
+              "const": "phase_8_8_scenario_costs_cover_core_event_types_only; projection_workload_and_route_costs_are_owned_by_phase_08_complete_service_bundles"
+            }
+          }
+        },
         "forbidden_fields": {"$ref": "#/$defs/stringArray"},
         "unknown_event_type_or_schema": {"$ref": "#/$defs/nonEmptyString"},
         "consumer_idempotency_key": {"const": ["event_id"]}

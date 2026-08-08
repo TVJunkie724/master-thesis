@@ -85,6 +85,28 @@
       "producer",
       "source_id"
     ],
+    "event_type_registry": {
+      "core_flow_contract_ref": "domain-event-flow@1#channels",
+      "core_event_types": [
+        "telemetry.received.v1",
+        "telemetry.processed.v1",
+        "event.matched.v1",
+        "notification.requested.v1",
+        "device.command.requested.v1",
+        "extension.action.outcome.v1",
+        "notification.workflow.outcome.v1",
+        "device.command.outcome.v1"
+      ],
+      "profile_extension_contract_ref": "twin_projection.v1",
+      "profile_extension_event_types": [
+        "twin.state.upserted",
+        "twin.model.upserted",
+        "twin.relationship.upserted",
+        "twin.relationship.deleted"
+      ],
+      "closed_union_rule": "only_core_and_profile_extension_event_types_are_allowed",
+      "cost_scope_rule": "phase_8_8_scenario_costs_cover_core_event_types_only; projection_workload_and_route_costs_are_owned_by_phase_08_complete_service_bundles"
+    },
     "forbidden_fields": [
       "cloud_credentials",
       "provider_resource_ids",
@@ -484,7 +506,7 @@
     },
     "directed_pair": {
       "routes": "one source-owned bridge route per remote channel copy",
-      "fixture": "one copy of all eight closed-world domain channels",
+      "fixture": "one copy of all eight core event-domain channels; profile-extension projection variants are excluded from this standalone fixture",
       "destination_fanout": "local_after_landing"
     },
     "three_provider": {

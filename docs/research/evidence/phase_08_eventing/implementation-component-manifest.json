@@ -8,7 +8,7 @@
       "artifact_id": "bridge-decision",
       "path": "docs/research/evidence/phase_08_eventing/bridge-decision.json",
       "schema_version": "bridge-decision.v1",
-      "digest": "sha256:a889b04e97b324571b8836f5f4d64899ca3110586099acd02d04c30d733a72b7"
+      "digest": "sha256:c7ee17b672dc8a4b1c54a63de57922301de963cdb89c2864d9c31fe78a0e1a36"
     },
     {
       "artifact_id": "domain-event-flow-contract",
@@ -50,7 +50,7 @@
       "artifact_id": "scenario-cost-results",
       "path": "docs/research/evidence/phase_08_eventing/scenario-cost-results.json",
       "schema_version": "scenario-cost-results.v1",
-      "digest": "sha256:2759e14ed967af44ce4d5fb532bac7e609b3ef426e43f132a26150012ea1af10"
+      "digest": "sha256:9b0f59909ddfd88292b9b8e95778e51e3dac801f8e7d92a098745c1a61892e4e"
     },
     {
       "artifact_id": "scenario-inputs",

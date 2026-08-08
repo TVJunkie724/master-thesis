@@ -12,15 +12,15 @@
   "profile_parity_decision_ref": "phase-08-eventing-profile-parity@1",
   "domain_event_flow_contract_ref": "domain-event-flow@1",
   "input_digests": {
-    "bridge_decision": "sha256:a889b04e97b324571b8836f5f4d64899ca3110586099acd02d04c30d733a72b7",
+    "bridge_decision": "sha256:c7ee17b672dc8a4b1c54a63de57922301de963cdb89c2864d9c31fe78a0e1a36",
     "domain_event_flow_contract": "sha256:4fe96c424bcbafd24ab927d461052b2e6c34641d6e0c47f515268af49a8b4821",
     "formula_and_unit_ledger": "sha256:acf0b42bd2d2d5f0e8980f38f8ee03b5aa8661b07c5a96475406924fa315701a",
-    "implementation_component_manifest": "sha256:b9fc3d77771c05e6001d894988ca36066824b2e2ad3b34ff75d5ec7701d627f3",
+    "implementation_component_manifest": "sha256:ba5d5e7f8f81e77f2340ee862b314ec71371a4cba9f0fe7f2462189759c60377",
     "mandatory_capabilities": "sha256:4f390a62c6e5f42d4f84be3e3dc6677b585f69b114b7e7078cdffc73859ab66f",
     "pricing_model_matrix": "sha256:9cb3ac4ea4a3ee690ae68131b7975c1cff43bbdf83435fea6020b45bf168e16b",
     "profile_parity_decision": "sha256:14bfd44260c2be4e01e15f83c16d65a183d12ceaf12695dc7a156e53c338cdbb",
     "provider_capability_matrix": "sha256:45aeb0fcecfb03efd9677c15a4330b8dc9dae0d7547310049f62de329835e9b9",
-    "scenario_cost_results": "sha256:2759e14ed967af44ce4d5fb532bac7e609b3ef426e43f132a26150012ea1af10",
+    "scenario_cost_results": "sha256:9b0f59909ddfd88292b9b8e95778e51e3dac801f8e7d92a098745c1a61892e4e",
     "scenario_inputs": "sha256:1391c4463df31027e6f08bc67c538669a7b18777a9e42136af9d3f79db1f327b",
     "source_ledger": "sha256:1eac77342f4def391a6cb2071a87c57bad02d181eb1fc9503db59f52dc452a96"
   },
@@ -58,7 +58,7 @@
     "selection_used_cost": false,
     "scope": "incremental embedded domain-event, Event-Layer, bridge, landing, transfer, retention, workflow, device boundary, and observability costs; not full-profile totals"
   },
-  "scenario_result_digest": "sha256:a1b6fb7573ddf97cd734d3e34035ef2b9fbed35e076f82a2a32752d48b623a0b",
+  "scenario_result_digest": "sha256:b09815dbf5d8cf351d80e0d3cdf9242e12f4e1eab20eeadfae66092fc25ad0d8",
   "known_differences": [
     "five-layer-baseline@2 embeds mandatory domain-event behavior in ingestion and processing responsibilities; six-layer-eventing@1 owns transport semantics in an independent Eventing responsibility.",
     "Provider bundles are functionally aligned compositions, not one-to-one service equivalents.",
@@ -66,7 +66,8 @@
     "EMQX Cloud Dedicated Flex is functionally admissible but not selected because its public reproducible price matrix stops below the 100,000-session Large scenario; cost was not used to choose the cheapest service.",
     "The published cost results are separate event-scope estimates and intentionally do not rank full Twin profiles.",
     "A pre-activation implementation review on 2026-08-08 replaced the planning-only unlimited operator wait for route faults with the already costed six-attempt provider budget, an application-safe terminal record where the trigger exposes the current attempt, and the selected provider-native terminal destination as fallback; functional scope and selected services did not change.",
-    "A pre-activation contract review on 2026-08-08 superseded the planning-only eventing-envelope.v1 with the shared canonical-domain-event.v1 used by both approved profiles and the runtime; ordering is source_id/source_sequence, consumer idempotency is event_id, and optional redrive identity is payload.replay_id. Selected services, workload sizes, and cost formulas did not change."
+    "A pre-activation contract review on 2026-08-08 superseded the planning-only eventing-envelope.v1 with the shared canonical-domain-event.v1 used by both approved profiles and the runtime; ordering is source_id/source_sequence, consumer idempotency is event_id, and optional redrive identity is payload.replay_id. Selected services, workload sizes, and cost formulas did not change.",
+    "The standalone Phase 8.8 scenarios price the eight core event-domain channels. The closed bridge/runtime registry also permits the four twin_projection.v1 profile-extension variants whose explicit workloads and route costs are owned by the later complete-service profile calculation; this separation prevents projection traffic from being omitted at profile level or double-counted in the earlier event-scope figures."
   ],
   "residual_risks": [
     {

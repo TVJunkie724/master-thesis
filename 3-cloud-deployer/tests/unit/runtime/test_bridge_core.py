@@ -9,6 +9,7 @@ import pytest
 
 from src.runtime.eventing.bridge_core import (
     BridgeContractError,
+    CANONICAL_EVENT_TYPES,
     RetryableBridgeError,
     RouteBlockingBridgeError,
     RouteCircuitBreaker,
@@ -28,6 +29,23 @@ IDENTITY_EXCHANGES = {
     ("gcp", "aws"): "google_service_account_oidc_to_assume_role_with_web_identity",
     ("gcp", "azure"): "google_service_account_oidc_to_entra_federated_credential",
 }
+
+
+def test_canonical_event_registry_covers_core_flow_and_twin_projection():
+    assert CANONICAL_EVENT_TYPES == {
+        "telemetry.received.v1",
+        "telemetry.processed.v1",
+        "event.matched.v1",
+        "notification.requested.v1",
+        "device.command.requested.v1",
+        "extension.action.outcome.v1",
+        "notification.workflow.outcome.v1",
+        "device.command.outcome.v1",
+        "twin.state.upserted",
+        "twin.model.upserted",
+        "twin.relationship.upserted",
+        "twin.relationship.deleted",
+    }
 
 
 def _route(source: str, destination: str, *events: str, channel="control"):

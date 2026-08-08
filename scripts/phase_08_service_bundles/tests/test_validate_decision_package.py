@@ -137,6 +137,10 @@ class DecisionPackageValidatorTest(unittest.TestCase):
         manifest = self.validator.load_json(
             self.validator.EVIDENCE_ROOT / "implementation-component-manifest.json"
         )
+        self.assertEqual(
+            {component["runtime_state"] for component in manifest["components"]},
+            {"decision_frozen_not_implemented"},
+        )
 
     def test_aws_image_publication_permissions_are_frozen(self) -> None:
         permission = self.validator.load_json(

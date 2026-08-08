@@ -28,9 +28,7 @@ class DecisionPackageValidationTest(unittest.TestCase):
     def test_duplicate_file_ownership_is_rejected(self) -> None:
         artifacts = copy.deepcopy(self.artifacts)
         manifest = artifacts["implementation-component-manifest.json"]
-        manifest["file_ownership"].append(
-            copy.deepcopy(manifest["file_ownership"][0])
-        )
+        manifest["file_ownership"].append(copy.deepcopy(manifest["file_ownership"][0]))
         errors: list[str] = []
         VALIDATOR.validate_manifest(artifacts, errors)
         self.assertTrue(
@@ -70,26 +68,18 @@ class DecisionPackageValidationTest(unittest.TestCase):
         errors: list[str] = []
         VALIDATOR.validate_manifest(artifacts, errors)
         self.assertTrue(
-            any(
-                "incomplete profile route bindings" in error
-                for error in errors
-            )
+            any("incomplete profile route bindings" in error for error in errors)
         )
 
     def test_wrong_bridge_profile_component_scope_is_rejected(self) -> None:
         artifacts = copy.deepcopy(self.artifacts)
         manifest = artifacts["implementation-component-manifest.json"]
         binding = manifest["bridge_route_classes"][0]["profile_bindings"][0]
-        binding["source_telemetry_component_ids"] = [
-            "deployment.aws.event.kinesis"
-        ]
+        binding["source_telemetry_component_ids"] = ["deployment.aws.event.kinesis"]
         errors: list[str] = []
         VALIDATOR.validate_manifest(artifacts, errors)
         self.assertTrue(
-            any(
-                "has the wrong provider or profile scope" in error
-                for error in errors
-            )
+            any("has the wrong provider or profile scope" in error for error in errors)
         )
 
     def test_wrong_same_scope_bridge_component_is_rejected(self) -> None:
@@ -103,8 +93,7 @@ class DecisionPackageValidationTest(unittest.TestCase):
         VALIDATOR.validate_manifest(artifacts, errors)
         self.assertTrue(
             any(
-                "components differ from exact five-layer-baseline@2 binding"
-                in error
+                "components differ from exact five-layer-baseline@2 binding" in error
                 for error in errors
             )
         )
@@ -122,10 +111,7 @@ class DecisionPackageValidationTest(unittest.TestCase):
         errors: list[str] = []
         VALIDATOR.validate_manifest(artifacts, errors)
         self.assertTrue(
-            any(
-                "does not own the route bridge adapter" in error
-                for error in errors
-            )
+            any("does not own the route bridge adapter" in error for error in errors)
         )
 
     def test_stale_artifact_digest_is_rejected(self) -> None:
@@ -134,9 +120,7 @@ class DecisionPackageValidationTest(unittest.TestCase):
         manifest["artifact_refs"][0]["digest"] = "sha256:" + ("0" * 64)
         errors: list[str] = []
         VALIDATOR.validate_manifest(artifacts, errors)
-        self.assertTrue(
-            any("manifest digest mismatch" in error for error in errors)
-        )
+        self.assertTrue(any("manifest digest mismatch" in error for error in errors))
 
     def test_domain_edge_drift_is_rejected(self) -> None:
         artifacts = copy.deepcopy(self.artifacts)
@@ -148,6 +132,21 @@ class DecisionPackageValidationTest(unittest.TestCase):
         VALIDATOR.validate_manifest(artifacts, errors)
         self.assertTrue(
             any("consumers differ from domain contract" in error for error in errors)
+        )
+
+    def test_incomplete_projection_event_registry_is_rejected(self) -> None:
+        artifacts = copy.deepcopy(self.artifacts)
+        registry = artifacts["bridge-decision.json"]["envelope_contract"][
+            "event_type_registry"
+        ]
+        registry["profile_extension_event_types"].pop()
+        errors: list[str] = []
+
+        VALIDATOR.validate_event_type_registry(artifacts, errors)
+
+        self.assertIn(
+            "bridge Twin-projection event registry is incomplete",
+            errors,
         )
 
     def test_incomplete_scenario_pair_matrix_is_rejected(self) -> None:
@@ -166,8 +165,7 @@ class DecisionPackageValidationTest(unittest.TestCase):
         matrix["capability_rows"] = [
             row
             for row in matrix["capability_rows"]
-            if row["capability_id"]
-            != "capability.direct-edge.cross-cloud-transport"
+            if row["capability_id"] != "capability.direct-edge.cross-cloud-transport"
         ]
         errors: list[str] = []
         VALIDATOR.validate_coverage(artifacts, errors)
@@ -205,13 +203,9 @@ class DecisionPackageValidationTest(unittest.TestCase):
         artifacts = copy.deepcopy(self.artifacts)
         manifest = artifacts["implementation-component-manifest.json"]
         aws = next(
-            row
-            for row in manifest["provider_requirements"]
-            if row["provider"] == "aws"
+            row for row in manifest["provider_requirements"] if row["provider"] == "aws"
         )
-        aws["preflight_gates"].remove(
-            "regional_STS_endpoint_for_GetWebIdentityToken"
-        )
+        aws["preflight_gates"].remove("regional_STS_endpoint_for_GetWebIdentityToken")
         errors: list[str] = []
         VALIDATOR.validate_coverage(artifacts, errors)
         self.assertIn(
@@ -229,8 +223,7 @@ class DecisionPackageValidationTest(unittest.TestCase):
         VALIDATOR.validate_coverage(artifacts, errors)
         self.assertTrue(
             any(
-                "rejected alternative capability/pricing coverage mismatch"
-                in error
+                "rejected alternative capability/pricing coverage mismatch" in error
                 for error in errors
             )
         )
@@ -238,9 +231,7 @@ class DecisionPackageValidationTest(unittest.TestCase):
     def test_unresolved_runtime_adapter_is_rejected(self) -> None:
         artifacts = copy.deepcopy(self.artifacts)
         manifest = artifacts["implementation-component-manifest.json"]
-        manifest["service_components"][0]["runtime_adapter_ids"] = [
-            "adapter.unknown@1"
-        ]
+        manifest["service_components"][0]["runtime_adapter_ids"] = ["adapter.unknown@1"]
         errors: list[str] = []
         VALIDATOR.validate_manifest(artifacts, errors)
         self.assertTrue(any("unresolved runtime adapter" in error for error in errors))
@@ -248,9 +239,7 @@ class DecisionPackageValidationTest(unittest.TestCase):
     def test_unresolved_contract_reference_is_rejected(self) -> None:
         artifacts = copy.deepcopy(self.artifacts)
         manifest = artifacts["implementation-component-manifest.json"]
-        manifest["service_components"][0]["contract_refs"] = [
-            "unknown-contract@1"
-        ]
+        manifest["service_components"][0]["contract_refs"] = ["unknown-contract@1"]
         errors: list[str] = []
         VALIDATOR.validate_manifest(artifacts, errors)
         self.assertTrue(
@@ -262,9 +251,7 @@ class DecisionPackageValidationTest(unittest.TestCase):
         manifest = artifacts["implementation-component-manifest.json"]
         runtime_path = manifest["runtime_adapters"][0]["source_path"]
         manifest["file_ownership"] = [
-            row
-            for row in manifest["file_ownership"]
-            if row["path"] != runtime_path
+            row for row in manifest["file_ownership"] if row["path"] != runtime_path
         ]
         errors: list[str] = []
         VALIDATOR.validate_manifest(artifacts, errors)

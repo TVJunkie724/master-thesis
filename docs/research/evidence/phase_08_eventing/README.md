@@ -66,6 +66,14 @@ Each extension action, workflow, and device command emits one typed terminal
 outcome. Storage lifecycle movement stays storage-owned and does not send object
 payloads through the event broker. Query/read traffic remains synchronous.
 
+The diagram and the standalone Phase 8.8 cost fixture cover the eight core
+operational channels above. The closed bridge registry additionally admits the
+four `twin_projection.v1` profile extensions (`twin.state.upserted`,
+`twin.model.upserted`, `twin.relationship.upserted`, and
+`twin.relationship.deleted`). Their explicit projection workload and route
+costs belong to the complete-service profile calculation, so they are not
+silently added to or double-counted in these earlier event-domain estimates.
+
 The reference notification workflow has four steps: three provider-local
 orchestration/control steps and one external notification delivery. This keeps
 the user-visible behavior fixed without erasing Azure connector calls or the
@@ -540,9 +548,12 @@ provider:
 The ingress provider owns device ingress, device-command delivery, and the
 corresponding outcome. The processing provider owns the processor,
 persistence, Twin update, rule/action path, and notification workflow. This
-placement routes all eight closed-world channels; in particular, the device
-command returns from the Eventing provider to the ingress provider instead of
-disappearing from the three-cloud fixture.
+placement routes all eight core event-domain channels; in particular, the
+device command returns from the Eventing provider to the ingress provider
+instead of disappearing from the three-cloud fixture. A complete resolved
+profile may additionally route the four closed `twin_projection.v1` variants
+from L3 hot to L4; those profile-extension volumes are evaluated by the later
+complete-service workload and optimizer rather than this standalone fixture.
 
 AWS, Azure, and GCP remain candidate Eventing providers because all six
 directions have a documented federation primitive and construction rule.
@@ -556,7 +567,7 @@ because fan-out occurs after the landing broker.
 `scenario-cost-results.json` is generated offline by
 `scripts/phase_08_eventing/calculate_scenarios.py`. Its normalized result digest
 is
-`sha256:a1b6fb7573ddf97cd734d3e34035ef2b9fbed35e076f82a2a32752d48b623a0b`.
+`sha256:b09815dbf5d8cf351d80e0d3cdf9242e12f4e1eab20eeadfae66092fc25ad0d8`.
 The generator emits per-channel publication, delivery, retry, DLQ, replay,
 retention, compute, workflow, observability, outbox, landing, and transfer
 traces. Reordering source-ledger or pricing-matrix rows does not change the

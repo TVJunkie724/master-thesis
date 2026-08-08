@@ -4,26 +4,26 @@
   "profile_ref": {
     "id": "five-layer-baseline",
     "version": "2",
-    "digest": "sha256:032bac29064a7b274ba6a5e6afdc3006757a84cbdcd8b4f9f75cf19a7fdec1ac"
+    "digest": "sha256:36a68644e66be0b7242d692b9a75fd8d99173a28b00b00fa110023693dc5e854"
   },
   "provider_profile_refs": [
     {
       "provider": "aws",
       "id": "provider-profile.aws.five-layer-baseline-v2",
       "version": "1",
-      "digest": "sha256:a16394b8f4f365d636864cf006a8b81779ad32dfbf1086f43d206e393ddc905f"
+      "digest": "sha256:767c5b5eda4140679e1fdf0536d6ea151bd572af7811f69049d69713c58e09bf"
     },
     {
       "provider": "azure",
       "id": "provider-profile.azure.five-layer-baseline-v2",
       "version": "1",
-      "digest": "sha256:c5652028b2254d7243395044cabf3c83636f8ccc6e59bd34a3eb7156bc74f1f0"
+      "digest": "sha256:cde60c0a87ef20db04e8a5ae5f2adedc012d8a6887de92801c9b8acc1fcc2df8"
     },
     {
       "provider": "gcp",
       "id": "provider-profile.gcp.five-layer-baseline-v2",
       "version": "1",
-      "digest": "sha256:ecae9f60d390630e7decab79a20d13bb09916ff1f2f5fbc42af5f5097f0e7562"
+      "digest": "sha256:0b405273e87121fc039588c3a70c02ba2200a9cf1d4a46c7a9e64cc0fbacfa40"
     }
   ],
   "catalog_ref": {
@@ -34,12 +34,12 @@
   "service_decision_ref": {
     "id": "phase-08-complete-service-bundles",
     "version": "1",
-    "digest": "sha256:6eb06bea3e35d480a21e2dfb747cd2bf10aebd94d22f540b126548be2c6a14ae"
+    "digest": "sha256:05dfcce680ee12f287816a7babcf47e22b8ac6cf22f803787293db6b011e7296"
   },
   "workload_ref": {
     "id": "five-layer-workload",
     "version": "2",
-    "digest": "sha256:b5dd8fc828d94a41345c32338a82fed0c9fc38cd3f1c7fd01b2a30cf214471f3"
+    "digest": "sha256:c75040905c6d6cd551062f74877a352da0ac05c15f73caeff5f1924bf53d1d19"
   },
   "supported_placements": [
     "aws-l3l5-aws-l4",
@@ -52,5 +52,5 @@
     "gcp-l3l5-azure-l4",
     "gcp-l3l5-gcp-l4"
   ],
-  "content_digest": "sha256:982d71662e408c5d152e44fd7a368f0d9e04844e770c613d745ccced495073c2"
+  "content_digest": "sha256:49263fba9dcc0ef70b0ba636c353d901779ee94ec51df4bdf2037ea8cd99cd5f"
 }
