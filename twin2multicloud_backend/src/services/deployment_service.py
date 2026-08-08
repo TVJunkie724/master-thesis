@@ -106,6 +106,7 @@ class DeployerStreamResult:
     error_code: str | None = None
     message: str | None = None
     outputs: dict[str, Any] | None = None
+    deployment_access_evidence: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -277,6 +278,9 @@ def _parse_deployer_sse_data(
             error_code=payload.get("error_code"),
             message=_redact_deployment_message(message),
             outputs=payload.get("outputs") or {},
+            deployment_access_evidence=payload.get(
+                "deployment_access_evidence"
+            ),
         )
 
     message = payload.get("message") if payload.get("event") == "log" else None
@@ -360,6 +364,7 @@ async def run_real_deploy_stream(
     db.close()
 
     terraform_outputs = {}
+    deployment_access_evidence = None
     terminal_result: DeployerStreamResult | None = None
     current_event_type: str | None = None
 
@@ -382,6 +387,10 @@ async def run_real_deploy_stream(
                     terminal_result = result
                     if result.success and result.outputs:
                         terraform_outputs = result.outputs
+                    if result.success and result.deployment_access_evidence:
+                        deployment_access_evidence = (
+                            result.deployment_access_evidence
+                        )
                 elif log_message:
                     completed_stage = _completed_stage_from_log(log_message)
                     if completed_stage is not None:
@@ -423,6 +432,7 @@ async def run_real_deploy_stream(
                     repository.mark_success(
                         deployment,
                         terraform_outputs=terraform_outputs,
+                        deployment_access_evidence=deployment_access_evidence,
                         operation_id=terminal_result.operation_id
                         if terminal_result
                         else None,
@@ -480,6 +490,7 @@ async def run_real_deploy_stream(
                     repository.mark_success(
                         deployment,
                         terraform_outputs=terraform_outputs,
+                        deployment_access_evidence=deployment_access_evidence,
                         operation_id=terminal_result.operation_id
                         if terminal_result
                         else None,

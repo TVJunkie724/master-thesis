@@ -31,6 +31,7 @@ from src.schemas.management_contracts import (
     RedeployReadinessResponse,
 )
 from src.schemas.deployment_logs import DeploymentLogPageResponse
+from src.schemas.deployment_access import DeploymentAccessSnapshot
 from src.schemas.deployment_operations import (
     DeploymentHistoryResponse,
     DeploymentOutputsResponse,
@@ -41,6 +42,7 @@ from src.schemas.deployment_readiness import (
     DeploymentReadinessResponse,
 )
 from src.services.deployment_log_read_service import DeploymentLogReadService
+from src.services.deployment_access_service import DeploymentAccessService
 from src.services.deployment_orchestrator import DeploymentOrchestrator
 from src.services.deployment_readiness_service import DeploymentReadinessService
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
@@ -95,6 +97,16 @@ def _deployment_readiness_service(db: Session) -> DeploymentReadinessService:
     )
 
 
+def _deployment_access_service(db: Session) -> DeploymentAccessService:
+    """Build the owner-scoped Layer Access read service."""
+    from src.repositories.deployment_repository import DeploymentRepository
+
+    return DeploymentAccessService(
+        twin_repository=TwinRepository(db),
+        deployment_repository=DeploymentRepository(db),
+    )
+
+
 def _raise_service_http_error(exc: Exception) -> None:
     """Map typed service errors to the existing route-level HTTP contract."""
     if isinstance(exc, EntityNotFoundError):
@@ -108,6 +120,31 @@ def _raise_service_http_error(exc: Exception) -> None:
             status_code=exc.status_code, detail=exc.public_detail
         ) from exc
     raise exc
+
+
+@router.get(
+    "/{twin_id}/deployment-access",
+    response_model=DeploymentAccessSnapshot,
+    operation_id="getTwinDeploymentAccess",
+    summary="Get secret-free L4 and L5 access surfaces",
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        409: {"description": "Twin is not actively deployed or profile is unsupported"},
+    },
+)
+async def get_deployment_access(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return _deployment_access_service(db).get_access(
+            twin_id,
+            current_user.id,
+        )
+    except (EntityNotFoundError, ValidationError, ConflictError) as exc:
+        _raise_service_http_error(exc)
 
 
 @router.get(

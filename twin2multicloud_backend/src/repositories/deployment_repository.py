@@ -156,6 +156,7 @@ class DeploymentRepository:
         self,
         deployment: Deployment,
         terraform_outputs: dict[str, Any] | None = None,
+        deployment_access_evidence: dict[str, Any] | None = None,
         completed_at: datetime | None = None,
         operation_id: str | None = None,
     ) -> Deployment:
@@ -163,6 +164,7 @@ class DeploymentRepository:
         if operation_id:
             deployment.operation_id = operation_id
         deployment.terraform_outputs = terraform_outputs
+        deployment.deployment_access_evidence = deployment_access_evidence
         deployment.error_code = None
         deployment.error_message = None
         if deployment.graph_digest:

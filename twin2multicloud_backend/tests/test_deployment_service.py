@@ -389,6 +389,7 @@ class TestDeployerSseParsing:
                     "operation": "deploy",
                     "success": True,
                     "outputs": {"endpoint": {"value": "ok"}},
+                    "deployment_access_evidence": {"schema_version": "deployment-access-evidence.v1"},
                     "operation_id": "op-123",
                 }
             ),
@@ -401,6 +402,9 @@ class TestDeployerSseParsing:
         assert result.operation_id == "op-123"
         assert result.error_code is None
         assert result.outputs == {"endpoint": {"value": "ok"}}
+        assert result.deployment_access_evidence == {
+            "schema_version": "deployment-access-evidence.v1"
+        }
 
     def test_parses_error_terminal_event_with_redaction(self):
         log_message, result = _parse_deployer_sse_data(
@@ -457,7 +461,9 @@ class TestRealDeploymentStreamPersistence:
             'data: {"event":"log","operation":"deploy","message":"terraform init","operation_id":"op-deploy"}',
             "event: complete",
             'data: {"event":"complete","operation":"deploy","success":true,'
-            '"outputs":{"endpoint":{"value":"ok"}},"operation_id":"op-deploy"}',
+            '"outputs":{"endpoint":{"value":"ok"}},'
+            '"deployment_access_evidence":{"schema_version":"deployment-access-evidence.v1"},'
+            '"operation_id":"op-deploy"}',
         ]
         deployer_client = _patch_stream_dependencies(monkeypatch, lines, session)
 
@@ -481,6 +487,9 @@ class TestRealDeploymentStreamPersistence:
         assert deployment.operation_id == "op-deploy"
         assert deployment.error_code is None
         assert deployment.terraform_outputs == {"endpoint": {"value": "ok"}}
+        assert deployment.deployment_access_evidence == {
+            "schema_version": "deployment-access-evidence.v1"
+        }
         assert deployment.completed_stage == "postapply"
         assert session.buffer[0]["data"] == "terraform init"
         assert complete_event["operation_id"] == "op-deploy"

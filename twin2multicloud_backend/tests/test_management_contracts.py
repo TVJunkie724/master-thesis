@@ -66,6 +66,10 @@ def test_management_json_contracts_have_response_models():
             "get",
         ): "#/components/schemas/RedeployReadinessResponse",
         (
+            "/twins/{twin_id}/deployment-access",
+            "get",
+        ): "#/components/schemas/DeploymentAccessSnapshot",
+        (
             "/twins/{twin_id}/deploy",
             "post",
         ): "#/components/schemas/OperationSessionResponse",

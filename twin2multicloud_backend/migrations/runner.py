@@ -74,6 +74,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "025_resolved_architecture_v2",
         "migrations.allow_resolved_architecture_v2",
     ),
+    Migration(
+        "026_deployment_access",
+        "migrations.add_deployment_access",
+    ),
 )
 
 
