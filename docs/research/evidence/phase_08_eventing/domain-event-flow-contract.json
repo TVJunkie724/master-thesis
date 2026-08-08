@@ -54,7 +54,7 @@
       "producer": "component.device-ingress",
       "consumers": ["component.telemetry-processor"],
       "payload_class": "telemetry",
-      "ordering_key": "device_id"
+      "ordering_key": "source_id"
     },
     {
       "channel_id": "telemetry.processed.v1",
@@ -65,56 +65,56 @@
         "component.rule-evaluator"
       ],
       "payload_class": "telemetry",
-      "ordering_key": "device_id"
+      "ordering_key": "source_id"
     },
     {
       "channel_id": "event.matched.v1",
       "producer": "component.rule-evaluator",
       "consumers": ["component.action-dispatcher"],
       "payload_class": "match",
-      "ordering_key": "device_id"
+      "ordering_key": "source_id"
     },
     {
       "channel_id": "notification.requested.v1",
       "producer": "component.action-dispatcher",
       "consumers": ["component.notification-workflow"],
       "payload_class": "notification",
-      "ordering_key": "device_id"
+      "ordering_key": "source_id"
     },
     {
       "channel_id": "device.command.requested.v1",
       "producer": "component.action-dispatcher",
       "consumers": ["component.device-command-adapter"],
       "payload_class": "device_command",
-      "ordering_key": "device_id"
+      "ordering_key": "source_id"
     },
     {
       "channel_id": "extension.action.outcome.v1",
       "producer": "component.action-dispatcher",
       "consumers": ["component.historical-persistence"],
       "payload_class": "outcome",
-      "ordering_key": "device_id"
+      "ordering_key": "source_id"
     },
     {
       "channel_id": "notification.workflow.outcome.v1",
       "producer": "component.notification-workflow",
       "consumers": ["component.historical-persistence"],
       "payload_class": "outcome",
-      "ordering_key": "device_id"
+      "ordering_key": "source_id"
     },
     {
       "channel_id": "device.command.outcome.v1",
       "producer": "component.device-command-adapter",
       "consumers": ["component.historical-persistence"],
       "payload_class": "outcome",
-      "ordering_key": "device_id"
+      "ordering_key": "source_id"
     }
   ],
   "rules": {
     "evaluation_presence": "always",
     "invocation_condition": "typed_rule_match",
     "terminal_outcomes": "one_per_action_workflow_and_command",
-    "consumer_idempotency_key": "event_id_and_invocation_id"
+    "consumer_idempotency_key": "event_id"
   },
   "excluded_flows": [
     "storage_object_payload_via_event_broker",

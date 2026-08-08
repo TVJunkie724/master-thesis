@@ -61,35 +61,29 @@
     "destination_authorization": "publish_only_permission_on_the_exact_destination_stream_topic_or_entity; no_management_plane_permission"
   },
   "envelope_contract": {
-    "contract_id": "eventing-envelope.v1",
+    "contract_id": "canonical-domain-event.v1",
     "encoding": "utf-8-json",
     "max_serialized_event_bytes": 98304,
     "current_scenario_max_serialized_event_bytes": 66560,
     "required_fields": [
-      {"name": "event_id", "type": "uuid", "max_length": 36},
-      {"name": "invocation_id", "type": "uuid", "max_length": 36},
-      {"name": "event_type", "type": "closed_channel_id", "max_length": 128},
       {"name": "schema_version", "type": "semantic_contract_version", "max_length": 32},
+      {"name": "event_id", "type": "uuid", "max_length": 36},
+      {"name": "event_type", "type": "closed_channel_id", "max_length": 128},
+      {"name": "deployment_id", "type": "bounded_identifier", "max_length": 256},
+      {"name": "source_id", "type": "bounded_identifier", "max_length": 128},
+      {"name": "source_sequence", "type": "bounded_identifier", "max_length": 256},
       {"name": "occurred_at", "type": "rfc3339_utc", "max_length": 35},
-      {"name": "producer_component_id", "type": "closed_component_id", "max_length": 128},
       {"name": "correlation_id", "type": "uuid", "max_length": 36},
-      {"name": "twin_id", "type": "bounded_identifier", "max_length": 128},
-      {"name": "device_id", "type": "bounded_identifier", "max_length": 128},
-      {"name": "partition_key", "type": "device_id_copy", "max_length": 128},
-      {"name": "traceparent", "type": "w3c_traceparent", "max_length": 55},
-      {"name": "replay", "type": "replay_metadata", "max_length": 256},
+      {"name": "causation_id", "type": "uuid", "max_length": 36},
+      {"name": "producer", "type": "closed_component_id", "max_length": 128},
       {"name": "payload", "type": "schema_bound_object", "max_length": 94208}
     ],
-    "optional_fields": [
-      {"name": "causation_id", "type": "uuid", "max_length": 36},
-      {"name": "tracestate", "type": "w3c_tracestate", "max_length": 512}
-    ],
+    "optional_fields": [],
     "routing_fields": [
       "event_type",
       "schema_version",
-      "producer_component_id",
-      "partition_key",
-      "replay.is_replay"
+      "producer",
+      "source_id"
     ],
     "forbidden_fields": [
       "cloud_credentials",
@@ -100,14 +94,11 @@
       "arbitrary_http_headers"
     ],
     "unknown_event_type_or_schema": "terminal_schema_rejection_to_source_bridge_dlq",
-    "consumer_idempotency_key": [
-      "event_id",
-      "invocation_id"
-    ]
+    "consumer_idempotency_key": ["event_id"]
   },
   "delivery_contract": {
     "delivery_guarantee": "at_least_once",
-    "ordering_scope": "per_device_id",
+    "ordering_scope": "per_source_id_and_source_sequence",
     "producer_ack_boundary": "source_durable_outbox_acceptance",
     "bridge_ack_boundary": "destination_broker_durable_acceptance",
     "consumer_ack_boundary": "idempotent_domain_effect_and_outcome_or_checkpoint",
@@ -118,8 +109,8 @@
       "gcp_large_telemetry": "streaming_pull_with_per_message_ack",
       "gcp_large_control": "one_pubsub_push_message_per_request"
     },
-    "concurrency_rule": "records_for_one_device_key_are_published_serially; different_device_keys_may_progress_in_parallel",
-    "destination_batch_rule": "never_mix_channels_or_device_keys; maximum_10_events_and_983040_serialized_bytes; AWS_telemetry_uses_single_PutRecord",
+    "concurrency_rule": "records_for_one_source_id_are_published_serially_by_source_sequence; different_source_ids_may_progress_in_parallel",
+    "destination_batch_rule": "never_mix_channels_or_source_ids; maximum_10_events_and_983040_serialized_bytes; AWS_telemetry_uses_single_PutRecord",
     "destination_acceptance_signals": [
       {
         "provider": "aws",
@@ -143,7 +134,7 @@
       "serialized_size_and_UTF8_JSON",
       "required_and_forbidden_fields",
       "closed_event_type_and_schema_version",
-      "field_bounds_and_partition_key_equals_device_id",
+      "field_bounds_and_source_id_is_the_portable_ordering_key",
       "route_exists_and_source_destination_match",
       "obtain_or_refresh_destination_credential",
       "publish_and_validate_destination_acceptance"
@@ -220,9 +211,9 @@
     },
     "redrive": {
       "event_id": "preserve",
-      "invocation_id": "preserve",
-      "replay_id": "new_uuid",
-      "replay_marker": "required",
+      "source_ordering_identity": "preserve_source_id_and_source_sequence",
+      "replay_id": "new_uuid_in_payload",
+      "replay_marker": "payload_replay_id_required",
       "audit_outcome": "required",
       "ordering_degradation_outcome": "required_when_later_same_key_events_were_released"
     }
@@ -230,7 +221,7 @@
   "observability_and_lifecycle_contract": {
     "allowed_log_fields": [
       "bounded_event_id",
-      "bounded_invocation_id",
+      "bounded_correlation_id",
       "event_type",
       "schema_version",
       "source_provider",
@@ -245,7 +236,7 @@
       "payload",
       "device_id",
       "twin_id",
-      "partition_key",
+      "source_id",
       "credentials_or_tokens",
       "provider_resource_ids",
       "deployment_URLs",
@@ -272,10 +263,10 @@
     ],
     "forbidden_metric_dimensions": [
       "event_id",
-      "invocation_id",
+      "correlation_id",
+      "source_id",
       "device_id",
       "twin_id",
-      "partition_key",
       "credential_subject"
     ],
     "audit_events": [
@@ -368,10 +359,10 @@
       "provider": "aws",
       "telemetry_service": "Amazon Kinesis Data Streams",
       "telemetry_api": "PutRecord",
-      "telemetry_ordering": "PartitionKey=device_id; serial per key; SequenceNumberForOrdering chains consecutive same-key records inside one invocation; source ordering and acknowledgement prevent overlap across invocations",
+      "telemetry_ordering": "PartitionKey=source_id; serial per key; SequenceNumberForOrdering chains consecutive same-key records inside one invocation; source ordering and acknowledgement prevent overlap across invocations",
       "control_service": "Amazon SNS FIFO with SQS FIFO subscriptions",
       "control_api": "Publish",
-      "control_ordering": "MessageGroupId=device_id; MessageDeduplicationId=event_id plus replay_id_or_live so source retries deduplicate but an explicit redrive is not suppressed",
+      "control_ordering": "MessageGroupId=source_id; MessageDeduplicationId=event_id plus payload.replay_id_or_live so source retries deduplicate but an explicit redrive is not suppressed",
       "authorization": "AssumeRoleWithWebIdentity role scoped to kinesis:PutRecord or sns:Publish on exact destination resources",
       "source_refs": [
         "source.aws.kinesis-put-record.2026-07-20",
@@ -383,10 +374,10 @@
       "provider": "azure",
       "telemetry_service": "Event Hubs Standard for Small/Medium; Event Hubs Dedicated for Large",
       "telemetry_api": "EventHubProducerClient send",
-      "telemetry_ordering": "partitionKey=device_id; destination batches contain one key only",
+      "telemetry_ordering": "partitionKey=source_id; destination batches contain one key only",
       "control_service": "Service Bus Standard",
       "control_api": "ServiceBusSenderClient send",
-      "control_ordering": "SessionId=device_id; MessageId=event_id plus replay_id_or_live so duplicate detection does not suppress an explicit redrive",
+      "control_ordering": "SessionId=source_id; MessageId=event_id plus payload.replay_id_or_live so duplicate detection does not suppress an explicit redrive",
       "authorization": "Entra token with Azure Event Hubs Data Sender or Azure Service Bus Data Sender scoped to exact entity; local auth disabled",
       "source_refs": [
         "source.azure.event-hubs-data-sender.2026-07-20",
@@ -399,10 +390,10 @@
       "provider": "gcp",
       "telemetry_service": "Google Cloud PubSub",
       "telemetry_api": "Publisher client publish",
-      "telemetry_ordering": "ordering_key=device_id; europe-west1 locational endpoint; one active sequence per key; resume the ordering key after a publish error before retry",
+      "telemetry_ordering": "ordering_key=source_id; europe-west1 locational endpoint; one active sequence per key; resume the ordering key after a publish error before retry",
       "control_service": "Google Cloud PubSub",
       "control_api": "Publisher client publish",
-      "control_ordering": "ordering_key=device_id; europe-west1 locational endpoint; one active sequence per key; resume the ordering key after a publish error before retry",
+      "control_ordering": "ordering_key=source_id; europe-west1 locational endpoint; one active sequence per key; resume the ordering key after a publish error before retry",
       "authorization": "Workload Identity Federation service account with roles/pubsub.publisher on exact landing topics",
       "source_refs": [
         "source.gcp.pubsub-ordered-publisher.2026-07-20",

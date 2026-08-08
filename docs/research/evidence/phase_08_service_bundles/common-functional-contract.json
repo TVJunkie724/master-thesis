@@ -175,7 +175,7 @@
       "idempotency_key": "event_id",
       "cross_cloud_identity": "short_lived_workload_identity_only",
       "anonymous_or_static_shared_bridge_credentials_allowed": false,
-      "normative_evidence": "docs/research/evidence/phase_08_eventing/domain-event-flow-contract.json"
+      "normative_evidence": "docs/research/evidence/phase_08_eventing/bridge-decision.json"
     }
   },
   "logical_edges": [

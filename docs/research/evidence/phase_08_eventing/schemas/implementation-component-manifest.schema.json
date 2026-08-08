@@ -313,7 +313,7 @@
         "wrapper_id": {"type": "string", "pattern": "^wrapper\\."},
         "handler_id": {"type": "string", "pattern": "^handler\\."},
         "source_path": {"$ref": "#/$defs/nonEmptyString"},
-        "envelope_ref": {"const": "eventing-envelope.v1"},
+        "envelope_ref": {"const": "canonical-domain-event.v1"},
         "error_contract_ref": {"$ref": "#/$defs/nonEmptyString"},
         "observability_contract_ref": {"$ref": "#/$defs/nonEmptyString"},
         "cleanup_contract_ref": {"$ref": "#/$defs/nonEmptyString"}
@@ -355,7 +355,7 @@
         },
         "five_layer_owner": {"enum": ["responsibility.ingestion", "responsibility.processing"]},
         "six_layer_owner": {"const": "responsibility.eventing"},
-        "envelope_ref": {"const": "eventing-envelope.v1"},
+        "envelope_ref": {"const": "canonical-domain-event.v1"},
         "delivery_contract_ref": {"$ref": "#/$defs/nonEmptyString"}
       }
     },

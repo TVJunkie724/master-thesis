@@ -5,7 +5,7 @@
   "architecture_profile_ref": {
     "id": "five-layer-baseline",
     "version": "2",
-    "digest": "sha256:0a06f746d6a2ebff8aa183501bd123e31c8e7c4df49f0a509fef2b0303239efc"
+    "digest": "sha256:032bac29064a7b274ba6a5e6afdc3006757a84cbdcd8b4f9f75cf19a7fdec1ac"
   },
   "provider": "gcp",
   "lifecycle_status": "draft",
@@ -486,5 +486,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:d43629df66bd3d86d994caa1345fbdb8e224d3e9195c1e5c0352a531e9115eca"
+  "content_digest": "sha256:ecae9f60d390630e7decab79a20d13bb09916ff1f2f5fbc42af5f5097f0e7562"
 }

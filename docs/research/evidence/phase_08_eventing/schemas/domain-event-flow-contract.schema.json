@@ -66,7 +66,7 @@
               "outcome"
             ]
           },
-          "ordering_key": {"const": "device_id"}
+          "ordering_key": {"const": "source_id"}
         }
       }
     },
@@ -83,7 +83,7 @@
         "evaluation_presence": {"const": "always"},
         "invocation_condition": {"const": "typed_rule_match"},
         "terminal_outcomes": {"const": "one_per_action_workflow_and_command"},
-        "consumer_idempotency_key": {"const": "event_id_and_invocation_id"}
+        "consumer_idempotency_key": {"const": "event_id"}
       }
     },
     "excluded_flows": {

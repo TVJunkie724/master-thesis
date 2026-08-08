@@ -3,12 +3,12 @@
   "document": {
     "schema_version": "resolved-twin-architecture.v2",
     "resolution_status": "offline_contract_fixture",
-    "resolution_id": "fc840fc2-d80c-5f9d-ac8e-fdbe309274bd",
+    "resolution_id": "f4b9dec4-6a45-548a-89f6-6adddd0b31db",
     "calculation_run_id": "5a6cddb4-41fb-548a-a13e-14c21a5b77b6",
     "architecture_profile_ref": {
       "id": "five-layer-baseline",
       "version": "2",
-      "digest": "sha256:0a06f746d6a2ebff8aa183501bd123e31c8e7c4df49f0a509fef2b0303239efc"
+      "digest": "sha256:032bac29064a7b274ba6a5e6afdc3006757a84cbdcd8b4f9f75cf19a7fdec1ac"
     },
     "optimization_bundle_ref": {
       "optimization_strategy_id": "cost-minimization-v2",
@@ -25,20 +25,20 @@
       {
         "id": "provider-profile.azure.five-layer-baseline-v2",
         "version": "1",
-        "digest": "sha256:c955e7a62be03a55dab2bd89e7c5b24ff8ef2141d4bc138bb489c42a0e9b023a",
+        "digest": "sha256:c5652028b2254d7243395044cabf3c83636f8ccc6e59bd34a3eb7156bc74f1f0",
         "provider": "azure"
       },
       {
         "id": "provider-profile.gcp.five-layer-baseline-v2",
         "version": "1",
-        "digest": "sha256:d43629df66bd3d86d994caa1345fbdb8e224d3e9195c1e5c0352a531e9115eca",
+        "digest": "sha256:ecae9f60d390630e7decab79a20d13bb09916ff1f2f5fbc42af5f5097f0e7562",
         "provider": "gcp"
       }
     ],
     "workload_contract_ref": {
       "id": "five-layer-workload",
       "version": "2",
-      "digest": "sha256:b5975991b8724ed5a595bc384d3bf06190b765a400e8aaab9da98825239a5f30"
+      "digest": "sha256:b5dd8fc828d94a41345c32338a82fed0c9fc38cd3f1c7fd01b2a30cf214471f3"
     },
     "pricing_evidence_refs": [
       {
@@ -65,7 +65,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.azure.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:c955e7a62be03a55dab2bd89e7c5b24ff8ef2141d4bc138bb489c42a0e9b023a"
+          "digest": "sha256:c5652028b2254d7243395044cabf3c83636f8ccc6e59bd34a3eb7156bc74f1f0"
         },
         "deployment_component_id": "deployment.azure.archive-storage.v2",
         "deployment_component_version": "1",
@@ -97,7 +97,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.azure.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:c955e7a62be03a55dab2bd89e7c5b24ff8ef2141d4bc138bb489c42a0e9b023a"
+          "digest": "sha256:c5652028b2254d7243395044cabf3c83636f8ccc6e59bd34a3eb7156bc74f1f0"
         },
         "deployment_component_id": "deployment.azure.cool-storage.v2",
         "deployment_component_version": "1",
@@ -129,7 +129,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.azure.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:c955e7a62be03a55dab2bd89e7c5b24ff8ef2141d4bc138bb489c42a0e9b023a"
+          "digest": "sha256:c5652028b2254d7243395044cabf3c83636f8ccc6e59bd34a3eb7156bc74f1f0"
         },
         "deployment_component_id": "deployment.azure.hot-storage.v2",
         "deployment_component_version": "1",
@@ -163,7 +163,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.azure.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:c955e7a62be03a55dab2bd89e7c5b24ff8ef2141d4bc138bb489c42a0e9b023a"
+          "digest": "sha256:c5652028b2254d7243395044cabf3c83636f8ccc6e59bd34a3eb7156bc74f1f0"
         },
         "deployment_component_id": "deployment.azure.ingestion.v2",
         "deployment_component_version": "1",
@@ -201,7 +201,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.azure.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:c955e7a62be03a55dab2bd89e7c5b24ff8ef2141d4bc138bb489c42a0e9b023a"
+          "digest": "sha256:c5652028b2254d7243395044cabf3c83636f8ccc6e59bd34a3eb7156bc74f1f0"
         },
         "deployment_component_id": "deployment.azure.processing.v2",
         "deployment_component_version": "1",
@@ -236,7 +236,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.gcp.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:d43629df66bd3d86d994caa1345fbdb8e224d3e9195c1e5c0352a531e9115eca"
+          "digest": "sha256:ecae9f60d390630e7decab79a20d13bb09916ff1f2f5fbc42af5f5097f0e7562"
         },
         "deployment_component_id": "deployment.gcp.twin-state.v2",
         "deployment_component_version": "1",
@@ -276,7 +276,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.azure.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:c955e7a62be03a55dab2bd89e7c5b24ff8ef2141d4bc138bb489c42a0e9b023a"
+          "digest": "sha256:c5652028b2254d7243395044cabf3c83636f8ccc6e59bd34a3eb7156bc74f1f0"
         },
         "deployment_component_id": "deployment.azure.visualization.v2",
         "deployment_component_version": "1",
@@ -671,7 +671,7 @@
     ],
     "deployment_specification_ref": {
       "schema_version": "resolved-deployment-specification.v1",
-      "digest": "sha256:26368df321f188ba8bc2ee51869a525cecce133217fdf0b729c9eca478a884d5",
+      "digest": "sha256:607547a428b9fec9e0a2716823e7320caa8d2638816fe34a84707d216d5038c3",
       "calculation_run_id": "5a6cddb4-41fb-548a-a13e-14c21a5b77b6"
     },
     "cost_summary": {
@@ -793,8 +793,8 @@
       "provider_extra_capability_ids": [],
       "missing_capability_ids": [],
       "validator_version": "2",
-      "validation_digest": "sha256:6dbbd285658f80421a8de1c06c8d062a88effcfa049d641e3a1ff0fd15c6e875"
+      "validation_digest": "sha256:cb9c976e50f26e64757e2aaf21fbdbed609adc75d3006a8e7a86bef565144847"
     },
-    "content_digest": "sha256:826bb31d2ec3d025c8d346efa8ab53043abcc95c99b8e4fdb0a18a53c0cda7e9"
+    "content_digest": "sha256:544d24043dadcb0044d30459a25a078dd07aba4f4dd75afbcca553888312cfc8"
   }
 }

@@ -1,12 +1,12 @@
 {
   "schema_version": "resolved-twin-architecture.v2",
   "resolution_status": "offline_contract_fixture",
-  "resolution_id": "134c89a1-5f0e-572e-bc5b-a1e5cfae8fd0",
+  "resolution_id": "33a2f76c-27a8-5d9b-a161-5a9cf363f9c6",
   "calculation_run_id": "420bd4ff-8700-5034-8313-334244c0d0b1",
   "architecture_profile_ref": {
     "id": "five-layer-baseline",
     "version": "2",
-    "digest": "sha256:0a06f746d6a2ebff8aa183501bd123e31c8e7c4df49f0a509fef2b0303239efc"
+    "digest": "sha256:032bac29064a7b274ba6a5e6afdc3006757a84cbdcd8b4f9f75cf19a7fdec1ac"
   },
   "optimization_bundle_ref": {
     "optimization_strategy_id": "cost-minimization-v2",
@@ -23,14 +23,14 @@
     {
       "id": "provider-profile.aws.five-layer-baseline-v2",
       "version": "1",
-      "digest": "sha256:9d4d224bafe165a3c93ead905ce0ccd518a06bc6096c2896e1615bb99626805d",
+      "digest": "sha256:a16394b8f4f365d636864cf006a8b81779ad32dfbf1086f43d206e393ddc905f",
       "provider": "aws"
     }
   ],
   "workload_contract_ref": {
     "id": "five-layer-workload",
     "version": "2",
-    "digest": "sha256:b5975991b8724ed5a595bc384d3bf06190b765a400e8aaab9da98825239a5f30"
+    "digest": "sha256:b5dd8fc828d94a41345c32338a82fed0c9fc38cd3f1c7fd01b2a30cf214471f3"
   },
   "pricing_evidence_refs": [
     {
@@ -50,7 +50,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.aws.five-layer-baseline-v2",
         "version": "1",
-        "digest": "sha256:9d4d224bafe165a3c93ead905ce0ccd518a06bc6096c2896e1615bb99626805d"
+        "digest": "sha256:a16394b8f4f365d636864cf006a8b81779ad32dfbf1086f43d206e393ddc905f"
       },
       "deployment_component_id": "deployment.aws.archive-storage.v2",
       "deployment_component_version": "1",
@@ -82,7 +82,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.aws.five-layer-baseline-v2",
         "version": "1",
-        "digest": "sha256:9d4d224bafe165a3c93ead905ce0ccd518a06bc6096c2896e1615bb99626805d"
+        "digest": "sha256:a16394b8f4f365d636864cf006a8b81779ad32dfbf1086f43d206e393ddc905f"
       },
       "deployment_component_id": "deployment.aws.cool-storage.v2",
       "deployment_component_version": "1",
@@ -114,7 +114,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.aws.five-layer-baseline-v2",
         "version": "1",
-        "digest": "sha256:9d4d224bafe165a3c93ead905ce0ccd518a06bc6096c2896e1615bb99626805d"
+        "digest": "sha256:a16394b8f4f365d636864cf006a8b81779ad32dfbf1086f43d206e393ddc905f"
       },
       "deployment_component_id": "deployment.aws.hot-storage.v2",
       "deployment_component_version": "1",
@@ -150,7 +150,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.aws.five-layer-baseline-v2",
         "version": "1",
-        "digest": "sha256:9d4d224bafe165a3c93ead905ce0ccd518a06bc6096c2896e1615bb99626805d"
+        "digest": "sha256:a16394b8f4f365d636864cf006a8b81779ad32dfbf1086f43d206e393ddc905f"
       },
       "deployment_component_id": "deployment.aws.ingestion.v2",
       "deployment_component_version": "1",
@@ -187,7 +187,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.aws.five-layer-baseline-v2",
         "version": "1",
-        "digest": "sha256:9d4d224bafe165a3c93ead905ce0ccd518a06bc6096c2896e1615bb99626805d"
+        "digest": "sha256:a16394b8f4f365d636864cf006a8b81779ad32dfbf1086f43d206e393ddc905f"
       },
       "deployment_component_id": "deployment.aws.processing.v2",
       "deployment_component_version": "1",
@@ -222,7 +222,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.aws.five-layer-baseline-v2",
         "version": "1",
-        "digest": "sha256:9d4d224bafe165a3c93ead905ce0ccd518a06bc6096c2896e1615bb99626805d"
+        "digest": "sha256:a16394b8f4f365d636864cf006a8b81779ad32dfbf1086f43d206e393ddc905f"
       },
       "deployment_component_id": "deployment.aws.twin-state.v2",
       "deployment_component_version": "1",
@@ -255,7 +255,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.aws.five-layer-baseline-v2",
         "version": "1",
-        "digest": "sha256:9d4d224bafe165a3c93ead905ce0ccd518a06bc6096c2896e1615bb99626805d"
+        "digest": "sha256:a16394b8f4f365d636864cf006a8b81779ad32dfbf1086f43d206e393ddc905f"
       },
       "deployment_component_id": "deployment.aws.visualization.v2",
       "deployment_component_version": "1",
@@ -649,7 +649,7 @@
   ],
   "deployment_specification_ref": {
     "schema_version": "resolved-deployment-specification.v2",
-    "digest": "sha256:24b29588ba133da5167b8d97fb755bb0ad09fe923645130a131e0c19a804836a",
+    "digest": "sha256:493b708b68691ae64afe1516e345f51efcab96041ca703980f68e8c7d757bba4",
     "calculation_run_id": "420bd4ff-8700-5034-8313-334244c0d0b1"
   },
   "cost_summary": {
@@ -771,7 +771,7 @@
     "provider_extra_capability_ids": [],
     "missing_capability_ids": [],
     "validator_version": "2",
-    "validation_digest": "sha256:6dbbd285658f80421a8de1c06c8d062a88effcfa049d641e3a1ff0fd15c6e875"
+    "validation_digest": "sha256:cb9c976e50f26e64757e2aaf21fbdbed609adc75d3006a8e7a86bef565144847"
   },
-  "content_digest": "sha256:d2c6e0b449b7a35ccd2bd6fc82bb754380f5989157b4a93685bb9fc1e2f63c66"
+  "content_digest": "sha256:0ee1f9693bcc2071fdd4efffef841c9f997ec4468f1709cc721a22029e9d0a4f"
 }

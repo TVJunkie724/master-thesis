@@ -8,13 +8,13 @@
       "artifact_id": "bridge-decision",
       "path": "docs/research/evidence/phase_08_eventing/bridge-decision.json",
       "schema_version": "bridge-decision.v1",
-      "digest": "sha256:2e6c711cc518b6f6a9e1029fdd9e738998ba0666b4e843a76a7c2e9e6179c1f5"
+      "digest": "sha256:a889b04e97b324571b8836f5f4d64899ca3110586099acd02d04c30d733a72b7"
     },
     {
       "artifact_id": "domain-event-flow-contract",
       "path": "docs/research/evidence/phase_08_eventing/domain-event-flow-contract.json",
       "schema_version": "domain-event-flow.v1",
-      "digest": "sha256:44d530c06af795948c41ad46384ed7a5479b681c8841d2de7ce22fd33f3b5590"
+      "digest": "sha256:4fe96c424bcbafd24ab927d461052b2e6c34641d6e0c47f515268af49a8b4821"
     },
     {
       "artifact_id": "formula-and-unit-ledger",
@@ -50,7 +50,7 @@
       "artifact_id": "scenario-cost-results",
       "path": "docs/research/evidence/phase_08_eventing/scenario-cost-results.json",
       "schema_version": "scenario-cost-results.v1",
-      "digest": "sha256:1e81e86ff568f7d91e5a075cb5ce6671a9750fcbd9394f4580039bbd5212c352"
+      "digest": "sha256:2759e14ed967af44ce4d5fb532bac7e609b3ef426e43f132a26150012ea1af10"
     },
     {
       "artifact_id": "scenario-inputs",
@@ -72,7 +72,7 @@
       "owner_path": "docs/research/evidence/phase_08_eventing/domain-event-flow-contract.json"
     },
     {
-      "contract_id": "eventing-envelope.v1",
+      "contract_id": "canonical-domain-event.v1",
       "status": "evidence_alias",
       "owner_path": "docs/research/evidence/phase_08_eventing/bridge-decision.json"
     },
@@ -282,7 +282,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "eu-central-1",
       "implementation_status": "existing_extension_to_modify"
@@ -336,7 +336,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "user-function-extension@1"
       ],
       "region_constraint": "eu-central-1",
@@ -384,7 +384,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "eu-central-1",
       "implementation_status": "existing_extension_to_modify"
@@ -431,7 +431,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "eu-central-1",
       "implementation_status": "exact_new_phase_8_9_target"
@@ -482,7 +482,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "eu-central-1",
       "implementation_status": "exact_new_phase_8_9_target"
@@ -580,7 +580,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "westeurope",
       "implementation_status": "existing_extension_to_modify"
@@ -634,7 +634,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "user-function-extension@1"
       ],
       "region_constraint": "westeurope",
@@ -683,7 +683,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "westeurope",
       "implementation_status": "existing_extension_to_modify"
@@ -736,7 +736,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "westeurope",
       "implementation_status": "exact_new_phase_8_9_target"
@@ -838,7 +838,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "europe-west1",
       "implementation_status": "existing_extension_to_modify"
@@ -893,7 +893,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "user-function-extension@1"
       ],
       "region_constraint": "europe-west1",
@@ -942,7 +942,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "europe-west1",
       "implementation_status": "exact_new_phase_8_9_target"
@@ -1004,7 +1004,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "bifromq-poc-boundary@1"
       ],
       "region_constraint": "europe-west1",
@@ -1059,7 +1059,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "bifromq-poc-boundary@1"
       ],
       "region_constraint": "europe-west1",
@@ -1208,7 +1208,7 @@
         "formula.aws.kinesis-provisioned"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "domain-event-flow@1"
       ],
@@ -1264,7 +1264,7 @@
         "formula.retention.average-storage"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "domain-event-flow@1"
       ],
@@ -1319,7 +1319,7 @@
         "formula.azure.event-hubs-standard"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "domain-event-flow@1"
       ],
@@ -1375,7 +1375,7 @@
         "formula.azure.event-hubs-dedicated"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "domain-event-flow@1"
       ],
@@ -1431,7 +1431,7 @@
         "formula.aws.kinesis-provisioned"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "eventing-delivery@1"
       ],
@@ -1488,7 +1488,7 @@
         "formula.retention.average-storage"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "eventing-delivery@1"
       ],
@@ -1540,7 +1540,7 @@
         "formula.aws.sns-sqs-fifo"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "eventing-delivery@1"
       ],
@@ -1592,7 +1592,7 @@
         "formula.aws.s3-dlq"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "bridge-failure@1",
         "bridge-observability-and-lifecycle@1"
       ],
@@ -1647,7 +1647,7 @@
         "formula.bridge.compute"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "bridge-validation-and-error@1"
       ],
@@ -1748,7 +1748,7 @@
         "formula.azure.event-hubs-standard"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "eventing-delivery@1"
       ],
@@ -1805,7 +1805,7 @@
         "formula.azure.event-hubs-dedicated"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "eventing-delivery@1"
       ],
@@ -1861,7 +1861,7 @@
         "formula.azure.service-bus-standard"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "eventing-delivery@1"
       ],
@@ -1916,7 +1916,7 @@
         "formula.bridge.compute"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "bridge-validation-and-error@1"
       ],
@@ -2018,7 +2018,7 @@
         "formula.retention.average-storage"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "eventing-delivery@1"
       ],
@@ -2074,7 +2074,7 @@
         "formula.bridge.compute"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "bridge-validation-and-error@1"
       ],
@@ -2128,7 +2128,7 @@
         "formula.bridge.compute"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "bridge-validation-and-error@1"
       ],
@@ -2190,7 +2190,7 @@
       "wrapper_id": "wrapper.aws.embedded-domain@1",
       "handler_id": "handler.aws.embedded-domain@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/aws/embedded_domain.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2204,7 +2204,7 @@
       "wrapper_id": "wrapper.azure.embedded-domain@1",
       "handler_id": "handler.azure.embedded-domain@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/azure/embedded_domain.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2218,7 +2218,7 @@
       "wrapper_id": "wrapper.gcp.embedded-domain@1",
       "handler_id": "handler.gcp.embedded-domain@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/gcp/embedded_domain.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2232,7 +2232,7 @@
       "wrapper_id": "wrapper.gcp.mqtt-ingress@1",
       "handler_id": "handler.gcp.mqtt-ingress@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/gcp/mqtt_ingress.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2246,7 +2246,7 @@
       "wrapper_id": "wrapper.aws.event-delivery@1",
       "handler_id": "handler.aws.event-delivery@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/aws/event_delivery.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2260,7 +2260,7 @@
       "wrapper_id": "wrapper.azure.event-delivery@1",
       "handler_id": "handler.azure.event-delivery@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/azure/event_delivery.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2274,7 +2274,7 @@
       "wrapper_id": "wrapper.gcp.event-delivery@1",
       "handler_id": "handler.gcp.event-delivery@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/gcp/event_delivery.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2288,7 +2288,7 @@
       "wrapper_id": "wrapper.aws.bridge@1",
       "handler_id": "handler.aws.bridge@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/aws/bridge.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2302,7 +2302,7 @@
       "wrapper_id": "wrapper.azure.bridge@1",
       "handler_id": "handler.azure.bridge@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/azure/bridge.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2316,7 +2316,7 @@
       "wrapper_id": "wrapper.gcp.bridge@1",
       "handler_id": "handler.gcp.bridge@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/gcp/bridge.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2340,7 +2340,7 @@
       ],
       "five_layer_owner": "responsibility.ingestion",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     },
     {
@@ -2364,7 +2364,7 @@
       ],
       "five_layer_owner": "responsibility.processing",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     },
     {
@@ -2384,7 +2384,7 @@
       ],
       "five_layer_owner": "responsibility.processing",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     },
     {
@@ -2404,7 +2404,7 @@
       ],
       "five_layer_owner": "responsibility.processing",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     },
     {
@@ -2424,7 +2424,7 @@
       ],
       "five_layer_owner": "responsibility.processing",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     },
     {
@@ -2444,7 +2444,7 @@
       ],
       "five_layer_owner": "responsibility.processing",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     },
     {
@@ -2464,7 +2464,7 @@
       ],
       "five_layer_owner": "responsibility.processing",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     },
     {
@@ -2484,7 +2484,7 @@
       ],
       "five_layer_owner": "responsibility.ingestion",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     }
   ],

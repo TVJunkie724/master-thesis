@@ -206,7 +206,7 @@
         "consumer_idempotency_key"
       ],
       "properties": {
-        "contract_id": {"const": "eventing-envelope.v1"},
+        "contract_id": {"const": "canonical-domain-event.v1"},
         "encoding": {"const": "utf-8-json"},
         "max_serialized_event_bytes": {"const": 98304},
         "current_scenario_max_serialized_event_bytes": {
@@ -216,7 +216,7 @@
         },
         "required_fields": {
           "type": "array",
-          "minItems": 13,
+          "minItems": 11,
           "items": {"$ref": "#/$defs/field"}
         },
         "optional_fields": {
@@ -226,9 +226,7 @@
         "routing_fields": {"$ref": "#/$defs/stringArray"},
         "forbidden_fields": {"$ref": "#/$defs/stringArray"},
         "unknown_event_type_or_schema": {"$ref": "#/$defs/nonEmptyString"},
-        "consumer_idempotency_key": {
-          "const": ["event_id", "invocation_id"]
-        }
+        "consumer_idempotency_key": {"const": ["event_id"]}
       }
     },
     "acceptanceSignal": {
@@ -257,7 +255,7 @@
       ],
       "properties": {
         "delivery_guarantee": {"const": "at_least_once"},
-        "ordering_scope": {"const": "per_device_id"},
+        "ordering_scope": {"const": "per_source_id_and_source_sequence"},
         "producer_ack_boundary": {"$ref": "#/$defs/nonEmptyString"},
         "bridge_ack_boundary": {
           "const": "destination_broker_durable_acceptance"
@@ -389,7 +387,7 @@
           "additionalProperties": false,
           "required": [
             "event_id",
-            "invocation_id",
+            "source_ordering_identity",
             "replay_id",
             "replay_marker",
             "audit_outcome",
@@ -397,9 +395,11 @@
           ],
           "properties": {
             "event_id": {"const": "preserve"},
-            "invocation_id": {"const": "preserve"},
-            "replay_id": {"const": "new_uuid"},
-            "replay_marker": {"const": "required"},
+            "source_ordering_identity": {
+              "const": "preserve_source_id_and_source_sequence"
+            },
+            "replay_id": {"const": "new_uuid_in_payload"},
+            "replay_marker": {"const": "payload_replay_id_required"},
             "audit_outcome": {"const": "required"},
             "ordering_degradation_outcome": {
               "$ref": "#/$defs/nonEmptyString"

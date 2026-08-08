@@ -330,7 +330,7 @@ resolved producer/consumer graph.
 |---|---|
 | `events_per_month` | Non-negative integer |
 | `average_event_payload_bytes` | Positive integer; raw telemetry payload before the canonical envelope and provider rounding |
-| `average_envelope_overhead_bytes` | Positive integer; bounded serialized `eventing-envelope.v1` metadata added to every domain event |
+| `average_envelope_overhead_bytes` | Positive integer; bounded serialized `canonical-domain-event.v1` metadata added to every domain event |
 | `average_match_payload_bytes` | Positive integer; rule-match payload before envelope overhead |
 | `average_notification_payload_bytes` | Positive integer; notification request payload before envelope overhead |
 | `average_device_command_payload_bytes` | Positive integer; device-command request payload before envelope overhead |
@@ -662,7 +662,7 @@ profile totals and the fair cross-profile delta are Phase 8.10 evidence.
 
 `bridge-decision.json` must pin:
 
-- `eventing-envelope.v1` fields and maximum sizes;
+- `canonical-domain-event.v1` fields and maximum sizes;
 - event ID, type, schema version, occurred time, correlation ID, producer
   component, Twin ID, device ID, partition key, trace context, and payload;
 - which metadata may be used for routing;

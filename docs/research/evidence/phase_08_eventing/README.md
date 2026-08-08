@@ -411,7 +411,7 @@ scenario-specific:
 | GCP | Authenticated Pub/Sub push to Cloud Run | Cloud Run worker pool with StreamingPull for telemetry; authenticated push for control |
 
 AWS and Azure source triggers use at most ten envelopes from one channel per
-invocation; the invocation may contain different device keys, which the
+invocation; the invocation may contain different source keys, which the
 adapter groups and serializes per key. GCP push delivers one message per
 request to an IAM-protected Cloud Run URL inside the provider integration; that
 URL is not a cross-cloud architecture endpoint. The GCP Large telemetry path
@@ -420,15 +420,16 @@ The cost fixture does not assume that AWS/Azure batches are always full: it
 uses one billed invocation per delivery attempt as a conservative bound while
 retaining ten as the configured trigger maximum. This especially avoids
 understating sparse control-channel compute.
-Destination publishers never mix channels or device keys and may group at most
+Destination publishers never mix channels or source keys and may group at most
 ten current 65-KiB telemetry envelopes where the destination API preserves
 that key's order. AWS telemetry is stricter: it uses serial `PutRecord` calls
 and chains `SequenceNumberForOrdering` for consecutive same-key records within
 an invocation, because `PutRecords` can partially succeed and reorder. Kinesis
 source processing keeps `ParallelizationFactor=1`, so acknowledgement of the
 previous invocation prevents the same key from overlapping after an execution
-environment change. The adapter preserves event ID, invocation ID,
-correlation ID, trace context, replay marker, and device partition key. It
+environment change. The adapter preserves the canonical event ID, deployment
+ID, source ID and sequence, correlation and causation IDs, producer, and
+schema-bound payload. It
 never logs credentials, payloads, provider resource IDs, raw exceptions, or
 arbitrary headers.
 
@@ -437,8 +438,8 @@ over TLS 1.2 or newer with normal certificate/hostname validation, a
 region-pinned data-plane endpoint, and no redirect or custom-endpoint override.
 Credentials exist only in memory and are discarded at token expiry minus five
 minutes or after one hour, whichever occurs first. The adapter validates size,
-JSON, required/forbidden fields, the closed event/schema registry, partition
-key, and route before requesting the target credential.
+JSON, required/forbidden fields, the closed event/schema registry, portable
+source ordering key, and route before requesting the target credential.
 
 Bad envelopes are terminal message failures and enter the source bridge DLQ.
 Network failures, throttling, provider 5xx responses, transient identity
@@ -458,14 +459,15 @@ The destination mapping is channel-specific:
 
 | Channel class | AWS landing | Azure landing | GCP landing |
 |---|---|---|---|
-| Telemetry/log | Kinesis stream with device partition key | Event Hub with device partition key | Pub/Sub topic with ordering key |
-| Control/action/command | SNS/SQS FIFO with device message group | Service Bus topic/queue with device session ID | Pub/Sub topic/subscription with ordering key |
+| Telemetry/log | Kinesis stream with source-ID partition key | Event Hub with source-ID partition key | Pub/Sub topic with source-ID ordering key |
+| Control/action/command | SNS/SQS FIFO with source-ID message group | Service Bus topic/queue with source-ID session ID | Pub/Sub topic/subscription with source-ID ordering key |
 
 For one key, the bridge does not advance to a later batch while an earlier
 batch is retrying. A terminal failure moves the envelope to the source bridge
 DLQ and emits an ordering-degraded outcome. Redrive republishes the same event
-ID and key with a new replay ID; AWS SNS FIFO and Azure Service Bus derive the
-transport deduplication/message ID from the event ID plus `replay_id_or_live`.
+ID and source key with a new `payload.replay_id`; AWS SNS FIFO and Azure Service
+Bus derive the transport deduplication/message ID from the event ID plus
+`payload.replay_id_or_live`.
 Source retries therefore deduplicate, while an explicit redrive is not
 silently suppressed. Consumers remain idempotent on the domain IDs.
 
@@ -554,7 +556,7 @@ because fan-out occurs after the landing broker.
 `scenario-cost-results.json` is generated offline by
 `scripts/phase_08_eventing/calculate_scenarios.py`. Its normalized result digest
 is
-`sha256:85365d54cade5cb33fabdae45d94ef05452a68e0e1aee3316f3e8bf1c46f9346`.
+`sha256:a1b6fb7573ddf97cd734d3e34035ef2b9fbed35e076f82a2a32752d48b623a0b`.
 The generator emits per-channel publication, delivery, retry, DLQ, replay,
 retention, compute, workflow, observability, outbox, landing, and transfer
 traces. Reordering source-ledger or pricing-matrix rows does not change the

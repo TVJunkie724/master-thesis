@@ -4,13 +4,13 @@
   "architecture_profile_ref": {
     "id": "five-layer-baseline",
     "version": "2",
-    "digest": "sha256:0a06f746d6a2ebff8aa183501bd123e31c8e7c4df49f0a509fef2b0303239efc"
+    "digest": "sha256:032bac29064a7b274ba6a5e6afdc3006757a84cbdcd8b4f9f75cf19a7fdec1ac"
   },
   "optimization_context": {
     "service_decision_ref": {
       "id": "phase-08-complete-service-bundles",
       "version": "1",
-      "digest": "sha256:a5c3b8b9333d0a584b52f7fe0111208c1778a284d2be537b9f27be2083c4f1ae"
+      "digest": "sha256:6eb06bea3e35d480a21e2dfb747cd2bf10aebd94d22f540b126548be2c6a14ae"
     },
     "component_catalog_ref": {
       "id": "complete-service-component-catalog",
@@ -20,7 +20,7 @@
     "workload_ref": {
       "id": "five-layer-workload",
       "version": "2",
-      "digest": "sha256:b5975991b8724ed5a595bc384d3bf06190b765a400e8aaab9da98825239a5f30"
+      "digest": "sha256:b5dd8fc828d94a41345c32338a82fed0c9fc38cd3f1c7fd01b2a30cf214471f3"
     },
     "eventing_scenario_ref": {
       "id": "eventing-large-v1",
@@ -95,7 +95,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.iot-core.connected_devices",
@@ -103,7 +103,7 @@
           "value": 30000,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.iot-core.messages",
@@ -111,7 +111,7 @@
           "value": 12960000000,
           "unit": "messages/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -131,7 +131,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.iot-commands.connected_devices",
@@ -139,7 +139,7 @@
           "value": 30000,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.iot-commands.messages",
@@ -147,7 +147,7 @@
           "value": 12960000000,
           "unit": "messages/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -167,7 +167,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.azure.azure.functions-flex-consumption.requests",
@@ -175,7 +175,7 @@
           "value": 12960000000,
           "unit": "requests/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.azure.azure.functions-flex-consumption.execution_seconds",
@@ -183,7 +183,7 @@
           "value": 12960000000,
           "unit": "seconds/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -203,7 +203,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.azure.azure.logic-apps-consumption.workflow_executions",
@@ -211,7 +211,7 @@
           "value": 250000,
           "unit": "executions/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.azure.azure.logic-apps-consumption.workflow_transitions",
@@ -219,7 +219,7 @@
           "value": 750000,
           "unit": "transitions/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -239,7 +239,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.firestore-native-standard-raw-and-rollup.document_reads",
@@ -247,7 +247,7 @@
           "value": 2880240,
           "unit": "operations/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.firestore-native-standard-raw-and-rollup.document_writes",
@@ -255,7 +255,7 @@
           "value": 26052192240,
           "unit": "operations/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.firestore-native-standard-raw-and-rollup.document_deletes",
@@ -263,7 +263,7 @@
           "value": 12960000000,
           "unit": "operations/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.firestore-native-standard-raw-and-rollup.stored_gib_month",
@@ -271,7 +271,7 @@
           "value": "9887.6953125",
           "unit": "GiB-month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.firestore-native-standard-raw-and-rollup.timestamp_shards",
@@ -279,7 +279,7 @@
           "value": 16,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -299,7 +299,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.s3-standard-ia.stored_gib_month",
@@ -307,7 +307,7 @@
           "value": "19775.390625",
           "unit": "GiB-month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -327,7 +327,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.azure.azure.blob-archive.stored_gib_month",
@@ -335,7 +335,7 @@
           "value": "88989.2578125",
           "unit": "GiB-month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -355,7 +355,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.iot-twinmaker-standard.connected_devices",
@@ -363,7 +363,7 @@
           "value": 30000,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.iot-twinmaker-standard.messages",
@@ -371,7 +371,7 @@
           "value": 12960000000,
           "unit": "messages/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.iot-twinmaker-standard.twin_entities",
@@ -379,7 +379,7 @@
           "value": 30000,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.iot-twinmaker-standard.twin_operations",
@@ -387,7 +387,7 @@
           "value": 132192240,
           "unit": "operations/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -407,7 +407,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.grafana.oss-12-on-gke.workspace_count",
@@ -415,7 +415,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.grafana.oss-12-on-gke.editor_seats",
@@ -423,7 +423,7 @@
           "value": 100,
           "unit": "seats/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.grafana.oss-12-on-gke.viewer_seats",
@@ -431,7 +431,7 @@
           "value": 300,
           "unit": "seats/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.grafana.oss-12-on-gke.node_count",
@@ -439,7 +439,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.grafana.oss-12-on-gke.node_hours",
@@ -447,7 +447,7 @@
           "value": 730,
           "unit": "hours/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -467,7 +467,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.persistent-disk-rwo.stored_gib_month",
@@ -475,7 +475,7 @@
           "value": "10",
           "unit": "GiB-month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -495,7 +495,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-run-raw-history-reader.requests",
@@ -503,7 +503,7 @@
           "value": 2880000,
           "unit": "requests/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-run-raw-history-reader.vcpu_seconds",
@@ -511,7 +511,7 @@
           "value": 2880000,
           "unit": "vCPU-s/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-run-raw-history-reader.memory_gib_seconds",
@@ -519,7 +519,7 @@
           "value": "1440000.0",
           "unit": "GiB-s/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -539,7 +539,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.grafana.yesoreyeram-infinity-datasource.workspace_count",
@@ -547,7 +547,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.grafana.yesoreyeram-infinity-datasource.editor_seats",
@@ -555,7 +555,7 @@
           "value": 100,
           "unit": "seats/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.grafana.yesoreyeram-infinity-datasource.viewer_seats",
@@ -563,7 +563,7 @@
           "value": 300,
           "unit": "seats/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -583,7 +583,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.grafana-tls-load-balancer.workspace_count",
@@ -591,7 +591,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.grafana-tls-load-balancer.editor_seats",
@@ -599,7 +599,7 @@
           "value": 100,
           "unit": "seats/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.grafana-tls-load-balancer.viewer_seats",
@@ -607,7 +607,7 @@
           "value": 300,
           "unit": "seats/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.grafana-tls-load-balancer.rule_hours",
@@ -615,7 +615,7 @@
           "value": 730,
           "unit": "hours/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.grafana-tls-load-balancer.processed_bytes",
@@ -623,7 +623,7 @@
           "value": 10616832000000,
           "unit": "bytes/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -643,7 +643,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.sqs-fifo.requests",
@@ -651,7 +651,7 @@
           "value": 103000000,
           "unit": "requests/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -671,7 +671,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.lambda-event-adapter.requests",
@@ -679,7 +679,7 @@
           "value": 103000000,
           "unit": "requests/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.lambda-event-adapter.gib_seconds",
@@ -687,7 +687,7 @@
           "value": "12875000.000",
           "unit": "GiB-s/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -707,7 +707,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.stream_count",
@@ -715,7 +715,7 @@
           "value": 2,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.shards_per_stream",
@@ -723,7 +723,7 @@
           "value": 200,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.shard_hours",
@@ -731,7 +731,7 @@
           "value": 292000,
           "unit": "shard-hours/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.payload_units",
@@ -739,7 +739,7 @@
           "value": 103000000,
           "unit": "units/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -759,7 +759,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.sns-fifo-only-for-reviewed-remote-control-edge.publishes",
@@ -767,7 +767,7 @@
           "value": 103000000,
           "unit": "requests/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.sns-fifo-only-for-reviewed-remote-control-edge.delivery_bytes",
@@ -775,7 +775,7 @@
           "value": 33751040000000,
           "unit": "bytes/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -795,7 +795,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.azure.azure.service-bus-standard.messaging_unit_hours",
@@ -803,7 +803,7 @@
           "value": 730,
           "unit": "MU-hours/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.azure.azure.service-bus-standard.operations",
@@ -811,7 +811,7 @@
           "value": 103000000,
           "unit": "operations/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -831,7 +831,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.azure.azure.functions-flex-event-adapter.requests",
@@ -839,7 +839,7 @@
           "value": 103000000,
           "unit": "requests/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.azure.azure.functions-flex-event-adapter.execution_seconds",
@@ -847,7 +847,7 @@
           "value": 103000000,
           "unit": "seconds/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -867,7 +867,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.throughput_unit_hours",
@@ -875,7 +875,7 @@
           "value": 0,
           "unit": "TU-hours/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.capacity_unit_hours",
@@ -883,7 +883,7 @@
           "value": 4380,
           "unit": "CU-hours/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -903,7 +903,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.pubsub-separated-embedded-topics.publish_bytes",
@@ -911,7 +911,7 @@
           "value": 6750208000000,
           "unit": "bytes/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.pubsub-separated-embedded-topics.delivery_bytes",
@@ -919,7 +919,7 @@
           "value": 33751040000000,
           "unit": "bytes/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -939,7 +939,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-run-event-adapter.requests",
@@ -947,7 +947,7 @@
           "value": 103000000,
           "unit": "requests/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-run-event-adapter.vcpu_seconds",
@@ -955,7 +955,7 @@
           "value": 103000000,
           "unit": "vCPU-s/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-run-event-adapter.memory_gib_seconds",
@@ -963,7 +963,7 @@
           "value": "51500000.0",
           "unit": "GiB-s/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -983,7 +983,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.cloudwatch.log_ingestion_gib",
@@ -991,7 +991,7 @@
           "value": "3114.4618988037109375",
           "unit": "GiB/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.cloudwatch.retained_log_gib_month",
@@ -999,7 +999,7 @@
           "value": "3114.4618988037109375",
           "unit": "GiB-month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -1019,7 +1019,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -1039,7 +1039,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.azure.azure.monitor.log_ingestion_gib",
@@ -1047,7 +1047,7 @@
           "value": "3114.4618988037109375",
           "unit": "GiB/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.azure.azure.monitor.retained_log_gib_month",
@@ -1055,7 +1055,7 @@
           "value": "3114.4618988037109375",
           "unit": "GiB-month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -1075,7 +1075,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.azure.azure.log-analytics-shared-workspace.log_ingestion_gib",
@@ -1083,7 +1083,7 @@
           "value": "3114.4618988037109375",
           "unit": "GiB/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.azure.azure.log-analytics-shared-workspace.retained_log_gib_month",
@@ -1091,7 +1091,7 @@
           "value": "3114.4618988037109375",
           "unit": "GiB-month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -1111,7 +1111,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-logging.log_ingestion_gib",
@@ -1119,7 +1119,7 @@
           "value": "3114.4618988037109375",
           "unit": "GiB/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-logging.retained_log_gib_month",
@@ -1127,7 +1127,7 @@
           "value": "3114.4618988037109375",
           "unit": "GiB-month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -1147,7 +1147,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-monitoring.log_ingestion_gib",
@@ -1155,7 +1155,7 @@
           "value": "3114.4618988037109375",
           "unit": "GiB/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-monitoring.retained_log_gib_month",
@@ -1163,7 +1163,7 @@
           "value": "3114.4618988037109375",
           "unit": "GiB-month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -1183,7 +1183,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-scheduler.scheduled_invocations",
@@ -1191,7 +1191,7 @@
           "value": 8640,
           "unit": "invocations/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -1211,7 +1211,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-run-storage-job.stored_gib_month",
@@ -1219,7 +1219,7 @@
           "value": "9887.6953125",
           "unit": "GiB-month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-run-storage-job.requests",
@@ -1227,7 +1227,7 @@
           "value": 12960000000,
           "unit": "requests/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-run-storage-job.vcpu_seconds",
@@ -1235,7 +1235,7 @@
           "value": 12960000000,
           "unit": "vCPU-s/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-run-storage-job.memory_gib_seconds",
@@ -1243,7 +1243,7 @@
           "value": "6480000000.0",
           "unit": "GiB-s/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.gcp.gcp.cloud-run-storage-job.task_count",
@@ -1251,7 +1251,7 @@
           "value": 3,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -1271,7 +1271,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -1291,7 +1291,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.eventbridge-scheduler.scheduled_invocations",
@@ -1299,7 +1299,7 @@
           "value": 8640,
           "unit": "invocations/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -1319,7 +1319,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.ecs-fargate-storage-mover.stored_gib_month",
@@ -1327,7 +1327,7 @@
           "value": "19775.390625",
           "unit": "GiB-month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         },
         {
           "dimension_id": "dimension.aws.aws.ecs-fargate-storage-mover.task_count",
@@ -1335,7 +1335,7 @@
           "value": 3,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     },
@@ -1355,7 +1355,7 @@
           "value": 1,
           "unit": "count",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "evidence_reference": "sha256:b0789a7935dde1021cdbb573d2a51ab5d254d6a1ba45d4cc3e8c986e0eb0c3af"
+          "evidence_reference": "sha256:a0cf1bb15cb37421d48771d079ed2d7e82021b2aad54ffd8a6fc6dd9ea796cab"
         }
       ]
     }
@@ -2670,5 +2670,5 @@
       "compatibility_version": "1"
     }
   ],
-  "digest": "sha256:f76dbe4d25b022ded84a96776943a7c2eb4dec12c3a57ef118b00eed2aa4dc79"
+  "digest": "sha256:f5b41838765f64a47d272d24143b7c66e614e404838e00254f563aa792acd9be"
 }
