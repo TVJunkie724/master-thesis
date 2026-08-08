@@ -1506,10 +1506,8 @@ resource "kubernetes_deployment_v1" "gcp_grafana_oss_12_on_gke" {
             timeout_seconds       = 3
             failure_threshold     = 12
 
-            http_get {
-              path   = "/api/health"
-              port   = "https"
-              scheme = "HTTPS"
+            exec {
+              command = ["test", "-f", "/tmp/twin2multicloud-ready"]
             }
           }
 

@@ -69,6 +69,13 @@ def test_aws_v2_identity_center_user_requires_explicit_invite_intent():
     assert "terraform_data.aws_v2_layer_access_principal_admission" in terraform
 
 
+def test_gcp_grafana_readiness_waits_for_content_probe_marker():
+    terraform = (TERRAFORM_ROOT / "gcp_five_layer_v2.tf").read_text("utf-8")
+
+    assert 'command = ["test", "-f", "/tmp/twin2multicloud-ready"]' in terraform
+    assert terraform.count('path   = "/api/health"') == 1
+
+
 def test_twinmaker_requires_workspace_output(tmp_path):
     context, _provider = _aws_context(
         hierarchy=[{"type": "entity", "id": "machine"}],

@@ -118,3 +118,4 @@ def test_entrypoint_fails_closed_until_content_and_reader_probes_pass():
     assert '"status"[[:space:]]*:[[:space:]]*"OK"' in entrypoint
     assert "/api/dashboards/uid/twin2multicloud-raw-rollups" in entrypoint
     assert '"x-twin2multicloud-reader-key: ${RAW_HISTORY_READER_KEY}"' in entrypoint
+    assert "touch /tmp/twin2multicloud-ready" in entrypoint
