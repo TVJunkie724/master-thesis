@@ -93,9 +93,24 @@ def test_gcp_v2_container_context_is_deterministic_and_complete(tmp_path):
             "platform/mqtt_adapter.py",
             "platform/requirements.txt",
             "phase8_eventing/aws/bridge.py",
+            "phase8_eventing/aws/runtime.py",
             "phase8_eventing/azure/bridge.py",
+            "phase8_eventing/azure/runtime.py",
+            "phase8_eventing/bridge_application.py",
+            "phase8_eventing/destination_identity.py",
+            "phase8_eventing/destination_publishers.py",
             "phase8_eventing/gcp/bridge.py",
+            "phase8_eventing/gcp/runtime.py",
         } <= names
+        dockerfile = archive.extractfile("Dockerfile").read().decode("utf-8")
+        requirements = (
+            archive.extractfile("platform/requirements.txt").read().decode("utf-8")
+        )
+        app = archive.extractfile("platform/app.py").read().decode("utf-8")
+        assert "COPY phase8_eventing /app/phase8_eventing" in dockerfile
+        assert "azure-identity==1.25.3" in requirements
+        assert "boto3==1.43.47" in requirements
+        assert 'role == "cross-cloud-bridge"' in app
         assert all(member.mtime == 0 for member in members)
         assert all(member.uid == member.gid == 0 for member in members)
         assert not any("__pycache__" in name for name in names)

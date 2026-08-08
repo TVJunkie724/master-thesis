@@ -1022,8 +1022,12 @@ def raw_history_reader():
 @app.post("/")
 def dispatch():
     try:
-        value = _json_object()
         role = os.environ.get("RUNTIME_ROLE", "")
+        if role == "cross-cloud-bridge":
+            from phase8_eventing.gcp.runtime import push_request
+
+            return push_request(request)
+        value = _json_object()
         if role == "event-adapter":
             result = _ingress(value)
         elif role == "processor":

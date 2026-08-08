@@ -71,10 +71,22 @@ def test_azure_v2_graph_app_is_a_standalone_deterministic_package(tmp_path):
             "function_app.py",
             "host.json",
             "phase8_eventing/aws/bridge.py",
+            "phase8_eventing/aws/runtime.py",
             "phase8_eventing/azure/bridge.py",
+            "phase8_eventing/azure/runtime.py",
+            "phase8_eventing/bridge_application.py",
+            "phase8_eventing/destination_identity.py",
+            "phase8_eventing/destination_publishers.py",
             "phase8_eventing/gcp/bridge.py",
+            "phase8_eventing/gcp/runtime.py",
             "requirements.txt",
         } <= set(archive.namelist())
+        function_app = archive.read("function_app.py").decode("utf-8")
+        requirements = archive.read("requirements.txt").decode("utf-8")
+        assert "cross_cloud_telemetry_bridge" in function_app
+        assert "cross_cloud_control_bridge" in function_app
+        assert "google-cloud-pubsub==2.39.0" in requirements
+        assert "boto3==1.43.47" in requirements
 
 
 def test_azure_v2_storage_mover_context_is_complete_and_deterministic(tmp_path):

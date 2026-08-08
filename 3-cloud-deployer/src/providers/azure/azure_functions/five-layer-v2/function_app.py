@@ -69,6 +69,12 @@ DOMAIN_CONSUMER_ENABLED = (
 IOT_PROCESSOR_ENABLED = (
     os.getenv("V2_IOT_PROCESSOR_ENABLED", "false").strip().lower() == "true"
 )
+BRIDGE_TELEMETRY_ENABLED = (
+    os.getenv("V2_BRIDGE_TELEMETRY_ENABLED", "false").strip().lower() == "true"
+)
+BRIDGE_CONTROL_ENABLED = (
+    os.getenv("V2_BRIDGE_CONTROL_ENABLED", "false").strip().lower() == "true"
+)
 RAW_HISTORY_ENABLED = (
     os.getenv("V2_RAW_HISTORY_ENABLED", "false").strip().lower() == "true"
 )
@@ -826,6 +832,43 @@ if REMOTE_TELEMETRY_ENABLED:
                 _consume(event)
         except ContractError as exc:
             raise RuntimeError(exc.code) from None
+
+
+if BRIDGE_TELEMETRY_ENABLED:
+
+    @app.function_name(name="v2-cross-cloud-telemetry-bridge")
+    @app.event_hub_message_trigger(
+        arg_name="messages",
+        event_hub_name="%V2_BRIDGE_TELEMETRY_HUB_NAME%",
+        connection="V2_BRIDGE_TELEMETRY",
+        cardinality="many",
+        consumer_group="$Default",
+    )
+    def cross_cloud_telemetry_bridge(
+        messages: list[func.EventHubEvent],
+    ) -> None:
+        """Checkpoint the source Event Hub only after durable target acceptance."""
+
+        from phase8_eventing.azure.runtime import event_hub_batch
+
+        event_hub_batch(messages)
+
+
+if BRIDGE_CONTROL_ENABLED:
+
+    @app.function_name(name="v2-cross-cloud-control-bridge")
+    @app.service_bus_queue_trigger(
+        arg_name="message",
+        queue_name="%V2_BRIDGE_CONTROL_QUEUE_NAME%",
+        connection="V2_SERVICE_BUS",
+        is_sessions_enabled=True,
+    )
+    def cross_cloud_control_bridge(message: func.ServiceBusMessage) -> None:
+        """Complete the source control message only after target acceptance."""
+
+        from phase8_eventing.azure.runtime import service_bus_message
+
+        service_bus_message(message)
 
 
 if DOMAIN_CONSUMER_ENABLED:

@@ -53,6 +53,16 @@ EXPECTED_NON_HTTP_TRIGGERS = {
         "iot_telemetry_adapter",
         "event_hub_message_trigger",
     ),
+    (
+        "five-layer-v2",
+        "cross_cloud_telemetry_bridge",
+        "event_hub_message_trigger",
+    ),
+    (
+        "five-layer-v2",
+        "cross_cloud_control_bridge",
+        "service_bus_queue_trigger",
+    ),
 }
 FORBIDDEN_LOG_NAMES = {
     "blob_name",

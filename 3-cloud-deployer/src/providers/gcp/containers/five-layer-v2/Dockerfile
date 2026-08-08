@@ -12,6 +12,7 @@ COPY platform/constraints.txt /app/constraints.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt -c /app/constraints.txt
 COPY platform /app
 COPY bridge_core.py /app/bridge_core.py
+COPY phase8_eventing /app/phase8_eventing
 
 RUN groupadd --gid 10001 runtime \
  && useradd --uid 10001 --gid 10001 --home-dir /app --no-create-home --shell /usr/sbin/nologin runtime \
