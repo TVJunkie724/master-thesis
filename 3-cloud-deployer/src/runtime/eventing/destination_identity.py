@@ -85,6 +85,7 @@ class AzureFederatedTarget:
 class GcpFederatedTarget:
     provider_audience: str
     service_account_impersonation_url: str
+    source_assertion_audience: str = ""
 
 
 def load_identity_target(
@@ -128,21 +129,30 @@ def load_identity_target(
         ):
             raise BridgeContractError("INVALID_IDENTITY_CONFIGURATION")
         return AzureFederatedTarget(tenant_id, client_id)
-    if set(raw) != {
+    required = {
         "provider_audience",
         "service_account_impersonation_url",
-    }:
+    }
+    if source_provider == "azure":
+        required.add("source_assertion_audience")
+    if set(raw) != required:
         raise BridgeContractError("INVALID_IDENTITY_CONFIGURATION")
     audience = raw.get("provider_audience")
     impersonation_url = raw.get("service_account_impersonation_url")
+    assertion_audience = raw.get("source_assertion_audience", "")
     if (
         not isinstance(audience, str)
         or not _GCP_PROVIDER_AUDIENCE.fullmatch(audience)
         or not isinstance(impersonation_url, str)
         or not _GCP_IMPERSONATION_URL.fullmatch(impersonation_url)
+        or not isinstance(assertion_audience, str)
+        or (
+            source_provider == "azure"
+            and not _BRIDGE_AUDIENCE.fullmatch(assertion_audience)
+        )
     ):
         raise BridgeContractError("INVALID_IDENTITY_CONFIGURATION")
-    return GcpFederatedTarget(audience, impersonation_url)
+    return GcpFederatedTarget(audience, impersonation_url, assertion_audience)
 
 
 def _aws_error_code(exc: Exception) -> str:
@@ -481,7 +491,7 @@ def build_gcp_credentials(
         "scopes": [GCP_PUBSUB_SCOPE],
     }
     if source_provider == "aws":
-        if assertion_supplier is not None:
+        if assertion_supplier is not None or target.source_assertion_audience:
             raise BridgeContractError("INVALID_IDENTITY_CONFIGURATION")
         if aws_credentials_supplier is None:
             aws_credentials_supplier = AmbientAwsCredentialsSupplier()
@@ -495,7 +505,11 @@ def build_gcp_credentials(
             **common,
         )
     if source_provider == "azure":
-        if assertion_supplier is None or aws_credentials_supplier is not None:
+        if (
+            assertion_supplier is None
+            or aws_credentials_supplier is not None
+            or not target.source_assertion_audience
+        ):
             raise BridgeContractError("INVALID_IDENTITY_CONFIGURATION")
         if oidc_credential_factory is None:
             from google.auth.identity_pool import Credentials

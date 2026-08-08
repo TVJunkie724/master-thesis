@@ -64,13 +64,16 @@ def _azure_target():
     )
 
 
-def _gcp_target():
+def _gcp_target(source="azure"):
+    configuration = {
+        "provider_audience": PROVIDER_AUDIENCE,
+        "service_account_impersonation_url": IMPERSONATION_URL,
+    }
+    if source == "azure":
+        configuration["source_assertion_audience"] = BRIDGE_AUDIENCE
     return load_identity_target(
-        {
-            "provider_audience": PROVIDER_AUDIENCE,
-            "service_account_impersonation_url": IMPERSONATION_URL,
-        },
-        source_provider="azure",
+        configuration,
+        source_provider=source,
         destination_provider="gcp",
     )
 
@@ -98,6 +101,7 @@ def _gcp_target():
             {
                 "provider_audience": PROVIDER_AUDIENCE,
                 "service_account_impersonation_url": IMPERSONATION_URL,
+                "source_assertion_audience": BRIDGE_AUDIENCE,
                 "service_account_key": "x",
             },
         ),
@@ -118,6 +122,8 @@ def test_identity_targets_are_directed_and_endpoint_closed():
     assert _aws_target().role_arn == ROLE_ARN
     assert _azure_target().assertion_audience == AZURE_TOKEN_EXCHANGE_AUDIENCE
     assert _gcp_target().provider_audience == PROVIDER_AUDIENCE
+    assert _gcp_target().source_assertion_audience == BRIDGE_AUDIENCE
+    assert _gcp_target("aws").source_assertion_audience == ""
 
     with pytest.raises(BridgeContractError, match="INVALID_IDENTITY_CONFIGURATION"):
         load_identity_target(
@@ -341,7 +347,7 @@ def test_gcp_wif_builders_pin_sts_scope_and_service_account_impersonation():
 
     assert (
         build_gcp_credentials(
-            _gcp_target(),
+            _gcp_target("aws"),
             source_provider="aws",
             aws_credentials_supplier=aws_supplier,
             aws_credential_factory=aws_factory,

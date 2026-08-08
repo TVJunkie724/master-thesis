@@ -9533,7 +9533,7 @@
       "repository_source_path": "3-cloud-deployer/src/runtime/eventing",
       "platform_handler": "provider.shared-runtime",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:166b2f216b4a9520204bf119e9d1135581b64c79f2f94aef75ab97fe5266ac6f",
+      "source_digest": "sha256:8534ca7aa32d30044c3e1bc35db5080dc00c55caa4c542c14e7846338f3cc99c",
       "included_paths": [
         "__init__.py",
         "bridge_core.py"
@@ -9574,5 +9574,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:d19d7d9e24756ea96bb498cc2f4a3f33e6653e178926ffcbd794a7adba31289c"
+  "content_digest": "sha256:dc16c04b461ad0c4073f64058885714717aedb46068369f65221569ac5735e2d"
 }
