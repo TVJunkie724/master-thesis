@@ -38,7 +38,7 @@ import requests
 LOGGER = logging.getLogger(__name__)
 app = Flask(__name__)
 
-MAX_PAYLOAD_BYTES = 256 * 1024
+MAX_PAYLOAD_BYTES = 96 * 1024
 DEVICE_TOPIC = re.compile(r"^devices/(?P<device_id>[A-Za-z0-9._:-]{1,128})/telemetry$")
 COMMAND_TOPIC = re.compile(r"^devices/(?P<device_id>[A-Za-z0-9._:-]{1,128})/commands$")
 SHARED_TELEMETRY_FILTER = "$share/twin2multicloud/devices/+/telemetry"

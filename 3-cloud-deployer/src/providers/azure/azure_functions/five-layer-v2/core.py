@@ -14,7 +14,7 @@ import uuid
 
 
 PROFILE = "five-layer-baseline@2"
-MAX_EVENT_BYTES = 256 * 1024
+MAX_EVENT_BYTES = 96 * 1024
 MAX_POINTS = 1000
 MAX_RAW_RANGE = timedelta(hours=24)
 MAX_AGGREGATE_RANGE = timedelta(days=30)

@@ -205,6 +205,23 @@ def test_event_adapter_uses_outbox_when_processing_is_remote(monkeypatch):
     )
 
 
+def test_event_adapter_rejects_event_above_frozen_bridge_limit(monkeypatch):
+    runtime = _module()
+    monkeypatch.setenv("LOCAL_PROCESSING", "true")
+    monkeypatch.setenv("EVENT_QUEUE_URL", "https://sqs.example.test/queue")
+    monkeypatch.setattr(runtime, "_client", lambda _service: pytest.fail("published"))
+
+    with pytest.raises(RuntimeError, match="EVENT_TOO_LARGE"):
+        runtime.event_adapter(
+            {
+                "event_id": "event-large",
+                "device_id": "device-1",
+                "unit": "x" * (96 * 1024),
+            },
+            None,
+        )
+
+
 def test_processor_atomically_writes_raw_and_hourly_rollup(monkeypatch):
     runtime = _module()
     dynamo = _Dynamo()

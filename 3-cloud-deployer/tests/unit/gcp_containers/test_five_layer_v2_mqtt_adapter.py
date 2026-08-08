@@ -179,6 +179,14 @@ def test_telemetry_is_bound_to_topic_device_and_authenticated_ingress(
         )
 
 
+def test_telemetry_rejects_payload_above_frozen_96_kib_limit(adapter):
+    with pytest.raises(ValueError, match="canonical limit"):
+        adapter._forward_telemetry(
+            "devices/device-1/telemetry",
+            b"x" * (96 * 1024 + 1),
+        )
+
+
 class _Message:
     def __init__(self, value):
         self.data = json.dumps(value).encode("utf-8")

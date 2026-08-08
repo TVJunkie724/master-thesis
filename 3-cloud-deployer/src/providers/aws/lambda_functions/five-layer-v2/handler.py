@@ -24,7 +24,7 @@ from botocore.exceptions import ClientError
 
 PROFILE = "five-layer-baseline@2"
 MAX_POINTS = 1000
-MAX_EVENT_BYTES = 256 * 1024
+MAX_EVENT_BYTES = 96 * 1024
 MAX_RAW_RANGE = timedelta(hours=24)
 MAX_AGGREGATE_RANGE = timedelta(days=30)
 EVENT_TELEMETRY_RECEIVED = "telemetry.received.v1"
@@ -324,6 +324,7 @@ def event_adapter(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
         accepted = 0
         for _, decoded in _decoded_records(event):
             payload = _ingress_event(decoded)
+            _validate_canonical_event(payload)
             if os.environ.get("LOCAL_PROCESSING", "false").lower() == "true":
                 _enqueue(payload)
             else:
