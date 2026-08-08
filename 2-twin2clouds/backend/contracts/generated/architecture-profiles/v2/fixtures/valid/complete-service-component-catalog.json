@@ -9372,7 +9372,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2",
       "platform_handler": "handler.aws.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:953372191ebbf34ec989d5adf4a2612b91776f0555b5ba7b12a9b328fd3a4189",
+      "source_digest": "sha256:a2c6886bc0963d63a87fc7a7bcb627d1779c6cf7decc0bb0f120f206b5293a91",
       "included_paths": [
         "handler.py",
         "storage-mover/Dockerfile",
@@ -9574,5 +9574,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:10ce96047c3ca9721b385286e85a74351ecfebc21510d5dc9051f49d4df613d8"
+  "content_digest": "sha256:712637c0de2530f2fcce8a8d1e07f32cc5ddb59bc502cb98f6ad4f0d7b8a9408"
 }

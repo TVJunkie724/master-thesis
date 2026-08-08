@@ -7,7 +7,9 @@ from botocore.exceptions import ClientError
 from src.providers.terraform.aws_v2_image_publisher import (
     AwsV2ImagePublisher,
     AwsV2ImageRequest,
+    aws_v2_bridge_deployment,
     aws_v2_container_deployment,
+    image_requests,
     image_tfvars,
 )
 
@@ -19,6 +21,14 @@ def _tfvars() -> dict:
         "layer_3_hot_provider": "aws",
         "layer_3_cold_provider": "aws",
         "layer_3_archive_provider": "aws",
+    }
+
+
+def _bridge_route(source: str = "aws") -> dict:
+    return {
+        "source_provider": source,
+        "destination_provider": "gcp",
+        "execution_kind": "source_event_forwarder",
     }
 
 
@@ -136,7 +146,7 @@ def test_publisher_reuses_existing_content_tag_without_starting_build(tmp_path):
     assert builds.starts == []
 
 
-def test_selection_and_tfvars_are_bounded_to_the_aws_mover():
+def test_selection_and_tfvars_are_bounded_to_graph_selected_images(tmp_path):
     assert aws_v2_container_deployment(_tfvars()) is True
     assert (
         aws_v2_container_deployment({**_tfvars(), "architecture_profile_version": "1"})
@@ -147,4 +157,56 @@ def test_selection_and_tfvars_are_bounded_to_the_aws_mover():
     )
     assert image_tfvars({"storage-mover": image}, _tfvars()) == {
         "aws_v2_storage_mover_image": image
+    }
+
+    bridge_only = {
+        **_tfvars(),
+        "layer_3_hot_provider": "gcp",
+        "layer_3_cold_provider": "gcp",
+        "layer_3_archive_provider": "gcp",
+        "resolved_cross_cloud_routes": [_bridge_route()],
+    }
+    bridge_context = tmp_path / ".build" / "aws" / "five-layer-v2-bridge.zip"
+    bridge_context.parent.mkdir(parents=True)
+    bridge_context.write_bytes(b"bridge")
+
+    assert aws_v2_bridge_deployment(bridge_only) is True
+    assert image_requests(tmp_path, bridge_only) == (
+        AwsV2ImageRequest("bridge", bridge_context),
+    )
+    assert image_tfvars({"bridge": image}, bridge_only) == {
+        "aws_v2_bridge_image": image
+    }
+
+    inbound_only = {
+        **bridge_only,
+        "resolved_cross_cloud_routes": [_bridge_route("azure")],
+    }
+    assert aws_v2_bridge_deployment(inbound_only) is False
+    assert aws_v2_container_deployment(inbound_only) is False
+    assert image_requests(tmp_path, inbound_only) == ()
+
+
+def test_storage_and_bridge_images_are_both_required_when_selected(tmp_path):
+    values = {**_tfvars(), "resolved_cross_cloud_routes": [_bridge_route()]}
+    build_root = tmp_path / ".build" / "aws"
+    build_root.mkdir(parents=True)
+    storage_context = build_root / "five-layer-v2-storage-mover.zip"
+    bridge_context = build_root / "five-layer-v2-bridge.zip"
+    storage_context.write_bytes(b"storage")
+    bridge_context.write_bytes(b"bridge")
+
+    assert image_requests(tmp_path, values) == (
+        AwsV2ImageRequest("storage-mover", storage_context),
+        AwsV2ImageRequest("bridge", bridge_context),
+    )
+    image = (
+        "123456789012.dkr.ecr.eu-central-1.amazonaws.com/factory-v2@sha256:"
+        + "c" * 64
+    )
+    assert image_tfvars(
+        {"storage-mover": image, "bridge": image}, values
+    ) == {
+        "aws_v2_storage_mover_image": image,
+        "aws_v2_bridge_image": image,
     }

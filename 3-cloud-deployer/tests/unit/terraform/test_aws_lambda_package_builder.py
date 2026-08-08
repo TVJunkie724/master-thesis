@@ -24,6 +24,7 @@ sys.path.insert(
 from src.providers.terraform.package_builder import (
     _create_lambda_zip,
     build_aws_lambda_packages,
+    build_aws_v2_bridge_context,
     build_aws_v2_graph_app,
     build_aws_v2_storage_mover_context,
 )
@@ -433,6 +434,32 @@ class TestRealLambdaFunctions:
             }
 
         build_aws_v2_storage_mover_context(tmp_path)
+        assert package.read_bytes() == first_bytes
+
+    def test_five_layer_v2_bridge_context_is_complete_and_deterministic(
+        self, tmp_path
+    ):
+        package = build_aws_v2_bridge_context(tmp_path)[
+            "aws_five-layer-v2-bridge"
+        ]
+        first_bytes = package.read_bytes()
+
+        with zipfile.ZipFile(package) as archive:
+            names = set(archive.namelist())
+            assert {
+                "Dockerfile",
+                "constraints.txt",
+                "requirements.txt",
+                "phase8_eventing/aws/runtime.py",
+                "phase8_eventing/bridge_application.py",
+                "phase8_eventing/destination_identity.py",
+                "phase8_eventing/destination_publishers.py",
+            } <= names
+            dockerfile = archive.read("Dockerfile").decode("utf-8")
+            assert "phase8_eventing.aws.runtime.lambda_handler" in dockerfile
+            assert "@sha256:224c112c" in dockerfile
+
+        build_aws_v2_bridge_context(tmp_path)
         assert package.read_bytes() == first_bytes
 
 

@@ -8,13 +8,18 @@ including build_user_packages (which was previously missing).
 import json
 from pathlib import Path
 import tarfile
+from types import MappingProxyType
 from unittest.mock import patch
 import zipfile
 
 import pytest
 
 from src.architecture_profiles import resolve_deployment_graph
-from src.deployment_specification import validate_deployment_manifest
+from src.deployment_specification import (
+    ValidatedDeploymentManifest,
+    validate_deployment_manifest,
+    validate_resolved_deployment_specification,
+)
 from src.providers.terraform.package_builders.azure import (
     build_azure_graph_bundles,
 )
@@ -37,6 +42,35 @@ MANIFEST_ROOT = (
     / "fixtures"
     / "valid"
 )
+V2_MANIFEST_ROOT = MANIFEST_ROOT.parent.parent.parent / "v4" / "fixtures" / "valid"
+V2_LOGICAL_TO_SLOT = {
+    "component.ingestion": "l1_ingestion",
+    "component.processing": "l2_processing",
+    "component.hot-storage": "l3_hot_storage",
+    "component.cool-storage": "l3_cool_storage",
+    "component.archive-storage": "l3_archive_storage",
+    "component.twin-state": "l4_twin_state",
+    "component.visualization": "l5_visualization",
+}
+
+
+def _resolve_offline_v4(name: str):
+    manifest = json.loads((V2_MANIFEST_ROOT / name).read_text("utf-8"))
+    specification = validate_resolved_deployment_specification(
+        manifest["resolved_deployment_specification"]
+    )
+    provider_by_slot = {
+        V2_LOGICAL_TO_SLOT[item["logical_component_id"]]: item["provider"]
+        for item in manifest["resolved_twin_architecture"]["component_assignments"]
+    }
+    validated = ValidatedDeploymentManifest(
+        manifest=MappingProxyType(manifest),
+        specification=specification,
+        provider_by_slot=MappingProxyType(provider_by_slot),
+        manifest_version="4.0",
+        architecture=MappingProxyType(manifest["resolved_twin_architecture"]),
+    )
+    return resolve_deployment_graph(validated)
 
 
 def test_azure_graph_bundles_are_selected_and_deterministic(tmp_path):
@@ -405,3 +439,13 @@ class TestBuildAllPackages:
         assert {item["package_id"] for item in evidence["built_packages"]} == set(
             result
         )
+
+
+def test_aws_v2_bridge_context_selection_tracks_outbound_event_routes():
+    from src.providers.terraform.package_builder import _aws_v2_bridge_selected
+
+    mixed = _resolve_offline_v4("three-cloud-mixed-large.json")
+    single = _resolve_offline_v4("single-cloud-aws-small.json")
+
+    assert _aws_v2_bridge_selected(mixed) is True
+    assert _aws_v2_bridge_selected(single) is False

@@ -127,6 +127,20 @@ variable "aws_v2_storage_mover_image" {
   }
 }
 
+variable "aws_v2_bridge_image" {
+  description = "Content-addressed AWS Five-layer v2 outbound event-bridge Lambda image"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.aws_v2_bridge_image == "" ||
+      can(regex("^[0-9]+\\.dkr\\.ecr\\.[a-z0-9-]+\\.amazonaws\\.com/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.aws_v2_bridge_image))
+    )
+    error_message = "aws_v2_bridge_image must be an ECR image pinned by sha256 digest."
+  }
+}
+
 variable "azure_v2_storage_mover_image" {
   description = "Content-addressed Azure Five-layer v2 finite storage-mover image"
   type        = string

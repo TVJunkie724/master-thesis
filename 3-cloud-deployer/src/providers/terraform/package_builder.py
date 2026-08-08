@@ -15,7 +15,9 @@ from src.providers.terraform.package_builders.aws import (
     get_lambda_zip_path,
 )
 from src.providers.terraform.package_builders.aws_v2 import (
+    BRIDGE_PACKAGE_ID as AWS_V2_BRIDGE_PACKAGE_ID,
     STORAGE_MOVER_PACKAGE_ID as AWS_V2_STORAGE_MOVER_PACKAGE_ID,
+    build_aws_v2_bridge_context,
     build_aws_v2_graph_app,
     build_aws_v2_storage_mover_context,
 )
@@ -69,6 +71,7 @@ from src.providers.terraform.package_builders.user import (
     get_user_package_path,
 )
 from src.provider_capabilities import validate_terraform_provider_capabilities
+from src.providers.terraform.cross_cloud_routes import resolve_cross_cloud_routes
 from src.user_function_extensions.package_builder import (
     build_bound_extension_packages,
     load_package_evidence,
@@ -113,6 +116,7 @@ def build_all_packages(
             _selected_gcp_container_packages(graph)
         )
         aws_v2_storage_mover_selected = _aws_v2_storage_mover_selected(graph)
+        aws_v2_bridge_selected = _aws_v2_bridge_selected(graph)
         azure_v2_storage_mover_selected = _azure_v2_storage_mover_selected(graph)
 
     packages: Dict[str, Path] = {}
@@ -166,6 +170,8 @@ def build_all_packages(
         )
         if aws_v2_storage_mover_selected:
             packages.update(build_aws_v2_storage_mover_context(project_path))
+        if aws_v2_bridge_selected:
+            packages.update(build_aws_v2_bridge_context(project_path))
         if azure_v2_storage_mover_selected:
             packages.update(build_azure_v2_storage_mover_context(project_path))
         if (
@@ -184,6 +190,7 @@ def build_all_packages(
                 if aws_v2_storage_mover_selected
                 else set()
             )
+            | ({AWS_V2_BRIDGE_PACKAGE_ID} if aws_v2_bridge_selected else set())
             | (
                 {AZURE_V2_STORAGE_MOVER_PACKAGE_ID}
                 if azure_v2_storage_mover_selected
@@ -424,6 +431,19 @@ def _aws_v2_storage_mover_selected(graph: ResolvedDeploymentGraph) -> bool:
     )
 
 
+def _aws_v2_bridge_selected(graph: ResolvedDeploymentGraph) -> bool:
+    if (
+        graph.profile_ref.get("id") != "five-layer-baseline"
+        or str(graph.profile_ref.get("version")) != "2"
+    ):
+        return False
+    return any(
+        route.source_provider == "aws"
+        and route.execution_kind == "source_event_forwarder"
+        for route in resolve_cross_cloud_routes(graph)
+    )
+
+
 def _azure_v2_storage_mover_selected(graph: ResolvedDeploymentGraph) -> bool:
     return any(
         "azure.container-apps-scheduled-storage-job" in component_id
@@ -548,6 +568,7 @@ __all__ = [
     "_should_include_file",
     "build_all_packages",
     "build_aws_lambda_packages",
+    "build_aws_v2_bridge_context",
     "build_aws_v2_storage_mover_context",
     "build_azure_function_packages",
     "build_azure_l0_bundle",

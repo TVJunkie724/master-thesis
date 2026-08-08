@@ -28,11 +28,15 @@ class AwsV2ImageRequest:
     context: Path
 
 
-def aws_v2_container_deployment(tfvars: Mapping[str, Any]) -> bool:
-    if (
-        tfvars.get("architecture_profile_id") != "five-layer-baseline"
-        or str(tfvars.get("architecture_profile_version")) != "2"
-    ):
+def _five_layer_v2(tfvars: Mapping[str, Any]) -> bool:
+    return (
+        tfvars.get("architecture_profile_id") == "five-layer-baseline"
+        and str(tfvars.get("architecture_profile_version")) == "2"
+    )
+
+
+def aws_v2_storage_mover_deployment(tfvars: Mapping[str, Any]) -> bool:
+    if not _five_layer_v2(tfvars):
         return False
     return tfvars.get("layer_3_hot_provider") == "aws" or (
         tfvars.get("layer_3_cold_provider") == "aws"
@@ -40,15 +44,46 @@ def aws_v2_container_deployment(tfvars: Mapping[str, Any]) -> bool:
     )
 
 
+def aws_v2_bridge_deployment(tfvars: Mapping[str, Any]) -> bool:
+    if not _five_layer_v2(tfvars):
+        return False
+    routes = tfvars.get("resolved_cross_cloud_routes")
+    return isinstance(routes, list) and any(
+        isinstance(route, Mapping)
+        and route.get("source_provider") == "aws"
+        and route.get("execution_kind") == "source_event_forwarder"
+        for route in routes
+    )
+
+
+def aws_v2_container_deployment(tfvars: Mapping[str, Any]) -> bool:
+    return aws_v2_storage_mover_deployment(tfvars) or aws_v2_bridge_deployment(tfvars)
+
+
 def image_requests(
     project_path: Path, tfvars: Mapping[str, Any]
 ) -> tuple[AwsV2ImageRequest, ...]:
-    if not aws_v2_container_deployment(tfvars):
-        return ()
-    context = Path(project_path) / ".build" / "aws" / "five-layer-v2-storage-mover.zip"
-    if not context.is_file() or context.is_symlink():
-        raise ValueError("AWS storage-mover image context is unavailable")
-    return (AwsV2ImageRequest("storage-mover", context),)
+    requests: list[AwsV2ImageRequest] = []
+    build_root = Path(project_path) / ".build" / "aws"
+    selections = (
+        (
+            aws_v2_storage_mover_deployment(tfvars),
+            "storage-mover",
+            build_root / "five-layer-v2-storage-mover.zip",
+        ),
+        (
+            aws_v2_bridge_deployment(tfvars),
+            "bridge",
+            build_root / "five-layer-v2-bridge.zip",
+        ),
+    )
+    for selected, name, context in selections:
+        if not selected:
+            continue
+        if not context.is_file() or context.is_symlink():
+            raise ValueError(f"AWS {name} image context is unavailable")
+        requests.append(AwsV2ImageRequest(name, context))
+    return tuple(requests)
 
 
 def _digest(path: Path) -> str:
@@ -274,18 +309,35 @@ class AwsV2ImagePublisher:
 def image_tfvars(
     images: Mapping[str, str], tfvars: Mapping[str, Any]
 ) -> dict[str, str]:
-    if not aws_v2_container_deployment(tfvars):
+    expected = {
+        name: variable
+        for selected, name, variable in (
+            (
+                aws_v2_storage_mover_deployment(tfvars),
+                "storage-mover",
+                "aws_v2_storage_mover_image",
+            ),
+            (
+                aws_v2_bridge_deployment(tfvars),
+                "bridge",
+                "aws_v2_bridge_image",
+            ),
+        )
+        if selected
+    }
+    if not expected:
         return {}
-    image = images.get("storage-mover", "")
-    if not image:
+    if set(images) != set(expected) or any(not images.get(name) for name in expected):
         raise RuntimeError("AWS Five-layer v2 image publication is incomplete")
-    return {"aws_v2_storage_mover_image": image}
+    return {variable: images[name] for name, variable in expected.items()}
 
 
 __all__ = [
     "AwsV2ImagePublisher",
     "AwsV2ImageRequest",
+    "aws_v2_bridge_deployment",
     "aws_v2_container_deployment",
+    "aws_v2_storage_mover_deployment",
     "image_requests",
     "image_tfvars",
 ]

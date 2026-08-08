@@ -64,6 +64,9 @@ locals {
     for route in var.resolved_cross_cloud_routes : route.route_id => route
     if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.source_provider == "aws"
   }
+  aws_v2_image_foundation_enabled = (
+    local.aws_v2_storage_mover_enabled || length(local.aws_v2_outbound_event_routes) > 0
+  )
   aws_v2_inbound_event_routes = {
     for route in var.resolved_cross_cloud_routes : route.route_id => route
     if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.destination_provider == "aws"
@@ -860,8 +863,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "aws_aws_s3_glacier_deep_archiv
 }
 
 resource "aws_ecr_repository" "aws_aws_ecr_if_container_selected" {
-  count                = local.aws_v2_storage_mover_enabled ? 1 : 0
-  name                 = "${local.aws_v2_name}-v2-storage-mover"
+  count                = local.aws_v2_image_foundation_enabled ? 1 : 0
+  name                 = "${local.aws_v2_name}-v2-images"
   image_tag_mutability = "IMMUTABLE"
   force_delete         = true
   image_scanning_configuration { scan_on_push = true }
@@ -870,14 +873,14 @@ resource "aws_ecr_repository" "aws_aws_ecr_if_container_selected" {
 }
 
 resource "aws_s3_bucket" "aws_aws_ecr_if_container_selected" {
-  count         = local.aws_v2_storage_mover_enabled ? 1 : 0
+  count         = local.aws_v2_image_foundation_enabled ? 1 : 0
   bucket        = "${local.aws_v2_name}-v2-build-${local.deployment_suffix}"
   force_destroy = true
   tags          = local.aws_v2_tags
 }
 
 resource "aws_s3_bucket_public_access_block" "aws_aws_ecr_if_container_selected" {
-  count                   = local.aws_v2_storage_mover_enabled ? 1 : 0
+  count                   = local.aws_v2_image_foundation_enabled ? 1 : 0
   bucket                  = aws_s3_bucket.aws_aws_ecr_if_container_selected[0].id
   block_public_acls       = true
   block_public_policy     = true
@@ -886,7 +889,7 @@ resource "aws_s3_bucket_public_access_block" "aws_aws_ecr_if_container_selected"
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "aws_aws_ecr_if_container_selected" {
-  count  = local.aws_v2_storage_mover_enabled ? 1 : 0
+  count  = local.aws_v2_image_foundation_enabled ? 1 : 0
   bucket = aws_s3_bucket.aws_aws_ecr_if_container_selected[0].id
   rule {
     apply_server_side_encryption_by_default { sse_algorithm = "AES256" }
@@ -894,7 +897,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "aws_aws_ecr_if_co
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "aws_aws_ecr_if_container_selected" {
-  count  = local.aws_v2_storage_mover_enabled ? 1 : 0
+  count  = local.aws_v2_image_foundation_enabled ? 1 : 0
   bucket = aws_s3_bucket.aws_aws_ecr_if_container_selected[0].id
   rule {
     id     = "expire-build-contexts"
@@ -905,7 +908,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "aws_aws_ecr_if_container_selec
 }
 
 resource "aws_iam_role" "aws_aws_ecr_if_container_selected" {
-  count = local.aws_v2_storage_mover_enabled ? 1 : 0
+  count = local.aws_v2_image_foundation_enabled ? 1 : 0
   name  = "${local.aws_v2_name}-v2-build-${local.deployment_suffix}"
   assume_role_policy = jsonencode({
     Version   = "2012-10-17"
@@ -915,7 +918,7 @@ resource "aws_iam_role" "aws_aws_ecr_if_container_selected" {
 }
 
 resource "aws_iam_role_policy" "aws_aws_ecr_if_container_selected" {
-  count = local.aws_v2_storage_mover_enabled ? 1 : 0
+  count = local.aws_v2_image_foundation_enabled ? 1 : 0
   name  = "publish-content-addressed-image"
   role  = aws_iam_role.aws_aws_ecr_if_container_selected[0].id
   policy = jsonencode({
@@ -954,7 +957,7 @@ resource "aws_iam_role_policy" "aws_aws_ecr_if_container_selected" {
 }
 
 resource "aws_codebuild_project" "aws_aws_ecr_if_container_selected" {
-  count         = local.aws_v2_storage_mover_enabled ? 1 : 0
+  count         = local.aws_v2_image_foundation_enabled ? 1 : 0
   name          = "${local.aws_v2_name}-v2-images"
   description   = "Bounded Five-layer v2 container publication"
   service_role  = aws_iam_role.aws_aws_ecr_if_container_selected[0].arn
@@ -1007,6 +1010,22 @@ resource "terraform_data" "aws_v2_storage_mover_guard" {
         startswith(var.aws_v2_storage_mover_image, "${aws_ecr_repository.aws_aws_ecr_if_container_selected[0].repository_url}@sha256:")
       )
       error_message = "AWS Five-layer v2 storage movement requires a digest-pinned image from the deployment ECR repository."
+    }
+  }
+}
+
+resource "terraform_data" "aws_v2_bridge_image_guard" {
+  count = length(local.aws_v2_outbound_event_routes) > 0 ? 1 : 0
+  input = {
+    image = var.aws_v2_bridge_image
+  }
+  lifecycle {
+    precondition {
+      condition = (
+        var.aws_v2_bridge_image != "" &&
+        startswith(var.aws_v2_bridge_image, "${aws_ecr_repository.aws_aws_ecr_if_container_selected[0].repository_url}@sha256:")
+      )
+      error_message = "AWS Five-layer v2 outbound event routes require a digest-pinned bridge image from the deployment ECR repository."
     }
   }
 }

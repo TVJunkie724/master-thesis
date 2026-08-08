@@ -59,7 +59,7 @@ run "five_layer_v2_single_cloud_aws_binds_only_reviewed_bundle" {
     platform_user_first_name              = "Thesis"
     platform_user_last_name               = "Researcher"
     enable_aws_logging                    = false
-    aws_v2_storage_mover_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-v2-storage-mover@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    aws_v2_storage_mover_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-v2-images@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     resolved_component_dimensions = {
       "dimension.aws.aws.ecs-fargate-storage-mover.task_count" = "1"
     }
@@ -99,6 +99,11 @@ run "five_layer_v2_single_cloud_aws_binds_only_reviewed_bundle" {
   assert {
     condition     = length(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge) == 0
     error_message = "Single-cloud AWS must omit remote-only Kinesis streams."
+  }
+
+  assert {
+    condition     = length(terraform_data.aws_v2_bridge_image_guard) == 0
+    error_message = "Single-cloud AWS must not request a cross-cloud bridge image."
   }
 
   assert {
@@ -308,6 +313,7 @@ run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {
     azure_layer_access_principal_label     = "researcher@example.test"
     enable_aws_logging                     = false
     enable_azure_logging                   = false
+    aws_v2_bridge_image                    = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-v2-images@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     azure_v2_storage_mover_image           = "drifttestv2mock.azurecr.io/storage-mover@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     resolved_component_dimensions = {
       "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.throughput_unit_hours" = "0"
@@ -393,6 +399,14 @@ run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {
   assert {
     condition     = length(azurerm_container_app_job.azure_azure_container_apps_scheduled_storage_job) == 30
     error_message = "The Large Azure fixture must materialize all 30 reviewed finite storage tasks."
+  }
+
+  assert {
+    condition = (
+      length(terraform_data.aws_v2_bridge_image_guard) == 1 &&
+      length(aws_codebuild_project.aws_aws_ecr_if_container_selected) == 1
+    )
+    error_message = "AWS outbound event routes must request one digest-bound bridge image and its automatic build foundation."
   }
 }
 
@@ -681,7 +695,8 @@ run "five_layer_v2_gcp_archive_only_accepts_remote_cool_objects" {
     gcp_v2_processor_extension_image      = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     enable_gcp_logging                    = false
     enable_aws_logging                    = false
-    aws_v2_storage_mover_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-v2-storage-mover@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    aws_v2_storage_mover_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-v2-images@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    aws_v2_bridge_image                   = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-v2-images@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     resolved_component_dimensions = {
       "dimension.aws.aws.ecs-fargate-storage-mover.task_count" = "1"
     }
@@ -835,7 +850,8 @@ run "five_layer_v2_gcp_l4_stays_independent_from_aws_l3_l5" {
     gcp_v2_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     enable_aws_logging                    = false
     enable_gcp_logging                    = false
-    aws_v2_storage_mover_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-v2-storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    aws_v2_storage_mover_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-v2-images@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    aws_v2_bridge_image                   = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-v2-images@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     resolved_component_dimensions = {
       "dimension.aws.aws.ecs-fargate-storage-mover.task_count" = "1"
     }
