@@ -138,6 +138,44 @@ def _enqueue(event: Mapping[str, Any]) -> None:
         sender.send_messages(message)
 
 
+def _publish_telemetry(event: Mapping[str, Any]) -> None:
+    from azure.eventhub import EventData, EventHubProducerClient
+
+    validated = validate_canonical_event(event)
+    namespace = os.getenv("V2_BRIDGE_TELEMETRY__fullyQualifiedNamespace", "")
+    event_hub_name = os.getenv("V2_BRIDGE_TELEMETRY_HUB_NAME", "")
+    if not namespace or namespace.startswith("disabled.") or not event_hub_name:
+        raise ContractError("REMOTE_HOT_ROUTE_NOT_CONFIGURED", 503)
+    producer = EventHubProducerClient(
+        fully_qualified_namespace=namespace,
+        eventhub_name=event_hub_name,
+        credential=_credential(),
+        buffered_mode=False,
+    )
+    with producer:
+        producer.send_batch(
+            [EventData(canonical_json(validated).encode("utf-8"))],
+            partition_key=partition_key(validated),
+            timeout=30,
+        )
+
+
+def _publish_control(event: Mapping[str, Any]) -> None:
+    validated = validate_canonical_event(event)
+    topic_name = os.getenv("V2_BRIDGE_CONTROL_TOPIC_NAME", "")
+    if not topic_name:
+        raise ContractError("REMOTE_CONTROL_ROUTE_NOT_CONFIGURED", 503)
+    message = ServiceBusMessage(
+        canonical_json(validated),
+        content_type="application/json",
+        message_id=event_id(validated),
+        session_id=partition_key(validated),
+        correlation_id=str(validated["correlation_id"]),
+    )
+    with _service_bus_client().get_topic_sender(topic_name=topic_name) as sender:
+        sender.send_messages(message)
+
+
 def _extension_envelope(event: Mapping[str, Any]) -> dict[str, Any]:
     validated = validate_canonical_event(event)
     body = event_body(validated)
@@ -271,14 +309,19 @@ def _persist_processed(processed: Mapping[str, Any]) -> None:
     projection = build_twin_projection(processed)
     if projection is None:
         return
-    if os.getenv("V2_TWIN_PROVIDER") != "azure":
-        raise ContractError("REMOTE_TWIN_ROUTE_NOT_CONFIGURED", 503)
-    _materialize_twin_projection(projection)
+    if os.getenv("V2_TWIN_PROVIDER") == "azure":
+        _materialize_twin_projection(projection)
+    else:
+        _publish_control(projection)
 
 
 def _process_received(event: Mapping[str, Any]) -> None:
     processed = build_processed_event(event, _invoke_processor_extension(event))
-    _enqueue(processed)
+    if os.getenv("V2_HOT_PROVIDER") == "azure":
+        _enqueue(processed)
+    else:
+        _publish_telemetry(processed)
+        _evaluate_rules(processed)
 
 
 def _action_name(action: Mapping[str, Any]) -> str:
@@ -349,18 +392,20 @@ def _dispatch_match(event: Mapping[str, Any]) -> None:
         device_id = feedback.get("device_id") or feedback.get("iotDeviceId")
         if not isinstance(device_id, str) or not device_id:
             device_id = partition_key(event)
-        _enqueue(
-            derive_event(
-                event,
-                event_type="device.command.requested.v1",
-                producer="component.action-dispatcher",
-                payload={
-                    "device_id": device_id,
-                    "rule_id": body.get("rule_id"),
-                    "message": str(feedback.get("payload") or "Rule matched"),
-                },
-            )
+        command = derive_event(
+            event,
+            event_type="device.command.requested.v1",
+            producer="component.action-dispatcher",
+            payload={
+                "device_id": device_id,
+                "rule_id": body.get("rule_id"),
+                "message": str(feedback.get("payload") or "Rule matched"),
+            },
         )
+        if os.getenv("V2_L1_PROVIDER") == "azure":
+            _enqueue(command)
+        else:
+            _publish_control(command)
 
 
 def _start_notification_workflow(event: Mapping[str, Any]) -> None:
@@ -375,7 +420,7 @@ def _start_notification_workflow(event: Mapping[str, Any]) -> None:
         ):
             accepted = True
             break
-    _enqueue(
+    _store_outcome(
         derive_event(
             event,
             event_type="notification.workflow.outcome.v1",
@@ -423,7 +468,7 @@ def _send_device_command(event: Mapping[str, Any]) -> bool:
 
 def _deliver_device_command(event: Mapping[str, Any]) -> None:
     accepted = _send_device_command(event)
-    _enqueue(
+    _store_outcome(
         derive_event(
             event,
             event_type="device.command.outcome.v1",
@@ -678,7 +723,8 @@ def _write_raw_and_rollup(
 
 def _store_outcome(event: Mapping[str, Any], *, stored_at=None) -> None:
     if os.getenv("V2_HOT_PROVIDER") != "azure":
-        raise ContractError("REMOTE_HOT_ROUTE_NOT_CONFIGURED", 503)
+        _publish_control(event)
+        return
     try:
         hot_days = int(os.getenv("V2_HOT_BOUNDARY_DAYS", "0"))
     except ValueError as exc:
@@ -910,9 +956,10 @@ if IOT_PROCESSOR_ENABLED:
                     deployment_id=os.getenv("DEPLOYMENT_ID", "local-poc"),
                     default_metric=os.getenv("V2_DEFAULT_METRIC", "temperature"),
                 )
-                if os.getenv("V2_L2_PROVIDER") != "azure":
-                    raise ContractError("REMOTE_PROCESSING_ROUTE_NOT_CONFIGURED", 503)
-                _enqueue(event)
+                if os.getenv("V2_L2_PROVIDER") == "azure":
+                    _enqueue(event)
+                else:
+                    _publish_telemetry(event)
         except ContractError as exc:
             raise RuntimeError(exc.code) from None
 

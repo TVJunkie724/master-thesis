@@ -276,6 +276,7 @@ def test_rule_matches_have_distinct_ids_and_drive_all_embedded_paths(monkeypatch
     assert matches[0]["event_id"] != matches[1]["event_id"]
     assert matches[0]["payload"]["rule_id"] == "workflow-and-command"
     enqueued = []
+    monkeypatch.setenv("V2_L1_PROVIDER", "azure")
     monkeypatch.setattr(function_app, "_enqueue", enqueued.append)
     monkeypatch.setattr(function_app, "_invoke_poc_action", lambda *_args: True)
 
@@ -383,7 +384,8 @@ def test_workflow_and_command_emit_correlated_terminal_outcomes(monkeypatch):
         ],
     )[0]
     emitted = []
-    monkeypatch.setattr(function_app, "_enqueue", emitted.append)
+    monkeypatch.setenv("V2_HOT_PROVIDER", "azure")
+    monkeypatch.setattr(function_app, "_store_outcome", emitted.append)
     monkeypatch.setattr(
         function_app,
         "_post_bound_json",
@@ -416,6 +418,55 @@ def test_workflow_and_command_emit_correlated_terminal_outcomes(monkeypatch):
     assert all(
         event["correlation_id"] == matched["correlation_id"] for event in emitted
     )
+
+
+def test_remote_processing_projection_and_outcomes_use_typed_outboxes(monkeypatch):
+    source = core.build_ingress_event(
+        {
+            "iotDeviceId": "sensor-1",
+            "time": "2026-08-04T11:59:59Z",
+            "temperature": 2,
+            "projection_candidate": True,
+        },
+        deployment_id="deployment",
+        default_metric="temperature",
+    )
+    telemetry = []
+    control = []
+    monkeypatch.setenv("V2_HOT_PROVIDER", "aws")
+    monkeypatch.setenv("V2_TWIN_PROVIDER", "aws")
+    monkeypatch.setattr(
+        function_app,
+        "_invoke_processor_extension",
+        lambda _event: {"value": 4, "quality": "accepted"},
+    )
+    monkeypatch.setattr(function_app, "_publish_telemetry", telemetry.append)
+    monkeypatch.setattr(function_app, "_publish_control", control.append)
+    monkeypatch.setattr(function_app, "_evaluate_rules", lambda _event: None)
+
+    function_app._process_received(source)
+
+    assert [event["event_type"] for event in telemetry] == [
+        "telemetry.processed.v1"
+    ]
+
+    processed = core.build_processed_event(
+        source, {"value": 4, "quality": "accepted"}
+    )
+    monkeypatch.setenv("V2_HOT_PROVIDER", "azure")
+    monkeypatch.setattr(function_app, "_write_raw_and_rollup", lambda _event: True)
+    function_app._persist_processed(processed)
+    assert control[-1]["event_type"] == "twin.state.upserted"
+
+    outcome = core.derive_event(
+        source,
+        event_type="device.command.outcome.v1",
+        producer="component.device-command-adapter",
+        payload={"device_id": "sensor-1", "status": "ACCEPTED"},
+    )
+    monkeypatch.setenv("V2_HOT_PROVIDER", "aws")
+    function_app._store_outcome(outcome)
+    assert control[-1]["event_type"] == "device.command.outcome.v1"
 
 
 def test_terminal_outcome_storage_is_idempotent_and_non_rollup(monkeypatch):
