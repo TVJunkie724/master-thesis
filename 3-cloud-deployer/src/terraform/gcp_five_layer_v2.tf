@@ -115,6 +115,39 @@ locals {
     if package.slot_id == "processor.telemetry" && package.slot_version == "1"
   } : {}
 
+  gcp_v2_outbound_event_routes = {
+    for route in var.resolved_cross_cloud_routes : route.route_id => route
+    if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.source_provider == "gcp"
+  }
+  gcp_v2_inbound_event_routes = {
+    for route in var.resolved_cross_cloud_routes : route.route_id => route
+    if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.destination_provider == "gcp"
+  }
+  gcp_v2_remote_telemetry_outbound = anytrue([
+    for route in values(local.gcp_v2_outbound_event_routes) : route.channel_class == "telemetry"
+  ])
+  gcp_v2_remote_telemetry_inbound = anytrue([
+    for route in values(local.gcp_v2_inbound_event_routes) : route.channel_class == "telemetry"
+  ])
+  gcp_v2_remote_control_outbound = anytrue([
+    for route in values(local.gcp_v2_outbound_event_routes) : route.channel_class == "control"
+  ])
+  gcp_v2_remote_control_inbound = anytrue([
+    for route in values(local.gcp_v2_inbound_event_routes) : route.channel_class == "control"
+  ])
+  gcp_v2_remote_telemetry_routes = {
+    for direction, enabled in {
+      inbound  = local.gcp_v2_remote_telemetry_inbound
+      outbound = local.gcp_v2_remote_telemetry_outbound
+    } : "remote-telemetry-${direction}" => "${local.gcp_v2_name}-v2-remote-telemetry-${direction}" if enabled
+  }
+  gcp_v2_remote_control_routes = {
+    for direction, enabled in {
+      inbound  = local.gcp_v2_remote_control_inbound
+      outbound = local.gcp_v2_remote_control_outbound
+    } : "remote-control-${direction}" => "${local.gcp_v2_name}-v2-remote-control-${direction}" if enabled
+  }
+
   gcp_v2_topics = local.gcp_v2_event_enabled ? merge(
     { failure = "${local.gcp_v2_name}-v2-failure" },
     local.gcp_v2_l1_enabled || local.gcp_v2_l2_enabled ? {
@@ -129,6 +162,8 @@ locals {
     local.gcp_v2_l1_enabled ? {
       command = "${local.gcp_v2_name}-v2-device-command"
     } : {},
+    local.gcp_v2_remote_telemetry_routes,
+    local.gcp_v2_remote_control_routes,
   ) : {}
 
   gcp_v2_event_adapters = merge(

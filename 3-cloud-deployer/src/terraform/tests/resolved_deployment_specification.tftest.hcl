@@ -314,6 +314,50 @@ run "five_layer_v2_remote_azure_large_binds_dedicated_capacity" {
       "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.capacity_unit_hours"   = "4380"
       "dimension.azure.azure.container-apps-scheduled-storage-job.task_count"                          = "30"
     }
+    resolved_cross_cloud_routes = [
+      {
+        route_id                = "graph.ingestion.processing.telemetry"
+        logical_edge_id         = "edge.ingestion-to-processing"
+        source_provider         = "aws"
+        destination_provider    = "azure"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "telemetry"
+        event_types             = ["telemetry.received.v1"]
+        source_broker_kind      = "telemetry_stream"
+        destination_broker_kind = "telemetry_stream"
+        identity_exchange       = "aws_oidc_to_entra_federated_credential"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id                = "graph.ingestion.hot.control"
+        logical_edge_id         = "edge.ingestion-to-hot-storage"
+        source_provider         = "aws"
+        destination_provider    = "azure"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "control"
+        event_types             = ["device.command.outcome.v1"]
+        source_broker_kind      = "control_topic"
+        destination_broker_kind = "control_topic"
+        identity_exchange       = "aws_oidc_to_entra_federated_credential"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id                = "graph.processing.ingestion.control"
+        logical_edge_id         = "edge.processing-to-ingestion"
+        source_provider         = "azure"
+        destination_provider    = "aws"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "control"
+        event_types             = ["device.command.requested.v1"]
+        source_broker_kind      = "control_topic"
+        destination_broker_kind = "control_topic"
+        identity_exchange       = "entra_managed_identity_oidc_to_assume_role_with_web_identity"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+    ]
     validated_extension_packages = [{
       slot_id         = "processor.telemetry"
       slot_version    = "1"
@@ -641,6 +685,72 @@ run "five_layer_v2_gcp_archive_only_accepts_remote_cool_objects" {
     resolved_component_dimensions = {
       "dimension.aws.aws.ecs-fargate-storage-mover.task_count" = "1"
     }
+    resolved_cross_cloud_routes = [
+      {
+        route_id                = "graph.ingestion.hot.control"
+        logical_edge_id         = "edge.ingestion-to-hot-storage"
+        source_provider         = "gcp"
+        destination_provider    = "aws"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "control"
+        event_types             = ["device.command.outcome.v1"]
+        source_broker_kind      = "control_topic"
+        destination_broker_kind = "control_topic"
+        identity_exchange       = "google_service_account_oidc_to_assume_role_with_web_identity"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id                = "graph.processing.hot.telemetry"
+        logical_edge_id         = "edge.processing-to-hot-storage"
+        source_provider         = "gcp"
+        destination_provider    = "aws"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "telemetry"
+        event_types             = ["telemetry.processed.v1"]
+        source_broker_kind      = "telemetry_stream"
+        destination_broker_kind = "telemetry_stream"
+        identity_exchange       = "google_service_account_oidc_to_assume_role_with_web_identity"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id             = "graph.processing.hot.control"
+        logical_edge_id      = "edge.processing-to-hot-storage"
+        source_provider      = "gcp"
+        destination_provider = "aws"
+        execution_kind       = "source_event_forwarder"
+        channel_class        = "control"
+        event_types = [
+          "extension.action.outcome.v1",
+          "notification.workflow.outcome.v1",
+        ]
+        source_broker_kind      = "control_topic"
+        destination_broker_kind = "control_topic"
+        identity_exchange       = "google_service_account_oidc_to_assume_role_with_web_identity"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id             = "graph.hot.twin.control"
+        logical_edge_id      = "edge.hot-storage-to-twin-state"
+        source_provider      = "aws"
+        destination_provider = "gcp"
+        execution_kind       = "source_event_forwarder"
+        channel_class        = "control"
+        event_types = [
+          "twin.state.upserted",
+          "twin.model.upserted",
+          "twin.relationship.upserted",
+          "twin.relationship.deleted",
+        ]
+        source_broker_kind      = "control_topic"
+        destination_broker_kind = "control_topic"
+        identity_exchange       = "aws_subject_token_to_gcp_workload_identity_federation"
+        payload_contract_id     = "twin_projection.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+    ]
     validated_extension_packages = [{
       slot_id         = "processor.telemetry"
       slot_version    = "1"
@@ -661,6 +771,18 @@ run "five_layer_v2_gcp_archive_only_accepts_remote_cool_objects" {
       length(google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job) == 0
     )
     error_message = "GCP L4 plus archive-only storage must share one L4 database, create one direct-ingress Archive bucket, and omit source-side movers."
+  }
+
+  assert {
+    condition = (
+      toset(keys(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge)) == toset(["inbound"]) &&
+      length(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge) == 1 &&
+      length(aws_sqs_queue.aws_v2_remote_control) == 1 &&
+      contains(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics), "remote-telemetry-outbound") &&
+      contains(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics), "remote-control-outbound") &&
+      contains(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics), "remote-control-inbound")
+    )
+    error_message = "A provider used on both sides must materialize route-owned inbound and outbound telemetry/control brokers without inventing a fixed sender role."
   }
 }
 
@@ -717,6 +839,25 @@ run "five_layer_v2_gcp_l4_stays_independent_from_aws_l3_l5" {
     resolved_component_dimensions = {
       "dimension.aws.aws.ecs-fargate-storage-mover.task_count" = "1"
     }
+    resolved_cross_cloud_routes = [{
+      route_id             = "graph.hot.twin.control"
+      logical_edge_id      = "edge.hot-storage-to-twin-state"
+      source_provider      = "aws"
+      destination_provider = "gcp"
+      execution_kind       = "source_event_forwarder"
+      channel_class        = "control"
+      event_types = [
+        "twin.state.upserted",
+        "twin.model.upserted",
+        "twin.relationship.upserted",
+        "twin.relationship.deleted",
+      ]
+      source_broker_kind      = "control_topic"
+      destination_broker_kind = "control_topic"
+      identity_exchange       = "aws_subject_token_to_gcp_workload_identity_federation"
+      payload_contract_id     = "twin_projection.v1"
+      trust_contract_id       = "trust.workload-identity-federation"
+    }]
     validated_extension_packages = [{
       slot_id         = "processor.telemetry"
       slot_version    = "1"
@@ -740,7 +881,7 @@ run "five_layer_v2_gcp_l4_stays_independent_from_aws_l3_l5" {
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader) == 0 &&
       length(google_cloud_run_v2_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
       length(google_iap_web_cloud_run_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
-      toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["domain", "failure"]) &&
+      toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["domain", "failure", "remote-control-inbound"]) &&
       toset(keys(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["domain", "twin"])
     )
     error_message = "Independent GCP L4 must create only its shared data database, bounded relationship indexes, Twin materializer, read-only IAP Explorer, and domain path while AWS retains L3/L5."

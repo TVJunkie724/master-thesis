@@ -23,13 +23,18 @@ def _edge(
     logical_edge_id: str = "edge.ingestion-to-processing",
     route_class: str = "cross_provider",
 ):
+    payload_id = {
+        "edge.cool-to-archive-storage": "storage_transition.v1",
+        "edge.hot-storage-to-twin-state": "twin_projection.v1",
+        "edge.hot-to-cool-storage": "storage_transition.v1",
+    }.get(logical_edge_id, "canonical-domain-event.v1")
     return SimpleNamespace(
         graph_edge_id=route_id,
         logical_edge_id=logical_edge_id,
         source_node_id=source,
         destination_node_id=destination,
         transfer_route_class=route_class,
-        payload_ref={"id": "canonical-domain-event.v1", "version": "1"},
+        payload_ref={"id": payload_id, "version": "1"},
         trust_ref={"id": "trust.workload-identity-federation", "version": "1"},
     )
 
@@ -87,6 +92,7 @@ def test_storage_routes_select_finite_source_owned_job(logical_edge_id):
     assert route.event_types == ()
     assert route.source_broker_kind == "object_storage"
     assert route.destination_broker_kind == "object_storage"
+    assert route.payload_contract_id == "storage_transition.v1"
 
 
 def test_mixed_processing_to_hot_edge_expands_into_telemetry_and_control_routes():
@@ -137,6 +143,7 @@ def test_twin_projection_uses_ordered_control_landing():
         "twin.relationship.upserted",
         "twin.relationship.deleted",
     )
+    assert route.payload_contract_id == "twin_projection.v1"
 
 
 def test_single_cloud_edges_create_no_remote_route_or_egress_input():
@@ -203,4 +210,20 @@ def test_unknown_cross_cloud_edge_fails_closed():
     )
 
     with pytest.raises(ValueError, match="no approved channel route"):
+        resolve_cross_cloud_routes(graph)
+
+
+@pytest.mark.parametrize("drift", ["payload", "trust"])
+def test_cross_cloud_contract_drift_fails_closed(drift):
+    edge = _edge("route", "aws", "azure")
+    if drift == "payload":
+        edge.payload_ref = {"id": "other.v1", "version": "1"}
+    else:
+        edge.trust_ref = {"id": "trust.static-secret", "version": "1"}
+    graph = SimpleNamespace(
+        nodes=(_node("aws", "aws"), _node("azure", "azure")),
+        edges=(edge,),
+    )
+
+    with pytest.raises(ValueError, match="approved payload or trust contract"):
         resolve_cross_cloud_routes(graph)

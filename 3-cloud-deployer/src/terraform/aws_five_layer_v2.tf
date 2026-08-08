@@ -60,16 +60,20 @@ locals {
   }
   aws_v2_object_store_enabled = local.aws_v2_cool_enabled || local.aws_v2_archive_enabled
 
-  aws_v2_remote_telemetry_outbound = local.five_layer_v2_enabled && (
-    (var.layer_1_provider == "aws" && var.layer_2_provider != "aws") ||
-    (var.layer_2_provider == "aws" && var.layer_3_hot_provider != "aws") ||
-    (var.layer_3_hot_provider == "aws" && var.layer_4_provider != "aws")
-  )
-  aws_v2_remote_telemetry_inbound = local.five_layer_v2_enabled && (
-    (var.layer_1_provider != "aws" && var.layer_2_provider == "aws") ||
-    (var.layer_2_provider != "aws" && var.layer_3_hot_provider == "aws") ||
-    (var.layer_3_hot_provider != "aws" && var.layer_4_provider == "aws")
-  )
+  aws_v2_outbound_event_routes = {
+    for route in var.resolved_cross_cloud_routes : route.route_id => route
+    if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.source_provider == "aws"
+  }
+  aws_v2_inbound_event_routes = {
+    for route in var.resolved_cross_cloud_routes : route.route_id => route
+    if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.destination_provider == "aws"
+  }
+  aws_v2_remote_telemetry_outbound = anytrue([
+    for route in values(local.aws_v2_outbound_event_routes) : route.channel_class == "telemetry"
+  ])
+  aws_v2_remote_telemetry_inbound = anytrue([
+    for route in values(local.aws_v2_inbound_event_routes) : route.channel_class == "telemetry"
+  ])
   aws_v2_remote_telemetry_routes = {
     for direction, enabled in {
       inbound  = local.aws_v2_remote_telemetry_inbound
@@ -78,8 +82,12 @@ locals {
   }
   aws_v2_remote_telemetry_enabled = length(local.aws_v2_remote_telemetry_routes) > 0
 
-  aws_v2_remote_control_outbound = local.five_layer_v2_enabled && var.layer_2_provider == "aws" && var.layer_1_provider != "aws"
-  aws_v2_remote_control_inbound  = local.five_layer_v2_enabled && var.layer_2_provider != "aws" && var.layer_1_provider == "aws"
+  aws_v2_remote_control_outbound = anytrue([
+    for route in values(local.aws_v2_outbound_event_routes) : route.channel_class == "control"
+  ])
+  aws_v2_remote_control_inbound = anytrue([
+    for route in values(local.aws_v2_inbound_event_routes) : route.channel_class == "control"
+  ])
   aws_v2_remote_control_enabled  = local.aws_v2_remote_control_outbound || local.aws_v2_remote_control_inbound
   aws_v2_domain_consumer_enabled = local.aws_v2_remote_telemetry_inbound || local.aws_v2_remote_control_inbound
 

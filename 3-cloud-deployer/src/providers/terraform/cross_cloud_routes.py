@@ -25,6 +25,16 @@ _STORAGE_EDGE_IDS = frozenset(
     }
 )
 
+_PAYLOAD_CONTRACT_BY_EDGE = {
+    "edge.cool-to-archive-storage": "storage_transition.v1",
+    "edge.hot-storage-to-twin-state": "twin_projection.v1",
+    "edge.hot-to-cool-storage": "storage_transition.v1",
+    "edge.ingestion-to-hot-storage": "canonical-domain-event.v1",
+    "edge.ingestion-to-processing": "canonical-domain-event.v1",
+    "edge.processing-to-hot-storage": "canonical-domain-event.v1",
+    "edge.processing-to-ingestion": "canonical-domain-event.v1",
+}
+
 _EVENT_CHANNELS_BY_EDGE: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
     "edge.ingestion-to-processing": (
         ("telemetry", ("telemetry.received.v1",)),
@@ -116,6 +126,15 @@ def resolve_cross_cloud_routes(
                     "Resolved cross-cloud edge has no approved channel route: "
                     f"{edge.logical_edge_id}"
                 )
+        expected_payload = _PAYLOAD_CONTRACT_BY_EDGE[edge.logical_edge_id]
+        if (
+            edge.payload_ref.get("id") != expected_payload
+            or edge.trust_ref.get("id") != "trust.workload-identity-federation"
+        ):
+            raise ValueError(
+                "Resolved cross-cloud edge violates its approved payload or trust "
+                f"contract: {edge.logical_edge_id}"
+            )
         for channel_class, event_types in channels:
             broker_kind = _BROKER_KIND_BY_CHANNEL[channel_class]
             routes.append(

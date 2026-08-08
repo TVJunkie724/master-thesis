@@ -16,16 +16,20 @@ locals {
     local.azure_v2_hot_enabled || local.azure_v2_l4_enabled
   )
   azure_v2_function_infrastructure_enabled = local.azure_v2_event_enabled || local.azure_v2_l5_enabled
-  azure_v2_remote_telemetry_outbound = local.five_layer_v2_enabled && (
-    (var.layer_1_provider == "azure" && var.layer_2_provider != "azure") ||
-    (var.layer_2_provider == "azure" && var.layer_3_hot_provider != "azure") ||
-    (var.layer_3_hot_provider == "azure" && var.layer_4_provider != "azure")
-  )
-  azure_v2_remote_telemetry_inbound = local.five_layer_v2_enabled && (
-    (var.layer_1_provider != "azure" && var.layer_2_provider == "azure") ||
-    (var.layer_2_provider != "azure" && var.layer_3_hot_provider == "azure") ||
-    (var.layer_3_hot_provider != "azure" && var.layer_4_provider == "azure")
-  )
+  azure_v2_outbound_event_routes = {
+    for route in var.resolved_cross_cloud_routes : route.route_id => route
+    if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.source_provider == "azure"
+  }
+  azure_v2_inbound_event_routes = {
+    for route in var.resolved_cross_cloud_routes : route.route_id => route
+    if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.destination_provider == "azure"
+  }
+  azure_v2_remote_telemetry_outbound = anytrue([
+    for route in values(local.azure_v2_outbound_event_routes) : route.channel_class == "telemetry"
+  ])
+  azure_v2_remote_telemetry_inbound = anytrue([
+    for route in values(local.azure_v2_inbound_event_routes) : route.channel_class == "telemetry"
+  ])
   azure_v2_remote_telemetry_routes = {
     for direction, enabled in {
       inbound  = local.azure_v2_remote_telemetry_inbound
@@ -33,9 +37,13 @@ locals {
     } : direction => direction if enabled
   }
   azure_v2_remote_telemetry_enabled = length(local.azure_v2_remote_telemetry_routes) > 0
-  azure_v2_remote_control_outbound  = local.five_layer_v2_enabled && var.layer_2_provider == "azure" && var.layer_1_provider != "azure"
-  azure_v2_remote_control_inbound   = local.five_layer_v2_enabled && var.layer_2_provider != "azure" && var.layer_1_provider == "azure"
-  azure_v2_object_store_enabled     = local.azure_v2_cool_enabled || local.azure_v2_archive_enabled
+  azure_v2_remote_control_outbound = anytrue([
+    for route in values(local.azure_v2_outbound_event_routes) : route.channel_class == "control"
+  ])
+  azure_v2_remote_control_inbound = anytrue([
+    for route in values(local.azure_v2_inbound_event_routes) : route.channel_class == "control"
+  ])
+  azure_v2_object_store_enabled = local.azure_v2_cool_enabled || local.azure_v2_archive_enabled
   azure_v2_storage_mover_enabled = local.five_layer_v2_enabled && (
     local.azure_v2_hot_enabled ||
     (local.azure_v2_cool_enabled && var.layer_3_archive_provider != "azure")
