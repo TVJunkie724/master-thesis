@@ -791,7 +791,7 @@ run "five_layer_v2_gcp_archive_only_accepts_remote_cool_objects" {
   assert {
     condition = (
       toset(keys(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge)) == toset(["inbound"]) &&
-      length(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge) == 1 &&
+      toset(keys(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge)) == toset(["inbound", "outbound"]) &&
       length(aws_sqs_queue.aws_v2_remote_control) == 1 &&
       contains(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics), "remote-telemetry-outbound") &&
       contains(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics), "remote-control-outbound") &&

@@ -91,7 +91,13 @@ locals {
   aws_v2_remote_control_inbound = anytrue([
     for route in values(local.aws_v2_inbound_event_routes) : route.channel_class == "control"
   ])
-  aws_v2_remote_control_enabled  = local.aws_v2_remote_control_outbound || local.aws_v2_remote_control_inbound
+  aws_v2_remote_control_routes = {
+    for direction, enabled in {
+      inbound  = local.aws_v2_remote_control_inbound
+      outbound = local.aws_v2_remote_control_outbound
+    } : direction => direction if enabled
+  }
+  aws_v2_remote_control_enabled  = length(local.aws_v2_remote_control_routes) > 0
   aws_v2_domain_consumer_enabled = local.aws_v2_remote_telemetry_inbound || local.aws_v2_remote_control_inbound
 
   aws_v2_runtime_package = "${var.project_path}/.build/aws/five-layer-v2.zip"
@@ -193,7 +199,7 @@ resource "aws_sqs_queue_policy" "aws_v2_remote_control" {
       Resource  = aws_sqs_queue.aws_v2_remote_control[0].arn
       Condition = {
         ArnEquals = {
-          "aws:SourceArn" = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn
+          "aws:SourceArn" = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["inbound"].arn
         }
       }
     }]
@@ -214,8 +220,8 @@ resource "aws_kinesis_stream" "aws_aws_kinesis_only_for_reviewed_remote_telemetr
 }
 
 resource "aws_sns_topic" "aws_aws_sns_fifo_only_for_reviewed_remote_control_edge" {
-  count                       = local.aws_v2_remote_control_enabled ? 1 : 0
-  name                        = "${local.aws_v2_name}-remote-control.fifo"
+  for_each                    = local.aws_v2_remote_control_routes
+  name                        = "${local.aws_v2_name}-remote-control-${each.key}.fifo"
   fifo_topic                  = true
   content_based_deduplication = false
   tags                        = local.aws_v2_tags
@@ -270,7 +276,7 @@ resource "aws_iam_role_policy" "aws_v2_lambda_data" {
       local.aws_v2_remote_control_enabled ? [{
         Effect   = "Allow"
         Action   = ["sns:Publish"]
-        Resource = [aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn]
+        Resource = [for topic in aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge : topic.arn]
       }] : [],
       local.aws_v2_hot_enabled ? [{
         Effect = "Allow"
@@ -333,7 +339,7 @@ resource "aws_lambda_function" "aws_aws_lambda_event_adapter" {
       DEPLOYMENT_ID             = local.deployment_suffix
       EVENT_QUEUE_URL           = aws_sqs_queue.aws_aws_sqs_fifo[0].url
       TELEMETRY_STREAM_ARN      = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
-      CONTROL_TOPIC_ARN         = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn, "")
+      CONTROL_TOPIC_ARN         = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
       LOCAL_PROCESSING          = tostring(local.aws_v2_l2_enabled)
       HOT_PROVIDER              = var.layer_3_hot_provider
       TWIN_PROVIDER             = var.layer_4_provider
@@ -415,7 +421,7 @@ resource "aws_lambda_function" "aws_aws_lambda" {
       ARCHITECTURE_PROFILE              = "five-layer-baseline@2"
       DEPLOYMENT_ID                     = local.deployment_suffix
       EVENT_QUEUE_URL                   = aws_sqs_queue.aws_aws_sqs_fifo[0].url
-      CONTROL_TOPIC_ARN                 = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn, "")
+      CONTROL_TOPIC_ARN                 = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
       L1_PROVIDER                       = var.layer_1_provider
       RAW_TABLE_NAME                    = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
       ROLLUP_TABLE_NAME                 = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
@@ -560,7 +566,7 @@ resource "aws_lambda_function" "aws_v2_domain_consumer" {
       DEPLOYMENT_ID                     = local.deployment_suffix
       EVENT_QUEUE_URL                   = try(aws_sqs_queue.aws_aws_sqs_fifo[0].url, "")
       TELEMETRY_STREAM_ARN              = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
-      CONTROL_TOPIC_ARN                 = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn, "")
+      CONTROL_TOPIC_ARN                 = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
       L1_PROVIDER                       = var.layer_1_provider
       HOT_PROVIDER                      = var.layer_3_hot_provider
       TWIN_PROVIDER                     = var.layer_4_provider
@@ -603,7 +609,7 @@ resource "aws_lambda_event_source_mapping" "aws_v2_remote_telemetry" {
 
 resource "aws_sns_topic_subscription" "aws_aws_sns_fifo_only_for_reviewed_remote_control_edge" {
   count     = local.aws_v2_remote_control_inbound ? 1 : 0
-  topic_arn = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge[0].arn
+  topic_arn = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["inbound"].arn
   protocol  = "sqs"
   endpoint  = aws_sqs_queue.aws_v2_remote_control[0].arn
 }
