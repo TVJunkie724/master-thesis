@@ -18,6 +18,7 @@ from src.api.models.deployment import (
     DeploymentStreamEvent,
     DestroyResult,
 )
+from src.deployment_access import project_deployment_access_evidence
 from src.core.deployment_errors import (
     DeploymentBoundaryError,
     DeploymentErrorCode,
@@ -207,13 +208,15 @@ def deploy_all(
                 request.provider,
                 operation_context=operation_context,
             )
+            access_evidence = project_deployment_access_evidence(context, outputs)
 
         return DeploymentResult(
             project_name=request.project_name,
             provider=request.provider,
             operation_id=operation_context.operation_id,
             terraform_outputs=outputs,
-        ).model_dump(mode="json")
+            deployment_access_evidence=access_evidence,
+        ).model_dump(mode="json", exclude_none=True)
     except HTTPException as e:
         _raise_structured_http_error(e, operation_context)
     except ValueError as e:
@@ -364,9 +367,14 @@ async def deploy_stream(
                 finally:
                     scope_closed = True
                 outputs = stream_outputs.get("outputs", {})
+                access_evidence = project_deployment_access_evidence(
+                    context,
+                    outputs,
+                )
                 yield DeploymentStreamEvent.complete(
                     DeploymentOperation.deploy,
                     outputs=outputs,
+                    deployment_access_evidence=access_evidence,
                     operation_id=stream_context.operation_id,
                 ).to_sse()
             except BaseException as e:

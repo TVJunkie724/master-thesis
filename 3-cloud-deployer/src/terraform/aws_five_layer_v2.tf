@@ -1504,15 +1504,17 @@ output "aws_component_archive_storage_output" {
 
 output "aws_component_twin_state_output" {
   value = local.aws_v2_l4_enabled ? {
-    workspace_id = awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id
-    access_url   = "https://${var.aws_region}.console.aws.amazon.com/iottwinmaker/home?region=${var.aws_region}#/workspaces/${awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id}"
+    workspace_id    = awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id
+    access_url      = "https://${var.aws_region}.console.aws.amazon.com/iottwinmaker/home?region=${var.aws_region}#/workspaces/${awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id}"
+    principal_label = var.platform_user_email
   } : null
 }
 
 output "aws_component_visualization_output" {
   value = local.aws_v2_l5_enabled ? {
-    workspace_id = aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].id
-    access_url   = "https://${aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].endpoint}"
-    reader_url   = aws_lambda_function_url.aws_aws_lambda_raw_history_reader[0].function_url
+    workspace_id    = aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].id
+    access_url      = "https://${aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].endpoint}/d/t2mc-raw-rollups/raw-rollups"
+    reader_url      = aws_lambda_function_url.aws_aws_lambda_raw_history_reader[0].function_url
+    principal_label = var.platform_user_email
   } : null
 }

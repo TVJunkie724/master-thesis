@@ -1,0 +1,128 @@
+{
+  "l4:aws": {
+    "layer": "l4",
+    "provider": "aws",
+    "service_id": "aws_iot_twinmaker",
+    "display_name": "AWS IoT TwinMaker",
+    "url": "https://eu-central-1.console.aws.amazon.com/iottwinmaker/home?region=eu-central-1#/workspaces/t2mc-example",
+    "auth": {
+      "mode": "aws_identity_center",
+      "principal_label": "researcher@example.invalid",
+      "credential_action": "none"
+    },
+    "readiness": {
+      "resource": "ready",
+      "access_binding": "ready",
+      "content": "ready",
+      "data_probe": "ready",
+      "browser_sign_in": "unverified"
+    },
+    "capabilities": ["entities", "component-types", "current-state", "relationships"],
+    "limitations": ["no-scenes", "no-raw-telemetry"]
+  },
+  "l4:azure": {
+    "layer": "l4",
+    "provider": "azure",
+    "service_id": "azure_digital_twins",
+    "display_name": "Azure Digital Twins Explorer",
+    "url": "https://explorer.digitaltwins.azure.net/?tid=00000000-0000-0000-0000-000000000000&eid=t2mc.api.weu.digitaltwins.azure.net",
+    "auth": {
+      "mode": "azure_entra",
+      "principal_label": "researcher@example.invalid",
+      "credential_action": "none"
+    },
+    "readiness": {
+      "resource": "ready",
+      "access_binding": "ready",
+      "content": "ready",
+      "data_probe": "ready",
+      "browser_sign_in": "unverified"
+    },
+    "capabilities": ["models", "twins", "properties", "relationships"],
+    "limitations": ["no-scenes", "no-raw-telemetry"]
+  },
+  "l4:gcp": {
+    "layer": "l4",
+    "provider": "gcp",
+    "service_id": "gcp_twin_explorer",
+    "display_name": "GCP Twin Explorer",
+    "url": "https://t2mc-twin-explorer-example-ew.a.run.app",
+    "auth": {
+      "mode": "gcp_iap",
+      "principal_label": "user:researcher@example.invalid",
+      "credential_action": "none"
+    },
+    "readiness": {
+      "resource": "ready",
+      "access_binding": "ready",
+      "content": "ready",
+      "data_probe": "ready",
+      "browser_sign_in": "unverified"
+    },
+    "capabilities": ["models", "twins", "current-source-state", "direct-relationships"],
+    "limitations": ["read-only", "bounded-queries", "no-scenes", "no-raw-telemetry"]
+  },
+  "l5:aws": {
+    "layer": "l5",
+    "provider": "aws",
+    "service_id": "aws_managed_grafana",
+    "display_name": "Amazon Managed Grafana",
+    "url": "https://g-example.grafana-workspace.eu-central-1.amazonaws.com/d/t2mc-raw-rollups/raw-rollups",
+    "auth": {
+      "mode": "aws_identity_center",
+      "principal_label": "researcher@example.invalid",
+      "credential_action": "none"
+    },
+    "readiness": {
+      "resource": "ready",
+      "access_binding": "ready",
+      "content": "ready",
+      "data_probe": "ready",
+      "browser_sign_in": "unverified"
+    },
+    "capabilities": ["recent-raw", "hourly-rollups", "filters", "no-data-state"],
+    "limitations": ["read-only-dashboard", "bounded-queries"]
+  },
+  "l5:azure": {
+    "layer": "l5",
+    "provider": "azure",
+    "service_id": "azure_managed_grafana",
+    "display_name": "Azure Managed Grafana",
+    "url": "https://t2mc-example-abcd.westeurope.grafana.azure.com/d/t2mc-raw-rollups/raw-rollups",
+    "auth": {
+      "mode": "azure_entra",
+      "principal_label": "researcher@example.invalid",
+      "credential_action": "none"
+    },
+    "readiness": {
+      "resource": "ready",
+      "access_binding": "ready",
+      "content": "ready",
+      "data_probe": "ready",
+      "browser_sign_in": "unverified"
+    },
+    "capabilities": ["recent-raw", "hourly-rollups", "filters", "no-data-state"],
+    "limitations": ["read-only-dashboard", "bounded-queries"]
+  },
+  "l5:gcp": {
+    "layer": "l5",
+    "provider": "gcp",
+    "service_id": "gcp_grafana_oss",
+    "display_name": "Grafana OSS on GKE",
+    "url": "https://grafana.example.invalid/d/t2mc-raw-rollups/raw-rollups",
+    "auth": {
+      "mode": "generated_viewer",
+      "principal_label": "researcher@example.invalid",
+      "credential_action": "rotate"
+    },
+    "readiness": {
+      "resource": "ready",
+      "access_binding": "ready",
+      "content": "ready",
+      "data_probe": "ready",
+      "browser_sign_in": "unverified"
+    },
+    "capabilities": ["recent-raw", "hourly-rollups", "filters", "no-data-state"],
+    "limitations": ["read-only-dashboard", "bounded-queries", "self-signed-poc-certificate"]
+  }
+}

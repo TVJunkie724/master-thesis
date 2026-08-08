@@ -124,6 +124,14 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             rendered,
         )
         self.assertIn(
+            "scripts/sync_deployment_access_contracts.py --check",
+            rendered,
+        )
+        self.assertIn(
+            "scripts.tests.test_deployment_access_contract_sync",
+            rendered,
+        )
+        self.assertIn(
             "scripts/phase_08_eventing/validate_decision_package.py",
             rendered,
         )
