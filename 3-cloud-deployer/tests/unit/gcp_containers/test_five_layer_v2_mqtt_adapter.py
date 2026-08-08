@@ -200,8 +200,9 @@ class _Message:
         self.nacked = True
 
 
-def test_command_acknowledges_only_after_qos_one_publish(adapter):
+def test_command_acknowledges_only_after_qos_one_publish(adapter, monkeypatch):
     published = []
+    outcomes = []
 
     class Publication:
         @staticmethod
@@ -223,6 +224,11 @@ def test_command_acknowledges_only_after_qos_one_publish(adapter):
             return Publication()
 
     adapter._mqtt_client = Client()
+    monkeypatch.setattr(
+        adapter,
+        "_record_command_outcome",
+        lambda value, status: outcomes.append((value, status)),
+    )
     event = {
         "event_type": "device.command.requested.v1",
         "payload": {"device_id": "device-1", "command": "cool-down"},
@@ -235,6 +241,7 @@ def test_command_acknowledges_only_after_qos_one_publish(adapter):
     assert message.nacked is False
     assert published[0][0] == "devices/device-1/commands"
     assert published[0][1]["qos"] == 1
+    assert outcomes == [(event, "ACCEPTED")]
 
 
 def test_command_nacks_transient_delivery_failure_but_acks_invalid_event(adapter):
@@ -252,3 +259,26 @@ def test_command_nacks_transient_delivery_failure_but_acks_invalid_event(adapter
 
     assert valid.nacked is True and valid.acked is False
     assert invalid.acked is True and invalid.nacked is False
+
+
+def test_command_records_failed_outcome_only_after_final_delivery_attempt(
+    adapter, monkeypatch
+):
+    outcomes = []
+    adapter._mqtt_client = None
+    monkeypatch.setattr(
+        adapter,
+        "_record_command_outcome",
+        lambda value, status: outcomes.append((value, status)),
+    )
+    event = {
+        "event_type": "device.command.requested.v1",
+        "payload": {"device_id": "device-1"},
+    }
+    message = _Message(event)
+    message.delivery_attempt = 5
+
+    adapter._command_callback(message)
+
+    assert message.acked is True and message.nacked is False
+    assert outcomes == [(event, "FAILED")]

@@ -552,6 +552,7 @@ def test_cloud_run_ingress_publishes_one_ordered_canonical_event(monkeypatch):
     published = []
     monkeypatch.setenv("RUNTIME_ROLE", "event-adapter")
     monkeypatch.setenv("DEPLOYMENT_ID", "deployment-1")
+    monkeypatch.setenv("L2_PROVIDER", "google")
     monkeypatch.setenv("RECEIVED_TOPIC", "projects/test/topics/received")
     monkeypatch.setattr(runtime, "_publish", lambda topic, event: published.append((topic, event)))
 
@@ -570,6 +571,164 @@ def test_cloud_run_ingress_publishes_one_ordered_canonical_event(monkeypatch):
     assert response.get_json()["accepted"] == 1
     assert published[0][0] == "projects/test/topics/received"
     assert published[0][1]["event_type"] == core.EVENT_TELEMETRY_RECEIVED
+
+
+def test_cross_cloud_sources_use_directional_gcp_outboxes(monkeypatch):
+    core = _load("core")
+    runtime = _load("app")
+    received = _received(core)
+    processed = core.build_processed_event(received, _extension_response(received))
+    projection = core.build_twin_projection(processed)
+    command = core.derive_event(
+        processed,
+        event_type=core.EVENT_DEVICE_COMMAND_REQUESTED,
+        producer="component.rule-dispatcher",
+        payload={"device_id": "device-1", "message": "cool-down"},
+    )
+    outcome = core.derive_event(
+        command,
+        event_type=core.EVENT_COMMAND_OUTCOME,
+        producer="component.device-command-adapter",
+        payload={
+            "device_id": "device-1",
+            "invocation_id": command["event_id"],
+            "status": "ACCEPTED",
+        },
+    )
+    published = []
+    monkeypatch.setenv("DEPLOYMENT_ID", "deployment-1")
+    monkeypatch.setenv("L1_PROVIDER", "aws")
+    monkeypatch.setenv("L2_PROVIDER", "azure")
+    monkeypatch.setenv("HOT_PROVIDER", "aws")
+    monkeypatch.setenv("TWIN_PROVIDER", "azure")
+    monkeypatch.setenv("REMOTE_TELEMETRY_TOPIC", "projects/test/topics/remote-telemetry")
+    monkeypatch.setenv("REMOTE_CONTROL_TOPIC", "projects/test/topics/remote-control")
+    monkeypatch.setattr(runtime, "_publish", lambda topic, event: published.append((topic, event)))
+    monkeypatch.setattr(runtime, "_invoke_processor_extension", lambda _event: _extension_response(received))
+    monkeypatch.setattr(runtime, "_configured_rules", lambda: [])
+    monkeypatch.setattr(runtime, "_persist", lambda _event: True)
+
+    runtime._ingress(dict(received))
+    runtime._process(
+        {"message": {"data": base64.b64encode(core.canonical_json(received).encode()).decode()}}
+    )
+    runtime._persistence(
+        {"message": {"data": base64.b64encode(core.canonical_json(processed).encode()).decode()}}
+    )
+    for event in (command, outcome):
+        runtime._domain(
+            {"message": {"data": base64.b64encode(core.canonical_json(event).encode()).decode()}}
+        )
+
+    assert [(topic, event["event_type"]) for topic, event in published] == [
+        ("projects/test/topics/remote-telemetry", core.EVENT_TELEMETRY_RECEIVED),
+        ("projects/test/topics/remote-telemetry", core.EVENT_TELEMETRY_PROCESSED),
+        ("projects/test/topics/remote-control", projection["event_type"]),
+        ("projects/test/topics/remote-control", core.EVENT_DEVICE_COMMAND_REQUESTED),
+        ("projects/test/topics/remote-control", core.EVENT_COMMAND_OUTCOME),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("event_factory", "provider_name", "topic_name"),
+    (
+        (lambda core: _received(core), "L2_PROVIDER", "received"),
+        (
+            lambda core: core.build_processed_event(
+                _received(core), _extension_response(_received(core))
+            ),
+            "HOT_PROVIDER",
+            "processed",
+        ),
+        (
+            lambda core: core.build_twin_projection(
+                core.build_processed_event(
+                    _received(core), _extension_response(_received(core))
+                )
+            ),
+            "TWIN_PROVIDER",
+            "domain",
+        ),
+    ),
+)
+def test_remote_landing_republishes_only_to_selected_local_owner(
+    monkeypatch, event_factory, provider_name, topic_name
+):
+    core = _load("core")
+    runtime = _load("app")
+    event = event_factory(core)
+    published = []
+    monkeypatch.setenv("DEPLOYMENT_ID", "deployment-1")
+    monkeypatch.setenv(provider_name, "google")
+    monkeypatch.setenv("REMOTE_EVENT_TYPES_JSON", json.dumps([event["event_type"]]))
+    monkeypatch.setenv("RECEIVED_TOPIC", "projects/test/topics/received")
+    monkeypatch.setenv("PROCESSED_TOPIC", "projects/test/topics/processed")
+    monkeypatch.setenv("DOMAIN_TOPIC", "projects/test/topics/domain")
+    monkeypatch.setattr(runtime, "_publish", lambda topic, item: published.append((topic, item)))
+
+    result = runtime._remote_landing(
+        {"message": {"data": base64.b64encode(core.canonical_json(event).encode()).decode()}}
+    )
+
+    assert result["event_type"] == event["event_type"]
+    assert published == [(f"projects/test/topics/{topic_name}", event)]
+
+
+@pytest.mark.parametrize(
+    ("deployment_id", "allowed_event_types"),
+    (
+        ("another-deployment", ["telemetry.received.v1"]),
+        ("deployment-1", ["telemetry.processed.v1"]),
+    ),
+)
+def test_remote_landing_rejects_cross_deployment_or_unselected_event(
+    monkeypatch, deployment_id, allowed_event_types
+):
+    core = _load("core")
+    runtime = _load("app")
+    event = _received(core)
+    event["deployment_id"] = deployment_id
+    monkeypatch.setenv("DEPLOYMENT_ID", "deployment-1")
+    monkeypatch.setenv("L2_PROVIDER", "google")
+    monkeypatch.setenv("REMOTE_EVENT_TYPES_JSON", json.dumps(allowed_event_types))
+
+    with pytest.raises(runtime.core.ContractError, match="UNEXPECTED_REMOTE_EVENT"):
+        runtime._remote_landing(
+            {
+                "message": {
+                    "data": base64.b64encode(
+                        core.canonical_json(event).encode()
+                    ).decode()
+                }
+            }
+        )
+
+
+def test_ingress_records_canonical_device_command_outcome(monkeypatch):
+    core = _load("core")
+    runtime = _load("app")
+    command = core.derive_event(
+        _received(core),
+        event_type=core.EVENT_DEVICE_COMMAND_REQUESTED,
+        producer="component.rule-dispatcher",
+        payload={"device_id": "device-1", "message": "cool-down"},
+    )
+    published = []
+    monkeypatch.setenv("DEPLOYMENT_ID", "deployment-1")
+    monkeypatch.setenv("DOMAIN_TOPIC", "projects/test/topics/domain")
+    monkeypatch.setattr(runtime, "_publish", lambda topic, event: published.append((topic, event)))
+
+    result = runtime._ingress(
+        {
+            "schema_version": "device-command-delivery.v1",
+            "command": command,
+            "status": "ACCEPTED",
+        }
+    )
+
+    assert result["event_type"] == core.EVENT_COMMAND_OUTCOME
+    assert published[0][0] == "projects/test/topics/domain"
+    assert published[0][1]["payload"]["status"] == "ACCEPTED"
 
 
 def test_cloud_run_ingress_rejects_cross_deployment_canonical_event(monkeypatch):

@@ -137,6 +137,27 @@ locals {
   gcp_v2_remote_control_inbound = anytrue([
     for route in values(local.gcp_v2_inbound_event_routes) : route.channel_class == "control"
   ])
+  gcp_v2_remote_received_inbound = anytrue([
+    for route in values(local.gcp_v2_inbound_event_routes) : contains(route.event_types, "telemetry.received.v1")
+  ])
+  gcp_v2_remote_processed_inbound = anytrue([
+    for route in values(local.gcp_v2_inbound_event_routes) : contains(route.event_types, "telemetry.processed.v1")
+  ])
+  gcp_v2_remote_inbound_event_types = sort(distinct(flatten([
+    for route in values(local.gcp_v2_inbound_event_routes) : route.event_types
+  ])))
+  gcp_v2_domain_remote_control_outbound = anytrue([
+    for route in values(local.gcp_v2_outbound_event_routes) : length(setintersection(
+      toset(route.event_types),
+      toset([
+        "device.command.requested.v1",
+        "extension.action.outcome.v1",
+        "notification.workflow.outcome.v1",
+        "device.command.outcome.v1",
+      ]),
+    )) > 0
+  ])
+  gcp_v2_remote_landing_enabled = local.gcp_v2_remote_telemetry_inbound || local.gcp_v2_remote_control_inbound
   gcp_v2_remote_telemetry_routes = {
     for direction, enabled in {
       inbound  = local.gcp_v2_remote_telemetry_inbound
@@ -172,6 +193,7 @@ locals {
     local.gcp_v2_l1_enabled ? { ingress = "event-adapter" } : {},
     local.gcp_v2_hot_enabled ? { persistence = "persistence" } : {},
     local.gcp_v2_domain_enabled ? { domain = "domain-consumer" } : {},
+    local.gcp_v2_remote_landing_enabled ? { remote = "remote-landing" } : {},
   )
   gcp_v2_subscriptions = merge(
     local.gcp_v2_l2_enabled ? {
@@ -196,6 +218,18 @@ locals {
       twin = {
         topic = "domain"
         role  = "twin"
+      }
+    } : {},
+    local.gcp_v2_remote_telemetry_inbound ? {
+      remote-telemetry = {
+        topic = "remote-telemetry-inbound"
+        role  = "remote"
+      }
+    } : {},
+    local.gcp_v2_remote_control_inbound ? {
+      remote-control = {
+        topic = "remote-control-inbound"
+        role  = "remote"
       }
     } : {},
   )
@@ -631,6 +665,7 @@ resource "google_service_account" "gcp_v2_runtime" {
     } : {},
     local.gcp_v2_hot_enabled ? { persistence = "persistence" } : {},
     local.gcp_v2_domain_enabled ? { domain = "domain" } : {},
+    local.gcp_v2_remote_landing_enabled ? { remote = "remote" } : {},
     local.gcp_v2_l4_enabled ? {
       twin     = "twin"
       explorer = "explorer"
@@ -726,6 +761,18 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
       env {
         name  = "DOMAIN_TOPIC"
         value = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].id, "")
+      }
+      env {
+        name  = "REMOTE_TELEMETRY_TOPIC"
+        value = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-telemetry-outbound"].id, "")
+      }
+      env {
+        name  = "REMOTE_CONTROL_TOPIC"
+        value = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-outbound"].id, "")
+      }
+      env {
+        name  = "REMOTE_EVENT_TYPES_JSON"
+        value = jsonencode(local.gcp_v2_remote_inbound_event_types)
       }
       env {
         name  = "FIRESTORE_DATABASE"
@@ -1603,6 +1650,15 @@ resource "google_cloud_run_v2_service_iam_member" "gcp_v2_domain_push_invoker" {
   member   = "serviceAccount:${google_service_account.gcp_v2_runtime["domain"].email}"
 }
 
+resource "google_cloud_run_v2_service_iam_member" "gcp_v2_remote_push_invoker" {
+  count    = local.gcp_v2_remote_landing_enabled ? 1 : 0
+  project  = local.gcp_project_id
+  location = var.gcp_region
+  name     = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["remote"].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.gcp_v2_runtime["remote"].email}"
+}
+
 resource "google_cloud_run_v2_service_iam_member" "gcp_v2_workflow_callback_invoker" {
   count    = local.gcp_v2_l2_enabled ? 1 : 0
   project  = local.gcp_project_id
@@ -1660,15 +1716,27 @@ resource "google_project_iam_member" "gcp_v2_domain_workflow_invoker" {
 resource "google_pubsub_topic_iam_member" "gcp_v2_ingress_publisher" {
   count   = local.gcp_v2_l1_enabled ? 1 : 0
   project = local.gcp_project_id
-  topic   = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["received"].name
+  topic = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics[
+    var.layer_2_provider == "google" ? "received" : "remote-telemetry-outbound"
+  ].name
+  role   = "roles/pubsub.publisher"
+  member = "serviceAccount:${google_service_account.gcp_v2_runtime["ingress"].email}"
+}
+
+resource "google_pubsub_topic_iam_member" "gcp_v2_ingress_domain_publisher" {
+  count   = local.gcp_v2_l1_enabled ? 1 : 0
+  project = local.gcp_project_id
+  topic   = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name
   role    = "roles/pubsub.publisher"
   member  = "serviceAccount:${google_service_account.gcp_v2_runtime["ingress"].email}"
 }
 
 resource "google_pubsub_topic_iam_member" "gcp_v2_processor_publishers" {
   for_each = local.gcp_v2_l2_enabled ? {
-    processed = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["processed"].name
-    domain    = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name
+    processed = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics[
+      var.layer_3_hot_provider == "google" ? "processed" : "remote-telemetry-outbound"
+    ].name
+    domain = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name
   } : {}
   project = local.gcp_project_id
   topic   = each.value
@@ -1679,9 +1747,11 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_processor_publishers" {
 resource "google_pubsub_topic_iam_member" "gcp_v2_persistence_domain_publisher" {
   count   = local.gcp_v2_hot_enabled ? 1 : 0
   project = local.gcp_project_id
-  topic   = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name
-  role    = "roles/pubsub.publisher"
-  member  = "serviceAccount:${google_service_account.gcp_v2_runtime["persistence"].email}"
+  topic = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics[
+    var.layer_4_provider == "google" ? "domain" : "remote-control-outbound"
+  ].name
+  role   = "roles/pubsub.publisher"
+  member = "serviceAccount:${google_service_account.gcp_v2_runtime["persistence"].email}"
 }
 
 resource "google_pubsub_topic_iam_member" "gcp_v2_domain_publishers" {
@@ -1692,11 +1762,32 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_domain_publishers" {
     local.gcp_v2_l1_enabled ? {
       command = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["command"].name
     } : {},
+    local.gcp_v2_domain_remote_control_outbound ? {
+      remote_control = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-outbound"].name
+    } : {},
   ) : {}
   project = local.gcp_project_id
   topic   = each.value
   role    = "roles/pubsub.publisher"
   member  = "serviceAccount:${google_service_account.gcp_v2_runtime["domain"].email}"
+}
+
+resource "google_pubsub_topic_iam_member" "gcp_v2_remote_landing_publishers" {
+  for_each = local.gcp_v2_remote_landing_enabled ? merge(
+    local.gcp_v2_remote_received_inbound ? {
+      received = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["received"].name
+    } : {},
+    local.gcp_v2_remote_processed_inbound ? {
+      processed = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["processed"].name
+    } : {},
+    local.gcp_v2_remote_control_inbound ? {
+      domain = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name
+    } : {},
+  ) : {}
+  project = local.gcp_project_id
+  topic   = each.value
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${google_service_account.gcp_v2_runtime["remote"].email}"
 }
 
 resource "google_project_iam_member" "gcp_v2_domain_firestore_operator" {
@@ -1802,6 +1893,8 @@ resource "google_pubsub_subscription" "gcp_gcp_pubsub_separated_embedded_topics"
       ? google_cloud_run_v2_service.gcp_gcp_cloud_run_service[0].uri
       : each.key == "twin"
       ? google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer[0].uri
+      : startswith(each.key, "remote-")
+      ? google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["remote"].uri
       : google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter[each.key].uri
     )
     oidc_token {
@@ -1811,6 +1904,8 @@ resource "google_pubsub_subscription" "gcp_gcp_pubsub_separated_embedded_topics"
         ? google_cloud_run_v2_service.gcp_gcp_cloud_run_service[0].uri
         : each.key == "twin"
         ? google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer[0].uri
+        : startswith(each.key, "remote-")
+        ? google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["remote"].uri
         : google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter[each.key].uri
       )
     }
@@ -1823,16 +1918,18 @@ resource "google_pubsub_subscription" "gcp_gcp_pubsub_separated_embedded_topics"
 
   dead_letter_policy {
     dead_letter_topic     = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["failure"].id
-    max_delivery_attempts = 5
+    max_delivery_attempts = startswith(each.key, "remote-") ? 6 : 5
   }
 
   depends_on = [
     google_cloud_run_v2_service_iam_member.gcp_v2_processor_push_invoker,
     google_cloud_run_v2_service_iam_member.gcp_v2_persistence_push_invoker,
     google_cloud_run_v2_service_iam_member.gcp_v2_domain_push_invoker,
+    google_cloud_run_v2_service_iam_member.gcp_v2_remote_push_invoker,
     google_cloud_run_v2_service_iam_member.gcp_v2_twin_push_invoker,
     google_pubsub_topic_iam_member.gcp_v2_persistence_domain_publisher,
     google_pubsub_topic_iam_member.gcp_v2_domain_publishers,
+    google_pubsub_topic_iam_member.gcp_v2_remote_landing_publishers,
     google_project_iam_member.gcp_v2_persistence_firestore_writer,
     google_project_iam_member.gcp_v2_domain_firestore_operator,
     google_project_iam_member.gcp_v2_twin_firestore_operator,

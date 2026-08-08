@@ -105,6 +105,10 @@ def _publish(topic: str, event: Mapping[str, Any]) -> None:
     future.result(timeout=30)
 
 
+def _route_topic(*, local_provider: str, local_topic: str, remote_topic: str) -> str:
+    return local_topic if local_provider == "google" else remote_topic
+
+
 def _identity_token(audience: str) -> str:
     try:
         return id_token.fetch_id_token(GoogleAuthRequest(), audience)
@@ -375,7 +379,45 @@ def _record_workflow_outcome(value: Mapping[str, Any]) -> None:
     _publish(os.environ.get("DOMAIN_TOPIC", ""), outcome)
 
 
+def _record_command_outcome(value: Mapping[str, Any]) -> dict[str, Any]:
+    if set(value) != {"schema_version", "command", "status"} or value.get(
+        "schema_version"
+    ) != "device-command-delivery.v1":
+        raise core.ContractError("INVALID_COMMAND_OUTCOME")
+    command = value.get("command")
+    if not isinstance(command, Mapping):
+        raise core.ContractError("INVALID_COMMAND_OUTCOME")
+    event = core.validate_canonical_event(command)
+    if (
+        event["event_type"] != core.EVENT_DEVICE_COMMAND_REQUESTED
+        or event["deployment_id"] != os.environ.get("DEPLOYMENT_ID", "local-poc")
+    ):
+        raise core.ContractError("INVALID_COMMAND_OUTCOME")
+    status = value.get("status")
+    if status not in {"ACCEPTED", "FAILED"}:
+        raise core.ContractError("INVALID_COMMAND_OUTCOME")
+    outcome = core.derive_event(
+        event,
+        event_type=core.EVENT_COMMAND_OUTCOME,
+        producer="component.device-command-adapter",
+        payload={
+            "device_id": core.partition_key(event),
+            "invocation_id": core.event_id(event),
+            "status": status,
+        },
+    )
+    _publish(os.environ.get("DOMAIN_TOPIC", ""), outcome)
+    return outcome
+
+
 def _ingress(value: Mapping[str, Any]) -> dict[str, Any]:
+    if value.get("schema_version") == "device-command-delivery.v1":
+        outcome = _record_command_outcome(value)
+        return {
+            "schema_version": "event-adapter-result.v1",
+            "accepted": 1,
+            "event_type": outcome["event_type"],
+        }
     deployment_id = os.environ.get("DEPLOYMENT_ID", "local-poc")
     if value.get("schema_version") == "canonical-domain-event.v1":
         event = core.validate_canonical_event(value)
@@ -389,7 +431,14 @@ def _ingress(value: Mapping[str, Any]) -> dict[str, Any]:
         or event["deployment_id"] != deployment_id
     ):
         raise core.ContractError("UNEXPECTED_INGRESS_EVENT")
-    _publish(os.environ.get("RECEIVED_TOPIC", ""), event)
+    _publish(
+        _route_topic(
+            local_provider=os.environ.get("L2_PROVIDER", ""),
+            local_topic=os.environ.get("RECEIVED_TOPIC", ""),
+            remote_topic=os.environ.get("REMOTE_TELEMETRY_TOPIC", ""),
+        ),
+        event,
+    )
     return {"schema_version": "event-adapter-result.v1", "accepted": 1}
 
 
@@ -401,7 +450,14 @@ def _process(value: Mapping[str, Any]) -> dict[str, Any]:
         received,
         _invoke_processor_extension(received),
     )
-    _publish(os.environ.get("PROCESSED_TOPIC", ""), processed)
+    _publish(
+        _route_topic(
+            local_provider=os.environ.get("HOT_PROVIDER", ""),
+            local_topic=os.environ.get("PROCESSED_TOPIC", ""),
+            remote_topic=os.environ.get("REMOTE_TELEMETRY_TOPIC", ""),
+        ),
+        processed,
+    )
     matches = core.build_rule_matches(processed, _configured_rules())
     for matched in matches:
         _publish(os.environ.get("DOMAIN_TOPIC", ""), matched)
@@ -419,7 +475,14 @@ def _persistence(value: Mapping[str, Any]) -> dict[str, Any]:
     created = _persist(processed)
     projection = core.build_twin_projection(processed)
     if projection is not None:
-        _publish(os.environ.get("DOMAIN_TOPIC", ""), projection)
+        _publish(
+            _route_topic(
+                local_provider=os.environ.get("TWIN_PROVIDER", ""),
+                local_topic=os.environ.get("DOMAIN_TOPIC", ""),
+                remote_topic=os.environ.get("REMOTE_CONTROL_TOPIC", ""),
+            ),
+            projection,
+        )
     return {
         "schema_version": "persistence-result.v1",
         "accepted": 1,
@@ -856,18 +919,81 @@ def _domain(value: Mapping[str, Any]) -> dict[str, Any]:
         handled = True
     elif (
         kind == core.EVENT_DEVICE_COMMAND_REQUESTED
-        and os.environ.get("L1_PROVIDER") == "google"
     ):
-        _publish(os.environ.get("COMMAND_TOPIC", ""), event)
+        _publish(
+            _route_topic(
+                local_provider=os.environ.get("L1_PROVIDER", ""),
+                local_topic=os.environ.get("COMMAND_TOPIC", ""),
+                remote_topic=os.environ.get("REMOTE_CONTROL_TOPIC", ""),
+            ),
+            event,
+        )
         handled = True
-    elif kind in core.OUTCOME_EVENT_TYPES and os.environ.get("HOT_PROVIDER") == "google":
-        _store_outcome(event)
+    elif kind in core.OUTCOME_EVENT_TYPES:
+        if os.environ.get("HOT_PROVIDER") == "google":
+            _store_outcome(event)
+        else:
+            _publish(os.environ.get("REMOTE_CONTROL_TOPIC", ""), event)
         handled = True
     return {
         "schema_version": "domain-consumer-result.v1",
         "accepted": 1,
         "handled": handled,
         "derived": derived,
+    }
+
+
+def _remote_landing(value: Mapping[str, Any]) -> dict[str, Any]:
+    event = _decode_pubsub_push(value)
+    kind = event["event_type"]
+    try:
+        configured_event_types = json.loads(
+            os.environ.get("REMOTE_EVENT_TYPES_JSON", "[]")
+        )
+    except json.JSONDecodeError as exc:
+        raise core.ContractError("REMOTE_EVENT_POLICY_INVALID", 503) from exc
+    if (
+        not isinstance(configured_event_types, list)
+        or not configured_event_types
+        or any(not isinstance(item, str) for item in configured_event_types)
+    ):
+        raise core.ContractError("REMOTE_EVENT_POLICY_INVALID", 503)
+    if (
+        event["deployment_id"] != os.environ.get("DEPLOYMENT_ID", "local-poc")
+        or kind not in configured_event_types
+    ):
+        raise core.ContractError("UNEXPECTED_REMOTE_EVENT")
+    if (
+        kind == core.EVENT_TELEMETRY_RECEIVED
+        and os.environ.get("L2_PROVIDER") == "google"
+    ):
+        topic = os.environ.get("RECEIVED_TOPIC", "")
+    elif (
+        kind == core.EVENT_TELEMETRY_PROCESSED
+        and os.environ.get("HOT_PROVIDER") == "google"
+    ):
+        topic = os.environ.get("PROCESSED_TOPIC", "")
+    elif (
+        kind == core.EVENT_DEVICE_COMMAND_REQUESTED
+        and os.environ.get("L1_PROVIDER") == "google"
+    ):
+        topic = os.environ.get("DOMAIN_TOPIC", "")
+    elif kind in core.OUTCOME_EVENT_TYPES and os.environ.get("HOT_PROVIDER") == "google":
+        topic = os.environ.get("DOMAIN_TOPIC", "")
+    elif kind in {
+        core.EVENT_TWIN_STATE_UPSERTED,
+        core.EVENT_TWIN_MODEL_UPSERTED,
+        core.EVENT_TWIN_RELATIONSHIP_UPSERTED,
+        core.EVENT_TWIN_RELATIONSHIP_DELETED,
+    } and os.environ.get("TWIN_PROVIDER") == "google":
+        topic = os.environ.get("DOMAIN_TOPIC", "")
+    else:
+        raise core.ContractError("UNEXPECTED_REMOTE_EVENT")
+    _publish(topic, event)
+    return {
+        "schema_version": "remote-landing-result.v1",
+        "accepted": 1,
+        "event_type": kind,
     }
 
 
@@ -1036,6 +1162,8 @@ def dispatch():
             result = _persistence(value)
         elif role == "domain-consumer":
             result = _domain(value)
+        elif role == "remote-landing":
+            result = _remote_landing(value)
         elif role == "twin-materializer":
             result = _twin_materializer(value)
         elif role == "poc-boundary":

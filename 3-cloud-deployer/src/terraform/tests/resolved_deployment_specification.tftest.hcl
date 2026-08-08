@@ -544,7 +544,7 @@ run "five_layer_v2_azure_source_federates_to_gcp_for_both_channels" {
     resolved_component_dimensions = {
       "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.throughput_unit_hours" = "730"
       "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.capacity_unit_hours"   = "0"
-      "dimension.gcp.gcp.cloud-run-storage-job.task_count"                                            = "1"
+      "dimension.gcp.gcp.cloud-run-storage-job.task_count"                                             = "1"
     }
     resolved_cross_cloud_routes = [
       {
@@ -707,7 +707,7 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
       length(google_artifact_registry_repository_iam_member.gcp_v2_build_writer) == 1 &&
       length(google_storage_bucket_iam_member.gcp_v2_build_source_reader) == 1 &&
       length(google_project_iam_member.gcp_v2_build_log_writer) == 1 &&
-      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter) == 3 &&
+      toset(keys(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter)) == toset(["ingress", "persistence", "domain"]) &&
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_service) == 1 &&
       length(google_cloud_run_v2_service.gcp_v2_processor_extension) == 1 &&
       length(google_cloud_run_v2_service.gcp_v2_action_sink) == 1 &&
@@ -715,6 +715,9 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader) == 1 &&
       length(google_cloud_run_v2_service_iam_member.gcp_v2_action_sink_invoker) == 2 &&
+      length(google_cloud_run_v2_service_iam_member.gcp_v2_remote_push_invoker) == 0 &&
+      length(google_pubsub_topic_iam_member.gcp_v2_remote_landing_publishers) == 0 &&
+      length(google_pubsub_topic_iam_member.gcp_v2_ingress_domain_publisher) == 1 &&
       length(google_cloud_run_v2_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
       length(google_iap_web_cloud_run_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
       length(google_workflows_workflow.gcp_gcp_workflows) == 1
@@ -769,9 +772,9 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
   assert {
     condition = (
       toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["received", "processed", "domain", "command", "failure"]) &&
-      length(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics) == 4
+      toset(keys(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["processor", "persistence", "domain", "twin"])
     )
-    error_message = "Single-cloud GCP v2 must retain separated ordered telemetry, domain, command, and failure channels."
+    error_message = "Single-cloud GCP v2 must retain separated ordered telemetry, domain, command, and failure channels without a remote landing path."
   }
 
   assert {
@@ -1017,6 +1020,22 @@ run "five_layer_v2_gcp_archive_only_accepts_remote_cool_objects" {
     )
     error_message = "A provider used on both sides must materialize route-owned inbound and outbound telemetry/control brokers without inventing a fixed sender role."
   }
+
+  assert {
+    condition = (
+      toset(keys(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter)) == toset(["ingress", "domain", "remote"]) &&
+      toset(keys(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["processor", "domain", "twin", "remote-control"]) &&
+      google_pubsub_topic_iam_member.gcp_v2_ingress_publisher[0].topic == google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["received"].name &&
+      google_pubsub_topic_iam_member.gcp_v2_ingress_domain_publisher[0].topic == google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name &&
+      google_pubsub_topic_iam_member.gcp_v2_processor_publishers["processed"].topic == google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-telemetry-outbound"].name &&
+      toset(keys(google_pubsub_topic_iam_member.gcp_v2_domain_publishers)) == toset(["domain", "command", "remote_control"]) &&
+      google_pubsub_topic_iam_member.gcp_v2_domain_publishers["remote_control"].topic == google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-outbound"].name &&
+      length(google_cloud_run_v2_service_iam_member.gcp_v2_remote_push_invoker) == 1 &&
+      toset(keys(google_pubsub_topic_iam_member.gcp_v2_remote_landing_publishers)) == toset(["domain"]) &&
+      google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics["remote-control"].dead_letter_policy[0].max_delivery_attempts == 6
+    )
+    error_message = "Mixed-direction GCP must route only the selected outbound events to remote brokers and land the inbound Twin projection through one authenticated domain publisher."
+  }
 }
 
 run "five_layer_v2_gcp_l4_stays_independent_from_aws_l3_l5" {
@@ -1109,16 +1128,19 @@ run "five_layer_v2_gcp_l4_stays_independent_from_aws_l3_l5" {
       length(google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup) == 1 &&
       length(google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup) == 0 &&
       length(google_firestore_index.gcp_gcp_firestore_native_standard_bounded_twin) == 2 &&
-      toset(keys(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter)) == toset(["domain"]) &&
+      toset(keys(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter)) == toset(["domain", "remote"]) &&
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer) == 1 &&
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
       length(google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader) == 0 &&
       length(google_cloud_run_v2_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
       length(google_iap_web_cloud_run_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer) == 1 &&
       toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["domain", "failure", "remote-control-inbound"]) &&
-      toset(keys(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["domain", "twin"])
+      toset(keys(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["domain", "twin", "remote-control"]) &&
+      length(google_cloud_run_v2_service_iam_member.gcp_v2_remote_push_invoker) == 1 &&
+      toset(keys(google_pubsub_topic_iam_member.gcp_v2_remote_landing_publishers)) == toset(["domain"]) &&
+      google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics["remote-control"].dead_letter_policy[0].max_delivery_attempts == 6
     )
-    error_message = "Independent GCP L4 must create only its shared data database, bounded relationship indexes, Twin materializer, read-only IAP Explorer, and domain path while AWS retains L3/L5."
+    error_message = "Independent GCP L4 must add one authenticated remote landing adapter before its bounded Twin materializer and read-only IAP Explorer while AWS retains L3/L5."
   }
 
   assert {

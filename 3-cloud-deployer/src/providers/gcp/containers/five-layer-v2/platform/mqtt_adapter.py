@@ -176,6 +176,21 @@ def _ingress_token(audience: str) -> str:
     return id_token.fetch_id_token(GoogleAuthRequest(), audience)
 
 
+def _record_command_outcome(event: dict, status: str) -> None:
+    target = _required_environment("INGRESS_URL")
+    response = requests.post(
+        target,
+        json={
+            "schema_version": "device-command-delivery.v1",
+            "command": event,
+            "status": status,
+        },
+        headers={"Authorization": f"Bearer {_ingress_token(target)}"},
+        timeout=15,
+    )
+    response.raise_for_status()
+
+
 def _forward_telemetry(topic: str, payload: bytes) -> None:
     if len(payload) > MAX_PAYLOAD_BYTES:
         raise ValueError("MQTT payload exceeds the canonical limit")
@@ -219,6 +234,8 @@ def _on_message(client, _userdata, message):
 
 
 def _command_callback(message) -> None:
+    value = None
+    command_published = False
     try:
         value = json.loads(message.data.decode("utf-8"))
         if not isinstance(value, dict) or value.get("event_type") != "device.command.requested.v1":
@@ -243,11 +260,21 @@ def _command_callback(message) -> None:
         info.wait_for_publish(timeout=15)
         if not info.is_published():
             raise RuntimeError("MQTT command publish did not complete")
+        command_published = True
+        _record_command_outcome(value, "ACCEPTED")
         message.ack()
     except ValueError:
         LOGGER.warning("Rejecting malformed command event")
         message.ack()
     except Exception:
+        delivery_attempt = getattr(message, "delivery_attempt", 1) or 1
+        if delivery_attempt >= 5 and not command_published and isinstance(value, dict):
+            try:
+                _record_command_outcome(value, "FAILED")
+                message.ack()
+                return
+            except Exception:
+                pass
         LOGGER.exception("Command delivery failed; requesting Pub/Sub redelivery")
         message.nack()
 
