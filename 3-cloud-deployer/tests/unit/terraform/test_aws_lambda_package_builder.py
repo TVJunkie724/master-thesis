@@ -391,6 +391,9 @@ class TestRealLambdaFunctions:
         with zipfile.ZipFile(package) as archive:
             assert "handler.py" in archive.namelist()
             assert "bridge_core.py" in archive.namelist()
+            assert "phase8_eventing/aws/bridge.py" in archive.namelist()
+            assert "phase8_eventing/azure/bridge.py" in archive.namelist()
+            assert "phase8_eventing/gcp/bridge.py" in archive.namelist()
             assert "storage-mover/Dockerfile" in archive.namelist()
             module = ast.parse(archive.read("handler.py").decode("utf-8"))
             functions = {

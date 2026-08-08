@@ -10,7 +10,8 @@ from src.providers.terraform.package_builders.common import _should_include_file
 
 
 PROVIDERS_ROOT = Path(__file__).resolve().parents[2]
-BRIDGE_CORE_SOURCE = PROVIDERS_ROOT.parent / "runtime" / "eventing" / "bridge_core.py"
+BRIDGE_RUNTIME_ROOT = PROVIDERS_ROOT.parent / "runtime" / "eventing"
+BRIDGE_CORE_SOURCE = BRIDGE_RUNTIME_ROOT / "bridge_core.py"
 AZURE_V2_GRAPH_APPS = frozenset({"five-layer-v2"})
 
 
@@ -27,6 +28,13 @@ def _create_azure_v2_function_zip(source: Path, output: Path) -> None:
             ):
                 write_zip_file(archive, path, relative)
         write_zip_file(archive, BRIDGE_CORE_SOURCE, "bridge_core.py")
+        for path in sorted(BRIDGE_RUNTIME_ROOT.rglob("*")):
+            if path.is_file() and _should_include_file(path):
+                write_zip_file(
+                    archive,
+                    path,
+                    Path("phase8_eventing") / path.relative_to(BRIDGE_RUNTIME_ROOT),
+                )
 
 
 def azure_v2_graph_package_ids(

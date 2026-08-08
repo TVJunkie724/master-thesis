@@ -15,7 +15,8 @@ from src.providers.terraform.package_builders.common import _should_include_file
 
 
 PROVIDERS_ROOT = Path(__file__).resolve().parents[2]
-BRIDGE_CORE_SOURCE = PROVIDERS_ROOT.parent / "runtime" / "eventing" / "bridge_core.py"
+BRIDGE_RUNTIME_ROOT = PROVIDERS_ROOT.parent / "runtime" / "eventing"
+BRIDGE_CORE_SOURCE = BRIDGE_RUNTIME_ROOT / "bridge_core.py"
 GCP_V2_CONTEXTS = frozenset({"five-layer-v2"})
 GCP_V2_EXTENSION_DOCKERFILE = """# syntax=docker/dockerfile:1.7
 
@@ -104,7 +105,17 @@ def build_gcp_v2_container_contexts(
             output,
             _context_bytes(
                 source,
-                additional_files={"bridge_core.py": BRIDGE_CORE_SOURCE},
+                additional_files={
+                    "bridge_core.py": BRIDGE_CORE_SOURCE,
+                    **{
+                        (
+                            Path("phase8_eventing")
+                            / path.relative_to(BRIDGE_RUNTIME_ROOT)
+                        ).as_posix(): path
+                        for path in sorted(BRIDGE_RUNTIME_ROOT.rglob("*"))
+                        if path.is_file() and _should_include_file(path)
+                    },
+                },
             ),
         )
         packages[f"gcp_{name}"] = output

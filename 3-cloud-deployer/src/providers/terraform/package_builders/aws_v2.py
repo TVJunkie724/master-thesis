@@ -10,7 +10,8 @@ from src.providers.terraform.package_builders.common import _should_include_file
 
 
 PROVIDERS_ROOT = Path(__file__).resolve().parents[2]
-BRIDGE_CORE_SOURCE = PROVIDERS_ROOT.parent / "runtime" / "eventing" / "bridge_core.py"
+BRIDGE_RUNTIME_ROOT = PROVIDERS_ROOT.parent / "runtime" / "eventing"
+BRIDGE_CORE_SOURCE = BRIDGE_RUNTIME_ROOT / "bridge_core.py"
 RUNTIME_PACKAGE_ID = "aws_five-layer-v2"
 STORAGE_MOVER_PACKAGE_ID = "aws_five-layer-v2-storage-mover"
 # Compatibility alias for callers introduced with the first storage-mover slice.
@@ -45,6 +46,13 @@ def build_aws_v2_graph_app(project_path: Path) -> Dict[str, Path]:
                     Path("_shared") / path.relative_to(shared),
                 )
         write_zip_file(archive, BRIDGE_CORE_SOURCE, "bridge_core.py")
+        for path in sorted(BRIDGE_RUNTIME_ROOT.rglob("*")):
+            if path.is_file() and _should_include_file(path):
+                write_zip_file(
+                    archive,
+                    path,
+                    Path("phase8_eventing") / path.relative_to(BRIDGE_RUNTIME_ROOT),
+                )
     return {RUNTIME_PACKAGE_ID: output}
 
 

@@ -92,6 +92,9 @@ def test_gcp_v2_container_context_is_deterministic_and_complete(tmp_path):
             "platform/core.py",
             "platform/mqtt_adapter.py",
             "platform/requirements.txt",
+            "phase8_eventing/aws/bridge.py",
+            "phase8_eventing/azure/bridge.py",
+            "phase8_eventing/gcp/bridge.py",
         } <= names
         assert all(member.mtime == 0 for member in members)
         assert all(member.uid == member.gid == 0 for member in members)
