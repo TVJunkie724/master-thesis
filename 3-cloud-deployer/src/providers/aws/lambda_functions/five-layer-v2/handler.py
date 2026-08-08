@@ -25,6 +25,7 @@ from botocore.exceptions import ClientError
 PROFILE = "five-layer-baseline@2"
 MAX_POINTS = 1000
 MAX_EVENT_BYTES = 96 * 1024
+MAX_SOURCE_ID_BYTES = 128
 MAX_RAW_RANGE = timedelta(hours=24)
 MAX_AGGREGATE_RANGE = timedelta(days=30)
 EVENT_TELEMETRY_RECEIVED = "telemetry.received.v1"
@@ -92,11 +93,12 @@ def _required_text(value: Any, *, code: str, maximum: int = 256) -> str:
 def _partition_key(payload: Mapping[str, Any]) -> str:
     body = _event_body(payload)
     return _required_text(
-        body.get("device_id")
-        or payload.get("source_id")
+        payload.get("source_id")
+        or body.get("device_id")
         or body.get("source_id")
         or body.get("twin_id"),
         code="INVALID_PARTITION_KEY",
+        maximum=MAX_SOURCE_ID_BYTES,
     )
 
 
@@ -216,13 +218,17 @@ def _validate_canonical_event(event: Mapping[str, Any]) -> None:
     for field in (
         "event_id",
         "deployment_id",
-        "source_id",
         "source_sequence",
         "correlation_id",
         "causation_id",
         "producer",
     ):
         _required_text(event.get(field), code="INVALID_CANONICAL_EVENT")
+    _required_text(
+        event.get("source_id"),
+        code="INVALID_CANONICAL_EVENT",
+        maximum=MAX_SOURCE_ID_BYTES,
+    )
     _parse_time(event.get("occurred_at"))
     if not isinstance(event.get("payload"), Mapping):
         raise ContractError("INVALID_CANONICAL_EVENT")

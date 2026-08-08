@@ -11,6 +11,7 @@ from typing import Any, Callable, Mapping
 from .bridge_core import (
     BridgeContractError,
     BridgeRoute,
+    MAX_SOURCE_ID_BYTES,
     RetryableBridgeError,
     RouteBlockingBridgeError,
     TerminalBridgeError,
@@ -152,7 +153,11 @@ def _canonical_bytes(event: Mapping[str, Any]) -> bytes:
 
 def _source_key(event: Mapping[str, Any]) -> str:
     value = event.get("source_id")
-    if not isinstance(value, str) or not value:
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value.encode("utf-8")) > MAX_SOURCE_ID_BYTES
+    ):
         raise TerminalBridgeError("DESTINATION_PAYLOAD_REJECTED")
     return value
 

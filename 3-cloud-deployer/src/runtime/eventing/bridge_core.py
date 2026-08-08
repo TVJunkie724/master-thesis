@@ -15,6 +15,7 @@ from typing import Any, Callable, Mapping, MutableMapping, Sequence
 
 
 MAX_EVENT_BYTES = 96 * 1024
+MAX_SOURCE_ID_BYTES = 128
 MAX_BATCH_EVENTS = 10
 MAX_IN_MEMORY_EVENTS = 1000
 MAX_DELIVERY_ATTEMPTS = 6
@@ -329,8 +330,13 @@ def validate_event(event: Mapping[str, Any]) -> dict[str, Any]:
         raise BridgeContractError("UNSUPPORTED_EVENT_SCHEMA")
     if event.get("event_type") not in CANONICAL_EVENT_TYPES:
         raise BridgeContractError("UNKNOWN_EVENT_TYPE")
-    for field in CANONICAL_FIELDS - {"payload", "occurred_at"}:
+    for field in CANONICAL_FIELDS - {"payload", "occurred_at", "source_id"}:
         _text(event.get(field), code="INVALID_CANONICAL_EVENT", maximum=256)
+    _text(
+        event.get("source_id"),
+        code="INVALID_CANONICAL_EVENT",
+        maximum=MAX_SOURCE_ID_BYTES,
+    )
     _parse_utc(event.get("occurred_at"))
     if not isinstance(event.get("payload"), Mapping):
         raise BridgeContractError("INVALID_CANONICAL_EVENT")

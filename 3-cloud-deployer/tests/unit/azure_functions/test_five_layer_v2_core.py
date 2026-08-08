@@ -68,6 +68,23 @@ def test_accepts_exact_canonical_event_and_partition_key():
     assert core.partition_key(event) == "device-1"
 
 
+def test_source_id_is_bounded_and_wins_over_payload_device_for_ordering():
+    event = _event()
+    event["payload"]["device_id"] = "conflicting-payload-device"
+
+    assert core.partition_key(event) == "device-1"
+
+    with pytest.raises(core.ContractError, match="INVALID_CANONICAL_EVENT"):
+        core.validate_canonical_event(_event(source_id="d" * 129))
+
+
+def test_cross_cloud_event_hub_retry_matches_frozen_32_second_cap():
+    source = FUNCTION_APP_PATH.read_text(encoding="utf-8")
+
+    assert 'maximum_interval="00:00:32"' in source
+    assert 'maximum_interval="00:01:00"' not in source
+
+
 def test_rejects_provider_route_metadata_in_domain_envelope():
     event = _event(destination_provider="aws")
 

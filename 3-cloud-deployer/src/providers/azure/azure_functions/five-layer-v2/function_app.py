@@ -896,7 +896,7 @@ if BRIDGE_TELEMETRY_ENABLED:
         strategy="exponential_backoff",
         max_retry_count="5",
         minimum_interval="00:00:01",
-        maximum_interval="00:01:00",
+        maximum_interval="00:00:32",
     )
     @app.event_hub_message_trigger(
         arg_name="messages",

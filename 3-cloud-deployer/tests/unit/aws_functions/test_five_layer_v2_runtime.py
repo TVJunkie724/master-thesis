@@ -231,6 +231,27 @@ def test_event_adapter_rejects_event_above_frozen_bridge_limit(monkeypatch):
         )
 
 
+def test_canonical_source_id_is_bounded_and_drives_ordering_key():
+    runtime = _module()
+    event = runtime._ingress_event(
+        {
+            "event_id": "event-1",
+            "device_id": "device-1",
+            "metric": "temperature",
+            "value": 21.5,
+            "event_time": "2026-08-05T00:00:00Z",
+        }
+    )
+    event["payload"]["device_id"] = "conflicting-payload-device"
+
+    runtime._validate_canonical_event(event)
+    assert runtime._partition_key(event) == "device-1"
+
+    event["source_id"] = "d" * 129
+    with pytest.raises(runtime.ContractError, match="INVALID_CANONICAL_EVENT"):
+        runtime._validate_canonical_event(event)
+
+
 def test_processor_atomically_writes_raw_and_hourly_rollup(monkeypatch):
     runtime = _module()
     dynamo = _Dynamo()

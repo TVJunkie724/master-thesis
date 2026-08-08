@@ -15,6 +15,7 @@ import uuid
 
 PROFILE = "five-layer-baseline@2"
 MAX_EVENT_BYTES = 96 * 1024
+MAX_SOURCE_ID_BYTES = 128
 MAX_POINTS = 1000
 MAX_RAW_RANGE = timedelta(hours=24)
 MAX_AGGREGATE_RANGE = timedelta(days=30)
@@ -128,13 +129,17 @@ def validate_canonical_event(event: Mapping[str, Any]) -> dict[str, Any]:
     for field in (
         "event_id",
         "deployment_id",
-        "source_id",
         "source_sequence",
         "correlation_id",
         "causation_id",
         "producer",
     ):
         required_text(event.get(field), code="INVALID_CANONICAL_EVENT")
+    required_text(
+        event.get("source_id"),
+        code="INVALID_CANONICAL_EVENT",
+        maximum=MAX_SOURCE_ID_BYTES,
+    )
     parse_time(event.get("occurred_at"))
     if not isinstance(event.get("payload"), Mapping):
         raise ContractError("INVALID_CANONICAL_EVENT")
@@ -560,8 +565,9 @@ def partition_key(event: Mapping[str, Any]) -> str:
     payload = event.get("payload")
     body = payload if isinstance(payload, Mapping) else {}
     return required_text(
-        body.get("device_id") or event.get("source_id"),
+        event.get("source_id") or body.get("device_id"),
         code="INVALID_PARTITION_KEY",
+        maximum=MAX_SOURCE_ID_BYTES,
     )
 
 
@@ -780,6 +786,7 @@ __all__ = [
     "EVENT_TELEMETRY_PROCESSED",
     "MAX_EVENT_BYTES",
     "MAX_POINTS",
+    "MAX_SOURCE_ID_BYTES",
     "PROFILE",
     "build_ingress_event",
     "build_processed_event",

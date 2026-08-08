@@ -15,6 +15,7 @@ import uuid
 
 PROFILE = "five-layer-baseline@2"
 MAX_EVENT_BYTES = 96 * 1024
+MAX_SOURCE_ID_BYTES = 128
 MAX_RULES = 100
 MAX_TWIN_ENTITIES = 100
 MAX_JSON_SAFE_INTEGER = 9_007_199_254_740_991
@@ -144,13 +145,17 @@ def validate_canonical_event(event: Mapping[str, Any]) -> dict[str, Any]:
     for field in (
         "event_id",
         "deployment_id",
-        "source_id",
         "source_sequence",
         "correlation_id",
         "causation_id",
         "producer",
     ):
         required_text(event.get(field), code="INVALID_CANONICAL_EVENT")
+    required_text(
+        event.get("source_id"),
+        code="INVALID_CANONICAL_EVENT",
+        maximum=MAX_SOURCE_ID_BYTES,
+    )
     parse_time(event.get("occurred_at"))
     if not isinstance(event.get("payload"), Mapping):
         raise ContractError("INVALID_CANONICAL_EVENT")
@@ -175,8 +180,9 @@ def event_id(event: Mapping[str, Any]) -> str:
 def partition_key(event: Mapping[str, Any]) -> str:
     body = event_body(event)
     return required_text(
-        body.get("device_id") or event.get("source_id"),
+        event.get("source_id") or body.get("device_id"),
         code="INVALID_PARTITION_KEY",
+        maximum=MAX_SOURCE_ID_BYTES,
     )
 
 

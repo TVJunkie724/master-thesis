@@ -149,6 +149,23 @@ def test_aws_publisher_uses_kinesis_sequence_chain_and_sns_fifo_identity():
     assert len(sns.requests[0]["MessageDeduplicationId"]) == 64
 
 
+def test_destination_publishers_defensively_reject_oversized_source_keys():
+    destination = load_destination(
+        {
+            "telemetry_stream_arn": "arn:aws:kinesis:eu-central-1:123456789012:stream/events"
+        },
+        provider="aws",
+    )
+    event = _event("event-1", telemetry=True)
+    event["source_id"] = "d" * 129
+
+    with pytest.raises(TerminalBridgeError, match="DESTINATION_PAYLOAD_REJECTED"):
+        AwsDestinationPublisher(destination, lambda _service: _Kinesis()).publish(
+            _route("gcp", "aws", channel="telemetry"),
+            event,
+        )
+
+
 class _Context:
     def __enter__(self):
         return self

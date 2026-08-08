@@ -120,6 +120,18 @@ def test_ingress_event_is_deterministic_and_provider_neutral():
     assert not any(key.startswith("gcp_") for key in first)
 
 
+def test_source_id_is_bounded_and_wins_over_payload_device_for_ordering():
+    core = _load("core")
+    event = _received(core)
+    event["payload"]["device_id"] = "conflicting-payload-device"
+
+    assert core.partition_key(event) == "device-1"
+
+    event["source_id"] = "d" * 129
+    with pytest.raises(core.ContractError, match="INVALID_CANONICAL_EVENT"):
+        core.validate_canonical_event(event)
+
+
 def test_processor_extension_response_is_closed_and_correlated():
     core = _load("core")
     received = _received(core)

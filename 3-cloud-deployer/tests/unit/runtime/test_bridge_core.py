@@ -160,6 +160,15 @@ def test_terminal_schema_failure_acks_only_after_safe_dlq_acceptance():
     }
 
 
+def test_canonical_source_id_obeys_portable_128_byte_ordering_limit():
+    assert validate_event(_event("event-1", source_id="d" * 128))["source_id"] == (
+        "d" * 128
+    )
+
+    with pytest.raises(BridgeContractError, match="INVALID_CANONICAL_EVENT"):
+        validate_event(_event("event-2", source_id="d" * 129))
+
+
 def test_unknown_closed_event_is_terminal_but_known_unconfigured_route_blocks():
     routes = load_routes(
         [_route("aws", "gcp", "device.command.outcome.v1")],
