@@ -779,6 +779,18 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
 
   assert {
     condition = (
+      length(google_service_account.gcp_v2_bridge) == 0 &&
+      length(google_cloud_run_v2_service.gcp_v2_cross_cloud_bridge) == 0 &&
+      length(google_pubsub_subscription.gcp_v2_bridge_source) == 0 &&
+      length(random_uuid.gcp_v2_bridge_aws_audience) == 0 &&
+      length(aws_iam_role.aws_v2_bridge_target_from_gcp) == 0 &&
+      length(azurerm_user_assigned_identity.azure_v2_bridge_target_from_gcp) == 0
+    )
+    error_message = "Single-cloud GCP v2 must omit the source bridge, source subscriptions, and every cross-cloud trust target."
+  }
+
+  assert {
+    condition = (
       length(google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup) == 1 &&
       length(google_firestore_field.gcp_gcp_firestore_native_standard_raw_and_rollup) == 7 &&
       length(google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup) == 3 &&
@@ -863,6 +875,140 @@ run "five_layer_v2_gcp_source_owns_both_remote_archive_transitions" {
       !contains([for field in google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup["rollup_history"].fields : field.field_path], "timestamp_shard")
     )
     error_message = "Large GCP hot storage must preserve its reviewed sixteen-way timestamp shard in the raw history and mover indexes only."
+  }
+}
+
+run "five_layer_v2_gcp_source_federates_to_azure_for_both_channels" {
+  command = plan
+
+  variables {
+    digital_twin_name                      = "drift-test"
+    architecture_profile_id                = "five-layer-baseline"
+    architecture_profile_version           = "2"
+    layer_1_provider                       = "google"
+    layer_2_provider                       = "azure"
+    layer_3_hot_provider                   = "azure"
+    layer_3_cold_provider                  = "azure"
+    layer_3_archive_provider               = "azure"
+    layer_4_provider                       = "azure"
+    layer_5_provider                       = "azure"
+    layer_3_hot_to_cold_interval_days      = 30
+    layer_3_cold_to_archive_interval_days  = 90
+    layer_3_archive_expiry_interval_days   = 365
+    platform_user_email                    = "researcher@example.test"
+    platform_user_first_name               = "Thesis"
+    platform_user_last_name                = "Researcher"
+    azure_tenant_id                        = "22222222-2222-4222-8222-222222222222"
+    azure_layer_access_principal_object_id = "11111111-1111-1111-1111-111111111111"
+    azure_layer_access_principal_label     = "researcher@example.test"
+    gcp_project_id                         = "phase8-poc-project"
+    gcp_region                             = "europe-west1"
+    gcp_v2_platform_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    azure_v2_storage_mover_image           = "drifttestv2mock.azurecr.io/storage-mover@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    enable_gcp_logging                     = false
+    enable_azure_logging                   = false
+    resolved_component_dimensions = {
+      "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.throughput_unit_hours" = "730"
+      "dimension.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge.capacity_unit_hours"   = "0"
+      "dimension.azure.azure.container-apps-scheduled-storage-job.task_count"                          = "1"
+    }
+    resolved_cross_cloud_routes = [
+      {
+        route_id                = "graph.ingestion.processing.telemetry"
+        logical_edge_id         = "edge.ingestion-to-processing"
+        source_provider         = "gcp"
+        destination_provider    = "azure"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "telemetry"
+        event_types             = ["telemetry.received.v1"]
+        source_broker_kind      = "telemetry_stream"
+        destination_broker_kind = "telemetry_stream"
+        identity_exchange       = "google_service_account_oidc_to_entra_federated_credential"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id                = "graph.processing.ingestion.control"
+        logical_edge_id         = "edge.processing-to-ingestion"
+        source_provider         = "azure"
+        destination_provider    = "gcp"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "control"
+        event_types             = ["device.command.requested.v1"]
+        source_broker_kind      = "control_topic"
+        destination_broker_kind = "control_topic"
+        identity_exchange       = "entra_managed_identity_oidc_to_gcp_workload_identity_federation"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id                = "graph.ingestion.hot.control"
+        logical_edge_id         = "edge.ingestion-to-hot-storage"
+        source_provider         = "gcp"
+        destination_provider    = "azure"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "control"
+        event_types             = ["device.command.outcome.v1"]
+        source_broker_kind      = "control_topic"
+        destination_broker_kind = "control_topic"
+        identity_exchange       = "google_service_account_oidc_to_entra_federated_credential"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+    ]
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+      artifact_digest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      package_path    = "${var.project_path}/.build/azure/five-layer-v2.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/five-layer-v2.zip")}"
+      adapter_id      = "adapter.azure.python311"
+      adapter_version = "1"
+    }]
+  }
+
+  assert {
+    condition = (
+      length(google_service_account.gcp_v2_bridge) == 1 &&
+      length(google_cloud_run_v2_service.gcp_v2_cross_cloud_bridge) == 1 &&
+      toset(keys(google_pubsub_subscription.gcp_v2_bridge_source)) == toset(["telemetry", "control"]) &&
+      toset([for setting in google_cloud_run_v2_service.gcp_v2_cross_cloud_bridge[0].template[0].containers[0].env : setting.name]) == toset([
+        "RUNTIME_ROLE",
+        "ARCHITECTURE_PROFILE",
+        "DEPLOYMENT_ID",
+        "BRIDGE_ROUTES_JSON",
+        "BRIDGE_DESTINATIONS_JSON",
+        "BRIDGE_IDENTITIES_JSON",
+        "BRIDGE_FAILURE_TOPIC",
+        "AWS_STS_REGIONAL_ENDPOINTS",
+      ]) &&
+      length(azurerm_user_assigned_identity.azure_v2_bridge_target_from_gcp) == 1 &&
+      length(azurerm_federated_identity_credential.azure_v2_bridge_from_gcp) == 1 &&
+      length(azurerm_role_assignment.azure_v2_bridge_from_gcp_telemetry) == 1 &&
+      length(azurerm_role_assignment.azure_v2_bridge_from_gcp_control) == 1 &&
+      length(aws_iam_role.aws_v2_bridge_target_from_gcp) == 0
+    )
+    error_message = "GCP-to-Azure routes on both channels must deploy one source bridge, two source subscriptions, one exact Entra target identity, both entity-scoped sender roles, and no AWS target trust."
+  }
+
+  assert {
+    condition = (
+      azurerm_federated_identity_credential.azure_v2_bridge_from_gcp[0].issuer == "https://accounts.google.com" &&
+      azurerm_role_assignment.azure_v2_bridge_from_gcp_telemetry[0].role_definition_name == "Azure Event Hubs Data Sender" &&
+      azurerm_role_assignment.azure_v2_bridge_from_gcp_control[0].role_definition_name == "Azure Service Bus Data Sender"
+    )
+    error_message = "GCP-to-Azure federation must retain the Google issuer and channel-specific sender roles; computed subject, audience, and entity scopes are verified structurally."
+  }
+
+  assert {
+    condition = (
+      length(azuread_application.azure_v2_bridge_audience) == 1 &&
+      length(google_iam_workload_identity_pool.gcp_v2_bridge_from_azure) == 1 &&
+      toset(keys(google_pubsub_topic_iam_member.gcp_v2_bridge_from_azure)) == toset(["control"]) &&
+      toset(keys(google_pubsub_topic_iam_member.gcp_v2_remote_landing_publishers)) == toset(["domain"])
+    )
+    error_message = "The valid reverse Azure command route must retain its independent exact GCP control landing without widening the GCP-to-Azure source identity."
   }
 }
 
@@ -1036,6 +1182,32 @@ run "five_layer_v2_gcp_archive_only_accepts_remote_cool_objects" {
     )
     error_message = "Mixed-direction GCP must route only the selected outbound events to remote brokers and land the inbound Twin projection through one authenticated domain publisher."
   }
+
+  assert {
+    condition = (
+      length(google_service_account.gcp_v2_bridge) == 1 &&
+      length(google_cloud_run_v2_service.gcp_v2_cross_cloud_bridge) == 1 &&
+      google_cloud_run_v2_service.gcp_v2_cross_cloud_bridge[0].template[0].max_instance_request_concurrency == 8 &&
+      google_cloud_run_v2_service.gcp_v2_cross_cloud_bridge[0].template[0].scaling[0].max_instance_count == 100 &&
+      toset(keys(google_pubsub_subscription.gcp_v2_bridge_source)) == toset(["telemetry", "control"]) &&
+      alltrue([for subscription in google_pubsub_subscription.gcp_v2_bridge_source : subscription.dead_letter_policy[0].max_delivery_attempts == 6]) &&
+      alltrue([for subscription in google_pubsub_subscription.gcp_v2_bridge_source : subscription.retry_policy[0].minimum_backoff == "1s" && subscription.retry_policy[0].maximum_backoff == "32s"]) &&
+      length(google_cloud_run_v2_service_iam_member.gcp_v2_bridge_push_invoker) == 1 &&
+      google_cloud_run_v2_service_iam_member.gcp_v2_bridge_push_invoker[0].role == "roles/run.invoker" &&
+      length(google_service_account_iam_member.gcp_v2_bridge_push_token_creator) == 1 &&
+      google_service_account_iam_member.gcp_v2_bridge_push_token_creator[0].role == "roles/iam.serviceAccountTokenCreator" &&
+      length(google_pubsub_topic_iam_member.gcp_v2_bridge_failure_publisher) == 1 &&
+      google_pubsub_topic_iam_member.gcp_v2_bridge_failure_publisher[0].role == "roles/pubsub.publisher" &&
+      length(google_pubsub_topic_iam_member.gcp_v2_failure_service_agent_publisher) == 1 &&
+      length(google_pubsub_subscription_iam_member.gcp_v2_bridge_failure_service_agent_subscriber) == 2 &&
+      alltrue([for binding in google_pubsub_subscription_iam_member.gcp_v2_bridge_failure_service_agent_subscriber : binding.role == "roles/pubsub.subscriber"]) &&
+      length(aws_iam_role.aws_v2_bridge_target_from_gcp) == 1 &&
+      length(aws_iam_role_policy.aws_v2_bridge_target_from_gcp) == 1 &&
+      length(azurerm_user_assigned_identity.azure_v2_bridge_target_from_gcp) == 0
+    )
+    error_message = "GCP-to-AWS routes on both channels must deploy one authenticated Cloud Run bridge, two six-attempt source subscriptions, one bounded failure writer, and only the AWS target trust."
+  }
+
 }
 
 run "five_layer_v2_gcp_l4_stays_independent_from_aws_l3_l5" {
