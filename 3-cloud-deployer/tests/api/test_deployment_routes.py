@@ -65,6 +65,48 @@ def test_deployment_endpoint_requires_operation_package_header():
     assert response.status_code == 422
 
 
+def test_gcp_viewer_rotation_returns_only_one_time_credential_contract():
+    context = MagicMock(name="rotation_context")
+    result = {
+        "schema_version": "deployment-access-credential.v1",
+        "layer": "l5",
+        "provider": "gcp",
+        "username": "researcher@example.invalid",
+        "password": "fixture-rotation-password",
+        "issued_at": "2026-07-31T12:00:00Z",
+    }
+    with (
+        patch.object(
+            deployment,
+            "_prepare_deployment_context",
+            return_value=(MagicMock(), context),
+        ),
+        patch.object(
+            deployment,
+            "load_terraform_outputs",
+            return_value={"gcp_grafana_rotation_secret": {}},
+        ),
+        patch.object(
+            deployment,
+            "rotate_gcp_grafana_viewer",
+            return_value=result,
+        ) as rotate,
+    ):
+        response = asyncio.run(
+            deployment.rotate_deployment_access_credential(
+                OPERATION_TOKEN,
+                project_name="test_api_project",
+            )
+        )
+
+    assert response.model_dump(mode="json") == result
+    assert "fixture-rotation-password" not in repr(response)
+    rotate.assert_called_once_with(
+        context,
+        {"gcp_grafana_rotation_secret": {}},
+    )
+
+
 def test_deployment_endpoint_rejects_invalid_operation_package(monkeypatch):
     monkeypatch.setattr(
         deployment,

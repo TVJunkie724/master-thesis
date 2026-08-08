@@ -106,6 +106,20 @@ class DeployerClient(ExternalServiceClient):
             timeout=10.0,
         )
 
+    async def rotate_gcp_grafana_viewer_credential(
+        self,
+        project_name: str,
+        operation_token: str,
+    ) -> dict[str, Any]:
+        """Perform one explicit, non-retried GCP Viewer rotation."""
+        return await self._request_json(
+            "POST",
+            "/infrastructure/deployment-access/l5/credentials:rotate",
+            params={"project_name": project_name},
+            headers={"X-Operation-Package": operation_token},
+            timeout=240.0,
+        )
+
     def deploy_stream(
         self,
         provider: str,

@@ -31,7 +31,10 @@ from src.schemas.management_contracts import (
     RedeployReadinessResponse,
 )
 from src.schemas.deployment_logs import DeploymentLogPageResponse
-from src.schemas.deployment_access import DeploymentAccessSnapshot
+from src.schemas.deployment_access import (
+    DeploymentAccessCredential,
+    DeploymentAccessSnapshot,
+)
 from src.schemas.deployment_operations import (
     DeploymentHistoryResponse,
     DeploymentOutputsResponse,
@@ -104,6 +107,7 @@ def _deployment_access_service(db: Session) -> DeploymentAccessService:
     return DeploymentAccessService(
         twin_repository=TwinRepository(db),
         deployment_repository=DeploymentRepository(db),
+        db=db,
     )
 
 
@@ -144,6 +148,38 @@ async def get_deployment_access(
             current_user.id,
         )
     except (EntityNotFoundError, ValidationError, ConflictError) as exc:
+        _raise_service_http_error(exc)
+
+
+@router.post(
+    "/{twin_id}/deployment-access/l5/credentials:rotate",
+    response_model=DeploymentAccessCredential,
+    operation_id="rotateTwinGcpGrafanaViewerCredential",
+    summary="Rotate and reveal the GCP Grafana Viewer credential once",
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        409: {"description": "Rotation is unavailable or already in progress"},
+        502: {"description": "Provider rotation failed safely"},
+        503: {"description": "Deployer API unavailable"},
+    },
+)
+async def rotate_deployment_access_credential(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return await _deployment_access_service(db).rotate_gcp_grafana_viewer(
+            twin_id,
+            current_user.id,
+        )
+    except (
+        EntityNotFoundError,
+        ValidationError,
+        ConflictError,
+        DownstreamServiceError,
+    ) as exc:
         _raise_service_http_error(exc)
 
 

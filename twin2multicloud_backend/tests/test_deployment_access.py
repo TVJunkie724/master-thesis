@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
+import hashlib
+from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError as PydanticValidationError
@@ -103,6 +106,43 @@ def _service(db) -> DeploymentAccessService:
     )
 
 
+class _FakeDeployer:
+    def __init__(self, *, payload: dict | None = None):
+        self.calls = []
+        self.payload = payload or {
+            "schema_version": "deployment-access-credential.v1",
+            "layer": "l5",
+            "provider": "gcp",
+            "username": "researcher@example.invalid",
+            "password": "rotated-fixture-password-123456",
+            "issued_at": "2026-07-31T12:00:00Z",
+        }
+
+    async def rotate_gcp_grafana_viewer_credential(self, resource_name, token):
+        self.calls.append((resource_name, token))
+        return dict(self.payload)
+
+
+def _rotation_service(db, deployer, *, blocker=None) -> DeploymentAccessService:
+    async def prepare(_twin, _user_id, *, frozen_graph_evidence=None):
+        assert frozen_graph_evidence is not None
+        if blocker is not None:
+            blocker["prepared"].set()
+        return SimpleNamespace(
+            resource_name="fixture-resource",
+            operation_token="fixture-operation-token",
+            graph_evidence=frozen_graph_evidence,
+        )
+
+    return DeploymentAccessService(
+        TwinRepository(db),
+        DeploymentRepository(db),
+        db=db,
+        deployer_client=deployer,
+        project_preparer=prepare,
+    )
+
+
 @pytest.mark.parametrize("l4", ["aws", "azure", "gcp"])
 @pytest.mark.parametrize("l5", ["aws", "azure", "gcp"])
 def test_all_nine_placements_return_exact_l4_l5(db, l4: str, l5: str) -> None:
@@ -196,3 +236,70 @@ def test_owner_scoped_endpoint_returns_contract(auth_client, db) -> None:
     assert payload["schema_version"] == "deployment-access.v1"
     assert [item["provider"] for item in payload["surfaces"]] == ["azure", "gcp"]
     assert payload["reason_code"] is None
+
+
+@pytest.mark.asyncio
+async def test_gcp_rotation_reveals_once_and_persists_only_metadata(db) -> None:
+    user, twin, deployment = _seed(db, l4="azure", l5="gcp")
+    deployment.graph_validation = {"graph_digest": "sha256:" + ("1" * 64)}
+    db.commit()
+    deployer = _FakeDeployer()
+
+    credential = await _rotation_service(db, deployer).rotate_gcp_grafana_viewer(
+        twin.id, user.id
+    )
+
+    db.refresh(deployment)
+    assert credential.password == "rotated-fixture-password-123456"
+    assert credential.password not in repr(credential)
+    assert deployer.calls == [("fixture-resource", "fixture-operation-token")]
+    assert deployment.layer_access_credential_rotated_at == NOW.replace(tzinfo=None)
+    assert deployment.layer_access_credential_fingerprint == hashlib.sha256(
+        credential.password.encode()
+    ).hexdigest()
+    assert credential.password not in str(deployment.__dict__)
+
+
+@pytest.mark.asyncio
+async def test_non_gcp_l5_rotation_performs_no_preparation_or_deployer_call(db) -> None:
+    user, twin, deployment = _seed(db, l5="aws")
+    deployment.graph_validation = {"graph_digest": "sha256:" + ("1" * 64)}
+    db.commit()
+    deployer = _FakeDeployer()
+
+    with pytest.raises(ConflictError, match="ROTATION_NOT_AVAILABLE"):
+        await _rotation_service(db, deployer).rotate_gcp_grafana_viewer(
+            twin.id, user.id
+        )
+
+    assert deployer.calls == []
+
+
+@pytest.mark.asyncio
+async def test_concurrent_rotation_returns_exact_conflict_without_waiting(db) -> None:
+    user, twin, deployment = _seed(db, l5="gcp")
+    deployment.graph_validation = {"graph_digest": "sha256:" + ("1" * 64)}
+    db.commit()
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    class BlockingDeployer(_FakeDeployer):
+        async def rotate_gcp_grafana_viewer_credential(self, resource_name, token):
+            self.calls.append((resource_name, token))
+            started.set()
+            await release.wait()
+            return dict(self.payload)
+
+    deployer = BlockingDeployer()
+    service = _rotation_service(db, deployer)
+    first = asyncio.create_task(
+        service.rotate_gcp_grafana_viewer(twin.id, user.id)
+    )
+    await started.wait()
+
+    with pytest.raises(ConflictError, match="ROTATION_IN_PROGRESS"):
+        await service.rotate_gcp_grafana_viewer(twin.id, user.id)
+
+    release.set()
+    await first
+    assert len(deployer.calls) == 1

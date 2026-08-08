@@ -165,6 +165,46 @@ async def test_check_cooldown_sends_expected_query_params():
 
 
 @pytest.mark.asyncio
+async def test_viewer_rotation_posts_once_with_only_operation_package_header():
+    seen = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(
+            (
+                request.method,
+                str(request.url),
+                request.headers["x-operation-package"],
+                request.read(),
+            )
+        )
+        return httpx.Response(
+            200,
+            json={
+                "schema_version": "deployment-access-credential.v1",
+                "layer": "l5",
+                "provider": "gcp",
+                "username": "researcher@example.invalid",
+                "password": "fixture-password",
+                "issued_at": "2026-07-31T12:00:00Z",
+            },
+        )
+
+    response = await _client_with_handler(
+        handler
+    ).rotate_gcp_grafana_viewer_credential("factory", "one-shot-token")
+
+    assert response["password"] == "fixture-password"
+    assert seen == [
+        (
+            "POST",
+            "http://deployer.test/infrastructure/deployment-access/l5/credentials:rotate?project_name=factory",
+            "one-shot-token",
+            b"",
+        )
+    ]
+
+
+@pytest.mark.asyncio
 async def test_deploy_and_destroy_streams_preserve_endpoint_params_and_lines():
     seen = []
 

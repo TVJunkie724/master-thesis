@@ -2415,3 +2415,16 @@ output "gcp_component_visualization_output" {
     persistent_disk_gib     = local.gcp_v2_grafana_disk_gib
   } : null
 }
+
+output "gcp_grafana_rotation_secret" {
+  description = "Internal-only GKE control-plane coordinates for explicit Viewer rotation"
+  sensitive   = true
+  value = local.gcp_v2_l5_enabled ? {
+    cluster_host           = "https://${local.gcp_v2_gke_endpoint}"
+    cluster_ca_certificate = local.gcp_v2_gke_ca_certificate
+    namespace              = local.gcp_v2_grafana_namespace
+    secret_name            = "grafana-runtime"
+    pod_label_selector     = "app=grafana"
+    viewer_username        = var.platform_user_email
+  } : null
+}
