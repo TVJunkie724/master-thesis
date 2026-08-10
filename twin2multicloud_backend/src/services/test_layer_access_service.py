@@ -207,8 +207,9 @@ def seed_layer_access_fixtures(
                 terraform_outputs=(
                     {
                         "safe_endpoint": (f"https://outputs-{run_id}.example.invalid"),
-                        "admin_password": "test-admin-value-must-not-cross-api",
-                        "reader_token": "test-reader-value-must-not-cross-api",
+                        # Test-only sentinels prove sensitive Terraform outputs stay redacted.
+                        "admin_password": "test-admin-value-must-not-cross-api",  # nosec B105
+                        "reader_token": "test-reader-value-must-not-cross-api",  # nosec B105
                     }
                     if key == "aws-aws"
                     else None
@@ -313,6 +314,7 @@ async def prepare_test_layer_access_rotation(
 
     return SimpleNamespace(
         resource_name=twin.id,
-        operation_token="test-only-operation-token",
+        # Opaque local sentinel; it never authenticates against a provider.
+        operation_token="test-only-operation-token",  # nosec B106
         graph_evidence=frozen_graph_evidence,
     )
