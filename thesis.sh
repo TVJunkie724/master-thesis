@@ -544,7 +544,10 @@ run_frontend_integration_tests() {
     set -e
     if [ "${#started_services[@]}" -gt 0 ]; then
       info "Starting missing credential-free services for read-only Flutter integration tests."
-      compose_cmd up -d --no-recreate "${started_services[@]}"
+      # Already-running services are excluded above. Allow Compose to recreate
+      # only these stopped/missing services when their local image or config
+      # changed, otherwise integration can silently exercise a stale container.
+      compose_cmd up -d "${started_services[@]}"
     else
       info "Using the already-running credential-free integration services unchanged."
     fi

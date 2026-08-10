@@ -138,9 +138,10 @@ class ThesisEntrypointTests(unittest.TestCase):
         )
         self.assertIn('started_services+=("$service")', integration_gate)
         self.assertIn(
-            'compose_cmd up -d --no-recreate "${started_services[@]}"',
+            'compose_cmd up -d "${started_services[@]}"',
             integration_gate,
         )
+        self.assertNotIn("--no-recreate", integration_gate)
         self.assertNotIn(
             'compose_cmd up -d "${required_services[@]}"',
             integration_gate,
