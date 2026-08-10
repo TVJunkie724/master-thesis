@@ -3358,8 +3358,16 @@
         "additionalProperties": false,
         "properties": {
           "params": {
-            "$ref": "#/components/schemas/OptimizerCalculationParams",
-            "description": "Optimizer calculation parameters"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FiveLayerV2OptimizerCalculationParams"
+              },
+              {
+                "$ref": "#/components/schemas/OptimizerCalculationParams"
+              }
+            ],
+            "description": "Optimizer calculation parameters",
+            "title": "Params"
           },
           "pricing_evidence_version": {
             "anyOf": [
@@ -3588,12 +3596,27 @@
           "resolved_deployment_specification": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ResolvedDeploymentSpecification"
+                "discriminator": {
+                  "mapping": {
+                    "resolved-deployment-specification.v1": "#/components/schemas/ResolvedDeploymentSpecification",
+                    "resolved-deployment-specification.v2": "#/components/schemas/ResolvedDeploymentSpecificationV2"
+                  },
+                  "propertyName": "schema_version"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ResolvedDeploymentSpecification"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResolvedDeploymentSpecificationV2"
+                  }
+                ]
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Resolved Deployment Specification"
           },
           "result_items": {
             "items": {
@@ -3673,7 +3696,22 @@
       "CostCalculationRunSelectResponse": {
         "properties": {
           "resolved_deployment_specification": {
-            "$ref": "#/components/schemas/ResolvedDeploymentSpecification"
+            "discriminator": {
+              "mapping": {
+                "resolved-deployment-specification.v1": "#/components/schemas/ResolvedDeploymentSpecification",
+                "resolved-deployment-specification.v2": "#/components/schemas/ResolvedDeploymentSpecificationV2"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ResolvedDeploymentSpecification"
+              },
+              {
+                "$ref": "#/components/schemas/ResolvedDeploymentSpecificationV2"
+              }
+            ],
+            "title": "Resolved Deployment Specification"
           },
           "run": {
             "$ref": "#/components/schemas/CostCalculationRunSummaryResponse"
@@ -5027,6 +5065,191 @@
         "title": "DeployerConfigUpdate",
         "type": "object"
       },
+      "DeploymentAccessCredential": {
+        "additionalProperties": false,
+        "properties": {
+          "issued_at": {
+            "format": "date-time",
+            "title": "Issued At",
+            "type": "string"
+          },
+          "layer": {
+            "const": "l5",
+            "default": "l5",
+            "title": "Layer",
+            "type": "string"
+          },
+          "password": {
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "provider": {
+            "const": "gcp",
+            "default": "gcp",
+            "title": "Provider",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "deployment-access-credential.v1",
+            "default": "deployment-access-credential.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "username": {
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password",
+          "issued_at"
+        ],
+        "title": "DeploymentAccessCredential",
+        "type": "object"
+      },
+      "DeploymentAccessSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "enum": [
+              "available",
+              "unsupported"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
+          "deployment_id": {
+            "minLength": 1,
+            "title": "Deployment Id",
+            "type": "string"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "const": "unsupported_historical_profile",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "schema_version": {
+            "const": "deployment-access.v1",
+            "default": "deployment-access.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "surfaces": {
+            "items": {
+              "$ref": "#/components/schemas/DeploymentAccessSurface"
+            },
+            "title": "Surfaces",
+            "type": "array"
+          },
+          "twin_id": {
+            "minLength": 1,
+            "title": "Twin Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "twin_id",
+          "deployment_id",
+          "generated_at",
+          "availability",
+          "reason_code",
+          "surfaces"
+        ],
+        "title": "DeploymentAccessSnapshot",
+        "type": "object"
+      },
+      "DeploymentAccessSurface": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/LayerAccessAuth"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "display_name": {
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "layer": {
+            "enum": [
+              "l4",
+              "l5"
+            ],
+            "title": "Layer",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/LayerAccessReadiness"
+          },
+          "service_id": {
+            "enum": [
+              "aws_iot_twinmaker",
+              "azure_digital_twins",
+              "gcp_twin_explorer",
+              "aws_managed_grafana",
+              "azure_managed_grafana",
+              "gcp_grafana_oss"
+            ],
+            "title": "Service Id",
+            "type": "string"
+          },
+          "url": {
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "layer",
+          "provider",
+          "service_id",
+          "display_name",
+          "url",
+          "auth",
+          "readiness",
+          "capabilities",
+          "limitations"
+        ],
+        "title": "DeploymentAccessSurface",
+        "type": "object"
+      },
       "DeploymentHistoryResponse": {
         "properties": {
           "deployments": {
@@ -5850,6 +6073,138 @@
         "title": "FieldError",
         "type": "object"
       },
+      "FiveLayerV2OptimizerCalculationParams": {
+        "additionalProperties": false,
+        "description": "Closed S/M/L workload accepted only with ``five-layer-baseline@2``.",
+        "properties": {
+          "aggregateDashboardRefreshesPerHour": {
+            "minimum": 0.0,
+            "title": "Aggregatedashboardrefreshesperhour",
+            "type": "integer"
+          },
+          "apiCallsPerAggregateDashboardRefresh": {
+            "minimum": 1.0,
+            "title": "Apicallsperaggregatedashboardrefresh",
+            "type": "integer"
+          },
+          "archiveStorageDurationInMonths": {
+            "minimum": 6.0,
+            "title": "Archivestoragedurationinmonths",
+            "type": "integer"
+          },
+          "averageSizeOfMessageInKb": {
+            "exclusiveMinimum": 0.0,
+            "title": "Averagesizeofmessageinkb",
+            "type": "number"
+          },
+          "coolStorageDurationInMonths": {
+            "minimum": 1.0,
+            "title": "Coolstoragedurationinmonths",
+            "type": "integer"
+          },
+          "currency": {
+            "default": "USD",
+            "enum": [
+              "USD",
+              "EUR"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "dashboardActiveHoursPerDay": {
+            "maximum": 24.0,
+            "minimum": 0.0,
+            "title": "Dashboardactivehoursperday",
+            "type": "integer"
+          },
+          "deviceSendingIntervalInMinutes": {
+            "exclusiveMinimum": 0.0,
+            "title": "Devicesendingintervalinminutes",
+            "type": "number"
+          },
+          "eventingScenarioId": {
+            "enum": [
+              "eventing-small-v1",
+              "eventing-medium-v1",
+              "eventing-large-v1"
+            ],
+            "title": "Eventingscenarioid",
+            "type": "string"
+          },
+          "hotStorageDurationInMonths": {
+            "minimum": 1.0,
+            "title": "Hotstoragedurationinmonths",
+            "type": "integer"
+          },
+          "monthlyEditorSeats": {
+            "minimum": 0.0,
+            "title": "Monthlyeditorseats",
+            "type": "integer"
+          },
+          "monthlyViewerSeats": {
+            "minimum": 0.0,
+            "title": "Monthlyviewerseats",
+            "type": "integer"
+          },
+          "numberOfDeviceTypes": {
+            "minimum": 1.0,
+            "title": "Numberofdevicetypes",
+            "type": "integer"
+          },
+          "numberOfDevices": {
+            "exclusiveMinimum": 0.0,
+            "title": "Numberofdevices",
+            "type": "integer"
+          },
+          "optimizationProfileId": {
+            "const": "cost-minimization-v2",
+            "default": "cost-minimization-v2",
+            "title": "Optimizationprofileid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "five-layer-workload.v2",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "twinEntityCount": {
+            "minimum": 1.0,
+            "title": "Twinentitycount",
+            "type": "integer"
+          },
+          "twinGraphUpdatesPerSecond": {
+            "minimum": 0.0,
+            "title": "Twingraphupdatespersecond",
+            "type": "number"
+          },
+          "twinStateMaterializationsPerSecond": {
+            "minimum": 0.0,
+            "title": "Twinstatematerializationspersecond",
+            "type": "number"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "numberOfDevices",
+          "deviceSendingIntervalInMinutes",
+          "averageSizeOfMessageInKb",
+          "numberOfDeviceTypes",
+          "hotStorageDurationInMonths",
+          "coolStorageDurationInMonths",
+          "archiveStorageDurationInMonths",
+          "twinEntityCount",
+          "aggregateDashboardRefreshesPerHour",
+          "apiCallsPerAggregateDashboardRefresh",
+          "dashboardActiveHoursPerDay",
+          "monthlyEditorSeats",
+          "monthlyViewerSeats",
+          "twinStateMaterializationsPerSecond",
+          "twinGraphUpdatesPerSecond",
+          "eventingScenarioId"
+        ],
+        "title": "FiveLayerV2OptimizerCalculationParams",
+        "type": "object"
+      },
       "GCPBootstrapCredential": {
         "additionalProperties": false,
         "properties": {
@@ -6217,6 +6572,100 @@
           "provider"
         ],
         "title": "InlineValidationRequest",
+        "type": "object"
+      },
+      "LayerAccessAuth": {
+        "additionalProperties": false,
+        "properties": {
+          "credential_action": {
+            "enum": [
+              "none",
+              "rotate"
+            ],
+            "title": "Credential Action",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "aws_identity_center",
+              "azure_entra",
+              "gcp_iap",
+              "generated_viewer"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "principal_label": {
+            "minLength": 1,
+            "title": "Principal Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "principal_label",
+          "credential_action"
+        ],
+        "title": "LayerAccessAuth",
+        "type": "object"
+      },
+      "LayerAccessReadiness": {
+        "additionalProperties": false,
+        "properties": {
+          "access_binding": {
+            "enum": [
+              "ready",
+              "blocked",
+              "pending"
+            ],
+            "title": "Access Binding",
+            "type": "string"
+          },
+          "browser_sign_in": {
+            "enum": [
+              "unverified",
+              "verified",
+              "failed"
+            ],
+            "title": "Browser Sign In",
+            "type": "string"
+          },
+          "content": {
+            "enum": [
+              "ready",
+              "failed",
+              "pending"
+            ],
+            "title": "Content",
+            "type": "string"
+          },
+          "data_probe": {
+            "enum": [
+              "ready",
+              "failed",
+              "pending"
+            ],
+            "title": "Data Probe",
+            "type": "string"
+          },
+          "resource": {
+            "enum": [
+              "ready",
+              "failed",
+              "pending"
+            ],
+            "title": "Resource",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource",
+          "access_binding",
+          "content",
+          "data_probe",
+          "browser_sign_in"
+        ],
+        "title": "LayerAccessReadiness",
         "type": "object"
       },
       "MessageResponse": {
@@ -8591,7 +9040,22 @@
         "additionalProperties": false,
         "properties": {
           "architecture": {
-            "$ref": "#/components/schemas/ResolvedTwinArchitectureContract"
+            "discriminator": {
+              "mapping": {
+                "resolved-twin-architecture.v1": "#/components/schemas/ResolvedTwinArchitectureContract",
+                "resolved-twin-architecture.v2": "#/components/schemas/ResolvedTwinArchitectureContractV2"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ResolvedTwinArchitectureContract"
+              },
+              {
+                "$ref": "#/components/schemas/ResolvedTwinArchitectureContractV2"
+              }
+            ],
+            "title": "Architecture"
           },
           "architecture_compatibility_status": {
             "enum": [
@@ -8608,7 +9072,8 @@
           "origin": {
             "enum": [
               "native_v1",
-              "reconstructed_v1"
+              "reconstructed_v1",
+              "native_v2"
             ],
             "title": "Origin",
             "type": "string"
@@ -8660,6 +9125,92 @@
           "profile_version"
         ],
         "title": "ResolvedDeploymentArchitectureProfile",
+        "type": "object"
+      },
+      "ResolvedDeploymentBindingV2": {
+        "additionalProperties": false,
+        "properties": {
+          "binding_id": {
+            "title": "Binding Id",
+            "type": "string"
+          },
+          "compatibility_version": {
+            "const": "1",
+            "title": "Compatibility Version",
+            "type": "string"
+          },
+          "destination_input_id": {
+            "title": "Destination Input Id",
+            "type": "string"
+          },
+          "destination_selection_id": {
+            "title": "Destination Selection Id",
+            "type": "string"
+          },
+          "resolution_stage": {
+            "enum": [
+              "package",
+              "preplan",
+              "terraform",
+              "postapply"
+            ],
+            "title": "Resolution Stage",
+            "type": "string"
+          },
+          "sensitivity": {
+            "enum": [
+              "public",
+              "internal",
+              "sensitive_reference"
+            ],
+            "title": "Sensitivity",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "catalog_constant",
+              "deployment_dimension",
+              "component_output",
+              "platform_configuration",
+              "extension_artifact",
+              "platform_runtime_secret_reference"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_ref": {
+            "title": "Source Ref",
+            "type": "string"
+          },
+          "validator_id": {
+            "title": "Validator Id",
+            "type": "string"
+          },
+          "value_type": {
+            "enum": [
+              "string",
+              "integer",
+              "number",
+              "boolean",
+              "json_document"
+            ],
+            "title": "Value Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "binding_id",
+          "source_kind",
+          "source_ref",
+          "destination_selection_id",
+          "destination_input_id",
+          "value_type",
+          "sensitivity",
+          "resolution_stage",
+          "validator_id",
+          "compatibility_version"
+        ],
+        "title": "ResolvedDeploymentBindingV2",
         "type": "object"
       },
       "ResolvedDeploymentCatalogReference": {
@@ -8747,6 +9298,74 @@
         "title": "ResolvedDeploymentComponent",
         "type": "object"
       },
+      "ResolvedDeploymentComponentSelectionV2": {
+        "additionalProperties": false,
+        "properties": {
+          "architecture_assignment_id": {
+            "title": "Architecture Assignment Id",
+            "type": "string"
+          },
+          "dimensions": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedDeploymentDimensionV2"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Dimensions",
+            "type": "array"
+          },
+          "implementation_component_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Implementation Component Digest",
+            "type": "string"
+          },
+          "implementation_component_id": {
+            "title": "Implementation Component Id",
+            "type": "string"
+          },
+          "logical_component_id": {
+            "title": "Logical Component Id",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "region": {
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Region",
+            "type": "string"
+          },
+          "required": {
+            "const": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "selection_id": {
+            "title": "Selection Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "selection_id",
+          "architecture_assignment_id",
+          "logical_component_id",
+          "implementation_component_id",
+          "implementation_component_digest",
+          "provider",
+          "region",
+          "required",
+          "dimensions"
+        ],
+        "title": "ResolvedDeploymentComponentSelectionV2",
+        "type": "object"
+      },
       "ResolvedDeploymentDimension": {
         "additionalProperties": false,
         "properties": {
@@ -8819,6 +9438,167 @@
         "title": "ResolvedDeploymentDimension",
         "type": "object"
       },
+      "ResolvedDeploymentDimensionV2": {
+        "additionalProperties": false,
+        "properties": {
+          "classification": {
+            "enum": [
+              "deployable_selection",
+              "capacity",
+              "usage",
+              "fixed_poc",
+              "account_scope"
+            ],
+            "title": "Classification",
+            "type": "string"
+          },
+          "dimension_id": {
+            "title": "Dimension Id",
+            "type": "string"
+          },
+          "evidence_reference": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Evidence Reference",
+            "type": "string"
+          },
+          "formula_reference": {
+            "title": "Formula Reference",
+            "type": "string"
+          },
+          "terraform_target": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]{2,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terraform Target"
+          },
+          "unit": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "dimension_id",
+          "classification",
+          "value",
+          "unit",
+          "formula_reference",
+          "evidence_reference"
+        ],
+        "title": "ResolvedDeploymentDimensionV2",
+        "type": "object"
+      },
+      "ResolvedDeploymentFixedDimensionsV2": {
+        "additionalProperties": false,
+        "properties": {
+          "azure_mover_max_device_partitions_per_task": {
+            "const": 1000,
+            "title": "Azure Mover Max Device Partitions Per Task",
+            "type": "integer"
+          },
+          "gcp_grafana_persistent_disk_gib": {
+            "const": 10,
+            "title": "Gcp Grafana Persistent Disk Gib",
+            "type": "integer"
+          },
+          "l4_inspection_sessions_per_month": {
+            "const": 12,
+            "title": "L4 Inspection Sessions Per Month",
+            "type": "integer"
+          },
+          "l4_reads_per_inspection_session": {
+            "const": 20,
+            "title": "L4 Reads Per Inspection Session",
+            "type": "integer"
+          },
+          "reader_maximum_points": {
+            "const": 1000,
+            "title": "Reader Maximum Points",
+            "type": "integer"
+          },
+          "reader_timeout_seconds": {
+            "const": 10,
+            "title": "Reader Timeout Seconds",
+            "type": "integer"
+          },
+          "rollup_bucket_seconds": {
+            "const": 3600,
+            "title": "Rollup Bucket Seconds",
+            "type": "integer"
+          },
+          "storage_batch_interval_minutes": {
+            "const": 5,
+            "title": "Storage Batch Interval Minutes",
+            "type": "integer"
+          },
+          "storage_object_max_uncompressed_mib": {
+            "const": 64,
+            "title": "Storage Object Max Uncompressed Mib",
+            "type": "integer"
+          },
+          "storage_source_expiry_grace_hours": {
+            "const": 48,
+            "title": "Storage Source Expiry Grace Hours",
+            "type": "integer"
+          },
+          "storage_task_max_input_mib": {
+            "const": 512,
+            "title": "Storage Task Max Input Mib",
+            "type": "integer"
+          },
+          "storage_transfer_retry_horizon_hours": {
+            "const": 24,
+            "title": "Storage Transfer Retry Horizon Hours",
+            "type": "integer"
+          },
+          "visualized_numeric_metrics_per_record": {
+            "const": 1,
+            "title": "Visualized Numeric Metrics Per Record",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "l4_inspection_sessions_per_month",
+          "l4_reads_per_inspection_session",
+          "visualized_numeric_metrics_per_record",
+          "rollup_bucket_seconds",
+          "reader_timeout_seconds",
+          "reader_maximum_points",
+          "storage_batch_interval_minutes",
+          "storage_task_max_input_mib",
+          "storage_object_max_uncompressed_mib",
+          "storage_transfer_retry_horizon_hours",
+          "storage_source_expiry_grace_hours",
+          "azure_mover_max_device_partitions_per_task",
+          "gcp_grafana_persistent_disk_gib"
+        ],
+        "title": "ResolvedDeploymentFixedDimensionsV2",
+        "type": "object"
+      },
       "ResolvedDeploymentOptimizationContext": {
         "additionalProperties": false,
         "properties": {
@@ -8864,6 +9644,125 @@
           "catalog_references"
         ],
         "title": "ResolvedDeploymentOptimizationContext",
+        "type": "object"
+      },
+      "ResolvedDeploymentOptimizationContextV2": {
+        "additionalProperties": false,
+        "properties": {
+          "component_catalog_ref": {
+            "$ref": "#/components/schemas/ResolvedDeploymentPinnedReference"
+          },
+          "eventing_scenario_ref": {
+            "$ref": "#/components/schemas/ResolvedDeploymentPinnedReference"
+          },
+          "formula_set_ref": {
+            "$ref": "#/components/schemas/ResolvedDeploymentPinnedReference"
+          },
+          "pricing_evidence_refs": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedDeploymentPricingReference"
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "title": "Pricing Evidence Refs",
+            "type": "array"
+          },
+          "service_decision_ref": {
+            "$ref": "#/components/schemas/ResolvedDeploymentPinnedReference"
+          },
+          "workload_ref": {
+            "$ref": "#/components/schemas/ResolvedDeploymentPinnedReference"
+          }
+        },
+        "required": [
+          "service_decision_ref",
+          "component_catalog_ref",
+          "workload_ref",
+          "eventing_scenario_ref",
+          "formula_set_ref",
+          "pricing_evidence_refs"
+        ],
+        "title": "ResolvedDeploymentOptimizationContextV2",
+        "type": "object"
+      },
+      "ResolvedDeploymentPinnedReference": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 256,
+            "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[1-9][0-9]*$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "digest"
+        ],
+        "title": "ResolvedDeploymentPinnedReference",
+        "type": "object"
+      },
+      "ResolvedDeploymentPricingReference": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "digest"
+        ],
+        "title": "ResolvedDeploymentPricingReference",
+        "type": "object"
+      },
+      "ResolvedDeploymentReadinessV2": {
+        "additionalProperties": false,
+        "properties": {
+          "blocking_gate_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Blocking Gate Ids",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "offline_contract_fixture",
+              "deployment_ready"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "blocking_gate_ids"
+        ],
+        "title": "ResolvedDeploymentReadinessV2",
         "type": "object"
       },
       "ResolvedDeploymentSpecification": {
@@ -8913,6 +9812,77 @@
           "digest"
         ],
         "title": "ResolvedDeploymentSpecification",
+        "type": "object"
+      },
+      "ResolvedDeploymentSpecificationV2": {
+        "additionalProperties": false,
+        "properties": {
+          "architecture_profile_ref": {
+            "$ref": "#/components/schemas/ResolvedDeploymentPinnedReference"
+          },
+          "bindings": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedDeploymentBindingV2"
+            },
+            "maxItems": 256,
+            "minItems": 7,
+            "title": "Bindings",
+            "type": "array"
+          },
+          "calculation_run_id": {
+            "title": "Calculation Run Id",
+            "type": "string"
+          },
+          "component_selections": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedDeploymentComponentSelectionV2"
+            },
+            "maxItems": 128,
+            "minItems": 7,
+            "title": "Component Selections",
+            "type": "array"
+          },
+          "currency": {
+            "enum": [
+              "USD",
+              "EUR"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "fixed_dimensions": {
+            "$ref": "#/components/schemas/ResolvedDeploymentFixedDimensionsV2"
+          },
+          "optimization_context": {
+            "$ref": "#/components/schemas/ResolvedDeploymentOptimizationContextV2"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/ResolvedDeploymentReadinessV2"
+          },
+          "schema_version": {
+            "const": "resolved-deployment-specification.v2",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "calculation_run_id",
+          "architecture_profile_ref",
+          "optimization_context",
+          "readiness",
+          "currency",
+          "fixed_dimensions",
+          "component_selections",
+          "bindings",
+          "digest"
+        ],
+        "title": "ResolvedDeploymentSpecificationV2",
         "type": "object"
       },
       "ResolvedTwinArchitectureContract": {
@@ -9021,6 +9991,123 @@
           "content_digest"
         ],
         "title": "ResolvedTwinArchitectureContract",
+        "type": "object"
+      },
+      "ResolvedTwinArchitectureContractV2": {
+        "additionalProperties": false,
+        "description": "Typed top-level v2 resolution; nested data stays contract-owned.",
+        "properties": {
+          "architecture_profile_ref": {
+            "$ref": "#/components/schemas/PinnedArchitectureReference"
+          },
+          "calculation_run_id": {
+            "title": "Calculation Run Id",
+            "type": "string"
+          },
+          "component_assignments": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Component Assignments",
+            "type": "array"
+          },
+          "content_digest": {
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "cost_summary": {
+            "additionalProperties": true,
+            "title": "Cost Summary",
+            "type": "object"
+          },
+          "deployment_specification_ref": {
+            "additionalProperties": true,
+            "title": "Deployment Specification Ref",
+            "type": "object"
+          },
+          "extension_bindings": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Extension Bindings",
+            "type": "array"
+          },
+          "functional_completeness": {
+            "additionalProperties": true,
+            "title": "Functional Completeness",
+            "type": "object"
+          },
+          "optimization_bundle_ref": {
+            "additionalProperties": true,
+            "title": "Optimization Bundle Ref",
+            "type": "object"
+          },
+          "pricing_evidence_refs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Pricing Evidence Refs",
+            "type": "array"
+          },
+          "provider_profile_refs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Provider Profile Refs",
+            "type": "array"
+          },
+          "resolution_id": {
+            "title": "Resolution Id",
+            "type": "string"
+          },
+          "resolution_status": {
+            "enum": [
+              "offline_contract_fixture",
+              "publishable"
+            ],
+            "title": "Resolution Status",
+            "type": "string"
+          },
+          "resolved_edges": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Resolved Edges",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "resolved-twin-architecture.v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "workload_contract_ref": {
+            "$ref": "#/components/schemas/PinnedArchitectureReference"
+          }
+        },
+        "required": [
+          "schema_version",
+          "resolution_status",
+          "resolution_id",
+          "calculation_run_id",
+          "architecture_profile_ref",
+          "optimization_bundle_ref",
+          "provider_profile_refs",
+          "workload_contract_ref",
+          "pricing_evidence_refs",
+          "component_assignments",
+          "resolved_edges",
+          "extension_bindings",
+          "deployment_specification_ref",
+          "cost_summary",
+          "functional_completeness",
+          "content_digest"
+        ],
+        "title": "ResolvedTwinArchitectureContractV2",
         "type": "object"
       },
       "SceneGlbUploadResponse": {
@@ -16693,6 +17780,198 @@
         "summary": "Validate a deployer config section via Deployer API",
         "tags": [
           "deployer"
+        ]
+      }
+    },
+    "/twins/{twin_id}/deployment-access": {
+      "get": {
+        "operationId": "getTwinDeploymentAccess",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentAccessSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "409": {
+            "description": "Twin is not actively deployed or profile is unsupported"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get secret-free L4 and L5 access surfaces",
+        "tags": [
+          "twins"
+        ]
+      }
+    },
+    "/twins/{twin_id}/deployment-access/l5/credentials:rotate": {
+      "post": {
+        "operationId": "rotateTwinGcpGrafanaViewerCredential",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentAccessCredential"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "409": {
+            "description": "Rotation is unavailable or already in progress"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "502": {
+            "description": "Provider rotation failed safely"
+          },
+          "503": {
+            "description": "Deployer API unavailable"
+          }
+        },
+        "summary": "Rotate and reveal the GCP Grafana Viewer credential once",
+        "tags": [
+          "twins"
         ]
       }
     },
