@@ -105,6 +105,23 @@ def test_sync_deployment_records_packages_after_apply_before_post_deployment(tmp
     ]
 
 
+def test_strategy_attaches_typed_post_deployment_evidence(monkeypatch, tmp_path):
+    events = []
+    strategy = _strategy(tmp_path, events)
+    strategy._terraform_outputs = {"resource": "created"}
+    strategy._load_providers_config = MagicMock(return_value={"layer_4_provider": "aws"})
+    runtime_evidence = object()
+    monkeypatch.setattr(
+        "src.providers.terraform.deployer_strategy.run_post_deployment",
+        lambda *_args: runtime_evidence,
+    )
+    context = SimpleNamespace(deployment_access_runtime_evidence=None)
+
+    TerraformDeployerStrategy._run_post_deployment(strategy, context)
+
+    assert context.deployment_access_runtime_evidence is runtime_evidence
+
+
 def test_sync_deployment_does_not_advance_metadata_when_apply_fails(tmp_path):
     events = []
     strategy = _strategy(tmp_path, events)

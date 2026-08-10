@@ -11,6 +11,12 @@ from urllib.parse import urlsplit
 from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 
+from .runtime_evidence import (
+    DeploymentAccessRuntimeEvidence,
+    DeploymentAccessRuntimeEvidenceError,
+    surface_output_evidence,
+)
+
 
 class DeploymentAccessProjectionError(ValueError):
     """Raised when selected Layer Access evidence is absent or unsafe."""
@@ -217,7 +223,12 @@ def _selected_provider(context: Any, layer: str) -> str:
     return normalized
 
 
-def _surface(layer: str, provider: str, outputs: dict[str, Any]) -> dict[str, Any]:
+def _surface(
+    layer: str,
+    provider: str,
+    outputs: dict[str, Any],
+    runtime_evidence: DeploymentAccessRuntimeEvidence | None,
+) -> dict[str, Any]:
     definition = SURFACE_DEFINITIONS[(layer, provider)]
     bundle = outputs.get(definition["output_key"])
     if not isinstance(bundle, dict):
@@ -237,6 +248,24 @@ def _surface(layer: str, provider: str, outputs: dict[str, Any]) -> dict[str, An
         raise DeploymentAccessProjectionError(
             "GCP visualization output did not prove that internal secrets are excluded"
         )
+    try:
+        output_evidence = surface_output_evidence(layer, provider, outputs)
+    except DeploymentAccessRuntimeEvidenceError as exc:
+        raise DeploymentAccessProjectionError(str(exc)) from exc
+    runtime_surface = (
+        runtime_evidence.surface(layer, provider)
+        if runtime_evidence is not None
+        else None
+    )
+    if runtime_evidence is not None and runtime_surface is None:
+        raise DeploymentAccessProjectionError(
+            f"Layer Access runtime evidence is missing {layer}/{provider}"
+        )
+    if runtime_surface is not None and runtime_surface != output_evidence:
+        raise DeploymentAccessProjectionError(
+            f"Layer Access runtime evidence does not match {layer}/{provider} outputs"
+        )
+    runtime_ready = runtime_surface is not None
     return {
         "layer": layer,
         "provider": provider,
@@ -251,8 +280,8 @@ def _surface(layer: str, provider: str, outputs: dict[str, Any]) -> dict[str, An
         "readiness": {
             "resource": "ready",
             "access_binding": "ready",
-            "content": "pending",
-            "data_probe": "pending",
+            "content": "ready" if runtime_ready else "pending",
+            "data_probe": "ready" if runtime_ready else "pending",
             "browser_sign_in": "unverified",
         },
         "capabilities": list(definition["capabilities"]),
@@ -273,6 +302,13 @@ def project_deployment_access_evidence(
         return None
     if not isinstance(outputs, dict):
         raise DeploymentAccessProjectionError("Terraform outputs must be an object")
+    runtime_evidence = getattr(context, "deployment_access_runtime_evidence", None)
+    if runtime_evidence is not None and not isinstance(
+        runtime_evidence, DeploymentAccessRuntimeEvidence
+    ):
+        raise DeploymentAccessProjectionError(
+            "Layer Access runtime evidence has an invalid type"
+        )
     timestamp = generated_at or datetime.now(timezone.utc)
     if timestamp.tzinfo is None:
         timestamp = timestamp.replace(tzinfo=timezone.utc)
@@ -282,8 +318,18 @@ def project_deployment_access_evidence(
         "profile_version": profile_version,
         "generated_at": timestamp.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
         "surfaces": [
-            _surface("l4", _selected_provider(context, "4"), outputs),
-            _surface("l5", _selected_provider(context, "5"), outputs),
+            _surface(
+                "l4",
+                _selected_provider(context, "4"),
+                outputs,
+                runtime_evidence,
+            ),
+            _surface(
+                "l5",
+                _selected_provider(context, "5"),
+                outputs,
+                runtime_evidence,
+            ),
         ],
     }
     validate_deployment_access_evidence(evidence)

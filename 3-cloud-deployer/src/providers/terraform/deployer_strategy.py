@@ -301,7 +301,7 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
         self._preplan_tfvars = prepare_shared_identity_capabilities(context)
 
     def _run_post_deployment(self, context: "DeploymentContext") -> None:
-        run_post_deployment(
+        context.deployment_access_runtime_evidence = run_post_deployment(
             context,
             self.project_path,
             self._load_providers_config(),

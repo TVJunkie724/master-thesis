@@ -6,6 +6,12 @@ from .projector import (
     validate_deployment_access_evidence,
 )
 from .gcp_rotation import GcpViewerRotationError, rotate_gcp_grafana_viewer
+from .runtime_evidence import (
+    DeploymentAccessRuntimeEvidence,
+    DeploymentAccessRuntimeEvidenceError,
+    SurfaceRuntimeEvidence,
+    collect_deployment_access_runtime_evidence,
+)
 
 __all__ = [
     "DeploymentAccessProjectionError",
@@ -13,4 +19,8 @@ __all__ = [
     "validate_deployment_access_evidence",
     "GcpViewerRotationError",
     "rotate_gcp_grafana_viewer",
+    "DeploymentAccessRuntimeEvidence",
+    "DeploymentAccessRuntimeEvidenceError",
+    "SurfaceRuntimeEvidence",
+    "collect_deployment_access_runtime_evidence",
 ]

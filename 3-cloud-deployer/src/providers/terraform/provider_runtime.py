@@ -6,6 +6,11 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from src.deployment_access.runtime_evidence import (
+    DeploymentAccessRuntimeEvidence,
+    collect_deployment_access_runtime_evidence,
+)
+
 from src.providers.terraform.aws_deployer import (
     configure_aws_grafana,
     create_twinmaker_entities,
@@ -117,7 +122,7 @@ def run_post_deployment(
     project_path: Path,
     providers_config: dict,
     terraform_outputs: dict,
-) -> None:
+) -> DeploymentAccessRuntimeEvidence | None:
     """Create resources that deliberately remain outside Terraform ownership."""
     required = ("layer_1_provider", "layer_4_provider", "layer_5_provider")
     missing = [key for key in required if key not in providers_config]
@@ -139,3 +144,5 @@ def run_post_deployment(
         register_aws_iot_devices(context, project_path)
     if providers_config["layer_5_provider"] == "aws":
         configure_aws_grafana(context, terraform_outputs)
+
+    return collect_deployment_access_runtime_evidence(context, terraform_outputs)

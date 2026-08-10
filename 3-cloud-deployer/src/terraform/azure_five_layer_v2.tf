@@ -1350,6 +1350,13 @@ output "azure_component_twin_state_output" {
     access_url      = "https://explorer.digitaltwins.azure.net/?tid=${nonsensitive(var.azure_tenant_id)}&eid=${azurerm_digital_twins_instance.azure_azure_digital_twins[0].host_name}"
     principal_label = var.azure_layer_access_principal_label
     access_role     = "Azure Digital Twins Data Reader"
+    internal_evidence = {
+      resource_ref        = azurerm_digital_twins_instance.azure_azure_digital_twins[0].id
+      access_binding_refs = [azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_human_reader"].id]
+      artifact_refs       = ["dtmi:twin2multicloud:poc:TwinNode;1"]
+      content_revision    = "azure-l4-seed.v1"
+      data_probe_revision = "azure-adt-readback.v1"
+    }
   } : null
 }
 
@@ -1362,5 +1369,12 @@ output "azure_component_visualization_output" {
     reader_function_name = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].name
     principal_label      = var.azure_layer_access_principal_label
     access_role          = "Grafana Viewer"
+    internal_evidence = {
+      resource_ref        = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].id
+      access_binding_refs = [azurerm_role_assignment.azure_azure_entra_layer_access_bindings["grafana_human_viewer"].id]
+      artifact_refs       = ["dashboard:t2mc-raw-rollups"]
+      content_revision    = "grafana-raw-rollups.v1"
+      data_probe_revision = "azure-grafana-bounded-readback.v1"
+    }
   } : null
 }

@@ -14,6 +14,7 @@ from src.api.models.deployment import (
 )
 from src.deployment_access import (
     DeploymentAccessProjectionError,
+    collect_deployment_access_runtime_evidence,
     project_deployment_access_evidence,
 )
 
@@ -38,12 +39,35 @@ def _context(l4: str, l5: str, *, version: str = "2") -> SimpleNamespace:
     )
 
 
+def _internal(
+    resource: str,
+    binding: str,
+    artifact: str,
+    content: str,
+    probe: str,
+) -> dict:
+    return {
+        "resource_ref": resource,
+        "access_binding_refs": [binding],
+        "artifact_refs": [artifact],
+        "content_revision": content,
+        "data_probe_revision": probe,
+    }
+
+
 def _outputs() -> dict:
     return {
         "aws_component_twin_state_output": {
             "workspace_id": "aws-twin-workspace",
             "access_url": "https://eu-central-1.console.aws.amazon.com/iottwinmaker/home",
             "principal_label": "researcher@example.invalid",
+            "internal_evidence": _internal(
+                "aws-twin-workspace",
+                "aws-account-assignment",
+                "Twin2MultiCloudPoCDevice",
+                "aws-l4-seed.v1",
+                "aws-twinmaker-readback.v1",
+            ),
         },
         "aws_component_visualization_output": {
             "workspace_id": "aws-grafana-workspace",
@@ -52,6 +76,13 @@ def _outputs() -> dict:
             "reader_url": "https://reader.lambda-url.eu-central-1.on.aws/",
             "reader_function_name": "factory-v2-raw-history-reader",
             "principal_label": "researcher@example.invalid",
+            "internal_evidence": _internal(
+                "aws-grafana-workspace",
+                "aws-grafana-role-association",
+                "dashboard:t2mc-raw-rollups",
+                "grafana-raw-rollups.v1",
+                "aws-grafana-bounded-readback.v1",
+            ),
         },
         "azure_component_twin_state_output": {
             "instance_name": "azure-twin-instance",
@@ -59,6 +90,13 @@ def _outputs() -> dict:
             "access_url": "https://explorer.digitaltwins.azure.net/?eid=azure-twin.api.weu.digitaltwins.azure.net",
             "principal_label": "researcher@example.invalid",
             "access_role": "Azure Digital Twins Data Reader",
+            "internal_evidence": _internal(
+                "azure-twin-instance",
+                "azure-twin-role-assignment",
+                "dtmi:twin2multicloud:poc:TwinNode;1",
+                "azure-l4-seed.v1",
+                "azure-adt-readback.v1",
+            ),
         },
         "azure_component_visualization_output": {
             "workspace_name": "azure-grafana-workspace",
@@ -68,6 +106,13 @@ def _outputs() -> dict:
             "reader_function_name": "reader",
             "principal_label": "researcher@example.invalid",
             "access_role": "Grafana Viewer",
+            "internal_evidence": _internal(
+                "azure-grafana-workspace",
+                "azure-grafana-role-assignment",
+                "dashboard:t2mc-raw-rollups",
+                "grafana-raw-rollups.v1",
+                "azure-grafana-bounded-readback.v1",
+            ),
         },
         "gcp_component_twin_state_output": {
             "service": "Cloud Run Twin API + read-only IAP Twin Explorer",
@@ -79,6 +124,13 @@ def _outputs() -> dict:
             "limitations": ["read-only"],
             "seed_revision": "gcp-l4-seed.v1",
             "seed_input_digest": "0" * 64,
+            "internal_evidence": _internal(
+                "gcp-twin-explorer",
+                "gcp-iap-binding",
+                "platform-image@sha256:abc",
+                "gcp-l4-seed.v1",
+                "gcp-twin-explorer-readback.v1",
+            ),
         },
         "gcp_component_visualization_output": {
             "service": "Grafana OSS 12 on GKE",
@@ -94,6 +146,13 @@ def _outputs() -> dict:
             "internal_secrets_output": False,
             "replica_count": 1,
             "persistent_disk_gib": 10,
+            "internal_evidence": _internal(
+                "gcp-grafana-deployment",
+                "gcp-grafana-runtime-secret",
+                "grafana/grafana@sha256:abc",
+                "grafana-raw-rollups.v1",
+                "gcp-grafana-bounded-readback.v1",
+            ),
         },
         "unrelated_password": "must-not-cross",
     }
@@ -122,6 +181,32 @@ def test_projects_exact_two_safe_surfaces_for_all_nine_placements(
     assert "must-not-cross" not in serialized
     assert "reader_url" not in serialized
     assert "certificate_sha256" not in serialized
+    assert "internal_evidence" not in serialized
+
+
+@pytest.mark.parametrize("l4", ["aws", "azure", "gcp"])
+@pytest.mark.parametrize("l5", ["aws", "azure", "gcp"])
+def test_successful_runtime_gates_mark_all_nine_placements_content_ready(
+    l4: str, l5: str
+) -> None:
+    context = _context(l4, l5)
+    outputs = _outputs()
+    context.deployment_access_runtime_evidence = (
+        collect_deployment_access_runtime_evidence(context, outputs)
+    )
+
+    evidence = project_deployment_access_evidence(
+        context,
+        outputs,
+        generated_at=FIXED_TIME,
+    )
+
+    assert evidence is not None
+    assert all(
+        surface["readiness"]["content"] == "ready"
+        and surface["readiness"]["data_probe"] == "ready"
+        for surface in evidence["surfaces"]
+    )
 
 
 def test_historical_profile_has_no_deployer_access_evidence() -> None:
@@ -153,6 +238,20 @@ def test_gcp_surface_rejects_internal_secret_output_claim() -> None:
         project_deployment_access_evidence(
             _context("aws", "gcp"), outputs, generated_at=FIXED_TIME
         )
+
+
+def test_projection_rejects_stale_runtime_evidence() -> None:
+    context = _context("aws", "azure")
+    outputs = _outputs()
+    context.deployment_access_runtime_evidence = (
+        collect_deployment_access_runtime_evidence(context, outputs)
+    )
+    outputs["azure_component_visualization_output"]["internal_evidence"][
+        "content_revision"
+    ] = "tampered.v2"
+
+    with pytest.raises(DeploymentAccessProjectionError, match="does not match"):
+        project_deployment_access_evidence(context, outputs, generated_at=FIXED_TIME)
 
 
 def test_stream_model_revalidates_evidence_before_serializing() -> None:

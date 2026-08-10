@@ -28,6 +28,7 @@ def _workspace_context(runtime_context):
 def test_deploy_all_runs_strategy_against_runtime_workspace_context():
     source_context = _context()
     runtime_context = _context(Path("/tmp/workspace/factory"))
+    runtime_context.deployment_access_runtime_evidence = "ready-evidence"
     strategy = MagicMock()
     strategy.deploy_all.return_value = {"ok": {"value": True}}
 
@@ -41,6 +42,7 @@ def test_deploy_all_runs_strategy_against_runtime_workspace_context():
     mock_workspace.assert_called_once_with(source_context, operation_context=None)
     mock_strategy.assert_called_once_with(runtime_context)
     strategy.deploy_all.assert_called_once_with(runtime_context)
+    assert source_context.deployment_access_runtime_evidence == "ready-evidence"
 
 
 def test_destroy_all_runs_canonical_strategy_once_against_runtime_workspace_context():
@@ -61,6 +63,7 @@ def test_destroy_all_runs_canonical_strategy_once_against_runtime_workspace_cont
 def test_deploy_all_terraform_uses_workspace_with_explicit_terraform_dir():
     source_context = _context()
     runtime_context = _context(Path("/tmp/workspace/factory"))
+    runtime_context.deployment_access_runtime_evidence = "ready-evidence"
     strategy = MagicMock()
     strategy.deploy_all.return_value = {"ok": {"value": True}}
 
@@ -77,6 +80,7 @@ def test_deploy_all_terraform_uses_workspace_with_explicit_terraform_dir():
         project_path="/tmp/workspace/factory",
     )
     strategy.deploy_all.assert_called_once_with(runtime_context)
+    assert source_context.deployment_access_runtime_evidence == "ready-evidence"
 
 
 def test_destroy_all_terraform_uses_workspace_with_explicit_terraform_dir():
@@ -142,6 +146,7 @@ def test_destroy_all_passes_operation_context_to_workspace_boundary():
 def test_deploy_all_stream_sets_outputs_from_runtime_workspace_strategy():
     source_context = _context()
     runtime_context = _context(Path("/tmp/workspace/factory"))
+    runtime_context.deployment_access_runtime_evidence = "ready-evidence"
     strategy = MagicMock()
     strategy.get_outputs.return_value = {"output": {"value": "ok"}}
 
@@ -167,6 +172,7 @@ def test_deploy_all_stream_sets_outputs_from_runtime_workspace_strategy():
 
     assert lines == ["terraform init", "terraform apply"]
     assert output_sink == {"outputs": {"output": {"value": "ok"}}}
+    assert source_context.deployment_access_runtime_evidence == "ready-evidence"
     mock_strategy.assert_called_once_with(
         runtime_context,
         terraform_dir=None,

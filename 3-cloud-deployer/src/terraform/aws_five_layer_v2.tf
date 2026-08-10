@@ -1529,6 +1529,16 @@ output "aws_component_twin_state_output" {
     workspace_id    = awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id
     access_url      = "https://${var.aws_region}.console.aws.amazon.com/iottwinmaker/home?region=${var.aws_region}#/workspaces/${awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id}"
     principal_label = var.platform_user_email
+    internal_evidence = {
+      resource_ref = awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id
+      access_binding_refs = [
+        aws_ssoadmin_permission_set.aws_aws_iam_identity_center_layer_access[0].arn,
+        aws_ssoadmin_account_assignment.aws_aws_iam_identity_center_layer_access[0].id,
+      ]
+      artifact_refs       = ["Twin2MultiCloudPoCDevice"]
+      content_revision    = "aws-l4-seed.v1"
+      data_probe_revision = "aws-twinmaker-readback.v1"
+    }
   } : null
 }
 
@@ -1540,5 +1550,15 @@ output "aws_component_visualization_output" {
     reader_url           = aws_lambda_function_url.aws_aws_lambda_raw_history_reader[0].function_url
     reader_function_name = aws_lambda_function.aws_aws_lambda_raw_history_reader[0].function_name
     principal_label      = var.platform_user_email
+    internal_evidence = {
+      resource_ref = aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].id
+      access_binding_refs = [
+        aws_ssoadmin_account_assignment.aws_aws_iam_identity_center_layer_access[0].id,
+        aws_grafana_role_association.aws_v2_layer_access[0].id,
+      ]
+      artifact_refs       = ["dashboard:t2mc-raw-rollups"]
+      content_revision    = "grafana-raw-rollups.v1"
+      data_probe_revision = "aws-grafana-bounded-readback.v1"
+    }
   } : null
 }

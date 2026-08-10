@@ -2416,6 +2416,13 @@ output "gcp_component_twin_state_output" {
     limitations             = ["read-only", "bounded-queries", "no-scenes", "no-raw-telemetry"]
     seed_revision           = "gcp-l4-seed.v1"
     seed_input_digest       = sha256(jsonencode(var.iot_devices))
+    internal_evidence = {
+      resource_ref        = google_cloud_run_v2_service.gcp_gcp_cloud_run_iap_twin_explorer[0].id
+      access_binding_refs = [google_iap_web_cloud_run_service_iam_member.gcp_gcp_cloud_run_iap_twin_explorer[0].id]
+      artifact_refs       = [var.gcp_v2_platform_image]
+      content_revision    = "gcp-l4-seed.v1"
+      data_probe_revision = "gcp-twin-explorer-readback.v1"
+    }
   } : null
 }
 
@@ -2435,6 +2442,13 @@ output "gcp_component_visualization_output" {
     internal_secrets_output = false
     replica_count           = 1
     persistent_disk_gib     = local.gcp_v2_grafana_disk_gib
+    internal_evidence = {
+      resource_ref        = "kubernetes/${local.gcp_v2_grafana_namespace}/deployment/grafana"
+      access_binding_refs = ["kubernetes/${local.gcp_v2_grafana_namespace}/secret/grafana-runtime"]
+      artifact_refs       = [var.gcp_v2_grafana_image]
+      content_revision    = "grafana-raw-rollups.v1"
+      data_probe_revision = "gcp-grafana-bounded-readback.v1"
+    }
   } : null
 }
 
