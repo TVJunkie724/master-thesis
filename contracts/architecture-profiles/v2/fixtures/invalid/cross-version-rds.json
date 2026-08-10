@@ -44,14 +44,14 @@
       {
         "id": "pricing-evidence.azure.phase-08-v2",
         "version": "1",
-        "digest": "sha256:274a7463a18f18839bcd8f78b7ac3a04451bdd7cde54e418f3775fca4ef982fa",
+        "digest": "sha256:f62f5b78545f752a0254b5fedbde9ce852ccaa8148ef86b85588f2e3462b9163",
         "provider": "azure",
         "currency": "USD"
       },
       {
         "id": "pricing-evidence.gcp.phase-08-v2",
         "version": "1",
-        "digest": "sha256:274a7463a18f18839bcd8f78b7ac3a04451bdd7cde54e418f3775fca4ef982fa",
+        "digest": "sha256:f62f5b78545f752a0254b5fedbde9ce852ccaa8148ef86b85588f2e3462b9163",
         "provider": "gcp",
         "currency": "USD"
       }
@@ -671,7 +671,7 @@
     ],
     "deployment_specification_ref": {
       "schema_version": "resolved-deployment-specification.v1",
-      "digest": "sha256:b4d110261aed01d2b11457aaa703a3935b1f86cb3ce5bcc363b493bba5f19025",
+      "digest": "sha256:dae1265bbcf3178bd459dfc46638db8310d2432eaaaaaba5721ab3a63ef1ec90",
       "calculation_run_id": "5a6cddb4-41fb-548a-a13e-14c21a5b77b6"
     },
     "cost_summary": {
@@ -793,8 +793,8 @@
       "provider_extra_capability_ids": [],
       "missing_capability_ids": [],
       "validator_version": "2",
-      "validation_digest": "sha256:80494a3ef6b1817aa328ac5fbc91fa6bcc4d09b2e51ad986a946cb837b06b225"
+      "validation_digest": "sha256:d21264959904a310d75ca2b77802fdea4c6f24b334e348177e554d55829e8cc8"
     },
-    "content_digest": "sha256:2ce9df0aeea56933557e6bc3446fcc38d2f7ecb817c1491fc70d4241081401bd"
+    "content_digest": "sha256:66d32b6e0a06f47db889575cb9ba90691e2cbc8f030465c731dc3a228f31c941"
   }
 }

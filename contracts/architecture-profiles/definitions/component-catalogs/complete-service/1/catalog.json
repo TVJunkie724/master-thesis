@@ -9372,7 +9372,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2",
       "platform_handler": "handler.aws.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:85218080432845d4894df6850082b5be1d561bb7dae1e538aff86ccb7b8d6c38",
+      "source_digest": "sha256:4506cafd2780a6679f3c783fe64f1da9f2f60df5a7aaebe1fcbce81e1a45c71a",
       "included_paths": [
         "handler.py",
         "storage-mover/Dockerfile",
@@ -9427,7 +9427,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2",
       "platform_handler": "handler.azure.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:7714806e84db75bedbe71f22f4a759ea2c27cfeb2e6ef5d3b57b3469d9db1ec3",
+      "source_digest": "sha256:4f2889a5f3a0719b2931ef336130eb3a0403723ea0f184db50de448778598a07",
       "included_paths": [
         "core.py",
         "function_app.py",
@@ -9491,7 +9491,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:4994b850f2591994fe447a52df14e27aaaae87c73603bdac2ffcc06c33752088",
+      "source_digest": "sha256:30c8a2ebd965b41594d4f534957b0e0e611d126f05a805061d4d28ec517d8303",
       "included_paths": [
         "Dockerfile",
         "grafana/Dockerfile",
@@ -9574,5 +9574,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:a4e0274f41163490c3c16fc32e98eefe6437ba8ac5ca1383ca20eca048e05c16"
+  "content_digest": "sha256:ae901115898ed15aebfaae065ce70e7a14379996f1d3c368fe231de62c388ffc"
 }

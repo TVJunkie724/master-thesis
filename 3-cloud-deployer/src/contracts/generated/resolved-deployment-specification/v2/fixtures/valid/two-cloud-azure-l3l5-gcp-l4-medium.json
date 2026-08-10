@@ -10,12 +10,12 @@
     "service_decision_ref": {
       "id": "phase-08-complete-service-bundles",
       "version": "1",
-      "digest": "sha256:05dfcce680ee12f287816a7babcf47e22b8ac6cf22f803787293db6b011e7296"
+      "digest": "sha256:b52e8d589b10d83219b92d2ac1624b6e3f2e227cd005435e1823a4669c9198a9"
     },
     "component_catalog_ref": {
       "id": "complete-service-component-catalog",
       "version": "1",
-      "digest": "sha256:a4e0274f41163490c3c16fc32e98eefe6437ba8ac5ca1383ca20eca048e05c16"
+      "digest": "sha256:ae901115898ed15aebfaae065ce70e7a14379996f1d3c368fe231de62c388ffc"
     },
     "workload_ref": {
       "id": "five-layer-workload",
@@ -35,11 +35,11 @@
     "pricing_evidence_refs": [
       {
         "provider": "azure",
-        "digest": "sha256:274a7463a18f18839bcd8f78b7ac3a04451bdd7cde54e418f3775fca4ef982fa"
+        "digest": "sha256:f62f5b78545f752a0254b5fedbde9ce852ccaa8148ef86b85588f2e3462b9163"
       },
       {
         "provider": "gcp",
-        "digest": "sha256:274a7463a18f18839bcd8f78b7ac3a04451bdd7cde54e418f3775fca4ef982fa"
+        "digest": "sha256:f62f5b78545f752a0254b5fedbde9ce852ccaa8148ef86b85588f2e3462b9163"
       }
     ]
   },
@@ -2067,5 +2067,5 @@
       "compatibility_version": "1"
     }
   ],
-  "digest": "sha256:b4d110261aed01d2b11457aaa703a3935b1f86cb3ce5bcc363b493bba5f19025"
+  "digest": "sha256:dae1265bbcf3178bd459dfc46638db8310d2432eaaaaaba5721ab3a63ef1ec90"
 }
