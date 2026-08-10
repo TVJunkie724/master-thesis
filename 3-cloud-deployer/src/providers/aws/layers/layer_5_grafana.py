@@ -76,7 +76,8 @@ def _provisioning_service_account(provider: "AWSProvider", workspace_id: str) ->
             name=name,
             grafanaRole="ADMIN",
         )["id"]
-    token_name = "bounded-post-deploy"
+    # This is the public service-account token label, never the generated key.
+    token_name = "bounded-post-deploy"  # nosec B105
     for token in client.list_workspace_service_account_tokens(
         workspaceId=workspace_id,
         serviceAccountId=service_account_id,
