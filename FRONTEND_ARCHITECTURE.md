@@ -18,8 +18,8 @@ implementation plans are authoritative.
 - The implemented Configuration Workspace supersedes the historical
   credential-first wizard below. Draft, workload, calculation, and architecture
   review remain credential-free. Guided creation of a bounded deployment
-  CloudConnection is planned only in Prepare deployment and the shared Settings
-  entry point; see
+  CloudConnection is implemented in Prepare deployment and the shared Settings
+  entry point through a deterministic offline adapter; see
   [Configuration Workspace Phase 9](twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md).
 - `WizardBloc` owns the server-driven architecture catalog, pinned selection,
   detail acknowledgement, revisioned invalidation preview, stale-conflict
@@ -340,12 +340,12 @@ The original wireframe below predates the implemented Twin Overview operation
 hardening. The current screen order is Navigation, Twin identity, Deployment
 Readiness, Deployment Actions, deployed-only Testing Utilities, redacted
 Terraform Outputs, Verification, and Configuration Review. Frontend Delta 8.6
-plans one deployed-only section between Readiness and Actions:
+adds one deployed-only section between Readiness and Actions:
 
 ```
 Twin Overview
 |-- Deployment Readiness
-|-- Layer Access                              [planned: Frontend Delta 8.6]
+|-- Layer Access                              [implemented offline]
 |   |-- L4 Semantic Twin
 |   |   `-- provider service, readiness, identity, Open Twin UI
 |   `-- L5 Raw & Rollups
@@ -374,6 +374,8 @@ The binding concept and full responsive widget/state/API/test plan are
 [Twin Layer Access Handoff](twin2multicloud_flutter/docs/frontend_delta/concepts/CONCEPT_TWIN_LAYER_ACCESS_HANDOFF.md)
 and
 [its implementation plan](twin2multicloud_flutter/implementation_plans/2026-07-31_twin_layer_access_handoff.md).
+The implementation reference is
+[Layer Access Panel](twin2multicloud_flutter/docs/frontend_delta/implementation/layer_access_panel.md).
 
 ---
 

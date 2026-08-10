@@ -2,8 +2,8 @@
 title: "Phase 8 Five-Layer v2 Layer Access Handoff"
 description: "Feasibility and implementation boundary for usable post-deployment L4 and L5 browser access."
 tags: [architecture, flutter, deployment, identity, digital-twin, grafana, phase-8]
-lastUpdated: "2026-08-03"
-version: "1.3"
+lastUpdated: "2026-08-11"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -17,16 +17,16 @@ version: "1.3"
 - User-approved PoC boundary: inspect both L4 and L5 after deployment, keep L4
   independent from the provider-local L3-hot/L5 bundle, and avoid unjustified
   production infrastructure
-EXTRACTED: 2026-08-03 | VERSION: 1.3
+EXTRACTED: 2026-08-11 | VERSION: 1.4
 -->
 
 # Phase 8 Five-Layer v2 Layer Access Handoff
 
 ## 0. Decision And Scope
 
-This document records the missing post-deployment requirement for
-`five-layer-baseline@2` and closes its feasibility boundary before
-implementation:
+This document records the post-deployment requirement for
+`five-layer-baseline@2`, its feasibility boundary, and the completed offline
+implementation slice:
 
 1. a successful deployment must expose one usable L4 browser surface and one
    usable L5 browser surface in Twin Overview;
@@ -52,6 +52,20 @@ This is PoC infrastructure, not an enterprise access portal. It adds only the
 smallest provider support needed to inspect the two scientific layers. Custom
 scene plugins, multi-tenant RBAC administration, high availability, custom
 domains, and automated browser login are outside scope.
+
+### Implementation Status
+
+The cross-stack Layer Access slice is implemented on
+`codex/phase-8-9a-layer-access`. Deployer projects provider evidence only after
+resource, access-binding, deterministic-content, and data-probe gates;
+Management persists an owner-scoped secret-free snapshot and serialized GCP
+Viewer rotation metadata; Flutter provides strict state, responsive cards,
+safe external launch, and one-time reveal. An isolated real local Management
+API passes all nine provider pairs and the lifecycle/security edge cases.
+
+This is offline evidence only. `five-layer-baseline@2` remains `draft`, the
+runtime-selectable set remains empty, and no provider browser sign-in, live
+capacity, `terraform apply`, or cloud deployment was performed.
 
 ## 1. Feasibility Result
 
@@ -452,7 +466,6 @@ provider prerequisite changed after a successful preflight. In that case Twin
 Overview shows the deployment as deployed but the affected card as blocked,
 with safe remediation. A new deployment cannot start when its required
 interactive principal or first-time IAP prerequisite is already known to be
-missing.
 
 ## 12. Offline Feasibility Verification
 
@@ -467,6 +480,17 @@ The implementation gate must prove without cloud credentials or `apply`:
 | Management | Owner/404 isolation, exactly-two-surface available response, zero-surface unsupported response, lifecycle invalidation, output allowlist, redaction, rotation serialization, and response-body log exclusion |
 | Flutter | Strict DTO/BLoC/widget/screen/demo tests plus real local Management integration over every placement; no output-key inference |
 | Documentation | `git diff --check`, internal-link validation, strict MkDocs, and secret/physical-identifier scan |
+
+Implemented local evidence on 2026-08-11:
+
+- deterministic AWS L4 semantic seed plus provider readback (`a79f15ef`);
+- synchronous Terraform-output redaction (`836bd776`);
+- runtime-evidence-gated surface readiness across all nine pairs
+  (`bb41105c`);
+- isolated real-HTTP Flutter integration, test-route quarantine, owner/destroy
+  edges, redacted generic outputs, and serialized rotation (`db1f6a2a`);
+- 10/10 Flutter integration cases, 24 focused Management tests, analyzer, Bash
+  syntax, and entrypoint contract tests pass. No live cloud command ran.
 
 The optional supervised live gate then proves what offline evidence cannot:
 resource availability in the fixed regions, actual provider login, L4 seed
@@ -504,11 +528,11 @@ an admission prerequisite instead of claiming universal unattended setup.
 
 ## 14. Definition Of Done
 
-- [ ] The complete-service decision package contains this access contract and
+- [x] The complete-service decision package contains this access contract and
       the one-Firestore tradeoff.
-- [ ] Exactly one typed L4 and one typed L5 access surface resolve for every
+- [x] Exactly one typed L4 and one typed L5 access surface resolve for every
       Five-layer v2 deployment.
-- [ ] All nine placement fixtures pass, including all three single-cloud rows.
+- [x] All nine placement fixtures pass, including all three single-cloud rows.
 - [ ] AWS, Azure, and GCP interactive identity prerequisites are preflighted
       independently from deployment credentials.
 - [ ] A missing deployment CloudConnection starts the guided bootstrap rather
@@ -524,19 +548,19 @@ an admission prerequisite instead of claiming universal unattended setup.
 - [ ] Each L4 opens a usable semantic Twin UI with deterministic content.
 - [ ] Each L5 opens a usable Grafana dashboard with deterministic raw/rollup
       content and an honest no-data state.
-- [ ] No L4-to-L5, scene, 3D, or custom Grafana Twin plugin is introduced.
-- [ ] GCP uses one Firestore database per deployment and documents its weaker
+- [x] No L4-to-L5, scene, 3D, or custom Grafana Twin plugin is introduced.
+- [x] GCP uses one Firestore database per deployment and documents its weaker
       collection-isolation boundary.
-- [ ] Flutter consumes Management API only and never interprets raw Terraform
+- [x] Flutter consumes Management API only and never interprets raw Terraform
       outputs as access configuration.
-- [ ] GCP Viewer credential rotation reveals only the human Viewer password
+- [x] GCP Viewer credential rotation reveals only the human Viewer password
       once; no provisioning or reader secret crosses the Management boundary.
-- [ ] Rotation is serialized and non-retried, and the credential never enters
+- [x] Rotation is serialized and non-retried, and the credential never enters
       logs, state projections, metrics, or clipboard automatically.
 - [ ] L4 inspection reads, seed writes, GCP Explorer runtime, interactive
       bindings, and mandatory human seats are priced rather than hidden.
-- [ ] Destroy and redeploy invalidate old URLs, bindings, credentials, and
+- [x] Destroy and redeploy invalidate old URLs, bindings, credentials, and
       access evidence.
-- [ ] Offline tests make no live-cloud/browser claim.
+- [x] Offline tests make no live-cloud/browser claim.
 - [ ] Two fresh architect/builder and cross-stack reviews have zero unresolved
-      findings before implementation begins.
+      findings before profile activation.

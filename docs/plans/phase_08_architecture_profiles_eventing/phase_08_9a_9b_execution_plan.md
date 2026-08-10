@@ -2,8 +2,8 @@
 title: "Phase 8.9 Execution Plan: Five-Layer v2 Then Six-Layer v1"
 description: "Cross-stack implementation sequence for the complete bounded Phase 8 thesis PoC."
 tags: [phase-8, architecture-profiles, optimizer, deployer, management-api, flutter, thesis]
-lastUpdated: "2026-08-04"
-version: "1.1"
+lastUpdated: "2026-08-11"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "1.1"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_9_six_layer_eventing_implementation.md
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md
 - User implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-04 | VERSION: 1.1
+EXTRACTED: 2026-08-11 | VERSION: 1.2
 -->
 
 # Phase 8.9 Execution Plan: Five-Layer v2 Then Six-Layer v1
@@ -29,6 +29,17 @@ steps. The result supports planning, calculation, deployment packaging, cloud
 access preparation, and UI review for `five-layer-baseline@2`, then adds
 `six-layer-eventing@1` as a strict delta. It does not attempt to become a
 general multi-cloud architecture product.
+
+### Current checkpoint (2026-08-11)
+
+Step F is implemented locally through the provider/runtime and Layer Access
+slices. The typed Management read model, provider-native L4/L5 access evidence,
+Flutter access surfaces, readiness/secret hardening, and all-nine-placement
+local integration coverage are committed through `db1f6a2a`. The profile is
+still `draft` and runtime selection remains default-off. Full safe gates,
+zero-finding reviews, activation, and the frozen Five-layer digest remain
+required before Step G can close or Step H can start. No live cloud deployment
+or provider sign-in evidence is claimed.
 
 ## 2. Binding PoC Boundaries
 
@@ -117,7 +128,7 @@ The contract freeze is data and tests only. It creates no cloud resources.
 | C | `codex/phase-8-deployer-graph-resolver` `[AI-0803-DPGR]` | Finish/review the existing dark 8.6 graph resolver without profile-specific runtime resources |
 | D | `codex/phase-8-profile-workflow` `[AI-0803-PROF]` | Strict backend DTOs and Flutter Phase 8.1 selection/workload/resolved review |
 | E | `codex/phase-8-guided-bootstrap` `[AI-0803-BOOT]` | Request-scoped admin bootstrap, bounded CloudConnections, shared Settings/Prepare Deployment UI |
-| F | `codex/phase-8-five-layer-v2` multiple scoped commits | RTA v2/RDS v2/Manifest v4, provider services, tiering, readers, projection, access surfaces, optimizer costs, Management persistence, Deployer/Terraform, UI activation |
+| F | `codex/phase-8-five-layer-v2` plus `codex/phase-8-9a-layer-access`, multiple scoped commits | In progress: RTA v2/RDS v2/Manifest v4, provider services, tiering, readers, projection, access surfaces, optimizer costs, Management persistence, and Deployer/Terraform are implemented offline; UI/runtime activation remains gated |
 | G | Five-layer audit `[AI-0803-F5RV]` | Full safe review until zero findings and frozen Five-layer evidence commit |
 | H | `codex/phase-8-six-layer-eventing-v1` multiple scoped commits | Exact 8.9B Event Layer delta and all directed bridges |
 | I | Six-layer audit `[AI-0803-EVRV]` | Full safe review until zero findings and frozen Six-layer evidence commit |

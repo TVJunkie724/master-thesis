@@ -2,8 +2,8 @@
 title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
-lastUpdated: "2026-08-05"
-version: "4.4"
+lastUpdated: "2026-08-11"
+version: "4.5"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.4"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-05 | VERSION: 4.4
+EXTRACTED: 2026-08-11 | VERSION: 4.5
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -28,14 +28,14 @@ EXTRACTED: 2026-08-05 | VERSION: 4.4
 |---|---|
 | Repository | `TVJunkie724/master-thesis` |
 | Integration branch | `master` |
-| Planning base | `626e907a` |
-| Planning branch | `codex/phase-8-service-bundle-closure` |
-| Locally completed implementation | Phase 8.0 / #144 through Phase 8.7 / #138, prerequisite #113, and the offline guided-bootstrap closure / #154; open issues remain open until publication/merge |
+| Reviewed implementation base | `dd3707fd` on `codex/phase-8-five-layer-v2` |
+| Active implementation branch | `codex/phase-8-9a-layer-access` |
+| Locally completed implementation | Phase 8.0 / #144 through Phase 8.8, prerequisite #113, guided bootstrap / #154, and the Five-layer v2 runtime slices through Layer Access; open issues remain open until publication/merge |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | Guided bootstrap contracts, safe persistence, deterministic adapters, generated v2 CloudConnection admission, shared Flutter flow, and offline integration are committed and zero-finding reviewed; real/demo architecture catalogs remain empty and all new profiles remain default-off |
-| Next action | Branch from this reviewed boundary and implement `five-layer-baseline@2` / 8.9A |
+| Implementation status | The complete Five-layer v2 provider/runtime graph and typed L4/L5 Layer Access read model/UI are implemented and locally tested. `five-layer-baseline@2` remains `draft`, runtime selection remains empty/default-off, and the final full-stack activation reviews are still open. |
+| Next action | Finish the 8.9A documentation and full safe gates, review concept/plan/implementation until zero findings, then activate and freeze `five-layer-baseline@2` before starting Six-layer. |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -162,7 +162,7 @@ generated connection. Draft creation and calculation remain credential-free. The
 binding contract is
 [`phase_08_guided_cloud_bootstrap.md`](phase_08_guided_cloud_bootstrap.md).
 
-The offline PoC implementation is complete on
+The guided-bootstrap PoC boundary is complete on
 `codex/phase-8-guided-bootstrap`. It provides strict synchronized contracts,
 owner-scoped safe sessions, request-only credential handling, deterministic
 AWS/Azure/GCP adapter behavior, encrypted generated `thesis-demo-v2`
@@ -173,17 +173,28 @@ manual script/import path remains the supervised provider path. The isolated
 OrbStack gate proved that the submitted sentinel was absent from Management
 logs and SQLite persistence.
 
+Five-layer v2 subsequently reached the local Layer Access checkpoint on
+`codex/phase-8-9a-layer-access`. Commits `e6ceb41d` and `8974b869` add the typed
+deployment-access evidence and Management read model; `f1a599f0` through
+`bb41105c` add and harden the Flutter/provider access surfaces; `db1f6a2a`
+proves all nine L3/L5-to-L4 placements through a real local Management API.
+The verification is credential-free and creates no cloud resources. It does
+not prove provider-console sign-in, live Grafana access, cloud capacity, quota,
+or billed deployment behavior.
+
 ## Immediate Next Action
 
-Do not activate a profile. Complete these boundaries in order:
+Do not activate a profile before the remaining reviews and gates. Complete
+these boundaries in order:
 
 1. retain the committed concept, cross-stack execution plans, immutable
    complete-service decision, reviewed dark Phase 8.6 compiler, zero-finding
    Phase 8.7 workflow, and reviewed offline guided-bootstrap boundary;
 2. keep `five-layer-baseline@1`, Phase 8.5 admission, and all new profile
    execution default-off throughout that gate;
-3. implement and review `five-layer-baseline@2` / 8.9A including Layer Access;
-4. freeze the reviewed Five-layer v2 digest before starting the separate
+3. finish the documentation, full safe verification, and repeated
+   concept/plan/implementation review for `five-layer-baseline@2` / 8.9A;
+4. activate and freeze the reviewed Five-layer v2 digest before starting the separate
    Six-layer delta; then complete Phase 8.10 evaluation.
 
 ## Required Reading Order

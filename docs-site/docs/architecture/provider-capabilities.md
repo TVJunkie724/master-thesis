@@ -47,17 +47,20 @@ The current platform exposes all 21 provider-layer rows:
 deterministic contract evidence. It does not mean that the path has passed the final
 supervised live-cloud E2E gate.
 
-### Planned Phase 8 Successor Bundles
+### Implemented Draft Phase 8 Successor Bundles
 
-The following target is reviewed planning, not current runtime capability:
+The following target has contract, calculation, package, Terraform, runtime,
+post-deployment evidence, and local integration implementations. It remains a
+draft/default-off profile and therefore does not change the current selectable
+matrix above:
 
 | Provider | L1 target | L3-hot/L5 target | Independent L4 target | Status |
 |---|---|---|---|---|
-| AWS | IoT Core and IoT Commands | DynamoDB + typed local reader + Amazon Managed Grafana | IoT TwinMaker | planned, not selectable |
-| Azure | IoT Hub | Cosmos DB + typed local reader + Azure Managed Grafana | Azure Digital Twins | planned, not selectable |
-| GCP | BifroMQ on GKE + Pub/Sub | Firestore Native Standard edition + typed Cloud Run reader + one Grafana pod/Persistent Disk/TLS LoadBalancer on GKE with signed Infinity datasource | Cloud Run Twin API with a separate Firestore Native Standard edition database | planned, not selectable |
+| AWS | IoT Core and IoT Commands | DynamoDB + typed local reader + Amazon Managed Grafana | IoT TwinMaker | implemented offline, draft, not selectable |
+| Azure | IoT Hub | Cosmos DB + typed local reader + Azure Managed Grafana | Azure Digital Twins | implemented offline, draft, not selectable |
+| GCP | BifroMQ on GKE + Pub/Sub | Firestore Native Standard edition + typed Cloud Run reader + one Grafana pod/Persistent Disk/TLS LoadBalancer on GKE with signed Infinity datasource | Cloud Run Twin API using the deployment's one Firestore Native database with separate L3/L4 collection contracts | implemented offline, draft, not selectable |
 
-`five-layer-baseline@2` is the only currently planned implementation. A later
+`five-layer-baseline@2` is the only current draft implementation. A later
 Six-layer plan must inherit its committed L1-L5 target unchanged; it does not
 add GCP's BifroMQ boundary only to that profile.
 
@@ -66,8 +69,9 @@ The first target version keeps
 raw-history visualization from L3 hot and selected Twin projection from L3 hot
 to L4. L4-to-L5/3D visualization, ADX migration, Spanner Graph, a default
 dedicated Grafana node pool, and storage-specific CDC/outbox/broker pipelines
-are not selected for the PoC. None of these planning decisions changes a row
-above to `available`.
+are not selected for the PoC. None of this offline implementation evidence
+changes a row above to `available`: publication/selectability and supervised
+browser/capacity evidence are still pending.
 
 ## Contract Semantics
 

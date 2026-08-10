@@ -2,17 +2,19 @@
 title: "FR-001 Deployment Layer Access Read Model"
 description: "Typed Management API contract for post-deployment L4/L5 links, readiness, and bounded credential rotation."
 tags: [flutter, feature-request, management-api, deployer, layer-access]
-lastUpdated: "2026-07-31"
-version: "1.0"
+lastUpdated: "2026-08-11"
+version: "1.1"
 ---
 
 # FR-001 Deployment Layer Access Read Model
 
 ## Status
 
-**Planned.** Target components are `twin2multicloud_backend` and
-`3-cloud-deployer`. Flutter implementation is blocked until the contract and
-strict fixtures are committed.
+**Implemented and offline verified.** `twin2multicloud_backend`,
+`3-cloud-deployer`, and Flutter share strict contracts and fixtures. The local
+integration uses a real Management API with deterministic test-only provider
+mutation; no cloud resource or browser session is involved. Five-layer v2 is
+still draft/default-off until the wider Phase 8.9A gate completes.
 
 ## Problem
 
@@ -60,3 +62,17 @@ Access section from existing endpoints.
 
 See
 [`phase_08_layer_access_handoff.md`](../../../docs/plans/phase_08_architecture_profiles_eventing/phase_08_layer_access_handoff.md).
+
+## Implemented Evidence
+
+- Deployer emits allowlisted L4/L5 evidence only after provider resource,
+  identity, content, and data-probe gates; synchronous output projection is
+  redacted.
+- Management persists and owner-scopes `deployment-access.v1`, returns an
+  explicit historical-v1 unsupported shape, and serializes GCP Viewer
+  rotation while retaining only its timestamp and SHA-256 fingerprint.
+- Flutter implements strict DTOs, isolated BLoC state, responsive cards,
+  injected external launching, confirmation, and one-time reveal/consume.
+- The local integration suite covers all nine provider pairs plus owner 404,
+  blocked readiness, historical, destroyed, output-redaction, replacement
+  rotation, and concurrent 409 behavior.

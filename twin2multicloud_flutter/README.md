@@ -65,6 +65,21 @@ adapters and create no cloud resource. Production adapters remain disabled and
 fail closed; the versioned external provider scripts plus secure import remain
 the supervised live-provider path.
 
+## Post-Deployment Layer Access
+
+For deployed `five-layer-baseline@2` evidence, Twin Overview renders one typed
+L4 semantic Twin card and one typed L5 raw/rollup Grafana card. Links,
+provider-owned authentication, capabilities, limitations, and readiness come
+from the owner-scoped Management API; Flutter never derives them from generic
+Terraform outputs. AWS uses Identity Center, Azure uses Entra ID, and GCP L4
+uses IAP. GCP Grafana alone supports an explicit Viewer-password rotation and
+one-time reveal; Flutter does not persist the value.
+
+All nine L4/L5 provider pairs pass against an isolated local Management API.
+That gate creates no cloud resources. The Five-layer v2 profile remains draft
+until the wider Phase 8.9A activation review, and actual provider-console
+browser sign-in remains a supervised live check.
+
 ## Quality Checks
 
 ```bash

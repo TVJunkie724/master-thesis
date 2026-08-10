@@ -2,8 +2,8 @@
 title: "Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure"
 description: "PoC-focused corrective plan for the executable five-layer-baseline@2 placement experiment."
 tags: [architecture, services, multicloud, identity, capacity, optimizer, deployer, phase-8]
-lastUpdated: "2026-08-07"
-version: "1.17"
+lastUpdated: "2026-08-11"
+version: "1.18"
 ---
 
 <!-- SOURCES:
@@ -18,7 +18,7 @@ version: "1.17"
 - User-approved functionality-first PoC selection, L3-hot/L5 co-location,
   independent L4 placement, Cosmos DB and Firestore L3 continuity, and mandatory
   single-cloud/multicloud coverage
-EXTRACTED: 2026-08-07 | VERSION: 1.17
+EXTRACTED: 2026-08-11 | VERSION: 1.18
 -->
 
 # Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure
@@ -37,7 +37,7 @@ EXTRACTED: 2026-08-07 | VERSION: 1.17
 | Selection rule | Provider service bundles are chosen for required functionality and theoretical Small/Medium/Large admissibility, not lowest service price; after that freeze, the Optimizer still ranks complete placement candidates by estimated cost within one profile |
 | PoC rule | Add only components required by the shared functional contract or by a measured capacity boundary |
 | LaTeX | Excluded without separate approval |
-| Review status | Six prior planning passes plus three complete-service package reviews have zero unresolved findings; implementation was explicitly authorized on 2026-08-03 and is governed by the reviewed execution plan |
+| Review status | Planning and complete-service package reviews are closed; Five-layer v2 runtime slices through offline Layer Access are implemented, while activation and final cross-stack reviews remain open |
 
 Where an older Phase 8 plan conflicts with this corrective gate, this document
 controls new-profile implementation. Historical artifacts, digests, and
@@ -46,7 +46,7 @@ completion evidence remain unchanged and are annotated rather than rewritten.
 The immutable `phase-08-eventing-implementation@1` package remains unchanged.
 It proves the domain-event behavior and bridge primitives reused by embedded
 Five-layer v2 ownership, not the complete Twin and not a Six-layer runtime
-approval. Before Phase 8.9A implementation, this plan produces a separate immutable
+approval. Before Phase 8.9A runtime activation, this plan produced a separate immutable
 `phase-08-complete-service-bundles@1` package, now approved at the offline
 decision boundary. Runtime activation requires both
 digests and fails closed on conflicting ownership, identity, service, route, or
@@ -1418,6 +1418,21 @@ Five-layer v2 contract-freeze verification on 2026-08-04:
   three Python services; profile exposure, calculation, persistence,
   deployment, and Flutter activation remain later implementation slices.
 
+Five-layer v2 Layer Access implementation verification on 2026-08-11:
+
+- Deployer projects typed surface readiness only from matching post-deployment
+  provider evidence; resource creation alone cannot mark content/data ready;
+- Management persists and owner-scopes the exact two-surface contract,
+  preserves historical-v1 unsupported state, redacts generic outputs, and
+  stores only timestamp/fingerprint after GCP Viewer rotation;
+- Flutter provides strict DTO/BLoC/widget/dialog behavior and calls only the
+  Management API;
+- an isolated real local API passes ten integration cases covering every
+  L4/L5 provider pair, owner 404, blocked access, historical, destroyed,
+  redaction, replacement rotation, and concurrent 409 behavior;
+- all evidence is credential-free/offline. The profile remains draft and
+  default-off; no browser sign-in or live capacity is claimed.
+
 ## 10. Failure Codes
 
 Add or update:
@@ -1550,7 +1565,7 @@ and correlation ID.
       Flutter/callers cannot edit or duplicate its canonical fields.
 - [ ] Both scenario families pass theoretical Small/Medium/Large admission or
       return an explicit unsupported result.
-- [ ] Live uncertainty remains visible and no offline check claims live proof.
+- [x] Live uncertainty remains visible and no offline check claims live proof.
 - [ ] Optimizer, Management, Deployer, Terraform, Flutter, research, and MkDocs
       responsibilities agree.
 - [ ] 8.9A uses a clean branch, commits, and review cycle; 8.9B starts only from
