@@ -54,6 +54,11 @@ class DeploymentResult(BaseModel):
     terraform_outputs: dict[str, Any] = Field(default_factory=dict)
     deployment_access_evidence: dict[str, Any] | None = None
 
+    @field_validator("terraform_outputs")
+    @classmethod
+    def sanitize_outputs(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return sanitize_terraform_outputs(value) or {}
+
     @field_validator("deployment_access_evidence")
     @classmethod
     def validate_access_evidence(

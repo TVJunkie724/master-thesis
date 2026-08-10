@@ -7,7 +7,11 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from src.api.models.deployment import DeploymentOperation, DeploymentStreamEvent
+from src.api.models.deployment import (
+    DeploymentOperation,
+    DeploymentResult,
+    DeploymentStreamEvent,
+)
 from src.deployment_access import (
     DeploymentAccessProjectionError,
     project_deployment_access_evidence,
@@ -163,3 +167,24 @@ def test_stream_model_revalidates_evidence_before_serializing() -> None:
             DeploymentOperation.deploy,
             deployment_access_evidence=evidence,
         )
+
+
+def test_synchronous_result_redacts_internal_rotation_secret() -> None:
+    result = DeploymentResult(
+        project_name="factory",
+        provider="terraform",
+        operation_id="operation-1",
+        terraform_outputs={
+            "gcp_grafana_rotation_secret": {"admin_password": "must-not-cross"},
+            "gcp_component_visualization_output": {
+                "endpoint": "https://grafana.example.invalid"
+            },
+        },
+    )
+
+    assert result.terraform_outputs == {
+        "gcp_grafana_rotation_secret": "[REDACTED]",
+        "gcp_component_visualization_output": {
+            "endpoint": "https://grafana.example.invalid"
+        },
+    }
