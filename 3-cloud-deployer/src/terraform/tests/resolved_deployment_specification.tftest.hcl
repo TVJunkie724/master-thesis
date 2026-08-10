@@ -58,7 +58,7 @@ run "five_layer_v2_single_cloud_aws_binds_only_reviewed_bundle" {
     platform_user_email                   = "researcher@example.test"
     platform_user_first_name              = "Thesis"
     platform_user_last_name               = "Researcher"
-    aws_layer_access_principal_intent      = "invite_builtin"
+    aws_layer_access_principal_intent     = "invite_builtin"
     enable_aws_logging                    = false
     aws_v2_storage_mover_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-v2-images@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     resolved_component_dimensions = {
@@ -1057,7 +1057,7 @@ run "five_layer_v2_gcp_archive_only_accepts_remote_cool_objects" {
     platform_user_email                   = "researcher@example.test"
     platform_user_first_name              = "Thesis"
     platform_user_last_name               = "Researcher"
-    aws_layer_access_principal_intent      = "invite_builtin"
+    aws_layer_access_principal_intent     = "invite_builtin"
     gcp_project_id                        = "phase8-poc-project"
     gcp_region                            = "europe-west1"
     gcp_v2_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -1256,7 +1256,7 @@ run "five_layer_v2_gcp_l4_stays_independent_from_aws_l3_l5" {
     platform_user_email                   = "researcher@example.test"
     platform_user_first_name              = "Thesis"
     platform_user_last_name               = "Researcher"
-    aws_layer_access_principal_intent      = "invite_builtin"
+    aws_layer_access_principal_intent     = "invite_builtin"
     gcp_project_id                        = "phase8-poc-project"
     gcp_region                            = "europe-west1"
     gcp_v2_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
