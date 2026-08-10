@@ -152,6 +152,27 @@ class ThesisEntrypointTests(unittest.TestCase):
         self.assertNotIn("compose_cmd down", integration_gate)
         self.assertNotIn("compose_cmd restart", integration_gate)
 
+    def test_frontend_integration_quarantines_layer_access_fixtures(self) -> None:
+        script = SCRIPT.read_text(encoding="utf-8")
+        integration_gate = script.split(
+            "run_frontend_integration_tests() {", 1
+        )[1].split("run_deployment_contract_tests() {", 1)[0]
+
+        self.assertIn('ENABLE_TEST_ENDPOINTS=true', integration_gate)
+        self.assertIn(
+            'DATABASE_URL=sqlite:////tmp/layer-access-integration.db',
+            integration_gate,
+        )
+        self.assertIn('--no-deps', integration_gate)
+        self.assertIn(
+            'integration_test/twin_layer_access_flow_test.dart', integration_gate
+        )
+        self.assertIn(
+            'docker_cmd stop "$layer_access_container"', integration_gate
+        )
+        self.assertIn("fixture-viewer-", integration_gate)
+        self.assertNotIn('--with-credentials', integration_gate)
+
 
 if __name__ == "__main__":
     unittest.main()

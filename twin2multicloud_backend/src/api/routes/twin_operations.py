@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -60,7 +59,7 @@ from src.services.twin_export_service import TwinExportService
 
 logger = logging.getLogger(__name__)
 
-TEST_MODE = os.getenv("ENABLE_TEST_ENDPOINTS", "false").lower() == "true"
+TEST_MODE = settings.ENABLE_TEST_ENDPOINTS
 
 router = APIRouter(prefix="/twins", tags=["twins"])
 
@@ -103,6 +102,20 @@ def _deployment_readiness_service(db: Session) -> DeploymentReadinessService:
 def _deployment_access_service(db: Session) -> DeploymentAccessService:
     """Build the owner-scoped Layer Access read service."""
     from src.repositories.deployment_repository import DeploymentRepository
+
+    if TEST_MODE:
+        from src.services.test_layer_access_service import (
+            TestLayerAccessDeployerClient,
+            prepare_test_layer_access_rotation,
+        )
+
+        return DeploymentAccessService(
+            twin_repository=TwinRepository(db),
+            deployment_repository=DeploymentRepository(db),
+            db=db,
+            deployer_client=TestLayerAccessDeployerClient(),
+            project_preparer=prepare_test_layer_access_rotation,
+        )
 
     return DeploymentAccessService(
         twin_repository=TwinRepository(db),

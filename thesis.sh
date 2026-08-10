@@ -12,6 +12,7 @@ THESIS_COMPOSE_PROJECT="${THESIS_COMPOSE_PROJECT:-master-thesis}"
 THESIS_OPTIMIZER_PORT="${THESIS_OPTIMIZER_PORT:-5003}"
 THESIS_DEPLOYER_PORT="${THESIS_DEPLOYER_PORT:-5004}"
 THESIS_MANAGEMENT_API_PORT="${THESIS_MANAGEMENT_API_PORT:-5005}"
+THESIS_LAYER_ACCESS_TEST_PORT="${THESIS_LAYER_ACCESS_TEST_PORT:-5515}"
 THESIS_DOCS_PORT="${THESIS_DOCS_PORT:-5010}"
 THESIS_API_BASE_URL="${THESIS_API_BASE_URL:-http://localhost:${THESIS_MANAGEMENT_API_PORT}}"
 THESIS_DEV_AUTH_TOKEN="${THESIS_DEV_AUTH_TOKEN:-dev-token}"
@@ -118,6 +119,8 @@ Environment:
   THESIS_OPTIMIZER_PORT        Host port for Optimizer. Default: 5003.
   THESIS_DEPLOYER_PORT         Host port for Deployer. Default: 5004.
   THESIS_MANAGEMENT_API_PORT   Host port for Management API. Default: 5005.
+  THESIS_LAYER_ACCESS_TEST_PORT
+                               Isolated test-only Management API port. Default: 5515.
   THESIS_DOCS_PORT             Host port for MkDocs. Default: 5010.
   THESIS_API_BASE_URL          Flutter API URL. Default: http://localhost:${THESIS_MANAGEMENT_API_PORT}.
   THESIS_DEV_AUTH_TOKEN        Flutter dev auth token. Default: dev-token.
@@ -524,6 +527,7 @@ run_frontend_integration_tests() {
 
   bootstrap_local_runtime_secrets
   local required_services=(2twin2clouds 3cloud-deployer management-api)
+  local layer_access_container="${THESIS_COMPOSE_PROJECT}-layer-access-it-$$"
   local running_before
   running_before="$(compose_cmd ps --services --filter status=running)"
   local started_services=()
@@ -571,6 +575,32 @@ run_frontend_integration_tests() {
       -d "$host_device" \
       --dart-define-from-file=config/dev.json)
 
+    info "Starting an isolated credential-free Layer Access fixture API."
+    compose_cmd run -d --rm --no-deps \
+      --name "$layer_access_container" \
+      -p "127.0.0.1:${THESIS_LAYER_ACCESS_TEST_PORT}:5005" \
+      -e "DATABASE_URL=sqlite:////tmp/layer-access-integration.db" \
+      -e "ENABLE_TEST_ENDPOINTS=true" \
+      management-api >/dev/null
+    wait_for_url \
+      "Layer Access fixture API" \
+      "http://127.0.0.1:${THESIS_LAYER_ACCESS_TEST_PORT}/health"
+    info "Running the real Management API Layer Access contract on $host_device."
+    (cd "$FLUTTER_DIR" && flutter test \
+      integration_test/twin_layer_access_flow_test.dart \
+      -d "$host_device" \
+      --dart-define="APP_MODE=development" \
+      --dart-define="API_BASE_URL=http://127.0.0.1:${THESIS_LAYER_ACCESS_TEST_PORT}" \
+      --dart-define="DEV_AUTH_TOKEN=${THESIS_DEV_AUTH_TOKEN}")
+
+    if docker_cmd logs "$layer_access_container" 2>&1 | grep -Fq "fixture-viewer-"; then
+      fail "A one-time Layer Access test credential was found in API logs."
+    fi
+    if docker_cmd exec "$layer_access_container" sh -c \
+      "grep -aFq 'fixture-viewer-' /tmp/layer-access-integration.db* 2>/dev/null"; then
+      fail "A one-time Layer Access test credential was found in persistence."
+    fi
+
     local bootstrap_sentinel="phase8-submitted-bootstrap-secret-never-persist"
     if compose_cmd logs management-api 2>&1 | grep -Fq "$bootstrap_sentinel"; then
       fail "Guided bootstrap submitted secret was found in Management API logs."
@@ -582,6 +612,11 @@ run_frontend_integration_tests() {
   )
   integration_status=$?
   set -e
+
+  if docker_cmd inspect "$layer_access_container" >/dev/null 2>&1; then
+    info "Stopping the isolated Layer Access fixture API started by this run."
+    docker_cmd stop "$layer_access_container" >/dev/null || true
+  fi
 
   if [ "${#started_services[@]}" -gt 0 ]; then
     info "Stopping only services started by this integration run: ${started_services[*]}"
