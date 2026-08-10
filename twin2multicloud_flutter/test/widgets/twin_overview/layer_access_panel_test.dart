@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
@@ -180,6 +181,45 @@ void main() {
     expect(find.text('Browser sign-in is user verified.'), findsWidgets);
     expect(find.textContaining('secret'), findsNothing);
   });
+
+  testWidgets('keyboard focus follows L4 then L5 action hierarchy', (
+    tester,
+  ) async {
+    await _pumpHost(tester, state: _state(l5: CloudProvider.gcp));
+
+    for (final key in const [
+      'open-layer-l4',
+      'layer-access-details-l4',
+      'open-layer-l5',
+      'rotate-gcp-viewer',
+      'layer-access-details-l5',
+    ]) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(
+        _containsPrimaryFocus(tester, find.byKey(Key(key))),
+        isTrue,
+        reason: 'Expected focus within $key.',
+      );
+    }
+  });
+}
+
+bool _containsPrimaryFocus(WidgetTester tester, Finder finder) {
+  final focusContext = FocusManager.instance.primaryFocus?.context;
+  if (focusContext is! Element) return false;
+  var containsFocus = false;
+
+  void inspect(Element element) {
+    if (identical(element, focusContext)) {
+      containsFocus = true;
+      return;
+    }
+    element.visitChildElements(inspect);
+  }
+
+  inspect(tester.element(finder));
+  return containsFocus;
 }
 
 FilledButton _filledButton(WidgetTester tester, String key) {

@@ -158,6 +158,133 @@ void main() {
     );
   });
 
+  test('deployment access encodes the opaque twin path segment', () async {
+    String? path;
+    final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+    dio.httpClientAdapter = CallbackAdapter((options) {
+      path = options.path;
+      final response = deploymentAccessResponse();
+      response['twin_id'] = 'twin/with space';
+      return jsonResponse(response);
+    });
+
+    final snapshot = await ApiService(
+      dio: dio,
+    ).getDeploymentAccess('twin/with space');
+
+    expect(path, '/twins/twin%2Fwith%20space/deployment-access');
+    expect(snapshot.twinId, 'twin/with space');
+  });
+
+  test(
+    'deployment access rejects malformed responses before BLoC use',
+    () async {
+      final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+      dio.httpClientAdapter = CallbackAdapter(
+        (_) => jsonResponse({
+          ...deploymentAccessResponse(),
+          'schema_version': 'deployment-access.v2',
+        }),
+      );
+
+      await expectLater(
+        ApiService(dio: dio).getDeploymentAccess('twin-1'),
+        throwsA(
+          isA<AppException>().having(
+            (error) => error.code,
+            'code',
+            'DEPLOYMENT_ACCESS_CONTRACT_INVALID',
+          ),
+        ),
+      );
+    },
+  );
+
+  test('deployment access preserves safe 403 and 404 error mapping', () async {
+    for (final statusCode in [403, 404]) {
+      final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+      dio.httpClientAdapter = CallbackAdapter(
+        (_) => jsonResponse({
+          'detail': statusCode == 404 ? 'Twin not found' : 'Forbidden',
+        }, statusCode: statusCode),
+      );
+
+      try {
+        await ApiService(dio: dio).getDeploymentAccess('twin-1');
+        fail('Expected HTTP $statusCode to fail.');
+      } on DioException catch (error) {
+        final safe = AppException.fromDioError(error);
+        expect(safe.code, 'HTTP_$statusCode');
+        expect(
+          safe.message,
+          statusCode == 404 ? 'Twin not found' : 'Forbidden',
+        );
+      }
+    }
+  });
+
+  test('credential rotation performs one request on a 503 failure', () async {
+    var requestCount = 0;
+    final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+    dio.httpClientAdapter = CallbackAdapter((_) {
+      requestCount += 1;
+      return jsonResponse({
+        'detail': 'Rotation temporarily unavailable',
+      }, statusCode: 503);
+    });
+
+    try {
+      await ApiService(dio: dio).rotateGcpGrafanaViewerCredential('twin-1');
+      fail('Expected rotation to fail.');
+    } on DioException catch (error) {
+      expect(AppException.fromDioError(error).code, 'HTTP_503');
+    }
+    expect(requestCount, 1);
+  });
+
+  test(
+    'credential response keeps the one-time password out of diagnostics',
+    () async {
+      const password = 'one-time-secret-must-not-log';
+      final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+      dio.httpClientAdapter = CallbackAdapter(
+        (_) => jsonResponse({
+          'schema_version': 'deployment-access-credential.v1',
+          'layer': 'l5',
+          'provider': 'gcp',
+          'username': 'viewer@example.invalid',
+          'password': password,
+          'issued_at': '2026-07-14T08:31:00Z',
+        }),
+      );
+
+      final credential = await ApiService(
+        dio: dio,
+      ).rotateGcpGrafanaViewerCredential('twin-1');
+
+      expect(credential.password, password);
+      expect(credential.toString(), isNot(contains(password)));
+    },
+  );
+
+  test(
+    'historical access is represented by the typed unsupported state',
+    () async {
+      final response = deploymentAccessResponse()
+        ..['availability'] = 'unsupported'
+        ..['reason_code'] = 'unsupported_historical_profile'
+        ..['surfaces'] = <Object>[];
+      final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+      dio.httpClientAdapter = CallbackAdapter((_) => jsonResponse(response));
+
+      final snapshot = await ApiService(dio: dio).getDeploymentAccess('twin-1');
+
+      expect(snapshot.availability, DeploymentAccessAvailability.unsupported);
+      expect(snapshot.reasonCode, 'unsupported_historical_profile');
+      expect(snapshot.surfaces, isEmpty);
+    },
+  );
+
   test('deployment adapter rejects invalid pagination before I/O', () async {
     var requestCount = 0;
     final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
@@ -263,10 +390,10 @@ class CallbackAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-ResponseBody jsonResponse(Map<String, dynamic> body) {
+ResponseBody jsonResponse(Map<String, dynamic> body, {int statusCode = 200}) {
   return ResponseBody.fromString(
     jsonEncode(body),
-    200,
+    statusCode,
     headers: {
       Headers.contentTypeHeader: ['application/json'],
     },

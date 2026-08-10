@@ -87,6 +87,34 @@ void main() {
     ).called(1);
   });
 
+  testWidgets('rapid Open clicks create one isolated launch per click', (
+    tester,
+  ) async {
+    final bloc = _MockTwinOverviewBloc();
+    final launcher = _MockExternalAuthLauncher();
+    final firstHandle = _MockExternalAuthLaunchHandle();
+    final secondHandle = _MockExternalAuthLaunchHandle();
+    final state = _loadedState();
+    final l4 = state.layerAccess.snapshot!.surfaceFor(DeploymentLayer.l4)!;
+    var reservation = 0;
+    when(
+      () => launcher.reserve(),
+    ).thenAnswer((_) => reservation++ == 0 ? firstHandle : secondHandle);
+    when(() => firstHandle.navigate(l4.url)).thenAnswer((_) async => true);
+    when(() => secondHandle.navigate(l4.url)).thenAnswer((_) async => true);
+
+    await _pumpView(tester, bloc: bloc, state: state, launcher: launcher);
+    await tester.ensureVisible(find.byKey(const Key('open-layer-l4')));
+    await tester.tap(find.byKey(const Key('open-layer-l4')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('open-layer-l4')));
+    await tester.pump();
+
+    verify(() => launcher.reserve()).called(2);
+    verify(() => firstHandle.navigate(l4.url)).called(1);
+    verify(() => secondHandle.navigate(l4.url)).called(1);
+  });
+
   testWidgets('GCP Viewer rotation requires confirmation before one event', (
     tester,
   ) async {
@@ -153,6 +181,42 @@ void main() {
 
     expect(find.byType(GcpGrafanaCredentialRevealDialog), findsNothing);
     verifyNever(() => bloc.add(const TwinOverviewAccessCredentialConsumed(7)));
+  });
+
+  testWidgets('rotation failure stays inline and never opens a reveal dialog', (
+    tester,
+  ) async {
+    final bloc = _MockTwinOverviewBloc();
+    final launcher = _MockExternalAuthLauncher();
+    final states = StreamController<TwinOverviewState>.broadcast(sync: true);
+    addTearDown(states.close);
+    final initial = _loadedState(l5: CloudProvider.gcp);
+    whenListen(bloc, states.stream, initialState: initial);
+
+    await _pumpView(
+      tester,
+      bloc: bloc,
+      state: initial,
+      launcher: launcher,
+      stubStream: false,
+    );
+    states.add(
+      initial.copyWith(
+        layerAccess: initial.layerAccess.copyWith(
+          rotationError:
+              'Viewer credential rotation failed: '
+              'GCP_GRAFANA_VIEWER_ROTATION_IN_PROGRESS',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('GCP_GRAFANA_VIEWER_ROTATION_IN_PROGRESS'),
+      findsOneWidget,
+    );
+    expect(find.byType(GcpGrafanaCredentialRevealDialog), findsNothing);
+    verifyNever(() => bloc.add(const TwinOverviewAccessCredentialConsumed(1)));
   });
 
   testWidgets('layer access does not replace downstream deployment panels', (

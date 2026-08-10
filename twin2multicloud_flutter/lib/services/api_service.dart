@@ -69,6 +69,16 @@ String? _normalizeToken(String? value) {
   return value;
 }
 
+String _managementPathSegment(String value, String label) {
+  if (value.isEmpty || RegExp(r'[\x00-\x1F\x7F]').hasMatch(value)) {
+    throw AppException(
+      '$label must be a non-empty opaque identifier.',
+      code: 'DEPLOYMENT_REQUEST_INVALID',
+    );
+  }
+  return Uri.encodeComponent(value);
+}
+
 class ApiService implements ManagementApi {
   final Dio _dio;
   late final Uri _baseUri;
@@ -1208,7 +1218,8 @@ class ApiService implements ManagementApi {
 
   @override
   Future<DeploymentAccessSnapshot> getDeploymentAccess(String twinId) async {
-    final response = await _dio.get('/twins/$twinId/deployment-access');
+    final twinPath = _managementPathSegment(twinId, 'Twin ID');
+    final response = await _dio.get('/twins/$twinPath/deployment-access');
     return DeploymentAccessSnapshot.fromJson(
       _responseMap(response.data),
       expectedTwinId: twinId,
@@ -1219,8 +1230,9 @@ class ApiService implements ManagementApi {
   Future<DeploymentAccessCredential> rotateGcpGrafanaViewerCredential(
     String twinId,
   ) async {
+    final twinPath = _managementPathSegment(twinId, 'Twin ID');
     final response = await _dio.post(
-      '/twins/$twinId/deployment-access/l5/credentials:rotate',
+      '/twins/$twinPath/deployment-access/l5/credentials:rotate',
     );
     return DeploymentAccessCredential.fromJson(_responseMap(response.data));
   }

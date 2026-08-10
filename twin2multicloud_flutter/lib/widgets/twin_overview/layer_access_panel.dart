@@ -106,22 +106,28 @@ class LayerAccessPanel extends StatelessWidget {
         )
         .toList(growable: false);
     if (compact) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          cards.first,
-          const SizedBox(height: AppSpacing.lg),
-          cards.last,
-        ],
+      return FocusTraversalGroup(
+        policy: OrderedTraversalPolicy(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            cards.first,
+            const SizedBox(height: AppSpacing.lg),
+            cards.last,
+          ],
+        ),
       );
     }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: cards.first),
-        const SizedBox(width: AppSpacing.lg),
-        Expanded(child: cards.last),
-      ],
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: cards.first),
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(child: cards.last),
+        ],
+      ),
     );
   }
 }
@@ -330,28 +336,34 @@ class _Actions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final open = FilledButton.icon(
-      key: Key('open-layer-${surface.layer.name}'),
-      onPressed: canOpen ? onOpen : null,
-      icon: const Icon(Icons.open_in_new),
-      label: Text(
-        surface.layer == DeploymentLayer.l4 ? 'Open Twin UI' : 'Open Grafana',
+    final open = FocusTraversalOrder(
+      order: NumericFocusOrder(surface.layer == DeploymentLayer.l4 ? 1 : 3),
+      child: FilledButton.icon(
+        key: Key('open-layer-${surface.layer.name}'),
+        onPressed: canOpen ? onOpen : null,
+        icon: const Icon(Icons.open_in_new),
+        label: Text(
+          surface.layer == DeploymentLayer.l4 ? 'Open Twin UI' : 'Open Grafana',
+        ),
       ),
     );
     final rotate = canRotate
-        ? OutlinedButton.icon(
-            key: const Key('rotate-gcp-viewer'),
-            onPressed: rotating ? null : onRotate,
-            icon: rotating
-                ? const SizedBox.square(
-                    dimension: AppSpacing.iconMd,
-                    child: CircularProgressIndicator(
-                      strokeWidth:
-                          AppSpacing.compactProgressIndicatorStrokeWidth,
-                    ),
-                  )
-                : const Icon(Icons.key_outlined),
-            label: Text(rotating ? 'Creating...' : 'New password'),
+        ? FocusTraversalOrder(
+            order: const NumericFocusOrder(4),
+            child: OutlinedButton.icon(
+              key: const Key('rotate-gcp-viewer'),
+              onPressed: rotating ? null : onRotate,
+              icon: rotating
+                  ? const SizedBox.square(
+                      dimension: AppSpacing.iconMd,
+                      child: CircularProgressIndicator(
+                        strokeWidth:
+                            AppSpacing.compactProgressIndicatorStrokeWidth,
+                      ),
+                    )
+                  : const Icon(Icons.key_outlined),
+              label: Text(rotating ? 'Creating...' : 'New password'),
+            ),
           )
         : null;
     if (compact) {
@@ -385,51 +397,54 @@ class _AccessDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ExpansionTile(
-      key: Key('layer-access-details-${surface.layer.name}'),
-      tilePadding: EdgeInsets.zero,
-      childrenPadding: EdgeInsets.zero,
-      initiallyExpanded: initiallyExpanded,
-      title: Text(
-        surface.layer == DeploymentLayer.l4
-            ? 'Authentication details'
-            : 'Access details',
-      ),
-      children: [
-        _DetailRow(
-          label: 'Authentication',
-          value: _authLabel(surface.auth.mode),
+    return FocusTraversalOrder(
+      order: NumericFocusOrder(surface.layer == DeploymentLayer.l4 ? 2 : 5),
+      child: ExpansionTile(
+        key: Key('layer-access-details-${surface.layer.name}'),
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: EdgeInsets.zero,
+        initiallyExpanded: initiallyExpanded,
+        title: Text(
+          surface.layer == DeploymentLayer.l4
+              ? 'Authentication details'
+              : 'Access details',
         ),
-        _DetailRow(label: 'Resource', value: surface.readiness.resource.name),
-        _DetailRow(
-          label: 'Access binding',
-          value: surface.readiness.accessBinding.name,
-        ),
-        _DetailRow(label: 'Content', value: surface.readiness.content.name),
-        _DetailRow(
-          label: 'Data probe',
-          value: surface.readiness.dataProbe.name,
-        ),
-        _DetailRow(
-          label: 'Browser sign-in',
-          value: surface.readiness.browserSignIn.name,
-        ),
-        if (surface.limitations.isNotEmpty) ...[
-          const Divider(),
-          for (final limitation in surface.limitations)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.info_outline, size: AppSpacing.iconSm),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(child: Text(limitation)),
-                ],
+        children: [
+          _DetailRow(
+            label: 'Authentication',
+            value: _authLabel(surface.auth.mode),
+          ),
+          _DetailRow(label: 'Resource', value: surface.readiness.resource.name),
+          _DetailRow(
+            label: 'Access binding',
+            value: surface.readiness.accessBinding.name,
+          ),
+          _DetailRow(label: 'Content', value: surface.readiness.content.name),
+          _DetailRow(
+            label: 'Data probe',
+            value: surface.readiness.dataProbe.name,
+          ),
+          _DetailRow(
+            label: 'Browser sign-in',
+            value: surface.readiness.browserSignIn.name,
+          ),
+          if (surface.limitations.isNotEmpty) ...[
+            const Divider(),
+            for (final limitation in surface.limitations)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline, size: AppSpacing.iconSm),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(child: Text(limitation)),
+                  ],
+                ),
               ),
-            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

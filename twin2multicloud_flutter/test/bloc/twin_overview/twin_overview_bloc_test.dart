@@ -192,6 +192,69 @@ void main() {
     setUp(() => api = MockApiService());
 
     blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'loads one ready access snapshot for an initially deployed twin',
+      setUp: () {
+        _stubLoad(
+          api,
+          status: const DeploymentStatusSnapshot(
+            schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+            state: DeploymentTwinState.deployed,
+          ),
+          readiness: _readiness(ready: true),
+        );
+        when(
+          () => api.getDeploymentOutputs('test-id'),
+        ).thenAnswer((_) async => _outputs(const {'endpoint': 'safe'}));
+        when(
+          () => api.getDeploymentAccess('test-id'),
+        ).thenAnswer((_) async => _accessSnapshot());
+      },
+      build: () => _buildBloc(api),
+      act: (bloc) => bloc.add(const TwinOverviewLoad('test-id')),
+      expect: () => [
+        isA<TwinOverviewLoading>(),
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.layerAccess.phase,
+              'access phase',
+              LayerAccessViewPhase.ready,
+            )
+            .having(
+              (state) => state.layerAccess.snapshot?.surfaces.length,
+              'surface count',
+              2,
+            ),
+      ],
+      verify: (_) => verify(() => api.getDeploymentAccess('test-id')).called(1),
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'configured twins keep layer access idle and perform no access request',
+      setUp: () => _stubLoad(
+        api,
+        status: const DeploymentStatusSnapshot(
+          schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+          state: DeploymentTwinState.configured,
+        ),
+        readiness: _readiness(ready: true),
+      ),
+      build: () => _buildBloc(api),
+      act: (bloc) => bloc.add(const TwinOverviewLoad('test-id')),
+      expect: () => [
+        isA<TwinOverviewLoading>(),
+        isA<TwinOverviewLoaded>().having(
+          (state) => state.layerAccess.phase,
+          'access phase',
+          LayerAccessViewPhase.idle,
+        ),
+      ],
+      verify: (_) {
+        verifyNever(() => api.getDeploymentAccess(any()));
+        verifyNever(() => api.getDeploymentOutputs(any()));
+      },
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
       'loads access independently while retaining successful outputs',
       setUp: () {
         _stubLoad(
@@ -327,6 +390,238 @@ void main() {
       expect: () => <TwinOverviewState>[],
       verify: (_) =>
           verifyNever(() => api.rotateGcpGrafanaViewerCredential(any())),
+    );
+
+    for (final failure in const [
+      ('conflict', 'GCP_GRAFANA_VIEWER_ROTATION_IN_PROGRESS'),
+      ('provider failure', 'GCP_GRAFANA_VIEWER_ROTATION_FAILED'),
+    ]) {
+      blocTest<TwinOverviewBloc, TwinOverviewState>(
+        'keeps ${failure.$1} rotation errors inline without a credential',
+        seed: () => _loaded(
+          twinState: 'deployed',
+          layerAccess: LayerAccessViewState.fromSnapshot(
+            _accessSnapshot(l5: CloudProvider.gcp),
+          ),
+        ),
+        setUp: () => when(
+          () => api.rotateGcpGrafanaViewerCredential('test-id'),
+        ).thenThrow(AppException(failure.$2, code: failure.$2)),
+        build: () => _buildBloc(api),
+        act: (bloc) =>
+            bloc.add(const TwinOverviewRotateGcpGrafanaViewerCredential()),
+        expect: () => [
+          isA<TwinOverviewLoaded>().having(
+            (state) => state.layerAccess.rotatingViewerCredential,
+            'rotation busy',
+            isTrue,
+          ),
+          isA<TwinOverviewLoaded>()
+              .having(
+                (state) => state.layerAccess.rotatingViewerCredential,
+                'rotation busy',
+                isFalse,
+              )
+              .having(
+                (state) => state.layerAccess.rotationError,
+                'safe rotation error',
+                contains(failure.$2),
+              )
+              .having(
+                (state) => state.layerAccess.pendingCredential,
+                'pending credential',
+                isNull,
+              ),
+        ],
+        verify: (_) => verify(
+          () => api.rotateGcpGrafanaViewerCredential('test-id'),
+        ).called(1),
+      );
+    }
+
+    test(
+      'late access response for an old twin generation is ignored',
+      () async {
+        final delayedAccess = Completer<DeploymentAccessSnapshot>();
+        when(() => api.getTwin(any())).thenAnswer((invocation) async {
+          final twinId = invocation.positionalArguments.single as String;
+          return TypedApiFixtures.twin(id: twinId, name: 'Twin $twinId');
+        });
+        when(() => api.getDeploymentStatus(any())).thenAnswer((
+          invocation,
+        ) async {
+          final twinId = invocation.positionalArguments.single as String;
+          return DeploymentStatusSnapshot(
+            schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+            state: twinId == 'old-twin'
+                ? DeploymentTwinState.deployed
+                : DeploymentTwinState.configured,
+          );
+        });
+        when(() => api.getOptimizerConfig(any())).thenAnswer((_) async => null);
+        when(() => api.getDeployerConfig(any())).thenAnswer((_) async => null);
+        when(
+          () => api.getDeploymentReadiness(any()),
+        ).thenAnswer((_) async => _readiness(ready: true));
+        when(
+          () => api.getDeploymentOutputs('old-twin'),
+        ).thenAnswer((_) async => _outputs(const {'endpoint': 'old'}));
+        when(
+          () => api.getDeploymentAccess('old-twin'),
+        ).thenAnswer((_) => delayedAccess.future);
+        final bloc = _buildBloc(api);
+
+        bloc.add(const TwinOverviewLoad('old-twin'));
+        await pumpEventQueue(times: 10);
+        bloc.add(const TwinOverviewLoad('new-twin'));
+        await pumpEventQueue(times: 20);
+        delayedAccess.complete(_accessSnapshot());
+        await pumpEventQueue(times: 20);
+
+        final loaded = bloc.state as TwinOverviewLoaded;
+        expect(loaded.twinId, 'new-twin');
+        expect(loaded.layerAccess.phase, LayerAccessViewPhase.idle);
+        verify(() => api.getDeploymentAccess('old-twin')).called(1);
+        verifyNever(() => api.getDeploymentAccess('new-twin'));
+        await bloc.close();
+      },
+    );
+
+    test('a newer refresh wins over an older retry response', () async {
+      _stubLoad(
+        api,
+        status: const DeploymentStatusSnapshot(
+          schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+          state: DeploymentTwinState.deployed,
+        ),
+        readiness: _readiness(ready: true),
+      );
+      when(
+        () => api.getDeploymentOutputs('test-id'),
+      ).thenAnswer((_) async => _outputs(const {'endpoint': 'safe'}));
+      when(
+        () => api.getDeploymentAccess('test-id'),
+      ).thenAnswer((_) async => _accessSnapshot());
+      final bloc = _buildBloc(api);
+      bloc.add(const TwinOverviewLoad('test-id'));
+      await pumpEventQueue(times: 20);
+
+      final older = Completer<DeploymentAccessSnapshot>();
+      final newer = Completer<DeploymentAccessSnapshot>();
+      var accessRequest = 0;
+      when(() => api.getDeploymentAccess('test-id')).thenAnswer((_) {
+        accessRequest += 1;
+        return accessRequest == 1 ? older.future : newer.future;
+      });
+      bloc.add(const TwinOverviewRetryLayerAccess());
+      await pumpEventQueue(times: 5);
+      bloc.add(const TwinOverviewRefresh());
+      await pumpEventQueue(times: 10);
+      newer.complete(
+        _accessSnapshot(l4: CloudProvider.gcp, l5: CloudProvider.azure),
+      );
+      await pumpEventQueue(times: 20);
+      older.complete(
+        _accessSnapshot(l4: CloudProvider.aws, l5: CloudProvider.aws),
+      );
+      await pumpEventQueue(times: 20);
+
+      final loaded = bloc.state as TwinOverviewLoaded;
+      expect(loaded.layerAccess.phase, LayerAccessViewPhase.ready);
+      expect(
+        loaded.layerAccess.snapshot?.surfaceFor(DeploymentLayer.l4)?.provider,
+        CloudProvider.gcp,
+      );
+      expect(accessRequest, 2);
+      await bloc.close();
+    });
+
+    test(
+      'a duplicate consumed token cannot clear a newer credential',
+      () async {
+        _stubLoad(
+          api,
+          status: const DeploymentStatusSnapshot(
+            schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+            state: DeploymentTwinState.deployed,
+          ),
+          readiness: _readiness(ready: true),
+        );
+        when(
+          () => api.getDeploymentOutputs('test-id'),
+        ).thenAnswer((_) async => _outputs(const {'endpoint': 'safe'}));
+        when(
+          () => api.getDeploymentAccess('test-id'),
+        ).thenAnswer((_) async => _accessSnapshot(l5: CloudProvider.gcp));
+        var rotation = 0;
+        when(
+          () => api.rotateGcpGrafanaViewerCredential('test-id'),
+        ).thenAnswer((_) async => _credential('secret-${++rotation}'));
+        final bloc = _buildBloc(api);
+        bloc.add(const TwinOverviewLoad('test-id'));
+        await pumpEventQueue(times: 20);
+
+        bloc.add(const TwinOverviewRotateGcpGrafanaViewerCredential());
+        await pumpEventQueue(times: 10);
+        bloc.add(const TwinOverviewAccessCredentialConsumed(1));
+        await pumpEventQueue(times: 5);
+        bloc.add(const TwinOverviewRotateGcpGrafanaViewerCredential());
+        await pumpEventQueue(times: 10);
+        bloc.add(const TwinOverviewAccessCredentialConsumed(1));
+        await pumpEventQueue(times: 5);
+
+        final loaded = bloc.state as TwinOverviewLoaded;
+        expect(loaded.layerAccess.credentialRequestToken, 2);
+        expect(loaded.layerAccess.pendingCredential?.password, 'secret-2');
+        verify(() => api.rotateGcpGrafanaViewerCredential('test-id')).called(2);
+        await bloc.close();
+      },
+    );
+
+    test(
+      'successful deployment completion refreshes layer access exactly once',
+      () async {
+        _stubLoad(
+          api,
+          status: const DeploymentStatusSnapshot(
+            schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+            state: DeploymentTwinState.deploying,
+          ),
+          readiness: _readiness(ready: true),
+        );
+        final bloc = _buildBloc(api);
+        bloc.add(const TwinOverviewLoad('test-id'));
+        await pumpEventQueue(times: 20);
+        expect((bloc.state as TwinOverviewLoaded).twinState, 'deploying');
+
+        when(() => api.getDeploymentStatus('test-id')).thenAnswer(
+          (_) async => const DeploymentStatusSnapshot(
+            schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+            state: DeploymentTwinState.deployed,
+          ),
+        );
+        when(
+          () => api.getDeploymentOutputs('test-id'),
+        ).thenAnswer((_) async => _outputs(const {'endpoint': 'safe'}));
+        when(
+          () => api.getDeploymentAccess('test-id'),
+        ).thenAnswer((_) async => _accessSnapshot());
+        bloc.add(
+          const TwinOverviewDeploymentComplete(
+            success: true,
+            newState: 'deployed',
+            message: 'Deployment completed.',
+          ),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 650));
+        await pumpEventQueue(times: 20);
+
+        final loaded = bloc.state as TwinOverviewLoaded;
+        expect(loaded.layerAccess.phase, LayerAccessViewPhase.ready);
+        expect(loaded.layerAccess.snapshot?.surfaces, hasLength(2));
+        verify(() => api.getDeploymentAccess('test-id')).called(1);
+        await bloc.close();
+      },
     );
 
     final delayedRotation = Completer<DeploymentAccessCredential>();
