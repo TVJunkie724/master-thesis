@@ -425,6 +425,37 @@ def upload_dtdl_models(
 
     run.raise_if_failed()
 
+    if ensure_v2_seed:
+        seed = five_layer_v2_seed(config)
+        probe = RuntimeRun("Azure", "Digital Twins content probe", logger)
+
+        for model in seed["models"]:
+            model_id = model["@id"]
+            probe.attempt(model_id, lambda model_id=model_id: client.get_model(model_id))
+        for twin in seed["twins"]:
+            twin_id = twin["$dtId"]
+            probe.attempt(
+                twin_id,
+                lambda twin_id=twin_id: client.get_digital_twin(twin_id),
+            )
+        for relationship in seed["relationships"]:
+            source_id = relationship["$dtId"]
+            relationship_id = relationship["$relationshipId"]
+
+            def read_relationship(
+                source_id=source_id,
+                relationship_id=relationship_id,
+                expected=relationship,
+            ):
+                value = client.get_relationship(source_id, relationship_id)
+                if value.get("$targetId") != expected["$targetId"]:
+                    raise RuntimeError("ADT seed relationship target is not readable")
+                if value.get("$relationshipName") != expected["$relationshipName"]:
+                    raise RuntimeError("ADT seed relationship type is not readable")
+
+            probe.attempt(relationship_id, read_relationship)
+        probe.raise_if_failed()
+
     logger.info("DTDL model upload complete")
 
 

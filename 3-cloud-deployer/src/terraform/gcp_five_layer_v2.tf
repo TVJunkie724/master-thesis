@@ -1098,6 +1098,18 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_iap_twin_explorer" {
         cpu_idle = true
       }
 
+      startup_probe {
+        initial_delay_seconds = 0
+        timeout_seconds       = 3
+        period_seconds        = 5
+        failure_threshold     = 24
+
+        http_get {
+          path = "/healthz"
+          port = 8080
+        }
+      }
+
       env {
         name  = "ARCHITECTURE_PROFILE"
         value = "five-layer-baseline@2"
@@ -1114,11 +1126,16 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_iap_twin_explorer" {
         name  = "FIRESTORE_DATABASE"
         value = google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name
       }
+      env {
+        name  = "IOT_DEVICES_JSON"
+        value = jsonencode(var.iot_devices)
+      }
     }
   }
 
   depends_on = [
     google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected,
+    google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer,
     google_firestore_index.gcp_gcp_firestore_native_standard_bounded_twin,
     google_project_iam_member.gcp_v2_explorer_firestore_reader,
   ]

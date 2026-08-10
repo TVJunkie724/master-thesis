@@ -583,6 +583,37 @@ def _ensure_seeded_twin_content() -> bool:
     return seed(transaction)
 
 
+def _probe_seeded_twin_content() -> None:
+    """Prove the bounded seed is readable through the Explorer identity."""
+    try:
+        configured = json.loads(os.environ.get("IOT_DEVICES_JSON", "[]"))
+    except json.JSONDecodeError as exc:
+        raise core.ContractError("INVALID_TWIN_SEED", 503) from exc
+    if not isinstance(configured, list):
+        raise core.ContractError("INVALID_TWIN_SEED", 503)
+    documents = core.build_seed_twin_documents(
+        configured,
+        deployment_id=os.environ.get("DEPLOYMENT_ID", "local-poc"),
+    )
+    client = _database()
+    marker = client.collection("_twin2multicloud").document("l4-seed-v1").get()
+    marker_value = marker.to_dict() if marker.exists else None
+    expected_digest = hashlib.sha256(
+        core.canonical_json(documents).encode("utf-8")
+    ).hexdigest()
+    if not isinstance(marker_value, Mapping):
+        raise core.ContractError("TWIN_SEED_NOT_READY", 503)
+    if marker_value.get("seed_revision") != "gcp-l4-seed.v1":
+        raise core.ContractError("TWIN_SEED_NOT_READY", 503)
+    if marker_value.get("content_digest") != expected_digest:
+        raise core.ContractError("TWIN_SEED_NOT_READY", 503)
+    if marker_value.get("document_count") != len(documents):
+        raise core.ContractError("TWIN_SEED_NOT_READY", 503)
+    for path in documents:
+        if not _document_reference(client, path).get().exists:
+            raise core.ContractError("TWIN_SEED_NOT_READY", 503)
+
+
 def _json_safe(value: Any) -> Any:
     if isinstance(value, datetime):
         return core.iso_time(value)
@@ -999,13 +1030,16 @@ def _remote_landing(value: Mapping[str, Any]) -> dict[str, Any]:
 
 @app.get("/healthz")
 def healthz():
-    if os.environ.get("RUNTIME_ROLE") == "twin-materializer":
+    role = os.environ.get("RUNTIME_ROLE")
+    if role == "twin-materializer":
         _ensure_seeded_twin_content()
+    elif role == "twin-explorer":
+        _probe_seeded_twin_content()
     return jsonify(
         {
             "status": "ok",
             "profile": core.PROFILE,
-            "role": os.environ.get("RUNTIME_ROLE", "unset"),
+            "role": role or "unset",
         }
     )
 

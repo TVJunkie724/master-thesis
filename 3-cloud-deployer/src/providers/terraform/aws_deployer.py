@@ -17,6 +17,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+V2_SEED_ROOT_ID = "twin2multicloud-poc-root"
+V2_SEED_DEVICE_ID = "twin2multicloud-poc-device"
+V2_SEED_COMPONENT_NAME = "Twin2MultiCloudPoCDevice"
+
 
 def _is_five_layer_v2(context: "DeploymentContext") -> bool:
     graph = getattr(context, "resolved_deployment_graph", None)
@@ -119,6 +123,91 @@ def _hierarchy_contains_component(nodes: list[dict]) -> bool:
     )
 
 
+def _five_layer_v2_seed(context: "DeploymentContext") -> dict:
+    """Return the deterministic minimal TwinMaker graph used by the thesis PoC."""
+    configured_devices = getattr(context.config, "iot_devices", [])
+    devices = configured_devices if isinstance(configured_devices, list) else []
+    first_device = devices[0] if devices and isinstance(devices[0], dict) else {}
+    source_device_id = str(
+        first_device.get("id") or first_device.get("device_id") or "poc-device-001"
+    )
+    return {
+        "type": "entity",
+        "id": V2_SEED_ROOT_ID,
+        "children": [
+            {
+                "type": "entity",
+                "id": V2_SEED_DEVICE_ID,
+                "children": [
+                    {
+                        "type": "component",
+                        "name": V2_SEED_COMPONENT_NAME,
+                        "componentTypeId": V2_SEED_COMPONENT_NAME,
+                        "properties": [
+                            {"name": "value", "dataType": "DOUBLE"},
+                        ],
+                        "constProperties": [
+                            {
+                                "name": "sourceDeviceId",
+                                "dataType": "STRING",
+                                "value": source_device_id,
+                            },
+                            {
+                                "name": "status",
+                                "dataType": "STRING",
+                                "value": "awaiting-telemetry",
+                            },
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def _probe_five_layer_v2_seed(
+    twinmaker,
+    *,
+    workspace_id: str,
+    twin_name: str,
+) -> None:
+    """Read back the bounded seed graph through the deployed TwinMaker API."""
+    component_type_id = f"{twin_name}-{V2_SEED_COMPONENT_NAME}"
+    run = RuntimeRun("AWS", "TwinMaker content probe", logger)
+
+    def read_component_type() -> None:
+        response = twinmaker.get_component_type(
+            workspaceId=workspace_id,
+            componentTypeId=component_type_id,
+        )
+        if response.get("status", {}).get("state") != "ACTIVE":
+            raise RuntimeError("TwinMaker seed component type is not active")
+
+    def read_root() -> None:
+        response = twinmaker.get_entity(
+            workspaceId=workspace_id,
+            entityId=V2_SEED_ROOT_ID,
+        )
+        if response.get("entityId") != V2_SEED_ROOT_ID:
+            raise RuntimeError("TwinMaker seed root readback returned the wrong entity")
+
+    def read_device() -> None:
+        response = twinmaker.get_entity(
+            workspaceId=workspace_id,
+            entityId=V2_SEED_DEVICE_ID,
+        )
+        if response.get("parentEntityId") != V2_SEED_ROOT_ID:
+            raise RuntimeError("TwinMaker seed relationship is not readable")
+        component = response.get("components", {}).get(V2_SEED_COMPONENT_NAME, {})
+        if component.get("componentTypeId") != component_type_id:
+            raise RuntimeError("TwinMaker seed component is not readable")
+
+    run.attempt(component_type_id, read_component_type)
+    run.attempt(V2_SEED_ROOT_ID, read_root)
+    run.attempt(V2_SEED_DEVICE_ID, read_device)
+    run.raise_if_failed()
+
+
 def create_twinmaker_entities(
     context: "DeploymentContext",
     project_path: Path,
@@ -131,7 +220,11 @@ def create_twinmaker_entities(
     if not workspace_id:
         raise RuntimeError("Terraform output aws_twinmaker_workspace_id is required")
     hierarchy = context.config.hierarchy
-    if not isinstance(hierarchy, list) or not hierarchy:
+    if not isinstance(hierarchy, list):
+        raise ValueError("AWS TwinMaker hierarchy must be a list")
+    if _is_five_layer_v2(context):
+        hierarchy = [*hierarchy, _five_layer_v2_seed(context)]
+    elif not hierarchy:
         raise ValueError("AWS TwinMaker hierarchy must be a non-empty list")
 
     twinmaker = provider.clients["twinmaker"]
@@ -165,6 +258,12 @@ def create_twinmaker_entities(
             connector_last_entry_arn=connector_last_entry_arn,
         )
     run.raise_if_failed()
+    if _is_five_layer_v2(context):
+        _probe_five_layer_v2_seed(
+            twinmaker,
+            workspace_id=str(workspace_id),
+            twin_name=twin_name,
+        )
 
 
 def _create_twinmaker_node(

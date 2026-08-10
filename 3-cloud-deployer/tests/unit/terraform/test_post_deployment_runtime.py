@@ -24,7 +24,7 @@ class ResourceNotFoundError(Exception):
 TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
 
 
-def _aws_context(*, hierarchy=None, devices=None):
+def _aws_context(*, hierarchy=None, devices=None, five_layer_v2=False):
     twinmaker = SimpleNamespace(
         exceptions=SimpleNamespace(ConflictException=ConflictError),
     )
@@ -40,7 +40,17 @@ def _aws_context(*, hierarchy=None, devices=None):
         hierarchy=hierarchy if hierarchy is not None else [],
         iot_devices=devices if devices is not None else [],
     )
-    return SimpleNamespace(providers={"aws": provider}, config=config), provider
+    graph = SimpleNamespace(
+        profile_ref={
+            "id": "five-layer-baseline" if five_layer_v2 else "legacy",
+            "version": "2" if five_layer_v2 else "1",
+        }
+    )
+    return SimpleNamespace(
+        providers={"aws": provider},
+        config=config,
+        resolved_deployment_graph=graph,
+    ), provider
 
 
 def test_runtime_run_redacts_and_aggregates_without_stopping_siblings():
@@ -74,6 +84,21 @@ def test_gcp_grafana_readiness_waits_for_content_probe_marker():
 
     assert 'command = ["test", "-f", "/tmp/twin2multicloud-ready"]' in terraform
     assert terraform.count('path   = "/api/health"') == 1
+
+
+def test_gcp_twin_explorer_readiness_waits_for_seed_readback():
+    terraform = (TERRAFORM_ROOT / "gcp_five_layer_v2.tf").read_text("utf-8")
+    explorer = terraform.split(
+        'resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_iap_twin_explorer"',
+        1,
+    )[1].split('resource "random_password"', 1)[0]
+
+    assert 'path = "/healthz"' in explorer
+    assert 'name  = "IOT_DEVICES_JSON"' in explorer
+    assert (
+        "google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer"
+        in explorer
+    )
 
 
 def test_twinmaker_requires_workspace_output(tmp_path):
@@ -114,6 +139,64 @@ def test_twinmaker_continues_siblings_then_fails_the_operation(tmp_path):
 
     assert calls == ["broken", "healthy"]
     assert "must-not-leak" not in str(exc_info.value)
+
+
+def test_aws_v2_creates_and_reads_back_deterministic_visible_seed(tmp_path):
+    context, provider = _aws_context(
+        hierarchy=[],
+        devices=[{"id": "sensor-1"}],
+        five_layer_v2=True,
+    )
+    entities = {}
+    component_types = {}
+
+    def create_entity(**kwargs):
+        entities.setdefault(
+            kwargs["entityId"],
+            {
+                "entityId": kwargs["entityId"],
+                "parentEntityId": kwargs.get("parentEntityId"),
+                "components": {},
+            },
+        )
+
+    def create_component_type(**kwargs):
+        component_types[kwargs["componentTypeId"]] = {
+            "status": {"state": "ACTIVE"}
+        }
+
+    def update_entity(**kwargs):
+        entities[kwargs["entityId"]]["components"].update(kwargs["componentUpdates"])
+
+    provider.clients["twinmaker"].create_entity = create_entity
+    provider.clients["twinmaker"].create_component_type = create_component_type
+    provider.clients["twinmaker"].get_component_type = lambda **kwargs: component_types[
+        kwargs["componentTypeId"]
+    ]
+    provider.clients["twinmaker"].update_entity = update_entity
+    provider.clients["twinmaker"].get_entity = lambda **kwargs: entities[
+        kwargs["entityId"]
+    ]
+
+    aws_deployer.create_twinmaker_entities(
+        context,
+        tmp_path,
+        {
+            "aws_twinmaker_workspace_id": "workspace",
+            "aws_l4_connector_function_arn": "connector",
+            "aws_l4_connector_last_entry_function_arn": "last-entry",
+        },
+    )
+
+    assert entities[aws_deployer.V2_SEED_DEVICE_ID]["parentEntityId"] == (
+        aws_deployer.V2_SEED_ROOT_ID
+    )
+    component = entities[aws_deployer.V2_SEED_DEVICE_ID]["components"][
+        aws_deployer.V2_SEED_COMPONENT_NAME
+    ]
+    assert component["componentTypeId"] == (
+        f"factory-{aws_deployer.V2_SEED_COMPONENT_NAME}"
+    )
 
 
 def test_iot_registration_continues_devices_and_fails_aggregate(monkeypatch, tmp_path):
@@ -664,6 +747,7 @@ def test_azure_twin_failures_are_aggregated_after_relationship_attempt(monkeypat
 
 def test_azure_v2_empty_hierarchy_gets_deterministic_visible_seed(monkeypatch):
     created = {"models": [], "twins": [], "relationships": []}
+    read = {"models": [], "twins": [], "relationships": []}
 
     class Client:
         def create_models(self, models):
@@ -675,6 +759,23 @@ def test_azure_v2_empty_hierarchy_gets_deterministic_visible_seed(monkeypatch):
 
         def upsert_relationship(self, source_id, relationship_id, relationship):
             created["relationships"].append((source_id, relationship_id, relationship))
+
+        def get_model(self, model_id):
+            read["models"].append(model_id)
+            return {"id": model_id}
+
+        def get_digital_twin(self, twin_id):
+            read["twins"].append(twin_id)
+            return {"$dtId": twin_id}
+
+        def get_relationship(self, source_id, relationship_id):
+            read["relationships"].append((source_id, relationship_id))
+            assert source_id == "factory-root"
+            assert relationship_id == "contains-seed-device"
+            return {
+                "$targetId": "sensor-1",
+                "$relationshipName": "contains",
+            }
 
     monkeypatch.setattr(layer_4_adt, "_get_adt_data_client", lambda _provider: Client())
     config = SimpleNamespace(
@@ -699,3 +800,8 @@ def test_azure_v2_empty_hierarchy_gets_deterministic_visible_seed(monkeypatch):
             {"$targetId": "sensor-1", "$relationshipName": "contains"},
         )
     ]
+    assert read == {
+        "models": [layer_4_adt.V2_SEED_MODEL_ID],
+        "twins": ["factory-root", "sensor-1"],
+        "relationships": [("factory-root", "contains-seed-device")],
+    }

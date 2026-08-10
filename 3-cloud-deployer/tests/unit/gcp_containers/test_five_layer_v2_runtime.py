@@ -426,6 +426,19 @@ def test_twin_materializer_is_a_separate_runtime_boundary(monkeypatch):
     }
 
 
+def test_twin_explorer_health_requires_readable_seed(monkeypatch):
+    runtime = _load("app")
+    calls = []
+    monkeypatch.setenv("RUNTIME_ROLE", "twin-explorer")
+    monkeypatch.setattr(runtime, "_probe_seeded_twin_content", lambda: calls.append(True))
+
+    response = runtime.app.test_client().get("/healthz")
+
+    assert response.status_code == 200
+    assert response.get_json()["role"] == "twin-explorer"
+    assert calls == [True]
+
+
 def test_twin_explorer_is_read_only_bounded_and_escapes_content(monkeypatch):
     runtime = _load("app")
     monkeypatch.setenv("RUNTIME_ROLE", "twin-explorer")
