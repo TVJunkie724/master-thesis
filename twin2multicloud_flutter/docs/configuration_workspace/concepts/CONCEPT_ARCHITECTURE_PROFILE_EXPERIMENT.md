@@ -2,8 +2,8 @@
 title: "Architecture Profile Experiment"
 description: "A bounded Configuration Workspace experience for selecting, comparing, and deploying the Five-layer v2 and Six-layer v1 thesis profiles."
 tags: [flutter, configuration-workspace, architecture-profiles, eventing, thesis]
-lastUpdated: "2026-08-03"
-version: "1.2"
+lastUpdated: "2026-08-11"
+version: "1.3"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.2"
 - twin2multicloud_flutter/docs/configuration_workspace/RESOLVED_DEPLOYMENT_REVIEW.md
 - FRONTEND_ARCHITECTURE.md
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-03 | VERSION: 1.2
+EXTRACTED: 2026-08-11 | VERSION: 1.3
 -->
 
 # Architecture Profile Experiment
@@ -45,6 +45,10 @@ and resolved-review workflow while the active catalog is truthfully empty.
 Phase 8.9A publishes Five-layer v2 and Workload v2; Phase 8.9B later publishes
 Six-layer v1. Populated UI fixtures validate both eventual shapes without
 turning either into a fake demo/runtime option early.
+
+Current checkpoint: Phase 8.7 and the Five-layer v2 Layer Access UI are
+implemented and verified offline. Five-layer v2 remains draft/default-off
+until the full 8.9A activation gate; Six-layer remains a later strict delta.
 
 ## Motivation
 
@@ -198,6 +202,19 @@ separate technical-evidence section.
 | Six-layer v1 delta | Event Layer bundles and source-owned bridge across every directed provider pair |
 
 Flutter consumes all of these only through the Management API.
+
+## Flutter Architecture Guardrails
+
+- Reuse the existing Configuration Workspace shell, task navigation, footer,
+  alert stack, Wizard BLoC, Management API adapter, cards, chips, graph
+  components, and dialogs before adding a component.
+- Riverpod remains the runtime/API composition boundary; feature transitions
+  remain in BLoC and widgets perform no HTTP or cloud calls.
+- All spacing, color, typography, and breakpoints come from `lib/theme/`, and
+  Material `Icons` remain the only icon source.
+- The binding implementation plan owns complete wide-desktop/compact-Web ASCII
+  layouts and `[NEW]`/`[MODIFY]`/`[REUSE]` widget trees. No mobile layout or
+  third state-management/navigation package is introduced.
 
 ## Open Questions
 

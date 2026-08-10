@@ -15,6 +15,12 @@
   authorized concept, planning, and implementation on 2026-08-03; the plan's
   zero-finding review remains the builder gate.
 
+Implementation record: execution resumed on 2026-08-11 and uses
+`[AI-0811-LACC]` for its final test, documentation, review, and activation
+commits. Earlier scoped implementation commits on the same branch remain
+unaltered in immutable history; the handoff records their exact range. This is
+a commit-label correction only and does not change scope or acceptance.
+
 ## 1. Summary
 
 This plan extends the existing Twin Overview so a researcher can use, not just
@@ -151,9 +157,9 @@ TwinOverviewScreen [MODIFY]
             |   |-- panel header / explanation [NEW, private]
             |   |-- loading/error/unsupported presentation [NEW, private]
             |   `-- responsive Row or Column [NEW, private]
-            |       |-- LayerAccessCard(layer=L4) [NEW]
+            |       |-- _LayerAccessSurfaceCard(layer=L4) [NEW, private]
             |       |   `-- access details ExpansionTile [NEW, private]
-            |       `-- LayerAccessCard(layer=L5) [NEW]
+            |       `-- _LayerAccessSurfaceCard(layer=L5) [NEW, private]
             |           `-- optional GCP Viewer rotation action [NEW]
             |-- DeploymentOperationsPanel [REUSE]
             |-- TestingUtilitiesPanel [REUSE]
@@ -204,7 +210,11 @@ Required immutable Equatable types:
 |---|---|
 | `DeploymentLayer` | exact API values `l4`, `l5` |
 | `DeploymentAccessAuthMode` | `aws_identity_center`, `azure_entra`, `gcp_iap`, `generated_viewer` |
-| `LayerAccessReadinessValue` | `ready`, `failed`, `pending`, plus browser-only `unverified`/`verified` where valid |
+| `DeploymentAccessResourceStatus` | `ready`, `failed`, `pending` |
+| `DeploymentAccessBindingStatus` | `ready`, `blocked`, `pending` |
+| `DeploymentAccessContentStatus` | `ready`, `failed`, `pending` |
+| `DeploymentAccessDataProbeStatus` | `ready`, `failed`, `pending` |
+| `DeploymentAccessBrowserStatus` | `unverified`, `verified`, `failed` |
 | `LayerAccessReadiness` | `resource`, `accessBinding`, `content`, `dataProbe`, `browserSignIn` |
 | `LayerAccessAuth` | `mode`, `principalLabel`, `credentialAction` (`none` or `rotate`) |
 | `DeploymentAccessSurface` | layer, `CloudProvider`, serviceId, displayName, HTTPS `Uri`, auth, readiness, immutable capabilities, immutable limitations |
@@ -624,8 +634,10 @@ external browser behavior, and nine architecture placements.
 
 ### 11.2 API adapter unit tests
 
-**File:** `test/services/api_service_deployment_access_test.dart` [NEW or
-focused extension]
+**Files:**
+
+- `test/services/deployment_api_adapter_test.dart` [MODIFY]
+- `test/demo/demo_management_api_test.dart` [MODIFY]
 
 | # | Type | Test and hard assertion |
 |---:|---|---|
@@ -641,7 +653,7 @@ focused extension]
 
 ### 11.3 BLoC tests
 
-**File:** `test/bloc/twin_overview/twin_overview_layer_access_test.dart` [NEW]
+**File:** `test/bloc/twin_overview/twin_overview_bloc_test.dart` [MODIFY]
 
 | # | Type | Test and hard assertion |
 |---:|---|---|
@@ -725,7 +737,7 @@ Run the focused Flutter tests first from `twin2multicloud_flutter`:
 
 ```bash
 flutter test test/models/deployment_access_test.dart
-flutter test test/bloc/twin_overview/twin_overview_layer_access_test.dart
+flutter test test/bloc/twin_overview/twin_overview_bloc_test.dart
 flutter test test/widgets/twin_overview/layer_access_panel_test.dart
 ```
 
@@ -782,9 +794,9 @@ the same clean documentation commit:
 
 New component reference documentation is mandatory at
 `twin2multicloud_flutter/docs/frontend_delta/implementation/layer_access_panel.md`.
-It must list the two public widgets, state phases, Management endpoints,
-provider/auth matrix, and secret-handling boundary. Strict MkDocs must catch
-every broken link before commit.
+It must list the one public panel and its private presentation children, state
+phases, Management endpoints, provider/auth matrix, and secret-handling
+boundary. Strict MkDocs must catch every broken link before commit.
 
 ## 12. Definition of Done
 
@@ -820,7 +832,7 @@ every broken link before commit.
 - [ ] Phase 8.6 frontend docs, concept, feature-request tracker, cross-stack
       plan, handoff, and current-system docs are updated to distinguish planned,
       implemented, offline-verified, and live-verified behavior.
-- [ ] Each cross-stack slice receives a clean `[AI-0731-LACC]` commit and a
+- [ ] Each cross-stack slice receives a clean `[AI-0811-LACC]` commit and a
       zero-finding review before the next slice.
 - [ ] Two final reviews pass from both architect and builder perspectives with
       zero unresolved findings.

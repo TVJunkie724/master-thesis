@@ -8,14 +8,15 @@ version: "1.0"
 
 # Layer Access Panel
 
-## Public Widgets
+## Widget Boundary
 
 - `LayerAccessPanel` renders the section phase and orders exactly one L4 card
-  before one L5 card.
-- `LayerAccessCard` renders provider, service, readiness, authentication,
-  capabilities, limitations, Open, and the optional GCP L5 rotation action.
+  before one L5 card. It is the feature's only public widget.
+- Private stateless presentation children render each surface card, provider,
+  service, readiness, authentication, capabilities, limitations, Open, and the
+  optional GCP L5 rotation action.
 
-Both widgets are presentation-only. `TwinOverviewBloc` owns API calls,
+The entire widget subtree is presentation-only. `TwinOverviewBloc` owns API calls,
 generation/race handling, refresh, destroy clearing, and the transient
 credential lifecycle. External navigation uses the screen's injected launcher.
 

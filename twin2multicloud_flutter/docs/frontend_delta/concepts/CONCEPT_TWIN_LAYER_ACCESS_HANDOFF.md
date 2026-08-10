@@ -2,8 +2,8 @@
 title: "Concept: Twin Layer Access Handoff"
 description: "Post-deployment L4 and L5 access in the existing Twin Overview."
 tags: [flutter, frontend-delta, twin-overview, layer-access]
-lastUpdated: "2026-07-31"
-version: "1.0"
+lastUpdated: "2026-08-11"
+version: "1.1"
 ---
 
 # Concept: Twin Layer Access Handoff
@@ -45,7 +45,7 @@ Each card shows, in order:
 4. primary Open action;
 5. interactive identity/authentication explanation;
 6. available content and explicit limitations;
-7. remediation/retry or GCP-only Viewer rotation when applicable.
+7. remediation/retry, plus Viewer rotation only on a GCP-owned L5 surface.
 
 The generic Terraform Outputs card remains lower on the page as technical
 evidence.
@@ -56,7 +56,8 @@ evidence.
 |---|---|
 | Loading | One section card with progress and stable height |
 | Ready | Two cards; Open actions enabled |
-| Partially blocked | Both cards remain visible; affected Open action disabled with exact remediation, unaffected card usable |
+| Inspectable with degraded content | Both cards remain visible; content/data-probe failure stays explicit, while Open remains enabled when the resource and access binding are ready |
+| Access blocked | Both cards remain visible; only the surface with a failed resource or blocked access binding disables Open and shows exact remediation |
 | Read-model error | Inline error in the section with Retry; deployment operations remain usable |
 | Unsupported historical profile | Honest explanatory empty state; no fabricated links |
 | Destroyed/not deployed | Section absent and access state cleared |
@@ -74,6 +75,26 @@ evidence.
   is a hard dependency.
 - Provider/Terraform feasibility is controlled by
   [`phase_08_layer_access_handoff.md`](../../../../docs/plans/phase_08_architecture_profiles_eventing/phase_08_layer_access_handoff.md).
+- The existing Twin Overview `Card`, `Chip`, `ExpansionTile`, dialog,
+  launcher, and `AppSpacing`/`AppColors`/`ThemeData` conventions are reused;
+  no new state-management, navigation, icon, or layout package is introduced.
+
+## Layout Handoff
+
+```text
+Twin Overview
+|-- Deployment Readiness
+|-- Layer Access
+|   |-- L4 Semantic Twin: provider, readiness, Open, access details
+|   `-- L5 Raw & Rollups: provider, readiness, Open, access/rotation
+|-- Deployment Actions
+`-- existing evidence and configuration sections
+```
+
+Wide desktop/Web renders L4 and L5 as equal siblings. Compact Web stacks L4
+before L5 without changing the focus order. The complete desktop, compact,
+dialog, and widget-tree ASCII specifications are binding in
+[`2026-07-31_twin_layer_access_handoff.md`](../../../implementation_plans/2026-07-31_twin_layer_access_handoff.md).
 
 ## Acceptance
 
@@ -85,9 +106,8 @@ evidence.
 - The UI never infers access from generic Terraform output keys.
 - No secret is persisted in BLoC state after the one-time dialog closes.
 - Keyboard, screen-reader, compact Web, loading, error, partial, and empty
-  behavior are specified before implementation.
+  behavior are specified and verified offline.
 
 ## Roadmap Anchor
 
 [Frontend Delta Roadmap](../ROADMAP_FRONTEND_DELTA.md), subphase 8.6.
-

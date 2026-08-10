@@ -466,6 +466,8 @@ provider prerequisite changed after a successful preflight. In that case Twin
 Overview shows the deployment as deployed but the affected card as blocked,
 with safe remediation. A new deployment cannot start when its required
 interactive principal or first-time IAP prerequisite is already known to be
+missing; preflight must pause with the corresponding typed remediation rather
+than creating a knowingly inaccessible surface.
 
 ## 12. Offline Feasibility Verification
 

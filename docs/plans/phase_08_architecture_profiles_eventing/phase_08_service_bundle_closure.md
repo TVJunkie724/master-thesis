@@ -68,6 +68,14 @@ may calculate, resolve, package, and pass no-apply verification. Activation is
 not a live deployment or measured-capacity claim. Those remain
 `live_capacity_pending` until a separately approved supervised cloud run.
 
+The frozen capacity package predates this terminology split and retains the
+field `request_charge_fixture_required_before_activation`. In that immutable
+artifact, `activation` means **Azure bundle live-readiness activation**, not
+offline profile publication. The field therefore does not block exposing
+`five-layer-baseline@2` for offline selection; it blocks claiming or attempting
+a deployment-ready Azure Cosmos DB path until the supervised request-charge
+fixture supplies the required positive RU/s evidence.
+
 ## 1. Corrected Planning Decisions
 
 The following decisions replace the overextended v1.0 service-bundle plan:
@@ -1354,7 +1362,7 @@ commands may receive cloud credentials or a live/apply flag.
 | 8 | Complete-service package builder review across deterministic S/M/L formulas, generated manifests, exactly-once cost ownership, `thesis-demo-v1` stability, `thesis-demo-v2` scope evidence, byte digests, source references, secret scanning, and drift-gate integration | Pass on 2026-08-03 with zero unresolved findings; package tests plus the composed offline validator pass without cloud credentials |
 | 9 | Complete-service IaC feasibility review across exact Terraform/SDK bindings, provider-version floors, image delivery, GKE apply ordering, direct Cloud Run IAP, and closed edge contracts | Pass on 2026-08-07 with zero unresolved findings after replacing fictitious AWS bindings, adding the IAP service-agent binding and deployer policy permissions, recording the Google-provider upgrade, and separating provider image foundation, regional content-addressed publication, cloud resources, Kubernetes resources, and bounded post-apply work into five automatic stages |
 | 10 | Cross-provider storage-mover capacity and image-delivery review | Pass on 2026-08-07 with zero unresolved contract findings after exposing exact AWS 1/1/3, Azure 1/4/30, and GCP 1/1/3 `task_count` dimensions, binding CodeBuild/ACR Tasks/Cloud Build publication, and recording the Azure free-credit preflight without adding a local-Docker fallback |
-| 10 | Five-layer v2 shared-contract implementation review across lifecycle/readiness truthfulness, complete atomic-dimension bindings, evidence integrity, all 729 assignments, v1 byte stability, version-aware readers, and generated-copy drift | Pass on 2026-08-04 with zero unresolved findings after keeping all new definitions draft, separating offline fixtures from publishable resolutions, removing invented costs and Cosmos autoscale RU/s, binding every dimension, and validating pricing/scenario/manifest references exactly |
+| 11 | Five-layer v2 shared-contract implementation review across lifecycle/readiness truthfulness, complete atomic-dimension bindings, evidence integrity, all 729 assignments, v1 byte stability, version-aware readers, and generated-copy drift | Pass on 2026-08-04 with zero unresolved findings after keeping all new definitions draft, separating offline fixtures from publishable resolutions, removing invented costs and Cosmos autoscale RU/s, binding every dimension, and validating pricing/scenario/manifest references exactly |
 | 14 | Amazon Managed Grafana v12 access implementation and refreshed JSON API lifecycle evidence | Pass on 2026-08-08 with zero unresolved findings after replacing API keys with bounded service-account automation, adding authenticated datasource health plus raw/rollup probes, requiring explicit built-in-directory invitation intent, and freezing the now-published 1 February 2027 support end |
 
 This service/architecture slice adds no new Flutter route, but it does add a

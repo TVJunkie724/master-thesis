@@ -947,6 +947,10 @@ This phase is additive evidence only. Rollback means:
       degradation and selected-version capacity remain activation gates.
 - [x] Small, Medium, and Large theoretical capacity is proven before cost is
       reported; supervised live capacity remains an activation gate.
+      Here `activation` retains this frozen decision package's historical
+      meaning of provider-bundle live readiness. The later corrective service
+      gate permits offline repository/profile activation while keeping that
+      live evidence explicitly pending.
 - [x] Cost is recorded as an outcome and is not used to reject an otherwise
       valid PoC bundle.
 - [x] Every mandatory capability is supplied by a named, deployable bundle

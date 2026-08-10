@@ -2,8 +2,8 @@
 title: "Concept: Guided Cloud Access Bootstrap"
 description: "User-facing concept for creating reusable deployment CloudConnections from request-scoped provider authority and resuming exact manual prerequisites."
 tags: [flutter, configuration-workspace, settings, credentials, bootstrap, cloud-access]
-lastUpdated: "2026-07-31"
-version: "1.1"
+lastUpdated: "2026-08-11"
+version: "1.2"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.1"
 - docs/plans/2026-04-26_runtime_credentials_deployment_state_hardening.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
 - User-approved manual-step and credential-lifecycle decisions from 2026-07-31
-EXTRACTED: 2026-07-31 | VERSION: 1.1
+EXTRACTED: 2026-08-11 | VERSION: 1.2
 -->
 
 # Concept: Guided Cloud Access Bootstrap
@@ -34,10 +34,11 @@ The capability appears in two contexts and reuses one bootstrap feature owner:
 Creating a draft, describing workload, calculating, and reviewing an
 architecture remain credential-free.
 
-The repository's existing manual `plan -> local bootstrap script -> import`
-contract remains an advanced compatibility fallback while the new Management-
-owned guide/session contract is implemented. Flutter never executes the local
-script or a provider CLI.
+The Management-owned guide/session contract and shared Flutter flow are
+implemented and verified with deterministic offline adapters. Production
+provider adapters remain fail-closed. The repository's existing manual
+`plan -> local bootstrap script -> import` contract remains the supervised
+compatibility path; Flutter never executes the local script or a provider CLI.
 
 ## Motivation
 
@@ -195,16 +196,14 @@ error.
 
 ## Flutter Architecture Guardrails
 
-- One Cloud Access feature boundary owns bootstrap commands and state; widgets
-  remain pure presentation and services call the Management API only. The
-  Architect decides whether this extends `CloudAccessBloc` or uses one
-  composed child BLoC as constrained below.
-- The Architect must first evaluate extension of `CloudAccessBloc`,
-  `CloudAccountsPanel`, `CloudConnectionSelector`,
-  `CloudConnectionValidationStatus`, and the current credential form/dialog
-  components before justifying a new widget or BLoC. Bootstrap complexity may
-  justify a dedicated child BLoC, but it must compose with Cloud Access rather
-  than duplicate its inventory or connection mutations.
+- The implemented dedicated `CloudBootstrapBloc` owns bootstrap commands and
+  safe session state. It composes with the existing `CloudAccessBloc`
+  inventory instead of duplicating CloudConnection mutations; widgets remain
+  pure presentation and services call the Management API only.
+- `CloudAccountsPanel`, `CloudConnectionSelector`,
+  `CloudConnectionValidationStatus`, and the existing credential/dialog
+  patterns are reused. The shared bootstrap flow is composed by Settings and
+  Prepare deployment rather than copied into either entry point.
 - All spacing, color, typography, and breakpoint choices come from
   `lib/theme/`; Material `Icons` remain the only icon source.
 - Settings and Prepare deployment compose the same bootstrap feature classes
