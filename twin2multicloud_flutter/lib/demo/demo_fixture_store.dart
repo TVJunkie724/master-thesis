@@ -47,20 +47,20 @@ class DemoFixtureStore {
   };
 
   final Map<String, dynamic> _root;
-  final Map<String, Map<String, dynamic>> _fiveLayerV2Contracts;
+  final Map<String, Map<String, dynamic>> _architectureContracts;
   final DemoClock clock;
   int _sequence;
 
   DemoFixtureStore._(
     this._root,
-    this._fiveLayerV2Contracts,
+    this._architectureContracts,
     this.clock,
     this._sequence,
   );
 
   factory DemoFixtureStore.fromJson(
     Map<String, dynamic> fixture, {
-    Map<String, Map<String, dynamic>> fiveLayerV2Contracts = const {},
+    Map<String, Map<String, dynamic>> architectureContracts = const {},
     DemoClock? clock,
   }) {
     final copy = _copyMap(fixture);
@@ -68,7 +68,7 @@ class DemoFixtureStore {
     return DemoFixtureStore._(
       copy,
       {
-        for (final entry in fiveLayerV2Contracts.entries)
+        for (final entry in architectureContracts.entries)
           entry.key: _copyMap(entry.value),
       },
       clock ?? () => DateTime.now().toUtc(),
@@ -96,8 +96,12 @@ class DemoFixtureStore {
       'rta.small': 'resolved-twin-architecture-v2-small.json',
       'rta.medium': 'resolved-twin-architecture-v2-medium.json',
       'rta.large': 'resolved-twin-architecture-v2-large.json',
+      'profile.six': 'architecture-profile-six-layer-v1.json',
+      'provider.six.aws': 'provider-profile-six-layer-v1-aws.json',
+      'provider.six.azure': 'provider-profile-six-layer-v1-azure.json',
+      'provider.six.gcp': 'provider-profile-six-layer-v1-gcp.json',
     };
-    final fiveLayerV2Contracts = <String, Map<String, dynamic>>{};
+    final architectureContracts = <String, Map<String, dynamic>>{};
     for (final entry in contractAssets.entries) {
       final contractRaw = await source.loadString(
         'assets/demo/v1/${entry.value}',
@@ -110,7 +114,7 @@ class DemoFixtureStore {
           'Demo contract "${entry.value}" must be a JSON object.',
         );
       }
-      fiveLayerV2Contracts[entry.key] = Map<String, dynamic>.from(
+      architectureContracts[entry.key] = Map<String, dynamic>.from(
         decodedContract,
       );
     }
@@ -130,7 +134,7 @@ class DemoFixtureStore {
     }
     return DemoFixtureStore.fromJson(
       fixture,
-      fiveLayerV2Contracts: fiveLayerV2Contracts,
+      architectureContracts: architectureContracts,
       clock: clock,
     );
   }
@@ -148,10 +152,40 @@ class DemoFixtureStore {
 
   Map<String, dynamic> fiveLayerV2Profile() => _fiveLayerV2Contract('profile');
 
+  Map<String, dynamic> architectureProfile(
+    String profileId,
+    String profileVersion,
+  ) => switch ((profileId, profileVersion)) {
+    ('five-layer-baseline', '2') => _fiveLayerV2Contract('profile'),
+    ('six-layer-eventing', '1') => _fiveLayerV2Contract('profile.six'),
+    _ => throw DemoApiException(
+      'ARCH_PROFILE_NOT_ACTIVE',
+      'Architecture profile "$profileId@$profileVersion" is not active.',
+    ),
+  };
+
   List<Map<String, dynamic>> fiveLayerV2ProviderProfiles() => [
     for (final provider in const ['aws', 'azure', 'gcp'])
       _fiveLayerV2Contract('provider.$provider'),
   ];
+
+  List<Map<String, dynamic>> architectureProviderProfiles(
+    String profileId,
+    String profileVersion,
+  ) {
+    final prefix = switch ((profileId, profileVersion)) {
+      ('five-layer-baseline', '2') => 'provider',
+      ('six-layer-eventing', '1') => 'provider.six',
+      _ => throw DemoApiException(
+        'ARCH_PROFILE_NOT_ACTIVE',
+        'Architecture profile "$profileId@$profileVersion" is not active.',
+      ),
+    };
+    return [
+      for (final provider in const ['aws', 'azure', 'gcp'])
+        _fiveLayerV2Contract('$prefix.$provider'),
+    ];
+  }
 
   Map<String, dynamic> fiveLayerV2DeploymentSpecification(String scenario) =>
       _fiveLayerV2Contract('rds.$scenario');
@@ -160,7 +194,7 @@ class DemoFixtureStore {
       _fiveLayerV2Contract('rta.$scenario');
 
   Map<String, dynamic> _fiveLayerV2Contract(String key) {
-    final contract = _fiveLayerV2Contracts[key];
+    final contract = _architectureContracts[key];
     if (contract == null) {
       throw DemoApiException(
         'DEMO_FIVE_LAYER_V2_CONTRACT_MISSING',

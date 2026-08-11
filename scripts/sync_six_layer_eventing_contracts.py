@@ -10,6 +10,7 @@ import hashlib
 import importlib.util
 from itertools import product
 import json
+import shutil
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -181,6 +182,15 @@ def provider_profile_path(provider: str) -> Path:
         / provider
         / "1.json"
     )
+
+
+SIX_FLUTTER_DEMO_CONTRACTS = {
+    "architecture-profile-six-layer-v1.json": PROFILE_PATH,
+    **{
+        f"provider-profile-six-layer-v1-{provider}.json": provider_profile_path(provider)
+        for provider in PROVIDERS
+    },
+}
 
 
 def five_profile() -> dict[str, Any]:
@@ -1590,12 +1600,19 @@ def validate_source() -> None:
 
 def synchronize() -> None:
     FIVE.synchronize()
+    FIVE.FLUTTER_DEMO_ROOT.mkdir(parents=True, exist_ok=True)
+    for target_name, source in SIX_FLUTTER_DEMO_CONTRACTS.items():
+        shutil.copy2(source, FIVE.FLUTTER_DEMO_ROOT / target_name)
 
 
 def check() -> None:
     FIVE.validate_source()
     validate_source()
     FIVE.check_tree(ARCH_ROOT, FIVE.ARCH_TARGETS)
+    for target_name, source in SIX_FLUTTER_DEMO_CONTRACTS.items():
+        target = FIVE.FLUTTER_DEMO_ROOT / target_name
+        if not target.is_file() or target.read_bytes() != source.read_bytes():
+            raise RuntimeError(f"Generated Six-layer Flutter demo contract drifted: {target}")
 
 
 def main() -> int:

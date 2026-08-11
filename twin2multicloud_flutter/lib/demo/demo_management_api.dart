@@ -43,6 +43,7 @@ class DemoManagementApi implements ManagementApi {
   final Map<String, TwinExtensionBinding> _extensionBindings = {};
   final Map<String, Map<String, dynamic>> _bootstrapSessions = {};
   final Map<String, ResolvedTwinArchitectureRead> _resolvedArchitectures = {};
+  final Map<String, TwinArchitectureSelection> _architectureSelections = {};
 
   DemoManagementApi({
     required this.store,
@@ -101,7 +102,13 @@ class DemoManagementApi implements ManagementApi {
   Future<List<ArchitectureProfileSummary>> listArchitectureProfiles() async {
     await _pause();
     return [
-      ArchitectureProfileSummary.fromJson(_architectureProfileSummaryJson()),
+      for (final profile in const [
+        ('five-layer-baseline', '2'),
+        ('six-layer-eventing', '1'),
+      ])
+        ArchitectureProfileSummary.fromJson(
+          _architectureProfileSummaryJson(profile.$1, profile.$2),
+        ),
     ];
   }
 
@@ -111,13 +118,10 @@ class DemoManagementApi implements ManagementApi {
     String profileVersion,
   ) async {
     await _pause();
-    if (profileId != 'five-layer-baseline' || profileVersion != '2') {
-      throw const DemoApiException(
-        'ARCH_PROFILE_NOT_ACTIVE',
-        'The requested architecture profile is not active.',
-      );
-    }
-    return ArchitectureProfileDetail.fromJson(_architectureProfileDetailJson());
+    store.architectureProfile(profileId, profileVersion);
+    return ArchitectureProfileDetail.fromJson(
+      _architectureProfileDetailJson(profileId, profileVersion),
+    );
   }
 
   @override
@@ -125,6 +129,8 @@ class DemoManagementApi implements ManagementApi {
     String twinId,
   ) async {
     await _pause();
+    final existing = _architectureSelections[twinId];
+    if (existing != null) return existing;
     final twin = store.twin(twinId);
     final selectedAt = DateTime.parse(twin['created_at'].toString()).toUtc();
     final updatedAt = DateTime.parse(twin['updated_at'].toString()).toUtc();
@@ -151,13 +157,7 @@ class DemoManagementApi implements ManagementApi {
     await _pause();
     store.twin(twinId);
     final current = await getTwinArchitectureSelection(twinId);
-    if (request.profileId != current.profileRef.id ||
-        request.profileVersion != current.profileRef.version) {
-      throw const DemoApiException(
-        'ARCH_PROFILE_NOT_ACTIVE',
-        'The requested architecture profile is not active.',
-      );
-    }
+    final target = _profileReference(request.profileId, request.profileVersion);
     if (request.expectedRevision != current.revision) {
       throw const DemoApiException(
         'ARCH_SELECTION_REVISION_CONFLICT',
@@ -165,7 +165,7 @@ class DemoManagementApi implements ManagementApi {
       );
     }
     return ArchitectureProfileChangePreview.fromJson(
-      _idempotentArchitecturePreviewJson(current),
+      _architecturePreviewJson(current, target),
     );
   }
 
@@ -177,14 +177,8 @@ class DemoManagementApi implements ManagementApi {
     await _pause();
     store.twin(twinId);
     final current = await getTwinArchitectureSelection(twinId);
-    final preview = _idempotentArchitecturePreviewJson(current);
-    if (request.profileId != current.profileRef.id ||
-        request.profileVersion != current.profileRef.version) {
-      throw const DemoApiException(
-        'ARCH_PROFILE_NOT_ACTIVE',
-        'The requested architecture profile is not active.',
-      );
-    }
+    final target = _profileReference(request.profileId, request.profileVersion);
+    final preview = _architecturePreviewJson(current, target);
     if (request.expectedRevision != current.revision) {
       throw const DemoApiException(
         'ARCH_SELECTION_REVISION_CONFLICT',
@@ -197,9 +191,22 @@ class DemoManagementApi implements ManagementApi {
         'The profile-change preview is stale.',
       );
     }
+    final unchanged = current.profileRef == target;
+    final now = store.clock().toUtc();
+    final selection = unchanged
+        ? current
+        : TwinArchitectureSelection(
+            twinId: twinId,
+            profileRef: target,
+            revision: current.revision + 1,
+            selectedAt: now,
+            updatedAt: now,
+            selectedByUserId: store.user['id'].toString(),
+          );
+    _architectureSelections[twinId] = selection;
     return ArchitectureProfileSelectionResult.fromJson({
-      'selection': _architectureSelectionJson(current),
-      'revision': current.revision,
+      'selection': _architectureSelectionJson(selection),
+      'revision': selection.revision,
       'invalidated_calculation_run_id': null,
       'unbound_extension_slot_ids': <String>[],
       'cleared_workload_field_ids': <String>[],
@@ -1378,6 +1385,16 @@ class DemoManagementApi implements ManagementApi {
   ) async {
     await _pause();
     store.twin(twinId);
+    final selectedProfile = _architectureSelections[twinId]?.profileRef;
+    if (selectedProfile != null &&
+        (selectedProfile.id != 'five-layer-baseline' ||
+            selectedProfile.version != '2')) {
+      throw const DemoApiException(
+        'DEMO_PROFILE_CALCULATION_UNAVAILABLE',
+        'Six-layer calculations require the connected local stack; demo mode '
+            'currently provides profile comparison only.',
+      );
+    }
     if (!params.isFiveLayerV2) {
       throw const DemoApiException(
         'ARCH_WORKLOAD_INCOMPATIBLE',
@@ -2452,8 +2469,11 @@ class DemoManagementApi implements ManagementApi {
     };
   }
 
-  Map<String, dynamic> _architectureProfileSummaryJson() {
-    final profile = store.fiveLayerV2Profile();
+  Map<String, dynamic> _architectureProfileSummaryJson(
+    String profileId,
+    String profileVersion,
+  ) {
+    final profile = store.architectureProfile(profileId, profileVersion);
     final responsibilities =
         (profile['responsibilities'] as List)
             .cast<Map>()
@@ -2464,11 +2484,12 @@ class DemoManagementApi implements ManagementApi {
               right['evaluation_order'] as int,
             ),
           );
-    final providers = store.fiveLayerV2ProviderProfiles()
-      ..sort(
-        (left, right) =>
-            left['provider'].toString().compareTo(right['provider'].toString()),
-      );
+    final providers =
+        store.architectureProviderProfiles(profileId, profileVersion)..sort(
+          (left, right) => left['provider'].toString().compareTo(
+            right['provider'].toString(),
+          ),
+        );
     Map<String, dynamic> providerSummary(Map<String, dynamic> item) => {
       'provider': item['provider'],
       'supported': item['supported'],
@@ -2543,8 +2564,11 @@ class DemoManagementApi implements ManagementApi {
     };
   }
 
-  Map<String, dynamic> _architectureProfileDetailJson() {
-    final profile = store.fiveLayerV2Profile();
+  Map<String, dynamic> _architectureProfileDetailJson(
+    String profileId,
+    String profileVersion,
+  ) {
+    final profile = store.architectureProfile(profileId, profileVersion);
     final components = (profile['components'] as List)
         .cast<Map>()
         .map(Map<String, dynamic>.from)
@@ -2554,7 +2578,7 @@ class DemoManagementApi implements ManagementApi {
         .map(Map<String, dynamic>.from)
         .toList();
     return {
-      ..._architectureProfileSummaryJson(),
+      ..._architectureProfileSummaryJson(profileId, profileVersion),
       'logical_components': components,
       'logical_edges': edges,
       'visualization': {
@@ -2601,23 +2625,41 @@ class DemoManagementApi implements ManagementApi {
     'selected_by_user_id': selection.selectedByUserId,
   };
 
-  Map<String, dynamic> _idempotentArchitecturePreviewJson(
-    TwinArchitectureSelection selection,
+  PinnedArchitectureReference _profileReference(
+    String profileId,
+    String profileVersion,
   ) {
-    final reference = {
+    final profile = store.architectureProfile(profileId, profileVersion);
+    return PinnedArchitectureReference(
+      id: profileId,
+      version: profileVersion,
+      digest: profile['content_digest'].toString(),
+    );
+  }
+
+  Map<String, dynamic> _architecturePreviewJson(
+    TwinArchitectureSelection selection,
+    PinnedArchitectureReference target,
+  ) {
+    final currentReference = {
       'id': selection.profileRef.id,
       'version': selection.profileRef.version,
       'digest': selection.profileRef.digest,
     };
+    final targetReference = {
+      'id': target.id,
+      'version': target.version,
+      'digest': target.digest,
+    };
     final digestSeed = jsonEncode({
-      'profile_ref': reference,
+      'profile_ref': targetReference,
       'expected_revision': selection.revision,
       'incompatible_workload_fields': <String>[],
       'incompatible_extension_bindings': <String>[],
     });
     return {
-      'current': reference,
-      'target': _copyMap(reference),
+      'current': currentReference,
+      'target': targetReference,
       'expected_revision': selection.revision,
       'incompatible_workload_fields': <Map<String, dynamic>>[],
       'incompatible_extension_bindings': <Map<String, dynamic>>[],
