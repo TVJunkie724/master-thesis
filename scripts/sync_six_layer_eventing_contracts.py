@@ -660,7 +660,10 @@ def six_compatibility(provider: str) -> dict[str, Any]:
 
 def _event_package(provider: str) -> dict[str, Any]:
     source = {
-        "aws": "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2",
+        "aws": (
+            "3-cloud-deployer/src/providers/aws/lambda_functions/"
+            "six-layer-eventing"
+        ),
         "azure": "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2",
         "gcp": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
     }[provider]
@@ -676,7 +679,11 @@ def _event_package(provider: str) -> dict[str, Any]:
             item["service_id"] for item in event_services(provider)
         ],
         "repository_source_path": source,
-        "platform_handler": f"handler.{provider}.five-layer-v2",
+        "platform_handler": (
+            "lambda_function.lambda_handler"
+            if provider == "aws"
+            else f"handler.{provider}.five-layer-v2"
+        ),
         "digest_policy": "sha256.canonical-source.v1",
         "source_digest": FIVE.package_source_digest(source),
         "included_paths": included,
@@ -684,9 +691,12 @@ def _event_package(provider: str) -> dict[str, Any]:
         "dependency_artifact_refs": [
             {"id": "artifact.shared.phase8-bridge-runtime", "version": "1"}
         ],
-        "builder_adapter_id": f"builder.{provider}.five-layer-v2",
+        "builder_adapter_id": (
+            "builder.aws.six-layer-eventing"
+            if provider == "aws"
+            else f"builder.{provider}.five-layer-v2"
+        ),
         "supported_runtimes": [
-            f"runtime.{provider}.five-layer-v2",
             f"runtime.{provider}.six-layer-eventing",
         ],
         "user_source_policy": "platform_only",
@@ -740,6 +750,17 @@ def _event_component(provider: str) -> dict[str, Any]:
             "resolution_stage": "catalog",
             "compatibility_version": "1",
         }
+    input_bindings = []
+    if provider == "aws":
+        input_bindings = [
+            {
+                "input_id": input_id,
+                "terraform_variable": "aws_"
+                + input_id.removeprefix("input.aws.").replace("-", "_"),
+                "sensitive": False,
+            }
+            for input_id in input_ids
+        ]
     return {
         "deployment_component_id": f"deployment.{provider}.eventing.v1",
         "component_version": "1",
@@ -759,7 +780,7 @@ def _event_component(provider: str) -> dict[str, Any]:
             "resource_addresses": resource_addresses,
             "module_addresses": [],
             "allowed_input_variable_ids": input_ids,
-            "input_bindings": [],
+            "input_bindings": input_bindings,
             "outputs": [
                 {
                     "output_id": output_id,
@@ -835,6 +856,30 @@ def _event_edge_implementation(
         }
         for provider in sorted({source_provider, destination_provider})
     ]
+    if source_logical == "component.eventing":
+        source_output_id = {
+            "aws": {
+                "edge.eventing-to-processing": "output.aws.event-kinesis-arn",
+                "edge.eventing-to-ingestion": "output.aws.event-control-queue-arn",
+            },
+            "azure": {
+                "edge.eventing-to-processing": (
+                    "output.azure.event-hubs-standard-id"
+                ),
+                "edge.eventing-to-ingestion": (
+                    "output.azure.event-control-topic-id"
+                ),
+            },
+            "gcp": {
+                "edge.eventing-to-processing": "output.gcp.event-topic-id",
+                "edge.eventing-to-ingestion": "output.gcp.event-topic-id",
+            },
+        }[source_provider][edge_id]
+    else:
+        source_output_id = {
+            "component.ingestion": f"output.{source_provider}.ingestion.v2",
+            "component.processing": f"output.{source_provider}.processing.v2",
+        }[source_logical]
     return {
         "edge_implementation_id": (
             f"edge-implementation.{source_provider}-to-{destination_provider}."
@@ -855,7 +900,7 @@ def _event_edge_implementation(
             destination_provider, destination_suffix
         ),
         "terraform_binding": {
-            "source_output_id": f"output.{source_provider}.eventing-edge-source",
+            "source_output_id": source_output_id,
             "destination_input_id": _catalog_port(
                 destination_provider, destination_suffix
             ),
@@ -1381,6 +1426,11 @@ def generate() -> None:
         MANIFEST_PATH,
         build_manifest(profile, catalog, providers, cost_registry),
     )
+    # The real fixture optimizer loads its immutable definitions from the
+    # Optimizer-owned generated tree.  Refresh that tree after writing the new
+    # canonical definition digests and before invoking the fail-closed bundle
+    # check; the final synchronization below still copies the completed fixture.
+    FIVE.synchronize()
     generate_deployment_fixture(profile, catalog)
     (ARCH_V2 / "README.md").write_text(
         "# Architecture Profile Contracts v2\n\n"

@@ -77,7 +77,18 @@ class ContractError(ValueError):
 
 
 def _client(service: str):
+    if service == "iot-jobs-data":
+        endpoint = _required_text(
+            os.environ.get("IOT_COMMANDS_ENDPOINT", ""),
+            code="DEVICE_COMMAND_ADAPTER_NOT_CONFIGURED",
+            maximum=2048,
+        )
+        return boto3.client(service, endpoint_url=f"https://{endpoint}")
     return boto3.client(service)
+
+
+def _six_layer_eventing() -> bool:
+    return os.environ.get("ARCHITECTURE_PROFILE") == "six-layer-eventing@1"
 
 
 def _canonical_json(value: Mapping[str, Any]) -> str:
@@ -247,7 +258,46 @@ def _put_stream(payload: Mapping[str, Any]) -> None:
     )
 
 
+def _put_eventing_stream(payload: Mapping[str, Any]) -> None:
+    stream_name = {
+        EVENT_TELEMETRY_RECEIVED: "EVENTING_RECEIVED_STREAM_ARN",
+        EVENT_TELEMETRY_PROCESSED: "EVENTING_PROCESSED_STREAM_ARN",
+    }.get(_event_type(payload))
+    if stream_name is None:
+        raise ContractError("UNSUPPORTED_EVENTING_STREAM_EVENT")
+    stream_arn = os.environ.get(stream_name, "")
+    if not stream_arn:
+        raise ContractError("EVENTING_ROUTE_NOT_CONFIGURED", 503)
+    _client("kinesis").put_record(
+        StreamARN=stream_arn,
+        Data=_canonical_json(payload).encode("utf-8"),
+        PartitionKey=_partition_key(payload),
+    )
+
+
+def _publish_eventing_control(payload: Mapping[str, Any]) -> None:
+    topic_arn = os.environ.get("EVENTING_CONTROL_TOPIC_ARN", "")
+    if not topic_arn:
+        raise ContractError("EVENTING_ROUTE_NOT_CONFIGURED", 503)
+    event_id = _event_id(payload)
+    _client("sns").publish(
+        TopicArn=topic_arn,
+        Message=_canonical_json(payload),
+        MessageAttributes={
+            "event_type": {
+                "DataType": "String",
+                "StringValue": _event_type(payload),
+            }
+        },
+        MessageGroupId=_partition_key(payload),
+        MessageDeduplicationId=event_id,
+    )
+
+
 def _enqueue(payload: Mapping[str, Any]) -> None:
+    if _six_layer_eventing():
+        _publish_eventing_control(payload)
+        return
     queue_url = os.environ.get("EVENT_QUEUE_URL", "")
     if not queue_url:
         raise ContractError("LOCAL_QUEUE_NOT_CONFIGURED", 503)
@@ -333,6 +383,8 @@ def event_adapter(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
             _validate_canonical_event(payload)
             if os.environ.get("LOCAL_PROCESSING", "false").lower() == "true":
                 _enqueue(payload)
+            elif _six_layer_eventing():
+                _put_eventing_stream(payload)
             else:
                 _put_stream(payload)
             accepted += 1
@@ -580,6 +632,13 @@ def _store_outcome(event: Mapping[str, Any]) -> None:
         _publish_control(event)
 
 
+def _emit_outcome(event: Mapping[str, Any]) -> None:
+    if _six_layer_eventing():
+        _enqueue(event)
+    else:
+        _store_outcome(event)
+
+
 def _rules() -> list[Mapping[str, Any]]:
     try:
         rules = json.loads(os.environ.get("RULES_JSON", "[]"))
@@ -806,11 +865,14 @@ def processor(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
                 source,
                 _invoke_processor_extension(source),
             )
-            if os.environ.get("HOT_PROVIDER") == "aws":
+            if _six_layer_eventing():
+                _put_eventing_stream(processed)
+            elif os.environ.get("HOT_PROVIDER") == "aws":
                 _persist_and_project(processed)
+                _evaluate_rules(processed)
             else:
                 _put_stream(processed)
-            _evaluate_rules(processed)
+                _evaluate_rules(processed)
             accepted += 1
         except Exception:
             if isinstance(event.get("Records"), list):
@@ -826,6 +888,10 @@ def processor(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
 
 def _persist_and_project(event: Mapping[str, Any]) -> None:
     _write_raw_and_rollup(event)
+    _project_twin(event)
+
+
+def _project_twin(event: Mapping[str, Any]) -> None:
     body = dict(_event_body(event))
     if body.get("projection_candidate") is not True:
         return
@@ -961,7 +1027,9 @@ def _dispatch_match(event: Mapping[str, Any]) -> None:
                 "message": str(feedback.get("payload") or "Rule matched"),
             },
         )
-        if os.environ.get("L1_PROVIDER") == "aws":
+        if _six_layer_eventing():
+            _enqueue(command)
+        elif os.environ.get("L1_PROVIDER") == "aws":
             _enqueue(command)
         else:
             _publish_control(command)
@@ -992,7 +1060,7 @@ def _start_notification_workflow(event: Mapping[str, Any]) -> None:
             "status": "FAILED_TO_START",
         },
     )
-    _store_outcome(outcome)
+    _emit_outcome(outcome)
 
 
 def _deliver_device_command(event: Mapping[str, Any]) -> None:
@@ -1029,7 +1097,7 @@ def _deliver_device_command(event: Mapping[str, Any]) -> None:
             "status": "ACCEPTED" if accepted else "FAILED",
         },
     )
-    _store_outcome(outcome)
+    _emit_outcome(outcome)
 
 
 def _record_workflow_outcome(wrapper: Mapping[str, Any]) -> None:
@@ -1049,7 +1117,7 @@ def _record_workflow_outcome(wrapper: Mapping[str, Any]) -> None:
             "status": str(wrapper.get("status") or "FAILED"),
         },
     )
-    _store_outcome(outcome)
+    _emit_outcome(outcome)
 
 
 def poc_boundary(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
@@ -1100,8 +1168,41 @@ def poc_boundary(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
     raise ContractError("INVALID_POC_BOUNDARY_INVOCATION")
 
 
+def _consume_eventing_delivery(role: str, payload: Mapping[str, Any]) -> None:
+    if _event_type(payload) != EVENT_TELEMETRY_PROCESSED:
+        raise ContractError("EVENTING_CONSUMER_EVENT_MISMATCH")
+    if role == "historical-persistence":
+        if os.environ.get("HOT_PROVIDER") == "aws":
+            _write_raw_and_rollup(payload)
+        else:
+            _put_stream(payload)
+    elif role == "twin-state-update":
+        _project_twin(payload)
+    elif role == "rule-evaluator":
+        _evaluate_rules(payload)
+    elif role not in {"audit", "realtime-visualization"}:
+        raise ContractError("UNKNOWN_EVENTING_CONSUMER")
+
+
 def domain_consumer(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
     """Dispatch target-broker records to the responsibility named by event type."""
+
+    eventing_delivery = event.get("eventing_delivery")
+    if isinstance(eventing_delivery, Mapping):
+        role = eventing_delivery.get("consumer_role")
+        payload = eventing_delivery.get("event")
+        if not isinstance(role, str) or not isinstance(payload, Mapping):
+            raise RuntimeError("INVALID_EVENTING_DELIVERY")
+        try:
+            _validate_canonical_event(payload)
+            _consume_eventing_delivery(role, payload)
+        except Exception:
+            raise RuntimeError("EVENTING_DELIVERY_RETRYABLE_FAILURE") from None
+        return {
+            "schema_version": "domain-consumer-result.v1",
+            "accepted": 1,
+            "batchItemFailures": [],
+        }
 
     if "workflow_request" in event:
         _record_workflow_outcome(event)

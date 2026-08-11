@@ -17,7 +17,7 @@
       "component_catalog_ref": {
         "id": "complete-service-component-catalog",
         "version": "1",
-        "digest": "sha256:3396848028a5b8862e1c948a8017cd8e7bb7d118a0ee5edc120cd3d7a3956c1d"
+        "digest": "sha256:f5a67f32a3c5a88ab744804f356ffa958cf4df6fa236f7dab3107b71deb9ea15"
       },
       "workload_ref": {
         "id": "five-layer-workload",
@@ -1438,6 +1438,6 @@
         "compatibility_version": "1"
       }
     ],
-    "digest": "sha256:de852ea8ee3ed0cd00f0d10d812febe62ad36225feefbb2613afce3ef0a3297a"
+    "digest": "sha256:6fb0ec8a3157ac4d848ecb0cfecac69e4aaa0374b4edb18db5808f80fe970cee"
   }
 }

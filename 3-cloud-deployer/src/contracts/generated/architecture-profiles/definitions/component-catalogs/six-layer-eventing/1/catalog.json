@@ -3891,7 +3891,48 @@
           "input.aws.event-runtime-batch-max",
           "input.aws.event-runtime-memory-mib"
         ],
-        "input_bindings": [],
+        "input_bindings": [
+          {
+            "input_id": "input.aws.event-control-archive-hours",
+            "terraform_variable": "aws_event_control_archive_hours",
+            "sensitive": false
+          },
+          {
+            "input_id": "input.aws.event-dlq-retention-hours",
+            "terraform_variable": "aws_event_dlq_retention_hours",
+            "sensitive": false
+          },
+          {
+            "input_id": "input.aws.event-kinesis-shards",
+            "terraform_variable": "aws_event_kinesis_shards",
+            "sensitive": false
+          },
+          {
+            "input_id": "input.aws.event-log-retention-days",
+            "terraform_variable": "aws_event_log_retention_days",
+            "sensitive": false
+          },
+          {
+            "input_id": "input.aws.event-max-receive-count",
+            "terraform_variable": "aws_event_max_receive_count",
+            "sensitive": false
+          },
+          {
+            "input_id": "input.aws.event-retention-hours",
+            "terraform_variable": "aws_event_retention_hours",
+            "sensitive": false
+          },
+          {
+            "input_id": "input.aws.event-runtime-batch-max",
+            "terraform_variable": "aws_event_runtime_batch_max",
+            "sensitive": false
+          },
+          {
+            "input_id": "input.aws.event-runtime-memory-mib",
+            "terraform_variable": "aws_event_runtime_memory_mib",
+            "sensitive": false
+          }
+        ],
         "outputs": [
           {
             "output_id": "output.aws.event-control-queue-arn",
@@ -7823,7 +7864,7 @@
       "source_output_port_id": "catalog.aws.port.ingestion.telemetry-event-out",
       "destination_input_port_id": "catalog.aws.port.eventing.telemetry-in",
       "terraform_binding": {
-        "source_output_id": "output.aws.eventing-edge-source",
+        "source_output_id": "output.aws.ingestion.v2",
         "destination_input_id": "catalog.aws.port.eventing.telemetry-in",
         "dependency_keys": []
       },
@@ -7901,7 +7942,7 @@
       "source_output_port_id": "catalog.aws.port.eventing.telemetry-out",
       "destination_input_port_id": "catalog.aws.port.processing.telemetry-event-in",
       "terraform_binding": {
-        "source_output_id": "output.aws.eventing-edge-source",
+        "source_output_id": "output.aws.event-kinesis-arn",
         "destination_input_id": "catalog.aws.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
@@ -7979,7 +8020,7 @@
       "source_output_port_id": "catalog.aws.port.processing.device-command-out",
       "destination_input_port_id": "catalog.aws.port.eventing.control-in",
       "terraform_binding": {
-        "source_output_id": "output.aws.eventing-edge-source",
+        "source_output_id": "output.aws.processing.v2",
         "destination_input_id": "catalog.aws.port.eventing.control-in",
         "dependency_keys": []
       },
@@ -8057,7 +8098,7 @@
       "source_output_port_id": "catalog.aws.port.eventing.control-out",
       "destination_input_port_id": "catalog.aws.port.ingestion.device-command-in",
       "terraform_binding": {
-        "source_output_id": "output.aws.eventing-edge-source",
+        "source_output_id": "output.aws.event-control-queue-arn",
         "destination_input_id": "catalog.aws.port.ingestion.device-command-in",
         "dependency_keys": []
       },
@@ -8135,7 +8176,7 @@
       "source_output_port_id": "catalog.aws.port.ingestion.telemetry-event-out",
       "destination_input_port_id": "catalog.azure.port.eventing.telemetry-in",
       "terraform_binding": {
-        "source_output_id": "output.aws.eventing-edge-source",
+        "source_output_id": "output.aws.ingestion.v2",
         "destination_input_id": "catalog.azure.port.eventing.telemetry-in",
         "dependency_keys": []
       },
@@ -8219,7 +8260,7 @@
       "source_output_port_id": "catalog.aws.port.eventing.telemetry-out",
       "destination_input_port_id": "catalog.azure.port.processing.telemetry-event-in",
       "terraform_binding": {
-        "source_output_id": "output.aws.eventing-edge-source",
+        "source_output_id": "output.aws.event-kinesis-arn",
         "destination_input_id": "catalog.azure.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
@@ -8303,7 +8344,7 @@
       "source_output_port_id": "catalog.aws.port.processing.device-command-out",
       "destination_input_port_id": "catalog.azure.port.eventing.control-in",
       "terraform_binding": {
-        "source_output_id": "output.aws.eventing-edge-source",
+        "source_output_id": "output.aws.processing.v2",
         "destination_input_id": "catalog.azure.port.eventing.control-in",
         "dependency_keys": []
       },
@@ -8387,7 +8428,7 @@
       "source_output_port_id": "catalog.aws.port.eventing.control-out",
       "destination_input_port_id": "catalog.azure.port.ingestion.device-command-in",
       "terraform_binding": {
-        "source_output_id": "output.aws.eventing-edge-source",
+        "source_output_id": "output.aws.event-control-queue-arn",
         "destination_input_id": "catalog.azure.port.ingestion.device-command-in",
         "dependency_keys": []
       },
@@ -8471,7 +8512,7 @@
       "source_output_port_id": "catalog.aws.port.ingestion.telemetry-event-out",
       "destination_input_port_id": "catalog.gcp.port.eventing.telemetry-in",
       "terraform_binding": {
-        "source_output_id": "output.aws.eventing-edge-source",
+        "source_output_id": "output.aws.ingestion.v2",
         "destination_input_id": "catalog.gcp.port.eventing.telemetry-in",
         "dependency_keys": []
       },
@@ -8555,7 +8596,7 @@
       "source_output_port_id": "catalog.aws.port.eventing.telemetry-out",
       "destination_input_port_id": "catalog.gcp.port.processing.telemetry-event-in",
       "terraform_binding": {
-        "source_output_id": "output.aws.eventing-edge-source",
+        "source_output_id": "output.aws.event-kinesis-arn",
         "destination_input_id": "catalog.gcp.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
@@ -8639,7 +8680,7 @@
       "source_output_port_id": "catalog.aws.port.processing.device-command-out",
       "destination_input_port_id": "catalog.gcp.port.eventing.control-in",
       "terraform_binding": {
-        "source_output_id": "output.aws.eventing-edge-source",
+        "source_output_id": "output.aws.processing.v2",
         "destination_input_id": "catalog.gcp.port.eventing.control-in",
         "dependency_keys": []
       },
@@ -8723,7 +8764,7 @@
       "source_output_port_id": "catalog.aws.port.eventing.control-out",
       "destination_input_port_id": "catalog.gcp.port.ingestion.device-command-in",
       "terraform_binding": {
-        "source_output_id": "output.aws.eventing-edge-source",
+        "source_output_id": "output.aws.event-control-queue-arn",
         "destination_input_id": "catalog.gcp.port.ingestion.device-command-in",
         "dependency_keys": []
       },
@@ -8807,7 +8848,7 @@
       "source_output_port_id": "catalog.azure.port.ingestion.telemetry-event-out",
       "destination_input_port_id": "catalog.aws.port.eventing.telemetry-in",
       "terraform_binding": {
-        "source_output_id": "output.azure.eventing-edge-source",
+        "source_output_id": "output.azure.ingestion.v2",
         "destination_input_id": "catalog.aws.port.eventing.telemetry-in",
         "dependency_keys": []
       },
@@ -8891,7 +8932,7 @@
       "source_output_port_id": "catalog.azure.port.eventing.telemetry-out",
       "destination_input_port_id": "catalog.aws.port.processing.telemetry-event-in",
       "terraform_binding": {
-        "source_output_id": "output.azure.eventing-edge-source",
+        "source_output_id": "output.azure.event-hubs-standard-id",
         "destination_input_id": "catalog.aws.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
@@ -8975,7 +9016,7 @@
       "source_output_port_id": "catalog.azure.port.processing.device-command-out",
       "destination_input_port_id": "catalog.aws.port.eventing.control-in",
       "terraform_binding": {
-        "source_output_id": "output.azure.eventing-edge-source",
+        "source_output_id": "output.azure.processing.v2",
         "destination_input_id": "catalog.aws.port.eventing.control-in",
         "dependency_keys": []
       },
@@ -9059,7 +9100,7 @@
       "source_output_port_id": "catalog.azure.port.eventing.control-out",
       "destination_input_port_id": "catalog.aws.port.ingestion.device-command-in",
       "terraform_binding": {
-        "source_output_id": "output.azure.eventing-edge-source",
+        "source_output_id": "output.azure.event-control-topic-id",
         "destination_input_id": "catalog.aws.port.ingestion.device-command-in",
         "dependency_keys": []
       },
@@ -9143,7 +9184,7 @@
       "source_output_port_id": "catalog.azure.port.ingestion.telemetry-event-out",
       "destination_input_port_id": "catalog.azure.port.eventing.telemetry-in",
       "terraform_binding": {
-        "source_output_id": "output.azure.eventing-edge-source",
+        "source_output_id": "output.azure.ingestion.v2",
         "destination_input_id": "catalog.azure.port.eventing.telemetry-in",
         "dependency_keys": []
       },
@@ -9221,7 +9262,7 @@
       "source_output_port_id": "catalog.azure.port.eventing.telemetry-out",
       "destination_input_port_id": "catalog.azure.port.processing.telemetry-event-in",
       "terraform_binding": {
-        "source_output_id": "output.azure.eventing-edge-source",
+        "source_output_id": "output.azure.event-hubs-standard-id",
         "destination_input_id": "catalog.azure.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
@@ -9299,7 +9340,7 @@
       "source_output_port_id": "catalog.azure.port.processing.device-command-out",
       "destination_input_port_id": "catalog.azure.port.eventing.control-in",
       "terraform_binding": {
-        "source_output_id": "output.azure.eventing-edge-source",
+        "source_output_id": "output.azure.processing.v2",
         "destination_input_id": "catalog.azure.port.eventing.control-in",
         "dependency_keys": []
       },
@@ -9377,7 +9418,7 @@
       "source_output_port_id": "catalog.azure.port.eventing.control-out",
       "destination_input_port_id": "catalog.azure.port.ingestion.device-command-in",
       "terraform_binding": {
-        "source_output_id": "output.azure.eventing-edge-source",
+        "source_output_id": "output.azure.event-control-topic-id",
         "destination_input_id": "catalog.azure.port.ingestion.device-command-in",
         "dependency_keys": []
       },
@@ -9455,7 +9496,7 @@
       "source_output_port_id": "catalog.azure.port.ingestion.telemetry-event-out",
       "destination_input_port_id": "catalog.gcp.port.eventing.telemetry-in",
       "terraform_binding": {
-        "source_output_id": "output.azure.eventing-edge-source",
+        "source_output_id": "output.azure.ingestion.v2",
         "destination_input_id": "catalog.gcp.port.eventing.telemetry-in",
         "dependency_keys": []
       },
@@ -9539,7 +9580,7 @@
       "source_output_port_id": "catalog.azure.port.eventing.telemetry-out",
       "destination_input_port_id": "catalog.gcp.port.processing.telemetry-event-in",
       "terraform_binding": {
-        "source_output_id": "output.azure.eventing-edge-source",
+        "source_output_id": "output.azure.event-hubs-standard-id",
         "destination_input_id": "catalog.gcp.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
@@ -9623,7 +9664,7 @@
       "source_output_port_id": "catalog.azure.port.processing.device-command-out",
       "destination_input_port_id": "catalog.gcp.port.eventing.control-in",
       "terraform_binding": {
-        "source_output_id": "output.azure.eventing-edge-source",
+        "source_output_id": "output.azure.processing.v2",
         "destination_input_id": "catalog.gcp.port.eventing.control-in",
         "dependency_keys": []
       },
@@ -9707,7 +9748,7 @@
       "source_output_port_id": "catalog.azure.port.eventing.control-out",
       "destination_input_port_id": "catalog.gcp.port.ingestion.device-command-in",
       "terraform_binding": {
-        "source_output_id": "output.azure.eventing-edge-source",
+        "source_output_id": "output.azure.event-control-topic-id",
         "destination_input_id": "catalog.gcp.port.ingestion.device-command-in",
         "dependency_keys": []
       },
@@ -9791,7 +9832,7 @@
       "source_output_port_id": "catalog.gcp.port.ingestion.telemetry-event-out",
       "destination_input_port_id": "catalog.aws.port.eventing.telemetry-in",
       "terraform_binding": {
-        "source_output_id": "output.gcp.eventing-edge-source",
+        "source_output_id": "output.gcp.ingestion.v2",
         "destination_input_id": "catalog.aws.port.eventing.telemetry-in",
         "dependency_keys": []
       },
@@ -9875,7 +9916,7 @@
       "source_output_port_id": "catalog.gcp.port.eventing.telemetry-out",
       "destination_input_port_id": "catalog.aws.port.processing.telemetry-event-in",
       "terraform_binding": {
-        "source_output_id": "output.gcp.eventing-edge-source",
+        "source_output_id": "output.gcp.event-topic-id",
         "destination_input_id": "catalog.aws.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
@@ -9959,7 +10000,7 @@
       "source_output_port_id": "catalog.gcp.port.processing.device-command-out",
       "destination_input_port_id": "catalog.aws.port.eventing.control-in",
       "terraform_binding": {
-        "source_output_id": "output.gcp.eventing-edge-source",
+        "source_output_id": "output.gcp.processing.v2",
         "destination_input_id": "catalog.aws.port.eventing.control-in",
         "dependency_keys": []
       },
@@ -10043,7 +10084,7 @@
       "source_output_port_id": "catalog.gcp.port.eventing.control-out",
       "destination_input_port_id": "catalog.aws.port.ingestion.device-command-in",
       "terraform_binding": {
-        "source_output_id": "output.gcp.eventing-edge-source",
+        "source_output_id": "output.gcp.event-topic-id",
         "destination_input_id": "catalog.aws.port.ingestion.device-command-in",
         "dependency_keys": []
       },
@@ -10127,7 +10168,7 @@
       "source_output_port_id": "catalog.gcp.port.ingestion.telemetry-event-out",
       "destination_input_port_id": "catalog.azure.port.eventing.telemetry-in",
       "terraform_binding": {
-        "source_output_id": "output.gcp.eventing-edge-source",
+        "source_output_id": "output.gcp.ingestion.v2",
         "destination_input_id": "catalog.azure.port.eventing.telemetry-in",
         "dependency_keys": []
       },
@@ -10211,7 +10252,7 @@
       "source_output_port_id": "catalog.gcp.port.eventing.telemetry-out",
       "destination_input_port_id": "catalog.azure.port.processing.telemetry-event-in",
       "terraform_binding": {
-        "source_output_id": "output.gcp.eventing-edge-source",
+        "source_output_id": "output.gcp.event-topic-id",
         "destination_input_id": "catalog.azure.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
@@ -10295,7 +10336,7 @@
       "source_output_port_id": "catalog.gcp.port.processing.device-command-out",
       "destination_input_port_id": "catalog.azure.port.eventing.control-in",
       "terraform_binding": {
-        "source_output_id": "output.gcp.eventing-edge-source",
+        "source_output_id": "output.gcp.processing.v2",
         "destination_input_id": "catalog.azure.port.eventing.control-in",
         "dependency_keys": []
       },
@@ -10379,7 +10420,7 @@
       "source_output_port_id": "catalog.gcp.port.eventing.control-out",
       "destination_input_port_id": "catalog.azure.port.ingestion.device-command-in",
       "terraform_binding": {
-        "source_output_id": "output.gcp.eventing-edge-source",
+        "source_output_id": "output.gcp.event-topic-id",
         "destination_input_id": "catalog.azure.port.ingestion.device-command-in",
         "dependency_keys": []
       },
@@ -10463,7 +10504,7 @@
       "source_output_port_id": "catalog.gcp.port.ingestion.telemetry-event-out",
       "destination_input_port_id": "catalog.gcp.port.eventing.telemetry-in",
       "terraform_binding": {
-        "source_output_id": "output.gcp.eventing-edge-source",
+        "source_output_id": "output.gcp.ingestion.v2",
         "destination_input_id": "catalog.gcp.port.eventing.telemetry-in",
         "dependency_keys": []
       },
@@ -10541,7 +10582,7 @@
       "source_output_port_id": "catalog.gcp.port.eventing.telemetry-out",
       "destination_input_port_id": "catalog.gcp.port.processing.telemetry-event-in",
       "terraform_binding": {
-        "source_output_id": "output.gcp.eventing-edge-source",
+        "source_output_id": "output.gcp.event-topic-id",
         "destination_input_id": "catalog.gcp.port.processing.telemetry-event-in",
         "dependency_keys": []
       },
@@ -10619,7 +10660,7 @@
       "source_output_port_id": "catalog.gcp.port.processing.device-command-out",
       "destination_input_port_id": "catalog.gcp.port.eventing.control-in",
       "terraform_binding": {
-        "source_output_id": "output.gcp.eventing-edge-source",
+        "source_output_id": "output.gcp.processing.v2",
         "destination_input_id": "catalog.gcp.port.eventing.control-in",
         "dependency_keys": []
       },
@@ -10697,7 +10738,7 @@
       "source_output_port_id": "catalog.gcp.port.eventing.control-out",
       "destination_input_port_id": "catalog.gcp.port.ingestion.device-command-in",
       "terraform_binding": {
-        "source_output_id": "output.gcp.eventing-edge-source",
+        "source_output_id": "output.gcp.event-topic-id",
         "destination_input_id": "catalog.gcp.port.ingestion.device-command-in",
         "dependency_keys": []
       },
@@ -10786,7 +10827,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2",
       "platform_handler": "handler.aws.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:4506cafd2780a6679f3c783fe64f1da9f2f60df5a7aaebe1fcbce81e1a45c71a",
+      "source_digest": "sha256:9c050b3eebcda1a28677d7460a5b891e6409b3f8c9fd8c690fe95c6026a4d1c6",
       "included_paths": [
         "handler.py",
         "storage-mover/Dockerfile",
@@ -10981,13 +11022,12 @@
         "aws.lambda",
         "aws.cloudwatch"
       ],
-      "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2",
-      "platform_handler": "handler.aws.five-layer-v2",
+      "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-eventing",
+      "platform_handler": "lambda_function.lambda_handler",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:4506cafd2780a6679f3c783fe64f1da9f2f60df5a7aaebe1fcbce81e1a45c71a",
+      "source_digest": "sha256:bec8c481b73cb1daf3231de7ae0da0d9f3488d016c2f7ecdc78792836361160e",
       "included_paths": [
-        "handler.py",
-        "storage-mover/storage_mover.py"
+        "lambda_function.py"
       ],
       "excluded_paths": [],
       "dependency_artifact_refs": [
@@ -10996,9 +11036,8 @@
           "version": "1"
         }
       ],
-      "builder_adapter_id": "builder.aws.five-layer-v2",
+      "builder_adapter_id": "builder.aws.six-layer-eventing",
       "supported_runtimes": [
-        "runtime.aws.five-layer-v2",
         "runtime.aws.six-layer-eventing"
       ],
       "user_source_policy": "platform_only",
@@ -11039,7 +11078,6 @@
       ],
       "builder_adapter_id": "builder.azure.five-layer-v2",
       "supported_runtimes": [
-        "runtime.azure.five-layer-v2",
         "runtime.azure.six-layer-eventing"
       ],
       "user_source_policy": "platform_only",
@@ -11080,7 +11118,6 @@
       ],
       "builder_adapter_id": "builder.gcp.five-layer-v2",
       "supported_runtimes": [
-        "runtime.gcp.five-layer-v2",
         "runtime.gcp.six-layer-eventing"
       ],
       "user_source_policy": "platform_only",
@@ -11111,5 +11148,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:9042a6301af8c80b027111733ab5b8795cc371d5e7bf5db0ed4503805216330a"
+  "content_digest": "sha256:937843984f7e820753679d8def099b3250fb65a9fd11ce49229a6eac9f43ab3b"
 }

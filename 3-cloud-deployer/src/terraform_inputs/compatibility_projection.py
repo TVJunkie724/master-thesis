@@ -14,6 +14,7 @@ KEY_BY_COMPONENT = {
     "component.archive-storage": "layer_3_archive_provider",
     "component.twin-state": "layer_4_provider",
     "component.visualization": "layer_5_provider",
+    "component.eventing": "event_layer_provider",
 }
 
 
@@ -29,10 +30,16 @@ def provider_projection(graph: ResolvedDeploymentGraph) -> dict[str, str]:
             raise DeploymentSpecificationError(
                 "DEPLOYMENT_TERRAFORM_BINDING_INVALID",
                 f"nodes.{node.node_id}",
-                "Graph contains duplicate baseline provider ownership",
+                "Graph contains duplicate architecture provider ownership",
             )
         values[key] = "google" if node.provider == "gcp" else node.provider
-    if set(values) != set(KEY_BY_COMPONENT.values()):
+    expected_keys = {
+        key
+        for logical_component_id, key in KEY_BY_COMPONENT.items()
+        if logical_component_id != "component.eventing"
+        or graph.profile_ref.get("id") == "six-layer-eventing"
+    }
+    if set(values) != expected_keys:
         raise DeploymentSpecificationError(
             "DEPLOYMENT_TERRAFORM_BINDING_INVALID",
             "nodes",

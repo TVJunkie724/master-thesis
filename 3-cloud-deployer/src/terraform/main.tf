@@ -153,9 +153,19 @@ locals {
     Environment = var.environment
   }
 
+  six_layer_eventing_enabled = (
+    var.architecture_profile_id == "six-layer-eventing" &&
+    var.architecture_profile_version == "1"
+  )
+
+  # Six-layer v1 inherits the reviewed Five-layer v2 implementation foundation.
+  # Keep the established local name while the provider files are activated as
+  # an exact L1-L5 base plus a separately selected Event Layer.
   five_layer_v2_enabled = (
-    var.architecture_profile_id == "five-layer-baseline" &&
-    var.architecture_profile_version == "2"
+    (
+      var.architecture_profile_id == "five-layer-baseline" &&
+      var.architecture_profile_version == "2"
+    ) || local.six_layer_eventing_enabled
   )
 
   # Provider-to-layer mapping for conditional deployments
@@ -166,7 +176,8 @@ locals {
     var.layer_3_cold_provider,
     var.layer_3_archive_provider,
     var.layer_4_provider,
-    var.layer_5_provider
+    var.layer_5_provider,
+    var.event_layer_provider
   ], "azure")
 
   azure_v1_enabled = local.deploy_azure && !local.five_layer_v2_enabled
@@ -179,7 +190,8 @@ locals {
     var.layer_3_cold_provider,
     var.layer_3_archive_provider,
     var.layer_4_provider,
-    var.layer_5_provider
+    var.layer_5_provider,
+    var.event_layer_provider
   ], "aws")
 
   deploy_gcp = contains([
@@ -189,7 +201,8 @@ locals {
     var.layer_3_cold_provider,
     var.layer_3_archive_provider,
     var.layer_4_provider,
-    var.layer_5_provider
+    var.layer_5_provider,
+    var.event_layer_provider
   ], "google")
 
   # Azure region to use for IoT Hub (may differ from main region)

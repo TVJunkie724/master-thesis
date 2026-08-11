@@ -30,6 +30,9 @@ from src.providers.terraform.package_builders.azure_v2_container import (
     PACKAGE_ID as AZURE_V2_STORAGE_MOVER_PACKAGE_ID,
     build_azure_v2_storage_mover_context,
 )
+from src.providers.terraform.package_builders.aws_eventing import (
+    build_aws_eventing_app,
+)
 
 
 MANIFEST_ROOT = (
@@ -138,6 +141,24 @@ def test_azure_v2_storage_mover_context_is_complete_and_deterministic(tmp_path):
             "requirements.txt",
             "storage_mover.py",
         }
+
+
+def test_aws_eventing_app_is_standalone_and_deterministic(tmp_path):
+    first = build_aws_eventing_app(tmp_path)
+    first_bytes = first["aws_six-layer-eventing"].read_bytes()
+    second = build_aws_eventing_app(tmp_path)
+
+    assert second["aws_six-layer-eventing"].read_bytes() == first_bytes
+    with zipfile.ZipFile(second["aws_six-layer-eventing"]) as archive:
+        names = set(archive.namelist())
+        handler = archive.read("lambda_function.py").decode("utf-8")
+    assert {
+        "lambda_function.py",
+        "phase8_eventing/bridge_core.py",
+        "phase8_eventing/aws/bridge.py",
+    } <= names
+    assert "def lambda_handler" in handler
+    assert "function_url" not in handler
 
 
 class TestBuildAllPackages:

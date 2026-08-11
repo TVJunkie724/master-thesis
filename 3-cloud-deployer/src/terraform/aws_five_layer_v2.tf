@@ -17,6 +17,13 @@ locals {
     local.aws_v2_l1_enabled || local.aws_v2_l2_enabled ||
     local.aws_v2_hot_enabled || local.aws_v2_l4_enabled
   )
+  # In a same-provider Six-layer graph the independent Event Layer replaces
+  # the embedded FIFO transport. Keep the embedded transport only for Five-
+  # layer v2 and for the remote provider boundary resolved by the bridge.
+  aws_v2_embedded_event_enabled = (
+    local.aws_v2_event_enabled &&
+    !(local.six_layer_eventing_enabled && var.event_layer_provider == "aws")
+  )
   # The owner of the source tier runs the finite mover. DynamoDB -> S3 always
   # needs one; S3 -> archive needs one only across provider boundaries.
   aws_v2_storage_mover_enabled = (
@@ -107,7 +114,7 @@ locals {
     if package.slot_id == "processor.telemetry" && package.slot_version == "1"
   } : {}
   aws_v2_tags = merge(local.aws_common_tags, {
-    ArchitectureProfile = "five-layer-baseline@2"
+    ArchitectureProfile = "${var.architecture_profile_id}@${var.architecture_profile_version}"
   })
 }
 
@@ -138,7 +145,7 @@ resource "aws_cloudwatch_log_group" "aws_aws_cloudwatch" {
 }
 
 resource "aws_sqs_queue" "aws_aws_sqs_fifo" {
-  count                       = local.aws_v2_event_enabled ? 1 : 0
+  count                       = local.aws_v2_embedded_event_enabled ? 1 : 0
   name                        = "${local.aws_v2_name}-embedded-events.fifo"
   fifo_queue                  = true
   content_based_deduplication = false
@@ -153,7 +160,7 @@ resource "aws_sqs_queue" "aws_aws_sqs_fifo" {
 }
 
 resource "aws_sqs_queue" "aws_v2_embedded_failure" {
-  count                      = local.aws_v2_event_enabled ? 1 : 0
+  count                      = local.aws_v2_embedded_event_enabled || local.aws_v2_remote_control_inbound ? 1 : 0
   name                       = "${local.aws_v2_name}-embedded-failure.fifo"
   fifo_queue                 = true
   message_retention_seconds  = 1209600
@@ -256,17 +263,15 @@ resource "aws_iam_role_policy" "aws_v2_lambda_data" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = concat(
-      local.aws_v2_event_enabled ? [{
+      local.aws_v2_embedded_event_enabled || local.aws_v2_remote_telemetry_inbound || local.aws_v2_remote_control_inbound ? [{
         Effect = "Allow"
         Action = ["sqs:GetQueueAttributes", "sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:SendMessage"]
-        Resource = concat(
-          [
-            aws_sqs_queue.aws_aws_sqs_fifo[0].arn,
-            aws_sqs_queue.aws_v2_embedded_failure[0].arn,
-          ],
-          aws_sqs_queue.aws_v2_remote_failure[*].arn,
-          aws_sqs_queue.aws_v2_remote_control[*].arn,
-        )
+        Resource = compact([
+          try(aws_sqs_queue.aws_aws_sqs_fifo[0].arn, ""),
+          try(aws_sqs_queue.aws_v2_embedded_failure[0].arn, ""),
+          try(aws_sqs_queue.aws_v2_remote_failure[0].arn, ""),
+          try(aws_sqs_queue.aws_v2_remote_control[0].arn, ""),
+        ])
       }] : [],
       local.aws_v2_remote_telemetry_enabled ? [{
         Effect   = "Allow"
@@ -277,6 +282,16 @@ resource "aws_iam_role_policy" "aws_v2_lambda_data" {
         Effect   = "Allow"
         Action   = ["sns:Publish"]
         Resource = [for topic in aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge : topic.arn]
+      }] : [],
+      local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? [{
+        Effect   = "Allow"
+        Action   = ["kinesis:PutRecord"]
+        Resource = [for stream in aws_kinesis_stream.domain_telemetry : stream.arn]
+      }] : [],
+      local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? [{
+        Effect   = "Allow"
+        Action   = ["sns:Publish"]
+        Resource = aws_sns_topic.domain_control[0].arn
       }] : [],
       local.aws_v2_hot_enabled ? [{
         Effect = "Allow"
@@ -335,20 +350,22 @@ resource "aws_lambda_function" "aws_aws_lambda_event_adapter" {
 
   environment {
     variables = {
-      ARCHITECTURE_PROFILE      = "five-layer-baseline@2"
-      DEPLOYMENT_ID             = local.deployment_suffix
-      EVENT_QUEUE_URL           = aws_sqs_queue.aws_aws_sqs_fifo[0].url
-      TELEMETRY_STREAM_ARN      = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
-      CONTROL_TOPIC_ARN         = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
-      LOCAL_PROCESSING          = tostring(local.aws_v2_l2_enabled)
-      HOT_PROVIDER              = var.layer_3_hot_provider
-      TWIN_PROVIDER             = var.layer_4_provider
-      RAW_TABLE_NAME            = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
-      ROLLUP_TABLE_NAME         = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
-      HOT_BOUNDARY_DAYS         = tostring(var.layer_3_hot_to_cold_interval_days)
-      SOURCE_EXPIRY_GRACE_HOURS = "48"
-      STORAGE_TASK_COUNT        = tostring(local.aws_v2_storage_task_count)
-      TWINMAKER_WORKSPACE       = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
+      ARCHITECTURE_PROFILE         = "${var.architecture_profile_id}@${var.architecture_profile_version}"
+      DEPLOYMENT_ID                = local.deployment_suffix
+      EVENT_QUEUE_URL              = try(aws_sqs_queue.aws_aws_sqs_fifo[0].url, "")
+      TELEMETRY_STREAM_ARN         = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
+      CONTROL_TOPIC_ARN            = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
+      EVENTING_RECEIVED_STREAM_ARN = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_kinesis_stream.domain_telemetry["received"].arn : try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
+      EVENTING_CONTROL_TOPIC_ARN   = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_sns_topic.domain_control[0].arn : try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
+      LOCAL_PROCESSING             = tostring(local.aws_v2_l2_enabled && !local.six_layer_eventing_enabled)
+      HOT_PROVIDER                 = var.layer_3_hot_provider
+      TWIN_PROVIDER                = var.layer_4_provider
+      RAW_TABLE_NAME               = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
+      ROLLUP_TABLE_NAME            = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
+      HOT_BOUNDARY_DAYS            = tostring(var.layer_3_hot_to_cold_interval_days)
+      SOURCE_EXPIRY_GRACE_HOURS    = "48"
+      STORAGE_TASK_COUNT           = tostring(local.aws_v2_storage_task_count)
+      TWINMAKER_WORKSPACE          = try(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id, "")
     }
   }
   tags = local.aws_v2_tags
@@ -358,7 +375,7 @@ resource "aws_iot_thing" "aws_aws_iot_core" {
   count = local.aws_v2_l1_enabled ? 1 : 0
   name  = "${local.aws_v2_name}-poc-gateway"
   attributes = {
-    architecture_profile = "five-layer-baseline-v2"
+    architecture_profile = "${var.architecture_profile_id}-${var.architecture_profile_version}"
   }
 }
 
@@ -418,11 +435,13 @@ resource "aws_lambda_function" "aws_aws_lambda" {
 
   environment {
     variables = {
-      ARCHITECTURE_PROFILE              = "five-layer-baseline@2"
+      ARCHITECTURE_PROFILE              = "${var.architecture_profile_id}@${var.architecture_profile_version}"
       DEPLOYMENT_ID                     = local.deployment_suffix
-      EVENT_QUEUE_URL                   = aws_sqs_queue.aws_aws_sqs_fifo[0].url
+      EVENT_QUEUE_URL                   = try(aws_sqs_queue.aws_aws_sqs_fifo[0].url, "")
       CONTROL_TOPIC_ARN                 = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
-      L1_PROVIDER                       = var.layer_1_provider
+      EVENTING_CONTROL_TOPIC_ARN        = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_sns_topic.domain_control[0].arn : try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
+      EVENTING_PROCESSED_STREAM_ARN     = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_kinesis_stream.domain_telemetry["processed"].arn : try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
+      L1_PROVIDER                       = local.six_layer_eventing_enabled ? "eventing" : var.layer_1_provider
       RAW_TABLE_NAME                    = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
       ROLLUP_TABLE_NAME                 = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
       HOT_PROVIDER                      = var.layer_3_hot_provider
@@ -437,6 +456,7 @@ resource "aws_lambda_function" "aws_aws_lambda" {
       ACTION_FUNCTION_NAME              = try(aws_lambda_function.aws_v2_extension_action[0].function_name, "")
       NOTIFICATION_STATE_MACHINE_ARN    = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.aws_v2_name}-v2-event-workflow"
       DEVICE_COMMAND_ARN                = try(awscc_iot_command.aws_aws_iot_commands[0].command_arn, "")
+      IOT_COMMANDS_ENDPOINT             = try(data.aws_iot_endpoint.main[0].endpoint_address, "")
       AWS_ACCOUNT_ID                    = data.aws_caller_identity.current[0].account_id
     }
   }
@@ -491,7 +511,7 @@ resource "aws_lambda_function" "aws_v2_processor_extension" {
 
   environment {
     variables = {
-      ARCHITECTURE_PROFILE = "five-layer-baseline@2"
+      ARCHITECTURE_PROFILE = "${var.architecture_profile_id}@${var.architecture_profile_version}"
     }
   }
   tags = local.aws_v2_tags
@@ -530,7 +550,7 @@ resource "aws_lambda_function" "aws_v2_extension_action" {
 
   environment {
     variables = {
-      ARCHITECTURE_PROFILE = "five-layer-baseline@2"
+      ARCHITECTURE_PROFILE = "${var.architecture_profile_id}@${var.architecture_profile_version}"
     }
   }
   tags = local.aws_v2_tags
@@ -539,7 +559,7 @@ resource "aws_lambda_function" "aws_v2_extension_action" {
 }
 
 resource "aws_lambda_event_source_mapping" "aws_v2_embedded_events" {
-  count                              = local.aws_v2_l2_enabled ? 1 : 0
+  count                              = local.aws_v2_l2_enabled && local.aws_v2_embedded_event_enabled ? 1 : 0
   event_source_arn                   = aws_sqs_queue.aws_aws_sqs_fifo[0].arn
   function_name                      = aws_lambda_function.aws_aws_lambda[0].arn
   batch_size                         = 1
@@ -562,12 +582,14 @@ resource "aws_lambda_function" "aws_v2_domain_consumer" {
 
   environment {
     variables = {
-      ARCHITECTURE_PROFILE              = "five-layer-baseline@2"
+      ARCHITECTURE_PROFILE              = "${var.architecture_profile_id}@${var.architecture_profile_version}"
       DEPLOYMENT_ID                     = local.deployment_suffix
       EVENT_QUEUE_URL                   = try(aws_sqs_queue.aws_aws_sqs_fifo[0].url, "")
       TELEMETRY_STREAM_ARN              = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
       CONTROL_TOPIC_ARN                 = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
-      L1_PROVIDER                       = var.layer_1_provider
+      EVENTING_CONTROL_TOPIC_ARN        = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_sns_topic.domain_control[0].arn : try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
+      EVENTING_PROCESSED_STREAM_ARN     = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_kinesis_stream.domain_telemetry["processed"].arn : try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
+      L1_PROVIDER                       = local.six_layer_eventing_enabled ? "eventing" : var.layer_1_provider
       HOT_PROVIDER                      = var.layer_3_hot_provider
       TWIN_PROVIDER                     = var.layer_4_provider
       RAW_TABLE_NAME                    = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
@@ -581,6 +603,7 @@ resource "aws_lambda_function" "aws_v2_domain_consumer" {
       ACTION_FUNCTION_NAME              = try(aws_lambda_function.aws_v2_extension_action[0].function_name, "")
       NOTIFICATION_STATE_MACHINE_ARN    = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.aws_v2_name}-v2-event-workflow"
       DEVICE_COMMAND_ARN                = try(awscc_iot_command.aws_aws_iot_commands[0].command_arn, "")
+      IOT_COMMANDS_ENDPOINT             = try(data.aws_iot_endpoint.main[0].endpoint_address, "")
       AWS_ACCOUNT_ID                    = data.aws_caller_identity.current[0].account_id
     }
   }
@@ -1166,7 +1189,7 @@ resource "aws_ecs_task_definition" "aws_aws_ecs_fargate_storage_mover" {
     image     = var.aws_v2_storage_mover_image
     essential = true
     environment = [
-      { name = "ARCHITECTURE_PROFILE", value = "five-layer-baseline@2" },
+      { name = "ARCHITECTURE_PROFILE", value = "${var.architecture_profile_id}@${var.architecture_profile_version}" },
       { name = "DEPLOYMENT_ID", value = local.deployment_suffix },
       { name = "HOT_PROVIDER", value = var.layer_3_hot_provider },
       { name = "COOL_PROVIDER", value = var.layer_3_cold_provider },
@@ -1325,7 +1348,7 @@ resource "aws_lambda_function" "aws_aws_lambda_raw_history_reader" {
 
   environment {
     variables = {
-      ARCHITECTURE_PROFILE = "five-layer-baseline@2"
+      ARCHITECTURE_PROFILE = "${var.architecture_profile_id}@${var.architecture_profile_version}"
       RAW_TABLE_NAME       = aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name
       ROLLUP_TABLE_NAME    = aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name
       MAXIMUM_POINTS       = "1000"
@@ -1498,7 +1521,11 @@ resource "aws_grafana_role_association" "aws_v2_layer_access" {
 output "aws_component_ingestion_output" {
   value = local.aws_v2_l1_enabled ? {
     iot_thing_name = aws_iot_thing.aws_aws_iot_core[0].name
-    queue_arn      = aws_sqs_queue.aws_aws_sqs_fifo[0].arn
+    queue_arn = (
+      local.six_layer_eventing_enabled && var.event_layer_provider == "aws"
+      ? aws_sqs_queue.domain_control[0].arn
+      : aws_sqs_queue.aws_aws_sqs_fifo[0].arn
+    )
   } : null
 }
 

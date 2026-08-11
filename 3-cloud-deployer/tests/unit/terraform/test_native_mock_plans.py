@@ -12,6 +12,9 @@ from src.providers.terraform.package_builder import (
     build_all_packages,
     build_aws_v2_graph_app,
 )
+from src.providers.terraform.package_builders.aws_eventing import (
+    build_aws_eventing_app,
+)
 from src.providers.terraform.package_builders.azure_v2 import (
     build_azure_v2_graph_apps,
 )
@@ -144,6 +147,7 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
     build_all_packages(terraform_dir, project_path, all_aws)
     build_all_packages(terraform_dir, project_path, gcp_storage)
     build_aws_v2_graph_app(project_path)
+    build_aws_eventing_app(project_path)
     build_azure_v2_graph_apps(project_path, ("five-layer-v2",))
 
     _run_terraform(
@@ -165,7 +169,7 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
         plugin_cache=plugin_cache,
     )
 
-    assert "12 passed, 0 failed" in result.stdout
+    assert "13 passed, 0 failed" in result.stdout
     assert not list(tmp_path.rglob("*.tfstate"))
     assert not list(tmp_path.rglob("*.tfplan"))
 

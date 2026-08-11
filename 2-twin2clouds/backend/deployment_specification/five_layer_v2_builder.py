@@ -1069,6 +1069,12 @@ def _build_deployment_specification(
                     else registry["capacity_evidence_digest"]
                 ),
             }
+            if (
+                profile_id == "six-layer-eventing"
+                and component_id == "aws.kinesis-data-streams"
+                and dimension_id == "shards_per_stream"
+            ):
+                dimension["terraform_target"] = "aws_event_kinesis_shards"
             dimensions.append(dimension)
             bindings.append(
                 {

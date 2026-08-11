@@ -45,6 +45,17 @@ variable "architecture_profile_version" {
   }
 }
 
+variable "event_layer_provider" {
+  description = "Cloud provider for the independent Six-layer Eventing responsibility"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = contains(["", "aws", "azure", "google"], var.event_layer_provider)
+    error_message = "event_layer_provider must be empty, 'aws', 'azure', or 'google'."
+  }
+}
+
 variable "digital_twin_info_json" {
   description = "JSON string containing full Digital Twin configuration (config, config_iot_devices, config_providers, config_events)"
   type        = string
@@ -55,6 +66,98 @@ variable "resolved_component_dimensions" {
   description = "Validated component capacity and usage dimensions projected from the resolved graph"
   type        = map(string)
   default     = {}
+}
+
+# ==============================================================================
+# Six-layer Eventing: AWS bundle inputs
+# ==============================================================================
+
+variable "aws_event_kinesis_shards" {
+  description = "Optimizer-derived shards per Event Layer telemetry stream"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.aws_event_kinesis_shards == null ? true : contains([1, 6, 200], var.aws_event_kinesis_shards)
+    error_message = "aws_event_kinesis_shards must match the reviewed Small, Medium, or Large allocation."
+  }
+}
+
+variable "aws_event_retention_hours" {
+  description = "Optional reviewed Kinesis retention override; null derives it from the selected shard allocation"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.aws_event_retention_hours == null ? true : contains([24, 168], var.aws_event_retention_hours)
+    error_message = "aws_event_retention_hours must be 24 or 168."
+  }
+}
+
+variable "aws_event_control_archive_hours" {
+  description = "SNS FIFO control replay window"
+  type        = number
+  default     = 168
+
+  validation {
+    condition     = contains([24, 168], var.aws_event_control_archive_hours)
+    error_message = "aws_event_control_archive_hours must be 24 or 168."
+  }
+}
+
+variable "aws_event_max_receive_count" {
+  description = "SQS receive count at which control delivery writes the safe terminal record"
+  type        = number
+  default     = 6
+
+  validation {
+    condition     = var.aws_event_max_receive_count == 6
+    error_message = "aws_event_max_receive_count is frozen to the reviewed PoC value 6."
+  }
+}
+
+variable "aws_event_dlq_retention_hours" {
+  description = "Retention of terminal Event Layer failures in S3"
+  type        = number
+  default     = 168
+
+  validation {
+    condition     = contains([24, 168], var.aws_event_dlq_retention_hours)
+    error_message = "aws_event_dlq_retention_hours must be 24 or 168."
+  }
+}
+
+variable "aws_event_runtime_memory_mib" {
+  description = "Memory allocation of the AWS Event Layer delivery adapter"
+  type        = number
+  default     = 256
+
+  validation {
+    condition     = var.aws_event_runtime_memory_mib == 256
+    error_message = "aws_event_runtime_memory_mib is frozen to the reviewed PoC value 256."
+  }
+}
+
+variable "aws_event_runtime_batch_max" {
+  description = "Maximum Event Layer delivery batch"
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.aws_event_runtime_batch_max == 10
+    error_message = "aws_event_runtime_batch_max is frozen to the reviewed PoC value 10."
+  }
+}
+
+variable "aws_event_log_retention_days" {
+  description = "CloudWatch log retention for the independent Event Layer"
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.aws_event_log_retention_days == 30
+    error_message = "aws_event_log_retention_days is frozen to the reviewed PoC value 30."
+  }
 }
 
 # ==============================================================================

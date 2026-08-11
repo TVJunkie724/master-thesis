@@ -28,7 +28,8 @@ locals {
     var.layer_3_cold_provider == "aws" ||
     var.layer_3_archive_provider == "aws" ||
     var.layer_4_provider == "aws" ||
-    var.layer_5_provider == "aws"
+    var.layer_5_provider == "aws" ||
+    var.event_layer_provider == "aws"
   )
 
   # ===========================================================================

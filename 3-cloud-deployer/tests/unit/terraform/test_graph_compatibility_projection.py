@@ -26,23 +26,27 @@ def _node(index, logical_component_id, provider):
     )
 
 
-def _graph(*extra_nodes):
+def _graph(*extra_nodes, profile_id="five-layer-baseline"):
     nodes = [
         _node(index, logical_component_id, provider)
         for index, (logical_component_id, provider) in enumerate(BASE_COMPONENTS)
     ]
     nodes.extend(extra_nodes)
-    return SimpleNamespace(nodes=nodes)
+    return SimpleNamespace(nodes=nodes, profile_ref={"id": profile_id})
 
 
-def test_six_layer_nodes_do_not_break_legacy_seven_slot_projection():
-    graph = _graph(_node("event", "component.event-broker", "azure"))
+def test_six_layer_projection_includes_independent_event_provider():
+    graph = _graph(
+        _node("event", "component.eventing", "azure"),
+        profile_id="six-layer-eventing",
+    )
 
     projection = provider_projection(graph)
 
     assert projection["layer_1_provider"] == "aws"
     assert projection["layer_3_hot_provider"] == "google"
     assert projection["layer_5_provider"] == "aws"
+    assert projection["event_layer_provider"] == "azure"
 
 
 def test_duplicate_baseline_ownership_still_fails_closed():

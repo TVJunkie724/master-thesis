@@ -2995,8 +2995,7 @@ def generate_deployment_manifest_v4(
         "maxItems": 512,
     }
 
-    if DEPLOYMENT_MANIFEST_V4.exists():
-        shutil.rmtree(DEPLOYMENT_MANIFEST_V4)
+    reset_generated_tree_preserving_six_layer_fixtures(DEPLOYMENT_MANIFEST_V4)
     write_json(DEPLOYMENT_MANIFEST_V4 / "schema.json", schema)
     valid_manifests: dict[str, dict[str, Any]] = {}
     provider_key_by_logical = {
@@ -3096,6 +3095,22 @@ def generate_deployment_manifest_v4(
     )
 
 
+def reset_generated_tree_preserving_six_layer_fixtures(root: Path) -> None:
+    """Reset Five-layer output without deleting additive Six-layer fixtures."""
+
+    preserved = {
+        path.relative_to(root): path.read_bytes()
+        for path in root.rglob("six-layer-*.json")
+        if path.is_file()
+    } if root.exists() else {}
+    if root.exists():
+        shutil.rmtree(root)
+    for relative_path, content in preserved.items():
+        target = root / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+
+
 def generate() -> None:
     generate_v2_schemas()
     profile = build_profile()
@@ -3139,8 +3154,7 @@ def generate() -> None:
         RDS_V2 / "component-capacity-registry.json",
         component_capacity_registry(),
     )
-    if (RDS_V2 / "fixtures").exists():
-        shutil.rmtree(RDS_V2 / "fixtures")
+    reset_generated_tree_preserving_six_layer_fixtures(RDS_V2 / "fixtures")
     fixture_cases = {
         "single-cloud-aws-small": (
             assignment_for_bundle("aws", "aws"),
@@ -3186,8 +3200,7 @@ def generate() -> None:
             runtime,
         )
 
-    if (ARCH_V2 / "fixtures").exists():
-        shutil.rmtree(ARCH_V2 / "fixtures")
+    reset_generated_tree_preserving_six_layer_fixtures(ARCH_V2 / "fixtures")
     valid_documents = {
         "five-layer-baseline-v2-profile.json": profile,
         "complete-service-component-catalog.json": catalog,
@@ -3419,11 +3432,15 @@ def validate_source() -> None:
     if supplied_registry_digest != digest(component_registry):
         raise RuntimeError("RDS v2 component capacity registry digest drifted")
     valid_paths = sorted((RDS_V2 / "fixtures" / "valid").glob("*.json"))
-    if {path.stem for path in valid_paths} != {
+    base_fixture_ids = {
         "single-cloud-aws-small",
         "two-cloud-azure-l3l5-gcp-l4-medium",
         "three-cloud-mixed-large",
-        "six-layer-aws-azure-eventing-small",
+    }
+    fixture_ids = {path.stem for path in valid_paths}
+    if fixture_ids not in {
+        frozenset(base_fixture_ids),
+        frozenset({*base_fixture_ids, "six-layer-aws-azure-eventing-small"}),
     }:
         raise RuntimeError("RDS v2 representative fixture set drifted")
     for path in valid_paths:

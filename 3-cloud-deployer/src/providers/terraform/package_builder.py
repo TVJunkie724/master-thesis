@@ -21,6 +21,9 @@ from src.providers.terraform.package_builders.aws_v2 import (
     build_aws_v2_graph_app,
     build_aws_v2_storage_mover_context,
 )
+from src.providers.terraform.package_builders.aws_eventing import (
+    build_aws_eventing_app,
+)
 from src.providers.terraform.package_builders.azure import (
     _add_azure_function_app_directly,
     _create_azure_function_zip,
@@ -145,8 +148,11 @@ def build_all_packages(
             correlation_id=operation_id,
         )
         aws_v2_selected = "five-layer-v2" in selected_functions["aws"]
+        aws_eventing_selected = "six-layer-eventing" in selected_functions["aws"]
         aws_v1_names = tuple(
-            name for name in selected_functions["aws"] if name != "five-layer-v2"
+            name
+            for name in selected_functions["aws"]
+            if name not in {"five-layer-v2", "six-layer-eventing"}
         )
         packages.update(
             build_aws_lambda_packages(
@@ -158,6 +164,8 @@ def build_all_packages(
         )
         if aws_v2_selected:
             packages.update(build_aws_v2_graph_app(project_path))
+        if aws_eventing_selected:
+            packages.update(build_aws_eventing_app(project_path))
         azure_v2_names = tuple(
             name for name in selected_functions["azure"] if name in AZURE_V2_GRAPH_APPS
         )

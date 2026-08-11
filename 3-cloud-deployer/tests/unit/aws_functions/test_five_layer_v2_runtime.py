@@ -7,6 +7,7 @@ import importlib.util
 from io import BytesIO
 import json
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
@@ -214,6 +215,29 @@ def test_event_adapter_uses_outbox_when_processing_is_remote(monkeypatch):
     )
 
 
+def test_six_layer_event_adapter_publishes_to_received_event_log(monkeypatch):
+    runtime = _module()
+    stream = _Stream()
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    monkeypatch.setenv("LOCAL_PROCESSING", "false")
+    monkeypatch.setenv(
+        "EVENTING_RECEIVED_STREAM_ARN",
+        "arn:aws:kinesis:eu:test:stream/received",
+    )
+    monkeypatch.setattr(runtime, "_client", lambda service: stream)
+
+    result = runtime.event_adapter(
+        {"event_id": "event-six-1", "device_id": "device-1"},
+        None,
+    )
+
+    assert result["accepted"] == 1
+    assert stream.records[0]["StreamARN"].endswith("/received")
+    assert json.loads(stream.records[0]["Data"])["event_type"] == (
+        "telemetry.received.v1"
+    )
+
+
 def test_event_adapter_rejects_event_above_frozen_bridge_limit(monkeypatch):
     runtime = _module()
     monkeypatch.setenv("LOCAL_PROCESSING", "true")
@@ -293,6 +317,89 @@ def test_processor_atomically_writes_raw_and_hourly_rollup(monkeypatch):
     )
     assert raw["event_id"]["S"] == expected_event_id
     assert raw["stored_at_event_id"]["S"].endswith(f"#{expected_event_id}")
+
+
+def test_six_layer_processor_publishes_to_processed_event_log(monkeypatch):
+    runtime = _module()
+    stream = _Stream()
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    monkeypatch.setenv(
+        "EVENTING_PROCESSED_STREAM_ARN",
+        "arn:aws:kinesis:eu:test:stream/processed",
+    )
+    monkeypatch.setattr(
+        runtime, "_invoke_processor_extension", _passthrough_processor_extension
+    )
+    monkeypatch.setattr(runtime, "_client", lambda service: stream)
+
+    result = runtime.processor(
+        {
+            "event_id": "event-six-2",
+            "device_id": "device-1",
+            "metric": "temperature",
+            "value": 22.5,
+        },
+        None,
+    )
+
+    assert result["accepted"] == 1
+    assert stream.records[0]["StreamARN"].endswith("/processed")
+    assert json.loads(stream.records[0]["Data"])["event_type"] == (
+        "telemetry.processed.v1"
+    )
+
+
+def test_six_layer_processed_fanout_keeps_consumer_responsibilities_independent(
+    monkeypatch,
+):
+    runtime = _module()
+    processed = runtime._derive_event(
+        {
+            "event_id": "received-six-fanout",
+            "device_id": "device-1",
+            "metric": "temperature",
+            "value": 21.0,
+        },
+        event_type=runtime.EVENT_TELEMETRY_PROCESSED,
+        producer="component.telemetry-processor",
+    )
+    calls = []
+    monkeypatch.setenv("HOT_PROVIDER", "aws")
+    monkeypatch.setattr(
+        runtime,
+        "_write_raw_and_rollup",
+        lambda event: calls.append(("historical-persistence", event["event_id"])),
+    )
+    monkeypatch.setattr(
+        runtime,
+        "_project_twin",
+        lambda event: calls.append(("twin-state-update", event["event_id"])),
+    )
+    monkeypatch.setattr(
+        runtime,
+        "_evaluate_rules",
+        lambda event: calls.append(("rule-evaluator", event["event_id"])),
+    )
+
+    for role in (
+        "historical-persistence",
+        "twin-state-update",
+        "rule-evaluator",
+    ):
+        result = runtime.domain_consumer(
+            {"eventing_delivery": {"consumer_role": role, "event": processed}},
+            None,
+        )
+        assert result["accepted"] == 1
+
+    assert calls == [
+        (role, processed["event_id"])
+        for role in (
+            "historical-persistence",
+            "twin-state-update",
+            "rule-evaluator",
+        )
+    ]
 
 
 def test_processor_extension_invocation_uses_closed_runtime_envelope(monkeypatch):
@@ -797,6 +904,23 @@ def test_notification_request_starts_fixed_workflow(monkeypatch):
 
     assert states.executions[0]["stateMachineArn"] == "arn:aws:states:eu:test"
     assert states.executions[0]["name"] == request["event_id"]
+
+
+def test_iot_commands_client_uses_account_specific_endpoint(monkeypatch):
+    runtime = _module()
+    client = Mock()
+    factory = Mock(return_value=client)
+    monkeypatch.setenv(
+        "IOT_COMMANDS_ENDPOINT",
+        "account-prefix-ats.iot.eu-central-1.amazonaws.com",
+    )
+    monkeypatch.setattr(runtime.boto3, "client", factory)
+
+    assert runtime._client("iot-jobs-data") is client
+    factory.assert_called_once_with(
+        "iot-jobs-data",
+        endpoint_url=("https://account-prefix-ats.iot.eu-central-1.amazonaws.com"),
+    )
 
 
 def test_sns_command_request_uses_iot_commands_and_persists_outcome(monkeypatch):

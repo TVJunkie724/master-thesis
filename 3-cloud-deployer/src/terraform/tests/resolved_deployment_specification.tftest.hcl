@@ -1490,3 +1490,106 @@ run "gcp_storage_selections_bind_to_resources" {
     error_message = "GCP hot-to-cool schedule drifted from the resolved specification."
   }
 }
+
+run "six_layer_single_cloud_aws_adds_independent_event_bundle" {
+  command = plan
+
+  override_data {
+    target = data.aws_caller_identity.current
+    values = {
+      account_id = "123456789012"
+      arn        = "arn:aws:iam::123456789012:user/terraform-mock"
+      user_id    = "AIDACKCEVSQ6C2EXAMPLE"
+    }
+  }
+
+  override_data {
+    target = data.aws_ssoadmin_instances.aws_v2_layer_access
+    values = {
+      arns               = ["arn:aws:sso:::instance/ssoins-0123456789abcdef"]
+      identity_store_ids = ["d-0123456789"]
+    }
+  }
+
+  override_data {
+    target = data.aws_identitystore_users.aws_v2_layer_access
+    values = {
+      users = []
+    }
+  }
+
+  variables {
+    digital_twin_name                     = "drift-test"
+    architecture_profile_id               = "six-layer-eventing"
+    architecture_profile_version          = "1"
+    event_layer_provider                  = "aws"
+    layer_1_provider                      = "aws"
+    layer_2_provider                      = "aws"
+    layer_3_hot_provider                  = "aws"
+    layer_3_cold_provider                 = "aws"
+    layer_3_archive_provider              = "aws"
+    layer_4_provider                      = "aws"
+    layer_5_provider                      = "aws"
+    layer_3_hot_to_cold_interval_days     = 30
+    layer_3_cold_to_archive_interval_days = 90
+    layer_3_archive_expiry_interval_days  = 365
+    platform_user_email                   = "researcher@example.test"
+    platform_user_first_name              = "Thesis"
+    platform_user_last_name               = "Researcher"
+    aws_layer_access_principal_intent     = "invite_builtin"
+    enable_aws_logging                    = false
+    aws_event_kinesis_shards              = 1
+    aws_v2_storage_mover_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-v2-images@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    resolved_component_dimensions = {
+      "dimension.aws.aws.ecs-fargate-storage-mover.task_count"   = "1"
+      "dimension.aws.aws.kinesis-data-streams.shards_per_stream" = "1"
+    }
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "44444444-4444-4444-8444-444444444444"
+      artifact_digest = "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+      package_path    = "${var.project_path}/.build/aws/five-layer-v2.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/aws/five-layer-v2.zip")}"
+      adapter_id      = "adapter.aws.python311"
+      adapter_version = "1"
+    }]
+  }
+
+  assert {
+    condition = (
+      length(aws_kinesis_stream.domain_telemetry) == 2 &&
+      length(aws_kinesis_stream_consumer.domain_consumers) == 4 &&
+      length(aws_sns_topic.domain_control) == 1 &&
+      length(aws_sqs_queue.domain_control) == 1 &&
+      length(aws_sqs_queue.event_control_dlq) == 1 &&
+      length(aws_lambda_function.event_runtime) == 5 &&
+      length(aws_s3_bucket.event_telemetry_dlq) == 1 &&
+      length(aws_cloudwatch_log_group.eventing) == 1
+    )
+    error_message = "Six-layer AWS must deploy the complete reviewed Event Layer bundle."
+  }
+
+  assert {
+    condition = (
+      aws_kinesis_stream.domain_telemetry["received"].shard_count == 1 &&
+      aws_kinesis_stream.domain_telemetry["processed"].shard_count == 1 &&
+      aws_kinesis_stream.domain_telemetry["received"].retention_period == 24 &&
+      jsondecode(aws_sns_topic.domain_control[0].archive_policy).MessageRetentionPeriod == "7" &&
+      var.aws_event_max_receive_count == 6 &&
+      aws_lambda_function.event_runtime["control-router"].memory_size == 256
+    )
+    error_message = "Six-layer AWS must bind the reviewed Small capacity values."
+  }
+
+  assert {
+    condition = (
+      length(aws_lambda_event_source_mapping.event_runtime) == 4 &&
+      length(aws_lambda_event_source_mapping.domain_control) == 1 &&
+      length(aws_sqs_queue.aws_aws_sqs_fifo) == 0 &&
+      length(aws_lambda_event_source_mapping.aws_v2_embedded_events) == 0 &&
+      length(aws_lambda_function.aws_v2_cross_cloud_bridge) == 0
+    )
+    error_message = "Single-cloud AWS must use only the independent Event Layer transport and omit embedded transport and every cross-cloud bridge."
+  }
+}
