@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import argparse
 import copy
+from decimal import Decimal
 import hashlib
 import importlib.util
+from itertools import product
 import json
 import sys
 from pathlib import Path
@@ -22,6 +24,10 @@ FIVE_SCRIPT = ROOT / "scripts" / "sync_five_layer_v2_contracts.py"
 EVENT_EVIDENCE = ROOT / "docs" / "research" / "evidence" / "phase_08_eventing"
 EVENT_MANIFEST = EVENT_EVIDENCE / "implementation-component-manifest.json"
 EVENT_DECISION = EVENT_EVIDENCE / "decision.json"
+EVENT_SCENARIOS = EVENT_EVIDENCE / "scenario-inputs.json"
+EVENT_PRICING = EVENT_EVIDENCE / "pricing-model-matrix.json"
+EVENT_COST_RESULTS = EVENT_EVIDENCE / "scenario-cost-results.json"
+EVENT_CALCULATOR = ROOT / "scripts" / "phase_08_eventing" / "calculate_scenarios.py"
 SERVICE_DECISION = (
     ROOT
     / "docs"
@@ -29,6 +35,13 @@ SERVICE_DECISION = (
     / "evidence"
     / "phase_08_service_bundles"
     / "decision.json"
+)
+RDS_CAPACITY_REGISTRY = (
+    ROOT
+    / "contracts"
+    / "resolved-deployment-specification"
+    / "v2"
+    / "component-capacity-registry.json"
 )
 PROFILE_PATH = (
     DEFINITIONS / "profiles" / "six-layer-eventing" / "1" / "profile.json"
@@ -41,6 +54,7 @@ CATALOG_PATH = (
     / "catalog.json"
 )
 MANIFEST_PATH = DEFINITIONS / "six-layer-eventing-v1-manifest.json"
+COST_REGISTRY_PATH = DEFINITIONS / "six-layer-eventing-v1-cost-registry.json"
 PROVIDERS = ("aws", "azure", "gcp")
 REGIONS = {"aws": "eu-central-1", "azure": "westeurope", "gcp": "europe-west1"}
 EVENT_CAPABILITIES = (
@@ -118,6 +132,22 @@ def _load_five() -> ModuleType:
 FIVE = _load_five()
 
 
+def _load_event_calculator() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "six_layer_eventing_cost_calculator",
+        EVENT_CALCULATOR,
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Cannot load Eventing cost calculator: {EVENT_CALCULATOR}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+EVENT_COST = _load_event_calculator()
+
+
 def read_json(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
@@ -183,6 +213,302 @@ def event_services(provider: str) -> list[dict[str, Any]]:
         for item in manifest["service_components"]
         if item["provider"] == provider and item["profile_scope"] == "event_layer"
     ]
+
+
+def event_rds_component_ids(provider: str) -> list[str]:
+    registry = read_json(RDS_CAPACITY_REGISTRY)
+    bundle = next(
+        item for item in registry["provider_bundles"] if item["provider"] == provider
+    )
+    return list(bundle["six_layer_event_components"])
+
+
+FULL_EVENT_COMPONENTS = {
+    "aws": {
+        "telemetry": "aws.kinesis-data-streams",
+        "control": "aws.sns-fifo",
+        "failure": "aws.s3-event-failure-store",
+        "runtime": "aws.lambda-event-worker",
+        "observability": "aws.cloudwatch",
+    },
+    "azure": {
+        "telemetry_standard": "azure.event-hubs-standard-small-medium",
+        "telemetry_large": "azure.event-hubs-dedicated-large",
+        "control": "azure.service-bus-standard",
+        "runtime": "azure.functions-flex-event-worker",
+        "observability": "azure.log-analytics-shared-workspace",
+    },
+    "gcp": {
+        "telemetry": "gcp.pubsub-separated-event-layer-topics",
+        "runtime_service": "gcp.cloud-run-event-service-small-medium",
+        "runtime_worker": "gcp.cloud-run-worker-pool-fixed-large",
+        "observability": "gcp.cloud-logging",
+    },
+}
+EMBEDDED_EVENT_COMPONENTS = {
+    "aws": {
+        "telemetry": "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "control": "aws.sns-fifo-only-for-reviewed-remote-control-edge",
+        "runtime": "aws.lambda-event-adapter",
+    },
+    "azure": {
+        "telemetry": "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+        "control": "azure.service-bus-standard",
+        "runtime": "azure.functions-flex-event-adapter",
+    },
+    "gcp": {
+        "telemetry": "gcp.pubsub-separated-embedded-topics",
+        "control": "gcp.pubsub-separated-embedded-topics",
+        "runtime": "gcp.cloud-run-event-adapter",
+    },
+}
+OBSERVABILITY_COMPONENTS = {
+    "aws": "aws.cloudwatch",
+    "azure": "azure.log-analytics-shared-workspace",
+    "gcp": "gcp.cloud-logging",
+}
+EDGE_ID_BY_ROLE = {
+    "ingress-to-eventing": "edge.ingestion-to-eventing",
+    "processing-to-eventing": "edge.processing-to-eventing",
+    "eventing-to-processing": "edge.eventing-to-processing",
+    "eventing-to-ingress": "edge.eventing-to-ingestion",
+}
+
+
+def _provider_from_member(member: str) -> str:
+    normalized = member.lower()
+    if normalized.startswith(("amazon", "aws")):
+        return "aws"
+    if normalized.startswith("azure"):
+        return "azure"
+    if normalized.startswith(("google", "gcp")):
+        return "gcp"
+    raise RuntimeError(f"Unknown Eventing contribution provider: {member}")
+
+
+def _full_event_component(
+    provider: str,
+    size: str,
+    contribution_id: str,
+) -> str:
+    components = FULL_EVENT_COMPONENTS[provider]
+    if contribution_id.endswith(".telemetry-log"):
+        return components[
+            "telemetry_large"
+            if provider == "azure" and size == "large"
+            else "telemetry_standard"
+            if provider == "azure"
+            else "telemetry"
+        ]
+    if contribution_id.endswith(".control-fanout"):
+        return components["control"]
+    if contribution_id.endswith(".telemetry-dlq"):
+        return components["failure"]
+    if contribution_id.endswith(".control-delivery-adapter.cloud-run"):
+        return components["runtime_service"]
+    if ".delivery-adapter" in contribution_id:
+        if provider == "gcp":
+            return components[
+                "runtime_worker" if size == "large" else "runtime_service"
+            ]
+        return components["runtime"]
+    if contribution_id.endswith(".broker"):
+        return components["telemetry"]
+    if contribution_id.endswith(".observability"):
+        return components["observability"]
+    raise RuntimeError(f"Unknown Event-Layer contribution: {contribution_id}")
+
+
+def _bridge_component(
+    contribution_id: str,
+    *,
+    source_provider: str,
+    destination_provider: str,
+) -> str:
+    if ".source-outbox.telemetry-landing" in contribution_id:
+        return EMBEDDED_EVENT_COMPONENTS[source_provider]["telemetry"]
+    if ".source-outbox.control-landing" in contribution_id:
+        return EMBEDDED_EVENT_COMPONENTS[source_provider]["control"]
+    if ".destination.telemetry-landing" in contribution_id:
+        return EMBEDDED_EVENT_COMPONENTS[destination_provider]["telemetry"]
+    if ".destination.control-landing" in contribution_id:
+        return EMBEDDED_EVENT_COMPONENTS[destination_provider]["control"]
+    if ".forwarder." in contribution_id:
+        if source_provider == "gcp" and ".worker-pool" in contribution_id:
+            return "gcp.cloud-run-worker-pool-fixed-large"
+        return EMBEDDED_EVENT_COMPONENTS[source_provider]["runtime"]
+    raise RuntimeError(f"Unknown bridge component contribution: {contribution_id}")
+
+
+def build_cost_registry() -> dict[str, Any]:
+    scenario_document = read_json(EVENT_SCENARIOS)
+    pricing_document = read_json(EVENT_PRICING)
+    intents = EVENT_COST.intent_map(pricing_document)
+    shared = scenario_document["shared_assumptions"]
+    scenarios: list[dict[str, Any]] = []
+    for scenario in scenario_document["scenarios"]:
+        size = str(scenario["scenario_id"]).removeprefix("eventing-").removesuffix(
+            "-v1"
+        )
+        channels = EVENT_COST.derive_channels(scenario, shared)
+        placements: list[dict[str, Any]] = []
+        for ingestion, eventing, processing in product(PROVIDERS, repeat=3):
+            calculated = EVENT_COST.three_provider_result(
+                {
+                    "ingress_provider": ingestion,
+                    "eventing_provider": eventing,
+                    "processing_provider": processing,
+                    "status": "capability_admissible_live_pending",
+                },
+                scenario,
+                shared,
+                channels,
+                intents,
+                include_event_layer_contributions=True,
+            )
+            component_amounts: dict[str, Decimal] = {}
+            component_contributions: dict[str, list[str]] = {}
+            route_amounts: dict[str, Decimal] = {}
+            route_contributions: dict[str, list[str]] = {}
+
+            def add_component(component_id: str, contribution: dict[str, Any]) -> None:
+                component_amounts[component_id] = component_amounts.get(
+                    component_id, Decimal(0)
+                ) + Decimal(str(contribution["amount_usd"]))
+                component_contributions.setdefault(component_id, []).append(
+                    str(contribution["contribution_id"])
+                )
+
+            for contribution in calculated["event_layer_cost_contributions"]:
+                add_component(
+                    _full_event_component(
+                        eventing,
+                        size,
+                        str(contribution["contribution_id"]),
+                    ),
+                    contribution,
+                )
+
+            summaries = {
+                str(item["route_role"]): item
+                for item in calculated["bridge_route_summaries"]
+            }
+            for contribution in calculated["bridge_cost_contributions"]:
+                contribution_id = str(contribution["contribution_id"])
+                if ".bridge-shared.observability" in contribution_id:
+                    add_component(
+                        OBSERVABILITY_COMPONENTS[
+                            _provider_from_member(str(contribution["member"]))
+                        ],
+                        contribution,
+                    )
+                    continue
+                role = next(
+                    (
+                        candidate
+                        for candidate in EDGE_ID_BY_ROLE
+                        if f".{candidate}." in contribution_id
+                    ),
+                    None,
+                )
+                if role is None:
+                    raise RuntimeError(
+                        f"Bridge contribution has no route role: {contribution_id}"
+                    )
+                edge_id = EDGE_ID_BY_ROLE[role]
+                summary = summaries[role]
+                if contribution_id.endswith(".egress"):
+                    route_amounts[edge_id] = route_amounts.get(
+                        edge_id, Decimal(0)
+                    ) + Decimal(str(contribution["amount_usd"]))
+                    route_contributions.setdefault(edge_id, []).append(
+                        contribution_id
+                    )
+                else:
+                    add_component(
+                        _bridge_component(
+                            contribution_id,
+                            source_provider=str(summary["source_provider"]),
+                            destination_provider=str(summary["destination_provider"]),
+                        ),
+                        contribution,
+                    )
+
+            component_costs = [
+                {
+                    "implementation_component_id": component_id,
+                    "monthly_amount_usd": EVENT_COST.money(amount),
+                    "contribution_ids": sorted(
+                        component_contributions[component_id]
+                    ),
+                }
+                for component_id, amount in sorted(component_amounts.items())
+            ]
+            route_costs = [
+                {
+                    "edge_id": edge_id,
+                    "monthly_transfer_amount_usd": EVENT_COST.money(amount),
+                    "contribution_ids": sorted(route_contributions[edge_id]),
+                }
+                for edge_id, amount in sorted(route_amounts.items())
+            ]
+            allocated_total = sum(component_amounts.values(), Decimal(0)) + sum(
+                route_amounts.values(), Decimal(0)
+            )
+            expected_total = Decimal(str(calculated["event_scope_total_usd"]))
+            if allocated_total != expected_total:
+                raise RuntimeError(
+                    "Eventing topology allocation does not reconcile for "
+                    f"{ingestion}/{eventing}/{processing}/{size}: "
+                    f"{allocated_total} != {expected_total}"
+                )
+            placements.append(
+                {
+                    "placement_id": calculated["placement_id"],
+                    "ingestion_provider": ingestion,
+                    "eventing_provider": eventing,
+                    "processing_provider": processing,
+                    "topology": calculated["topology"],
+                    "event_layer_bundle_ref": calculated["event_layer_bundle_ref"],
+                    "event_layer_bundle_total_usd": calculated[
+                        "event_layer_bundle_total_usd"
+                    ],
+                    "bridge_addition_total_usd": calculated[
+                        "bridge_addition_total_usd"
+                    ],
+                    "event_scope_total_usd": calculated["event_scope_total_usd"],
+                    "component_costs": component_costs,
+                    "route_transfer_costs": route_costs,
+                }
+            )
+        scenarios.append(
+            {
+                "scenario_id": scenario["scenario_id"],
+                "placements": placements,
+            }
+        )
+    registry = {
+        "schema_version": "six-layer-eventing-topology-cost-registry.v1",
+        "currency": "USD",
+        "scenario_source_ref": {
+            "id": "phase-08-eventing-scenarios",
+            "version": "1",
+            "digest": file_digest(EVENT_SCENARIOS),
+        },
+        "pricing_source_ref": {
+            "id": "phase-08-eventing-pricing-model",
+            "version": "1",
+            "digest": file_digest(EVENT_PRICING),
+        },
+        "reviewed_result_ref": {
+            "id": "phase-08-eventing-cost-results",
+            "version": "1",
+            "digest": file_digest(EVENT_COST_RESULTS),
+        },
+        "scenarios": scenarios,
+    }
+    registry["content_digest"] = FIVE.digest(registry)
+    return registry
 
 
 def build_profile(runtime: ModuleType) -> dict[str, Any]:
@@ -452,7 +778,7 @@ def _event_component(provider: str) -> dict[str, Any]:
                 "component_id": service_id,
                 "slot_id": "eventing",
             }
-            for service_id in service_ids
+            for service_id in event_rds_component_ids(provider)
         ],
         "extension_slot_refs": [],
         "error_contract_ref": {"id": "architecture-runtime-errors", "version": "1"},
@@ -733,6 +1059,7 @@ def build_manifest(
     profile: dict[str, Any],
     catalog: dict[str, Any],
     providers: dict[str, dict[str, Any]],
+    cost_registry: dict[str, Any],
 ) -> dict[str, Any]:
     five_manifest = read_json(DEFINITIONS / "five-layer-v2-manifest.json")
     service = read_json(SERVICE_DECISION)
@@ -777,6 +1104,11 @@ def build_manifest(
             "version": "1",
             "digest": service["package_digest"],
         },
+        "topology_cost_registry_ref": {
+            "id": "six-layer-eventing-topology-cost-registry",
+            "version": "1",
+            "digest": cost_registry["content_digest"],
+        },
         "workload_ref": five_manifest["workload_ref"],
         "supported_eventing_placements": [
             f"{provider}-eventing" for provider in PROVIDERS
@@ -804,11 +1136,16 @@ def generate() -> None:
         provider: build_provider_profile(provider, profile, catalog, runtime)
         for provider in PROVIDERS
     }
+    cost_registry = build_cost_registry()
     write_json(PROFILE_PATH, profile)
     write_json(CATALOG_PATH, catalog)
     for provider, document in providers.items():
         write_json(provider_profile_path(provider), document)
-    write_json(MANIFEST_PATH, build_manifest(profile, catalog, providers))
+    write_json(COST_REGISTRY_PATH, cost_registry)
+    write_json(
+        MANIFEST_PATH,
+        build_manifest(profile, catalog, providers, cost_registry),
+    )
     (ARCH_V2 / "README.md").write_text(
         "# Architecture Profile Contracts v2\n\n"
         "Additive Five-layer v2 and Six-layer Eventing schemas with strict "
@@ -874,6 +1211,22 @@ def validate_source() -> None:
         raise RuntimeError("Eventing decision digest drifted")
     if manifest["eventing_implementation_manifest_ref"]["digest"] != file_digest(EVENT_MANIFEST):
         raise RuntimeError("Eventing implementation manifest digest drifted")
+    cost_registry = read_json(COST_REGISTRY_PATH)
+    supplied_registry_digest = cost_registry.pop("content_digest")
+    if supplied_registry_digest != FIVE.digest(cost_registry):
+        raise RuntimeError("Six-layer topology cost registry digest drifted")
+    if manifest["topology_cost_registry_ref"]["digest"] != supplied_registry_digest:
+        raise RuntimeError("Six-layer topology cost registry manifest binding drifted")
+    if (
+        cost_registry["schema_version"]
+        != "six-layer-eventing-topology-cost-registry.v1"
+        or cost_registry["currency"] != "USD"
+        or len(cost_registry["scenarios"]) != 3
+        or any(len(item["placements"]) != 27 for item in cost_registry["scenarios"])
+    ):
+        raise RuntimeError("Six-layer topology cost registry coverage drifted")
+    if cost_registry["reviewed_result_ref"]["digest"] != file_digest(EVENT_COST_RESULTS):
+        raise RuntimeError("Reviewed Eventing result binding drifted")
 
 
 def synchronize() -> None:

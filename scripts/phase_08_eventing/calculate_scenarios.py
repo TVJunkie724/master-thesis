@@ -1891,6 +1891,8 @@ def three_provider_result(
     shared: dict[str, Any],
     channels: list[dict[str, Any]],
     intents: dict[str, dict[str, Any]],
+    *,
+    include_event_layer_contributions: bool = False,
 ) -> dict[str, Any]:
     ingress = placement["ingress_provider"]
     eventing = placement["eventing_provider"]
@@ -1918,14 +1920,25 @@ def three_provider_result(
         "device.command.outcome.v1",
     }
     all_channel_ids = ingress_produced_channel_ids | processing_produced_channel_ids
-    placement_channels = channel_fixture(channels, all_channel_ids)
+    remote_delivery_channel_ids: set[str] = set()
+    if processing != eventing:
+        remote_delivery_channel_ids |= processing_consumed_channel_ids
+    if ingress != eventing:
+        remote_delivery_channel_ids |= ingress_consumed_channel_ids
+    placement_channels = []
+    for row in select_channels(channels, channel_ids=all_channel_ids):
+        placement_channels.extend(
+            channel_fixture([row])
+            if row["channel_id"] in remote_delivery_channel_ids
+            else [row]
+        )
     placement_event_layer = event_layer_result(
         eventing,
         scenario,
         shared,
         placement_channels,
         intents,
-        remote_delivery_channel_ids=all_channel_ids,
+        remote_delivery_channel_ids=remote_delivery_channel_ids,
     )
     items: list[dict[str, Any]] = []
 
@@ -1977,6 +1990,8 @@ def three_provider_result(
         add_source_outbox,
         add_destination_landing,
     ) in route_specs:
+        if source == destination:
+            continue
         prefix = (
             f"three-provider.{ingress}-{eventing}-{processing}."
             f"{scenario['scenario_id']}.{role}"
@@ -2042,13 +2057,19 @@ def three_provider_result(
 
     event_layer_total = Decimal(placement_event_layer["total_monthly_usd"])
     bridge_total = total_contributions(items)
-    return {
+    result = {
         "placement_id": f"placement.{ingress}-{eventing}-{processing}@1",
         "ingress_provider": ingress,
         "eventing_provider": eventing,
         "processing_provider": processing,
         "status": placement["status"],
-        "topology": "hub_and_spoke",
+        "topology": (
+            "single_cloud"
+            if len({ingress, eventing, processing}) == 1
+            else "two_provider"
+            if len({ingress, eventing, processing}) == 2
+            else "hub_and_spoke"
+        ),
         "event_layer_bundle_ref": (placement_event_layer["bundle_id"]),
         "event_layer_bundle_total_usd": money(event_layer_total),
         "bridge_route_summaries": route_summaries,
@@ -2058,8 +2079,17 @@ def three_provider_result(
         "bridge_cost_contributions": items,
         "bridge_addition_total_usd": money(bridge_total),
         "event_scope_total_usd": money(event_layer_total + bridge_total),
-        "scope_note": "This is Event-Layer plus deduplicated bridge infrastructure only. All eight domain channels are routed from their component owner through the Eventing provider to one landing copy per remote consumer provider; fan-out among colocated consumers happens after landing. Remote delivery adapters are replaced by bridge forwarders rather than double-counted. Domain-responsibility and full-profile totals remain Phase 8.10.",
+        "scope_note": (
+            "This is Event-Layer plus deduplicated bridge infrastructure only. All eight domain channels are routed from their component owner through the Eventing provider to one landing copy per remote consumer provider; fan-out among colocated consumers happens after landing. Remote delivery adapters are replaced by bridge forwarders rather than double-counted. Domain-responsibility and full-profile totals remain Phase 8.10."
+            if len({ingress, eventing, processing}) == 3
+            else "This is Event-Layer plus deduplicated bridge infrastructure only. Each remote domain channel is routed from its component owner through the Eventing provider to one landing copy per remote consumer provider; fan-out among colocated consumers happens after landing. Same-provider edges remain local, and remote delivery adapters are replaced by bridge forwarders rather than double-counted. Domain-responsibility and full-profile totals remain Phase 8.10."
+        ),
     }
+    if include_event_layer_contributions:
+        result["event_layer_cost_contributions"] = placement_event_layer[
+            "cost_contributions"
+        ]
+    return result
 
 
 def build_result_from_documents(

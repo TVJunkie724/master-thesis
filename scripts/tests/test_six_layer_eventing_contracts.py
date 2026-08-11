@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+from decimal import Decimal
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -138,6 +140,79 @@ class SixLayerEventingContractTests(unittest.TestCase):
                 if source != destination
             },
         )
+
+    def test_topology_cost_registry_covers_and_reconciles_all_81_cases(self) -> None:
+        registry = CONTRACT.read_json(CONTRACT.COST_REGISTRY_PATH)
+        reviewed = json.loads(CONTRACT.EVENT_COST_RESULTS.read_text(encoding="utf-8"))
+        reviewed_by_scenario = {
+            item["scenario_id"]: item for item in reviewed["scenarios"]
+        }
+        self.assertEqual(len(registry["scenarios"]), 3)
+        for scenario in registry["scenarios"]:
+            placements = scenario["placements"]
+            self.assertEqual(len(placements), 27)
+            self.assertEqual(
+                {
+                    (
+                        item["ingestion_provider"],
+                        item["eventing_provider"],
+                        item["processing_provider"],
+                    )
+                    for item in placements
+                },
+                {
+                    (ingestion, eventing, processing)
+                    for ingestion in CONTRACT.PROVIDERS
+                    for eventing in CONTRACT.PROVIDERS
+                    for processing in CONTRACT.PROVIDERS
+                },
+            )
+            for placement in placements:
+                allocated = sum(
+                    (
+                        Decimal(item["monthly_amount_usd"])
+                        for item in placement["component_costs"]
+                    ),
+                    Decimal(0),
+                ) + sum(
+                    (
+                        Decimal(item["monthly_transfer_amount_usd"])
+                        for item in placement["route_transfer_costs"]
+                    ),
+                    Decimal(0),
+                )
+                self.assertEqual(
+                    allocated,
+                    Decimal(placement["event_scope_total_usd"]),
+                )
+                if placement["topology"] == "single_cloud":
+                    self.assertEqual(
+                        placement["bridge_addition_total_usd"],
+                        "0.000000000",
+                    )
+                    self.assertEqual(placement["route_transfer_costs"], [])
+
+            reviewed_three_provider = {
+                item["placement_id"]: item
+                for item in reviewed_by_scenario[scenario["scenario_id"]][
+                    "three_provider_results"
+                ]
+            }
+            generated_three_provider = {
+                item["placement_id"]: item
+                for item in placements
+                if item["topology"] == "hub_and_spoke"
+            }
+            self.assertEqual(
+                {
+                    key: value["event_scope_total_usd"]
+                    for key, value in generated_three_provider.items()
+                },
+                {
+                    key: value["event_scope_total_usd"]
+                    for key, value in reviewed_three_provider.items()
+                },
+            )
 
 
 if __name__ == "__main__":

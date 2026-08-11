@@ -346,12 +346,12 @@
         "region.aws.eu-central-1"
       ],
       "deployment_specification_component_ids": [
-        "aws.cloudwatch",
-        "aws.kinesis_data_streams",
-        "aws.lambda",
-        "aws.s3",
-        "aws.sns_fifo",
-        "aws.sqs_fifo"
+        "aws.kinesis-data-streams",
+        "aws.sns-fifo",
+        "aws.sqs-fifo",
+        "aws.lambda-event-worker",
+        "aws.s3-event-failure-store",
+        "aws.cloudwatch"
       ],
       "deployment_specification_slot_ids": [
         "eventing"
@@ -580,5 +580,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:26a334b031e43e7af965094ed70689c8605bcc40a7a4d3777c5ee348ce0d2edd"
+  "content_digest": "sha256:4611f272782c1f334ec39dd94aa9ff7ca3543f700d252e623afdfaea96ace7c2"
 }

@@ -4150,32 +4150,32 @@
       "deployment_specification_bindings": [
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "aws.kinesis-data-streams",
+          "slot_id": "eventing"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "aws.sns-fifo",
+          "slot_id": "eventing"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "aws.sqs-fifo",
+          "slot_id": "eventing"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "aws.lambda-event-worker",
+          "slot_id": "eventing"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "aws.s3-event-failure-store",
+          "slot_id": "eventing"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "aws.cloudwatch",
-          "slot_id": "eventing"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "aws.kinesis_data_streams",
-          "slot_id": "eventing"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "aws.lambda",
-          "slot_id": "eventing"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "aws.s3",
-          "slot_id": "eventing"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "aws.sns_fifo",
-          "slot_id": "eventing"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "aws.sqs_fifo",
           "slot_id": "eventing"
         }
       ],
@@ -4406,17 +4406,22 @@
       "deployment_specification_bindings": [
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "azure.event_hubs_dedicated",
+          "component_id": "azure.event-hubs-standard-small-medium",
           "slot_id": "eventing"
         },
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "azure.event_hubs_standard",
+          "component_id": "azure.event-hubs-dedicated-large",
           "slot_id": "eventing"
         },
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "azure.functions_flex_consumption",
+          "component_id": "azure.service-bus-standard",
+          "slot_id": "eventing"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "azure.functions-flex-event-worker",
           "slot_id": "eventing"
         },
         {
@@ -4426,7 +4431,7 @@
         },
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "azure.service_bus_standard",
+          "component_id": "azure.log-analytics-shared-workspace",
           "slot_id": "eventing"
         }
       ],
@@ -4642,22 +4647,27 @@
       "deployment_specification_bindings": [
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "gcp.cloud_logging",
+          "component_id": "gcp.pubsub-separated-event-layer-topics",
           "slot_id": "eventing"
         },
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "gcp.cloud_run_v2_service",
+          "component_id": "gcp.cloud-run-event-service-small-medium",
           "slot_id": "eventing"
         },
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "gcp.cloud_run_v2_worker_pool",
+          "component_id": "gcp.cloud-run-worker-pool-fixed-large",
           "slot_id": "eventing"
         },
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "gcp.pubsub",
+          "component_id": "gcp.cloud-logging",
+          "slot_id": "eventing"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "gcp.cloud-monitoring",
           "slot_id": "eventing"
         }
       ],
@@ -11203,5 +11213,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:4fa59fb059df061f245c665af2d77229664d2fd13abd7db9d6052acf36b3fa21"
+  "content_digest": "sha256:4951d63fb04a75cd264b33324ec716f6b0003f0dbb765e9683f10c0856e71eba"
 }

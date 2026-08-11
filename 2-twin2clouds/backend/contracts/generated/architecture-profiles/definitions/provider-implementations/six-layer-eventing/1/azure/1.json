@@ -342,11 +342,12 @@
         "region.azure.westeurope"
       ],
       "deployment_specification_component_ids": [
-        "azure.event_hubs_dedicated",
-        "azure.event_hubs_standard",
-        "azure.functions_flex_consumption",
+        "azure.event-hubs-standard-small-medium",
+        "azure.event-hubs-dedicated-large",
+        "azure.service-bus-standard",
+        "azure.functions-flex-event-worker",
         "azure.monitor",
-        "azure.service_bus_standard"
+        "azure.log-analytics-shared-workspace"
       ],
       "deployment_specification_slot_ids": [
         "eventing"
@@ -575,5 +576,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:62780fd0bda1a069295b93a9f0160f91c05b6e18717c4dcf1023ad566f023d1a"
+  "content_digest": "sha256:d1492ac2bad68f7b43bb8c9aaecde2869c1c248ff2c0cf98f9749bb36db39aa4"
 }

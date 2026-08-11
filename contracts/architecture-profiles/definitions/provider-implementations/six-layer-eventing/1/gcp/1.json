@@ -355,10 +355,11 @@
         "region.gcp.europe-west1"
       ],
       "deployment_specification_component_ids": [
-        "gcp.cloud_logging",
-        "gcp.cloud_run_v2_service",
-        "gcp.cloud_run_v2_worker_pool",
-        "gcp.pubsub"
+        "gcp.pubsub-separated-event-layer-topics",
+        "gcp.cloud-run-event-service-small-medium",
+        "gcp.cloud-run-worker-pool-fixed-large",
+        "gcp.cloud-logging",
+        "gcp.cloud-monitoring"
       ],
       "deployment_specification_slot_ids": [
         "eventing"
@@ -587,5 +588,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:2e07a483d50f0ccd0600aba2fe333df0e6d32f1bf285a3889557d578ddd95930"
+  "content_digest": "sha256:5f459b92dc634f8d13af9e06a714e75f00722cd3ace0025b3316b945c5777fb5"
 }
