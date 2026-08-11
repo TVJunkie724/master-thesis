@@ -126,4 +126,104 @@ void main() {
       expect(isValid, isFalse);
     },
   );
+
+  testWidgets('Five-layer v2 initializes Small and emits only canonical fields', (
+    tester,
+  ) async {
+    CalcParams? changed;
+    await tester.binding.setSurfaceSize(const Size(1000, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CalcForm(
+              profileId: 'five-layer-baseline',
+              profileVersion: '2',
+              section: CalcFormSection.scenarioAndCurrency,
+              onChanged: (params) => changed = params,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(changed?.scenario, FiveLayerWorkloadScenario.small);
+    expect(changed?.toJson()['eventingScenarioId'], 'eventing-small-v1');
+    expect(changed?.toJson(), isNot(contains('useEventChecking')));
+    expect(
+      find.text(
+        'Events are embedded and always active in Five-layer v2. '
+        'They are part of the frozen comparison workload and cannot be disabled.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Five-layer v2 scenario and currency selection stays frozen', (
+    tester,
+  ) async {
+    CalcParams? changed;
+    await tester.binding.setSurfaceSize(const Size(1000, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CalcForm(
+              profileId: 'five-layer-baseline',
+              profileVersion: '2',
+              section: CalcFormSection.scenarioAndCurrency,
+              initialParams: CalcParams.fiveLayerV2(
+                scenario: FiveLayerWorkloadScenario.small,
+              ),
+              onChanged: (params) => changed = params,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('five-layer-v2-scenario-large')),
+    );
+    await tester.pump();
+    await tester.tap(find.text('EUR (€)'));
+    await tester.pump();
+
+    expect(changed?.scenario, FiveLayerWorkloadScenario.large);
+    expect(changed?.currency, 'EUR');
+    expect(changed?.eventingScenarioId, 'eventing-large-v1');
+    expect(changed?.numberOfDevices, 30000);
+    expect(changed?.hotStorageDurationInMonths, 1);
+  });
+
+  testWidgets('Five-layer v2 processing is read-only embedded event evidence', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CalcForm(
+              profileId: 'five-layer-baseline',
+              profileVersion: '2',
+              section: CalcFormSection.processing,
+              initialParams: CalcParams.fiveLayerV2(
+                scenario: FiveLayerWorkloadScenario.medium,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('eventing-medium-v1'), findsOneWidget);
+    expect(find.text('Mandatory'), findsNWidgets(2));
+    expect(find.byType(Switch), findsNothing);
+    expect(find.byType(TextFormField), findsNothing);
+  });
 }

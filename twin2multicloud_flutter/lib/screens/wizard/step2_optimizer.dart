@@ -249,6 +249,8 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
         CalcForm(
           section: _calcSectionForTask(widget.taskId),
           initialParams: state.calcParams,
+          profileId: state.architectureSelection?.profileRef.id,
+          profileVersion: state.architectureSelection?.profileRef.version,
           onChanged: _onCalcParamsChanged,
           onValidChanged: (isValid) {
             context.read<WizardBloc>().add(WizardCalcFormValidChanged(isValid));

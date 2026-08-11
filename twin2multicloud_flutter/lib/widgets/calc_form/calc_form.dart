@@ -17,6 +17,8 @@ class CalcForm extends StatefulWidget {
   final GlobalKey<FormState>?
   formKey; // Optional external form key for validation
   final CalcFormSection? section;
+  final String? profileId;
+  final String? profileVersion;
 
   const CalcForm({
     super.key,
@@ -25,6 +27,8 @@ class CalcForm extends StatefulWidget {
     this.initialParams,
     this.formKey,
     this.section,
+    this.profileId,
+    this.profileVersion,
   });
 
   @override
@@ -36,6 +40,11 @@ class _CalcFormState extends State<CalcForm> {
   GlobalKey<FormState> get _formKey => widget.formKey ?? _internalFormKey;
   int _rebuildKey = 0; // Forces form rebuild when presets are applied
   int? _selectedPreset; // 1, 2, 3, or null if input modified by user
+  FiveLayerWorkloadScenario _fiveLayerScenario =
+      FiveLayerWorkloadScenario.small;
+
+  bool get _isFiveLayerV2Profile =>
+      widget.profileId == 'five-layer-baseline' && widget.profileVersion == '2';
 
   // Layer 1 & 2 - Workload
   int _numberOfDevices = 100;
@@ -75,6 +84,17 @@ class _CalcFormState extends State<CalcForm> {
   String _currency = 'USD';
 
   void _updateParams() {
+    if (_isFiveLayerV2Profile) {
+      final params = CalcParams.fiveLayerV2(
+        scenario: _fiveLayerScenario,
+        currency: _currency,
+      );
+      widget.onChanged?.call(params);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onValidChanged?.call(true);
+      });
+      return;
+    }
     final params = CalcParams(
       numberOfDevices: _numberOfDevices,
       deviceSendingIntervalInMinutes: _deviceSendingIntervalInMinutes,
@@ -119,10 +139,20 @@ class _CalcFormState extends State<CalcForm> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.initialParams != null) {
+      if (_isFiveLayerV2Profile) {
+        final initial = widget.initialParams;
+        if (initial?.isFiveLayerV2 == true) {
+          _loadFromParams(initial!);
+        } else {
+          _fiveLayerScenario = FiveLayerWorkloadScenario.small;
+          _currency = 'USD';
+          _updateParams();
+        }
+      } else if (widget.initialParams != null &&
+          !widget.initialParams!.isFiveLayerV2) {
         // Load from saved params
         _loadFromParams(widget.initialParams!);
-      } else {
+      } else if (widget.initialParams == null) {
         // Select Preset 1 (Smart Home) by default on first load
         _fillPreset(
           presetNumber: 1,
@@ -148,6 +178,33 @@ class _CalcFormState extends State<CalcForm> {
           eventActions: 1,
           errorHandling: false,
         );
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant CalcForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final profileChanged =
+        oldWidget.profileId != widget.profileId ||
+        oldWidget.profileVersion != widget.profileVersion;
+    if (!profileChanged) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_isFiveLayerV2Profile) {
+        final initial = widget.initialParams;
+        if (initial?.isFiveLayerV2 == true) {
+          _loadFromParams(initial!);
+        } else {
+          setState(() {
+            _fiveLayerScenario = FiveLayerWorkloadScenario.small;
+            _currency = 'USD';
+          });
+          _updateParams();
+        }
+      } else if (widget.initialParams != null &&
+          !widget.initialParams!.isFiveLayerV2) {
+        _loadFromParams(widget.initialParams!);
       }
     });
   }
@@ -182,6 +239,7 @@ class _CalcFormState extends State<CalcForm> {
       _amountOfActiveEditors = p.amountOfActiveEditors;
       _amountOfActiveViewers = p.amountOfActiveViewers;
       _currency = p.currency;
+      _fiveLayerScenario = p.scenario ?? FiveLayerWorkloadScenario.small;
       _selectedPreset = null; // No preset when loading saved
       _rebuildKey++;
     });
@@ -247,6 +305,7 @@ class _CalcFormState extends State<CalcForm> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isFiveLayerV2Profile) return _buildFiveLayerV2Form();
     return Form(
       key: _formKey,
       child: KeyedSubtree(
@@ -302,6 +361,172 @@ class _CalcFormState extends State<CalcForm> {
       ),
     );
   }
+
+  Widget _buildFiveLayerV2Form() {
+    final params = CalcParams.fiveLayerV2(
+      scenario: _fiveLayerScenario,
+      currency: _currency,
+    );
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _section(CalcFormSection.scenarioAndCurrency, [
+            _buildSectionHeader(
+              'Frozen thesis scenario',
+              icon: Icons.science_outlined,
+              description:
+                  'Choose one reproducible Small, Medium, or Large workload.',
+            ),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: FiveLayerWorkloadScenario.values
+                  .map((scenario) => _buildFiveLayerScenarioCard(scenario))
+                  .toList(growable: false),
+            ),
+            const SizedBox(height: 16),
+            _buildCurrencySection(),
+            const SizedBox(height: 12),
+            const _EmbeddedEventsNotice(),
+          ]),
+          _section(CalcFormSection.deviceTraffic, [
+            _buildV2ReadOnlyCard('Device traffic', [
+              ('Devices', '${params.numberOfDevices}'),
+              (
+                'Sending interval',
+                '${params.deviceSendingIntervalInMinutes} minutes',
+              ),
+              ('Average message', '${params.averageSizeOfMessageInKb} KB'),
+              ('Device types', '${params.numberOfDeviceTypes}'),
+            ]),
+          ]),
+          _section(CalcFormSection.processing, [
+            _buildV2ReadOnlyCard('Embedded domain events', [
+              ('Event scenario', params.eventingScenarioId!),
+              ('Rule/action check', 'Mandatory'),
+              ('Notification workflow', 'Embedded'),
+              ('Device feedback', 'Mandatory'),
+            ]),
+          ]),
+          _section(CalcFormSection.retention, [
+            _buildV2ReadOnlyCard('Storage retention', [
+              ('Hot', '${params.hotStorageDurationInMonths} month'),
+              ('Cool', '${params.coolStorageDurationInMonths} months'),
+              ('Archive', '${params.archiveStorageDurationInMonths} months'),
+            ]),
+          ]),
+          _section(CalcFormSection.twinCapabilities, [
+            _buildV2ReadOnlyCard('Twin and dashboard activity', [
+              ('Twin entities', '${params.entityCount}'),
+              (
+                'State materializations',
+                '${params.twinStateMaterializationsPerSecond}/second',
+              ),
+              ('Graph updates', '${params.twinGraphUpdatesPerSecond}/second'),
+              (
+                'Aggregate refreshes',
+                '${params.dashboardRefreshesPerHour}/hour',
+              ),
+              ('Monthly editors', '${params.amountOfActiveEditors}'),
+              ('Monthly viewers', '${params.amountOfActiveViewers}'),
+            ]),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFiveLayerScenarioCard(FiveLayerWorkloadScenario scenario) {
+    final selected = scenario == _fiveLayerScenario;
+    final params = CalcParams.fiveLayerV2(scenario: scenario);
+    final color = Theme.of(context).colorScheme.primary;
+    return Semantics(
+      selected: selected,
+      button: true,
+      label:
+          "${scenario.label}, ${params.numberOfDevices} devices, "
+          "${params.eventingScenarioId}, ${selected ? 'selected' : 'not selected'}",
+      child: SizedBox(
+        width: 220,
+        child: Card(
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: selected ? color : Theme.of(context).dividerColor,
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: InkWell(
+            key: ValueKey('five-layer-v2-scenario-${scenario.name}'),
+            onTap: () {
+              if (selected) return;
+              setState(() => _fiveLayerScenario = scenario);
+              _updateParams();
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          scenario.label,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      if (selected) Icon(Icons.check_circle, color: color),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text('${params.numberOfDevices} devices'),
+                  Text(
+                    params.eventingScenarioId!,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildV2ReadOnlyCard(String title, List<(String, String)> rows) =>
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              for (final row in rows) ...[
+                _ReadOnlyValueRow(label: row.$1, value: row.$2),
+                if (row != rows.last) const Divider(height: 20),
+              ],
+              const SizedBox(height: 12),
+              Text(
+                'Values are fixed for the reproducible thesis comparison.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 
   Widget _section(CalcFormSection section, List<Widget> children) => Offstage(
     offstage: widget.section != null && widget.section != section,
@@ -1294,4 +1519,78 @@ class _CalcFormState extends State<CalcForm> {
       ],
     );
   }
+}
+
+class _EmbeddedEventsNotice extends StatelessWidget {
+  const _EmbeddedEventsNotice();
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.primaryContainer,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.event_available,
+            color: Theme.of(context).colorScheme.onPrimaryContainer,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Events are embedded and always active in Five-layer v2. '
+              'They are part of the frozen comparison workload and cannot be disabled.',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _ReadOnlyValueRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _ReadOnlyValueRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final compact = constraints.maxWidth < 520;
+      final labelWidget = Text(
+        label,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      );
+      final valueWidget = SelectableText(
+        value,
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+      );
+      if (compact) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [labelWidget, const SizedBox(height: 4), valueWidget],
+        );
+      }
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: labelWidget),
+          const SizedBox(width: 16),
+          Expanded(child: valueWidget),
+        ],
+      );
+    },
+  );
 }
