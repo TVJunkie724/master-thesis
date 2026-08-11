@@ -12,6 +12,7 @@ void main() {
   late ResolvedTwinArchitectureRead resolved;
   late ResolvedTwinArchitectureRead singleCloudResolved;
   late ResolvedTwinArchitectureRead supportingResolved;
+  late ResolvedTwinArchitectureRead sixLayerResolved;
 
   setUpAll(() {
     final architecture = Map<String, dynamic>.from(
@@ -84,6 +85,23 @@ void main() {
       'architecture_compatibility_status': 'ready',
       'origin': 'reconstructed_v1',
       'architecture': supportingArchitecture,
+    });
+    final sixLayerArchitecture = Map<String, dynamic>.from(
+      jsonDecode(
+            File(
+              '../contracts/architecture-profiles/v2/fixtures/valid/'
+              'six-layer-aws-azure-eventing-small-resolved.json',
+            ).readAsStringSync(),
+          )
+          as Map,
+    );
+    sixLayerResolved = ResolvedTwinArchitectureRead.fromJson({
+      'twin_id': 'twin-six-layer',
+      'calculation_run_id': sixLayerArchitecture['calculation_run_id'],
+      'selected_for_deployment_at': null,
+      'architecture_compatibility_status': 'ready',
+      'origin': 'native_v2',
+      'architecture': sixLayerArchitecture,
     });
   });
 
@@ -167,6 +185,18 @@ void main() {
 
     expect(find.text('azure.archive-storage'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Six-layer review exposes the Event Layer without an admin UI', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(sixLayerResolved));
+
+    expect(find.text('six-layer-eventing@1'), findsOneWidget);
+    expect(find.text('Independent Event Layer'), findsOneWidget);
+    expect(find.text('Event Layer delta'), findsOneWidget);
+    expect(find.text('azure.eventing.v1'), findsOneWidget);
+    expect(find.textContaining('Event Layer administration'), findsNothing);
   });
 
   testWidgets('empty and error states stay explicit and retryable', (

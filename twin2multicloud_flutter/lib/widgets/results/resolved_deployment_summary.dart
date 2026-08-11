@@ -542,6 +542,7 @@ String _v2LogicalLabel(String logicalComponentId) =>
       'component.hot-storage' => 'L3 Hot',
       'component.cool-storage' => 'L3 Cool',
       'component.archive-storage' => 'L3 Archive',
+      'component.eventing' => 'Event Layer',
       'component.twin-state' => 'L4 Twin',
       'component.visualization' => 'L5 Visualization',
       _ => logicalComponentId,

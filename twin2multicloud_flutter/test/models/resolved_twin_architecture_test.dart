@@ -7,6 +7,7 @@ import 'package:twin2multicloud_flutter/models/resolved_twin_architecture.dart';
 void main() {
   late Map<String, dynamic> architecture;
   late Map<String, dynamic> v2Architecture;
+  late Map<String, dynamic> sixLayerArchitecture;
 
   setUpAll(() {
     final raw = File(
@@ -19,6 +20,13 @@ void main() {
       'single-cloud-aws-small-resolved.json',
     ).readAsStringSync();
     v2Architecture = Map<String, dynamic>.from(jsonDecode(v2Raw) as Map);
+    final sixLayerRaw = File(
+      '../contracts/architecture-profiles/v2/fixtures/valid/'
+      'six-layer-aws-azure-eventing-small-resolved.json',
+    ).readAsStringSync();
+    sixLayerArchitecture = Map<String, dynamic>.from(
+      jsonDecode(sixLayerRaw) as Map,
+    );
   });
 
   Map<String, dynamic> readJson() => {
@@ -125,6 +133,30 @@ void main() {
       expect(resolved.architecture.providers.length, greaterThan(1));
       expect(resolved.architecture.pricingEvidenceDigests, isNotEmpty);
     }
+  });
+
+  test('parses the independent Six-layer Eventing responsibility', () {
+    final resolved = ResolvedTwinArchitectureRead.fromJson({
+      'twin_id': 'twin-six-layer',
+      'calculation_run_id': sixLayerArchitecture['calculation_run_id'],
+      'selected_for_deployment_at': null,
+      'architecture_compatibility_status': 'ready',
+      'origin': 'native_v2',
+      'architecture': jsonDecode(jsonEncode(sixLayerArchitecture)),
+    });
+
+    expect(resolved.architecture.profileRef.id, 'six-layer-eventing');
+    expect(resolved.architecture.profileRef.version, '1');
+    expect(resolved.architecture.componentAssignments, hasLength(8));
+    expect(
+      resolved.architecture.componentAssignments
+          .singleWhere(
+            (item) => item.logicalComponentId == 'component.eventing',
+          )
+          .responsibilityId,
+      'responsibility.eventing',
+    );
+    expect(resolved.architecture.resolvedEdges, hasLength(9));
   });
 
   test('v2 fails closed on digest tamper and origin mismatch', () {

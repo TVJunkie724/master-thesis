@@ -58,11 +58,23 @@ class ResolvedArchitectureReview extends StatelessWidget {
     }
 
     final architecture = value.architecture;
+    final sixLayer =
+        architecture.profileRef.id == 'six-layer-eventing' &&
+        architecture.profileRef.version == '1';
+    final eventLayer = architecture.componentAssignments
+        .where((item) => item.logicalComponentId == 'component.eventing')
+        .toList(growable: false);
     final primary = architecture.componentAssignments
-        .where((item) => item.required)
+        .where(
+          (item) =>
+              item.required && item.logicalComponentId != 'component.eventing',
+        )
         .toList(growable: false);
     final supporting = architecture.componentAssignments
-        .where((item) => !item.required)
+        .where(
+          (item) =>
+              !item.required && item.logicalComponentId != 'component.eventing',
+        )
         .toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -81,6 +93,11 @@ class ResolvedArchitectureReview extends StatelessWidget {
               avatar: Icon(Icons.verified_outlined),
               label: Text('Functionally complete'),
             ),
+            if (sixLayer)
+              const Chip(
+                avatar: Icon(Icons.hub_outlined),
+                label: Text('Independent Event Layer'),
+              ),
             Chip(
               label: Text(
                 '${architecture.providers.length} ${architecture.providers.length == 1 ? 'provider' : 'providers'}',
@@ -97,6 +114,19 @@ class ResolvedArchitectureReview extends StatelessWidget {
         Text('Logical flow', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: AppSpacing.sm),
         LogicalResolvedFlow(architecture: architecture),
+        if (eventLayer.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Event Layer delta',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          Text(
+            'Always-on event transport, delivery and bridge responsibility for the thesis comparison.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          for (final assignment in eventLayer)
+            _AssignmentRow(assignment: assignment),
+        ],
         const SizedBox(height: AppSpacing.md),
         Text(
           'Primary components',

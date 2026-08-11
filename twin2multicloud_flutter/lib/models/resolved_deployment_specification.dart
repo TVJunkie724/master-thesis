@@ -620,7 +620,7 @@ class FiveLayerV2Binding extends Equatable {
 
 final class ResolvedDeploymentSpecificationV2
     extends ResolvedDeploymentSpecificationData {
-  static const _logicalComponents = {
+  static const _fiveLayerLogicalComponents = {
     'component.ingestion',
     'component.processing',
     'component.hot-storage',
@@ -628,6 +628,10 @@ final class ResolvedDeploymentSpecificationV2
     'component.archive-storage',
     'component.twin-state',
     'component.visualization',
+  };
+  static const _sixLayerLogicalComponents = {
+    ..._fiveLayerLogicalComponents,
+    'component.eventing',
   };
 
   final FiveLayerV2PinnedReference architectureProfileRef;
@@ -679,11 +683,13 @@ final class ResolvedDeploymentSpecificationV2
     final profile = FiveLayerV2PinnedReference.fromJson(
       JsonContract.requiredObject(json, 'architecture_profile_ref'),
     );
-    if (profile.id != 'five-layer-baseline' || profile.version != '2') {
-      throw const FormatException(
-        'Invalid API contract: Five-layer v2 profile reference is unsupported.',
-      );
-    }
+    final expectedLogicalComponents = switch ((profile.id, profile.version)) {
+      ('five-layer-baseline', '2') => _fiveLayerLogicalComponents,
+      ('six-layer-eventing', '1') => _sixLayerLogicalComponents,
+      _ => throw const FormatException(
+        'Invalid API contract: Phase 8 profile reference is unsupported.',
+      ),
+    };
     final currency = JsonContract.requiredString(json, 'currency');
     if (currency != 'USD' && currency != 'EUR') {
       throw const FormatException(
@@ -775,7 +781,7 @@ final class ResolvedDeploymentSpecificationV2
     );
     if (selections.any((item) => !item.required)) {
       throw const FormatException(
-        'Invalid API contract: every Five-layer v2 selection must be required.',
+        'Invalid API contract: every Phase 8 service selection must be required.',
       );
     }
     final logicalProviders = <String, Set<CloudProvider>>{};
@@ -788,8 +794,8 @@ final class ResolvedDeploymentSpecificationV2
           .putIfAbsent(selection.logicalComponentId, () => {})
           .add(selection.architectureAssignmentId);
     }
-    if (logicalProviders.length != _logicalComponents.length ||
-        !_logicalComponents.every(logicalProviders.containsKey) ||
+    if (logicalProviders.length != expectedLogicalComponents.length ||
+        !expectedLogicalComponents.every(logicalProviders.containsKey) ||
         logicalProviders.values.any((providers) => providers.length != 1) ||
         logicalAssignments.values.any(
           (assignments) => assignments.length != 1,

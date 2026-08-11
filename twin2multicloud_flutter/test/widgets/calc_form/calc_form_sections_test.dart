@@ -227,6 +227,32 @@ void main() {
     expect(find.byType(TextFormField), findsNothing);
   });
 
+  testWidgets('Six-layer v1 reuses the frozen workload without an event flag', (
+    tester,
+  ) async {
+    CalcParams? changed;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CalcForm(
+              profileId: 'six-layer-eventing',
+              profileVersion: '1',
+              section: CalcFormSection.processing,
+              onChanged: (params) => changed = params,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(changed?.eventingScenarioId, 'eventing-small-v1');
+    expect(changed?.toJson(), isNot(contains('useEventChecking')));
+    expect(find.text('Independent Event Layer workload'), findsOneWidget);
+    expect(find.byType(Switch), findsNothing);
+  });
+
   testWidgets(
     'Five-layer v2 scenario cards follow all supported responsive boundaries',
     (tester) async {

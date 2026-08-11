@@ -64,8 +64,9 @@ void main() {
       'single-cloud-aws-small.json',
       'two-cloud-azure-l3l5-gcp-l4-medium.json',
       'three-cloud-mixed-large.json',
+      'six-layer-aws-azure-eventing-small.json',
     ]) {
-      test('parses strict Five-layer v2 fixture $fixtureName', () {
+      test('parses strict Phase 8 v2 fixture $fixtureName', () {
         final json = _v2Fixture(fixtureName);
 
         final specification = ResolvedDeploymentSpecificationData.fromJson(
@@ -74,7 +75,21 @@ void main() {
 
         expect(specification, isA<ResolvedDeploymentSpecificationV2>());
         final v2 = specification as ResolvedDeploymentSpecificationV2;
-        expect(v2.architectureProfileRef.version, '2');
+        if (fixtureName.startsWith('six-layer')) {
+          expect(v2.architectureProfileRef.id, 'six-layer-eventing');
+          expect(v2.architectureProfileRef.version, '1');
+          expect(v2.logicalComponentCount, 8);
+          expect(
+            v2.componentSelections.any(
+              (item) => item.logicalComponentId == 'component.eventing',
+            ),
+            isTrue,
+          );
+        } else {
+          expect(v2.architectureProfileRef.id, 'five-layer-baseline');
+          expect(v2.architectureProfileRef.version, '2');
+          expect(v2.logicalComponentCount, 7);
+        }
         expect(v2.readiness.evaluationOnly, isTrue);
         expect(v2.readiness.blockingGateIds, isNotEmpty);
         expect(v2.componentSelections.length, greaterThan(7));

@@ -44,8 +44,14 @@ class _CalcFormState extends State<CalcForm> {
   FiveLayerWorkloadScenario _fiveLayerScenario =
       FiveLayerWorkloadScenario.small;
 
-  bool get _isFiveLayerV2Profile =>
-      widget.profileId == 'five-layer-baseline' && widget.profileVersion == '2';
+  bool get _isPhase8Profile =>
+      (widget.profileId == 'five-layer-baseline' &&
+          widget.profileVersion == '2') ||
+      (widget.profileId == 'six-layer-eventing' &&
+          widget.profileVersion == '1');
+
+  bool get _usesIndependentEventLayer =>
+      widget.profileId == 'six-layer-eventing' && widget.profileVersion == '1';
 
   // Layer 1 & 2 - Workload
   int _numberOfDevices = 100;
@@ -85,7 +91,7 @@ class _CalcFormState extends State<CalcForm> {
   String _currency = 'USD';
 
   void _updateParams() {
-    if (_isFiveLayerV2Profile) {
+    if (_isPhase8Profile) {
       final params = CalcParams.fiveLayerV2(
         scenario: _fiveLayerScenario,
         currency: _currency,
@@ -140,7 +146,7 @@ class _CalcFormState extends State<CalcForm> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_isFiveLayerV2Profile) {
+      if (_isPhase8Profile) {
         final initial = widget.initialParams;
         if (initial?.isFiveLayerV2 == true) {
           _loadFromParams(initial!);
@@ -192,7 +198,7 @@ class _CalcFormState extends State<CalcForm> {
     if (!profileChanged) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (_isFiveLayerV2Profile) {
+      if (_isPhase8Profile) {
         final initial = widget.initialParams;
         if (initial?.isFiveLayerV2 == true) {
           _loadFromParams(initial!);
@@ -306,7 +312,7 @@ class _CalcFormState extends State<CalcForm> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isFiveLayerV2Profile) return _buildFiveLayerV2Form();
+    if (_isPhase8Profile) return _buildFiveLayerV2Form();
     return Form(
       key: _formKey,
       child: KeyedSubtree(
@@ -384,7 +390,9 @@ class _CalcFormState extends State<CalcForm> {
             const SizedBox(height: AppSpacing.md),
             _buildCurrencySection(),
             const SizedBox(height: AppSpacing.md),
-            const _EmbeddedEventsNotice(),
+            _Phase8EventsNotice(
+              independentEventLayer: _usesIndependentEventLayer,
+            ),
           ]),
           _section(CalcFormSection.deviceTraffic, [
             _buildV2ReadOnlyCard('Device traffic', [
@@ -398,12 +406,17 @@ class _CalcFormState extends State<CalcForm> {
             ]),
           ]),
           _section(CalcFormSection.processing, [
-            _buildV2ReadOnlyCard('Embedded domain events', [
-              ('Event scenario', params.eventingScenarioId!),
-              ('Rule/action check', 'Mandatory'),
-              ('Notification workflow', 'Embedded'),
-              ('Device feedback', 'Mandatory'),
-            ]),
+            _buildV2ReadOnlyCard(
+              _usesIndependentEventLayer
+                  ? 'Independent Event Layer workload'
+                  : 'Embedded domain events',
+              [
+                ('Event scenario', params.eventingScenarioId!),
+                ('Rule/action check', 'Mandatory'),
+                ('Notification workflow', 'Embedded'),
+                ('Device feedback', 'Mandatory'),
+              ],
+            ),
           ]),
           _section(CalcFormSection.retention, [
             _buildV2ReadOnlyCard('Storage retention', [
@@ -1549,8 +1562,10 @@ class _CalcFormState extends State<CalcForm> {
   }
 }
 
-class _EmbeddedEventsNotice extends StatelessWidget {
-  const _EmbeddedEventsNotice();
+class _Phase8EventsNotice extends StatelessWidget {
+  final bool independentEventLayer;
+
+  const _Phase8EventsNotice({required this.independentEventLayer});
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
@@ -1570,8 +1585,11 @@ class _EmbeddedEventsNotice extends StatelessWidget {
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(
-              'Events are embedded and always active in Five-layer v2. '
-              'They are part of the frozen comparison workload and cannot be disabled.',
+              independentEventLayer
+                  ? 'Events use the independent Event Layer and are always active in Six-layer v1. '
+                        'They use the same frozen comparison workload as Five-layer v2 and cannot be disabled.'
+                  : 'Events are embedded and always active in Five-layer v2. '
+                        'They are part of the frozen comparison workload and cannot be disabled.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onPrimaryContainer,
               ),
