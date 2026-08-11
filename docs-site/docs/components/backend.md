@@ -129,12 +129,14 @@ archive generation, package staging, stream handling, result persistence, rollba
 and recovery. A deployment record is separate from twin state, enabling operation
 history and correlation by session/operation ID.
 
-Every new successful optimizer run contains one canonical
-`ResolvedDeploymentSpecification v1`. Management validates its schema, closed-world
-component/dimension registry, run ID, provider path, strategy context, immutable
-pricing references, and SHA-256 digest before committing any run state. The canonical
-JSON, digest, version, and compatibility status are immutable after insertion.
-Historical runs remain readable as `legacy_not_deployable`; they are never upgraded by
+Every new successful optimizer run contains one canonical, profile-matched
+resolved deployment specification and resolved architecture. Historical
+Five-layer v1 uses RDS/RTA v1; active Five-layer v2 uses RDS/RTA v2.
+Management validates their schemas, closed-world component/dimension registry,
+run ID, provider path, strategy context, immutable pricing references, cross-links,
+and SHA-256 digests before committing any run state. The canonical JSON, digests,
+versions, and compatibility statuses are immutable after insertion. Historical
+runs remain readable as `legacy_not_deployable`; they are never upgraded by
 guessing provider settings from legacy cheapest-layer columns.
 
 Exactly one compatible run may be selected per twin/user. A partial unique database
@@ -142,12 +144,14 @@ index enforces this invariant in addition to the application transaction. Packag
 generation revalidates the stored object and requires its provider path to equal the
 persisted Optimizer projection before decrypting credentials or materializing files.
 
-The Management API builds `deployment_manifest.json` version `3.0`, embedding the
-exact calculation run ID, immutable architecture and specification objects/digests,
-pinned catalog compatibility, derived provider projection, credential-source
-metadata, and immutable extension references. Storage durations and feature flags
-come from the selected run's immutable `params_json`, not the currently editable
-Optimizer configuration. Fixed `cheapest_l*` columns are historical projections and
+The Management API builds the profile-matched `deployment_manifest.json`:
+version 3.0 for historical Five-layer v1 evidence and version 4.0 for active
+Five-layer v2 evidence. It embeds the exact calculation run ID, immutable
+architecture and specification objects/digests, pinned catalog compatibility,
+derived provider projection, credential-source metadata, and immutable
+extension references. Storage durations and workload fields come from the
+selected run's immutable `params_json`, not the currently editable Optimizer
+configuration. Fixed `cheapest_l*` columns are historical projections and
 cannot influence executable packages.
 
 It submits exact archive bytes to the Deployer, receives an operation-package token
@@ -159,8 +163,10 @@ specification, catalog, graph, and package-selection digests. Destroy selects th
 recorded calculation run rather than the latest selection. Drift fails with
 `DEPLOYMENT_GRAPH_RESUME_MISMATCH`.
 
-Manifest v2 remains readable for historical compatibility only. New operations
-require v3; no invalid-v3-to-v2 or fixed-field fallback exists.
+Manifest v2 remains readable for historical compatibility only. An operation
+must use the manifest version owned by its frozen profile: v3 for historical
+Five-layer v1 evidence and v4 for active Five-layer v2. Invalid packages never
+fall back across versions or to fixed fields.
 
 ## Database Startup And Migrations
 

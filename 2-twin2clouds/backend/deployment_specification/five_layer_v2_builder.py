@@ -57,15 +57,24 @@ EVENT_LOGICAL_COMPONENTS = (
     "component.twin-state",
 )
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+_AZURE_COSMOS_MIN_AUTOSCALE_RU_PER_GIB = Decimal("10")
+_AZURE_COSMOS_AUTOSCALE_RU_INCREMENT = Decimal("1000")
+_AZURE_COSMOS_WRITE_RU_PROXY = Decimal("10")
+_AZURE_COSMOS_READ_RU_PROXY = Decimal("1")
+_GIB_BYTES = Decimal("1073741824")
 
 
 def _read(path: Path) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"Five-layer v2 deployment contract is unavailable: {path}") from exc
+        raise RuntimeError(
+            f"Five-layer v2 deployment contract is unavailable: {path}"
+        ) from exc
     if not isinstance(value, dict):
-        raise RuntimeError(f"Five-layer v2 deployment contract must be an object: {path}")
+        raise RuntimeError(
+            f"Five-layer v2 deployment contract must be an object: {path}"
+        )
     return value
 
 
@@ -114,6 +123,43 @@ def _ceil(value: Decimal) -> int:
     return int(value.to_integral_value(rounding=ROUND_CEILING))
 
 
+def _decimal_text(value: Decimal) -> str:
+    normalized = value.normalize()
+    if normalized == normalized.to_integral():
+        return str(normalized.quantize(Decimal(1)))
+    return format(normalized, "f")
+
+
+def _azure_cosmos_autoscale_floor(
+    hot_payload_gib: object,
+    *,
+    peak_messages_per_second: Decimal,
+    rollup_writes_per_second: Decimal,
+    dashboard_queries_per_second: Decimal,
+) -> int:
+    """Return the frozen storage/operation-driven Large evaluation proxy.
+
+    This is only the minimum provisionable autoscale maximum used to avoid a
+    zero-cost offline candidate. Deployment still requires the supervised
+    request-charge and autoscale-capacity evidence gates.
+    """
+
+    storage_floor = (
+        Decimal(str(hot_payload_gib)) * _AZURE_COSMOS_MIN_AUTOSCALE_RU_PER_GIB
+    )
+    operation_floor = (
+        (peak_messages_per_second + rollup_writes_per_second)
+        * _AZURE_COSMOS_WRITE_RU_PROXY
+        + peak_messages_per_second * _AZURE_COSMOS_READ_RU_PROXY
+        + dashboard_queries_per_second * Decimal("720") * _AZURE_COSMOS_READ_RU_PROXY
+    )
+    required = max(Decimal("1000"), storage_floor, operation_floor)
+    increments = (required / _AZURE_COSMOS_AUTOSCALE_RU_INCREMENT).to_integral_value(
+        rounding=ROUND_CEILING
+    )
+    return int(increments * _AZURE_COSMOS_AUTOSCALE_RU_INCREMENT)
+
+
 def _dimension_classification(dimension_id: str) -> str:
     if dimension_id == "capacity_mode":
         return "deployable_selection"
@@ -143,9 +189,7 @@ def _dimension_validator(dimension_id: str, value: str | int) -> str:
 
 
 def _scenario_capacity(registry: Mapping[str, Any], size: str) -> Mapping[str, Any]:
-    return next(
-        item for item in registry["scenario_capacity"] if item["size"] == size
-    )
+    return next(item for item in registry["scenario_capacity"] if item["size"] == size)
 
 
 def _dimension_value(
@@ -164,9 +208,7 @@ def _dimension_value(
     month_seconds = Decimal("2592000")
     interval_seconds = Decimal(str(workload["deviceSendingIntervalInMinutes"])) * 60
     messages = _ceil(
-        Decimal(int(workload["numberOfDevices"]))
-        * month_seconds
-        / interval_seconds
+        Decimal(int(workload["numberOfDevices"])) * month_seconds / interval_seconds
     )
     event_count = int(event["events_per_month"])
     event_attempts = _ceil(
@@ -176,6 +218,11 @@ def _dimension_value(
             + Decimal(str(event["retry_share"]))
             + Decimal(str(event["replay_share"]))
         )
+    )
+    command_executions = _ceil(
+        Decimal(event_count)
+        * Decimal(str(event["rule_match_share"]))
+        * Decimal(str(event["device_command_share_of_matches"]))
     )
     consumer_count = len(event["mandatory_processed_consumers"]) + len(
         event["extra_processed_consumers"]
@@ -210,16 +257,64 @@ def _dimension_value(
         )
         else messages
     )
-    storage_gib = (
-        str(fixed["gcp_grafana_persistent_disk_gib"])
-        if component_id == "gcp.persistent-disk-rwo"
-        else {
+    event_bytes = event_attempts * int(event["average_event_payload_bytes"])
+    canonical_payload_bytes = Decimal(str(derived["canonical_payload_bytes"]))
+    rollup_document_count = int(workload["numberOfDevices"]) * int(
+        derived["maximum_aggregate_rollup_points"]
+    )
+    dashboard_point_reads = dashboard_requests * int(
+        derived["maximum_aggregate_rollup_points"]
+    )
+    rollup_storage_gib = (
+        Decimal(rollup_document_count) * canonical_payload_bytes / _GIB_BYTES
+    )
+    twin_storage_gib = (
+        Decimal(int(workload["twinEntityCount"])) * canonical_payload_bytes / _GIB_BYTES
+    )
+    storage_gib = {
+        "aws.dynamodb-on-demand-raw": str(derived["hot_payload_gib"]),
+        "aws.dynamodb-on-demand-hourly-rollup": _decimal_text(rollup_storage_gib),
+        "azure.cosmos-db-nosql-raw-and-rollup": _decimal_text(
+            Decimal(str(derived["hot_payload_gib"])) + rollup_storage_gib
+        ),
+        "gcp.firestore-native-standard-raw-and-rollup": _decimal_text(
+            Decimal(str(derived["hot_payload_gib"])) + rollup_storage_gib
+        ),
+        "gcp.firestore-native-standard-bounded-twin": _decimal_text(twin_storage_gib),
+        "gcp.persistent-disk-rwo": str(fixed["gcp_grafana_persistent_disk_gib"]),
+    }.get(
+        component_id,
+        {
             "component.hot-storage": str(derived["hot_payload_gib"]),
             "component.cool-storage": str(derived["cool_payload_gib"]),
             "component.archive-storage": str(derived["archive_payload_gib"]),
-        }.get(logical, "0")
+        }.get(logical, "0"),
     )
-    event_bytes = event_attempts * int(event["average_event_payload_bytes"])
+    peak_messages_per_second = Decimal(int(workload["numberOfDevices"])) / (
+        Decimal(str(workload["deviceSendingIntervalInMinutes"])) * Decimal("60")
+    )
+    azure_autoscale_floor = (
+        _azure_cosmos_autoscale_floor(
+            derived["hot_payload_gib"],
+            peak_messages_per_second=peak_messages_per_second,
+            rollup_writes_per_second=peak_messages_per_second,
+            dashboard_queries_per_second=Decimal(
+                str(derived["aggregate_dashboard_query_rate_per_second"])
+            ),
+        )
+        if resolved.size == "large" and "cosmos" in component_id
+        else 0
+    )
+    if azure_large_autoscale_ru_per_second is not None and (
+        azure_large_autoscale_ru_per_second < azure_autoscale_floor
+        or azure_large_autoscale_ru_per_second % 1000 != 0
+    ):
+        raise ArchitectureResolutionError(
+            "ARCH_WORKLOAD_INCOMPATIBLE",
+            "azureLargeAutoscaleRuPerSecond",
+            "Measured Azure Large autoscale RU/s must be 1,000-RU rounded "
+            "and no lower than the frozen storage/operation evaluation floor",
+        )
     units = {
         "resource_count": "count",
         "stored_gib_month": "GiB-month",
@@ -286,10 +381,24 @@ def _dimension_value(
         return int(derived[task_count_key]), units[dimension_id]
     values: dict[str, str | int] = {
         "stored_gib_month": storage_gib,
-        "read_requests": dashboard_requests
-        + int(derived["l4_inspection_reads_per_month"]),
-        "write_requests": messages * 2,
-        "request_units": messages * 2 + dashboard_requests + twin_operations,
+        "read_requests": (
+            messages + dashboard_point_reads
+            if component_id == "aws.dynamodb-on-demand-hourly-rollup"
+            else 0
+        ),
+        "write_requests": (
+            messages * 2
+            if component_id
+            in {
+                "aws.dynamodb-on-demand-raw",
+                "aws.dynamodb-on-demand-hourly-rollup",
+            }
+            else 0
+        ),
+        "request_units": int(
+            messages * (_AZURE_COSMOS_WRITE_RU_PROXY * 2 + _AZURE_COSMOS_READ_RU_PROXY)
+            + dashboard_point_reads * _AZURE_COSMOS_READ_RU_PROXY
+        ),
         "capacity_mode": (
             "autoscale"
             if resolved.size == "large" and "cosmos" in component_id
@@ -298,13 +407,30 @@ def _dimension_value(
             else "not_applicable"
         ),
         "autoscale_max_ru_per_second": (
-            azure_large_autoscale_ru_per_second or 0
+            azure_large_autoscale_ru_per_second
+            if azure_large_autoscale_ru_per_second is not None
+            else azure_autoscale_floor
         ),
-        "document_reads": dashboard_requests
-        + int(derived["l4_inspection_reads_per_month"]),
-        "document_writes": messages * 2 + twin_operations,
-        "document_deletes": messages,
-        "timestamp_shards": int(derived["firestore_timestamp_shards"]),
+        "document_reads": (
+            int(derived["l4_inspection_reads_per_month"])
+            if component_id == "gcp.firestore-native-standard-bounded-twin"
+            else messages + dashboard_point_reads
+        ),
+        "document_writes": (
+            twin_operations
+            if component_id == "gcp.firestore-native-standard-bounded-twin"
+            else messages * 2
+        ),
+        "document_deletes": (
+            0
+            if component_id == "gcp.firestore-native-standard-bounded-twin"
+            else messages + rollup_document_count
+        ),
+        "timestamp_shards": (
+            1
+            if component_id == "gcp.firestore-native-standard-bounded-twin"
+            else int(derived["firestore_timestamp_shards"])
+        ),
         "requests": request_count,
         "gib_seconds": str(Decimal(request_count) * Decimal("0.125")),
         "execution_seconds": request_count,
@@ -355,19 +481,23 @@ def _dimension_value(
         "messaging_unit_hours": 730,
         "operations": event_attempts,
         "log_ingestion_gib": str(
-            Decimal(messages + event_attempts)
-            * Decimal("256")
-            / Decimal(1073741824)
+            Decimal(messages + event_attempts) * Decimal("256") / Decimal(1073741824)
         ),
         "retained_log_gib_month": str(
-            Decimal(messages + event_attempts)
-            * Decimal("256")
-            / Decimal(1073741824)
+            Decimal(messages + event_attempts) * Decimal("256") / Decimal(1073741824)
         ),
         "rule_hours": 730,
-        "processed_bytes": int(Decimal(str(derived["monthly_raw_payload_bytes"]))),
+        "processed_bytes": (
+            dashboard_requests
+            * int(fixed["reader_maximum_points"])
+            * _ceil(Decimal(str(derived["canonical_payload_bytes"])))
+            if component_id == "gcp.grafana-tls-load-balancer"
+            else int(Decimal(str(derived["monthly_raw_payload_bytes"])))
+        ),
         "connected_devices": int(workload["numberOfDevices"]),
-        "messages": messages,
+        "messages": (
+            command_executions if component_id == "aws.iot-commands" else messages
+        ),
         "twin_entities": int(workload["twinEntityCount"]),
         "twin_operations": twin_operations,
         "scheduled_invocations": 8640,
@@ -409,9 +539,7 @@ def _selected_groups(
             "assignment",
             "Five-layer v2 requires provider-local L3 hot and L5",
         )
-    bundle_index = {
-        item["provider"]: item for item in registry["provider_bundles"]
-    }
+    bundle_index = {item["provider"]: item for item in registry["provider_bundles"]}
     selected: list[tuple[str, str, str]] = []
     seen: set[tuple[str, str]] = set()
 
@@ -439,9 +567,7 @@ def _selected_groups(
         embedded = list(bundle_index[provider]["embedded_event_components"])
         if len(event_providers) == 1:
             embedded = [
-                item
-                for item in embedded
-                if "only-for-reviewed-remote" not in item
+                item for item in embedded if "only-for-reviewed-remote" not in item
             ]
         add(provider, owner, embedded)
     provider_logicals = {
@@ -574,6 +700,7 @@ def build_five_layer_v2_deployment_specification(
     definition_lifecycle_statuses: Mapping[str, str] | None = None,
     satisfied_live_gate_ids: frozenset[str] = frozenset(),
     azure_large_autoscale_ru_per_second: int | None = None,
+    azure_large_autoscale_evidence_digest: str | None = None,
 ) -> dict[str, Any]:
     """Build an atomic, deduplicated v2 specification and fail closed."""
 
@@ -588,6 +715,10 @@ def build_five_layer_v2_deployment_specification(
     validator, registry, fixed = _contract()
     selected_groups = _selected_groups(assignment, registry)
     selected_providers = sorted({provider for provider, _, _ in selected_groups})
+    uses_azure_large_autoscale = (
+        resolved_workload.size == "large"
+        and assignment["component.hot-storage"] == "azure"
+    )
     if set(pricing_evidence_digests) != set(selected_providers) or any(
         not isinstance(value, str) or not _DIGEST.fullmatch(value)
         for value in pricing_evidence_digests.values()
@@ -597,9 +728,37 @@ def build_five_layer_v2_deployment_specification(
             "pricingEvidence",
             "Every selected provider requires one pinned pricing-evidence digest",
         )
-    component_index = {
-        item["component_id"]: item for item in registry["components"]
-    }
+    if (
+        (
+            azure_large_autoscale_ru_per_second is not None
+            and (
+                not isinstance(azure_large_autoscale_ru_per_second, int)
+                or isinstance(azure_large_autoscale_ru_per_second, bool)
+            )
+        )
+        or (azure_large_autoscale_ru_per_second is None)
+        != (azure_large_autoscale_evidence_digest is None)
+        or (
+            azure_large_autoscale_evidence_digest is not None
+            and not _DIGEST.fullmatch(azure_large_autoscale_evidence_digest)
+        )
+        or (
+            azure_large_autoscale_evidence_digest is not None
+            and azure_large_autoscale_evidence_digest
+            == registry["capacity_evidence_digest"]
+        )
+        or (
+            not uses_azure_large_autoscale
+            and azure_large_autoscale_ru_per_second is not None
+        )
+    ):
+        raise ArchitectureResolutionError(
+            "ARCH_WORKLOAD_INCOMPATIBLE",
+            "azureLargeAutoscaleEvidence",
+            "Measured Azure Large autoscale RU/s and its evidence digest must "
+            "be supplied together",
+        )
+    component_index = {item["component_id"]: item for item in registry["components"]}
     selections = []
     bindings = []
     for provider, logical, component_id in selected_groups:
@@ -625,7 +784,14 @@ def build_five_layer_v2_deployment_specification(
                 "value": value,
                 "unit": unit,
                 "formula_reference": "formula.phase-08-complete-service-bundles",
-                "evidence_reference": registry["capacity_evidence_digest"],
+                "evidence_reference": (
+                    azure_large_autoscale_evidence_digest
+                    if dimension_id == "autoscale_max_ru_per_second"
+                    and resolved_workload.size == "large"
+                    and component_id == "azure.cosmos-db-nosql-raw-and-rollup"
+                    and azure_large_autoscale_evidence_digest is not None
+                    else registry["capacity_evidence_digest"]
+                ),
             }
             dimensions.append(dimension)
             bindings.append(
@@ -664,13 +830,17 @@ def build_five_layer_v2_deployment_specification(
             f"gate.live-capacity.{provider}.{gate.replace('_', '-')}"
             for gate in capacity["provider_admission"][provider]["live_gates"]
         )
-    if (
-        resolved_workload.size == "large"
-        and assignment["component.hot-storage"] == "azure"
-        and (azure_large_autoscale_ru_per_second or 0) <= 0
-    ):
+    if assignment["component.twin-state"] == "aws":
+        live_blockers.append("gate.live-pricing.aws.twinmaker-account-plan")
+    missing_azure_large_measurement = uses_azure_large_autoscale and (
+        azure_large_autoscale_ru_per_second is None
+        or azure_large_autoscale_evidence_digest is None
+    )
+    if missing_azure_large_measurement:
         live_blockers.append("gate.live-capacity.azure.cosmos-autoscale-ru")
     blockers = sorted(set(live_blockers) - set(satisfied_live_gate_ids))
+    if missing_azure_large_measurement:
+        blockers = sorted({*blockers, "gate.live-capacity.azure.cosmos-autoscale-ru"})
     required_definition_keys = {
         "profile",
         "catalog",
@@ -708,9 +878,7 @@ def build_five_layer_v2_deployment_specification(
                 "version": "2",
                 "digest": workload_contract_digest,
             },
-            "eventing_scenario_ref": dict(
-                resolved_workload.eventing_scenario_ref
-            ),
+            "eventing_scenario_ref": dict(resolved_workload.eventing_scenario_ref),
             "formula_set_ref": {
                 "id": "phase-08-complete-service-bundles",
                 "version": "1",

@@ -213,7 +213,10 @@
         "currency": {
           "type": "string",
           "pattern": "^[A-Z]{3}$",
-          "const": "USD"
+          "enum": [
+            "USD",
+            "EUR"
+          ]
         }
       }
     },

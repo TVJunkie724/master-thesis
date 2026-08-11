@@ -14,7 +14,8 @@ version: "1.1"
 `3-cloud-deployer`, and Flutter share strict contracts and fixtures. The local
 integration uses a real Management API with deterministic test-only provider
 mutation; no cloud resource or browser session is involved. Five-layer v2 is
-still draft/default-off until the wider Phase 8.9A gate completes.
+active for offline selection/evaluation, while its explicit live-capacity
+gates keep deployment selection blocked.
 
 ## Problem
 

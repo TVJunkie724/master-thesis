@@ -392,11 +392,9 @@ void main() {
         'eu-central-1',
       );
 
-      final calculationParams = CalcParams.fromJson({
-        ...CalcParams.defaultParams().toJson(),
-        'needs3DModel': true,
-        'useEventChecking': true,
-      });
+      final calculationParams = CalcParams.fiveLayerV2(
+        scenario: FiveLayerWorkloadScenario.small,
+      );
       final run = await api.createOptimizerRun('demo-draft', calculationParams);
       final calculation = run.optimization;
       expect(run.twinId, 'demo-draft');
@@ -408,27 +406,23 @@ void main() {
           ),
         ),
       );
-      expect(calculation.result.totalCost, closeTo(85.371, 0.000001));
+      expect(calculation.result.totalCost, greaterThan(0));
       expect(calculation.result.pricingCatalogContext, isNotNull);
       expect(calculation.result.pricingCatalogContext!.catalogs, hasLength(3));
-      expect(calculation.result.transferPricingContext?.routes, hasLength(6));
+      expect(calculation.isNativeFiveLayerV2, isTrue);
       expect(
-        calculation.result.transferPricingContext?.routes
-            .where((route) => route.isCrossProvider)
-            .every(
-              (route) =>
-                  route.totalCost > 0 && route.tierContributions.isNotEmpty,
-            ),
-        isTrue,
+        calculation.result.optimizationProfile?.profileId,
+        'cost-minimization-v2',
       );
       expect(
-        calculation.result.optimizationDiagnostics?.winningTransferCost,
-        closeTo(0.951, 0.000001),
+        calculation.result.optimizationProfile?.resultSchemaVersion,
+        'cost-result.v2',
       );
-      expect(
-        calculation.result.optimizationDiagnostics?.evaluatedPathCount,
-        972,
-      );
+      expect(calculation.result.cheapestPath, hasLength(7));
+      expect(calculation.result.transferPricingContext, isNull);
+      expect(calculation.result.optimizationDiagnostics, isNull);
+      expect(calculation.result.transferCosts, hasLength(8));
+      expect(calculation.result.transferCosts!.values, everyElement(0));
       final persisted = await api.getOptimizerConfig('demo-draft');
       expect(persisted?.optimization?.payload, isNotEmpty);
       expect(persisted?.params?.toJson(), calculationParams.toJson());
@@ -440,57 +434,138 @@ void main() {
       expect(latest?.id, run.id);
       expect(latest?.selectedForDeploymentAt, isNull);
       final specification =
-          latest?.specification as ResolvedDeploymentSpecificationV1;
+          latest?.specification as ResolvedDeploymentSpecificationV2;
+      expect(specification.architectureProfileRef.version, '2');
+      expect(specification.logicalComponentCount, 7);
+      expect(specification.providers, {CloudProvider.aws});
+      expect(specification.readiness.evaluationOnly, isTrue);
       expect(
-        specification.components.map((component) => component.componentId),
-        containsAll(const [
-          'l1.gcp.pubsub',
-          'l1.gcp.dispatcher_function',
-          'l2.azure.function_plan',
-          'l3_hot.gcp.firestore',
-          'l3_hot.gcp.reader_function',
-          'l3_cool.aws.s3',
-          'l3_archive.gcp.cloud_storage',
-          'l4.azure.digital_twins',
-          'l4.azure.pusher_function',
-          'l5.aws.managed_grafana',
-          'transition.l3_hot_to_l3_cool.gcp.runtime',
-          'transition.l3_cool_to_l3_archive.aws.runtime',
-          'glue.aws.lambda',
-          'glue.azure.functions',
-          'glue.gcp.functions',
+        specification.readiness.blockingGateIds,
+        unorderedEquals(const [
+          'gate.live-capacity.aws.dynamodb-partition-distribution',
+          'gate.live-capacity.aws.reader-latency-and-quota',
+          'gate.live-capacity.aws.twinmaker-query-behavior',
+          'gate.live-pricing.aws.twinmaker-account-plan',
         ]),
       );
       expect(
-        specification.components.any(
-          (component) =>
-              component.componentId.contains('gcp.managed_grafana') ||
-              component.componentId.contains('gcp.twin_state'),
-        ),
-        isFalse,
+        ResolvedDeploymentReview.fromRun(latest).state,
+        ResolvedDeploymentReviewState.evaluationOnly,
+      );
+      final architecture = await api.getRunResolvedArchitecture(run.id);
+      expect(
+        architecture.architecture.schemaVersion,
+        'resolved-twin-architecture.v2',
+      );
+      expect(
+        architecture.architecture.resolutionStatus,
+        'offline_contract_fixture',
+      );
+      expect(
+        architecture.architecture.deploymentSpecificationDigest,
+        specification.digest,
+      );
+      expect(
+        architecture.architecture.costSummary.monthlyTotal,
+        run.optimization.payload['totalCostExact'],
+      );
+      expect(
+        double.parse(architecture.architecture.costSummary.monthlyTotal),
+        run.totalMonthlyCost,
       );
 
-      final selection = await api.selectOptimizerRunForDeployment(
-        'demo-draft',
-        run.id,
+      await expectLater(
+        api.selectOptimizerRunForDeployment('demo-draft', run.id),
+        throwsDemoCode('DEPLOYMENT_CAPACITY_EVIDENCE_PENDING'),
       );
-      expect(selection.run.selectedForDeploymentAt, now);
-      expect(ResolvedDeploymentReview.fromRun(selection.run).ready, isTrue);
+      expect(
+        (await api.getLatestOptimizerRun(
+          'demo-draft',
+        ))?.selectedForDeploymentAt,
+        isNull,
+      );
+    });
+
+    test('rejects a legacy workload after Five-layer v2 activation', () async {
+      final params = CalcParams.fromJson({
+        ...CalcParams.defaultParams().toJson(),
+        'integrateErrorHandling': true,
+      });
+
+      await expectLater(
+        api.createOptimizerRun('demo-draft', params),
+        throwsDemoCode('ARCH_WORKLOAD_INCOMPATIBLE'),
+      );
+      expect(await api.getOptimizerConfig('demo-draft'), isNull);
+    });
+
+    test('keeps all v2 scenario evidence internally paired', () async {
+      const cases = <(FiveLayerWorkloadScenario, String, Set<CloudProvider>)>[
+        (FiveLayerWorkloadScenario.small, 'USD', {CloudProvider.aws}),
+        (
+          FiveLayerWorkloadScenario.medium,
+          'EUR',
+          {CloudProvider.azure, CloudProvider.gcp},
+        ),
+        (
+          FiveLayerWorkloadScenario.large,
+          'USD',
+          {CloudProvider.aws, CloudProvider.azure, CloudProvider.gcp},
+        ),
+      ];
+
+      for (final testCase in cases) {
+        final run = await api.createOptimizerRun(
+          'demo-draft',
+          CalcParams.fiveLayerV2(scenario: testCase.$1, currency: testCase.$2),
+        );
+        final specification =
+            run.deploymentRun.specification
+                as ResolvedDeploymentSpecificationV2;
+        final architecture = await api.getRunResolvedArchitecture(run.id);
+
+        expect(specification.currency, testCase.$2);
+        expect(specification.providers, testCase.$3);
+        expect(specification.readiness.evaluationOnly, isTrue);
+        expect(specification.readiness.blockingGateIds, isNotEmpty);
+        expect(architecture.architecture.costSummary.currency, testCase.$2);
+        expect(run.optimization.isNativeFiveLayerV2, isTrue);
+        expect(run.optimization.result.cheapestPath, hasLength(7));
+        expect(
+          architecture.architecture.costSummary.monthlyTotal,
+          run.optimization.payload['totalCostExact'],
+        );
+        expect(
+          architecture.architecture.deploymentSpecificationDigest,
+          specification.digest,
+        );
+        await expectLater(
+          api.selectOptimizerRunForDeployment('demo-draft', run.id),
+          throwsDemoCode('DEPLOYMENT_CAPACITY_EVIDENCE_PENDING'),
+        );
+      }
     });
 
     test(
-      'rejects unsupported error-handling topology without persistence',
+      'uses the pinned Five-layer v2 EUR conversion in demo results',
       () async {
-        final params = CalcParams.fromJson({
-          ...CalcParams.defaultParams().toJson(),
-          'integrateErrorHandling': true,
-        });
-
-        await expectLater(
-          api.createOptimizerRun('demo-draft', params),
-          throwsDemoCode('UNSUPPORTED_ERROR_HANDLING_TOPOLOGY'),
+        final usd = await api.createOptimizerRun(
+          'demo-draft',
+          CalcParams.fiveLayerV2(scenario: FiveLayerWorkloadScenario.small),
         );
-        expect(await api.getOptimizerConfig('demo-draft'), isNull);
+        final eur = await api.createOptimizerRun(
+          'demo-draft',
+          CalcParams.fiveLayerV2(
+            scenario: FiveLayerWorkloadScenario.small,
+            currency: 'EUR',
+          ),
+        );
+
+        expect(eur.currency, 'EUR');
+        expect(
+          eur.totalMonthlyCost,
+          closeTo(usd.totalMonthlyCost * 0.865948, 0.00001),
+        );
       },
     );
 

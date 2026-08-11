@@ -226,4 +226,55 @@ void main() {
     expect(find.byType(Switch), findsNothing);
     expect(find.byType(TextFormField), findsNothing);
   });
+
+  testWidgets(
+    'Five-layer v2 scenario cards follow all supported responsive boundaries',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      for (final width in [640.0, 719.0, 720.0, 959.0, 960.0, 1199.0, 1200.0]) {
+        tester.view.physicalSize = Size(width, 1800);
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: CalcForm(
+                  profileId: 'five-layer-baseline',
+                  profileVersion: '2',
+                  section: CalcFormSection.scenarioAndCurrency,
+                  initialParams: CalcParams.fiveLayerV2(
+                    scenario: FiveLayerWorkloadScenario.small,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final columns = width >= 1200
+            ? 3
+            : width >= 960
+            ? 2
+            : 1;
+        final expectedWidth = (width - (columns - 1) * 16) / columns;
+        for (final scenario in FiveLayerWorkloadScenario.values) {
+          final size = tester.getSize(
+            find.byKey(
+              ValueKey('five-layer-v2-scenario-card-${scenario.name}'),
+            ),
+          );
+          expect(size.width, closeTo(expectedWidth, 0.01), reason: '$width');
+        }
+        expect(tester.takeException(), isNull, reason: '$width');
+      }
+    },
+  );
 }

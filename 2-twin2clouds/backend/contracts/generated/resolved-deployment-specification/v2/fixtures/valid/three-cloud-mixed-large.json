@@ -4,7 +4,7 @@
   "architecture_profile_ref": {
     "id": "five-layer-baseline",
     "version": "2",
-    "digest": "sha256:36a68644e66be0b7242d692b9a75fd8d99173a28b00b00fa110023693dc5e854"
+    "digest": "sha256:8ebe9f14978f632c04a25837af1a4b9e4ee4da863f4a972189fb75cd174cac5c"
   },
   "optimization_context": {
     "service_decision_ref": {
@@ -15,7 +15,7 @@
     "component_catalog_ref": {
       "id": "complete-service-component-catalog",
       "version": "1",
-      "digest": "sha256:ae901115898ed15aebfaae065ce70e7a14379996f1d3c368fe231de62c388ffc"
+      "digest": "sha256:3396848028a5b8862e1c948a8017cd8e7bb7d118a0ee5edc120cd3d7a3956c1d"
     },
     "workload_ref": {
       "id": "five-layer-workload",
@@ -50,16 +50,16 @@
   "readiness": {
     "status": "offline_contract_fixture",
     "blocking_gate_ids": [
-      "gate.profile-activation-pending",
       "gate.live-capacity.aws.dynamodb-partition-distribution",
       "gate.live-capacity.aws.reader-latency-and-quota",
       "gate.live-capacity.aws.twinmaker-query-behavior",
-      "gate.live-capacity.azure.cosmos-request-charge-fixture",
       "gate.live-capacity.azure.cosmos-partition-distribution",
+      "gate.live-capacity.azure.cosmos-request-charge-fixture",
       "gate.live-capacity.azure.reader-latency-and-quota",
+      "gate.live-capacity.gcp.bifromq-cluster-behavior",
       "gate.live-capacity.gcp.firestore-gradual-ramp-and-transaction-contention",
       "gate.live-capacity.gcp.reader-latency-and-quota",
-      "gate.live-capacity.gcp.bifromq-cluster-behavior"
+      "gate.live-pricing.aws.twinmaker-account-plan"
     ]
   },
   "currency": "USD",
@@ -144,7 +144,7 @@
         {
           "dimension_id": "dimension.aws.aws.iot-commands.messages",
           "classification": "usage",
-          "value": 12960000000,
+          "value": 250000,
           "unit": "messages/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
           "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -244,7 +244,7 @@
         {
           "dimension_id": "dimension.gcp.gcp.firestore-native-standard-raw-and-rollup.document_reads",
           "classification": "usage",
-          "value": 2880240,
+          "value": 15033600000,
           "unit": "operations/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
           "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -252,7 +252,7 @@
         {
           "dimension_id": "dimension.gcp.gcp.firestore-native-standard-raw-and-rollup.document_writes",
           "classification": "usage",
-          "value": 26052192240,
+          "value": 25920000000,
           "unit": "operations/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
           "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -260,7 +260,7 @@
         {
           "dimension_id": "dimension.gcp.gcp.firestore-native-standard-raw-and-rollup.document_deletes",
           "classification": "usage",
-          "value": 12960000000,
+          "value": 12981600000,
           "unit": "operations/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
           "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -268,7 +268,7 @@
         {
           "dimension_id": "dimension.gcp.gcp.firestore-native-standard-raw-and-rollup.stored_gib_month",
           "classification": "usage",
-          "value": "9887.6953125",
+          "value": "9904.1748046875",
           "unit": "GiB-month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
           "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -620,7 +620,7 @@
         {
           "dimension_id": "dimension.gcp.gcp.grafana-tls-load-balancer.processed_bytes",
           "classification": "usage",
-          "value": 10616832000000,
+          "value": 2361600000000,
           "unit": "bytes/month",
           "formula_reference": "formula.phase-08-complete-service-bundles",
           "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -2670,5 +2670,5 @@
       "compatibility_version": "1"
     }
   ],
-  "digest": "sha256:7e7c17165798e2afa71b9134b0b30c4d9034f5a4be8d30d88e8df8b71e4459fb"
+  "digest": "sha256:91ef3faad3b2e391fb53e8ec6aa857301e6413f79858ac013bbc56ae97c0098b"
 }

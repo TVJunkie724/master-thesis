@@ -1,0 +1,154 @@
+{
+  "schemaVersion": "five-layer-v2-rate-card-sources.v2",
+  "reviewedAt": "2026-08-11T10:12:00Z",
+  "currencyConversions": {
+    "USD": "1",
+    "EUR": "0.865948"
+  },
+  "currencySource": {
+    "sourceId": "open-er-api-usd-2026-08-11",
+    "url": "https://open.er-api.com/v6/latest/USD",
+    "observedAt": "2026-08-11T09:10:00Z",
+    "providerUpdatedAt": "2026-08-11T00:02:31Z"
+  },
+  "providers": {
+    "aws": {
+      "region": "eu-central-1",
+      "sources": [
+        {
+          "sourceId": "aws-public-price-list-aws-queue-service",
+          "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSQueueService/current/eu-central-1/index.json"
+        },
+        {
+          "sourceId": "aws-public-price-list-sns",
+          "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonSNS/current/eu-central-1/index.json"
+        },
+        {
+          "sourceId": "aws-public-price-list-kinesis",
+          "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonKinesis/current/eu-central-1/index.json"
+        },
+        {
+          "sourceId": "aws-public-price-list-cloudwatch",
+          "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonCloudWatch/current/eu-central-1/index.json"
+        },
+        {
+          "sourceId": "aws-public-price-list-ecs",
+          "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonECS/current/eu-central-1/index.json"
+        },
+        {
+          "sourceId": "aws-public-price-list-ecr",
+          "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonECR/current/eu-central-1/index.json"
+        },
+        {
+          "sourceId": "aws-iot-device-management-pricing",
+          "url": "https://aws.amazon.com/iot-device-management/pricing/"
+        }
+      ],
+      "rates": {
+        "iotCommandExecution": "0.003",
+        "iotCommandFreeExecutions": "50",
+        "sqsFifoRequestTier1": "0.0000005",
+        "sqsFifoRequestTier2": "0.00000048",
+        "sqsFifoRequestTier3": "0.00000044",
+        "snsFifoPublishRequest": "0.00000036",
+        "snsFifoPublishPayloadPerByte": "0.000000000019",
+        "snsFifoDeliveryPayloadPerByte": "0.00000000000111758708953857421875",
+        "kinesisShardHour": "0.018",
+        "kinesisPayloadUnit": "0.0000000175",
+        "cloudWatchLogIngestionPerGib": "0.63",
+        "cloudWatchRetentionPerGibMonth": "0.0324",
+        "fargateStorageMoverPerConcurrentTaskMonth": "1.02204",
+        "ecrBoundedImageStoragePerRepositoryMonth": "0.05"
+      }
+    },
+    "azure": {
+      "region": "westeurope",
+      "sources": [
+        {
+          "sourceId": "azure-retail-prices-service-bus",
+          "url": "https://prices.azure.com/api/retail/prices?$filter=armRegionName%20eq%20%27westeurope%27%20and%20serviceName%20eq%20%27Service%20Bus%27"
+        },
+        {
+          "sourceId": "azure-retail-prices-event-hubs",
+          "url": "https://prices.azure.com/api/retail/prices?$filter=armRegionName%20eq%20%27westeurope%27%20and%20serviceName%20eq%20%27Event%20Hubs%27"
+        },
+        {
+          "sourceId": "azure-retail-prices-container-apps",
+          "url": "https://prices.azure.com/api/retail/prices?$filter=armRegionName%20eq%20%27westeurope%27%20and%20serviceName%20eq%20%27Azure%20Container%20Apps%27"
+        },
+        {
+          "sourceId": "azure-retail-prices-container-registry",
+          "url": "https://prices.azure.com/api/retail/prices?$filter=armRegionName%20eq%20%27westeurope%27%20and%20serviceName%20eq%20%27Container%20Registry%27"
+        },
+        {
+          "sourceId": "azure-retail-prices-log-analytics",
+          "url": "https://prices.azure.com/api/retail/prices?$filter=armRegionName%20eq%20%27westeurope%27%20and%20serviceName%20eq%20%27Log%20Analytics%27"
+        },
+        {
+          "sourceId": "azure-retail-prices-cosmos-db",
+          "url": "https://prices.azure.com/api/retail/prices?$filter=armRegionName%20eq%20%27westeurope%27%20and%20serviceName%20eq%20%27Azure%20Cosmos%20DB%27"
+        }
+      ],
+      "rates": {
+        "serviceBusStandardBasePerHour": "0.013441",
+        "serviceBusIncludedOperations": "13000000",
+        "serviceBusOperationsTier1": "0.0000008",
+        "serviceBusOperationsTier2": "0.0000005",
+        "serviceBusOperationsTier3": "0.0000002",
+        "eventHubsStandardThroughputUnitHour": "0.03",
+        "eventHubsDedicatedCapacityUnitHour": "6.849",
+        "logAnalyticsIngestionPerGib": "2.99",
+        "logAnalyticsRetentionPerGibMonth": "0.13",
+        "containerAppsVcpuSecond": "0.000034",
+        "containerAppsMemoryGibSecond": "0.000004",
+        "containerAppsStorageMoverPerConcurrentTaskMonth": "27.216",
+        "acrBasicPerRepositoryMonth": "4.998",
+        "cosmosServerlessPerMillionRu": "0.305",
+        "cosmosAutoscalePer100MaxRuHour": "0.012"
+      }
+    },
+    "gcp": {
+      "region": "europe-west1",
+      "sources": [
+        {
+          "sourceId": "gcp-cloud-run-pricing",
+          "url": "https://cloud.google.com/run/pricing"
+        },
+        {
+          "sourceId": "gcp-pubsub-pricing",
+          "url": "https://cloud.google.com/pubsub/pricing"
+        },
+        {
+          "sourceId": "gcp-cloud-logging-pricing",
+          "url": "https://cloud.google.com/logging/pricing"
+        },
+        {
+          "sourceId": "gcp-vpc-network-pricing",
+          "url": "https://cloud.google.com/vpc/network-pricing"
+        },
+        {
+          "sourceId": "gcp-artifact-registry-pricing",
+          "url": "https://cloud.google.com/artifact-registry/pricing"
+        },
+        {
+          "sourceId": "gcp-gke-pricing",
+          "url": "https://cloud.google.com/kubernetes-engine/pricing"
+        }
+      ],
+      "rates": {
+        "cloudRunRequest": "0.0000004",
+        "cloudRunVcpuSecond": "0.000018",
+        "cloudRunMemoryGibSecond": "0.000002",
+        "pubsubPerByte": "0.0000000000363797880709171295166015625",
+        "cloudLoggingIngestionPerGib": "0.5",
+        "cloudLoggingRetentionPerGibMonth": "0.01",
+        "loadBalancerRuleHour": "0.025",
+        "loadBalancerProcessedByte": "0.000000000007450580596923828125",
+        "persistentDiskPerGibMonth": "0.04",
+        "firestoreDelete": "0.00000033",
+        "cloudRunStorageMoverPerConcurrentTaskMonth": "14.256",
+        "artifactRegistryBoundedImageStoragePerRepositoryMonth": "0"
+      }
+    }
+  }
+}

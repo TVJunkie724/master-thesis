@@ -1,8 +1,11 @@
-# Current Deployment Graph
+# Phase 8.0 Deployment Graph Snapshot
 
-This page documents the implemented Twin2MultiCloud graph reconstructed in
-Phase 8.0. It is current-state evidence, not a promise about future
-architecture profiles.
+This page documents the Twin2MultiCloud predecessor graph as reconstructed in
+Phase 8.0. It is immutable historical evidence for the profile migration, not
+the active Five-layer v2 service graph. See
+[Five-layer baseline](five-layer-baseline.md) and
+[Provider capabilities](provider-capabilities.md) for the current selectable
+profile.
 
 <!-- architecture-inventory-diagram-ids:
 edge.runtime.aws.l1-to-l2
@@ -90,10 +93,13 @@ L1 -> L2 -> L3 hot -> L3 cool -> L3 archive
               \----> hot reader ----------> L5 visualization
 ```
 
-AWS and Azure currently have deployer catalog implementations for every slot.
-GCP currently stops at L3 archive; GCP L4 and L5 are explicitly unsupported.
-Mixed-provider paths use destination-owned bridge/writer functions and
-source-owned transition runtimes.
+In the Phase 8.0 predecessor snapshot, AWS and Azure had deployer catalog
+implementations for every slot. GCP stopped at L3 archive; GCP L4 and L5 were
+explicitly unsupported. Mixed-provider paths used destination-owned
+bridge/writer functions and source-owned transition runtimes. The active
+`five-layer-baseline@2` profile later added its separately registered,
+provider-hosted GCP L4/L5 composition without changing this historical
+inventory.
 
 ## Platform flow
 

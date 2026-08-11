@@ -324,7 +324,8 @@ usage contract + pricing contract
   -> provider path total
   -> scoring strategy
   -> cheapest compatible five-layer path
-  -> ResolvedDeploymentSpecification v1
+  -> profile-matched ResolvedDeploymentSpecification v1/v2
+  -> profile-matched ResolvedTwinArchitecture v1/v2
   -> trace: profile + bundle + registry + formula + source evidence
 ```
 
@@ -349,11 +350,12 @@ provider formula inputs
   -> scoring strategy
 ```
 
-AWS and Azure currently support L1 through L5. GCP supports L1 through the three L3
-storage tiers; GCP L4/L5 remain explicitly unsupported because the Deployer has no
-verified self-hosted path. The engine reads this capability state from each result
-instead of maintaining provider-name exceptions. If no provider supports a layer,
-calculation fails explicitly; an unsupported zero-cost result cannot win scoring.
+The profile-neutral historical calculator supports AWS and Azure from L1
+through L5 and GCP from L1 through the three L3 storage tiers. Its public
+capability matrix therefore keeps generic GCP L4/L5 unsupported. The active
+Five-layer v2 strategy uses its separate reviewed provider-hosted GCP L4/L5
+profile. Both paths read registered capability state rather than treating an
+unsupported zero-cost result as a candidate.
 
 The deterministic matrix tests all 21 provider-layer combinations and preserves the
 existing `cost-result.v1` fields (`cost`, `components`, `supported`, optional
@@ -387,15 +389,19 @@ Management calculationRunId
   -> resolvedDeploymentSpecification
 ```
 
-The specification is built from canonical USD calculation state before output
-currency conversion. Therefore USD and EUR views of the same run have identical
-deployment selections and digest. No downstream service may reconstruct SKU,
-capacity, storage class, or runtime configuration from defaults.
+Historical RDS v1 is built from canonical USD calculation state before display
+currency conversion, so USD/EUR presentation does not alter its physical
+selection or digest. Five-layer v2 instead pins the requested USD/EUR cost
+evidence inside RTA v2/RDS v2: equivalent workload runs retain the same
+physical selections but have currency-specific monetary evidence and digests.
+No downstream service may reconstruct SKU, capacity, storage class, or runtime
+configuration from defaults.
 
-Management persistence, DeploymentManifest v2, Deployer preflight, and typed
-tfvar translation are implemented. AWS, Azure, and GCP resource bindings are
-complete. The credential-free gate covers all 27 storage-provider triples and
-the Azure F1/S1/S2/S3 capacity cases from formula output to Terraform resource
+Management persistence, historical Manifest v2/v3 compatibility, active
+Manifest v4 packaging, Deployer preflight, and typed tfvar translation are
+implemented. AWS, Azure, and GCP resource bindings are complete. The
+credential-free gate covers all 27 storage-provider triples and the Azure
+F1/S1/S2/S3 capacity cases from formula output to Terraform resource
 attributes:
 
 ```bash

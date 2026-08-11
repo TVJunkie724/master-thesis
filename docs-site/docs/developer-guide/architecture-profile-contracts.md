@@ -100,8 +100,9 @@ The public API accepts only profile ID/version, revision, and a server-derived
 invalidation digest; assignments and infrastructure evidence remain
 server-owned.
 
-Optimizer calculation output and Deployer package/Terraform execution are active.
-Flutter presentation remains the reviewed Phase 8.7 boundary.
+Optimizer calculation output and profile-matched Deployer package/Terraform
+execution are active. Flutter presents the active Five-layer v2 selection,
+frozen workload, and typed RTA/RDS v2 evidence through Management only.
 
 ## Extending The Deployment Graph
 
@@ -114,7 +115,7 @@ To extend one reviewed profile:
 2. register every compatible logical-edge implementation, including direction,
    trust, transfer, delivery, cost, and any destination-owned support component;
 3. update the provider implementation mapping and source-digest inventory;
-4. regenerate architecture and Manifest v3 fixtures/copies;
+4. regenerate architecture and the profile-matched Manifest v3/v4 fixtures/copies;
 5. add negative graph tests plus an offline package/tfvars path;
 6. run `./thesis.sh test deployment-contract --focused`.
 

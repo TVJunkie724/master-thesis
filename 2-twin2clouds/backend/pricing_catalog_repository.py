@@ -35,9 +35,7 @@ DEFAULT_MAX_AGE_DAYS = 7
 DEFAULT_BASELINE_ROOT = (
     Path(__file__).resolve().parents[1] / "json" / "pricing_catalog_baselines"
 )
-DEFAULT_RUNTIME_ROOT = Path(
-    "/var/lib/twin2multicloud-optimizer/pricing-catalogs"
-)
+DEFAULT_RUNTIME_ROOT = Path("/var/lib/twin2multicloud-optimizer/pricing-catalogs")
 _FORBIDDEN_SECRET_KEY_FRAGMENTS = {
     "accesskey",
     "accesstoken",
@@ -142,10 +140,7 @@ class PricingCatalogRepository:
                 for old_reference in previous_manifest.catalogs.values():
                     self.resolve_exact(old_reference, require_fresh=False)
                     replacement = manifest.catalogs[old_reference.provider]
-                    if (
-                        old_reference.pricing_region
-                        != replacement.pricing_region
-                    ):
+                    if old_reference.pricing_region != replacement.pricing_region:
                         raise PricingCatalogTamperedError(
                             "Tracked baseline migration cannot change pricing regions"
                         )
@@ -175,9 +170,7 @@ class PricingCatalogRepository:
                         ),
                     )
                 )
-                old_reference = previous_manifest.catalogs[
-                    reference.provider
-                ]
+                old_reference = previous_manifest.catalogs[reference.provider]
                 if current_pointer == old_reference:
                     self._write_json_atomically(
                         pointer,
@@ -223,7 +216,9 @@ class PricingCatalogRepository:
             self.baseline_root / "baseline.json",
             not_found_message="Pricing catalog baseline manifest is missing",
         )
-        if canonical_json_bytes(runtime_payload) != canonical_json_bytes(source_payload):
+        if canonical_json_bytes(runtime_payload) != canonical_json_bytes(
+            source_payload
+        ):
             raise PricingCatalogTamperedError(
                 "Runtime pricing catalog baseline differs from its seed"
             )
@@ -456,11 +451,14 @@ class PricingCatalogRepository:
                 "A pricing refresh is already active for this provider and region"
             )
 
-        lock_path = self._region_root(
-            self.runtime_root,
-            provider,
-            canonical_region,
-        ) / "refresh.lock"
+        lock_path = (
+            self._region_root(
+                self.runtime_root,
+                provider,
+                canonical_region,
+            )
+            / "refresh.lock"
+        )
         lock_path.parent.mkdir(parents=True, exist_ok=True)
         descriptor: int | None = None
         try:
@@ -705,9 +703,7 @@ class PricingCatalogRepository:
                 "Pricing catalog storage root is unavailable"
             )
         if root.exists() and (root.is_symlink() or not root.is_dir()):
-            raise PricingCatalogStorageError(
-                "Pricing catalog storage root is invalid"
-            )
+            raise PricingCatalogStorageError("Pricing catalog storage root is invalid")
 
 
 @lru_cache(maxsize=1)
@@ -720,9 +716,13 @@ def get_pricing_catalog_repository() -> PricingCatalogRepository:
     baseline_root = Path(
         os.getenv("PRICING_CATALOG_BASELINE_ROOT", str(DEFAULT_BASELINE_ROOT))
     )
+    max_age_days = int(
+        os.getenv("PRICING_CATALOG_MAX_AGE_DAYS", str(DEFAULT_MAX_AGE_DAYS))
+    )
     repository = PricingCatalogRepository(
         runtime_root=runtime_root,
         baseline_root=baseline_root,
+        max_age_days=max_age_days,
     )
     repository.initialize_from_baseline()
     return repository
@@ -737,10 +737,11 @@ def _normalize_root(path: Path) -> Path:
 def _reject_secret_keys(payload: Any, path: str = "$") -> None:
     if isinstance(payload, dict):
         for key, value in payload.items():
-            normalized = "".join(character for character in str(key).lower() if character.isalnum())
+            normalized = "".join(
+                character for character in str(key).lower() if character.isalnum()
+            )
             if any(
-                fragment in normalized
-                for fragment in _FORBIDDEN_SECRET_KEY_FRAGMENTS
+                fragment in normalized for fragment in _FORBIDDEN_SECRET_KEY_FRAGMENTS
             ):
                 raise PricingCatalogStorageError(
                     f"Pricing catalog contains a forbidden secret field at {path}"

@@ -1,4 +1,4 @@
-"""Draft-safe Five-layer v2 candidate and topology strategy."""
+"""Five-layer v2 candidate and topology strategy."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ FIVE_LAYER_V2_PROFILE_REF = ArchitectureProfileRef(
     profile_id="five-layer-baseline",
     profile_version="2",
     content_digest=(
-        "sha256:36a68644e66be0b7242d692b9a75fd8d99173a28b00b00fa110023693dc5e854"
+        "sha256:8ebe9f14978f632c04a25837af1a4b9e4ee4da863f4a972189fb75cd174cac5c"
     ),
 )
 FIVE_LAYER_V2_BUNDLE_REF = OptimizationBundleRef(
@@ -67,10 +67,8 @@ class FiveLayerV2CandidateStrategy:
 
     def __init__(self, profile: Mapping[str, Any]):
         if (
-            ArchitectureProfileRef.from_profile(profile)
-            != FIVE_LAYER_V2_PROFILE_REF
-            or OptimizationBundleRef.from_profile(profile)
-            != FIVE_LAYER_V2_BUNDLE_REF
+            ArchitectureProfileRef.from_profile(profile) != FIVE_LAYER_V2_PROFILE_REF
+            or OptimizationBundleRef.from_profile(profile) != FIVE_LAYER_V2_BUNDLE_REF
         ):
             raise RuntimeError(
                 "Five-layer v2 strategy profile or optimization bundle drifted"

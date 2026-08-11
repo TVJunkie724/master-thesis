@@ -17,10 +17,11 @@ User input
        formula set + provider contracts
        scoring strategy: minimum cost
   -> typed result + trace metadata + identical catalog context
-  -> exact ResolvedDeploymentSpecification v1
+  -> exact profile-matched ResolvedDeploymentSpecification v1/v2
        selected components, deployable dimensions, assumptions, evidence, digest
   -> Management schema/registry/run/path/catalog/digest validation
-  -> atomic calculation run/items/result/path/specification persistence
+  -> matching ResolvedTwinArchitecture v1/v2
+  -> atomic calculation run/items/result/path/specification/architecture persistence
   -> read-only Flutter review
 ```
 

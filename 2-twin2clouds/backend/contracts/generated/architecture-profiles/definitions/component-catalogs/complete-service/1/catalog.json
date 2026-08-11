@@ -2,7 +2,7 @@
   "schema_version": "deployment-component-catalog.v2",
   "catalog_id": "complete-service-component-catalog",
   "catalog_version": "1",
-  "lifecycle_status": "draft",
+  "lifecycle_status": "active",
   "components": [
     {
       "deployment_component_id": "deployment.aws.ingestion.v2",
@@ -9574,5 +9574,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:ae901115898ed15aebfaae065ce70e7a14379996f1d3c368fe231de62c388ffc"
+  "content_digest": "sha256:3396848028a5b8862e1c948a8017cd8e7bb7d118a0ee5edc120cd3d7a3956c1d"
 }

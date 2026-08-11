@@ -34,10 +34,17 @@ EXTRACTED: 2026-08-11 | VERSION: 4.5
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | The complete Five-layer v2 provider/runtime graph and typed L4/L5 Layer Access read model/UI are implemented and locally tested. `five-layer-baseline@2` remains `draft`, runtime selection remains empty/default-off, and the final full-stack activation reviews are still open. |
-| Next action | Finish the 8.9A documentation and full safe gates, review concept/plan/implementation until zero findings, then activate and freeze `five-layer-baseline@2` before starting Six-layer. |
+| Implementation status | The complete Five-layer v2 provider/runtime graph, typed L4/L5 Layer Access read model/UI, active offline profile/catalog/provider definitions, default-on resolution path, and strict Demo RTA/RDS v2 parity are locally implemented. Deployment remains blocked by explicit supervised live-capacity gates. |
+| Next action | Finish the 8.9A full safe gates and repeat concept/plan/implementation review until zero findings, then freeze the active Five-layer v2 digest before starting Six-layer. |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
+
+The Five-layer v2 optimizer uses content-addressed offline AWS/Azure/GCP rate
+cards for the exact thesis S/M/L scenarios and USD/EUR currencies. Azure Large
+uses the non-zero 108,000-RU/s storage/operation proxy for comparison while
+keeping the supervised Cosmos gates; AWS TwinMaker may likewise be evaluated without a
+live account plan only when its explicit live-pricing gate is present. Neither
+case is deployment evidence.
 
 Phase 8.0 reconstructed the current deployment graph and closed #144. Phase
 8.1 froze the historical `five-layer-baseline@1` target with complete
@@ -85,8 +92,9 @@ projection, not a generic architecture model.
 
 Phase 8.5 adds the profile-bounded Optimizer strategy, pre-ranking functional
 completeness, deterministic candidate resolution, exact cost and rejection
-evidence, `ResolvedTwinArchitecture v1`, and default-off Management admission.
-The repository-backed runtime path remains deliberately dark. Phase 8.6
+evidence, `ResolvedTwinArchitecture v1`, and initially default-off Management
+admission. Phase 8.9A now activates the repository-backed v2 path for offline
+evaluation. Phase 8.6
 provides the typed Deployer graph compiler but does not promote the historical
 provider profiles. New-profile activation belongs to Phase 8.9A after the
 complete-service decision.
@@ -98,7 +106,7 @@ Deployer operation state, selected-architecture-first compatibility
 projections, and historical v2 read/destroy support without invalid-v3
 fallback. Its integrated 14-stage credential-free gate passed all decision,
 contract, Optimizer, Management, Deployer, Flutter, MkDocs, security, and
-static checks. Activation remains deliberately default-off.
+static checks. Activation was deliberately default-off at that phase boundary.
 
 Phase 8.8 is approved independently as an offline evidence gate. Its twelve
 schema-validated artifacts freeze `five-layer-baseline@2`,
@@ -184,18 +192,18 @@ or billed deployment behavior.
 
 ## Immediate Next Action
 
-Do not activate a profile before the remaining reviews and gates. Complete
-these boundaries in order:
+The profile is active for offline evaluation but not deployment. Complete
+these remaining boundaries in order:
 
 1. retain the committed concept, cross-stack execution plans, immutable
    complete-service decision, reviewed dark Phase 8.6 compiler, zero-finding
    Phase 8.7 workflow, and reviewed offline guided-bootstrap boundary;
-2. keep `five-layer-baseline@1`, Phase 8.5 admission, and all new profile
-   execution default-off throughout that gate;
-3. finish the documentation, full safe verification, and repeated
+2. keep `five-layer-baseline@1` historical and keep every v2 live-capacity
+   gate explicit and fail-closed for deployment;
+3. finish documentation, full safe verification, and repeated
    concept/plan/implementation review for `five-layer-baseline@2` / 8.9A;
-4. activate and freeze the reviewed Five-layer v2 digest before starting the separate
-   Six-layer delta; then complete Phase 8.10 evaluation.
+4. freeze the reviewed active Five-layer v2 digest before starting the
+   separate Six-layer delta; then complete Phase 8.10 evaluation.
 
 ## Required Reading Order
 

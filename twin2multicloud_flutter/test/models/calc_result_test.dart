@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/models/calc_result.dart';
@@ -6,6 +7,83 @@ import 'package:twin2multicloud_flutter/models/calc_result.dart';
 import '../fixtures/test_fixtures.dart';
 
 void main() {
+  test(
+    'projects a native Five-layer v2 result without legacy provider keys',
+    () {
+      final architecture =
+          jsonDecode(
+                File(
+                  'assets/demo/v1/resolved-twin-architecture-v2-large.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      final result = CalcResult.fromJson({
+        'totalCost': 0.0,
+        'totalCostExact': '0',
+        'currency': 'USD',
+        'resolvedTwinArchitecture': architecture,
+        'inputParamsUsed': <String, dynamic>{},
+      });
+
+      expect(result.totalCost, 0);
+      expect(result.cheapestPath, hasLength(7));
+      expect(result.cheapestPath.first, startsWith('L1_'));
+      expect(result.gcpCosts.l3Hot, isNotNull);
+      expect(result.transferCosts, hasLength(8));
+    },
+  );
+
+  test(
+    'native Five-layer v2 architecture overrides legacy cost projections',
+    () {
+      final architecture =
+          jsonDecode(
+                File(
+                  'assets/demo/v1/resolved-twin-architecture-v2-large.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      final result = CalcResult.fromJson({
+        'totalCost': 0.0,
+        'totalCostExact': '0',
+        'currency': 'USD',
+        'resolvedTwinArchitecture': architecture,
+        'awsCosts': {
+          'L1': {
+            'cost': 999999,
+            'components': {'tampered': 999999},
+          },
+        },
+        'cheapestPath': ['L1_GCP'],
+      });
+
+      expect(result.totalCost, 0);
+      expect(result.cheapestPath, hasLength(7));
+      expect(result.cheapestPath.first, 'L1_AWS');
+      expect(result.awsCosts.l1?.cost, 0);
+    },
+  );
+
+  test('rejects native v2 totals that differ from the architecture', () {
+    final architecture =
+        jsonDecode(
+              File(
+                'assets/demo/v1/resolved-twin-architecture-v2-small.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+
+    expect(
+      () => CalcResult.fromJson({
+        'totalCost': 1.0,
+        'totalCostExact': '1',
+        'currency': 'USD',
+        'resolvedTwinArchitecture': architecture,
+      }),
+      throwsFormatException,
+    );
+  });
+
   test('LayerCost preserves explicit unsupported contract metadata', () {
     final layer = LayerCost.fromJson({
       'cost': 0,

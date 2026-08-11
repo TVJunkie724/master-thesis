@@ -72,7 +72,7 @@ def validate_complete_configuration(
     )
 
     path = config.cheapest_path or {}
-    _validate_path_capabilities(path, errors)
+    _validate_path_capabilities(path, errors, profile)
     l2 = _provider(path, "L2", PROVIDERS, errors)
     l4 = _provider(path, "L4", OPTIONAL_LAYER_PROVIDERS, errors)
     l5 = _provider(path, "L5", OPTIONAL_LAYER_PROVIDERS, errors)
@@ -139,9 +139,13 @@ def _validate_profile_optimizer_fields(
 def _validate_path_capabilities(
     path: dict,
     errors: list[ValidationError],
+    profile: tuple[str, str] | None,
 ) -> None:
     try:
-        violations = validate_provider_selections(selections_from_cheapest_path(path))
+        violations = validate_provider_selections(
+            selections_from_cheapest_path(path),
+            architecture_profile=profile,
+        )
     except ValueError as exc:
         _add(errors, "INVALID_PROVIDER", "cheapest_path", str(exc))
         return

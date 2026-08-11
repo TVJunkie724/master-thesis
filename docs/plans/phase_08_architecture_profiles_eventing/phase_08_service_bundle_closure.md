@@ -1007,7 +1007,7 @@ service silently to ADX.
 |---|---|---|---|
 | AWS TwinMaker | 100 entities | 4,000 entities | 30,000 entities; external raw telemetry remains outside TwinMaker |
 | AWS Grafana | Grafana 12 workspace | Same | Same; seats and measured concurrency remain distinct |
-| Azure Cosmos DB | Serverless | Serverless | Autoscale maximum derived from measured RU/s and storage-driven minimum; fail admission if the proof does not pass |
+| Azure Cosmos DB | Serverless | Serverless | Autoscale maximum derived from measured RU/s and the frozen storage/operation minimum; fail admission if the proof does not pass |
 | Azure Grafana | Standard X1 | Standard X1 | Standard X2 |
 | GCP Firestore L3 | One timestamp shard; raw and hourly-rollup transactions | One timestamp shard; raw and hourly-rollup transactions | Sixteen timestamp shards; raw history queries and mover fan out over the finite shard set |
 | GCP Firestore L4 | Bounded document/one-hop queries | Same schema, scenario-derived operations | 50 state materializations/s plus one graph/model update/s |

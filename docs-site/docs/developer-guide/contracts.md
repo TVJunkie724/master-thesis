@@ -50,8 +50,9 @@ exactly.
 
 ### Resolved Deployment Specification
 
-`ResolvedDeploymentSpecification v1` is the repository contract that binds a
-cost-model winner to its eventual infrastructure settings. Its source of truth is:
+`ResolvedDeploymentSpecification v1/v2` are the repository contracts that
+bind a profile-specific cost-model winner to its eventual infrastructure
+settings. Their sources of truth are:
 
 ```text
 contracts/resolved-deployment-specification/v1/
@@ -60,18 +61,22 @@ contracts/resolved-deployment-specification/v1/
   verification-matrix.schema.json
   verification-matrix.json
   fixtures/
+
+contracts/resolved-deployment-specification/v2/
+  schema.json
+  deployment-dimensions.json
+  fixtures/
 ```
 
-The schema fixes the wire shape. The dimension registry is the closed-world
-mapping for the current `five-layer-baseline@1`: component IDs, provider and
-slot ownership, allowed values, value origin, unit, classification, and
-Terraform target. The optimization context binds each provider's immutable
-catalog snapshot ID, pricing region, and content digest. It also defines the
-five existing cross-cloud receiver
-boundaries; glue components are required exactly for receiver providers whose
-boundary crosses clouds, and are forbidden for a single-cloud path. Generated
-copies below the Optimizer, Management API, and Deployer build contexts are
-never edited by hand.
+Each schema fixes its wire shape. The v1 dimension registry remains the
+closed-world historical `five-layer-baseline@1` mapping. RDS v2 represents the
+active `five-layer-baseline@2` component selections, exact dimensions,
+bindings, optimization evidence, and readiness gates without coercing them
+into v1 enums. Both versions bind each provider's immutable catalog snapshot
+ID, pricing region, and content digest. Cross-cloud support components are
+required exactly where the selected route crosses providers and forbidden for
+a local path. Generated copies below the Optimizer, Management API, and
+Deployer build contexts are never edited by hand.
 
 The verification matrix is test evidence rather than a runtime registry. It
 contains independent expected values for 31 deployable components, 54

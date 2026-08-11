@@ -32,6 +32,8 @@ import '../services/management_api.dart';
 import 'demo_fixture_store.dart';
 
 class DemoManagementApi implements ManagementApi {
+  static const double _fiveLayerV2EurPerUsd = 0.865948;
+
   final DemoFixtureStore store;
   final Duration latency;
   String? _token = 'demo-token';
@@ -40,6 +42,7 @@ class DemoManagementApi implements ManagementApi {
   final List<UserFunctionArtifact> _extensionArtifacts = [];
   final Map<String, TwinExtensionBinding> _extensionBindings = {};
   final Map<String, Map<String, dynamic>> _bootstrapSessions = {};
+  final Map<String, ResolvedTwinArchitectureRead> _resolvedArchitectures = {};
 
   DemoManagementApi({
     required this.store,
@@ -97,7 +100,9 @@ class DemoManagementApi implements ManagementApi {
   @override
   Future<List<ArchitectureProfileSummary>> listArchitectureProfiles() async {
     await _pause();
-    return const [];
+    return [
+      ArchitectureProfileSummary.fromJson(_architectureProfileSummaryJson()),
+    ];
   }
 
   @override
@@ -106,10 +111,13 @@ class DemoManagementApi implements ManagementApi {
     String profileVersion,
   ) async {
     await _pause();
-    throw const DemoApiException(
-      'ARCH_PROFILE_NOT_ACTIVE',
-      'No architecture profile is active in this implementation phase.',
-    );
+    if (profileId != 'five-layer-baseline' || profileVersion != '2') {
+      throw const DemoApiException(
+        'ARCH_PROFILE_NOT_ACTIVE',
+        'The requested architecture profile is not active.',
+      );
+    }
+    return ArchitectureProfileDetail.fromJson(_architectureProfileDetailJson());
   }
 
   @override
@@ -120,13 +128,13 @@ class DemoManagementApi implements ManagementApi {
     final twin = store.twin(twinId);
     final selectedAt = DateTime.parse(twin['created_at'].toString()).toUtc();
     final updatedAt = DateTime.parse(twin['updated_at'].toString()).toUtc();
+    final profile = store.fiveLayerV2Profile();
     return TwinArchitectureSelection(
       twinId: twinId,
-      profileRef: const PinnedArchitectureReference(
-        id: 'five-layer-baseline',
-        version: '1',
-        digest:
-            'sha256:dcac9d4c519c7624b74ba6f9e5b878b17553c828b6d6d8583754c34c6a2e4807',
+      profileRef: PinnedArchitectureReference(
+        id: profile['profile_id'].toString(),
+        version: profile['profile_version'].toString(),
+        digest: profile['content_digest'].toString(),
       ),
       revision: 1,
       selectedAt: selectedAt,
@@ -142,9 +150,22 @@ class DemoManagementApi implements ManagementApi {
   ) async {
     await _pause();
     store.twin(twinId);
-    throw const DemoApiException(
-      'ARCH_PROFILE_NOT_ACTIVE',
-      'No architecture profile is active in this implementation phase.',
+    final current = await getTwinArchitectureSelection(twinId);
+    if (request.profileId != current.profileRef.id ||
+        request.profileVersion != current.profileRef.version) {
+      throw const DemoApiException(
+        'ARCH_PROFILE_NOT_ACTIVE',
+        'The requested architecture profile is not active.',
+      );
+    }
+    if (request.expectedRevision != current.revision) {
+      throw const DemoApiException(
+        'ARCH_SELECTION_REVISION_CONFLICT',
+        'The architecture selection revision is stale.',
+      );
+    }
+    return ArchitectureProfileChangePreview.fromJson(
+      _idempotentArchitecturePreviewJson(current),
     );
   }
 
@@ -155,10 +176,35 @@ class DemoManagementApi implements ManagementApi {
   ) async {
     await _pause();
     store.twin(twinId);
-    throw const DemoApiException(
-      'ARCH_PROFILE_NOT_ACTIVE',
-      'No architecture profile is active in this implementation phase.',
-    );
+    final current = await getTwinArchitectureSelection(twinId);
+    final preview = _idempotentArchitecturePreviewJson(current);
+    if (request.profileId != current.profileRef.id ||
+        request.profileVersion != current.profileRef.version) {
+      throw const DemoApiException(
+        'ARCH_PROFILE_NOT_ACTIVE',
+        'The requested architecture profile is not active.',
+      );
+    }
+    if (request.expectedRevision != current.revision) {
+      throw const DemoApiException(
+        'ARCH_SELECTION_REVISION_CONFLICT',
+        'The architecture selection revision is stale.',
+      );
+    }
+    if (request.invalidationDigest != preview['invalidation_digest']) {
+      throw const DemoApiException(
+        'ARCH_SELECTION_INVALIDATION_STALE',
+        'The profile-change preview is stale.',
+      );
+    }
+    return ArchitectureProfileSelectionResult.fromJson({
+      'selection': _architectureSelectionJson(current),
+      'revision': current.revision,
+      'invalidated_calculation_run_id': null,
+      'unbound_extension_slot_ids': <String>[],
+      'cleared_workload_field_ids': <String>[],
+      'deployment_readiness_state': 'unchanged',
+    });
   }
 
   @override
@@ -178,6 +224,8 @@ class DemoManagementApi implements ManagementApi {
     String runId,
   ) async {
     await _pause();
+    final architecture = _resolvedArchitectures[runId];
+    if (architecture != null) return architecture;
     throw const DemoApiException(
       'ARCH_LEGACY_NOT_RESOLVABLE',
       'The historical demo run has no native resolved architecture.',
@@ -1330,39 +1378,106 @@ class DemoManagementApi implements ManagementApi {
   ) async {
     await _pause();
     store.twin(twinId);
-    if (!params.isExecutableTopology) {
+    if (!params.isFiveLayerV2) {
       throw const DemoApiException(
-        'UNSUPPORTED_ERROR_HANDLING_TOPOLOGY',
-        'The executable five-layer baseline does not deploy the requested '
-            'error-handling topology.',
+        'ARCH_WORKLOAD_INCOMPATIBLE',
+        'New demo calculations require a frozen Five-layer v2 workload scenario.',
       );
     }
     final paramsJson = params.toJson();
+    final now = store.clock().toUtc();
+    final runId = _nextDemoRunId();
+    final scenario = params.scenario!.name;
+    final specification = store.fiveLayerV2DeploymentSpecification(scenario)
+      ..['calculation_run_id'] = runId
+      ..['currency'] = params.currency;
+    _replaceCurrency(specification, params.currency);
+    specification['digest'] =
+        ResolvedDeploymentSpecificationData.calculateDigest(specification);
+    final parsedSpecification = ResolvedDeploymentSpecificationData.fromJson(
+      specification,
+    );
+    if (parsedSpecification is! ResolvedDeploymentSpecificationV2) {
+      throw const DemoApiException(
+        'DEMO_DEPLOYMENT_SPECIFICATION_INVALID',
+        'The canonical Five-layer v2 demo specification is unsupported.',
+      );
+    }
+
+    final architecture = store.fiveLayerV2ResolvedArchitecture(scenario)
+      ..['calculation_run_id'] = runId;
+    _replaceCurrency(architecture, params.currency);
+    final deploymentRef =
+        _copyMap(architecture['deployment_specification_ref'] as Map)
+          ..['calculation_run_id'] = runId
+          ..['digest'] = parsedSpecification.digest;
+    architecture['deployment_specification_ref'] = deploymentRef;
     final configured = store.optimizerConfig('demo-configured');
     final result = configured?['result'] is Map
         ? _copyMap(configured!['result'] as Map)
         : _defaultCalculationResult(paramsJson);
-    result['pricingCatalogs'] = _demoPricingCatalogContext(store.clock());
-    result['inputParamsUsed'] = {
-      'useEventChecking': paramsJson['useEventChecking'] == true,
-      'triggerNotificationWorkflow':
-          paramsJson['triggerNotificationWorkflow'] == true,
-      'returnFeedbackToDevice': paramsJson['returnFeedbackToDevice'] == true,
-      'integrateErrorHandling': paramsJson['integrateErrorHandling'] == true,
-      'needs3DModel': paramsJson['needs3DModel'] == true,
-    };
-    result.addAll(_defaultTransferEvidence(result, params.currency));
-    final optimization = OptimizationResultData.fromApiJson({'result': result});
-    final now = store.clock().toUtc();
-    final runId = _nextDemoRunId();
-    final cheapestPath = CheapestPath.fromSegments(
-      List<String>.from(result['cheapestPath'] as List),
+    final cheapestPath = _fiveLayerV2CheapestPath(architecture);
+    _reallocateDemoCosts(result, cheapestPath);
+    _convertFiveLayerV2DemoCurrency(result, params.currency);
+    final totalCostExact = _applyFiveLayerV2DemoArchitectureCosts(
+      architecture,
+      result,
+      params.currency,
     );
+    architecture['content_digest'] = ResolvedTwinArchitecture.calculateDigest(
+      architecture,
+    );
+    final resolvedRead = ResolvedTwinArchitectureRead.fromJson({
+      'twin_id': twinId,
+      'calculation_run_id': runId,
+      'selected_for_deployment_at': null,
+      'architecture_compatibility_status': 'ready',
+      'origin': 'native_v2',
+      'architecture': architecture,
+    });
+    _resolvedArchitectures[runId] = resolvedRead;
+
+    result
+      ..remove('transferPricingContext')
+      ..remove('optimizationDiagnostics')
+      ..remove('transferCosts')
+      ..remove('awsCosts')
+      ..remove('azureCosts')
+      ..remove('gcpCosts')
+      ..['cheapestPath'] = cheapestPath
+      ..['calculationResult'] = _fiveLayerV2CalculationResult(cheapestPath)
+      ..['totalCost'] = double.parse(totalCostExact)
+      ..['totalCostExact'] = totalCostExact
+      ..['currency'] = params.currency
+      ..['optimization_profile_id'] = 'cost-minimization-v2'
+      ..['result_schema_version'] = 'cost-result.v2'
+      ..['optimizationProfile'] = {
+        'enabled': true,
+        'profile_version': '2',
+        'scoring_strategy_id': 'profile-local-min-total-cost-v2',
+        'calculation_model_ids': ['profile-resolution-v2@2'],
+        'pricing_registry_version': 'phase-08-complete-service-pricing@1',
+      }
+      ..['evidenceReferences'] = {
+        'pricing_registry': 'phase-08-complete-service-pricing@1',
+      }
+      ..['resolvedTwinArchitecture'] = _copyMap(architecture)
+      ..['resolvedDeploymentSpecification'] = _copyMap(specification)
+      ..['pricingCatalogs'] = _demoPricingCatalogContext(store.clock())
+      ..['inputParamsUsed'] = {
+        'useEventChecking': true,
+        'triggerNotificationWorkflow': true,
+        'returnFeedbackToDevice': true,
+        'integrateErrorHandling': false,
+        'needs3DModel': false,
+      };
+    final optimization = OptimizationResultData.fromApiJson({'result': result});
+    final parsedCheapestPath = CheapestPath.fromSegments(cheapestPath);
     final pricingCatalogContext = optimization.result.pricingCatalogContext!;
     store.setOptimizerConfig(twinId, {
       'params': _copyMap(paramsJson),
       'result': _copyMap(optimization.payload),
-      'cheapest_path': cheapestPath.toJson(),
+      'cheapest_path': parsedCheapestPath.toJson(),
       'pricing_catalog_context': pricingCatalogContext.toJson(),
       'calculated_at': now.toIso8601String(),
     });
@@ -1372,11 +1487,6 @@ class DemoManagementApi implements ManagementApi {
       ..['optimizer_result'] = _copyMap(optimization.payload);
     store.setTwinConfig(twinId, twinConfig);
 
-    final specification = _demoDeploymentSpecification(
-      runId: runId,
-      cheapestPath: cheapestPath,
-      pricingCatalogContext: pricingCatalogContext,
-    );
     final runJson = {
       'id': runId,
       'twin_id': twinId,
@@ -1385,7 +1495,7 @@ class DemoManagementApi implements ManagementApi {
       'total_monthly_cost': optimization.result.totalCost,
       'currency': params.currency,
       'deployment_compatibility_status': 'ready',
-      'deployment_specification_digest': specification['digest'],
+      'deployment_specification_digest': parsedSpecification.digest,
       'deployment_specification_version': specification['schema_version'],
       'resolved_deployment_specification': specification,
       'selected_for_deployment_at': null,
@@ -1437,6 +1547,17 @@ class DemoManagementApi implements ManagementApi {
       throw DemoApiException(
         'DEMO_OPTIMIZER_RUN_NOT_SELECTABLE',
         'Optimizer run "$runId" is not selectable.',
+      );
+    }
+    final parsedSelectionSpecification =
+        ResolvedDeploymentSpecificationData.fromJson(
+          _copyMap(run['resolved_deployment_specification'] as Map),
+        );
+    if (parsedSelectionSpecification is ResolvedDeploymentSpecificationV2 &&
+        parsedSelectionSpecification.readiness.evaluationOnly) {
+      throw const DemoApiException(
+        'DEPLOYMENT_CAPACITY_EVIDENCE_PENDING',
+        'The Five-layer v2 result is evaluation-only until its live-capacity gates are evidenced.',
       );
     }
     final selectedAt = store.clock().toUtc().toIso8601String();
@@ -2331,6 +2452,182 @@ class DemoManagementApi implements ManagementApi {
     };
   }
 
+  Map<String, dynamic> _architectureProfileSummaryJson() {
+    final profile = store.fiveLayerV2Profile();
+    final responsibilities =
+        (profile['responsibilities'] as List)
+            .cast<Map>()
+            .map(Map<String, dynamic>.from)
+            .toList()
+          ..sort(
+            (left, right) => (left['evaluation_order'] as int).compareTo(
+              right['evaluation_order'] as int,
+            ),
+          );
+    final providers = store.fiveLayerV2ProviderProfiles()
+      ..sort(
+        (left, right) =>
+            left['provider'].toString().compareTo(right['provider'].toString()),
+      );
+    Map<String, dynamic> providerSummary(Map<String, dynamic> item) => {
+      'provider': item['provider'],
+      'supported': item['supported'],
+      'profile_id': item['implementation_profile_id'],
+      'profile_version': item['implementation_profile_version'],
+      'reason_codes': [
+        for (final reason in (item['unsupported_reasons'] as List).cast<Map>())
+          reason['reason_code'],
+      ],
+    };
+    final capabilityIds = <String>{
+      for (final responsibility in responsibilities)
+        for (final capability
+            in (responsibility['capability_requirements'] as List))
+          capability.toString(),
+    }.toList()..sort();
+    final extensionSlots =
+        (profile['extension_slots'] as List)
+            .cast<Map>()
+            .map(Map<String, dynamic>.from)
+            .toList()
+          ..sort((left, right) {
+            final idComparison = left['slot_id'].toString().compareTo(
+              right['slot_id'].toString(),
+            );
+            if (idComparison != 0) return idComparison;
+            return int.parse(
+              left['slot_version'].toString(),
+            ).compareTo(int.parse(right['slot_version'].toString()));
+          });
+    return {
+      'profile_id': profile['profile_id'],
+      'profile_version': profile['profile_version'],
+      'profile_digest': profile['content_digest'],
+      'display_name': profile['display_name'],
+      'description': profile['description'],
+      'lifecycle_status': 'active',
+      'responsibilities': [
+        for (final item in responsibilities)
+          {
+            'responsibility_id': item['responsibility_id'],
+            'display_name': item['display_name'],
+            'required': item['required'],
+            'capability_ids': List<String>.from(
+              item['capability_requirements'] as List,
+            )..sort(),
+            'workload_field_ids': List<String>.from(
+              item['workload_field_refs'] as List,
+            )..sort(),
+          },
+      ],
+      'capability_ids': capabilityIds,
+      'workload_contract_ref': _copyMap(
+        profile['workload_contract_ref'] as Map,
+      ),
+      'available_providers': [
+        for (final item in providers.where((item) => item['supported'] == true))
+          providerSummary(item),
+      ],
+      'unsupported_providers': [
+        for (final item in providers.where((item) => item['supported'] != true))
+          providerSummary(item),
+      ],
+      'extension_slots': [
+        for (final item in extensionSlots)
+          {
+            'slot_id': item['slot_id'],
+            'slot_version': item['slot_version'],
+            'logical_component_id': item['component_id'],
+          },
+      ],
+    };
+  }
+
+  Map<String, dynamic> _architectureProfileDetailJson() {
+    final profile = store.fiveLayerV2Profile();
+    final components = (profile['components'] as List)
+        .cast<Map>()
+        .map(Map<String, dynamic>.from)
+        .toList();
+    final edges = (profile['edges'] as List)
+        .cast<Map>()
+        .map(Map<String, dynamic>.from)
+        .toList();
+    return {
+      ..._architectureProfileSummaryJson(),
+      'logical_components': components,
+      'logical_edges': edges,
+      'visualization': {
+        'nodes': [
+          for (final component in components)
+            {
+              'id': component['component_id'],
+              'label': _componentLabel(component['component_id'].toString()),
+              'responsibility_id': component['responsibility_id'],
+            },
+        ],
+        'edges': [
+          for (final edge in edges)
+            {
+              'id': edge['edge_id'],
+              'source': edge['source_component_id'],
+              'destination': edge['destination_component_id'],
+            },
+        ],
+      },
+    };
+  }
+
+  String _componentLabel(String componentId) => componentId
+      .replaceFirst('component.', '')
+      .split('-')
+      .map(
+        (part) => part.isEmpty
+            ? part
+            : '${part.substring(0, 1).toUpperCase()}${part.substring(1)}',
+      )
+      .join(' ');
+
+  Map<String, dynamic> _architectureSelectionJson(
+    TwinArchitectureSelection selection,
+  ) => {
+    'twin_id': selection.twinId,
+    'profile_id': selection.profileRef.id,
+    'profile_version': selection.profileRef.version,
+    'profile_digest': selection.profileRef.digest,
+    'revision': selection.revision,
+    'selected_at': selection.selectedAt.toIso8601String(),
+    'updated_at': selection.updatedAt.toIso8601String(),
+    'selected_by_user_id': selection.selectedByUserId,
+  };
+
+  Map<String, dynamic> _idempotentArchitecturePreviewJson(
+    TwinArchitectureSelection selection,
+  ) {
+    final reference = {
+      'id': selection.profileRef.id,
+      'version': selection.profileRef.version,
+      'digest': selection.profileRef.digest,
+    };
+    final digestSeed = jsonEncode({
+      'profile_ref': reference,
+      'expected_revision': selection.revision,
+      'incompatible_workload_fields': <String>[],
+      'incompatible_extension_bindings': <String>[],
+    });
+    return {
+      'current': reference,
+      'target': _copyMap(reference),
+      'expected_revision': selection.revision,
+      'incompatible_workload_fields': <Map<String, dynamic>>[],
+      'incompatible_extension_bindings': <Map<String, dynamic>>[],
+      'selected_calculation_run_id': null,
+      'deployment_readiness_sections': <String>[],
+      'invalidation_digest':
+          'sha256:${sha256.convert(utf8.encode(digestSeed))}',
+    };
+  }
+
   void _seedExistingOptimizerRun(String twinId) {
     final raw = store.optimizerConfig(twinId);
     if (raw == null) return;
@@ -2351,61 +2648,256 @@ class DemoManagementApi implements ManagementApi {
     });
   }
 
-  Map<String, dynamic> _demoDeploymentSpecification({
-    required String runId,
-    required CheapestPath cheapestPath,
-    required PricingCatalogContext pricingCatalogContext,
-  }) {
-    final specification = store.deploymentSpecificationTemplate()
-      ..['calculation_run_id'] = runId;
-    final optimizationContext =
-        _copyMap(specification['optimization_context'] as Map)
-          ..['catalog_references'] = {
-            for (final entry in pricingCatalogContext.catalogs.entries)
-              entry.key.apiValue: {
-                'snapshot_id': entry.value.snapshotId,
-                'pricing_region': entry.value.pricingRegion,
-                'content_digest': entry.value.contentDigest,
-              },
-          };
-    specification['optimization_context'] = optimizationContext;
-    final parsed = ResolvedDeploymentSpecificationData.fromJson(
-      specification
-        ..['digest'] = ResolvedDeploymentSpecificationData.calculateDigest(
-          specification,
-        ),
-    );
-    if (parsed is! ResolvedDeploymentSpecificationV1) {
-      throw const DemoApiException(
-        'DEMO_DEPLOYMENT_SPECIFICATION_INVALID',
-        'The canonical demo deployment specification is unsupported.',
-      );
+  void _replaceCurrency(Object? value, String currency) {
+    if (value is Map) {
+      for (final entry in value.entries.toList()) {
+        if (entry.key == 'currency' && entry.value is String) {
+          value[entry.key] = currency;
+        } else {
+          _replaceCurrency(entry.value, currency);
+        }
+      }
+    } else if (value is List) {
+      for (final item in value) {
+        _replaceCurrency(item, currency);
+      }
     }
-    final providersBySlot = {
-      for (final component in parsed.architectureComponents)
-        component.slot: component.provider,
+  }
+
+  void _convertFiveLayerV2DemoCurrency(
+    Map<String, dynamic> result,
+    String currency,
+  ) {
+    final rate = switch (currency) {
+      'USD' => 1.0,
+      'EUR' => _fiveLayerV2EurPerUsd,
+      _ => throw DemoApiException(
+        'DEMO_CURRENCY_UNSUPPORTED',
+        'The Five-layer v2 demo currency "$currency" is unsupported.',
+      ),
     };
-    const pathSlots = <(ResolvedDeploymentSlot, String)>[
-      (ResolvedDeploymentSlot.l1Ingestion, 'l1'),
-      (ResolvedDeploymentSlot.l2Processing, 'l2'),
-      (ResolvedDeploymentSlot.l3HotStorage, 'l3_hot'),
-      (ResolvedDeploymentSlot.l3CoolStorage, 'l3_cool'),
-      (ResolvedDeploymentSlot.l3ArchiveStorage, 'l3_archive'),
-      (ResolvedDeploymentSlot.l4TwinState, 'l4'),
-      (ResolvedDeploymentSlot.l5Visualization, 'l5'),
-    ];
-    if (pathSlots.any(
-      (entry) =>
-          cheapestPath.providerForLayer(entry.$2) != providersBySlot[entry.$1],
-    )) {
-      throw const DemoApiException(
-        'DEMO_OPTIMIZER_PATH_CONTRACT_MISMATCH',
-        'Demo optimizer result differs from the canonical deployment fixture.',
-      );
+    double converted(Object? value) => (value as num).toDouble() * rate;
+
+    for (final providerKey in const ['awsCosts', 'azureCosts', 'gcpCosts']) {
+      final providerCosts = result[providerKey];
+      if (providerCosts is! Map) continue;
+      for (final rawLayer in providerCosts.values) {
+        if (rawLayer is! Map || rawLayer['cost'] is! num) continue;
+        rawLayer['cost'] = converted(rawLayer['cost']);
+        final components = rawLayer['components'];
+        if (components is Map) {
+          for (final entry in components.entries.toList()) {
+            if (entry.value is num) {
+              components[entry.key] = converted(entry.value);
+            }
+          }
+        }
+      }
     }
-    specification['digest'] =
-        ResolvedDeploymentSpecificationData.calculateDigest(specification);
-    return specification;
+    if (result['totalCost'] is num) {
+      result['totalCost'] = converted(result['totalCost']);
+    }
+    final diagnostics = result['optimizationDiagnostics'];
+    if (diagnostics is Map) {
+      for (final key in const [
+        'winningLayerCost',
+        'winningTransferCost',
+        'winningScore',
+      ]) {
+        if (diagnostics[key] is num) {
+          diagnostics[key] = converted(diagnostics[key]);
+        }
+      }
+    }
+  }
+
+  List<String> _fiveLayerV2CheapestPath(Map<String, dynamic> architecture) {
+    final providers = <String, String>{};
+    for (final raw in (architecture['component_assignments'] as List)) {
+      final assignment = Map<String, dynamic>.from(raw as Map);
+      providers[assignment['logical_component_id'].toString()] =
+          assignment['provider'].toString();
+    }
+    String segment(String layer, String logicalComponentId) {
+      final provider = providers[logicalComponentId];
+      if (provider == null) {
+        throw const DemoApiException(
+          'DEMO_RESOLVED_ARCHITECTURE_INVALID',
+          'The canonical demo architecture is missing a logical component.',
+        );
+      }
+      final label = switch (provider) {
+        'aws' => 'AWS',
+        'azure' => 'Azure',
+        'gcp' => 'GCP',
+        _ => throw const DemoApiException(
+          'DEMO_RESOLVED_ARCHITECTURE_INVALID',
+          'The canonical demo architecture uses an unsupported provider.',
+        ),
+      };
+      return '${layer}_$label';
+    }
+
+    return [
+      segment('L1', 'component.ingestion'),
+      segment('L2', 'component.processing'),
+      segment('L3_hot', 'component.hot-storage'),
+      segment('L3_cool', 'component.cool-storage'),
+      segment('L3_archive', 'component.archive-storage'),
+      segment('L4', 'component.twin-state'),
+      segment('L5', 'component.visualization'),
+    ];
+  }
+
+  Map<String, dynamic> _fiveLayerV2CalculationResult(
+    List<String> cheapestPath,
+  ) {
+    String providerFor(String prefix) => cheapestPath
+        .firstWhere((segment) => segment.startsWith(prefix))
+        .split('_')
+        .last;
+    return {
+      'L1': providerFor('L1_'),
+      'L2': providerFor('L2_'),
+      'L3': {
+        'Hot': providerFor('L3_hot_'),
+        'Cool': providerFor('L3_cool_'),
+        'Archive': providerFor('L3_archive_'),
+      },
+      'L4': providerFor('L4_'),
+      'L5': providerFor('L5_'),
+    };
+  }
+
+  String _applyFiveLayerV2DemoArchitectureCosts(
+    Map<String, dynamic> architecture,
+    Map<String, dynamic> result,
+    String currency,
+  ) {
+    const layerByComponent = {
+      'component.ingestion': 'L1',
+      'component.processing': 'L2',
+      'component.hot-storage': 'L3_hot',
+      'component.cool-storage': 'L3_cool',
+      'component.archive-storage': 'L3_archive',
+      'component.twin-state': 'L4',
+      'component.visualization': 'L5',
+    };
+    const costsByProvider = {
+      'aws': 'awsCosts',
+      'azure': 'azureCosts',
+      'gcp': 'gcpCosts',
+    };
+    final componentMicros = <String, int>{};
+    final responsibilityMicros = <String, int>{};
+    for (final raw in (architecture['component_assignments'] as List)) {
+      final assignment = raw as Map;
+      final componentId = assignment['logical_component_id'].toString();
+      final responsibilityId = assignment['responsibility_id'].toString();
+      final provider = assignment['provider'].toString();
+      final layer = layerByComponent[componentId];
+      final providerCosts = result[costsByProvider[provider]];
+      final layerCost = providerCosts is Map && layer != null
+          ? providerCosts[layer]
+          : null;
+      if (layerCost is! Map || layerCost['cost'] is! num) {
+        throw const DemoApiException(
+          'DEMO_FIVE_LAYER_V2_COST_INVALID',
+          'The demo result cannot be paired with its resolved architecture.',
+        );
+      }
+      final micros = ((layerCost['cost'] as num).toDouble() * 1000000).round();
+      componentMicros[componentId] = micros;
+      responsibilityMicros.update(
+        responsibilityId,
+        (current) => current + micros,
+        ifAbsent: () => micros,
+      );
+      final contribution = assignment['cost_contribution'] as Map;
+      contribution
+        ..['currency'] = currency
+        ..['monthly_amount'] = _demoMicrosText(micros);
+    }
+    for (final raw in (architecture['resolved_edges'] as List)) {
+      final contribution = (raw as Map)['cost_contribution'] as Map;
+      contribution
+        ..['currency'] = currency
+        ..['monthly_amount'] = '0';
+    }
+    final summary = architecture['cost_summary'] as Map;
+    summary['currency'] = currency;
+    void replaceTotals(String field, Map<String, int> amounts) {
+      for (final raw in (summary[field] as List)) {
+        final item = raw as Map;
+        final amount = amounts[item['item_id'].toString()];
+        if (amount == null) {
+          throw const DemoApiException(
+            'DEMO_FIVE_LAYER_V2_COST_INVALID',
+            'The demo cost summary contains an unresolved item.',
+          );
+        }
+        item['monthly_amount'] = _demoMicrosText(amount);
+      }
+    }
+
+    replaceTotals('component_totals', componentMicros);
+    replaceTotals('responsibility_totals', responsibilityMicros);
+    replaceTotals('edge_totals', {
+      for (final raw in (architecture['resolved_edges'] as List))
+        (raw as Map)['edge_id'].toString(): 0,
+    });
+    final totalMicros = componentMicros.values.fold<int>(0, (a, b) => a + b);
+    final total = _demoMicrosText(totalMicros);
+    summary['monthly_total'] = total;
+    return total;
+  }
+
+  String _demoMicrosText(int micros) {
+    final whole = micros ~/ 1000000;
+    final fraction = (micros % 1000000).abs().toString().padLeft(6, '0');
+    final trimmed = fraction.replaceFirst(RegExp(r'0+$'), '');
+    return trimmed.isEmpty ? '$whole' : '$whole.$trimmed';
+  }
+
+  void _reallocateDemoCosts(
+    Map<String, dynamic> result,
+    List<String> cheapestPath,
+  ) {
+    const providerKeys = {
+      'aws': 'awsCosts',
+      'azure': 'azureCosts',
+      'gcp': 'gcpCosts',
+    };
+    final original = {
+      for (final entry in providerKeys.entries)
+        entry.key: result[entry.value] is Map
+            ? _copyMap(result[entry.value] as Map)
+            : <String, dynamic>{},
+    };
+    final reassigned = {
+      for (final provider in providerKeys.keys) provider: <String, dynamic>{},
+    };
+    for (final segment in cheapestPath) {
+      final separator = segment.lastIndexOf('_');
+      final layer = segment.substring(0, separator);
+      final provider = segment.substring(separator + 1).toLowerCase();
+      Map<String, dynamic>? layerCost;
+      for (final costs in original.values) {
+        if (costs[layer] is Map) {
+          layerCost = _copyMap(costs[layer] as Map);
+          break;
+        }
+      }
+      reassigned[provider]![layer] =
+          layerCost ??
+          {
+            'cost': 0.0,
+            'components': {'Five-layer v2 contract fixture': 0.0},
+          };
+    }
+    for (final entry in providerKeys.entries) {
+      result[entry.value] = reassigned[entry.key]!;
+    }
   }
 
   String _nextDemoRunId() {
@@ -2578,251 +3070,6 @@ class DemoManagementApi implements ManagementApi {
       'pricingCatalogs': _demoPricingCatalogContext(store.clock()),
       'transferCosts': {'L1_to_L2': 0.0, 'L2_to_L3': 0.0},
       'inputParamsUsed': {'needs3DModel': params['needs3DModel'] == true},
-    };
-  }
-
-  Map<String, dynamic> _defaultTransferEvidence(
-    Map<String, dynamic> result,
-    String currency,
-  ) {
-    final path = List<String>.from(result['cheapestPath'] as List);
-    String providerFor(String prefix) {
-      final segment = path.firstWhere((item) => item.startsWith(prefix));
-      final provider = segment.split('_').last.toLowerCase();
-      if (!const {'aws', 'azure', 'gcp'}.contains(provider)) {
-        throw const DemoApiException(
-          'DEMO_OPTIMIZER_PATH_INVALID',
-          'The demo optimizer path contains an unsupported provider.',
-        );
-      }
-      return provider;
-    }
-
-    final selected = <String, String>{
-      'L1': providerFor('L1_'),
-      'L2': providerFor('L2_'),
-      'L3_hot': providerFor('L3_hot_'),
-      'L3_cool': providerFor('L3_cool_'),
-      'L3_archive': providerFor('L3_archive_'),
-      'L4': providerFor('L4_'),
-      'L5': providerFor('L5_'),
-    };
-    const labels = {'aws': 'AWS', 'azure': 'Azure', 'gcp': 'GCP'};
-    result
-      ..['currency'] = currency
-      ..['calculationResult'] = {
-        'L1': labels[selected['L1']],
-        'L2': labels[selected['L2']],
-        'L3': {
-          'Hot': labels[selected['L3_hot']],
-          'Cool': labels[selected['L3_cool']],
-          'Archive': labels[selected['L3_archive']],
-        },
-        'L4': labels[selected['L4']],
-        'L5': labels[selected['L5']],
-      };
-
-    final catalogs =
-        (result['pricingCatalogs'] as Map)['catalogs'] as Map<dynamic, dynamic>;
-    final policies = <String, Map<String, dynamic>>{
-      'aws': {
-        'networkTier': 'provider_default',
-        'billingScope': 'account_aggregate_public_egress',
-        'billingUnit': 'gb',
-        'bytesPerBillingUnit': 1000000000,
-        'paidUnitPrice': 0.09,
-      },
-      'azure': {
-        'networkTier': 'microsoft_premium_global_network',
-        'billingScope': 'account_aggregate_public_egress',
-        'billingUnit': 'gb',
-        'bytesPerBillingUnit': 1000000000,
-        'paidUnitPrice': 0.087,
-      },
-      'gcp': {
-        'networkTier': 'premium',
-        'billingScope': 'sku_account_aggregate_public_egress',
-        'billingUnit': 'gib',
-        'bytesPerBillingUnit': 1073741824,
-        'paidUnitPrice': 0.12,
-      },
-    };
-    final edges = <(String, String, String, String, String)>[
-      ('L1_to_L2', 'L1', 'L2', 'L1_INGESTION', 'L2_PROCESSING'),
-      ('L2_to_L3_hot', 'L2', 'L3_hot', 'L2_PROCESSING', 'L3_HOT_STORAGE'),
-      (
-        'L3_hot_to_L3_cool',
-        'L3_hot',
-        'L3_cool',
-        'L3_HOT_STORAGE',
-        'L3_COOL_STORAGE',
-      ),
-      (
-        'L3_cool_to_L3_archive',
-        'L3_cool',
-        'L3_archive',
-        'L3_COOL_STORAGE',
-        'L3_ARCHIVE_STORAGE',
-      ),
-      ('L3_hot_to_L4', 'L3_hot', 'L4', 'L3_HOT_STORAGE', 'L4_TWIN_MANAGEMENT'),
-      ('L4_to_L5', 'L4', 'L5', 'L4_TWIN_MANAGEMENT', 'L5_VISUALIZATION'),
-    ];
-    final routes = <Map<String, dynamic>>[];
-    final routesByProvider = <String, List<Map<String, dynamic>>>{};
-    final consumedQuantityByProvider = <String, int>{};
-    for (final edge in edges) {
-      final sourceProvider = selected[edge.$2]!;
-      final destinationProvider = selected[edge.$3]!;
-      final sameProvider = sourceProvider == destinationProvider;
-      final policy = policies[sourceProvider]!;
-      final sourceCatalog = catalogs[sourceProvider] as Map;
-      final destinationCatalog = catalogs[destinationProvider] as Map;
-      final billingQuantity = sameProvider ? 1 : 2;
-      final paidUnitPrice = (policy['paidUnitPrice'] as num).toDouble();
-      final consumedQuantity = sameProvider
-          ? 0
-          : consumedQuantityByProvider[sourceProvider] ?? 0;
-      final freeQuantity = sameProvider || consumedQuantity > 0 ? 0 : 1;
-      final paidQuantity = sameProvider ? 0 : billingQuantity - freeQuantity;
-      final egressCost = paidQuantity * paidUnitPrice;
-      final tierContributions = <Map<String, dynamic>>[];
-      if (!sameProvider && freeQuantity > 0) {
-        tierContributions.add({
-          'tierId': 'demo_free_${edge.$1}',
-          'fromQuantity': consumedQuantity,
-          'toQuantity': consumedQuantity + freeQuantity,
-          'billableQuantity': freeQuantity,
-          'unitPrice': 0,
-          'cost': 0,
-        });
-      }
-      if (!sameProvider && paidQuantity > 0) {
-        final paidFrom = consumedQuantity + freeQuantity;
-        tierContributions.add({
-          'tierId': 'demo_paid_${edge.$1}',
-          'fromQuantity': paidFrom,
-          'toQuantity': paidFrom + paidQuantity,
-          'billableQuantity': paidQuantity,
-          'unitPrice': paidUnitPrice,
-          'cost': egressCost,
-        });
-      }
-      final route = <String, dynamic>{
-        'segmentId': edge.$1,
-        'source': {
-          'layer': edge.$4,
-          'provider': sourceProvider,
-          'region': sourceCatalog['pricingRegion'],
-          'geography': 'europe',
-        },
-        'destination': {
-          'layer': edge.$5,
-          'provider': destinationProvider,
-          'region': destinationCatalog['pricingRegion'],
-          'geography': 'europe',
-        },
-        'routeClass': sameProvider
-            ? 'same_provider_same_region'
-            : 'cross_provider_public_internet',
-        'networkTier': sameProvider ? 'not_applicable' : policy['networkTier'],
-        'volumeBytes': (policy['bytesPerBillingUnit'] as int) * billingQuantity,
-        'poolId': sameProvider ? null : 'pool:$sourceProvider:demo',
-        'catalogSnapshotId': sameProvider ? null : sourceCatalog['snapshotId'],
-        'evidenceId': sameProvider ? null : 'transfer.$sourceProvider.demo.v1',
-        'tierContributions': tierContributions,
-        'egressCost': egressCost,
-        'glueCost': 0,
-        'totalCost': egressCost,
-        'assumptions': [
-          'offline_demo_route=${edge.$1}',
-          if (!sameProvider) 'offline_demo_first_unit_free',
-        ],
-      };
-      routes.add(route);
-      if (!sameProvider) {
-        consumedQuantityByProvider[sourceProvider] =
-            consumedQuantity + billingQuantity;
-        routesByProvider.putIfAbsent(sourceProvider, () => []).add(route);
-      }
-    }
-    final pools = [
-      for (final entry in routesByProvider.entries)
-        {
-          'poolId': 'pool:${entry.key}:demo',
-          'provider': entry.key,
-          'routeClass': 'cross_provider_public_internet',
-          'sourceGeography': 'europe',
-          'destinationGeography': 'europe',
-          'networkTier': policies[entry.key]!['networkTier'],
-          'billingScope': policies[entry.key]!['billingScope'],
-          'billingUnit': policies[entry.key]!['billingUnit'],
-          'bytesPerBillingUnit': policies[entry.key]!['bytesPerBillingUnit'],
-          'catalogSnapshotId': (catalogs[entry.key] as Map)['snapshotId'],
-          'evidenceId': 'transfer.${entry.key}.demo.v1',
-          'aggregateVolumeBytes': entry.value.fold<int>(
-            0,
-            (sum, route) => sum + route['volumeBytes'] as int,
-          ),
-          'aggregateEgressCost': entry.value.fold<double>(
-            0,
-            (sum, route) => sum + (route['egressCost'] as num).toDouble(),
-          ),
-        },
-    ];
-    final chargedRoutes = routes
-        .where(
-          (route) => route['routeClass'] == 'cross_provider_public_internet',
-        )
-        .toList(growable: false);
-    final winningTransferCost = chargedRoutes.fold<double>(
-      0,
-      (sum, route) => sum + (route['totalCost'] as num).toDouble(),
-    );
-    final previousDiagnostics = result['optimizationDiagnostics'];
-    final winningLayerCost =
-        previousDiagnostics is Map &&
-            previousDiagnostics['winningLayerCost'] is num
-        ? (previousDiagnostics['winningLayerCost'] as num).toDouble()
-        : (result['totalCost'] as num).toDouble();
-    final winningScore = winningLayerCost + winningTransferCost;
-    result['totalCost'] = winningScore;
-    return {
-      'transferCosts': {
-        for (final route in chargedRoutes)
-          route['segmentId'].toString(): route['totalCost'],
-      },
-      'transferPricingContext': {
-        'schemaVersion': 'complete-path-transfer-pricing.v1',
-        'currency': currency,
-        'assumptions': ['offline_demo_europe_baseline'],
-        'routes': routes,
-        'pools': pools,
-      },
-      'optimizationDiagnostics': {
-        'schemaVersion': 'complete-path-optimization.v1',
-        'enumeratedPathCount': 972,
-        'evaluatedPathCount': 972,
-        'rejectedPathCount': 0,
-        'rejectedByErrorCode': <String, int>{},
-        'winningCandidateId': [
-          for (final layer in const [
-            'L1',
-            'L2',
-            'L3_hot',
-            'L3_cool',
-            'L3_archive',
-            'L4',
-            'L5',
-          ])
-            selected[layer],
-        ].join('|'),
-        'winningScore': winningScore,
-        'winningLayerCost': winningLayerCost,
-        'winningTransferCost': winningTransferCost,
-        'tieBreakPolicy': 'canonical_provider_order',
-        'canonicalProviderOrder': ['aws', 'azure', 'gcp'],
-        'scoreUnit': '$currency/month',
-      },
     };
   }
 

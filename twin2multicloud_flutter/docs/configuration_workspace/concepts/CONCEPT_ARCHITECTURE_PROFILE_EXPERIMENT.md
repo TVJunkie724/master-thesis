@@ -40,15 +40,16 @@ increments:
 `five-layer-baseline@1` remains readable for historical Twins but is not
 selectable for new calculations or deployments.
 
-Phase 8.7 first installs the typed Flutter catalog, selection, visualization,
-and resolved-review workflow while the active catalog is truthfully empty.
-Phase 8.9A publishes Five-layer v2 and Workload v2; Phase 8.9B later publishes
-Six-layer v1. Populated UI fixtures validate both eventual shapes without
-turning either into a fake demo/runtime option early.
+Phase 8.7 installed the typed Flutter catalog, selection, visualization, and
+resolved-review workflow behind an initially empty catalog. Phase 8.9A now
+publishes Five-layer v2 and Workload v2 for offline evaluation; Phase 8.9B
+later publishes Six-layer v1. Six-layer fixtures validate the eventual shape
+without turning it into a fake demo/runtime option early.
 
 Current checkpoint: Phase 8.7 and the Five-layer v2 Layer Access UI are
-implemented and verified offline. Five-layer v2 remains draft/default-off
-until the full 8.9A activation gate; Six-layer remains a later strict delta.
+implemented and verified offline. Five-layer v2 is the sole active profile;
+its RTA/RDS evidence is evaluation-only until listed supervised live-capacity
+gates pass. Six-layer remains a later strict delta.
 
 ## Motivation
 

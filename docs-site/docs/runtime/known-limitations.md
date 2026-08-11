@@ -137,17 +137,19 @@ references likewise do not claim to be exact runtime selected catalog rows.
 
 ### Provider Parity
 
-AWS, Azure, and GCP do not expose equivalent managed Digital Twin and visualization
-services. The executable capability contract marks GCP L4/L5 unsupported and planned;
-those rows cannot enter scoring or deployment. AWS/Azure L4/L5 are contract-tested but
-still await final supervised live-cloud E2E evidence. Cross-cloud glue behavior remains
-partly planned. See [Provider Capabilities](../architecture/provider-capabilities.md).
+AWS, Azure, and GCP do not expose equivalent managed Digital Twin and
+visualization services. The profile-neutral capability contract therefore
+keeps generic GCP L4/L5 unsupported. The active Five-layer v2 profile closes
+that bounded PoC path through a separately registered provider-hosted
+composition: BifroMQ/GKE plus Pub/Sub, Firestore Native Standard edition, a
+typed Cloud Run reader, a bounded Cloud Run Twin API/Explorer, and Grafana on
+GKE. When GCP owns L3 and L4, they share one deployment database with separate
+collections and identities rather than claiming strict collection-level IAM.
 
-The reviewed but unimplemented Phase 8 successor target closes GCP through a
-provider-hosted composition: BifroMQ/GKE plus Pub/Sub at the device boundary,
-Firestore Native Standard edition for raw history, a typed Cloud Run reader, a
-bounded Cloud Run Twin API backed by a separate Firestore database, and Grafana
-on GKE.
+All three v2 provider bundles and cross-cloud adapters are contract-tested
+offline, but browser access, provider policy, quota, and live capacity remain
+supervised gates. They cannot be presented as deployment-ready. See
+[Provider Capabilities](../architecture/provider-capabilities.md).
 Firestore L3 uses scenario-derived timestamp shards; Firestore L4 is
 deliberately limited to point and one-hop relationship queries. Arbitrary graph
 algorithms are not supported. The current Pub/Sub acquisition path and retired

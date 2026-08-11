@@ -15,7 +15,8 @@ The Optimizer owns:
 - monthly cost calculation,
 - complete-path cost optimization across layers L1-L5,
 - profile-bounded candidate construction and functional-completeness admission,
-- deterministic `ResolvedTwinArchitecture v1` construction,
+- deterministic, profile-versioned `ResolvedTwinArchitecture v1/v2`
+  construction,
 - bounded intent-to-result traceability,
 - pricing readiness and credential preflight contracts.
 
@@ -45,9 +46,11 @@ The canonical layer model is:
 | L4 | Twin management |
 | L5 | Visualization |
 
-GCP self-hosted L4/L5 implementations are not available in the Deployer and
-therefore fail closed in calculation requests. They are never represented as
-zero-cost deployable alternatives.
+The historical `five-layer-baseline@1` has no complete GCP L4/L5 realization
+and therefore remains read-only. The active `five-layer-baseline@2` instead
+uses the reviewed provider-hosted GCP Twin API and Grafana-on-GKE bundle; any
+missing capability or supervised capacity evidence still fails closed and is
+never represented as a zero-cost deployable alternative.
 
 ## Start
 
@@ -135,7 +138,7 @@ source-provider billing pool, and passes those totals to the active scoring
 strategy. Unsupported routes and capabilities fail closed rather than entering
 selection as zero-cost alternatives.
 
-### Dark Architecture-Profile Resolution
+### Architecture-Profile Resolution
 
 Phase 8.5 adds a closed strategy registry under
 `backend/architecture_profiles/`. When
@@ -150,17 +153,37 @@ complete immutable `extensionBindings` set. The Optimizer:
    cost ranking;
 4. ranks only admissible complete paths with exact decimal totals and a
    canonical tie-break key;
-5. emits one contract-validated `ResolvedTwinArchitecture v1` linked to the
-   already-built deployment specification.
+5. emits one contract-validated resolved architecture linked to the matching
+   deployment specification: RTA v1/RDS v1 for historical profile v1 evidence,
+   or RTA v2/RDS v2 for the active profile v2 calculation path.
 
-The gate defaults to `false`. With the gate off, the audited legacy request and
-response path is unchanged and architecture fields are rejected. With the gate
-on, missing architecture fields never fall back to a legacy result. Repository
-AWS and Azure provider profiles deliberately remain `supported: false`, so the
-production definition bundle still fails closed until the Phase 8.6 Deployer
-graph compiler promotes support and both services are activated together.
-Canonical supported fixtures exercise the complete resolver offline; this does
-not claim runtime provider activation or Eventing support.
+The gate defaults to `true` for the reviewed `five-layer-baseline@2` path. An
+explicit `false` remains the fail-closed operational rollback; it rejects
+architecture fields and never falls back to a legacy result. The activated
+provider definitions are contract-complete for offline calculation, while each
+unresolved supervised capacity gate remains embedded in RDS v2 and prevents
+deployment selection. Activation therefore does not claim a live-cloud E2E.
+
+Five-layer v2 calculation reads immutable repository-published provider rate
+cards. `scripts/publish_five_layer_v2_rate_cards.py` validates the source
+manifest, publishes content-addressed AWS/Azure/GCP snapshots, archives the
+predecessor baseline, and supports the pinned USD and EUR calculation
+currencies. The rate cards are bounded to the frozen thesis Small, Medium, and
+Large workloads; they are reproducible pricing evidence, not a general cloud
+price catalogue. Azure Large uses a 108,000-RU/s offline comparison proxy: the
+rounded maximum of the storage floor and the documented 10-RU write / 1-RU
+read operation estimates for the frozen workload. Its supervised request-charge
+and capacity gates remain mandatory before deployment, so the proxy cannot be
+mistaken for measured capacity.
+
+Hot-storage ownership follows the PoC data path exactly: each accepted
+telemetry message creates one raw record and updates its hourly rollup in the
+same provider-native transaction. Stored rollup documents remain bounded to
+one per device/metric/hour, but billed reads and transactional writes count
+actual operations rather than distinct documents. The combined
+Cosmos/Firestore components own both operation streams; the two DynamoDB
+tables keep raw and rollup meters separate. L4 bounded-twin operations remain
+independent of both.
 
 Azure IoT Hub sizing returns the selected F1/S1/S2/S3 SKU and unit capacity
 rather than only a cost. Physical workload messages are normalized to the

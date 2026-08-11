@@ -132,7 +132,7 @@ class _V2ReadinessEvidence extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.tertiaryContainer,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppSpacing.borderRadiusLg),
     ),
     child: Padding(
       padding: const EdgeInsets.all(AppSpacing.md),

@@ -104,6 +104,9 @@ abstract class AppSpacing {
   /// Wizard navigation uses its three-region desktop layout from this width.
   static const double configurationNavigationWideBreakpoint = 1024;
 
+  /// Workload scenario cards stack below the compact workspace breakpoint.
+  static const double configurationWorkloadCompactBreakpoint = 960;
+
   /// Resolved deployment rows use fixed metadata columns from this width.
   static const double resolvedDeploymentWideBreakpoint = 720;
 

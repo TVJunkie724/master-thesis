@@ -684,7 +684,7 @@ partition, bridge, and failure behavior remains pending.
 - Cosmos DB serverless covers the bounded Small and Medium write/query rates
   subject to the published per-partition serverless ceiling. Large uses
   autoscale provisioned throughput derived from measured RU/write,
-  bounded-reader/mover RU, and the storage-driven autoscale minimum.
+  bounded-reader/mover RU, and the frozen storage/operation autoscale minimum.
 - `/device_id` distributes the 30,000-device workload. The decision package
   proves the maximum canonical bytes per device over the one-month hot window
   remain below 20 GB and rejects the scenario otherwise.

@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str = "sqlite:///./data/app.db"
-    
+
     # JWT
     JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
@@ -53,28 +53,30 @@ class Settings(BaseSettings):
     AUTH_RATE_LIMIT_STORAGE_URI: str = ""
     AUTH_LOGIN_RATE_LIMIT: str = "20/minute"
     AUTH_EXCHANGE_RATE_LIMIT: str = "120/minute"
-    
+
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
     GOOGLE_REDIRECT_URI: str = ""
-    
+
     # UIBK SAML Configuration
     # Enable after ACOnet registration is complete
     SAML_ENABLED: bool = False
     SAML_SP_ENTITY_ID: str = "http://localhost:5005"  # Local dev default
-    SAML_ACS_URL: str = "http://localhost:5005/auth/uibk/callback"  # Assertion Consumer Service URL
+    SAML_ACS_URL: str = (
+        "http://localhost:5005/auth/uibk/callback"  # Assertion Consumer Service URL
+    )
     SAML_SP_CERT: str = ""  # Base64 encoded SP certificate
-    SAML_SP_KEY: str = ""   # Base64 encoded SP private key
-    
+    SAML_SP_KEY: str = ""  # Base64 encoded SP private key
+
     # IdP Settings (configurable for mock IdP vs real UIBK)
     SAML_IDP_ENTITY_ID: str = "https://idp.uibk.ac.at/idp/shibboleth"
     SAML_IDP_SSO_URL: str = "https://idp.uibk.ac.at/idp/profile/SAML2/Redirect/SSO"
     SAML_IDP_CERT: str = ""  # From IdP metadata
-    
+
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8080"
-    
+
     # Server
     HOST: str = "127.0.0.1"
     PORT: int = 5005
@@ -101,26 +103,26 @@ class Settings(BaseSettings):
     # Explicit local/test authentication capability. Never infer this from DEBUG.
     DEV_AUTH_ENABLED: bool = False
     DEV_AUTH_TOKEN: str = ""
-    
+
     # Credential Encryption (Fernet key - 32 bytes base64)
     # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     ENCRYPTION_KEY: str = ""
-    
+
     # External APIs
     DEPLOYER_URL: str = "http://localhost:5004"
     OPTIMIZER_URL: str = "http://master-thesis-2twin2clouds-1:8000"
     DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES: int = Field(default=1440, gt=0)
-    ARCHITECTURE_PROFILE_RESOLUTION_ENABLED: bool = False
+    ARCHITECTURE_PROFILE_RESOLUTION_ENABLED: bool = True
     CLOUD_BOOTSTRAP_ADAPTER_MODE: Literal[
         "disabled",
         "deterministic_fake",
     ] = "disabled"
     CLOUD_BOOTSTRAP_LEASE_TIMEOUT_SECONDS: int = Field(default=300, ge=30, le=3600)
-    
+
     # GLB File Storage (for scene.glb uploads)
     UPLOAD_DIR: str = "./uploads"
     MAX_GLB_SIZE_MB: int = 100
-    
+
     # Seed Data (development only)
     SEED_DATA: bool = False
     SEED_CREDENTIALS_FILE: str = "/config/config_credentials.json"
@@ -138,7 +140,9 @@ class Settings(BaseSettings):
         if self.DEV_AUTH_ENABLED and self.APP_ENV not in non_production:
             raise ValueError("DEV_AUTH_ENABLED is only allowed in development or test")
         if self.ENABLE_TEST_ENDPOINTS and self.APP_ENV not in non_production:
-            raise ValueError("ENABLE_TEST_ENDPOINTS is only allowed in development or test")
+            raise ValueError(
+                "ENABLE_TEST_ENDPOINTS is only allowed in development or test"
+            )
         if self.SEED_DATA and self.APP_ENV not in non_production:
             raise ValueError("SEED_DATA is only allowed in development or test")
         if self.DEV_AUTH_ENABLED and not self.DEV_AUTH_TOKEN:
@@ -167,7 +171,9 @@ class Settings(BaseSettings):
             self.SAML_IDP_CERT,
         )
         if self.SAML_ENABLED and not all(saml_values):
-            raise ValueError("SAML authentication configuration must be complete when enabled")
+            raise ValueError(
+                "SAML authentication configuration must be complete when enabled"
+            )
 
         if len(self.JWT_SECRET_KEY) < 32:
             raise ValueError("JWT_SECRET_KEY must contain at least 32 characters")
@@ -206,19 +212,27 @@ class Settings(BaseSettings):
             if self.DEBUG:
                 raise ValueError("DEBUG must be false in production")
             if not self.CREDENTIAL_RATE_LIMIT_ENABLED:
-                raise ValueError("CREDENTIAL_RATE_LIMIT_ENABLED must be true in production")
-            if not self.CREDENTIAL_RATE_LIMIT_STORAGE_URI.startswith(("redis://", "rediss://")):
+                raise ValueError(
+                    "CREDENTIAL_RATE_LIMIT_ENABLED must be true in production"
+                )
+            if not self.CREDENTIAL_RATE_LIMIT_STORAGE_URI.startswith(
+                ("redis://", "rediss://")
+            ):
                 raise ValueError(
                     "CREDENTIAL_RATE_LIMIT_STORAGE_URI must use redis:// or rediss:// in production"
                 )
             if not self.AUTH_RATE_LIMIT_ENABLED:
                 raise ValueError("AUTH_RATE_LIMIT_ENABLED must be true in production")
-            if not self.auth_rate_limit_storage_uri.startswith(("redis://", "rediss://")):
+            if not self.auth_rate_limit_storage_uri.startswith(
+                ("redis://", "rediss://")
+            ):
                 raise ValueError(
                     "AUTH_RATE_LIMIT_STORAGE_URI must use redis:// or rediss:// in production"
                 )
             if not self.USER_FUNCTION_RATE_LIMIT_ENABLED:
-                raise ValueError("USER_FUNCTION_RATE_LIMIT_ENABLED must be true in production")
+                raise ValueError(
+                    "USER_FUNCTION_RATE_LIMIT_ENABLED must be true in production"
+                )
             if not self.user_function_rate_limit_storage_uri.startswith(
                 ("redis://", "rediss://")
             ):
@@ -226,7 +240,10 @@ class Settings(BaseSettings):
                     "User-function rate-limit storage must use redis:// or rediss:// "
                     "in production"
                 )
-            if all(google_values) and urlparse(self.GOOGLE_REDIRECT_URI).scheme != "https":
+            if (
+                all(google_values)
+                and urlparse(self.GOOGLE_REDIRECT_URI).scheme != "https"
+            ):
                 raise ValueError("GOOGLE_REDIRECT_URI must use HTTPS in production")
             if self.SAML_ENABLED and urlparse(self.SAML_ACS_URL).scheme != "https":
                 raise ValueError("SAML_ACS_URL must use HTTPS in production")
@@ -244,33 +261,56 @@ class Settings(BaseSettings):
             "AUTH_EXCHANGE_RATE_LIMIT",
             "USER_FUNCTION_SOURCE_DOWNLOAD_RATE_LIMIT",
         ):
-            if re.fullmatch(r"[1-9][0-9]*/(second|minute|hour|day)s?", getattr(self, field_name)) is None:
-                raise ValueError(f"{field_name} must use '<positive integer>/<time unit>' format")
+            if (
+                re.fullmatch(
+                    r"[1-9][0-9]*/(second|minute|hour|day)s?", getattr(self, field_name)
+                )
+                is None
+            ):
+                raise ValueError(
+                    f"{field_name} must use '<positive integer>/<time unit>' format"
+                )
 
         for raw_cidr in self.trusted_proxy_cidrs:
             try:
                 ipaddress.ip_network(raw_cidr, strict=False)
             except ValueError as exc:
-                raise ValueError(f"TRUSTED_PROXY_CIDRS contains an invalid network: {raw_cidr}") from exc
+                raise ValueError(
+                    f"TRUSTED_PROXY_CIDRS contains an invalid network: {raw_cidr}"
+                ) from exc
 
         if self.APP_ENV == AppEnvironment.PRODUCTION:
             origins = self.cors_origins
             if not origins:
-                raise ValueError("CORS_ORIGINS must contain at least one HTTPS origin in production")
+                raise ValueError(
+                    "CORS_ORIGINS must contain at least one HTTPS origin in production"
+                )
             for origin in origins:
                 parsed = urlparse(origin)
-                if parsed.scheme != "https" or not parsed.netloc or parsed.path not in ("", "/"):
-                    raise ValueError("CORS_ORIGINS must contain only explicit HTTPS origins in production")
+                if (
+                    parsed.scheme != "https"
+                    or not parsed.netloc
+                    or parsed.path not in ("", "/")
+                ):
+                    raise ValueError(
+                        "CORS_ORIGINS must contain only explicit HTTPS origins in production"
+                    )
 
         return self
 
     @property
     def trusted_proxy_cidrs(self) -> tuple[str, ...]:
-        return tuple(value.strip() for value in self.TRUSTED_PROXY_CIDRS.split(",") if value.strip())
+        return tuple(
+            value.strip()
+            for value in self.TRUSTED_PROXY_CIDRS.split(",")
+            if value.strip()
+        )
 
     @property
     def cors_origins(self) -> tuple[str, ...]:
-        return tuple(value.strip() for value in self.CORS_ORIGINS.split(",") if value.strip())
+        return tuple(
+            value.strip() for value in self.CORS_ORIGINS.split(",") if value.strip()
+        )
 
     @property
     def google_auth_enabled(self) -> bool:
@@ -280,7 +320,9 @@ class Settings(BaseSettings):
 
     @property
     def auth_rate_limit_storage_uri(self) -> str:
-        return self.AUTH_RATE_LIMIT_STORAGE_URI or self.CREDENTIAL_RATE_LIMIT_STORAGE_URI
+        return (
+            self.AUTH_RATE_LIMIT_STORAGE_URI or self.CREDENTIAL_RATE_LIMIT_STORAGE_URI
+        )
 
     @property
     def user_function_rate_limit_storage_uri(self) -> str:

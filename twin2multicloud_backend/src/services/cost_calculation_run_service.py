@@ -1288,6 +1288,29 @@ def _validate_optimizer_aws_selection_context(
     if _selected_l4_provider(result) != "aws":
         return
     if not optimizer_aws_l4_selection_matches_context(result, expected):
+        specification = result.get("resolvedDeploymentSpecification")
+        readiness = (
+            specification.get("readiness")
+            if isinstance(specification, Mapping)
+            else None
+        )
+        provider_contexts = result.get("providerPricingContexts")
+        stored = (
+            provider_contexts.get("awsTwinMaker")
+            if isinstance(provider_contexts, Mapping)
+            else None
+        )
+        explicitly_blocked_offline_v2 = (
+            result.get("optimization_profile_id") == "cost-minimization-v2"
+            and not expected.available
+            and stored == expected.payload
+            and isinstance(readiness, Mapping)
+            and readiness.get("status") == "offline_contract_fixture"
+            and "gate.live-pricing.aws.twinmaker-account-plan"
+            in readiness.get("blocking_gate_ids", [])
+        )
+        if explicitly_blocked_offline_v2:
+            return
         raise OptimizerContractError(
             "Optimizer selected AWS TwinMaker without the trusted account "
             "pricing context supplied by Management.",

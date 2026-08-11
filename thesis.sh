@@ -530,6 +530,10 @@ run_frontend_integration_tests() {
   local layer_access_container="${THESIS_COMPOSE_PROJECT}-layer-access-it-$$"
   local running_before
   running_before="$(compose_cmd ps --services --filter status=running)"
+  local optimizer_was_running=0
+  if grep -Fxq "2twin2clouds" <<<"$running_before"; then
+    optimizer_was_running=1
+  fi
   local started_services=()
   local service
   for service in "${required_services[@]}"; do
@@ -542,15 +546,26 @@ run_frontend_integration_tests() {
   set +e
   (
     set -e
-    if [ "${#started_services[@]}" -gt 0 ]; then
+    # The integration gate evaluates immutable repository fixtures and must not
+    # contact provider pricing APIs merely because wall-clock time advanced.
+    # Normal Compose/runtime behavior retains the seven-day default.
+    export PRICING_CATALOG_MAX_AGE_DAYS="${THESIS_INTEGRATION_PRICING_MAX_AGE_DAYS:-36500}"
+    local missing_non_optimizer_services=()
+    for service in "${started_services[@]}"; do
+      if [ "$service" != "2twin2clouds" ]; then
+        missing_non_optimizer_services+=("$service")
+      fi
+    done
+    if [ "${#missing_non_optimizer_services[@]}" -gt 0 ]; then
       info "Starting missing credential-free services for read-only Flutter integration tests."
-      # Already-running services are excluded above. Allow Compose to recreate
-      # only these stopped/missing services when their local image or config
-      # changed, otherwise integration can silently exercise a stale container.
-      compose_cmd up -d "${started_services[@]}"
-    else
-      info "Using the already-running credential-free integration services unchanged."
+      compose_cmd up -d "${missing_non_optimizer_services[@]}"
     fi
+    # The fixture-only age override is a container environment value. Recreate
+    # only the local Optimizer so the gate cannot silently reuse a seven-day
+    # process; its durable catalog volume and all other pre-existing services
+    # remain intact.
+    info "Starting the credential-free Optimizer with the fixture-only age policy."
+    compose_cmd up -d --force-recreate 2twin2clouds
     write_flutter_config
     smoke_app
 
@@ -626,6 +641,10 @@ run_frontend_integration_tests() {
     compose_cmd stop "${started_services[@]}" || true
   else
     info "Leaving all integration services running because they predated this run."
+  fi
+  if [ "$optimizer_was_running" -eq 1 ]; then
+    info "Restoring the pre-existing Optimizer with the normal seven-day age policy."
+    compose_cmd up -d --force-recreate 2twin2clouds || true
   fi
   return "$integration_status"
 }

@@ -144,6 +144,34 @@ class TestDeployerCompleteValidation:
         assert "MISSING_EVENT_ACTION" not in codes
         assert "UNEXPECTED_EVENT_ACTION" not in codes
 
+    def test_v2_uses_profile_registered_gcp_l4_and_l5_capabilities(self):
+        response = client.post(
+            "/validate/deployer-complete",
+            json={
+                "deployer_digital_twin_name": "my-twin",
+                "config_events": VALID_CONFIG_EVENTS,
+                "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+                "payloads": VALID_PAYLOADS,
+                "processors": {"device-1": VALID_GCP_PROCESSOR},
+                "cheapest_path": {
+                    "L1": "gcp",
+                    "L2": "gcp",
+                    "L3_hot": "gcp",
+                    "L3_cool": "gcp",
+                    "L3_archive": "gcp",
+                    "L4": "gcp",
+                    "L5": "gcp",
+                },
+                "optimizer_params": {},
+                "architecture_profile_ref": _five_layer_v2_ref(),
+            },
+        )
+
+        assert response.status_code == 200
+        assert "CAPABILITY_UNAVAILABLE" not in {
+            error["code"] for error in response.json()["errors"]
+        }
+
     def test_v2_rejects_legacy_uploaded_event_action_code(self):
         response = client.post(
             "/validate/deployer-complete",

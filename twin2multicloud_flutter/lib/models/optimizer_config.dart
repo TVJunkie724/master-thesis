@@ -6,12 +6,18 @@ import 'cloud_connection.dart';
 import 'json_contract.dart';
 import 'pricing_catalog.dart';
 import 'resolved_deployment_specification.dart';
+import 'resolved_twin_architecture.dart';
 
 class OptimizationResultData extends Equatable {
   final CalcResult result;
   final Map<String, dynamic> payload;
+  final ResolvedTwinArchitecture? resolvedArchitecture;
 
-  const OptimizationResultData({required this.result, required this.payload});
+  const OptimizationResultData({
+    required this.result,
+    required this.payload,
+    this.resolvedArchitecture,
+  });
 
   factory OptimizationResultData.fromApiJson(Map<String, dynamic> json) {
     final payload = json['result'] == null
@@ -28,16 +34,27 @@ class OptimizationResultData extends Equatable {
 
   factory OptimizationResultData.fromPayload(Map<String, dynamic> payload) {
     final immutable = JsonContract.immutableObject(payload, 'optimizer_result');
+    final rawArchitecture = JsonContract.optionalObject(
+      immutable,
+      'resolvedTwinArchitecture',
+    );
     return OptimizationResultData(
       result: CalcResult.fromJson(immutable),
       payload: immutable,
+      resolvedArchitecture: rawArchitecture == null
+          ? null
+          : ResolvedTwinArchitecture.fromJson(rawArchitecture),
     );
   }
+
+  bool get isNativeFiveLayerV2 =>
+      resolvedArchitecture?.schemaVersion ==
+      ResolvedTwinArchitecture.v2SchemaVersion;
 
   Map<String, dynamic> toEnvelopeJson() => {'result': payload};
 
   @override
-  List<Object?> get props => [result, payload];
+  List<Object?> get props => [result, payload, resolvedArchitecture];
 }
 
 class OptimizerRunData extends Equatable {
@@ -71,8 +88,9 @@ class OptimizerRunData extends Equatable {
     final result = OptimizationResultData.fromPayload(
       JsonContract.requiredObject(json, 'result_summary'),
     );
-    if (result.result.transferPricingContext == null ||
-        result.result.optimizationDiagnostics == null) {
+    if (!result.isNativeFiveLayerV2 &&
+        (result.result.transferPricingContext == null ||
+            result.result.optimizationDiagnostics == null)) {
       throw const FormatException(
         'Invalid API contract: optimizer run is missing exact transfer evidence.',
       );
@@ -106,6 +124,24 @@ class OptimizerRunData extends Equatable {
       throw const FormatException(
         'Invalid API contract: optimizer deployment run identity is inconsistent.',
       );
+    }
+    final architecture = result.resolvedArchitecture;
+    if (result.isNativeFiveLayerV2) {
+      final specification = deploymentRun.specification;
+      if (architecture == null ||
+          architecture.calculationRunId != id ||
+          specification is! ResolvedDeploymentSpecificationV2 ||
+          specification.calculationRunId != id ||
+          architecture.deploymentSpecificationDigest != specification.digest ||
+          architecture.costSummary.currency != currency ||
+          (double.parse(architecture.costSummary.monthlyTotal) -
+                      totalMonthlyCost)
+                  .abs() >
+              0.000000001) {
+        throw const FormatException(
+          'Invalid API contract: native v2 run, architecture, and deployment specification differ.',
+        );
+      }
     }
     return OptimizerRunData(
       id: id,

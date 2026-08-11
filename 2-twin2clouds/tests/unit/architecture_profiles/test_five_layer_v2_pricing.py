@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 
 import pytest
 
@@ -78,7 +79,9 @@ def _meter(dimension, unit, price):
 
 def _rate_cards(specification, *, missing_component=None):
     cards = {}
-    for provider in {item["provider"] for item in specification["component_selections"]}:
+    for provider in {
+        item["provider"] for item in specification["component_selections"]
+    }:
         component_rates = {}
         for selection in specification["component_selections"]:
             if selection["provider"] != provider:
@@ -120,12 +123,7 @@ def _rate_cards(specification, *, missing_component=None):
                     if item["logical_component_id"] in LOGICAL_COMPONENTS
                 },
                 resolve_five_layer_v2_workload(
-                    _read(
-                        WORKLOAD_ROOT
-                        / "fixtures"
-                        / "valid"
-                        / "core-small.json"
-                    )
+                    _read(WORKLOAD_ROOT / "fixtures" / "valid" / "core-small.json")
                 ),
             )
         }:
@@ -162,7 +160,8 @@ def _rate_cards(specification, *, missing_component=None):
         cards[provider] = {
             RATE_CARD_KEY: {
                 "schemaVersion": RATE_CARD_SCHEMA_VERSION,
-                "currency": specification["currency"],
+                "baseCurrency": "USD",
+                "currencyConversions": {"USD": "1", "EUR": "0.8"},
                 "formulaReference": FORMULA_REF,
                 "componentRates": component_rates,
                 "routeRates": route_rates,
@@ -183,9 +182,9 @@ def test_catalog_adapter_builds_reconciling_ledger_from_both_route_catalogs():
     }
     specification, workload = _build(assignment)
 
-    ledger = FiveLayerV2CatalogCostLedgerResolver(
-        _rate_cards(specification)
-    ).resolve(specification, assignment, workload)
+    ledger = FiveLayerV2CatalogCostLedgerResolver(_rate_cards(specification)).resolve(
+        specification, assignment, workload
+    )
     evaluation = evaluate_five_layer_v2_costs(
         specification=specification,
         assignment=assignment,
@@ -204,9 +203,7 @@ def test_catalog_adapter_builds_reconciling_ledger_from_both_route_catalogs():
 def test_catalog_adapter_fails_closed_when_selected_component_rate_is_missing():
     assignment = {logical: "aws" for logical in LOGICAL_COMPONENTS}
     specification, workload = _build(assignment)
-    missing = specification["component_selections"][0][
-        "implementation_component_id"
-    ]
+    missing = specification["component_selections"][0]["implementation_component_id"]
 
     with pytest.raises(ArchitectureResolutionError) as raised:
         FiveLayerV2CatalogCostLedgerResolver(
@@ -268,3 +265,30 @@ def test_catalog_adapter_applies_free_quantity_billing_increment_and_tiers():
         if item["component_id"] == first["implementation_component_id"]
     )
     assert quote["monthly_amount"] == "3"
+
+
+def test_catalog_adapter_uses_the_same_pinned_eur_rate_for_every_provider():
+    assignment = {
+        "component.ingestion": "aws",
+        "component.processing": "azure",
+        "component.hot-storage": "gcp",
+        "component.cool-storage": "aws",
+        "component.archive-storage": "azure",
+        "component.twin-state": "gcp",
+        "component.visualization": "gcp",
+    }
+    specification, workload = _build(assignment)
+    specification["currency"] = "EUR"
+    cards = _rate_cards(specification)
+
+    ledger = FiveLayerV2CatalogCostLedgerResolver(cards).resolve(
+        specification,
+        assignment,
+        workload,
+    )
+
+    assert ledger["currency"] == "EUR"
+    assert all(
+        Decimal(item["monthly_amount"]) % Decimal("0.8") == 0
+        for item in ledger["component_costs"]
+    )

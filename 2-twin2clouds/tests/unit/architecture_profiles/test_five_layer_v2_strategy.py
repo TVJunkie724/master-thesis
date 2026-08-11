@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+from dataclasses import replace
 import json
 from pathlib import Path
 
@@ -62,8 +63,7 @@ def _context(*, resolution_status: str = "offline_contract_fixture"):
     )
     return registry, context.with_execution_inputs(
         layer_options={
-            layer: (("AWS", 1), ("Azure", 1), ("GCP", 1))
-            for layer in LAYER_KEYS
+            layer: (("AWS", 1), ("Azure", 1), ("GCP", 1)) for layer in LAYER_KEYS
         },
         provider_regions={
             "aws": "eu-central-1",
@@ -75,9 +75,7 @@ def _context(*, resolution_status: str = "offline_contract_fixture"):
 
 @pytest.mark.parametrize("size", ("small", "medium", "large"))
 def test_workload_resolves_only_immutable_core_eventing_pairs(size):
-    workload = _read(
-        CONTRACT_ROOT / "fixtures" / "valid" / f"core-{size}.json"
-    )
+    workload = _read(CONTRACT_ROOT / "fixtures" / "valid" / f"core-{size}.json")
 
     resolved = resolve_five_layer_v2_workload(workload)
 
@@ -109,9 +107,7 @@ def test_workload_currency_is_independent_of_the_frozen_scenario_identity():
             "workload",
         ),
         (
-            lambda value: value.update(
-                {"eventingScenarioId": "eventing-medium-v1"}
-            ),
+            lambda value: value.update({"eventingScenarioId": "eventing-medium-v1"}),
             "workload",
         ),
     ),
@@ -129,9 +125,18 @@ def test_workload_rejects_retired_custom_or_mismatched_inputs(mutation, path):
     assert raised.value.field == path
 
 
-def test_publishable_resolution_rejects_draft_profile():
+def test_publishable_resolution_accepts_active_and_rejects_inactive_profile():
+    registry, context = _context(resolution_status="publishable")
+    strategy = FiveLayerV2CandidateStrategy(registry.profile)
+
+    strategy.validate_request(context)
+
+    inactive_context = replace(
+        context,
+        profile={**dict(context.profile), "lifecycle_status": "draft"},
+    )
     with pytest.raises(ArchitectureResolutionError) as raised:
-        _context(resolution_status="publishable")
+        strategy.validate_request(inactive_context)
 
     assert raised.value.code == "ARCH_PROFILE_NOT_FOUND"
 
@@ -155,10 +160,7 @@ def test_offline_resolution_enumerates_all_729_admissible_assignments():
         for candidate in complete
     )
     assert all(len(candidate.edges) == 8 for candidate in complete)
-    assert {
-        edge.logical_edge["edge_id"]
-        for edge in complete[0].edges
-    } >= {
+    assert {edge.logical_edge["edge_id"] for edge in complete[0].edges} >= {
         "edge.hot-storage-to-visualization",
         "edge.hot-storage-to-twin-state",
         "edge.ingestion-to-hot-storage",

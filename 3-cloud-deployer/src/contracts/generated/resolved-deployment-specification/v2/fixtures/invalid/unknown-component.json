@@ -6,7 +6,7 @@
     "architecture_profile_ref": {
       "id": "five-layer-baseline",
       "version": "2",
-      "digest": "sha256:36a68644e66be0b7242d692b9a75fd8d99173a28b00b00fa110023693dc5e854"
+      "digest": "sha256:8ebe9f14978f632c04a25837af1a4b9e4ee4da863f4a972189fb75cd174cac5c"
     },
     "optimization_context": {
       "service_decision_ref": {
@@ -17,7 +17,7 @@
       "component_catalog_ref": {
         "id": "complete-service-component-catalog",
         "version": "1",
-        "digest": "sha256:ae901115898ed15aebfaae065ce70e7a14379996f1d3c368fe231de62c388ffc"
+        "digest": "sha256:3396848028a5b8862e1c948a8017cd8e7bb7d118a0ee5edc120cd3d7a3956c1d"
       },
       "workload_ref": {
         "id": "five-layer-workload",
@@ -44,10 +44,10 @@
     "readiness": {
       "status": "offline_contract_fixture",
       "blocking_gate_ids": [
-        "gate.profile-activation-pending",
         "gate.live-capacity.aws.dynamodb-partition-distribution",
         "gate.live-capacity.aws.reader-latency-and-quota",
-        "gate.live-capacity.aws.twinmaker-query-behavior"
+        "gate.live-capacity.aws.twinmaker-query-behavior",
+        "gate.live-pricing.aws.twinmaker-account-plan"
       ]
     },
     "currency": "USD",
@@ -132,7 +132,7 @@
           {
             "dimension_id": "dimension.aws.aws.iot-commands.messages",
             "classification": "usage",
-            "value": 2160000,
+            "value": 250,
             "unit": "messages/month",
             "formula_reference": "formula.phase-08-complete-service-bundles",
             "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -248,7 +248,7 @@
           {
             "dimension_id": "dimension.aws.aws.dynamodb-on-demand-raw.read_requests",
             "classification": "usage",
-            "value": 600,
+            "value": 0,
             "unit": "requests/month",
             "formula_reference": "formula.phase-08-complete-service-bundles",
             "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -292,7 +292,7 @@
           {
             "dimension_id": "dimension.aws.aws.dynamodb-on-demand-hourly-rollup.read_requests",
             "classification": "usage",
-            "value": 600,
+            "value": 2419200,
             "unit": "requests/month",
             "formula_reference": "formula.phase-08-complete-service-bundles",
             "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -308,7 +308,7 @@
           {
             "dimension_id": "dimension.aws.aws.dynamodb-on-demand-hourly-rollup.stored_gib_month",
             "classification": "usage",
-            "value": "0.514984130859",
+            "value": "0.0171661376953125",
             "unit": "GiB-month",
             "formula_reference": "formula.phase-08-complete-service-bundles",
             "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -1438,6 +1438,6 @@
         "compatibility_version": "1"
       }
     ],
-    "digest": "sha256:2439b1631a23bf328a993064f1364fa2b3f266f08e9e6e6edd9e5707ecb8664a"
+    "digest": "sha256:de852ea8ee3ed0cd00f0d10d812febe62ad36225feefbb2613afce3ef0a3297a"
   }
 }

@@ -1,9 +1,9 @@
 ---
 title: "Architecture Profile Workflow Implementation"
-description: "Implemented Flutter state, API, presentation, activation, and verification boundaries for Phase 8.7."
+description: "Implemented Flutter state, API, presentation, and Five-layer v2 activation boundaries for Phase 8.7 and Phase 8.9A."
 tags: [flutter, architecture-profiles, wizard, bloc, phase-8]
-lastUpdated: "2026-08-03"
-version: "1.2"
+lastUpdated: "2026-08-11"
+version: "1.3"
 ---
 
 <!-- SOURCES:
@@ -14,28 +14,28 @@ version: "1.2"
 - twin2multicloud_flutter/lib/features/configuration_workspace/
 - twin2multicloud_flutter/lib/widgets/results/resolved_architecture_review.dart
 - Credential-free OrbStack integration verification on 2026-08-03
-EXTRACTED: 2026-08-03 | VERSION: 1.2
+EXTRACTED: 2026-08-11 | VERSION: 1.3
 -->
 
 # Architecture Profile Workflow Implementation
 
 ## Implemented Boundary
 
-Phase 8.7 installs the reusable Flutter workflow without activating a new
-runtime architecture. `ApiService` and `DemoManagementApi` implement the same
+Phase 8.7 installed the reusable Flutter workflow before activation.
+`ApiService` and `DemoManagementApi` implement the same
 seven-operation `ArchitectureApi`; `WizardBloc` owns all network commands and
 workflow state; Riverpod continues to inject the runtime adapter. No widget
 calls Optimizer, Deployer, or a cloud provider.
 
-The real and demo catalogs are empty until Five-layer v2 is published.
-`five-layer-baseline@1` remains visible only as a historical selection for
-audit, verification, and destroy compatibility. Populated profiles and
-resolved architectures used by tests are contract fixtures, not advertised
-runtime capabilities.
+The real and demo catalogs now expose only active Five-layer v2 for offline
+selection/evaluation. `five-layer-baseline@1` remains visible only as
+historical evidence for audit, verification, and destroy compatibility. Demo
+Small/Medium/Large results use canonical RTA/RDS v2 fixtures and remain
+unselectable for deployment while their live-capacity gates are unresolved.
 
 | In scope | Out of scope |
 |---|---|
-| Typed profile/resolution reads, BLoC-owned selection state, fixture-driven generic review, responsive/accessibility behavior, and credential-free Management integration | Workload v2 publication, a selectable runtime profile, guided cloud bootstrap, provider execution, infrastructure editing, and deployed L4/L5 access |
+| Typed profile/resolution reads, BLoC-owned selection state, active Five-layer-v2 Workload/RTA/RDS evidence, fixture-driven generic review, responsive/accessibility behavior, and credential-free Management integration | Six-layer activation, arbitrary workload or topology editing, provider execution, live-capacity claims, infrastructure editing, and real cloud deployment |
 
 ## Journey And State
 
@@ -98,10 +98,11 @@ lower width. Widget tests cover 640, 719, 720, 959, 960, 1199, and 1200 plus
 
 This is a Master-thesis PoC boundary, not a general architecture product. It
 does not add free-form layers, provider SKU controls, an Event feature flag,
-cloud-console embedding, L4-to-L5/3D behavior, Workload v2, or a fake active
-demo profile. Phase 8.9A owns the atomic Workload v2 and Five-layer v2
-activation; Phase 8.9B owns the Six-layer delta. Guided bootstrap and deployed
-L4/L5 access remain separate reviewed slices.
+cloud-console embedding, L4-to-L5/3D behavior, arbitrary workload editing, or
+fabricated live-capacity evidence. Phase 8.9A atomically activates the frozen
+Workload v2 scenarios and Five-layer v2 for offline evaluation. Phase 8.9B
+owns the later Six-layer delta. Guided bootstrap and deployed L4/L5 access
+remain separate reviewed slices and do not make the offline demo deployable.
 
 ## Verification
 

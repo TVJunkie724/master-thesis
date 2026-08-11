@@ -19,8 +19,9 @@ EXTRACTED: 2026-06-13 | VERSION: 1.0
 # Phase 8: Twin Overview Deployment Operations
 
 **Status:** Subphases 8.1-8.5 and the credential-free implementation of 8.6
-Layer Access are done. Five-layer v2 profile activation and supervised cloud
-browser sign-in remain separate Phase 8.9A gates.
+Layer Access are done. Five-layer v2 is active for offline evaluation;
+supervised cloud browser sign-in and capacity evidence remain separate live
+gates and prevent deployment selection.
 
 The binding implementation contract is
 [`2026-07-14_twin_overview_operations_hardening.md`](../../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md).

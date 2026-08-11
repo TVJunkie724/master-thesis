@@ -43,24 +43,30 @@ The current platform exposes all 21 provider-layer rows:
 | Azure | available | available | available | available | available | available | available |
 | GCP | available | available | available | available | available | unsupported, planned | unsupported, planned |
 
+This first table is the profile-neutral legacy capability endpoint used by the
+historical manual layer path. It intentionally does not promote GCP L4/L5
+globally. The closed-world Five-layer v2 provider profile below owns separate
+GCP L4/L5 implementations; Deployer admits those only when an exact validated
+`five-layer-baseline@2` graph is present.
+
 `available` means that both calculation and deployment implementations exist and have
 deterministic contract evidence. It does not mean that the path has passed the final
 supervised live-cloud E2E gate.
 
-### Implemented Draft Phase 8 Successor Bundles
+### Activated Phase 8 Thesis-PoC Bundles
 
 The following target has contract, calculation, package, Terraform, runtime,
-post-deployment evidence, and local integration implementations. It remains a
-draft/default-off profile and therefore does not change the current selectable
-matrix above:
+post-deployment evidence, and local integration implementations. It is active
+for offline profile selection and cost/architecture evaluation. This does not
+mark the remaining supervised live-capacity gates complete:
 
 | Provider | L1 target | L3-hot/L5 target | Independent L4 target | Status |
 |---|---|---|---|---|
-| AWS | IoT Core and IoT Commands | DynamoDB + typed local reader + Amazon Managed Grafana | IoT TwinMaker | implemented offline, draft, not selectable |
-| Azure | IoT Hub | Cosmos DB + typed local reader + Azure Managed Grafana | Azure Digital Twins | implemented offline, draft, not selectable |
-| GCP | BifroMQ on GKE + Pub/Sub | Firestore Native Standard edition + typed Cloud Run reader + one Grafana pod/Persistent Disk/TLS LoadBalancer on GKE with signed Infinity datasource | Cloud Run Twin API using the deployment's one Firestore Native database with separate L3/L4 collection contracts | implemented offline, draft, not selectable |
+| AWS | IoT Core and IoT Commands | DynamoDB + typed local reader + Amazon Managed Grafana | IoT TwinMaker | selectable for offline evaluation; deployment blocked by listed live gates |
+| Azure | IoT Hub | Cosmos DB + typed local reader + Azure Managed Grafana | Azure Digital Twins | selectable for offline evaluation; deployment blocked by listed live gates |
+| GCP | BifroMQ on GKE + Pub/Sub | Firestore Native Standard edition + typed Cloud Run reader + one Grafana pod/Persistent Disk/TLS LoadBalancer on GKE with signed Infinity datasource | Cloud Run Twin API using the deployment's one Firestore Native database with separate L3/L4 collection contracts | selectable for offline evaluation; deployment blocked by listed live gates |
 
-`five-layer-baseline@2` is the only current draft implementation. A later
+`five-layer-baseline@2` is the only current selectable implementation. A later
 Six-layer plan must inherit its committed L1-L5 target unchanged; it does not
 add GCP's BifroMQ boundary only to that profile.
 
@@ -69,9 +75,9 @@ The first target version keeps
 raw-history visualization from L3 hot and selected Twin projection from L3 hot
 to L4. L4-to-L5/3D visualization, ADX migration, Spanner Graph, a default
 dedicated Grafana node pool, and storage-specific CDC/outbox/broker pipelines
-are not selected for the PoC. None of this offline implementation evidence
-changes a row above to `available`: publication/selectability and supervised
-browser/capacity evidence are still pending.
+are not selected for the PoC. Profile publication is complete, but supervised
+browser/capacity evidence remains pending and keeps deployment selection
+blocked.
 
 ## Contract Semantics
 
@@ -117,8 +123,9 @@ retry. No hard-coded fallback matrix is activated.
 7. Record supervised live evidence separately before changing a row to
    `live_verified`.
 
-Roadmap intent alone never makes a path selectable. GCP L4/L5 implementation remains
-tracked by [#54](https://github.com/TVJunkie724/master-thesis/issues/54). A separate
-architecture audit is tracked by
-[#112](https://github.com/TVJunkie724/master-thesis/issues/112); until an implemented
-contract changes, this page documents the current runtime matrix only.
+Roadmap intent alone never makes a path selectable. Issue
+[#54](https://github.com/TVJunkie724/master-thesis/issues/54) still tracks
+profile-neutral GCP L4/L5 support; the active Five-layer v2 implementation is
+the narrower closed-world exception documented above. The broader architecture
+audit remains tracked by
+[#112](https://github.com/TVJunkie724/master-thesis/issues/112).

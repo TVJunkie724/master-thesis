@@ -205,20 +205,22 @@ rules. Unknown versions still fail closed.
 
 Add strict `ResolvedDeploymentSpecificationV2`, typed v2 component
 selections, dimensions, bindings, pinned references, fixed dimensions, and
-readiness. Both supported versions expose a small common presentation
-projection: profile ref, providers, primary/supporting display components,
+readiness. Both supported versions expose typed presentation data without
+flattening the different contracts: v1 retains architecture/support component
+groups; v2 exposes profile ref, providers, all exact component selections,
 optimization evidence, readiness, run ID, and digest. V2 must validate exact
 keys, unique/resolved IDs, provider values, digest, Five-layer L3-hot/L5
 co-location, and profile/schema pairing. Secret-like fields fail closed.
 
 ### `lib/widgets/results/resolved_deployment_summary.dart` [MODIFY]
 
-Consume the common typed presentation projection rather than casting to v1.
-Rows show responsibility/assignment, provider, implementation component,
-region, capacity/usage dimensions, readiness status/blocking gates, and exact
-digests. V1 keeps its current labels. V2 supporting services are disclosed
-under the existing expansion rather than rendered as extra architecture
-layers.
+Consume the schema-specific typed presentation projection rather than casting
+to v1. Rows show responsibility/assignment, provider, every exact
+implementation component, region, capacity/usage dimensions, readiness
+status/blocking gates, and exact digests. V1 keeps its current labels. V2
+groups every service selection under its logical responsibility and never
+invents additional architecture layers or a primary/supporting distinction
+absent from the contract.
 
 `ResolvedDeploymentReview` adds an `evaluationOnly` state. It is derived from
 the v2 readiness object even though the outer compatibility value confirms
@@ -246,6 +248,16 @@ activation commit as the profile definitions.
 `five_layer_v2_workload.py` matches the immutable scenario independently of
 USD/EUR and still requires the exact same-size event scenario. All other
 differences remain `ARCH_WORKLOAD_INCOMPATIBLE`.
+
+The same boundary publishes one immutable Five-layer v2 rate card per provider
+from a strict source manifest. Every registered implementation component and
+cross-cloud route role is either billed exactly once or explicitly classified
+as non-billable. USD is the base currency; EUR uses one pinned conversion
+shared by all three provider snapshots. Azure IoT Hub uses exact frozen
+Small/Medium/Large tier outcomes. Azure Large Cosmos cost evaluation uses its
+108,000-RU/s rounded storage/operation proxy rather than an unresolved zero;
+the separate request-charge and autoscale live gates still prevent
+deployment until a supervised measured value is supplied.
 
 ### Management activation and persistence boundary [MODIFY]
 
@@ -312,9 +324,13 @@ tests.
 
 ## 7. Design Tokens
 
-No new colors, spacing, or typography tokens are required. Reuse:
+No new colors or typography tokens are required. Reuse the existing spacing
+scale and add the single workspace-specific `960` scenario-card breakpoint so
+the documented one/two/three-column transitions are named rather than
+hardcoded. The implementation uses:
 
 - `AppSpacing.xs/sm/md/lg/xl`;
+- `AppSpacing.configurationWorkloadCompactBreakpoint`;
 - existing Configuration Workspace max widths and responsive breakpoints;
 - `ThemeData.colorScheme` for selected/focus/error surfaces;
 - `ThemeData.textTheme` for headings, labels, body, and evidence;
@@ -399,7 +415,7 @@ selection.
 | 7 | Edge | single cloud | one provider and no cross-cloud evidence inferred |
 | 8 | Edge | remote L4 | L3/L5 co-located, L4 independent, projection edge visible |
 | 9 | Edge | live capacity blockers | explicit blocked readiness rows; no deployed claim |
-| 10 | Edge | supporting component count > primary count | disclosure renders exact count without fake layers |
+| 10 | Edge | service-selection count > responsibility count | every selection renders without fake layers or invented roles |
 
 ### Real Management and demo integration
 
@@ -415,6 +431,16 @@ selection.
 | 8 | Edge | direct downstream-port scan | zero Flutter references to 5003/5004 |
 | 9 | Edge | no CloudConnections/live evidence | calculation succeeds; automatic selection is skipped and deployment stays blocked |
 | 10 | Edge | integration cleanup | only services started by the test are stopped |
+| 11 | Edge | AWS TwinMaker account plan unavailable offline | successful result persists with explicit live-pricing gate; deployment selection fails closed |
+| 12 | Edge | Azure Large Cosmos without measured RU fixture | non-zero 108,000-RU/s evaluation proxy is costed; request-charge/autoscale gates remain deployment-blocking |
+
+The credential-free integration entrypoint keeps the normal seven-day pricing
+freshness policy unchanged for ordinary runtime. For this deterministic
+fixture-only gate it passes an explicit large `PRICING_CATALOG_MAX_AGE_DAYS`
+to containers started by the test, so advancing wall-clock time cannot force a
+provider pricing refresh. The calculation still pins and verifies the exact
+repository-owned catalog digests; no price or live-capacity evidence is
+fabricated.
 
 The complex cross-contract state machine requires all listed edge cases; five
 would not cover schema evolution, historical compatibility, profile
@@ -453,3 +479,5 @@ invalidation, responsiveness, and ownership independently.
 |---:|---|---|
 | 1 | Architect + builder | Two findings: the proposed runtime path falsely required `publishable` while no live gate can be satisfied locally, and USD fixture equality contradicted the advertised USD/EUR currency contract. |
 | 2 | Architect + builder | Zero unresolved findings after specifying the offline-evidence/deployment-blocked state end to end, prohibiting fabricated live evidence, and separating immutable scenario identity from validated display currency. |
+| 3 | Concept + plan + audit | Two implementation findings: generated v2 schemas reverted EUR pricing evidence to USD-only, and Azure Large entered ranking with a zero autoscale quantity. |
+| 4 | Concept + plan + audit | Zero unresolved findings after fixing the generator-owned EUR contract, publishing immutable provider cards, and replacing zero with the bounded storage/operation evaluation proxy while retaining all supervised deployment gates. |

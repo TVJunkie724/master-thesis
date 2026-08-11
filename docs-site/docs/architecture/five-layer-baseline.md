@@ -1,18 +1,18 @@
 ---
-title: "Five-Layer Baseline Target"
-description: "Implementation status and approved target boundaries for five-layer-baseline@1."
+title: "Five-Layer Baseline Profiles"
+description: "Historical five-layer-baseline@1 evidence and the active offline five-layer-baseline@2 successor."
 tags: [architecture, baseline, digital-twin, target]
-lastUpdated: "2026-07-29"
+lastUpdated: "2026-08-11"
 ---
 
-# Five-Layer Baseline Target
+# Five-Layer Baseline Profiles
 
 !!! warning "Historical target — not a new deployment profile"
     Phase 8.1 approved and froze this `five-layer-baseline@1` decision.
     Subsequent review keeps it immutable for read, reproduction, verification,
-    and destroy; it will not become the default new-Twin runtime. See
-    [Current Deployment Graph](current-deployment-graph.md) for behavior that
-    exists today.
+    and destroy; it will not become the default new-Twin runtime. See the
+    [Phase 8.0 deployment-graph snapshot](current-deployment-graph.md) for the
+    predecessor behavior that motivated this decision.
 
 `five-layer-baseline@1` preserves the paper-compatible Digital Twin model:
 
@@ -48,7 +48,7 @@ Provider-native triggers may remain inside an approved component or edge. They
 do not create a general Eventing layer. The optional event-check and feedback
 topology remains explicitly unsupported in this baseline.
 
-## Planned Five-Layer V2 Successor
+## Active Five-Layer V2 Successor
 
 `five-layer-baseline@2` remains a five-responsibility architecture but always
 includes rule, action, workflow, notification, command, and outcome behavior
@@ -76,9 +76,10 @@ hot: Small and Medium use serverless, while Large must pass a calculated
 autoscale RU/storage/partition proof. ADX remains an analytics-focused rejected
 alternative rather than an implicit migration.
 
-L1, L2, L3 cool, and L3 archive remain independently placeable. The v2 target
-is reviewed planning and is not selectable until the complete-service evidence
-and implementation gates pass.
+L1, L2, L3 cool, and L3 archive remain independently placeable. The reviewed
+v2 target is selectable for offline calculation and architecture evaluation.
+Its unresolved supervised live-capacity gates remain explicit and prevent
+deployment selection.
 
 The three storage-duration inputs are cumulative age boundaries in v2: hot
 `[0,H)`, cool `[H,C)`, archive `[C,A)`, then expiry, with

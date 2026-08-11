@@ -6,6 +6,7 @@ It calculates the optimal complete cloud-provider path across all 5 architectura
 layers based on exact pricing catalogs, route costs, and user-defined scenario
 parameters.
 """
+
 from datetime import datetime
 import re
 from time import perf_counter
@@ -189,38 +190,59 @@ class ExtensionBindingRequestRef(BaseModel):
 class CalcParams(BaseModel):
     """
     Defines the parameters for calculating the cost-optimized Digital Twin deployment.
-    
+
     Server-side validation ensures:
     - Positive values for device counts, intervals, and sizes
     - Storage duration ordering: Hot ≤ Cool ≤ Archive
     - Non-negative values for editor/viewer counts and dashboard settings
     """
+
     calculationRunId: UUID = Field(
         ...,
         description="Management-owned immutable calculation run identity.",
     )
 
     # Core IoT parameters - must be positive
-    numberOfDevices: int = Field(..., gt=0, description="Number of IoT devices (must be > 0)")
-    deviceSendingIntervalInMinutes: float = Field(..., gt=0, description="Sending interval in minutes (must be > 0)")
-    averageSizeOfMessageInKb: float = Field(..., gt=0, description="Average message size in KB (must be > 0)")
-    
+    numberOfDevices: int = Field(
+        ..., gt=0, description="Number of IoT devices (must be > 0)"
+    )
+    deviceSendingIntervalInMinutes: float = Field(
+        ..., gt=0, description="Sending interval in minutes (must be > 0)"
+    )
+    averageSizeOfMessageInKb: float = Field(
+        ..., gt=0, description="Average message size in KB (must be > 0)"
+    )
+
     # Storage durations - must be positive (ordering validated by model_validator)
-    hotStorageDurationInMonths: int = Field(..., ge=1, description="Hot storage duration (must be >= 1)")
-    coolStorageDurationInMonths: int = Field(..., ge=1, description="Cool storage duration (must be >= 1)")
-    archiveStorageDurationInMonths: int = Field(..., ge=6, description="Archive storage duration (must be >= 6)")
-    
+    hotStorageDurationInMonths: int = Field(
+        ..., ge=1, description="Hot storage duration (must be >= 1)"
+    )
+    coolStorageDurationInMonths: int = Field(
+        ..., ge=1, description="Cool storage duration (must be >= 1)"
+    )
+    archiveStorageDurationInMonths: int = Field(
+        ..., ge=6, description="Archive storage duration (must be >= 6)"
+    )
+
     # 3D model settings
     needs3DModel: bool
     entityCount: int = Field(..., ge=0, description="Number of entities (must be >= 0)")
-    
+
     # Dashboard settings
-    amountOfActiveEditors: int = Field(..., ge=0, description="Number of active editors (must be >= 0)")
-    amountOfActiveViewers: int = Field(..., ge=0, description="Number of active viewers (must be >= 0)")
-    dashboardRefreshesPerHour: int = Field(..., ge=0, description="Dashboard refresh rate (must be >= 0)")
-    dashboardActiveHoursPerDay: int = Field(..., ge=0, le=24, description="Active hours per day (must be 0-24)")
+    amountOfActiveEditors: int = Field(
+        ..., ge=0, description="Number of active editors (must be >= 0)"
+    )
+    amountOfActiveViewers: int = Field(
+        ..., ge=0, description="Number of active viewers (must be >= 0)"
+    )
+    dashboardRefreshesPerHour: int = Field(
+        ..., ge=0, description="Dashboard refresh rate (must be >= 0)"
+    )
+    dashboardActiveHoursPerDay: int = Field(
+        ..., ge=0, le=24, description="Active hours per day (must be 0-24)"
+    )
     currency: Literal["USD", "EUR"] = "USD"
-    
+
     # Parameters for supporter services
     useEventChecking: bool = False
     triggerNotificationWorkflow: bool = False
@@ -234,7 +256,7 @@ class CalcParams(BaseModel):
         ),
         json_schema_extra={"const": False},
     )
-    
+
     orchestrationActionsPerMessage: int = Field(default=3, ge=1)
     eventsPerMessage: int = Field(default=1, ge=1)
     apiCallsPerDashboardRefresh: int = Field(default=1, ge=1)
@@ -253,18 +275,37 @@ class CalcParams(BaseModel):
         allow_inf_nan=False,
         description="Estimated average Azure Digital Twins query response size in KB",
     )
-    
+
     # New parameters for enhanced cost calculation
-    numberOfDeviceTypes: int = Field(default=1, ge=1, description="Number of distinct device types (each requires a processor)")
-    numberOfEventActions: int = Field(default=0, ge=0, description="Number of event action handlers from config_events.json")
-    eventTriggerRate: float = Field(default=0.1, ge=0.0, le=1.0, description="Fraction of messages that trigger events (0.0-1.0)")
-    
+    numberOfDeviceTypes: int = Field(
+        default=1,
+        ge=1,
+        description="Number of distinct device types (each requires a processor)",
+    )
+    numberOfEventActions: int = Field(
+        default=0,
+        ge=0,
+        description="Number of event action handlers from config_events.json",
+    )
+    eventTriggerRate: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=1.0,
+        description="Fraction of messages that trigger events (0.0-1.0)",
+    )
+
     # GCP Self-Hosted Options (L4/L5)
     # GCP lacks managed equivalents to AWS TwinMaker/Managed Grafana and Azure Digital Twins/Managed Grafana.
     # These toggles allow users to include or exclude GCP's self-hosted Compute Engine alternatives.
     # Default: False (GCP L4/L5 not implemented - future work)
-    allowGcpSelfHostedL4: bool = Field(default=False, description="Include GCP self-hosted L4 (Twin Management on Compute Engine) in optimization - NOT IMPLEMENTED")
-    allowGcpSelfHostedL5: bool = Field(default=False, description="Include GCP self-hosted L5 (Grafana on Compute Engine) in optimization - NOT IMPLEMENTED")
+    allowGcpSelfHostedL4: bool = Field(
+        default=False,
+        description="Include GCP self-hosted L4 (Twin Management on Compute Engine) in optimization - NOT IMPLEMENTED",
+    )
+    allowGcpSelfHostedL5: bool = Field(
+        default=False,
+        description="Include GCP self-hosted L5 (Grafana on Compute Engine) in optimization - NOT IMPLEMENTED",
+    )
 
     optimizationProfileId: str = Field(
         default="cost_minimization_v1",
@@ -286,8 +327,8 @@ class CalcParams(BaseModel):
     architectureProfile: ArchitectureProfileRequestRef | None = Field(
         default=None,
         description=(
-            "Management-injected exact profile reference. Rejected unless the "
-            "default-off architecture resolution gate is enabled."
+            "Management-injected exact profile reference. Accepted by the "
+            "default-on architecture resolver; an explicit false gate rejects it."
         ),
     )
     extensionBindings: list[ExtensionBindingRequestRef] | None = Field(
@@ -295,7 +336,7 @@ class CalcParams(BaseModel):
         max_length=64,
         description=(
             "Management-injected immutable extension references. Rejected "
-            "unless the default-off architecture resolution gate is enabled."
+            "when the architecture resolution rollback gate is explicitly false."
         ),
     )
 
@@ -311,8 +352,8 @@ class CalcParams(BaseModel):
             ) from exc
         return value
 
-    @model_validator(mode='after')
-    def validate_storage_duration_ordering(self) -> 'CalcParams':
+    @model_validator(mode="after")
+    def validate_storage_duration_ordering(self) -> "CalcParams":
         """Ensure storage durations follow logical ordering: Hot ≤ Cool ≤ Archive."""
         if self.hotStorageDurationInMonths > self.coolStorageDurationInMonths:
             raise ValueError(
@@ -362,9 +403,7 @@ class FiveLayerV2CalcParams(BaseModel):
         "eventing-large-v1",
     ]
     currency: Literal["USD", "EUR"] = "USD"
-    optimizationProfileId: Literal["cost-minimization-v2"] = (
-        "cost-minimization-v2"
-    )
+    optimizationProfileId: Literal["cost-minimization-v2"] = "cost-minimization-v2"
     providerPricingCatalogs: PricingCatalogContext
     providerPricingContexts: ProviderPricingContexts = Field(
         default_factory=ProviderPricingContexts
@@ -406,12 +445,10 @@ CalculationParams = Annotated[
     description=(
         "**Purpose:** Computes the most cost-effective distribution of Digital Twin services "
         "across AWS, Azure, and GCP based on your scenario parameters and current cloud pricing.\n\n"
-        
         "**When to use this endpoint:**\n"
         "- Before deploying a new Digital Twin to determine the cheapest provider configuration\n"
         "- When comparing costs across different scenario configurations\n"
         "- To understand cost breakdown by architectural layer\n\n"
-        
         "**How it works:**\n"
         "1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n"
         "2. Resolves the exact reviewed provider-region catalogs supplied in `providerPricingCatalogs`\n"
@@ -419,14 +456,12 @@ CalculationParams = Annotated[
         "4. Prices all six approved layer-to-layer routes with aggregate transfer allowances\n"
         "5. Scores complete layer and route totals and returns the deterministic winner\n"
         "6. Returns detailed cost, route, billing-pool, and immutable evidence context\n\n"
-        
         "**The 5 Architectural Layers:**\n"
         "- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n"
         "- **L2 (Processing):** Data processing, event detection, notifications\n"
         "- **L3 (Storage):** Hot/Cool/Archive storage tiers - each can be on different providers\n"
         "- **L4 (Management):** Digital Twin entity management and 3D modeling\n"
         "- **L5 (Visualization):** Dashboards and user interfaces\n\n"
-        
         "**Important:** This is a calculation-only endpoint. It does not deploy any resources. "
         "Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure."
     ),
@@ -480,7 +515,7 @@ CalculationParams = Annotated[
                             "totalCost": 85.50,
                             "optimization_profile_id": "cost_minimization_v1",
                             "result_schema_version": "cost-result.v1",
-                            "currency": "USD"
+                            "currency": "USD",
                         }
                     }
                 }
@@ -583,7 +618,7 @@ def calc(params: CalculationParams, request: Request):
                 started_at=resolution_started_at,
             )
             architecture_log_emitted = True
-        
+
         return {"result": result}
     except PricingCatalogStaleError as e:
         log_architecture_failure(e.code)
@@ -669,7 +704,9 @@ def calc(params: CalculationParams, request: Request):
         log_architecture_failure("ARCH_RESOLUTION_BUILD_FAILED")
         logger.error(f"Error during calculation: {e}")
         print_stack_trace()
-        raise HTTPException(status_code=500, detail="Calculation failed. Check server logs.")
+        raise HTTPException(
+            status_code=500, detail="Calculation failed. Check server logs."
+        )
 
 
 def _calculate_five_layer_v2(
@@ -680,7 +717,11 @@ def _calculate_five_layer_v2(
     references = {
         provider: {
             "id": reference.snapshot_id,
-            "version": reference.provider_schema_version,
+            # The RTA field versions the pricing-evidence reference contract,
+            # while the immutable catalog identity stays in ``id`` and
+            # ``digest``. Provider schema versions are intentionally not
+            # substituted for this numeric contract version.
+            "version": "1",
             "digest": reference.content_digest,
             "provider": provider,
             "currency": params.currency,
@@ -690,9 +731,7 @@ def _calculate_five_layer_v2(
     optimized = optimize_five_layer_v2(
         calculation_run_id=str(params.calculationRunId),
         architecture_profile=params.architectureProfile.model_dump(),
-        extension_bindings=[
-            item.model_dump() for item in params.extensionBindings
-        ],
+        extension_bindings=[item.model_dump() for item in params.extensionBindings],
         workload=params.workload_payload(),
         pricing_evidence_refs=references,
         pricing_by_provider=resolved_catalogs.detached_pricing(),
@@ -730,9 +769,7 @@ def _five_layer_v2_http_result(
         f"L4_{calculation_result['L4']}",
         f"L5_{calculation_result['L5']}",
     ]
-    provider_pricing_contexts = params.providerPricingContexts.model_dump(
-        mode="json"
-    )
+    provider_pricing_contexts = params.providerPricingContexts.model_dump(mode="json")
     aws_twinmaker = provider_pricing_contexts["awsTwinMaker"]
     if calculation_result["L4"] == "AWS" and aws_twinmaker["status"] == "available":
         aws_twinmaker["status"] = "compatible"
@@ -759,8 +796,7 @@ def _five_layer_v2_http_result(
             "enumeratedCandidateCount": optimized.enumerated_candidate_count,
             "admissibleCandidateCount": optimized.costed_candidate_count,
             "rejectedCandidateCount": (
-                optimized.enumerated_candidate_count
-                - optimized.costed_candidate_count
+                optimized.enumerated_candidate_count - optimized.costed_candidate_count
             ),
             "rejectedByErrorCode": dict(optimized.rejected_by_error_code),
             "winningCandidateId": optimized.winning_candidate_id,
@@ -768,16 +804,13 @@ def _five_layer_v2_http_result(
         "providerPricingContexts": provider_pricing_contexts,
         "costLedger": dict(optimized.cost_ledger),
         "resolvedTwinArchitecture": dict(optimized.resolved_architecture),
-        "resolvedDeploymentSpecification": dict(
-            optimized.deployment_specification
-        ),
+        "resolvedDeploymentSpecification": dict(optimized.deployment_specification),
     }
 
 
 def _resolve_architecture_context(params: CalculationParams):
     requested = (
-        params.architectureProfile is not None
-        or params.extensionBindings is not None
+        params.architectureProfile is not None or params.extensionBindings is not None
     )
     if not architecture_profile_resolution_enabled():
         if requested:
@@ -787,10 +820,7 @@ def _resolve_architecture_context(params: CalculationParams):
                 "Architecture profile resolution is not enabled",
             )
         return None
-    if (
-        params.architectureProfile is None
-        or params.extensionBindings is None
-    ):
+    if params.architectureProfile is None or params.extensionBindings is None:
         raise ArchitectureResolutionError(
             "ARCH_PROFILE_BUNDLE_INCOMPATIBLE",
             "architectureProfile",
@@ -802,10 +832,7 @@ def _resolve_architecture_context(params: CalculationParams):
         ),
         calculation_run_id=str(params.calculationRunId),
         architecture_profile=params.architectureProfile.model_dump(),
-        extension_bindings=[
-            item.model_dump()
-            for item in params.extensionBindings
-        ],
+        extension_bindings=[item.model_dump() for item in params.extensionBindings],
     )
 
 
@@ -869,17 +896,23 @@ def _log_architecture_resolution_failure(
         (
             context.profile_ref.profile_id
             if context is not None
-            else profile.profileId if profile is not None else "unresolved"
+            else profile.profileId
+            if profile is not None
+            else "unresolved"
         ),
         (
             context.profile_ref.profile_version
             if context is not None
-            else profile.profileVersion if profile is not None else "unresolved"
+            else profile.profileVersion
+            if profile is not None
+            else "unresolved"
         ),
         (
             context.profile_ref.content_digest
             if context is not None
-            else profile.contentDigest if profile is not None else "unresolved"
+            else profile.contentDigest
+            if profile is not None
+            else "unresolved"
         ),
         (
             context.bundle_ref.optimization_strategy_id

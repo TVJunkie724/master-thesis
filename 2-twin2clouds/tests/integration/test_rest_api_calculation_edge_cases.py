@@ -1,4 +1,3 @@
-
 import json
 from decimal import Decimal
 from types import SimpleNamespace
@@ -16,6 +15,9 @@ from api.calculation import (
 from backend.architecture_profiles.diagnostics import (
     ArchitectureResolutionError,
     RejectionCollector,
+)
+from backend.architecture_profiles.activation import (
+    architecture_profile_resolution_enabled,
 )
 from backend.architecture_profiles.registry import ArchitectureProfileRegistry
 from backend.architecture_profiles.five_layer_v2_workload import (
@@ -102,10 +104,7 @@ def _five_layer_v2_payload() -> dict:
     registry = ArchitectureProfileRegistry(profile_version="2")
     workload = json.loads(
         (
-            FIVE_LAYER_V2_WORKLOAD_ROOT
-            / "fixtures"
-            / "valid"
-            / "core-small.json"
+            FIVE_LAYER_V2_WORKLOAD_ROOT / "fixtures" / "valid" / "core-small.json"
         ).read_text(encoding="utf-8")
     )
     return {
@@ -197,6 +196,62 @@ def test_five_layer_v2_api_path_remains_dark_while_activation_gate_is_off():
     )
 
 
+@patch("api.calculation.optimize_five_layer_v2")
+@patch("api.calculation.PricingCatalogResolver.resolve_context")
+def test_five_layer_v2_api_path_is_active_by_default(
+    resolve_catalogs,
+    optimize,
+    monkeypatch,
+):
+    monkeypatch.delenv("ARCHITECTURE_PROFILE_RESOLUTION_ENABLED", raising=False)
+    resolve_catalogs.return_value = _resolved_catalogs({})
+    optimize.return_value = SimpleNamespace(
+        resolved_architecture={
+            "component_assignments": [
+                {"logical_component_id": logical, "provider": "aws"}
+                for logical in (
+                    "component.ingestion",
+                    "component.processing",
+                    "component.hot-storage",
+                    "component.cool-storage",
+                    "component.archive-storage",
+                    "component.twin-state",
+                    "component.visualization",
+                )
+            ]
+        },
+        deployment_specification={
+            "schema_version": "resolved-deployment-specification.v2"
+        },
+        cost_evaluation=SimpleNamespace(
+            monthly_total=Decimal("0"),
+            currency="USD",
+        ),
+        cost_ledger={
+            "schema_version": "five-layer-v2-cost-ledger.v1",
+            "currency": "USD",
+            "component_costs": [],
+            "route_costs": [],
+        },
+        winning_candidate_id="candidate.single-cloud-aws-small",
+        enumerated_candidate_count=1,
+        costed_candidate_count=1,
+        rejected_by_error_code=(),
+    )
+
+    response = client.put("/calculate", json=_five_layer_v2_payload())
+
+    assert response.status_code == 200
+    result = response.json()["result"]
+    assert result["optimization_profile_id"] == "cost-minimization-v2"
+    assert result["resolvedDeploymentSpecification"]["schema_version"] == (
+        "resolved-deployment-specification.v2"
+    )
+    assert optimize.call_args.kwargs["resolution_status"] == (
+        "offline_contract_fixture"
+    )
+
+
 def test_five_layer_v2_http_projection_uses_the_actual_winning_candidate():
     params = FiveLayerV2CalcParams.model_validate(_five_layer_v2_payload())
     assignments = {
@@ -215,7 +270,9 @@ def test_five_layer_v2_http_projection_uses_the_actual_winning_candidate():
                 for key, value in assignments.items()
             ]
         },
-        deployment_specification={"schema_version": "resolved-deployment-specification.v2"},
+        deployment_specification={
+            "schema_version": "resolved-deployment-specification.v2"
+        },
         cost_evaluation=SimpleNamespace(
             monthly_total=Decimal("12.5"),
             currency="USD",
@@ -237,15 +294,12 @@ def test_five_layer_v2_http_projection_uses_the_actual_winning_candidate():
     assert result["calculationResult"]["L3"]["Hot"] == "GCP"
     assert result["calculationResult"]["L4"] == "AWS"
     assert result["totalCostExact"] == "12.5"
-    assert result["providerPricingContexts"]["awsTwinMaker"]["status"] == (
-        "compatible"
+    assert result["providerPricingContexts"]["awsTwinMaker"]["status"] == ("compatible")
+    assert result["costLedger"]["schema_version"] == ("five-layer-v2-cost-ledger.v1")
+    assert (
+        result["architectureResolutionDiagnostics"]["winningCandidateId"]
+        == "candidate.actual-winner"
     )
-    assert result["costLedger"]["schema_version"] == (
-        "five-layer-v2-cost-ledger.v1"
-    )
-    assert result["architectureResolutionDiagnostics"][
-        "winningCandidateId"
-    ] == "candidate.actual-winner"
 
 
 @patch("api.calculation.optimize_five_layer_v2")
@@ -269,11 +323,27 @@ def test_five_layer_v2_unsupervised_api_path_requests_offline_evidence(
 
     assert captured["resolution_status"] == "offline_contract_fixture"
     assert "satisfied_live_gate_ids" not in captured
+    assert {
+        provider: {
+            "id": reference["id"],
+            "version": reference["version"],
+            "digest": reference["digest"],
+        }
+        for provider, reference in captured["pricing_evidence_refs"].items()
+    } == {
+        provider: {
+            "id": catalog.snapshot_id,
+            "version": "1",
+            "digest": catalog.content_digest,
+        }
+        for provider, catalog in _catalog_context().catalogs.items()
+    }
 
 
 # -----------------------------------------------------------------------------
 # 1. Input Validation Edge Cases
 # -----------------------------------------------------------------------------
+
 
 def test_calculate_missing_fields():
     """Test that missing required fields returns 422 Unprocessable Entity."""
@@ -294,8 +364,7 @@ def test_calculate_rejects_invalid_calculation_run_id():
 
     assert response.status_code == 422
     assert any(
-        error["loc"][-1] == "calculationRunId"
-        for error in response.json()["detail"]
+        error["loc"][-1] == "calculationRunId" for error in response.json()["detail"]
     )
 
 
@@ -303,7 +372,7 @@ def test_calculate_invalid_data_types():
     """Test sending string for integer field returns 422."""
     payload = {
         "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
-        "numberOfDevices": "one_hundred", # Invalid
+        "numberOfDevices": "one_hundred",  # Invalid
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,
         "hotStorageDurationInMonths": 1,
@@ -320,13 +389,17 @@ def test_calculate_invalid_data_types():
     response = client.put("/calculate", json=payload)
     assert response.status_code == 422
     # Check for type error message
-    assert "valid integer" in response.text.lower() or "valid number" in response.text.lower()
+    assert (
+        "valid integer" in response.text.lower()
+        or "valid number" in response.text.lower()
+    )
+
 
 def test_calculate_negative_values():
     """Test validation of negative values where positive are required."""
     payload = {
         "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
-        "numberOfDevices": -50, # Invalid
+        "numberOfDevices": -50,  # Invalid
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,
         "hotStorageDurationInMonths": 1,
@@ -343,6 +416,7 @@ def test_calculate_negative_values():
     response = client.put("/calculate", json=payload)
     assert response.status_code == 422
 
+
 def test_calculate_storage_duration_logic_ordering():
     """Test logic: Hot <= Cool <= Archive."""
     payload = {
@@ -350,9 +424,9 @@ def test_calculate_storage_duration_logic_ordering():
         "numberOfDevices": 100,
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,
-        "hotStorageDurationInMonths": 4,   # > Cool (3)
+        "hotStorageDurationInMonths": 4,  # > Cool (3)
         "coolStorageDurationInMonths": 3,
-        "archiveStorageDurationInMonths": 12, # Valid >= 6
+        "archiveStorageDurationInMonths": 12,  # Valid >= 6
         "needs3DModel": False,
         "entityCount": 0,
         "amountOfActiveEditors": 0,
@@ -424,15 +498,17 @@ def test_calculate_accepts_false_or_omitted_error_handling_topology(
 
     assert params.integrateErrorHandling is False
 
+
 # -----------------------------------------------------------------------------
 # 2. Engine Robustness / Error Handling
 # -----------------------------------------------------------------------------
+
 
 @patch("api.calculation.PricingCatalogResolver.resolve_context")
 def test_calculate_load_pricing_failure(mock_resolve_pricing):
     """Test 500 behavior when pricing load completely fails."""
     mock_resolve_pricing.side_effect = Exception("Disk failure simulation")
-    
+
     payload = {
         "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
         "numberOfDevices": 100,
@@ -449,12 +525,13 @@ def test_calculate_load_pricing_failure(mock_resolve_pricing):
         "dashboardActiveHoursPerDay": 0,
         "providerPricingCatalogs": _catalog_context().to_http_dict(),
     }
-    
+
     response = client.put("/calculate", json=payload)
     assert response.status_code == 500
     data = response.json()
     assert "detail" in data
     assert "Calculation failed" in data["detail"]
+
 
 @patch("backend.calculation_v2.engine.calculate_cheapest_costs")
 @patch("api.calculation.PricingCatalogResolver.resolve_context")
@@ -464,10 +541,10 @@ def test_calculate_engine_internal_error(mock_resolve, mock_engine):
     # Because api/calculation.py imports it locally inside the function 'calc'
     mock_resolve.return_value = _resolved_catalogs({})
     mock_engine.side_effect = ValueError("Calculation logic exploded")
-    
+
     payload = {
         "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
-        "numberOfDevices": 100, 
+        "numberOfDevices": 100,
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,
         "hotStorageDurationInMonths": 1,
@@ -481,7 +558,7 @@ def test_calculate_engine_internal_error(mock_resolve, mock_engine):
         "dashboardActiveHoursPerDay": 0,
         "providerPricingCatalogs": _catalog_context().to_http_dict(),
     }
-    
+
     response = client.put("/calculate", json=payload)
     # ValueError is caught as a 400 by the handler (not 500)
     assert response.status_code == 400
@@ -519,6 +596,16 @@ def test_calculate_returns_structured_transfer_contract_conflict(
 # -----------------------------------------------------------------------------
 # 3. Feature Toggle Verification
 # -----------------------------------------------------------------------------
+
+
+def test_architecture_resolution_is_enabled_by_default(monkeypatch):
+    monkeypatch.delenv(
+        "ARCHITECTURE_PROFILE_RESOLUTION_ENABLED",
+        raising=False,
+    )
+
+    assert architecture_profile_resolution_enabled() is True
+
 
 @patch("api.calculation.PricingCatalogResolver.resolve_context")
 def test_architecture_resolution_gate_off_rejects_profile_fields(
@@ -642,11 +729,7 @@ def test_architecture_resolution_errors_use_stable_conflict_envelope(
 
     assert response.status_code == 409
     detail = response.json()["detail"]
-    assert {
-        key: value
-        for key, value in detail.items()
-        if key != "diagnostics"
-    } == {
+    assert {key: value for key, value in detail.items() if key != "diagnostics"} == {
         "error_code": "ARCH_PROVIDER_IMPLEMENTATION_MISSING",
         "message": "No active supported provider profile is available",
         "fix_suggestion": (
@@ -673,13 +756,13 @@ def test_architecture_resolution_errors_use_stable_conflict_envelope(
 @patch("api.calculation.PricingCatalogResolver.resolve_context")
 def test_feature_toggle_gcp_l4_disabled(mock_resolve_pricing):
     """Verify that disabling 'allowGcpSelfHostedL4' in params passes correct flag to engine."""
-    
+
     # We patch the ENGINE function (backend.calculation_v2.engine.calculate_cheapest_costs)
     # to inspect arguments passed to it.
     with patch("backend.calculation_v2.engine.calculate_cheapest_costs") as mock_calc:
         mock_calc.return_value = {}
         mock_resolve_pricing.return_value = _resolved_catalogs({})
-        
+
         payload = {
             "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
             "numberOfDevices": 100,
@@ -694,13 +777,13 @@ def test_feature_toggle_gcp_l4_disabled(mock_resolve_pricing):
             "amountOfActiveViewers": 0,
             "dashboardRefreshesPerHour": 0,
             "dashboardActiveHoursPerDay": 0,
-            "allowGcpSelfHostedL4": False, # Flag
+            "allowGcpSelfHostedL4": False,  # Flag
             "allowGcpSelfHostedL5": False,
             "providerPricingCatalogs": _catalog_context().to_http_dict(),
         }
-        
+
         client.put("/calculate", json=payload)
-        
+
         # Verify call args
         args, kwargs = mock_calc.call_args
         params_arg = args[0]
@@ -713,7 +796,9 @@ def test_feature_toggle_gcp_l4_disabled(mock_resolve_pricing):
 @patch("api.calculation.PricingCatalogResolver.resolve_context")
 def test_calculate_response_exposes_additive_trace_metadata(mock_resolve_pricing):
     """The public calculate endpoint exposes read-only intent trace metadata."""
-    from tests.unit.calculation_v2.test_intent_to_result_traceability import _sample_pricing
+    from tests.unit.calculation_v2.test_intent_to_result_traceability import (
+        _sample_pricing,
+    )
 
     mock_resolve_pricing.return_value = _resolved_catalogs(_sample_pricing())
     payload = {
@@ -820,8 +905,8 @@ def test_calculate_rejects_stale_exact_catalog_context(mock_resolve_pricing):
 
 def test_calculate_rejects_tampered_catalog_reference_identity():
     payload = _valid_payload()
-    payload["providerPricingCatalogs"]["catalogs"]["azure"]["snapshotId"] = (
-        "pcs_" + ("0" * 64)
+    payload["providerPricingCatalogs"]["catalogs"]["azure"]["snapshotId"] = "pcs_" + (
+        "0" * 64
     )
 
     response = client.put("/calculate", json=payload)

@@ -44,9 +44,7 @@ AWS_V2_RUNTIME_SOURCE = (
 AZURE_V2_RUNTIME_SOURCE = (
     "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2"
 )
-GCP_V2_RUNTIME_SOURCE = (
-    "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2"
-)
+GCP_V2_RUNTIME_SOURCE = "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2"
 BRIDGE_RUNTIME_SOURCE = "3-cloud-deployer/src/runtime/eventing"
 WORKLOAD_ROOT = ROOT / "contracts" / "five-layer-workload"
 WORKLOAD_CATALOG = WORKLOAD_ROOT / "v2" / "eventing-scenario-catalog.json"
@@ -90,6 +88,56 @@ RDS_TARGETS = (
     / "generated"
     / "resolved-deployment-specification",
 )
+DEPLOYMENT_MANIFEST_TARGETS = (
+    ROOT
+    / "twin2multicloud_backend"
+    / "src"
+    / "contracts"
+    / "generated"
+    / "deployment-manifest",
+    ROOT
+    / "3-cloud-deployer"
+    / "src"
+    / "contracts"
+    / "generated"
+    / "deployment-manifest",
+)
+FLUTTER_DEMO_ROOT = ROOT / "twin2multicloud_flutter" / "assets" / "demo" / "v1"
+FLUTTER_DEMO_CONTRACTS = {
+    "architecture-profile-five-layer-v2.json": (
+        ARCH_V2 / "fixtures" / "valid" / "five-layer-baseline-v2-profile.json"
+    ),
+    "provider-profile-five-layer-v2-aws.json": (
+        ARCH_V2 / "fixtures" / "valid" / "aws-five-layer-v2-provider-profile.json"
+    ),
+    "provider-profile-five-layer-v2-azure.json": (
+        ARCH_V2 / "fixtures" / "valid" / "azure-five-layer-v2-provider-profile.json"
+    ),
+    "provider-profile-five-layer-v2-gcp.json": (
+        ARCH_V2 / "fixtures" / "valid" / "gcp-five-layer-v2-provider-profile.json"
+    ),
+    "resolved-deployment-specification-v2-small.json": (
+        RDS_V2 / "fixtures" / "valid" / "single-cloud-aws-small.json"
+    ),
+    "resolved-deployment-specification-v2-medium.json": (
+        RDS_V2 / "fixtures" / "valid" / "two-cloud-azure-l3l5-gcp-l4-medium.json"
+    ),
+    "resolved-deployment-specification-v2-large.json": (
+        RDS_V2 / "fixtures" / "valid" / "three-cloud-mixed-large.json"
+    ),
+    "resolved-twin-architecture-v2-small.json": (
+        ARCH_V2 / "fixtures" / "valid" / "single-cloud-aws-small-resolved.json"
+    ),
+    "resolved-twin-architecture-v2-medium.json": (
+        ARCH_V2
+        / "fixtures"
+        / "valid"
+        / "two-cloud-azure-l3l5-gcp-l4-medium-resolved.json"
+    ),
+    "resolved-twin-architecture-v2-large.json": (
+        ARCH_V2 / "fixtures" / "valid" / "three-cloud-mixed-large-resolved.json"
+    ),
+}
 PROVIDERS = ("aws", "azure", "gcp")
 REGIONS = {"aws": "eu-central-1", "azure": "westeurope", "gcp": "europe-west1"}
 LOGICAL_COMPONENTS = (
@@ -211,6 +259,22 @@ def tree_digest(root: Path) -> str:
     return f"sha256:{result.hexdigest()}"
 
 
+def deployment_manifest_tree_digest(root: Path) -> str:
+    """Mirror the dedicated DeploymentManifest synchronizer's marker policy."""
+
+    entries = [
+        {
+            "path": path.relative_to(root).as_posix(),
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+        and path.name != ".contract-sha256"
+        and "__pycache__" not in path.parts
+    ]
+    return f"sha256:{hashlib.sha256(canonical_json(entries).encode()).hexdigest()}"
+
+
 def package_source_digest(repository_source_path: str) -> str:
     """Mirror the Deployer's canonical platform-package digest policy."""
 
@@ -292,6 +356,11 @@ def generate_v2_schemas() -> None:
             transformed["properties"]["resolution_status"] = {
                 "enum": ["offline_contract_fixture", "publishable"]
             }
+            pricing_currency = transformed["$defs"]["pricing_evidence_ref"][
+                "properties"
+            ]["currency"]
+            pricing_currency.pop("const", None)
+            pricing_currency["enum"] = ["USD", "EUR"]
         write_json(ARCH_V2 / name, transformed)
 
     runtime_source = (ARCH_V1 / "runtime.py").read_text(encoding="utf-8")
@@ -432,7 +501,7 @@ def build_profile() -> dict[str, Any]:
         {
             "schema_version": "architecture-profile.v2",
             "profile_version": "2",
-            "lifecycle_status": "draft",
+            "lifecycle_status": "active",
             "display_name": "Five-layer baseline v2",
             "description": (
                 "Functionally complete thesis-PoC profile with mandatory embedded "
@@ -1068,8 +1137,7 @@ def terraform_resource_address(
         # ownership in one deployment database; a second database adds no PoC
         # capability and would contradict the reviewed service decision.
         return (
-            "google_firestore_database."
-            "gcp_gcp_firestore_native_standard_raw_and_rollup"
+            "google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup"
         )
     if (
         provider == "gcp"
@@ -1269,9 +1337,7 @@ def build_edge_implementation(
             # Graph translation binds an edge to the destination node's
             # declared catalog port. A synthetic input.* identifier is not a
             # node port and therefore cannot be resolved by Terraform.
-            "destination_input_id": (
-                f"catalog.{target}.{edge['destination_port_id']}"
-            ),
+            "destination_input_id": (f"catalog.{target}.{edge['destination_port_id']}"),
             "dependency_keys": [],
         },
         "transfer_route_class": (
@@ -1346,7 +1412,7 @@ def build_catalog(
         "schema_version": "deployment-component-catalog.v2",
         "catalog_id": "complete-service-component-catalog",
         "catalog_version": "1",
-        "lifecycle_status": "draft",
+        "lifecycle_status": "active",
         "components": components,
         "edge_implementations": edge_implementations,
         "package_artifacts": [
@@ -1534,7 +1600,7 @@ def build_provider_profile(
             "digest": profile["content_digest"],
         },
         "provider": provider,
-        "lifecycle_status": "draft",
+        "lifecycle_status": "active",
         "region_policy_ref": {
             "id": f"region-policy.{provider}.five-layer-v2",
             "version": "1",
@@ -1801,9 +1867,7 @@ def component_capacity_registry() -> dict[str, Any]:
     manifest = read_json(SERVICE_COMPONENTS)
     pricing = read_json(SERVICE_PRICING)
     capacity = read_json(SERVICE_ROOT / "capacity-matrix.json")
-    owners = {
-        item["component_id"]: item for item in pricing["component_owners"]
-    }
+    owners = {item["component_id"]: item for item in pricing["component_owners"]}
     components = []
     for component in manifest["components"]:
         component_id = component["component_id"]
@@ -1813,9 +1877,7 @@ def component_capacity_registry() -> dict[str, Any]:
                 f"Missing pricing owner for implementation component {component_id}"
             )
         if owner["dimensions"] != component["capacity_dimensions"]:
-            raise RuntimeError(
-                f"Capacity/pricing dimensions differ for {component_id}"
-            )
+            raise RuntimeError(f"Capacity/pricing dimensions differ for {component_id}")
         components.append(
             {
                 "component_id": component_id,
@@ -1835,9 +1897,7 @@ def component_capacity_registry() -> dict[str, Any]:
             "version": "1",
             "digest": service_decision_digest(),
         },
-        "capacity_evidence_digest": file_digest(
-            SERVICE_ROOT / "capacity-matrix.json"
-        ),
+        "capacity_evidence_digest": file_digest(SERVICE_ROOT / "capacity-matrix.json"),
         "pricing_ownership_digest": file_digest(SERVICE_PRICING),
         "price_value_policy": pricing["price_value_policy"],
         "same_provider_rule": pricing["same_provider_rule"],
@@ -1890,19 +1950,25 @@ def scenario_inputs(size: str) -> tuple[dict[str, Any], dict[str, Any], dict[str
     return core, derived, event
 
 
-def blocking_gate_ids(size: str, providers: list[str]) -> list[str]:
+def blocking_gate_ids(
+    size: str,
+    providers: list[str],
+    assignment: dict[str, str],
+) -> list[str]:
     capacity = read_json(SERVICE_ROOT / "capacity-matrix.json")
     scenario = next(
         item for item in capacity["scenario_results"] if item["size"] == size
     )
-    gates = ["gate.profile-activation-pending"]
+    gates: list[str] = []
     for provider in sorted(set(providers)):
         provider_gates = scenario["provider_admission"][provider]["live_gates"]
         gates.extend(
             f"gate.live-capacity.{provider}.{gate.replace('_', '-')}"
             for gate in provider_gates
         )
-    return gates
+    if assignment["component.twin-state"] == "aws":
+        gates.append("gate.live-pricing.aws.twinmaker-account-plan")
+    return sorted(set(gates))
 
 
 def dimension_classification(dimension_id: str) -> str:
@@ -1959,6 +2025,30 @@ def decimal_ceil(value: Decimal) -> int:
     return int(value.to_integral_value(rounding=ROUND_CEILING))
 
 
+def decimal_text(value: Decimal) -> str:
+    normalized = value.normalize()
+    if normalized == normalized.to_integral():
+        return str(normalized.quantize(Decimal(1)))
+    return format(normalized, "f")
+
+
+def azure_cosmos_autoscale_floor(
+    hot_payload_gib: object,
+    *,
+    peak_messages_per_second: Decimal,
+    rollup_writes_per_second: Decimal,
+    dashboard_queries_per_second: Decimal,
+) -> int:
+    required = max(
+        Decimal("1000"),
+        Decimal(str(hot_payload_gib)) * Decimal("10"),
+        (peak_messages_per_second + rollup_writes_per_second) * Decimal("10")
+        + peak_messages_per_second
+        + dashboard_queries_per_second * Decimal("720"),
+    )
+    return decimal_ceil(required / Decimal("1000")) * 1000
+
+
 def dimension_value(
     component_id: str,
     logical: str,
@@ -1977,6 +2067,11 @@ def dimension_value(
             + Decimal(str(event["retry_share"]))
             + Decimal(str(event["replay_share"]))
         )
+    )
+    command_executions = decimal_ceil(
+        Decimal(event_count)
+        * Decimal(str(event["rule_match_share"]))
+        * Decimal(str(event["device_command_share_of_matches"]))
     )
     consumer_count = len(event["mandatory_processed_consumers"]) + len(
         event["extra_processed_consumers"]
@@ -2011,16 +2106,41 @@ def dimension_value(
         )
         else messages
     )
-    storage_gib = (
-        str(fixed["gcp_grafana_persistent_disk_gib"])
-        if component_id == "gcp.persistent-disk-rwo"
-        else {
+    event_bytes = event_attempts * int(event["average_event_payload_bytes"])
+    canonical_payload_bytes = Decimal(str(derived["canonical_payload_bytes"]))
+    rollup_document_count = int(core["device_count"]) * int(
+        derived["maximum_aggregate_rollup_points"]
+    )
+    dashboard_point_reads = dashboard_requests * int(
+        derived["maximum_aggregate_rollup_points"]
+    )
+    rollup_storage_gib = (
+        Decimal(rollup_document_count) * canonical_payload_bytes / Decimal("1073741824")
+    )
+    twin_storage_gib = (
+        Decimal(int(core["twin_entity_count"]))
+        * canonical_payload_bytes
+        / Decimal("1073741824")
+    )
+    storage_gib = {
+        "aws.dynamodb-on-demand-raw": str(derived["hot_payload_gib"]),
+        "aws.dynamodb-on-demand-hourly-rollup": decimal_text(rollup_storage_gib),
+        "azure.cosmos-db-nosql-raw-and-rollup": decimal_text(
+            Decimal(str(derived["hot_payload_gib"])) + rollup_storage_gib
+        ),
+        "gcp.firestore-native-standard-raw-and-rollup": decimal_text(
+            Decimal(str(derived["hot_payload_gib"])) + rollup_storage_gib
+        ),
+        "gcp.firestore-native-standard-bounded-twin": decimal_text(twin_storage_gib),
+        "gcp.persistent-disk-rwo": str(fixed["gcp_grafana_persistent_disk_gib"]),
+    }.get(
+        component_id,
+        {
             "component.hot-storage": str(derived["hot_payload_gib"]),
             "component.cool-storage": str(derived["cool_payload_gib"]),
             "component.archive-storage": str(derived["archive_payload_gib"]),
-        }.get(logical, "0")
+        }.get(logical, "0"),
     )
-    event_bytes = event_attempts * int(event["average_event_payload_bytes"])
     units: dict[str, str] = {
         "resource_count": "count",
         "stored_gib_month": "GiB-month",
@@ -2084,10 +2204,21 @@ def dimension_value(
         return int(derived[task_count_key]), units[dimension_id]
     values: dict[str, str | int] = {
         "stored_gib_month": storage_gib,
-        "read_requests": dashboard_requests
-        + int(derived["l4_inspection_reads_per_month"]),
-        "write_requests": messages * 2,
-        "request_units": messages * 2 + dashboard_requests + twin_operations,
+        "read_requests": (
+            messages + dashboard_point_reads
+            if component_id == "aws.dynamodb-on-demand-hourly-rollup"
+            else 0
+        ),
+        "write_requests": (
+            messages * 2
+            if component_id
+            in {
+                "aws.dynamodb-on-demand-raw",
+                "aws.dynamodb-on-demand-hourly-rollup",
+            }
+            else 0
+        ),
+        "request_units": messages * 21 + dashboard_point_reads,
         "capacity_mode": (
             "autoscale"
             if size == "large" and "cosmos" in component_id
@@ -2095,14 +2226,45 @@ def dimension_value(
             if "cosmos" in component_id
             else "not_applicable"
         ),
-        # A real Large value depends on the supervised request-charge fixture.
-        # Zero is an explicit unresolved sentinel and is never deployment-ready.
-        "autoscale_max_ru_per_second": 0,
-        "document_reads": dashboard_requests
-        + int(derived["l4_inspection_reads_per_month"]),
-        "document_writes": messages * 2 + twin_operations,
-        "document_deletes": messages,
-        "timestamp_shards": int(derived["firestore_timestamp_shards"]),
+        # Offline comparison uses the storage/operation-driven provisionable
+        # maximum. It is not a measured request-charge capacity proof and the
+        # corresponding live gates remain mandatory before deployment.
+        "autoscale_max_ru_per_second": (
+            azure_cosmos_autoscale_floor(
+                derived["hot_payload_gib"],
+                peak_messages_per_second=Decimal(
+                    str(core["average_telemetry_per_second"])
+                ),
+                rollup_writes_per_second=Decimal(
+                    str(core["average_telemetry_per_second"])
+                ),
+                dashboard_queries_per_second=Decimal(
+                    str(derived["aggregate_dashboard_query_rate_per_second"])
+                ),
+            )
+            if size == "large" and "cosmos" in component_id
+            else 0
+        ),
+        "document_reads": (
+            int(derived["l4_inspection_reads_per_month"])
+            if component_id == "gcp.firestore-native-standard-bounded-twin"
+            else messages + dashboard_point_reads
+        ),
+        "document_writes": (
+            twin_operations
+            if component_id == "gcp.firestore-native-standard-bounded-twin"
+            else messages * 2
+        ),
+        "document_deletes": (
+            0
+            if component_id == "gcp.firestore-native-standard-bounded-twin"
+            else messages + rollup_document_count
+        ),
+        "timestamp_shards": (
+            1
+            if component_id == "gcp.firestore-native-standard-bounded-twin"
+            else int(derived["firestore_timestamp_shards"])
+        ),
         "requests": request_count,
         "gib_seconds": str(Decimal(request_count) * Decimal("0.125")),
         "execution_seconds": request_count,
@@ -2143,9 +2305,17 @@ def dimension_value(
             Decimal(messages + event_attempts) * Decimal("256") / Decimal(1073741824)
         ),
         "rule_hours": 730,
-        "processed_bytes": int(derived["monthly_raw_payload_bytes"]),
+        "processed_bytes": (
+            dashboard_requests
+            * int(fixed["reader_maximum_points"])
+            * decimal_ceil(Decimal(str(derived["canonical_payload_bytes"])))
+            if component_id == "gcp.grafana-tls-load-balancer"
+            else int(derived["monthly_raw_payload_bytes"])
+        ),
         "connected_devices": int(core["device_count"]),
-        "messages": messages,
+        "messages": (
+            command_executions if component_id == "aws.iot-commands" else messages
+        ),
         "twin_entities": int(core["twin_entity_count"]),
         "twin_operations": twin_operations,
         "scheduled_invocations": 8640,
@@ -2277,7 +2447,7 @@ def build_rds(
         },
         "readiness": {
             "status": "offline_contract_fixture",
-            "blocking_gate_ids": blocking_gate_ids(size, providers),
+            "blocking_gate_ids": blocking_gate_ids(size, providers, assignment),
         },
         "currency": "USD",
         "fixed_dimensions": read_json(SERVICE_WORKLOAD)["fixed_dimensions"],
@@ -2348,6 +2518,10 @@ def validate_rds(
     selected_providers = sorted(
         {item["provider"] for item in specification["component_selections"]}
     )
+    assignment = {
+        item["logical_component_id"]: item["provider"]
+        for item in specification["component_selections"]
+    }
     if context["pricing_evidence_refs"] != [
         {"provider": provider, "digest": file_digest(SERVICE_SOURCES)}
         for provider in selected_providers
@@ -2358,7 +2532,7 @@ def validate_rds(
         )
     if readiness["status"] == "offline_contract_fixture":
         if readiness["blocking_gate_ids"] != blocking_gate_ids(
-            size, selected_providers
+            size, selected_providers, assignment
         ):
             fail(
                 "RDS_V2_READINESS_INVALID",
@@ -2460,16 +2634,22 @@ def validate_rds(
                 expected_without_value = dict(expected)
                 actual_without_value = dict(actual)
                 expected_without_value.pop("value")
+                expected_evidence = expected_without_value.pop("evidence_reference")
                 actual_value = actual_without_value.pop("value")
+                actual_evidence = actual_without_value.pop("evidence_reference")
                 if (
                     not isinstance(actual_value, int)
                     or isinstance(actual_value, bool)
                     or actual_value <= 0
+                    or not isinstance(actual_evidence, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", actual_evidence) is None
+                    or actual_evidence == expected_evidence
                     or actual_without_value != expected_without_value
                 ):
                     fail(
                         "RDS_V2_CAPACITY_UNRESOLVED",
-                        "Deployment-ready Cosmos autoscale requires measured positive RU/s",
+                        "Deployment-ready Cosmos autoscale requires measured "
+                        "positive RU/s and distinct pinned evidence",
                     )
             elif actual != expected:
                 fail(
@@ -3027,7 +3207,7 @@ def generate() -> None:
 
     manifest = {
         "manifest_version": "five-layer-v2-architecture-definitions.v1",
-        "activation_status": "draft",
+        "activation_status": "active",
         "profile_ref": {
             "id": profile["profile_id"],
             "version": profile["profile_version"],
@@ -3081,10 +3261,10 @@ def generate() -> None:
         "`offline_contract_fixture`, cover representative Single-, Two-, and "
         "Three-Cloud shapes, and list every blocking activation/live-capacity gate. "
         "The exhaustive placement/size matrix remains generated test evidence rather "
-        "than duplicated fixture data. Azure Large autoscale RU/s remains the "
-        "explicit value `0` until the "
-        "required supervised request-charge fixture supplies a measured positive "
-        "value. Generated; do not edit by hand.\n",
+        "than duplicated fixture data. Azure Large offline evaluation uses the "
+        "storage/operation-driven autoscale maximum as an explicit cost proxy; "
+        "deployment still requires the supervised request-charge and autoscale "
+        "capacity evidence gates. Generated; do not edit by hand.\n",
         encoding="utf-8",
     )
 
@@ -3159,9 +3339,7 @@ def validate_source() -> None:
 
     schema = read_json(RDS_V2 / "schema.json")
     Draft202012Validator.check_schema(schema)
-    component_registry = read_json(
-        RDS_V2 / "component-capacity-registry.json"
-    )
+    component_registry = read_json(RDS_V2 / "component-capacity-registry.json")
     if component_registry != component_capacity_registry():
         raise RuntimeError("RDS v2 component capacity registry drifted")
     supplied_registry_digest = component_registry["content_digest"]
@@ -3202,7 +3380,7 @@ def validate_source() -> None:
         raise RuntimeError("Five-layer v2 definition manifest digest drifted")
     expected_manifest = {
         "manifest_version": "five-layer-v2-architecture-definitions.v1",
-        "activation_status": "draft",
+        "activation_status": "active",
         "profile_ref": {
             "id": profile["profile_id"],
             "version": profile["profile_version"],
@@ -3240,8 +3418,13 @@ def validate_source() -> None:
         raise RuntimeError("Five-layer v2 definition manifest content drifted")
 
 
-def copy_tree(source: Path, targets: tuple[Path, ...]) -> None:
-    marker = tree_digest(source)
+def copy_tree(
+    source: Path,
+    targets: tuple[Path, ...],
+    *,
+    marker: str | None = None,
+) -> None:
+    marker = marker or tree_digest(source)
     for target in targets:
         if target.exists():
             shutil.rmtree(target)
@@ -3256,9 +3439,22 @@ def copy_tree(source: Path, targets: tuple[Path, ...]) -> None:
 def synchronize() -> None:
     copy_tree(ARCH_ROOT, ARCH_TARGETS)
     copy_tree(RDS_ROOT, RDS_TARGETS)
+    copy_tree(
+        DEPLOYMENT_MANIFEST_ROOT,
+        DEPLOYMENT_MANIFEST_TARGETS,
+        marker=deployment_manifest_tree_digest(DEPLOYMENT_MANIFEST_ROOT),
+    )
+    FLUTTER_DEMO_ROOT.mkdir(parents=True, exist_ok=True)
+    for target_name, source in FLUTTER_DEMO_CONTRACTS.items():
+        shutil.copy2(source, FLUTTER_DEMO_ROOT / target_name)
 
 
-def check_tree(source: Path, targets: tuple[Path, ...]) -> None:
+def check_tree(
+    source: Path,
+    targets: tuple[Path, ...],
+    *,
+    marker: str | None = None,
+) -> None:
     expected = {
         path.relative_to(source): path.read_bytes()
         for path in source.rglob("*")
@@ -3266,7 +3462,7 @@ def check_tree(source: Path, targets: tuple[Path, ...]) -> None:
         and path.name != ".contract-sha256"
         and "__pycache__" not in path.parts
     }
-    marker = tree_digest(source)
+    marker = marker or tree_digest(source)
     for target in targets:
         actual = {
             path.relative_to(target): path.read_bytes()
@@ -3286,6 +3482,15 @@ def check() -> None:
     validate_source()
     check_tree(ARCH_ROOT, ARCH_TARGETS)
     check_tree(RDS_ROOT, RDS_TARGETS)
+    check_tree(
+        DEPLOYMENT_MANIFEST_ROOT,
+        DEPLOYMENT_MANIFEST_TARGETS,
+        marker=deployment_manifest_tree_digest(DEPLOYMENT_MANIFEST_ROOT),
+    )
+    for target_name, source in FLUTTER_DEMO_CONTRACTS.items():
+        target = FLUTTER_DEMO_ROOT / target_name
+        if not target.is_file() or target.read_bytes() != source.read_bytes():
+            raise RuntimeError(f"Generated Flutter demo contract drifted: {target}")
 
 
 def main() -> int:
@@ -3309,7 +3514,8 @@ def main() -> int:
         return 1
     print(
         "five-layer-v2-contracts: OK "
-        f"(architecture={tree_digest(ARCH_ROOT)}, rds={tree_digest(RDS_ROOT)})"
+        f"(architecture={tree_digest(ARCH_ROOT)}, rds={tree_digest(RDS_ROOT)}, "
+        f"deployment-manifest={tree_digest(DEPLOYMENT_MANIFEST_ROOT)})"
     )
     return 0
 

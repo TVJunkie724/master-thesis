@@ -5,10 +5,10 @@
   "architecture_profile_ref": {
     "id": "five-layer-baseline",
     "version": "2",
-    "digest": "sha256:36a68644e66be0b7242d692b9a75fd8d99173a28b00b00fa110023693dc5e854"
+    "digest": "sha256:8ebe9f14978f632c04a25837af1a4b9e4ee4da863f4a972189fb75cd174cac5c"
   },
   "provider": "aws",
-  "lifecycle_status": "draft",
+  "lifecycle_status": "active",
   "region_policy_ref": {
     "id": "region-policy.aws.five-layer-v2",
     "version": "1"
@@ -474,5 +474,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:767c5b5eda4140679e1fdf0536d6ea151bd572af7811f69049d69713c58e09bf"
+  "content_digest": "sha256:fcb58ade545a7b1fde7d4d454a722d62efe58022c92a24c2f9b6672bb88a7cf1"
 }

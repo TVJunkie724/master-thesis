@@ -19,17 +19,20 @@ from src.models.user_function_extension import (
     TwinExtensionBinding,
     UserFunctionArtifact,
 )
+from src.schemas.architecture_profile import PinnedArchitectureReference
 from src.services.architecture_errors import ArchitectureDomainError
 from src.services.architecture_contract_service import calculate_digest
 from src.services.architecture_profile_service import ArchitectureProfileService
+from src.services.architecture_profile_service import (
+    RUNTIME_SELECTABLE_PROFILE_REFS,
+)
 
 
 @pytest.fixture(autouse=True)
 def _activate_profiles_used_by_transaction_tests(monkeypatch):
-    """Keep mutation tests focused while production activation stays empty."""
+    """Add historical synthetic profiles used only by mutation tests."""
     monkeypatch.setattr(
-        "src.services.architecture_profile_service."
-        "RUNTIME_SELECTABLE_PROFILE_REFS",
+        "src.services.architecture_profile_service.RUNTIME_SELECTABLE_PROFILE_REFS",
         frozenset(
             {
                 ("five-layer-baseline", "1"),
@@ -59,10 +62,20 @@ def _twin_with_selection(db_session):
     )
     db_session.add(twin)
     db_session.flush()
+    historical = ArchitectureProfileService.get_definition(
+        "five-layer-baseline",
+        "1",
+        require_active=False,
+    )
     db_session.add(
         ArchitectureProfileService.build_default_selection(
             twin_id=twin.id,
             user_id=user.id,
+            reference=PinnedArchitectureReference(
+                id=historical["profile_id"],
+                version=historical["profile_version"],
+                digest=historical["content_digest"],
+            ),
         )
     )
     db_session.commit()
@@ -73,8 +86,7 @@ def test_catalog_excludes_historical_profile_until_runtime_activation(
     monkeypatch,
 ):
     monkeypatch.setattr(
-        "src.services.architecture_profile_service."
-        "RUNTIME_SELECTABLE_PROFILE_REFS",
+        "src.services.architecture_profile_service.RUNTIME_SELECTABLE_PROFILE_REFS",
         frozenset(),
     )
     service = ArchitectureProfileService()
@@ -87,23 +99,47 @@ def test_catalog_excludes_historical_profile_until_runtime_activation(
     assert historical.value.code == "ARCH_PROFILE_NOT_ACTIVE"
 
 
-def test_runtime_activated_catalog_returns_safe_detail():
+def test_runtime_activated_catalog_returns_safe_detail(monkeypatch):
+    assert RUNTIME_SELECTABLE_PROFILE_REFS == frozenset({("five-layer-baseline", "2")})
+    monkeypatch.setattr(
+        "src.services.architecture_profile_service.RUNTIME_SELECTABLE_PROFILE_REFS",
+        RUNTIME_SELECTABLE_PROFILE_REFS,
+    )
     service = ArchitectureProfileService()
 
     profiles = service.list_profiles()
-    detail = service.get_profile("five-layer-baseline", "1")
+    detail = service.get_profile("five-layer-baseline", "2")
 
     assert [(item.profile_id, item.profile_version) for item in profiles] == [
-        ("five-layer-baseline", "1")
+        ("five-layer-baseline", "2")
     ]
     assert detail.lifecycle_status == "active"
     assert len(detail.responsibilities) == 5
     assert len(detail.logical_components) == 7
-    assert len(detail.logical_edges) == 6
+    assert len(detail.logical_edges) == 8
     assert len(detail.visualization.nodes) == 7
     serialized = detail.model_dump_json()
     assert "terraform_binding" not in serialized
     assert "package_artifact" not in serialized
+
+
+def test_new_default_selection_pins_five_layer_v2():
+    selection = ArchitectureProfileService.build_default_selection(
+        twin_id="new-twin",
+        user_id="owner",
+    )
+
+    assert selection.profile_id == "five-layer-baseline"
+    assert selection.profile_version == "2"
+    assert (
+        selection.profile_digest
+        == (
+            ArchitectureProfileService.get_definition(
+                "five-layer-baseline",
+                "2",
+            )["content_digest"]
+        )
+    )
 
 
 def test_invalid_profile_identity_is_rejected_before_repository_access():
@@ -113,10 +149,7 @@ def test_invalid_profile_identity_is_rejected_before_repository_access():
         ArchitectureProfileService.get_definition("five-layer-baseline", "0")
 
     assert invalid_id.value.code == "ARCH_PROFILE_NOT_FOUND"
-    assert (
-        invalid_version.value.code
-        == "ARCH_PROFILE_VERSION_UNSUPPORTED"
-    )
+    assert invalid_version.value.code == "ARCH_PROFILE_VERSION_UNSUPPORTED"
 
 
 def test_unknown_and_inactive_profiles_fail_with_stable_codes(
@@ -135,13 +168,7 @@ def test_unknown_and_inactive_profiles_fail_with_stable_codes(
     inactive["lifecycle_status"] = "deprecated"
     inactive["content_digest"] = calculate_digest(inactive)
     root = tmp_path / "definitions"
-    path = (
-        root
-        / "profiles"
-        / "five-layer-baseline"
-        / "1"
-        / "profile.json"
-    )
+    path = root / "profiles" / "five-layer-baseline" / "1" / "profile.json"
     path.parent.mkdir(parents=True)
     path.write_text(json.dumps(inactive), encoding="utf-8")
     monkeypatch.setattr(
@@ -190,8 +217,7 @@ def test_active_profile_catalog_bound_fails_closed(
         root,
     )
     monkeypatch.setattr(
-        "src.services.architecture_profile_service."
-        "RUNTIME_SELECTABLE_PROFILE_REFS",
+        "src.services.architecture_profile_service.RUNTIME_SELECTABLE_PROFILE_REFS",
         frozenset(profiles),
     )
     monkeypatch.setattr(
@@ -408,9 +434,7 @@ def test_profile_change_invalidates_only_previewed_twin_state(
         encrypted_payload="encrypted",
         payload_fingerprint="fingerprint",
     )
-    db_session.add_all(
-        [config, artifact, binding, run, readiness, connection]
-    )
+    db_session.add_all([config, artifact, binding, run, readiness, connection])
     db_session.commit()
     readiness_id = readiness.id
 
@@ -482,16 +506,17 @@ def test_stale_revision_and_digest_do_not_mutate_selection(db_session):
             invalidation_digest="sha256:" + ("0" * 64),
         )
     assert stale_digest.value.code == "ARCH_SELECTION_INVALIDATION_STALE"
-    assert service.get_selection(
-        twin_id=twin.id,
-        user_id=user.id,
-    ).revision == 1
+    assert (
+        service.get_selection(
+            twin_id=twin.id,
+            user_id=user.id,
+        ).revision
+        == 1
+    )
 
 
 def test_malformed_workload_state_fails_closed_before_invalidation():
-    twin = SimpleNamespace(
-        optimizer_config=SimpleNamespace(params="{not-json")
-    )
+    twin = SimpleNamespace(optimizer_config=SimpleNamespace(params="{not-json"))
 
     with pytest.raises(ArchitectureDomainError) as rejected:
         ArchitectureProfileService._clear_workload_fields(
@@ -514,9 +539,7 @@ def test_unmapped_or_noncanonical_workload_state_fails_closed(
     params,
     field_id,
 ):
-    twin = SimpleNamespace(
-        optimizer_config=SimpleNamespace(params=params)
-    )
+    twin = SimpleNamespace(optimizer_config=SimpleNamespace(params=params))
 
     with pytest.raises(ArchitectureDomainError) as rejected:
         ArchitectureProfileService._clear_workload_fields(

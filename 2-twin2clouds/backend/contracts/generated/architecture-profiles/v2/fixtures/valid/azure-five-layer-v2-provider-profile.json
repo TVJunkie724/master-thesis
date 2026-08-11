@@ -5,10 +5,10 @@
   "architecture_profile_ref": {
     "id": "five-layer-baseline",
     "version": "2",
-    "digest": "sha256:36a68644e66be0b7242d692b9a75fd8d99173a28b00b00fa110023693dc5e854"
+    "digest": "sha256:8ebe9f14978f632c04a25837af1a4b9e4ee4da863f4a972189fb75cd174cac5c"
   },
   "provider": "azure",
-  "lifecycle_status": "draft",
+  "lifecycle_status": "active",
   "region_policy_ref": {
     "id": "region-policy.azure.five-layer-v2",
     "version": "1"
@@ -472,5 +472,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:cde60c0a87ef20db04e8a5ae5f2adedc012d8a6887de92801c9b8acc1fcc2df8"
+  "content_digest": "sha256:9d2dc83f7ae5a1574516cae7f8cbc03c4caf2774cdef6eec36f2cb1e0ce656e0"
 }

@@ -13,7 +13,7 @@ sequenceDiagram
     Client->>API: Deploy configured twin
     API->>DB: Load selected immutable run, architecture, and specification
     API->>API: Revalidate cross-links and frozen run parameters
-    API->>API: Build Manifest v3 and canonical archive
+    API->>API: Build profile-matched Manifest v3/v4 and canonical archive
     API->>Deployer: Stage archive
     Deployer->>Deployer: Compile and validate resolved deployment graph
     Deployer->>Deployer: Store bytes and issue one-use token
@@ -44,7 +44,7 @@ flowchart TD
 
     subgraph Packaging["Immutable package lineage"]
         direction LR
-        Manifest["Manifest 3.0"] --> Archive["Canonical archive"] --> Package["One-use package"]
+        Manifest["Profile-matched Manifest 3.0/4.0"] --> Archive["Canonical archive"] --> Package["One-use package"]
     end
 
     subgraph Execution["Isolated execution"]
@@ -107,8 +107,9 @@ calculation run recorded by that evidence and reject architecture, specification
 catalog, graph, or package-selection drift with
 `DEPLOYMENT_GRAPH_RESUME_MISMATCH`.
 
-Manifest v2 is historical read compatibility only. New deploy, redeploy, and
-destroy package staging requires Manifest v3; invalid v3 data never falls back.
+Manifest v2 is historical read compatibility only. Five-layer v1 operation
+evidence uses Manifest v3; Five-layer v2 operation evidence uses Manifest v4.
+Invalid data never falls back across versions.
 
 The Management API persists lifecycle state and normalized operation records.
 Deployer logs cross the boundary as structured events and are redacted before public

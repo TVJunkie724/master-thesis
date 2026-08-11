@@ -49,6 +49,33 @@ flowchart TD
 The emergency fallback path is diagnostic. It is not a publishable pricing source and
 must not silently enter cost calculation.
 
+### Five-layer v2 offline publication
+
+The active Five-layer v2 evaluation path consumes three immutable,
+content-addressed provider snapshots published from
+`five_layer_v2_rate_card_sources.v2.json`. The publisher validates exact
+provider/region/source/rate keys, official source hosts, observation time,
+non-negative rates, and one shared pinned USD-to-EUR conversion before it
+updates the canonical baseline. It also archives the predecessor baseline so
+historical calculations keep a resolvable evidence chain.
+
+These cards intentionally cover only the frozen Small, Medium, and Large thesis
+workloads. Azure IoT Hub therefore uses exact prices for those three message
+volumes instead of a linearized tier approximation. Azure Large Cosmos DB uses
+the rounded 108,000-RU/s maximum of the storage floor and documented operation
+estimates for offline cost comparison; this is not measured request-charge
+evidence. The RDS keeps
+the Cosmos request-charge and autoscale-capacity gates, and Management rejects
+deployment selection until supervised evidence satisfies them.
+
+Rollup storage and rollup operations are different quantities. Storage holds
+at most one rollup item per device, metric, and hour (720 points across the
+30-day hot window). Every accepted telemetry record still performs one raw
+create, one rollup read, and one rollup update in the documented native
+transaction. The offline ledger therefore bills operation counts per accepted
+record and uses the bounded device-by-hour count only for stored rollup items
+and their eventual deletion.
+
 ## Calculation And Path Selection
 
 ```mermaid
@@ -76,8 +103,8 @@ flowchart TD
     subgraph Outputs["Validated outputs"]
         direction LR
         Result["cost-result.v1<br/>and traces"]
-        Specification["Resolved deployment<br/>specification v1"]
-        Architecture["Resolved Twin architecture v1<br/>(dark in Phase 8.5; activated in Phase 8.6)"]
+        Specification["Resolved deployment<br/>specification v1 or v2"]
+        Architecture["Resolved Twin architecture<br/>v1 or native v2"]
         Management["Management validation<br/>and atomic persistence"]
         Flutter["Read-only Flutter review"]
     end
@@ -89,10 +116,10 @@ flowchart TD
     ProviderContracts --> Calculators
     Scoring --> Result
     Scoring --> Specification
-    Scoring -->|"profile resolver when dark gate is enabled"| Architecture
+    Scoring -->|"active profile resolver"| Architecture
     Result --> Management
     Specification --> Management --> Flutter
-    Architecture -->|"default-off Phase 8.5 admission"| Management
+    Architecture -->|"default-on; explicit false rollback"| Management
 ```
 
 Provider-native billing quantities are not forced into one raw input unit. Contracts
@@ -149,11 +176,11 @@ items, exact catalog references, paths, traces, and resolved deployment
 specifications. It also owns the selected architecture-profile reference and
 immutable resolved-architecture persistence. Phase 8.5 implements architecture
 emission, trusted Management enrichment, shared-contract validation, and
-atomic result/specification/architecture persistence behind a default-off
-gate. The public Management calculation schema cannot author the profile or
-extension references. Repository AWS/Azure provider profiles remain
-unsupported until the Phase 8.6 graph compiler passes; Phase 8.6 promotes the
-profiles and activates calculation plus deployment together. Flutter cannot
+atomic result/specification/architecture persistence. The active
+`five-layer-baseline@2` path is default-on; explicit `false` is a fail-closed
+rollback. The public Management calculation schema cannot author the profile
+or extension references. Offline v2 evidence remains unselectable for
+deployment while any supervised live-capacity gate is listed. Flutter cannot
 author or overwrite these artifacts.
 
 See [Optimizer](../components/optimizer.md) and

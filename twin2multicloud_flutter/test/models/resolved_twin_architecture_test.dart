@@ -100,6 +100,33 @@ void main() {
     expect(resolved.architecture.resolvedEdges, hasLength(8));
   });
 
+  test('parses canonical multi-provider v2 evaluation evidence', () {
+    for (final fixture in const [
+      'two-cloud-azure-l3l5-gcp-l4-medium-resolved.json',
+      'three-cloud-mixed-large-resolved.json',
+    ]) {
+      final decoded = Map<String, dynamic>.from(
+        jsonDecode(
+              File(
+                '../contracts/architecture-profiles/v2/fixtures/valid/$fixture',
+              ).readAsStringSync(),
+            )
+            as Map,
+      );
+      final resolved = ResolvedTwinArchitectureRead.fromJson({
+        'twin_id': 'twin-v2-multi',
+        'calculation_run_id': decoded['calculation_run_id'],
+        'selected_for_deployment_at': null,
+        'architecture_compatibility_status': 'ready',
+        'origin': 'native_v2',
+        'architecture': decoded,
+      });
+
+      expect(resolved.architecture.providers.length, greaterThan(1));
+      expect(resolved.architecture.pricingEvidenceDigests, isNotEmpty);
+    }
+  });
+
   test('v2 fails closed on digest tamper and origin mismatch', () {
     final digestTamper = v2ReadJson();
     (digestTamper['architecture'] as Map)['content_digest'] =
@@ -112,6 +139,36 @@ void main() {
     final originMismatch = v2ReadJson()..['origin'] = 'native_v1';
     expect(
       () => ResolvedTwinArchitectureRead.fromJson(originMismatch),
+      throwsFormatException,
+    );
+  });
+
+  test('v2 rejects re-digested cost summaries that differ from evidence', () {
+    final componentMismatch = v2ReadJson();
+    final componentArchitecture =
+        componentMismatch['architecture'] as Map<String, dynamic>;
+    final componentSummary =
+        componentArchitecture['cost_summary'] as Map<String, dynamic>;
+    final componentTotals = componentSummary['component_totals'] as List;
+    (componentTotals.first as Map<String, dynamic>)['monthly_amount'] = '1';
+    componentSummary['monthly_total'] = '1';
+    componentArchitecture['content_digest'] =
+        ResolvedTwinArchitecture.calculateDigest(componentArchitecture);
+    expect(
+      () => ResolvedTwinArchitectureRead.fromJson(componentMismatch),
+      throwsFormatException,
+    );
+
+    final totalMismatch = v2ReadJson();
+    final totalArchitecture =
+        totalMismatch['architecture'] as Map<String, dynamic>;
+    (totalArchitecture['cost_summary']
+            as Map<String, dynamic>)['monthly_total'] =
+        '1';
+    totalArchitecture['content_digest'] =
+        ResolvedTwinArchitecture.calculateDigest(totalArchitecture);
+    expect(
+      () => ResolvedTwinArchitectureRead.fromJson(totalMismatch),
       throwsFormatException,
     );
   });

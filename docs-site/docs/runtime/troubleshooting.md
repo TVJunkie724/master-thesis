@@ -78,13 +78,14 @@ has an active operation; use status/history rather than starting another.
 
 ## Manifest Or Deployment Graph Preflight Fails
 
-New operations require DeploymentManifest v3. Do not downgrade the archive to v2 or
-copy values from `cheapest_l*` fields. Use the stable code to locate the owning
-contract:
+Operation packages require the manifest version owned by their frozen profile:
+v3 for historical Five-layer v1 evidence and v4 for active Five-layer v2.
+Do not downgrade the archive or copy values from `cheapest_l*` fields. Use the
+stable code to locate the owning contract:
 
 | Code family | Check |
 |---|---|
-| `DEPLOYMENT_MANIFEST_*` | v3 schema/version, bounded inventory, secret-free manifest |
+| `DEPLOYMENT_MANIFEST_*` | profile-matched v3/v4 schema, bounded inventory, secret-free manifest |
 | `DEPLOYMENT_ARCHITECTURE_*` | selected run, architecture/specification cross-links and digests |
 | `DEPLOYMENT_PROFILE_CATALOG_MISMATCH` | exact generated profile/catalog copies and digests |
 | `DEPLOYMENT_GRAPH_NODE_*`, `EDGE_*`, `BINDING_*`, `CYCLE_*` | registered component, edge, port, trust, and binding ownership |

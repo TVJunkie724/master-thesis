@@ -77,6 +77,7 @@ def optimize_five_layer_v2(
     resolution_status: str = "offline_contract_fixture",
     satisfied_live_gate_ids: frozenset[str] = frozenset(),
     azure_large_autoscale_ru_per_second: int | None = None,
+    azure_large_autoscale_evidence_digest: str | None = None,
     registry: ArchitectureProfileRegistry | None = None,
 ) -> FiveLayerV2OptimizationResult:
     """Resolve, cost, rank, and materialize one v2 architecture."""
@@ -88,9 +89,7 @@ def optimize_five_layer_v2(
             "Supply exactly one live catalog or explicit test-ledger resolver",
         )
     ledger_resolver = cost_ledger_resolver or (
-        build_five_layer_v2_catalog_cost_ledger_resolver(
-            pricing_by_provider or {}
-        )
+        build_five_layer_v2_catalog_cost_ledger_resolver(pricing_by_provider or {})
     )
 
     if (
@@ -141,8 +140,7 @@ def optimize_five_layer_v2(
             }
             used_providers = set(assignment.values())
             selected_pricing_refs = {
-                provider: pricing_evidence_refs[provider]
-                for provider in used_providers
+                provider: pricing_evidence_refs[provider] for provider in used_providers
             }
             specification = build_five_layer_v2_deployment_specification(
                 calculation_run_id=calculation_run_id,
@@ -184,6 +182,9 @@ def optimize_five_layer_v2(
                 azure_large_autoscale_ru_per_second=(
                     azure_large_autoscale_ru_per_second
                 ),
+                azure_large_autoscale_evidence_digest=(
+                    azure_large_autoscale_evidence_digest
+                ),
             )
             ledger = ledger_resolver(
                 specification,
@@ -198,9 +199,7 @@ def optimize_five_layer_v2(
             )
             costed = FiveLayerV2CostedCandidate(
                 candidate_id=candidate.candidate_id,
-                canonical_assignment_key=tuple(
-                    sorted(assignment.items())
-                ),
+                canonical_assignment_key=tuple(sorted(assignment.items())),
                 evaluation=evaluation,
             )
         except (ArchitectureResolutionError, KeyError) as exc:
@@ -215,9 +214,15 @@ def optimize_five_layer_v2(
         specifications[candidate.candidate_id] = specification
         cost_ledgers[candidate.candidate_id] = dict(ledger)
         costed_candidates.append(costed)
-    winner = select_lowest_cost_five_layer_v2_candidate(
-        tuple(costed_candidates)
-    )
+    if not costed_candidates:
+        raise ArchitectureResolutionError(
+            "ARCH_NO_ADMISSIBLE_CANDIDATE",
+            "candidates",
+            "No fully costed Five-layer v2 candidate is available",
+            enumerated_candidate_count=len(candidates),
+            diagnostics=rejections.freeze(),
+        )
+    winner = select_lowest_cost_five_layer_v2_candidate(tuple(costed_candidates))
     complete_winner = complete_candidates[winner.candidate_id]
     specification = specifications[winner.candidate_id]
     used_providers = {
@@ -229,8 +234,7 @@ def optimize_five_layer_v2(
             costed_candidate=winner,
             deployment_specification=specification,
             pricing_evidence_refs={
-                provider: pricing_evidence_refs[provider]
-                for provider in used_providers
+                provider: pricing_evidence_refs[provider] for provider in used_providers
             },
         ),
         context,

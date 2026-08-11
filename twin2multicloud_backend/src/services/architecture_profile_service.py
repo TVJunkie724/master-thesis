@@ -53,15 +53,15 @@ DEFINITIONS_ROOT = (
     / "definitions"
 )
 DEFAULT_PROFILE_ID = "five-layer-baseline"
-DEFAULT_PROFILE_VERSION = "1"
-# Runtime activation is deliberately independent from the immutable contract
-# lifecycle field.  The historical @1 definition remains byte-stable while no
-# new profile is selectable until Phase 8.9A publishes @2 atomically.
-RUNTIME_SELECTABLE_PROFILE_REFS: frozenset[tuple[str, str]] = frozenset()
-MAX_ACTIVE_PROFILE_VERSIONS = 32
-PROFILE_ID_PATTERN = re.compile(
-    r"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+DEFAULT_PROFILE_VERSION = "2"
+# Runtime activation is deliberately independent from historical definitions:
+# @1 remains byte-stable/readable while only the reviewed @2 target can be
+# selected for a new calculation.
+RUNTIME_SELECTABLE_PROFILE_REFS: frozenset[tuple[str, str]] = frozenset(
+    {("five-layer-baseline", "2")}
 )
+MAX_ACTIVE_PROFILE_VERSIONS = 32
+PROFILE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$")
 PROFILE_VERSION_PATTERN = re.compile(r"^[1-9][0-9]*$")
 MUTATION_BLOCKED_STATES = {
     TwinState.DEPLOYED,
@@ -103,12 +103,7 @@ def _provider_documents(
     profile_id: str,
     profile_version: str,
 ) -> tuple[dict[str, Any], ...]:
-    root = (
-        DEFINITIONS_ROOT
-        / "provider-implementations"
-        / profile_id
-        / profile_version
-    )
+    root = DEFINITIONS_ROOT / "provider-implementations" / profile_id / profile_version
     documents: list[dict[str, Any]] = []
     if root.exists():
         for path in sorted(root.glob("*/*.json")):
@@ -180,10 +175,10 @@ class ArchitectureProfileService:
 
     @staticmethod
     def default_reference() -> PinnedArchitectureReference:
-        """Return the pinned historical migration/default reference.
+        """Return the pinned default reference for newly created Twins.
 
-        This is not proof that the profile is runtime-selectable. New-profile
-        mutations must pass ``get_selectable_definition`` instead.
+        This is not by itself proof that the profile is runtime-selectable;
+        mutations still pass ``get_selectable_definition``.
         """
         profile = ArchitectureProfileService.get_definition(
             DEFAULT_PROFILE_ID,
@@ -247,10 +242,13 @@ class ArchitectureProfileService:
         nodes = [
             ArchitectureVisualizationNode(
                 id=component["component_id"],
-                label=component["component_id"].removeprefix("component.").replace(
+                label=component["component_id"]
+                .removeprefix("component.")
+                .replace(
                     "-",
                     " ",
-                ).title(),
+                )
+                .title(),
                 responsibility_id=component["responsibility_id"],
             )
             for component in profile["components"]
@@ -385,9 +383,7 @@ class ArchitectureProfileService:
             self._audit(selection, action="profile.select", outcome="idempotent")
             self.db.commit()
             return ArchitectureProfileSelectionResult(
-                selection=TwinArchitectureSelectionResponse.model_validate(
-                    selection
-                ),
+                selection=TwinArchitectureSelectionResponse.model_validate(selection),
                 revision=selection.revision,
                 invalidated_calculation_run_id=None,
                 unbound_extension_slot_ids=[],
@@ -468,8 +464,7 @@ class ArchitectureProfileService:
                 profile_id=document["implementation_profile_id"],
                 profile_version=document["implementation_profile_version"],
                 reason_codes=[
-                    reason["reason_code"]
-                    for reason in document["unsupported_reasons"]
+                    reason["reason_code"] for reason in document["unsupported_reasons"]
                 ],
             )
             for document in _provider_documents(
@@ -509,12 +504,8 @@ class ArchitectureProfileService:
             workload_contract_ref=PinnedArchitectureReference(
                 **profile["workload_contract_ref"]
             ),
-            available_providers=[
-                item for item in providers if item.supported
-            ],
-            unsupported_providers=[
-                item for item in providers if not item.supported
-            ],
+            available_providers=[item for item in providers if item.supported],
+            unsupported_providers=[item for item in providers if not item.supported],
             extension_slots=[
                 ArchitectureExtensionSlotSummary(
                     slot_id=item["slot_id"],
@@ -575,9 +566,7 @@ class ArchitectureProfileService:
                     .replace("-", " ")
                     .title(),
                 )
-                for field_id in sorted(
-                    self._workload_fields(current) - target_fields
-                )
+                for field_id in sorted(self._workload_fields(current) - target_fields)
             ]
             target_slots = {
                 (item["slot_id"], item["slot_version"])
@@ -592,9 +581,7 @@ class ArchitectureProfileService:
                 )
                 .all()
             )
-            bindings = [
-                binding for binding in queried_bindings if binding.active
-            ]
+            bindings = [binding for binding in queried_bindings if binding.active]
             incompatible_bindings = [
                 IncompatibleExtensionBinding(
                     slot_id=binding.slot_id,
@@ -628,9 +615,7 @@ class ArchitectureProfileService:
             "current_revision": selection.revision,
             "target_profile_digest": target["content_digest"],
             "invalidation": {
-                "workload_field_ids": [
-                    item.field_id for item in incompatible_workload
-                ],
+                "workload_field_ids": [item.field_id for item in incompatible_workload],
                 "extension_bindings": [
                     item.model_dump() for item in incompatible_bindings
                 ],
@@ -638,9 +623,10 @@ class ArchitectureProfileService:
                 "deployment_readiness_sections": readiness_sections,
             },
         }
-        invalidation_digest = "sha256:" + hashlib.sha256(
-            canonical_json(digest_payload).encode("utf-8")
-        ).hexdigest()
+        invalidation_digest = (
+            "sha256:"
+            + hashlib.sha256(canonical_json(digest_payload).encode("utf-8")).hexdigest()
+        )
         return ArchitectureProfileChangePreviewResponse(
             current=PinnedArchitectureReference(
                 id=selection.profile_id,

@@ -15,7 +15,7 @@ Flutter-facing orchestration.
 | `src/core/` | context, paths, storage, registry, workspace, observability, secure files |
 | `src/providers/` | provider protocol and AWS/Azure/GCP implementations |
 | `src/providers/terraform/` | Terraform lifecycle, package builders, runtime outcomes |
-| `src/deployment_specification/` | Manifest v2 historical reader and strict Manifest v3 validation |
+| `src/deployment_specification/` | Manifest v2 historical reader and strict Manifest v3/v4 validation |
 | `src/architecture_profiles/` | deterministic nodes, edges, bindings, stages, and graph evidence |
 | `src/terraform_inputs/` | graph-based allowlisted Terraform input translation |
 | `src/configuration_validation/`, `src/validation/` | aggregate package/config validation |
@@ -28,10 +28,12 @@ Flutter-facing orchestration.
 
 ## Canonical Contract
 
-The Management API sends one validated ZIP containing `deployment_manifest.json`
-version `3.0`, the frozen `ResolvedTwinArchitecture v1`,
-`ResolvedDeploymentSpecification v1`, and the exact generated/project
-artifacts for an operation. The Deployer:
+The Management API sends one validated ZIP containing
+`deployment_manifest.json`, the frozen resolved architecture, the matching
+resolved deployment specification, and the exact generated/project artifacts
+for an operation. Historical Five-layer v1 packages use Manifest 3.0 with
+RTA v1/RDS v1; active Five-layer v2 packages use Manifest 4.0 with RTA v2/RDS
+v2. The Deployer:
 
 1. applies upload limits and safe archive policy;
 2. validates the archive inventory, both contract digests, run/profile/catalog
@@ -49,9 +51,10 @@ artifacts for an operation. The Deployer:
 10. records monotonic `package`, `preplan`, `terraform`, and `postapply`
     completion markers.
 
-Legacy layer-specific endpoints and the interactive CLI are historical, not canonical
-application interfaces. Manifest v2 remains a historical reader only. A new
-deploy/redeploy/destroy package requires v3, and invalid v3 never falls back.
+Legacy layer-specific endpoints and the interactive CLI are historical, not
+canonical application interfaces. Manifest v2 remains a historical reader
+only. A package must use the manifest version required by its frozen profile;
+invalid v3 or v4 data never falls back to another version.
 
 The component list contains the seven fixed baseline slots, followed by exactly
 two source-owned storage transition runtimes and then any required
@@ -176,10 +179,18 @@ Archive bucket, including same-provider GCP paths.
 
 Local movers and cross-cloud destination writers receive the selected storage
 class through environment variables. A remote source mover does not require a
-local destination bucket or class. GCP L4 and L5 remain unsupported and are
-rejected by both the resolved-specification contract and the Terraform guard.
+local destination bucket or class. The historical generic GCP L4/L5 path
+remains unsupported. An exact validated Five-layer v2 graph instead selects
+the separately registered Cloud Run Twin API/Explorer and Grafana-on-GKE
+packages; no profile-neutral capability exception is inferred.
 
-## Five-Layer Mapping
+## Five-Layer Mappings
+
+### Historical profile-neutral mapping
+
+This matrix describes the generic predecessor capability model retained for
+historical manifests. It is not the active `five-layer-baseline@2` selection
+catalog.
 
 | Layer | AWS | Azure | GCP |
 |---|---|---|---|
@@ -191,6 +202,19 @@ rejected by both the resolved-specification contract and the Terraform guard.
 
 Provider capability is not uniform. Unsupported or limited L4/L5 behavior must remain
 visible instead of being represented as equivalent deployment support.
+
+### Active Five-layer v2 mapping
+
+| Responsibility | AWS | Azure | GCP |
+|---|---|---|---|
+| L1 acquisition | IoT Core and IoT Commands | IoT Hub | BifroMQ on GKE, Load Balancer, MQTT-to-Pub/Sub adapter |
+| L2 processing | Lambda and Step Functions Standard | Functions Flex Consumption and Logic Apps Consumption | Cloud Run and Workflows |
+| L3 storage | DynamoDB plus S3 tiers | Cosmos DB plus Blob tiers | Firestore Native plus Cloud Storage tiers |
+| L4 Twin | IoT TwinMaker | Azure Digital Twins | Cloud Run Twin API/Explorer backed by Firestore |
+| L5 visualization | Managed Grafana and typed Lambda reader | Managed Grafana and typed Functions reader | Grafana OSS on GKE and typed Cloud Run reader |
+
+These rows are selected only through the exact v2 provider profiles and
+validated graph. They do not widen the historical generic capability matrix.
 
 `GET /capabilities/providers` publishes the provisioning-side matrix. Complete config
 validation and the Terraform package builder enforce that same registry, rejecting an
@@ -314,8 +338,8 @@ Coverage includes API contracts, archive attacks/limits, storage, operation toke
 workspace cleanup/sync, validation aggregation, Terraform lifecycles, providers,
 permission checks, logging/redaction, simulator sessions, status, and verification.
 
-The cross-stack no-apply gate additionally validates the full Manifest v3 →
-graph → extension/static package → tfvars chain, all 50 allowlisted
+The cross-stack no-apply gate additionally validates the full Manifest v3/v4 →
+graph → extension/static package → tfvars chain, all registered allowlisted
 Terraform targets, all 27 hot/cool/archive provider triples, Azure IoT Hub
 F1/S1/S2/S3 capacity propagation, source-owned storage movers, receiver-owned
 cross-cloud glue, and three native Terraform mock plans:

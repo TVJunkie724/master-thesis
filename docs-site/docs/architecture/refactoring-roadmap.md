@@ -34,7 +34,7 @@ when work becomes actionable, then reference the issue here.
 | Phase 5 | Backend Orchestrator Disentanglement | Done | Thin HTTP routes with repositories, services, clients, orchestrators, and a typed deployment lifecycle |
 | Phase 6 | Brain Contracts & Pricing Reliability | Active | Layer contracts complete; capability and expanded provider pricing coverage remain |
 | Phase 7 | Flutter Wizard & Twin Views | Done | Core architecture, configuration workspace, typed boundaries, demo, and all-desktop delivery gates completed |
-| Phase 8 | Twin Architecture Profiles & Eventing | Active | Current graph through default-off Optimizer resolution complete; Eventing decision approved offline; Deployer graph resolution is next |
+| Phase 8 | Twin Architecture Profiles & Eventing | Active | Five-layer v2 is active for offline selection/evaluation with live-gated deployment; the Six-layer delta is next after the activation freeze |
 | Later | Platform Extensions | Backlog | Non-blocking provider and operational extensions |
 
 ## Completed Refactorings
@@ -199,12 +199,12 @@ when work becomes actionable, then reference the issue here.
 | [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | Implemented locally, review complete | Migration 022, revisioned profile selection/invalidation, immutable canonical resolution plus component/edge projections, owner-scoped read APIs, audit evidence, and fixed-field transition inventory |
 | [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | Implemented locally, review complete | Default-off functional-completeness gate, profile-local ranking, immutable resolution, and Management admission boundary |
 | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Implemented locally, review complete | Dark Manifest v3 compiler with deterministic component/binding graph, package preflight, typed Terraform projection, and frozen operation evidence before side effects |
-| [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Implemented locally; review complete | Strict Management-API-only catalog/selection/resolution workflow, truthful empty/historical state, revisioned invalidation, responsive typed graph, and generic resolved review for Web and desktop |
+| [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Implemented locally; review complete | Strict Management-API-only catalog/selection/resolution workflow, active Five-layer v2 plus historical state, revisioned invalidation, responsive typed graph, and generic resolved review for Web and desktop |
 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | Approved offline decision | Source-backed six-bundle capability/pricing package, exact bridge, all single/pair/three-provider scenarios, S/M/L calculations, implementation blueprint, and two zero-finding reviews; live identity/capacity gates remain |
 | Complete-service closure / Five-layer v2 plan | Approved immutable offline decision | PoC-focused L1-L5 bundles with Cosmos DB and Firestore retained for Azure/GCP L3 hot, provider-local L3-hot/L5, independent L4, three local plus six split online placements, raw visualization, Twin projection, finite storage jobs, workload v2, and complete-service evidence. L4-to-L5/3D, ADX/BigQuery migration, Spanner Graph, default dedicated Grafana nodes, and storage-specific CDC/outbox pipelines are not selected |
 | Guided cloud bootstrap / [#154](https://github.com/TVJunkie724/master-thesis/issues/154) | Implemented offline; zero-finding review | Strict guides/sessions, request-only bootstrap authority, deterministic AWS/Azure/GCP lifecycle adapters, generated `thesis-demo-v2` deployment CloudConnections, Deployer admission, shared Settings/Prepare deployment UI, and secret-persistence scans. Production adapters remain disabled |
-| `five-layer-baseline@2` implementation | Next | Mandatory embedded domain events, three complete single-cloud targets, six `L3-hot == L5 != L4` targets, and admissible mixed L1/L2/cool/archive paths |
-| [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Deferred pending reviewed Five-layer v2 | Requires a new plan based on the committed Five-layer v2 L1-L5 contract; the old combined 8.9 draft is not executable authority |
+| `five-layer-baseline@2` implementation | Active offline; activation gate locally complete | Mandatory embedded domain events, three complete single-cloud targets, six `L3-hot == L5 != L4` targets, admissible mixed L1/L2/cool/archive paths, strict RTA/RDS v2 evidence, and deployment blocking for unresolved supervised live-capacity gates |
+| [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Next after Five-layer v2 freeze | Uses the committed Five-layer v2 L1-L5 contract as its immutable base; no Five-layer behavior is reimplemented in the Event Layer delta |
 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Deferred pending reviewed Six-layer implementation | RQ-mapped reproducibility package and complete current-system documentation |
 
 ### Later: Platform Extensions
@@ -229,10 +229,8 @@ when work becomes actionable, then reference the issue here.
 
 ## Next Recommended Sequence
 
-1. Implement and review `five-layer-baseline@2` from the approved immutable
-   complete-service decision, keeping the guided-bootstrap contract and
-   zero-finding [#138 Flutter profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138)
-   stable.
+1. Freeze and review the activated offline `five-layer-baseline@2` contract,
+   keeping every unresolved supervised live-capacity gate fail-closed.
 2. Continue the remaining Phase 6 service/tier and fetcher work in
    [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
    [#32](https://github.com/TVJunkie724/master-thesis/issues/32) as separate

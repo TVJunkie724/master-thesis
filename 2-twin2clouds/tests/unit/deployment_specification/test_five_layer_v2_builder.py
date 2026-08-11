@@ -86,6 +86,14 @@ def _build(case_id, *, status="offline_contract_fixture", gates=frozenset(), ru=
             for item in fixture["optimization_context"]["pricing_evidence_refs"]
         },
         resolution_status=status,
+        definition_lifecycle_statuses={
+            "profile": registry.profile["lifecycle_status"],
+            "catalog": registry.catalog["lifecycle_status"],
+            **{
+                f"provider:{provider}": registry.provider(provider)["lifecycle_status"]
+                for provider in set(assignment.values())
+            },
+        },
         satisfied_live_gate_ids=gates,
         azure_large_autoscale_ru_per_second=ru,
     )
@@ -155,9 +163,7 @@ def test_large_gcp_uses_sixteen_firestore_timestamp_shards():
 
 
 def test_large_azure_requires_measured_positive_autoscale_ru_before_ready():
-    assignment = {
-        logical: "azure" for logical in LOGICAL_COMPONENTS
-    }
+    assignment = {logical: "azure" for logical in LOGICAL_COMPONENTS}
     source_fixture = _read(
         RDS_ROOT / "fixtures" / "valid" / "three-cloud-mixed-large.json"
     )
@@ -179,20 +185,41 @@ def test_large_azure_requires_measured_positive_autoscale_ru_before_ready():
             "version": registry.catalog["catalog_version"],
             "digest": registry.catalog["content_digest"],
         },
-        "workload_contract_digest": registry.profile["workload_contract_ref"][
-            "digest"
-        ],
+        "workload_contract_digest": registry.profile["workload_contract_ref"]["digest"],
         "pricing_evidence_digests": {"azure": "sha256:" + ("a" * 64)},
     }
     offline = build_five_layer_v2_deployment_specification(**kwargs)
-    assert "gate.live-capacity.azure.cosmos-autoscale-ru" in offline[
-        "readiness"
-    ]["blocking_gate_ids"]
+    assert (
+        "gate.live-capacity.azure.cosmos-autoscale-ru"
+        in offline["readiness"]["blocking_gate_ids"]
+    )
+    offline_autoscale = next(
+        dimension
+        for selection in offline["component_selections"]
+        for dimension in selection["dimensions"]
+        if dimension["dimension_id"].endswith(".autoscale_max_ru_per_second")
+    )
+    assert offline_autoscale["value"] == 108000
 
     with pytest.raises(ArchitectureResolutionError) as raised:
         build_five_layer_v2_deployment_specification(
             **kwargs,
             resolution_status="deployment_ready",
+        )
+    assert raised.value.code == "ARCH_NO_ADMISSIBLE_CANDIDATE"
+
+    with pytest.raises(ArchitectureResolutionError) as raised:
+        build_five_layer_v2_deployment_specification(
+            **kwargs,
+            resolution_status="deployment_ready",
+            definition_lifecycle_statuses={
+                "profile": "active",
+                "catalog": "active",
+                "provider:azure": "active",
+            },
+            satisfied_live_gate_ids=frozenset(
+                offline["readiness"]["blocking_gate_ids"]
+            ),
         )
     assert raised.value.code == "ARCH_NO_ADMISSIBLE_CANDIDATE"
 
@@ -204,10 +231,9 @@ def test_large_azure_requires_measured_positive_autoscale_ru_before_ready():
             "catalog": "active",
             "provider:azure": "active",
         },
-        satisfied_live_gate_ids=frozenset(
-            offline["readiness"]["blocking_gate_ids"]
-        ),
-        azure_large_autoscale_ru_per_second=10000,
+        satisfied_live_gate_ids=frozenset(offline["readiness"]["blocking_gate_ids"]),
+        azure_large_autoscale_ru_per_second=108000,
+        azure_large_autoscale_evidence_digest="sha256:" + ("b" * 64),
     )
     assert ready["readiness"] == {
         "status": "deployment_ready",
@@ -219,7 +245,8 @@ def test_large_azure_requires_measured_positive_autoscale_ru_before_ready():
         for dimension in selection["dimensions"]
         if dimension["dimension_id"].endswith(".autoscale_max_ru_per_second")
     )
-    assert autoscale["value"] == 10000
+    assert autoscale["value"] == 108000
+    assert autoscale["evidence_reference"] == "sha256:" + ("b" * 64)
     mover = next(
         item
         for item in ready["component_selections"]

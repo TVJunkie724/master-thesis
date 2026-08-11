@@ -14,7 +14,7 @@ from tests.architecture_test_data import linked_architecture_fixture_documents
 from tests.test_resolved_architecture_service import _state
 
 
-def test_profile_routes_keep_historical_selection_read_only_before_activation(
+def test_profile_routes_expose_active_v2_and_keep_v1_read_only(
     authenticated_client,
     db_session,
 ):
@@ -32,17 +32,24 @@ def test_profile_routes_keep_historical_selection_read_only_before_activation(
         "/architecture-profiles/five-layer-baseline/versions/1",
         headers=headers,
     )
+    active_detail = client.get(
+        "/architecture-profiles/five-layer-baseline/versions/2",
+        headers=headers,
+    )
     selection = client.get(
         f"/twins/{twin_id}/architecture-profile",
         headers=headers,
     )
 
     assert listed.status_code == 200
-    assert listed.json() == []
+    assert [item["profile_version"] for item in listed.json()] == ["2"]
     assert detail.status_code == 409
     assert detail.json()["error_code"] == "ARCH_PROFILE_NOT_ACTIVE"
+    assert active_detail.status_code == 200
+    assert active_detail.json()["profile_version"] == "2"
     assert selection.status_code == 200
     assert selection.json()["revision"] == 1
+    assert selection.json()["profile_version"] == "2"
     db_session.expire_all()
     default_audit = (
         db_session.query(ArchitectureAuditEvent)
@@ -201,10 +208,7 @@ def test_architecture_openapi_contract_is_strict(client):
     paths = openapi["paths"]
 
     assert "/architecture-profiles" in paths
-    assert (
-        "/architecture-profiles/{profile_id}/versions/{profile_version}"
-        in paths
-    )
+    assert "/architecture-profiles/{profile_id}/versions/{profile_version}" in paths
     assert "/twins/{twin_id}/architecture-profile" in paths
     assert "/twins/{twin_id}/resolved-architecture" in paths
     assert "/optimizer-runs/{run_id}/resolved-architecture" in paths
@@ -223,8 +227,8 @@ def test_architecture_openapi_contract_is_strict(client):
         "resolved_edges",
         "content_digest",
     }.issubset(resolution["required"])
-    conflict_schema = paths[
-        "/twins/{twin_id}/architecture-profile"
-    ]["put"]["responses"]["409"]["content"]["application/json"]["schema"]
+    conflict_schema = paths["/twins/{twin_id}/architecture-profile"]["put"][
+        "responses"
+    ]["409"]["content"]["application/json"]["schema"]
     assert conflict_schema["$ref"].endswith("/ArchitectureErrorResponse")
     assert "request_id" in schemas["ArchitectureErrorResponse"]["required"]

@@ -713,7 +713,7 @@ def test_bound_packages_fail_closed_before_terraform_and_publish_evidence(tmp_pa
     monkeypatch.setattr(
         terraform_package_builder,
         "validate_terraform_provider_capabilities",
-        lambda _providers: None,
+        lambda _providers, **_kwargs: None,
     )
     try:
         with pytest.raises(ExtensionContractError) as exc:

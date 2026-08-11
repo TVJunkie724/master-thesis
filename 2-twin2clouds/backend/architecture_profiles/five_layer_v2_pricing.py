@@ -26,15 +26,13 @@ from .five_layer_v2_workload import ResolvedFiveLayerV2Workload
 
 
 RATE_CARD_KEY = "fiveLayerV2"
-RATE_CARD_SCHEMA_VERSION = "five-layer-v2-rate-card.v1"
+RATE_CARD_SCHEMA_VERSION = "five-layer-v2-rate-card.v2"
 _ROUTE_UNITS = {
     "source_runtime": "requests/month",
     "destination_operations": "operations/month",
     "cross_cloud_egress_bytes": "bytes/month",
 }
-_SOURCE_ROUTE_DIMENSIONS = frozenset(
-    {"source_runtime", "cross_cloud_egress_bytes"}
-)
+_SOURCE_ROUTE_DIMENSIONS = frozenset({"source_runtime", "cross_cloud_egress_bytes"})
 _DESTINATION_ROUTE_DIMENSIONS = frozenset({"destination_operations"})
 _RATE_CARD_SCHEMA = (
     Path(__file__).resolve().parents[2]
@@ -93,7 +91,6 @@ def _rate_card(
     pricing: Mapping[str, Any],
     *,
     provider: str,
-    currency: str,
 ) -> Mapping[str, Any]:
     raw = pricing.get(RATE_CARD_KEY)
     if not isinstance(raw, Mapping):
@@ -115,7 +112,8 @@ def _rate_card(
         raw,
         {
             "schemaVersion",
-            "currency",
+            "baseCurrency",
+            "currencyConversions",
             "formulaReference",
             "componentRates",
             "routeRates",
@@ -124,8 +122,9 @@ def _rate_card(
     )
     if (
         raw["schemaVersion"] != RATE_CARD_SCHEMA_VERSION
-        or raw["currency"] != currency
+        or raw["baseCurrency"] != "USD"
         or raw["formulaReference"] != FORMULA_REF
+        or not isinstance(raw["currencyConversions"], Mapping)
         or not isinstance(raw["componentRates"], Mapping)
         or not isinstance(raw["routeRates"], Mapping)
     ):
@@ -134,6 +133,30 @@ def _rate_card(
             "Rate-card identity, currency, or collections are invalid",
         )
     return raw
+
+
+def _currency_rate(
+    card: Mapping[str, Any],
+    *,
+    provider: str,
+    currency: str,
+) -> Decimal:
+    conversions = card["currencyConversions"]
+    if currency not in {"USD", "EUR"} or currency not in conversions:
+        _fail(
+            f"pricing.{provider}.{RATE_CARD_KEY}.currencyConversions.{currency}",
+            "Requested result currency has no pinned conversion rate",
+        )
+    rate = _decimal(
+        conversions[currency],
+        f"pricing.{provider}.{RATE_CARD_KEY}.currencyConversions.{currency}",
+    )
+    if rate <= 0:
+        _fail(
+            f"pricing.{provider}.{RATE_CARD_KEY}.currencyConversions.{currency}",
+            "Currency conversion rate must be positive",
+        )
+    return rate
 
 
 def _dimension_map(
@@ -219,10 +242,9 @@ def _tiered_amount(
     free = _decimal(meter["freeQuantity"], f"{field}.freeQuantity")
     minimum = _decimal(meter["minimumCharge"], f"{field}.minimumCharge")
     billable = max(Decimal(0), quantity - free)
-    billable = (
-        (billable / increment).to_integral_value(rounding=ROUND_CEILING)
-        * increment
-    )
+    billable = (billable / increment).to_integral_value(
+        rounding=ROUND_CEILING
+    ) * increment
     tiers = meter["tiers"]
     if not isinstance(tiers, list) or not tiers:
         _fail(f"{field}.tiers", "At least one pricing tier is required")
@@ -323,9 +345,7 @@ def _route_dimensions(
     month_seconds = Decimal("2592000")
     interval_seconds = Decimal(str(core["deviceSendingIntervalInMinutes"])) * 60
     messages = (
-        Decimal(int(core["numberOfDevices"]))
-        * month_seconds
-        / interval_seconds
+        Decimal(int(core["numberOfDevices"])) * month_seconds / interval_seconds
     ).to_integral_value(rounding=ROUND_CEILING)
     payload_bytes = Decimal(str(core["averageSizeOfMessageInKb"])) * 1024
     event_attempts = (
@@ -392,8 +412,7 @@ def _price_route_role(
         _SOURCE_ROUTE_DIMENSIONS if role == "source" else _DESTINATION_ROUTE_DIMENSIONS
     )
     selected_dimensions = {
-        dimension_id: dimensions[dimension_id]
-        for dimension_id in role_dimensions
+        dimension_id: dimensions[dimension_id] for dimension_id in role_dimensions
     }
     variant = _matching_variant(raw[key], selected_dimensions, field=field)
     return _evaluate_variant(
@@ -413,9 +432,7 @@ def _allocate(amount: Decimal, item_ids: tuple[str, ...]) -> list[dict[str, str]
     for index, item_id in enumerate(item_ids):
         value = amount - allocated if index == len(item_ids) - 1 else share
         allocated += value
-        allocations.append(
-            {"item_id": item_id, "monthly_amount": _decimal_text(value)}
-        )
+        allocations.append({"item_id": item_id, "monthly_amount": _decimal_text(value)})
     return allocations
 
 
@@ -434,23 +451,36 @@ class FiveLayerV2CatalogCostLedgerResolver:
         currency = str(specification["currency"])
         evidence = {
             str(item["provider"]): str(item["digest"])
-            for item in specification["optimization_context"][
-                "pricing_evidence_refs"
-            ]
+            for item in specification["optimization_context"]["pricing_evidence_refs"]
         }
         cards = {
             provider: _rate_card(
                 self._pricing.get(provider, {}),
                 provider=provider,
-                currency=currency,
             )
             for provider in evidence
         }
+        currency_rates = {
+            provider: _currency_rate(
+                card,
+                provider=provider,
+                currency=currency,
+            )
+            for provider, card in cards.items()
+        }
+        if len(set(currency_rates.values())) != 1:
+            _fail(
+                f"pricing.{RATE_CARD_KEY}.currencyConversions.{currency}",
+                "Provider rate cards disagree on the pinned currency conversion",
+            )
         component_costs = []
         for selection in specification["component_selections"]:
             provider = str(selection["provider"])
             component_id = str(selection["implementation_component_id"])
-            amount = _price_component(cards[provider], selection, provider=provider)
+            amount = (
+                _price_component(cards[provider], selection, provider=provider)
+                * currency_rates[provider]
+            )
             component_costs.append(
                 {
                     "component_id": component_id,
@@ -464,18 +494,23 @@ class FiveLayerV2CatalogCostLedgerResolver:
         route_costs = []
         for route in expected_route_owners(assignment, workload):
             dimensions = _route_dimensions(route, workload)
-            amount = _price_route_role(
-                cards[route.source_provider],
-                route,
-                dimensions,
-                provider=route.source_provider,
-                role="source",
-            ) + _price_route_role(
-                cards[route.destination_provider],
-                route,
-                dimensions,
-                provider=route.destination_provider,
-                role="destination",
+            amount = (
+                _price_route_role(
+                    cards[route.source_provider],
+                    route,
+                    dimensions,
+                    provider=route.source_provider,
+                    role="source",
+                )
+                * currency_rates[route.source_provider]
+                + _price_route_role(
+                    cards[route.destination_provider],
+                    route,
+                    dimensions,
+                    provider=route.destination_provider,
+                    role="destination",
+                )
+                * currency_rates[route.destination_provider]
             )
             route_costs.append(
                 {

@@ -670,6 +670,10 @@ class ResolvedTwinArchitecture extends Equatable {
       'assignment IDs',
     );
     _requireUnique(
+      assignments.map((item) => item.logicalComponentId),
+      'logical component IDs',
+    );
+    _requireUnique(
       edges.map((item) => item.resolvedEdgeId),
       'resolved edge IDs',
     );
@@ -750,7 +754,7 @@ class ResolvedTwinArchitecture extends Equatable {
         'Invalid API contract: assignment provider profile is unresolved.',
       );
     }
-    final pricingDigests = _objectList(json, 'pricing_evidence_refs')
+    final pricingEvidence = _objectList(json, 'pricing_evidence_refs')
         .map((item) {
           _expectExactKeys(item, const {
             'id',
@@ -759,14 +763,28 @@ class ResolvedTwinArchitecture extends Equatable {
             'provider',
             'currency',
           }, 'pricing evidence reference');
-          JsonContract.requiredString(item, 'id');
+          final id = JsonContract.requiredString(item, 'id');
           _positiveVersion(item, 'version');
-          _provider(item['provider']);
+          final provider = _provider(item['provider']);
           _currency(item, 'currency');
-          return _digest(item, 'digest');
+          return (
+            id: id,
+            provider: provider.apiValue,
+            digest: _digest(item, 'digest'),
+          );
         })
         .toList(growable: false);
-    _requireUnique(pricingDigests, 'pricing evidence digests');
+    _requireUnique(
+      pricingEvidence.map((item) => item.id),
+      'pricing evidence IDs',
+    );
+    _requireUnique(
+      pricingEvidence.map((item) => item.provider),
+      'pricing evidence providers',
+    );
+    final pricingDigests = pricingEvidence
+        .map((item) => item.digest)
+        .toList(growable: false);
     final deployment = JsonContract.requiredObject(
       json,
       'deployment_specification_ref',
@@ -807,6 +825,11 @@ class ResolvedTwinArchitecture extends Equatable {
         'Invalid API contract: architecture cost currencies differ.',
       );
     }
+    _validateCostSummary(
+      assignments: assignments,
+      edges: edges,
+      summary: costSummary,
+    );
     final profileRef = PinnedArchitectureReference.fromJson(
       JsonContract.requiredObject(json, 'architecture_profile_ref'),
     );
@@ -946,6 +969,83 @@ class ResolvedTwinArchitectureRead extends Equatable {
     origin,
     architecture,
   ];
+}
+
+void _validateCostSummary({
+  required List<ResolvedComponentAssignment> assignments,
+  required List<ResolvedArchitectureEdge> edges,
+  required ResolvedArchitectureCostSummary summary,
+}) {
+  final assignmentAmounts = {
+    for (final item in assignments)
+      item.logicalComponentId: _normalizeDecimalString(
+        item.costContribution.monthlyAmount,
+      ),
+  };
+  final edgeAmounts = {
+    for (final item in edges)
+      item.edgeId: _normalizeDecimalString(item.costContribution.monthlyAmount),
+  };
+  final responsibilityContributions = <String, List<String>>{};
+  for (final item in assignments) {
+    responsibilityContributions
+        .putIfAbsent(item.responsibilityId, () => <String>[])
+        .add(item.costContribution.monthlyAmount);
+  }
+  final responsibilityAmounts = {
+    for (final entry in responsibilityContributions.entries)
+      entry.key: _sumDecimalStrings(entry.value),
+  };
+
+  if (!_costItemsMatch(summary.componentTotals, assignmentAmounts) ||
+      !_costItemsMatch(summary.edgeTotals, edgeAmounts) ||
+      !_costItemsMatch(summary.responsibilityTotals, responsibilityAmounts)) {
+    throw const FormatException(
+      'Invalid API contract: cost summary differs from architecture contributions.',
+    );
+  }
+  final expectedTotal = _sumDecimalStrings([
+    ...assignmentAmounts.values,
+    ...edgeAmounts.values,
+  ]);
+  if (_normalizeDecimalString(summary.monthlyTotal) != expectedTotal) {
+    throw const FormatException(
+      'Invalid API contract: monthly total differs from architecture contributions.',
+    );
+  }
+}
+
+bool _costItemsMatch(
+  List<ResolvedCostItem> items,
+  Map<String, String> expected,
+) {
+  if (items.length != expected.length) return false;
+  for (final item in items) {
+    if (_normalizeDecimalString(item.monthlyAmount) != expected[item.itemId]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+String _sumDecimalStrings(Iterable<String> values) {
+  final parts = values.map((value) => value.split('.')).toList(growable: false);
+  final scale = parts.fold<int>(
+    0,
+    (largest, item) =>
+        item.length == 2 && item[1].length > largest ? item[1].length : largest,
+  );
+  var total = BigInt.zero;
+  for (final item in parts) {
+    final fraction = item.length == 2 ? item[1] : '';
+    total += BigInt.parse('${item[0]}${fraction.padRight(scale, '0')}');
+  }
+  if (scale == 0) return total.toString();
+  final digits = total.toString().padLeft(scale + 1, '0');
+  return _normalizeDecimalString(
+    '${digits.substring(0, digits.length - scale)}.'
+    '${digits.substring(digits.length - scale)}',
+  );
 }
 
 List<ResolvedCostItem> _costItems(Map<String, dynamic> json, String field) {

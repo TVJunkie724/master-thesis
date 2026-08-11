@@ -160,7 +160,7 @@
       "responsibility_id": "responsibility.visualization"
     }
   ],
-  "content_digest": "sha256:36a68644e66be0b7242d692b9a75fd8d99173a28b00b00fa110023693dc5e854",
+  "content_digest": "sha256:8ebe9f14978f632c04a25837af1a4b9e4ee4da863f4a972189fb75cd174cac5c",
   "description": "Functionally complete thesis-PoC profile with mandatory embedded domain events, provider-local L3-hot/L5 raw history, and an independently placeable L4 Twin.",
   "display_name": "Five-layer baseline v2",
   "edges": [
@@ -558,7 +558,7 @@
     "optional_components": [],
     "user_topology_editable": false
   },
-  "lifecycle_status": "draft",
+  "lifecycle_status": "active",
   "optimization_bundle": {
     "optimization_strategy_id": "cost-minimization-v2",
     "optimization_strategy_version": "2",

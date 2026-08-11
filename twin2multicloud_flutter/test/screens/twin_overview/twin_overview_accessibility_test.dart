@@ -23,16 +23,24 @@ void main() {
       final semantics = tester.ensureSemantics();
 
       const runtime = AppRuntimeConfig.demo();
-      final composition = await RuntimeComposition.bootstrap(runtime);
+      final composition = await tester.runAsync(
+        () => RuntimeComposition.bootstrap(runtime),
+      );
+      expect(composition, isNotNull);
+      final resolvedComposition = composition!;
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appRuntimeProvider.overrideWithValue(runtime),
-            apiServiceProvider.overrideWithValue(composition.managementApi),
-            logStreamClientFactoryProvider.overrideWithValue(
-              composition.logStreamClientFactory,
+            apiServiceProvider.overrideWithValue(
+              resolvedComposition.managementApi,
             ),
-            initialUserProvider.overrideWithValue(composition.initialUser),
+            logStreamClientFactoryProvider.overrideWithValue(
+              resolvedComposition.logStreamClientFactory,
+            ),
+            initialUserProvider.overrideWithValue(
+              resolvedComposition.initialUser,
+            ),
           ],
           child: const Twin2MultiCloudApp(),
         ),

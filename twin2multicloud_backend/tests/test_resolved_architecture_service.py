@@ -23,6 +23,7 @@ from src.models.user_function_extension import (
     TwinExtensionBinding,
     UserFunctionArtifact,
 )
+from src.schemas.architecture_profile import PinnedArchitectureReference
 from src.services.architecture_errors import ArchitectureDomainError
 from src.services.architecture_profile_service import ArchitectureProfileService
 from src.services.architecture_profile_service import (
@@ -53,10 +54,21 @@ from tests.architecture_test_data import (
 )
 
 
-def _state(db_session, provider: str | None = None):
-    result, specification, architecture = calculation_result_and_contracts(
-        provider
+def _historical_profile_reference() -> PinnedArchitectureReference:
+    profile = ArchitectureProfileService.get_definition(
+        "five-layer-baseline",
+        "1",
+        require_active=False,
     )
+    return PinnedArchitectureReference(
+        id=profile["profile_id"],
+        version=profile["profile_version"],
+        digest=profile["content_digest"],
+    )
+
+
+def _state(db_session, provider: str | None = None):
+    result, specification, architecture = calculation_result_and_contracts(provider)
     calculation_path = result["calculationResult"]
     user = User(id="resolved-owner", email="resolved@example.test")
     twin = DigitalTwin(
@@ -74,6 +86,7 @@ def _state(db_session, provider: str | None = None):
         ArchitectureProfileService.build_default_selection(
             twin_id=twin.id,
             user_id=user.id,
+            reference=_historical_profile_reference(),
         )
     )
     artifact = UserFunctionArtifact(
@@ -81,9 +94,7 @@ def _state(db_session, provider: str | None = None):
         user_id=user.id,
         schema_version="user-function-artifact.v1",
         artifact_state="valid",
-        artifact_digest=architecture["extension_bindings"][0][
-            "artifact_digest"
-        ],
+        artifact_digest=architecture["extension_bindings"][0]["artifact_digest"],
         slot_id="processor.telemetry",
         slot_version="1",
         runtime_id="python311",
@@ -146,12 +157,7 @@ def _state(db_session, provider: str | None = None):
 
 
 def _v2_state(db_session, monkeypatch):
-    generated = (
-        Path(__file__).resolve().parents[1]
-        / "src"
-        / "contracts"
-        / "generated"
-    )
+    generated = Path(__file__).resolve().parents[1] / "src" / "contracts" / "generated"
     specification = json.loads(
         (
             generated
@@ -188,16 +194,12 @@ def _v2_state(db_session, monkeypatch):
     provider_digests: dict[str, str] = {}
     for document in provider_documents:
         document["lifecycle_status"] = "active"
-        document["architecture_profile_ref"]["digest"] = profile[
-            "content_digest"
-        ]
+        document["architecture_profile_ref"]["digest"] = profile["content_digest"]
         document["content_digest"] = calculate_digest(document)
         provider_digests[document["implementation_profile_id"]] = document[
             "content_digest"
         ]
-    catalog_documents = [
-        copy.deepcopy(document) for document in _catalog_documents()
-    ]
+    catalog_documents = [copy.deepcopy(document) for document in _catalog_documents()]
     active_catalog_digest = ""
     for document in catalog_documents:
         if document.get("schema_version") != "deployment-component-catalog.v2":
@@ -205,9 +207,9 @@ def _v2_state(db_session, monkeypatch):
         document["lifecycle_status"] = "active"
         document["content_digest"] = calculate_digest(document)
         active_catalog_digest = document["content_digest"]
-        specification["optimization_context"]["component_catalog_ref"][
-            "digest"
-        ] = document["content_digest"]
+        specification["optimization_context"]["component_catalog_ref"]["digest"] = (
+            document["content_digest"]
+        )
     monkeypatch.setattr(
         ArchitectureProfileService,
         "get_definition",
@@ -217,21 +219,15 @@ def _v2_state(db_session, monkeypatch):
         "status": "deployment_ready",
         "blocking_gate_ids": [],
     }
-    specification["architecture_profile_ref"]["digest"] = profile[
-        "content_digest"
-    ]
+    specification["architecture_profile_ref"]["digest"] = profile["content_digest"]
     specification["digest"] = calculate_deployment_digest(specification)
-    architecture["architecture_profile_ref"]["digest"] = profile[
-        "content_digest"
-    ]
+    architecture["architecture_profile_ref"]["digest"] = profile["content_digest"]
     for reference in architecture["provider_profile_refs"]:
         reference["digest"] = provider_digests[reference["id"]]
     for assignment in architecture["component_assignments"]:
         reference = assignment["provider_implementation_profile_ref"]
         reference["digest"] = provider_digests[reference["id"]]
-    architecture["deployment_specification_ref"]["digest"] = specification[
-        "digest"
-    ]
+    architecture["deployment_specification_ref"]["digest"] = specification["digest"]
     architecture["resolution_status"] = "publishable"
     architecture["extension_bindings"][0]["configuration_digest"] = (
         "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
@@ -324,9 +320,7 @@ def _v2_state(db_session, monkeypatch):
             "profile_version": "2",
             "scoring_strategy_id": "profile-local-min-total-cost-v2",
             "calculation_model_ids": ["profile-resolution-v2@2"],
-            "pricing_registry_version": (
-                "phase-08-complete-service-pricing@1"
-            ),
+            "pricing_registry_version": ("phase-08-complete-service-pricing@1"),
         },
         "resolvedTwinArchitecture": architecture,
         "resolvedDeploymentSpecification": specification,
@@ -389,9 +383,7 @@ def test_single_provider_resolution_is_canonical_and_complete(
     )
     db_session.commit()
 
-    assert {
-        assignment.provider for assignment in record.components
-    } == {provider}
+    assert {assignment.provider for assignment in record.components} == {provider}
     assert len(record.components) == 7
     assert len(record.edges) == 6
     assert ARCHITECTURE_METRICS[("persisted", "1")] == metric_before + 1
@@ -422,9 +414,7 @@ def test_five_layer_v2_resolution_persists_without_legacy_projection(
     assert len(record.edges) == 8
     assert config.cheapest_l1 is None
     canonical = json.loads(record.canonical_json)
-    assert service.reproduce_components(record) == canonical[
-        "component_assignments"
-    ]
+    assert service.reproduce_components(record) == canonical["component_assignments"]
     assert service.reproduce_edges(record) == canonical["resolved_edges"]
     read = service.get_for_run(
         calculation_run_id=run.id,
@@ -451,9 +441,7 @@ def test_five_layer_v2_offline_fixture_persists_but_is_not_selectable(
     result = json.loads(run.result_summary_json)
     result["resolvedDeploymentSpecification"] = specification
     architecture["resolution_status"] = "offline_contract_fixture"
-    architecture["deployment_specification_ref"]["digest"] = specification[
-        "digest"
-    ]
+    architecture["deployment_specification_ref"]["digest"] = specification["digest"]
     architecture["resolution_id"] = calculate_resolution_id(architecture)
     architecture["content_digest"] = calculate_digest(architecture)
     result["resolvedTwinArchitecture"] = architecture
@@ -575,9 +563,7 @@ def test_duplicate_digest_and_reference_mismatch_are_rejected(db_session):
         linked_documents=linked_architecture_fixture_documents(),
     )
     db_session.commit()
-    duplicate_metric_before = ARCHITECTURE_METRICS[
-        ("ARCH_RESOLUTION_DUPLICATE", "1")
-    ]
+    duplicate_metric_before = ARCHITECTURE_METRICS[("ARCH_RESOLUTION_DUPLICATE", "1")]
 
     with pytest.raises(ArchitectureDomainError) as duplicate:
         service.persist(
@@ -586,9 +572,10 @@ def test_duplicate_digest_and_reference_mismatch_are_rejected(db_session):
             linked_documents=linked_architecture_fixture_documents(),
         )
     assert duplicate.value.code == "ARCH_RESOLUTION_DUPLICATE"
-    assert ARCHITECTURE_METRICS[
-        ("ARCH_RESOLUTION_DUPLICATE", "1")
-    ] == duplicate_metric_before + 1
+    assert (
+        ARCHITECTURE_METRICS[("ARCH_RESOLUTION_DUPLICATE", "1")]
+        == duplicate_metric_before + 1
+    )
 
     db_session.rollback()
     other_user = User(id="other-owner", email="other@example.test")
@@ -604,6 +591,7 @@ def test_duplicate_digest_and_reference_mismatch_are_rejected(db_session):
         ArchitectureProfileService.build_default_selection(
             twin_id=other_twin.id,
             user_id=other_user.id,
+            reference=_historical_profile_reference(),
         )
     )
     other_run = CostCalculationRun(
@@ -646,9 +634,7 @@ def test_digest_tamper_and_mutation_are_rejected(db_session):
             linked_documents=linked_architecture_fixture_documents(),
         )
     assert digest.value.code == "ARCH_RESOLUTION_DIGEST_MISMATCH"
-    assert (
-        db_session.query(ResolvedTwinArchitectureRecord).count() == 0
-    )
+    assert db_session.query(ResolvedTwinArchitectureRecord).count() == 0
 
     db_session.rollback()
     _user, _twin, _config, run, architecture = _state(db_session)
@@ -685,9 +671,7 @@ def test_architecture_audit_events_are_append_only(db_session):
 
 def test_missing_resolution_payload_returns_stable_domain_error(db_session):
     _user, _twin, _config, run, _architecture = _state(db_session)
-    metric_before = ARCHITECTURE_METRICS[
-        ("ARCH_RESOLUTION_INVALID", "unknown")
-    ]
+    metric_before = ARCHITECTURE_METRICS[("ARCH_RESOLUTION_INVALID", "unknown")]
 
     with pytest.raises(ArchitectureDomainError) as rejected:
         ResolvedArchitectureService(db_session).persist(
@@ -696,9 +680,10 @@ def test_missing_resolution_payload_returns_stable_domain_error(db_session):
         )
 
     assert rejected.value.code == "ARCH_RESOLUTION_INVALID"
-    assert ARCHITECTURE_METRICS[
-        ("ARCH_RESOLUTION_INVALID", "unknown")
-    ] == metric_before + 1
+    assert (
+        ARCHITECTURE_METRICS[("ARCH_RESOLUTION_INVALID", "unknown")]
+        == metric_before + 1
+    )
 
 
 def test_cross_contract_component_mismatch_is_rejected(db_session):
@@ -718,9 +703,9 @@ def test_cross_contract_component_mismatch_is_rejected(db_session):
 
 def test_cross_resolution_edge_reference_is_rejected(db_session):
     _user, _twin, _config, run, architecture = _state(db_session)
-    architecture["resolved_edges"][0][
-        "destination_assignment_id"
-    ] = "assignment.unknown"
+    architecture["resolved_edges"][0]["destination_assignment_id"] = (
+        "assignment.unknown"
+    )
     architecture["resolution_id"] = calculate_resolution_id(architecture)
     architecture["content_digest"] = calculate_digest(architecture)
 
@@ -757,12 +742,8 @@ def test_incomplete_capabilities_and_stale_extension_binding_are_rejected(
 ):
     _user, _twin, _config, run, architecture = _state(db_session)
     incomplete = copy.deepcopy(architecture)
-    missing = incomplete["functional_completeness"][
-        "provided_capability_ids"
-    ].pop()
-    incomplete["functional_completeness"]["missing_capability_ids"] = [
-        missing
-    ]
+    missing = incomplete["functional_completeness"]["provided_capability_ids"].pop()
+    incomplete["functional_completeness"]["missing_capability_ids"] = [missing]
     incomplete["content_digest"] = calculate_digest(incomplete)
 
     with pytest.raises(ArchitectureDomainError) as capability_error:
@@ -808,9 +789,7 @@ def test_fixture_gated_successful_run_ingestion_is_atomic(db_session):
         architecture,
         run=run,
         catalog_context=catalog_context(),
-        linked_architecture_documents=(
-            linked_architecture_fixture_documents()
-        ),
+        linked_architecture_documents=(linked_architecture_fixture_documents()),
     )
 
     assert persisted.status == "succeeded"
@@ -837,9 +816,7 @@ def test_invalid_fixture_ingestion_persists_only_failed_run(db_session):
             architecture,
             run=run,
             catalog_context=catalog_context(),
-            linked_architecture_documents=(
-                linked_architecture_fixture_documents()
-            ),
+            linked_architecture_documents=(linked_architecture_fixture_documents()),
         )
 
     failed = db_session.get(CostCalculationRun, run.id)
@@ -847,9 +824,7 @@ def test_invalid_fixture_ingestion_persists_only_failed_run(db_session):
     assert failed.status == "failed"
     assert failed.architecture_compatibility_status == "legacy_not_resolvable"
     assert failed.resolved_architecture is None
-    assert (
-        db_session.query(ResolvedTwinArchitectureRecord).count() == 0
-    )
+    assert db_session.query(ResolvedTwinArchitectureRecord).count() == 0
     audit = db_session.query(ArchitectureAuditEvent).one()
     assert audit.action == "resolution.persistence"
     assert audit.outcome == "rejected"

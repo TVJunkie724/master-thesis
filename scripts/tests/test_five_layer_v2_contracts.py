@@ -25,6 +25,16 @@ class FiveLayerV2ContractTests(unittest.TestCase):
     def test_source_and_generated_copies_are_exact(self) -> None:
         contract.check()
 
+    def test_deployment_manifest_marker_matches_its_dedicated_synchronizer(
+        self,
+    ) -> None:
+        from scripts import sync_deployment_manifest_contract
+
+        self.assertEqual(
+            contract.deployment_manifest_tree_digest(contract.DEPLOYMENT_MANIFEST_ROOT),
+            sync_deployment_manifest_contract.validate_source(),
+        )
+
     def test_aws_platform_artifact_is_bound_to_executable_runtime_source(self) -> None:
         artifact = next(
             item
@@ -112,14 +122,22 @@ class FiveLayerV2ContractTests(unittest.TestCase):
         }
         self.assertEqual(provider_counts, {1, 2, 3})
 
-    def test_new_definitions_remain_draft_before_activation(self) -> None:
-        self.assertEqual(self.profile["lifecycle_status"], "draft")
-        self.assertEqual(self.catalog["lifecycle_status"], "draft")
+    def test_reviewed_definitions_are_active_together(self) -> None:
+        self.assertEqual(self.profile["lifecycle_status"], "active")
+        self.assertEqual(self.catalog["lifecycle_status"], "active")
         self.assertTrue(
             all(
-                profile["lifecycle_status"] == "draft"
+                profile["lifecycle_status"] == "active"
                 for profile in self.provider_profiles.values()
             )
+        )
+        self.assertNotIn(
+            "gate.profile-activation-pending",
+            contract.blocking_gate_ids(
+                "small",
+                ["aws"],
+                {logical: "aws" for logical in contract.LOGICAL_COMPONENTS},
+            ),
         )
 
     def test_all_729_layer_assignments_are_admissible_when_l3_hot_and_l5_match(
@@ -279,18 +297,11 @@ class FiveLayerV2ContractTests(unittest.TestCase):
         gcp_visualization = next(
             item
             for item in self.catalog["components"]
-            if item["deployment_component_id"]
-            == "deployment.gcp.visualization.v2"
+            if item["deployment_component_id"] == "deployment.gcp.visualization.v2"
         )
-        resources = set(
-            gcp_visualization["terraform_binding"]["resource_addresses"]
-        )
-        self.assertIn(
-            "google_container_cluster.gcp_grafana_oss_12_on_gke", resources
-        )
-        self.assertIn(
-            "kubernetes_namespace_v1.gcp_grafana_oss_12_on_gke", resources
-        )
+        resources = set(gcp_visualization["terraform_binding"]["resource_addresses"])
+        self.assertIn("google_container_cluster.gcp_grafana_oss_12_on_gke", resources)
+        self.assertIn("kubernetes_namespace_v1.gcp_grafana_oss_12_on_gke", resources)
         self.assertIn(
             "kubernetes_persistent_volume_v1.gcp_gcp_persistent_disk_rwo",
             resources,
@@ -299,9 +310,7 @@ class FiveLayerV2ContractTests(unittest.TestCase):
             "google_compute_address.gcp_gcp_grafana_tls_load_balancer",
             resources,
         )
-        self.assertNotIn(
-            "kubernetes_service_v1.gcp_grafana_oss_12_on_gke", resources
-        )
+        self.assertNotIn("kubernetes_service_v1.gcp_grafana_oss_12_on_gke", resources)
         self.assertFalse(any("direct_iap" in item for item in resources))
 
         aws_l5_gcp_l4 = contract.build_rds(
@@ -327,7 +336,16 @@ class FiveLayerV2ContractTests(unittest.TestCase):
                 )
                 for size in ("small", "medium", "large")
             }
-            for provider in ("azure", "gcp")
+            for provider in ("aws", "azure", "gcp")
+        }
+        specifications["gcp_twin"] = {
+            size: contract.build_rds(
+                contract.assignment_for_bundle("gcp", "gcp"),
+                self.profile,
+                self.catalog,
+                size=size,
+            )
+            for size in ("small", "medium", "large")
         }
 
         def dimension(
@@ -378,16 +396,142 @@ class FiveLayerV2ContractTests(unittest.TestCase):
                 "azure.cosmos-db-nosql-raw-and-rollup",
                 "autoscale_max_ru_per_second",
             ),
-            0,
+            108000,
         )
         self.assertEqual(
             dimension(
-                "gcp",
+                "gcp_twin",
                 "large",
                 "gcp.persistent-disk-rwo",
                 "stored_gib_month",
             ),
             "10",
+        )
+        self.assertEqual(
+            dimension(
+                "gcp_twin",
+                "large",
+                "gcp.external-load-balancer",
+                "processed_bytes",
+            ),
+            10_616_832_000_000,
+        )
+        self.assertEqual(
+            dimension(
+                "gcp",
+                "large",
+                "gcp.grafana-tls-load-balancer",
+                "processed_bytes",
+            ),
+            2_361_600_000_000,
+        )
+        self.assertEqual(
+            dimension(
+                "aws",
+                "large",
+                "aws.dynamodb-on-demand-raw",
+                "stored_gib_month",
+            ),
+            "9887.6953125",
+        )
+        self.assertEqual(
+            dimension(
+                "aws",
+                "large",
+                "aws.dynamodb-on-demand-hourly-rollup",
+                "stored_gib_month",
+            ),
+            "16.4794921875",
+        )
+        self.assertEqual(
+            dimension(
+                "aws",
+                "large",
+                "aws.dynamodb-on-demand-raw",
+                "write_requests",
+            ),
+            25_920_000_000,
+        )
+        self.assertEqual(
+            dimension(
+                "aws",
+                "large",
+                "aws.dynamodb-on-demand-hourly-rollup",
+                "read_requests",
+            ),
+            15_033_600_000,
+        )
+        self.assertEqual(
+            dimension(
+                "aws",
+                "large",
+                "aws.dynamodb-on-demand-hourly-rollup",
+                "write_requests",
+            ),
+            25_920_000_000,
+        )
+        self.assertEqual(
+            dimension(
+                "azure",
+                "large",
+                "azure.cosmos-db-nosql-raw-and-rollup",
+                "request_units",
+            ),
+            274_233_600_000,
+        )
+        self.assertEqual(
+            dimension(
+                "gcp",
+                "large",
+                "gcp.firestore-native-standard-raw-and-rollup",
+                "stored_gib_month",
+            ),
+            "9904.1748046875",
+        )
+        self.assertEqual(
+            dimension(
+                "gcp",
+                "large",
+                "gcp.firestore-native-standard-raw-and-rollup",
+                "document_reads",
+            ),
+            15_033_600_000,
+        )
+        self.assertEqual(
+            dimension(
+                "gcp",
+                "large",
+                "gcp.firestore-native-standard-raw-and-rollup",
+                "document_writes",
+            ),
+            25_920_000_000,
+        )
+        self.assertEqual(
+            dimension(
+                "gcp",
+                "large",
+                "gcp.firestore-native-standard-raw-and-rollup",
+                "document_deletes",
+            ),
+            12_981_600_000,
+        )
+        self.assertEqual(
+            dimension(
+                "gcp_twin",
+                "large",
+                "gcp.firestore-native-standard-bounded-twin",
+                "document_writes",
+            ),
+            132_192_240,
+        )
+        self.assertEqual(
+            dimension(
+                "gcp_twin",
+                "large",
+                "gcp.firestore-native-standard-bounded-twin",
+                "timestamp_shards",
+            ),
+            1,
         )
         self.assertEqual(
             [
@@ -451,8 +595,9 @@ class FiveLayerV2ContractTests(unittest.TestCase):
         )
 
     def test_offline_fixtures_retain_exact_capacity_gates(self) -> None:
+        assignment = contract.assignment_for_bundle("azure", "gcp")
         specification = contract.build_rds(
-            contract.assignment_for_bundle("azure", "gcp"),
+            assignment,
             self.profile,
             self.catalog,
             size="large",
@@ -462,7 +607,7 @@ class FiveLayerV2ContractTests(unittest.TestCase):
             {
                 "status": "offline_contract_fixture",
                 "blocking_gate_ids": contract.blocking_gate_ids(
-                    "large", ["azure", "gcp"]
+                    "large", ["azure", "gcp"], assignment
                 ),
             },
         )

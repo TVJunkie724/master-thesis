@@ -104,7 +104,18 @@ def build_all_packages(
     """Build every provider and user-function package required by one deployment."""
     terraform_dir = Path(terraform_dir)
     project_path = Path(project_path)
-    validate_terraform_provider_capabilities(providers_config)
+    architecture_profile = (
+        (
+            str(graph.profile_ref.get("id", "")),
+            str(graph.profile_ref.get("version", "")),
+        )
+        if graph is not None
+        else None
+    )
+    validate_terraform_provider_capabilities(
+        providers_config,
+        architecture_profile=architecture_profile,
+    )
     selected_functions: dict[str, tuple[str, ...]] | None = None
     expected_static_packages: set[str] = set()
     if graph is not None:

@@ -2,8 +2,8 @@
 title: "Phase 8.1: Architecture Profile Experiment"
 description: "Expose Five-layer v2 and Six-layer v1 as bounded, profile-local thesis experiments in the Configuration Workspace."
 tags: [flutter, phase, architecture-profiles, optimizer, eventing]
-lastUpdated: "2026-08-03"
-version: "1.3"
+lastUpdated: "2026-08-11"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -12,14 +12,14 @@ version: "1.3"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_7_flutter_profile_workflow.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_service_bundle_closure.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_9_six_layer_eventing_implementation.md
-EXTRACTED: 2026-08-03 | VERSION: 1.3
+EXTRACTED: 2026-08-11 | VERSION: 1.4
 -->
 
 # Phase 8.1: Architecture Profile Experiment
 
 **Implementation status:** Phase 8.7 is implemented and zero-finding reviewed
-locally with the active runtime/demo catalog still empty. Guided bootstrap is
-the next gate before Five-layer v2 activation. See the
+locally. The runtime/demo catalog now exposes Five-layer v2 for offline
+selection and evaluation; live-capacity gates still block deployment. See the
 [implementation reference](../implementation/architecture_profile_experiment.md).
 
 ## Summary
@@ -29,7 +29,7 @@ Phase 8.7 extends the Configuration Workspace with strict profile and resolved
 architecture DTOs, server-driven selection/review state, generic single-cloud
 and multicloud presentation fixtures, and historical read-only compatibility.
 It truthfully blocks new-profile work while the active catalog is empty.
-Phase 8.9A then publishes Workload v2 and Five-layer v2; Phase 8.9B adds the
+Phase 8.9A publishes Workload v2 and Five-layer v2; Phase 8.9B adds the
 Six-layer delta. Guided bootstrap and deployed L4/L5 access retain their own
 phases and integrate through the same selected architecture.
 
@@ -55,8 +55,9 @@ phases and integrate through the same selected architecture.
    selection, server preview confirmation, stale revision recovery, compatible
    workload fields, and resolved profile review.
 4. A profile task before workload entry and a read-only logical-flow summary.
-5. An explicit activation seam: existing workload/calculation stays blocked
-   while no active profile exists; Workload v2 is not fabricated in Flutter.
+5. An explicit activation seam: the Phase 8.7 empty-catalog state blocks
+   unsupported work, while Phase 8.9A atomically publishes the canonical
+   Workload v2/profile evidence without fabricating live-capacity readiness.
 6. Profile-local calculation and recommendation presentation fixtures with no
    cross-profile winner, ready for the Phase 8.9A request contract.
 7. Generic assignment/edge/support-component review for all valid
@@ -67,8 +68,8 @@ phases and integrate through the same selected architecture.
 ## Acceptance Criteria
 
 - Only profiles returned by the Management active catalog are selectable;
-  before Phase 8.9A the runtime and demo catalogs are empty, while
-  `five-layer-baseline@1` is historical and read-only.
+  it now contains exactly Five-layer v2, while `five-layer-baseline@1` is
+  historical and read-only.
 - Phase 8.7 does not submit a new-profile calculation. The mandatory event
   scenario and exact Workload v2 mapping activate atomically in Phase 8.9A.
 - Populated fixtures prove that visible workload-field IDs and extension slots

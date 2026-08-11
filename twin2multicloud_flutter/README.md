@@ -16,6 +16,11 @@ Use `--scenario showcase`, `--scenario empty`, or `--scenario degraded` to
 inspect representative application states. Demo mutations remain in memory
 for the current process and are reset on restart.
 
+Five-layer v2 Demo runs preserve the native RTA v2/RDS v2/run/digest boundary
+and deterministic illustrative component costs. Their contract-fixture edge
+costs remain zero and are not thesis evaluation evidence; exact provider and
+cross-cloud costs come only from the local Management-to-Optimizer workflow.
+
 ## Local Runtime
 
 Start the application from the repository root:
@@ -76,9 +81,10 @@ uses IAP. GCP Grafana alone supports an explicit Viewer-password rotation and
 one-time reveal; Flutter does not persist the value.
 
 All nine L4/L5 provider pairs pass against an isolated local Management API.
-That gate creates no cloud resources. The Five-layer v2 profile remains draft
-until the wider Phase 8.9A activation review, and actual provider-console
-browser sign-in remains a supervised live check.
+That gate creates no cloud resources. The Five-layer v2 profile is active for
+offline selection and evaluation; its explicit live-capacity gates still
+block deployment selection. Actual provider-console browser sign-in remains a
+supervised live check.
 
 ## Quality Checks
 
@@ -103,7 +109,9 @@ revisioned Management preview and display only the invalidations returned by
 the server. Selected runs are reviewed through immutable resolved component,
 edge, tiering, bridge, cost, and digest DTOs.
 
-Until Five-layer v2 is activated, the real and demo catalogs are deliberately
-empty and the historical Five-layer v1 selection is read-only. Populated
-Five-/Six-layer states exist only as strict test fixtures in this phase; the UI
-does not advertise a capability that the PoC cannot yet execute.
+The real and demo catalogs expose only active `five-layer-baseline@2`; new
+Twins pin that exact digest. Historical Five-layer v1 data remains readable,
+while v2 Small/Medium/Large results expose strict offline RTA/RDS evidence and
+cannot be selected for deployment while a listed live-capacity gate remains.
+Six-layer states remain strict planning/test evidence and are not advertised
+as executable.

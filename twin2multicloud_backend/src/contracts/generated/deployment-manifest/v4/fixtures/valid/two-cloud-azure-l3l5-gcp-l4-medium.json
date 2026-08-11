@@ -37,16 +37,16 @@
     "layer_5_provider": "azure"
   },
   "calculation_run_id": "5a6cddb4-41fb-548a-a13e-14c21a5b77b6",
-  "resolved_twin_architecture_digest": "sha256:b9dbcc3f494d8e6b515722f97ecbd3ac824f9b6e54915fe9bbebdd8ef18e8576",
+  "resolved_twin_architecture_digest": "sha256:0cb1847926b9761d444426dda27179b598cce863bbe2a0258feba67b76fea418",
   "resolved_twin_architecture": {
     "schema_version": "resolved-twin-architecture.v2",
     "resolution_status": "offline_contract_fixture",
-    "resolution_id": "1e267ad0-1472-592f-a084-8fa7279472a2",
+    "resolution_id": "90930edb-88fb-5eb8-ae0d-3c887af5d4e6",
     "calculation_run_id": "5a6cddb4-41fb-548a-a13e-14c21a5b77b6",
     "architecture_profile_ref": {
       "id": "five-layer-baseline",
       "version": "2",
-      "digest": "sha256:36a68644e66be0b7242d692b9a75fd8d99173a28b00b00fa110023693dc5e854"
+      "digest": "sha256:8ebe9f14978f632c04a25837af1a4b9e4ee4da863f4a972189fb75cd174cac5c"
     },
     "optimization_bundle_ref": {
       "optimization_strategy_id": "cost-minimization-v2",
@@ -63,13 +63,13 @@
       {
         "id": "provider-profile.azure.five-layer-baseline-v2",
         "version": "1",
-        "digest": "sha256:cde60c0a87ef20db04e8a5ae5f2adedc012d8a6887de92801c9b8acc1fcc2df8",
+        "digest": "sha256:9d2dc83f7ae5a1574516cae7f8cbc03c4caf2774cdef6eec36f2cb1e0ce656e0",
         "provider": "azure"
       },
       {
         "id": "provider-profile.gcp.five-layer-baseline-v2",
         "version": "1",
-        "digest": "sha256:0b405273e87121fc039588c3a70c02ba2200a9cf1d4a46c7a9e64cc0fbacfa40",
+        "digest": "sha256:8112bff616e98b887905ce8fbd66ecc1e0ea4770f6f02c15f1d7aecff0e7faa7",
         "provider": "gcp"
       }
     ],
@@ -103,7 +103,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.azure.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:cde60c0a87ef20db04e8a5ae5f2adedc012d8a6887de92801c9b8acc1fcc2df8"
+          "digest": "sha256:9d2dc83f7ae5a1574516cae7f8cbc03c4caf2774cdef6eec36f2cb1e0ce656e0"
         },
         "deployment_component_id": "deployment.azure.archive-storage.v2",
         "deployment_component_version": "1",
@@ -135,7 +135,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.azure.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:cde60c0a87ef20db04e8a5ae5f2adedc012d8a6887de92801c9b8acc1fcc2df8"
+          "digest": "sha256:9d2dc83f7ae5a1574516cae7f8cbc03c4caf2774cdef6eec36f2cb1e0ce656e0"
         },
         "deployment_component_id": "deployment.azure.cool-storage.v2",
         "deployment_component_version": "1",
@@ -167,7 +167,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.azure.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:cde60c0a87ef20db04e8a5ae5f2adedc012d8a6887de92801c9b8acc1fcc2df8"
+          "digest": "sha256:9d2dc83f7ae5a1574516cae7f8cbc03c4caf2774cdef6eec36f2cb1e0ce656e0"
         },
         "deployment_component_id": "deployment.azure.hot-storage.v2",
         "deployment_component_version": "1",
@@ -201,7 +201,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.azure.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:cde60c0a87ef20db04e8a5ae5f2adedc012d8a6887de92801c9b8acc1fcc2df8"
+          "digest": "sha256:9d2dc83f7ae5a1574516cae7f8cbc03c4caf2774cdef6eec36f2cb1e0ce656e0"
         },
         "deployment_component_id": "deployment.azure.ingestion.v2",
         "deployment_component_version": "1",
@@ -239,7 +239,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.azure.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:cde60c0a87ef20db04e8a5ae5f2adedc012d8a6887de92801c9b8acc1fcc2df8"
+          "digest": "sha256:9d2dc83f7ae5a1574516cae7f8cbc03c4caf2774cdef6eec36f2cb1e0ce656e0"
         },
         "deployment_component_id": "deployment.azure.processing.v2",
         "deployment_component_version": "1",
@@ -274,7 +274,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.gcp.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:0b405273e87121fc039588c3a70c02ba2200a9cf1d4a46c7a9e64cc0fbacfa40"
+          "digest": "sha256:8112bff616e98b887905ce8fbd66ecc1e0ea4770f6f02c15f1d7aecff0e7faa7"
         },
         "deployment_component_id": "deployment.gcp.twin-state.v2",
         "deployment_component_version": "1",
@@ -314,7 +314,7 @@
         "provider_implementation_profile_ref": {
           "id": "provider-profile.azure.five-layer-baseline-v2",
           "version": "1",
-          "digest": "sha256:cde60c0a87ef20db04e8a5ae5f2adedc012d8a6887de92801c9b8acc1fcc2df8"
+          "digest": "sha256:9d2dc83f7ae5a1574516cae7f8cbc03c4caf2774cdef6eec36f2cb1e0ce656e0"
         },
         "deployment_component_id": "deployment.azure.visualization.v2",
         "deployment_component_version": "1",
@@ -709,7 +709,7 @@
     ],
     "deployment_specification_ref": {
       "schema_version": "resolved-deployment-specification.v2",
-      "digest": "sha256:dae1265bbcf3178bd459dfc46638db8310d2432eaaaaaba5721ab3a63ef1ec90",
+      "digest": "sha256:85206cc176fac38224a908b31f52414d8e8d6b98ea54d64ac4278c0b7d1b9cf6",
       "calculation_run_id": "5a6cddb4-41fb-548a-a13e-14c21a5b77b6"
     },
     "cost_summary": {
@@ -831,18 +831,18 @@
       "provider_extra_capability_ids": [],
       "missing_capability_ids": [],
       "validator_version": "2",
-      "validation_digest": "sha256:d21264959904a310d75ca2b77802fdea4c6f24b334e348177e554d55829e8cc8"
+      "validation_digest": "sha256:281b11c7a0196ad307ec5d2af5779da1936d8d47e6883f4a83258eba5cf0f6a5"
     },
-    "content_digest": "sha256:b9dbcc3f494d8e6b515722f97ecbd3ac824f9b6e54915fe9bbebdd8ef18e8576"
+    "content_digest": "sha256:0cb1847926b9761d444426dda27179b598cce863bbe2a0258feba67b76fea418"
   },
-  "resolved_deployment_specification_digest": "sha256:dae1265bbcf3178bd459dfc46638db8310d2432eaaaaaba5721ab3a63ef1ec90",
+  "resolved_deployment_specification_digest": "sha256:85206cc176fac38224a908b31f52414d8e8d6b98ea54d64ac4278c0b7d1b9cf6",
   "resolved_deployment_specification": {
     "schema_version": "resolved-deployment-specification.v2",
     "calculation_run_id": "5a6cddb4-41fb-548a-a13e-14c21a5b77b6",
     "architecture_profile_ref": {
       "id": "five-layer-baseline",
       "version": "2",
-      "digest": "sha256:36a68644e66be0b7242d692b9a75fd8d99173a28b00b00fa110023693dc5e854"
+      "digest": "sha256:8ebe9f14978f632c04a25837af1a4b9e4ee4da863f4a972189fb75cd174cac5c"
     },
     "optimization_context": {
       "service_decision_ref": {
@@ -853,7 +853,7 @@
       "component_catalog_ref": {
         "id": "complete-service-component-catalog",
         "version": "1",
-        "digest": "sha256:ae901115898ed15aebfaae065ce70e7a14379996f1d3c368fe231de62c388ffc"
+        "digest": "sha256:3396848028a5b8862e1c948a8017cd8e7bb7d118a0ee5edc120cd3d7a3956c1d"
       },
       "workload_ref": {
         "id": "five-layer-workload",
@@ -884,13 +884,12 @@
     "readiness": {
       "status": "offline_contract_fixture",
       "blocking_gate_ids": [
-        "gate.profile-activation-pending",
-        "gate.live-capacity.azure.cosmos-request-charge-fixture",
         "gate.live-capacity.azure.cosmos-partition-distribution",
+        "gate.live-capacity.azure.cosmos-request-charge-fixture",
         "gate.live-capacity.azure.reader-latency-and-quota",
+        "gate.live-capacity.gcp.bifromq-cluster-behavior",
         "gate.live-capacity.gcp.firestore-gradual-ramp-and-transaction-contention",
-        "gate.live-capacity.gcp.reader-latency-and-quota",
-        "gate.live-capacity.gcp.bifromq-cluster-behavior"
+        "gate.live-capacity.gcp.reader-latency-and-quota"
       ]
     },
     "currency": "USD",
@@ -1039,7 +1038,7 @@
           {
             "dimension_id": "dimension.azure.azure.cosmos-db-nosql-raw-and-rollup.request_units",
             "classification": "usage",
-            "value": 698011440,
+            "value": 7309440000,
             "unit": "RU/month",
             "formula_reference": "formula.phase-08-complete-service-bundles",
             "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -1047,7 +1046,7 @@
           {
             "dimension_id": "dimension.azure.azure.cosmos-db-nosql-raw-and-rollup.stored_gib_month",
             "classification": "usage",
-            "value": "164.794921875",
+            "value": "166.168212890625",
             "unit": "GiB-month",
             "formula_reference": "formula.phase-08-complete-service-bundles",
             "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -1207,7 +1206,7 @@
           {
             "dimension_id": "dimension.gcp.gcp.firestore-native-standard-bounded-twin.document_reads",
             "classification": "usage",
-            "value": 72240,
+            "value": 240,
             "unit": "operations/month",
             "formula_reference": "formula.phase-08-complete-service-bundles",
             "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -1215,7 +1214,7 @@
           {
             "dimension_id": "dimension.gcp.gcp.firestore-native-standard-bounded-twin.document_writes",
             "classification": "usage",
-            "value": 697939440,
+            "value": 6739440,
             "unit": "operations/month",
             "formula_reference": "formula.phase-08-complete-service-bundles",
             "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -1223,7 +1222,7 @@
           {
             "dimension_id": "dimension.gcp.gcp.firestore-native-standard-bounded-twin.document_deletes",
             "classification": "usage",
-            "value": 345600000,
+            "value": 0,
             "unit": "operations/month",
             "formula_reference": "formula.phase-08-complete-service-bundles",
             "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -1231,7 +1230,7 @@
           {
             "dimension_id": "dimension.gcp.gcp.firestore-native-standard-bounded-twin.stored_gib_month",
             "classification": "usage",
-            "value": "0",
+            "value": "0.0019073486328125",
             "unit": "GiB-month",
             "formula_reference": "formula.phase-08-complete-service-bundles",
             "evidence_reference": "sha256:f630b09cfaf9cb44e9c3f28893009c39ef6ae119ee57e8cfe5983b545711e15d"
@@ -2905,7 +2904,7 @@
         "compatibility_version": "1"
       }
     ],
-    "digest": "sha256:dae1265bbcf3178bd459dfc46638db8310d2432eaaaaaba5721ab3a63ef1ec90"
+    "digest": "sha256:85206cc176fac38224a908b31f52414d8e8d6b98ea54d64ac4278c0b7d1b9cf6"
   },
   "credentials": {
     "providers": [
@@ -2922,7 +2921,7 @@
     "component_catalog_ref": {
       "id": "complete-service-component-catalog",
       "version": "1",
-      "digest": "sha256:ae901115898ed15aebfaae065ce70e7a14379996f1d3c368fe231de62c388ffc"
+      "digest": "sha256:3396848028a5b8862e1c948a8017cd8e7bb7d118a0ee5edc120cd3d7a3956c1d"
     },
     "graph_resolver_version": "resolved-deployment-graph.v1",
     "package_builder_version": "graph-package-builder.v1",

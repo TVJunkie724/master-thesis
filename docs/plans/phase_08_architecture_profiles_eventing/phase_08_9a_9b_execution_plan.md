@@ -32,14 +32,25 @@ general multi-cloud architecture product.
 
 ### Current checkpoint (2026-08-11)
 
-Step F is implemented locally through the provider/runtime and Layer Access
-slices. The typed Management read model, provider-native L4/L5 access evidence,
-Flutter access surfaces, readiness/secret hardening, and all-nine-placement
-local integration coverage are committed through `db1f6a2a`. The profile is
-still `draft` and runtime selection remains default-off. Full safe gates,
-zero-finding reviews, activation, and the frozen Five-layer digest remain
-required before Step G can close or Step H can start. No live cloud deployment
-or provider sign-in evidence is claimed.
+Step F is implemented locally through provider/runtime, Layer Access, and
+offline activation. The typed Management read model, provider-native L4/L5
+access evidence, Flutter surfaces, readiness/secret hardening, all-nine
+placement coverage, active profile/catalog/provider definitions, default-on
+resolution, and strict Demo Small/Medium/Large RTA/RDS v2 parity are present.
+Full safe gates, repeated zero-finding reviews, and the frozen Five-layer
+digest remain required before Step G can close or Step H can start. No live
+cloud deployment or provider sign-in evidence is claimed; explicit live gates
+still block deployment selection.
+
+The activation calculation uses immutable AWS/Azure/GCP rate-card snapshots
+published from a validated source manifest for the exact S/M/L workloads and
+pinned USD/EUR conversion. It never refreshes pricing or creates provider
+resources during the offline gate. Azure Large is ranked with the rounded
+108,000-RU/s maximum of the storage floor and frozen operation proxy, while
+supervised Cosmos request-charge/autoscale evidence remains a hard deployment gate. An offline
+AWS TwinMaker selection similarly persists for evaluation with an explicit
+account-plan pricing gate rather than being discarded or presented as
+deployment-ready.
 
 ## 2. Binding PoC Boundaries
 

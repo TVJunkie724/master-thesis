@@ -4,9 +4,11 @@ Phases 8.2 through 8.6 provide a versioned, closed-world contract boundary,
 repository-owned production definitions, profile-bounded Optimizer resolution,
 Management-owned persistence, and deterministic Deployer graph compilation for reviewed Twin architectures. Profile
 list/detail/select/preview APIs and owner-scoped resolved-architecture reads
-are active. Optimizer emission, Management admission, Manifest v3, AWS/Azure
-provider support, graph-selected packages, and graph-derived Terraform inputs
-are active by default. Flutter presentation remains the Phase 8.7 boundary.
+are active. Optimizer emission, Management admission, profile-versioned
+Manifest v3/v4 packaging, AWS/Azure/GCP provider support for the active v2
+profile, graph-selected packages, and graph-derived Terraform inputs are active
+by default. Flutter consumes the Management-owned profile workflow and resolved
+architecture read models.
 
 ## Four Separate Records
 
@@ -17,8 +19,9 @@ are active by default. Flutter presentation remains the Phase 8.7 boundary.
 | `DeploymentComponentCatalog` | registered packages, runtimes, ports, permissions, pricing/formula references, and declarative Terraform bindings | runtime resource names or secret values |
 | `ResolvedTwinArchitecture` | immutable selected assignments, edges, completeness, evidence, cost summary, and pinned references | source code, credentials, endpoints, ARNs, topics, or duplicated deployment dimensions |
 
-`ResolvedTwinArchitecture` references the exact
-`ResolvedDeploymentSpecification v1` digest and calculation-run ID. The
+`ResolvedTwinArchitecture` references the exact matching
+`ResolvedDeploymentSpecification` digest and calculation-run ID. Historical
+Five-layer v1 uses RTA v1/RDS v1; active Five-layer v2 uses RTA v2/RDS v2. The
 deployment specification remains the source of truth for provider-specific SKU,
 capacity, memory, storage class, schedule, and billing-mode values.
 
@@ -48,18 +51,19 @@ digests, and sends only immutable references to the Optimizer. The Optimizer
 admits candidates only after component, capability, port, edge, region,
 pricing/formula, deployment-mapping, and extension completeness checks.
 
-The winning complete path produces the legacy five-layer compatibility fields,
-the existing `ResolvedDeploymentSpecification v1`, and one deterministic
-`ResolvedTwinArchitecture v1` from the same candidate. Management validates
-their run, profile, optimization-bundle, pricing, deployment, cost, extension,
-and digest cross-links before one atomic commit. A malformed response persists
-only bounded failed-run metadata and never becomes a legacy success.
+The winning complete path produces profile-compatible projection fields plus
+one matching immutable contract pair from the same candidate: RTA v1/RDS v1
+for historical v1 evidence or RTA v2/RDS v2 for the active v2 path. Management
+validates their run, profile, optimization-bundle, pricing, deployment, cost,
+extension, and digest cross-links before one atomic commit. A malformed
+response persists only bounded failed-run metadata and never becomes a legacy
+success.
 
-`ARCHITECTURE_PROFILE_RESOLUTION_ENABLED` defaults to `false` in the Optimizer
-and Management API while the graph compiler remains dark/read-only. Explicitly
-setting it to `true` enables architecture-aware calculation and deployment
-admission for controlled Phase 8 verification; a failed enabled resolution does
-not fall back to a legacy deployment result.
+`ARCHITECTURE_PROFILE_RESOLUTION_ENABLED` defaults to `true` in the Optimizer
+and Management API for `five-layer-baseline@2`. Explicitly setting it to
+`false` is the fail-closed rollback; a failed enabled resolution never falls
+back to a legacy deployment result. Offline RDS v2 evidence remains
+evaluation-only until every listed supervised live-capacity gate is satisfied.
 
 ## Management Persistence
 
@@ -96,29 +100,29 @@ layer.
 
 ## Registered Baseline Realization
 
-The active catalog contains 22 reviewed deployment components, 36 edge
-implementations, 50 content-addressed platform/shared artifacts, and explicit
-Terraform resource/variable/output ownership. AWS and Azure each map all seven
-logical components and all six baseline edges, including the typed L4-to-L5
-binding. Their profiles are supported after the Phase 8.6 graph/package/Terraform
-gate. GCP maps the L1-L3 subset and remains unsupported for a complete baseline
-because reviewed L4/L5 implementations are absent.
+The historical v1 provider mappings remain immutable: AWS and Azure map the
+complete baseline, while GCP has no reviewed v1 L4/L5 realization and is not
+selectable for a complete v1 deployment. The active complete-service catalog
+contains the reviewed v2 AWS, Azure, and provider-hosted GCP components, edge
+implementations, package artifacts, and explicit Terraform
+resource/variable/output ownership.
 
-The reviewed successor contracts are not active yet. Phase 8.9A plans
-`five-layer-baseline@2` with mandatory embedded domain events, three
+The active offline successor contract is `five-layer-baseline@2`, with
+mandatory embedded domain events, three
 provider-local `L3 hot + L5` raw-visualization bundles, and an independently
 assigned L4. It exposes an L3-hot-to-L5 raw-history edge and an
 L3-hot-to-L4 `twin_projection.v1` edge; L4-to-L5/3D is outside the version.
-Six-layer planning is deferred until this L1-L5 contract is implemented and
-reviewed. No new profile is selectable until its complete-service decision,
-RTA v2/RDS v2/Manifest v4, implementation, and offline activation gates pass.
+Six-layer implementation remains deferred until this L1-L5 activation commit
+is frozen. RTA v2/RDS v2/Manifest v4 offline evidence is selectable for
+evaluation, while unresolved supervised live-capacity gates prevent
+deployment selection.
 
-Flutter Phase 8.7 now consumes the seven owner-scoped Management profile,
+Flutter consumes the seven owner-scoped Management profile,
 selection, preview/change, and resolved-architecture reads through strict Dart
-DTOs. The Configuration Workspace renders the truthful empty active catalog
-and historical read-only selection until Five-layer v2 activation. Populated
-Five-/Six-layer UI states are contract fixtures only; neither Demo nor the live
-adapter advertises an inactive profile.
+DTOs. The Configuration Workspace and Demo advertise the one active
+`five-layer-baseline@2` profile and pin its exact digest for new Twins.
+Historical v1 evidence remains readable. Six-layer UI states are not
+advertised as executable.
 
 Five-layer v2 requires one server-resolved S/M/L Eventing scenario reference.
 Clients will submit only `eventingScenarioId`; Management will pin the
@@ -135,10 +139,11 @@ or layer.
 
 ## Compatibility
 
-`ResolvedDeploymentSpecification v1` remains unchanged and baseline-only. Its
-fixed enums cannot represent a later Eventing profile. Eventing can become
-deployable only after a separate decision gate and a new deployment
-specification version with v1 read support.
+`ResolvedDeploymentSpecification v1` remains unchanged and historical-profile
+only. Five-layer v2 uses the separate RDS v2/RTA v2/Manifest v4 chain while
+retaining v1 read support. Six-layer must extend that v2-capable boundary under
+its own reviewed contract delta; it may not reinterpret either existing
+version.
 
 See [Architecture Contract Development](../developer-guide/architecture-profile-contracts.md)
 for synchronization and extension rules.
