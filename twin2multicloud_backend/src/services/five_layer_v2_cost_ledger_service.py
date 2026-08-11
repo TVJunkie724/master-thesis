@@ -1,9 +1,9 @@
-"""Untrusted Five-layer v2 cost-ledger validation and result projections."""
+"""Untrusted Phase 8 cost-ledger validation and result projections."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_CEILING
 from functools import lru_cache
 import hashlib
 import json
@@ -18,6 +18,9 @@ from src.services.resolved_deployment_specification_service import (
 
 
 FORMULA_REF = "formula.phase-08-complete-service-bundles"
+SIX_LAYER_TOPOLOGY_COST_REGISTRY_DIGEST = (
+    "sha256:06c0a075f4db7944f4db5a43b4e58f7c5d9172220f0677ea514fc3a0ad5f3f1e"
+)
 PROVIDER_LABEL = {"aws": "AWS", "azure": "Azure", "gcp": "GCP"}
 WORKLOAD_ROOT = (
     Path(__file__).resolve().parents[1]
@@ -34,7 +37,36 @@ LOGICAL_LAYER = {
     "component.archive-storage": "L3_archive",
     "component.twin-state": "L4",
     "component.visualization": "L5",
+    "component.eventing": "Eventing",
 }
+SIX_LAYER_EVENT_COMPONENT_IDS = frozenset(
+    {
+        "aws.kinesis-data-streams",
+        "aws.sns-fifo",
+        "aws.sqs-fifo",
+        "aws.lambda-event-worker",
+        "aws.s3-event-failure-store",
+        "aws.cloudwatch",
+        "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "aws.sns-fifo-only-for-reviewed-remote-control-edge",
+        "aws.lambda-event-adapter",
+        "azure.event-hubs-standard-small-medium",
+        "azure.event-hubs-dedicated-large",
+        "azure.service-bus-standard",
+        "azure.functions-flex-event-worker",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace",
+        "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+        "azure.functions-flex-event-adapter",
+        "gcp.pubsub-separated-event-layer-topics",
+        "gcp.cloud-run-event-service-small-medium",
+        "gcp.cloud-run-worker-pool-fixed-large",
+        "gcp.cloud-logging",
+        "gcp.cloud-monitoring",
+        "gcp.pubsub-separated-embedded-topics",
+        "gcp.cloud-run-event-adapter",
+    }
+)
 DOMAIN_EVENT_FLOWS = (
     ("telemetry.received.v1", "component.ingestion", "component.processing"),
     (
@@ -74,6 +106,47 @@ DOMAIN_EVENT_FLOWS = (
         "component.hot-storage",
     ),
 )
+SIX_LAYER_EVENT_FLOWS = (
+    (
+        "edge.ingestion-to-eventing",
+        "component.ingestion",
+        "component.eventing",
+        ("telemetry.received.v1", "device.command.outcome.v1"),
+    ),
+    (
+        "edge.eventing-to-processing",
+        "component.eventing",
+        "component.processing",
+        (
+            "telemetry.received.v1",
+            "telemetry.processed.v1",
+            "event.matched.v1",
+            "notification.requested.v1",
+            "extension.action.outcome.v1",
+            "notification.workflow.outcome.v1",
+            "device.command.outcome.v1",
+        ),
+    ),
+    (
+        "edge.processing-to-eventing",
+        "component.processing",
+        "component.eventing",
+        (
+            "telemetry.processed.v1",
+            "event.matched.v1",
+            "notification.requested.v1",
+            "device.command.requested.v1",
+            "extension.action.outcome.v1",
+            "notification.workflow.outcome.v1",
+        ),
+    ),
+    (
+        "edge.eventing-to-ingestion",
+        "component.eventing",
+        "component.ingestion",
+        ("device.command.requested.v1",),
+    ),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +159,7 @@ class ExpectedRoute:
     allocation_item_ids: tuple[str, ...]
     domain_flow_ids: tuple[str, ...]
     workload_digest: str
+    normalized_quantities: dict[str, str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,7 +171,7 @@ class ValidatedFiveLayerV2CostLedger:
 
 def _fail(field: str, message: str) -> NoReturn:
     raise OptimizerContractError(
-        "Optimizer Five-layer v2 cost ledger is invalid",
+        "Optimizer Phase 8 cost ledger is invalid",
         [{"field": field, "message": message}],
     )
 
@@ -125,7 +199,7 @@ def _decimal(value: object, field: str) -> Decimal:
         parsed = Decimal(value)
     except (InvalidOperation, ValueError) as exc:
         raise OptimizerContractError(
-            "Optimizer Five-layer v2 cost ledger is invalid",
+            "Optimizer Phase 8 cost ledger is invalid",
             [{"field": field, "message": "Expected an exact decimal string"}],
         ) from exc
     if not parsed.is_finite() or parsed < 0:
@@ -163,7 +237,7 @@ def _sources() -> tuple[dict[str, Any], dict[str, dict[str, Any]], dict[str, Any
             )
         )
     except (OSError, json.JSONDecodeError) as exc:
-        raise RuntimeError("Five-layer v2 cost-ledger contract is unavailable") from exc
+        raise RuntimeError("Phase 8 cost-ledger contract is unavailable") from exc
     return registry, fixtures, eventing
 
 
@@ -189,12 +263,119 @@ def _resolved_workload(
         None,
     )
     if size is None:
-        _fail("params", "Ledger workload is not a frozen Five-layer v2 scenario")
+        _fail("params", "Ledger workload is not a frozen Phase 8 scenario")
     scenario_id = str(workload["eventingScenarioId"])
     digest = eventing["scenario_digests"].get(scenario_id)
     if scenario_id != f"eventing-{size}-v1" or not isinstance(digest, str):
         _fail("params.eventingScenarioId", "Ledger Eventing scenario is unavailable")
     return size, workload, {"id": scenario_id, "version": "1", "digest": digest}
+
+
+def _decimal_text(value: Decimal) -> str:
+    normalized = value.normalize()
+    if normalized == normalized.to_integral():
+        return str(normalized.quantize(Decimal(1)))
+    return format(normalized, "f")
+
+
+def _domain_event_channel_quantities(
+    scenario: Mapping[str, Any],
+) -> dict[str, tuple[Decimal, Decimal]]:
+    events = Decimal(int(scenario["events_per_month"]))
+    matches = events * Decimal(str(scenario["rule_match_share"]))
+    workflows = matches * Decimal(
+        str(scenario["workflow_start_share_of_matches"])
+    )
+    commands = matches * Decimal(
+        str(scenario["device_command_share_of_matches"])
+    )
+    publishes = {
+        "telemetry.received.v1": events,
+        "telemetry.processed.v1": events,
+        "event.matched.v1": matches,
+        "notification.requested.v1": workflows,
+        "device.command.requested.v1": commands,
+        "extension.action.outcome.v1": matches,
+        "notification.workflow.outcome.v1": workflows,
+        "device.command.outcome.v1": commands,
+    }
+    if any(value != value.to_integral_value() for value in publishes.values()):
+        _fail("params.eventingScenarioId", "Domain-event count is fractional")
+    retry_share = Decimal(str(scenario["retry_share"]))
+    replay_share = Decimal(str(scenario["replay_share"]))
+    attempts = {
+        channel_id: count
+        + (count * retry_share).to_integral_value(rounding=ROUND_CEILING)
+        + (count * replay_share).to_integral_value(rounding=ROUND_CEILING)
+        for channel_id, count in publishes.items()
+    }
+    envelope_bytes = Decimal(1024)
+    telemetry_bytes = Decimal(int(scenario["average_event_payload_bytes"]))
+    canonical_bytes = {
+        "telemetry.received.v1": telemetry_bytes + envelope_bytes,
+        "telemetry.processed.v1": telemetry_bytes + envelope_bytes,
+        "event.matched.v1": Decimal(1024) + envelope_bytes,
+        "notification.requested.v1": Decimal(1024) + envelope_bytes,
+        "device.command.requested.v1": Decimal(1024) + envelope_bytes,
+        "extension.action.outcome.v1": Decimal(512) + envelope_bytes,
+        "notification.workflow.outcome.v1": Decimal(512) + envelope_bytes,
+        "device.command.outcome.v1": Decimal(512) + envelope_bytes,
+    }
+    return {
+        channel_id: (attempts[channel_id], canonical_bytes[channel_id])
+        for channel_id in publishes
+    }
+
+
+def _route_quantities(
+    route_class: str,
+    domain_flow_ids: tuple[str, ...],
+    workload: Mapping[str, Any],
+    scenario: Mapping[str, Any],
+) -> dict[str, str]:
+    month_seconds = Decimal("2592000")
+    interval_seconds = (
+        Decimal(str(workload["deviceSendingIntervalInMinutes"])) * Decimal(60)
+    )
+    messages = (
+        Decimal(int(workload["numberOfDevices"]))
+        * month_seconds
+        / interval_seconds
+    ).to_integral_value(rounding=ROUND_CEILING)
+    payload_bytes = Decimal(str(workload["averageSizeOfMessageInKb"])) * 1024
+    if route_class == "domain_event_cross_cloud":
+        channels = _domain_event_channel_quantities(scenario)
+        try:
+            selected = [
+                channels[flow_id.split(":", 1)[0]]
+                for flow_id in domain_flow_ids
+            ]
+        except KeyError as exc:
+            _fail("costLedger.route_costs", f"Unknown domain-event flow {exc.args[0]}")
+        operations = sum((item[0] for item in selected), Decimal(0))
+        egress_bytes = sum((item[0] * item[1] for item in selected), Decimal(0))
+    elif route_class == "twin_projection_cross_cloud":
+        operations = (
+            (
+                Decimal(str(workload["twinStateMaterializationsPerSecond"]))
+                + Decimal(str(workload["twinGraphUpdatesPerSecond"]))
+            )
+            * month_seconds
+        ).to_integral_value(rounding=ROUND_CEILING)
+        egress_bytes = operations * payload_bytes
+    elif route_class in {
+        "storage_hot_to_cool_cross_cloud",
+        "storage_cool_to_archive_cross_cloud",
+    }:
+        operations = Decimal(8640)
+        egress_bytes = messages * payload_bytes
+    else:
+        _fail("costLedger.route_costs", "Route class has no quantity formula")
+    return {
+        "source_runtime": _decimal_text(operations),
+        "destination_operations": _decimal_text(operations),
+        "cross_cloud_egress_bytes": _decimal_text(egress_bytes),
+    }
 
 
 def _expected_routes(
@@ -204,7 +385,12 @@ def _expected_routes(
     workload: Mapping[str, Any],
     eventing_ref: Mapping[str, str],
 ) -> tuple[ExpectedRoute, ...]:
-    registry, _fixtures, _eventing = _sources()
+    registry, _fixtures, eventing = _sources()
+    scenario = next(
+        item
+        for item in eventing["scenarios"]
+        if item["scenario_id"] == eventing_ref["id"]
+    )
     route_index = {
         (item["route_class"], item["pair"]): item
         for item in registry["route_owners"]
@@ -245,26 +431,49 @@ def _expected_routes(
                 allocation_item_ids=allocations,
                 domain_flow_ids=flows,
                 workload_digest=workload_digest,
+                normalized_quantities=_route_quantities(
+                    route_class,
+                    flows,
+                    workload,
+                    scenario,
+                ),
             )
         )
 
     domain_sources: dict[tuple[str, str], set[str]] = {}
     domain_flows: dict[tuple[str, str], list[str]] = {}
-    for flow_id, source_logical, destination_logical in DOMAIN_EVENT_FLOWS:
-        source = assignment[source_logical]
-        destination = assignment[destination_logical]
-        if source == destination:
-            continue
-        pair = (source, destination)
-        domain_sources.setdefault(pair, set()).add(source_logical)
-        domain_flows.setdefault(pair, []).append(flow_id)
+    uses_event_layer = "component.eventing" in assignment
+    if uses_event_layer:
+        for edge_id, source_logical, destination_logical, flow_ids in (
+            SIX_LAYER_EVENT_FLOWS
+        ):
+            source = assignment[source_logical]
+            destination = assignment[destination_logical]
+            if source == destination:
+                continue
+            pair = (source, destination)
+            domain_sources.setdefault(pair, set()).add(edge_id)
+            domain_flows.setdefault(pair, []).extend(flow_ids)
+    else:
+        for flow_id, source_logical, destination_logical in DOMAIN_EVENT_FLOWS:
+            source = assignment[source_logical]
+            destination = assignment[destination_logical]
+            if source == destination:
+                continue
+            pair = (source, destination)
+            domain_sources.setdefault(pair, set()).add(source_logical)
+            domain_flows.setdefault(pair, []).append(flow_id)
     for pair, sources in sorted(domain_sources.items()):
         add(
             "domain_event_cross_cloud",
             pair[0],
             pair[1],
             tuple(sorted(sources)),
-            tuple(domain_flows[pair]),
+            (
+                tuple(sorted(set(domain_flows[pair])))
+                if uses_event_layer
+                else tuple(domain_flows[pair])
+            ),
         )
     add(
         "twin_projection_cross_cloud",
@@ -326,6 +535,12 @@ def validate_five_layer_v2_cost_ledger(
         _fail("costLedger.schema_version", "Cost-ledger version is unsupported")
     if ledger["currency"] != specification["currency"]:
         _fail("costLedger.currency", "Cost-ledger currency differs")
+    profile_ref = architecture.get("architecture_profile_ref")
+    six_layer = (
+        isinstance(profile_ref, Mapping)
+        and profile_ref.get("id") == "six-layer-eventing"
+        and profile_ref.get("version") == "1"
+    )
 
     selections = {
         item["implementation_component_id"]: item
@@ -348,20 +563,35 @@ def validate_five_layer_v2_cost_ledger(
             "costLedger.component_costs",
             "Every selected component requires exactly one cost owner",
         )
-    component_totals = {logical: Decimal(0) for logical in LOGICAL_LAYER}
+    assignment = {
+        item["logical_component_id"]: item["provider"]
+        for item in architecture["component_assignments"]
+    }
+    if set(assignment) - set(LOGICAL_LAYER):
+        _fail(
+            "resolvedTwinArchitecture.component_assignments",
+            "Cost ledger contains an unsupported logical component",
+        )
+    component_totals = {logical: Decimal(0) for logical in assignment}
     result_items: list[dict[str, Any]] = []
     owner_total = Decimal(0)
     for quote in raw_component_costs:
+        expected_component_keys = {
+            "component_id",
+            "cost_owner_id",
+            "selection_digest",
+            "formula_reference",
+            "pricing_evidence_digest",
+            "monthly_amount",
+        }
+        topology_component = (
+            six_layer and quote.get("component_id") in SIX_LAYER_EVENT_COMPONENT_IDS
+        )
+        if topology_component:
+            expected_component_keys.add("topology_cost_registry_digest")
         _only_keys(
             quote,
-            {
-                "component_id",
-                "cost_owner_id",
-                "selection_digest",
-                "formula_reference",
-                "pricing_evidence_digest",
-                "monthly_amount",
-            },
+            expected_component_keys,
             "costLedger.component_costs",
         )
         component_id = quote["component_id"]
@@ -377,6 +607,11 @@ def validate_five_layer_v2_cost_ledger(
             or quote["formula_reference"] != FORMULA_REF
             or quote["pricing_evidence_digest"]
             != catalog_context.catalogs[provider].content_digest
+            or (
+                topology_component
+                and quote["topology_cost_registry_digest"]
+                != SIX_LAYER_TOPOLOGY_COST_REGISTRY_DIGEST
+            )
         ):
             _fail(
                 f"costLedger.component_costs.{component_id}",
@@ -407,10 +642,6 @@ def validate_five_layer_v2_cost_ledger(
             }
         )
 
-    assignment = {
-        item["logical_component_id"]: item["provider"]
-        for item in architecture["component_assignments"]
-    }
     size, workload, eventing_ref = _resolved_workload(persisted_params)
     expected_routes = {
         route.cost_owner_id: route
@@ -442,22 +673,27 @@ def validate_five_layer_v2_cost_ledger(
         item["edge_id"]: Decimal(0) for item in architecture["resolved_edges"]
     }
     for quote in raw_route_costs:
+        route = expected_routes[quote["cost_owner_id"]]
+        expected_route_keys = {
+            "cost_owner_id",
+            "route_class",
+            "pair",
+            "domain_flow_ids",
+            "workload_digest",
+            "formula_reference",
+            "normalized_quantities",
+            "pricing_evidence_digests",
+            "monthly_amount",
+            "allocations",
+        }
+        topology_route = six_layer and route.route_class == "domain_event_cross_cloud"
+        if topology_route:
+            expected_route_keys.add("topology_cost_registry_digest")
         _only_keys(
             quote,
-            {
-                "cost_owner_id",
-                "route_class",
-                "pair",
-                "domain_flow_ids",
-                "workload_digest",
-                "formula_reference",
-                "pricing_evidence_digests",
-                "monthly_amount",
-                "allocations",
-            },
+            expected_route_keys,
             "costLedger.route_costs",
         )
-        route = expected_routes[quote["cost_owner_id"]]
         expected_digests = {
             "source": catalog_context.catalogs[
                 route.source_provider
@@ -472,7 +708,13 @@ def validate_five_layer_v2_cost_ledger(
             or quote["domain_flow_ids"] != list(route.domain_flow_ids)
             or quote["workload_digest"] != route.workload_digest
             or quote["formula_reference"] != FORMULA_REF
+            or quote["normalized_quantities"] != route.normalized_quantities
             or quote["pricing_evidence_digests"] != expected_digests
+            or (
+                topology_route
+                and quote["topology_cost_registry_digest"]
+                != SIX_LAYER_TOPOLOGY_COST_REGISTRY_DIGEST
+            )
             or not isinstance(quote["allocations"], list)
         ):
             _fail(

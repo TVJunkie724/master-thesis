@@ -100,7 +100,12 @@ def test_catalog_excludes_historical_profile_until_runtime_activation(
 
 
 def test_runtime_activated_catalog_returns_safe_detail(monkeypatch):
-    assert RUNTIME_SELECTABLE_PROFILE_REFS == frozenset({("five-layer-baseline", "2")})
+    assert RUNTIME_SELECTABLE_PROFILE_REFS == frozenset(
+        {
+            ("five-layer-baseline", "2"),
+            ("six-layer-eventing", "1"),
+        }
+    )
     monkeypatch.setattr(
         "src.services.architecture_profile_service.RUNTIME_SELECTABLE_PROFILE_REFS",
         RUNTIME_SELECTABLE_PROFILE_REFS,
@@ -109,15 +114,21 @@ def test_runtime_activated_catalog_returns_safe_detail(monkeypatch):
 
     profiles = service.list_profiles()
     detail = service.get_profile("five-layer-baseline", "2")
+    eventing_detail = service.get_profile("six-layer-eventing", "1")
 
     assert [(item.profile_id, item.profile_version) for item in profiles] == [
-        ("five-layer-baseline", "2")
+        ("five-layer-baseline", "2"),
+        ("six-layer-eventing", "1"),
     ]
     assert detail.lifecycle_status == "active"
     assert len(detail.responsibilities) == 5
     assert len(detail.logical_components) == 7
     assert len(detail.logical_edges) == 8
     assert len(detail.visualization.nodes) == 7
+    assert len(eventing_detail.responsibilities) == 6
+    assert len(eventing_detail.logical_components) == 8
+    assert len(eventing_detail.logical_edges) == 9
+    assert len(eventing_detail.visualization.nodes) == 8
     serialized = detail.model_dump_json()
     assert "terraform_binding" not in serialized
     assert "package_artifact" not in serialized

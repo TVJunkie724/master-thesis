@@ -55,10 +55,13 @@ DEFINITIONS_ROOT = (
 DEFAULT_PROFILE_ID = "five-layer-baseline"
 DEFAULT_PROFILE_VERSION = "2"
 # Runtime activation is deliberately independent from historical definitions:
-# @1 remains byte-stable/readable while only the reviewed @2 target can be
-# selected for a new calculation.
+# Historical Five-layer @1 remains byte-stable/readable. Only the two reviewed
+# Phase 8 comparison targets can be selected for a new calculation.
 RUNTIME_SELECTABLE_PROFILE_REFS: frozenset[tuple[str, str]] = frozenset(
-    {("five-layer-baseline", "2")}
+    {
+        ("five-layer-baseline", "2"),
+        ("six-layer-eventing", "1"),
+    }
 )
 MAX_ACTIVE_PROFILE_VERSIONS = 32
 PROFILE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$")

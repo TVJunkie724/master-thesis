@@ -202,7 +202,7 @@ def _v2_state(db_session, monkeypatch):
     catalog_documents = [copy.deepcopy(document) for document in _catalog_documents()]
     active_catalog_digest = ""
     for document in catalog_documents:
-        if document.get("schema_version") != "deployment-component-catalog.v2":
+        if document.get("catalog_id") != "complete-service-component-catalog":
             continue
         document["lifecycle_status"] = "active"
         document["content_digest"] = calculate_digest(document)

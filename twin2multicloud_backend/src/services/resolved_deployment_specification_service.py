@@ -82,6 +82,19 @@ V2_LOGICAL_TO_PATH = {
     "component.archive-storage": "l3_archive",
     "component.twin-state": "l4",
     "component.visualization": "l5",
+    "component.eventing": "eventing",
+}
+V2_PROFILE_CATALOGS = {
+    ("five-layer-baseline", "2"): (
+        "complete-service",
+        "complete-service-component-catalog",
+        "1",
+    ),
+    ("six-layer-eventing", "1"): (
+        "six-layer-eventing",
+        "six-layer-eventing-component-catalog",
+        "1",
+    ),
 }
 
 
@@ -132,24 +145,6 @@ def _v2_contract() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
                 "utf-8"
             )
         )
-        profile = json.loads(
-            (
-                ARCHITECTURE_DEFINITIONS_ROOT
-                / "profiles"
-                / "five-layer-baseline"
-                / "2"
-                / "profile.json"
-            ).read_text("utf-8")
-        )
-        catalog = json.loads(
-            (
-                ARCHITECTURE_DEFINITIONS_ROOT
-                / "component-catalogs"
-                / "complete-service"
-                / "1"
-                / "catalog.json"
-            ).read_text("utf-8")
-        )
         eventing = json.loads(
             (FIVE_LAYER_V2_WORKLOAD_ROOT / "eventing-scenario-catalog.json").read_text(
                 "utf-8"
@@ -166,11 +161,47 @@ def _v2_contract() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     ).hexdigest()
     if supplied != actual:
         raise RuntimeError("Resolved deployment v2 registry digest drifted")
-    return schema, registry, {
-        "profile": profile,
-        "catalog": catalog,
-        "eventing": eventing,
-    }
+    return schema, registry, eventing
+
+
+@lru_cache(maxsize=len(V2_PROFILE_CATALOGS))
+def _v2_definitions(
+    profile_id: str,
+    profile_version: str,
+) -> dict[str, Any]:
+    catalog_ref = V2_PROFILE_CATALOGS.get((profile_id, profile_version))
+    if catalog_ref is None:
+        raise RuntimeError("Resolved deployment v2 profile is unsupported")
+    catalog_directory, catalog_id, catalog_version = catalog_ref
+    try:
+        profile = json.loads(
+            (
+                ARCHITECTURE_DEFINITIONS_ROOT
+                / "profiles"
+                / profile_id
+                / profile_version
+                / "profile.json"
+            ).read_text("utf-8")
+        )
+        catalog = json.loads(
+            (
+                ARCHITECTURE_DEFINITIONS_ROOT
+                / "component-catalogs"
+                / catalog_directory
+                / catalog_version
+                / "catalog.json"
+            ).read_text("utf-8")
+        )
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Resolved deployment v2 definitions are unavailable") from exc
+    if (
+        profile.get("profile_id") != profile_id
+        or profile.get("profile_version") != profile_version
+        or catalog.get("catalog_id") != catalog_id
+        or catalog.get("catalog_version") != catalog_version
+    ):
+        raise RuntimeError("Resolved deployment v2 definition identity drifted")
+    return {"profile": profile, "catalog": catalog}
 
 
 def canonical_json(value: object) -> str:
@@ -308,7 +339,7 @@ def _validate_v2_specification(
             "Resolved deployment specification exceeds the size limit",
         )
     specification = json.loads(serialized)
-    schema, registry, definitions = _v2_contract()
+    schema, registry, eventing = _v2_contract()
     errors = sorted(
         Draft202012Validator(
             schema,
@@ -336,7 +367,7 @@ def _validate_v2_specification(
         _fail(
             "DEPLOYMENT_SPECIFICATION_INVALID",
             "resolvedDeploymentSpecification.currency",
-            "Five-layer v2 deployment selections must match the result currency",
+            "Phase 8 deployment selections must match the result currency",
         )
     readiness = specification["readiness"]
     ready = readiness == {
@@ -360,6 +391,11 @@ def _validate_v2_specification(
             "resolvedDeploymentSpecification.digest",
             "Resolved deployment specification digest does not match its content",
         )
+    profile_ref = specification["architecture_profile_ref"]
+    definitions = {
+        **_v2_definitions(profile_ref["id"], profile_ref["version"]),
+        "eventing": eventing,
+    }
     _validate_v2_context(
         specification,
         expected_catalog_context=expected_catalog_context,
@@ -372,6 +408,7 @@ def _validate_v2_specification(
         expected_cheapest_path=expected_cheapest_path,
         expected_architecture=expected_result["resolvedTwinArchitecture"],
         registry=registry,
+        profile=definitions["profile"],
     )
     return ValidatedResolvedDeploymentSpecification(
         specification=specification,
@@ -395,7 +432,7 @@ def _validate_v2_context(
         _fail(
             "DEPLOYMENT_SPECIFICATION_CONTEXT_MISMATCH",
             "resolvedTwinArchitecture",
-            "Five-layer v2 result is missing its resolved architecture",
+            "Phase 8 result is missing its resolved architecture",
         )
     expected_profile = {
         "id": definitions["profile"]["profile_id"],
@@ -436,7 +473,7 @@ def _validate_v2_context(
         _fail(
             "DEPLOYMENT_SPECIFICATION_CONTEXT_MISMATCH",
             "resolvedDeploymentSpecification.optimization_context",
-            "Five-layer v2 profile, workload, formula, or deployment evidence differs",
+            "Phase 8 profile, workload, formula, or deployment evidence differs",
         )
     used_providers = {
         str(item["provider"]) for item in specification["component_selections"]
@@ -452,7 +489,7 @@ def _validate_v2_context(
         _fail(
             "DEPLOYMENT_SPECIFICATION_CATALOG_MISMATCH",
             "resolvedDeploymentSpecification.optimization_context.pricing_evidence_refs",
-            "Five-layer v2 pricing evidence does not match the run catalogs",
+            "Phase 8 pricing evidence does not match the run catalogs",
         )
 
 
@@ -462,9 +499,22 @@ def _validate_v2_selections(
     expected_cheapest_path: Mapping[str, Any],
     expected_architecture: Mapping[str, Any],
     registry: Mapping[str, Any],
+    profile: Mapping[str, Any],
 ) -> None:
     expected_provider: dict[str, str] = {}
-    for logical, path_key in V2_LOGICAL_TO_PATH.items():
+    logical_components = {
+        str(item["component_id"])
+        for item in profile.get("components", [])
+        if isinstance(item, Mapping) and isinstance(item.get("component_id"), str)
+    }
+    if not logical_components or not logical_components.issubset(V2_LOGICAL_TO_PATH):
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_CONTEXT_MISMATCH",
+            "resolvedDeploymentSpecification.architecture_profile_ref",
+            "The v2 profile contains unsupported logical components",
+        )
+    for logical in sorted(logical_components):
+        path_key = V2_LOGICAL_TO_PATH[logical]
         raw_provider = expected_cheapest_path.get(path_key)
         if (
             not isinstance(raw_provider, str)
@@ -487,7 +537,7 @@ def _validate_v2_selections(
         _fail(
             "DEPLOYMENT_SPECIFICATION_CONTEXT_MISMATCH",
             "resolvedTwinArchitecture.component_assignments",
-            "Five-layer v2 architecture assignments are incomplete",
+            "Phase 8 architecture assignments are incomplete",
         )
     component_index = {
         item["component_id"]: item for item in registry["components"]
@@ -521,7 +571,7 @@ def _validate_v2_selections(
             _fail(
                 "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
                 "resolvedDeploymentSpecification.component_selections",
-                "Five-layer v2 selection differs from its path or component registry",
+                "Phase 8 selection differs from its path or component registry",
             )
         selection_ids.add(selection_id)
         selected_components[logical].append(component_id)
@@ -533,7 +583,7 @@ def _validate_v2_selections(
             _fail(
                 "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
                 f"resolvedDeploymentSpecification.{selection_id}.dimensions",
-                "Five-layer v2 dimensions differ from the component registry",
+                "Phase 8 dimensions differ from the component registry",
             )
         for dimension in selection["dimensions"]:
             dimension_id = dimension["dimension_id"]
@@ -547,7 +597,7 @@ def _validate_v2_selections(
                 _fail(
                     "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
                     f"resolvedDeploymentSpecification.{selection_id}.dimensions",
-                    "Five-layer v2 dimension evidence is duplicated or unbound",
+                    "Phase 8 dimension evidence is duplicated or unbound",
                 )
             dimension_owner[dimension_id] = selection_id
     if set(expected_provider) != {
@@ -556,7 +606,7 @@ def _validate_v2_selections(
         _fail(
             "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
             "resolvedDeploymentSpecification.component_selections",
-            "Five-layer v2 does not cover all logical components",
+            "Phase 8 result does not cover all logical components",
         )
     for logical, assignment in expected_assignments.items():
         if (
@@ -567,7 +617,7 @@ def _validate_v2_selections(
             _fail(
                 "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
                 f"resolvedDeploymentSpecification.component_selections.{logical}",
-                "Five-layer v2 components differ from the resolved architecture",
+                "Phase 8 components differ from the resolved architecture",
             )
     binding_sources: set[str] = set()
     for binding in specification["bindings"]:
@@ -580,14 +630,14 @@ def _validate_v2_selections(
             _fail(
                 "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
                 "resolvedDeploymentSpecification.bindings",
-                "Five-layer v2 binding ownership is incomplete or duplicated",
+                "Phase 8 binding ownership is incomplete or duplicated",
             )
         binding_sources.add(source)
     if binding_sources != set(dimension_owner):
         _fail(
             "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
             "resolvedDeploymentSpecification.bindings",
-            "Every Five-layer v2 dimension requires exactly one binding",
+            "Every Phase 8 dimension requires exactly one binding",
         )
 
 

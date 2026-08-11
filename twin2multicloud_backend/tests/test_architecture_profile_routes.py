@@ -42,7 +42,13 @@ def test_profile_routes_expose_active_v2_and_keep_v1_read_only(
     )
 
     assert listed.status_code == 200
-    assert [item["profile_version"] for item in listed.json()] == ["2"]
+    assert [
+        (item["profile_id"], item["profile_version"])
+        for item in listed.json()
+    ] == [
+        ("five-layer-baseline", "2"),
+        ("six-layer-eventing", "1"),
+    ]
     assert detail.status_code == 409
     assert detail.json()["error_code"] == "ARCH_PROFILE_NOT_ACTIVE"
     assert active_detail.status_code == 200

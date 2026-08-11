@@ -34,7 +34,10 @@ from src.services.architecture_profile_service import ArchitectureProfileService
 from src.services.aws_twinmaker_pricing_context_service import (
     ResolvedAwsTwinMakerPricingContext,
 )
-from src.services.cost_calculation_run_service import CostCalculationRunService
+from src.services.cost_calculation_run_service import (
+    CostCalculationRunService,
+    _validate_profile_workload_pair,
+)
 from src.services.errors import (
     CostCalculationRunSelectionError,
     ExternalServiceError,
@@ -386,6 +389,31 @@ def _five_layer_v2_params() -> FiveLayerV2OptimizerCalculationParams:
         ).read_text(encoding="utf-8")
     )
     return FiveLayerV2OptimizerCalculationParams.model_validate(payload)
+
+
+def test_shared_v2_workload_accepts_six_layer_profile_and_keeps_eventing_path(
+    db_session,
+):
+    params = _five_layer_v2_params()
+
+    _validate_profile_workload_pair(
+        params,
+        {"profileId": "six-layer-eventing", "profileVersion": "1"},
+    )
+    path = CostCalculationRunService(db_session)._extract_cheapest_path(
+        {
+            "calculationResult": {
+                "L1": "AWS",
+                "L2": "GCP",
+                "L3": {"Hot": "Azure", "Cool": "AWS", "Archive": "GCP"},
+                "L4": "AWS",
+                "L5": "Azure",
+                "Eventing": "Azure",
+            }
+        }
+    )
+
+    assert path["eventing"] == "Azure"
 
 
 def _five_layer_v2_twin_state(db_session):

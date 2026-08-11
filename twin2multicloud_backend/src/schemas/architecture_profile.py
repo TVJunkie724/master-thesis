@@ -16,6 +16,155 @@ class PinnedArchitectureReference(BaseModel):
     digest: str
 
 
+class ProviderProfileReference(PinnedArchitectureReference):
+    provider: Literal["aws", "azure", "gcp"]
+
+
+class VersionedArchitectureReference(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: str
+    version: str
+
+
+class OptimizationBundleReference(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    optimization_strategy_id: str
+    optimization_strategy_version: str
+    calculation_strategy_id: str
+    calculation_strategy_version: str
+    formula_set_id: str
+    formula_set_version: str
+    scoring_strategy_id: str
+    scoring_strategy_version: str
+    compatibility_digest: str
+
+
+class PricingEvidenceReference(PinnedArchitectureReference):
+    provider: Literal["aws", "azure", "gcp"]
+    currency: Literal["USD", "EUR"]
+
+
+class CostContribution(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    currency: Literal["USD", "EUR"]
+    monthly_amount: str
+
+
+class ResolvedComponentAssignment(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    assignment_id: str
+    responsibility_id: str
+    logical_component_id: str
+    provider: Literal["aws", "azure", "gcp"]
+    provider_implementation_profile_ref: PinnedArchitectureReference
+    deployment_component_id: str
+    deployment_component_version: str
+    service_id: str
+    region: str
+    capability_evidence: list[str]
+    pricing_model_refs: list[str]
+    formula_refs: list[str]
+    deployment_specification_component_ids: list[str]
+    cost_contribution: CostContribution
+    required: Literal[True]
+
+
+class ResolvedEdgeDeliverySemantics(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    mode: Literal["synchronous", "asynchronous"]
+    timeout_policy: Literal["bounded", "not_applicable"]
+    retry_policy: Literal["bounded_backoff", "provider_managed_bounded", "none"]
+    dead_letter_policy: Literal["required", "provider_managed", "not_applicable"]
+    idempotency: Literal["required", "consumer_deduplicated", "not_required"]
+    ordering: Literal["per_entity", "best_effort", "not_required"]
+    replay: Literal["required", "bounded", "not_supported"]
+
+
+class ResolvedArchitectureEdgeResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    resolved_edge_id: str
+    edge_id: str
+    source_assignment_id: str
+    source_port_id: str
+    destination_assignment_id: str
+    destination_port_id: str
+    edge_implementation_id: str
+    mechanism: Literal[
+        "provider_native_trigger",
+        "source_owned_transition_runtime",
+        "typed_synchronous_api",
+        "cross_provider_adapter",
+    ]
+    delivery_semantics: ResolvedEdgeDeliverySemantics
+    transfer_route_class: Literal[
+        "same_provider_same_region",
+        "same_provider_cross_region",
+        "cross_provider",
+    ]
+    transfer_evidence_refs: list[str]
+    formula_refs: list[str]
+    cost_contribution: CostContribution
+    trust_contract_ref: VersionedArchitectureReference
+    observability_contract_ref: VersionedArchitectureReference
+    deployment_input_binding_ids: list[str]
+    deployment_output_binding_ids: list[str]
+
+
+class ResolvedExtensionBinding(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    slot_id: str
+    slot_version: str
+    artifact_id: str
+    artifact_digest: str
+    logical_component_id: str
+    configuration_digest: str
+    validation_contract_version: str
+
+
+class ResolvedDeploymentSpecificationReference(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["resolved-deployment-specification.v2"]
+    calculation_run_id: str
+    digest: str
+
+
+class ResolvedCostItem(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    item_id: str
+    monthly_amount: str
+
+
+class ResolvedCostSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    currency: Literal["USD", "EUR"]
+    responsibility_totals: list[ResolvedCostItem]
+    component_totals: list[ResolvedCostItem]
+    edge_totals: list[ResolvedCostItem]
+    monthly_total: str
+
+
+class FunctionalCompletenessResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    status: Literal["complete"]
+    required_capability_ids: list[str]
+    provided_capability_ids: list[str]
+    provider_extra_capability_ids: list[str]
+    missing_capability_ids: list[str]
+    validator_version: str
+    validation_digest: str
+
+
 class ArchitectureResponsibilitySummary(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -182,7 +331,7 @@ class ResolvedTwinArchitectureContract(BaseModel):
 
 
 class ResolvedTwinArchitectureContractV2(BaseModel):
-    """Typed top-level v2 resolution; nested data stays contract-owned."""
+    """Strict public v2 resolution including typed component and edge data."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -191,16 +340,16 @@ class ResolvedTwinArchitectureContractV2(BaseModel):
     resolution_id: str
     calculation_run_id: str
     architecture_profile_ref: PinnedArchitectureReference
-    optimization_bundle_ref: dict[str, Any]
-    provider_profile_refs: list[dict[str, Any]]
+    optimization_bundle_ref: OptimizationBundleReference
+    provider_profile_refs: list[ProviderProfileReference]
     workload_contract_ref: PinnedArchitectureReference
-    pricing_evidence_refs: list[dict[str, Any]]
-    component_assignments: list[dict[str, Any]]
-    resolved_edges: list[dict[str, Any]]
-    extension_bindings: list[dict[str, Any]]
-    deployment_specification_ref: dict[str, Any]
-    cost_summary: dict[str, Any]
-    functional_completeness: dict[str, Any]
+    pricing_evidence_refs: list[PricingEvidenceReference]
+    component_assignments: list[ResolvedComponentAssignment]
+    resolved_edges: list[ResolvedArchitectureEdgeResponse]
+    extension_bindings: list[ResolvedExtensionBinding]
+    deployment_specification_ref: ResolvedDeploymentSpecificationReference
+    cost_summary: ResolvedCostSummary
+    functional_completeness: FunctionalCompletenessResponse
     content_digest: str
 
 

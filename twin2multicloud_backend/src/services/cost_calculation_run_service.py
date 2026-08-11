@@ -88,13 +88,19 @@ def _validate_profile_workload_pair(
     params: OptimizerCalculationParams | FiveLayerV2OptimizerCalculationParams,
     profile: Mapping[str, Any],
 ) -> None:
-    expected_version = (
-        "2" if isinstance(params, FiveLayerV2OptimizerCalculationParams) else "1"
+    expected_profiles = (
+        {
+            ("five-layer-baseline", "2"),
+            ("six-layer-eventing", "1"),
+        }
+        if isinstance(params, FiveLayerV2OptimizerCalculationParams)
+        else {("five-layer-baseline", "1")}
     )
-    if (
-        profile.get("profileId") != "five-layer-baseline"
-        or profile.get("profileVersion") != expected_version
-    ):
+    selected_profile = (
+        str(profile.get("profileId") or ""),
+        str(profile.get("profileVersion") or ""),
+    )
+    if selected_profile not in expected_profiles:
         raise architecture_error(
             "ARCH_WORKLOAD_INCOMPATIBLE",
             "The calculation workload does not match the selected architecture profile.",
@@ -1075,7 +1081,7 @@ class CostCalculationRunService:
     def _extract_cheapest_path(self, result: dict[str, Any]) -> dict[str, Any]:
         calculation = result.get("calculationResult") or {}
         l3 = calculation.get("L3") or {}
-        return {
+        path = {
             "l1": calculation.get("L1"),
             "l2": calculation.get("L2"),
             "l3_hot": l3.get("Hot"),
@@ -1084,6 +1090,9 @@ class CostCalculationRunService:
             "l4": calculation.get("L4"),
             "l5": calculation.get("L5"),
         }
+        if "Eventing" in calculation:
+            path["eventing"] = calculation.get("Eventing")
+        return path
 
     def _build_result_items(
         self,

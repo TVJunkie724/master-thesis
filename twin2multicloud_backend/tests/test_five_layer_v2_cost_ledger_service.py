@@ -101,6 +101,7 @@ def _fixture(size: str = "medium", *, currency: str = "USD"):
                 "domain_flow_ids": list(route.domain_flow_ids),
                 "workload_digest": route.workload_digest,
                 "formula_reference": FORMULA_REF,
+                "normalized_quantities": route.normalized_quantities,
                 "pricing_evidence_digests": {
                     "source": evidence[route.source_provider],
                     "destination": evidence[route.destination_provider],
