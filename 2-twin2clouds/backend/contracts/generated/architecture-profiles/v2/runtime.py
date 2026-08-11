@@ -1019,6 +1019,17 @@ def _check_catalog(
     profiles = linked.get("architecture-profile.v2", [])
     if not profiles:
         return
+    linked_profile_refs = {
+        (profile["profile_id"], profile["profile_version"])
+        for profile in profiles
+    }
+    catalog_profile_refs = {
+        (reference["id"], reference["version"])
+        for item in (*document["components"], *document["edge_implementations"])
+        for reference in item["compatibility"]["architecture_profile_versions"]
+    }
+    if catalog_profile_refs.isdisjoint(linked_profile_refs):
+        return
     logical_component_ids = {
         item["component_id"] for profile in profiles for item in profile["components"]
     }

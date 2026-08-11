@@ -43,6 +43,20 @@ def test_optimizer_reader_dispatches_five_layer_v2_contract():
     assert validated.content_digest == profile["content_digest"]
 
 
+def test_optimizer_reader_dispatches_six_layer_profile_version_one_to_v2():
+    profile = _read(
+        contracts.CONTRACT_ROOT.parent
+        / "definitions"
+        / "profiles"
+        / "six-layer-eventing"
+        / "1"
+        / "profile.json"
+    )
+    validated = contracts.read_contract(profile)
+    assert validated.schema_version == "architecture-profile.v2"
+    assert validated.content_digest == profile["content_digest"]
+
+
 def test_optimizer_rejects_tampered_profile():
     wrapper = _read(
         contracts.CONTRACT_ROOT / "fixtures" / "invalid" / "digest-tamper.json"

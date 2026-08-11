@@ -224,7 +224,8 @@
             "processor",
             "storage",
             "twin_state",
-            "visualization"
+            "visualization",
+            "eventing"
           ]
         },
         "required": {

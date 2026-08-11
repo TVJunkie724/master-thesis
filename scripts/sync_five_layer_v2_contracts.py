@@ -351,6 +351,12 @@ def generate_v2_schemas() -> None:
         if not isinstance(transformed, dict):
             raise RuntimeError(f"Transformed schema is not an object: {name}")
         transformed["title"] = str(transformed.get("title", name)).replace("v1", "v2")
+        if name == "architecture-profile.schema.json":
+            component_kinds = transformed["$defs"]["logical_component"][
+                "properties"
+            ]["component_kind"]["enum"]
+            if "eventing" not in component_kinds:
+                component_kinds.append("eventing")
         if name == "resolved-twin-architecture.schema.json":
             transformed["required"].insert(1, "resolution_status")
             transformed["properties"]["resolution_status"] = {
@@ -435,6 +441,34 @@ def generate_v2_schemas() -> None:
         '        "resolution_id",\n        "architecture_profile_ref",\n',
         '        "resolution_id",\n        "resolution_status",\n'
         '        "architecture_profile_ref",\n',
+        1,
+    )
+    catalog_profile_needle = """    profiles = linked.get("architecture-profile.v2", [])
+    if not profiles:
+        return
+    logical_component_ids = {
+"""
+    catalog_profile_guard = """    profiles = linked.get("architecture-profile.v2", [])
+    if not profiles:
+        return
+    linked_profile_refs = {
+        (profile["profile_id"], profile["profile_version"])
+        for profile in profiles
+    }
+    catalog_profile_refs = {
+        (reference["id"], reference["version"])
+        for item in (*document["components"], *document["edge_implementations"])
+        for reference in item["compatibility"]["architecture_profile_versions"]
+    }
+    if catalog_profile_refs.isdisjoint(linked_profile_refs):
+        return
+    logical_component_ids = {
+"""
+    if catalog_profile_needle not in runtime_source:
+        raise RuntimeError("Cannot install profile-specific catalog guard")
+    runtime_source = runtime_source.replace(
+        catalog_profile_needle,
+        catalog_profile_guard,
         1,
     )
     (ARCH_V2 / "runtime.py").write_text(runtime_source, encoding="utf-8")
@@ -679,8 +713,11 @@ def build_semantic_registry(profile: dict[str, Any]) -> dict[str, Any]:
     registry["deployment_specification_compatibility"] = [
         {
             "schema_version": "resolved-deployment-specification.v2",
-            "architecture_profile_ids": ["five-layer-baseline"],
-            "architecture_profile_versions": ["2"],
+            "architecture_profile_ids": [
+                "five-layer-baseline",
+                "six-layer-eventing",
+            ],
+            "architecture_profile_versions": ["1", "2"],
         }
     ]
     registry["cycle_contracts"].append(
@@ -689,6 +726,17 @@ def build_semantic_registry(profile: dict[str, Any]) -> dict[str, Any]:
             "workflow_semantics": (
                 "Bounded mandatory device-command request and outcome feedback "
                 "between L2 processing and L1 ingestion."
+            ),
+            "compatibility_version": "1",
+        }
+    )
+    registry["cycle_contracts"].append(
+        {
+            "cycle_id": "cycle.eventing.ingestion.processing",
+            "workflow_semantics": (
+                "Bounded telemetry, rule/action, notification, device-command, "
+                "and terminal-outcome routing through the independent Eventing "
+                "responsibility."
             ),
             "compatibility_version": "1",
         }
@@ -744,6 +792,27 @@ def build_semantic_registry(profile: dict[str, Any]) -> dict[str, Any]:
         ),
         "port.hot-storage.command-outcome-event-in": (
             "Canonical device-command-outcome events persisted directly by L3 hot."
+        ),
+    }.items():
+        port_contracts[port_id] = {
+            "port_id": port_id,
+            "schema_ref": DOMAIN_EVENT_CONTRACT_ID,
+            "envelope_ref": "contract-envelope",
+            "semantics": semantics,
+            "compatibility_version": "1",
+        }
+    for port_id, semantics in {
+        "port.eventing.telemetry-in": (
+            "Canonical telemetry and device-outcome events accepted by Eventing."
+        ),
+        "port.eventing.telemetry-out": (
+            "Canonical telemetry and outcome events delivered from Eventing to L2."
+        ),
+        "port.eventing.control-in": (
+            "Canonical rule/action, notification, and command events accepted by Eventing."
+        ),
+        "port.eventing.control-out": (
+            "Canonical device-command requests delivered from Eventing to L1."
         ),
     }.items():
         port_contracts[port_id] = {
@@ -3245,9 +3314,11 @@ def generate() -> None:
     write_json(DEFINITIONS / "five-layer-v2-manifest.json", manifest)
     (ARCH_V2 / "README.md").write_text(
         "# Architecture Profile Contracts v2\n\n"
-        "Additive Five-layer v2 schemas and strict fixtures. Historical v1 bytes "
-        "remain unchanged. Profiles, provider profiles, and the component catalog "
-        "remain draft until the reviewed activation gates pass. Resolved-architecture "
+        "Additive Five-layer v2 and Six-layer-compatible schemas with strict "
+        "fixtures. Historical v1 bytes remain unchanged. The reviewed Five-layer "
+        "v2 profile, provider profiles, and component catalog are active for "
+        "offline evaluation while supervised live gates still block deployment. "
+        "Resolved-architecture "
         "fixtures cover representative Single-, Two-, and Three-Cloud shapes, use "
         "`offline_contract_fixture`, and carry zero cost values: they verify shape, "
         "ownership, and topology only and are not Optimizer pricing output. "

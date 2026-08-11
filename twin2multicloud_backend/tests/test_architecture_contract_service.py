@@ -45,6 +45,20 @@ def test_management_reader_dispatches_five_layer_v2_contract():
     assert validated.content_digest == profile["content_digest"]
 
 
+def test_management_reader_dispatches_six_layer_profile_version_one_to_v2():
+    profile = _read(
+        CONTRACT_ROOT.parent
+        / "definitions"
+        / "profiles"
+        / "six-layer-eventing"
+        / "1"
+        / "profile.json"
+    )
+    validated = ArchitectureContractService.read(profile)
+    assert validated.schema_version == "architecture-profile.v2"
+    assert validated.content_digest == profile["content_digest"]
+
+
 def test_exported_digest_and_canonical_json_dispatch_to_v2_runtime():
     resolution = _read(
         CONTRACT_ROOT.parent

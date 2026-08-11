@@ -21,7 +21,7 @@
       "compatibility_digest": "sha256:a0c39dcae6c95c2cb25251389c6569a0f5ea4428a0403ccc4cf934541cda06f1"
     }
   ],
-  "content_digest": "sha256:48526cd8c32e8335f17c4e5193ea74f8d24457187c5480b9d342917891635896",
+  "content_digest": "sha256:e156a5a04c7cbb96104bec1d2961183cd60113dd94cbaec3e0e7d8bc3aca2cc8",
   "cycle_contracts": [
     {
       "compatibility_version": "1",
@@ -32,15 +32,22 @@
       "cycle_id": "cycle.ingestion.processing",
       "workflow_semantics": "Bounded mandatory device-command request and outcome feedback between L2 processing and L1 ingestion.",
       "compatibility_version": "1"
+    },
+    {
+      "cycle_id": "cycle.eventing.ingestion.processing",
+      "workflow_semantics": "Bounded telemetry, rule/action, notification, device-command, and terminal-outcome routing through the independent Eventing responsibility.",
+      "compatibility_version": "1"
     }
   ],
   "deployment_specification_compatibility": [
     {
       "schema_version": "resolved-deployment-specification.v2",
       "architecture_profile_ids": [
-        "five-layer-baseline"
+        "five-layer-baseline",
+        "six-layer-eventing"
       ],
       "architecture_profile_versions": [
+        "1",
         "2"
       ]
     }
@@ -265,6 +272,34 @@
       "schema_ref": "canonical-domain-event.v1",
       "envelope_ref": "contract-envelope",
       "semantics": "Canonical device-command-outcome events persisted directly by L3 hot.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.eventing.telemetry-in",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical telemetry and device-outcome events accepted by Eventing.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.eventing.telemetry-out",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical telemetry and outcome events delivered from Eventing to L2.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.eventing.control-in",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical rule/action, notification, and command events accepted by Eventing.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.eventing.control-out",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical device-command requests delivered from Eventing to L1.",
       "compatibility_version": "1"
     },
     {

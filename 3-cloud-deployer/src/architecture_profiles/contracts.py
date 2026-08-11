@@ -56,7 +56,8 @@ def _version(document: Mapping[str, Any]) -> str:
     schema_version = str(document.get("schema_version", ""))
     if (
         schema_version == "architecture-profile.v2"
-        and str(document.get("profile_version", "")) != "2"
+        and str(document.get("profile_id", "")) == "five-layer-baseline"
+        and str(document.get("profile_version", "")) == "1"
     ):
         return "v1"
     if schema_version.endswith(".v2"):

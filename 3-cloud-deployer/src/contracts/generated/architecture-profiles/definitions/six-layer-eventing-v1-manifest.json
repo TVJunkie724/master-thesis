@@ -1,0 +1,80 @@
+{
+  "manifest_version": "six-layer-eventing-architecture-definitions.v1",
+  "activation_status": "active",
+  "inherited_implementation_commit": "c5c6232478d29a9cc3c7d280bdc9ca0e79c47226",
+  "inherited_audit_commit": "d4c080f6",
+  "inherited_profile_ref": {
+    "id": "five-layer-baseline",
+    "version": "2",
+    "digest": "sha256:8ebe9f14978f632c04a25837af1a4b9e4ee4da863f4a972189fb75cd174cac5c"
+  },
+  "inherited_catalog_ref": {
+    "id": "complete-service-component-catalog",
+    "version": "1",
+    "digest": "sha256:3396848028a5b8862e1c948a8017cd8e7bb7d118a0ee5edc120cd3d7a3956c1d"
+  },
+  "profile_ref": {
+    "id": "six-layer-eventing",
+    "version": "1",
+    "digest": "sha256:ffb3a3fbc1e68e1a4fae77ba59c7aafe9122db3aa43910c54f31ade978d9f51f"
+  },
+  "provider_profile_refs": [
+    {
+      "provider": "aws",
+      "id": "provider-profile.aws.six-layer-eventing-v1",
+      "version": "1",
+      "digest": "sha256:26a334b031e43e7af965094ed70689c8605bcc40a7a4d3777c5ee348ce0d2edd"
+    },
+    {
+      "provider": "azure",
+      "id": "provider-profile.azure.six-layer-eventing-v1",
+      "version": "1",
+      "digest": "sha256:62780fd0bda1a069295b93a9f0160f91c05b6e18717c4dcf1023ad566f023d1a"
+    },
+    {
+      "provider": "gcp",
+      "id": "provider-profile.gcp.six-layer-eventing-v1",
+      "version": "1",
+      "digest": "sha256:2e07a483d50f0ccd0600aba2fe333df0e6d32f1bf285a3889557d578ddd95930"
+    }
+  ],
+  "catalog_ref": {
+    "id": "six-layer-eventing-component-catalog",
+    "version": "1",
+    "digest": "sha256:4fa59fb059df061f245c665af2d77229664d2fd13abd7db9d6052acf36b3fa21"
+  },
+  "eventing_decision_ref": {
+    "id": "phase-08-eventing-decision",
+    "version": "1",
+    "digest": "sha256:027ba4e220e3a211e632f7b462267ba46928de0a4dd949bcf5a6d37a59284e0b"
+  },
+  "eventing_implementation_manifest_ref": {
+    "id": "phase-08-eventing-implementation",
+    "version": "1",
+    "digest": "sha256:f8ace7160f06c0282d84e16fbd474d8744ac12bd14b2fea14cf47f36ce8b67f3"
+  },
+  "service_decision_ref": {
+    "id": "phase-08-complete-service-bundles",
+    "version": "1",
+    "digest": "sha256:b52e8d589b10d83219b92d2ac1624b6e3f2e227cd005435e1823a4669c9198a9"
+  },
+  "workload_ref": {
+    "id": "five-layer-workload",
+    "version": "2",
+    "digest": "sha256:c75040905c6d6cd551062f74877a352da0ac05c15f73caeff5f1924bf53d1d19"
+  },
+  "supported_eventing_placements": [
+    "aws-eventing",
+    "azure-eventing",
+    "gcp-eventing"
+  ],
+  "supported_directed_provider_pairs": [
+    "aws-to-azure",
+    "aws-to-gcp",
+    "azure-to-aws",
+    "azure-to-gcp",
+    "gcp-to-aws",
+    "gcp-to-azure"
+  ],
+  "content_digest": "sha256:039d5087f4367f3d3c32d72555d4ac3d24f2e37fc149e473d1b8d43dc5a5e031"
+}
