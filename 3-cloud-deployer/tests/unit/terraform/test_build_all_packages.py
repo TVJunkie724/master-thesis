@@ -161,6 +161,25 @@ def test_aws_eventing_app_is_standalone_and_deterministic(tmp_path):
     assert "function_url" not in handler
 
 
+def test_azure_eventing_app_is_standalone_and_deterministic(tmp_path):
+    first = build_azure_v2_graph_apps(tmp_path, ("six-layer-eventing",))
+    first_bytes = first["azure_six-layer-eventing"].read_bytes()
+    second = build_azure_v2_graph_apps(tmp_path, ("six-layer-eventing",))
+
+    assert second["azure_six-layer-eventing"].read_bytes() == first_bytes
+    with zipfile.ZipFile(second["azure_six-layer-eventing"]) as archive:
+        names = set(archive.namelist())
+        function_app = archive.read("function_app.py").decode("utf-8")
+    assert {
+        "function_app.py",
+        "host.json",
+        "requirements.txt",
+        "phase8_eventing/bridge_core.py",
+    } <= names
+    assert "event-telemetry-processor" in function_app
+    assert "EVENT_DOMAIN_DELIVERY_KEY" in function_app
+
+
 class TestBuildAllPackages:
     """Tests for the build_all_packages orchestration function."""
 

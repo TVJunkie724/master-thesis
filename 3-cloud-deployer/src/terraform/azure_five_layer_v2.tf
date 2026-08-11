@@ -15,7 +15,18 @@ locals {
     local.azure_v2_l1_enabled || local.azure_v2_l2_enabled ||
     local.azure_v2_hot_enabled || local.azure_v2_l4_enabled
   )
-  azure_v2_function_infrastructure_enabled = local.azure_v2_event_enabled || local.azure_v2_l5_enabled
+  azure_v2_embedded_event_enabled = (
+    local.azure_v2_event_enabled &&
+    !(local.six_layer_eventing_enabled && var.event_layer_provider == "azure")
+  )
+  azure_v2_service_bus_enabled = (
+    local.azure_v2_embedded_event_enabled ||
+    local.azure_v2_remote_control_outbound ||
+    local.azure_v2_remote_control_inbound
+  )
+  azure_v2_function_infrastructure_enabled = (
+    local.azure_v2_event_enabled || local.azure_v2_l5_enabled || local.azure_event_enabled
+  )
   azure_v2_outbound_event_routes = {
     for route in var.resolved_cross_cloud_routes : route.route_id => route
     if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.source_provider == "azure"
@@ -523,7 +534,7 @@ resource "azurerm_container_app_job" "azure_azure_container_apps_scheduled_stora
 }
 
 resource "azurerm_servicebus_namespace" "azure_azure_service_bus_standard" {
-  count                         = local.azure_v2_event_enabled ? 1 : 0
+  count                         = local.azure_v2_service_bus_enabled ? 1 : 0
   name                          = "${local.azure_v2_name}-v2-sb-${local.deployment_suffix}"
   location                      = azurerm_resource_group.main[0].location
   resource_group_name           = azurerm_resource_group.main[0].name
@@ -535,7 +546,7 @@ resource "azurerm_servicebus_namespace" "azure_azure_service_bus_standard" {
 }
 
 resource "azurerm_servicebus_queue" "azure_azure_service_bus_standard" {
-  count                                   = local.azure_v2_event_enabled ? 1 : 0
+  count                                   = local.azure_v2_embedded_event_enabled ? 1 : 0
   name                                    = "domain-events"
   namespace_id                            = azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].id
   requires_session                        = true
@@ -548,7 +559,7 @@ resource "azurerm_servicebus_queue" "azure_azure_service_bus_standard" {
 }
 
 resource "azurerm_servicebus_topic" "azure_azure_service_bus_standard" {
-  count                                   = local.azure_v2_event_enabled ? 1 : 0
+  count                                   = local.azure_v2_embedded_event_enabled ? 1 : 0
   name                                    = "domain-control-events"
   namespace_id                            = azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].id
   requires_duplicate_detection            = true
@@ -557,7 +568,7 @@ resource "azurerm_servicebus_topic" "azure_azure_service_bus_standard" {
 }
 
 resource "azurerm_servicebus_subscription" "azure_azure_service_bus_standard" {
-  count                                     = local.azure_v2_event_enabled ? 1 : 0
+  count                                     = local.azure_v2_embedded_event_enabled ? 1 : 0
   name                                      = "domain-consumer"
   topic_id                                  = azurerm_servicebus_topic.azure_azure_service_bus_standard[0].id
   max_delivery_count                        = 5
@@ -720,52 +731,58 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME                     = "python"
-    WEBSITE_RUN_FROM_PACKAGE                     = "1"
-    ARCHITECTURE_PROFILE                         = "five-layer-baseline@2"
-    DEPLOYMENT_ID                                = local.deployment_suffix
-    V2_DOMAIN_QUEUE_NAME                         = azurerm_servicebus_queue.azure_azure_service_bus_standard[0].name
-    V2_DOMAIN_TOPIC_NAME                         = azurerm_servicebus_topic.azure_azure_service_bus_standard[0].name
-    V2_SERVICE_BUS__fullyQualifiedNamespace      = "${azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].name}.servicebus.windows.net"
-    V2_SERVICE_BUS__credential                   = "managedidentity"
-    V2_SERVICE_BUS__clientId                     = azurerm_user_assigned_identity.main[0].client_id
-    V2_MANAGED_IDENTITY_CLIENT_ID                = azurerm_user_assigned_identity.main[0].client_id
-    V2_DOMAIN_CONSUMER_ENABLED                   = tostring(!local.azure_v2_l2_enabled)
-    V2_IOT_PROCESSOR_ENABLED                     = tostring(local.azure_v2_l1_enabled)
-    V2_IOT_HUB_NAME                              = try(azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_path, "disabled")
-    V2_IOT_HUB__fullyQualifiedNamespace          = local.azure_v2_l1_enabled ? "${azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_namespace}.servicebus.windows.net" : "disabled.servicebus.windows.net"
-    V2_IOT_HUB__credential                       = "managedidentity"
-    V2_IOT_HUB__clientId                         = azurerm_user_assigned_identity.main[0].client_id
-    V2_IOT_HUB_HOSTNAME                          = try(azurerm_iothub.azure_azure_iot_hub[0].hostname, "")
-    V2_REMOTE_TELEMETRY_ENABLED                  = tostring(local.azure_v2_remote_telemetry_inbound)
-    V2_REMOTE_TELEMETRY_HUB_NAME                 = try(azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["inbound"].name, "disabled")
-    V2_REMOTE_TELEMETRY__fullyQualifiedNamespace = local.azure_v2_remote_telemetry_enabled ? "${azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].name}.servicebus.windows.net" : "disabled.servicebus.windows.net"
-    V2_REMOTE_TELEMETRY__credential              = "managedidentity"
-    V2_REMOTE_TELEMETRY__clientId                = azurerm_user_assigned_identity.main[0].client_id
-    V2_BRIDGE_TELEMETRY_ENABLED                  = tostring(local.azure_v2_remote_telemetry_outbound)
-    V2_BRIDGE_TELEMETRY_HUB_NAME                 = try(azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["outbound"].name, "disabled")
-    V2_BRIDGE_TELEMETRY__fullyQualifiedNamespace = local.azure_v2_remote_telemetry_outbound ? "${azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].name}.servicebus.windows.net" : "disabled.servicebus.windows.net"
-    V2_BRIDGE_TELEMETRY__credential              = "managedidentity"
-    V2_BRIDGE_TELEMETRY__clientId                = azurerm_user_assigned_identity.main[0].client_id
-    V2_BRIDGE_CONTROL_ENABLED                    = tostring(local.azure_v2_remote_control_outbound)
-    V2_BRIDGE_CONTROL_QUEUE_NAME                 = try(azurerm_servicebus_queue.azure_v2_remote_control_outbound[0].name, "disabled")
-    V2_BRIDGE_CONTROL_TOPIC_NAME                 = try(azurerm_servicebus_topic.azure_v2_remote_control["outbound"].name, "disabled")
-    BRIDGE_ROUTES_JSON                           = jsonencode(values(local.azure_v2_outbound_event_routes))
-    BRIDGE_DESTINATIONS_JSON                     = jsonencode(local.azure_v2_bridge_destinations)
-    BRIDGE_IDENTITIES_JSON                       = jsonencode(local.azure_v2_bridge_identities)
-    BRIDGE_SOURCE_IDENTITY_JSON                  = jsonencode({ managed_identity_client_id = azurerm_user_assigned_identity.main[0].client_id })
-    BRIDGE_FAILURE_DESTINATION_JSON              = jsonencode(local.azure_v2_bridge_failure_destination)
-    V2_L2_PROVIDER                               = var.layer_2_provider
-    V2_HOT_PROVIDER                              = var.layer_3_hot_provider
-    V2_TWIN_PROVIDER                             = var.layer_4_provider
-    V2_ADT_ENDPOINT                              = local.azure_v2_l4_enabled ? "https://${azurerm_digital_twins_instance.azure_azure_digital_twins[0].host_name}" : ""
-    V2_ADT_MODEL_ID                              = "dtmi:twin2multicloud:poc:TwinNode;1"
-    V2_COSMOS_ENDPOINT                           = try(azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint, "")
-    V2_COSMOS_DATABASE                           = try(azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
-    V2_COSMOS_CONTAINER                          = try(azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
-    V2_HOT_BOUNDARY_DAYS                         = tostring(var.layer_3_hot_to_cold_interval_days)
-    V2_STORAGE_TASK_COUNT                        = tostring(local.azure_v2_storage_task_count)
-    V2_DEFAULT_METRIC                            = "temperature"
+    FUNCTIONS_WORKER_RUNTIME                         = "python"
+    WEBSITE_RUN_FROM_PACKAGE                         = "1"
+    ARCHITECTURE_PROFILE                             = "${var.architecture_profile_id}@${var.architecture_profile_version}"
+    DEPLOYMENT_ID                                    = local.deployment_suffix
+    V2_DOMAIN_QUEUE_NAME                             = try(azurerm_servicebus_queue.azure_azure_service_bus_standard[0].name, "")
+    V2_DOMAIN_TOPIC_NAME                             = try(azurerm_servicebus_topic.azure_azure_service_bus_standard[0].name, "")
+    V2_SERVICE_BUS__fullyQualifiedNamespace          = try("${azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].name}.servicebus.windows.net", "disabled.servicebus.windows.net")
+    V2_SERVICE_BUS__credential                       = "managedidentity"
+    V2_SERVICE_BUS__clientId                         = azurerm_user_assigned_identity.main[0].client_id
+    V2_MANAGED_IDENTITY_CLIENT_ID                    = azurerm_user_assigned_identity.main[0].client_id
+    V2_DOMAIN_CONSUMER_ENABLED                       = tostring(!local.azure_v2_l2_enabled && local.azure_v2_embedded_event_enabled)
+    V2_IOT_PROCESSOR_ENABLED                         = tostring(local.azure_v2_l1_enabled)
+    V2_IOT_HUB_NAME                                  = try(azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_path, "disabled")
+    V2_IOT_HUB__fullyQualifiedNamespace              = local.azure_v2_l1_enabled ? "${azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_namespace}.servicebus.windows.net" : "disabled.servicebus.windows.net"
+    V2_IOT_HUB__credential                           = "managedidentity"
+    V2_IOT_HUB__clientId                             = azurerm_user_assigned_identity.main[0].client_id
+    V2_IOT_HUB_HOSTNAME                              = try(azurerm_iothub.azure_azure_iot_hub[0].hostname, "")
+    V2_REMOTE_TELEMETRY_ENABLED                      = tostring(local.azure_v2_remote_telemetry_inbound)
+    V2_REMOTE_TELEMETRY_HUB_NAME                     = try(azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["inbound"].name, "disabled")
+    V2_REMOTE_TELEMETRY__fullyQualifiedNamespace     = local.azure_v2_remote_telemetry_enabled ? "${azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].name}.servicebus.windows.net" : "disabled.servicebus.windows.net"
+    V2_REMOTE_TELEMETRY__credential                  = "managedidentity"
+    V2_REMOTE_TELEMETRY__clientId                    = azurerm_user_assigned_identity.main[0].client_id
+    V2_BRIDGE_TELEMETRY_ENABLED                      = tostring(local.azure_v2_remote_telemetry_outbound)
+    V2_BRIDGE_TELEMETRY_HUB_NAME                     = try(azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["outbound"].name, "disabled")
+    V2_BRIDGE_TELEMETRY__fullyQualifiedNamespace     = local.azure_v2_remote_telemetry_outbound ? "${azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].name}.servicebus.windows.net" : "disabled.servicebus.windows.net"
+    V2_BRIDGE_TELEMETRY__credential                  = "managedidentity"
+    V2_BRIDGE_TELEMETRY__clientId                    = azurerm_user_assigned_identity.main[0].client_id
+    V2_BRIDGE_CONTROL_ENABLED                        = tostring(local.azure_v2_remote_control_outbound)
+    V2_BRIDGE_CONTROL_QUEUE_NAME                     = try(azurerm_servicebus_queue.azure_v2_remote_control_outbound[0].name, "disabled")
+    V2_BRIDGE_CONTROL_TOPIC_NAME                     = try(azurerm_servicebus_topic.azure_v2_remote_control["outbound"].name, "disabled")
+    V2_EVENTING_DELIVERY_ENDPOINT_ENABLED            = tostring(local.azure_event_enabled)
+    V2_EVENTING_RECEIVED_HUB_NAME                    = try(local.azure_event_hub_names.received, "")
+    V2_EVENTING_PROCESSED_HUB_NAME                   = try(local.azure_event_hub_names.processed, "")
+    V2_EVENTING__fullyQualifiedNamespace             = try("${local.azure_event_namespace_name}.servicebus.windows.net", "disabled.servicebus.windows.net")
+    V2_EVENTING_SERVICE_BUS__fullyQualifiedNamespace = try("${azurerm_servicebus_namespace.eventing[0].name}.servicebus.windows.net", "disabled.servicebus.windows.net")
+    V2_EVENTING_CONTROL_TOPIC_NAME                   = try(azurerm_servicebus_topic.domain_control[0].name, "")
+    BRIDGE_ROUTES_JSON                               = jsonencode(values(local.azure_v2_outbound_event_routes))
+    BRIDGE_DESTINATIONS_JSON                         = jsonencode(local.azure_v2_bridge_destinations)
+    BRIDGE_IDENTITIES_JSON                           = jsonencode(local.azure_v2_bridge_identities)
+    BRIDGE_SOURCE_IDENTITY_JSON                      = jsonencode({ managed_identity_client_id = azurerm_user_assigned_identity.main[0].client_id })
+    BRIDGE_FAILURE_DESTINATION_JSON                  = jsonencode(local.azure_v2_bridge_failure_destination)
+    V2_L2_PROVIDER                                   = var.layer_2_provider
+    V2_HOT_PROVIDER                                  = var.layer_3_hot_provider
+    V2_TWIN_PROVIDER                                 = var.layer_4_provider
+    V2_ADT_ENDPOINT                                  = local.azure_v2_l4_enabled ? "https://${azurerm_digital_twins_instance.azure_azure_digital_twins[0].host_name}" : ""
+    V2_ADT_MODEL_ID                                  = "dtmi:twin2multicloud:poc:TwinNode;1"
+    V2_COSMOS_ENDPOINT                               = try(azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint, "")
+    V2_COSMOS_DATABASE                               = try(azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
+    V2_COSMOS_CONTAINER                              = try(azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
+    V2_HOT_BOUNDARY_DAYS                             = tostring(var.layer_3_hot_to_cold_interval_days)
+    V2_STORAGE_TASK_COUNT                            = tostring(local.azure_v2_storage_task_count)
+    V2_DEFAULT_METRIC                                = "temperature"
   }
 
   tags = local.azure_v2_tags
@@ -820,36 +837,41 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME                = "python"
-    WEBSITE_RUN_FROM_PACKAGE                = "1"
-    ARCHITECTURE_PROFILE                    = "five-layer-baseline@2"
-    DEPLOYMENT_ID                           = local.deployment_suffix
-    V2_DOMAIN_CONSUMER_ENABLED              = "true"
-    V2_IOT_PROCESSOR_ENABLED                = "false"
-    V2_REMOTE_TELEMETRY_ENABLED             = "false"
-    V2_DOMAIN_QUEUE_NAME                    = azurerm_servicebus_queue.azure_azure_service_bus_standard[0].name
-    V2_DOMAIN_TOPIC_NAME                    = azurerm_servicebus_topic.azure_azure_service_bus_standard[0].name
-    V2_SERVICE_BUS__fullyQualifiedNamespace = "${azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].name}.servicebus.windows.net"
-    V2_SERVICE_BUS__credential              = "managedidentity"
-    V2_SERVICE_BUS__clientId                = azurerm_user_assigned_identity.main[0].client_id
-    V2_MANAGED_IDENTITY_CLIENT_ID           = azurerm_user_assigned_identity.main[0].client_id
-    V2_PROCESSOR_EXTENSION_URL              = try("https://${one(values(azurerm_function_app_flex_consumption.azure_v2_processor_extension)).name}.azurewebsites.net/api/extension", "")
-    V2_PROCESSOR_EXTENSION_KEY              = try(one(values(data.azurerm_function_app_host_keys.azure_v2_processor_extension)).default_function_key, "")
-    V2_ACTION_FUNCTION_URL                  = "https://${azurerm_function_app_flex_consumption.azure_v2_extension_action[0].name}.azurewebsites.net/api/extension-action/v1"
-    V2_ACTION_FUNCTION_KEY                  = data.azurerm_function_app_host_keys.azure_v2_extension_action[0].default_function_key
-    V2_LOGIC_APP_CALLBACK_URL               = azurerm_logic_app_trigger_http_request.azure_azure_logic_apps_consumption[0].callback_url
-    V2_IOT_HUB_HOSTNAME                     = try(azurerm_iothub.azure_azure_iot_hub[0].hostname, "")
-    V2_RULES_JSON                           = jsonencode(var.events)
-    V2_L2_PROVIDER                          = var.layer_2_provider
-    V2_HOT_PROVIDER                         = var.layer_3_hot_provider
-    V2_TWIN_PROVIDER                        = var.layer_4_provider
-    V2_ADT_ENDPOINT                         = local.azure_v2_l4_enabled ? "https://${azurerm_digital_twins_instance.azure_azure_digital_twins[0].host_name}" : ""
-    V2_ADT_MODEL_ID                         = "dtmi:twin2multicloud:poc:TwinNode;1"
-    V2_COSMOS_ENDPOINT                      = try(azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint, "")
-    V2_COSMOS_DATABASE                      = try(azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
-    V2_COSMOS_CONTAINER                     = try(azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
-    V2_HOT_BOUNDARY_DAYS                    = tostring(var.layer_3_hot_to_cold_interval_days)
-    V2_STORAGE_TASK_COUNT                   = tostring(local.azure_v2_storage_task_count)
+    FUNCTIONS_WORKER_RUNTIME                         = "python"
+    WEBSITE_RUN_FROM_PACKAGE                         = "1"
+    ARCHITECTURE_PROFILE                             = "${var.architecture_profile_id}@${var.architecture_profile_version}"
+    DEPLOYMENT_ID                                    = local.deployment_suffix
+    V2_DOMAIN_CONSUMER_ENABLED                       = tostring(local.azure_v2_embedded_event_enabled)
+    V2_IOT_PROCESSOR_ENABLED                         = "false"
+    V2_REMOTE_TELEMETRY_ENABLED                      = "false"
+    V2_DOMAIN_QUEUE_NAME                             = try(azurerm_servicebus_queue.azure_azure_service_bus_standard[0].name, "")
+    V2_DOMAIN_TOPIC_NAME                             = try(azurerm_servicebus_topic.azure_azure_service_bus_standard[0].name, "")
+    V2_SERVICE_BUS__fullyQualifiedNamespace          = try("${azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].name}.servicebus.windows.net", "disabled.servicebus.windows.net")
+    V2_SERVICE_BUS__credential                       = "managedidentity"
+    V2_SERVICE_BUS__clientId                         = azurerm_user_assigned_identity.main[0].client_id
+    V2_MANAGED_IDENTITY_CLIENT_ID                    = azurerm_user_assigned_identity.main[0].client_id
+    V2_PROCESSOR_EXTENSION_URL                       = try("https://${one(values(azurerm_function_app_flex_consumption.azure_v2_processor_extension)).name}.azurewebsites.net/api/extension", "")
+    V2_PROCESSOR_EXTENSION_KEY                       = try(one(values(data.azurerm_function_app_host_keys.azure_v2_processor_extension)).default_function_key, "")
+    V2_ACTION_FUNCTION_URL                           = "https://${azurerm_function_app_flex_consumption.azure_v2_extension_action[0].name}.azurewebsites.net/api/extension-action/v1"
+    V2_ACTION_FUNCTION_KEY                           = data.azurerm_function_app_host_keys.azure_v2_extension_action[0].default_function_key
+    V2_EVENTING_DELIVERY_ENDPOINT_ENABLED            = tostring(local.azure_event_enabled)
+    V2_EVENTING_PROCESSED_HUB_NAME                   = try(local.azure_event_hub_names.processed, "")
+    V2_EVENTING__fullyQualifiedNamespace             = try("${local.azure_event_namespace_name}.servicebus.windows.net", "disabled.servicebus.windows.net")
+    V2_EVENTING_SERVICE_BUS__fullyQualifiedNamespace = try("${azurerm_servicebus_namespace.eventing[0].name}.servicebus.windows.net", "disabled.servicebus.windows.net")
+    V2_EVENTING_CONTROL_TOPIC_NAME                   = try(azurerm_servicebus_topic.domain_control[0].name, "")
+    V2_LOGIC_APP_CALLBACK_URL                        = azurerm_logic_app_trigger_http_request.azure_azure_logic_apps_consumption[0].callback_url
+    V2_IOT_HUB_HOSTNAME                              = try(azurerm_iothub.azure_azure_iot_hub[0].hostname, "")
+    V2_RULES_JSON                                    = jsonencode(var.events)
+    V2_L2_PROVIDER                                   = var.layer_2_provider
+    V2_HOT_PROVIDER                                  = var.layer_3_hot_provider
+    V2_TWIN_PROVIDER                                 = var.layer_4_provider
+    V2_ADT_ENDPOINT                                  = local.azure_v2_l4_enabled ? "https://${azurerm_digital_twins_instance.azure_azure_digital_twins[0].host_name}" : ""
+    V2_ADT_MODEL_ID                                  = "dtmi:twin2multicloud:poc:TwinNode;1"
+    V2_COSMOS_ENDPOINT                               = try(azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint, "")
+    V2_COSMOS_DATABASE                               = try(azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
+    V2_COSMOS_CONTAINER                              = try(azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
+    V2_HOT_BOUNDARY_DAYS                             = tostring(var.layer_3_hot_to_cold_interval_days)
+    V2_STORAGE_TASK_COUNT                            = tostring(local.azure_v2_storage_task_count)
   }
 
   tags = local.azure_v2_tags
@@ -1179,7 +1201,7 @@ data "azurerm_client_config" "azure_v2_layer_access" {
 
 locals {
   azure_v2_event_role_bindings = merge(
-    local.azure_v2_event_enabled ? {
+    local.azure_v2_embedded_event_enabled ? {
       service_bus_receiver = {
         scope = azurerm_servicebus_queue.azure_azure_service_bus_standard[0].id
         role  = "Azure Service Bus Data Receiver"
@@ -1296,9 +1318,11 @@ resource "azurerm_role_assignment" "azure_azure_entra_layer_access_bindings" {
 
 locals {
   azure_v2_diagnostic_targets = merge(
-    local.azure_v2_event_enabled ? {
+    local.azure_v2_service_bus_enabled ? {
       service_bus = azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].id
-      function    = azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].id
+    } : {},
+    local.azure_v2_event_enabled ? {
+      function = azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].id
     } : {},
     local.azure_v2_l1_enabled ? {
       iot_hub = azurerm_iothub.azure_azure_iot_hub[0].id

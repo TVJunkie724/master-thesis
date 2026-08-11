@@ -148,7 +148,10 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
     build_all_packages(terraform_dir, project_path, gcp_storage)
     build_aws_v2_graph_app(project_path)
     build_aws_eventing_app(project_path)
-    build_azure_v2_graph_apps(project_path, ("five-layer-v2",))
+    build_azure_v2_graph_apps(
+        project_path,
+        ("five-layer-v2", "six-layer-eventing"),
+    )
 
     _run_terraform(
         terraform_dir,
@@ -169,7 +172,7 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
         plugin_cache=plugin_cache,
     )
 
-    assert "13 passed, 0 failed" in result.stdout
+    assert "14 passed, 0 failed" in result.stdout
     assert not list(tmp_path.rglob("*.tfstate"))
     assert not list(tmp_path.rglob("*.tfplan"))
 

@@ -161,6 +161,98 @@ variable "aws_event_log_retention_days" {
 }
 
 # ==============================================================================
+# Six-layer Eventing: Azure bundle inputs
+# ==============================================================================
+
+variable "azure_event_hubs_dedicated_capacity_units" {
+  description = "Optimizer-derived Event Hubs Dedicated capacity units"
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = contains([0, 6], var.azure_event_hubs_dedicated_capacity_units)
+    error_message = "azure_event_hubs_dedicated_capacity_units must be 0 or the reviewed Large allocation 6."
+  }
+}
+
+variable "azure_event_hubs_throughput_units" {
+  description = "Optimizer-derived Event Hubs Standard throughput units"
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = contains([1, 11], var.azure_event_hubs_throughput_units)
+    error_message = "azure_event_hubs_throughput_units must match the reviewed Small or Medium allocation."
+  }
+}
+
+variable "azure_event_partitions" {
+  description = "Partitions per Event Layer telemetry hub"
+  type        = number
+  default     = 4
+
+  validation {
+    condition     = contains([4, 16, 200], var.azure_event_partitions)
+    error_message = "azure_event_partitions must match the reviewed Small, Medium, or Large allocation."
+  }
+}
+
+variable "azure_event_retention_hours" {
+  description = "Event Hubs and Service Bus replay window"
+  type        = number
+  default     = 24
+
+  validation {
+    condition     = contains([24, 168], var.azure_event_retention_hours)
+    error_message = "azure_event_retention_hours must be 24 or 168."
+  }
+}
+
+variable "azure_event_max_delivery_count" {
+  description = "Service Bus delivery count before native dead-lettering"
+  type        = number
+  default     = 6
+
+  validation {
+    condition     = var.azure_event_max_delivery_count == 6
+    error_message = "azure_event_max_delivery_count is frozen to the reviewed PoC value 6."
+  }
+}
+
+variable "azure_event_runtime_memory_mib" {
+  description = "Memory allocation of the Azure Event Layer Function app"
+  type        = number
+  default     = 2048
+
+  validation {
+    condition     = var.azure_event_runtime_memory_mib == 2048
+    error_message = "azure_event_runtime_memory_mib is frozen to the reviewed PoC value 2048."
+  }
+}
+
+variable "azure_event_runtime_batch_max" {
+  description = "Maximum Event Layer delivery batch"
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.azure_event_runtime_batch_max == 10
+    error_message = "azure_event_runtime_batch_max is frozen to the reviewed PoC value 10."
+  }
+}
+
+variable "azure_event_log_retention_days" {
+  description = "Log Analytics retention for the independent Event Layer"
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.azure_event_log_retention_days == 30
+    error_message = "azure_event_log_retention_days is frozen to the reviewed PoC value 30."
+  }
+}
+
+# ==============================================================================
 # Layer Provider Mapping (from config_providers.json)
 # ==============================================================================
 
@@ -1341,6 +1433,12 @@ variable "azure_user_zip_path" {
 
 variable "azure_v2_zip_path" {
   description = "Content-addressed Five-layer v2 Azure Function App package"
+  type        = string
+  default     = ""
+}
+
+variable "azure_event_zip_path" {
+  description = "Content-addressed Six-layer Azure Event Layer Function package"
   type        = string
   default     = ""
 }

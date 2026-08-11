@@ -4209,7 +4209,48 @@
           "input.azure.event-runtime-batch-max",
           "input.azure.event-runtime-memory-mib"
         ],
-        "input_bindings": [],
+        "input_bindings": [
+          {
+            "input_id": "input.azure.event-hubs-dedicated-capacity-units",
+            "terraform_variable": "azure_event_hubs_dedicated_capacity_units",
+            "sensitive": false
+          },
+          {
+            "input_id": "input.azure.event-hubs-throughput-units",
+            "terraform_variable": "azure_event_hubs_throughput_units",
+            "sensitive": false
+          },
+          {
+            "input_id": "input.azure.event-log-retention-days",
+            "terraform_variable": "azure_event_log_retention_days",
+            "sensitive": false
+          },
+          {
+            "input_id": "input.azure.event-max-delivery-count",
+            "terraform_variable": "azure_event_max_delivery_count",
+            "sensitive": false
+          },
+          {
+            "input_id": "input.azure.event-partitions",
+            "terraform_variable": "azure_event_partitions",
+            "sensitive": false
+          },
+          {
+            "input_id": "input.azure.event-retention-hours",
+            "terraform_variable": "azure_event_retention_hours",
+            "sensitive": false
+          },
+          {
+            "input_id": "input.azure.event-runtime-batch-max",
+            "terraform_variable": "azure_event_runtime_batch_max",
+            "sensitive": false
+          },
+          {
+            "input_id": "input.azure.event-runtime-memory-mib",
+            "terraform_variable": "azure_event_runtime_memory_mib",
+            "sensitive": false
+          }
+        ],
         "outputs": [
           {
             "output_id": "output.azure.event-control-topic-id",
@@ -11060,14 +11101,12 @@
         "azure.functions_flex_consumption",
         "azure.monitor"
       ],
-      "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2",
-      "platform_handler": "handler.azure.five-layer-v2",
+      "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-eventing",
+      "platform_handler": "function_app.app",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:4f2889a5f3a0719b2931ef336130eb3a0403723ea0f184db50de448778598a07",
+      "source_digest": "sha256:5019d3c1869ef1b8a2aa30b99878ae35310d1dda503148bc0161aeba1b42e13e",
       "included_paths": [
-        "core.py",
-        "function_app.py",
-        "storage-mover/storage_mover.py"
+        "function_app.py"
       ],
       "excluded_paths": [],
       "dependency_artifact_refs": [
@@ -11076,7 +11115,7 @@
           "version": "1"
         }
       ],
-      "builder_adapter_id": "builder.azure.five-layer-v2",
+      "builder_adapter_id": "builder.azure.six-layer-eventing",
       "supported_runtimes": [
         "runtime.azure.six-layer-eventing"
       ],
@@ -11148,5 +11187,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:937843984f7e820753679d8def099b3250fb65a9fd11ce49229a6eac9f43ab3b"
+  "content_digest": "sha256:806a7abab7de21972be9e8f71da8bd7e79d2bacd5dcc44aef855d0e193b3a9ea"
 }

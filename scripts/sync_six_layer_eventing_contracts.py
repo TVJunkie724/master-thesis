@@ -664,7 +664,10 @@ def _event_package(provider: str) -> dict[str, Any]:
             "3-cloud-deployer/src/providers/aws/lambda_functions/"
             "six-layer-eventing"
         ),
-        "azure": "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2",
+        "azure": (
+            "3-cloud-deployer/src/providers/azure/azure_functions/"
+            "six-layer-eventing"
+        ),
         "gcp": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
     }[provider]
     included = [
@@ -682,7 +685,9 @@ def _event_package(provider: str) -> dict[str, Any]:
         "platform_handler": (
             "lambda_function.lambda_handler"
             if provider == "aws"
-            else f"handler.{provider}.five-layer-v2"
+            else "function_app.app"
+            if provider == "azure"
+            else "handler.gcp.five-layer-v2"
         ),
         "digest_policy": "sha256.canonical-source.v1",
         "source_digest": FIVE.package_source_digest(source),
@@ -694,7 +699,9 @@ def _event_package(provider: str) -> dict[str, Any]:
         "builder_adapter_id": (
             "builder.aws.six-layer-eventing"
             if provider == "aws"
-            else f"builder.{provider}.five-layer-v2"
+            else "builder.azure.six-layer-eventing"
+            if provider == "azure"
+            else "builder.gcp.five-layer-v2"
         ),
         "supported_runtimes": [
             f"runtime.{provider}.six-layer-eventing",
@@ -751,12 +758,12 @@ def _event_component(provider: str) -> dict[str, Any]:
             "compatibility_version": "1",
         }
     input_bindings = []
-    if provider == "aws":
+    if provider in {"aws", "azure"}:
         input_bindings = [
             {
                 "input_id": input_id,
-                "terraform_variable": "aws_"
-                + input_id.removeprefix("input.aws.").replace("-", "_"),
+                "terraform_variable": f"{provider}_"
+                + input_id.removeprefix(f"input.{provider}.").replace("-", "_"),
                 "sensitive": False,
             }
             for input_id in input_ids
@@ -1441,6 +1448,7 @@ def generate() -> None:
         "Six-layer synchronizers; do not edit generated definitions by hand.\n",
         encoding="utf-8",
     )
+    FIVE.synchronize()
 
 
 def load_bundle() -> tuple[

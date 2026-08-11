@@ -81,6 +81,10 @@ RAW_HISTORY_ENABLED = (
 ACTION_ENDPOINT_ENABLED = (
     os.getenv("V2_ACTION_ENDPOINT_ENABLED", "false").strip().lower() == "true"
 )
+EVENTING_DELIVERY_ENDPOINT_ENABLED = (
+    os.getenv("V2_EVENTING_DELIVERY_ENDPOINT_ENABLED", "false").strip().lower()
+    == "true"
+)
 _COSMOS_CONTAINER: Any | None = None
 _ADT_CLIENT: Any | None = None
 _AZURE_CREDENTIAL: Any | None = None
@@ -122,8 +126,15 @@ def _service_bus_client():
     return _SERVICE_BUS_CLIENT
 
 
+def _six_layer_eventing() -> bool:
+    return os.getenv("ARCHITECTURE_PROFILE") == "six-layer-eventing@1"
+
+
 def _enqueue(event: Mapping[str, Any]) -> None:
     validated = validate_canonical_event(event)
+    if _six_layer_eventing():
+        _publish_eventing_control(validated)
+        return
     queue_name = os.getenv("V2_DOMAIN_QUEUE_NAME", "")
     if not queue_name:
         raise ContractError("DOMAIN_ROUTE_NOT_CONFIGURED", 503)
@@ -136,6 +147,58 @@ def _enqueue(event: Mapping[str, Any]) -> None:
     )
     with _service_bus_client().get_queue_sender(queue_name=queue_name) as sender:
         sender.send_messages(message)
+
+
+def _publish_eventing_stream(event: Mapping[str, Any]) -> None:
+    from azure.eventhub import EventData, EventHubProducerClient
+
+    validated = validate_canonical_event(event)
+    hub_setting = {
+        "telemetry.received.v1": "V2_EVENTING_RECEIVED_HUB_NAME",
+        "telemetry.processed.v1": "V2_EVENTING_PROCESSED_HUB_NAME",
+    }.get(str(validated["event_type"]))
+    if hub_setting is None:
+        raise ContractError("UNSUPPORTED_EVENTING_STREAM_EVENT")
+    namespace = os.getenv("V2_EVENTING__fullyQualifiedNamespace", "")
+    event_hub_name = os.getenv(hub_setting, "")
+    if not namespace or namespace.startswith("disabled.") or not event_hub_name:
+        raise ContractError("EVENTING_ROUTE_NOT_CONFIGURED", 503)
+    producer = EventHubProducerClient(
+        fully_qualified_namespace=namespace,
+        eventhub_name=event_hub_name,
+        credential=_credential(),
+        buffered_mode=False,
+    )
+    with producer:
+        producer.send_batch(
+            [EventData(canonical_json(validated).encode("utf-8"))],
+            partition_key=partition_key(validated),
+            timeout=30,
+        )
+
+
+def _publish_eventing_control(event: Mapping[str, Any]) -> None:
+    validated = validate_canonical_event(event)
+    namespace = os.getenv("V2_EVENTING_SERVICE_BUS__fullyQualifiedNamespace", "")
+    topic_name = os.getenv("V2_EVENTING_CONTROL_TOPIC_NAME", "")
+    if not namespace or namespace.startswith("disabled.") or not topic_name:
+        raise ContractError("EVENTING_ROUTE_NOT_CONFIGURED", 503)
+    client = ServiceBusClient(
+        fully_qualified_namespace=namespace,
+        credential=_credential(),
+    )
+    message = ServiceBusMessage(
+        canonical_json(validated),
+        content_type="application/json",
+        message_id=event_id(validated),
+        session_id=partition_key(validated),
+        partition_key=partition_key(validated),
+        correlation_id=str(validated["correlation_id"]),
+        application_properties={"event_type": str(validated["event_type"])},
+    )
+    with client:
+        with client.get_topic_sender(topic_name=topic_name) as sender:
+            sender.send_messages(message)
 
 
 def _publish_telemetry(event: Mapping[str, Any]) -> None:
@@ -315,6 +378,10 @@ def _persist_processed(processed: Mapping[str, Any]) -> None:
     if os.getenv("V2_HOT_PROVIDER") != "azure":
         raise ContractError("REMOTE_HOT_ROUTE_NOT_CONFIGURED", 503)
     _write_raw_and_rollup(processed)
+    _project_twin(processed)
+
+
+def _project_twin(processed: Mapping[str, Any]) -> None:
     projection = build_twin_projection(processed)
     if projection is None:
         return
@@ -326,7 +393,9 @@ def _persist_processed(processed: Mapping[str, Any]) -> None:
 
 def _process_received(event: Mapping[str, Any]) -> None:
     processed = build_processed_event(event, _invoke_processor_extension(event))
-    if os.getenv("V2_HOT_PROVIDER") == "azure":
+    if _six_layer_eventing():
+        _publish_eventing_stream(processed)
+    elif os.getenv("V2_HOT_PROVIDER") == "azure":
         _enqueue(processed)
     else:
         _publish_telemetry(processed)
@@ -429,7 +498,7 @@ def _start_notification_workflow(event: Mapping[str, Any]) -> None:
         ):
             accepted = True
             break
-    _store_outcome(
+    _emit_outcome(
         derive_event(
             event,
             event_type="notification.workflow.outcome.v1",
@@ -477,7 +546,7 @@ def _send_device_command(event: Mapping[str, Any]) -> bool:
 
 def _deliver_device_command(event: Mapping[str, Any]) -> None:
     accepted = _send_device_command(event)
-    _store_outcome(
+    _emit_outcome(
         derive_event(
             event,
             event_type="device.command.outcome.v1",
@@ -525,6 +594,23 @@ def _consume(event: dict) -> None:
         validated["event_type"],
         validated["event_id"],
     )
+
+
+def _consume_eventing_delivery(role: str, event: Mapping[str, Any]) -> None:
+    validated = validate_canonical_event(event)
+    if validated["event_type"] != "telemetry.processed.v1":
+        raise ContractError("EVENTING_CONSUMER_EVENT_MISMATCH")
+    if role == "historical-persistence":
+        if os.getenv("V2_HOT_PROVIDER") == "azure":
+            _write_raw_and_rollup(validated)
+        else:
+            _publish_telemetry(validated)
+    elif role == "twin-state-update":
+        _project_twin(validated)
+    elif role == "rule-evaluator":
+        _evaluate_rules(validated)
+    elif role not in {"audit", "realtime-visualization"}:
+        raise ContractError("UNKNOWN_EVENTING_CONSUMER")
 
 
 def _reader_response(status: int, payload: Mapping[str, Any]) -> func.HttpResponse:
@@ -755,6 +841,13 @@ def _store_outcome(event: Mapping[str, Any], *, stored_at=None) -> None:
             raise ContractError("IDEMPOTENCY_CONFLICT", 409) from None
 
 
+def _emit_outcome(event: Mapping[str, Any]) -> None:
+    if _six_layer_eventing():
+        _enqueue(event)
+    else:
+        _store_outcome(event)
+
+
 def _adt_client():
     global _ADT_CLIENT
     if _ADT_CLIENT is not None:
@@ -878,6 +971,52 @@ def _raw_history_payload(params: Mapping[str, Any]) -> dict[str, Any]:
     return _read_history(params)
 
 
+if EVENTING_DELIVERY_ENDPOINT_ENABLED:
+
+    @app.function_name(name="v2-eventing-domain-delivery")
+    @app.route(
+        route="eventing-delivery/v1",
+        methods=["POST"],
+        auth_level=func.AuthLevel.FUNCTION,
+    )
+    def eventing_domain_delivery(req: func.HttpRequest) -> func.HttpResponse:
+        """Accept only authenticated same-cloud Event Layer deliveries."""
+
+        try:
+            payload = decode_json_object(req.get_body())
+            eventing_delivery = payload.get("eventing_delivery")
+            if eventing_delivery is None:
+                _consume(payload)
+            elif (
+                set(payload) == {"eventing_delivery"}
+                and isinstance(eventing_delivery, Mapping)
+                and set(eventing_delivery) == {"consumer_role", "event"}
+                and isinstance(eventing_delivery.get("consumer_role"), str)
+                and isinstance(eventing_delivery.get("event"), Mapping)
+            ):
+                _consume_eventing_delivery(
+                    str(eventing_delivery["consumer_role"]),
+                    eventing_delivery["event"],
+                )
+            else:
+                raise ContractError("INVALID_EVENTING_DELIVERY")
+            return _reader_response(
+                202,
+                {
+                    "schema_version": "event-delivery-result.v1",
+                    "accepted": 1,
+                },
+            )
+        except ContractError as exc:
+            return _reader_response(
+                exc.status,
+                {
+                    "schema_version": "event-delivery-error.v1",
+                    "error_code": exc.code,
+                },
+            )
+
+
 if REMOTE_TELEMETRY_ENABLED:
 
     @app.function_name(name="v2-remote-telemetry-consumer")
@@ -984,7 +1123,9 @@ if IOT_PROCESSOR_ENABLED:
                     deployment_id=os.getenv("DEPLOYMENT_ID", "local-poc"),
                     default_metric=os.getenv("V2_DEFAULT_METRIC", "temperature"),
                 )
-                if os.getenv("V2_L2_PROVIDER") == "azure":
+                if _six_layer_eventing():
+                    _publish_eventing_stream(event)
+                elif os.getenv("V2_L2_PROVIDER") == "azure":
                     _enqueue(event)
                 else:
                     _publish_telemetry(event)

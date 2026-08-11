@@ -63,6 +63,21 @@ EXPECTED_NON_HTTP_TRIGGERS = {
         "cross_cloud_control_bridge",
         "service_bus_queue_trigger",
     ),
+    (
+        "six-layer-eventing",
+        "telemetry_processor",
+        "event_hub_message_trigger",
+    ),
+    (
+        "six-layer-eventing",
+        "processed_consumer",
+        "event_hub_message_trigger",
+    ),
+    (
+        "six-layer-eventing",
+        "control_router",
+        "service_bus_topic_trigger",
+    ),
 }
 FORBIDDEN_LOG_NAMES = {
     "blob_name",

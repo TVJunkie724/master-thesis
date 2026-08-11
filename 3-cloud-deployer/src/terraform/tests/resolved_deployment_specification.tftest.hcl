@@ -1593,3 +1593,87 @@ run "six_layer_single_cloud_aws_adds_independent_event_bundle" {
     error_message = "Single-cloud AWS must use only the independent Event Layer transport and omit embedded transport and every cross-cloud bridge."
   }
 }
+
+run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
+  command = plan
+
+  variables {
+    digital_twin_name                      = "drift-test"
+    architecture_profile_id                = "six-layer-eventing"
+    architecture_profile_version           = "1"
+    event_layer_provider                   = "azure"
+    layer_1_provider                       = "azure"
+    layer_2_provider                       = "azure"
+    layer_3_hot_provider                   = "azure"
+    layer_3_cold_provider                  = "azure"
+    layer_3_archive_provider               = "azure"
+    layer_4_provider                       = "azure"
+    layer_5_provider                       = "azure"
+    layer_3_hot_to_cold_interval_days      = 30
+    layer_3_cold_to_archive_interval_days  = 90
+    layer_3_archive_expiry_interval_days   = 365
+    platform_user_email                    = "researcher@example.test"
+    platform_user_first_name               = "Thesis"
+    platform_user_last_name                = "Researcher"
+    azure_layer_access_principal_object_id = "11111111-1111-1111-1111-111111111111"
+    azure_layer_access_principal_label     = "researcher@example.test"
+    enable_azure_logging                   = false
+    azure_event_hubs_throughput_units      = 1
+    azure_event_partitions                 = 4
+    azure_event_retention_hours            = 24
+    azure_v2_storage_mover_image           = "drifttestv2mock.azurecr.io/storage-mover@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    resolved_component_dimensions = {
+      "dimension.azure.azure.container-apps-scheduled-storage-job.task_count"        = "1"
+      "dimension.azure.azure.event-hubs-standard-small-medium.throughput_unit_hours" = "730"
+      "dimension.azure.azure.event-hubs-standard-small-medium.capacity_unit_hours"   = "0"
+    }
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "55555555-5555-4555-8555-555555555555"
+      artifact_digest = "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+      package_path    = "${var.project_path}/.build/azure/five-layer-v2.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/five-layer-v2.zip")}"
+      adapter_id      = "adapter.azure.python311"
+      adapter_version = "1"
+    }]
+  }
+
+  assert {
+    condition = (
+      length(azurerm_eventhub_namespace.eventing_standard) == 1 &&
+      length(azurerm_eventhub_namespace.eventing_dedicated) == 0 &&
+      length(azurerm_eventhub.domain_telemetry_standard) == 3 &&
+      length(azurerm_eventhub_consumer_group.domain_standard) == 4 &&
+      length(azurerm_servicebus_namespace.eventing) == 1 &&
+      length(azurerm_servicebus_topic.domain_control) == 1 &&
+      length(azurerm_servicebus_subscription.domain_control) == 1 &&
+      length(azurerm_function_app_flex_consumption.event_runtime) == 1 &&
+      length(azurerm_log_analytics_workspace.eventing) == 1
+    )
+    error_message = "Six-layer Azure must deploy the complete reviewed Small Event Layer bundle."
+  }
+
+  assert {
+    condition = (
+      azurerm_eventhub_namespace.eventing_standard[0].capacity == 1 &&
+      azurerm_eventhub.domain_telemetry_standard["received"].partition_count == 4 &&
+      azurerm_eventhub.domain_telemetry_standard["received"].retention_description[0].retention_time_in_hours == 24 &&
+      azurerm_servicebus_subscription.domain_control[0].max_delivery_count == 6 &&
+      azurerm_function_app_flex_consumption.event_runtime[0].instance_memory_in_mb == 2048
+    )
+    error_message = "Six-layer Azure must bind the reviewed Small capacity values."
+  }
+
+  assert {
+    condition = (
+      length(azurerm_servicebus_namespace.azure_azure_service_bus_standard) == 0 &&
+      length(azurerm_servicebus_queue.azure_azure_service_bus_standard) == 0 &&
+      length(azurerm_servicebus_subscription.azure_azure_service_bus_standard) == 0 &&
+      azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].app_settings.ARCHITECTURE_PROFILE == "six-layer-eventing@1" &&
+      azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].app_settings.V2_DOMAIN_CONSUMER_ENABLED == "false" &&
+      azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].app_settings.V2_EVENTING_DELIVERY_ENDPOINT_ENABLED == "true"
+    )
+    error_message = "Single-cloud Azure must replace embedded transport with the independent Event Layer."
+  }
+}
