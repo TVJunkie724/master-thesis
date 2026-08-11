@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Mini-Roadmap"
 description: "Ordered implementation roadmap for closed-world Twin architecture profiles, the hardened five-layer baseline, and the bounded Eventing extension."
 tags: [architecture, eventing, roadmap, optimizer, deployer, management-api, flutter, thesis]
 lastUpdated: "2026-08-11"
-version: "3.5"
+version: "3.6"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "3.5"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
 - GitHub issues #112, #113, #138, #139, #140, #142, #144, #146, #148, #149, #150, #151, #152, #153, #154, and #155
 - User-approved closed-world profile, baseline-first, Eventing-gate, documentation, and E2E boundaries
-EXTRACTED: 2026-08-11 | VERSION: 3.5
+EXTRACTED: 2026-08-11 | VERSION: 3.6
 -->
 
 # Phase 8 Architecture Profiles And Eventing Mini-Roadmap
@@ -25,7 +25,7 @@ EXTRACTED: 2026-08-11 | VERSION: 3.5
 | Parent issue | [#112](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Base branch | `master` |
 | Planning branch | `codex/phase-8-service-bundle-closure` |
-| Status | Phases 8.0-8.8, guided bootstrap, and Five-layer v2 / 8.9A are closed locally with zero unresolved findings; deployment remains blocked by explicit supervised live-capacity gates; Six-layer / 8.9B is next |
+| Status | Phases 8.0-8.8, guided bootstrap, and Five-layer v2 / 8.9A are closed locally with zero unresolved findings; Six-layer / 8.9B now runs from the pinned audit freeze; no live deployment is authorized |
 | Final live E2E | Deliberately deferred and not part of the default gates |
 
 ## Purpose

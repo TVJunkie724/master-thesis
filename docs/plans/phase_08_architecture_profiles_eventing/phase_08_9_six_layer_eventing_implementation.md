@@ -2,8 +2,8 @@
 title: "Phase 8.9B: Six-Layer Eventing Implementation"
 description: "Executable delta plan that adds one independent Eventing responsibility to the reviewed Five-layer v2 PoC."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
-lastUpdated: "2026-08-04"
-version: "2.1"
+lastUpdated: "2026-08-11"
+version: "2.2"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.1"
 - contracts/phase-08-eventing-decision/v1/decision.json
 - contracts/phase-08-eventing-decision/v1/implementation-component-manifest.json
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-04 | VERSION: 2.1
+EXTRACTED: 2026-08-11 | VERSION: 2.2
 -->
 
 # Phase 8.9B: Six-Layer Eventing Implementation
@@ -27,12 +27,19 @@ EXTRACTED: 2026-08-04 | VERSION: 2.1
 | Issue | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) |
 | Branch | `codex/phase-8-six-layer-eventing-v1` |
 | Required base | Reviewed and committed `five-layer-baseline@2` implementation, including workload v2, bootstrap, L4/L5 access, RDS v2, and Deployment Manifest v4 |
+| Inherited implementation commit | `c5c6232478d29a9cc3c7d280bdc9ca0e79c47226` |
+| Five-layer audit-freeze commit | `d4c080f6` |
+| Five-layer profile digest | `sha256:8ebe9f14978f632c04a25837af1a4b9e4ee4da863f4a972189fb75cd174cac5c` |
+| Complete-service catalog digest | `sha256:3396848028a5b8862e1c948a8017cd8e7bb7d118a0ee5edc120cd3d7a3956c1d` |
+| Five-layer activation manifest digest | `sha256:856f9450ec424355685d3b9cab958d8f25e75335050a335b406f3ef87f056263` |
+| Eventing decision file digest | `sha256:027ba4e220e3a211e632f7b462267ba46928de0a4dd949bcf5a6d37a59284e0b` |
+| Eventing implementation-manifest file digest | `sha256:f8ace7160f06c0282d84e16fbd474d8744ac12bd14b2fea14cf47f36ce8b67f3` |
 | Profile | `six-layer-eventing@1` |
 | Decision authority | Approved `phase-08-eventing-decision@1` plus the committed Five-layer v2 digest |
 | Verification | Offline/no-apply by default; no live cloud resource creation |
 
-This document is executable planning authority only after the branch gate
-proves the exact reviewed Five-layer v2 commit and decision digests. It replaces
+The branch gate above now proves the exact reviewed Five-layer v2 commits and
+decision digests, so this document is executable planning authority. It replaces
 the suspended pre-2026-07-29 draft in full. No BigQuery, ADX, scene/3D,
 L3/L4/L5 co-location, dual visualization path, or L4-to-L5 edge survives from
 that historical draft.

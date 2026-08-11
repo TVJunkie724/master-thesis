@@ -470,7 +470,7 @@ invalidation, responsiveness, and ownership independently.
       unresolved findings.
 - [x] Clean `[AI-0811-LACC]` commits preserve generated copies with their
       canonical contract change.
-- [ ] Six-layer work starts only from the reviewed, committed Five-layer v2
+- [x] Six-layer work starts only from the reviewed, committed Five-layer v2
       activation digest.
 
 ### Plan review record

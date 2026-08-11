@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-11"
-version: "4.6"
+version: "4.7"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.6"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-11 | VERSION: 4.6
+EXTRACTED: 2026-08-11 | VERSION: 4.7
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -29,13 +29,13 @@ EXTRACTED: 2026-08-11 | VERSION: 4.6
 | Repository | `TVJunkie724/master-thesis` |
 | Integration branch | `master` |
 | Reviewed implementation base | `c5c6232478d29a9cc3c7d280bdc9ca0e79c47226` on `codex/phase-8-9a-layer-access` |
-| Active implementation branch | `codex/phase-8-9a-layer-access` |
+| Active implementation branch | `codex/phase-8-six-layer-eventing-v1` |
 | Locally completed implementation | Phase 8.0 / #144 through Phase 8.8, prerequisite #113, guided bootstrap / #154, and complete Five-layer v2 / 8.9A; open issues remain open until publication/merge |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
 | Implementation status | The complete Five-layer v2 provider/runtime graph, typed L4/L5 Layer Access read model/UI, active offline profile/catalog/provider definitions, default-on resolution path, and strict Demo RTA/RDS v2 parity are locally implemented. Deployment remains blocked by explicit supervised live-capacity gates. |
-| Next action | Create `codex/phase-8-six-layer-eventing-v1` from this audit freeze and implement only the reviewed Event Layer delta. |
+| Next action | Activate the Six-layer profile/contracts from the pinned Five-layer audit freeze, then implement only the reviewed Event Layer delta. |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 

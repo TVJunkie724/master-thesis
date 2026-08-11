@@ -1578,7 +1578,7 @@ and correlation ID.
 - [x] Live uncertainty remains visible and no offline check claims live proof.
 - [x] Optimizer, Management, Deployer, Terraform, Flutter, research, and MkDocs
       responsibilities agree.
-- [ ] 8.9A uses a clean branch, commits, and review cycle; 8.9B starts only from
+- [x] 8.9A uses a clean branch, commits, and review cycle; 8.9B starts only from
       its reviewed digest under the separate v2 plan.
 - [x] Two fresh reviews find zero unresolved findings.
 - [x] This corrected planning boundary is committed before implementation.
