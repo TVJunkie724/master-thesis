@@ -102,6 +102,12 @@ void main() {
           ),
           throwsFormatException,
         );
+        expect(
+          () => ResolvedDeploymentSpecificationData.fromJson(
+            _v2InvalidFixture('unknown-component.json'),
+          ),
+          throwsFormatException,
+        );
         final unknown = _v2Fixture('single-cloud-aws-small.json')
           ..['client_secret'] = 'must-not-render';
         expect(
@@ -309,7 +315,8 @@ Map<String, dynamic> _v2InvalidFixture(String filename) {
   final file = File(
     '../contracts/resolved-deployment-specification/v2/fixtures/invalid/$filename',
   );
-  return jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+  final wrapper = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+  return Map<String, dynamic>.from(wrapper['specification'] as Map);
 }
 
 Map<String, dynamic> _detail(Map<String, dynamic> specification) => {

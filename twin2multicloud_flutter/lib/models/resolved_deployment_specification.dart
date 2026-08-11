@@ -458,8 +458,20 @@ class FiveLayerV2ComponentSelection extends Equatable {
       dimensions.map((item) => item.dimensionId),
       'v2 dimension IDs',
     );
+    final selectionId = JsonContract.requiredString(json, 'selection_id');
+    final implementationComponentId = JsonContract.requiredString(
+      json,
+      'implementation_component_id',
+    );
+    final provider = _provider(json['provider']);
+    if (selectionId !=
+        'selection.${provider.apiValue}.$implementationComponentId') {
+      throw const FormatException(
+        'Invalid API contract: v2 selection and implementation IDs differ.',
+      );
+    }
     return FiveLayerV2ComponentSelection(
-      selectionId: JsonContract.requiredString(json, 'selection_id'),
+      selectionId: selectionId,
       architectureAssignmentId: JsonContract.requiredString(
         json,
         'architecture_assignment_id',
@@ -468,15 +480,12 @@ class FiveLayerV2ComponentSelection extends Equatable {
         json,
         'logical_component_id',
       ),
-      implementationComponentId: JsonContract.requiredString(
-        json,
-        'implementation_component_id',
-      ),
+      implementationComponentId: implementationComponentId,
       implementationComponentDigest: _digest(
         json,
         'implementation_component_digest',
       ),
-      provider: _provider(json['provider']),
+      provider: provider,
       region: JsonContract.requiredString(json, 'region'),
       required: JsonContract.requiredBool(json, 'required'),
       dimensions: List.unmodifiable(dimensions),
