@@ -1729,10 +1729,21 @@ def _validate_architecture_specification_path(
 def _component_catalog_ref(
     profile_ref: dict[str, Any] | None = None,
 ) -> dict[str, str]:
-    profile_version = (
-        str(profile_ref.get("version")) if isinstance(profile_ref, dict) else "1"
+    profile_identity = (
+        (
+            str(profile_ref.get("id") or ""),
+            str(profile_ref.get("version") or ""),
+        )
+        if isinstance(profile_ref, dict)
+        else ("five-layer-baseline", "1")
     )
-    if profile_version not in {"1", "2"}:
+    catalog_families = {
+        ("five-layer-baseline", "1"): "baseline",
+        ("five-layer-baseline", "2"): "complete-service",
+        ("six-layer-eventing", "1"): "six-layer-eventing",
+    }
+    catalog_family = catalog_families.get(profile_identity)
+    if catalog_family is None:
         raise DeploymentPackageBuildFailed(
             "The deployment architecture profile is unsupported",
             [
@@ -1742,7 +1753,6 @@ def _component_catalog_ref(
                 }
             ],
         )
-    catalog_family = "baseline" if profile_version == "1" else "complete-service"
     path = (
         ARCHITECTURE_CONTRACT_ROOT
         / "component-catalogs"

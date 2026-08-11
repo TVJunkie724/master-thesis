@@ -42,6 +42,7 @@ from src.services.deployment_service import (
     _build_credentials_config,
     _build_deployment_manifest,
     _build_optimization_config,
+    _component_catalog_ref,
 )
 from src.services.credential_resolution_service import DeploymentCredentials
 from src.services.errors import (
@@ -1491,6 +1492,29 @@ class TestBuildDeploymentManifest:
         assert result["compatibility"]["component_catalog_ref"] == fixture[
             "compatibility"
         ]["component_catalog_ref"]
+
+    def test_six_layer_profile_resolves_its_exact_component_catalog(self):
+        root = (
+            Path(__file__).resolve().parents[1]
+            / "src"
+            / "contracts"
+            / "generated"
+            / "architecture-profiles"
+            / "definitions"
+            / "component-catalogs"
+            / "six-layer-eventing"
+            / "1"
+            / "catalog.json"
+        )
+        catalog = json.loads(root.read_text(encoding="utf-8"))
+
+        assert _component_catalog_ref(
+            {"id": "six-layer-eventing", "version": "1"}
+        ) == {
+            "id": catalog["catalog_id"],
+            "version": catalog["catalog_version"],
+            "digest": catalog["content_digest"],
+        }
 
     def test_cross_version_contract_pair_is_rejected(self):
         _, _, architecture = calculation_result_and_contracts("aws")
