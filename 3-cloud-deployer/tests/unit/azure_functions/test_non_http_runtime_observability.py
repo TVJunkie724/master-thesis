@@ -64,6 +64,21 @@ EXPECTED_NON_HTTP_TRIGGERS = {
         "service_bus_queue_trigger",
     ),
     (
+        "five-layer-v2",
+        "cross_cloud_event_received_bridge",
+        "event_hub_message_trigger",
+    ),
+    (
+        "five-layer-v2",
+        "cross_cloud_event_processed_bridge",
+        "event_hub_message_trigger",
+    ),
+    (
+        "five-layer-v2",
+        "cross_cloud_event_control_bridge",
+        "service_bus_topic_trigger",
+    ),
+    (
         "six-layer-eventing",
         "telemetry_processor",
         "event_hub_message_trigger",

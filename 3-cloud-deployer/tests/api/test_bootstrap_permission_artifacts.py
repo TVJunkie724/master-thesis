@@ -280,11 +280,19 @@ def test_legacy_permission_inventory_matches_current_v1_terraform_provider_types
     }
     terraform_dir = ROOT / "src/terraform"
     profile_specific_markers = ("five_layer_v2", "six_layer_eventing_v1")
+    profile_specific_files = {
+        "aws_eventing.tf",
+        "azure_eventing.tf",
+        "gcp_eventing.tf",
+    }
 
     for provider, prefixes in expected_prefixes.items():
         actual_types = set()
         for path in terraform_dir.glob("*.tf"):
-            if any(marker in path.stem for marker in profile_specific_markers):
+            if (
+                path.name in profile_specific_files
+                or any(marker in path.stem for marker in profile_specific_markers)
+            ):
                 continue
             for resource_type in re.findall(
                 r'^(?:resource|data) "([^"]+)"', path.read_text(), flags=re.M
