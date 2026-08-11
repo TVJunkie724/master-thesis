@@ -58,6 +58,8 @@ void main() {
         edge['edge_implementation_id'] = 'edge-implementation.azure.fixture';
       }
     }
+    singleCloudArchitecture['content_digest'] =
+        ResolvedTwinArchitecture.calculateDigest(singleCloudArchitecture);
     singleCloudResolved = ResolvedTwinArchitectureRead.fromJson({
       'twin_id': 'twin-1',
       'calculation_run_id': singleCloudArchitecture['calculation_run_id'],
@@ -73,6 +75,8 @@ void main() {
         in (supportingArchitecture['component_assignments'] as List).take(3)) {
       (raw as Map<String, dynamic>)['required'] = false;
     }
+    supportingArchitecture['content_digest'] =
+        ResolvedTwinArchitecture.calculateDigest(supportingArchitecture);
     supportingResolved = ResolvedTwinArchitectureRead.fromJson({
       'twin_id': 'twin-1',
       'calculation_run_id': supportingArchitecture['calculation_run_id'],

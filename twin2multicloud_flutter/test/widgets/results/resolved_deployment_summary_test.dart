@@ -89,7 +89,7 @@ void main() {
     tester,
   ) async {
     final specification = _fixture()
-      ..['schema_version'] = 'resolved-deployment-specification.v2';
+      ..['schema_version'] = 'resolved-deployment-specification.v3';
     specification['digest'] =
         ResolvedDeploymentSpecificationData.calculateDigest(specification);
     final run = OptimizerDeploymentRunData.fromDetailJson({
@@ -139,6 +139,40 @@ void main() {
     await tester.tap(find.text('Retry'));
     expect(retries, 1);
   });
+
+  testWidgets('v2 renders evaluation evidence and exact blocking gates', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final run = _v2Run();
+    final specification =
+        run.specification! as ResolvedDeploymentSpecificationV2;
+
+    await _pumpSummary(tester, run: run, width: 1000);
+
+    expect(find.text('Evaluation only — deployment blocked'), findsOneWidget);
+    expect(find.text('Live capacity evidence pending'), findsOneWidget);
+    for (final gate in specification.readiness.blockingGateIds) {
+      expect(find.text('• $gate'), findsOneWidget);
+    }
+    expect(find.text('Verify'), findsNothing);
+    expect(find.text('Retry'), findsNothing);
+    expect(
+      find.textContaining('7 architecture responsibilities'),
+      findsOneWidget,
+    );
+    for (final selection in specification.componentSelections) {
+      expect(find.text(selection.implementationComponentId), findsOneWidget);
+    }
+    expect(find.text(specification.digest), findsNothing);
+
+    await tester.ensureVisible(find.text('Show technical evidence'));
+    await tester.tap(find.text('Show technical evidence'));
+    await tester.pumpAndSettle();
+    expect(find.text(specification.digest), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _pumpSummary(
@@ -186,4 +220,24 @@ Map<String, dynamic> _fixture() {
     'resolved-deployment-specification/v1/fixtures/valid/mixed-providers.json',
   );
   return jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+}
+
+OptimizerDeploymentRunData _v2Run() {
+  final file = File(
+    '../contracts/resolved-deployment-specification/v2/fixtures/valid/'
+    'three-cloud-mixed-large.json',
+  );
+  final specification =
+      jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+  return OptimizerDeploymentRunData.fromDetailJson({
+    'id': specification['calculation_run_id'],
+    'twin_id': 'twin-v2',
+    'status': 'succeeded',
+    'deployment_compatibility_status': 'ready',
+    'deployment_specification_digest': specification['digest'],
+    'deployment_specification_version': specification['schema_version'],
+    'resolved_deployment_specification': specification,
+    'selected_for_deployment_at': null,
+    'created_at': '2026-08-04T08:00:00Z',
+  });
 }

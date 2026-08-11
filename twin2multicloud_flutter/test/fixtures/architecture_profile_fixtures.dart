@@ -178,11 +178,14 @@ Map<String, dynamic> architectureProfileDetailJson({
 Map<String, dynamic> architectureSelectionJson({
   String twinId = 'twin-1',
   int revision = 1,
+  String profileId = 'fixture-profile',
+  String profileVersion = '2',
+  String profileDigest = fixtureDigest,
 }) => {
   'twin_id': twinId,
-  'profile_id': 'fixture-profile',
-  'profile_version': '2',
-  'profile_digest': fixtureDigest,
+  'profile_id': profileId,
+  'profile_version': profileVersion,
+  'profile_digest': profileDigest,
   'revision': revision,
   'selected_at': '2026-08-03T10:00:00Z',
   'updated_at': '2026-08-03T10:00:00Z',

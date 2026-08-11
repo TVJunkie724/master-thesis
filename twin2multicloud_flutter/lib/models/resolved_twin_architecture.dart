@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:equatable/equatable.dart';
 
 import 'architecture_profile.dart';
@@ -23,7 +26,8 @@ enum ArchitectureCompatibilityStatus {
 
 enum ResolvedArchitectureOrigin {
   nativeV1('native_v1'),
-  reconstructedV1('reconstructed_v1');
+  reconstructedV1('reconstructed_v1'),
+  nativeV2('native_v2');
 
   final String apiValue;
 
@@ -551,9 +555,12 @@ class ResolvedFunctionalCompleteness extends Equatable {
   ];
 }
 
-class ResolvedTwinArchitectureV1 extends Equatable {
-  static const supportedSchemaVersion = 'resolved-twin-architecture.v1';
+class ResolvedTwinArchitecture extends Equatable {
+  static const v1SchemaVersion = 'resolved-twin-architecture.v1';
+  static const v2SchemaVersion = 'resolved-twin-architecture.v2';
 
+  final String schemaVersion;
+  final String? resolutionStatus;
   final String resolutionId;
   final String calculationRunId;
   final PinnedArchitectureReference profileRef;
@@ -569,7 +576,9 @@ class ResolvedTwinArchitectureV1 extends Equatable {
   final ResolvedFunctionalCompleteness functionalCompleteness;
   final String contentDigest;
 
-  const ResolvedTwinArchitectureV1({
+  const ResolvedTwinArchitecture({
+    required this.schemaVersion,
+    required this.resolutionStatus,
     required this.resolutionId,
     required this.calculationRunId,
     required this.profileRef,
@@ -586,8 +595,35 @@ class ResolvedTwinArchitectureV1 extends Equatable {
     required this.contentDigest,
   });
 
-  factory ResolvedTwinArchitectureV1.fromJson(Map<String, dynamic> json) {
-    _expectExactKeys(json, const {
+  /// Recomputes the canonical content digest for a known architecture shape.
+  ///
+  /// This is also used by contract fixtures that intentionally replace pinned
+  /// identities while preserving the production parser's digest guarantees.
+  static String calculateDigest(Map<String, dynamic> architecture) {
+    final schemaVersion = JsonContract.requiredString(
+      architecture,
+      'schema_version',
+    );
+    if (schemaVersion != v1SchemaVersion && schemaVersion != v2SchemaVersion) {
+      throw const FormatException(
+        'Unsupported resolved Twin architecture schema version.',
+      );
+    }
+    return _calculateArchitectureDigest(
+      architecture,
+      isV2: schemaVersion == v2SchemaVersion,
+    );
+  }
+
+  factory ResolvedTwinArchitecture.fromJson(Map<String, dynamic> json) {
+    final schemaVersion = JsonContract.requiredString(json, 'schema_version');
+    final isV2 = schemaVersion == v2SchemaVersion;
+    if (!isV2 && schemaVersion != v1SchemaVersion) {
+      throw const FormatException(
+        'Unsupported resolved Twin architecture schema version.',
+      );
+    }
+    final expectedKeys = <String>{
       'schema_version',
       'resolution_id',
       'calculation_run_id',
@@ -603,10 +639,17 @@ class ResolvedTwinArchitectureV1 extends Equatable {
       'cost_summary',
       'functional_completeness',
       'content_digest',
-    }, 'resolved twin architecture');
-    if (json['schema_version'] != supportedSchemaVersion) {
+      if (isV2) 'resolution_status',
+    };
+    _expectExactKeys(json, expectedKeys, 'resolved twin architecture');
+    final resolutionStatus = isV2
+        ? JsonContract.requiredString(json, 'resolution_status')
+        : null;
+    if (isV2 &&
+        resolutionStatus != 'offline_contract_fixture' &&
+        resolutionStatus != 'publishable') {
       throw const FormatException(
-        'Unsupported resolved Twin architecture schema version.',
+        'Invalid API contract: v2 resolution status is unsupported.',
       );
     }
     final assignments = _objectList(
@@ -733,8 +776,10 @@ class ResolvedTwinArchitectureV1 extends Equatable {
       'calculation_run_id',
       'digest',
     }, 'deployment specification reference');
-    if (deployment['schema_version'] !=
-        'resolved-deployment-specification.v1') {
+    final expectedDeploymentSchema = isV2
+        ? 'resolved-deployment-specification.v2'
+        : 'resolved-deployment-specification.v1';
+    if (deployment['schema_version'] != expectedDeploymentSchema) {
       throw const FormatException(
         'Invalid API contract: deployment specification version is unsupported.',
       );
@@ -762,12 +807,21 @@ class ResolvedTwinArchitectureV1 extends Equatable {
         'Invalid API contract: architecture cost currencies differ.',
       );
     }
-    return ResolvedTwinArchitectureV1(
+    final profileRef = PinnedArchitectureReference.fromJson(
+      JsonContract.requiredObject(json, 'architecture_profile_ref'),
+    );
+    final contentDigest = _digest(json, 'content_digest');
+    if (contentDigest != calculateDigest(json)) {
+      throw const FormatException(
+        'Invalid API contract: resolved architecture content digest mismatch.',
+      );
+    }
+    return ResolvedTwinArchitecture(
+      schemaVersion: schemaVersion,
+      resolutionStatus: resolutionStatus,
       resolutionId: JsonContract.requiredString(json, 'resolution_id'),
       calculationRunId: calculationRunId,
-      profileRef: PinnedArchitectureReference.fromJson(
-        JsonContract.requiredObject(json, 'architecture_profile_ref'),
-      ),
+      profileRef: profileRef,
       optimizationStrategyId: JsonContract.requiredString(
         optimization,
         'optimization_strategy_id',
@@ -785,7 +839,7 @@ class ResolvedTwinArchitectureV1 extends Equatable {
       functionalCompleteness: ResolvedFunctionalCompleteness.fromJson(
         JsonContract.requiredObject(json, 'functional_completeness'),
       ),
-      contentDigest: _digest(json, 'content_digest'),
+      contentDigest: contentDigest,
     );
   }
 
@@ -794,6 +848,8 @@ class ResolvedTwinArchitectureV1 extends Equatable {
 
   @override
   List<Object?> get props => [
+    schemaVersion,
+    resolutionStatus,
     resolutionId,
     calculationRunId,
     profileRef,
@@ -817,7 +873,7 @@ class ResolvedTwinArchitectureRead extends Equatable {
   final DateTime? selectedForDeploymentAt;
   final ArchitectureCompatibilityStatus compatibilityStatus;
   final ResolvedArchitectureOrigin origin;
-  final ResolvedTwinArchitectureV1 architecture;
+  final ResolvedTwinArchitecture architecture;
 
   const ResolvedTwinArchitectureRead({
     required this.twinId,
@@ -845,7 +901,7 @@ class ResolvedTwinArchitectureRead extends Equatable {
         'Invalid API contract: unreadable legacy architecture returned data.',
       );
     }
-    final architecture = ResolvedTwinArchitectureV1.fromJson(
+    final architecture = ResolvedTwinArchitecture.fromJson(
       JsonContract.requiredObject(json, 'architecture'),
     );
     final calculationRunId = JsonContract.requiredString(
@@ -857,6 +913,17 @@ class ResolvedTwinArchitectureRead extends Equatable {
         'Invalid API contract: resolved architecture run identity differs.',
       );
     }
+    final origin = ResolvedArchitectureOrigin.parse(json['origin']);
+    if ((architecture.schemaVersion ==
+                ResolvedTwinArchitecture.v2SchemaVersion &&
+            origin != ResolvedArchitectureOrigin.nativeV2) ||
+        (architecture.schemaVersion ==
+                ResolvedTwinArchitecture.v1SchemaVersion &&
+            origin == ResolvedArchitectureOrigin.nativeV2)) {
+      throw const FormatException(
+        'Invalid API contract: architecture origin and schema differ.',
+      );
+    }
     return ResolvedTwinArchitectureRead(
       twinId: JsonContract.requiredString(json, 'twin_id'),
       calculationRunId: calculationRunId,
@@ -865,7 +932,7 @@ class ResolvedTwinArchitectureRead extends Equatable {
         'selected_for_deployment_at',
       ),
       compatibilityStatus: compatibility,
-      origin: ResolvedArchitectureOrigin.parse(json['origin']),
+      origin: origin,
       architecture: architecture,
     );
   }
@@ -904,7 +971,7 @@ void _expectExactKeys(
   if (json.keys.toSet().difference(expected).isNotEmpty ||
       expected.difference(json.keys.toSet()).isNotEmpty) {
     throw FormatException(
-      'Invalid API contract: $contract fields do not match v1.',
+      'Invalid API contract: $contract fields are incomplete or unsupported.',
     );
   }
 }
@@ -985,6 +1052,168 @@ String _decimal(Map<String, dynamic> json, String field) {
     );
   }
   return value;
+}
+
+const _v2SetArrayFields = {
+  'capability_evidence',
+  'component_assignments',
+  'deployment_specification_component_ids',
+  'extension_bindings',
+  'formula_refs',
+  'missing_capability_ids',
+  'pricing_evidence_refs',
+  'pricing_model_refs',
+  'provided_capability_ids',
+  'provider_extra_capability_ids',
+  'provider_profile_refs',
+  'required_capability_ids',
+  'resolved_edges',
+};
+
+const _v2ArrayIdentityFields = <String, List<String>>{
+  'component_assignments': ['assignment_id', 'logical_component_id'],
+  'resolved_edges': ['resolved_edge_id', 'edge_id'],
+  'extension_bindings': ['slot_id'],
+  'provider_profile_refs': ['id'],
+  'pricing_evidence_refs': ['id'],
+};
+
+String _calculateArchitectureDigest(
+  Map<String, dynamic> architecture, {
+  required bool isV2,
+}) {
+  final payload = _stripArchitectureDigestFields(architecture);
+  final encoded = _architectureCanonicalJson(payload, setSemantics: isV2);
+  return 'sha256:${sha256.convert(utf8.encode(encoded))}';
+}
+
+Object? _stripArchitectureDigestFields(Object? value) {
+  if (value is Map) {
+    return {
+      for (final entry in value.entries)
+        if (entry.key != 'content_digest' &&
+            entry.key != 'created_at' &&
+            entry.key != 'updated_at' &&
+            entry.key != 'selected_at' &&
+            entry.key != 'validated_at')
+          entry.key.toString(): _stripArchitectureDigestFields(entry.value),
+    };
+  }
+  if (value is List) {
+    return value.map(_stripArchitectureDigestFields).toList(growable: false);
+  }
+  return value;
+}
+
+String _architectureCanonicalJson(
+  Object? value, {
+  required bool setSemantics,
+  String? fieldName,
+}) {
+  if (value == null || value is bool || value is num) return jsonEncode(value);
+  if (value is String) {
+    final normalized = setSemantics ? _normalizeDecimalString(value) : value;
+    return _asciiJsonString(normalized);
+  }
+  if (value is List) {
+    final entries = value
+        .map(
+          (item) => _architectureCanonicalJson(
+            item,
+            setSemantics: setSemantics,
+            fieldName: fieldName,
+          ),
+        )
+        .toList(growable: false);
+    if (setSemantics && _v2SetArrayFields.contains(fieldName)) {
+      final indexed =
+          value.indexed
+              .map(
+                (entry) => (
+                  key: _stableArchitectureItemKey(entry.$2, fieldName),
+                  encoded: entries[entry.$1],
+                ),
+              )
+              .toList(growable: false)
+            ..sort((left, right) => left.key.compareTo(right.key));
+      return '[${indexed.map((item) => item.encoded).join(',')}]';
+    }
+    return '[${entries.join(',')}]';
+  }
+  if (value is Map) {
+    final entries =
+        value.entries
+            .map((entry) => MapEntry(entry.key.toString(), entry.value))
+            .toList(growable: false)
+          ..sort((left, right) => left.key.compareTo(right.key));
+    return '{${entries.map((entry) => '${_asciiJsonString(entry.key)}:${_architectureCanonicalJson(entry.value, setSemantics: setSemantics, fieldName: entry.key)}').join(',')}}';
+  }
+  throw const FormatException(
+    'Invalid API contract: architecture is not canonical JSON.',
+  );
+}
+
+String _stableArchitectureItemKey(Object? value, String? fieldName) {
+  if (value is String) return value;
+  if (value is Map) {
+    for (final field in _v2ArrayIdentityFields[fieldName] ?? const <String>[]) {
+      final candidate = value[field];
+      if (candidate is String) return candidate;
+    }
+    for (final field in const [
+      'responsibility_id',
+      'component_id',
+      'edge_id',
+      'deployment_component_id',
+      'edge_implementation_id',
+      'artifact_id',
+      'assignment_id',
+      'resolved_edge_id',
+      'port_id',
+      'bundle_id',
+      'provider',
+      'reference_id',
+      'schema_version',
+    ]) {
+      final candidate = value[field];
+      if (candidate is String) return candidate;
+    }
+  }
+  return _architectureCanonicalJson(value, setSemantics: true);
+}
+
+String _normalizeDecimalString(String value) {
+  final match = RegExp(r'^-?(0|[1-9][0-9]*)(\.[0-9]+)?$').firstMatch(value);
+  if (match == null) return value;
+  final negative = value.startsWith('-');
+  final unsigned = negative ? value.substring(1) : value;
+  final parts = unsigned.split('.');
+  final fraction = parts.length == 2
+      ? parts[1].replaceFirst(RegExp(r'0+$'), '')
+      : '';
+  final normalized = fraction.isEmpty ? parts[0] : '${parts[0]}.$fraction';
+  if (normalized == '0') return '0';
+  return negative ? '-$normalized' : normalized;
+}
+
+String _asciiJsonString(String value) {
+  final encoded = jsonEncode(value);
+  final buffer = StringBuffer();
+  for (final rune in encoded.runes) {
+    if (rune <= 0x7f) {
+      buffer.writeCharCode(rune);
+    } else if (rune <= 0xffff) {
+      buffer.write('\\u${rune.toRadixString(16).padLeft(4, '0')}');
+    } else {
+      final adjusted = rune - 0x10000;
+      final high = 0xd800 + (adjusted >> 10);
+      final low = 0xdc00 + (adjusted & 0x3ff);
+      buffer
+        ..write('\\u${high.toRadixString(16)}')
+        ..write('\\u${low.toRadixString(16)}');
+    }
+  }
+  return buffer.toString();
 }
 
 CloudProvider _provider(Object? value) => CloudProvider.values.firstWhere(

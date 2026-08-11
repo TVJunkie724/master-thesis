@@ -4,23 +4,39 @@ import 'dart:io';
 import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
 import 'package:twin2multicloud_flutter/models/architecture_profile.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
+import 'package:twin2multicloud_flutter/models/resolved_deployment_specification.dart';
 import 'package:twin2multicloud_flutter/models/resolved_twin_architecture.dart';
 
 import 'architecture_profile_fixtures.dart';
+import 'typed_api_fixtures.dart';
 
 WizardState architectureReadyWizardState({
   bool withExtensionSlot = false,
   String twinId = 'twin-1',
   bool persisted = true,
+  String profileId = 'fixture-profile',
+  String profileDigest = fixtureDigest,
 }) {
   final summary = ArchitectureProfileSummary.fromJson(
-    architectureProfileSummaryJson(withExtensionSlot: withExtensionSlot),
+    architectureProfileSummaryJson(
+      withExtensionSlot: withExtensionSlot,
+      profileId: profileId,
+      profileDigest: profileDigest,
+    ),
   );
   final detail = ArchitectureProfileDetail.fromJson(
-    architectureProfileDetailJson(withExtensionSlot: withExtensionSlot),
+    architectureProfileDetailJson(
+      withExtensionSlot: withExtensionSlot,
+      profileId: profileId,
+      profileDigest: profileDigest,
+    ),
   );
   final selection = TwinArchitectureSelection.fromJson(
-    architectureSelectionJson(twinId: twinId),
+    architectureSelectionJson(
+      twinId: twinId,
+      profileId: profileId,
+      profileDigest: profileDigest,
+    ),
   );
   return WizardState(
     status: WizardStatus.ready,
@@ -58,6 +74,9 @@ ResolvedTwinArchitectureRead resolvedArchitectureFixture({
   final deploymentRef =
       architecture['deployment_specification_ref'] as Map<String, dynamic>;
   deploymentRef['calculation_run_id'] = runId;
+  deploymentRef['digest'] = ResolvedDeploymentSpecificationData.calculateDigest(
+    TypedApiFixtures.deploymentSpecificationJson(runId: runId),
+  );
 
   if (provider != null) {
     final providerRefs = architecture['provider_profile_refs'] as List;
@@ -92,6 +111,10 @@ ResolvedTwinArchitectureRead resolvedArchitectureFixture({
           'edge-implementation.${provider.apiValue}.fixture';
     }
   }
+
+  architecture['content_digest'] = ResolvedTwinArchitecture.calculateDigest(
+    architecture,
+  );
 
   return ResolvedTwinArchitectureRead.fromJson({
     'twin_id': twinId,

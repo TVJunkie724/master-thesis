@@ -302,11 +302,19 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
             'Deployment access is missing for: ${unconfigured.join(", ")}. Open Cloud access to continue.';
       }
 
+      final evaluationOnly =
+          ResolvedDeploymentReview.fromRun(run.deploymentRun).state ==
+          ResolvedDeploymentReviewState.evaluationOnly;
+      if (evaluationOnly) {
+        warning =
+            'This thesis calculation is evaluation-only: live capacity '
+            'evidence remains open, so deployment selection is blocked.';
+      }
       _resolvedArchitectureGeneration++;
       emit(
         state.copyWith(
           isCalculating: false,
-          isSelectingDeploymentRun: true,
+          isSelectingDeploymentRun: !evaluationOnly,
           calcResult: result,
           optimizationResultData: response,
           deploymentRun: run.deploymentRun,
@@ -321,6 +329,12 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
           clearResolvedArchitectureError: true,
         ),
       );
+      if (evaluationOnly) {
+        add(
+          WizardResolvedArchitectureLoadRequested(runId: run.deploymentRun.id),
+        );
+        return;
+      }
       await _selectDeploymentRun(
         run.deploymentRun,
         emit,

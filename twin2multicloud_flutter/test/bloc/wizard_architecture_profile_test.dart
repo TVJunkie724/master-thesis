@@ -8,12 +8,12 @@ import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
 import 'package:twin2multicloud_flutter/demo/demo_fixture_store.dart';
 import 'package:twin2multicloud_flutter/models/architecture_profile.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
+import 'package:twin2multicloud_flutter/models/resolved_deployment_specification.dart';
 import 'package:twin2multicloud_flutter/models/resolved_twin_architecture.dart';
 import 'package:twin2multicloud_flutter/services/management_api.dart';
 
 import '../fixtures/architecture_profile_fixtures.dart';
 import '../fixtures/architecture_wizard_fixture.dart';
-import '../fixtures/typed_api_fixtures.dart';
 
 final class _MockManagementApi extends Mock implements ManagementApi {}
 
@@ -476,82 +476,95 @@ void main() {
     },
   );
 
-  test(
-    'resolved architecture matches Twin, run, profile, and digest',
-    () async {
-      final architecture = Map<String, dynamic>.from(
+  test('resolved architecture matches Twin, run, profile, and digest', () async {
+    final architecture = Map<String, dynamic>.from(
+      jsonDecode(
+            File(
+              '../contracts/architecture-profiles/v1/fixtures/valid/'
+              'mixed-baseline-resolved-architecture.json',
+            ).readAsStringSync(),
+          )
+          as Map,
+    );
+    final runId = architecture['calculation_run_id'].toString();
+    final resolved = ResolvedTwinArchitectureRead.fromJson({
+      'twin_id': 'twin-1',
+      'calculation_run_id': runId,
+      'selected_for_deployment_at': '2026-08-03T10:00:00Z',
+      'architecture_compatibility_status': 'ready',
+      'origin': 'reconstructed_v1',
+      'architecture': architecture,
+    });
+    final profileRef = resolved.architecture.profileRef;
+    final selection = TwinArchitectureSelection.fromJson({
+      ...architectureSelectionJson(),
+      'profile_id': profileRef.id,
+      'profile_version': profileRef.version,
+      'profile_digest': profileRef.digest,
+    });
+    final activeProfileJson = architectureProfileSummaryJson(
+      profileId: profileRef.id,
+      profileDigest: profileRef.digest,
+      withExtensionSlot: false,
+    )..['profile_version'] = profileRef.version;
+    final activeProfile = ArchitectureProfileSummary.fromJson(
+      activeProfileJson,
+    );
+    final deploymentSpecification =
         jsonDecode(
               File(
-                '../contracts/architecture-profiles/v1/fixtures/valid/'
-                'mixed-baseline-resolved-architecture.json',
+                '../contracts/resolved-deployment-specification/v1/fixtures/valid/'
+                'mixed-providers.json',
               ).readAsStringSync(),
             )
-            as Map,
-      );
-      final runId = architecture['calculation_run_id'].toString();
-      final resolved = ResolvedTwinArchitectureRead.fromJson({
-        'twin_id': 'twin-1',
-        'calculation_run_id': runId,
-        'selected_for_deployment_at': '2026-08-03T10:00:00Z',
-        'architecture_compatibility_status': 'ready',
-        'origin': 'reconstructed_v1',
-        'architecture': architecture,
-      });
-      final profileRef = resolved.architecture.profileRef;
-      final selection = TwinArchitectureSelection.fromJson({
-        ...architectureSelectionJson(),
-        'profile_id': profileRef.id,
-        'profile_version': profileRef.version,
-        'profile_digest': profileRef.digest,
-      });
-      final activeProfileJson = architectureProfileSummaryJson(
-        profileId: profileRef.id,
-        profileDigest: profileRef.digest,
-        withExtensionSlot: false,
-      )..['profile_version'] = profileRef.version;
-      final activeProfile = ArchitectureProfileSummary.fromJson(
-        activeProfileJson,
-      );
-      when(
-        () => api.getRunResolvedArchitecture(runId),
-      ).thenAnswer((_) async => resolved);
-      final bloc = WizardBloc(
-        api: api,
-        initialState: WizardState(
-          status: WizardStatus.ready,
-          twinId: 'twin-1',
-          architectureCatalogPhase: ArchitectureCatalogPhase.ready,
-          architectureProfiles: [activeProfile],
-          architectureSelection: selection,
-          deploymentRun: TypedApiFixtures.deploymentRun(
-            id: runId,
-            twinId: 'twin-1',
-            selectedForDeploymentAt: TypedApiFixtures.timestamp,
-          ),
-        ),
-      );
-      addTearDown(bloc.close);
+            as Map<String, dynamic>;
+    final deploymentRun = OptimizerDeploymentRunData.fromDetailJson({
+      'id': runId,
+      'twin_id': 'twin-1',
+      'status': 'succeeded',
+      'deployment_compatibility_status': 'ready',
+      'deployment_specification_digest': deploymentSpecification['digest'],
+      'deployment_specification_version':
+          deploymentSpecification['schema_version'],
+      'resolved_deployment_specification': deploymentSpecification,
+      'created_at': '2026-08-03T09:59:00Z',
+      'selected_for_deployment_at': '2026-08-03T10:00:00Z',
+    });
+    when(
+      () => api.getRunResolvedArchitecture(runId),
+    ).thenAnswer((_) async => resolved);
+    final bloc = WizardBloc(
+      api: api,
+      initialState: WizardState(
+        status: WizardStatus.ready,
+        twinId: 'twin-1',
+        architectureCatalogPhase: ArchitectureCatalogPhase.ready,
+        architectureProfiles: [activeProfile],
+        architectureSelection: selection,
+        deploymentRun: deploymentRun,
+      ),
+    );
+    addTearDown(bloc.close);
 
-      final completed = bloc.stream.firstWhere(
-        (state) =>
-            state.resolvedArchitecturePhase == ResolvedArchitecturePhase.ready,
-      );
-      bloc.add(WizardResolvedArchitectureLoadRequested(runId: runId));
-      final state = await completed;
+    final completed = bloc.stream.firstWhere(
+      (state) =>
+          state.resolvedArchitecturePhase == ResolvedArchitecturePhase.ready,
+    );
+    bloc.add(WizardResolvedArchitectureLoadRequested(runId: runId));
+    final state = await completed;
 
-      expect(state.resolvedArchitecture, resolved);
-      expect(
-        state.resolvedArchitecture!.architecture.profileRef,
-        selection.profileRef,
-      );
-      expect(state.requiredDeploymentProviders, {
-        CloudProvider.aws,
-        CloudProvider.azure,
-      });
-      expect(state.unconfiguredProviders, {'AWS', 'AZURE'});
-      expect(state.warningMessage, contains('AWS, AZURE'));
-    },
-  );
+    expect(state.resolvedArchitecture, resolved);
+    expect(
+      state.resolvedArchitecture!.architecture.profileRef,
+      selection.profileRef,
+    );
+    expect(state.requiredDeploymentProviders, {
+      CloudProvider.aws,
+      CloudProvider.azure,
+    });
+    expect(state.unconfiguredProviders, {'AWS', 'AZURE'});
+    expect(state.warningMessage, contains('AWS, AZURE'));
+  });
 
   test('resolved architecture with a different Twin fails closed', () async {
     final architecture = Map<String, dynamic>.from(

@@ -399,12 +399,29 @@ class WizardState extends Equatable {
     final resolved = resolvedArchitecture;
     final run = deploymentRun;
     final selected = architectureSelection?.profileRef;
-    return resolvedArchitecturePhase == ResolvedArchitecturePhase.ready &&
-        resolved != null &&
-        run != null &&
-        selected != null &&
-        resolved.calculationRunId == run.id &&
-        _sameArchitectureRef(resolved.architecture.profileRef, selected);
+    final specification = run?.specification;
+    if (resolvedArchitecturePhase != ResolvedArchitecturePhase.ready ||
+        resolved == null ||
+        run == null ||
+        selected == null ||
+        specification == null ||
+        resolved.calculationRunId != run.id ||
+        !_sameArchitectureRef(resolved.architecture.profileRef, selected) ||
+        resolved.architecture.deploymentSpecificationDigest !=
+            specification.digest) {
+      return false;
+    }
+    final architecture = resolved.architecture;
+    if (architecture.schemaVersion ==
+        ResolvedTwinArchitecture.v2SchemaVersion) {
+      if (specification is! ResolvedDeploymentSpecificationV2) return false;
+      final expectedStatus = specification.readiness.evaluationOnly
+          ? 'offline_contract_fixture'
+          : 'publishable';
+      return architecture.resolutionStatus == expectedStatus;
+    }
+    return specification is ResolvedDeploymentSpecificationV1 &&
+        architecture.schemaVersion == ResolvedTwinArchitecture.v1SchemaVersion;
   }
 
   ResolvedDeploymentReview get deploymentReview =>

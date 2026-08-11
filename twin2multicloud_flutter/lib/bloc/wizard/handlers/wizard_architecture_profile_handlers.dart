@@ -417,17 +417,23 @@ extension _WizardArchitectureProfileHandlers on WizardBloc {
         return;
       }
       final missingProviders = _unconfiguredResolvedProviders(resolved);
+      final evaluationOnly =
+          state.deploymentReview.state ==
+          ResolvedDeploymentReviewState.evaluationOnly;
       emit(
         state.copyWith(
           resolvedArchitecturePhase: ResolvedArchitecturePhase.ready,
           resolvedArchitecture: resolved,
           clearResolvedArchitectureError: true,
-          warningMessage: missingProviders.isEmpty
+          warningMessage: evaluationOnly
+              ? state.warningMessage
+              : missingProviders.isEmpty
               ? null
               : 'Deployment access is missing for: '
                     '${missingProviders.join(', ')}. '
                     'Open Cloud access to continue.',
           clearWarning:
+              !evaluationOnly &&
               missingProviders.isEmpty &&
               state.warningMessage?.startsWith(
                     'Deployment access is missing for:',

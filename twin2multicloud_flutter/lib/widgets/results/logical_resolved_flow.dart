@@ -5,7 +5,7 @@ import '../../models/resolved_twin_architecture.dart';
 import '../../theme/spacing.dart';
 
 class LogicalResolvedFlow extends StatefulWidget {
-  final ResolvedTwinArchitectureV1 architecture;
+  final ResolvedTwinArchitecture architecture;
 
   const LogicalResolvedFlow({super.key, required this.architecture});
 
@@ -99,7 +99,7 @@ class _LogicalResolvedFlowState extends State<LogicalResolvedFlow> {
 }
 
 class _ResolvedGraph extends StatelessWidget {
-  final ResolvedTwinArchitectureV1 architecture;
+  final ResolvedTwinArchitecture architecture;
   final TransformationController transformationController;
 
   const _ResolvedGraph({
@@ -178,7 +178,7 @@ class _ResolvedGraph extends StatelessWidget {
 }
 
 class _CompactResolvedFlow extends StatelessWidget {
-  final ResolvedTwinArchitectureV1 architecture;
+  final ResolvedTwinArchitecture architecture;
 
   const _CompactResolvedFlow({required this.architecture});
 
@@ -280,7 +280,7 @@ class _ResolvedFlowEdge extends StatelessWidget {
 }
 
 ResolvedComponentAssignment _assignment(
-  ResolvedTwinArchitectureV1 architecture,
+  ResolvedTwinArchitecture architecture,
   String assignmentId,
 ) => architecture.componentAssignments.firstWhere(
   (item) => item.assignmentId == assignmentId,

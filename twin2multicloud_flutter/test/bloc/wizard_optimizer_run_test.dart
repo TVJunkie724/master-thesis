@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -8,6 +10,7 @@ import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/optimizer_config.dart';
 import 'package:twin2multicloud_flutter/models/pricing_health.dart';
 import 'package:twin2multicloud_flutter/models/resolved_deployment_specification.dart';
+import 'package:twin2multicloud_flutter/models/resolved_twin_architecture.dart';
 import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
@@ -199,6 +202,58 @@ void main() {
 
       expect(attempts, 2);
       expect(bloc.state.deploymentRunSelectionError, isNull);
+    },
+  );
+
+  test(
+    'five-layer v2 offline evidence loads for review without deployment selection',
+    () async {
+      final run = _fiveLayerV2OptimizerRun();
+      final profile =
+          (run.deploymentRun.specification as ResolvedDeploymentSpecificationV2)
+              .architectureProfileRef;
+      when(() => api.createTwin('Factory twin')).thenAnswer(
+        (_) async =>
+            TypedApiFixtures.twin(id: 'new-twin', name: 'Factory twin'),
+      );
+      when(
+        () => api.createOptimizerRun('new-twin', any()),
+      ).thenAnswer((_) async => run);
+      when(
+        () => api.getRunResolvedArchitecture(run.id),
+      ).thenAnswer((_) async => _fiveLayerV2ResolvedArchitecture());
+      final bloc = _bloc(
+        api,
+        initialState: architectureReadyWizardState(
+          persisted: false,
+          profileId: profile.id,
+          profileDigest: profile.digest,
+        ),
+      );
+      addTearDown(bloc.close);
+      await _prepare(
+        bloc,
+        params: CalcParams.fiveLayerV2(
+          scenario: FiveLayerWorkloadScenario.small,
+        ),
+      );
+
+      bloc.add(const WizardCalculateRequested());
+      await bloc.stream.firstWhere(
+        (state) =>
+            state.deploymentReview.state ==
+                ResolvedDeploymentReviewState.evaluationOnly &&
+            state.resolvedArchitecturePhase == ResolvedArchitecturePhase.ready,
+      );
+
+      expect(bloc.state.deploymentReview.ready, isFalse);
+      expect(bloc.state.resolvedArchitectureReadyForSelectedRun, isTrue);
+      expect(bloc.state.canProceedToStep3, isFalse);
+      expect(bloc.state.warningMessage, contains('evaluation-only'));
+      verifyNever(
+        () => api.selectOptimizerRunForDeployment('new-twin', run.id),
+      );
+      verify(() => api.getRunResolvedArchitecture(run.id)).called(1);
     },
   );
 
@@ -484,20 +539,24 @@ void main() {
   });
 }
 
-WizardBloc _bloc(_MockApiService api, {AppLogger logger = const AppLogger()}) =>
-    WizardBloc(
-      api: api,
-      logger: logger,
-      initialState: architectureReadyWizardState(persisted: false),
-    );
+WizardBloc _bloc(
+  _MockApiService api, {
+  AppLogger logger = const AppLogger(),
+  WizardState? initialState,
+}) => WizardBloc(
+  api: api,
+  logger: logger,
+  initialState: initialState ?? architectureReadyWizardState(persisted: false),
+);
 
 Future<void> _prepare(
   WizardBloc bloc, {
   String twinName = 'Factory twin',
+  CalcParams? params,
 }) async {
   bloc
     ..add(WizardTwinNameChanged(twinName))
-    ..add(WizardCalcParamsChanged(CalcParams.defaultParams()))
+    ..add(WizardCalcParamsChanged(params ?? CalcParams.defaultParams()))
     ..add(const WizardPricingHealthLoadRequested());
   await bloc.stream.firstWhere(
     (state) =>
@@ -506,6 +565,54 @@ Future<void> _prepare(
         state.pricingHealth != null,
   );
 }
+
+OptimizerRunData _fiveLayerV2OptimizerRun() {
+  final specification = _jsonFixture(
+    '../contracts/resolved-deployment-specification/v2/fixtures/valid/'
+    'single-cloud-aws-small.json',
+  );
+  final runId = specification['calculation_run_id']! as String;
+  final optimization = TypedApiFixtures.optimization();
+  final deploymentRun = OptimizerDeploymentRunData.fromDetailJson({
+    'id': runId,
+    'twin_id': 'new-twin',
+    'status': 'succeeded',
+    'deployment_compatibility_status': 'ready',
+    'deployment_specification_digest': specification['digest'],
+    'deployment_specification_version': specification['schema_version'],
+    'resolved_deployment_specification': specification,
+    'created_at': TypedApiFixtures.timestamp.toIso8601String(),
+    'selected_for_deployment_at': null,
+  });
+  return OptimizerRunData(
+    id: runId,
+    twinId: 'new-twin',
+    optimization: optimization,
+    deploymentRun: deploymentRun,
+    totalMonthlyCost: optimization.result.totalCost,
+    currency: 'USD',
+    createdAt: TypedApiFixtures.timestamp,
+    completedAt: TypedApiFixtures.timestamp.add(const Duration(seconds: 1)),
+  );
+}
+
+ResolvedTwinArchitectureRead _fiveLayerV2ResolvedArchitecture() {
+  final architecture = _jsonFixture(
+    '../contracts/architecture-profiles/v2/fixtures/valid/'
+    'single-cloud-aws-small-resolved.json',
+  );
+  return ResolvedTwinArchitectureRead.fromJson({
+    'twin_id': 'new-twin',
+    'calculation_run_id': architecture['calculation_run_id'],
+    'selected_for_deployment_at': null,
+    'architecture_compatibility_status': 'ready',
+    'origin': 'native_v2',
+    'architecture': architecture,
+  });
+}
+
+Map<String, dynamic> _jsonFixture(String path) =>
+    jsonDecode(File(path).readAsStringSync()) as Map<String, dynamic>;
 
 PricingHealthResponse _health() => PricingHealthResponse.fromJson({
   'schema_version': 'pricing-health.v1',
