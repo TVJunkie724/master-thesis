@@ -10,6 +10,7 @@ from rest_api import app
 from api.calculation import (
     CalcParams,
     FiveLayerV2CalcParams,
+    _calculate_five_layer_v2,
     _five_layer_v2_http_result,
 )
 from backend.architecture_profiles.diagnostics import (
@@ -245,6 +246,29 @@ def test_five_layer_v2_http_projection_uses_the_actual_winning_candidate():
     assert result["architectureResolutionDiagnostics"][
         "winningCandidateId"
     ] == "candidate.actual-winner"
+
+
+@patch("api.calculation.optimize_five_layer_v2")
+def test_five_layer_v2_unsupervised_api_path_requests_offline_evidence(
+    optimize,
+):
+    params = FiveLayerV2CalcParams.model_validate(_five_layer_v2_payload())
+    captured = {}
+
+    def stop_after_capture(**kwargs):
+        captured.update(kwargs)
+        raise RuntimeError("captured optimizer boundary")
+
+    optimize.side_effect = stop_after_capture
+
+    with pytest.raises(RuntimeError, match="captured optimizer boundary"):
+        _calculate_five_layer_v2(
+            params,
+            resolved_catalogs=_resolved_catalogs({}),
+        )
+
+    assert captured["resolution_status"] == "offline_contract_fixture"
+    assert "satisfied_live_gate_ids" not in captured
 
 
 # -----------------------------------------------------------------------------

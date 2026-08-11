@@ -176,8 +176,16 @@ def _resolved_workload(
         for key, value in persisted_params.items()
         if key != "optimizationProfileId"
     }
+    scenario_identity = {
+        key: value for key, value in workload.items() if key != "currency"
+    }
     size = next(
-        (candidate for candidate, fixture in fixtures.items() if workload == fixture),
+        (
+            candidate
+            for candidate, fixture in fixtures.items()
+            if scenario_identity
+            == {key: value for key, value in fixture.items() if key != "currency"}
+        ),
         None,
     )
     if size is None:

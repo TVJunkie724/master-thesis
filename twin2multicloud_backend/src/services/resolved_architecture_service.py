@@ -314,10 +314,20 @@ class ResolvedArchitectureService:
     def require_selectable(self, run: CostCalculationRun) -> None:
         """Enforce the run/specification/resolution readiness invariant."""
 
-        self._require_resolution(
+        resolution = self._require_resolution(
             run,
             require_current_profile=True,
         )
+        architecture = _loaded(resolution.canonical_json)
+        if (
+            architecture.get("schema_version") == V2_SCHEMA_VERSION
+            and architecture.get("resolution_status") != "publishable"
+        ):
+            raise architecture_error(
+                "ARCH_RESOLUTION_INCOMPLETE",
+                "The resolved architecture is evaluation-only until its live "
+                "capacity evidence gates are satisfied.",
+            )
 
     def _require_resolution(
         self,
@@ -593,12 +603,49 @@ class ResolvedArchitectureService:
                 "The resolution optimization bundle does not match the run.",
             )
         if architecture["schema_version"] == V2_SCHEMA_VERSION:
+            try:
+                specification = json.loads(
+                    run.deployment_specification_json or ""
+                )
+            except json.JSONDecodeError as exc:
+                raise architecture_error(
+                    "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                    "The calculation deployment evidence is unavailable.",
+                ) from exc
+            if (
+                not isinstance(specification, dict)
+                or specification.get("schema_version")
+                != "resolved-deployment-specification.v2"
+            ):
+                raise architecture_error(
+                    "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                    "The calculation deployment evidence is incompatible.",
+                )
+            readiness = specification.get("readiness")
+            if readiness == {
+                "status": "deployment_ready",
+                "blocking_gate_ids": [],
+            }:
+                expected_resolution_status = "publishable"
+            elif (
+                isinstance(readiness, dict)
+                and readiness.get("status") == "offline_contract_fixture"
+                and isinstance(readiness.get("blocking_gate_ids"), list)
+                and readiness["blocking_gate_ids"]
+            ):
+                expected_resolution_status = "offline_contract_fixture"
+            else:
+                raise architecture_error(
+                    "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                    "The v2 resolution readiness evidence is inconsistent.",
+                )
             expected_calculation_model = (
                 f"{bundle['calculation_strategy_id']}@"
                 f"{bundle['calculation_strategy_version']}"
             )
             if (
-                architecture.get("resolution_status") != "publishable"
+                architecture.get("resolution_status")
+                != expected_resolution_status
                 or result.get("result_schema_version") != "cost-result.v2"
                 or not isinstance(result.get("totalCostExact"), str)
                 or bundle["optimization_strategy_id"]

@@ -214,10 +214,15 @@ def test_five_layer_v2_run_params_accept_only_frozen_scenarios():
     payload = _five_layer_v2_workload()
 
     parsed = FiveLayerV2OptimizerCalculationParams.model_validate(payload)
+    euro = FiveLayerV2OptimizerCalculationParams.model_validate(
+        {**payload, "currency": "EUR"}
+    )
     mutated = deepcopy(payload)
     mutated["numberOfDevices"] = 101
 
     assert parsed.optimizationProfileId == "cost-minimization-v2"
+    assert euro.currency == "EUR"
+    assert euro.eventingScenarioId == parsed.eventingScenarioId
     with pytest.raises(ValueError, match="immutable Small, Medium, or Large"):
         FiveLayerV2OptimizerCalculationParams.model_validate(mutated)
 

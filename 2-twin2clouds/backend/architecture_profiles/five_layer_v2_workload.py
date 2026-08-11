@@ -22,6 +22,7 @@ CONTRACT_ROOT = (
     / "v2"
 )
 _SIZES = ("small", "medium", "large")
+_SCENARIO_VARIANT_FIELDS = frozenset({"currency"})
 
 
 @dataclass(frozen=True)
@@ -89,7 +90,24 @@ def resolve_five_layer_v2_workload(
             path,
             first.message,
         )
-    size = next((key for key, fixture in fixtures.items() if copied == fixture), None)
+    scenario_identity = {
+        key: value
+        for key, value in copied.items()
+        if key not in _SCENARIO_VARIANT_FIELDS
+    }
+    size = next(
+        (
+            key
+            for key, fixture in fixtures.items()
+            if scenario_identity
+            == {
+                field: value
+                for field, value in fixture.items()
+                if field not in _SCENARIO_VARIANT_FIELDS
+            }
+        ),
+        None,
+    )
     if size is None:
         raise ArchitectureResolutionError(
             "ARCH_WORKLOAD_INCOMPATIBLE",

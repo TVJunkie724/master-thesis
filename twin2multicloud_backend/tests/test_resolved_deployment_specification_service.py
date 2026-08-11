@@ -1,5 +1,6 @@
 import copy
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -9,6 +10,10 @@ from src.services.resolved_deployment_specification_service import (
     calculate_digest,
     validate_resolved_deployment_specification,
 )
+from src.services.cost_calculation_run_service import (
+    validate_persisted_run_deployment_specification,
+)
+from src.services.errors import CostCalculationRunSelectionError
 from tests.pricing_catalog_test_data import catalog_context
 from tests.resolved_deployment_specification_test_data import (
     build_resolved_deployment_specification,
@@ -107,7 +112,10 @@ def _v2_result_and_specification():
     architecture["pricing_evidence_refs"][0]["digest"] = (
         catalog_context().catalogs["aws"].content_digest
     )
-    return {"resolvedTwinArchitecture": architecture}, specification
+    return {
+        "currency": specification["currency"],
+        "resolvedTwinArchitecture": architecture,
+    }, specification
 
 
 def test_valid_specification_is_canonicalized_and_bound():
@@ -275,6 +283,76 @@ def test_valid_five_layer_v2_specification_is_canonicalized_and_bound():
     assert validated.schema_version == "resolved-deployment-specification.v2"
     assert validated.digest == specification["digest"]
     assert validated.specification["readiness"]["status"] == "deployment_ready"
+
+
+def test_five_layer_v2_offline_evidence_and_eur_are_canonicalized():
+    result, specification = _v2_result_and_specification()
+    specification["currency"] = "EUR"
+    specification["readiness"] = {
+        "status": "offline_contract_fixture",
+        "blocking_gate_ids": ["gate.live-capacity.aws.reader-latency-and-quota"],
+    }
+    specification["digest"] = calculate_digest(specification)
+    result["currency"] = "EUR"
+    result["resolvedTwinArchitecture"]["resolution_status"] = (
+        "offline_contract_fixture"
+    )
+    result["resolvedTwinArchitecture"]["deployment_specification_ref"][
+        "digest"
+    ] = specification["digest"]
+
+    validated = _validate(specification, result)
+
+    assert validated.specification["currency"] == "EUR"
+    assert validated.specification["readiness"] == specification["readiness"]
+
+
+def test_five_layer_v2_offline_evidence_requires_a_real_blocker():
+    result, specification = _v2_result_and_specification()
+    specification["readiness"] = {
+        "status": "offline_contract_fixture",
+        "blocking_gate_ids": [],
+    }
+    specification["digest"] = calculate_digest(specification)
+    result["resolvedTwinArchitecture"]["deployment_specification_ref"][
+        "digest"
+    ] = specification["digest"]
+
+    with pytest.raises(ResolvedDeploymentSpecificationError) as raised:
+        _validate(specification, result)
+
+    assert raised.value.code == "DEPLOYMENT_SPECIFICATION_INVALID"
+
+
+def test_five_layer_v2_offline_evidence_cannot_be_selected_for_deployment():
+    result, specification = _v2_result_and_specification()
+    specification["readiness"] = {
+        "status": "offline_contract_fixture",
+        "blocking_gate_ids": ["gate.live-capacity.aws.reader-latency-and-quota"],
+    }
+    specification["digest"] = calculate_digest(specification)
+    result["resolvedTwinArchitecture"]["resolution_status"] = (
+        "offline_contract_fixture"
+    )
+    result["resolvedTwinArchitecture"]["deployment_specification_ref"][
+        "digest"
+    ] = specification["digest"]
+    result["resolvedDeploymentSpecification"] = specification
+    run = SimpleNamespace(
+        deployment_compatibility_status="ready",
+        deployment_specification_json=json.dumps(specification),
+        deployment_specification_digest=specification["digest"],
+        deployment_specification_version=specification["schema_version"],
+        result_summary_json=json.dumps(result),
+        pricing_catalog_context_json=json.dumps(catalog_context().to_http_dict()),
+        cheapest_path_json=json.dumps(ALL_AWS_PATH),
+        id=RUN_ID,
+    )
+
+    with pytest.raises(CostCalculationRunSelectionError) as raised:
+        validate_persisted_run_deployment_specification(run)
+
+    assert raised.value.error_code == "DEPLOYMENT_CAPACITY_EVIDENCE_PENDING"
 
 
 def test_five_layer_v2_rejects_catalog_digest_mismatch():

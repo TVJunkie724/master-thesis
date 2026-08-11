@@ -329,20 +329,29 @@ def _validate_v2_specification(
             "resolvedDeploymentSpecification.calculation_run_id",
             "Resolved deployment specification belongs to a different run",
         )
-    if specification["currency"] != "USD":
+    if (
+        specification["currency"] not in {"USD", "EUR"}
+        or specification["currency"] != expected_result.get("currency")
+    ):
         _fail(
             "DEPLOYMENT_SPECIFICATION_INVALID",
             "resolvedDeploymentSpecification.currency",
-            "Five-layer v2 deployment selections use canonical USD",
+            "Five-layer v2 deployment selections must match the result currency",
         )
-    if specification["readiness"] != {
+    readiness = specification["readiness"]
+    ready = readiness == {
         "status": "deployment_ready",
         "blocking_gate_ids": [],
-    }:
+    }
+    offline = (
+        readiness.get("status") == "offline_contract_fixture"
+        and bool(readiness.get("blocking_gate_ids"))
+    )
+    if not ready and not offline:
         _fail(
             "DEPLOYMENT_SPECIFICATION_INVALID",
             "resolvedDeploymentSpecification.readiness",
-            "Only a blocker-free deployment-ready v2 specification may persist",
+            "V2 readiness evidence must be coherently ready or evaluation-only",
         )
     expected_digest = calculate_digest(specification)
     if not hmac.compare_digest(specification["digest"], expected_digest):

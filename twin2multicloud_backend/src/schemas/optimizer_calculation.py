@@ -176,8 +176,18 @@ class FiveLayerV2OptimizerCalculationParams(BaseModel):
 
     @model_validator(mode="after")
     def validate_frozen_scenario(self) -> "FiveLayerV2OptimizerCalculationParams":
-        payload = self.model_dump(exclude={"optimizationProfileId"})
-        if payload not in _five_layer_v2_scenarios():
+        payload = self.model_dump(
+            exclude={"optimizationProfileId", "currency"}
+        )
+        scenarios = [
+            {
+                key: value
+                for key, value in scenario.items()
+                if key != "currency"
+            }
+            for scenario in _five_layer_v2_scenarios()
+        ]
+        if payload not in scenarios:
             raise ValueError(
                 "Five-layer v2 accepts only the immutable Small, Medium, or "
                 "Large Core scenario"

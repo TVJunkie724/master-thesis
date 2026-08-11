@@ -1390,6 +1390,16 @@ def validate_persisted_run_deployment_specification(
             "run the optimizer again before deployment.",
             error_code="DEPLOYMENT_SPECIFICATION_METADATA_MISMATCH",
         )
+    if (
+        validated.schema_version == "resolved-deployment-specification.v2"
+        and validated.specification.get("readiness")
+        != {"status": "deployment_ready", "blocking_gate_ids": []}
+    ):
+        raise CostCalculationRunSelectionError(
+            "This optimizer result is evaluation-only until its live capacity "
+            "evidence gates are satisfied.",
+            error_code="DEPLOYMENT_CAPACITY_EVIDENCE_PENDING",
+        )
     summary_specification = stored_result.get("resolvedDeploymentSpecification")
     if (
         not isinstance(summary_specification, Mapping)

@@ -696,7 +696,7 @@ def _calculate_five_layer_v2(
         workload=params.workload_payload(),
         pricing_evidence_refs=references,
         pricing_by_provider=resolved_catalogs.detached_pricing(),
-        resolution_status="publishable",
+        resolution_status="offline_contract_fixture",
     )
     return _five_layer_v2_http_result(params, optimized)
 

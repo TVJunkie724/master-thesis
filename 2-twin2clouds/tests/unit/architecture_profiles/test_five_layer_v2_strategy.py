@@ -86,6 +86,17 @@ def test_workload_resolves_only_immutable_core_eventing_pairs(size):
     assert resolved.eventing_scenario["bounded_synthetic_scenario"] is True
 
 
+def test_workload_currency_is_independent_of_the_frozen_scenario_identity():
+    workload = _read(CONTRACT_ROOT / "fixtures" / "valid" / "core-small.json")
+    workload["currency"] = "EUR"
+
+    resolved = resolve_five_layer_v2_workload(workload)
+
+    assert resolved.size == "small"
+    assert resolved.workload["currency"] == "EUR"
+    assert resolved.eventing_scenario_ref["id"] == "eventing-small-v1"
+
+
 @pytest.mark.parametrize(
     ("mutation", "path"),
     (

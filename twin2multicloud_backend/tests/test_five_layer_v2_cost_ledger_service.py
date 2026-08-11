@@ -19,7 +19,7 @@ from src.services.resolved_deployment_specification_service import (
 from tests.pricing_catalog_test_data import catalog_context
 
 
-def _fixture(size: str = "medium"):
+def _fixture(size: str = "medium", *, currency: str = "USD"):
     stem = {
         "small": "single-cloud-aws-small",
         "medium": "two-cloud-azure-l3l5-gcp-l4-medium",
@@ -51,6 +51,9 @@ def _fixture(size: str = "medium"):
         ).read_text(encoding="utf-8")
     )
     params["optimizationProfileId"] = "cost-minimization-v2"
+    params["currency"] = currency
+    specification["currency"] = currency
+    architecture["cost_summary"]["currency"] = currency
     context = catalog_context()
     evidence = {
         provider: reference.content_digest
@@ -111,7 +114,7 @@ def _fixture(size: str = "medium"):
         )
     ledger = {
         "schema_version": "five-layer-v2-cost-ledger.v1",
-        "currency": "USD",
+        "currency": currency,
         "component_costs": component_costs,
         "route_costs": route_costs,
     }
@@ -136,6 +139,28 @@ def test_five_layer_v2_ledger_validates_all_scenarios(size):
         ledger["route_costs"]
     )
     assert all(item["review_status"] == "ready" for item in validated.result_items)
+
+
+def test_five_layer_v2_ledger_preserves_currency_in_route_identity():
+    specification, architecture, params, context, ledger = _fixture(currency="EUR")
+    *_, usd_ledger = _fixture(currency="USD")
+
+    validated = validate_five_layer_v2_cost_ledger(
+        ledger,
+        specification=specification,
+        architecture=architecture,
+        persisted_params=params,
+        catalog_context=context,
+        expected_total_exact="0",
+    )
+
+    assert validated.ledger["currency"] == "EUR"
+    assert validated.result_items[0]["currency"] == "EUR"
+    assert {
+        route["workload_digest"] for route in ledger["route_costs"]
+    } != {
+        route["workload_digest"] for route in usd_ledger["route_costs"]
+    }
 
 
 def test_five_layer_v2_ledger_rejects_destination_catalog_drift():

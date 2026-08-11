@@ -434,24 +434,54 @@ def test_five_layer_v2_resolution_persists_without_legacy_projection(
     assert read.architecture.schema_version == "resolved-twin-architecture.v2"
 
 
-def test_five_layer_v2_offline_fixture_cannot_persist(db_session, monkeypatch):
+def test_five_layer_v2_offline_fixture_persists_but_is_not_selectable(
+    db_session,
+    monkeypatch,
+):
     _user, _twin, _config, run, architecture, linked = _v2_state(
         db_session,
         monkeypatch,
     )
+    specification = json.loads(run.deployment_specification_json)
+    specification["readiness"] = {
+        "status": "offline_contract_fixture",
+        "blocking_gate_ids": ["gate.live-capacity.aws.reader-latency-and-quota"],
+    }
+    specification["digest"] = calculate_deployment_digest(specification)
+    result = json.loads(run.result_summary_json)
+    result["resolvedDeploymentSpecification"] = specification
     architecture["resolution_status"] = "offline_contract_fixture"
+    architecture["deployment_specification_ref"]["digest"] = specification[
+        "digest"
+    ]
+    architecture["resolution_id"] = calculate_resolution_id(architecture)
     architecture["content_digest"] = calculate_digest(architecture)
+    result["resolvedTwinArchitecture"] = architecture
+    run.result_summary_json = json.dumps(result)
+    run.deployment_specification_json = json.dumps(specification)
+    run.deployment_specification_digest = specification["digest"]
+
+    service = ResolvedArchitectureService(db_session)
+    record = service.persist(
+        run=run,
+        raw_architecture=architecture,
+        origin="native_v2",
+        linked_documents=linked,
+        apply_legacy_projection=False,
+    )
+    db_session.flush()
+
+    read = service.get_for_run(
+        calculation_run_id=run.id,
+        user_id=run.user_id,
+    )
+    assert record.schema_version == "resolved-twin-architecture.v2"
+    assert read.architecture.resolution_status == "offline_contract_fixture"
 
     with pytest.raises(ArchitectureDomainError) as rejected:
-        ResolvedArchitectureService(db_session).persist(
-            run=run,
-            raw_architecture=architecture,
-            origin="native_v2",
-            linked_documents=linked,
-            apply_legacy_projection=False,
-        )
+        service.require_selectable(run)
 
-    assert rejected.value.code == "ARCH_RESOLUTION_REFERENCE_MISMATCH"
+    assert rejected.value.code == "ARCH_RESOLUTION_INCOMPLETE"
 
 
 def test_five_layer_v2_component_binding_drift_cannot_persist(
