@@ -42,6 +42,14 @@ OUTCOME_EVENTS = {
     EVENT_WORKFLOW_OUTCOME,
     EVENT_COMMAND_OUTCOME,
 }
+EVENT_LAYER_DOMAIN_EVENTS = {
+    EVENT_TELEMETRY_RECEIVED,
+    EVENT_TELEMETRY_PROCESSED,
+    EVENT_MATCHED,
+    EVENT_NOTIFICATION_REQUESTED,
+    EVENT_DEVICE_COMMAND_REQUESTED,
+    *OUTCOME_EVENTS,
+}
 CANONICAL_EVENT_FIELDS = {
     "schema_version",
     "event_id",
@@ -1218,7 +1226,19 @@ def domain_consumer(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
         try:
             _validate_canonical_event(payload)
             kind = _event_type(payload)
-            if kind == EVENT_TELEMETRY_RECEIVED:
+            if (
+                _six_layer_eventing()
+                and os.environ.get("EVENT_LAYER_PROVIDER") == "aws"
+                and kind in EVENT_LAYER_DOMAIN_EVENTS
+            ):
+                if kind in {
+                    EVENT_TELEMETRY_RECEIVED,
+                    EVENT_TELEMETRY_PROCESSED,
+                }:
+                    _put_eventing_stream(payload)
+                else:
+                    _publish_eventing_control(payload)
+            elif kind == EVENT_TELEMETRY_RECEIVED:
                 result = processor(payload, None)
                 if result["batchItemFailures"]:
                     raise ContractError("PROCESSING_RETRYABLE_FAILURE", 503)

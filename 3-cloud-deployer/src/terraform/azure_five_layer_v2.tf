@@ -13,7 +13,8 @@ locals {
 
   azure_v2_event_enabled = (
     local.azure_v2_l1_enabled || local.azure_v2_l2_enabled ||
-    local.azure_v2_hot_enabled || local.azure_v2_l4_enabled
+    local.azure_v2_hot_enabled || local.azure_v2_l4_enabled ||
+    local.azure_event_enabled
   )
   azure_v2_embedded_event_enabled = (
     local.azure_v2_event_enabled &&
@@ -36,7 +37,12 @@ locals {
     if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.destination_provider == "azure"
   }
   azure_v2_remote_telemetry_outbound = anytrue([
-    for route in values(local.azure_v2_outbound_event_routes) : route.channel_class == "telemetry"
+    for route in values(local.azure_v2_outbound_event_routes) :
+    route.channel_class == "telemetry" && !startswith(route.logical_edge_id, "edge.eventing-to-")
+  ])
+  azure_v2_event_remote_telemetry_outbound = anytrue([
+    for route in values(local.azure_v2_outbound_event_routes) :
+    route.channel_class == "telemetry" && startswith(route.logical_edge_id, "edge.eventing-to-")
   ])
   azure_v2_remote_telemetry_inbound = anytrue([
     for route in values(local.azure_v2_inbound_event_routes) : route.channel_class == "telemetry"
@@ -49,7 +55,12 @@ locals {
   }
   azure_v2_remote_telemetry_enabled = length(local.azure_v2_remote_telemetry_routes) > 0
   azure_v2_remote_control_outbound = anytrue([
-    for route in values(local.azure_v2_outbound_event_routes) : route.channel_class == "control"
+    for route in values(local.azure_v2_outbound_event_routes) :
+    route.channel_class == "control" && !startswith(route.logical_edge_id, "edge.eventing-to-")
+  ])
+  azure_v2_event_remote_control_outbound = anytrue([
+    for route in values(local.azure_v2_outbound_event_routes) :
+    route.channel_class == "control" && startswith(route.logical_edge_id, "edge.eventing-to-")
   ])
   azure_v2_remote_control_inbound = anytrue([
     for route in values(local.azure_v2_inbound_event_routes) : route.channel_class == "control"
@@ -761,12 +772,16 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
     V2_BRIDGE_CONTROL_ENABLED                        = tostring(local.azure_v2_remote_control_outbound)
     V2_BRIDGE_CONTROL_QUEUE_NAME                     = try(azurerm_servicebus_queue.azure_v2_remote_control_outbound[0].name, "disabled")
     V2_BRIDGE_CONTROL_TOPIC_NAME                     = try(azurerm_servicebus_topic.azure_v2_remote_control["outbound"].name, "disabled")
+    V2_BRIDGE_EVENT_TELEMETRY_ENABLED                = tostring(local.azure_v2_event_remote_telemetry_outbound)
+    V2_BRIDGE_EVENT_CONTROL_ENABLED                  = tostring(local.azure_v2_event_remote_control_outbound)
     V2_EVENTING_DELIVERY_ENDPOINT_ENABLED            = tostring(local.azure_event_enabled)
     V2_EVENTING_RECEIVED_HUB_NAME                    = try(local.azure_event_hub_names.received, "")
     V2_EVENTING_PROCESSED_HUB_NAME                   = try(local.azure_event_hub_names.processed, "")
     V2_EVENTING__fullyQualifiedNamespace             = try("${local.azure_event_namespace_name}.servicebus.windows.net", "disabled.servicebus.windows.net")
     V2_EVENTING_SERVICE_BUS__fullyQualifiedNamespace = try("${azurerm_servicebus_namespace.eventing[0].name}.servicebus.windows.net", "disabled.servicebus.windows.net")
     V2_EVENTING_CONTROL_TOPIC_NAME                   = try(azurerm_servicebus_topic.domain_control[0].name, "")
+    V2_EVENTING_BRIDGE_CONTROL_SUBSCRIPTION_NAME     = try(azurerm_servicebus_subscription.event_bridge_control[0].name, "disabled")
+    V2_EVENT_LAYER_PROVIDER                          = var.event_layer_provider
     BRIDGE_ROUTES_JSON                               = jsonencode(values(local.azure_v2_outbound_event_routes))
     BRIDGE_DESTINATIONS_JSON                         = jsonencode(local.azure_v2_bridge_destinations)
     BRIDGE_IDENTITIES_JSON                           = jsonencode(local.azure_v2_bridge_identities)

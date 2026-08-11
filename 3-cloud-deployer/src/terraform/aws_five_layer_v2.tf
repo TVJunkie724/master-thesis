@@ -15,7 +15,8 @@ locals {
 
   aws_v2_event_enabled = (
     local.aws_v2_l1_enabled || local.aws_v2_l2_enabled ||
-    local.aws_v2_hot_enabled || local.aws_v2_l4_enabled
+    local.aws_v2_hot_enabled || local.aws_v2_l4_enabled ||
+    local.aws_event_enabled
   )
   # In a same-provider Six-layer graph the independent Event Layer replaces
   # the embedded FIFO transport. Keep the embedded transport only for Five-
@@ -79,7 +80,12 @@ locals {
     if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.destination_provider == "aws"
   }
   aws_v2_remote_telemetry_outbound = anytrue([
-    for route in values(local.aws_v2_outbound_event_routes) : route.channel_class == "telemetry"
+    for route in values(local.aws_v2_outbound_event_routes) :
+    route.channel_class == "telemetry" && !startswith(route.logical_edge_id, "edge.eventing-to-")
+  ])
+  aws_v2_event_remote_telemetry_outbound = anytrue([
+    for route in values(local.aws_v2_outbound_event_routes) :
+    route.channel_class == "telemetry" && startswith(route.logical_edge_id, "edge.eventing-to-")
   ])
   aws_v2_remote_telemetry_inbound = anytrue([
     for route in values(local.aws_v2_inbound_event_routes) : route.channel_class == "telemetry"
@@ -93,7 +99,12 @@ locals {
   aws_v2_remote_telemetry_enabled = length(local.aws_v2_remote_telemetry_routes) > 0
 
   aws_v2_remote_control_outbound = anytrue([
-    for route in values(local.aws_v2_outbound_event_routes) : route.channel_class == "control"
+    for route in values(local.aws_v2_outbound_event_routes) :
+    route.channel_class == "control" && !startswith(route.logical_edge_id, "edge.eventing-to-")
+  ])
+  aws_v2_event_remote_control_outbound = anytrue([
+    for route in values(local.aws_v2_outbound_event_routes) :
+    route.channel_class == "control" && startswith(route.logical_edge_id, "edge.eventing-to-")
   ])
   aws_v2_remote_control_inbound = anytrue([
     for route in values(local.aws_v2_inbound_event_routes) : route.channel_class == "control"
@@ -439,6 +450,7 @@ resource "aws_lambda_function" "aws_aws_lambda" {
       DEPLOYMENT_ID                     = local.deployment_suffix
       EVENT_QUEUE_URL                   = try(aws_sqs_queue.aws_aws_sqs_fifo[0].url, "")
       CONTROL_TOPIC_ARN                 = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
+      EVENTING_RECEIVED_STREAM_ARN      = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_kinesis_stream.domain_telemetry["received"].arn : try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
       EVENTING_CONTROL_TOPIC_ARN        = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_sns_topic.domain_control[0].arn : try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
       EVENTING_PROCESSED_STREAM_ARN     = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_kinesis_stream.domain_telemetry["processed"].arn : try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
       L1_PROVIDER                       = local.six_layer_eventing_enabled ? "eventing" : var.layer_1_provider
@@ -458,6 +470,7 @@ resource "aws_lambda_function" "aws_aws_lambda" {
       DEVICE_COMMAND_ARN                = try(awscc_iot_command.aws_aws_iot_commands[0].command_arn, "")
       IOT_COMMANDS_ENDPOINT             = try(data.aws_iot_endpoint.main[0].endpoint_address, "")
       AWS_ACCOUNT_ID                    = data.aws_caller_identity.current[0].account_id
+      EVENT_LAYER_PROVIDER              = var.event_layer_provider
     }
   }
   tags = local.aws_v2_tags
@@ -587,6 +600,7 @@ resource "aws_lambda_function" "aws_v2_domain_consumer" {
       EVENT_QUEUE_URL                   = try(aws_sqs_queue.aws_aws_sqs_fifo[0].url, "")
       TELEMETRY_STREAM_ARN              = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
       CONTROL_TOPIC_ARN                 = try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
+      EVENTING_RECEIVED_STREAM_ARN      = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_kinesis_stream.domain_telemetry["received"].arn : try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
       EVENTING_CONTROL_TOPIC_ARN        = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_sns_topic.domain_control[0].arn : try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
       EVENTING_PROCESSED_STREAM_ARN     = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_kinesis_stream.domain_telemetry["processed"].arn : try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
       L1_PROVIDER                       = local.six_layer_eventing_enabled ? "eventing" : var.layer_1_provider
@@ -605,6 +619,7 @@ resource "aws_lambda_function" "aws_v2_domain_consumer" {
       DEVICE_COMMAND_ARN                = try(awscc_iot_command.aws_aws_iot_commands[0].command_arn, "")
       IOT_COMMANDS_ENDPOINT             = try(data.aws_iot_endpoint.main[0].endpoint_address, "")
       AWS_ACCOUNT_ID                    = data.aws_caller_identity.current[0].account_id
+      EVENT_LAYER_PROVIDER              = var.event_layer_provider
     }
   }
   tags = local.aws_v2_tags
@@ -631,10 +646,11 @@ resource "aws_lambda_event_source_mapping" "aws_v2_remote_telemetry" {
 }
 
 resource "aws_sns_topic_subscription" "aws_aws_sns_fifo_only_for_reviewed_remote_control_edge" {
-  count     = local.aws_v2_remote_control_inbound ? 1 : 0
-  topic_arn = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["inbound"].arn
-  protocol  = "sqs"
-  endpoint  = aws_sqs_queue.aws_v2_remote_control[0].arn
+  count                = local.aws_v2_remote_control_inbound ? 1 : 0
+  topic_arn            = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["inbound"].arn
+  protocol             = "sqs"
+  endpoint             = aws_sqs_queue.aws_v2_remote_control[0].arn
+  raw_message_delivery = true
 }
 
 resource "aws_lambda_event_source_mapping" "aws_v2_remote_control" {

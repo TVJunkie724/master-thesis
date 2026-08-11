@@ -64,10 +64,10 @@ locals {
   )
 
   azure_v2_bridge_failure_destination = {
-    telemetry_namespace = local.azure_v2_remote_telemetry_outbound ? "${azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].name}.servicebus.windows.net" : ""
-    telemetry_entity    = local.azure_v2_remote_telemetry_outbound ? azurerm_eventhub.azure_v2_bridge_telemetry_failure[0].name : ""
-    control_namespace   = local.azure_v2_remote_control_outbound ? "${azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].name}.servicebus.windows.net" : ""
-    control_entity      = local.azure_v2_remote_control_outbound ? azurerm_servicebus_queue.azure_v2_bridge_control_failure[0].name : ""
+    telemetry_namespace = local.azure_v2_remote_telemetry_outbound ? "${azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].name}.servicebus.windows.net" : local.azure_v2_event_remote_telemetry_outbound ? "${local.azure_event_namespace_name}.servicebus.windows.net" : ""
+    telemetry_entity    = local.azure_v2_remote_telemetry_outbound ? azurerm_eventhub.azure_v2_bridge_telemetry_failure[0].name : local.azure_v2_event_remote_telemetry_outbound ? local.azure_event_hub_names.failure : ""
+    control_namespace   = local.azure_v2_remote_control_outbound ? "${azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].name}.servicebus.windows.net" : local.azure_v2_event_remote_control_outbound ? "${azurerm_servicebus_namespace.eventing[0].name}.servicebus.windows.net" : ""
+    control_entity      = local.azure_v2_remote_control_outbound ? azurerm_servicebus_queue.azure_v2_bridge_control_failure[0].name : local.azure_v2_event_remote_control_outbound ? azurerm_servicebus_queue.event_bridge_control_failure[0].name : ""
   }
 }
 
@@ -77,7 +77,7 @@ locals {
 resource "azuread_application" "azure_v2_bridge_audience" {
   count            = local.azure_v2_bridge_enabled ? 1 : 0
   display_name     = "${var.digital_twin_name} v2 event bridge ${local.deployment_suffix}"
-  description      = "Dedicated five-layer v2 workload-federation audience"
+  description      = "Dedicated Phase 8 workload-federation audience"
   sign_in_audience = "AzureADMyOrg"
 }
 

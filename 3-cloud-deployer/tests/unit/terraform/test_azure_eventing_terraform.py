@@ -76,3 +76,22 @@ def test_inherited_azure_runtime_replaces_embedded_transport_for_six_layer():
     assert "def _publish_eventing_control" in runtime
     assert "def _consume_eventing_delivery" in runtime
     assert 'route="eventing-delivery/v1"' in runtime
+
+
+def test_azure_event_layer_can_be_the_source_of_a_directed_bridge():
+    terraform = _source("azure_eventing.tf")
+    function_app = (
+        TERRAFORM_ROOT.parent
+        / "providers"
+        / "azure"
+        / "azure_functions"
+        / "five-layer-v2"
+        / "function_app.py"
+    ).read_text(encoding="utf-8")
+    assert "bridge-received" in terraform
+    assert "bridge-processed" in terraform
+    assert 'resource "azurerm_servicebus_subscription" "event_bridge_control"' in terraform
+    assert 'resource "azurerm_role_assignment" "azure_event_bridge"' in terraform
+    assert 'name="v2-cross-cloud-event-received-bridge"' in function_app
+    assert 'name="v2-cross-cloud-event-processed-bridge"' in function_app
+    assert 'name="v2-cross-cloud-event-control-bridge"' in function_app

@@ -75,6 +75,14 @@ BRIDGE_TELEMETRY_ENABLED = (
 BRIDGE_CONTROL_ENABLED = (
     os.getenv("V2_BRIDGE_CONTROL_ENABLED", "false").strip().lower() == "true"
 )
+BRIDGE_EVENT_TELEMETRY_ENABLED = (
+    os.getenv("V2_BRIDGE_EVENT_TELEMETRY_ENABLED", "false").strip().lower()
+    == "true"
+)
+BRIDGE_EVENT_CONTROL_ENABLED = (
+    os.getenv("V2_BRIDGE_EVENT_CONTROL_ENABLED", "false").strip().lower()
+    == "true"
+)
 RAW_HISTORY_ENABLED = (
     os.getenv("V2_RAW_HISTORY_ENABLED", "false").strip().lower() == "true"
 )
@@ -564,7 +572,29 @@ def _consume(event: dict) -> None:
     """Route one canonical event to its Azure-owned local responsibility."""
 
     validated = validate_canonical_event(event)
-    if validated["event_type"] == "telemetry.received.v1":
+    if (
+        _six_layer_eventing()
+        and os.getenv("V2_EVENT_LAYER_PROVIDER") == "azure"
+        and validated["event_type"]
+        in {
+            "telemetry.received.v1",
+            "telemetry.processed.v1",
+            "event.matched.v1",
+            "notification.requested.v1",
+            "device.command.requested.v1",
+            "extension.action.outcome.v1",
+            "notification.workflow.outcome.v1",
+            "device.command.outcome.v1",
+        }
+    ):
+        if validated["event_type"] in {
+            "telemetry.received.v1",
+            "telemetry.processed.v1",
+        }:
+            _publish_eventing_stream(validated)
+        else:
+            _publish_eventing_control(validated)
+    elif validated["event_type"] == "telemetry.received.v1":
         if os.getenv("V2_L2_PROVIDER") != "azure":
             raise ContractError("REMOTE_PROCESSING_ROUTE_NOT_CONFIGURED", 503)
         _process_received(validated)
@@ -1067,6 +1097,59 @@ if BRIDGE_TELEMETRY_ENABLED:
         )
 
 
+if BRIDGE_EVENT_TELEMETRY_ENABLED:
+
+    @app.function_name(name="v2-cross-cloud-event-received-bridge")
+    @app.retry(
+        strategy="exponential_backoff",
+        max_retry_count="5",
+        minimum_interval="00:00:01",
+        maximum_interval="00:00:32",
+    )
+    @app.event_hub_message_trigger(
+        arg_name="messages",
+        event_hub_name="%V2_EVENTING_RECEIVED_HUB_NAME%",
+        connection="V2_EVENTING",
+        cardinality="many",
+        consumer_group="bridge-received",
+    )
+    def cross_cloud_event_received_bridge(
+        messages: list[func.EventHubEvent],
+        context: func.Context,
+    ) -> None:
+        from phase8_eventing.azure.runtime import event_hub_batch
+
+        event_hub_batch(
+            messages,
+            attempt_count=_event_hub_delivery_attempt(context),
+        )
+
+    @app.function_name(name="v2-cross-cloud-event-processed-bridge")
+    @app.retry(
+        strategy="exponential_backoff",
+        max_retry_count="5",
+        minimum_interval="00:00:01",
+        maximum_interval="00:00:32",
+    )
+    @app.event_hub_message_trigger(
+        arg_name="messages",
+        event_hub_name="%V2_EVENTING_PROCESSED_HUB_NAME%",
+        connection="V2_EVENTING",
+        cardinality="many",
+        consumer_group="bridge-processed",
+    )
+    def cross_cloud_event_processed_bridge(
+        messages: list[func.EventHubEvent],
+        context: func.Context,
+    ) -> None:
+        from phase8_eventing.azure.runtime import event_hub_batch
+
+        event_hub_batch(
+            messages,
+            attempt_count=_event_hub_delivery_attempt(context),
+        )
+
+
 if BRIDGE_CONTROL_ENABLED:
 
     @app.function_name(name="v2-cross-cloud-control-bridge")
@@ -1079,6 +1162,24 @@ if BRIDGE_CONTROL_ENABLED:
     def cross_cloud_control_bridge(message: func.ServiceBusMessage) -> None:
         """Complete the source control message only after target acceptance."""
 
+        from phase8_eventing.azure.runtime import service_bus_message
+
+        service_bus_message(message)
+
+
+if BRIDGE_EVENT_CONTROL_ENABLED:
+
+    @app.function_name(name="v2-cross-cloud-event-control-bridge")
+    @app.service_bus_topic_trigger(
+        arg_name="message",
+        topic_name="%V2_EVENTING_CONTROL_TOPIC_NAME%",
+        subscription_name="%V2_EVENTING_BRIDGE_CONTROL_SUBSCRIPTION_NAME%",
+        connection="V2_EVENTING_SERVICE_BUS",
+        is_sessions_enabled=True,
+    )
+    def cross_cloud_event_control_bridge(
+        message: func.ServiceBusMessage,
+    ) -> None:
         from phase8_eventing.azure.runtime import service_bus_message
 
         service_bus_message(message)

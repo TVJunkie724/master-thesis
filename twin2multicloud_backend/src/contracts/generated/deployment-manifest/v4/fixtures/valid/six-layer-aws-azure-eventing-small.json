@@ -37,7 +37,7 @@
     "layer_5_provider": "aws"
   },
   "calculation_run_id": "89287aa5-89b4-55dc-88cb-680f2823da48",
-  "resolved_twin_architecture_digest": "sha256:c892e899f48808aee1c8fc6000172a632f067bf55c0d21d04fcb4e1e8ab40e6c",
+  "resolved_twin_architecture_digest": "sha256:360ef08b26d43515a9d677ba4fcf94ee1eef9a095d7533fe83b6899439cb6d71",
   "resolved_twin_architecture": {
     "schema_version": "resolved-twin-architecture.v2",
     "resolution_status": "offline_contract_fixture",
@@ -819,7 +819,7 @@
     "deployment_specification_ref": {
       "schema_version": "resolved-deployment-specification.v2",
       "calculation_run_id": "89287aa5-89b4-55dc-88cb-680f2823da48",
-      "digest": "sha256:48937336ea7b825d64e15a19b1354b26b444ce17cf4ec4b07ff931db5ea247be"
+      "digest": "sha256:15e35be1b4681e52f466b06cf7f232b881a246b27bdc945febbdf0c562dae9fb"
     },
     "cost_summary": {
       "currency": "USD",
@@ -982,11 +982,11 @@
       "provider_extra_capability_ids": [],
       "missing_capability_ids": [],
       "validator_version": "2",
-      "validation_digest": "sha256:c13a38949a3ce7bc2018351f2b2d783108ac8ced35c33c01986d9b79f27dba1b"
+      "validation_digest": "sha256:e29635aece5d3f2df30a1fac0a15a6acae9f50e428b617d08915385d7d28d884"
     },
-    "content_digest": "sha256:c892e899f48808aee1c8fc6000172a632f067bf55c0d21d04fcb4e1e8ab40e6c"
+    "content_digest": "sha256:360ef08b26d43515a9d677ba4fcf94ee1eef9a095d7533fe83b6899439cb6d71"
   },
-  "resolved_deployment_specification_digest": "sha256:48937336ea7b825d64e15a19b1354b26b444ce17cf4ec4b07ff931db5ea247be",
+  "resolved_deployment_specification_digest": "sha256:15e35be1b4681e52f466b06cf7f232b881a246b27bdc945febbdf0c562dae9fb",
   "resolved_deployment_specification": {
     "schema_version": "resolved-deployment-specification.v2",
     "calculation_run_id": "89287aa5-89b4-55dc-88cb-680f2823da48",
@@ -1004,7 +1004,7 @@
       "component_catalog_ref": {
         "id": "six-layer-eventing-component-catalog",
         "version": "1",
-        "digest": "sha256:860c33a91f5cf590e1f9a90b1683e0488b123b2937d5fdd21dcf7df0474dc6ec"
+        "digest": "sha256:4e74df462724903718ee87bd4d3358f985beb03fa3e9a3bf7e0ec4815117b11d"
       },
       "workload_ref": {
         "id": "five-layer-workload",
@@ -3039,7 +3039,7 @@
         "compatibility_version": "1"
       }
     ],
-    "digest": "sha256:48937336ea7b825d64e15a19b1354b26b444ce17cf4ec4b07ff931db5ea247be"
+    "digest": "sha256:15e35be1b4681e52f466b06cf7f232b881a246b27bdc945febbdf0c562dae9fb"
   },
   "credentials": {
     "providers": [
@@ -3056,7 +3056,7 @@
     "component_catalog_ref": {
       "id": "six-layer-eventing-component-catalog",
       "version": "1",
-      "digest": "sha256:860c33a91f5cf590e1f9a90b1683e0488b123b2937d5fdd21dcf7df0474dc6ec"
+      "digest": "sha256:4e74df462724903718ee87bd4d3358f985beb03fa3e9a3bf7e0ec4815117b11d"
     },
     "graph_resolver_version": "resolved-deployment-graph.v1",
     "package_builder_version": "graph-package-builder.v1",

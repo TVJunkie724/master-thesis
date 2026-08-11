@@ -386,6 +386,23 @@ def test_duplicate_raw_retry_still_reaches_twin_and_rule_edges(monkeypatch):
     evaluator.assert_called_once_with(processed)
 
 
+def test_six_layer_remote_landing_republishes_to_azure_event_layer(monkeypatch):
+    received = _event()
+    published = []
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    monkeypatch.setenv("V2_EVENT_LAYER_PROVIDER", "azure")
+    monkeypatch.setattr(function_app, "_publish_eventing_stream", published.append)
+    monkeypatch.setattr(
+        function_app,
+        "_process_received",
+        lambda *_args: pytest.fail("landing bypassed the Event Layer"),
+    )
+
+    function_app._consume(received)
+
+    assert published == [received]
+
+
 def test_workflow_and_command_emit_correlated_terminal_outcomes(monkeypatch):
     matched = core.build_rule_matches(
         _processed_event(projection_candidate=False),

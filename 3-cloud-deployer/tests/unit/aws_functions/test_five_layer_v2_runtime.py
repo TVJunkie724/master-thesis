@@ -884,6 +884,29 @@ def test_domain_consumer_rejects_noncanonical_broker_record():
     assert result["batchItemFailures"] == [{"itemIdentifier": "message-invalid"}]
 
 
+def test_six_layer_remote_landing_republishes_to_aws_event_layer(monkeypatch):
+    runtime = _module()
+    published = []
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    monkeypatch.setenv("EVENT_LAYER_PROVIDER", "aws")
+    monkeypatch.setattr(runtime, "_put_eventing_stream", published.append)
+    monkeypatch.setattr(
+        runtime,
+        "processor",
+        lambda *_args: pytest.fail("landing bypassed the Event Layer"),
+    )
+    received = runtime._derive_event(
+        {"event_id": "remote-received-1", "device_id": "device-1"},
+        event_type=runtime.EVENT_TELEMETRY_RECEIVED,
+        producer="component.device-ingress",
+    )
+
+    result = runtime.domain_consumer(received, None)
+
+    assert result["accepted"] == 1
+    assert published == [received]
+
+
 def test_notification_request_starts_fixed_workflow(monkeypatch):
     runtime = _module()
     states = _StepFunctions()

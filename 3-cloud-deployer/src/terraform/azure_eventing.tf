@@ -68,6 +68,10 @@ locals {
         hub = "processed"
       }
     },
+    local.azure_v2_event_remote_telemetry_outbound ? {
+      bridge-received  = { hub = "received" }
+      bridge-processed = { hub = "processed" }
+    } : {},
   )
   azure_event_local_processed_roles = concat(
     local.azure_event_hot_local ? ["historical-persistence"] : [],
@@ -88,6 +92,14 @@ locals {
   azure_event_control_filter = length(local.azure_event_local_control_event_types) == 0 ? "1 = 0" : format(
     "event_type IN ('%s')",
     join("','", local.azure_event_local_control_event_types),
+  )
+  azure_event_bridge_control_event_types = sort(distinct(flatten([
+    for route in values(local.azure_v2_outbound_event_routes) : route.event_types
+    if startswith(route.logical_edge_id, "edge.eventing-to-") && route.channel_class == "control"
+  ])))
+  azure_event_bridge_control_filter = length(local.azure_event_bridge_control_event_types) == 0 ? "1 = 0" : format(
+    "event_type IN ('%s')",
+    join("','", local.azure_event_bridge_control_event_types),
   )
   azure_event_domain_target_enabled = (
     local.azure_event_l1_local || local.azure_event_l2_local ||
@@ -265,6 +277,37 @@ resource "azurerm_servicebus_subscription_rule" "domain_control" {
   sql_filter      = local.azure_event_control_filter
 }
 
+resource "azurerm_servicebus_subscription" "event_bridge_control" {
+  count                                     = local.azure_event_enabled && local.azure_v2_event_remote_control_outbound ? 1 : 0
+  name                                      = "cross-cloud-bridge"
+  topic_id                                  = azurerm_servicebus_topic.domain_control[0].id
+  max_delivery_count                        = var.azure_event_max_delivery_count
+  requires_session                          = true
+  dead_lettering_on_message_expiration      = true
+  dead_lettering_on_filter_evaluation_error = true
+  default_message_ttl                       = local.azure_event_retention_iso
+  lock_duration                             = "PT1M"
+}
+
+resource "azurerm_servicebus_subscription_rule" "event_bridge_control" {
+  count           = local.azure_event_enabled && local.azure_v2_event_remote_control_outbound ? 1 : 0
+  name            = "$Default"
+  subscription_id = azurerm_servicebus_subscription.event_bridge_control[0].id
+  filter_type     = "SqlFilter"
+  sql_filter      = local.azure_event_bridge_control_filter
+}
+
+resource "azurerm_servicebus_queue" "event_bridge_control_failure" {
+  count                                   = local.azure_event_enabled && local.azure_v2_event_remote_control_outbound ? 1 : 0
+  name                                    = "cross-cloud-bridge-failure"
+  namespace_id                            = azurerm_servicebus_namespace.eventing[0].id
+  requires_session                        = true
+  requires_duplicate_detection            = true
+  duplicate_detection_history_time_window = "PT10M"
+  dead_lettering_on_message_expiration    = true
+  default_message_ttl                     = "P14D"
+}
+
 resource "azurerm_log_analytics_workspace" "eventing" {
   count               = local.azure_event_enabled ? 1 : 0
   name                = "${local.azure_event_name}-event-logs-${local.deployment_suffix}"
@@ -397,15 +440,37 @@ locals {
     }
   } : {}
   azure_event_publisher_role_bindings = merge(
-    local.azure_event_l1_local || local.azure_event_l2_local ? {
+    local.azure_event_l1_local || local.azure_event_l2_local || (local.azure_event_enabled && local.azure_v2_remote_telemetry_inbound) ? {
       telemetry_sender = {
         scope = local.azure_event_dedicated ? azurerm_eventhub_namespace.eventing_dedicated[0].id : azurerm_eventhub_namespace.eventing_standard[0].id
         role  = "Azure Event Hubs Data Sender"
       }
     } : {},
-    local.azure_event_domain_target_enabled ? {
+    local.azure_event_domain_target_enabled || (local.azure_event_enabled && local.azure_v2_remote_control_inbound) ? {
       control_sender = {
         scope = azurerm_servicebus_topic.domain_control[0].id
+        role  = "Azure Service Bus Data Sender"
+      }
+    } : {},
+  )
+  azure_event_bridge_role_bindings = merge(
+    local.azure_v2_event_remote_telemetry_outbound ? {
+      bridge_event_hubs_receiver = {
+        scope = local.azure_event_dedicated ? azurerm_eventhub_namespace.eventing_dedicated[0].id : azurerm_eventhub_namespace.eventing_standard[0].id
+        role  = "Azure Event Hubs Data Receiver"
+      }
+      bridge_failure_sender = {
+        scope = local.azure_event_dedicated ? azurerm_eventhub.domain_telemetry_dedicated["failure"].id : azurerm_eventhub.domain_telemetry_standard["failure"].id
+        role  = "Azure Event Hubs Data Sender"
+      }
+    } : {},
+    local.azure_v2_event_remote_control_outbound ? {
+      bridge_control_receiver = {
+        scope = azurerm_servicebus_subscription.event_bridge_control[0].id
+        role  = "Azure Service Bus Data Receiver"
+      }
+      bridge_control_failure_sender = {
+        scope = azurerm_servicebus_queue.event_bridge_control_failure[0].id
         role  = "Azure Service Bus Data Sender"
       }
     } : {},
@@ -424,6 +489,16 @@ resource "azurerm_role_assignment" "azure_event_runtime" {
 
 resource "azurerm_role_assignment" "azure_event_publishers" {
   for_each             = local.azure_event_publisher_role_bindings
+  scope                = each.value.scope
+  role_definition_name = each.value.role
+  principal_id         = azurerm_user_assigned_identity.main[0].principal_id
+  principal_type       = "ServicePrincipal"
+
+  skip_service_principal_aad_check = true
+}
+
+resource "azurerm_role_assignment" "azure_event_bridge" {
+  for_each             = local.azure_event_enabled ? local.azure_event_bridge_role_bindings : {}
   scope                = each.value.scope
   role_definition_name = each.value.role
   principal_id         = azurerm_user_assigned_identity.main[0].principal_id

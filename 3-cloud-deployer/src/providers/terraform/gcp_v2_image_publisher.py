@@ -64,7 +64,25 @@ def gcp_v2_container_deployment(tfvars: Mapping[str, Any]) -> bool:
 
 
 def _gcp_v2_platform_deployment(tfvars: Mapping[str, Any]) -> bool:
-    return any(
+    phase8_profile = (
+        tfvars.get("architecture_profile_id"),
+        str(tfvars.get("architecture_profile_version")),
+    ) in {
+        ("five-layer-baseline", "2"),
+        ("six-layer-eventing", "1"),
+    }
+    routes = tfvars.get("resolved_cross_cloud_routes")
+    bridge_or_landing = phase8_profile and isinstance(routes, list) and any(
+        isinstance(route, Mapping)
+        and route.get("execution_kind") == "source_event_forwarder"
+        and "gcp"
+        in {
+            route.get("source_provider"),
+            route.get("destination_provider"),
+        }
+        for route in routes
+    )
+    return bridge_or_landing or any(
         tfvars.get(key) == "google"
         for key in (
             "layer_1_provider",

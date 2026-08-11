@@ -412,6 +412,25 @@ def _selected_static_function_packages(
         selected[provider].add(source_path.name)
         if provider != "azure":
             package_ids.add(f"{provider}_{source_path.name}")
+    profile = (graph.profile_ref.get("id"), str(graph.profile_ref.get("version")))
+    event_route_providers = (
+        {
+            provider
+            for route in resolve_cross_cloud_routes(graph)
+            if route.execution_kind == "source_event_forwarder"
+            for provider in (route.source_provider, route.destination_provider)
+        }
+        if profile
+        in {
+            ("five-layer-baseline", "2"),
+            ("six-layer-eventing", "1"),
+        }
+        else set()
+    )
+    for provider in event_route_providers.intersection({"aws", "azure"}):
+        selected[provider].add("five-layer-v2")
+        if provider == "aws":
+            package_ids.add("aws_five-layer-v2")
     azure_v2_names = selected["azure"].intersection(AZURE_V2_GRAPH_APPS)
     azure_v1_names = selected["azure"] - azure_v2_names
     package_ids.update(azure_graph_package_ids(azure_v1_names))
@@ -438,6 +457,16 @@ def _selected_gcp_container_packages(
         ):
             continue
         selected.add(source_path.name)
+    profile = (graph.profile_ref.get("id"), str(graph.profile_ref.get("version")))
+    if profile in {
+        ("five-layer-baseline", "2"),
+        ("six-layer-eventing", "1"),
+    } and any(
+        route.execution_kind == "source_event_forwarder"
+        and "gcp" in {route.source_provider, route.destination_provider}
+        for route in resolve_cross_cloud_routes(graph)
+    ):
+        selected.add("five-layer-v2")
     names = tuple(sorted(selected))
     return names, {f"gcp_{name}" for name in names}
 
@@ -451,10 +480,14 @@ def _aws_v2_storage_mover_selected(graph: ResolvedDeploymentGraph) -> bool:
 
 
 def _aws_v2_bridge_selected(graph: ResolvedDeploymentGraph) -> bool:
-    if (
-        graph.profile_ref.get("id") != "five-layer-baseline"
-        or str(graph.profile_ref.get("version")) != "2"
-    ):
+    profile = (
+        graph.profile_ref.get("id"),
+        str(graph.profile_ref.get("version")),
+    )
+    if profile not in {
+        ("five-layer-baseline", "2"),
+        ("six-layer-eventing", "1"),
+    }:
         return False
     return any(
         route.source_provider == "aws"

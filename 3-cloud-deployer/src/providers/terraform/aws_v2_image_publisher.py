@@ -29,10 +29,15 @@ class AwsV2ImageRequest:
 
 
 def _five_layer_v2(tfvars: Mapping[str, Any]) -> bool:
+    """Return whether the reviewed v2 foundation is selected directly or inherited."""
+
     return (
-        tfvars.get("architecture_profile_id") == "five-layer-baseline"
-        and str(tfvars.get("architecture_profile_version")) == "2"
-    )
+        tfvars.get("architecture_profile_id"),
+        str(tfvars.get("architecture_profile_version")),
+    ) in {
+        ("five-layer-baseline", "2"),
+        ("six-layer-eventing", "1"),
+    }
 
 
 def aws_v2_storage_mover_deployment(tfvars: Mapping[str, Any]) -> bool:

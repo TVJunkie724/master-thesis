@@ -6,6 +6,7 @@ from src.providers.terraform.gcp_v2_image_publisher import (
     DOCKER_BUILDER,
     GcpV2ImagePublisher,
     GcpV2ImageRequest,
+    _gcp_v2_platform_deployment,
     image_requests,
     image_tfvars,
     placeholder_image_tfvars,
@@ -232,3 +233,36 @@ def test_six_layer_event_provider_publishes_dedicated_runtime_image(tmp_path):
         "gcp_event_runtime_image": prefix + "event-runtime@sha256:" + "e" * 64,
         "gcp_v2_kubernetes_stage_enabled": False,
     }
+
+
+def test_cross_cloud_landing_image_inherits_only_reviewed_phase8_profiles():
+    route = {
+        "execution_kind": "source_event_forwarder",
+        "source_provider": "aws",
+        "destination_provider": "gcp",
+    }
+    base = {
+        "layer_1_provider": "aws",
+        "layer_2_provider": "aws",
+        "layer_3_hot_provider": "aws",
+        "layer_3_cold_provider": "aws",
+        "layer_3_archive_provider": "aws",
+        "layer_4_provider": "aws",
+        "layer_5_provider": "aws",
+        "resolved_cross_cloud_routes": [route],
+    }
+
+    assert _gcp_v2_platform_deployment(
+        base
+        | {
+            "architecture_profile_id": "six-layer-eventing",
+            "architecture_profile_version": "1",
+        }
+    )
+    assert not _gcp_v2_platform_deployment(
+        base
+        | {
+            "architecture_profile_id": "five-layer-baseline",
+            "architecture_profile_version": "1",
+        }
+    )

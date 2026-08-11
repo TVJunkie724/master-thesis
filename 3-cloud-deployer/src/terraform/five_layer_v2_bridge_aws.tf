@@ -29,6 +29,26 @@ locals {
     for route in values(local.aws_v2_outbound_event_routes) :
     route.destination_provider == "gcp" && route.channel_class == "control"
   ])
+  aws_v2_bridge_telemetry_enabled = local.aws_v2_remote_telemetry_outbound || local.aws_v2_event_remote_telemetry_outbound
+  aws_v2_bridge_control_enabled   = local.aws_v2_remote_control_outbound || local.aws_v2_event_remote_control_outbound
+  aws_v2_event_bridge_streams = local.aws_event_enabled ? merge(
+    anytrue([
+      for route in values(local.aws_v2_outbound_event_routes) :
+      startswith(route.logical_edge_id, "edge.eventing-to-") && contains(route.event_types, "telemetry.received.v1")
+    ]) ? { received = aws_kinesis_stream.domain_telemetry["received"].arn } : {},
+    anytrue([
+      for route in values(local.aws_v2_outbound_event_routes) :
+      startswith(route.logical_edge_id, "edge.eventing-to-") && contains(route.event_types, "telemetry.processed.v1")
+    ]) ? { processed = aws_kinesis_stream.domain_telemetry["processed"].arn } : {},
+  ) : {}
+  aws_v2_event_bridge_control_types = sort(distinct(flatten([
+    for route in values(local.aws_v2_outbound_event_routes) : route.event_types
+    if startswith(route.logical_edge_id, "edge.eventing-to-") && route.channel_class == "control"
+  ])))
+  aws_v2_bridge_control_source_arns = compact([
+    local.aws_v2_remote_control_outbound ? aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn : "",
+    local.aws_v2_event_remote_control_outbound ? aws_sns_topic.domain_control[0].arn : "",
+  ])
 
   aws_v2_bridge_destinations = merge(
     local.aws_v2_bridge_to_azure_enabled ? {
@@ -107,14 +127,14 @@ resource "aws_iam_role_policy_attachment" "aws_v2_bridge_logs" {
 }
 
 resource "aws_s3_bucket" "aws_v2_bridge_telemetry_failure" {
-  count         = local.aws_v2_remote_telemetry_outbound ? 1 : 0
+  count         = local.aws_v2_bridge_telemetry_enabled ? 1 : 0
   bucket        = "${local.aws_v2_name}-bridge-fail-${local.deployment_suffix}"
   force_destroy = true
   tags          = local.aws_v2_tags
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "aws_v2_bridge_telemetry_failure" {
-  count  = local.aws_v2_remote_telemetry_outbound ? 1 : 0
+  count  = local.aws_v2_bridge_telemetry_enabled ? 1 : 0
   bucket = aws_s3_bucket.aws_v2_bridge_telemetry_failure[0].id
   rule {
     apply_server_side_encryption_by_default {
@@ -124,7 +144,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "aws_v2_bridge_tel
 }
 
 resource "aws_s3_bucket_public_access_block" "aws_v2_bridge_telemetry_failure" {
-  count                   = local.aws_v2_remote_telemetry_outbound ? 1 : 0
+  count                   = local.aws_v2_bridge_telemetry_enabled ? 1 : 0
   bucket                  = aws_s3_bucket.aws_v2_bridge_telemetry_failure[0].id
   block_public_acls       = true
   block_public_policy     = true
@@ -133,7 +153,7 @@ resource "aws_s3_bucket_public_access_block" "aws_v2_bridge_telemetry_failure" {
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "aws_v2_bridge_telemetry_failure" {
-  count  = local.aws_v2_remote_telemetry_outbound ? 1 : 0
+  count  = local.aws_v2_bridge_telemetry_enabled ? 1 : 0
   bucket = aws_s3_bucket.aws_v2_bridge_telemetry_failure[0].id
   rule {
     id     = "expire-poc-bridge-failures"
@@ -144,7 +164,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "aws_v2_bridge_telemetry_failur
 }
 
 resource "aws_sqs_queue" "aws_v2_bridge_control_failure" {
-  count                       = local.aws_v2_remote_control_outbound ? 1 : 0
+  count                       = local.aws_v2_bridge_control_enabled ? 1 : 0
   name                        = "${local.aws_v2_name}-bridge-failure.fifo"
   fifo_queue                  = true
   content_based_deduplication = false
@@ -155,7 +175,7 @@ resource "aws_sqs_queue" "aws_v2_bridge_control_failure" {
 }
 
 resource "aws_sqs_queue" "aws_v2_bridge_control_source" {
-  count                       = local.aws_v2_remote_control_outbound ? 1 : 0
+  count                       = local.aws_v2_bridge_control_enabled ? 1 : 0
   name                        = "${local.aws_v2_name}-bridge-source.fifo"
   fifo_queue                  = true
   content_based_deduplication = false
@@ -170,7 +190,7 @@ resource "aws_sqs_queue" "aws_v2_bridge_control_source" {
 }
 
 resource "aws_sqs_queue_policy" "aws_v2_bridge_control_source" {
-  count     = local.aws_v2_remote_control_outbound ? 1 : 0
+  count     = local.aws_v2_bridge_control_enabled ? 1 : 0
   queue_url = aws_sqs_queue.aws_v2_bridge_control_source[0].url
   policy = jsonencode({
     Version = "2012-10-17"
@@ -182,7 +202,7 @@ resource "aws_sqs_queue_policy" "aws_v2_bridge_control_source" {
       Resource  = aws_sqs_queue.aws_v2_bridge_control_source[0].arn
       Condition = {
         ArnEquals = {
-          "aws:SourceArn" = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn
+          "aws:SourceArn" = local.aws_v2_bridge_control_source_arns
         }
       }
     }]
@@ -190,10 +210,22 @@ resource "aws_sqs_queue_policy" "aws_v2_bridge_control_source" {
 }
 
 resource "aws_sns_topic_subscription" "aws_v2_bridge_control_source" {
-  count     = local.aws_v2_remote_control_outbound ? 1 : 0
-  topic_arn = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn
-  protocol  = "sqs"
-  endpoint  = aws_sqs_queue.aws_v2_bridge_control_source[0].arn
+  count                = local.aws_v2_remote_control_outbound ? 1 : 0
+  topic_arn            = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn
+  protocol             = "sqs"
+  endpoint             = aws_sqs_queue.aws_v2_bridge_control_source[0].arn
+  raw_message_delivery = true
+}
+
+resource "aws_sns_topic_subscription" "aws_v2_event_bridge_control_source" {
+  count                = local.aws_v2_event_remote_control_outbound ? 1 : 0
+  topic_arn            = aws_sns_topic.domain_control[0].arn
+  protocol             = "sqs"
+  endpoint             = aws_sqs_queue.aws_v2_bridge_control_source[0].arn
+  raw_message_delivery = true
+  filter_policy = jsonencode({
+    event_type = local.aws_v2_event_bridge_control_types
+  })
 }
 
 resource "aws_iam_role_policy" "aws_v2_bridge" {
@@ -203,7 +235,7 @@ resource "aws_iam_role_policy" "aws_v2_bridge" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = concat(
-      local.aws_v2_remote_telemetry_outbound ? [{
+      local.aws_v2_bridge_telemetry_enabled ? [{
         Effect = "Allow"
         Action = [
           "kinesis:DescribeStream",
@@ -213,14 +245,17 @@ resource "aws_iam_role_policy" "aws_v2_bridge" {
           "kinesis:ListShards",
           "kinesis:SubscribeToShard",
         ]
-        Resource = aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn
+        Resource = concat(
+          local.aws_v2_remote_telemetry_outbound ? [aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn] : [],
+          values(local.aws_v2_event_bridge_streams),
+        )
       }] : [],
-      local.aws_v2_remote_telemetry_outbound ? [{
+      local.aws_v2_bridge_telemetry_enabled ? [{
         Effect   = "Allow"
         Action   = ["s3:ListBucket"]
         Resource = aws_s3_bucket.aws_v2_bridge_telemetry_failure[0].arn
       }] : [],
-      local.aws_v2_remote_telemetry_outbound ? [{
+      local.aws_v2_bridge_telemetry_enabled ? [{
         Effect   = "Allow"
         Action   = ["s3:PutObject"]
         Resource = "${aws_s3_bucket.aws_v2_bridge_telemetry_failure[0].arn}/*"
@@ -230,7 +265,7 @@ resource "aws_iam_role_policy" "aws_v2_bridge" {
           }
         }
       }] : [],
-      local.aws_v2_remote_control_outbound ? [{
+      local.aws_v2_bridge_control_enabled ? [{
         Effect = "Allow"
         Action = [
           "sqs:ChangeMessageVisibility",
@@ -240,7 +275,7 @@ resource "aws_iam_role_policy" "aws_v2_bridge" {
         ]
         Resource = aws_sqs_queue.aws_v2_bridge_control_source[0].arn
       }] : [],
-      local.aws_v2_remote_control_outbound ? [{
+      local.aws_v2_bridge_control_enabled ? [{
         Effect   = "Allow"
         Action   = ["sqs:SendMessage"]
         Resource = aws_sqs_queue.aws_v2_bridge_control_failure[0].arn
@@ -328,8 +363,28 @@ resource "aws_lambda_event_source_mapping" "aws_v2_bridge_telemetry" {
   enabled = true
 }
 
+resource "aws_lambda_event_source_mapping" "aws_v2_event_bridge_telemetry" {
+  for_each                           = local.aws_v2_event_bridge_streams
+  event_source_arn                   = each.value
+  function_name                      = aws_lambda_function.aws_v2_cross_cloud_bridge[0].arn
+  starting_position                  = "LATEST"
+  batch_size                         = 10
+  maximum_batching_window_in_seconds = 1
+  parallelization_factor             = 1
+  function_response_types            = ["ReportBatchItemFailures"]
+  maximum_retry_attempts             = 5
+  maximum_record_age_in_seconds      = 86400
+  bisect_batch_on_function_error     = true
+  destination_config {
+    on_failure {
+      destination_arn = aws_s3_bucket.aws_v2_bridge_telemetry_failure[0].arn
+    }
+  }
+  enabled = true
+}
+
 resource "aws_lambda_event_source_mapping" "aws_v2_bridge_control" {
-  count                              = local.aws_v2_remote_control_outbound ? 1 : 0
+  count                              = local.aws_v2_bridge_control_enabled ? 1 : 0
   event_source_arn                   = aws_sqs_queue.aws_v2_bridge_control_source[0].arn
   function_name                      = aws_lambda_function.aws_v2_cross_cloud_bridge[0].arn
   batch_size                         = 10

@@ -59,3 +59,13 @@ def test_gcp_to_aws_trusts_exact_audience_subject_and_publish_actions():
         in source
     )
     assert "google_service_account_key" not in source
+
+
+def test_gcp_event_layer_can_be_the_source_of_a_directed_bridge():
+    source = TERRAFORM_SOURCE.read_text(encoding="utf-8")
+
+    assert 'google_pubsub_topic.domain_events["received"].id' in source
+    assert 'google_pubsub_topic.domain_events["processed"].id' in source
+    assert 'google_pubsub_topic.domain_events["control"].id' in source
+    assert '"event-control-${index}"' in source
+    assert 'filter = "attributes.event_type = \\"${event_type}\\""' in source

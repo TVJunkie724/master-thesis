@@ -33,6 +33,10 @@ _PAYLOAD_CONTRACT_BY_EDGE = {
     "edge.ingestion-to-processing": "canonical-domain-event.v1",
     "edge.processing-to-hot-storage": "canonical-domain-event.v1",
     "edge.processing-to-ingestion": "canonical-domain-event.v1",
+    "edge.ingestion-to-eventing": "canonical-domain-event.v1",
+    "edge.eventing-to-processing": "canonical-domain-event.v1",
+    "edge.processing-to-eventing": "canonical-domain-event.v1",
+    "edge.eventing-to-ingestion": "canonical-domain-event.v1",
 }
 
 _EVENT_CHANNELS_BY_EDGE: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
@@ -65,6 +69,42 @@ _EVENT_CHANNELS_BY_EDGE: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 "twin.relationship.deleted",
             ),
         ),
+    ),
+    "edge.ingestion-to-eventing": (
+        ("telemetry", ("telemetry.received.v1",)),
+        ("control", ("device.command.outcome.v1",)),
+    ),
+    "edge.eventing-to-processing": (
+        (
+            "telemetry",
+            ("telemetry.received.v1", "telemetry.processed.v1"),
+        ),
+        (
+            "control",
+            (
+                "event.matched.v1",
+                "notification.requested.v1",
+                "extension.action.outcome.v1",
+                "notification.workflow.outcome.v1",
+                "device.command.outcome.v1",
+            ),
+        ),
+    ),
+    "edge.processing-to-eventing": (
+        ("telemetry", ("telemetry.processed.v1",)),
+        (
+            "control",
+            (
+                "event.matched.v1",
+                "notification.requested.v1",
+                "device.command.requested.v1",
+                "extension.action.outcome.v1",
+                "notification.workflow.outcome.v1",
+            ),
+        ),
+    ),
+    "edge.eventing-to-ingestion": (
+        ("control", ("device.command.requested.v1",)),
     ),
 }
 

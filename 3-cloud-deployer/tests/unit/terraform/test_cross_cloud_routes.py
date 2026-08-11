@@ -121,6 +121,82 @@ def test_mixed_processing_to_hot_edge_expands_into_telemetry_and_control_routes(
     assert routes[1].event_types == ("telemetry.processed.v1",)
 
 
+@pytest.mark.parametrize(
+    ("logical_edge_id", "expected"),
+    [
+        (
+            "edge.ingestion-to-eventing",
+            {
+                "control": ("device.command.outcome.v1",),
+                "telemetry": ("telemetry.received.v1",),
+            },
+        ),
+        (
+            "edge.eventing-to-processing",
+            {
+                "control": (
+                    "event.matched.v1",
+                    "notification.requested.v1",
+                    "extension.action.outcome.v1",
+                    "notification.workflow.outcome.v1",
+                    "device.command.outcome.v1",
+                ),
+                "telemetry": (
+                    "telemetry.received.v1",
+                    "telemetry.processed.v1",
+                ),
+            },
+        ),
+        (
+            "edge.processing-to-eventing",
+            {
+                "control": (
+                    "event.matched.v1",
+                    "notification.requested.v1",
+                    "device.command.requested.v1",
+                    "extension.action.outcome.v1",
+                    "notification.workflow.outcome.v1",
+                ),
+                "telemetry": ("telemetry.processed.v1",),
+            },
+        ),
+        (
+            "edge.eventing-to-ingestion",
+            {"control": ("device.command.requested.v1",)},
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    ("source_provider", "destination_provider"),
+    sorted(IDENTITY_EXCHANGE_BY_PAIR),
+)
+def test_six_layer_hub_spokes_expand_to_reviewed_channels(
+    logical_edge_id,
+    expected,
+    source_provider,
+    destination_provider,
+):
+    graph = SimpleNamespace(
+        nodes=(
+            _node("source", source_provider),
+            _node("destination", destination_provider),
+        ),
+        edges=(
+            _edge(
+                "six-layer-route",
+                "source",
+                "destination",
+                logical_edge_id=logical_edge_id,
+            ),
+        ),
+    )
+
+    routes = resolve_cross_cloud_routes(graph)
+
+    assert {route.channel_class: route.event_types for route in routes} == expected
+    assert all(route.payload_contract_id == "canonical-domain-event.v1" for route in routes)
+
+
 def test_twin_projection_uses_ordered_control_landing():
     graph = SimpleNamespace(
         nodes=(_node("hot", "azure"), _node("twin", "aws")),
@@ -146,9 +222,10 @@ def test_twin_projection_uses_ordered_control_landing():
     assert route.payload_contract_id == "twin_projection.v1"
 
 
-def test_single_cloud_edges_create_no_remote_route_or_egress_input():
+@pytest.mark.parametrize("provider", ["aws", "azure", "gcp"])
+def test_single_cloud_edges_create_no_remote_route_or_egress_input(provider):
     graph = SimpleNamespace(
-        nodes=(_node("source", "aws"), _node("destination", "aws")),
+        nodes=(_node("source", provider), _node("destination", provider)),
         edges=(
             _edge(
                 "local",

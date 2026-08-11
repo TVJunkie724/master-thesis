@@ -186,6 +186,16 @@ def test_selection_and_tfvars_are_bounded_to_graph_selected_images(tmp_path):
     assert aws_v2_container_deployment(inbound_only) is False
     assert image_requests(tmp_path, inbound_only) == ()
 
+    inherited_six_layer = {
+        **bridge_only,
+        "architecture_profile_id": "six-layer-eventing",
+        "architecture_profile_version": "1",
+    }
+    assert aws_v2_bridge_deployment(inherited_six_layer) is True
+    assert image_requests(tmp_path, inherited_six_layer) == (
+        AwsV2ImageRequest("bridge", bridge_context),
+    )
+
 
 def test_storage_and_bridge_images_are_both_required_when_selected(tmp_path):
     values = {**_tfvars(), "resolved_cross_cloud_routes": [_bridge_route()]}

@@ -89,3 +89,20 @@ def test_inherited_aws_domain_runtime_routes_through_local_event_layer():
     assert (
         'local.six_layer_eventing_enabled ? "eventing" : var.layer_1_provider' in source
     )
+    assert "raw_message_delivery = true" in source
+
+
+def test_aws_event_layer_can_be_the_source_of_a_directed_bridge():
+    source = _source("five_layer_v2_bridge_aws.tf")
+    assert "aws_v2_event_bridge_streams" in source
+    assert 'aws_kinesis_stream.domain_telemetry["received"].arn' in source
+    assert 'aws_kinesis_stream.domain_telemetry["processed"].arn' in source
+    assert (
+        'resource "aws_sns_topic_subscription" '
+        '"aws_v2_event_bridge_control_source"'
+    ) in source
+    assert "aws_v2_event_bridge_control_types" in source
+    assert (
+        'resource "aws_lambda_event_source_mapping" '
+        '"aws_v2_event_bridge_telemetry"'
+    ) in source

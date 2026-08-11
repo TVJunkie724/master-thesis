@@ -995,6 +995,25 @@ def _remote_landing(value: Mapping[str, Any]) -> dict[str, Any]:
     ):
         raise core.ContractError("UNEXPECTED_REMOTE_EVENT")
     if (
+        os.environ.get("ARCHITECTURE_PROFILE") == "six-layer-eventing@1"
+        and os.environ.get("EVENT_LAYER_PROVIDER") == "google"
+        and kind in {
+            core.EVENT_TELEMETRY_RECEIVED,
+            core.EVENT_TELEMETRY_PROCESSED,
+            core.EVENT_MATCHED,
+            core.EVENT_NOTIFICATION_REQUESTED,
+            core.EVENT_DEVICE_COMMAND_REQUESTED,
+            *core.OUTCOME_EVENT_TYPES,
+        }
+    ):
+        topic = (
+            os.environ.get("RECEIVED_TOPIC", "")
+            if kind == core.EVENT_TELEMETRY_RECEIVED
+            else os.environ.get("PROCESSED_TOPIC", "")
+            if kind == core.EVENT_TELEMETRY_PROCESSED
+            else os.environ.get("DOMAIN_TOPIC", "")
+        )
+    elif (
         kind == core.EVENT_TELEMETRY_RECEIVED
         and os.environ.get("L2_PROVIDER") == "google"
     ):

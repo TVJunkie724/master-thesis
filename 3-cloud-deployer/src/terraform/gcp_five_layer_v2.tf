@@ -35,7 +35,9 @@ locals {
   gcp_v2_platform_container_enabled = (
     local.gcp_v2_l1_enabled || local.gcp_v2_l2_enabled ||
     local.gcp_v2_hot_enabled || local.gcp_v2_cool_enabled ||
-    local.gcp_v2_l4_enabled || local.gcp_v2_l5_enabled
+    local.gcp_v2_l4_enabled || local.gcp_v2_l5_enabled ||
+    local.gcp_v2_remote_landing_enabled ||
+    length(local.gcp_v2_outbound_event_routes) > 0
   )
   gcp_v2_container_enabled = local.gcp_v2_platform_container_enabled || local.gcp_v2_event_layer_local
   gcp_v2_storage_mover_enabled = (
@@ -127,11 +129,11 @@ locals {
 
   gcp_v2_outbound_event_routes = {
     for route in var.resolved_cross_cloud_routes : route.route_id => route
-    if local.five_layer_v2_enabled && !local.gcp_v2_event_layer_local && route.execution_kind == "source_event_forwarder" && route.source_provider == "gcp"
+    if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.source_provider == "gcp"
   }
   gcp_v2_inbound_event_routes = {
     for route in var.resolved_cross_cloud_routes : route.route_id => route
-    if local.five_layer_v2_enabled && !local.gcp_v2_event_layer_local && route.execution_kind == "source_event_forwarder" && route.destination_provider == "gcp"
+    if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.destination_provider == "gcp"
   }
   gcp_v2_remote_telemetry_outbound = anytrue([
     for route in values(local.gcp_v2_outbound_event_routes) : route.channel_class == "telemetry"
@@ -179,7 +181,7 @@ locals {
     } : "remote-control-${direction}" => "${local.gcp_v2_name}-v2-remote-control-${direction}" if enabled
   }
 
-  gcp_v2_topics = local.gcp_v2_event_enabled ? merge(
+  gcp_v2_topics = local.gcp_v2_event_enabled || local.gcp_v2_remote_landing_enabled || length(local.gcp_v2_outbound_event_routes) > 0 ? merge(
     local.gcp_v2_embedded_event_enabled ? merge(
       { failure = "${local.gcp_v2_name}-v2-failure" },
       local.gcp_v2_l1_enabled || local.gcp_v2_l2_enabled ? {
@@ -191,9 +193,9 @@ locals {
       local.gcp_v2_domain_enabled ? {
         domain = "${local.gcp_v2_name}-v2-domain-control"
       } : {},
-      local.gcp_v2_remote_telemetry_routes,
-      local.gcp_v2_remote_control_routes,
     ) : {},
+    local.gcp_v2_remote_telemetry_routes,
+    local.gcp_v2_remote_control_routes,
     local.gcp_v2_l1_enabled ? {
       command = "${local.gcp_v2_name}-v2-device-command"
     } : {},
@@ -205,31 +207,33 @@ locals {
     local.gcp_v2_domain_enabled ? { domain = "domain-consumer" } : {},
     local.gcp_v2_remote_landing_enabled ? { remote = "remote-landing" } : {},
   )
-  gcp_v2_subscriptions = local.gcp_v2_embedded_event_enabled ? merge(
-    local.gcp_v2_l2_enabled ? {
-      processor = {
-        topic = "received"
-        role  = "processor"
-      }
-    } : {},
-    local.gcp_v2_hot_enabled ? {
-      persistence = {
-        topic = "processed"
-        role  = "persistence"
-      }
-    } : {},
-    local.gcp_v2_domain_enabled ? {
-      domain = {
-        topic = "domain"
-        role  = "domain"
-      }
-    } : {},
-    local.gcp_v2_l4_enabled ? {
-      twin = {
-        topic = "domain"
-        role  = "twin"
-      }
-    } : {},
+  gcp_v2_subscriptions = merge(
+    local.gcp_v2_embedded_event_enabled ? merge(
+      local.gcp_v2_l2_enabled ? {
+        processor = {
+          topic = "received"
+          role  = "processor"
+        }
+      } : {},
+      local.gcp_v2_hot_enabled ? {
+        persistence = {
+          topic = "processed"
+          role  = "persistence"
+        }
+      } : {},
+      local.gcp_v2_domain_enabled ? {
+        domain = {
+          topic = "domain"
+          role  = "domain"
+        }
+      } : {},
+      local.gcp_v2_l4_enabled ? {
+        twin = {
+          topic = "domain"
+          role  = "twin"
+        }
+      } : {},
+    ) : {},
     local.gcp_v2_remote_telemetry_inbound ? {
       remote-telemetry = {
         topic = "remote-telemetry-inbound"
@@ -242,7 +246,7 @@ locals {
         role  = "remote"
       }
     } : {},
-  ) : {}
+  )
   gcp_v2_storage_jobs = merge(
     local.gcp_v2_hot_enabled ? {
       hot-to-cool = {
@@ -827,6 +831,10 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
       env {
         name  = "EVENTING_DELIVERY_ENDPOINT_ENABLED"
         value = tostring(local.gcp_v2_event_layer_local)
+      }
+      env {
+        name  = "EVENT_LAYER_PROVIDER"
+        value = var.event_layer_provider
       }
     }
   }
@@ -1819,13 +1827,13 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_domain_publishers" {
 resource "google_pubsub_topic_iam_member" "gcp_v2_remote_landing_publishers" {
   for_each = local.gcp_v2_remote_landing_enabled ? merge(
     local.gcp_v2_remote_received_inbound ? {
-      received = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["received"].name
+      received = local.gcp_v2_event_layer_local ? google_pubsub_topic.domain_events["received"].name : google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["received"].name
     } : {},
     local.gcp_v2_remote_processed_inbound ? {
-      processed = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["processed"].name
+      processed = local.gcp_v2_event_layer_local ? google_pubsub_topic.domain_events["processed"].name : google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["processed"].name
     } : {},
     local.gcp_v2_remote_control_inbound ? {
-      domain = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name
+      domain = local.gcp_v2_event_layer_local ? google_pubsub_topic.domain_events["control"].name : google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name
     } : {},
   ) : {}
   project = local.gcp_project_id

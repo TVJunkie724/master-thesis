@@ -709,6 +709,34 @@ def test_remote_landing_republishes_only_to_selected_local_owner(
     assert published == [(f"projects/test/topics/{topic_name}", event)]
 
 
+def test_six_layer_remote_landing_republishes_to_gcp_event_layer(monkeypatch):
+    core = _load("core")
+    runtime = _load("app")
+    event = _received(core)
+    published = []
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    monkeypatch.setenv("EVENT_LAYER_PROVIDER", "google")
+    monkeypatch.setenv("DEPLOYMENT_ID", "deployment-1")
+    monkeypatch.setenv("REMOTE_EVENT_TYPES_JSON", json.dumps([event["event_type"]]))
+    monkeypatch.setenv("RECEIVED_TOPIC", "projects/test/topics/event-received")
+    monkeypatch.setattr(
+        runtime,
+        "_publish",
+        lambda topic, item: published.append((topic, item)),
+    )
+
+    result = runtime._remote_landing(
+        {
+            "message": {
+                "data": base64.b64encode(core.canonical_json(event).encode()).decode()
+            }
+        }
+    )
+
+    assert result["event_type"] == event["event_type"]
+    assert published == [("projects/test/topics/event-received", event)]
+
+
 @pytest.mark.parametrize(
     ("deployment_id", "allowed_event_types"),
     (
