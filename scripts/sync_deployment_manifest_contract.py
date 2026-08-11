@@ -44,6 +44,7 @@ EXPECTED_VALID_BY_VERSION = {
             "single-cloud-aws-small.json",
             "two-cloud-azure-l3l5-gcp-l4-medium.json",
             "three-cloud-mixed-large.json",
+            "six-layer-aws-azure-eventing-small.json",
         }
     ),
 }

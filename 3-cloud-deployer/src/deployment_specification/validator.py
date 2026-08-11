@@ -53,6 +53,10 @@ LOGICAL_COMPONENT_TO_SLOT = {
     "component.twin-state": "l4_twin_state",
     "component.visualization": "l5_visualization",
 }
+SUPPORTED_V4_PROFILE_REFS = {
+    ("five-layer-baseline", "2"),
+    ("six-layer-eventing", "1"),
+}
 
 
 def _fail(code: str, field: str, message: str) -> NoReturn:
@@ -177,7 +181,7 @@ def validate_deployment_manifest(
     if version in {MANIFEST_VERSION, V4_MANIFEST_VERSION}:
         _validate_manifest_v3_metadata(
             raw_manifest,
-            set(provider_by_slot.values()),
+            _architecture_providers(architecture),
         )
 
     if version == V4_MANIFEST_VERSION:
@@ -284,17 +288,29 @@ def _validate_current_manifest(
         )
 
     profile_ref = architecture.get("architecture_profile_ref")
-    profile_version = (
-        str(profile_ref.get("version")) if isinstance(profile_ref, Mapping) else ""
+    profile_identity = (
+        (
+            str(profile_ref.get("id") or ""),
+            str(profile_ref.get("version") or ""),
+        )
+        if isinstance(profile_ref, Mapping)
+        else ("", "")
     )
-    expected_profile_version = "2" if version == V4_MANIFEST_VERSION else "1"
-    if profile_version != expected_profile_version:
+    supported_profile_refs = (
+        SUPPORTED_V4_PROFILE_REFS
+        if version == V4_MANIFEST_VERSION
+        else {("five-layer-baseline", "1")}
+    )
+    if profile_identity not in supported_profile_refs:
         _fail(
             "DEPLOYMENT_PROFILE_CATALOG_MISMATCH",
             "deployment_manifest.resolved_twin_architecture.architecture_profile_ref",
             "Manifest and architecture profile versions are incompatible",
         )
-    registry = ArchitectureProfileRegistry(profile_version=profile_version)
+    registry = ArchitectureProfileRegistry(
+        profile_id=profile_identity[0],
+        profile_version=profile_identity[1],
+    )
     linked_documents = (
         registry.profile,
         *registry.providers.values(),
@@ -369,7 +385,7 @@ def _validate_v4_architecture_specification(
         _fail(
             "DEPLOYMENT_SPECIFICATION_NOT_READY",
             "deployment_manifest.resolved_deployment_specification.readiness",
-            "Only a blocker-free publishable Five-layer v2 pair may deploy",
+            "Only a blocker-free publishable Phase 8 pair may deploy",
         )
 
     profile_ref = architecture["architecture_profile_ref"]
@@ -405,7 +421,7 @@ def _validate_v4_architecture_specification(
             _fail(
                 "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
                 "deployment_manifest.resolved_deployment_specification.component_selections",
-                "Five-layer v2 selection differs from its architecture assignment",
+                "Phase 8 selection differs from its architecture assignment",
             )
         selected_by_assignment[assignment_id].append(selection)
     for assignment_id, assignment in assignments.items():
@@ -535,7 +551,22 @@ def _providers_from_architecture(
         slot_id = LOGICAL_COMPONENT_TO_SLOT.get(
             str(assignment.get("logical_component_id"))
         )
-        if slot_id is None or slot_id in providers:
+        if slot_id is None:
+            if assignment.get("logical_component_id") == "component.eventing":
+                _normalize_provider(
+                    assignment.get("provider"),
+                    (
+                        "deployment_manifest.resolved_twin_architecture."
+                        "component_assignments.eventing.provider"
+                    ),
+                )
+                continue
+            _fail(
+                "DEPLOYMENT_ARCHITECTURE_INVALID",
+                "deployment_manifest.resolved_twin_architecture.component_assignments",
+                "Resolved architecture component assignment is unknown or duplicated",
+            )
+        if slot_id in providers:
             _fail(
                 "DEPLOYMENT_ARCHITECTURE_INVALID",
                 "deployment_manifest.resolved_twin_architecture.component_assignments",
@@ -555,6 +586,20 @@ def _providers_from_architecture(
             "Resolved architecture does not cover every baseline component",
         )
     return providers
+
+
+def _architecture_providers(architecture: Mapping[str, Any]) -> set[str]:
+    assignments = architecture.get("component_assignments")
+    if not isinstance(assignments, list):
+        return set()
+    return {
+        _normalize_provider(
+            assignment.get("provider"),
+            "deployment_manifest.resolved_twin_architecture.component_assignments",
+        )
+        for assignment in assignments
+        if isinstance(assignment, Mapping)
+    }
 
 
 def validate_resolved_deployment_specification(
@@ -656,7 +701,7 @@ def _validate_v2_resolved_deployment_specification(
         _fail(
             "DEPLOYMENT_SPECIFICATION_INVALID",
             "resolved_deployment_specification.currency",
-            "Five-layer v2 deployment selections must use canonical USD",
+            "Phase 8 deployment selections must use canonical USD",
         )
     expected_digest = calculate_digest(specification)
     if not hmac.compare_digest(specification["digest"], expected_digest):
@@ -683,6 +728,14 @@ def _validate_v2_component_selections(
     registered_components = {
         item["component_id"]: item for item in registry["components"]
     }
+    profile_ref = specification["architecture_profile_ref"]
+    profile_identity = (profile_ref["id"], profile_ref["version"])
+    if profile_identity not in SUPPORTED_V4_PROFILE_REFS:
+        _fail(
+            "DEPLOYMENT_PROFILE_CATALOG_MISMATCH",
+            "resolved_deployment_specification.architecture_profile_ref",
+            "Phase 8 deployment profile is unsupported",
+        )
     context = specification["optimization_context"]
     expected_formula_ref = {
         "id": "phase-08-complete-service-bundles",
@@ -696,7 +749,7 @@ def _validate_v2_component_selections(
         _fail(
             "DEPLOYMENT_SPECIFICATION_CONTEXT_MISMATCH",
             "resolved_deployment_specification.optimization_context",
-            "Five-layer v2 service or formula evidence differs from the registry",
+            "Phase 8 service or formula evidence differs from the registry",
         )
 
     selection_ids: set[str] = set()
@@ -719,7 +772,7 @@ def _validate_v2_component_selections(
             _fail(
                 "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
                 "resolved_deployment_specification.component_selections",
-                "Five-layer v2 selection differs from the component registry",
+                "Phase 8 selection differs from the component registry",
             )
         logical_id = selection["logical_component_id"]
         previous_provider = provider_by_logical.setdefault(
@@ -740,7 +793,7 @@ def _validate_v2_component_selections(
             _fail(
                 "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
                 f"resolved_deployment_specification.{selection_id}.dimensions",
-                "Five-layer v2 dimensions differ from the component registry",
+                "Phase 8 dimensions differ from the component registry",
             )
         for dimension in selection["dimensions"]:
             dimension_id = dimension["dimension_id"]
@@ -757,16 +810,18 @@ def _validate_v2_component_selections(
                 _fail(
                     "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
                     f"resolved_deployment_specification.{selection_id}.dimensions",
-                    "Five-layer v2 dimension identity or evidence is invalid",
+                    "Phase 8 dimension identity or evidence is invalid",
                 )
             dimension_owners[dimension_id] = selection_id
 
     expected_logical_ids = set(LOGICAL_COMPONENT_TO_SLOT)
+    if profile_identity == ("six-layer-eventing", "1"):
+        expected_logical_ids.add("component.eventing")
     if set(provider_by_logical) != expected_logical_ids:
         _fail(
             "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
             "resolved_deployment_specification.component_selections",
-            "Five-layer v2 must cover every logical component",
+            "Phase 8 profile must cover every logical component",
         )
     if (
         provider_by_logical["component.hot-storage"]
@@ -775,7 +830,7 @@ def _validate_v2_component_selections(
         _fail(
             "DEPLOYMENT_SPECIFICATION_PROVIDER_MISMATCH",
             "resolved_deployment_specification.component_selections",
-            "Five-layer v2 requires L3 hot and L5 provider co-location",
+            "Phase 8 profiles require L3 hot and L5 provider co-location",
         )
 
     binding_sources: set[str] = set()
@@ -791,14 +846,14 @@ def _validate_v2_component_selections(
             _fail(
                 "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
                 "resolved_deployment_specification.bindings",
-                "Five-layer v2 binding ownership is incomplete or duplicated",
+                "Phase 8 binding ownership is incomplete or duplicated",
             )
         binding_sources.add(source_ref)
     if binding_sources != set(dimension_owners):
         _fail(
             "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
             "resolved_deployment_specification.bindings",
-            "Every Five-layer v2 dimension requires exactly one binding",
+            "Every Phase 8 dimension requires exactly one binding",
         )
 
 

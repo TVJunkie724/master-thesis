@@ -77,6 +77,7 @@ class FiveLayerV2ContractTests(unittest.TestCase):
                 "single-cloud-aws-small",
                 "two-cloud-azure-l3l5-gcp-l4-medium",
                 "three-cloud-mixed-large",
+                "six-layer-aws-azure-eventing-small",
             },
         )
 
@@ -109,6 +110,7 @@ class FiveLayerV2ContractTests(unittest.TestCase):
                 "single-cloud-aws-small-resolved",
                 "two-cloud-azure-l3l5-gcp-l4-medium-resolved",
                 "three-cloud-mixed-large-resolved",
+                "six-layer-aws-azure-eventing-small-resolved",
             },
         )
         provider_counts = {
@@ -728,19 +730,34 @@ class FiveLayerV2ContractTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, "RDS_V2_CAPACITY_UNRESOLVED")
 
     def test_offline_rta_fixtures_do_not_claim_optimizer_costs(self) -> None:
-        path = next((contract.ARCH_V2 / "fixtures" / "valid").glob("*-resolved.json"))
-        resolution = contract.read_json(path)
-        self.assertEqual(resolution["resolution_status"], "offline_contract_fixture")
-        self.assertEqual(resolution["cost_summary"]["monthly_total"], "0")
-        self.assertTrue(
-            all(
-                item["cost_contribution"]["monthly_amount"] == "0"
-                for item in (
-                    *resolution["component_assignments"],
-                    *resolution["resolved_edges"],
-                )
-            )
+        paths = sorted(
+            (contract.ARCH_V2 / "fixtures" / "valid").glob("*-resolved.json")
         )
+        five_layer_fixture_count = 0
+        for path in paths:
+            resolution = contract.read_json(path)
+            if (
+                resolution["architecture_profile_ref"]["id"]
+                != "five-layer-baseline"
+            ):
+                continue
+            five_layer_fixture_count += 1
+            with self.subTest(path=path.name):
+                self.assertEqual(
+                    resolution["resolution_status"],
+                    "offline_contract_fixture",
+                )
+                self.assertEqual(resolution["cost_summary"]["monthly_total"], "0")
+                self.assertTrue(
+                    all(
+                        item["cost_contribution"]["monthly_amount"] == "0"
+                        for item in (
+                            *resolution["component_assignments"],
+                            *resolution["resolved_edges"],
+                        )
+                    )
+                )
+        self.assertGreater(five_layer_fixture_count, 0)
 
     def test_l3_hot_and_l5_mismatch_fails_before_selection(self) -> None:
         assignment = contract.assignment_for_bundle("aws", "azure")

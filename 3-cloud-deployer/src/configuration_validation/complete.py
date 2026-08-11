@@ -35,6 +35,8 @@ OPTIMIZATION_FLAGS = {
     "useEventChecking",
 }
 FIVE_LAYER_V2 = ("five-layer-baseline", "2")
+SIX_LAYER_EVENTING_V1 = ("six-layer-eventing", "1")
+PHASE_8_COMPARISON_PROFILES = {FIVE_LAYER_V2, SIX_LAYER_EVENTING_V1}
 V2_FORBIDDEN_OPTIMIZER_FIELDS = {
     "allowGcpSelfHostedL4",
     "allowGcpSelfHostedL5",
@@ -99,7 +101,10 @@ def _validate_architecture_profile_ref(
     if reference is None:
         return None
     identity = (reference.id, reference.version)
-    if reference.id != "five-layer-baseline" or reference.version not in {"1", "2"}:
+    if identity not in {
+        ("five-layer-baseline", "1"),
+        *PHASE_8_COMPARISON_PROFILES,
+    }:
         _add(
             errors,
             "ARCH_PROFILE_UNAVAILABLE",
@@ -107,9 +112,10 @@ def _validate_architecture_profile_ref(
             f"Architecture profile {reference.id}@{reference.version} is unavailable",
         )
         return None
-    expected = ArchitectureProfileRegistry(profile_version=reference.version).profile[
-        "content_digest"
-    ]
+    expected = ArchitectureProfileRegistry(
+        profile_id=reference.id,
+        profile_version=reference.version,
+    ).profile["content_digest"]
     if reference.digest != expected:
         _add(
             errors,
@@ -125,14 +131,14 @@ def _validate_profile_optimizer_fields(
     params: dict | None,
     errors: list[ValidationError],
 ) -> None:
-    if profile != FIVE_LAYER_V2 or not isinstance(params, dict):
+    if profile not in PHASE_8_COMPARISON_PROFILES or not isinstance(params, dict):
         return
     for field in sorted(V2_FORBIDDEN_OPTIMIZER_FIELDS & params.keys()):
         _add(
             errors,
             "FORBIDDEN_PROFILE_FIELD",
             f"optimizer_params.{field}",
-            f"{field} is not part of five-layer-baseline@2",
+            f"{field} is not part of the selected Phase 8 comparison profile",
         )
 
 
@@ -421,7 +427,7 @@ def _validate_hierarchy_and_scene(config, l4, params, errors) -> None:
 
 
 def _validate_event_extensions(config, l2, params, profile, errors) -> None:
-    if profile == FIVE_LAYER_V2:
+    if profile in PHASE_8_COMPARISON_PROFILES:
         _validate_mandatory_v2_event_extensions(config, l2, errors)
         return
     if params["returnFeedbackToDevice"]:

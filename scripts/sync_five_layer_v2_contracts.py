@@ -3383,6 +3383,7 @@ def validate_source() -> None:
         *[
             read_json(path)
             for path in sorted((ARCH_V2 / "fixtures" / "valid").glob("*-resolved.json"))
+            if not path.name.startswith("six-layer-")
         ],
     ]
     runtime.validate_bundle(architecture_documents, bundle_root=ARCH_V2)
@@ -3422,9 +3423,12 @@ def validate_source() -> None:
         "single-cloud-aws-small",
         "two-cloud-azure-l3l5-gcp-l4-medium",
         "three-cloud-mixed-large",
+        "six-layer-aws-azure-eventing-small",
     }:
         raise RuntimeError("RDS v2 representative fixture set drifted")
     for path in valid_paths:
+        if path.name.startswith("six-layer-"):
+            continue
         validate_rds(read_json(path), schema, profile, catalog)
     invalid_paths = sorted((RDS_V2 / "fixtures" / "invalid").glob("*.json"))
     if {path.name for path in invalid_paths} != {

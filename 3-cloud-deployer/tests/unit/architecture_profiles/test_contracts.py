@@ -87,3 +87,19 @@ def test_deployer_registry_definitions_are_deeply_immutable():
     assert isinstance(registry.catalog["components"][0], MappingProxyType)
     with pytest.raises(TypeError):
         registry.catalog["components"][0]["service_id"] = "changed"
+
+
+def test_deployer_registry_loads_exact_six_layer_bundle():
+    registry = ArchitectureProfileRegistry(
+        profile_id="six-layer-eventing",
+        profile_version="1",
+    )
+    catalog = DeploymentComponentCatalog(registry)
+
+    assert registry.profile["profile_id"] == "six-layer-eventing"
+    assert registry.catalog["catalog_id"] == (
+        "six-layer-eventing-component-catalog"
+    )
+    assert catalog.component("deployment.aws.eventing.v1")["provider"] == "aws"
+    assert catalog.component("deployment.azure.eventing.v1")["provider"] == "azure"
+    assert catalog.component("deployment.gcp.eventing.v1")["provider"] == "gcp"

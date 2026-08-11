@@ -43,6 +43,8 @@ RDS_CAPACITY_REGISTRY = (
     / "v2"
     / "component-capacity-registry.json"
 )
+RDS_V2 = ROOT / "contracts" / "resolved-deployment-specification" / "v2"
+DEPLOYMENT_MANIFEST_V4 = ROOT / "contracts" / "deployment-manifest" / "v4"
 PROFILE_PATH = (
     DEFINITIONS / "profiles" / "six-layer-eventing" / "1" / "profile.json"
 )
@@ -117,6 +119,8 @@ CATALOG_PORTS = {
 }
 INHERITED_IMPLEMENTATION_COMMIT = "c5c6232478d29a9cc3c7d280bdc9ca0e79c47226"
 INHERITED_AUDIT_COMMIT = "d4c080f6"
+DEPLOYMENT_FIXTURE_ID = "six-layer-aws-azure-eventing-small"
+DEPLOYMENT_FIXTURE_RUN_ID = "89287aa5-89b4-55dc-88cb-680f2823da48"
 
 
 def _load_five() -> ModuleType:
@@ -655,7 +659,11 @@ def six_compatibility(provider: str) -> dict[str, Any]:
 
 
 def _event_package(provider: str) -> dict[str, Any]:
-    source = "3-cloud-deployer/src/runtime/eventing"
+    source = {
+        "aws": "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2",
+        "azure": "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2",
+        "gcp": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
+    }[provider]
     included = [
         path.relative_to(ROOT / source).as_posix()
         for path in sorted((ROOT / source).rglob("*.py"))
@@ -668,14 +676,19 @@ def _event_package(provider: str) -> dict[str, Any]:
             item["service_id"] for item in event_services(provider)
         ],
         "repository_source_path": source,
-        "platform_handler": f"handler.{provider}.six-layer-eventing",
+        "platform_handler": f"handler.{provider}.five-layer-v2",
         "digest_policy": "sha256.canonical-source.v1",
         "source_digest": FIVE.package_source_digest(source),
         "included_paths": included,
         "excluded_paths": [],
-        "dependency_artifact_refs": [],
-        "builder_adapter_id": f"builder.{provider}.six-layer-eventing",
-        "supported_runtimes": [f"runtime.{provider}.six-layer-eventing"],
+        "dependency_artifact_refs": [
+            {"id": "artifact.shared.phase8-bridge-runtime", "version": "1"}
+        ],
+        "builder_adapter_id": f"builder.{provider}.five-layer-v2",
+        "supported_runtimes": [
+            f"runtime.{provider}.five-layer-v2",
+            f"runtime.{provider}.six-layer-eventing",
+        ],
         "user_source_policy": "platform_only",
         "compatibility": {"component_versions": ["1"], "builder_versions": ["2"]},
     }
@@ -951,6 +964,29 @@ def build_catalog(
         for destination in PROVIDERS
         for edge_id in EVENT_EDGES
     )
+    referenced_inputs: dict[str, set[str]] = {}
+    referenced_outputs: dict[str, set[str]] = {}
+    for edge in catalog["edge_implementations"]:
+        for component_id in edge["source_component_ids"]:
+            referenced_outputs.setdefault(component_id, set()).add(
+                edge["source_output_port_id"]
+            )
+        for component_id in edge["destination_component_ids"]:
+            referenced_inputs.setdefault(component_id, set()).add(
+                edge["destination_input_port_id"]
+            )
+    for component in catalog["components"]:
+        component_id = component["deployment_component_id"]
+        component["input_ports"] = [
+            port
+            for port in component["input_ports"]
+            if port["port_id"] in referenced_inputs.get(component_id, set())
+        ]
+        component["output_ports"] = [
+            port
+            for port in component["output_ports"]
+            if port["port_id"] in referenced_outputs.get(component_id, set())
+        ]
     return redigest(catalog, runtime)
 
 
@@ -1129,6 +1165,200 @@ def build_manifest(
     return manifest
 
 
+def _deployment_fixture(
+    profile: dict[str, Any],
+    catalog: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Build one real deterministic Six-layer RTA/RDS/Manifest-v4 fixture."""
+
+    optimizer_root = ROOT / "2-twin2clouds"
+    sys.path.insert(0, str(optimizer_root))
+    try:
+        from backend.architecture_profiles.five_layer_v2_pricing import (
+            FiveLayerV2CatalogCostLedgerResolver,
+        )
+        from backend.architecture_profiles.registry import (
+            ArchitectureProfileRegistry,
+        )
+        from backend.architecture_profiles.six_layer_optimizer import (
+            optimize_six_layer_eventing_v1,
+        )
+
+        pricing_root = optimizer_root / "json" / "pricing_catalog_baselines"
+        pricing_manifest = read_json(pricing_root / "baseline.json")
+        pricing: dict[str, dict[str, Any]] = {}
+        evidence: dict[str, dict[str, str]] = {}
+        for provider, reference in pricing_manifest["catalogs"].items():
+            snapshot = read_json(
+                pricing_root
+                / provider
+                / reference["pricing_region"]
+                / "snapshots"
+                / f"{reference['snapshot_id']}.json"
+            )
+            pricing[provider] = snapshot["pricing"]
+            evidence[provider] = {
+                "id": reference["snapshot_id"],
+                "version": "1",
+                "digest": reference["content_digest"],
+                "provider": provider,
+                "currency": "USD",
+            }
+        resolver = FiveLayerV2CatalogCostLedgerResolver(pricing)
+        target = {
+            "component.ingestion": "aws",
+            "component.processing": "aws",
+            "component.eventing": "azure",
+        }
+
+        def force_target(specification, assignment, workload):
+            ledger = copy.deepcopy(
+                resolver.resolve(specification, assignment, workload)
+            )
+            if any(assignment[logical] != provider for logical, provider in target.items()):
+                component_quote = ledger["component_costs"][0]
+                component_quote["monthly_amount"] = str(
+                    Decimal(component_quote["monthly_amount"])
+                    + Decimal("1000000000")
+                )
+            return ledger
+
+        optimizer_registry = ArchitectureProfileRegistry(
+            profile_id="six-layer-eventing",
+            profile_version="1",
+        )
+        workload = read_json(
+            ROOT
+            / "contracts"
+            / "five-layer-workload"
+            / "v2"
+            / "fixtures"
+            / "valid"
+            / "core-small.json"
+        )
+        configuration_digest = "sha256:" + hashlib.sha256(b"{}").hexdigest()
+        optimized = optimize_six_layer_eventing_v1(
+            calculation_run_id=DEPLOYMENT_FIXTURE_RUN_ID,
+            architecture_profile={
+                "profileId": profile["profile_id"],
+                "profileVersion": profile["profile_version"],
+                "contentDigest": profile["content_digest"],
+            },
+            extension_bindings=[
+                {
+                    "slotId": "processor.telemetry",
+                    "slotVersion": "1",
+                    "artifactId": "artifact.user.processor.example",
+                    "artifactDigest": "sha256:" + ("1" * 64),
+                    "configurationDigest": configuration_digest,
+                }
+            ],
+            workload=workload,
+            pricing_evidence_refs=evidence,
+            cost_ledger_resolver=force_target,
+            providers=PROVIDERS,
+            registry=optimizer_registry,
+        )
+    finally:
+        sys.path.remove(str(optimizer_root))
+
+    architecture = json.loads(json.dumps(optimized.resolved_architecture))
+    specification = json.loads(json.dumps(optimized.deployment_specification))
+    assignment = {
+        item["logical_component_id"]: item["provider"]
+        for item in architecture["component_assignments"]
+    }
+    provider_keys = {
+        "component.ingestion": "layer_1_provider",
+        "component.processing": "layer_2_provider",
+        "component.hot-storage": "layer_3_hot_provider",
+        "component.cool-storage": "layer_3_cold_provider",
+        "component.archive-storage": "layer_3_archive_provider",
+        "component.twin-state": "layer_4_provider",
+        "component.visualization": "layer_5_provider",
+    }
+    providers = {
+        provider_key: assignment[logical]
+        for logical, provider_key in provider_keys.items()
+    }
+    used_providers = sorted(set(assignment.values()))
+    manifest = {
+        "manifest_version": "4.0",
+        "generated_at": "2026-08-11T00:00:00Z",
+        "producer": "twin2multicloud_backend",
+        "package": {
+            "format": "deployer-project-zip",
+            "files": [
+                "config.json",
+                "config_credentials.json",
+                "config_events.json",
+                "config_iot_devices.json",
+                "config_providers.json",
+            ],
+            "required_files": [
+                "config.json",
+                "config_iot_devices.json",
+                "config_events.json",
+                "config_credentials.json",
+                "config_providers.json",
+            ],
+            "secret_bearing_files": ["config_credentials.json"],
+        },
+        "twin": {
+            "id": None,
+            "name": "Six-layer AWS Azure Eventing Small",
+            "resource_name": "six-layer-aws-azure-eventing-small",
+        },
+        "providers": providers,
+        "calculation_run_id": specification["calculation_run_id"],
+        "resolved_twin_architecture_digest": architecture["content_digest"],
+        "resolved_twin_architecture": architecture,
+        "resolved_deployment_specification_digest": specification["digest"],
+        "resolved_deployment_specification": specification,
+        "credentials": {
+            "providers": used_providers,
+            "sources": {
+                provider: "cloud_connection" for provider in used_providers
+            },
+            "contains_secret_payloads": False,
+        },
+        "compatibility": {
+            "component_catalog_ref": {
+                "id": catalog["catalog_id"],
+                "version": catalog["catalog_version"],
+                "digest": catalog["content_digest"],
+            },
+            "graph_resolver_version": "resolved-deployment-graph.v1",
+            "package_builder_version": "graph-package-builder.v1",
+            "terraform_input_contract_version": "graph-terraform-inputs.v1",
+        },
+        "extensions": {"binding_index": None, "bindings": []},
+    }
+    return architecture, specification, manifest
+
+
+def generate_deployment_fixture(
+    profile: dict[str, Any],
+    catalog: dict[str, Any],
+) -> None:
+    architecture, specification, manifest = _deployment_fixture(profile, catalog)
+    write_json(
+        ARCH_V2 / "fixtures" / "valid" / f"{DEPLOYMENT_FIXTURE_ID}-resolved.json",
+        architecture,
+    )
+    write_json(
+        RDS_V2 / "fixtures" / "valid" / f"{DEPLOYMENT_FIXTURE_ID}.json",
+        specification,
+    )
+    write_json(
+        DEPLOYMENT_MANIFEST_V4
+        / "fixtures"
+        / "valid"
+        / f"{DEPLOYMENT_FIXTURE_ID}.json",
+        manifest,
+    )
+
+
 def generate() -> None:
     FIVE.generate_v2_schemas()
     base_profile = five_profile()
@@ -1151,6 +1381,7 @@ def generate() -> None:
         MANIFEST_PATH,
         build_manifest(profile, catalog, providers, cost_registry),
     )
+    generate_deployment_fixture(profile, catalog)
     (ARCH_V2 / "README.md").write_text(
         "# Architecture Profile Contracts v2\n\n"
         "Additive Five-layer v2 and Six-layer Eventing schemas with strict "
@@ -1232,6 +1463,66 @@ def validate_source() -> None:
         raise RuntimeError("Six-layer topology cost registry coverage drifted")
     if cost_registry["reviewed_result_ref"]["digest"] != file_digest(EVENT_COST_RESULTS):
         raise RuntimeError("Reviewed Eventing result binding drifted")
+
+    architecture = read_json(
+        ARCH_V2
+        / "fixtures"
+        / "valid"
+        / f"{DEPLOYMENT_FIXTURE_ID}-resolved.json"
+    )
+    specification = read_json(
+        RDS_V2 / "fixtures" / "valid" / f"{DEPLOYMENT_FIXTURE_ID}.json"
+    )
+    deployment_manifest = read_json(
+        DEPLOYMENT_MANIFEST_V4
+        / "fixtures"
+        / "valid"
+        / f"{DEPLOYMENT_FIXTURE_ID}.json"
+    )
+    runtime.validate_document(
+        architecture,
+        bundle_root=ARCH_V2,
+        linked_documents=linked,
+    )
+    specification_errors = list(
+        FIVE.Draft202012Validator(
+            read_json(RDS_V2 / "schema.json"),
+            format_checker=FIVE.FormatChecker(),
+        ).iter_errors(specification)
+    )
+    manifest_errors = list(
+        FIVE.Draft202012Validator(
+            read_json(DEPLOYMENT_MANIFEST_V4 / "schema.json"),
+            format_checker=FIVE.FormatChecker(),
+        ).iter_errors(deployment_manifest)
+    )
+    if specification_errors or specification["digest"] != FIVE.rds_digest(specification):
+        raise RuntimeError("Six-layer deployment specification fixture drifted")
+    if manifest_errors:
+        raise RuntimeError("Six-layer deployment manifest fixture drifted")
+    expected_profile_ref = {
+        "id": profile["profile_id"],
+        "version": profile["profile_version"],
+        "digest": profile["content_digest"],
+    }
+    expected_catalog_ref = {
+        "id": catalog["catalog_id"],
+        "version": catalog["catalog_version"],
+        "digest": catalog["content_digest"],
+    }
+    if (
+        architecture["architecture_profile_ref"] != expected_profile_ref
+        or specification["architecture_profile_ref"] != expected_profile_ref
+        or deployment_manifest["compatibility"]["component_catalog_ref"]
+        != expected_catalog_ref
+        or len(architecture["component_assignments"]) != 8
+        or len(architecture["resolved_edges"]) != 9
+        or not any(
+            item["logical_component_id"] == "component.eventing"
+            for item in architecture["component_assignments"]
+        )
+    ):
+        raise RuntimeError("Six-layer deployment fixture identity drifted")
 
 
 def synchronize() -> None:

@@ -47,6 +47,7 @@ def resolve_deployment_graph(
     architecture = manifest.architecture
     profile_ref = architecture["architecture_profile_ref"]
     registry = registry or ArchitectureProfileRegistry(
+        profile_id=str(profile_ref["id"]),
         profile_version=str(profile_ref["version"])
     )
     catalog = DeploymentComponentCatalog(registry)

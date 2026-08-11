@@ -47,6 +47,18 @@ def _five_layer_v2_ref():
     }
 
 
+def _six_layer_eventing_ref():
+    profile = ArchitectureProfileRegistry(
+        profile_id="six-layer-eventing",
+        profile_version="1",
+    ).profile
+    return {
+        "id": profile["profile_id"],
+        "version": profile["profile_version"],
+        "digest": profile["content_digest"],
+    }
+
+
 def test_optimization_file_api_exposes_stable_unsupported_topology_error():
     response = client.post(
         "/validate/config/optimization",
@@ -171,6 +183,35 @@ class TestDeployerCompleteValidation:
         assert "CAPABILITY_UNAVAILABLE" not in {
             error["code"] for error in response.json()["errors"]
         }
+
+    def test_six_layer_uses_inherited_profile_validation_without_event_flags(self):
+        response = client.post(
+            "/validate/deployer-complete",
+            json={
+                "deployer_digital_twin_name": "six-layer-twin",
+                "config_events": VALID_CONFIG_EVENTS,
+                "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+                "payloads": VALID_PAYLOADS,
+                "processors": {"device-1": VALID_GCP_PROCESSOR},
+                "cheapest_path": {
+                    "L1": "gcp",
+                    "L2": "gcp",
+                    "L3_hot": "gcp",
+                    "L3_cool": "gcp",
+                    "L3_archive": "gcp",
+                    "L4": "gcp",
+                    "L5": "gcp",
+                    "Eventing": "gcp",
+                },
+                "optimizer_params": {},
+                "architecture_profile_ref": _six_layer_eventing_ref(),
+            },
+        )
+
+        codes = {error["code"] for error in response.json()["errors"]}
+        assert "ARCH_PROFILE_UNAVAILABLE" not in codes
+        assert "CAPABILITY_UNAVAILABLE" not in codes
+        assert "MISSING_EVENT_ACTION" not in codes
 
     def test_v2_rejects_legacy_uploaded_event_action_code(self):
         response = client.post(
@@ -318,7 +359,10 @@ class TestDeployerCompleteValidation:
         assert {
             "code": "FORBIDDEN_PROFILE_FIELD",
             "field": "optimizer_params.useEventChecking",
-            "message": "useEventChecking is not part of five-layer-baseline@2",
+            "message": (
+                "useEventChecking is not part of the selected Phase 8 "
+                "comparison profile"
+            ),
         } in response.json()["errors"]
 
     def test_profile_digest_mismatch_is_reported(self):

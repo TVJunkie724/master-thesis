@@ -110,23 +110,6 @@
           "producer_consumer_phase": "runtime",
           "resolution_stage": "catalog",
           "compatibility_version": "1"
-        },
-        {
-          "port_id": "catalog.aws.port.ingestion.command-outcome-event-out",
-          "schema_ref": {
-            "id": "canonical-domain-event.v1",
-            "version": "1"
-          },
-          "envelope_ref": {
-            "id": "contract-envelope",
-            "version": "1"
-          },
-          "value_type": "json_document",
-          "sensitivity": "internal",
-          "cardinality": "many",
-          "producer_consumer_phase": "runtime",
-          "resolution_stage": "catalog",
-          "compatibility_version": "1"
         }
       ],
       "required_permission_capabilities": [
@@ -501,23 +484,6 @@
       "input_ports": [
         {
           "port_id": "catalog.aws.port.hot-storage.processing-event-in",
-          "schema_ref": {
-            "id": "canonical-domain-event.v1",
-            "version": "1"
-          },
-          "envelope_ref": {
-            "id": "contract-envelope",
-            "version": "1"
-          },
-          "value_type": "json_document",
-          "sensitivity": "internal",
-          "cardinality": "many",
-          "producer_consumer_phase": "runtime",
-          "resolution_stage": "catalog",
-          "compatibility_version": "1"
-        },
-        {
-          "port_id": "catalog.aws.port.hot-storage.command-outcome-event-in",
           "schema_ref": {
             "id": "canonical-domain-event.v1",
             "version": "1"
@@ -1404,23 +1370,6 @@
           "producer_consumer_phase": "runtime",
           "resolution_stage": "catalog",
           "compatibility_version": "1"
-        },
-        {
-          "port_id": "catalog.azure.port.ingestion.command-outcome-event-out",
-          "schema_ref": {
-            "id": "canonical-domain-event.v1",
-            "version": "1"
-          },
-          "envelope_ref": {
-            "id": "contract-envelope",
-            "version": "1"
-          },
-          "value_type": "json_document",
-          "sensitivity": "internal",
-          "cardinality": "many",
-          "producer_consumer_phase": "runtime",
-          "resolution_stage": "catalog",
-          "compatibility_version": "1"
         }
       ],
       "required_permission_capabilities": [
@@ -1792,23 +1741,6 @@
       "input_ports": [
         {
           "port_id": "catalog.azure.port.hot-storage.processing-event-in",
-          "schema_ref": {
-            "id": "canonical-domain-event.v1",
-            "version": "1"
-          },
-          "envelope_ref": {
-            "id": "contract-envelope",
-            "version": "1"
-          },
-          "value_type": "json_document",
-          "sensitivity": "internal",
-          "cardinality": "many",
-          "producer_consumer_phase": "runtime",
-          "resolution_stage": "catalog",
-          "compatibility_version": "1"
-        },
-        {
-          "port_id": "catalog.azure.port.hot-storage.command-outcome-event-in",
           "schema_ref": {
             "id": "canonical-domain-event.v1",
             "version": "1"
@@ -2704,23 +2636,6 @@
           "producer_consumer_phase": "runtime",
           "resolution_stage": "catalog",
           "compatibility_version": "1"
-        },
-        {
-          "port_id": "catalog.gcp.port.ingestion.command-outcome-event-out",
-          "schema_ref": {
-            "id": "canonical-domain-event.v1",
-            "version": "1"
-          },
-          "envelope_ref": {
-            "id": "contract-envelope",
-            "version": "1"
-          },
-          "value_type": "json_document",
-          "sensitivity": "internal",
-          "cardinality": "many",
-          "producer_consumer_phase": "runtime",
-          "resolution_stage": "catalog",
-          "compatibility_version": "1"
         }
       ],
       "required_permission_capabilities": [
@@ -3094,23 +3009,6 @@
       "input_ports": [
         {
           "port_id": "catalog.gcp.port.hot-storage.processing-event-in",
-          "schema_ref": {
-            "id": "canonical-domain-event.v1",
-            "version": "1"
-          },
-          "envelope_ref": {
-            "id": "contract-envelope",
-            "version": "1"
-          },
-          "value_type": "json_document",
-          "sensitivity": "internal",
-          "cardinality": "many",
-          "producer_consumer_phase": "runtime",
-          "resolution_stage": "catalog",
-          "compatibility_version": "1"
-        },
-        {
-          "port_id": "catalog.gcp.port.hot-storage.command-outcome-event-in",
           "schema_ref": {
             "id": "canonical-domain-event.v1",
             "version": "1"
@@ -11083,30 +10981,24 @@
         "aws.lambda",
         "aws.cloudwatch"
       ],
-      "repository_source_path": "3-cloud-deployer/src/runtime/eventing",
-      "platform_handler": "handler.aws.six-layer-eventing",
+      "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2",
+      "platform_handler": "handler.aws.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:b6b0bcead9bdb79fc0b4931b1e48faf408b2d1ad0db40f289489fecf2e68b8f6",
+      "source_digest": "sha256:4506cafd2780a6679f3c783fe64f1da9f2f60df5a7aaebe1fcbce81e1a45c71a",
       "included_paths": [
-        "__init__.py",
-        "aws/__init__.py",
-        "aws/bridge.py",
-        "aws/runtime.py",
-        "azure/__init__.py",
-        "azure/bridge.py",
-        "azure/runtime.py",
-        "bridge_application.py",
-        "bridge_core.py",
-        "destination_identity.py",
-        "destination_publishers.py",
-        "gcp/__init__.py",
-        "gcp/bridge.py",
-        "gcp/runtime.py"
+        "handler.py",
+        "storage-mover/storage_mover.py"
       ],
       "excluded_paths": [],
-      "dependency_artifact_refs": [],
-      "builder_adapter_id": "builder.aws.six-layer-eventing",
+      "dependency_artifact_refs": [
+        {
+          "id": "artifact.shared.phase8-bridge-runtime",
+          "version": "1"
+        }
+      ],
+      "builder_adapter_id": "builder.aws.five-layer-v2",
       "supported_runtimes": [
+        "runtime.aws.five-layer-v2",
         "runtime.aws.six-layer-eventing"
       ],
       "user_source_policy": "platform_only",
@@ -11129,30 +11021,25 @@
         "azure.functions_flex_consumption",
         "azure.monitor"
       ],
-      "repository_source_path": "3-cloud-deployer/src/runtime/eventing",
-      "platform_handler": "handler.azure.six-layer-eventing",
+      "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2",
+      "platform_handler": "handler.azure.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:b6b0bcead9bdb79fc0b4931b1e48faf408b2d1ad0db40f289489fecf2e68b8f6",
+      "source_digest": "sha256:4f2889a5f3a0719b2931ef336130eb3a0403723ea0f184db50de448778598a07",
       "included_paths": [
-        "__init__.py",
-        "aws/__init__.py",
-        "aws/bridge.py",
-        "aws/runtime.py",
-        "azure/__init__.py",
-        "azure/bridge.py",
-        "azure/runtime.py",
-        "bridge_application.py",
-        "bridge_core.py",
-        "destination_identity.py",
-        "destination_publishers.py",
-        "gcp/__init__.py",
-        "gcp/bridge.py",
-        "gcp/runtime.py"
+        "core.py",
+        "function_app.py",
+        "storage-mover/storage_mover.py"
       ],
       "excluded_paths": [],
-      "dependency_artifact_refs": [],
-      "builder_adapter_id": "builder.azure.six-layer-eventing",
+      "dependency_artifact_refs": [
+        {
+          "id": "artifact.shared.phase8-bridge-runtime",
+          "version": "1"
+        }
+      ],
+      "builder_adapter_id": "builder.azure.five-layer-v2",
       "supported_runtimes": [
+        "runtime.azure.five-layer-v2",
         "runtime.azure.six-layer-eventing"
       ],
       "user_source_policy": "platform_only",
@@ -11174,30 +11061,26 @@
         "gcp.cloud_run_v2_worker_pool",
         "gcp.cloud_logging"
       ],
-      "repository_source_path": "3-cloud-deployer/src/runtime/eventing",
-      "platform_handler": "handler.gcp.six-layer-eventing",
+      "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
+      "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:b6b0bcead9bdb79fc0b4931b1e48faf408b2d1ad0db40f289489fecf2e68b8f6",
+      "source_digest": "sha256:30c8a2ebd965b41594d4f534957b0e0e611d126f05a805061d4d28ec517d8303",
       "included_paths": [
-        "__init__.py",
-        "aws/__init__.py",
-        "aws/bridge.py",
-        "aws/runtime.py",
-        "azure/__init__.py",
-        "azure/bridge.py",
-        "azure/runtime.py",
-        "bridge_application.py",
-        "bridge_core.py",
-        "destination_identity.py",
-        "destination_publishers.py",
-        "gcp/__init__.py",
-        "gcp/bridge.py",
-        "gcp/runtime.py"
+        "platform/app.py",
+        "platform/core.py",
+        "platform/mqtt_adapter.py",
+        "storage-mover/storage_mover.py"
       ],
       "excluded_paths": [],
-      "dependency_artifact_refs": [],
-      "builder_adapter_id": "builder.gcp.six-layer-eventing",
+      "dependency_artifact_refs": [
+        {
+          "id": "artifact.shared.phase8-bridge-runtime",
+          "version": "1"
+        }
+      ],
+      "builder_adapter_id": "builder.gcp.five-layer-v2",
       "supported_runtimes": [
+        "runtime.gcp.five-layer-v2",
         "runtime.gcp.six-layer-eventing"
       ],
       "user_source_policy": "platform_only",
@@ -11228,5 +11111,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:5ee0733f32033ce60b6372c0a7a9c3a019eec51e15ede1f69f0f28f492311722"
+  "content_digest": "sha256:9042a6301af8c80b027111733ab5b8795cc371d5e7bf5db0ed4503805216330a"
 }

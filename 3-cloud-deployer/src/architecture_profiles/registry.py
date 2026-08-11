@@ -11,6 +11,11 @@ from . import contracts
 
 
 DEFINITIONS_ROOT = contracts.CONTRACT_ROOT.parent / "definitions"
+_PROFILE_DEFINITIONS = {
+    ("five-layer-baseline", "1"): ("baseline", "five-layer-baseline"),
+    ("five-layer-baseline", "2"): ("complete-service", "five-layer-baseline"),
+    ("six-layer-eventing", "1"): ("six-layer-eventing", "six-layer-eventing"),
+}
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -33,18 +38,24 @@ def _freeze(value: Any) -> Any:
 class ArchitectureProfileRegistry:
     """Load definitions without compiling Terraform or building packages."""
 
-    def __init__(self, *, profile_version: str = "1") -> None:
-        if profile_version not in {"1", "2"}:
+    def __init__(
+        self,
+        *,
+        profile_id: str = "five-layer-baseline",
+        profile_version: str = "1",
+    ) -> None:
+        definition = _PROFILE_DEFINITIONS.get((profile_id, profile_version))
+        if definition is None:
             raise contracts.ContractError(
                 "ARCH_PROFILE_UNAVAILABLE",
-                "architecture_profile_ref.version",
-                "Architecture profile version is unsupported",
+                "architecture_profile_ref",
+                "Architecture profile reference is unsupported",
             )
-        catalog_family = "baseline" if profile_version == "1" else "complete-service"
+        catalog_family, provider_profile_family = definition
         profile = _read(
             DEFINITIONS_ROOT
             / "profiles"
-            / "five-layer-baseline"
+            / profile_id
             / profile_version
             / "profile.json"
         )
@@ -59,7 +70,7 @@ class ArchitectureProfileRegistry:
             provider: _read(
                 DEFINITIONS_ROOT
                 / "provider-implementations"
-                / "five-layer-baseline"
+                / provider_profile_family
                 / profile_version
                 / provider
                 / "1.json"

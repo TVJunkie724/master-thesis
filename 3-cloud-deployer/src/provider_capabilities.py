@@ -212,7 +212,11 @@ def validate_provider_selections(
             "gcp" if provider.strip().lower() == "google" else provider.strip().lower()
         )
         if (
-            architecture_profile == ("five-layer-baseline", "2")
+            architecture_profile
+            in {
+                ("five-layer-baseline", "2"),
+                ("six-layer-eventing", "1"),
+            }
             and normalized_provider == "gcp"
             and layer in {"l4", "l5"}
         ):

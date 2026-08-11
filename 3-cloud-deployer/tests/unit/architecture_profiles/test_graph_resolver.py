@@ -24,6 +24,9 @@ from src.deployment_specification import (
     validate_resolved_deployment_specification,
 )
 from src.deployment_specification.errors import DeploymentSpecificationError
+from src.deployment_specification.validator import (
+    calculate_digest as calculate_specification_digest,
+)
 from src.terraform_inputs import translate_graph_inputs
 from src.providers.terraform.package_builder import (
     _aws_v2_storage_mover_selected,
@@ -75,6 +78,7 @@ def _resolve_offline_v4(name: str):
     provider_by_slot = {
         LOGICAL_TO_SLOT[item["logical_component_id"]]: item["provider"]
         for item in manifest["resolved_twin_architecture"]["component_assignments"]
+        if item["logical_component_id"] in LOGICAL_TO_SLOT
     }
     validated = ValidatedDeploymentManifest(
         manifest=MappingProxyType(manifest),
@@ -263,15 +267,52 @@ def test_v4_graph_compiles_every_representative_cloud_shape(fixture):
     )
 
 
-def test_v4_offline_contract_fixture_is_not_executable():
+@pytest.mark.parametrize(
+    "fixture",
+    (
+        "single-cloud-aws-small.json",
+        "six-layer-aws-azure-eventing-small.json",
+    ),
+)
+def test_v4_offline_contract_fixture_is_not_executable(fixture):
     manifest = json.loads(
-        (MANIFEST_V4_ROOT / "single-cloud-aws-small.json").read_text("utf-8")
+        (MANIFEST_V4_ROOT / fixture).read_text("utf-8")
     )
 
     with pytest.raises(DeploymentSpecificationError) as raised:
         validate_deployment_manifest(manifest, manifest["providers"])
 
     assert raised.value.code == "DEPLOYMENT_SPECIFICATION_NOT_READY"
+
+
+def test_six_layer_rds_without_eventing_selection_fails_closed():
+    manifest = json.loads(
+        (MANIFEST_V4_ROOT / "six-layer-aws-azure-eventing-small.json").read_text(
+            "utf-8"
+        )
+    )
+    specification = manifest["resolved_deployment_specification"]
+    removed_selection_ids = {
+        item["selection_id"]
+        for item in specification["component_selections"]
+        if item["logical_component_id"] == "component.eventing"
+    }
+    specification["component_selections"] = [
+        item
+        for item in specification["component_selections"]
+        if item["selection_id"] not in removed_selection_ids
+    ]
+    specification["bindings"] = [
+        item
+        for item in specification["bindings"]
+        if item["destination_selection_id"] not in removed_selection_ids
+    ]
+    specification["digest"] = calculate_specification_digest(specification)
+
+    with pytest.raises(DeploymentSpecificationError) as raised:
+        validate_resolved_deployment_specification(specification)
+
+    assert raised.value.code == "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH"
 
 
 def test_v4_single_cloud_aws_graph_translates_to_declared_terraform_symbols():
@@ -291,6 +332,35 @@ def test_v4_azure_storage_graph_selects_containerized_storage_mover():
     graph = _resolve_offline_v4("two-cloud-azure-l3l5-gcp-l4-medium.json")
 
     assert _azure_v2_storage_mover_selected(graph) is True
+
+
+def test_v4_six_layer_graph_materializes_event_node_and_directed_bridges():
+    graph = _resolve_offline_v4("six-layer-aws-azure-eventing-small.json")
+
+    event_node = next(
+        node for node in graph.nodes if node.logical_component_id == "component.eventing"
+    )
+    event_edges = [
+        edge for edge in graph.edges if "eventing" in edge.logical_edge_id
+    ]
+
+    assert graph.profile_ref["id"] == "six-layer-eventing"
+    assert len(graph.nodes) == 8
+    assert len(graph.edges) == 9
+    assert event_node.provider == "azure"
+    assert event_node.deployment_component_id == "deployment.azure.eventing.v1"
+    assert len(event_edges) == 4
+    assert {edge.mechanism for edge in event_edges} == {
+        "cross_provider_adapter"
+    }
+    provider_by_node = {node.node_id: node.provider for node in graph.nodes}
+    assert {
+        (
+            provider_by_node[edge.source_node_id],
+            provider_by_node[edge.destination_node_id],
+        )
+        for edge in event_edges
+    } == {("aws", "azure"), ("azure", "aws")}
 
 
 def test_topological_order_collapses_only_the_profile_allowlisted_feedback_cycle():
