@@ -668,12 +668,17 @@ def _event_package(provider: str) -> dict[str, Any]:
             "3-cloud-deployer/src/providers/azure/azure_functions/"
             "six-layer-eventing"
         ),
-        "gcp": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
+        "gcp": "3-cloud-deployer/src/providers/gcp/containers/six-layer-eventing",
     }[provider]
     included = [
         path.relative_to(ROOT / source).as_posix()
-        for path in sorted((ROOT / source).rglob("*.py"))
-        if "__pycache__" not in path.parts
+        for path in sorted((ROOT / source).rglob("*"))
+        if path.is_file()
+        and "__pycache__" not in path.parts
+        and ".git" not in path.parts
+        and path.suffix.lower() != ".zip"
+        and not path.name.startswith(".git")
+        and path.name != ".DS_Store"
     ]
     return {
         "artifact_id": f"artifact.platform.{provider}.six-layer-eventing",
@@ -687,7 +692,7 @@ def _event_package(provider: str) -> dict[str, Any]:
             if provider == "aws"
             else "function_app.app"
             if provider == "azure"
-            else "handler.gcp.five-layer-v2"
+            else "app.app"
         ),
         "digest_policy": "sha256.canonical-source.v1",
         "source_digest": FIVE.package_source_digest(source),
@@ -701,7 +706,7 @@ def _event_package(provider: str) -> dict[str, Any]:
             if provider == "aws"
             else "builder.azure.six-layer-eventing"
             if provider == "azure"
-            else "builder.gcp.five-layer-v2"
+            else "builder.gcp.six-layer-eventing"
         ),
         "supported_runtimes": [
             f"runtime.{provider}.six-layer-eventing",

@@ -424,8 +424,12 @@ resource "google_pubsub_subscription" "gcp_v2_command_adapter" {
   }
 
   dead_letter_policy {
-    dead_letter_topic     = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["failure"].id
-    max_delivery_attempts = 5
+    dead_letter_topic = local.gcp_v2_event_layer_local ? (
+      google_pubsub_topic.domain_events["failure"].id
+    ) : google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["failure"].id
+    max_delivery_attempts = local.gcp_v2_event_layer_local ? (
+      var.gcp_event_max_delivery_attempts
+    ) : 5
   }
 }
 

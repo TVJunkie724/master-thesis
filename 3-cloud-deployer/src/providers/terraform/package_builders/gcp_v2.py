@@ -17,7 +17,7 @@ from src.providers.terraform.package_builders.common import _should_include_file
 PROVIDERS_ROOT = Path(__file__).resolve().parents[2]
 BRIDGE_RUNTIME_ROOT = PROVIDERS_ROOT.parent / "runtime" / "eventing"
 BRIDGE_CORE_SOURCE = BRIDGE_RUNTIME_ROOT / "bridge_core.py"
-GCP_V2_CONTEXTS = frozenset({"five-layer-v2"})
+GCP_V2_CONTEXTS = frozenset({"five-layer-v2", "six-layer-eventing"})
 GCP_V2_EXTENSION_DOCKERFILE = """# syntax=docker/dockerfile:1.7
 
 FROM python:3.11-slim@sha256:baf89808ec37adeaab83cec287adb4a2afa4a11c1d51e961c7ec737877e61af6

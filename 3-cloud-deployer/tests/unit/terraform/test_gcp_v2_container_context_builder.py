@@ -116,6 +116,21 @@ def test_gcp_v2_container_context_is_deterministic_and_complete(tmp_path):
         assert not any("__pycache__" in name for name in names)
 
 
+def test_gcp_eventing_context_is_deterministic_and_role_complete(tmp_path):
+    first = build_gcp_v2_container_contexts(tmp_path, ("six-layer-eventing",))
+    first_bytes = first["gcp_six-layer-eventing"].read_bytes()
+    second = build_gcp_v2_container_contexts(tmp_path, ("six-layer-eventing",))
+
+    assert second["gcp_six-layer-eventing"].read_bytes() == first_bytes
+    with tarfile.open(second["gcp_six-layer-eventing"], "r:gz") as archive:
+        names = {item.name for item in archive.getmembers()}
+        app = archive.extractfile("app.py")
+        dockerfile = archive.extractfile("Dockerfile")
+        assert {"Dockerfile", "app.py", "constraints.txt", "requirements.txt"} <= names
+        assert app is not None and b"def run_worker" in app.read()
+        assert dockerfile is not None and b"gunicorn" in dockerfile.read()
+
+
 def test_gcp_v2_container_context_rejects_unknown_builder_target(tmp_path):
     with pytest.raises(ValueError, match="Unknown GCP Five-layer v2 context"):
         build_gcp_v2_container_contexts(tmp_path, ("unreviewed",))

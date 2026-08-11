@@ -17,19 +17,27 @@ locals {
     local.gcp_v2_l1_enabled || local.gcp_v2_l2_enabled ||
     local.gcp_v2_hot_enabled || local.gcp_v2_cool_enabled ||
     local.gcp_v2_archive_enabled || local.gcp_v2_l4_enabled ||
-    local.gcp_v2_l5_enabled
+    local.gcp_v2_l5_enabled || local.gcp_v2_event_layer_local
   )
 
   gcp_v2_event_enabled = (
     local.gcp_v2_l1_enabled || local.gcp_v2_l2_enabled ||
     local.gcp_v2_hot_enabled || local.gcp_v2_l4_enabled
   )
+  gcp_v2_event_layer_local = (
+    local.six_layer_eventing_enabled &&
+    var.event_layer_provider == "google"
+  )
+  gcp_v2_embedded_event_enabled = (
+    local.gcp_v2_event_enabled && !local.gcp_v2_event_layer_local
+  )
   gcp_v2_domain_enabled = local.gcp_v2_event_enabled
-  gcp_v2_container_enabled = (
+  gcp_v2_platform_container_enabled = (
     local.gcp_v2_l1_enabled || local.gcp_v2_l2_enabled ||
     local.gcp_v2_hot_enabled || local.gcp_v2_cool_enabled ||
     local.gcp_v2_l4_enabled || local.gcp_v2_l5_enabled
   )
+  gcp_v2_container_enabled = local.gcp_v2_platform_container_enabled || local.gcp_v2_event_layer_local
   gcp_v2_storage_mover_enabled = (
     local.gcp_v2_hot_enabled ||
     (local.gcp_v2_cool_enabled && var.layer_3_archive_provider != "google")
@@ -119,11 +127,11 @@ locals {
 
   gcp_v2_outbound_event_routes = {
     for route in var.resolved_cross_cloud_routes : route.route_id => route
-    if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.source_provider == "gcp"
+    if local.five_layer_v2_enabled && !local.gcp_v2_event_layer_local && route.execution_kind == "source_event_forwarder" && route.source_provider == "gcp"
   }
   gcp_v2_inbound_event_routes = {
     for route in var.resolved_cross_cloud_routes : route.route_id => route
-    if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.destination_provider == "gcp"
+    if local.five_layer_v2_enabled && !local.gcp_v2_event_layer_local && route.execution_kind == "source_event_forwarder" && route.destination_provider == "gcp"
   }
   gcp_v2_remote_telemetry_outbound = anytrue([
     for route in values(local.gcp_v2_outbound_event_routes) : route.channel_class == "telemetry"
@@ -172,21 +180,23 @@ locals {
   }
 
   gcp_v2_topics = local.gcp_v2_event_enabled ? merge(
-    { failure = "${local.gcp_v2_name}-v2-failure" },
-    local.gcp_v2_l1_enabled || local.gcp_v2_l2_enabled ? {
-      received = "${local.gcp_v2_name}-v2-telemetry-received"
-    } : {},
-    local.gcp_v2_l2_enabled || local.gcp_v2_hot_enabled ? {
-      processed = "${local.gcp_v2_name}-v2-telemetry-processed"
-    } : {},
-    local.gcp_v2_domain_enabled ? {
-      domain = "${local.gcp_v2_name}-v2-domain-control"
-    } : {},
+    local.gcp_v2_embedded_event_enabled ? merge(
+      { failure = "${local.gcp_v2_name}-v2-failure" },
+      local.gcp_v2_l1_enabled || local.gcp_v2_l2_enabled ? {
+        received = "${local.gcp_v2_name}-v2-telemetry-received"
+      } : {},
+      local.gcp_v2_l2_enabled || local.gcp_v2_hot_enabled ? {
+        processed = "${local.gcp_v2_name}-v2-telemetry-processed"
+      } : {},
+      local.gcp_v2_domain_enabled ? {
+        domain = "${local.gcp_v2_name}-v2-domain-control"
+      } : {},
+      local.gcp_v2_remote_telemetry_routes,
+      local.gcp_v2_remote_control_routes,
+    ) : {},
     local.gcp_v2_l1_enabled ? {
       command = "${local.gcp_v2_name}-v2-device-command"
     } : {},
-    local.gcp_v2_remote_telemetry_routes,
-    local.gcp_v2_remote_control_routes,
   ) : {}
 
   gcp_v2_event_adapters = merge(
@@ -195,7 +205,7 @@ locals {
     local.gcp_v2_domain_enabled ? { domain = "domain-consumer" } : {},
     local.gcp_v2_remote_landing_enabled ? { remote = "remote-landing" } : {},
   )
-  gcp_v2_subscriptions = merge(
+  gcp_v2_subscriptions = local.gcp_v2_embedded_event_enabled ? merge(
     local.gcp_v2_l2_enabled ? {
       processor = {
         topic = "received"
@@ -232,7 +242,7 @@ locals {
         role  = "remote"
       }
     } : {},
-  )
+  ) : {}
   gcp_v2_storage_jobs = merge(
     local.gcp_v2_hot_enabled ? {
       hot-to-cool = {
@@ -279,12 +289,12 @@ resource "terraform_data" "gcp_v2_foundation_guard" {
       error_message = "GCP Five-layer v2 requires an explicit region."
     }
     precondition {
-      condition     = !local.gcp_v2_container_enabled || var.gcp_v2_platform_image != ""
+      condition     = !local.gcp_v2_platform_container_enabled || var.gcp_v2_platform_image != ""
       error_message = "GCP Five-layer v2 container components require a content-addressed platform image."
     }
     precondition {
       condition = (
-        !local.gcp_v2_container_enabled ||
+        !local.gcp_v2_platform_container_enabled ||
         startswith(var.gcp_v2_platform_image, local.gcp_v2_registry_prefix)
       )
       error_message = "GCP Five-layer v2 platform images must come from the deployment Artifact Registry repository."
@@ -740,7 +750,7 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
 
       env {
         name  = "ARCHITECTURE_PROFILE"
-        value = "five-layer-baseline@2"
+        value = local.six_layer_eventing_enabled ? "six-layer-eventing@1" : "five-layer-baseline@2"
       }
       env {
         name  = "DEPLOYMENT_ID"
@@ -752,23 +762,23 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
       }
       env {
         name  = "RECEIVED_TOPIC"
-        value = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["received"].id, "")
+        value = local.gcp_v2_event_layer_local ? google_pubsub_topic.domain_events["received"].id : try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["received"].id, "")
       }
       env {
         name  = "PROCESSED_TOPIC"
-        value = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["processed"].id, "")
+        value = local.gcp_v2_event_layer_local ? google_pubsub_topic.domain_events["processed"].id : try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["processed"].id, "")
       }
       env {
         name  = "DOMAIN_TOPIC"
-        value = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].id, "")
+        value = local.gcp_v2_event_layer_local ? google_pubsub_topic.domain_events["control"].id : try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].id, "")
       }
       env {
         name  = "REMOTE_TELEMETRY_TOPIC"
-        value = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-telemetry-outbound"].id, "")
+        value = local.gcp_v2_event_layer_local && each.key == "ingress" ? google_pubsub_topic.domain_events["received"].id : try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-telemetry-outbound"].id, "")
       }
       env {
         name  = "REMOTE_CONTROL_TOPIC"
-        value = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-outbound"].id, "")
+        value = local.gcp_v2_event_layer_local ? google_pubsub_topic.domain_events["control"].id : try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-outbound"].id, "")
       }
       env {
         name  = "REMOTE_EVENT_TYPES_JSON"
@@ -814,6 +824,10 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
         name  = "TWIN_PROVIDER"
         value = var.layer_4_provider
       }
+      env {
+        name  = "EVENTING_DELIVERY_ENDPOINT_ENABLED"
+        value = tostring(local.gcp_v2_event_layer_local)
+      }
     }
   }
 
@@ -856,7 +870,7 @@ resource "google_cloud_run_v2_service" "gcp_v2_processor_extension" {
 
       env {
         name  = "ARCHITECTURE_PROFILE"
-        value = "five-layer-baseline@2"
+        value = local.six_layer_eventing_enabled ? "six-layer-eventing@1" : "five-layer-baseline@2"
       }
     }
   }
@@ -911,7 +925,7 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_service" {
 
       env {
         name  = "ARCHITECTURE_PROFILE"
-        value = "five-layer-baseline@2"
+        value = local.six_layer_eventing_enabled ? "six-layer-eventing@1" : "five-layer-baseline@2"
       }
       env {
         name  = "DEPLOYMENT_ID"
@@ -927,15 +941,19 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_service" {
       }
       env {
         name  = "PROCESSED_TOPIC"
-        value = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["processed"].id
+        value = local.gcp_v2_event_layer_local ? google_pubsub_topic.domain_events["processed"].id : google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["processed"].id
       }
       env {
         name  = "DOMAIN_TOPIC"
-        value = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].id
+        value = local.gcp_v2_event_layer_local ? google_pubsub_topic.domain_events["control"].id : google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].id
       }
       env {
         name  = "RULES_JSON"
         value = jsonencode(var.events)
+      }
+      env {
+        name  = "EVENTING_DELIVERY_ENDPOINT_ENABLED"
+        value = tostring(local.gcp_v2_event_layer_local)
       }
     }
   }
@@ -979,7 +997,7 @@ resource "google_cloud_run_v2_service" "gcp_v2_action_sink" {
 
       env {
         name  = "ARCHITECTURE_PROFILE"
-        value = "five-layer-baseline@2"
+        value = local.six_layer_eventing_enabled ? "six-layer-eventing@1" : "five-layer-baseline@2"
       }
       env {
         name  = "RUNTIME_ROLE"
@@ -1036,7 +1054,7 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_twin_api_materializer"
 
       env {
         name  = "ARCHITECTURE_PROFILE"
-        value = "five-layer-baseline@2"
+        value = local.six_layer_eventing_enabled ? "six-layer-eventing@1" : "five-layer-baseline@2"
       }
       env {
         name  = "RUNTIME_ROLE"
@@ -1053,6 +1071,10 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_twin_api_materializer"
       env {
         name  = "IOT_DEVICES_JSON"
         value = jsonencode(var.iot_devices)
+      }
+      env {
+        name  = "EVENTING_DELIVERY_ENDPOINT_ENABLED"
+        value = tostring(local.gcp_v2_event_layer_local)
       }
     }
   }
@@ -1736,7 +1758,7 @@ resource "google_project_iam_member" "gcp_v2_domain_workflow_invoker" {
 }
 
 resource "google_pubsub_topic_iam_member" "gcp_v2_ingress_publisher" {
-  count   = local.gcp_v2_l1_enabled ? 1 : 0
+  count   = local.gcp_v2_l1_enabled && !local.gcp_v2_event_layer_local ? 1 : 0
   project = local.gcp_project_id
   topic = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics[
     var.layer_2_provider == "google" ? "received" : "remote-telemetry-outbound"
@@ -1746,7 +1768,7 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_ingress_publisher" {
 }
 
 resource "google_pubsub_topic_iam_member" "gcp_v2_ingress_domain_publisher" {
-  count   = local.gcp_v2_l1_enabled ? 1 : 0
+  count   = local.gcp_v2_l1_enabled && !local.gcp_v2_event_layer_local ? 1 : 0
   project = local.gcp_project_id
   topic   = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name
   role    = "roles/pubsub.publisher"
@@ -1754,7 +1776,7 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_ingress_domain_publisher" {
 }
 
 resource "google_pubsub_topic_iam_member" "gcp_v2_processor_publishers" {
-  for_each = local.gcp_v2_l2_enabled ? {
+  for_each = local.gcp_v2_l2_enabled && !local.gcp_v2_event_layer_local ? {
     processed = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics[
       var.layer_3_hot_provider == "google" ? "processed" : "remote-telemetry-outbound"
     ].name
@@ -1767,7 +1789,7 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_processor_publishers" {
 }
 
 resource "google_pubsub_topic_iam_member" "gcp_v2_persistence_domain_publisher" {
-  count   = local.gcp_v2_hot_enabled ? 1 : 0
+  count   = local.gcp_v2_hot_enabled && !local.gcp_v2_event_layer_local ? 1 : 0
   project = local.gcp_project_id
   topic = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics[
     var.layer_4_provider == "google" ? "domain" : "remote-control-outbound"
@@ -1778,7 +1800,7 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_persistence_domain_publisher" 
 
 resource "google_pubsub_topic_iam_member" "gcp_v2_domain_publishers" {
   for_each = local.gcp_v2_domain_enabled ? merge(
-    {
+    local.gcp_v2_event_layer_local ? {} : {
       domain = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name
     },
     local.gcp_v2_l1_enabled ? {

@@ -6,6 +6,7 @@ from src.providers.terraform.gcp_v2_image_publisher import (
     DOCKER_BUILDER,
     GcpV2ImagePublisher,
     GcpV2ImageRequest,
+    image_requests,
     image_tfvars,
     placeholder_image_tfvars,
 )
@@ -37,6 +38,7 @@ def test_placeholder_refs_are_registry_scoped_and_stage_one_is_closed():
         "gcp_v2_processor_extension_image",
         "gcp_v2_storage_mover_image",
         "gcp_v2_grafana_image",
+        "gcp_event_runtime_image",
         "gcp_v2_kubernetes_stage_enabled",
     }
     assert all(
@@ -198,3 +200,35 @@ def test_image_tfvars_uses_dedicated_finite_storage_job_image():
     assert values["gcp_v2_processor_extension_image"] == images["processor-extension"]
     assert values["gcp_v2_grafana_image"] == images["grafana"]
     assert values["gcp_v2_kubernetes_stage_enabled"] is False
+
+
+def test_six_layer_event_provider_publishes_dedicated_runtime_image(tmp_path):
+    context = tmp_path / ".build" / "gcp" / "six-layer-eventing.tar.gz"
+    context.parent.mkdir(parents=True)
+    context.write_bytes(b"eventing-context")
+    tfvars = {
+        **_tfvars(),
+        "architecture_profile_id": "six-layer-eventing",
+        "architecture_profile_version": "1",
+        "layer_1_provider": "aws",
+        "layer_2_provider": "azure",
+        "layer_3_hot_provider": "aws",
+        "layer_3_cold_provider": "azure",
+        "layer_3_archive_provider": "aws",
+        "layer_4_provider": "azure",
+        "layer_5_provider": "aws",
+        "event_layer_provider": "google",
+    }
+
+    assert image_requests(tmp_path, tfvars) == (
+        GcpV2ImageRequest("event-runtime", context),
+    )
+    prefix = "europe-west1-docker.pkg.dev/phase8-project/factory-twin-v2/"
+    values = image_tfvars(
+        {"event-runtime": prefix + "event-runtime@sha256:" + "e" * 64},
+        tfvars,
+    )
+    assert values == {
+        "gcp_event_runtime_image": prefix + "event-runtime@sha256:" + "e" * 64,
+        "gcp_v2_kubernetes_stage_enabled": False,
+    }

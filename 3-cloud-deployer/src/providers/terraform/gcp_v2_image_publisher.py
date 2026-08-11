@@ -40,10 +40,14 @@ class GcpV2ImageRequest:
 
 
 def gcp_v2_container_deployment(tfvars: Mapping[str, Any]) -> bool:
-    if (
-        tfvars.get("architecture_profile_id") != "five-layer-baseline"
-        or str(tfvars.get("architecture_profile_version")) != "2"
-    ):
+    profile = (
+        tfvars.get("architecture_profile_id"),
+        str(tfvars.get("architecture_profile_version")),
+    )
+    if profile not in {
+        ("five-layer-baseline", "2"),
+        ("six-layer-eventing", "1"),
+    }:
         return False
     return any(
         tfvars.get(key) == "google"
@@ -54,7 +58,30 @@ def gcp_v2_container_deployment(tfvars: Mapping[str, Any]) -> bool:
             "layer_3_cold_provider",
             "layer_4_provider",
             "layer_5_provider",
+            "event_layer_provider",
         )
+    )
+
+
+def _gcp_v2_platform_deployment(tfvars: Mapping[str, Any]) -> bool:
+    return any(
+        tfvars.get(key) == "google"
+        for key in (
+            "layer_1_provider",
+            "layer_2_provider",
+            "layer_3_hot_provider",
+            "layer_3_cold_provider",
+            "layer_4_provider",
+            "layer_5_provider",
+        )
+    )
+
+
+def _gcp_eventing_deployment(tfvars: Mapping[str, Any]) -> bool:
+    return (
+        tfvars.get("architecture_profile_id") == "six-layer-eventing"
+        and str(tfvars.get("architecture_profile_version")) == "1"
+        and tfvars.get("event_layer_provider") == "google"
     )
 
 
@@ -76,6 +103,7 @@ def placeholder_image_tfvars(tfvars: Mapping[str, Any]) -> dict[str, Any]:
         "gcp_v2_processor_extension_image": f"{prefix}processor-extension@{_ZERO_DIGEST}",
         "gcp_v2_storage_mover_image": f"{prefix}storage-mover@{_ZERO_DIGEST}",
         "gcp_v2_grafana_image": f"{prefix}grafana@{_ZERO_DIGEST}",
+        "gcp_event_runtime_image": f"{prefix}event-runtime@{_ZERO_DIGEST}",
         "gcp_v2_kubernetes_stage_enabled": False,
     }
 
@@ -86,7 +114,16 @@ def _digest(path: Path) -> str:
 
 def image_requests(project_path: Path, tfvars: Mapping[str, Any]) -> tuple[GcpV2ImageRequest, ...]:
     platform = Path(project_path) / ".build" / "gcp" / "five-layer-v2.tar.gz"
-    requests = [GcpV2ImageRequest("platform", platform)]
+    requests: list[GcpV2ImageRequest] = []
+    if _gcp_v2_platform_deployment(tfvars):
+        requests.append(GcpV2ImageRequest("platform", platform))
+    if _gcp_eventing_deployment(tfvars):
+        requests.append(
+            GcpV2ImageRequest(
+                "event-runtime",
+                Path(project_path) / ".build" / "gcp" / "six-layer-eventing.tar.gz",
+            )
+        )
     if tfvars.get("layer_2_provider") == "google":
         requests.append(
             GcpV2ImageRequest(
@@ -314,11 +351,13 @@ class GcpV2ImagePublisher:
 
 
 def image_tfvars(images: Mapping[str, str], tfvars: Mapping[str, Any]) -> dict[str, Any]:
-    platform = images.get("platform", "")
     result: dict[str, Any] = {
-        "gcp_v2_platform_image": platform,
         "gcp_v2_kubernetes_stage_enabled": False,
     }
+    if _gcp_v2_platform_deployment(tfvars):
+        result["gcp_v2_platform_image"] = images.get("platform", "")
+    if _gcp_eventing_deployment(tfvars):
+        result["gcp_event_runtime_image"] = images.get("event-runtime", "")
     if tfvars.get("layer_2_provider") == "google":
         result["gcp_v2_processor_extension_image"] = images.get(
             "processor-extension", ""

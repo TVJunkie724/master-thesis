@@ -252,6 +252,114 @@ variable "azure_event_log_retention_days" {
   }
 }
 
+variable "gcp_event_retention_seconds" {
+  description = "Reviewed Pub/Sub topic and subscription retention for the independent GCP Event Layer"
+  type        = number
+  default     = 86400
+
+  validation {
+    condition     = contains([86400, 604800], var.gcp_event_retention_seconds)
+    error_message = "gcp_event_retention_seconds must be the reviewed one- or seven-day value."
+  }
+}
+
+variable "gcp_event_max_delivery_attempts" {
+  description = "Approximate Pub/Sub attempts before native dead-letter forwarding"
+  type        = number
+  default     = 6
+
+  validation {
+    condition     = var.gcp_event_max_delivery_attempts == 6
+    error_message = "gcp_event_max_delivery_attempts is frozen to the reviewed six-attempt budget."
+  }
+}
+
+variable "gcp_event_runtime_cpu" {
+  description = "Cloud Run event service vCPU allocation"
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.gcp_event_runtime_cpu == 1
+    error_message = "gcp_event_runtime_cpu is frozen to one vCPU for the thesis PoC."
+  }
+}
+
+variable "gcp_event_runtime_memory_mib" {
+  description = "Cloud Run event service memory in MiB"
+  type        = number
+  default     = 512
+
+  validation {
+    condition     = var.gcp_event_runtime_memory_mib == 512
+    error_message = "gcp_event_runtime_memory_mib is frozen to 512 MiB for the thesis PoC."
+  }
+}
+
+variable "gcp_event_worker_count" {
+  description = "Total optimizer-derived Large telemetry StreamingPull worker instances"
+  type        = number
+  default     = 0
+
+  validation {
+    condition = (
+      var.gcp_event_worker_count == 0 ||
+      (
+        var.gcp_event_worker_count <= 126 &&
+        var.gcp_event_worker_count % 21 == 0
+      )
+    )
+    error_message = "gcp_event_worker_count must be zero or a reviewed 21-instance-per-subscription Large allocation up to 126."
+  }
+}
+
+variable "gcp_event_worker_cpu" {
+  description = "Cloud Run event worker vCPU allocation"
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.gcp_event_worker_cpu == 1
+    error_message = "gcp_event_worker_cpu is frozen to one vCPU for the thesis PoC."
+  }
+}
+
+variable "gcp_event_worker_memory_mib" {
+  description = "Cloud Run event worker memory in MiB"
+  type        = number
+  default     = 512
+
+  validation {
+    condition     = var.gcp_event_worker_memory_mib == 512
+    error_message = "gcp_event_worker_memory_mib is frozen to 512 MiB for the thesis PoC."
+  }
+}
+
+variable "gcp_event_log_retention_days" {
+  description = "Dedicated Cloud Logging bucket retention for Event Layer evidence"
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.gcp_event_log_retention_days == 30
+    error_message = "gcp_event_log_retention_days is frozen to 30 days for the thesis PoC."
+  }
+}
+
+variable "gcp_event_runtime_image" {
+  description = "Content-addressed GCP Six-layer Event Layer runtime image"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.gcp_event_runtime_image == "" ||
+      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_event_runtime_image))
+    )
+    error_message = "gcp_event_runtime_image must be an Artifact Registry image pinned by sha256 digest."
+  }
+}
+
 # ==============================================================================
 # Layer Provider Mapping (from config_providers.json)
 # ==============================================================================

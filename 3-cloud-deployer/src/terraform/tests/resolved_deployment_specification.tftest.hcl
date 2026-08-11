@@ -1677,3 +1677,85 @@ run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
     error_message = "Single-cloud Azure must replace embedded transport with the independent Event Layer."
   }
 }
+
+run "six_layer_single_cloud_gcp_adds_independent_event_bundle" {
+  command = plan
+
+  variables {
+    digital_twin_name                     = "drift-test"
+    architecture_profile_id               = "six-layer-eventing"
+    architecture_profile_version          = "1"
+    event_layer_provider                  = "google"
+    layer_1_provider                      = "google"
+    layer_2_provider                      = "google"
+    layer_3_hot_provider                  = "google"
+    layer_3_cold_provider                 = "google"
+    layer_3_archive_provider              = "google"
+    layer_4_provider                      = "google"
+    layer_5_provider                      = "google"
+    layer_3_hot_to_cold_interval_days     = 30
+    layer_3_cold_to_archive_interval_days = 90
+    layer_3_archive_expiry_interval_days  = 365
+    platform_user_email                   = "researcher@example.test"
+    platform_user_first_name              = "Thesis"
+    platform_user_last_name               = "Researcher"
+    gcp_project_id                        = "phase8-poc-project"
+    gcp_region                            = "europe-west1"
+    gcp_v2_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    gcp_v2_processor_extension_image      = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    gcp_v2_storage_mover_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    gcp_v2_grafana_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    gcp_event_runtime_image               = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/event-runtime@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    gcp_grafana_source_cidrs              = ["203.0.113.42/32"]
+    enable_gcp_logging                    = false
+    resolved_component_dimensions = {
+      "dimension.gcp.gcp.cloud-run-storage-job.task_count"                  = "1"
+      "dimension.gcp.gcp.pubsub-separated-event-layer-topics.publish_bytes" = "1029376000"
+      "dimension.gcp.gcp.cloud-run-worker-pool-fixed-large.resource_count"  = "0"
+    }
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "66666666-6666-4666-8666-666666666666"
+      artifact_digest = "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+      package_path    = "${var.project_path}/.build/azure/five-layer-v2.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/five-layer-v2.zip")}"
+      adapter_id      = "adapter.gcp.python311"
+      adapter_version = "1"
+    }]
+  }
+
+  assert {
+    condition = (
+      toset(keys(google_pubsub_topic.domain_events)) == toset(["received", "processed", "control", "failure"]) &&
+      toset(keys(google_pubsub_subscription.domain_events)) == toset(["telemetry-processor", "historical-persistence", "twin-state-update", "rule-evaluator", "control-router"]) &&
+      length(google_cloud_run_v2_service.event_runtime) == 1 &&
+      length(google_cloud_run_v2_worker_pool.event_telemetry) == 0 &&
+      length(google_logging_project_bucket_config.eventing) == 1 &&
+      length(google_logging_project_sink.eventing) == 1
+    )
+    error_message = "Six-layer GCP must deploy the complete reviewed Small push Event Layer bundle."
+  }
+
+  assert {
+    condition = (
+      google_pubsub_topic.domain_events["received"].message_retention_duration == "86400s" &&
+      google_pubsub_subscription.domain_events["control-router"].dead_letter_policy[0].max_delivery_attempts == 6 &&
+      google_cloud_run_v2_service.event_runtime[0].template[0].containers[0].resources[0].limits.memory == "512Mi"
+    )
+    error_message = "Six-layer GCP must bind the reviewed Small capacity values."
+  }
+
+  assert {
+    condition = (
+      toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["command"]) &&
+      length(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics) == 0 &&
+      length(google_cloud_run_v2_service.gcp_v2_cross_cloud_bridge) == 0 &&
+      one([
+        for environment in google_cloud_run_v2_service.gcp_gcp_cloud_run_service[0].template[0].containers[0].env : environment.value
+        if environment.name == "ARCHITECTURE_PROFILE"
+      ]) == "six-layer-eventing@1"
+    )
+    error_message = "Single-cloud GCP must replace embedded domain transport with the independent Event Layer while retaining the L1 command boundary."
+  }
+}

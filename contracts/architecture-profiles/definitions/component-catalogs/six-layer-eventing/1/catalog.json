@@ -10923,7 +10923,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2",
       "platform_handler": "handler.azure.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:4f2889a5f3a0719b2931ef336130eb3a0403723ea0f184db50de448778598a07",
+      "source_digest": "sha256:8a7645d8608ac72b274d0419e54601fe83f2df4304c15b8c79e17785548d754e",
       "included_paths": [
         "core.py",
         "function_app.py",
@@ -10987,7 +10987,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:30c8a2ebd965b41594d4f534957b0e0e611d126f05a805061d4d28ec517d8303",
+      "source_digest": "sha256:99acf0653d3a9c0f9efe48adeeb7417be4b58c40dca2e8953b459ac34d7462df",
       "included_paths": [
         "Dockerfile",
         "grafana/Dockerfile",
@@ -11106,7 +11106,9 @@
       "digest_policy": "sha256.canonical-source.v1",
       "source_digest": "sha256:5019d3c1869ef1b8a2aa30b99878ae35310d1dda503148bc0161aeba1b42e13e",
       "included_paths": [
-        "function_app.py"
+        "function_app.py",
+        "host.json",
+        "requirements.txt"
       ],
       "excluded_paths": [],
       "dependency_artifact_refs": [
@@ -11138,15 +11140,15 @@
         "gcp.cloud_run_v2_worker_pool",
         "gcp.cloud_logging"
       ],
-      "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
-      "platform_handler": "handler.gcp.five-layer-v2",
+      "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/six-layer-eventing",
+      "platform_handler": "app.app",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:30c8a2ebd965b41594d4f534957b0e0e611d126f05a805061d4d28ec517d8303",
+      "source_digest": "sha256:26068a26b6107455835e585c77bfcca38eb7df6d3d2d967d5f22202108c77c41",
       "included_paths": [
-        "platform/app.py",
-        "platform/core.py",
-        "platform/mqtt_adapter.py",
-        "storage-mover/storage_mover.py"
+        "Dockerfile",
+        "app.py",
+        "constraints.txt",
+        "requirements.txt"
       ],
       "excluded_paths": [],
       "dependency_artifact_refs": [
@@ -11155,7 +11157,7 @@
           "version": "1"
         }
       ],
-      "builder_adapter_id": "builder.gcp.five-layer-v2",
+      "builder_adapter_id": "builder.gcp.six-layer-eventing",
       "supported_runtimes": [
         "runtime.gcp.six-layer-eventing"
       ],
@@ -11187,5 +11189,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:806a7abab7de21972be9e8f71da8bd7e79d2bacd5dcc44aef855d0e193b3a9ea"
+  "content_digest": "sha256:860c33a91f5cf590e1f9a90b1683e0488b123b2937d5fdd21dcf7df0474dc6ec"
 }
