@@ -23,6 +23,37 @@ CONTRACT_ROOT = (
     / "v2"
 )
 FORMULA_REF = "formula.phase-08-complete-service-bundles"
+SIX_LAYER_TOPOLOGY_COST_REGISTRY_DIGEST = (
+    "sha256:06c0a075f4db7944f4db5a43b4e58f7c5d9172220f0677ea514fc3a0ad5f3f1e"
+)
+SIX_LAYER_EVENT_COMPONENT_IDS = frozenset(
+    {
+        "aws.kinesis-data-streams",
+        "aws.sns-fifo",
+        "aws.sqs-fifo",
+        "aws.lambda-event-worker",
+        "aws.s3-event-failure-store",
+        "aws.cloudwatch",
+        "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "aws.sns-fifo-only-for-reviewed-remote-control-edge",
+        "aws.lambda-event-adapter",
+        "azure.event-hubs-standard-small-medium",
+        "azure.event-hubs-dedicated-large",
+        "azure.service-bus-standard",
+        "azure.functions-flex-event-worker",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace",
+        "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+        "azure.functions-flex-event-adapter",
+        "gcp.pubsub-separated-event-layer-topics",
+        "gcp.cloud-run-event-service-small-medium",
+        "gcp.cloud-run-worker-pool-fixed-large",
+        "gcp.cloud-logging",
+        "gcp.cloud-monitoring",
+        "gcp.pubsub-separated-embedded-topics",
+        "gcp.cloud-run-event-adapter",
+    }
+)
 PROFILE_EDGE_IDS = (
     "edge.cool-to-archive-storage",
     "edge.hot-storage-to-twin-state",
@@ -32,6 +63,17 @@ PROFILE_EDGE_IDS = (
     "edge.processing-to-hot-storage",
     "edge.processing-to-ingestion",
     "edge.hot-storage-to-visualization",
+)
+SIX_LAYER_EDGE_IDS = (
+    "edge.cool-to-archive-storage",
+    "edge.hot-storage-to-twin-state",
+    "edge.hot-to-cool-storage",
+    "edge.processing-to-hot-storage",
+    "edge.hot-storage-to-visualization",
+    "edge.ingestion-to-eventing",
+    "edge.eventing-to-processing",
+    "edge.processing-to-eventing",
+    "edge.eventing-to-ingestion",
 )
 DOMAIN_EVENT_FLOWS = (
     ("telemetry.received.v1", "component.ingestion", "component.processing"),
@@ -51,6 +93,47 @@ DOMAIN_EVENT_FLOWS = (
     ("extension.action.outcome.v1", "component.processing", "component.hot-storage"),
     ("notification.workflow.outcome.v1", "component.processing", "component.hot-storage"),
     ("device.command.outcome.v1", "component.ingestion", "component.hot-storage"),
+)
+SIX_LAYER_EVENT_FLOWS = (
+    (
+        "edge.ingestion-to-eventing",
+        "component.ingestion",
+        "component.eventing",
+        ("telemetry.received.v1", "device.command.outcome.v1"),
+    ),
+    (
+        "edge.eventing-to-processing",
+        "component.eventing",
+        "component.processing",
+        (
+            "telemetry.received.v1",
+            "telemetry.processed.v1",
+            "event.matched.v1",
+            "notification.requested.v1",
+            "extension.action.outcome.v1",
+            "notification.workflow.outcome.v1",
+            "device.command.outcome.v1",
+        ),
+    ),
+    (
+        "edge.processing-to-eventing",
+        "component.processing",
+        "component.eventing",
+        (
+            "telemetry.processed.v1",
+            "event.matched.v1",
+            "notification.requested.v1",
+            "device.command.requested.v1",
+            "extension.action.outcome.v1",
+            "notification.workflow.outcome.v1",
+        ),
+    ),
+    (
+        "edge.eventing-to-ingestion",
+        "component.eventing",
+        "component.ingestion",
+        ("device.command.requested.v1",),
+    ),
 )
 
 
@@ -217,16 +300,29 @@ def expected_route_owners(
 
     grouped_domain_sources: dict[tuple[str, str], set[str]] = {}
     grouped_domain_flows: dict[tuple[str, str], list[str]] = {}
-    for flow_id, source_component, destination_component in DOMAIN_EVENT_FLOWS:
-        source = assignment[source_component]
-        destination = assignment[destination_component]
-        if source != destination:
-            grouped_domain_sources.setdefault((source, destination), set()).add(
-                source_component
-            )
-            grouped_domain_flows.setdefault((source, destination), []).append(
-                flow_id
-            )
+    uses_event_layer = "component.eventing" in assignment
+    if uses_event_layer:
+        for edge_id, source_component, destination_component, flow_ids in SIX_LAYER_EVENT_FLOWS:
+            source = assignment[source_component]
+            destination = assignment[destination_component]
+            if source != destination:
+                grouped_domain_sources.setdefault((source, destination), set()).add(
+                    edge_id
+                )
+                grouped_domain_flows.setdefault((source, destination), []).extend(
+                    flow_ids
+                )
+    else:
+        for flow_id, source_component, destination_component in DOMAIN_EVENT_FLOWS:
+            source = assignment[source_component]
+            destination = assignment[destination_component]
+            if source != destination:
+                grouped_domain_sources.setdefault((source, destination), set()).add(
+                    source_component
+                )
+                grouped_domain_flows.setdefault((source, destination), []).append(
+                    flow_id
+                )
     for (source, destination), source_components in sorted(
         grouped_domain_sources.items()
     ):
@@ -235,7 +331,9 @@ def expected_route_owners(
             source,
             destination,
             tuple(sorted(source_components)),
-            tuple(grouped_domain_flows[(source, destination)]),
+            tuple(sorted(set(grouped_domain_flows[(source, destination)])))
+            if uses_event_layer
+            else tuple(grouped_domain_flows[(source, destination)]),
         )
     add(
         "twin_projection_cross_cloud",
@@ -316,6 +414,7 @@ def evaluate_five_layer_v2_costs(
         logical: Decimal(0) for logical in assignment
     }
     component_owner_totals: dict[str, Decimal] = {}
+    uses_event_layer = "component.eventing" in assignment
     for quote in component_quotes:
         component_id = str(quote["component_id"])
         selection = expected_components[component_id]
@@ -327,6 +426,12 @@ def evaluate_five_layer_v2_costs(
             or quote.get("formula_reference") != FORMULA_REF
             or quote.get("pricing_evidence_digest")
             != pricing_evidence[selection["provider"]]
+            or (
+                uses_event_layer
+                and component_id in SIX_LAYER_EVENT_COMPONENT_IDS
+                and quote.get("topology_cost_registry_digest")
+                != SIX_LAYER_TOPOLOGY_COST_REGISTRY_DIGEST
+            )
         ):
             raise ArchitectureResolutionError(
                 "ARCH_PRICING_EVIDENCE_MISSING",
@@ -365,7 +470,14 @@ def evaluate_five_layer_v2_costs(
             "costLedger.routeCosts",
             "Route cost ledger must cover every selected cross-provider owner exactly once",
         )
-    edge_totals = {edge_id: Decimal(0) for edge_id in PROFILE_EDGE_IDS}
+    edge_totals = {
+        edge_id: Decimal(0)
+        for edge_id in (
+            SIX_LAYER_EDGE_IDS
+            if "component.eventing" in assignment
+            else PROFILE_EDGE_IDS
+        )
+    }
     route_owner_totals: dict[str, Decimal] = {}
     for quote in route_quotes:
         owner_id = str(quote["cost_owner_id"])
@@ -392,6 +504,12 @@ def evaluate_five_layer_v2_costs(
                     expected.destination_provider
                 ],
             }
+            or (
+                uses_event_layer
+                and expected.route_class == "domain_event_cross_cloud"
+                and quote.get("topology_cost_registry_digest")
+                != SIX_LAYER_TOPOLOGY_COST_REGISTRY_DIGEST
+            )
             or len(allocation_ids) != len(set(allocation_ids))
             or set(allocation_ids) != set(expected.allocation_item_ids)
         ):

@@ -267,7 +267,7 @@ def _edge_incompatibility(
             for item in compatibility["architecture_profile_versions"]
         }
         or not required_profiles.issubset(compatible_profiles)
-        or f"resolved-deployment-specification.v{context.profile_ref.profile_version}"
+        or _deployment_specification_version(context)
         not in compatibility["deployment_specification_versions"]
     ):
         return "ARCH_EDGE_IMPLEMENTATION_MISSING"
@@ -305,6 +305,20 @@ def _edge_incompatibility(
     ):
         return "ARCH_EDGE_IMPLEMENTATION_MISSING"
     return None
+
+
+def _deployment_specification_version(
+    context: ArchitectureResolutionContext,
+) -> str:
+    return (
+        "resolved-deployment-specification.v2"
+        if (
+            context.profile_ref.profile_id,
+            context.profile_ref.profile_version,
+        )
+        == ("six-layer-eventing", "1")
+        else f"resolved-deployment-specification.v{context.profile_ref.profile_version}"
+    )
 
 
 def _edge_ports_are_compatible(

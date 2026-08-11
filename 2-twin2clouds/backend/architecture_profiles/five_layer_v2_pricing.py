@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
 from functools import lru_cache
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Mapping
@@ -18,6 +19,7 @@ from jsonschema import Draft202012Validator
 from .diagnostics import ArchitectureResolutionError
 from .five_layer_v2_costing import (
     FORMULA_REF,
+    SIX_LAYER_EVENT_COMPONENT_IDS,
     ExpectedRouteOwner,
     expected_route_owners,
     selection_digest,
@@ -38,6 +40,14 @@ _RATE_CARD_SCHEMA = (
     Path(__file__).resolve().parents[2]
     / "pricing_registry"
     / "five_layer_v2_rate_card.schema.json"
+)
+_SIX_LAYER_COST_REGISTRY = (
+    Path(__file__).resolve().parents[1]
+    / "contracts"
+    / "generated"
+    / "architecture-profiles"
+    / "definitions"
+    / "six-layer-eventing-v1-cost-registry.json"
 )
 
 
@@ -75,6 +85,92 @@ def _decimal_text(value: Decimal) -> str:
 def _only_keys(value: Mapping[str, Any], keys: set[str], field: str) -> None:
     if set(value) != keys:
         _fail(field, f"Expected exactly {sorted(keys)}")
+
+
+def _canonical_digest(value: object) -> str:
+    rendered = json.dumps(
+        value,
+        ensure_ascii=True,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return f"sha256:{hashlib.sha256(rendered.encode()).hexdigest()}"
+
+
+@lru_cache(maxsize=1)
+def _six_layer_cost_registry() -> Mapping[str, Any]:
+    try:
+        registry = json.loads(_SIX_LAYER_COST_REGISTRY.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Six-layer Eventing cost registry is unavailable") from exc
+    if not isinstance(registry, dict):
+        raise RuntimeError("Six-layer Eventing cost registry must be an object")
+    supplied = registry.pop("content_digest", None)
+    if (
+        registry.get("schema_version")
+        != "six-layer-eventing-topology-cost-registry.v1"
+        or registry.get("currency") != "USD"
+        or supplied != _canonical_digest(registry)
+    ):
+        raise RuntimeError("Six-layer Eventing cost registry digest drifted")
+    registry["content_digest"] = supplied
+    return registry
+
+
+def _six_layer_topology_costs(
+    assignment: Mapping[str, str],
+    workload: ResolvedFiveLayerV2Workload,
+) -> tuple[dict[str, Decimal], dict[str, Decimal], str]:
+    registry = _six_layer_cost_registry()
+    scenario = next(
+        (
+            item
+            for item in registry["scenarios"]
+            if item["scenario_id"] == workload.eventing_scenario_ref["id"]
+        ),
+        None,
+    )
+    placement = (
+        next(
+            (
+                item
+                for item in scenario["placements"]
+                if item["ingestion_provider"] == assignment["component.ingestion"]
+                and item["eventing_provider"] == assignment["component.eventing"]
+                and item["processing_provider"]
+                == assignment["component.processing"]
+            ),
+            None,
+        )
+        if isinstance(scenario, Mapping)
+        else None
+    )
+    if not isinstance(placement, Mapping):
+        _fail("eventingTopology", "Frozen Eventing topology cost is unavailable")
+    component_costs = {
+        str(item["implementation_component_id"]): _decimal(
+            item["monthly_amount_usd"],
+            "eventingTopology.componentCosts",
+        )
+        for item in placement["component_costs"]
+    }
+    route_costs = {
+        str(item["edge_id"]): _decimal(
+            item["monthly_transfer_amount_usd"],
+            "eventingTopology.routeTransferCosts",
+        )
+        for item in placement["route_transfer_costs"]
+    }
+    allocated = sum(component_costs.values(), Decimal(0)) + sum(
+        route_costs.values(), Decimal(0)
+    )
+    if allocated != _decimal(
+        placement["event_scope_total_usd"],
+        "eventingTopology.eventScopeTotal",
+    ):
+        _fail("eventingTopology", "Frozen Eventing topology cost does not reconcile")
+    return component_costs, route_costs, str(registry["content_digest"])
 
 
 @lru_cache(maxsize=1)
@@ -348,17 +444,17 @@ def _route_dimensions(
         Decimal(int(core["numberOfDevices"])) * month_seconds / interval_seconds
     ).to_integral_value(rounding=ROUND_CEILING)
     payload_bytes = Decimal(str(core["averageSizeOfMessageInKb"])) * 1024
-    event_attempts = (
-        Decimal(int(scenario["events_per_month"]))
-        * (
-            Decimal(1)
-            + Decimal(str(scenario["retry_share"]))
-            + Decimal(str(scenario["replay_share"]))
-        )
-    ).to_integral_value(rounding=ROUND_CEILING)
     if route.route_class == "domain_event_cross_cloud":
-        operations = event_attempts * len(route.domain_flow_ids)
-        egress_bytes = operations * int(scenario["average_event_payload_bytes"])
+        channel_quantities = _domain_event_channel_quantities(scenario)
+        try:
+            selected = [
+                channel_quantities[flow_id.split(":", 1)[0]]
+                for flow_id in route.domain_flow_ids
+            ]
+        except KeyError as exc:
+            _fail(route.cost_owner_id, f"Unknown domain-event flow {exc.args[0]}")
+        operations = sum((item[0] for item in selected), Decimal(0))
+        egress_bytes = sum((item[0] * item[1] for item in selected), Decimal(0))
     elif route.route_class == "twin_projection_cross_cloud":
         operations = (
             (
@@ -386,6 +482,60 @@ def _route_dimensions(
             egress_bytes,
             _ROUTE_UNITS["cross_cloud_egress_bytes"],
         ),
+    }
+
+
+def _domain_event_channel_quantities(
+    scenario: Mapping[str, Any],
+) -> dict[str, tuple[Decimal, Decimal]]:
+    """Return the frozen one-copy bridge attempts and canonical envelope bytes.
+
+    Cross-cloud transport lands one copy per remote consumer provider. Fan-out to
+    colocated consumers happens after landing, matching the reviewed Phase 8.10
+    bridge evidence rather than multiplying by the Event-Layer consumer count.
+    """
+
+    events = Decimal(int(scenario["events_per_month"]))
+    matches = events * Decimal(str(scenario["rule_match_share"]))
+    workflows = matches * Decimal(
+        str(scenario["workflow_start_share_of_matches"])
+    )
+    commands = matches * Decimal(str(scenario["device_command_share_of_matches"]))
+    publishes = {
+        "telemetry.received.v1": events,
+        "telemetry.processed.v1": events,
+        "event.matched.v1": matches,
+        "notification.requested.v1": workflows,
+        "device.command.requested.v1": commands,
+        "extension.action.outcome.v1": matches,
+        "notification.workflow.outcome.v1": workflows,
+        "device.command.outcome.v1": commands,
+    }
+    if any(value != value.to_integral_value() for value in publishes.values()):
+        _fail("eventingScenario", "Domain-event channel count is fractional")
+    retry_share = Decimal(str(scenario["retry_share"]))
+    replay_share = Decimal(str(scenario["replay_share"]))
+    attempts = {
+        channel_id: count
+        + (count * retry_share).to_integral_value(rounding=ROUND_CEILING)
+        + (count * replay_share).to_integral_value(rounding=ROUND_CEILING)
+        for channel_id, count in publishes.items()
+    }
+    envelope_bytes = Decimal(1024)
+    telemetry_bytes = Decimal(int(scenario["average_event_payload_bytes"]))
+    canonical_bytes = {
+        "telemetry.received.v1": telemetry_bytes + envelope_bytes,
+        "telemetry.processed.v1": telemetry_bytes + envelope_bytes,
+        "event.matched.v1": Decimal(1024) + envelope_bytes,
+        "notification.requested.v1": Decimal(1024) + envelope_bytes,
+        "device.command.requested.v1": Decimal(1024) + envelope_bytes,
+        "extension.action.outcome.v1": Decimal(512) + envelope_bytes,
+        "notification.workflow.outcome.v1": Decimal(512) + envelope_bytes,
+        "device.command.outcome.v1": Decimal(512) + envelope_bytes,
+    }
+    return {
+        channel_id: (attempts[channel_id], canonical_bytes[channel_id])
+        for channel_id in publishes
     }
 
 
@@ -473,64 +623,126 @@ class FiveLayerV2CatalogCostLedgerResolver:
                 f"pricing.{RATE_CARD_KEY}.currencyConversions.{currency}",
                 "Provider rate cards disagree on the pinned currency conversion",
             )
+        architecture_profile_ref = specification["architecture_profile_ref"]
+        six_layer = (
+            architecture_profile_ref.get("id") == "six-layer-eventing"
+            and architecture_profile_ref.get("version") == "1"
+        )
+        topology_component_costs: dict[str, Decimal] = {}
+        topology_route_costs: dict[str, Decimal] = {}
+        topology_registry_digest: str | None = None
+        if six_layer:
+            (
+                topology_component_costs,
+                topology_route_costs,
+                topology_registry_digest,
+            ) = _six_layer_topology_costs(assignment, workload)
+            selected_component_ids = {
+                str(item["implementation_component_id"])
+                for item in specification["component_selections"]
+            }
+            if not set(topology_component_costs).issubset(selected_component_ids):
+                _fail(
+                    "eventingTopology.componentCosts",
+                    "Frozen Eventing cost names an unselected component",
+                )
         component_costs = []
         for selection in specification["component_selections"]:
             provider = str(selection["provider"])
             component_id = str(selection["implementation_component_id"])
+            frozen_event_cost = (
+                topology_component_costs.get(component_id, Decimal(0))
+                if six_layer and component_id in SIX_LAYER_EVENT_COMPONENT_IDS
+                else None
+            )
             amount = (
-                _price_component(cards[provider], selection, provider=provider)
+                frozen_event_cost * currency_rates[provider]
+                if frozen_event_cost is not None
+                else _price_component(cards[provider], selection, provider=provider)
                 * currency_rates[provider]
             )
-            component_costs.append(
-                {
-                    "component_id": component_id,
-                    "cost_owner_id": f"cost::{component_id}",
-                    "selection_digest": selection_digest(selection),
-                    "formula_reference": FORMULA_REF,
-                    "pricing_evidence_digest": evidence[provider],
-                    "monthly_amount": _decimal_text(amount),
-                }
-            )
+            quote = {
+                "component_id": component_id,
+                "cost_owner_id": f"cost::{component_id}",
+                "selection_digest": selection_digest(selection),
+                "formula_reference": FORMULA_REF,
+                "pricing_evidence_digest": evidence[provider],
+                "monthly_amount": _decimal_text(amount),
+            }
+            if frozen_event_cost is not None:
+                quote["topology_cost_registry_digest"] = topology_registry_digest
+            component_costs.append(quote)
         route_costs = []
         for route in expected_route_owners(assignment, workload):
             dimensions = _route_dimensions(route, workload)
-            amount = (
-                _price_route_role(
-                    cards[route.source_provider],
-                    route,
-                    dimensions,
-                    provider=route.source_provider,
-                    role="source",
-                )
-                * currency_rates[route.source_provider]
-                + _price_route_role(
-                    cards[route.destination_provider],
-                    route,
-                    dimensions,
-                    provider=route.destination_provider,
-                    role="destination",
-                )
-                * currency_rates[route.destination_provider]
-            )
-            route_costs.append(
-                {
-                    "cost_owner_id": route.cost_owner_id,
-                    "route_class": route.route_class,
-                    "pair": route.pair,
-                    "domain_flow_ids": list(route.domain_flow_ids),
-                    "workload_digest": route.workload_digest,
-                    "formula_reference": FORMULA_REF,
-                    "pricing_evidence_digests": {
-                        "source": evidence[route.source_provider],
-                        "destination": evidence[route.destination_provider],
-                    },
-                    "monthly_amount": _decimal_text(amount),
-                    "allocations": _allocate(
-                        amount,
-                        route.allocation_item_ids,
+            frozen_route_cost = (
+                sum(
+                    (
+                        topology_route_costs.get(item_id, Decimal(0))
+                        for item_id in route.allocation_item_ids
                     ),
-                }
+                    Decimal(0),
+                )
+                if six_layer and route.route_class == "domain_event_cross_cloud"
+                else None
             )
+            amount = (
+                frozen_route_cost * currency_rates[route.source_provider]
+                if frozen_route_cost is not None
+                else (
+                    _price_route_role(
+                        cards[route.source_provider],
+                        route,
+                        dimensions,
+                        provider=route.source_provider,
+                        role="source",
+                    )
+                    * currency_rates[route.source_provider]
+                    + _price_route_role(
+                        cards[route.destination_provider],
+                        route,
+                        dimensions,
+                        provider=route.destination_provider,
+                        role="destination",
+                    )
+                    * currency_rates[route.destination_provider]
+                )
+            )
+            allocations = (
+                [
+                    {
+                        "item_id": item_id,
+                        "monthly_amount": _decimal_text(
+                            topology_route_costs.get(item_id, Decimal(0))
+                            * currency_rates[route.source_provider]
+                        ),
+                    }
+                    for item_id in route.allocation_item_ids
+                ]
+                if frozen_route_cost is not None
+                else _allocate(amount, route.allocation_item_ids)
+            )
+            quote = {
+                "cost_owner_id": route.cost_owner_id,
+                "route_class": route.route_class,
+                "pair": route.pair,
+                "domain_flow_ids": list(route.domain_flow_ids),
+                "workload_digest": route.workload_digest,
+                "formula_reference": FORMULA_REF,
+                "normalized_quantities": {
+                    dimension_id: _decimal_text(quantity)
+                    for dimension_id, (quantity, _unit) in dimensions.items()
+                },
+                "pricing_evidence_digests": {
+                    "source": evidence[route.source_provider],
+                    "destination": evidence[route.destination_provider],
+                },
+                "monthly_amount": _decimal_text(amount),
+                "allocations": allocations,
+            }
+            if frozen_route_cost is not None:
+                quote["topology_cost_registry_digest"] = topology_registry_digest
+            route_costs.append(quote)
         return {
             "schema_version": "five-layer-v2-cost-ledger.v1",
             "currency": currency,

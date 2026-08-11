@@ -168,7 +168,15 @@ def validate_architecture_strategy_readiness(
 def _build_strategy_registry(
     profile: Mapping[str, Any],
 ) -> ArchitectureStrategyRegistry:
-    if str(profile.get("profile_version")) == "2":
+    profile_ref = (
+        str(profile.get("profile_id")),
+        str(profile.get("profile_version")),
+    )
+    if profile_ref == ("six-layer-eventing", "1"):
+        from .six_layer_strategy import SixLayerEventingV1CandidateStrategy
+
+        strategy = SixLayerEventingV1CandidateStrategy(profile)
+    elif profile_ref == ("five-layer-baseline", "2"):
         from .five_layer_v2_strategy import FiveLayerV2CandidateStrategy
 
         strategy = FiveLayerV2CandidateStrategy(profile)

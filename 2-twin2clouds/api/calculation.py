@@ -38,6 +38,10 @@ from backend.architecture_profiles.five_layer_v2_optimizer import (
     FiveLayerV2OptimizationResult,
     optimize_five_layer_v2,
 )
+from backend.architecture_profiles.six_layer_optimizer import (
+    SixLayerEventingV1OptimizationResult,
+    optimize_six_layer_eventing_v1,
+)
 from backend.architecture_profiles.five_layer_v2_workload import (
     resolve_five_layer_v2_workload,
 )
@@ -376,7 +380,7 @@ class CalcParams(BaseModel):
 
 
 class FiveLayerV2CalcParams(BaseModel):
-    """Closed-world request contract for ``five-layer-baseline@2``."""
+    """Closed-world workload-v2 request for active Five- or Six-layer profiles."""
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
@@ -728,7 +732,22 @@ def _calculate_five_layer_v2(
         }
         for provider, reference in resolved_catalogs.context.catalogs.items()
     }
-    optimized = optimize_five_layer_v2(
+    optimization = (
+        optimize_six_layer_eventing_v1
+        if params.architectureProfile.profileId == "six-layer-eventing"
+        and params.architectureProfile.profileVersion == "1"
+        else optimize_five_layer_v2
+        if params.architectureProfile.profileId == "five-layer-baseline"
+        and params.architectureProfile.profileVersion == "2"
+        else None
+    )
+    if optimization is None:
+        raise ArchitectureResolutionError(
+            "ARCH_PROFILE_NOT_FOUND",
+            "architectureProfile",
+            "Workload v2 supports only the active Five-layer v2 or Six-layer v1 profile",
+        )
+    optimized = optimization(
         calculation_run_id=str(params.calculationRunId),
         architecture_profile=params.architectureProfile.model_dump(),
         extension_bindings=[item.model_dump() for item in params.extensionBindings],
@@ -742,7 +761,7 @@ def _calculate_five_layer_v2(
 
 def _five_layer_v2_http_result(
     params: FiveLayerV2CalcParams,
-    optimized: FiveLayerV2OptimizationResult,
+    optimized: FiveLayerV2OptimizationResult | SixLayerEventingV1OptimizationResult,
 ) -> dict[str, object]:
     assignments = {
         item["logical_component_id"]: item["provider"]
@@ -760,6 +779,10 @@ def _five_layer_v2_http_result(
         "L4": provider_label[assignments["component.twin-state"]],
         "L5": provider_label[assignments["component.visualization"]],
     }
+    if "component.eventing" in assignments:
+        calculation_result["Eventing"] = provider_label[
+            assignments["component.eventing"]
+        ]
     cheapest_path = [
         f"L1_{calculation_result['L1']}",
         f"L2_{calculation_result['L2']}",
@@ -769,6 +792,8 @@ def _five_layer_v2_http_result(
         f"L4_{calculation_result['L4']}",
         f"L5_{calculation_result['L5']}",
     ]
+    if "Eventing" in calculation_result:
+        cheapest_path.append(f"Eventing_{calculation_result['Eventing']}")
     provider_pricing_contexts = params.providerPricingContexts.model_dump(mode="json")
     aws_twinmaker = provider_pricing_contexts["awsTwinMaker"]
     if calculation_result["L4"] == "AWS" and aws_twinmaker["status"] == "available":
@@ -828,6 +853,7 @@ def _resolve_architecture_context(params: CalculationParams):
         )
     return build_resolution_context(
         registry=ArchitectureProfileRegistry(
+            profile_id=params.architectureProfile.profileId,
             profile_version=params.architectureProfile.profileVersion
         ),
         calculation_run_id=str(params.calculationRunId),

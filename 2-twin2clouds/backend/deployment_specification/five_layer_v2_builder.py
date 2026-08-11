@@ -41,6 +41,7 @@ LOGICAL_COMPONENTS = (
     "component.twin-state",
     "component.visualization",
 )
+SIX_LAYER_LOGICAL_COMPONENTS = (*LOGICAL_COMPONENTS, "component.eventing")
 LOGICAL_TO_LAYER = {
     "component.ingestion": "l1_acquisition",
     "component.processing": "l2_processing",
@@ -62,6 +63,70 @@ _AZURE_COSMOS_AUTOSCALE_RU_INCREMENT = Decimal("1000")
 _AZURE_COSMOS_WRITE_RU_PROXY = Decimal("10")
 _AZURE_COSMOS_READ_RU_PROXY = Decimal("1")
 _GIB_BYTES = Decimal("1073741824")
+_EVENT_DELIVERY = {
+    "small": {
+        "requests": 403406,
+        "aws_gib_seconds": "5042.575",
+        "azure_execution_seconds": 403406,
+        "gcp_vcpu_seconds": "6736.8802",
+        "gcp_memory_gib_seconds": "10085.15",
+    },
+    "medium": {
+        "requests": 40904500,
+        "aws_gib_seconds": "511306.25",
+        "azure_execution_seconds": 40904500,
+        "gcp_vcpu_seconds": "683105.15",
+        "gcp_memory_gib_seconds": "1022612.5",
+    },
+    "large": {
+        "requests": 621090000,
+        "aws_gib_seconds": "7763625",
+        "azure_execution_seconds": 621090000,
+        "gcp_vcpu_seconds": "51603",
+        "gcp_memory_gib_seconds": "77250",
+        "gcp_worker_count": 126,
+        "gcp_worker_vcpu_seconds": "331128000",
+        "gcp_worker_memory_gib_seconds": "165564000",
+    },
+}
+_EVENT_CONTROL = {
+    "small": {
+        "publishes": 3000,
+        "publish_bytes": 5376000,
+        "delivery_attempts": 3006,
+        "sqs_requests": 9018,
+        "azure_operations": 12018,
+    },
+    "medium": {
+        "publishes": 300000,
+        "publish_bytes": 537600000,
+        "delivery_attempts": 304500,
+        "sqs_requests": 913500,
+        "azure_operations": 1213500,
+    },
+    "large": {
+        "publishes": 3000000,
+        "publish_bytes": 5376000000,
+        "delivery_attempts": 3090000,
+        "sqs_requests": 9270000,
+        "azure_operations": 12270000,
+    },
+}
+_EVENT_FAILURE_STORE_GIB_MONTH = {
+    "small": "0.000006733150684931506849315068493",
+    "medium": "0.08012449315068493150684931507",
+    "large": "9.190750684931506849315068493",
+}
+_EVENT_LOG_BYTES = {
+    "small": 5582848,
+    "medium": 946843648,
+    "large": 16069632000,
+}
+_GCP_EVENT_BYTES = {
+    "small": (1029376000, 2055434752),
+    "medium": (348697600000, 707310464000),
+    "large": (13317376000000, 41139617280000),
+}
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -201,9 +266,13 @@ def _dimension_value(
     fixed: Mapping[str, Any],
     *,
     azure_large_autoscale_ru_per_second: int | None,
+    gcp_event_worker_count: int,
 ) -> tuple[str | int, str]:
     workload = resolved.workload
     event = resolved.eventing_scenario
+    six_layer_event_component = logical == "component.eventing"
+    event_delivery = _EVENT_DELIVERY[resolved.size]
+    event_control = _EVENT_CONTROL[resolved.size]
     derived = _scenario_capacity(registry, resolved.size)["derived"]
     month_seconds = Decimal("2592000")
     interval_seconds = Decimal(str(workload["deviceSendingIntervalInMinutes"])) * 60
@@ -282,6 +351,9 @@ def _dimension_value(
         ),
         "gcp.firestore-native-standard-bounded-twin": _decimal_text(twin_storage_gib),
         "gcp.persistent-disk-rwo": str(fixed["gcp_grafana_persistent_disk_gib"]),
+        "aws.s3-event-failure-store": _EVENT_FAILURE_STORE_GIB_MONTH[
+            resolved.size
+        ],
     }.get(
         component_id,
         {
@@ -363,7 +435,9 @@ def _dimension_value(
     }
     if dimension_id == "resource_count":
         count = (
-            {"small": 3, "medium": 3, "large": 12}[resolved.size]
+            gcp_event_worker_count
+            if component_id == "gcp.cloud-run-worker-pool-fixed-large"
+            else {"small": 3, "medium": 3, "large": 12}[resolved.size]
             if "bifromq" in component_id
             else 1
         )
@@ -431,11 +505,44 @@ def _dimension_value(
             if component_id == "gcp.firestore-native-standard-bounded-twin"
             else int(derived["firestore_timestamp_shards"])
         ),
-        "requests": request_count,
-        "gib_seconds": str(Decimal(request_count) * Decimal("0.125")),
-        "execution_seconds": request_count,
-        "vcpu_seconds": request_count,
-        "memory_gib_seconds": str(Decimal(request_count) * Decimal("0.5")),
+        "requests": (
+            0
+            if component_id == "gcp.cloud-run-worker-pool-fixed-large"
+            else int(event_delivery["requests"])
+            if component_id
+            in {
+                "aws.lambda-event-worker",
+                "azure.functions-flex-event-worker",
+                "gcp.cloud-run-event-service-small-medium",
+            }
+            else int(event_control["sqs_requests"])
+            if six_layer_event_component and component_id == "aws.sqs-fifo"
+            else request_count
+        ),
+        "gib_seconds": (
+            str(event_delivery["aws_gib_seconds"])
+            if component_id == "aws.lambda-event-worker"
+            else str(Decimal(request_count) * Decimal("0.125"))
+        ),
+        "execution_seconds": (
+            int(event_delivery["azure_execution_seconds"])
+            if component_id == "azure.functions-flex-event-worker"
+            else request_count
+        ),
+        "vcpu_seconds": (
+            str(Decimal(gcp_event_worker_count) * Decimal("2628000"))
+            if component_id == "gcp.cloud-run-worker-pool-fixed-large"
+            else str(event_delivery["gcp_vcpu_seconds"])
+            if component_id == "gcp.cloud-run-event-service-small-medium"
+            else request_count
+        ),
+        "memory_gib_seconds": (
+            str(Decimal(gcp_event_worker_count) * Decimal("1314000"))
+            if component_id == "gcp.cloud-run-worker-pool-fixed-large"
+            else str(event_delivery["gcp_memory_gib_seconds"])
+            if component_id == "gcp.cloud-run-event-service-small-medium"
+            else str(Decimal(request_count) * Decimal("0.5"))
+        ),
         "workspace_count": 1,
         "editor_seats": int(workload["monthlyEditorSeats"]),
         "viewer_seats": int(workload["monthlyViewerSeats"]),
@@ -475,16 +582,43 @@ def _dimension_value(
             "large": 292000,
         }[resolved.size],
         "payload_units": event_attempts,
-        "publish_bytes": event_bytes,
-        "delivery_bytes": event_bytes * max(1, consumer_count),
-        "publishes": event_attempts,
+        "publish_bytes": (
+            _GCP_EVENT_BYTES[resolved.size][0]
+            if component_id == "gcp.pubsub-separated-event-layer-topics"
+            else event_bytes
+        ),
+        "delivery_bytes": (
+            _GCP_EVENT_BYTES[resolved.size][1]
+            if component_id == "gcp.pubsub-separated-event-layer-topics"
+            else _ceil(
+                Decimal(int(event_control["delivery_attempts"]))
+                * Decimal(int(event_control["publish_bytes"]))
+                / Decimal(int(event_control["publishes"]))
+            )
+            if six_layer_event_component and component_id == "aws.sns-fifo"
+            else event_bytes * max(1, consumer_count)
+        ),
+        "publishes": (
+            int(event_control["publishes"])
+            if six_layer_event_component and component_id == "aws.sns-fifo"
+            else event_attempts
+        ),
         "messaging_unit_hours": 730,
-        "operations": event_attempts,
+        "operations": (
+            int(event_control["azure_operations"])
+            if six_layer_event_component
+            and component_id == "azure.service-bus-standard"
+            else event_attempts
+        ),
         "log_ingestion_gib": str(
-            Decimal(messages + event_attempts) * Decimal("256") / Decimal(1073741824)
+            Decimal(_EVENT_LOG_BYTES[resolved.size]) / _GIB_BYTES
+            if logical == "component.eventing"
+            else Decimal(messages + event_attempts) * Decimal("256") / _GIB_BYTES
         ),
         "retained_log_gib_month": str(
-            Decimal(messages + event_attempts) * Decimal("256") / Decimal(1073741824)
+            Decimal(_EVENT_LOG_BYTES[resolved.size]) / _GIB_BYTES
+            if logical == "component.eventing"
+            else Decimal(messages + event_attempts) * Decimal("256") / _GIB_BYTES
         ),
         "rule_hours": 730,
         "processed_bytes": (
@@ -524,14 +658,22 @@ def _dimension_value(
 def _selected_groups(
     assignment: Mapping[str, str],
     registry: Mapping[str, Any],
+    *,
+    profile_id: str,
+    workload_size: str,
 ) -> list[tuple[str, str, str]]:
-    if set(assignment) != set(LOGICAL_COMPONENTS) or any(
+    logical_components = (
+        SIX_LAYER_LOGICAL_COMPONENTS
+        if profile_id == "six-layer-eventing"
+        else LOGICAL_COMPONENTS
+    )
+    if set(assignment) != set(logical_components) or any(
         provider not in PROVIDERS for provider in assignment.values()
     ):
         raise ArchitectureResolutionError(
             "ARCH_WORKLOAD_INCOMPATIBLE",
             "assignment",
-            "Five-layer v2 assignment must cover every logical component",
+            "Architecture assignment must cover every logical component",
         )
     if assignment["component.hot-storage"] != assignment["component.visualization"]:
         raise ArchitectureResolutionError(
@@ -557,22 +699,70 @@ def _selected_groups(
             logical,
             list(bundle_index[provider]["layers"][LOGICAL_TO_LAYER[logical]]),
         )
-    event_providers = {assignment[item] for item in EVENT_LOGICAL_COMPONENTS}
-    for provider in sorted(event_providers):
-        owner = next(
-            logical
-            for logical in EVENT_LOGICAL_COMPONENTS
-            if assignment[logical] == provider
+    if profile_id == "six-layer-eventing":
+        eventing_provider = assignment["component.eventing"]
+        event_components = list(
+            bundle_index[eventing_provider]["six_layer_event_components"]
         )
-        embedded = list(bundle_index[provider]["embedded_event_components"])
-        if len(event_providers) == 1:
-            embedded = [
-                item for item in embedded if "only-for-reviewed-remote" not in item
+        if eventing_provider == "azure":
+            rejected_tier = (
+                "event-hubs-standard-small-medium"
+                if workload_size == "large"
+                else "event-hubs-dedicated-large"
+            )
+            event_components = [
+                item for item in event_components if rejected_tier not in item
             ]
-        add(provider, owner, embedded)
+        elif eventing_provider == "gcp" and workload_size != "large":
+            event_components = [
+                item for item in event_components if "worker-pool-fixed-large" not in item
+            ]
+        add(eventing_provider, "component.eventing", event_components)
+        if any(
+            assignment[logical] != eventing_provider
+            for logical in ("component.ingestion", "component.processing")
+        ):
+            add(
+                eventing_provider,
+                "component.eventing",
+                [
+                    item
+                    for item in bundle_index[eventing_provider][
+                        "embedded_event_components"
+                    ]
+                    if "event-adapter" in item
+                ],
+            )
+        for logical in ("component.ingestion", "component.processing"):
+            provider = assignment[logical]
+            if provider != eventing_provider:
+                embedded = list(
+                    bundle_index[provider]["embedded_event_components"]
+                )
+                if provider == "gcp" and workload_size == "large":
+                    embedded.append("gcp.cloud-run-worker-pool-fixed-large")
+                add(
+                    provider,
+                    logical,
+                    embedded,
+                )
+    else:
+        event_providers = {assignment[item] for item in EVENT_LOGICAL_COMPONENTS}
+        for provider in sorted(event_providers):
+            owner = next(
+                logical
+                for logical in EVENT_LOGICAL_COMPONENTS
+                if assignment[logical] == provider
+            )
+            embedded = list(bundle_index[provider]["embedded_event_components"])
+            if len(event_providers) == 1:
+                embedded = [
+                    item for item in embedded if "only-for-reviewed-remote" not in item
+                ]
+            add(provider, owner, embedded)
     provider_logicals = {
         provider: [
-            logical for logical in LOGICAL_COMPONENTS if assignment[logical] == provider
+            logical for logical in logical_components if assignment[logical] == provider
         ]
         for provider in PROVIDERS
     }
@@ -656,23 +846,23 @@ def _selected_groups(
                 )
             ],
         )
-    if any(
-        assignment[logical] == "gcp"
+    gcp_container_logicals = tuple(
+        logical
         for logical in (
             "component.ingestion",
             "component.processing",
             "component.twin-state",
             "component.visualization",
+            "component.eventing",
         )
+        if logical in assignment
+    )
+    if any(
+        assignment[logical] == "gcp" for logical in gcp_container_logicals
     ):
         owner = next(
             logical
-            for logical in (
-                "component.ingestion",
-                "component.processing",
-                "component.twin-state",
-                "component.visualization",
-            )
+            for logical in gcp_container_logicals
             if assignment[logical] == "gcp"
         )
         add(
@@ -704,6 +894,74 @@ def build_five_layer_v2_deployment_specification(
 ) -> dict[str, Any]:
     """Build an atomic, deduplicated v2 specification and fail closed."""
 
+    return _build_deployment_specification(
+        calculation_run_id=calculation_run_id,
+        assignment=assignment,
+        resolved_workload=resolved_workload,
+        architecture_profile_ref=architecture_profile_ref,
+        component_catalog_ref=component_catalog_ref,
+        workload_contract_digest=workload_contract_digest,
+        pricing_evidence_digests=pricing_evidence_digests,
+        resolution_status=resolution_status,
+        definition_lifecycle_statuses=definition_lifecycle_statuses,
+        satisfied_live_gate_ids=satisfied_live_gate_ids,
+        azure_large_autoscale_ru_per_second=azure_large_autoscale_ru_per_second,
+        azure_large_autoscale_evidence_digest=azure_large_autoscale_evidence_digest,
+        profile_id="five-layer-baseline",
+    )
+
+
+def build_six_layer_eventing_v1_deployment_specification(
+    *,
+    calculation_run_id: str,
+    assignment: Mapping[str, str],
+    resolved_workload: ResolvedFiveLayerV2Workload,
+    architecture_profile_ref: Mapping[str, str],
+    component_catalog_ref: Mapping[str, str],
+    workload_contract_digest: str,
+    pricing_evidence_digests: Mapping[str, str],
+    resolution_status: str = "offline_contract_fixture",
+    definition_lifecycle_statuses: Mapping[str, str] | None = None,
+    satisfied_live_gate_ids: frozenset[str] = frozenset(),
+    azure_large_autoscale_ru_per_second: int | None = None,
+    azure_large_autoscale_evidence_digest: str | None = None,
+) -> dict[str, Any]:
+    """Build one atomic Six-layer Eventing v1 deployment specification."""
+
+    return _build_deployment_specification(
+        calculation_run_id=calculation_run_id,
+        assignment=assignment,
+        resolved_workload=resolved_workload,
+        architecture_profile_ref=architecture_profile_ref,
+        component_catalog_ref=component_catalog_ref,
+        workload_contract_digest=workload_contract_digest,
+        pricing_evidence_digests=pricing_evidence_digests,
+        resolution_status=resolution_status,
+        definition_lifecycle_statuses=definition_lifecycle_statuses,
+        satisfied_live_gate_ids=satisfied_live_gate_ids,
+        azure_large_autoscale_ru_per_second=azure_large_autoscale_ru_per_second,
+        azure_large_autoscale_evidence_digest=azure_large_autoscale_evidence_digest,
+        profile_id="six-layer-eventing",
+    )
+
+
+def _build_deployment_specification(
+    *,
+    calculation_run_id: str,
+    assignment: Mapping[str, str],
+    resolved_workload: ResolvedFiveLayerV2Workload,
+    architecture_profile_ref: Mapping[str, str],
+    component_catalog_ref: Mapping[str, str],
+    workload_contract_digest: str,
+    pricing_evidence_digests: Mapping[str, str],
+    resolution_status: str,
+    definition_lifecycle_statuses: Mapping[str, str] | None,
+    satisfied_live_gate_ids: frozenset[str],
+    azure_large_autoscale_ru_per_second: int | None,
+    azure_large_autoscale_evidence_digest: str | None,
+    profile_id: str,
+) -> dict[str, Any]:
+
     try:
         UUID(calculation_run_id)
     except (TypeError, ValueError, AttributeError) as exc:
@@ -713,7 +971,12 @@ def build_five_layer_v2_deployment_specification(
             "Calculation run ID must be a UUID",
         ) from exc
     validator, registry, fixed = _contract()
-    selected_groups = _selected_groups(assignment, registry)
+    selected_groups = _selected_groups(
+        assignment,
+        registry,
+        profile_id=profile_id,
+        workload_size=resolved_workload.size,
+    )
     selected_providers = sorted({provider for provider, _, _ in selected_groups})
     uses_azure_large_autoscale = (
         resolved_workload.size == "large"
@@ -759,6 +1022,18 @@ def build_five_layer_v2_deployment_specification(
             "be supplied together",
         )
     component_index = {item["component_id"]: item for item in registry["components"]}
+    gcp_event_worker_count = 0
+    if profile_id == "six-layer-eventing" and resolved_workload.size == "large":
+        eventing_provider = assignment["component.eventing"]
+        if eventing_provider == "gcp":
+            gcp_event_worker_count += (
+                126 if assignment["component.processing"] == "gcp" else 42
+            )
+        else:
+            if assignment["component.ingestion"] == "gcp":
+                gcp_event_worker_count += 21
+            if assignment["component.processing"] == "gcp":
+                gcp_event_worker_count += 21
     selections = []
     bindings = []
     for provider, logical, component_id in selected_groups:
@@ -776,6 +1051,7 @@ def build_five_layer_v2_deployment_specification(
                 azure_large_autoscale_ru_per_second=(
                     azure_large_autoscale_ru_per_second
                 ),
+                gcp_event_worker_count=gcp_event_worker_count,
             )
             classification = _dimension_classification(dimension_id)
             dimension = {
@@ -832,6 +1108,12 @@ def build_five_layer_v2_deployment_specification(
         )
     if assignment["component.twin-state"] == "aws":
         live_blockers.append("gate.live-pricing.aws.twinmaker-account-plan")
+    if (
+        profile_id == "six-layer-eventing"
+        and resolved_workload.size == "large"
+        and assignment["component.eventing"] == "gcp"
+    ):
+        live_blockers.append("gate.live-capacity.gcp.cloud-run-worker-pool-preview")
     missing_azure_large_measurement = uses_azure_large_autoscale and (
         azure_large_autoscale_ru_per_second is None
         or azure_large_autoscale_evidence_digest is None
@@ -858,13 +1140,13 @@ def build_five_layer_v2_deployment_specification(
         raise ArchitectureResolutionError(
             "ARCH_NO_ADMISSIBLE_CANDIDATE",
             "capacity",
-            "Five-layer v2 candidate has unresolved activation or live-capacity gates",
+            "Architecture candidate has unresolved activation or live-capacity gates",
         )
     if resolution_status not in {"offline_contract_fixture", "deployment_ready"}:
         raise ArchitectureResolutionError(
             "ARCH_WORKLOAD_INCOMPATIBLE",
             "resolutionStatus",
-            "Five-layer v2 deployment resolution status is unsupported",
+            "Architecture deployment resolution status is unsupported",
         )
     specification = {
         "schema_version": "resolved-deployment-specification.v2",

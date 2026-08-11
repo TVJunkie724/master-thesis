@@ -20,6 +20,10 @@ BASELINE_LAYER_COMPONENTS: tuple[tuple[str, str, str], ...] = (
     ("L4", "l4_twin_state", "component.twin-state"),
     ("L5", "l5_visualization", "component.visualization"),
 )
+SIX_LAYER_COMPONENTS = (
+    *BASELINE_LAYER_COMPONENTS,
+    ("Eventing", "eventing", "component.eventing"),
+)
 _PROVIDER_ORDER = ("aws", "azure", "gcp")
 _PROVIDER_LABELS = {
     "AWS": "aws",
@@ -94,9 +98,16 @@ def enumerate_component_candidates(
         raise RuntimeError(
             "Architecture execution inputs must be bound before enumeration"
         )
-    expected_slots = tuple(
-        slot_id for _, slot_id, _ in BASELINE_LAYER_COMPONENTS
+    profile_ref = (
+        context.profile_ref.profile_id,
+        context.profile_ref.profile_version,
     )
+    layer_components = (
+        SIX_LAYER_COMPONENTS
+        if profile_ref == ("six-layer-eventing", "1")
+        else BASELINE_LAYER_COMPONENTS
+    )
+    expected_slots = tuple(slot_id for _, slot_id, _ in layer_components)
     if tuple(context.profile["optimization_slot_ids"]) != expected_slots:
         raise ArchitectureResolutionError(
             "ARCH_PROFILE_BUNDLE_INCOMPATIBLE",
@@ -104,7 +115,7 @@ def enumerate_component_candidates(
             "Profile optimization slots differ from the baseline adapter",
         )
     expected_layers = {
-        layer_key for layer_key, _, _ in BASELINE_LAYER_COMPONENTS
+        layer_key for layer_key, _, _ in layer_components
     }
     if set(context.layer_options) != expected_layers:
         raise ArchitectureResolutionError(
@@ -126,7 +137,7 @@ def enumerate_component_candidates(
         for item in context.catalog["components"]
     }
     option_matrix: list[tuple[ComponentOption, ...]] = []
-    for layer_key, slot_id, logical_component_id in BASELINE_LAYER_COMPONENTS:
+    for layer_key, slot_id, logical_component_id in layer_components:
         logical = profile_components.get(logical_component_id)
         if logical is None:
             raise ArchitectureResolutionError(
@@ -167,7 +178,11 @@ def enumerate_component_candidates(
     candidates = []
     for selected in product(*option_matrix):
         if (
-            context.profile_ref.profile_version == "2"
+            profile_ref
+            in {
+                ("five-layer-baseline", "2"),
+                ("six-layer-eventing", "1"),
+            }
             and next(
                 option.provider
                 for option in selected
@@ -325,7 +340,7 @@ def _component_incompatibility(
         for binding in component["deployment_specification_bindings"]
         if binding["slot_id"] in {slot_id, "transition_runtime"}
         and binding["specification_schema_version"]
-        == _deployment_specification_version(architecture_profile_ref[1])
+        == _deployment_specification_version(architecture_profile_ref)
     }
     mapped_bindings = set(mapping["deployment_specification_component_ids"])
     if not mapped_bindings or not mapped_bindings.issubset(catalog_bindings):
@@ -348,7 +363,7 @@ def _component_incompatibility(
             (str(item["id"]), str(item["version"]))
             for item in compatibility["provider_profile_versions"]
         }
-        or _deployment_specification_version(architecture_profile_ref[1])
+        or _deployment_specification_version(architecture_profile_ref)
         not in compatibility["deployment_specification_versions"]
     ):
         return "ARCH_COMPONENT_CANDIDATE_MISSING"
@@ -371,18 +386,37 @@ def _provider_profile_is_compatible(
             for item in compatibility["compatible_catalog_versions"]
         }
         and _deployment_specification_version(
-            context.profile_ref.profile_version
+            (
+                context.profile_ref.profile_id,
+                context.profile_ref.profile_version,
+            )
         )
         in compatibility["compatible_deployment_specification_versions"]
-        and context.profile_ref.profile_version
+        and _resolver_version(context)
         in compatibility["compatible_resolver_versions"]
-        and context.profile_ref.profile_version
+        and _resolver_version(context)
         in compatibility["compatible_runtime_versions"]
     )
 
 
-def _deployment_specification_version(profile_version: str) -> str:
-    return f"resolved-deployment-specification.v{profile_version}"
+def _deployment_specification_version(profile_ref: tuple[str, str]) -> str:
+    return (
+        "resolved-deployment-specification.v2"
+        if profile_ref == ("six-layer-eventing", "1")
+        else f"resolved-deployment-specification.v{profile_ref[1]}"
+    )
+
+
+def _resolver_version(context: ArchitectureResolutionContext) -> str:
+    return (
+        "2"
+        if (
+            context.profile_ref.profile_id,
+            context.profile_ref.profile_version,
+        )
+        == ("six-layer-eventing", "1")
+        else context.profile_ref.profile_version
+    )
 
 
 def _provider_key(label: str) -> str:

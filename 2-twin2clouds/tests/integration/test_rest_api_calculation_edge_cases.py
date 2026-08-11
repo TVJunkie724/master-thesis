@@ -150,6 +150,20 @@ def _five_layer_v2_payload() -> dict:
     }
 
 
+def _six_layer_v1_payload() -> dict:
+    payload = _five_layer_v2_payload()
+    registry = ArchitectureProfileRegistry(
+        profile_id="six-layer-eventing",
+        profile_version="1",
+    )
+    payload["architectureProfile"] = {
+        "profileId": registry.profile["profile_id"],
+        "profileVersion": registry.profile["profile_version"],
+        "contentDigest": registry.profile["content_digest"],
+    }
+    return payload
+
+
 def test_five_layer_v2_request_has_a_distinct_strict_shape():
     payload = _five_layer_v2_payload()
 
@@ -246,6 +260,64 @@ def test_five_layer_v2_api_path_is_active_by_default(
     assert result["optimization_profile_id"] == "cost-minimization-v2"
     assert result["resolvedDeploymentSpecification"]["schema_version"] == (
         "resolved-deployment-specification.v2"
+    )
+    assert optimize.call_args.kwargs["resolution_status"] == (
+        "offline_contract_fixture"
+    )
+
+
+@patch("api.calculation.optimize_six_layer_eventing_v1")
+@patch("api.calculation.PricingCatalogResolver.resolve_context")
+def test_six_layer_v1_api_dispatches_exact_profile_and_exposes_eventing(
+    resolve_catalogs,
+    optimize,
+    monkeypatch,
+):
+    monkeypatch.delenv("ARCHITECTURE_PROFILE_RESOLUTION_ENABLED", raising=False)
+    resolve_catalogs.return_value = _resolved_catalogs({})
+    optimize.return_value = SimpleNamespace(
+        resolved_architecture={
+            "component_assignments": [
+                {"logical_component_id": logical, "provider": "azure"}
+                for logical in (
+                    "component.ingestion",
+                    "component.processing",
+                    "component.hot-storage",
+                    "component.cool-storage",
+                    "component.archive-storage",
+                    "component.twin-state",
+                    "component.visualization",
+                    "component.eventing",
+                )
+            ]
+        },
+        deployment_specification={
+            "schema_version": "resolved-deployment-specification.v2"
+        },
+        cost_evaluation=SimpleNamespace(
+            monthly_total=Decimal("1.5"),
+            currency="USD",
+        ),
+        cost_ledger={
+            "schema_version": "five-layer-v2-cost-ledger.v1",
+            "currency": "USD",
+            "component_costs": [],
+            "route_costs": [],
+        },
+        winning_candidate_id="azure|azure|azure|azure|azure|azure|azure|azure",
+        enumerated_candidate_count=1,
+        costed_candidate_count=1,
+        rejected_by_error_code=(),
+    )
+
+    response = client.put("/calculate", json=_six_layer_v1_payload())
+
+    assert response.status_code == 200
+    result = response.json()["result"]
+    assert result["calculationResult"]["Eventing"] == "Azure"
+    assert result["cheapestPath"][-1] == "Eventing_Azure"
+    assert optimize.call_args.kwargs["architecture_profile"]["profileId"] == (
+        "six-layer-eventing"
     )
     assert optimize.call_args.kwargs["resolution_status"] == (
         "offline_contract_fixture"

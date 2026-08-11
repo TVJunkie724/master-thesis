@@ -19,6 +19,19 @@ SCHEMA_VERSION = "resolved-twin-architecture.v2"
 class FiveLayerV2ResolutionBuilder:
     """Build a v2 resolution only when topology, capacity, and cost agree."""
 
+    def __init__(
+        self,
+        *,
+        expected_profile_id: str = "five-layer-baseline",
+        expected_profile_version: str = "2",
+        profile_label: str = "Five-layer v2",
+    ) -> None:
+        self._expected_profile_ref = (
+            expected_profile_id,
+            expected_profile_version,
+        )
+        self._profile_label = profile_label
+
     def build(
         self,
         *,
@@ -242,8 +255,8 @@ class FiveLayerV2ResolutionBuilder:
             linked_documents=context.linked_documents,
         ).as_dict()
 
-    @staticmethod
     def _validate_inputs(
+        self,
         candidate: CompleteArchitectureCandidate,
         context: ArchitectureResolutionContext,
         specification: Mapping[str, Any],
@@ -260,7 +273,11 @@ class FiveLayerV2ResolutionBuilder:
             ]
         }
         if (
-            context.profile_ref.profile_version != "2"
+            (
+                context.profile_ref.profile_id,
+                context.profile_ref.profile_version,
+            )
+            != self._expected_profile_ref
             or not candidate.completeness.complete
             or specification.get("schema_version")
             != "resolved-deployment-specification.v2"
@@ -281,7 +298,7 @@ class FiveLayerV2ResolutionBuilder:
             raise ArchitectureResolutionError(
                 "ARCH_RESOLUTION_BUILD_FAILED",
                 "winner",
-                "Five-layer v2 resolution evidence does not describe one complete winner",
+                f"{self._profile_label} resolution evidence does not describe one complete winner",
             )
         assignment_ids = {
             f"assignment.{option.logical_component_id.removeprefix('component.')}"
