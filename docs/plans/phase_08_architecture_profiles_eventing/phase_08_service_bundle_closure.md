@@ -1364,6 +1364,8 @@ commands may receive cloud credentials or a live/apply flag.
 | 10 | Cross-provider storage-mover capacity and image-delivery review | Pass on 2026-08-07 with zero unresolved contract findings after exposing exact AWS 1/1/3, Azure 1/4/30, and GCP 1/1/3 `task_count` dimensions, binding CodeBuild/ACR Tasks/Cloud Build publication, and recording the Azure free-credit preflight without adding a local-Docker fallback |
 | 11 | Five-layer v2 shared-contract implementation review across lifecycle/readiness truthfulness, complete atomic-dimension bindings, evidence integrity, all 729 assignments, v1 byte stability, version-aware readers, and generated-copy drift | Pass on 2026-08-04 with zero unresolved findings after keeping all new definitions draft, separating offline fixtures from publishable resolutions, removing invented costs and Cosmos autoscale RU/s, binding every dimension, and validating pricing/scenario/manifest references exactly |
 | 14 | Amazon Managed Grafana v12 access implementation and refreshed JSON API lifecycle evidence | Pass on 2026-08-08 with zero unresolved findings after replacing API keys with bounded service-account automation, adding authenticated datasource health plus raw/rollup probes, requiring explicit built-in-directory invitation intent, and freezing the now-published 1 February 2027 support end |
+| 15 | Five-layer v2 activation audit across contracts, pricing ownership, S/M/L capacity, all nine placements, Management persistence, Deployer packages, Flutter, Demo, compatibility, and current documentation | Findings on 2026-08-11: rollup operation/storage quantities were under-owned, exact decimal/UTC/result invariants needed hardening, Demo mixed legacy and v2 evidence shapes, and current docs blurred the historical generic GCP matrix with the active v2 provider-hosted exception |
+| 16 | Five-layer v2 zero-finding re-review and full safe verification | Pass on 2026-08-11 with zero unresolved findings after the corrections; implementation commit `c5c62324` passed the complete 14-stage credential-free gate with 956 Optimizer, 1,093 Management, 2,207 Deployer, and 884 Flutter tests plus drift, static, security, build, and strict MkDocs checks |
 
 This service/architecture slice adds no new Flutter route, but it does add a
 typed Layer Access section to the existing Twin Overview. Its authoritative
@@ -1510,73 +1512,73 @@ and correlation ID.
       Five-layer v2 publishes new `thesis-demo-v2` artifacts whose inventories
       cover every selected service, role binding, and preflight action, with
       scope gaps documented rather than labelled least-privilege.
-- [ ] `@2` implements mandatory embedded domain behavior without flags.
-- [ ] AWS, Azure, and provider-hosted GCP have complete L1-L5 bundles.
-- [ ] L3-hot-to-L5 raw visualization and L3-hot-to-L4 Twin projection are
+- [x] `@2` implements mandatory embedded domain behavior without flags.
+- [x] AWS, Azure, and provider-hosted GCP have complete L1-L5 bundles.
+- [x] L3-hot-to-L5 raw visualization and L3-hot-to-L4 Twin projection are
       implemented and priced; L4-to-L5 is absent.
-- [ ] The L3-hot/L5 co-location and independent L4 rule is enforced and
+- [x] The L3-hot/L5 co-location and independent L4 rule is enforced and
       explained with all nine placements.
-- [ ] Azure L3 hot remains Cosmos DB; Small/Medium serverless and Large
+- [x] Azure L3 hot remains Cosmos DB; Small/Medium serverless and Large
       calculated autoscale pass RU, storage, partition, and mover proofs.
-- [ ] GCP uses one named Firestore Native database per deployment for the
+- [x] GCP uses one named Firestore Native database per deployment for the
       selected L3/L4 collection groups; the weaker database-wide IAM boundary
       is documented and BigQuery and Spanner are absent.
-- [ ] Firestore timestamp sharding resolves to 1/1/16 for Small/Medium/Large;
+- [x] Firestore timestamp sharding resolves to 1/1/16 for Small/Medium/Large;
       scattered IDs, exact indexes, per-shard pagination, mover partitioning,
       database quota, operations, and gradual-ramp evidence are frozen.
-- [ ] Every provider writes one idempotent hourly rollup per accepted canonical
+- [x] Every provider writes one idempotent hourly rollup per accepted canonical
       record inside its selected L3 service; 30-day aggregate reads are bounded
       to 720 points and derived rollups never enter cool/archive.
-- [ ] GCP Grafana uses the selected/shared GKE cluster without a default
+- [x] GCP Grafana uses the selected/shared GKE cluster without a default
       dedicated node pool.
-- [ ] The signed Infinity plugin artifact, applicable license notice, version,
+- [x] The signed Infinity plugin artifact, applicable license notice, version,
       and digest are frozen, or GCP fails closed pending a new datasource
       decision.
-- [ ] The deprecated JSON API datasource has exact AWS/Azure availability,
+- [x] The deprecated JSON API datasource has exact AWS/Azure availability,
       Grafana-12 compatibility, and 1 February 2027 support-end evidence frozen;
       the runtime gate fails closed when it is absent, incompatible, or past
       that boundary.
-- [ ] Storage uses finite scheduled jobs and deterministic object manifests;
+- [x] Storage uses finite scheduled jobs and deterministic object manifests;
       unproven CDC/outbox/broker pipelines are absent.
-- [ ] All six event routes and all twelve storage stage routes use the six
+- [x] All six event routes and all twelve storage stage routes use the six
       reviewed short-lived identity directions.
-- [ ] Same-provider paths create no cross-cloud route.
-- [ ] GCP Grafana has an exact TLS LoadBalancer, source-range allowlist,
+- [x] Same-provider paths create no cross-cloud route.
+- [x] GCP Grafana has an exact TLS LoadBalancer, source-range allowlist,
       generated human Viewer credential, endpoint output, and certificate
       evidence; its internal Admin and reader secrets are never returned.
-- [ ] Every one of the nine placements returns one typed, usable L4 browser
+- [x] Every one of the nine placements returns one typed, usable L4 browser
       surface and one typed, usable L5 browser surface with independent
       interactive identity/readiness evidence.
-- [ ] AWS TwinMaker, Azure Digital Twins Explorer, and the GCP Twin Explorer
+- [x] AWS TwinMaker, Azure Digital Twins Explorer, and the GCP Twin Explorer
       expose deterministic semantic content; every Grafana exposes the same
       logical raw/rollup dashboard.
-- [ ] Missing deployment access starts the guided bootstrap and produces a
+- [x] Missing deployment access starts the guided bootstrap and produces a
       validated bounded CloudConnection; it never requires the user to build
       bounded deployment credentials manually. Five-layer v2 requires the
       exact `thesis-demo-v2` version/digest and rejects a v1 connection as
       outdated without silently upgrading it.
-- [ ] Bootstrap-secret release, provider expiry, disposable provider-side
+- [x] Bootstrap-secret release, provider expiry, disposable provider-side
       revocation/manual cleanup, and existing user-owned non-revocation are
       distinct truthful states, and no bootstrap secret crosses into a
       deployment package.
-- [ ] The configuration workspace blocks on missing AWS L4 Identity Center
+- [x] The configuration workspace blocks on missing AWS L4 Identity Center
       organization-instance, Azure Entra principal/role-assignment, GCP IAP,
       quota, billing, or organization-policy prerequisites without asking for
       browser passwords; recheck uses the generated CloudConnection.
-- [ ] The fixed monthly L4 inspection reads, seed operations, interactive
+- [x] The fixed monthly L4 inspection reads, seed operations, interactive
       bindings, mandatory human seat, and GCP Explorer runtime are costed once.
-- [ ] Raw telemetry, materialized Twin state, and relationships retain distinct
+- [x] Raw telemetry, materialized Twin state, and relationships retain distinct
       ownership and update rates.
-- [ ] Twin entities, dashboard traffic, and seats are separate; scene/3D fields
+- [x] Twin entities, dashboard traffic, and seats are separate; scene/3D fields
       are rejected for v2.
-- [ ] Each new-profile run resolves one immutable Eventing scenario reference;
+- [x] Each new-profile run resolves one immutable Eventing scenario reference;
       Flutter/callers cannot edit or duplicate its canonical fields.
 - [ ] Both scenario families pass theoretical Small/Medium/Large admission or
       return an explicit unsupported result.
 - [x] Live uncertainty remains visible and no offline check claims live proof.
-- [ ] Optimizer, Management, Deployer, Terraform, Flutter, research, and MkDocs
+- [x] Optimizer, Management, Deployer, Terraform, Flutter, research, and MkDocs
       responsibilities agree.
 - [ ] 8.9A uses a clean branch, commits, and review cycle; 8.9B starts only from
       its reviewed digest under the separate v2 plan.
-- [ ] Two fresh reviews find zero unresolved findings.
-- [ ] This corrected planning boundary is committed before implementation.
+- [x] Two fresh reviews find zero unresolved findings.
+- [x] This corrected planning boundary is committed before implementation.

@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Mini-Roadmap"
 description: "Ordered implementation roadmap for closed-world Twin architecture profiles, the hardened five-layer baseline, and the bounded Eventing extension."
 tags: [architecture, eventing, roadmap, optimizer, deployer, management-api, flutter, thesis]
 lastUpdated: "2026-08-11"
-version: "3.4"
+version: "3.5"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "3.4"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
 - GitHub issues #112, #113, #138, #139, #140, #142, #144, #146, #148, #149, #150, #151, #152, #153, #154, and #155
 - User-approved closed-world profile, baseline-first, Eventing-gate, documentation, and E2E boundaries
-EXTRACTED: 2026-08-11 | VERSION: 3.4
+EXTRACTED: 2026-08-11 | VERSION: 3.5
 -->
 
 # Phase 8 Architecture Profiles And Eventing Mini-Roadmap
@@ -25,7 +25,7 @@ EXTRACTED: 2026-08-11 | VERSION: 3.4
 | Parent issue | [#112](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Base branch | `master` |
 | Planning branch | `codex/phase-8-service-bundle-closure` |
-| Status | Phases 8.0-8.8 and guided bootstrap are closed offline; Five-layer v2 is active for offline selection/evaluation with deployment blocked by explicit live-capacity gates; final zero-finding activation review precedes Six-layer |
+| Status | Phases 8.0-8.8, guided bootstrap, and Five-layer v2 / 8.9A are closed locally with zero unresolved findings; deployment remains blocked by explicit supervised live-capacity gates; Six-layer / 8.9B is next |
 | Final live E2E | Deliberately deferred and not part of the default gates |
 
 ## Purpose
@@ -154,8 +154,8 @@ component catalog entries still own the exact executable resource mapping.
 | 8.7 | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | [`phase_08_7_flutter_profile_workflow.md`](phase_08_7_flutter_profile_workflow.md) | Implemented and zero-finding reviewed locally: strict empty/historical catalog boundary, revisioned profile workflow, responsive typed graph, and generic resolved review | #152 |
 | 8.8 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | [`phase_08_8_eventing_decision_gate.md`](phase_08_8_eventing_decision_gate.md) | Approved offline package: shared domain flow, six provider bundles, exact bridge, S/M/L costs, implementation manifest, and two zero-finding reviews | None for offline evidence; #152/#138 still gate 8.9A |
 | Guided bootstrap closure | [#154 Implement guided cloud access bootstrap for bounded deployment identities](https://github.com/TVJunkie724/master-thesis/issues/154) | [`phase_08_guided_cloud_bootstrap.md`](phase_08_guided_cloud_bootstrap.md) | Implemented and zero-finding reviewed offline: request-only bootstrap authority, safe owner sessions, deterministic AWS/Azure/GCP adapters, generated encrypted `thesis-demo-v2` CloudConnections, truthful disposal, shared Flutter flow, and real local-stack secret-persistence scan. Live provider adapters remain disabled. | Complete offline prerequisite; supervised provider execution remains out of the default gate |
-| Service closure / 8.9A plan | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md) + [`phase_08_9a_9b_execution_plan.md`](phase_08_9a_9b_execution_plan.md) + [`phase_08_layer_access_handoff.md`](phase_08_layer_access_handoff.md) | Approved [`phase-08-complete-service-bundles@1`](../../research/evidence/phase_08_service_bundles/README.md) plus implemented provider/runtime, Layer Access, active offline profile, and strict Demo RTA/RDS v2 slices; no live-cloud evidence | Final full safe gates and repeated zero-finding activation reviews remain |
-| 8.9A | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | [`phase_08_9a_9b_execution_plan.md`](phase_08_9a_9b_execution_plan.md) | In progress: v2 contracts and all provider profiles are active for offline evaluation; workload/cost resolution, Terraform/runtime bundles, post-deployment evidence, Management, Flutter, and Demo parity are implemented | Keep every unresolved supervised live-capacity gate visible and deployment-blocking; freeze only after final cross-stack review |
+| Service closure / 8.9A plan | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md) + [`phase_08_9a_9b_execution_plan.md`](phase_08_9a_9b_execution_plan.md) + [`phase_08_layer_access_handoff.md`](phase_08_layer_access_handoff.md) | Approved [`phase-08-complete-service-bundles@1`](../../research/evidence/phase_08_service_bundles/README.md) plus complete provider/runtime, Layer Access, active offline profile, immutable pricing, and strict Demo RTA/RDS v2 implementation; no live-cloud evidence | Closed locally at implementation commit `c5c62324`; supervised live gates deliberately remain deployment-blocking |
+| 8.9A | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | [`phase_08_9a_9b_execution_plan.md`](phase_08_9a_9b_execution_plan.md) | Complete and zero-finding reviewed locally: v2 contracts/provider profiles, workload/cost resolution, Terraform/runtime bundles, post-deployment evidence, Management, Flutter, and Demo parity are active for offline evaluation | Preserve the frozen Five-layer boundary while 8.9B adds only its Event Layer delta |
 | 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | [`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md) | Executable strict Event Layer delta over the reviewed Five-layer v2 commit | Reviewed 8.9A digest; the plan is now executable authority after that branch gate |
 | 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | [`phase_08_10_evaluation_and_documentation.md`](phase_08_10_evaluation_and_documentation.md) | Planned deterministic historical-v1/Five-v2/Six-v1 evidence and current documentation | Reviewed Six-layer implementation |
 
@@ -163,17 +163,17 @@ Provider implementation work inside one phase may be parallelized only after
 the phase's shared contract is committed. AWS, Azure, and GCP must pass the same
 completion gate before the phase is closed.
 
-Phase 8.9A remains the first runtime profile branch. Its shared contract and
-`five-layer-baseline@2` gates must be committed and reviewed before the planned
-8.9B branch starts. The Six-layer plan is complete, but it inherits the actual
-reviewed 8.9A digest rather than guessing or duplicating L1-L5.
+Phase 8.9A is the first completed runtime profile branch. Its shared contract,
+`five-layer-baseline@2` implementation, and full safe gates are committed and
+zero-finding reviewed. The Six-layer plan now inherits that actual reviewed
+8.9A boundary rather than guessing or duplicating L1-L5.
 
 Phase 8.8 was completed as an offline evidence activity before Phase 8.6
 runtime activation. This does not reorder implementation dependencies:
-Phase 8.6, Phase 8.7, and the offline guided-bootstrap closure are complete
-local predecessors. Phase 8.9A is the active unfinished implementation phase.
-Accordingly, #146 is no longer natively blocked by #152; it still blocks the
-Eventing implementation path until its reviewed evidence is published.
+Phase 8.6, Phase 8.7, the offline guided-bootstrap closure, and Phase 8.9A are
+complete local predecessors. Phase 8.9B is the next implementation phase.
+Accordingly, #146 is no longer natively blocked by #152; its reviewed evidence
+is the immutable decision authority for the Eventing implementation path.
 
 ## Native Dependency Graph
 

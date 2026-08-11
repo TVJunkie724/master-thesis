@@ -448,27 +448,27 @@ invalidation, responsiveness, and ownership independently.
 
 ## 12. Definition of Done
 
-- [ ] Exact Workload v2 S/M/L variants are implemented in Flutter and no
+- [x] Exact Workload v2 S/M/L variants are implemented in Flutter and no
       legacy event feature flag is emitted for `@2`.
-- [ ] `five-layer-baseline@2` is the only new selectable/default profile;
+- [x] `five-layer-baseline@2` is the only new selectable/default profile;
       historical `@1` is unchanged and nonselectable.
-- [ ] Flutter creates new-profile runs only through Management and parses both
+- [x] Flutter creates new-profile runs only through Management and parses both
       RTA v2 and RDS v2 strictly.
-- [ ] Unsupervised v2 calculations persist as evaluation-only evidence; open
+- [x] Unsupervised v2 calculations persist as evaluation-only evidence; open
       live-capacity gates prevent selection/deployment with no fabricated
       success.
-- [ ] Generic result review renders v1 and v2 without fixed Five-layer slot
+- [x] Generic result review renders v1 and v2 without fixed Five-layer slot
       inference or fake Event-layer presentation.
-- [ ] Demo/live adapters expose the same active profile and typed schemas.
-- [ ] Offline readiness blockers remain visible and no cloud deployment,
+- [x] Demo/live adapters expose the same active profile and typed schemas.
+- [x] Offline readiness blockers remain visible and no cloud deployment,
       capacity measurement, or browser-sign-in claim is introduced.
-- [ ] Unit/widget/integration hard assertions cover the cases in Section 11.
-- [ ] `flutter analyze`, full Flutter tests, Web and macOS builds pass.
-- [ ] Backend, deployment-contract, strict MkDocs, link, drift, security, and
+- [x] Unit/widget/integration hard assertions cover the cases in Section 11.
+- [x] `flutter analyze`, full Flutter tests, Web and macOS builds pass.
+- [x] Backend, deployment-contract, strict MkDocs, link, drift, security, and
       local OrbStack integration gates pass without live E2E.
-- [ ] Concept, plan, and implementation reviews are repeated until zero
+- [x] Concept, plan, and implementation reviews are repeated until zero
       unresolved findings.
-- [ ] Clean `[AI-0811-LACC]` commits preserve generated copies with their
+- [x] Clean `[AI-0811-LACC]` commits preserve generated copies with their
       canonical contract change.
 - [ ] Six-layer work starts only from the reviewed, committed Five-layer v2
       activation digest.
@@ -481,3 +481,5 @@ invalidation, responsiveness, and ownership independently.
 | 2 | Architect + builder | Zero unresolved findings after specifying the offline-evidence/deployment-blocked state end to end, prohibiting fabricated live evidence, and separating immutable scenario identity from validated display currency. |
 | 3 | Concept + plan + audit | Two implementation findings: generated v2 schemas reverted EUR pricing evidence to USD-only, and Azure Large entered ranking with a zero autoscale quantity. |
 | 4 | Concept + plan + audit | Zero unresolved findings after fixing the generator-owned EUR contract, publishing immutable provider cards, and replacing zero with the bounded storage/operation evaluation proxy while retaining all supervised deployment gates. |
+| 5 | Concept + plan + audit | Four cross-stack findings: rollup operations/storage were not fully cost-owned, UTC/error-envelope invariants were incomplete, Demo still projected a legacy-shaped result beside v2 evidence, and current documentation mixed the historical generic GCP matrix with the active v2 exception. |
+| 6 | Concept + plan + audit | Zero unresolved findings after correcting the operation formulas and fixtures, exact decimal/UTC/result parsing, native Demo RTA/RDS projection, provider-version documentation, and passing the final 14-stage safe gate at `c5c62324`. |
