@@ -4177,6 +4177,11 @@
           "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "aws.cloudwatch",
           "slot_id": "eventing"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "aws.lambda-event-adapter",
+          "slot_id": "eventing"
         }
       ],
       "extension_slot_refs": [],
@@ -4433,6 +4438,11 @@
           "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "azure.log-analytics-shared-workspace",
           "slot_id": "eventing"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "azure.functions-flex-event-adapter",
+          "slot_id": "eventing"
         }
       ],
       "extension_slot_refs": [],
@@ -4668,6 +4678,11 @@
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "gcp.cloud-monitoring",
+          "slot_id": "eventing"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "gcp.cloud-run-event-adapter",
           "slot_id": "eventing"
         }
       ],
@@ -11213,5 +11228,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:4951d63fb04a75cd264b33324ec716f6b0003f0dbb765e9683f10c0856e71eba"
+  "content_digest": "sha256:5ee0733f32033ce60b6372c0a7a9c3a019eec51e15ede1f69f0f28f492311722"
 }

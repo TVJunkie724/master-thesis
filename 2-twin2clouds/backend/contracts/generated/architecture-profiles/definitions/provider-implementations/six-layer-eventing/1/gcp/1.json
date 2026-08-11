@@ -359,7 +359,8 @@
         "gcp.cloud-run-event-service-small-medium",
         "gcp.cloud-run-worker-pool-fixed-large",
         "gcp.cloud-logging",
-        "gcp.cloud-monitoring"
+        "gcp.cloud-monitoring",
+        "gcp.cloud-run-event-adapter"
       ],
       "deployment_specification_slot_ids": [
         "eventing"
@@ -588,5 +589,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:5f459b92dc634f8d13af9e06a714e75f00722cd3ace0025b3316b945c5777fb5"
+  "content_digest": "sha256:1d35fecbd19a9722a2d7cd40a12f7ee1b6583aac499747c79d904952d3c53149"
 }

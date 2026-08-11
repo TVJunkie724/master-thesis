@@ -351,7 +351,8 @@
         "aws.sqs-fifo",
         "aws.lambda-event-worker",
         "aws.s3-event-failure-store",
-        "aws.cloudwatch"
+        "aws.cloudwatch",
+        "aws.lambda-event-adapter"
       ],
       "deployment_specification_slot_ids": [
         "eventing"
@@ -580,5 +581,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:4611f272782c1f334ec39dd94aa9ff7ca3543f700d252e623afdfaea96ace7c2"
+  "content_digest": "sha256:5b86faf3b39648fc0aebc91672a7c0814c36b618083f3480adcaec0f7ff2d0ec"
 }

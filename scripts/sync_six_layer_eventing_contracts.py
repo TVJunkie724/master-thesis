@@ -220,7 +220,12 @@ def event_rds_component_ids(provider: str) -> list[str]:
     bundle = next(
         item for item in registry["provider_bundles"] if item["provider"] == provider
     )
-    return list(bundle["six_layer_event_components"])
+    source_owned_adapter = {
+        "aws": "aws.lambda-event-adapter",
+        "azure": "azure.functions-flex-event-adapter",
+        "gcp": "gcp.cloud-run-event-adapter",
+    }[provider]
+    return [*bundle["six_layer_event_components"], source_owned_adapter]
 
 
 FULL_EVENT_COMPONENTS = {

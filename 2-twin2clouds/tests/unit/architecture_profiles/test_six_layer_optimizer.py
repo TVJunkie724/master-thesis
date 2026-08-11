@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from decimal import Decimal
 from pathlib import Path
@@ -331,6 +332,66 @@ def test_real_single_cloud_optimizer_prices_complete_profile(provider):
     }
     assert {item["transfer_route_class"] for item in event_edges} == {
         "same_provider_same_region"
+    }
+
+
+def test_optimizer_materializes_source_owned_event_bridges_in_rta():
+    pricing, evidence = _pricing()
+    registry = _registry()
+    base_resolver = FiveLayerV2CatalogCostLedgerResolver(
+        {provider: pricing[provider] for provider in ("aws", "azure")}
+    )
+
+    def force_cross_event(specification, assignment, workload):
+        ledger = copy.deepcopy(
+            base_resolver.resolve(specification, assignment, workload)
+        )
+        target = (
+            assignment["component.ingestion"] == "aws"
+            and assignment["component.eventing"] == "azure"
+            and assignment["component.processing"] == "aws"
+        )
+        if not target:
+            quote = ledger["component_costs"][0]
+            quote["monthly_amount"] = str(
+                Decimal(quote["monthly_amount"]) + Decimal("1000000000")
+            )
+        return ledger
+
+    result = optimize_six_layer_eventing_v1(
+        calculation_run_id=RUN_ID,
+        architecture_profile=_profile_ref(registry),
+        extension_bindings=_extension_bindings(),
+        workload=_workload("small"),
+        pricing_evidence_refs={
+            provider: evidence[provider] for provider in ("aws", "azure")
+        },
+        cost_ledger_resolver=force_cross_event,
+        providers=("aws", "azure"),
+        registry=registry,
+    )
+
+    assignment = {
+        item["logical_component_id"]: item["provider"]
+        for item in result.resolved_architecture["component_assignments"]
+    }
+    event_edges = {
+        item["edge_id"]: item
+        for item in result.resolved_architecture["resolved_edges"]
+        if "eventing" in item["edge_id"]
+    }
+
+    assert assignment["component.ingestion"] == "aws"
+    assert assignment["component.eventing"] == "azure"
+    assert assignment["component.processing"] == "aws"
+    assert set(event_edges) == {
+        "edge.ingestion-to-eventing",
+        "edge.eventing-to-processing",
+        "edge.processing-to-eventing",
+        "edge.eventing-to-ingestion",
+    }
+    assert {item["mechanism"] for item in event_edges.values()} == {
+        "cross_provider_adapter"
     }
 
 

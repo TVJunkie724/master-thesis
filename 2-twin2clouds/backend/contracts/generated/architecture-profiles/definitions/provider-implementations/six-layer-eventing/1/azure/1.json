@@ -347,7 +347,8 @@
         "azure.service-bus-standard",
         "azure.functions-flex-event-worker",
         "azure.monitor",
-        "azure.log-analytics-shared-workspace"
+        "azure.log-analytics-shared-workspace",
+        "azure.functions-flex-event-adapter"
       ],
       "deployment_specification_slot_ids": [
         "eventing"
@@ -576,5 +577,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:d1492ac2bad68f7b43bb8c9aaecde2869c1c248ff2c0cf98f9749bb36db39aa4"
+  "content_digest": "sha256:aca7d10fdc9a71431a95c18bd0b22a9bfcb2cc6dca700cee81f2990a6dec5a67"
 }
