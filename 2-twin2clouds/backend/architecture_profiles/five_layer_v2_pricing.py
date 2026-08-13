@@ -140,6 +140,8 @@ def _six_layer_topology_costs(
                 and item["eventing_provider"] == assignment["component.eventing"]
                 and item["processing_provider"]
                 == assignment["component.processing"]
+                and item["hot_storage_provider"]
+                == assignment["component.hot-storage"]
             ),
             None,
         )

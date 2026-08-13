@@ -720,7 +720,11 @@ def _selected_groups(
         add(eventing_provider, "component.eventing", event_components)
         if any(
             assignment[logical] != eventing_provider
-            for logical in ("component.ingestion", "component.processing")
+            for logical in (
+                "component.ingestion",
+                "component.processing",
+                "component.hot-storage",
+            )
         ):
             add(
                 eventing_provider,
@@ -733,13 +737,22 @@ def _selected_groups(
                     if "event-adapter" in item
                 ],
             )
-        for logical in ("component.ingestion", "component.processing"):
+        for logical in (
+            "component.ingestion",
+            "component.processing",
+            "component.hot-storage",
+        ):
             provider = assignment[logical]
             if provider != eventing_provider:
                 embedded = list(
                     bundle_index[provider]["embedded_event_components"]
                 )
-                if provider == "gcp" and workload_size == "large":
+                if (
+                    provider == "gcp"
+                    and workload_size == "large"
+                    and logical
+                    in ("component.ingestion", "component.processing")
+                ):
                     embedded.append("gcp.cloud-run-worker-pool-fixed-large")
                 add(
                     provider,
@@ -1026,9 +1039,14 @@ def _build_deployment_specification(
     if profile_id == "six-layer-eventing" and resolved_workload.size == "large":
         eventing_provider = assignment["component.eventing"]
         if eventing_provider == "gcp":
-            gcp_event_worker_count += (
-                126 if assignment["component.processing"] == "gcp" else 42
-            )
+            # Audit and realtime visualization remain Event-Layer-local. L2
+            # adds telemetry processing plus rule evaluation; L3 Hot adds
+            # historical persistence plus Twin-state projection.
+            gcp_event_worker_count = 42
+            if assignment["component.processing"] == "gcp":
+                gcp_event_worker_count += 42
+            if assignment["component.hot-storage"] == "gcp":
+                gcp_event_worker_count += 42
         else:
             if assignment["component.ingestion"] == "gcp":
                 gcp_event_worker_count += 21

@@ -24,7 +24,7 @@ CONTRACT_ROOT = (
 )
 FORMULA_REF = "formula.phase-08-complete-service-bundles"
 SIX_LAYER_TOPOLOGY_COST_REGISTRY_DIGEST = (
-    "sha256:06c0a075f4db7944f4db5a43b4e58f7c5d9172220f0677ea514fc3a0ad5f3f1e"
+    "sha256:a2e4555a58361066ca6b99e07338e8ecde91256bf6cb9d56d80d51c359cb234e"
 )
 SIX_LAYER_EVENT_COMPONENT_IDS = frozenset(
     {

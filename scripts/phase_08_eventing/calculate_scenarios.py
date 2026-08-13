@@ -1897,6 +1897,8 @@ def three_provider_result(
     ingress = placement["ingress_provider"]
     eventing = placement["eventing_provider"]
     processing = placement["processing_provider"]
+    explicit_hot_storage = "hot_storage_provider" in placement
+    hot_storage = placement.get("hot_storage_provider", processing)
     ingress_produced_channel_ids = {
         "telemetry.received.v1",
         "device.command.outcome.v1",
@@ -1915,6 +1917,9 @@ def three_provider_result(
         "telemetry.processed.v1",
         "event.matched.v1",
         "notification.requested.v1",
+    }
+    hot_storage_consumed_channel_ids = {
+        "telemetry.processed.v1",
         "extension.action.outcome.v1",
         "notification.workflow.outcome.v1",
         "device.command.outcome.v1",
@@ -1923,6 +1928,8 @@ def three_provider_result(
     remote_delivery_channel_ids: set[str] = set()
     if processing != eventing:
         remote_delivery_channel_ids |= processing_consumed_channel_ids
+    if hot_storage != eventing:
+        remote_delivery_channel_ids |= hot_storage_consumed_channel_ids
     if ingress != eventing:
         remote_delivery_channel_ids |= ingress_consumed_channel_ids
     placement_channels = []
@@ -1941,7 +1948,13 @@ def three_provider_result(
         remote_delivery_channel_ids=remote_delivery_channel_ids,
     )
     items: list[dict[str, Any]] = []
+    placement_key = f"{ingress}-{eventing}-{processing}"
+    if explicit_hot_storage:
+        placement_key = f"{placement_key}-{hot_storage}"
 
+    processing_delivery_channel_ids = set(processing_consumed_channel_ids)
+    if hot_storage == processing:
+        processing_delivery_channel_ids |= hot_storage_consumed_channel_ids
     route_specs = [
         (
             "ingress-to-eventing",
@@ -1950,6 +1963,7 @@ def three_provider_result(
             channel_fixture(channels, ingress_produced_channel_ids),
             True,
             False,
+            ("edge.ingestion-to-eventing",),
         ),
         (
             "processing-to-eventing",
@@ -1958,14 +1972,21 @@ def three_provider_result(
             channel_fixture(channels, processing_produced_channel_ids),
             True,
             False,
+            ("edge.processing-to-eventing",),
         ),
         (
             "eventing-to-processing",
             eventing,
             processing,
-            channel_fixture(channels, processing_consumed_channel_ids),
+            channel_fixture(channels, processing_delivery_channel_ids),
             False,
             True,
+            (
+                "edge.eventing-to-processing",
+                "edge.eventing-to-hot-storage",
+            )
+            if explicit_hot_storage and hot_storage == processing
+            else ("edge.eventing-to-processing",),
         ),
         (
             "eventing-to-ingress",
@@ -1974,8 +1995,21 @@ def three_provider_result(
             channel_fixture(channels, ingress_consumed_channel_ids),
             False,
             True,
+            ("edge.eventing-to-ingestion",),
         ),
     ]
+    if explicit_hot_storage and hot_storage != processing:
+        route_specs.append(
+            (
+                "eventing-to-hot-storage",
+                eventing,
+                hot_storage,
+                channel_fixture(channels, hot_storage_consumed_channel_ids),
+                False,
+                True,
+                ("edge.eventing-to-hot-storage",),
+            )
+        )
     route_summaries = []
     bridge_log_bytes_by_provider = {
         "aws": 0,
@@ -1989,13 +2023,11 @@ def three_provider_result(
         fixture,
         add_source_outbox,
         add_destination_landing,
+        logical_edge_ids,
     ) in route_specs:
         if source == destination:
             continue
-        prefix = (
-            f"three-provider.{ingress}-{eventing}-{processing}."
-            f"{scenario['scenario_id']}.{role}"
-        )
+        prefix = f"three-provider.{placement_key}.{scenario['scenario_id']}.{role}"
         route_items: list[dict[str, Any]] = []
         if add_source_outbox:
             route_items.extend(
@@ -2027,6 +2059,11 @@ def three_provider_result(
         route_summaries.append(
             {
                 "route_role": role,
+                **(
+                    {"logical_edge_ids": list(logical_edge_ids)}
+                    if explicit_hot_storage
+                    else {}
+                ),
                 "source_provider": source,
                 "destination_provider": destination,
                 "source_outbox_cost_included": add_source_outbox,
@@ -2048,7 +2085,7 @@ def three_provider_result(
                     log_bytes,
                     intents,
                     (
-                        f"three-provider.{ingress}-{eventing}-{processing}."
+                        f"three-provider.{placement_key}."
                         f"{scenario['scenario_id']}.bridge-shared"
                     ),
                 )
@@ -2058,16 +2095,17 @@ def three_provider_result(
     event_layer_total = Decimal(placement_event_layer["total_monthly_usd"])
     bridge_total = total_contributions(items)
     result = {
-        "placement_id": f"placement.{ingress}-{eventing}-{processing}@1",
+        "placement_id": f"placement.{placement_key}@1",
         "ingress_provider": ingress,
         "eventing_provider": eventing,
         "processing_provider": processing,
+        **({"hot_storage_provider": hot_storage} if explicit_hot_storage else {}),
         "status": placement["status"],
         "topology": (
             "single_cloud"
-            if len({ingress, eventing, processing}) == 1
+            if len({ingress, eventing, processing, hot_storage}) == 1
             else "two_provider"
-            if len({ingress, eventing, processing}) == 2
+            if len({ingress, eventing, processing, hot_storage}) == 2
             else "hub_and_spoke"
         ),
         "event_layer_bundle_ref": (placement_event_layer["bundle_id"]),
@@ -2081,7 +2119,7 @@ def three_provider_result(
         "event_scope_total_usd": money(event_layer_total + bridge_total),
         "scope_note": (
             "This is Event-Layer plus deduplicated bridge infrastructure only. All eight domain channels are routed from their component owner through the Eventing provider to one landing copy per remote consumer provider; fan-out among colocated consumers happens after landing. Remote delivery adapters are replaced by bridge forwarders rather than double-counted. Domain-responsibility and full-profile totals remain Phase 8.10."
-            if len({ingress, eventing, processing}) == 3
+            if len({ingress, eventing, processing, hot_storage}) == 3
             else "This is Event-Layer plus deduplicated bridge infrastructure only. Each remote domain channel is routed from its component owner through the Eventing provider to one landing copy per remote consumer provider; fan-out among colocated consumers happens after landing. Same-provider edges remain local, and remote delivery adapters are replaced by bridge forwarders rather than double-counted. Domain-responsibility and full-profile totals remain Phase 8.10."
         ),
     }

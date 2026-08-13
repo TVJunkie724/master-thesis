@@ -233,7 +233,9 @@ class SixLayerEventingContractTests(unittest.TestCase):
             },
         )
 
-    def test_topology_cost_registry_covers_and_reconciles_all_81_cases(self) -> None:
+    def test_topology_cost_registry_covers_all_243_l1_event_l2_hot_cases(
+        self,
+    ) -> None:
         registry = CONTRACT.read_json(CONTRACT.COST_REGISTRY_PATH)
         reviewed = json.loads(CONTRACT.EVENT_COST_RESULTS.read_text(encoding="utf-8"))
         reviewed_by_scenario = {
@@ -242,21 +244,23 @@ class SixLayerEventingContractTests(unittest.TestCase):
         self.assertEqual(len(registry["scenarios"]), 3)
         for scenario in registry["scenarios"]:
             placements = scenario["placements"]
-            self.assertEqual(len(placements), 27)
+            self.assertEqual(len(placements), 81)
             self.assertEqual(
                 {
                     (
                         item["ingestion_provider"],
                         item["eventing_provider"],
                         item["processing_provider"],
+                        item["hot_storage_provider"],
                     )
                     for item in placements
                 },
                 {
-                    (ingestion, eventing, processing)
+                    (ingestion, eventing, processing, hot_storage)
                     for ingestion in CONTRACT.PROVIDERS
                     for eventing in CONTRACT.PROVIDERS
                     for processing in CONTRACT.PROVIDERS
+                    for hot_storage in CONTRACT.PROVIDERS
                 },
             )
             for placement in placements:
@@ -291,9 +295,14 @@ class SixLayerEventingContractTests(unittest.TestCase):
                 ]
             }
             generated_three_provider = {
-                item["placement_id"]: item
+                (
+                    f"placement.{item['ingestion_provider']}-"
+                    f"{item['eventing_provider']}-"
+                    f"{item['processing_provider']}@1"
+                ): item
                 for item in placements
                 if item["topology"] == "hub_and_spoke"
+                and item["hot_storage_provider"] == item["processing_provider"]
             }
             self.assertEqual(
                 {

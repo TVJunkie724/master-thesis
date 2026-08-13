@@ -187,17 +187,19 @@ def _placement_rds(
     ingestion: str,
     eventing: str,
     processing: str,
+    hot_storage: str | None = None,
 ):
     registry = _registry()
+    hot_storage = hot_storage or processing
     assignment = {
         "component.ingestion": ingestion,
         "component.eventing": eventing,
         "component.processing": processing,
-        "component.hot-storage": processing,
-        "component.cool-storage": processing,
-        "component.archive-storage": processing,
+        "component.hot-storage": hot_storage,
+        "component.cool-storage": hot_storage,
+        "component.archive-storage": hot_storage,
         "component.twin-state": processing,
-        "component.visualization": processing,
+        "component.visualization": hot_storage,
     }
     specification = build_six_layer_eventing_v1_deployment_specification(
         calculation_run_id=RUN_ID,
@@ -501,6 +503,57 @@ def test_cross_cloud_event_routes_use_exact_frozen_channel_quantities(size, expe
     }
 
 
+def test_independent_remote_hot_storage_selects_its_event_landing_bundle():
+    pricing, _evidence = _pricing()
+    assignment, specification = _placement_rds(
+        "small",
+        ingestion="aws",
+        eventing="aws",
+        processing="aws",
+        hot_storage="azure",
+    )
+
+    selected = {
+        item["implementation_component_id"]
+        for item in specification["component_selections"]
+    }
+    assert {
+        "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+        "azure.service-bus-standard",
+        "aws.lambda-event-adapter",
+    }.issubset(selected)
+
+    ledger = FiveLayerV2CatalogCostLedgerResolver(pricing).resolve(
+        specification,
+        assignment,
+        _resolved_workload("small"),
+    )
+    event_to_hot_route = next(
+        route
+        for route in ledger["route_costs"]
+        if any(
+            allocation["item_id"] == "edge.eventing-to-hot-storage"
+            for allocation in route["allocations"]
+        )
+    )
+    assert event_to_hot_route["pair"] == "aws->azure"
+    assert "topology_cost_registry_digest" in event_to_hot_route
+    landing_costs = {
+        item["component_id"]: Decimal(item["monthly_amount"])
+        for item in ledger["component_costs"]
+        if item["component_id"]
+        in {
+            "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+            "azure.service-bus-standard",
+        }
+    }
+    assert set(landing_costs) == {
+        "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+        "azure.service-bus-standard",
+    }
+    assert all(amount > 0 for amount in landing_costs.values())
+
+
 def test_cost_evaluation_rejects_a_tampered_topology_registry_binding():
     pricing, _evidence = _pricing()
     assignment, specification = _cross_cloud_rds("small")
@@ -528,7 +581,7 @@ def test_cost_evaluation_rejects_a_tampered_topology_registry_binding():
     assert raised.value.code == "ARCH_PRICING_EVIDENCE_MISSING"
 
 
-def test_all_81_event_topologies_reconcile_to_the_frozen_cost_registry():
+def test_all_243_event_topologies_reconcile_to_the_frozen_cost_registry():
     pricing, _evidence = _pricing()
     registry = _read(
         Path(__file__).resolve().parents[3]
@@ -550,6 +603,7 @@ def test_all_81_event_topologies_reconcile_to_the_frozen_cost_registry():
                 ingestion=placement["ingestion_provider"],
                 eventing=placement["eventing_provider"],
                 processing=placement["processing_provider"],
+                hot_storage=placement["hot_storage_provider"],
             )
             ledger = FiveLayerV2CatalogCostLedgerResolver(pricing).resolve(
                 specification,
@@ -565,11 +619,11 @@ def test_all_81_event_topologies_reconcile_to_the_frozen_cost_registry():
             expected_worker_count = 0
             if size == "large":
                 if placement["eventing_provider"] == "gcp":
-                    expected_worker_count += (
-                        126
-                        if placement["processing_provider"] == "gcp"
-                        else 42
-                    )
+                    expected_worker_count = 42
+                    if placement["processing_provider"] == "gcp":
+                        expected_worker_count += 42
+                    if placement["hot_storage_provider"] == "gcp":
+                        expected_worker_count += 42
                 else:
                     if placement["ingestion_provider"] == "gcp":
                         expected_worker_count += 21

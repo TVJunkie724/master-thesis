@@ -312,6 +312,7 @@ EDGE_ID_BY_ROLE = {
     "processing-to-eventing": "edge.processing-to-eventing",
     "eventing-to-processing": "edge.eventing-to-processing",
     "eventing-to-ingress": "edge.eventing-to-ingestion",
+    "eventing-to-hot-storage": "edge.eventing-to-hot-storage",
 }
 
 
@@ -392,12 +393,15 @@ def build_cost_registry() -> dict[str, Any]:
         )
         channels = EVENT_COST.derive_channels(scenario, shared)
         placements: list[dict[str, Any]] = []
-        for ingestion, eventing, processing in product(PROVIDERS, repeat=3):
+        for ingestion, eventing, processing, hot_storage in product(
+            PROVIDERS, repeat=4
+        ):
             calculated = EVENT_COST.three_provider_result(
                 {
                     "ingress_provider": ingestion,
                     "eventing_provider": eventing,
                     "processing_provider": processing,
+                    "hot_storage_provider": hot_storage,
                     "status": "capability_admissible_live_pending",
                 },
                 scenario,
@@ -455,13 +459,25 @@ def build_cost_registry() -> dict[str, Any]:
                     raise RuntimeError(
                         f"Bridge contribution has no route role: {contribution_id}"
                     )
-                edge_id = EDGE_ID_BY_ROLE[role]
                 summary = summaries[role]
                 if contribution_id.endswith(".egress"):
-                    route_amounts[edge_id] = route_amounts.get(
-                        edge_id, Decimal(0)
-                    ) + Decimal(str(contribution["amount_usd"]))
-                    route_contributions.setdefault(edge_id, []).append(contribution_id)
+                    logical_edge_ids = tuple(summary["logical_edge_ids"])
+                    amount = Decimal(str(contribution["amount_usd"]))
+                    share = amount / len(logical_edge_ids)
+                    allocated = Decimal(0)
+                    for index, edge_id in enumerate(logical_edge_ids):
+                        edge_amount = (
+                            amount - allocated
+                            if index == len(logical_edge_ids) - 1
+                            else Decimal(EVENT_COST.money(share))
+                        )
+                        allocated += edge_amount
+                        route_amounts[edge_id] = route_amounts.get(
+                            edge_id, Decimal(0)
+                        ) + edge_amount
+                        route_contributions.setdefault(edge_id, []).append(
+                            contribution_id
+                        )
                 else:
                     add_component(
                         _bridge_component(
@@ -495,7 +511,7 @@ def build_cost_registry() -> dict[str, Any]:
             if allocated_total != expected_total:
                 raise RuntimeError(
                     "Eventing topology allocation does not reconcile for "
-                    f"{ingestion}/{eventing}/{processing}/{size}: "
+                    f"{ingestion}/{eventing}/{processing}/{hot_storage}/{size}: "
                     f"{allocated_total} != {expected_total}"
                 )
             placements.append(
@@ -504,6 +520,7 @@ def build_cost_registry() -> dict[str, Any]:
                     "ingestion_provider": ingestion,
                     "eventing_provider": eventing,
                     "processing_provider": processing,
+                    "hot_storage_provider": hot_storage,
                     "topology": calculated["topology"],
                     "event_layer_bundle_ref": calculated["event_layer_bundle_ref"],
                     "event_layer_bundle_total_usd": calculated[
@@ -1652,7 +1669,7 @@ def validate_source() -> None:
         != "six-layer-eventing-topology-cost-registry.v1"
         or cost_registry["currency"] != "USD"
         or len(cost_registry["scenarios"]) != 3
-        or any(len(item["placements"]) != 27 for item in cost_registry["scenarios"])
+        or any(len(item["placements"]) != 81 for item in cost_registry["scenarios"])
     ):
         raise RuntimeError("Six-layer topology cost registry coverage drifted")
     if cost_registry["reviewed_result_ref"]["digest"] != file_digest(

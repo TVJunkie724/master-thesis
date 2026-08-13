@@ -276,6 +276,73 @@ class ScenarioCalculationTest(unittest.TestCase):
             },
         )
 
+    def test_explicit_remote_hot_storage_adds_its_event_route(self) -> None:
+        scenario = self.scenario["scenarios"][0]
+        channels = CALCULATOR.derive_channels(
+            scenario,
+            self.scenario["shared_assumptions"],
+        )
+        result = CALCULATOR.three_provider_result(
+            {
+                "ingress_provider": "aws",
+                "eventing_provider": "azure",
+                "processing_provider": "aws",
+                "hot_storage_provider": "gcp",
+                "status": "capability_admissible_live_pending",
+            },
+            scenario,
+            self.scenario["shared_assumptions"],
+            channels,
+            CALCULATOR.intent_map(self.pricing),
+        )
+        hot_route = next(
+            item
+            for item in result["bridge_route_summaries"]
+            if item["route_role"] == "eventing-to-hot-storage"
+        )
+
+        self.assertEqual(hot_route["source_provider"], "azure")
+        self.assertEqual(hot_route["destination_provider"], "gcp")
+        self.assertEqual(
+            hot_route["logical_edge_ids"],
+            ["edge.eventing-to-hot-storage"],
+        )
+        self.assertGreater(Decimal(hot_route["subtotal_usd"]), Decimal(0))
+
+    def test_colocated_l2_and_hot_share_one_physical_event_route(self) -> None:
+        scenario = self.scenario["scenarios"][0]
+        channels = CALCULATOR.derive_channels(
+            scenario,
+            self.scenario["shared_assumptions"],
+        )
+        result = CALCULATOR.three_provider_result(
+            {
+                "ingress_provider": "aws",
+                "eventing_provider": "azure",
+                "processing_provider": "gcp",
+                "hot_storage_provider": "gcp",
+                "status": "capability_admissible_live_pending",
+            },
+            scenario,
+            self.scenario["shared_assumptions"],
+            channels,
+            CALCULATOR.intent_map(self.pricing),
+        )
+        delivery_routes = [
+            item
+            for item in result["bridge_route_summaries"]
+            if item["route_role"] == "eventing-to-processing"
+        ]
+
+        self.assertEqual(len(delivery_routes), 1)
+        self.assertEqual(
+            delivery_routes[0]["logical_edge_ids"],
+            [
+                "edge.eventing-to-processing",
+                "edge.eventing-to-hot-storage",
+            ],
+        )
+
     def test_azure_large_uses_dedicated_capacity_without_namespace_sharding(
         self,
     ) -> None:
