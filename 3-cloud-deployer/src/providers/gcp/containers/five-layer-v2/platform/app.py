@@ -995,25 +995,6 @@ def _remote_landing(value: Mapping[str, Any]) -> dict[str, Any]:
     ):
         raise core.ContractError("UNEXPECTED_REMOTE_EVENT")
     if (
-        os.environ.get("ARCHITECTURE_PROFILE") == "six-layer-eventing@1"
-        and os.environ.get("EVENT_LAYER_PROVIDER") == "google"
-        and kind in {
-            core.EVENT_TELEMETRY_RECEIVED,
-            core.EVENT_TELEMETRY_PROCESSED,
-            core.EVENT_MATCHED,
-            core.EVENT_NOTIFICATION_REQUESTED,
-            core.EVENT_DEVICE_COMMAND_REQUESTED,
-            *core.OUTCOME_EVENT_TYPES,
-        }
-    ):
-        topic = (
-            os.environ.get("RECEIVED_TOPIC", "")
-            if kind == core.EVENT_TELEMETRY_RECEIVED
-            else os.environ.get("PROCESSED_TOPIC", "")
-            if kind == core.EVENT_TELEMETRY_PROCESSED
-            else os.environ.get("DOMAIN_TOPIC", "")
-        )
-    elif (
         kind == core.EVENT_TELEMETRY_RECEIVED
         and os.environ.get("L2_PROVIDER") == "google"
     ):
@@ -1045,49 +1026,6 @@ def _remote_landing(value: Mapping[str, Any]) -> dict[str, Any]:
         "accepted": 1,
         "event_type": kind,
     }
-
-
-def _consume_eventing_delivery(role: str, value: Mapping[str, Any]) -> None:
-    """Run one inherited L1-L5 responsibility after Event-Layer acceptance."""
-
-    event = core.validate_canonical_event(value)
-    if role == "telemetry-processor":
-        if event["event_type"] != core.EVENT_TELEMETRY_RECEIVED:
-            raise core.ContractError("EVENT_CHANNEL_MISMATCH")
-        processed = core.build_processed_event(
-            event,
-            _invoke_processor_extension(event),
-        )
-        _publish(os.environ.get("PROCESSED_TOPIC", ""), processed)
-    elif role == "historical-persistence":
-        if event["event_type"] != core.EVENT_TELEMETRY_PROCESSED:
-            raise core.ContractError("EVENT_CHANNEL_MISMATCH")
-        _persist(event)
-    elif role == "twin-state-update":
-        if event["event_type"] == core.EVENT_TELEMETRY_PROCESSED:
-            projection = core.build_twin_projection(event)
-            if projection is not None:
-                _materialize_twin_projection(projection)
-        else:
-            _materialize_twin_projection(event)
-    elif role == "rule-evaluator":
-        if event["event_type"] != core.EVENT_TELEMETRY_PROCESSED:
-            raise core.ContractError("EVENT_CHANNEL_MISMATCH")
-        for matched in core.build_rule_matches(event, _configured_rules()):
-            _publish(os.environ.get("DOMAIN_TOPIC", ""), matched)
-    elif role == "control-router":
-        if event["event_type"] in {
-            core.EVENT_TWIN_STATE_UPSERTED,
-            core.EVENT_TWIN_MODEL_UPSERTED,
-            core.EVENT_TWIN_RELATIONSHIP_UPSERTED,
-            core.EVENT_TWIN_RELATIONSHIP_DELETED,
-        }:
-            _materialize_twin_projection(event)
-        else:
-            encoded = base64.b64encode(core.canonical_json(event).encode()).decode()
-            _domain({"message": {"data": encoded}})
-    elif role not in {"audit", "realtime-visualization"}:
-        raise core.ContractError("UNSUPPORTED_EVENTING_CONSUMER")
 
 
 @app.get("/healthz")
@@ -1275,28 +1213,6 @@ def dispatch():
 
             return push_request(request)
         value = _json_object()
-        eventing_delivery = value.get("eventing_delivery")
-        if eventing_delivery is not None:
-            if (
-                os.environ.get("EVENTING_DELIVERY_ENDPOINT_ENABLED", "false")
-                != "true"
-                or set(value) != {"eventing_delivery"}
-                or not isinstance(eventing_delivery, Mapping)
-                or set(eventing_delivery) != {"consumer_role", "event"}
-                or not isinstance(eventing_delivery.get("consumer_role"), str)
-                or not isinstance(eventing_delivery.get("event"), Mapping)
-            ):
-                raise core.ContractError("INVALID_EVENTING_DELIVERY")
-            _consume_eventing_delivery(
-                str(eventing_delivery["consumer_role"]),
-                eventing_delivery["event"],
-            )
-            return jsonify(
-                {
-                    "schema_version": "event-delivery-result.v1",
-                    "accepted": 1,
-                }
-            ), 202
         if role == "event-adapter":
             result = _ingress(value)
         elif role == "processor":

@@ -170,8 +170,8 @@ run "six_layer_aws_azure_gcp_routes_event_targets_without_hidden_landing" {
       slot_version    = "1"
       artifact_id     = "77777777-7777-4777-8777-777777777777"
       artifact_digest = "sha256:7777777777777777777777777777777777777777777777777777777777777777"
-      package_path    = "${var.project_path}/.build/azure/five-layer-v2.zip"
-      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/five-layer-v2.zip")}"
+      package_path    = "${var.project_path}/.build/azure/six-layer-domain.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/six-layer-domain.zip")}"
       adapter_id      = "adapter.gcp.python311"
       adapter_version = "1"
     }]
@@ -205,7 +205,6 @@ run "six_layer_aws_azure_gcp_routes_event_targets_without_hidden_landing" {
     error_message = "Azure Event Layer outputs must retain the explicit AWS/GCP domain landing boundary."
   }
 }
-
 run "six_layer_azure_gcp_aws_routes_cover_remaining_directed_pairs" {
   command = plan
 
@@ -359,8 +358,8 @@ run "six_layer_azure_gcp_aws_routes_cover_remaining_directed_pairs" {
       slot_version    = "1"
       artifact_id     = "88888888-8888-4888-8888-888888888888"
       artifact_digest = "sha256:8888888888888888888888888888888888888888888888888888888888888888"
-      package_path    = "${var.project_path}/.build/aws/five-layer-v2.zip"
-      package_digest  = "sha256:${filesha256("${var.project_path}/.build/aws/five-layer-v2.zip")}"
+      package_path    = "${var.project_path}/.build/aws/six-layer-domain.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/aws/six-layer-domain.zip")}"
       adapter_id      = "adapter.aws.python311"
       adapter_version = "1"
     }]

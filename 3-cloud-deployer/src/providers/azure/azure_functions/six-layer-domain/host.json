@@ -1,0 +1,16 @@
+{
+  "version": "2.0",
+  "extensions": {
+    "eventHubs": {
+      "maxEventBatchSize": 10,
+      "batchCheckpointFrequency": 1
+    },
+    "serviceBus": {
+      "prefetchCount": 0,
+      "autoCompleteMessages": true,
+      "maxConcurrentSessions": 1,
+      "maxConcurrentCallsPerSession": 1
+    }
+  }
+}
+

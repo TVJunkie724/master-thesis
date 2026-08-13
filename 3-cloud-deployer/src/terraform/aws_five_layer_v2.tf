@@ -120,8 +120,12 @@ locals {
   aws_v2_remote_control_enabled  = length(local.aws_v2_remote_control_routes) > 0
   aws_v2_domain_consumer_enabled = local.aws_v2_remote_telemetry_inbound || local.aws_v2_remote_control_inbound
 
-  aws_v2_runtime_package = "${var.project_path}/.build/aws/five-layer-v2.zip"
-  aws_v2_name            = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 32)
+  aws_v2_runtime_package = (
+    local.six_layer_eventing_enabled
+    ? "${var.project_path}/.build/aws/six-layer-domain.zip"
+    : "${var.project_path}/.build/aws/five-layer-v2.zip"
+  )
+  aws_v2_name = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 32)
   aws_v2_processor_extensions = local.aws_v2_l2_enabled ? {
     for package in var.validated_extension_packages : package.artifact_id => package
     if package.slot_id == "processor.telemetry" && package.slot_version == "1"

@@ -132,6 +132,41 @@ class SixLayerEventingContractTests(unittest.TestCase):
             self.five["content_digest"],
         )
         self.assertEqual(
+            manifest["inherited_catalog_ref"]["digest"],
+            "sha256:3396848028a5b8862e1c948a8017cd8e7bb7d118a0ee5edc120cd3d7a3956c1d",
+        )
+        six_layer_sources = {
+            artifact["artifact_id"]: artifact["repository_source_path"]
+            for artifact in self.catalog["package_artifacts"]
+            if artifact["artifact_id"]
+            in {
+                "artifact.platform.aws.six-layer-domain",
+                "artifact.platform.azure.six-layer-domain",
+                "artifact.platform.gcp.six-layer-domain",
+                "artifact.shared.phase8-six-layer-bridge-runtime",
+            }
+        }
+        self.assertEqual(
+            six_layer_sources,
+            {
+                "artifact.platform.aws.six-layer-domain": (
+                    "3-cloud-deployer/src/providers/aws/lambda_functions/"
+                    "six-layer-domain"
+                ),
+                "artifact.platform.azure.six-layer-domain": (
+                    "3-cloud-deployer/src/providers/azure/azure_functions/"
+                    "six-layer-domain"
+                ),
+                "artifact.platform.gcp.six-layer-domain": (
+                    "3-cloud-deployer/src/providers/gcp/containers/"
+                    "six-layer-domain"
+                ),
+                "artifact.shared.phase8-six-layer-bridge-runtime": (
+                    "3-cloud-deployer/src/runtime/six_layer_eventing"
+                ),
+            },
+        )
+        self.assertEqual(
             set(manifest["supported_directed_provider_pairs"]),
             {
                 f"{source}-to-{destination}"

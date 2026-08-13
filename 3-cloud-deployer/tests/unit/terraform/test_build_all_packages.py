@@ -34,6 +34,7 @@ from src.providers.terraform.package_builders.aws_eventing import (
     build_aws_eventing_app,
 )
 from src.providers.terraform.package_builder import (
+    _aws_six_layer_bridge_selected,
     _aws_v2_bridge_selected,
     _selected_static_function_packages,
 )
@@ -190,14 +191,15 @@ def test_six_layer_cross_cloud_graph_selects_event_and_bridge_packages():
 
     selected, package_ids = _selected_static_function_packages(graph)
 
-    assert selected["aws"] == ("five-layer-v2",)
-    assert selected["azure"] == ("five-layer-v2", "six-layer-eventing")
+    assert selected["aws"] == ("six-layer-domain",)
+    assert selected["azure"] == ("six-layer-domain", "six-layer-eventing")
     assert {
-        "aws_five-layer-v2",
-        "azure_five-layer-v2",
+        "aws_six-layer-domain",
+        "azure_six-layer-domain",
         "azure_six-layer-eventing",
     } <= package_ids
-    assert _aws_v2_bridge_selected(graph)
+    assert not _aws_v2_bridge_selected(graph)
+    assert _aws_six_layer_bridge_selected(graph)
 
 
 class TestBuildAllPackages:

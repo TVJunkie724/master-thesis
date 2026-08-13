@@ -1,0 +1,231 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "twin2multicloud-raw-history"
+      },
+      "description": "Raw points from the GCP L3 hot store. The PoC reader intentionally bounds this panel to the latest 24 hours and shows No data until telemetry exists for the selected device and metric.",
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No raw telemetry for the selected device and metric"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "columns": [
+            {
+              "selector": "stored_at",
+              "text": "Time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "value",
+              "text": "Value",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "format": "timeseries",
+          "parser": "backend",
+          "refId": "A",
+          "root_selector": "points",
+          "source": "url",
+          "type": "json",
+          "url": "__RAW_HISTORY_READER_URL__/raw-history/v1?device_id=${device}&metric=${metric}&from=${__from:date:iso}&to=${__to:date:iso}&bucket_seconds=0&limit=1000",
+          "url_options": {
+            "data": "",
+            "method": "GET"
+          }
+        }
+      ],
+      "timeFrom": "24h",
+      "title": "Recent raw telemetry (24 h)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "twin2multicloud-raw-history"
+      },
+      "description": "Hourly rollups from the GCP L3 hot store for the latest 30 days. No data is expected until the selected metric has been ingested and rolled up.",
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No hourly rollups for the selected device and metric"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "min",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "columns": [
+            {
+              "selector": "bucket_start",
+              "text": "Time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "avg",
+              "text": "Hourly average",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "format": "timeseries",
+          "parser": "backend",
+          "refId": "A",
+          "root_selector": "points",
+          "source": "url",
+          "type": "json",
+          "url": "__RAW_HISTORY_READER_URL__/raw-history/v1?device_id=${device}&metric=${metric}&from=${__from:date:iso}&to=${__to:date:iso}&bucket_seconds=3600&limit=1000",
+          "url_options": {
+            "data": "",
+            "method": "GET"
+          }
+        }
+      ],
+      "title": "Hourly rollups (30 d)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 42,
+  "tags": [
+    "twin2multicloud",
+    "five-layer-baseline@2",
+    "gcp"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "gcp",
+          "value": "gcp"
+        },
+        "hide": 2,
+        "label": "Provider",
+        "name": "provider",
+        "options": [
+          {
+            "selected": true,
+            "text": "gcp",
+            "value": "gcp"
+          }
+        ],
+        "query": "gcp",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "current",
+          "value": "current"
+        },
+        "hide": 2,
+        "label": "Deployment",
+        "name": "deployment",
+        "options": [
+          {
+            "selected": true,
+            "text": "current",
+            "value": "current"
+          }
+        ],
+        "query": "current",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "poc-device-001",
+          "value": "poc-device-001"
+        },
+        "label": "Device",
+        "name": "device",
+        "options": [],
+        "query": "poc-device-001",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "temperature",
+          "value": "temperature"
+        },
+        "label": "Metric",
+        "name": "metric",
+        "options": [],
+        "query": "temperature",
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
+  "timezone": "browser",
+  "title": "Twin2MultiCloud Raw & Rollups",
+  "uid": "twin2multicloud-raw-rollups",
+  "version": 1,
+  "weekStart": ""
+}
+

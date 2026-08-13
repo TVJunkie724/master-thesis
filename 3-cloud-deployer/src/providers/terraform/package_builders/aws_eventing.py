@@ -10,7 +10,7 @@ from src.providers.terraform.package_builders.common import _should_include_file
 
 
 PROVIDERS_ROOT = Path(__file__).resolve().parents[2]
-RUNTIME_ROOT = PROVIDERS_ROOT.parent / "runtime" / "eventing"
+RUNTIME_ROOT = PROVIDERS_ROOT.parent / "runtime" / "six_layer_eventing"
 SOURCE_ROOT = (
     PROVIDERS_ROOT / "aws" / "lambda_functions" / "six-layer-eventing"
 )

@@ -191,9 +191,13 @@ def test_selection_and_tfvars_are_bounded_to_graph_selected_images(tmp_path):
         "architecture_profile_id": "six-layer-eventing",
         "architecture_profile_version": "1",
     }
+    six_layer_bridge_context = (
+        tmp_path / ".build" / "aws" / "six-layer-domain-bridge.zip"
+    )
+    six_layer_bridge_context.write_bytes(b"six-layer-bridge")
     assert aws_v2_bridge_deployment(inherited_six_layer) is True
     assert image_requests(tmp_path, inherited_six_layer) == (
-        AwsV2ImageRequest("bridge", bridge_context),
+        AwsV2ImageRequest("bridge", six_layer_bridge_context),
     )
 
 

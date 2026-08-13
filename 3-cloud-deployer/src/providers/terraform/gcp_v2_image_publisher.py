@@ -131,7 +131,13 @@ def _digest(path: Path) -> str:
 
 
 def image_requests(project_path: Path, tfvars: Mapping[str, Any]) -> tuple[GcpV2ImageRequest, ...]:
-    platform = Path(project_path) / ".build" / "gcp" / "five-layer-v2.tar.gz"
+    domain_context = (
+        "six-layer-domain.tar.gz"
+        if tfvars.get("architecture_profile_id") == "six-layer-eventing"
+        and str(tfvars.get("architecture_profile_version")) == "1"
+        else "five-layer-v2.tar.gz"
+    )
+    platform = Path(project_path) / ".build" / "gcp" / domain_context
     requests: list[GcpV2ImageRequest] = []
     if _gcp_v2_platform_deployment(tfvars):
         requests.append(GcpV2ImageRequest("platform", platform))

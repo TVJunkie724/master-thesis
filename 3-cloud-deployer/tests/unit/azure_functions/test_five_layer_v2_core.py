@@ -42,6 +42,33 @@ finally:
         sys.modules["core"] = previous_core
 
 
+def _six_layer_function_app():
+    source_root = CORE_PATH.parents[1] / "six-layer-domain"
+    six_core_spec = importlib.util.spec_from_file_location(
+        "azure_six_layer_domain_core",
+        source_root / "core.py",
+    )
+    assert six_core_spec and six_core_spec.loader
+    six_core = importlib.util.module_from_spec(six_core_spec)
+    six_core_spec.loader.exec_module(six_core)
+    six_app_spec = importlib.util.spec_from_file_location(
+        "azure_six_layer_domain_function_app",
+        source_root / "function_app.py",
+    )
+    assert six_app_spec and six_app_spec.loader
+    six_app = importlib.util.module_from_spec(six_app_spec)
+    previous = sys.modules.get("core")
+    try:
+        sys.modules["core"] = six_core
+        six_app_spec.loader.exec_module(six_app)
+    finally:
+        if previous is None:
+            sys.modules.pop("core", None)
+        else:
+            sys.modules["core"] = previous
+    return six_app
+
+
 def _event(**overrides):
     event_id = str(uuid.uuid4())
     value = {
@@ -387,18 +414,19 @@ def test_duplicate_raw_retry_still_reaches_twin_and_rule_edges(monkeypatch):
 
 
 def test_six_layer_remote_landing_republishes_to_azure_event_layer(monkeypatch):
+    six_layer_app = _six_layer_function_app()
     received = _event()
     published = []
     monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
     monkeypatch.setenv("V2_EVENT_LAYER_PROVIDER", "azure")
-    monkeypatch.setattr(function_app, "_publish_eventing_stream", published.append)
+    monkeypatch.setattr(six_layer_app, "_publish_eventing_stream", published.append)
     monkeypatch.setattr(
-        function_app,
+        six_layer_app,
         "_process_received",
         lambda *_args: pytest.fail("landing bypassed the Event Layer"),
     )
 
-    function_app._consume(received)
+    six_layer_app._consume(received)
 
     assert published == [received]
 

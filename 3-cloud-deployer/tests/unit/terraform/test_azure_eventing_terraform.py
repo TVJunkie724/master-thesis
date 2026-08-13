@@ -64,7 +64,7 @@ def test_inherited_azure_runtime_replaces_embedded_transport_for_six_layer():
         / "providers"
         / "azure"
         / "azure_functions"
-        / "five-layer-v2"
+            / "six-layer-domain"
         / "function_app.py"
     ).read_text(encoding="utf-8")
     assert "azure_v2_embedded_event_enabled" in terraform
@@ -85,7 +85,7 @@ def test_azure_event_layer_can_be_the_source_of_a_directed_bridge():
         / "providers"
         / "azure"
         / "azure_functions"
-        / "five-layer-v2"
+            / "six-layer-domain"
         / "function_app.py"
     ).read_text(encoding="utf-8")
     assert "bridge-received" in terraform

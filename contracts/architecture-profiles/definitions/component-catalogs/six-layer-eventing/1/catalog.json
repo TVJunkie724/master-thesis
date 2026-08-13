@@ -32,7 +32,7 @@
       ],
       "component_kind": "managed_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.aws.five-layer-v2",
+        "id": "artifact.platform.aws.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -217,7 +217,7 @@
       ],
       "component_kind": "serverless_function",
       "package_artifact_ref": {
-        "id": "artifact.platform.aws.five-layer-v2",
+        "id": "artifact.platform.aws.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -429,7 +429,7 @@
       ],
       "component_kind": "storage_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.aws.five-layer-v2",
+        "id": "artifact.platform.aws.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -669,7 +669,7 @@
       ],
       "component_kind": "storage_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.aws.five-layer-v2",
+        "id": "artifact.platform.aws.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -839,7 +839,7 @@
       ],
       "component_kind": "storage_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.aws.five-layer-v2",
+        "id": "artifact.platform.aws.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -974,7 +974,7 @@
       ],
       "component_kind": "twin_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.aws.five-layer-v2",
+        "id": "artifact.platform.aws.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -1137,7 +1137,7 @@
       ],
       "component_kind": "visualization_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.aws.five-layer-v2",
+        "id": "artifact.platform.aws.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -1289,7 +1289,7 @@
       ],
       "component_kind": "managed_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.azure.five-layer-v2",
+        "id": "artifact.platform.azure.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -1472,7 +1472,7 @@
       ],
       "component_kind": "serverless_function",
       "package_artifact_ref": {
-        "id": "artifact.platform.azure.five-layer-v2",
+        "id": "artifact.platform.azure.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -1687,7 +1687,7 @@
       ],
       "component_kind": "storage_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.azure.five-layer-v2",
+        "id": "artifact.platform.azure.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -1916,7 +1916,7 @@
       ],
       "component_kind": "storage_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.azure.five-layer-v2",
+        "id": "artifact.platform.azure.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -2081,7 +2081,7 @@
       ],
       "component_kind": "storage_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.azure.five-layer-v2",
+        "id": "artifact.platform.azure.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -2222,7 +2222,7 @@
       ],
       "component_kind": "twin_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.azure.five-layer-v2",
+        "id": "artifact.platform.azure.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -2391,7 +2391,7 @@
       ],
       "component_kind": "visualization_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.azure.five-layer-v2",
+        "id": "artifact.platform.azure.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -2551,7 +2551,7 @@
       ],
       "component_kind": "managed_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.gcp.five-layer-v2",
+        "id": "artifact.platform.gcp.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -2748,7 +2748,7 @@
       ],
       "component_kind": "serverless_function",
       "package_artifact_ref": {
-        "id": "artifact.platform.gcp.five-layer-v2",
+        "id": "artifact.platform.gcp.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -2959,7 +2959,7 @@
       ],
       "component_kind": "storage_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.gcp.five-layer-v2",
+        "id": "artifact.platform.gcp.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -3186,7 +3186,7 @@
       ],
       "component_kind": "storage_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.gcp.five-layer-v2",
+        "id": "artifact.platform.gcp.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -3358,7 +3358,7 @@
       ],
       "component_kind": "storage_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.gcp.five-layer-v2",
+        "id": "artifact.platform.gcp.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -3501,7 +3501,7 @@
       ],
       "component_kind": "twin_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.gcp.five-layer-v2",
+        "id": "artifact.platform.gcp.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -3686,7 +3686,7 @@
       ],
       "component_kind": "visualization_service",
       "package_artifact_ref": {
-        "id": "artifact.platform.gcp.five-layer-v2",
+        "id": "artifact.platform.gcp.six-layer-domain",
         "version": "1"
       },
       "terraform_binding": {
@@ -10840,7 +10840,7 @@
   ],
   "package_artifacts": [
     {
-      "artifact_id": "artifact.platform.aws.five-layer-v2",
+      "artifact_id": "artifact.platform.aws.six-layer-domain",
       "artifact_version": "1",
       "decision_implementation_ids": [
         "aws.amazon-managed-grafana-12",
@@ -10865,11 +10865,14 @@
         "aws.sqs-fifo",
         "aws.step-functions-standard"
       ],
-      "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2",
+      "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-domain",
       "platform_handler": "handler.aws.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:f8345e2cd64bb3566f6f83288f5f6e3a2273b8a4b9d8538bfba165a8012c373c",
+      "source_digest": "sha256:9bd617eac7574dfe2917e63d55f935efeb14dd902b299eecbb03ec3841fb47d1",
       "included_paths": [
+        "bridge/Dockerfile",
+        "bridge/constraints.txt",
+        "bridge/requirements.txt",
         "handler.py",
         "storage-mover/Dockerfile",
         "storage-mover/constraints.txt",
@@ -10879,7 +10882,7 @@
       "excluded_paths": [],
       "dependency_artifact_refs": [
         {
-          "id": "artifact.shared.phase8-bridge-runtime",
+          "id": "artifact.shared.phase8-six-layer-bridge-runtime",
           "version": "1"
         }
       ],
@@ -10898,7 +10901,7 @@
       }
     },
     {
-      "artifact_id": "artifact.platform.azure.five-layer-v2",
+      "artifact_id": "artifact.platform.azure.six-layer-domain",
       "artifact_version": "1",
       "decision_implementation_ids": [
         "azure.acr-basic-if-container-selected",
@@ -10920,10 +10923,10 @@
         "azure.monitor",
         "azure.service-bus-standard"
       ],
-      "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2",
+      "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-domain",
       "platform_handler": "handler.azure.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:14929a29603b5b3beb17154679bb97b1748d940328fd08edf284fd36b5e864ca",
+      "source_digest": "sha256:94537eb152aaf4f4291be090e347add3ebc431418f9929dbaa9ea74ddfb78bbd",
       "included_paths": [
         "core.py",
         "function_app.py",
@@ -10937,7 +10940,7 @@
       "excluded_paths": [],
       "dependency_artifact_refs": [
         {
-          "id": "artifact.shared.phase8-bridge-runtime",
+          "id": "artifact.shared.phase8-six-layer-bridge-runtime",
           "version": "1"
         }
       ],
@@ -10956,7 +10959,7 @@
       }
     },
     {
-      "artifact_id": "artifact.platform.gcp.five-layer-v2",
+      "artifact_id": "artifact.platform.gcp.six-layer-domain",
       "artifact_version": "1",
       "decision_implementation_ids": [
         "apache.bifromq-4.0.0-incubating-on-gke-standard",
@@ -10984,11 +10987,12 @@
         "grafana.oss-12-on-gke",
         "grafana.yesoreyeram-infinity-datasource"
       ],
-      "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2",
+      "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/six-layer-domain",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:31461745acdf40c4dbbc90336f16d78073c9bb4ebf4904d6ccb765af040d0802",
+      "source_digest": "sha256:d3ac4293cbe595e5d3ff48446b459bc2eb851b8871eedaf7da1b491c11123044",
       "included_paths": [
+        ".dockerignore",
         "Dockerfile",
         "grafana/Dockerfile",
         "grafana/dashboard.json.template",
@@ -10999,12 +11003,16 @@
         "platform/constraints.txt",
         "platform/core.py",
         "platform/mqtt_adapter.py",
-        "platform/requirements.txt"
+        "platform/requirements.txt",
+        "storage-mover/Dockerfile",
+        "storage-mover/constraints.txt",
+        "storage-mover/requirements.txt",
+        "storage-mover/storage_mover.py"
       ],
       "excluded_paths": [],
       "dependency_artifact_refs": [
         {
-          "id": "artifact.shared.phase8-bridge-runtime",
+          "id": "artifact.shared.phase8-six-layer-bridge-runtime",
           "version": "1"
         }
       ],
@@ -11023,16 +11031,28 @@
       }
     },
     {
-      "artifact_id": "artifact.shared.phase8-bridge-runtime",
+      "artifact_id": "artifact.shared.phase8-six-layer-bridge-runtime",
       "artifact_version": "1",
       "decision_implementation_ids": [],
-      "repository_source_path": "3-cloud-deployer/src/runtime/eventing",
+      "repository_source_path": "3-cloud-deployer/src/runtime/six_layer_eventing",
       "platform_handler": "provider.shared-runtime",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:1ac5438b753b38c8918b11f9e936b2dedd9f51c9dc36759402eef418042198f1",
+      "source_digest": "sha256:b33db925e0e6a605c2521b265252fb02dcd8734bf148e12aea7d5459fef73e01",
       "included_paths": [
         "__init__.py",
-        "bridge_core.py"
+        "aws/__init__.py",
+        "aws/bridge.py",
+        "aws/runtime.py",
+        "azure/__init__.py",
+        "azure/bridge.py",
+        "azure/runtime.py",
+        "bridge_application.py",
+        "bridge_core.py",
+        "destination_identity.py",
+        "destination_publishers.py",
+        "gcp/__init__.py",
+        "gcp/bridge.py",
+        "gcp/runtime.py"
       ],
       "excluded_paths": [],
       "dependency_artifact_refs": [],
@@ -11073,7 +11093,7 @@
       "excluded_paths": [],
       "dependency_artifact_refs": [
         {
-          "id": "artifact.shared.phase8-bridge-runtime",
+          "id": "artifact.shared.phase8-six-layer-bridge-runtime",
           "version": "1"
         }
       ],
@@ -11113,7 +11133,7 @@
       "excluded_paths": [],
       "dependency_artifact_refs": [
         {
-          "id": "artifact.shared.phase8-bridge-runtime",
+          "id": "artifact.shared.phase8-six-layer-bridge-runtime",
           "version": "1"
         }
       ],
@@ -11153,7 +11173,7 @@
       "excluded_paths": [],
       "dependency_artifact_refs": [
         {
-          "id": "artifact.shared.phase8-bridge-runtime",
+          "id": "artifact.shared.phase8-six-layer-bridge-runtime",
           "version": "1"
         }
       ],
@@ -11189,5 +11209,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:4e74df462724903718ee87bd4d3358f985beb03fa3e9a3bf7e0ec4815117b11d"
+  "content_digest": "sha256:5df5ead970f884e8c3248e563df96a2fdf8c64abc681a5df239a2a248f3e86d1"
 }

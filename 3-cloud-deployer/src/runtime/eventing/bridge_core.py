@@ -80,39 +80,6 @@ _EVENT_TYPES_BY_EDGE_CHANNEL = {
             "twin.relationship.deleted",
         }
     ),
-    ("edge.ingestion-to-eventing", "telemetry"): frozenset(
-        {"telemetry.received.v1"}
-    ),
-    ("edge.ingestion-to-eventing", "control"): frozenset(
-        {"device.command.outcome.v1"}
-    ),
-    ("edge.eventing-to-processing", "telemetry"): frozenset(
-        {"telemetry.received.v1", "telemetry.processed.v1"}
-    ),
-    ("edge.eventing-to-processing", "control"): frozenset(
-        {
-            "event.matched.v1",
-            "notification.requested.v1",
-            "extension.action.outcome.v1",
-            "notification.workflow.outcome.v1",
-            "device.command.outcome.v1",
-        }
-    ),
-    ("edge.processing-to-eventing", "telemetry"): frozenset(
-        {"telemetry.processed.v1"}
-    ),
-    ("edge.processing-to-eventing", "control"): frozenset(
-        {
-            "event.matched.v1",
-            "notification.requested.v1",
-            "device.command.requested.v1",
-            "extension.action.outcome.v1",
-            "notification.workflow.outcome.v1",
-        }
-    ),
-    ("edge.eventing-to-ingestion", "control"): frozenset(
-        {"device.command.requested.v1"}
-    ),
 }
 _IDENTITY_EXCHANGE_BY_PAIR = {
     ("aws", "azure"): "aws_oidc_to_entra_federated_credential",

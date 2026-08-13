@@ -16,7 +16,10 @@ from src.providers.terraform.package_builders.aws import (
 )
 from src.providers.terraform.package_builders.aws_v2 import (
     BRIDGE_PACKAGE_ID as AWS_V2_BRIDGE_PACKAGE_ID,
+    SIX_LAYER_BRIDGE_PACKAGE_ID as AWS_SIX_LAYER_BRIDGE_PACKAGE_ID,
     STORAGE_MOVER_PACKAGE_ID as AWS_V2_STORAGE_MOVER_PACKAGE_ID,
+    build_aws_six_layer_bridge_context,
+    build_aws_six_layer_domain_app,
     build_aws_v2_bridge_context,
     build_aws_v2_graph_app,
     build_aws_v2_storage_mover_context,
@@ -131,6 +134,7 @@ def build_all_packages(
         )
         aws_v2_storage_mover_selected = _aws_v2_storage_mover_selected(graph)
         aws_v2_bridge_selected = _aws_v2_bridge_selected(graph)
+        aws_six_layer_bridge_selected = _aws_six_layer_bridge_selected(graph)
         azure_v2_storage_mover_selected = _azure_v2_storage_mover_selected(graph)
 
     packages: Dict[str, Path] = {}
@@ -148,11 +152,15 @@ def build_all_packages(
             correlation_id=operation_id,
         )
         aws_v2_selected = "five-layer-v2" in selected_functions["aws"]
+        aws_six_layer_domain_selected = (
+            "six-layer-domain" in selected_functions["aws"]
+        )
         aws_eventing_selected = "six-layer-eventing" in selected_functions["aws"]
         aws_v1_names = tuple(
             name
             for name in selected_functions["aws"]
-            if name not in {"five-layer-v2", "six-layer-eventing"}
+            if name
+            not in {"five-layer-v2", "six-layer-domain", "six-layer-eventing"}
         )
         packages.update(
             build_aws_lambda_packages(
@@ -164,6 +172,8 @@ def build_all_packages(
         )
         if aws_v2_selected:
             packages.update(build_aws_v2_graph_app(project_path))
+        if aws_six_layer_domain_selected:
+            packages.update(build_aws_six_layer_domain_app(project_path))
         if aws_eventing_selected:
             packages.update(build_aws_eventing_app(project_path))
         azure_v2_names = tuple(
@@ -191,6 +201,8 @@ def build_all_packages(
             packages.update(build_aws_v2_storage_mover_context(project_path))
         if aws_v2_bridge_selected:
             packages.update(build_aws_v2_bridge_context(project_path))
+        if aws_six_layer_bridge_selected:
+            packages.update(build_aws_six_layer_bridge_context(project_path))
         if azure_v2_storage_mover_selected:
             packages.update(build_azure_v2_storage_mover_context(project_path))
         if (
@@ -210,6 +222,11 @@ def build_all_packages(
                 else set()
             )
             | ({AWS_V2_BRIDGE_PACKAGE_ID} if aws_v2_bridge_selected else set())
+            | (
+                {AWS_SIX_LAYER_BRIDGE_PACKAGE_ID}
+                if aws_six_layer_bridge_selected
+                else set()
+            )
             | (
                 {AZURE_V2_STORAGE_MOVER_PACKAGE_ID}
                 if azure_v2_storage_mover_selected
@@ -427,10 +444,15 @@ def _selected_static_function_packages(
         }
         else set()
     )
+    domain_runtime_name = (
+        "six-layer-domain"
+        if profile == ("six-layer-eventing", "1")
+        else "five-layer-v2"
+    )
     for provider in event_route_providers.intersection({"aws", "azure"}):
-        selected[provider].add("five-layer-v2")
+        selected[provider].add(domain_runtime_name)
         if provider == "aws":
-            package_ids.add("aws_five-layer-v2")
+            package_ids.add(f"aws_{domain_runtime_name}")
     azure_v2_names = selected["azure"].intersection(AZURE_V2_GRAPH_APPS)
     azure_v1_names = selected["azure"] - azure_v2_names
     package_ids.update(azure_graph_package_ids(azure_v1_names))
@@ -466,7 +488,11 @@ def _selected_gcp_container_packages(
         and "gcp" in {route.source_provider, route.destination_provider}
         for route in resolve_cross_cloud_routes(graph)
     ):
-        selected.add("five-layer-v2")
+        selected.add(
+            "six-layer-domain"
+            if profile == ("six-layer-eventing", "1")
+            else "five-layer-v2"
+        )
     names = tuple(sorted(selected))
     return names, {f"gcp_{name}" for name in names}
 
@@ -484,10 +510,21 @@ def _aws_v2_bridge_selected(graph: ResolvedDeploymentGraph) -> bool:
         graph.profile_ref.get("id"),
         str(graph.profile_ref.get("version")),
     )
-    if profile not in {
-        ("five-layer-baseline", "2"),
-        ("six-layer-eventing", "1"),
-    }:
+    if profile != ("five-layer-baseline", "2"):
+        return False
+    return any(
+        route.source_provider == "aws"
+        and route.execution_kind == "source_event_forwarder"
+        for route in resolve_cross_cloud_routes(graph)
+    )
+
+
+def _aws_six_layer_bridge_selected(graph: ResolvedDeploymentGraph) -> bool:
+    profile = (
+        graph.profile_ref.get("id"),
+        str(graph.profile_ref.get("version")),
+    )
+    if profile != ("six-layer-eventing", "1"):
         return False
     return any(
         route.source_provider == "aws"

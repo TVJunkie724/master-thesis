@@ -54,8 +54,8 @@ run "six_layer_single_cloud_gcp_adds_independent_event_bundle" {
       slot_version    = "1"
       artifact_id     = "66666666-6666-4666-8666-666666666666"
       artifact_digest = "sha256:6666666666666666666666666666666666666666666666666666666666666666"
-      package_path    = "${var.project_path}/.build/azure/five-layer-v2.zip"
-      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/five-layer-v2.zip")}"
+      package_path    = "${var.project_path}/.build/azure/six-layer-domain.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/six-layer-domain.zip")}"
       adapter_id      = "adapter.gcp.python311"
       adapter_version = "1"
     }]
@@ -95,7 +95,6 @@ run "six_layer_single_cloud_gcp_adds_independent_event_bundle" {
     error_message = "Single-cloud GCP must replace embedded domain transport with the independent Event Layer while retaining the L1 command boundary."
   }
 }
-
 run "six_layer_single_cloud_gcp_large_uses_six_fixed_worker_pools" {
   command = plan
 
@@ -139,8 +138,8 @@ run "six_layer_single_cloud_gcp_large_uses_six_fixed_worker_pools" {
       slot_version    = "1"
       artifact_id     = "77777777-7777-4777-8777-777777777777"
       artifact_digest = "sha256:7777777777777777777777777777777777777777777777777777777777777777"
-      package_path    = "${var.project_path}/.build/azure/five-layer-v2.zip"
-      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/five-layer-v2.zip")}"
+      package_path    = "${var.project_path}/.build/azure/six-layer-domain.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/six-layer-domain.zip")}"
       adapter_id      = "adapter.gcp.python311"
       adapter_version = "1"
     }]

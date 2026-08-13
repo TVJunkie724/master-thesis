@@ -1549,8 +1549,8 @@ run "six_layer_single_cloud_aws_adds_independent_event_bundle" {
       slot_version    = "1"
       artifact_id     = "44444444-4444-4444-8444-444444444444"
       artifact_digest = "sha256:4444444444444444444444444444444444444444444444444444444444444444"
-      package_path    = "${var.project_path}/.build/aws/five-layer-v2.zip"
-      package_digest  = "sha256:${filesha256("${var.project_path}/.build/aws/five-layer-v2.zip")}"
+      package_path    = "${var.project_path}/.build/aws/six-layer-domain.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/aws/six-layer-domain.zip")}"
       adapter_id      = "adapter.aws.python311"
       adapter_version = "1"
     }]
@@ -1632,8 +1632,8 @@ run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
       slot_version    = "1"
       artifact_id     = "55555555-5555-4555-8555-555555555555"
       artifact_digest = "sha256:5555555555555555555555555555555555555555555555555555555555555555"
-      package_path    = "${var.project_path}/.build/azure/five-layer-v2.zip"
-      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/five-layer-v2.zip")}"
+      package_path    = "${var.project_path}/.build/azure/six-layer-domain.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/six-layer-domain.zip")}"
       adapter_id      = "adapter.azure.python311"
       adapter_version = "1"
     }]
@@ -1718,8 +1718,8 @@ run "six_layer_single_cloud_gcp_adds_independent_event_bundle" {
       slot_version    = "1"
       artifact_id     = "66666666-6666-4666-8666-666666666666"
       artifact_digest = "sha256:6666666666666666666666666666666666666666666666666666666666666666"
-      package_path    = "${var.project_path}/.build/azure/five-layer-v2.zip"
-      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/five-layer-v2.zip")}"
+      package_path    = "${var.project_path}/.build/azure/six-layer-domain.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/six-layer-domain.zip")}"
       adapter_id      = "adapter.gcp.python311"
       adapter_version = "1"
     }]

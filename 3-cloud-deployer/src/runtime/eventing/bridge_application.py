@@ -146,26 +146,22 @@ def _publisher_for_destination(
 
 
 class BridgeApplication:
-    """One source-provider bridge with provider or exact-route publishers."""
+    """One source-provider bridge with one publisher per remote provider."""
 
     def __init__(
         self,
         source_provider: str,
         routes: tuple[BridgeRoute, ...],
-        provider_publishers: Mapping[str, object],
-        route_publishers: Mapping[str, object] | None = None,
+        publishers: Mapping[str, object],
     ) -> None:
         self.source_provider = source_provider
         self.routes = routes
-        self._provider_publishers = dict(provider_publishers)
-        self._route_publishers = dict(route_publishers or {})
+        self._publishers = dict(publishers)
 
     def publish(self, route: BridgeRoute, event: Mapping[str, Any]) -> object:
         if route.source_provider != self.source_provider:
             raise RouteBlockingBridgeError("ROUTE_MISMATCH")
-        publisher = self._route_publishers.get(route.route_id)
-        if publisher is None:
-            publisher = self._provider_publishers.get(route.destination_provider)
+        publisher = self._publishers.get(route.destination_provider)
         if publisher is None:
             raise RouteBlockingBridgeError("ROUTE_NOT_CONFIGURED")
         publish = getattr(publisher, "publish", None)
@@ -206,45 +202,17 @@ def build_bridge_application(
         source_identity,
         required=source_provider == "azure",
     )
-    provider_publishers: dict[str, object] = {}
-    route_publishers: dict[str, object] = {}
-    for provider in sorted(expected):
-        destination_raw = destinations[provider]
-        provider_routes = tuple(
-            route for route in routes if route.destination_provider == provider
+    publishers = {
+        provider: _publisher_for_destination(
+            source_provider=source_provider,
+            destination_provider=provider,
+            destination_raw=destinations[provider],
+            identity_raw=identities[provider],
+            azure_source_client_id=azure_client_id,
         )
-        if isinstance(destination_raw, Mapping) and set(destination_raw) == {
-            "route_targets"
-        }:
-            route_targets = destination_raw.get("route_targets")
-            expected_route_ids = {route.route_id for route in provider_routes}
-            if (
-                not isinstance(route_targets, Mapping)
-                or set(route_targets) != expected_route_ids
-            ):
-                raise BridgeContractError("INVALID_DESTINATION_CONFIGURATION")
-            for route in provider_routes:
-                route_publishers[route.route_id] = _publisher_for_destination(
-                    source_provider=source_provider,
-                    destination_provider=provider,
-                    destination_raw=route_targets[route.route_id],
-                    identity_raw=identities[provider],
-                    azure_source_client_id=azure_client_id,
-                )
-        else:
-            provider_publishers[provider] = _publisher_for_destination(
-                source_provider=source_provider,
-                destination_provider=provider,
-                destination_raw=destination_raw,
-                identity_raw=identities[provider],
-                azure_source_client_id=azure_client_id,
-            )
-    return BridgeApplication(
-        source_provider,
-        routes,
-        provider_publishers,
-        route_publishers,
-    )
+        for provider in sorted(expected)
+    }
+    return BridgeApplication(source_provider, routes, publishers)
 
 
 __all__ = ["BridgeApplication", "build_bridge_application"]

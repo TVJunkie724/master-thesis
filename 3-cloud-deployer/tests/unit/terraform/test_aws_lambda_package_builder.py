@@ -291,6 +291,7 @@ class TestRealLambdaFunctions:
             "processor_wrapper",
             "default-processor",
             "five-layer-v2",  # validated as an explicit multi-handler package below
+            "six-layer-domain",  # profile-local multi-handler package
         }
 
         for func_dir in lambda_functions_dir.iterdir():

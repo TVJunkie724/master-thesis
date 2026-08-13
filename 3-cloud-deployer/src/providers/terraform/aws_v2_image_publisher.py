@@ -70,6 +70,12 @@ def image_requests(
 ) -> tuple[AwsV2ImageRequest, ...]:
     requests: list[AwsV2ImageRequest] = []
     build_root = Path(project_path) / ".build" / "aws"
+    bridge_context = (
+        "six-layer-domain-bridge.zip"
+        if tfvars.get("architecture_profile_id") == "six-layer-eventing"
+        and str(tfvars.get("architecture_profile_version")) == "1"
+        else "five-layer-v2-bridge.zip"
+    )
     selections = (
         (
             aws_v2_storage_mover_deployment(tfvars),
@@ -79,7 +85,7 @@ def image_requests(
         (
             aws_v2_bridge_deployment(tfvars),
             "bridge",
-            build_root / "five-layer-v2-bridge.zip",
+            build_root / bridge_context,
         ),
     )
     for selected, name, context in selections:

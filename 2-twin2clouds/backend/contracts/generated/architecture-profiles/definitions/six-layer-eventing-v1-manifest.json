@@ -11,7 +11,7 @@
   "inherited_catalog_ref": {
     "id": "complete-service-component-catalog",
     "version": "1",
-    "digest": "sha256:2e4bf3af8430584c98ea353f1acc0c407d433bbc5856be349339cd1b363df40c"
+    "digest": "sha256:3396848028a5b8862e1c948a8017cd8e7bb7d118a0ee5edc120cd3d7a3956c1d"
   },
   "profile_ref": {
     "id": "six-layer-eventing",
@@ -41,7 +41,7 @@
   "catalog_ref": {
     "id": "six-layer-eventing-component-catalog",
     "version": "1",
-    "digest": "sha256:4e74df462724903718ee87bd4d3358f985beb03fa3e9a3bf7e0ec4815117b11d"
+    "digest": "sha256:5df5ead970f884e8c3248e563df96a2fdf8c64abc681a5df239a2a248f3e86d1"
   },
   "eventing_decision_ref": {
     "id": "phase-08-eventing-decision",
@@ -81,5 +81,5 @@
     "gcp-to-aws",
     "gcp-to-azure"
   ],
-  "content_digest": "sha256:fde693b937c785d8974185a3b43215f93a0fd608ec19ce30b77ee33cfd35045a"
+  "content_digest": "sha256:27ff88145b620d2a29fd2a79cacc16de344e924a99294b7c51ee259fdf0eae45"
 }

@@ -64,17 +64,42 @@ EXPECTED_NON_HTTP_TRIGGERS = {
         "service_bus_queue_trigger",
     ),
     (
-        "five-layer-v2",
+        "six-layer-domain",
+        "remote_telemetry_consumer",
+        "event_hub_message_trigger",
+    ),
+    (
+        "six-layer-domain",
+        "domain_event_consumer",
+        "service_bus_queue_trigger",
+    ),
+    (
+        "six-layer-domain",
+        "iot_telemetry_adapter",
+        "event_hub_message_trigger",
+    ),
+    (
+        "six-layer-domain",
+        "cross_cloud_telemetry_bridge",
+        "event_hub_message_trigger",
+    ),
+    (
+        "six-layer-domain",
+        "cross_cloud_control_bridge",
+        "service_bus_queue_trigger",
+    ),
+    (
+        "six-layer-domain",
         "cross_cloud_event_received_bridge",
         "event_hub_message_trigger",
     ),
     (
-        "five-layer-v2",
+        "six-layer-domain",
         "cross_cloud_event_processed_bridge",
         "event_hub_message_trigger",
     ),
     (
-        "five-layer-v2",
+        "six-layer-domain",
         "cross_cloud_event_control_bridge",
         "service_bus_topic_trigger",
     ),

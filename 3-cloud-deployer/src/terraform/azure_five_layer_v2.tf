@@ -166,6 +166,8 @@ locals {
   azure_v2_runtime_package = (
     var.azure_v2_zip_path != ""
     ? var.azure_v2_zip_path
+    : local.six_layer_eventing_enabled
+    ? "${var.project_path}/.build/azure/six-layer-domain.zip"
     : "${var.project_path}/.build/azure/five-layer-v2.zip"
   )
   azure_v2_tags = merge(local.common_tags, {

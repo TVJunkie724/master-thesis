@@ -12,6 +12,9 @@ from src.providers.terraform.package_builder import (
     build_all_packages,
     build_aws_v2_graph_app,
 )
+from src.providers.terraform.package_builders.aws_v2 import (
+    build_aws_six_layer_domain_app,
+)
 from src.providers.terraform.package_builders.aws_eventing import (
     build_aws_eventing_app,
 )
@@ -147,10 +150,11 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
     build_all_packages(terraform_dir, project_path, all_aws)
     build_all_packages(terraform_dir, project_path, gcp_storage)
     build_aws_v2_graph_app(project_path)
+    build_aws_six_layer_domain_app(project_path)
     build_aws_eventing_app(project_path)
     build_azure_v2_graph_apps(
         project_path,
-        ("five-layer-v2", "six-layer-eventing"),
+        ("five-layer-v2", "six-layer-domain", "six-layer-eventing"),
     )
 
     _run_terraform(

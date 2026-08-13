@@ -16,8 +16,12 @@ from src.providers.terraform.package_builders.common import _should_include_file
 
 PROVIDERS_ROOT = Path(__file__).resolve().parents[2]
 BRIDGE_RUNTIME_ROOT = PROVIDERS_ROOT.parent / "runtime" / "eventing"
-BRIDGE_CORE_SOURCE = BRIDGE_RUNTIME_ROOT / "bridge_core.py"
-GCP_V2_CONTEXTS = frozenset({"five-layer-v2", "six-layer-eventing"})
+SIX_LAYER_BRIDGE_RUNTIME_ROOT = (
+    PROVIDERS_ROOT.parent / "runtime" / "six_layer_eventing"
+)
+GCP_V2_CONTEXTS = frozenset(
+    {"five-layer-v2", "six-layer-domain", "six-layer-eventing"}
+)
 GCP_V2_EXTENSION_DOCKERFILE = """# syntax=docker/dockerfile:1.7
 
 FROM python:3.11-slim@sha256:baf89808ec37adeaab83cec287adb4a2afa4a11c1d51e961c7ec737877e61af6
@@ -99,20 +103,26 @@ def build_gcp_v2_container_contexts(
         if not source.is_dir() or source.is_symlink():
             raise ValueError(f"Unavailable GCP Five-layer v2 context: {name}")
         output = build_dir / f"{name}.tar.gz"
-        if not BRIDGE_CORE_SOURCE.is_file() or BRIDGE_CORE_SOURCE.is_symlink():
+        runtime_root = (
+            BRIDGE_RUNTIME_ROOT
+            if name == "five-layer-v2"
+            else SIX_LAYER_BRIDGE_RUNTIME_ROOT
+        )
+        bridge_core_source = runtime_root / "bridge_core.py"
+        if not bridge_core_source.is_file() or bridge_core_source.is_symlink():
             raise ValueError("Shared Phase 8 bridge runtime is unavailable")
         atomic_write_private_bytes(
             output,
             _context_bytes(
                 source,
                 additional_files={
-                    "bridge_core.py": BRIDGE_CORE_SOURCE,
+                    "bridge_core.py": bridge_core_source,
                     **{
                         (
                             Path("phase8_eventing")
-                            / path.relative_to(BRIDGE_RUNTIME_ROOT)
+                            / path.relative_to(runtime_root)
                         ).as_posix(): path
-                        for path in sorted(BRIDGE_RUNTIME_ROOT.rglob("*"))
+                        for path in sorted(runtime_root.rglob("*"))
                         if path.is_file() and _should_include_file(path)
                     },
                 },

@@ -22,6 +22,7 @@ SOURCE_ROOT = (
     / "five-layer-v2"
     / "platform"
 )
+SIX_LAYER_SOURCE_ROOT = SOURCE_ROOT.parents[1] / "six-layer-domain" / "platform"
 
 
 def _load_from_path(module_name: str, path: Path):
@@ -59,6 +60,31 @@ def _load(name: str):
                 sys.modules["core"] = previous_core
     finally:
         sys.path.remove(str(SOURCE_ROOT))
+
+
+def _load_six_layer(name: str):
+    sys.path.insert(0, str(SIX_LAYER_SOURCE_ROOT))
+    try:
+        core = _load_from_path(
+            "gcp_six_layer_domain_core",
+            SIX_LAYER_SOURCE_ROOT / "core.py",
+        )
+        if name == "core":
+            return core
+        previous_core = sys.modules.get("core")
+        sys.modules["core"] = core
+        try:
+            return _load_from_path(
+                "gcp_six_layer_domain_app",
+                SIX_LAYER_SOURCE_ROOT / "app.py",
+            )
+        finally:
+            if previous_core is None:
+                sys.modules.pop("core", None)
+            else:
+                sys.modules["core"] = previous_core
+    finally:
+        sys.path.remove(str(SIX_LAYER_SOURCE_ROOT))
 
 
 def _received(core, *, event_id: str = "event-1", projection: bool = True):
@@ -710,8 +736,8 @@ def test_remote_landing_republishes_only_to_selected_local_owner(
 
 
 def test_six_layer_remote_landing_republishes_to_gcp_event_layer(monkeypatch):
-    core = _load("core")
-    runtime = _load("app")
+    core = _load_six_layer("core")
+    runtime = _load_six_layer("app")
     event = _received(core)
     published = []
     monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")

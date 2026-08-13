@@ -58,6 +58,14 @@ CATALOG_PATH = (
 )
 MANIFEST_PATH = DEFINITIONS / "six-layer-eventing-v1-manifest.json"
 COST_REGISTRY_PATH = DEFINITIONS / "six-layer-eventing-v1-cost-registry.json"
+SIX_LAYER_DOMAIN_SOURCES = {
+    "aws": "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-domain",
+    "azure": "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-domain",
+    "gcp": "3-cloud-deployer/src/providers/gcp/containers/six-layer-domain",
+}
+SIX_LAYER_BRIDGE_RUNTIME_SOURCE = (
+    "3-cloud-deployer/src/runtime/six_layer_eventing"
+)
 PROVIDERS = ("aws", "azure", "gcp")
 REGIONS = {"aws": "eu-central-1", "azure": "westeurope", "gcp": "europe-west1"}
 EVENT_CAPABILITIES = (
@@ -709,7 +717,10 @@ def _event_package(provider: str) -> dict[str, Any]:
         "included_paths": included,
         "excluded_paths": [],
         "dependency_artifact_refs": [
-            {"id": "artifact.shared.phase8-bridge-runtime", "version": "1"}
+            {
+                "id": "artifact.shared.phase8-six-layer-bridge-runtime",
+                "version": "1",
+            }
         ],
         "builder_adapter_id": (
             "builder.aws.six-layer-eventing"
@@ -988,7 +999,58 @@ def build_catalog(
             "lifecycle_status": "active",
         }
     )
+    six_layer_package_sources = {
+        **{
+            f"artifact.platform.{provider}.five-layer-v2": source
+            for provider, source in SIX_LAYER_DOMAIN_SOURCES.items()
+        },
+        "artifact.shared.phase8-bridge-runtime": SIX_LAYER_BRIDGE_RUNTIME_SOURCE,
+    }
+    six_layer_package_ids = {
+        **{
+            f"artifact.platform.{provider}.five-layer-v2": (
+                f"artifact.platform.{provider}.six-layer-domain"
+            )
+            for provider in PROVIDERS
+        },
+        "artifact.shared.phase8-bridge-runtime": (
+            "artifact.shared.phase8-six-layer-bridge-runtime"
+        ),
+    }
+    for artifact in catalog["package_artifacts"]:
+        inherited_id = artifact["artifact_id"]
+        source = six_layer_package_sources.get(inherited_id)
+        if source is None:
+            continue
+        artifact["artifact_id"] = six_layer_package_ids[inherited_id]
+        artifact["repository_source_path"] = source
+        artifact["source_digest"] = FIVE.package_source_digest(source)
+        artifact["included_paths"] = [
+            path.relative_to(ROOT / source).as_posix()
+            for path in sorted((ROOT / source).rglob("*"))
+            if path.is_file()
+            and "__pycache__" not in path.parts
+            and ".git" not in path.parts
+            and path.suffix.lower() != ".zip"
+            and not path.name.startswith(".git")
+            and path.name != ".DS_Store"
+        ]
+        artifact["dependency_artifact_refs"] = (
+            [
+                {
+                    "id": "artifact.shared.phase8-six-layer-bridge-runtime",
+                    "version": "1",
+                }
+            ]
+            if inherited_id != "artifact.shared.phase8-bridge-runtime"
+            else []
+        )
     for component in catalog["components"]:
+        artifact_ref = component.get("package_artifact_ref")
+        if isinstance(artifact_ref, dict):
+            artifact_ref["id"] = six_layer_package_ids.get(
+                artifact_ref["id"], artifact_ref["id"]
+            )
         component["compatibility"] = six_compatibility(component["provider"])
     valid_edge_ids = {item["edge_id"] for item in profile["edges"]}
     catalog["edge_implementations"] = [

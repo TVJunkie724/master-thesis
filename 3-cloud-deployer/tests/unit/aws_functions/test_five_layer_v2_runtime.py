@@ -21,10 +21,22 @@ SOURCE = (
     / "five-layer-v2"
     / "handler.py"
 )
+SIX_LAYER_SOURCE = SOURCE.parents[1] / "six-layer-domain" / "handler.py"
 
 
 def _module():
     spec = importlib.util.spec_from_file_location("aws_five_layer_v2_handler", SOURCE)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def _six_layer_module():
+    spec = importlib.util.spec_from_file_location(
+        "aws_six_layer_domain_handler",
+        SIX_LAYER_SOURCE,
+    )
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
@@ -216,7 +228,7 @@ def test_event_adapter_uses_outbox_when_processing_is_remote(monkeypatch):
 
 
 def test_six_layer_event_adapter_publishes_to_received_event_log(monkeypatch):
-    runtime = _module()
+    runtime = _six_layer_module()
     stream = _Stream()
     monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
     monkeypatch.setenv("LOCAL_PROCESSING", "false")
@@ -320,7 +332,7 @@ def test_processor_atomically_writes_raw_and_hourly_rollup(monkeypatch):
 
 
 def test_six_layer_processor_publishes_to_processed_event_log(monkeypatch):
-    runtime = _module()
+    runtime = _six_layer_module()
     stream = _Stream()
     monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
     monkeypatch.setenv(
@@ -352,7 +364,7 @@ def test_six_layer_processor_publishes_to_processed_event_log(monkeypatch):
 def test_six_layer_processed_fanout_keeps_consumer_responsibilities_independent(
     monkeypatch,
 ):
-    runtime = _module()
+    runtime = _six_layer_module()
     processed = runtime._derive_event(
         {
             "event_id": "received-six-fanout",
@@ -885,7 +897,7 @@ def test_domain_consumer_rejects_noncanonical_broker_record():
 
 
 def test_six_layer_remote_landing_republishes_to_aws_event_layer(monkeypatch):
-    runtime = _module()
+    runtime = _six_layer_module()
     published = []
     monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
     monkeypatch.setenv("EVENT_LAYER_PROVIDER", "aws")
@@ -930,7 +942,7 @@ def test_notification_request_starts_fixed_workflow(monkeypatch):
 
 
 def test_iot_commands_client_uses_account_specific_endpoint(monkeypatch):
-    runtime = _module()
+    runtime = _six_layer_module()
     client = Mock()
     factory = Mock(return_value=client)
     monkeypatch.setenv(

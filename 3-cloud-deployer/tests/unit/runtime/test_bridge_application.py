@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from src.runtime.eventing import bridge_application as application
-from src.runtime.eventing.bridge_core import (
+from src.runtime.six_layer_eventing import bridge_application as application
+from src.runtime.six_layer_eventing.bridge_core import (
     BridgeContractError,
     RouteBlockingBridgeError,
 )
