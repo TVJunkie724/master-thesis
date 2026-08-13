@@ -326,7 +326,7 @@ def test_real_single_cloud_optimizer_prices_complete_profile(provider):
         for item in result.resolved_architecture["resolved_edges"]
         if "eventing" in item["edge_id"]
     ]
-    assert len(event_edges) == 4
+    assert len(event_edges) == 5
     assert {item["mechanism"] for item in event_edges} == {
         "provider_native_trigger"
     }
@@ -389,6 +389,7 @@ def test_optimizer_materializes_source_owned_event_bridges_in_rta():
         "edge.eventing-to-processing",
         "edge.processing-to-eventing",
         "edge.eventing-to-ingestion",
+        "edge.eventing-to-hot-storage",
     }
     assert {item["mechanism"] for item in event_edges.values()} == {
         "cross_provider_adapter"
@@ -402,6 +403,7 @@ def test_catalog_covers_all_six_directed_provider_pairs_for_every_event_edge():
         "edge.eventing-to-processing",
         "edge.processing-to-eventing",
         "edge.eventing-to-ingestion",
+        "edge.eventing-to-hot-storage",
     }
     implementations = [
         item
@@ -410,7 +412,7 @@ def test_catalog_covers_all_six_directed_provider_pairs_for_every_event_edge():
         and item["transfer_route_class"] == "cross_provider"
     ]
 
-    assert len(implementations) == 24
+    assert len(implementations) == 30
     assert {
         tuple(
             item["edge_implementation_id"]
@@ -438,6 +440,7 @@ def test_catalog_covers_all_six_directed_provider_pairs_for_every_event_edge():
                 "edge.ingestion-to-eventing": ("100351", "512897536"),
                 "edge.processing-to-eventing": ("102855", "517513216"),
                 "edge.eventing-to-processing": ("202955", "1029896704"),
+                "edge.eventing-to-hot-storage": ("202955", "1029896704"),
                 "edge.eventing-to-ingestion": ("251", "514048"),
             },
         ),
@@ -447,6 +450,7 @@ def test_catalog_covers_all_six_directed_provider_pairs_for_every_event_edge():
                 "edge.ingestion-to-eventing": ("10175375", "176730176000"),
                 "edge.processing-to-eventing": ("10429125", "177197888000"),
                 "edge.eventing-to-processing": ("20579125", "353876096000"),
+                "edge.eventing-to-hot-storage": ("20579125", "353876096000"),
                 "edge.eventing-to-ingestion": ("25375", "51968000"),
             },
         ),
@@ -456,6 +460,10 @@ def test_catalog_covers_all_six_directed_provider_pairs_for_every_event_edge():
                 "edge.ingestion-to-eventing": ("103257500", "6856075520000"),
                 "edge.processing-to-eventing": ("105832500", "6860821760000"),
                 "edge.eventing-to-processing": ("208832500", "13716369920000"),
+                "edge.eventing-to-hot-storage": (
+                    "208832500",
+                    "13716369920000",
+                ),
                 "edge.eventing-to-ingestion": ("257500", "527360000"),
             },
         ),
@@ -478,9 +486,10 @@ def test_cross_cloud_event_routes_use_exact_frozen_channel_quantities(size, expe
     )
 
     quantities_by_edge = {
-        item["allocations"][0]["item_id"]: item["normalized_quantities"]
+        allocation["item_id"]: item["normalized_quantities"]
         for item in ledger["route_costs"]
         if item["route_class"] == "domain_event_cross_cloud"
+        for allocation in item["allocations"]
     }
     assert quantities_by_edge == {
         edge_id: {

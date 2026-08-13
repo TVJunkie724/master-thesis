@@ -89,6 +89,7 @@ REMOVED_DIRECT_EDGES = {
     "edge.ingestion-to-processing",
     "edge.processing-to-ingestion",
     "edge.ingestion-to-hot-storage",
+    "edge.processing-to-hot-storage",
 }
 EVENT_EDGES: dict[str, tuple[str, str, str, str, str]] = {
     "edge.ingestion-to-eventing": (
@@ -119,12 +120,23 @@ EVENT_EDGES: dict[str, tuple[str, str, str, str, str]] = {
         "port.ingestion.device-command-in",
         "cost.eventing-to-ingestion",
     ),
+    "edge.eventing-to-hot-storage": (
+        "component.eventing",
+        "port.eventing.telemetry-out",
+        "component.hot-storage",
+        "port.hot-storage.processing-event-in",
+        "cost.eventing-to-hot-storage",
+    ),
 }
 CATALOG_PORTS = {
     "edge.ingestion-to-eventing": ("ingestion.telemetry-event-out", "eventing.telemetry-in"),
     "edge.eventing-to-processing": ("eventing.telemetry-out", "processing.telemetry-event-in"),
     "edge.processing-to-eventing": ("processing.device-command-out", "eventing.control-in"),
     "edge.eventing-to-ingestion": ("eventing.control-out", "ingestion.device-command-in"),
+    "edge.eventing-to-hot-storage": (
+        "eventing.telemetry-out",
+        "hot-storage.processing-event-in",
+    ),
 }
 INHERITED_IMPLEMENTATION_COMMIT = "c5c6232478d29a9cc3c7d280bdc9ca0e79c47226"
 INHERITED_AUDIT_COMMIT = "d4c080f6"
@@ -894,6 +906,7 @@ def _event_edge_implementation(
             "aws": {
                 "edge.eventing-to-processing": "output.aws.event-kinesis-arn",
                 "edge.eventing-to-ingestion": "output.aws.event-control-queue-arn",
+                "edge.eventing-to-hot-storage": "output.aws.event-kinesis-arn",
             },
             "azure": {
                 "edge.eventing-to-processing": (
@@ -902,10 +915,14 @@ def _event_edge_implementation(
                 "edge.eventing-to-ingestion": (
                     "output.azure.event-control-topic-id"
                 ),
+                "edge.eventing-to-hot-storage": (
+                    "output.azure.event-hubs-standard-id"
+                ),
             },
             "gcp": {
                 "edge.eventing-to-processing": "output.gcp.event-topic-id",
                 "edge.eventing-to-ingestion": "output.gcp.event-topic-id",
+                "edge.eventing-to-hot-storage": "output.gcp.event-topic-id",
             },
         }[source_provider][edge_id]
     else:

@@ -68,12 +68,12 @@ SIX_LAYER_EDGE_IDS = (
     "edge.cool-to-archive-storage",
     "edge.hot-storage-to-twin-state",
     "edge.hot-to-cool-storage",
-    "edge.processing-to-hot-storage",
     "edge.hot-storage-to-visualization",
     "edge.ingestion-to-eventing",
     "edge.eventing-to-processing",
     "edge.processing-to-eventing",
     "edge.eventing-to-ingestion",
+    "edge.eventing-to-hot-storage",
 )
 DOMAIN_EVENT_FLOWS = (
     ("telemetry.received.v1", "component.ingestion", "component.processing"),
@@ -110,9 +110,6 @@ SIX_LAYER_EVENT_FLOWS = (
             "telemetry.processed.v1",
             "event.matched.v1",
             "notification.requested.v1",
-            "extension.action.outcome.v1",
-            "notification.workflow.outcome.v1",
-            "device.command.outcome.v1",
         ),
     ),
     (
@@ -133,6 +130,17 @@ SIX_LAYER_EVENT_FLOWS = (
         "component.eventing",
         "component.ingestion",
         ("device.command.requested.v1",),
+    ),
+    (
+        "edge.eventing-to-hot-storage",
+        "component.eventing",
+        "component.hot-storage",
+        (
+            "telemetry.processed.v1",
+            "extension.action.outcome.v1",
+            "notification.workflow.outcome.v1",
+            "device.command.outcome.v1",
+        ),
     ),
 )
 

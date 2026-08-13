@@ -179,9 +179,7 @@ def test_every_directed_pair_composes_only_its_official_identity_and_sdk_path(
     )
 
     route = bridge.routes[0]
-    assert bridge.publish(route, {"event_id": "event-1"}) == (
-        f"accepted-{destination}"
-    )
+    assert bridge.publish(route, {"event_id": "event-1"}) == (f"accepted-{destination}")
     assert bridge.source_provider == source
     assert {route.destination_provider for route in bridge.routes} == {destination}
 
@@ -210,26 +208,17 @@ def test_one_source_application_supports_two_remote_destination_providers(
             "destination_broker_kind": "control_topic",
         }
     )
-    destinations = {
-        provider: _destination(provider) for provider in ("aws", "gcp")
-    }
-    destinations["gcp"] = {
-        "control_topic": "projects/project-1/topics/control"
-    }
+    destinations = {provider: _destination(provider) for provider in ("aws", "gcp")}
+    destinations["gcp"] = {"control_topic": "projects/project-1/topics/control"}
 
     bridge = application.build_bridge_application(
         source_provider="azure",
         routes_json=json.dumps(routes),
         destinations_json=json.dumps(destinations),
         identities_json=json.dumps(
-            {
-                provider: _identity("azure", provider)
-                for provider in ("aws", "gcp")
-            }
+            {provider: _identity("azure", provider) for provider in ("aws", "gcp")}
         ),
-        source_identity_json=json.dumps(
-            {"managed_identity_client_id": CLIENT_ID}
-        ),
+        source_identity_json=json.dumps({"managed_identity_client_id": CLIENT_ID}),
     )
 
     assert {route.destination_provider for route in bridge.routes} == {"aws", "gcp"}
@@ -262,24 +251,18 @@ def test_one_destination_provider_uses_exact_target_for_each_event_route(
                 "azure": {
                     "route_targets": {
                         received["route_id"]: {
-                            "telemetry_namespace": (
-                                "twin01.servicebus.windows.net"
-                            ),
+                            "telemetry_namespace": ("twin01.servicebus.windows.net"),
                             "telemetry_entity": "received",
                         },
                         processed["route_id"]: {
-                            "telemetry_namespace": (
-                                "twin01.servicebus.windows.net"
-                            ),
+                            "telemetry_namespace": ("twin01.servicebus.windows.net"),
                             "telemetry_entity": "processed",
                         },
                     }
                 }
             }
         ),
-        identities_json=json.dumps(
-            {"azure": _identity("aws", "azure")}
-        ),
+        identities_json=json.dumps({"azure": _identity("aws", "azure")}),
     )
 
     publishers = bridge._route_publishers
@@ -312,12 +295,39 @@ def test_route_target_configuration_requires_every_exact_route(
         application.build_bridge_application(
             source_provider="aws",
             routes_json=json.dumps([route]),
+            destinations_json=json.dumps({"azure": {"route_targets": {}}}),
+            identities_json=json.dumps({"azure": _identity("aws", "azure")}),
+        )
+
+
+def test_shared_landing_group_rejects_conflicting_route_targets(
+    composition_fakes,
+):
+    first = _route("aws", "azure")
+    second = dict(first)
+    second["route_id"] = "graph.aws.azure.telemetry.second"
+    first_target = _destination("azure")
+    second_target = dict(first_target)
+    second_target["telemetry_entity"] = "different-landing"
+
+    with pytest.raises(
+        BridgeContractError,
+        match="AMBIGUOUS_DESTINATION_CONFIGURATION",
+    ):
+        application.build_bridge_application(
+            source_provider="aws",
+            routes_json=json.dumps([first, second]),
             destinations_json=json.dumps(
-                {"azure": {"route_targets": {}}}
+                {
+                    "azure": {
+                        "route_targets": {
+                            first["route_id"]: first_target,
+                            second["route_id"]: second_target,
+                        }
+                    }
+                }
             ),
-            identities_json=json.dumps(
-                {"azure": _identity("aws", "azure")}
-            ),
+            identities_json=json.dumps({"azure": _identity("aws", "azure")}),
         )
 
 
@@ -341,9 +351,7 @@ def test_configuration_rejects_missing_extra_or_same_cloud_targets(
             routes_json=json.dumps([route]),
             destinations_json=json.dumps({"azure": _destination("azure")}),
             identities_json=json.dumps({"azure": _identity("aws", "azure")}),
-            source_identity_json=json.dumps(
-                {"managed_identity_client_id": CLIENT_ID}
-            ),
+            source_identity_json=json.dumps({"managed_identity_client_id": CLIENT_ID}),
         )
 
 

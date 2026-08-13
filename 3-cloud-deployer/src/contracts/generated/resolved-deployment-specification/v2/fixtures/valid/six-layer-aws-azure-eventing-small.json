@@ -4,7 +4,7 @@
   "architecture_profile_ref": {
     "id": "six-layer-eventing",
     "version": "1",
-    "digest": "sha256:ffb3a3fbc1e68e1a4fae77ba59c7aafe9122db3aa43910c54f31ade978d9f51f"
+    "digest": "sha256:4e4aba55de9e675b0c95db88be524822d34ebf28b6eb16d8b6dc7014e84f401b"
   },
   "optimization_context": {
     "service_decision_ref": {
@@ -15,7 +15,7 @@
     "component_catalog_ref": {
       "id": "six-layer-eventing-component-catalog",
       "version": "1",
-      "digest": "sha256:5df5ead970f884e8c3248e563df96a2fdf8c64abc681a5df239a2a248f3e86d1"
+      "digest": "sha256:0cefb5461d2997304260e319c0adb81f9771aed8d2399db3cad2634695ba767f"
     },
     "workload_ref": {
       "id": "five-layer-workload",
@@ -2050,5 +2050,5 @@
       "compatibility_version": "1"
     }
   ],
-  "digest": "sha256:ac53cdde3e2c0c64e666351e5fcb9d6d434c02a48e8462133319058f2a3bd118"
+  "digest": "sha256:3830de1d6c6ed515363b1ca60af8ba5f8e937d212283d828f9989a967f555d08"
 }

@@ -73,7 +73,10 @@ class SixLayerEventingContractTests(unittest.TestCase):
             for item in self.catalog["edge_implementations"]
             if item["logical_edge_ids"][0] in CONTRACT.EVENT_EDGES
         ]
-        self.assertEqual(len(event_edges), 36)
+        self.assertEqual(
+            len(event_edges),
+            len(CONTRACT.EVENT_EDGES) * len(CONTRACT.PROVIDERS) ** 2,
+        )
         directed_pairs = {
             (
                 item["source_component_ids"][0].split(".")[1],

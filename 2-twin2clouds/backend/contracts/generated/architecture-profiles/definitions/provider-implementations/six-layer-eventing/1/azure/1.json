@@ -5,7 +5,7 @@
   "architecture_profile_ref": {
     "id": "six-layer-eventing",
     "version": "1",
-    "digest": "sha256:ffb3a3fbc1e68e1a4fae77ba59c7aafe9122db3aa43910c54f31ade978d9f51f"
+    "digest": "sha256:4e4aba55de9e675b0c95db88be524822d34ebf28b6eb16d8b6dc7014e84f401b"
   },
   "provider": "azure",
   "lifecycle_status": "active",
@@ -408,23 +408,6 @@
       ]
     },
     {
-      "edge_id": "edge.processing-to-hot-storage",
-      "edge_implementation_id": "edge-implementation.azure-to-azure.processing-to-hot-storage.v2",
-      "source_deployment_component_ids": [
-        "deployment.azure.processing.v2"
-      ],
-      "destination_deployment_component_ids": [
-        "deployment.azure.hot-storage.v2"
-      ],
-      "mechanism": "provider_native_trigger",
-      "catalog_input_port_id": "catalog.azure.port.hot-storage.processing-event-in",
-      "catalog_output_port_id": "catalog.azure.port.processing.persistence-event-out",
-      "transfer_route_class": "same_provider_same_region",
-      "cost_owner_ids": [
-        "cost.processing-to-hot-storage"
-      ]
-    },
-    {
       "edge_id": "edge.hot-storage-to-visualization",
       "edge_implementation_id": "edge-implementation.azure-to-azure.hot-storage-to-visualization.v2",
       "source_deployment_component_ids": [
@@ -508,6 +491,23 @@
       "cost_owner_ids": [
         "cost.eventing-to-ingestion"
       ]
+    },
+    {
+      "edge_id": "edge.eventing-to-hot-storage",
+      "edge_implementation_id": "edge-implementation.azure-to-azure.eventing-to-hot-storage.eventing-v1",
+      "source_deployment_component_ids": [
+        "deployment.azure.eventing.v1"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.hot-storage.v2"
+      ],
+      "mechanism": "provider_native_trigger",
+      "catalog_input_port_id": "catalog.azure.port.hot-storage.processing-event-in",
+      "catalog_output_port_id": "catalog.azure.port.eventing.telemetry-out",
+      "transfer_route_class": "same_provider_same_region",
+      "cost_owner_ids": [
+        "cost.eventing-to-hot-storage"
+      ]
     }
   ],
   "capability_claims": {
@@ -577,5 +577,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:aca7d10fdc9a71431a95c18bd0b22a9bfcb2cc6dca700cee81f2990a6dec5a67"
+  "content_digest": "sha256:e114041277beeb3b126af209d2aecd80ad214ad7be8d9b13dcd436cc088b1392"
 }

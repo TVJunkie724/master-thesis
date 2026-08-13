@@ -16,7 +16,7 @@ from .strategy import ArchitectureProfileRef, ArchitectureResolutionContext, Opt
 SIX_LAYER_EVENTING_V1_PROFILE_REF = ArchitectureProfileRef(
     profile_id="six-layer-eventing",
     profile_version="1",
-    content_digest="sha256:ffb3a3fbc1e68e1a4fae77ba59c7aafe9122db3aa43910c54f31ade978d9f51f",
+    content_digest="sha256:4e4aba55de9e675b0c95db88be524822d34ebf28b6eb16d8b6dc7014e84f401b",
 )
 SIX_LAYER_EVENTING_V1_BUNDLE_REF = OptimizationBundleRef(
     optimization_strategy_id="cost-minimization-v2",
@@ -34,6 +34,7 @@ EVENT_EDGE_IDS = {
     "edge.eventing-to-processing",
     "edge.processing-to-eventing",
     "edge.eventing-to-ingestion",
+    "edge.eventing-to-hot-storage",
 }
 
 
@@ -94,6 +95,7 @@ class SixLayerEventingV1CandidateStrategy:
                 "edge.ingestion-to-processing",
                 "edge.processing-to-ingestion",
                 "edge.ingestion-to-hot-storage",
+                "edge.processing-to-hot-storage",
             }
             & edge_ids
         ):

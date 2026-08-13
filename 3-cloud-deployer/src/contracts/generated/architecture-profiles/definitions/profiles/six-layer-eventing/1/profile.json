@@ -196,7 +196,7 @@
       "observability_contract_id": "observability.eventing"
     }
   ],
-  "content_digest": "sha256:ffb3a3fbc1e68e1a4fae77ba59c7aafe9122db3aa43910c54f31ade978d9f51f",
+  "content_digest": "sha256:4e4aba55de9e675b0c95db88be524822d34ebf28b6eb16d8b6dc7014e84f401b",
   "description": "Five-layer v2 responsibilities with one independent Eventing and Messaging responsibility for durable routing, fan-out, retry, dead-letter, replay, observability, and cross-cloud transport.",
   "display_name": "Six-layer Eventing",
   "edges": [
@@ -298,42 +298,6 @@
       "required": true,
       "source_component_id": "component.hot-storage",
       "source_port_id": "port.hot-storage.transition-out",
-      "transfer_workload_ref": {
-        "id": "telemetry-update-count",
-        "version": "1"
-      },
-      "trust_requirements": {
-        "authentication": "workload_identity",
-        "authorization": "least_privilege_capability_set",
-        "transport": "tls"
-      }
-    },
-    {
-      "cost_owner_ids": [
-        "cost.processing-to-hot-storage"
-      ],
-      "delivery_requirements": {
-        "dead_letter_policy": "provider_managed",
-        "idempotency": "consumer_deduplicated",
-        "mode": "asynchronous",
-        "ordering": "per_entity",
-        "replay": "bounded",
-        "retry_policy": "provider_managed_bounded",
-        "timeout_policy": "not_applicable"
-      },
-      "destination_component_id": "component.hot-storage",
-      "destination_port_id": "port.hot-storage.processing-event-in",
-      "edge_contract_id": "canonical-domain-event.v1",
-      "edge_contract_version": "1",
-      "edge_id": "edge.processing-to-hot-storage",
-      "observability_requirements": {
-        "bounded_error_contract": "required",
-        "correlation": "required",
-        "metrics": "required"
-      },
-      "required": true,
-      "source_component_id": "component.processing",
-      "source_port_id": "port.processing.persistence-event-out",
       "transfer_workload_ref": {
         "id": "telemetry-update-count",
         "version": "1"
@@ -514,6 +478,42 @@
       "required": true,
       "source_component_id": "component.eventing",
       "source_port_id": "port.eventing.control-out",
+      "transfer_workload_ref": {
+        "id": "telemetry-update-count",
+        "version": "1"
+      },
+      "trust_requirements": {
+        "authentication": "workload_identity",
+        "authorization": "least_privilege_capability_set",
+        "transport": "tls"
+      }
+    },
+    {
+      "cost_owner_ids": [
+        "cost.eventing-to-hot-storage"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_id": "component.hot-storage",
+      "destination_port_id": "port.hot-storage.processing-event-in",
+      "edge_contract_id": "canonical-domain-event.v1",
+      "edge_contract_version": "1",
+      "edge_id": "edge.eventing-to-hot-storage",
+      "observability_requirements": {
+        "bounded_error_contract": "required",
+        "correlation": "required",
+        "metrics": "required"
+      },
+      "required": true,
+      "source_component_id": "component.eventing",
+      "source_port_id": "port.eventing.telemetry-out",
       "transfer_workload_ref": {
         "id": "telemetry-update-count",
         "version": "1"

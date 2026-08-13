@@ -137,9 +137,6 @@ def test_mixed_processing_to_hot_edge_expands_into_telemetry_and_control_routes(
                 "control": (
                     "event.matched.v1",
                     "notification.requested.v1",
-                    "extension.action.outcome.v1",
-                    "notification.workflow.outcome.v1",
-                    "device.command.outcome.v1",
                 ),
                 "telemetry": (
                     "telemetry.received.v1",
@@ -163,6 +160,17 @@ def test_mixed_processing_to_hot_edge_expands_into_telemetry_and_control_routes(
         (
             "edge.eventing-to-ingestion",
             {"control": ("device.command.requested.v1",)},
+        ),
+        (
+            "edge.eventing-to-hot-storage",
+            {
+                "control": (
+                    "extension.action.outcome.v1",
+                    "notification.workflow.outcome.v1",
+                    "device.command.outcome.v1",
+                ),
+                "telemetry": ("telemetry.processed.v1",),
+            },
         ),
     ],
 )
@@ -194,7 +202,9 @@ def test_six_layer_hub_spokes_expand_to_reviewed_channels(
     routes = resolve_cross_cloud_routes(graph)
 
     assert {route.channel_class: route.event_types for route in routes} == expected
-    assert all(route.payload_contract_id == "canonical-domain-event.v1" for route in routes)
+    assert all(
+        route.payload_contract_id == "canonical-domain-event.v1" for route in routes
+    )
 
 
 def test_twin_projection_uses_ordered_control_landing():

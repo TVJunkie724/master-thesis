@@ -110,13 +110,9 @@ def _publisher_for_destination(
         ):
             raise BridgeContractError("INVALID_IDENTITY_CONFIGURATION")
         if source_provider == "aws":
-            assertion = AwsOutboundAssertionSupplier(
-                AZURE_TOKEN_EXCHANGE_AUDIENCE
-            )
+            assertion = AwsOutboundAssertionSupplier(AZURE_TOKEN_EXCHANGE_AUDIENCE)
         elif source_provider == "gcp":
-            assertion = GoogleIdTokenAssertionSupplier(
-                AZURE_TOKEN_EXCHANGE_AUDIENCE
-            )
+            assertion = GoogleIdTokenAssertionSupplier(AZURE_TOKEN_EXCHANGE_AUDIENCE)
         else:
             raise BridgeContractError("INVALID_IDENTITY_CONFIGURATION")
         return AzureDestinationPublisher(
@@ -223,11 +219,21 @@ def build_bridge_application(
                 or set(route_targets) != expected_route_ids
             ):
                 raise BridgeContractError("INVALID_DESTINATION_CONFIGURATION")
+            landing_targets: list[tuple[BridgeRoute, object]] = []
             for route in provider_routes:
+                route_target = route_targets[route.route_id]
+                for existing_route, existing_target in landing_targets:
+                    if (
+                        route.channel_class == existing_route.channel_class
+                        and set(route.event_types) & set(existing_route.event_types)
+                        and route_target != existing_target
+                    ):
+                        raise BridgeContractError("AMBIGUOUS_DESTINATION_CONFIGURATION")
+                landing_targets.append((route, route_target))
                 route_publishers[route.route_id] = _publisher_for_destination(
                     source_provider=source_provider,
                     destination_provider=provider,
-                    destination_raw=route_targets[route.route_id],
+                    destination_raw=route_target,
                     identity_raw=identities[provider],
                     azure_source_client_id=azure_client_id,
                 )
@@ -248,4 +254,3 @@ def build_bridge_application(
 
 
 __all__ = ["BridgeApplication", "build_bridge_application"]
-

@@ -37,6 +37,7 @@ _PAYLOAD_CONTRACT_BY_EDGE = {
     "edge.eventing-to-processing": "canonical-domain-event.v1",
     "edge.processing-to-eventing": "canonical-domain-event.v1",
     "edge.eventing-to-ingestion": "canonical-domain-event.v1",
+    "edge.eventing-to-hot-storage": "canonical-domain-event.v1",
 }
 
 _EVENT_CHANNELS_BY_EDGE: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
@@ -84,9 +85,6 @@ _EVENT_CHANNELS_BY_EDGE: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
             (
                 "event.matched.v1",
                 "notification.requested.v1",
-                "extension.action.outcome.v1",
-                "notification.workflow.outcome.v1",
-                "device.command.outcome.v1",
             ),
         ),
     ),
@@ -105,6 +103,17 @@ _EVENT_CHANNELS_BY_EDGE: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
     ),
     "edge.eventing-to-ingestion": (
         ("control", ("device.command.requested.v1",)),
+    ),
+    "edge.eventing-to-hot-storage": (
+        ("telemetry", ("telemetry.processed.v1",)),
+        (
+            "control",
+            (
+                "extension.action.outcome.v1",
+                "notification.workflow.outcome.v1",
+                "device.command.outcome.v1",
+            ),
+        ),
     ),
 }
 

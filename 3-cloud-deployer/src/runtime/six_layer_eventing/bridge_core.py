@@ -54,9 +54,7 @@ CANONICAL_EVENT_TYPES = frozenset(
     }
 )
 _EVENT_TYPES_BY_EDGE_CHANNEL = {
-    ("edge.ingestion-to-processing", "telemetry"): frozenset(
-        {"telemetry.received.v1"}
-    ),
+    ("edge.ingestion-to-processing", "telemetry"): frozenset({"telemetry.received.v1"}),
     ("edge.ingestion-to-hot-storage", "control"): frozenset(
         {"device.command.outcome.v1"}
     ),
@@ -80,12 +78,8 @@ _EVENT_TYPES_BY_EDGE_CHANNEL = {
             "twin.relationship.deleted",
         }
     ),
-    ("edge.ingestion-to-eventing", "telemetry"): frozenset(
-        {"telemetry.received.v1"}
-    ),
-    ("edge.ingestion-to-eventing", "control"): frozenset(
-        {"device.command.outcome.v1"}
-    ),
+    ("edge.ingestion-to-eventing", "telemetry"): frozenset({"telemetry.received.v1"}),
+    ("edge.ingestion-to-eventing", "control"): frozenset({"device.command.outcome.v1"}),
     ("edge.eventing-to-processing", "telemetry"): frozenset(
         {"telemetry.received.v1", "telemetry.processed.v1"}
     ),
@@ -93,14 +87,9 @@ _EVENT_TYPES_BY_EDGE_CHANNEL = {
         {
             "event.matched.v1",
             "notification.requested.v1",
-            "extension.action.outcome.v1",
-            "notification.workflow.outcome.v1",
-            "device.command.outcome.v1",
         }
     ),
-    ("edge.processing-to-eventing", "telemetry"): frozenset(
-        {"telemetry.processed.v1"}
-    ),
+    ("edge.processing-to-eventing", "telemetry"): frozenset({"telemetry.processed.v1"}),
     ("edge.processing-to-eventing", "control"): frozenset(
         {
             "event.matched.v1",
@@ -112,6 +101,16 @@ _EVENT_TYPES_BY_EDGE_CHANNEL = {
     ),
     ("edge.eventing-to-ingestion", "control"): frozenset(
         {"device.command.requested.v1"}
+    ),
+    ("edge.eventing-to-hot-storage", "telemetry"): frozenset(
+        {"telemetry.processed.v1"}
+    ),
+    ("edge.eventing-to-hot-storage", "control"): frozenset(
+        {
+            "extension.action.outcome.v1",
+            "notification.workflow.outcome.v1",
+            "device.command.outcome.v1",
+        }
     ),
 }
 _IDENTITY_EXCHANGE_BY_PAIR = {
@@ -280,7 +279,7 @@ def load_routes(
     if source_provider not in PROVIDERS or not isinstance(raw_routes, list):
         raise BridgeContractError("INVALID_BRIDGE_ROUTE_CONFIGURATION")
     routes: list[BridgeRoute] = []
-    event_owners: dict[str, str] = {}
+    route_ids: set[str] = set()
     for value in raw_routes:
         if not isinstance(value, Mapping):
             raise BridgeContractError("INVALID_BRIDGE_ROUTE_CONFIGURATION")
@@ -327,16 +326,14 @@ def load_routes(
             or len(events) != len(expected_events or ())
             or value.get("identity_exchange")
             != _IDENTITY_EXCHANGE_BY_PAIR.get((route_source, destination))
-            or value.get("trust_contract_id")
-            != "trust.workload-identity-federation"
+            or value.get("trust_contract_id") != "trust.workload-identity-federation"
             or value.get("payload_contract_id") != expected_payload
         ):
             raise BridgeContractError("INVALID_BRIDGE_ROUTE_CONFIGURATION")
         route_id = _text(value.get("route_id"))
-        for event_type in events:
-            if event_type in event_owners:
-                raise BridgeContractError("AMBIGUOUS_BRIDGE_EVENT_ROUTE")
-            event_owners[event_type] = route_id
+        if route_id in route_ids:
+            raise BridgeContractError("AMBIGUOUS_BRIDGE_EVENT_ROUTE")
+        route_ids.add(route_id)
         routes.append(
             BridgeRoute(
                 route_id=route_id,
@@ -411,11 +408,10 @@ def deliver_batch(
         raise BridgeContractError("BRIDGE_BACKPRESSURE_LIMIT")
     if len(records) > MAX_BATCH_EVENTS:
         raise BridgeContractError("BRIDGE_BATCH_LIMIT")
-    route_by_event = {
-        event_type: route for route in routes for event_type in route.event_types
-    }
-    if len(route_by_event) != sum(len(route.event_types) for route in routes):
-        raise BridgeContractError("AMBIGUOUS_BRIDGE_EVENT_ROUTE")
+    routes_by_event: dict[str, list[BridgeRoute]] = {}
+    for route in routes:
+        for event_type in route.event_types:
+            routes_by_event.setdefault(event_type, []).append(route)
     clock = now or (lambda: datetime.now(timezone.utc))
     breakers = circuit_breakers if circuit_breakers is not None else {}
     acknowledged: list[str] = []
@@ -430,23 +426,103 @@ def deliver_batch(
         if source_key in blocked_keys:
             retry.append(record.record_id)
             continue
-        route = route_by_event.get(
-            str(record.event.get("event_type", ""))
-            if isinstance(record.event, Mapping)
-            else ""
+        matching_routes = tuple(
+            routes_by_event.get(
+                str(record.event.get("event_type", ""))
+                if isinstance(record.event, Mapping)
+                else "",
+            )
         )
+        route: BridgeRoute | None = None
         try:
             event = validate_event(record.event)
-            if route is None:
+            if not matching_routes:
                 raise RouteBlockingBridgeError("ROUTE_NOT_CONFIGURED")
-            breaker = breakers.setdefault(route.route_id, RouteCircuitBreaker())
-            current_time = _aware_utc(clock())
-            if not breaker.permits(current_time):
-                raise RouteBlockingBridgeError("CIRCUIT_OPEN")
-            accepted = publish(route, event)
-            if accepted is None or accepted is False:
-                raise RetryableBridgeError("DESTINATION_NOT_ACCEPTED")
-            breaker.destination_accepted()
+            terminal_failures: list[tuple[BridgeRoute, str]] = []
+            retry_failures: list[BridgeRoute] = []
+            blocking_failures: list[BridgeRoute] = []
+            for route_group in _route_delivery_groups(matching_routes):
+                route = route_group[0]
+                current_time = _aware_utc(clock())
+                try:
+                    if any(
+                        not breakers.setdefault(
+                            member.route_id, RouteCircuitBreaker()
+                        ).permits(current_time)
+                        for member in route_group
+                    ):
+                        raise RouteBlockingBridgeError("CIRCUIT_OPEN")
+                    accepted = publish(route, event)
+                    if accepted is None or accepted is False:
+                        raise RetryableBridgeError("DESTINATION_NOT_ACCEPTED")
+                    for member in route_group:
+                        breakers.setdefault(
+                            member.route_id, RouteCircuitBreaker()
+                        ).destination_accepted()
+                except BridgeContractError as exc:
+                    terminal_failures.append((route, exc.code))
+                except TerminalBridgeError as exc:
+                    terminal_failures.append((route, exc.code))
+                except RouteBlockingBridgeError as exc:
+                    for member in route_group:
+                        breaker = breakers.setdefault(
+                            member.route_id, RouteCircuitBreaker()
+                        )
+                        if exc.code != "CIRCUIT_OPEN":
+                            breaker.block_for_operator(current_time)
+                        blocked_routes.add(member.route_id)
+                        blocking_failures.append(member)
+                except RetryableBridgeError:
+                    for member in route_group:
+                        breaker = breakers.setdefault(
+                            member.route_id, RouteCircuitBreaker()
+                        )
+                        if breaker.destination_failed(current_time):
+                            blocked_routes.add(member.route_id)
+                        retry_failures.append(member)
+                except Exception:
+                    for member in route_group:
+                        breaker = breakers.setdefault(
+                            member.route_id, RouteCircuitBreaker()
+                        )
+                        if breaker.destination_failed(current_time):
+                            blocked_routes.add(member.route_id)
+                        retry_failures.append(member)
+
+            final_failures = list(terminal_failures)
+            if record.attempt_count >= MAX_DELIVERY_ATTEMPTS:
+                final_failures.extend(
+                    (route, "ROUTE_BLOCKED_ATTEMPTS_EXHAUSTED")
+                    for route in blocking_failures
+                )
+                final_failures.extend(
+                    (route, "DELIVERY_ATTEMPTS_EXHAUSTED") for route in retry_failures
+                )
+            dlq_results = [
+                _write_failure(
+                    record,
+                    route,
+                    code,
+                    write_dlq,
+                    clock(),
+                    source_provider=source_provider,
+                )
+                for route, code in final_failures
+            ]
+            dlq_accepted = all(dlq_results)
+            if final_failures and not dlq_accepted:
+                retry.append(record.record_id)
+                blocked_keys.add(source_key)
+                continue
+            if record.attempt_count < MAX_DELIVERY_ATTEMPTS:
+                if blocking_failures:
+                    blocked.append(record.record_id)
+                    blocked_keys.add(source_key)
+                    continue
+                if retry_failures:
+                    retry.append(record.record_id)
+                    blocked_keys.add(source_key)
+                    continue
             acknowledged.append(record.record_id)
             continue
         except BridgeContractError as exc:
@@ -454,6 +530,7 @@ def deliver_batch(
         except TerminalBridgeError as exc:
             terminal_code = exc.code
         except RouteBlockingBridgeError as exc:
+            route = matching_routes[0] if matching_routes else None
             route_id = route.route_id if route is not None else "unresolved"
             if route is not None and exc.code != "CIRCUIT_OPEN":
                 breakers.setdefault(route_id, RouteCircuitBreaker()).block_for_operator(
@@ -480,17 +557,15 @@ def deliver_batch(
                 continue
             terminal_code = "DELIVERY_ATTEMPTS_EXHAUSTED"
 
-        failure = _failure_record(
+        route = matching_routes[0] if matching_routes else None
+        dlq_accepted = _write_failure(
             record,
             route,
             terminal_code,
+            write_dlq,
             clock(),
             source_provider=source_provider,
         )
-        try:
-            dlq_accepted = write_dlq(failure)
-        except Exception:
-            dlq_accepted = False
         if dlq_accepted:
             acknowledged.append(record.record_id)
         else:
@@ -502,6 +577,44 @@ def deliver_batch(
         tuple(blocked),
         tuple(sorted(blocked_routes)),
     )
+
+
+def _route_delivery_groups(
+    routes: Sequence[BridgeRoute],
+) -> tuple[tuple[BridgeRoute, ...], ...]:
+    """Collapse fan-out consumers sharing one provider-local landing broker."""
+
+    grouped: dict[tuple[str, str], list[BridgeRoute]] = {}
+    for route in routes:
+        grouped.setdefault(
+            (route.destination_provider, route.channel_class), []
+        ).append(route)
+    return tuple(
+        tuple(sorted(group, key=lambda item: item.route_id))
+        for _, group in sorted(grouped.items())
+    )
+
+
+def _write_failure(
+    record: SourceRecord,
+    route: BridgeRoute | None,
+    code: str,
+    write_dlq: Callable[[Mapping[str, Any]], bool],
+    at: datetime,
+    *,
+    source_provider: str,
+) -> bool:
+    failure = _failure_record(
+        record,
+        route,
+        code,
+        at,
+        source_provider=source_provider,
+    )
+    try:
+        return bool(write_dlq(failure))
+    except Exception:
+        return False
 
 
 def _record_retryable_failure(
@@ -566,7 +679,9 @@ def _contains_forbidden_metadata(value: object) -> bool:
     if isinstance(value, Mapping):
         for key, child in value.items():
             normalized = str(key).lower().replace("-", "_")
-            if any(fragment in normalized for fragment in _FORBIDDEN_METADATA_FRAGMENTS):
+            if any(
+                fragment in normalized for fragment in _FORBIDDEN_METADATA_FRAGMENTS
+            ):
                 return True
             if _contains_forbidden_metadata(child):
                 return True
@@ -667,4 +782,3 @@ __all__ = [
     "load_routes_json",
     "validate_event",
 ]
-
