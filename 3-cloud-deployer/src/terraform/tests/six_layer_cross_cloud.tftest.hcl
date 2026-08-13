@@ -367,6 +367,8 @@ run "six_layer_azure_gcp_aws_routes_cover_remaining_directed_pairs" {
       toset(keys(google_pubsub_topic.domain_events)) == toset(["received", "processed", "control", "failure"]) &&
       !contains(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics), "remote-telemetry-inbound") &&
       !contains(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics), "remote-control-inbound") &&
+      !contains(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics), "remote-telemetry-outbound") &&
+      !contains(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics), "remote-control-outbound") &&
       toset(keys(google_pubsub_topic_iam_member.gcp_v2_bridge_from_azure)) == toset(["event_received", "event_control"]) &&
       toset(keys(google_pubsub_topic_iam_member.gcp_v2_bridge_from_aws)) == toset(["event_processed", "event_control"])
     )

@@ -136,14 +136,16 @@ locals {
     if local.five_layer_v2_enabled && route.execution_kind == "source_event_forwarder" && route.destination_provider == "gcp"
   }
   gcp_v2_remote_telemetry_outbound = anytrue([
-    for route in values(local.gcp_v2_outbound_event_routes) : route.channel_class == "telemetry"
+    for route in values(local.gcp_v2_outbound_event_routes) :
+    route.channel_class == "telemetry" && !startswith(route.logical_edge_id, "edge.eventing-to-")
   ])
   gcp_v2_remote_telemetry_inbound = anytrue([
     for route in values(local.gcp_v2_inbound_event_routes) :
     route.channel_class == "telemetry" && !endswith(route.logical_edge_id, "-to-eventing")
   ])
   gcp_v2_remote_control_outbound = anytrue([
-    for route in values(local.gcp_v2_outbound_event_routes) : route.channel_class == "control"
+    for route in values(local.gcp_v2_outbound_event_routes) :
+    route.channel_class == "control" && !startswith(route.logical_edge_id, "edge.eventing-to-")
   ])
   gcp_v2_remote_control_inbound = anytrue([
     for route in values(local.gcp_v2_inbound_event_routes) :
@@ -162,7 +164,7 @@ locals {
     if !endswith(route.logical_edge_id, "-to-eventing")
   ])))
   gcp_v2_domain_remote_control_outbound = anytrue([
-    for route in values(local.gcp_v2_outbound_event_routes) : length(setintersection(
+    for route in values(local.gcp_v2_outbound_event_routes) : !startswith(route.logical_edge_id, "edge.eventing-to-") && length(setintersection(
       toset(route.event_types),
       toset([
         "device.command.requested.v1",
