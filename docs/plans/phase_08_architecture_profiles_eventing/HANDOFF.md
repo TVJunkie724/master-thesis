@@ -2,8 +2,8 @@
 title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
-lastUpdated: "2026-08-11"
-version: "4.7"
+lastUpdated: "2026-08-13"
+version: "4.8"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.7"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-11 | VERSION: 4.7
+EXTRACTED: 2026-08-13 | VERSION: 4.8
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -30,12 +30,12 @@ EXTRACTED: 2026-08-11 | VERSION: 4.7
 | Integration branch | `master` |
 | Reviewed implementation base | `c5c6232478d29a9cc3c7d280bdc9ca0e79c47226` on `codex/phase-8-9a-layer-access` |
 | Active implementation branch | `codex/phase-8-six-layer-eventing-v1` |
-| Locally completed implementation | Phase 8.0 / #144 through Phase 8.8, prerequisite #113, guided bootstrap / #154, and complete Five-layer v2 / 8.9A; open issues remain open until publication/merge |
+| Locally completed implementation | Phase 8.0 / #144 through Phase 8.8, prerequisite #113, guided bootstrap / #154, complete Five-layer v2 / 8.9A, and the Six-layer / 8.9B implementation slices; final 8.9B audit remains in progress and issues remain open until publication/merge |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
-| Implementation status | The complete Five-layer v2 provider/runtime graph, typed L4/L5 Layer Access read model/UI, active offline profile/catalog/provider definitions, default-on resolution path, and strict Demo RTA/RDS v2 parity are locally implemented. Deployment remains blocked by explicit supervised live-capacity gates. |
-| Next action | Activate the Six-layer profile/contracts from the pinned Five-layer audit freeze, then implement only the reviewed Event Layer delta. |
+| Implementation status | Five-layer v2 and Six-layer v1 are active locally across contracts, Optimizer, Management, Deployer/Terraform, provider runtimes, and Flutter. The Six-layer implementation inherits the pinned Five-layer graph and adds only the reviewed Eventing delta. Deployment remains blocked by explicit supervised live-capacity gates. |
+| Next action | Complete the repeated Six-layer concept/plan/implementation audit and credential-free full gate, freeze the reviewed evidence, then start Phase 8.10 on a separate branch. |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -195,20 +195,34 @@ verification is credential-free and creates no cloud resources. It does not
 prove provider-console sign-in, live Grafana access, cloud capacity, quota, or
 billed deployment behavior.
 
+Six-layer v1 subsequently activated from that exact audit freeze on
+`codex/phase-8-six-layer-eventing-v1`. The scoped commit sequence adds the
+digest-pinned inherited profile, all 81 S/M/L L1/Event/L2 topology costs, the
+profile-local Optimizer, Management persistence, Manifest v4 graph packages,
+AWS/Azure/GCP Event Layer runtimes, all six directed workload-identity bridge
+pairs, and the compact Flutter delta. Cross-cloud bridges publish to explicit
+target broker data-plane APIs; their landing brokers, adapters, transfer, and
+observability costs are selected and priced rather than hidden. Single-cloud
+paths contain no bridge or inter-cloud transfer. The latest component gates
+pass 978 Optimizer, 1,096 Management, 2,283 Deployer, and 888 Flutter tests
+plus static, security, strict-doc, Web, and macOS checks. The final repeated
+audit and one consolidated full-gate rerun remain open. No provider resource
+was created.
+
 ## Immediate Next Action
 
-The profile is active for offline evaluation but not deployment. Continue with
-these boundaries in order:
+Both profiles are active for offline evaluation but not live deployment.
+Continue with these boundaries in order:
 
 1. retain the committed concept, cross-stack execution plans, immutable
    complete-service decision, reviewed dark Phase 8.6 compiler, zero-finding
    Phase 8.7 workflow, and reviewed offline guided-bootstrap boundary;
 2. keep `five-layer-baseline@1` historical and keep every v2 live-capacity
    gate explicit and fail-closed for deployment;
-3. create `codex/phase-8-six-layer-eventing-v1` from this reviewed audit
-   freeze and pin the exact inherited Five-layer commit and contract digests;
-4. implement and review only the Six-layer Event Layer delta, then complete
-   Phase 8.10 evaluation.
+3. keep `codex/phase-8-six-layer-eventing-v1` pinned to the exact inherited
+   Five-layer commit and contract digests;
+4. finish the repeated Six-layer audit and full credential-free gate, freeze
+   its evidence, then complete Phase 8.10 evaluation on a separate branch.
 
 ## Required Reading Order
 
@@ -342,7 +356,7 @@ string conventions or user functions constructing another resource's identity.
 | Service closure | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | Complete AWS/Azure/provider-hosted-GCP bundles, storage routes, workload/capacity semantics, and immutable decision package |
 | Guided bootstrap | [#154 Implement guided cloud access bootstrap for bounded deployment identities](https://github.com/TVJunkie724/master-thesis/issues/154) | Request-scoped bootstrap authority and reusable bounded CloudConnections |
 | 8.9A | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | Executable `five-layer-baseline@2` with complete service bundles |
-| 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Planned strict Event Layer delta; branch starts only from reviewed 8.9A |
+| 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Implemented strict Event Layer delta; final repeated audit and freeze are in progress |
 | 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Planned after reviewed Six-layer; historical `@1` reproduction plus fair `@2` versus Six-layer evaluation |
 
 Native dependency direction:
@@ -459,7 +473,8 @@ artifacts, or historical run evidence.
 
 ## Eventing Boundary
 
-Phase 8.8 is an approved decision gate, not implementation. It establishes:
+Phase 8.8 is the approved decision gate consumed by the later 8.9B
+implementation. It establishes:
 
 - the immutable role of `five-layer-baseline@1`;
 - one shared domain-event behavior contract for
@@ -493,13 +508,14 @@ never a silent fallback.
 
 `decision.json` is explicitly approved and all
 AWS, Azure, and GCP embedded-event and Event-Layer bundles satisfy their
-applicable offline capability contracts. Phase 8.9 still waits for Phase 8.7,
-its new 8.9A issue, and closed native blockers. 8.9A and 8.9B use separate
-branches, reviews, and clean commits. That Event-domain approval alone does not
-imply that an all-GCP whole Twin path exists. The complete-service closure now
-makes provider-hosted all-GCP a mandatory new-profile implementation target;
-whole paths become positive only after its full capability matrix supports
-every responsibility.
+applicable offline capability contracts. Phases 8.7 and 8.9A subsequently
+closed their native blockers, and 8.9B consumes the decision from its separate
+branch with separate commits and review. The Event-domain approval alone did
+not imply that an all-GCP whole Twin path existed; the complete-service closure
+made provider-hosted all-GCP a mandatory new-profile implementation target.
+The current Five-/Six-layer implementation now resolves that target; whole
+paths become positive only after its full capability matrix supports every
+responsibility.
 
 Phase 8.8 also produced
 `implementation-component-manifest.json`. It pins every selected service,
@@ -676,8 +692,8 @@ Phase 8 is complete only when:
   L3-hot/L5 bundle, independent L4 placement, raw-history query, Twin
   projection, provider-hosted GCP, Cosmos capacity mode, workload, identity,
   and cost target;
-- `six-layer-eventing@1` is eventually executable only from a separate plan
-  reviewed against the committed Five-layer v2 baseline;
+- `six-layer-eventing@1` is executable offline from its separate plan and
+  remains digest-pinned to the committed Five-layer v2 baseline;
 - `five-layer-baseline@2` and `six-layer-eventing@1` implement the same
   rule/action/workflow/command contract without legacy feature flags;
 - evaluation evidence maps RQ1, RQ2, RQ3, RQ3.1, and RQ3.2 to reproducible
@@ -691,14 +707,13 @@ Phase 8 is complete only when:
 
 The next agent can begin with:
 
-> Phase 8.0 bis 8.5 und das User-Function-Prerequisite #113 sind implementiert
-> und reviewt; Phase 8.8 ist als Offline-Entscheidungspaket freigegeben.
+> Phase 8.0 bis 8.9A sind implementiert und reviewt; Phase 8.9B ist lokal über
+> Contracts, Optimizer, Management, Deployer, Provider-Runtimes und Flutter
+> umgesetzt, seine abschließende wiederholte Prüfung läuft noch.
 > `five-layer-baseline@1` bleibt historische Evidenz,
 > `five-layer-baseline@2` und `six-layer-eventing@1` teilen dieselben
 > verpflichtenden Rule-/Action-/Workflow-/Feedback-Funktionen, und nur das
 > Six-Layer-Profil besitzt eine unabhaengige Eventing-Verantwortung. Als
-> naechstes benoetigt der korrigierte Service-Plan die Benutzerfreigabe;
-> danach folgt das immutable Complete-Service-Entscheidungspaket und erst dann
-> der Abschluss von Phase 8.6. Danach folgen 8.7 und 8.9A; 8.9B wird erst auf
-> dem reviewten Five-Layer-Stand neu geplant. Live-Cloud-E2E und LaTeX bleiben
-> unangetastet.
+> naechstes folgen der konsolidierte credential-freie No-Apply-Gate, der
+> Zero-Finding-Freeze-Commit und danach Phase 8.10 auf einem eigenen Branch.
+> Live-Cloud-E2E und LaTeX bleiben unangetastet.

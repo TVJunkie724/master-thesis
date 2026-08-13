@@ -2,8 +2,8 @@
 title: "Phase 8.1: Architecture Profile Experiment"
 description: "Expose Five-layer v2 and Six-layer v1 as bounded, profile-local thesis experiments in the Configuration Workspace."
 tags: [flutter, phase, architecture-profiles, optimizer, eventing]
-lastUpdated: "2026-08-11"
-version: "1.4"
+lastUpdated: "2026-08-13"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -12,15 +12,17 @@ version: "1.4"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_7_flutter_profile_workflow.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_service_bundle_closure.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_9_six_layer_eventing_implementation.md
-EXTRACTED: 2026-08-11 | VERSION: 1.4
+EXTRACTED: 2026-08-13 | VERSION: 1.5
 -->
 
 # Phase 8.1: Architecture Profile Experiment
 
-**Implementation status:** Phase 8.7 is implemented and zero-finding reviewed
-locally. The runtime/demo catalog now exposes Five-layer v2 for offline
-selection and evaluation; live-capacity gates still block deployment. See the
-[implementation reference](../implementation/architecture_profile_experiment.md).
+**Implementation status:** Phase 8.7 and the 8.9A/8.9B profile activations are
+implemented locally. The runtime and demo catalogs expose Five-layer v2 and
+Six-layer v1 for offline selection; the connected local stack calculates both
+profiles, while Demo calculation remains a truthful Five-layer-only fixture.
+Live-capacity gates still block deployment. The final 8.9B audit is in
+progress. See the [implementation reference](../implementation/architecture_profile_experiment.md).
 
 ## Summary
 
@@ -68,16 +70,16 @@ phases and integrate through the same selected architecture.
 ## Acceptance Criteria
 
 - Only profiles returned by the Management active catalog are selectable;
-  it now contains exactly Five-layer v2, while `five-layer-baseline@1` is
-  historical and read-only.
+  it now contains exactly Five-layer v2 and Six-layer v1, while
+  `five-layer-baseline@1` is historical and read-only.
 - Phase 8.7 does not submit a new-profile calculation. The mandatory event
   scenario and exact Workload v2 mapping activate atomically in Phase 8.9A.
 - Populated fixtures prove that visible workload-field IDs and extension slots
   derive from the selected profile rather than fixed UI layer assumptions.
 - A profile change uses only the server preview/digest, invalidates downstream
   state atomically, and requires a fresh preview after a stale conflict.
-- After the 8.9A activation, calculation is impossible when profile, workload,
-  scenario, pricing, or functional-completeness readiness is absent; before
+- After the 8.9A/8.9B activations, calculation is impossible when profile,
+  workload, scenario, pricing, or functional-completeness readiness is absent; before
   activation the empty catalog blocks it earlier.
 - Result review represents arbitrary registered components and edges without
   assuming five fixed slots.

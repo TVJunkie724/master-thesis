@@ -2,8 +2,8 @@
 title: "Architecture Profile Experiment"
 description: "A bounded Configuration Workspace experience for selecting, comparing, and deploying the Five-layer v2 and Six-layer v1 thesis profiles."
 tags: [flutter, configuration-workspace, architecture-profiles, eventing, thesis]
-lastUpdated: "2026-08-11"
-version: "1.3"
+lastUpdated: "2026-08-13"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.3"
 - twin2multicloud_flutter/docs/configuration_workspace/RESOLVED_DEPLOYMENT_REVIEW.md
 - FRONTEND_ARCHITECTURE.md
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-11 | VERSION: 1.3
+EXTRACTED: 2026-08-13 | VERSION: 1.4
 -->
 
 # Architecture Profile Experiment
@@ -41,15 +41,18 @@ increments:
 selectable for new calculations or deployments.
 
 Phase 8.7 installed the typed Flutter catalog, selection, visualization, and
-resolved-review workflow behind an initially empty catalog. Phase 8.9A now
-publishes Five-layer v2 and Workload v2 for offline evaluation; Phase 8.9B
-later publishes Six-layer v1. Six-layer fixtures validate the eventual shape
-without turning it into a fake demo/runtime option early.
+resolved-review workflow behind an initially empty catalog. Phase 8.9A
+published Five-layer v2 and Workload v2 for offline evaluation. Phase 8.9B now
+publishes Six-layer v1 through the same Management-owned workflow and adds no
+second wizard or Event feature flag.
 
-Current checkpoint: Phase 8.7 and the Five-layer v2 Layer Access UI are
-implemented and verified offline. Five-layer v2 is the sole active profile;
-its RTA/RDS evidence is evaluation-only until listed supervised live-capacity
-gates pass. Six-layer remains a later strict delta.
+Current checkpoint: both reviewed profiles are active for offline selection
+and connected-local-stack calculation. Five-layer v2 and Six-layer v1 retain
+separate immutable RTA/RDS evidence and are compared only inside their own
+profile space. Deployment remains blocked whenever a resolved candidate lists
+an unsatisfied supervised live-capacity gate. Demo mode exposes both profile
+definitions for comparison; its calculation fixture remains Five-layer-only
+and fails closed for Six-layer rather than relabeling Five-layer evidence.
 
 ## Motivation
 

@@ -141,8 +141,8 @@ The contract freeze is data and tests only. It creates no cloud resources.
 | E | `codex/phase-8-guided-bootstrap` `[AI-0803-BOOT]` | Request-scoped admin bootstrap, bounded CloudConnections, shared Settings/Prepare Deployment UI |
 | F | `codex/phase-8-five-layer-v2` plus `codex/phase-8-9a-layer-access`, multiple scoped commits | Complete at `c5c62324`: RTA v2/RDS v2/Manifest v4, provider services, tiering, readers, projection, access surfaces, optimizer costs, Management persistence, Deployer/Terraform, Flutter, and Demo are active offline |
 | G | Five-layer audit `[AI-0811-LACC]` | Complete: full safe gate and repeated review reached zero unresolved findings; the audit-freeze documentation records the branch boundary |
-| H | `codex/phase-8-six-layer-eventing-v1` multiple scoped commits | Exact 8.9B Event Layer delta and all directed bridges |
-| I | Six-layer audit `[AI-0803-EVRV]` | Full safe review until zero findings and frozen Six-layer evidence commit |
+| H | `codex/phase-8-six-layer-eventing-v1` multiple scoped commits | Complete locally: exact 8.9B Event Layer delta, all directed bridges, provider runtimes, Management/Deployer integration, and Flutter presentation |
+| I | Six-layer audit `[AI-0803-EVRV]` | In progress: component gates are green; documentation reconciliation, repeated review, consolidated full safe gate, and frozen evidence commit remain |
 | J | later Phase 8.10 branch | Comparative evaluation and current-system documentation; no new runtime design |
 
 Each branch starts from the reviewed commit immediately above it. Generated

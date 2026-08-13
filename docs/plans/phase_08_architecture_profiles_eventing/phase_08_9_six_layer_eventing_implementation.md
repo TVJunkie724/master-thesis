@@ -2,8 +2,8 @@
 title: "Phase 8.9B: Six-Layer Eventing Implementation"
 description: "Executable delta plan that adds one independent Eventing responsibility to the reviewed Five-layer v2 PoC."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
-lastUpdated: "2026-08-11"
-version: "2.2"
+lastUpdated: "2026-08-13"
+version: "2.3"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.2"
 - contracts/phase-08-eventing-decision/v1/decision.json
 - contracts/phase-08-eventing-decision/v1/implementation-component-manifest.json
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-11 | VERSION: 2.2
+EXTRACTED: 2026-08-13 | VERSION: 2.3
 -->
 
 # Phase 8.9B: Six-Layer Eventing Implementation
@@ -37,6 +37,12 @@ EXTRACTED: 2026-08-11 | VERSION: 2.2
 | Profile | `six-layer-eventing@1` |
 | Decision authority | Approved `phase-08-eventing-decision@1` plus the committed Five-layer v2 digest |
 | Verification | Offline/no-apply by default; no live cloud resource creation |
+
+**Implementation checkpoint:** The scoped contract, Optimizer, Management,
+Deployer, AWS, Azure, GCP, bridge, and Flutter commits are present on the
+required branch. Component gates pass locally without credentials or apply.
+Documentation reconciliation and the repeated final audit are in progress;
+this document therefore does not yet claim the final zero-finding freeze.
 
 The branch gate above now proves the exact reviewed Five-layer v2 commits and
 decision digests, so this document is executable planning authority. It replaces
@@ -266,14 +272,23 @@ Flutter extends the same Phase 8.1 profile workflow:
 Each boundary must be clean, reviewed, and committed before the next begins:
 
 1. `[AI-0803-EVCT] feat(contracts): activate six-layer eventing contracts`
+   (`40f47548`, with follow-up contract freezes `8f784906` and `2e9375f9`)
 2. `[AI-0803-EVOP] feat(optimizer): price complete eventing candidates`
+   (`13afbf0f`)
 3. `[AI-0803-EVMA] feat(management): persist six-layer resolutions`
+   (`b1ab9ac8`, with catalog binding `e8634e41`)
 4. `[AI-0803-EVDP] feat(deployer): build eventing graph packages`
+   (`97e30488`)
 5. `[AI-0803-EVAW] feat(aws): implement reviewed event layer bundle`
+   (`7cb846fa`)
 6. `[AI-0803-EVAZ] feat(azure): implement reviewed event layer bundle`
+   (`024c8baa`)
 7. `[AI-0803-EVGC] feat(gcp): implement reviewed event layer bundle`
+   (`6b04a6cc`)
 8. `[AI-0803-EVBR] feat(eventing): implement directed bridge adapters`
+   (`83f8c9bc`)
 9. `[AI-0803-EVUI] feat(flutter): expose six-layer profile delta`
+   (`e977982b`, with Demo catalog activation `a661d789`)
 10. `[AI-0803-EVDOC] docs(phase-8): document six-layer implementation`
 11. `[AI-0803-EVRV] fix(phase-8): close six-layer audit findings`
 
@@ -307,17 +322,17 @@ No default gate deploys a provider resource or claims measured throughput.
 
 ## 14. Definition Of Done
 
-- [ ] The exact reviewed Event Layer bundles are implemented; no service was
+- [x] The exact reviewed Event Layer bundles are implemented; no service was
       added, removed, or substituted locally.
-- [ ] `six-layer-eventing@1` inherits the committed Five-layer v2 digest and
+- [x] `six-layer-eventing@1` inherits the committed Five-layer v2 digest and
       changes only the approved Eventing delta.
-- [ ] All single-cloud, six directed pair, and representative three-provider
+- [x] All single-cloud, six directed pair, and representative three-provider
       candidates pass functional/capacity gates or fail with a typed reason.
-- [ ] Source acknowledgement occurs only after durable destination acceptance.
-- [ ] Same-provider paths deploy no bridge and own no cross-cloud cost.
-- [ ] RTA v2/RDS v2/Manifest v4, persistence, graph, packages, Terraform, permissions,
+- [x] Source acknowledgement occurs only after durable destination acceptance.
+- [x] Same-provider paths deploy no bridge and own no cross-cloud cost.
+- [x] RTA v2/RDS v2/Manifest v4, persistence, graph, packages, Terraform, permissions,
       pricing, and UI agree on one immutable resolution digest.
-- [ ] Historical contracts remain read/verify/destroy-only and byte-stable.
+- [x] Historical contracts remain read/verify/destroy-only and byte-stable.
 - [ ] Safe full repository verification passes with real cloud E2E excluded.
 - [ ] Two independent implementation reviews reach zero unresolved findings.
 - [ ] A final clean commit records only reviewed 8.9B work.

@@ -109,9 +109,11 @@ revisioned Management preview and display only the invalidations returned by
 the server. Selected runs are reviewed through immutable resolved component,
 edge, tiering, bridge, cost, and digest DTOs.
 
-The real and demo catalogs expose only active `five-layer-baseline@2`; new
-Twins pin that exact digest. Historical Five-layer v1 data remains readable,
-while v2 Small/Medium/Large results expose strict offline RTA/RDS evidence and
-cannot be selected for deployment while a listed live-capacity gate remains.
-Six-layer states remain strict planning/test evidence and are not advertised
-as executable.
+The real and demo catalogs expose active `five-layer-baseline@2` and
+`six-layer-eventing@1`; new Twins pin the selected exact digest. Historical
+Five-layer v1 data remains readable. The connected local stack calculates
+strict offline RTA/RDS evidence for both active profiles, and a result cannot
+be selected for deployment while a listed live-capacity gate remains. Demo
+mode exposes both profile definitions but intentionally fails closed when a
+Six-layer calculation is requested because it has no canonical Six-layer
+calculation fixture.
