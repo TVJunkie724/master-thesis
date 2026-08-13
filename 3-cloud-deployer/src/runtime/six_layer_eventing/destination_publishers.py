@@ -162,6 +162,13 @@ def _source_key(event: Mapping[str, Any]) -> str:
     return value
 
 
+def _event_type(event: Mapping[str, Any]) -> str:
+    value = event.get("event_type")
+    if not isinstance(value, str) or not value:
+        raise TerminalBridgeError("DESTINATION_PAYLOAD_REJECTED")
+    return value
+
+
 def _deduplication_id(event: Mapping[str, Any]) -> str:
     event_id = event.get("event_id")
     payload = event.get("payload")
@@ -260,6 +267,12 @@ class AwsDestinationPublisher:
                     Message=data.decode("utf-8"),
                     MessageGroupId=key,
                     MessageDeduplicationId=_deduplication_id(event),
+                    MessageAttributes={
+                        "event_type": {
+                            "DataType": "String",
+                            "StringValue": _event_type(event),
+                        }
+                    },
                 )
                 message_id = (
                     result.get("MessageId") if isinstance(result, Mapping) else None
@@ -350,6 +363,9 @@ class AzureDestinationPublisher:
                                 data,
                                 message_id=_deduplication_id(event),
                                 session_id=key,
+                                application_properties={
+                                    "event_type": _event_type(event)
+                                },
                             )
                         )
                 return True
@@ -390,6 +406,7 @@ class GcpDestinationPublisher:
                 topic,
                 _canonical_bytes(event),
                 ordering_key=key,
+                event_type=_event_type(event),
             )
             message_id = future.result(timeout=30)
             if not isinstance(message_id, str) or not message_id:
@@ -421,4 +438,3 @@ __all__ = [
     "load_destination",
     "raise_safe_publish_error",
 ]
-

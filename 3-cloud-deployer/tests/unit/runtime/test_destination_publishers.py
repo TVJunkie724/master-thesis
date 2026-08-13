@@ -6,13 +6,13 @@ from dataclasses import dataclass
 
 import pytest
 
-from src.runtime.eventing.bridge_core import (
+from src.runtime.six_layer_eventing.bridge_core import (
     RetryableBridgeError,
     RouteBlockingBridgeError,
     TerminalBridgeError,
     load_routes,
 )
-from src.runtime.eventing.destination_publishers import (
+from src.runtime.six_layer_eventing.destination_publishers import (
     AwsDestinationPublisher,
     AzureDestinationPublisher,
     GcpDestinationPublisher,
@@ -147,6 +147,12 @@ def test_aws_publisher_uses_kinesis_sequence_chain_and_sns_fifo_identity():
     )
     assert sns.requests[0]["MessageGroupId"] == "device-1"
     assert len(sns.requests[0]["MessageDeduplicationId"]) == 64
+    assert sns.requests[0]["MessageAttributes"] == {
+        "event_type": {
+            "DataType": "String",
+            "StringValue": "device.command.outcome.v1",
+        }
+    }
 
 
 def test_destination_publishers_defensively_reject_oversized_source_keys():
@@ -244,6 +250,9 @@ def test_azure_publisher_uses_non_buffered_sdk_acceptance_and_sessions():
         _event("event-2", telemetry=False),
     )
     assert service_buses[0].sender.sent[0][1]["session_id"] == "device-1"
+    assert service_buses[0].sender.sent[0][1]["application_properties"] == {
+        "event_type": "device.command.outcome.v1"
+    }
 
 
 class _Future:
@@ -291,6 +300,7 @@ def test_gcp_publisher_waits_for_message_id_and_resumes_failed_ordering_key():
         == "message-1"
     )
     assert publisher_client.requests[0][1]["ordering_key"] == "device-1"
+    assert publisher_client.requests[0][1]["event_type"] == "telemetry.received.v1"
 
     publisher_client.error = TimeoutError()
     with pytest.raises(RetryableBridgeError):
