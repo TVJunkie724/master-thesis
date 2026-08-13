@@ -8,11 +8,10 @@ locals {
     local.six_layer_eventing_enabled &&
     var.event_layer_provider == "google"
   )
-  gcp_event_l1_local   = local.gcp_event_enabled && var.layer_1_provider == "google"
-  gcp_event_l2_local   = local.gcp_event_enabled && var.layer_2_provider == "google"
-  gcp_event_hot_local  = local.gcp_event_enabled && var.layer_3_hot_provider == "google"
-  gcp_event_twin_local = local.gcp_event_enabled && var.layer_4_provider == "google"
-  gcp_event_name       = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 24)
+  gcp_event_l1_local  = local.gcp_event_enabled && var.layer_1_provider == "google"
+  gcp_event_l2_local  = local.gcp_event_enabled && var.layer_2_provider == "google"
+  gcp_event_hot_local = local.gcp_event_enabled && var.layer_3_hot_provider == "google"
+  gcp_event_name      = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 24)
 
   gcp_event_resolved_worker_count = tonumber(lookup(
     var.resolved_component_dimensions,
@@ -33,8 +32,10 @@ locals {
     failure   = "${local.gcp_event_name}-event-failure"
   }
   gcp_event_local_processed_roles = concat(
-    local.gcp_event_hot_local ? ["historical-persistence"] : [],
-    local.gcp_event_twin_local ? ["twin-state-update"] : [],
+    local.gcp_event_hot_local ? [
+      "historical-persistence",
+      "twin-state-update",
+    ] : [],
     local.gcp_event_l2_local ? ["rule-evaluator"] : [],
     local.gcp_event_large ? ["audit", "realtime-visualization"] : [],
   )
@@ -42,17 +43,13 @@ locals {
     local.gcp_event_l2_local ? [
       "event.matched.v1",
       "notification.requested.v1",
+    ] : [],
+    local.gcp_event_hot_local ? [
       "extension.action.outcome.v1",
       "notification.workflow.outcome.v1",
       "device.command.outcome.v1",
     ] : [],
     local.gcp_event_l1_local ? ["device.command.requested.v1"] : [],
-    local.gcp_event_twin_local ? [
-      "twin.state.upserted",
-      "twin.model.upserted",
-      "twin.relationship.upserted",
-      "twin.relationship.deleted",
-    ] : [],
   )
   gcp_event_telemetry_subscriptions = merge(
     local.gcp_event_l2_local ? {
@@ -93,9 +90,7 @@ locals {
     } : {},
     local.gcp_event_hot_local ? {
       historical-persistence = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["persistence"].uri
-    } : {},
-    local.gcp_event_twin_local ? {
-      twin-state-update = google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer[0].uri
+      twin-state-update      = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["persistence"].uri
     } : {},
     length(local.gcp_event_local_control_event_types) > 0 ? {
       control-router = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["domain"].uri
@@ -107,9 +102,6 @@ locals {
     } : {},
     local.gcp_event_hot_local ? {
       persistence = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["persistence"].name
-    } : {},
-    local.gcp_event_twin_local ? {
-      twin = google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer[0].name
     } : {},
     length(local.gcp_event_local_control_event_types) > 0 ? {
       domain = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["domain"].name
@@ -245,6 +237,10 @@ resource "google_cloud_run_v2_service" "event_runtime" {
         name  = "EVENT_TARGETS_JSON"
         value = jsonencode(local.gcp_event_delivery_targets)
       }
+      env {
+        name  = "EVENT_LOCAL_CONTROL_TYPES_JSON"
+        value = jsonencode(local.gcp_event_local_control_event_types)
+      }
     }
   }
 
@@ -378,6 +374,10 @@ resource "google_cloud_run_v2_worker_pool" "event_telemetry" {
       env {
         name  = "EVENT_TARGETS_JSON"
         value = jsonencode(local.gcp_event_delivery_targets)
+      }
+      env {
+        name  = "EVENT_LOCAL_CONTROL_TYPES_JSON"
+        value = jsonencode(local.gcp_event_local_control_event_types)
       }
     }
   }

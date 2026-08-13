@@ -75,7 +75,9 @@ def test_delivery_uses_short_lived_id_token_and_closed_ack(monkeypatch):
         "EVENT_TARGETS_JSON",
         json.dumps({"telemetry-processor": target}),
     )
-    monkeypatch.setattr(runtime.id_token, "fetch_id_token", lambda _request, aud: f"token:{aud}")
+    monkeypatch.setattr(
+        runtime.id_token, "fetch_id_token", lambda _request, aud: f"token:{aud}"
+    )
     captured = {}
 
     def post(url, *, json, headers, timeout):
@@ -94,7 +96,9 @@ def test_delivery_uses_short_lived_id_token_and_closed_ack(monkeypatch):
 
     assert captured["url"] == target
     assert captured["headers"] == {"authorization": f"Bearer token:{target}"}
-    assert captured["json"]["eventing_delivery"]["consumer_role"] == "telemetry-processor"
+    assert (
+        captured["json"]["eventing_delivery"]["consumer_role"] == "telemetry-processor"
+    )
 
 
 def test_large_audit_consumer_is_intentionally_side_effect_free(monkeypatch):
@@ -102,3 +106,26 @@ def test_large_audit_consumer_is_intentionally_side_effect_free(monkeypatch):
     monkeypatch.delenv("EVENT_TARGETS_JSON", raising=False)
 
     runtime._deliver(_event("telemetry.processed.v1"), "audit")
+
+
+def test_control_tap_acknowledges_event_owned_by_remote_provider(monkeypatch):
+    runtime = _load()
+    monkeypatch.setenv(
+        "EVENT_LOCAL_CONTROL_TYPES_JSON",
+        json.dumps(["event.matched.v1"]),
+    )
+    monkeypatch.setenv(
+        "EVENT_TARGETS_JSON",
+        json.dumps({"control-router": "https://domain.example.test"}),
+    )
+    post = SimpleNamespace(called=False)
+
+    def fail_if_called(*_args, **_kwargs):
+        post.called = True
+        raise AssertionError("unowned control event was delivered locally")
+
+    monkeypatch.setattr(runtime.requests, "post", fail_if_called)
+
+    runtime._deliver(_event("device.command.requested.v1"), "control-router")
+
+    assert post.called is False

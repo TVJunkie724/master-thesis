@@ -304,9 +304,7 @@ def test_poc_boundary_closes_action_and_notification_invocations():
             "event": matched,
         }
     )
-    notification = core.build_match_dispatch_events(
-        matched, action_accepted=True
-    )[1]
+    notification = core.build_match_dispatch_events(matched, action_accepted=True)[1]
     notification_result = runtime._poc_boundary(notification)
 
     assert action_result["status"] == "ACCEPTED"
@@ -424,8 +422,7 @@ def test_l4_seed_is_deterministic_bounded_and_firestore_path_safe():
 
     fallback = core.build_seed_twin_documents([], deployment_id="deployment-1")
     assert any(
-        document.get("twin_id") == "poc-device-001"
-        for document in fallback.values()
+        document.get("twin_id") == "poc-device-001" for document in fallback.values()
     )
 
 
@@ -456,7 +453,9 @@ def test_twin_explorer_health_requires_readable_seed(monkeypatch):
     runtime = _load("app")
     calls = []
     monkeypatch.setenv("RUNTIME_ROLE", "twin-explorer")
-    monkeypatch.setattr(runtime, "_probe_seeded_twin_content", lambda: calls.append(True))
+    monkeypatch.setattr(
+        runtime, "_probe_seeded_twin_content", lambda: calls.append(True)
+    )
 
     response = runtime.app.test_client().get("/healthz")
 
@@ -472,7 +471,7 @@ def test_twin_explorer_is_read_only_bounded_and_escapes_content(monkeypatch):
         runtime,
         "_list_twin_collection",
         lambda collection, limit: (
-            [{"twin_id": '<device&1>'}] if collection == "twins" else []
+            [{"twin_id": "<device&1>"}] if collection == "twins" else []
         ),
     )
     monkeypatch.setattr(runtime, "_twin_detail", lambda twin_id: {"twin": twin_id})
@@ -615,7 +614,9 @@ def test_cloud_run_ingress_publishes_one_ordered_canonical_event(monkeypatch):
     monkeypatch.setenv("DEPLOYMENT_ID", "deployment-1")
     monkeypatch.setenv("L2_PROVIDER", "google")
     monkeypatch.setenv("RECEIVED_TOPIC", "projects/test/topics/received")
-    monkeypatch.setattr(runtime, "_publish", lambda topic, event: published.append((topic, event)))
+    monkeypatch.setattr(
+        runtime, "_publish", lambda topic, event: published.append((topic, event))
+    )
 
     response = runtime.app.test_client().post(
         "/",
@@ -662,23 +663,49 @@ def test_cross_cloud_sources_use_directional_gcp_outboxes(monkeypatch):
     monkeypatch.setenv("L2_PROVIDER", "azure")
     monkeypatch.setenv("HOT_PROVIDER", "aws")
     monkeypatch.setenv("TWIN_PROVIDER", "azure")
-    monkeypatch.setenv("REMOTE_TELEMETRY_TOPIC", "projects/test/topics/remote-telemetry")
+    monkeypatch.setenv(
+        "REMOTE_TELEMETRY_TOPIC", "projects/test/topics/remote-telemetry"
+    )
     monkeypatch.setenv("REMOTE_CONTROL_TOPIC", "projects/test/topics/remote-control")
-    monkeypatch.setattr(runtime, "_publish", lambda topic, event: published.append((topic, event)))
-    monkeypatch.setattr(runtime, "_invoke_processor_extension", lambda _event: _extension_response(received))
+    monkeypatch.setattr(
+        runtime, "_publish", lambda topic, event: published.append((topic, event))
+    )
+    monkeypatch.setattr(
+        runtime,
+        "_invoke_processor_extension",
+        lambda _event: _extension_response(received),
+    )
     monkeypatch.setattr(runtime, "_configured_rules", lambda: [])
     monkeypatch.setattr(runtime, "_persist", lambda _event: True)
 
     runtime._ingress(dict(received))
     runtime._process(
-        {"message": {"data": base64.b64encode(core.canonical_json(received).encode()).decode()}}
+        {
+            "message": {
+                "data": base64.b64encode(
+                    core.canonical_json(received).encode()
+                ).decode()
+            }
+        }
     )
     runtime._persistence(
-        {"message": {"data": base64.b64encode(core.canonical_json(processed).encode()).decode()}}
+        {
+            "message": {
+                "data": base64.b64encode(
+                    core.canonical_json(processed).encode()
+                ).decode()
+            }
+        }
     )
     for event in (command, outcome):
         runtime._domain(
-            {"message": {"data": base64.b64encode(core.canonical_json(event).encode()).decode()}}
+            {
+                "message": {
+                    "data": base64.b64encode(
+                        core.canonical_json(event).encode()
+                    ).decode()
+                }
+            }
         )
 
     assert [(topic, event["event_type"]) for topic, event in published] == [
@@ -725,10 +752,16 @@ def test_remote_landing_republishes_only_to_selected_local_owner(
     monkeypatch.setenv("RECEIVED_TOPIC", "projects/test/topics/received")
     monkeypatch.setenv("PROCESSED_TOPIC", "projects/test/topics/processed")
     monkeypatch.setenv("DOMAIN_TOPIC", "projects/test/topics/domain")
-    monkeypatch.setattr(runtime, "_publish", lambda topic, item: published.append((topic, item)))
+    monkeypatch.setattr(
+        runtime, "_publish", lambda topic, item: published.append((topic, item))
+    )
 
     result = runtime._remote_landing(
-        {"message": {"data": base64.b64encode(core.canonical_json(event).encode()).decode()}}
+        {
+            "message": {
+                "data": base64.b64encode(core.canonical_json(event).encode()).decode()
+            }
+        }
     )
 
     assert result["event_type"] == event["event_type"]
@@ -761,6 +794,162 @@ def test_six_layer_remote_landing_republishes_to_gcp_event_layer(monkeypatch):
 
     assert result["event_type"] == event["event_type"]
     assert published == [("projects/test/topics/event-received", event)]
+
+
+def test_six_layer_processor_returns_processed_event_to_remote_event_layer(
+    monkeypatch,
+):
+    core = _load_six_layer("core")
+    runtime = _load_six_layer("app")
+    received = _received(core)
+    published = []
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    monkeypatch.setenv("EVENT_LAYER_PROVIDER", "aws")
+    monkeypatch.setenv(
+        "REMOTE_TELEMETRY_TOPIC",
+        "projects/test/topics/to-event-layer",
+    )
+    monkeypatch.setattr(
+        runtime,
+        "_invoke_processor_extension",
+        lambda _event: _extension_response(received),
+    )
+    monkeypatch.setattr(
+        runtime,
+        "_publish",
+        lambda topic, event: published.append((topic, event)),
+    )
+    monkeypatch.setattr(
+        runtime,
+        "_configured_rules",
+        lambda: pytest.fail("Six-layer processor evaluated rules before Eventing"),
+    )
+
+    result = runtime._process(
+        {
+            "message": {
+                "data": base64.b64encode(
+                    core.canonical_json(received).encode()
+                ).decode()
+            }
+        }
+    )
+
+    assert result["matched"] == 0
+    assert published[0][0] == "projects/test/topics/to-event-layer"
+    assert published[0][1]["event_type"] == core.EVENT_TELEMETRY_PROCESSED
+
+
+def test_six_layer_processed_landing_fans_out_to_local_hot_and_l2(monkeypatch):
+    core = _load_six_layer("core")
+    runtime = _load_six_layer("app")
+    received = _received(core)
+    processed = core.build_processed_event(received, _extension_response(received))
+    matched = core.derive_event(
+        processed,
+        event_type=core.EVENT_MATCHED,
+        producer="component.rule-evaluator",
+        payload={"device_id": "device-1", "rule_id": "rule-1", "action": {}},
+    )
+    published = []
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    monkeypatch.setenv("EVENT_LAYER_PROVIDER", "aws")
+    monkeypatch.setenv("DEPLOYMENT_ID", "deployment-1")
+    monkeypatch.setenv("HOT_PROVIDER", "google")
+    monkeypatch.setenv("L2_PROVIDER", "google")
+    monkeypatch.setenv(
+        "REMOTE_EVENT_TYPES_JSON",
+        json.dumps([core.EVENT_TELEMETRY_PROCESSED]),
+    )
+    monkeypatch.setenv("PROCESSED_TOPIC", "projects/test/topics/processed")
+    monkeypatch.setenv(
+        "REMOTE_CONTROL_TOPIC",
+        "projects/test/topics/to-event-layer-control",
+    )
+    monkeypatch.setattr(runtime, "_configured_rules", lambda: [])
+    monkeypatch.setattr(
+        runtime.core,
+        "build_rule_matches",
+        lambda _event, _rules: [matched],
+    )
+    monkeypatch.setattr(
+        runtime,
+        "_publish",
+        lambda topic, event: published.append((topic, event)),
+    )
+
+    result = runtime._remote_landing(
+        {
+            "message": {
+                "data": base64.b64encode(
+                    core.canonical_json(processed).encode()
+                ).decode()
+            }
+        }
+    )
+
+    assert result["accepted"] == 1
+    assert [(topic, event["event_type"]) for topic, event in published] == [
+        ("projects/test/topics/processed", core.EVENT_TELEMETRY_PROCESSED),
+        ("projects/test/topics/to-event-layer-control", core.EVENT_MATCHED),
+    ]
+
+
+def test_six_layer_event_delivery_rejects_a_misowned_consumer_role(monkeypatch):
+    core = _load_six_layer("core")
+    runtime = _load_six_layer("app")
+    processed = core.build_processed_event(
+        _received(core),
+        _extension_response(_received(core)),
+    )
+    monkeypatch.setenv("HOT_PROVIDER", "aws")
+
+    with pytest.raises(
+        runtime.core.ContractError,
+        match="EVENTING_CONSUMER_PROVIDER_MISMATCH",
+    ):
+        runtime._consume_eventing_delivery("historical-persistence", processed)
+
+
+def test_six_layer_control_landing_routes_match_to_local_l2(monkeypatch):
+    core = _load_six_layer("core")
+    runtime = _load_six_layer("app")
+    processed = core.build_processed_event(
+        _received(core),
+        _extension_response(_received(core)),
+    )
+    matched = core.derive_event(
+        processed,
+        event_type=core.EVENT_MATCHED,
+        producer="component.rule-evaluator",
+        payload={"device_id": "device-1", "rule_id": "rule-1", "action": {}},
+    )
+    published = []
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    monkeypatch.setenv("EVENT_LAYER_PROVIDER", "aws")
+    monkeypatch.setenv("DEPLOYMENT_ID", "deployment-1")
+    monkeypatch.setenv("L2_PROVIDER", "google")
+    monkeypatch.setenv(
+        "REMOTE_EVENT_TYPES_JSON",
+        json.dumps([core.EVENT_MATCHED]),
+    )
+    monkeypatch.setenv("DOMAIN_TOPIC", "projects/test/topics/domain")
+    monkeypatch.setattr(
+        runtime,
+        "_publish",
+        lambda topic, event: published.append((topic, event)),
+    )
+
+    result = runtime._remote_landing(
+        {
+            "message": {
+                "data": base64.b64encode(core.canonical_json(matched).encode()).decode()
+            }
+        }
+    )
+
+    assert result["accepted"] == 1
+    assert published == [("projects/test/topics/domain", matched)]
 
 
 @pytest.mark.parametrize(
@@ -805,7 +994,9 @@ def test_ingress_records_canonical_device_command_outcome(monkeypatch):
     published = []
     monkeypatch.setenv("DEPLOYMENT_ID", "deployment-1")
     monkeypatch.setenv("DOMAIN_TOPIC", "projects/test/topics/domain")
-    monkeypatch.setattr(runtime, "_publish", lambda topic, event: published.append((topic, event)))
+    monkeypatch.setattr(
+        runtime, "_publish", lambda topic, event: published.append((topic, event))
+    )
 
     result = runtime._ingress(
         {
@@ -838,7 +1029,9 @@ def test_pubsub_decoder_rejects_noncanonical_payload():
     runtime = _load("app")
     push = {
         "message": {
-            "data": base64.b64encode(json.dumps({"device_id": "device-1"}).encode()).decode()
+            "data": base64.b64encode(
+                json.dumps({"device_id": "device-1"}).encode()
+            ).decode()
         }
     }
 

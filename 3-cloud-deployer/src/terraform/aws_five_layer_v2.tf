@@ -117,8 +117,12 @@ locals {
       outbound = local.aws_v2_remote_control_outbound
     } : direction => direction if enabled
   }
-  aws_v2_remote_control_enabled  = length(local.aws_v2_remote_control_routes) > 0
-  aws_v2_domain_consumer_enabled = local.aws_v2_remote_telemetry_inbound || local.aws_v2_remote_control_inbound
+  aws_v2_remote_control_enabled = length(local.aws_v2_remote_control_routes) > 0
+  aws_v2_domain_consumer_enabled = (
+    local.aws_v2_remote_telemetry_inbound ||
+    local.aws_v2_remote_control_inbound ||
+    (local.aws_event_enabled && local.aws_v2_hot_enabled)
+  )
 
   aws_v2_runtime_package = (
     local.six_layer_eventing_enabled
@@ -459,7 +463,8 @@ resource "aws_lambda_function" "aws_aws_lambda" {
       EVENTING_RECEIVED_STREAM_ARN      = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_kinesis_stream.domain_telemetry["received"].arn : try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
       EVENTING_CONTROL_TOPIC_ARN        = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_sns_topic.domain_control[0].arn : try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
       EVENTING_PROCESSED_STREAM_ARN     = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_kinesis_stream.domain_telemetry["processed"].arn : try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
-      L1_PROVIDER                       = local.six_layer_eventing_enabled ? "eventing" : var.layer_1_provider
+      L1_PROVIDER                       = var.layer_1_provider
+      L2_PROVIDER                       = var.layer_2_provider
       RAW_TABLE_NAME                    = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
       ROLLUP_TABLE_NAME                 = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
       HOT_PROVIDER                      = var.layer_3_hot_provider
@@ -609,7 +614,8 @@ resource "aws_lambda_function" "aws_v2_domain_consumer" {
       EVENTING_RECEIVED_STREAM_ARN      = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_kinesis_stream.domain_telemetry["received"].arn : try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
       EVENTING_CONTROL_TOPIC_ARN        = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_sns_topic.domain_control[0].arn : try(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["outbound"].arn, "")
       EVENTING_PROCESSED_STREAM_ARN     = local.six_layer_eventing_enabled && var.event_layer_provider == "aws" ? aws_kinesis_stream.domain_telemetry["processed"].arn : try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
-      L1_PROVIDER                       = local.six_layer_eventing_enabled ? "eventing" : var.layer_1_provider
+      L1_PROVIDER                       = var.layer_1_provider
+      L2_PROVIDER                       = var.layer_2_provider
       HOT_PROVIDER                      = var.layer_3_hot_provider
       TWIN_PROVIDER                     = var.layer_4_provider
       RAW_TABLE_NAME                    = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")

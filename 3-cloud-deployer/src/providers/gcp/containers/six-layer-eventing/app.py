@@ -166,6 +166,23 @@ def _targets() -> dict[str, str]:
     return value
 
 
+def _local_control_types() -> frozenset[str]:
+    try:
+        value = json.loads(_required_environment("EVENT_LOCAL_CONTROL_TYPES_JSON"))
+    except json.JSONDecodeError as exc:
+        raise DeliveryError("EVENT_RUNTIME_NOT_CONFIGURED") from exc
+    if (
+        not isinstance(value, list)
+        or any(
+            not isinstance(item, str) or item not in SUPPORTED_EVENT_TYPES
+            for item in value
+        )
+        or len(value) != len(set(value))
+    ):
+        raise DeliveryError("EVENT_RUNTIME_NOT_CONFIGURED")
+    return frozenset(value)
+
+
 def _target_role(event: Mapping[str, Any], role: str) -> str:
     if role == "control-router" and event["event_type"] in TWIN_EVENT_TYPES:
         return "twin-state-update"
@@ -176,6 +193,8 @@ def _deliver(event: Mapping[str, Any], role: str) -> None:
     if role in {"audit", "realtime-visualization"}:
         # These Large-only consumers demonstrate independent fan-out without
         # adding another product subsystem to the thesis PoC.
+        return
+    if role == "control-router" and event["event_type"] not in _local_control_types():
         return
     target_role = _target_role(event, role)
     target = _targets().get(target_role)

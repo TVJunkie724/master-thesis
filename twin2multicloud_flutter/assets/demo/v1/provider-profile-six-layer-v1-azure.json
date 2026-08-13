@@ -5,7 +5,7 @@
   "architecture_profile_ref": {
     "id": "six-layer-eventing",
     "version": "1",
-    "digest": "sha256:4e4aba55de9e675b0c95db88be524822d34ebf28b6eb16d8b6dc7014e84f401b"
+    "digest": "sha256:99bb981aa1a60a5e4677609914bc9e341774ef500222da72c4f82efe6f0756c9"
   },
   "provider": "azure",
   "lifecycle_status": "active",
@@ -434,8 +434,8 @@
         "deployment.azure.eventing.v1"
       ],
       "mechanism": "provider_native_trigger",
-      "catalog_input_port_id": "catalog.azure.port.eventing.telemetry-in",
-      "catalog_output_port_id": "catalog.azure.port.ingestion.telemetry-event-out",
+      "catalog_input_port_id": "catalog.azure.port.eventing.ingestion-in",
+      "catalog_output_port_id": "catalog.azure.port.ingestion.eventing-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.ingestion-to-eventing"
@@ -451,8 +451,8 @@
         "deployment.azure.processing.v2"
       ],
       "mechanism": "provider_native_trigger",
-      "catalog_input_port_id": "catalog.azure.port.processing.telemetry-event-in",
-      "catalog_output_port_id": "catalog.azure.port.eventing.telemetry-out",
+      "catalog_input_port_id": "catalog.azure.port.processing.eventing-in",
+      "catalog_output_port_id": "catalog.azure.port.eventing.processing-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.eventing-to-processing"
@@ -468,8 +468,8 @@
         "deployment.azure.eventing.v1"
       ],
       "mechanism": "provider_native_trigger",
-      "catalog_input_port_id": "catalog.azure.port.eventing.control-in",
-      "catalog_output_port_id": "catalog.azure.port.processing.device-command-out",
+      "catalog_input_port_id": "catalog.azure.port.eventing.processing-in",
+      "catalog_output_port_id": "catalog.azure.port.processing.eventing-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.processing-to-eventing"
@@ -486,7 +486,7 @@
       ],
       "mechanism": "provider_native_trigger",
       "catalog_input_port_id": "catalog.azure.port.ingestion.device-command-in",
-      "catalog_output_port_id": "catalog.azure.port.eventing.control-out",
+      "catalog_output_port_id": "catalog.azure.port.eventing.ingestion-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.eventing-to-ingestion"
@@ -502,8 +502,8 @@
         "deployment.azure.hot-storage.v2"
       ],
       "mechanism": "provider_native_trigger",
-      "catalog_input_port_id": "catalog.azure.port.hot-storage.processing-event-in",
-      "catalog_output_port_id": "catalog.azure.port.eventing.telemetry-out",
+      "catalog_input_port_id": "catalog.azure.port.hot-storage.eventing-in",
+      "catalog_output_port_id": "catalog.azure.port.eventing.hot-storage-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.eventing-to-hot-storage"
@@ -577,5 +577,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:e114041277beeb3b126af209d2aecd80ad214ad7be8d9b13dcd436cc088b1392"
+  "content_digest": "sha256:3dada94d976f9afa259dcd6c71bb5af69e89ddaf71832ce2c62684c93d76309d"
 }

@@ -69,7 +69,10 @@ def _executions() -> executions_v1.ExecutionsClient:
 
 
 def _json_object() -> dict[str, Any]:
-    if request.content_length is not None and request.content_length > core.MAX_EVENT_BYTES:
+    if (
+        request.content_length is not None
+        and request.content_length > core.MAX_EVENT_BYTES
+    ):
         raise core.ContractError("EVENT_TOO_LARGE")
     value = request.get_json(silent=True)
     if not isinstance(value, dict):
@@ -107,6 +110,17 @@ def _publish(topic: str, event: Mapping[str, Any]) -> None:
 
 def _route_topic(*, local_provider: str, local_topic: str, remote_topic: str) -> str:
     return local_topic if local_provider == "google" else remote_topic
+
+
+def _six_layer_eventing() -> bool:
+    return os.environ.get("ARCHITECTURE_PROFILE") == "six-layer-eventing@1"
+
+
+def _domain_output_topic() -> str:
+    return os.environ.get(
+        "REMOTE_CONTROL_TOPIC" if _six_layer_eventing() else "DOMAIN_TOPIC",
+        "",
+    )
 
 
 def _identity_token(audience: str) -> str:
@@ -348,14 +362,15 @@ def _dispatch_match(event: Mapping[str, Any]) -> int:
         action_accepted=_invoke_poc_action(event),
     )
     for item in derived:
-        _publish(os.environ.get("DOMAIN_TOPIC", ""), item)
+        _publish(_domain_output_topic(), item)
     return len(derived)
 
 
 def _record_workflow_outcome(value: Mapping[str, Any]) -> None:
-    if set(value) != {"schema_version", "workflow_request", "status"} or value.get(
-        "schema_version"
-    ) != "workflow-outcome.v1":
+    if (
+        set(value) != {"schema_version", "workflow_request", "status"}
+        or value.get("schema_version") != "workflow-outcome.v1"
+    ):
         raise core.ContractError("INVALID_WORKFLOW_OUTCOME")
     workflow_request = value.get("workflow_request")
     if not isinstance(workflow_request, Mapping):
@@ -376,22 +391,22 @@ def _record_workflow_outcome(value: Mapping[str, Any]) -> None:
             "status": status,
         },
     )
-    _publish(os.environ.get("DOMAIN_TOPIC", ""), outcome)
+    _publish(_domain_output_topic(), outcome)
 
 
 def _record_command_outcome(value: Mapping[str, Any]) -> dict[str, Any]:
-    if set(value) != {"schema_version", "command", "status"} or value.get(
-        "schema_version"
-    ) != "device-command-delivery.v1":
+    if (
+        set(value) != {"schema_version", "command", "status"}
+        or value.get("schema_version") != "device-command-delivery.v1"
+    ):
         raise core.ContractError("INVALID_COMMAND_OUTCOME")
     command = value.get("command")
     if not isinstance(command, Mapping):
         raise core.ContractError("INVALID_COMMAND_OUTCOME")
     event = core.validate_canonical_event(command)
-    if (
-        event["event_type"] != core.EVENT_DEVICE_COMMAND_REQUESTED
-        or event["deployment_id"] != os.environ.get("DEPLOYMENT_ID", "local-poc")
-    ):
+    if event["event_type"] != core.EVENT_DEVICE_COMMAND_REQUESTED or event[
+        "deployment_id"
+    ] != os.environ.get("DEPLOYMENT_ID", "local-poc"):
         raise core.ContractError("INVALID_COMMAND_OUTCOME")
     status = value.get("status")
     if status not in {"ACCEPTED", "FAILED"}:
@@ -406,7 +421,7 @@ def _record_command_outcome(value: Mapping[str, Any]) -> dict[str, Any]:
             "status": status,
         },
     )
-    _publish(os.environ.get("DOMAIN_TOPIC", ""), outcome)
+    _publish(_domain_output_topic(), outcome)
     return outcome
 
 
@@ -450,17 +465,28 @@ def _process(value: Mapping[str, Any]) -> dict[str, Any]:
         received,
         _invoke_processor_extension(received),
     )
-    _publish(
-        _route_topic(
-            local_provider=os.environ.get("HOT_PROVIDER", ""),
-            local_topic=os.environ.get("PROCESSED_TOPIC", ""),
-            remote_topic=os.environ.get("REMOTE_TELEMETRY_TOPIC", ""),
-        ),
-        processed,
-    )
-    matches = core.build_rule_matches(processed, _configured_rules())
-    for matched in matches:
-        _publish(os.environ.get("DOMAIN_TOPIC", ""), matched)
+    if _six_layer_eventing():
+        _publish(
+            _route_topic(
+                local_provider=os.environ.get("EVENT_LAYER_PROVIDER", ""),
+                local_topic=os.environ.get("PROCESSED_TOPIC", ""),
+                remote_topic=os.environ.get("REMOTE_TELEMETRY_TOPIC", ""),
+            ),
+            processed,
+        )
+        matches = []
+    else:
+        _publish(
+            _route_topic(
+                local_provider=os.environ.get("HOT_PROVIDER", ""),
+                local_topic=os.environ.get("PROCESSED_TOPIC", ""),
+                remote_topic=os.environ.get("REMOTE_TELEMETRY_TOPIC", ""),
+            ),
+            processed,
+        )
+        matches = core.build_rule_matches(processed, _configured_rules())
+        for matched in matches:
+            _publish(_domain_output_topic(), matched)
     return {
         "schema_version": "processor-result.v1",
         "accepted": 1,
@@ -473,22 +499,34 @@ def _persistence(value: Mapping[str, Any]) -> dict[str, Any]:
     if processed["event_type"] != core.EVENT_TELEMETRY_PROCESSED:
         raise core.ContractError("UNEXPECTED_HOT_STORAGE_EVENT")
     created = _persist(processed)
-    projection = core.build_twin_projection(processed)
-    if projection is not None:
-        _publish(
-            _route_topic(
-                local_provider=os.environ.get("TWIN_PROVIDER", ""),
-                local_topic=os.environ.get("DOMAIN_TOPIC", ""),
-                remote_topic=os.environ.get("REMOTE_CONTROL_TOPIC", ""),
-            ),
-            projection,
-        )
+    projection = _project_processed(processed)
     return {
         "schema_version": "persistence-result.v1",
         "accepted": 1,
         "created": created,
         "projected": projection is not None,
     }
+
+
+def _project_processed(processed: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    projection = core.build_twin_projection(processed)
+    if projection is None:
+        return None
+    if _six_layer_eventing() and os.environ.get("TWIN_PROVIDER") == "google":
+        _materialize_twin_projection(projection)
+    else:
+        _publish(
+            _route_topic(
+                local_provider=os.environ.get("TWIN_PROVIDER", ""),
+                local_topic=os.environ.get("DOMAIN_TOPIC", ""),
+                remote_topic=os.environ.get(
+                    "TWIN_REMOTE_CONTROL_TOPIC",
+                    os.environ.get("REMOTE_CONTROL_TOPIC", ""),
+                ),
+            ),
+            projection,
+        )
+    return projection
 
 
 def _poc_boundary(value: Mapping[str, Any]) -> dict[str, Any]:
@@ -710,7 +748,9 @@ def _model_detail(model_id: str) -> dict[str, Any]:
 def _verify_reader_key() -> None:
     expected = os.environ.get("READER_KEY_SHA256", "")
     supplied = request.headers.get("x-twin2multicloud-reader-key", "")
-    if len(expected) != 64 or any(character not in "0123456789abcdef" for character in expected):
+    if len(expected) != 64 or any(
+        character not in "0123456789abcdef" for character in expected
+    ):
         raise core.ContractError("READER_NOT_PROVISIONED", 503)
     actual = hashlib.sha256(supplied.encode("utf-8")).hexdigest()
     if not hmac.compare_digest(actual, expected):
@@ -805,14 +845,14 @@ def _raw_history_documents(
             "document_id": item["_document_id"],
         }
     documents = [
-        {
-            key: value
-            for key, value in item.items()
-            if not key.startswith("_")
-        }
+        {key: value for key, value in item.items() if not key.startswith("_")}
         for item in selected
     ]
-    return documents, ({"kind": "raw", "shards": next_shards} if has_more else None), has_more
+    return (
+        documents,
+        ({"kind": "raw", "shards": next_shards} if has_more else None),
+        has_more,
+    )
 
 
 def _aggregate_history_documents(
@@ -824,8 +864,7 @@ def _aggregate_history_documents(
     deadline: float,
 ) -> tuple[list[dict[str, Any]], dict[str, Any] | None, bool]:
     if cursor_state is not None and (
-        set(cursor_state) != {"kind", "last"}
-        or cursor_state.get("kind") != "aggregate"
+        set(cursor_state) != {"kind", "last"} or cursor_state.get("kind") != "aggregate"
     ):
         raise core.ContractError("INVALID_CURSOR")
     collection = _database().collection("hourly_rollups")
@@ -838,9 +877,7 @@ def _aggregate_history_documents(
         .order_by("bucket_start")
         .order_by("__name__")
     )
-    position = _cursor_position(
-        (cursor_state or {}).get("last"), key="bucket_start"
-    )
+    position = _cursor_position((cursor_state or {}).get("last"), key="bucket_start")
     if position is not None:
         bucket_start, document_id = position
         history_query = history_query.start_after(
@@ -950,6 +987,7 @@ def _domain(value: Mapping[str, Any]) -> dict[str, Any]:
         handled = True
     elif (
         kind == core.EVENT_DEVICE_COMMAND_REQUESTED
+        and os.environ.get("L1_PROVIDER") == "google"
     ):
         _publish(
             _route_topic(
@@ -963,9 +1001,13 @@ def _domain(value: Mapping[str, Any]) -> dict[str, Any]:
     elif kind in core.OUTCOME_EVENT_TYPES:
         if os.environ.get("HOT_PROVIDER") == "google":
             _store_outcome(event)
+        elif _six_layer_eventing():
+            raise core.ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         else:
             _publish(os.environ.get("REMOTE_CONTROL_TOPIC", ""), event)
         handled = True
+    if _six_layer_eventing() and not handled:
+        raise core.ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
     return {
         "schema_version": "domain-consumer-result.v1",
         "accepted": 1,
@@ -997,7 +1039,8 @@ def _remote_landing(value: Mapping[str, Any]) -> dict[str, Any]:
     if (
         os.environ.get("ARCHITECTURE_PROFILE") == "six-layer-eventing@1"
         and os.environ.get("EVENT_LAYER_PROVIDER") == "google"
-        and kind in {
+        and kind
+        in {
             core.EVENT_TELEMETRY_RECEIVED,
             core.EVENT_TELEMETRY_PROCESSED,
             core.EVENT_MATCHED,
@@ -1018,24 +1061,48 @@ def _remote_landing(value: Mapping[str, Any]) -> dict[str, Any]:
         and os.environ.get("L2_PROVIDER") == "google"
     ):
         topic = os.environ.get("RECEIVED_TOPIC", "")
-    elif (
-        kind == core.EVENT_TELEMETRY_PROCESSED
-        and os.environ.get("HOT_PROVIDER") == "google"
+    elif kind == core.EVENT_TELEMETRY_PROCESSED and (
+        os.environ.get("HOT_PROVIDER") == "google"
+        or os.environ.get("L2_PROVIDER") == "google"
     ):
-        topic = os.environ.get("PROCESSED_TOPIC", "")
+        if os.environ.get("HOT_PROVIDER") == "google":
+            _publish(os.environ.get("PROCESSED_TOPIC", ""), event)
+        if os.environ.get("L2_PROVIDER") == "google":
+            for matched in core.build_rule_matches(event, _configured_rules()):
+                _publish(_domain_output_topic(), matched)
+        return {
+            "schema_version": "remote-landing-result.v1",
+            "accepted": 1,
+            "event_type": kind,
+        }
+    elif (
+        kind
+        in {
+            core.EVENT_MATCHED,
+            core.EVENT_NOTIFICATION_REQUESTED,
+        }
+        and os.environ.get("L2_PROVIDER") == "google"
+    ):
+        topic = os.environ.get("DOMAIN_TOPIC", "")
     elif (
         kind == core.EVENT_DEVICE_COMMAND_REQUESTED
         and os.environ.get("L1_PROVIDER") == "google"
     ):
         topic = os.environ.get("DOMAIN_TOPIC", "")
-    elif kind in core.OUTCOME_EVENT_TYPES and os.environ.get("HOT_PROVIDER") == "google":
+    elif (
+        kind in core.OUTCOME_EVENT_TYPES and os.environ.get("HOT_PROVIDER") == "google"
+    ):
         topic = os.environ.get("DOMAIN_TOPIC", "")
-    elif kind in {
-        core.EVENT_TWIN_STATE_UPSERTED,
-        core.EVENT_TWIN_MODEL_UPSERTED,
-        core.EVENT_TWIN_RELATIONSHIP_UPSERTED,
-        core.EVENT_TWIN_RELATIONSHIP_DELETED,
-    } and os.environ.get("TWIN_PROVIDER") == "google":
+    elif (
+        kind
+        in {
+            core.EVENT_TWIN_STATE_UPSERTED,
+            core.EVENT_TWIN_MODEL_UPSERTED,
+            core.EVENT_TWIN_RELATIONSHIP_UPSERTED,
+            core.EVENT_TWIN_RELATIONSHIP_DELETED,
+        }
+        and os.environ.get("TWIN_PROVIDER") == "google"
+    ):
         topic = os.environ.get("DOMAIN_TOPIC", "")
     else:
         raise core.ContractError("UNEXPECTED_REMOTE_EVENT")
@@ -1052,40 +1119,41 @@ def _consume_eventing_delivery(role: str, value: Mapping[str, Any]) -> None:
 
     event = core.validate_canonical_event(value)
     if role == "telemetry-processor":
-        if event["event_type"] != core.EVENT_TELEMETRY_RECEIVED:
-            raise core.ContractError("EVENT_CHANNEL_MISMATCH")
+        if (
+            event["event_type"] != core.EVENT_TELEMETRY_RECEIVED
+            or os.environ.get("L2_PROVIDER") != "google"
+        ):
+            raise core.ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         processed = core.build_processed_event(
             event,
             _invoke_processor_extension(event),
         )
         _publish(os.environ.get("PROCESSED_TOPIC", ""), processed)
     elif role == "historical-persistence":
-        if event["event_type"] != core.EVENT_TELEMETRY_PROCESSED:
-            raise core.ContractError("EVENT_CHANNEL_MISMATCH")
+        if (
+            event["event_type"] != core.EVENT_TELEMETRY_PROCESSED
+            or os.environ.get("HOT_PROVIDER") != "google"
+        ):
+            raise core.ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _persist(event)
     elif role == "twin-state-update":
-        if event["event_type"] == core.EVENT_TELEMETRY_PROCESSED:
-            projection = core.build_twin_projection(event)
-            if projection is not None:
-                _materialize_twin_projection(projection)
-        else:
-            _materialize_twin_projection(event)
+        if (
+            event["event_type"] != core.EVENT_TELEMETRY_PROCESSED
+            or os.environ.get("HOT_PROVIDER") != "google"
+        ):
+            raise core.ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
+        _project_processed(event)
     elif role == "rule-evaluator":
-        if event["event_type"] != core.EVENT_TELEMETRY_PROCESSED:
-            raise core.ContractError("EVENT_CHANNEL_MISMATCH")
+        if (
+            event["event_type"] != core.EVENT_TELEMETRY_PROCESSED
+            or os.environ.get("L2_PROVIDER") != "google"
+        ):
+            raise core.ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         for matched in core.build_rule_matches(event, _configured_rules()):
-            _publish(os.environ.get("DOMAIN_TOPIC", ""), matched)
+            _publish(_domain_output_topic(), matched)
     elif role == "control-router":
-        if event["event_type"] in {
-            core.EVENT_TWIN_STATE_UPSERTED,
-            core.EVENT_TWIN_MODEL_UPSERTED,
-            core.EVENT_TWIN_RELATIONSHIP_UPSERTED,
-            core.EVENT_TWIN_RELATIONSHIP_DELETED,
-        }:
-            _materialize_twin_projection(event)
-        else:
-            encoded = base64.b64encode(core.canonical_json(event).encode()).decode()
-            _domain({"message": {"data": encoded}})
+        encoded = base64.b64encode(core.canonical_json(event).encode()).decode()
+        _domain({"message": {"data": encoded}})
     elif role not in {"audit", "realtime-visualization"}:
         raise core.ContractError("UNSUPPORTED_EVENTING_CONSUMER")
 
@@ -1115,16 +1183,23 @@ def twin_explorer():
         models = _list_twin_collection("models", limit=100)
         selected_id = request.args.get("twin_id", "")
         detail = _twin_detail(selected_id) if selected_id else None
-        twin_links = "".join(
-            '<li><a href="/?twin_id={0}">{1}</a></li>'.format(
-                quote(str(item.get("twin_id", "")), safe=""),
-                html.escape(str(item.get("twin_id", ""))),
+        twin_links = (
+            "".join(
+                '<li><a href="/?twin_id={0}">{1}</a></li>'.format(
+                    quote(str(item.get("twin_id", "")), safe=""),
+                    html.escape(str(item.get("twin_id", ""))),
+                )
+                for item in twins
             )
-            for item in twins
-        ) or "<li>No Twins materialized yet.</li>"
-        model_items = "".join(
-            f"<li>{html.escape(str(item.get('model_id', '')))}</li>" for item in models
-        ) or "<li>No models materialized yet.</li>"
+            or "<li>No Twins materialized yet.</li>"
+        )
+        model_items = (
+            "".join(
+                f"<li>{html.escape(str(item.get('model_id', '')))}</li>"
+                for item in models
+            )
+            or "<li>No models materialized yet.</li>"
+        )
         detail_html = (
             "<p>Select a Twin to inspect current source state and direct relationships.</p>"
             if detail is None
@@ -1278,8 +1353,7 @@ def dispatch():
         eventing_delivery = value.get("eventing_delivery")
         if eventing_delivery is not None:
             if (
-                os.environ.get("EVENTING_DELIVERY_ENDPOINT_ENABLED", "false")
-                != "true"
+                os.environ.get("EVENTING_DELIVERY_ENDPOINT_ENABLED", "false") != "true"
                 or set(value) != {"eventing_delivery"}
                 or not isinstance(eventing_delivery, Mapping)
                 or set(eventing_delivery) != {"consumer_role", "event"}
@@ -1320,4 +1394,3 @@ def dispatch():
     except Exception:
         LOGGER.exception("GCP Five-layer v2 retryable runtime failure")
         return jsonify({"error": {"code": "RUNTIME_RETRYABLE_FAILURE"}}), 503
-

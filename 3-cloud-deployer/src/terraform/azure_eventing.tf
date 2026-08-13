@@ -7,11 +7,10 @@ locals {
     local.six_layer_eventing_enabled &&
     var.event_layer_provider == "azure"
   )
-  azure_event_l1_local   = local.azure_event_enabled && var.layer_1_provider == "azure"
-  azure_event_l2_local   = local.azure_event_enabled && var.layer_2_provider == "azure"
-  azure_event_hot_local  = local.azure_event_enabled && var.layer_3_hot_provider == "azure"
-  azure_event_twin_local = local.azure_event_enabled && var.layer_4_provider == "azure"
-  azure_event_name       = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 22)
+  azure_event_l1_local  = local.azure_event_enabled && var.layer_1_provider == "azure"
+  azure_event_l2_local  = local.azure_event_enabled && var.layer_2_provider == "azure"
+  azure_event_hot_local = local.azure_event_enabled && var.layer_3_hot_provider == "azure"
+  azure_event_name      = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 22)
 
   azure_event_standard_tu_hours = tonumber(lookup(
     var.resolved_component_dimensions,
@@ -74,8 +73,10 @@ locals {
     } : {},
   )
   azure_event_local_processed_roles = concat(
-    local.azure_event_hot_local ? ["historical-persistence"] : [],
-    local.azure_event_twin_local ? ["twin-state-update"] : [],
+    local.azure_event_hot_local ? [
+      "historical-persistence",
+      "twin-state-update",
+    ] : [],
     local.azure_event_l2_local ? ["rule-evaluator"] : [],
     local.azure_event_dedicated ? ["audit", "realtime-visualization"] : [],
   )
@@ -83,6 +84,8 @@ locals {
     local.azure_event_l2_local ? [
       "event.matched.v1",
       "notification.requested.v1",
+    ] : [],
+    local.azure_event_hot_local ? [
       "extension.action.outcome.v1",
       "notification.workflow.outcome.v1",
       "device.command.outcome.v1",
@@ -103,7 +106,7 @@ locals {
   )
   azure_event_domain_target_enabled = (
     local.azure_event_l1_local || local.azure_event_l2_local ||
-    local.azure_event_hot_local || local.azure_event_twin_local
+    local.azure_event_hot_local
   )
   azure_event_namespace_name = try(one(concat(
     azurerm_eventhub_namespace.eventing_standard[*].name,
@@ -393,7 +396,7 @@ resource "azurerm_function_app_flex_consumption" "event_runtime" {
     EVENT_CONTROL_TOPIC_NAME                   = azurerm_servicebus_topic.domain_control[0].name
     EVENT_CONTROL_SUBSCRIPTION_NAME            = azurerm_servicebus_subscription.domain_control[0].name
     EVENT_LOCAL_PROCESSING_ENABLED             = tostring(local.azure_event_l2_local)
-    EVENT_LOCAL_CONTROL_ENABLED                = tostring(local.azure_event_l1_local || local.azure_event_l2_local)
+    EVENT_LOCAL_CONTROL_ENABLED                = tostring(local.azure_event_l1_local || local.azure_event_l2_local || local.azure_event_hot_local)
     EVENT_LOCAL_PROCESSED_ROLES_JSON           = jsonencode(local.azure_event_local_processed_roles)
     EVENT_DOMAIN_DELIVERY_URL = local.azure_event_domain_target_enabled ? format(
       "https://%s/api/eventing-delivery/v1",

@@ -1177,16 +1177,38 @@ def poc_boundary(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
 
 
 def _consume_eventing_delivery(role: str, payload: Mapping[str, Any]) -> None:
-    if _event_type(payload) != EVENT_TELEMETRY_PROCESSED:
-        raise ContractError("EVENTING_CONSUMER_EVENT_MISMATCH")
-    if role == "historical-persistence":
-        if os.environ.get("HOT_PROVIDER") == "aws":
-            _write_raw_and_rollup(payload)
+    kind = _event_type(payload)
+    if role == "telemetry-processor":
+        if kind != EVENT_TELEMETRY_RECEIVED or os.environ.get("L2_PROVIDER") != "aws":
+            raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
+        result = processor(payload, None)
+        if result["batchItemFailures"]:
+            raise ContractError("PROCESSING_RETRYABLE_FAILURE", 503)
+    elif role == "control-router":
+        if kind == EVENT_MATCHED and os.environ.get("L2_PROVIDER") == "aws":
+            _dispatch_match(payload)
+        elif (
+            kind == EVENT_NOTIFICATION_REQUESTED
+            and os.environ.get("L2_PROVIDER") == "aws"
+        ):
+            _start_notification_workflow(payload)
+        elif kind in OUTCOME_EVENTS and os.environ.get("HOT_PROVIDER") == "aws":
+            _store_outcome(payload)
         else:
-            _put_stream(payload)
+            raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
+    elif kind != EVENT_TELEMETRY_PROCESSED:
+        raise ContractError("EVENTING_CONSUMER_EVENT_MISMATCH")
+    elif role == "historical-persistence":
+        if os.environ.get("HOT_PROVIDER") != "aws":
+            raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
+        _write_raw_and_rollup(payload)
     elif role == "twin-state-update":
+        if os.environ.get("HOT_PROVIDER") != "aws":
+            raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _project_twin(payload)
     elif role == "rule-evaluator":
+        if os.environ.get("L2_PROVIDER") != "aws":
+            raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _evaluate_rules(payload)
     elif role not in {"audit", "realtime-visualization"}:
         raise ContractError("UNKNOWN_EVENTING_CONSUMER")
@@ -1239,20 +1261,38 @@ def domain_consumer(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
                 else:
                     _publish_eventing_control(payload)
             elif kind == EVENT_TELEMETRY_RECEIVED:
+                if _six_layer_eventing() and os.environ.get("L2_PROVIDER") != "aws":
+                    raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
                 result = processor(payload, None)
                 if result["batchItemFailures"]:
                     raise ContractError("PROCESSING_RETRYABLE_FAILURE", 503)
             elif kind == EVENT_TELEMETRY_PROCESSED:
-                _persist_and_project(payload)
+                handled = False
+                if os.environ.get("HOT_PROVIDER") == "aws":
+                    _persist_and_project(payload)
+                    handled = True
+                if _six_layer_eventing() and os.environ.get("L2_PROVIDER") == "aws":
+                    _evaluate_rules(payload)
+                    handled = True
+                if not handled:
+                    raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
             elif kind == EVENT_TWIN_STATE_UPSERTED:
                 _materialize_twin_projection(payload)
             elif kind == EVENT_MATCHED:
+                if _six_layer_eventing() and os.environ.get("L2_PROVIDER") != "aws":
+                    raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
                 _dispatch_match(payload)
             elif kind == EVENT_NOTIFICATION_REQUESTED:
+                if _six_layer_eventing() and os.environ.get("L2_PROVIDER") != "aws":
+                    raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
                 _start_notification_workflow(payload)
             elif kind == EVENT_DEVICE_COMMAND_REQUESTED:
+                if _six_layer_eventing() and os.environ.get("L1_PROVIDER") != "aws":
+                    raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
                 _deliver_device_command(payload)
             elif kind in OUTCOME_EVENTS:
+                if _six_layer_eventing() and os.environ.get("HOT_PROVIDER") != "aws":
+                    raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
                 _store_outcome(payload)
             else:
                 raise ContractError("UNKNOWN_DOMAIN_EVENT")
@@ -1486,4 +1526,3 @@ def raw_history_reader(event: Mapping[str, Any], _context: Any) -> dict[str, Any
                 "correlation_id": correlation_id,
             },
         )
-

@@ -5,18 +5,31 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from .candidate_factory import ArchitectureCandidate, SIX_LAYER_COMPONENTS, enumerate_component_candidates
-from .completeness import CompleteArchitectureCandidate, ResolvedEdgeOption, resolve_candidate_edges, validate_candidate_completeness
+from .candidate_factory import (
+    ArchitectureCandidate,
+    SIX_LAYER_COMPONENTS,
+    enumerate_component_candidates,
+)
+from .completeness import (
+    CompleteArchitectureCandidate,
+    ResolvedEdgeOption,
+    resolve_candidate_edges,
+    validate_candidate_completeness,
+)
 from .diagnostics import ArchitectureResolutionError
 from .five_layer_v2_costing import FiveLayerV2CostEvaluation, FiveLayerV2CostedCandidate
 from .five_layer_v2_resolution_builder import FiveLayerV2ResolutionBuilder
-from .strategy import ArchitectureProfileRef, ArchitectureResolutionContext, OptimizationBundleRef
+from .strategy import (
+    ArchitectureProfileRef,
+    ArchitectureResolutionContext,
+    OptimizationBundleRef,
+)
 
 
 SIX_LAYER_EVENTING_V1_PROFILE_REF = ArchitectureProfileRef(
     profile_id="six-layer-eventing",
     profile_version="1",
-    content_digest="sha256:4e4aba55de9e675b0c95db88be524822d34ebf28b6eb16d8b6dc7014e84f401b",
+    content_digest="sha256:99bb981aa1a60a5e4677609914bc9e341774ef500222da72c4f82efe6f0756c9",
 )
 SIX_LAYER_EVENTING_V1_BUNDLE_REF = OptimizationBundleRef(
     optimization_strategy_id="cost-minimization-v2",
@@ -59,7 +72,9 @@ class SixLayerEventingV1CandidateStrategy:
             or OptimizationBundleRef.from_profile(profile)
             != SIX_LAYER_EVENTING_V1_BUNDLE_REF
         ):
-            raise RuntimeError("Six-layer Eventing profile or optimization bundle drifted")
+            raise RuntimeError(
+                "Six-layer Eventing profile or optimization bundle drifted"
+            )
 
     def validate_request(self, context: ArchitectureResolutionContext) -> None:
         if context.profile_ref not in self.supported_profile_refs:
@@ -72,7 +87,10 @@ class SixLayerEventingV1CandidateStrategy:
             statuses = {
                 context.profile["lifecycle_status"],
                 context.catalog["lifecycle_status"],
-                *(profile["lifecycle_status"] for profile in context.provider_profiles.values()),
+                *(
+                    profile["lifecycle_status"]
+                    for profile in context.provider_profiles.values()
+                ),
             }
             if statuses != {"active"}:
                 raise ArchitectureResolutionError(
@@ -105,7 +123,9 @@ class SixLayerEventingV1CandidateStrategy:
                 "Six-layer Eventing must mediate the reviewed ingestion/processing event edges",
             )
 
-    def enumerate_candidates(self, context: ArchitectureResolutionContext) -> tuple[ArchitectureCandidate, ...]:
+    def enumerate_candidates(
+        self, context: ArchitectureResolutionContext
+    ) -> tuple[ArchitectureCandidate, ...]:
         return enumerate_component_candidates(context)
 
     def validate_functional_completeness(

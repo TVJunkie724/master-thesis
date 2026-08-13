@@ -792,6 +792,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
     BRIDGE_SOURCE_IDENTITY_JSON                      = jsonencode({ managed_identity_client_id = azurerm_user_assigned_identity.main[0].client_id })
     BRIDGE_FAILURE_DESTINATION_JSON                  = jsonencode(local.azure_v2_bridge_failure_destination)
     V2_L2_PROVIDER                                   = var.layer_2_provider
+    V2_L1_PROVIDER                                   = var.layer_1_provider
     V2_HOT_PROVIDER                                  = var.layer_3_hot_provider
     V2_TWIN_PROVIDER                                 = var.layer_4_provider
     V2_ADT_ENDPOINT                                  = local.azure_v2_l4_enabled ? "https://${azurerm_digital_twins_instance.azure_azure_digital_twins[0].host_name}" : ""
@@ -882,6 +883,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
     V2_IOT_HUB_HOSTNAME                              = try(azurerm_iothub.azure_azure_iot_hub[0].hostname, "")
     V2_RULES_JSON                                    = jsonencode(var.events)
     V2_L2_PROVIDER                                   = var.layer_2_provider
+    V2_L1_PROVIDER                                   = var.layer_1_provider
     V2_HOT_PROVIDER                                  = var.layer_3_hot_provider
     V2_TWIN_PROVIDER                                 = var.layer_4_provider
     V2_ADT_ENDPOINT                                  = local.azure_v2_l4_enabled ? "https://${azurerm_digital_twins_instance.azure_azure_digital_twins[0].host_name}" : ""

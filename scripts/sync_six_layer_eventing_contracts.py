@@ -46,15 +46,9 @@ RDS_CAPACITY_REGISTRY = (
 )
 RDS_V2 = ROOT / "contracts" / "resolved-deployment-specification" / "v2"
 DEPLOYMENT_MANIFEST_V4 = ROOT / "contracts" / "deployment-manifest" / "v4"
-PROFILE_PATH = (
-    DEFINITIONS / "profiles" / "six-layer-eventing" / "1" / "profile.json"
-)
+PROFILE_PATH = DEFINITIONS / "profiles" / "six-layer-eventing" / "1" / "profile.json"
 CATALOG_PATH = (
-    DEFINITIONS
-    / "component-catalogs"
-    / "six-layer-eventing"
-    / "1"
-    / "catalog.json"
+    DEFINITIONS / "component-catalogs" / "six-layer-eventing" / "1" / "catalog.json"
 )
 MANIFEST_PATH = DEFINITIONS / "six-layer-eventing-v1-manifest.json"
 COST_REGISTRY_PATH = DEFINITIONS / "six-layer-eventing-v1-cost-registry.json"
@@ -63,9 +57,7 @@ SIX_LAYER_DOMAIN_SOURCES = {
     "azure": "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-domain",
     "gcp": "3-cloud-deployer/src/providers/gcp/containers/six-layer-domain",
 }
-SIX_LAYER_BRIDGE_RUNTIME_SOURCE = (
-    "3-cloud-deployer/src/runtime/six_layer_eventing"
-)
+SIX_LAYER_BRIDGE_RUNTIME_SOURCE = "3-cloud-deployer/src/runtime/six_layer_eventing"
 PROVIDERS = ("aws", "azure", "gcp")
 REGIONS = {"aws": "eu-central-1", "azure": "westeurope", "gcp": "europe-west1"}
 EVENT_CAPABILITIES = (
@@ -94,48 +86,57 @@ REMOVED_DIRECT_EDGES = {
 EVENT_EDGES: dict[str, tuple[str, str, str, str, str]] = {
     "edge.ingestion-to-eventing": (
         "component.ingestion",
-        "port.ingestion.telemetry-event-out",
+        "port.ingestion.eventing-out",
         "component.eventing",
-        "port.eventing.telemetry-in",
+        "port.eventing.ingestion-in",
         "cost.ingestion-to-eventing",
     ),
     "edge.eventing-to-processing": (
         "component.eventing",
-        "port.eventing.telemetry-out",
+        "port.eventing.processing-out",
         "component.processing",
-        "port.processing.telemetry-event-in",
+        "port.processing.eventing-in",
         "cost.eventing-to-processing",
     ),
     "edge.processing-to-eventing": (
         "component.processing",
-        "port.processing.device-command-out",
+        "port.processing.eventing-out",
         "component.eventing",
-        "port.eventing.control-in",
+        "port.eventing.processing-in",
         "cost.processing-to-eventing",
     ),
     "edge.eventing-to-ingestion": (
         "component.eventing",
-        "port.eventing.control-out",
+        "port.eventing.ingestion-out",
         "component.ingestion",
         "port.ingestion.device-command-in",
         "cost.eventing-to-ingestion",
     ),
     "edge.eventing-to-hot-storage": (
         "component.eventing",
-        "port.eventing.telemetry-out",
+        "port.eventing.hot-storage-out",
         "component.hot-storage",
-        "port.hot-storage.processing-event-in",
+        "port.hot-storage.eventing-in",
         "cost.eventing-to-hot-storage",
     ),
 }
 CATALOG_PORTS = {
-    "edge.ingestion-to-eventing": ("ingestion.telemetry-event-out", "eventing.telemetry-in"),
-    "edge.eventing-to-processing": ("eventing.telemetry-out", "processing.telemetry-event-in"),
-    "edge.processing-to-eventing": ("processing.device-command-out", "eventing.control-in"),
-    "edge.eventing-to-ingestion": ("eventing.control-out", "ingestion.device-command-in"),
+    "edge.ingestion-to-eventing": ("ingestion.eventing-out", "eventing.ingestion-in"),
+    "edge.eventing-to-processing": (
+        "eventing.processing-out",
+        "processing.eventing-in",
+    ),
+    "edge.processing-to-eventing": (
+        "processing.eventing-out",
+        "eventing.processing-in",
+    ),
+    "edge.eventing-to-ingestion": (
+        "eventing.ingestion-out",
+        "ingestion.device-command-in",
+    ),
     "edge.eventing-to-hot-storage": (
-        "eventing.telemetry-out",
-        "hot-storage.processing-event-in",
+        "eventing.hot-storage-out",
+        "hot-storage.eventing-in",
     ),
 }
 INHERITED_IMPLEMENTATION_COMMIT = "c5c6232478d29a9cc3c7d280bdc9ca0e79c47226"
@@ -145,7 +146,9 @@ DEPLOYMENT_FIXTURE_RUN_ID = "89287aa5-89b4-55dc-88cb-680f2823da48"
 
 
 def _load_five() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("six_layer_five_contract", FIVE_SCRIPT)
+    spec = importlib.util.spec_from_file_location(
+        "six_layer_five_contract", FIVE_SCRIPT
+    )
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Cannot load Five-layer contract generator: {FIVE_SCRIPT}")
     module = importlib.util.module_from_spec(spec)
@@ -207,7 +210,9 @@ def provider_profile_path(provider: str) -> Path:
 SIX_FLUTTER_DEMO_CONTRACTS = {
     "architecture-profile-six-layer-v1.json": PROFILE_PATH,
     **{
-        f"provider-profile-six-layer-v1-{provider}.json": provider_profile_path(provider)
+        f"provider-profile-six-layer-v1-{provider}.json": provider_profile_path(
+            provider
+        )
         for provider in PROVIDERS
     },
 }
@@ -221,11 +226,7 @@ def five_profile() -> dict[str, Any]:
 
 def five_catalog() -> dict[str, Any]:
     return read_json(
-        DEFINITIONS
-        / "component-catalogs"
-        / "complete-service"
-        / "1"
-        / "catalog.json"
+        DEFINITIONS / "component-catalogs" / "complete-service" / "1" / "catalog.json"
     )
 
 
@@ -386,8 +387,8 @@ def build_cost_registry() -> dict[str, Any]:
     shared = scenario_document["shared_assumptions"]
     scenarios: list[dict[str, Any]] = []
     for scenario in scenario_document["scenarios"]:
-        size = str(scenario["scenario_id"]).removeprefix("eventing-").removesuffix(
-            "-v1"
+        size = (
+            str(scenario["scenario_id"]).removeprefix("eventing-").removesuffix("-v1")
         )
         channels = EVENT_COST.derive_channels(scenario, shared)
         placements: list[dict[str, Any]] = []
@@ -460,9 +461,7 @@ def build_cost_registry() -> dict[str, Any]:
                     route_amounts[edge_id] = route_amounts.get(
                         edge_id, Decimal(0)
                     ) + Decimal(str(contribution["amount_usd"]))
-                    route_contributions.setdefault(edge_id, []).append(
-                        contribution_id
-                    )
+                    route_contributions.setdefault(edge_id, []).append(contribution_id)
                 else:
                     add_component(
                         _bridge_component(
@@ -477,9 +476,7 @@ def build_cost_registry() -> dict[str, Any]:
                 {
                     "implementation_component_id": component_id,
                     "monthly_amount_usd": EVENT_COST.money(amount),
-                    "contribution_ids": sorted(
-                        component_contributions[component_id]
-                    ),
+                    "contribution_ids": sorted(component_contributions[component_id]),
                 }
                 for component_id, amount in sorted(component_amounts.items())
             ]
@@ -581,6 +578,21 @@ def build_profile(runtime: ModuleType) -> dict[str, Any]:
             "evaluation_order": 3,
         }
     )
+    component_by_id = {
+        component["component_id"]: component for component in profile["components"]
+    }
+    component_by_id["component.ingestion"]["output_port_ids"] = [
+        "port.ingestion.eventing-out"
+    ]
+    component_by_id["component.processing"]["input_port_ids"] = [
+        "port.processing.eventing-in"
+    ]
+    component_by_id["component.processing"]["output_port_ids"] = [
+        "port.processing.eventing-out"
+    ]
+    component_by_id["component.hot-storage"]["input_port_ids"] = [
+        "port.hot-storage.eventing-in"
+    ]
     profile["components"].append(
         {
             "component_id": "component.eventing",
@@ -589,12 +601,13 @@ def build_profile(runtime: ModuleType) -> dict[str, Any]:
             "required": True,
             "required_capability_ids": list(EVENT_CAPABILITIES),
             "input_port_ids": [
-                "port.eventing.telemetry-in",
-                "port.eventing.control-in",
+                "port.eventing.ingestion-in",
+                "port.eventing.processing-in",
             ],
             "output_port_ids": [
-                "port.eventing.telemetry-out",
-                "port.eventing.control-out",
+                "port.eventing.processing-out",
+                "port.eventing.ingestion-out",
+                "port.eventing.hot-storage-out",
             ],
             "extension_slot_ids": [],
             "cost_owner_ids": ["cost.eventing"],
@@ -607,11 +620,15 @@ def build_profile(runtime: ModuleType) -> dict[str, Any]:
         if item["edge_id"] == "edge.ingestion-to-processing"
     )
     profile["edges"] = [
-        item
-        for item in profile["edges"]
-        if item["edge_id"] not in REMOVED_DIRECT_EDGES
+        item for item in profile["edges"] if item["edge_id"] not in REMOVED_DIRECT_EDGES
     ]
-    for edge_id, (source, source_port, destination, destination_port, cost) in EVENT_EDGES.items():
+    for edge_id, (
+        source,
+        source_port,
+        destination,
+        destination_port,
+        cost,
+    ) in EVENT_EDGES.items():
         edge = copy.deepcopy(edge_template)
         edge.update(
             {
@@ -673,30 +690,24 @@ def build_profile(runtime: ModuleType) -> dict[str, Any]:
 
 def six_compatibility(provider: str) -> dict[str, Any]:
     return {
-        "architecture_profile_versions": [
-            {"id": "six-layer-eventing", "version": "1"}
-        ],
+        "architecture_profile_versions": [{"id": "six-layer-eventing", "version": "1"}],
         "provider_profile_versions": [
             {
                 "id": f"provider-profile.{provider}.six-layer-eventing-v1",
                 "version": "1",
             }
         ],
-        "deployment_specification_versions": [
-            "resolved-deployment-specification.v2"
-        ],
+        "deployment_specification_versions": ["resolved-deployment-specification.v2"],
     }
 
 
 def _event_package(provider: str) -> dict[str, Any]:
     source = {
         "aws": (
-            "3-cloud-deployer/src/providers/aws/lambda_functions/"
-            "six-layer-eventing"
+            "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-eventing"
         ),
         "azure": (
-            "3-cloud-deployer/src/providers/azure/azure_functions/"
-            "six-layer-eventing"
+            "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-eventing"
         ),
         "gcp": "3-cloud-deployer/src/providers/gcp/containers/six-layer-eventing",
     }[provider]
@@ -757,18 +768,10 @@ def _event_component(provider: str) -> dict[str, Any]:
     services = event_services(provider)
     service_ids = sorted({item["service_id"] for item in services})
     resource_addresses = sorted(
-        {
-            address
-            for item in services
-            for address in item["terraform"]["resource_ids"]
-        }
+        {address for item in services for address in item["terraform"]["resource_ids"]}
     )
     input_ids = sorted(
-        {
-            input_id
-            for item in services
-            for input_id in item["terraform"]["input_ids"]
-        }
+        {input_id for item in services for input_id in item["terraform"]["input_ids"]}
     )
     output_ids = sorted(
         {
@@ -783,6 +786,7 @@ def _event_component(provider: str) -> dict[str, Any]:
     formula_refs = sorted(
         {item_id for item in services for item_id in item["formula_ids"]}
     )
+
     def port(port_id: str) -> dict[str, Any]:
         return {
             "port_id": f"catalog.{provider}.port.{port_id}",
@@ -795,6 +799,7 @@ def _event_component(provider: str) -> dict[str, Any]:
             "resolution_stage": "catalog",
             "compatibility_version": "1",
         }
+
     input_bindings = []
     if provider in {"aws", "azure"}:
         input_bindings = [
@@ -811,9 +816,7 @@ def _event_component(provider: str) -> dict[str, Any]:
         "component_version": "1",
         "provider": provider,
         "logical_component_ids": ["component.eventing"],
-        "decision_implementation_ids": [
-            item["service_id"] for item in services
-        ],
+        "decision_implementation_ids": [item["service_id"] for item in services],
         "service_id": f"{provider}.eventing.v1",
         "service_ids": service_ids,
         "component_kind": "managed_service",
@@ -851,8 +854,15 @@ def _event_component(provider: str) -> dict[str, Any]:
             "id": f"configuration.{provider}.eventing.v1",
             "version": "1",
         },
-        "input_ports": [port("eventing.telemetry-in"), port("eventing.control-in")],
-        "output_ports": [port("eventing.telemetry-out"), port("eventing.control-out")],
+        "input_ports": [
+            port("eventing.ingestion-in"),
+            port("eventing.processing-in"),
+        ],
+        "output_ports": [
+            port("eventing.processing-out"),
+            port("eventing.ingestion-out"),
+            port("eventing.hot-storage-out"),
+        ],
         "required_permission_capabilities": [f"{provider}_thesis_demo_v2"],
         "pricing_model_refs": pricing_refs,
         "formula_refs": formula_refs,
@@ -909,15 +919,9 @@ def _event_edge_implementation(
                 "edge.eventing-to-hot-storage": "output.aws.event-kinesis-arn",
             },
             "azure": {
-                "edge.eventing-to-processing": (
-                    "output.azure.event-hubs-standard-id"
-                ),
-                "edge.eventing-to-ingestion": (
-                    "output.azure.event-control-topic-id"
-                ),
-                "edge.eventing-to-hot-storage": (
-                    "output.azure.event-hubs-standard-id"
-                ),
+                "edge.eventing-to-processing": ("output.azure.event-hubs-standard-id"),
+                "edge.eventing-to-ingestion": ("output.azure.event-control-topic-id"),
+                "edge.eventing-to-hot-storage": ("output.azure.event-hubs-standard-id"),
             },
             "gcp": {
                 "edge.eventing-to-processing": "output.gcp.event-topic-id",
@@ -980,9 +984,7 @@ def _event_edge_implementation(
             f"pricing.eventing.transfer.{source_provider}-to-{destination_provider}.v1"
         ],
         "formula_refs": ["formula.phase-08-eventing"],
-        "required_permission_capabilities": [
-            f"{source_provider}_thesis_demo_v2"
-        ],
+        "required_permission_capabilities": [f"{source_provider}_thesis_demo_v2"],
         "glue_component_ids": [] if local else [source_component],
         "error_contract_ref": {
             "id": "architecture-runtime-errors",
@@ -1069,6 +1071,44 @@ def build_catalog(
                 artifact_ref["id"], artifact_ref["id"]
             )
         component["compatibility"] = six_compatibility(component["provider"])
+        logical_ids = set(component.get("logical_component_ids", []))
+        six_port_specs = {
+            "component.ingestion": (
+                "output_ports",
+                "ingestion.telemetry-event-out",
+                "ingestion.eventing-out",
+            ),
+            "component.processing": (
+                "input_ports",
+                "processing.telemetry-event-in",
+                "processing.eventing-in",
+            ),
+            "component.hot-storage": (
+                "input_ports",
+                "hot-storage.processing-event-in",
+                "hot-storage.eventing-in",
+            ),
+        }
+        if "component.processing" in logical_ids:
+            six_port_specs["component.processing-output"] = (
+                "output_ports",
+                "processing.persistence-event-out",
+                "processing.eventing-out",
+            )
+        for logical_id, (
+            direction,
+            template_suffix,
+            six_suffix,
+        ) in six_port_specs.items():
+            if logical_id.removesuffix("-output") not in logical_ids:
+                continue
+            template_id = _catalog_port(component["provider"], template_suffix)
+            template = next(
+                port for port in component[direction] if port["port_id"] == template_id
+            )
+            six_port = copy.deepcopy(template)
+            six_port["port_id"] = _catalog_port(component["provider"], six_suffix)
+            component[direction].append(six_port)
     valid_edge_ids = {item["edge_id"] for item in profile["edges"]}
     catalog["edge_implementations"] = [
         item
@@ -1201,9 +1241,7 @@ def build_provider_profile(
     document["component_mappings"].append(
         {
             "component_id": "component.eventing",
-            "deployment_component_candidates": [
-                f"deployment.{provider}.eventing.v1"
-            ],
+            "deployment_component_candidates": [f"deployment.{provider}.eventing.v1"],
             "required_capability_ids": list(EVENT_CAPABILITIES),
             "provided_capability_ids": list(EVENT_CAPABILITIES),
             "service_model_refs": [
@@ -1361,11 +1399,12 @@ def _deployment_fixture(
             ledger = copy.deepcopy(
                 resolver.resolve(specification, assignment, workload)
             )
-            if any(assignment[logical] != provider for logical, provider in target.items()):
+            if any(
+                assignment[logical] != provider for logical, provider in target.items()
+            ):
                 component_quote = ledger["component_costs"][0]
                 component_quote["monthly_amount"] = str(
-                    Decimal(component_quote["monthly_amount"])
-                    + Decimal("1000000000")
+                    Decimal(component_quote["monthly_amount"]) + Decimal("1000000000")
                 )
             return ledger
 
@@ -1463,9 +1502,7 @@ def _deployment_fixture(
         "resolved_deployment_specification": specification,
         "credentials": {
             "providers": used_providers,
-            "sources": {
-                provider: "cloud_connection" for provider in used_providers
-            },
+            "sources": {provider: "cloud_connection" for provider in used_providers},
             "contains_secret_payloads": False,
         },
         "compatibility": {
@@ -1497,10 +1534,7 @@ def generate_deployment_fixture(
         specification,
     )
     write_json(
-        DEPLOYMENT_MANIFEST_V4
-        / "fixtures"
-        / "valid"
-        / f"{DEPLOYMENT_FIXTURE_ID}.json",
+        DEPLOYMENT_MANIFEST_V4 / "fixtures" / "valid" / f"{DEPLOYMENT_FIXTURE_ID}.json",
         manifest,
     )
 
@@ -1555,7 +1589,9 @@ def load_bundle() -> tuple[
     runtime = FIVE.load_v2_runtime()
     profile = read_json(PROFILE_PATH)
     catalog = read_json(CATALOG_PATH)
-    providers = {provider: read_json(provider_profile_path(provider)) for provider in PROVIDERS}
+    providers = {
+        provider: read_json(provider_profile_path(provider)) for provider in PROVIDERS
+    }
     registry = read_json(ARCH_V2 / "semantic-registry.json")
     return runtime, profile, catalog, providers, registry
 
@@ -1573,10 +1609,14 @@ def validate_source() -> None:
         item["component_id"] for item in five_profile()["components"]
     } != {"component.eventing"}:
         raise RuntimeError("Six-layer profile delta is not exactly component.eventing")
-    if {item["edge_id"] for item in profile["edges"] if "eventing" in item["edge_id"]} != set(EVENT_EDGES):
+    if {
+        item["edge_id"] for item in profile["edges"] if "eventing" in item["edge_id"]
+    } != set(EVENT_EDGES):
         raise RuntimeError("Six-layer Eventing edge set drifted")
     event_components = [
-        item for item in catalog["components"] if item["logical_component_ids"] == ["component.eventing"]
+        item
+        for item in catalog["components"]
+        if item["logical_component_ids"] == ["component.eventing"]
     ]
     if {item["provider"] for item in event_components} != set(PROVIDERS):
         raise RuntimeError("Eventing catalog does not contain all provider bundles")
@@ -1597,7 +1637,9 @@ def validate_source() -> None:
         raise RuntimeError("Six-layer definition manifest digest drifted")
     if manifest["eventing_decision_ref"]["digest"] != file_digest(EVENT_DECISION):
         raise RuntimeError("Eventing decision digest drifted")
-    if manifest["eventing_implementation_manifest_ref"]["digest"] != file_digest(EVENT_MANIFEST):
+    if manifest["eventing_implementation_manifest_ref"]["digest"] != file_digest(
+        EVENT_MANIFEST
+    ):
         raise RuntimeError("Eventing implementation manifest digest drifted")
     cost_registry = read_json(COST_REGISTRY_PATH)
     supplied_registry_digest = cost_registry.pop("content_digest")
@@ -1613,23 +1655,19 @@ def validate_source() -> None:
         or any(len(item["placements"]) != 27 for item in cost_registry["scenarios"])
     ):
         raise RuntimeError("Six-layer topology cost registry coverage drifted")
-    if cost_registry["reviewed_result_ref"]["digest"] != file_digest(EVENT_COST_RESULTS):
+    if cost_registry["reviewed_result_ref"]["digest"] != file_digest(
+        EVENT_COST_RESULTS
+    ):
         raise RuntimeError("Reviewed Eventing result binding drifted")
 
     architecture = read_json(
-        ARCH_V2
-        / "fixtures"
-        / "valid"
-        / f"{DEPLOYMENT_FIXTURE_ID}-resolved.json"
+        ARCH_V2 / "fixtures" / "valid" / f"{DEPLOYMENT_FIXTURE_ID}-resolved.json"
     )
     specification = read_json(
         RDS_V2 / "fixtures" / "valid" / f"{DEPLOYMENT_FIXTURE_ID}.json"
     )
     deployment_manifest = read_json(
-        DEPLOYMENT_MANIFEST_V4
-        / "fixtures"
-        / "valid"
-        / f"{DEPLOYMENT_FIXTURE_ID}.json"
+        DEPLOYMENT_MANIFEST_V4 / "fixtures" / "valid" / f"{DEPLOYMENT_FIXTURE_ID}.json"
     )
     runtime.validate_document(
         architecture,
@@ -1648,7 +1686,9 @@ def validate_source() -> None:
             format_checker=FIVE.FormatChecker(),
         ).iter_errors(deployment_manifest)
     )
-    if specification_errors or specification["digest"] != FIVE.rds_digest(specification):
+    if specification_errors or specification["digest"] != FIVE.rds_digest(
+        specification
+    ):
         raise RuntimeError("Six-layer deployment specification fixture drifted")
     if manifest_errors:
         raise RuntimeError("Six-layer deployment manifest fixture drifted")
@@ -1691,7 +1731,9 @@ def check() -> None:
     for target_name, source in SIX_FLUTTER_DEMO_CONTRACTS.items():
         target = FIVE.FLUTTER_DEMO_ROOT / target_name
         if not target.is_file() or target.read_bytes() != source.read_bytes():
-            raise RuntimeError(f"Generated Six-layer Flutter demo contract drifted: {target}")
+            raise RuntimeError(
+                f"Generated Six-layer Flutter demo contract drifted: {target}"
+            )
 
 
 def main() -> int:

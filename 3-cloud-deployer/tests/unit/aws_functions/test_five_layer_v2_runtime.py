@@ -377,6 +377,7 @@ def test_six_layer_processed_fanout_keeps_consumer_responsibilities_independent(
     )
     calls = []
     monkeypatch.setenv("HOT_PROVIDER", "aws")
+    monkeypatch.setenv("L2_PROVIDER", "aws")
     monkeypatch.setattr(
         runtime,
         "_write_raw_and_rollup",
@@ -412,6 +413,53 @@ def test_six_layer_processed_fanout_keeps_consumer_responsibilities_independent(
             "rule-evaluator",
         )
     ]
+
+
+@pytest.mark.parametrize(
+    ("hot_provider", "l2_provider", "expected"),
+    [
+        ("aws", "azure", ["persist"]),
+        ("gcp", "aws", ["rules"]),
+        ("aws", "aws", ["persist", "rules"]),
+    ],
+)
+def test_six_layer_remote_processed_landing_runs_only_local_responsibilities(
+    monkeypatch,
+    hot_provider,
+    l2_provider,
+    expected,
+):
+    runtime = _six_layer_module()
+    processed = runtime._derive_event(
+        {
+            "event_id": "received-six-landing",
+            "device_id": "device-1",
+            "metric": "temperature",
+            "value": 21.0,
+        },
+        event_type=runtime.EVENT_TELEMETRY_PROCESSED,
+        producer="component.telemetry-processor",
+    )
+    calls = []
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    monkeypatch.setenv("EVENT_LAYER_PROVIDER", "azure")
+    monkeypatch.setenv("HOT_PROVIDER", hot_provider)
+    monkeypatch.setenv("L2_PROVIDER", l2_provider)
+    monkeypatch.setattr(
+        runtime,
+        "_persist_and_project",
+        lambda _event: calls.append("persist"),
+    )
+    monkeypatch.setattr(
+        runtime,
+        "_evaluate_rules",
+        lambda _event: calls.append("rules"),
+    )
+
+    result = runtime.domain_consumer(processed, None)
+
+    assert result["accepted"] == 1
+    assert calls == expected
 
 
 def test_processor_extension_invocation_uses_closed_runtime_envelope(monkeypatch):

@@ -41,7 +41,7 @@ SIX_LAYER_KEYS = (
 )
 EVENTING_MANIFEST_PATH = DEFINITIONS_ROOT / "six-layer-eventing-v1-manifest.json"
 EVENTING_MANIFEST_DIGEST = (
-    "sha256:3e33d44545ba04938a27364492fdd1a9a82b2fc2f173f293ebdce5d904a1c6a9"
+    "sha256:6b6e79c196f1d0d21a5f525507df23eba826eb977703fe5bc1d39d183cb283ef"
 )
 EVENTING_COST_REGISTRY_DIGEST = (
     "sha256:06c0a075f4db7944f4db5a43b4e58f7c5d9172220f0677ea514fc3a0ad5f3f1e"
@@ -102,9 +102,7 @@ def _validate_eventing_decision_manifest(
         or manifest.get("catalog_ref") != expected_catalog_ref
         or (manifest.get("eventing_decision_ref") or {}).get("digest")
         != EVENTING_DECISION_DIGEST
-        or (manifest.get("eventing_implementation_manifest_ref") or {}).get(
-            "digest"
-        )
+        or (manifest.get("eventing_implementation_manifest_ref") or {}).get("digest")
         != EVENTING_IMPLEMENTATION_DIGEST
         or (manifest.get("topology_cost_registry_ref") or {}).get("digest")
         != EVENTING_COST_REGISTRY_DIGEST
@@ -195,8 +193,7 @@ def optimize_six_layer_eventing_v1(
             }
             used_providers = set(assignment.values())
             selected_pricing_refs = {
-                provider: pricing_evidence_refs[provider]
-                for provider in used_providers
+                provider: pricing_evidence_refs[provider] for provider in used_providers
             }
             specification = build_six_layer_eventing_v1_deployment_specification(
                 calculation_run_id=calculation_run_id,
@@ -282,8 +279,7 @@ def optimize_six_layer_eventing_v1(
             costed_candidate=winner,
             deployment_specification=specification,
             pricing_evidence_refs={
-                provider: pricing_evidence_refs[provider]
-                for provider in used_providers
+                provider: pricing_evidence_refs[provider] for provider in used_providers
             },
         ),
         context,

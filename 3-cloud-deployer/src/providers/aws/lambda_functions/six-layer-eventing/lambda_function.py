@@ -126,16 +126,27 @@ def _validate_event(event: Mapping[str, Any]) -> None:
 
 
 def _deliver_processing(event: Mapping[str, Any], role: str) -> bool:
-    payload: Mapping[str, Any] = event
-    if role not in {"telemetry-processor", "control-router"}:
-        payload = {
-            "eventing_delivery": {
-                "consumer_role": role,
-                "event": event,
-            }
+    if role in {"audit", "realtime-visualization"}:
+        return True
+    hot_delivery = role in {"historical-persistence", "twin-state-update"} or (
+        role == "control-router"
+        and event.get("event_type")
+        in {
+            "extension.action.outcome.v1",
+            "notification.workflow.outcome.v1",
+            COMMAND_OUTCOME_EVENT,
         }
+    )
+    payload: Mapping[str, Any] = {
+        "eventing_delivery": {
+            "consumer_role": role,
+            "event": event,
+        }
+    }
     response = _client("lambda").invoke(
-        FunctionName=_required_environment("PROCESSING_FUNCTION_NAME"),
+        FunctionName=_required_environment(
+            "HOT_FUNCTION_NAME" if hot_delivery else "PROCESSING_FUNCTION_NAME"
+        ),
         InvocationType="Event",
         Payload=_canonical_bytes(payload),
     )

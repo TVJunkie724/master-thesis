@@ -792,6 +792,10 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
         value = local.gcp_v2_event_layer_local ? google_pubsub_topic.domain_events["control"].id : try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-outbound"].id, "")
       }
       env {
+        name  = "TWIN_REMOTE_CONTROL_TOPIC"
+        value = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-outbound"].id, "")
+      }
+      env {
         name  = "REMOTE_EVENT_TYPES_JSON"
         value = jsonencode(local.gcp_v2_remote_inbound_event_types)
       }
@@ -838,6 +842,10 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
       env {
         name  = "EVENTING_DELIVERY_ENDPOINT_ENABLED"
         value = tostring(local.gcp_v2_event_layer_local)
+      }
+      env {
+        name  = "RULES_JSON"
+        value = jsonencode(var.events)
       }
       env {
         name  = "EVENT_LAYER_PROVIDER"
@@ -965,6 +973,18 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_service" {
       env {
         name  = "RULES_JSON"
         value = jsonencode(var.events)
+      }
+      env {
+        name  = "HOT_PROVIDER"
+        value = var.layer_3_hot_provider
+      }
+      env {
+        name  = "EVENT_LAYER_PROVIDER"
+        value = var.event_layer_provider
+      }
+      env {
+        name  = "REMOTE_TELEMETRY_TOPIC"
+        value = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-telemetry-outbound"].id, "")
       }
       env {
         name  = "EVENTING_DELIVERY_ENDPOINT_ENABLED"
@@ -1793,7 +1813,7 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_ingress_domain_publisher" {
 resource "google_pubsub_topic_iam_member" "gcp_v2_processor_publishers" {
   for_each = local.gcp_v2_l2_enabled && !local.gcp_v2_event_layer_local ? {
     processed = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics[
-      var.layer_3_hot_provider == "google" ? "processed" : "remote-telemetry-outbound"
+      local.six_layer_eventing_enabled ? "remote-telemetry-outbound" : var.layer_3_hot_provider == "google" ? "processed" : "remote-telemetry-outbound"
     ].name
     domain = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name
   } : {}
@@ -1804,10 +1824,13 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_processor_publishers" {
 }
 
 resource "google_pubsub_topic_iam_member" "gcp_v2_persistence_domain_publisher" {
-  count   = local.gcp_v2_hot_enabled && !local.gcp_v2_event_layer_local ? 1 : 0
+  count = local.gcp_v2_hot_enabled && (
+    !local.gcp_v2_event_layer_local ||
+    (local.six_layer_eventing_enabled && var.layer_4_provider != "google")
+  ) ? 1 : 0
   project = local.gcp_project_id
   topic = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics[
-    var.layer_4_provider == "google" ? "domain" : "remote-control-outbound"
+    local.six_layer_eventing_enabled && var.layer_4_provider != "google" ? "remote-control-outbound" : var.layer_4_provider == "google" ? "domain" : "remote-control-outbound"
   ].name
   role   = "roles/pubsub.publisher"
   member = "serviceAccount:${google_service_account.gcp_v2_runtime["persistence"].email}"
@@ -1841,6 +1864,9 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_remote_landing_publishers" {
     } : {},
     local.gcp_v2_remote_control_inbound ? {
       domain = local.gcp_v2_event_layer_local ? google_pubsub_topic.domain_events["control"].name : google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name
+    } : {},
+    local.six_layer_eventing_enabled && local.gcp_v2_remote_processed_inbound && local.gcp_v2_l2_enabled ? {
+      remote_control = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-outbound"].name
     } : {},
   ) : {}
   project = local.gcp_project_id

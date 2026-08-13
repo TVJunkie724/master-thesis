@@ -275,9 +275,7 @@ def test_v4_graph_compiles_every_representative_cloud_shape(fixture):
     ),
 )
 def test_v4_offline_contract_fixture_is_not_executable(fixture):
-    manifest = json.loads(
-        (MANIFEST_V4_ROOT / fixture).read_text("utf-8")
-    )
+    manifest = json.loads((MANIFEST_V4_ROOT / fixture).read_text("utf-8"))
 
     with pytest.raises(DeploymentSpecificationError) as raised:
         validate_deployment_manifest(manifest, manifest["providers"])
@@ -338,21 +336,25 @@ def test_v4_six_layer_graph_materializes_event_node_and_directed_bridges():
     graph = _resolve_offline_v4("six-layer-aws-azure-eventing-small.json")
 
     event_node = next(
-        node for node in graph.nodes if node.logical_component_id == "component.eventing"
+        node
+        for node in graph.nodes
+        if node.logical_component_id == "component.eventing"
     )
-    event_edges = [
-        edge for edge in graph.edges if "eventing" in edge.logical_edge_id
-    ]
+    event_edges = [edge for edge in graph.edges if "eventing" in edge.logical_edge_id]
 
     assert graph.profile_ref["id"] == "six-layer-eventing"
     assert len(graph.nodes) == 8
     assert len(graph.edges) == 9
     assert event_node.provider == "azure"
     assert event_node.deployment_component_id == "deployment.azure.eventing.v1"
-    assert len(event_edges) == 4
-    assert {edge.mechanism for edge in event_edges} == {
-        "cross_provider_adapter"
+    assert {edge.logical_edge_id for edge in event_edges} == {
+        "edge.ingestion-to-eventing",
+        "edge.eventing-to-processing",
+        "edge.processing-to-eventing",
+        "edge.eventing-to-ingestion",
+        "edge.eventing-to-hot-storage",
     }
+    assert {edge.mechanism for edge in event_edges} == {"cross_provider_adapter"}
     provider_by_node = {node.node_id: node.provider for node in graph.nodes}
     assert {
         (

@@ -202,10 +202,7 @@ def _telemetry_batch(
                 raise DeliveryError("EVENT_CHANNEL_MISMATCH")
             if role in {"audit", "realtime-visualization"}:
                 continue
-            _post_delivery(
-                event,
-                None if role == "telemetry-processor" else role,
-            )
+            _post_delivery(event, role)
         except Exception as exc:
             error_code = (
                 str(exc)
@@ -310,7 +307,10 @@ if os.getenv("EVENT_LOCAL_CONTROL_ENABLED", "false").lower() == "true":
     )
     def control_router(message: func.ServiceBusMessage) -> None:
         try:
-            _post_delivery(_validate(_decode(message.get_body())))
+            _post_delivery(
+                _validate(_decode(message.get_body())),
+                "control-router",
+            )
         except DeliveryError as exc:
             raise RuntimeError(str(exc)) from None
 

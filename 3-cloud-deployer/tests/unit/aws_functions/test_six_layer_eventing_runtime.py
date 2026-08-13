@@ -93,7 +93,7 @@ def test_kinesis_telemetry_acknowledges_only_async_lambda_acceptance(
 def test_processed_stream_delivery_names_the_independent_consumer(monkeypatch):
     lambda_client = Mock()
     lambda_client.invoke.return_value = {"StatusCode": 202}
-    monkeypatch.setenv("PROCESSING_FUNCTION_NAME", "processor")
+    monkeypatch.setenv("HOT_FUNCTION_NAME", "hot-consumer")
     monkeypatch.setenv("CONSUMER_ROLE", "historical-persistence")
     monkeypatch.setattr(runtime, "_client", lambda service: lambda_client)
 
@@ -104,6 +104,7 @@ def test_processed_stream_delivery_names_the_independent_consumer(monkeypatch):
 
     assert result["accepted"] == 1
     delivered = json.loads(lambda_client.invoke.call_args.kwargs["Payload"])
+    assert lambda_client.invoke.call_args.kwargs["FunctionName"] == "hot-consumer"
     assert delivered["eventing_delivery"]["consumer_role"] == ("historical-persistence")
     assert delivered["eventing_delivery"]["event"]["event_id"] == "event-1"
 
@@ -122,8 +123,24 @@ def test_control_delivery_invokes_processing_with_canonical_event(monkeypatch):
 
     assert result["accepted"] == 1
     delivered = json.loads(lambda_client.invoke.call_args.kwargs["Payload"])
-    assert delivered["event_type"] == "event.matched.v1"
-    assert "eventing_delivery" not in delivered
+    assert delivered["eventing_delivery"]["consumer_role"] == "control-router"
+    assert delivered["eventing_delivery"]["event"]["event_type"] == ("event.matched.v1")
+
+
+def test_control_outcome_delivery_targets_hot_consumer(monkeypatch):
+    lambda_client = Mock()
+    lambda_client.invoke.return_value = {"StatusCode": 202}
+    monkeypatch.setenv("HOT_FUNCTION_NAME", "hot-consumer")
+    monkeypatch.setenv("CONSUMER_ROLE", "control-router")
+    monkeypatch.setattr(runtime, "_client", lambda service: lambda_client)
+
+    result = runtime.lambda_handler(
+        _sqs(_event("device.command.outcome.v1")),
+        None,
+    )
+
+    assert result["accepted"] == 1
+    assert lambda_client.invoke.call_args.kwargs["FunctionName"] == "hot-consumer"
 
 
 def test_control_delivery_uses_local_iot_command_target(monkeypatch):

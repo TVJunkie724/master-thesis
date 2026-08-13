@@ -76,12 +76,10 @@ BRIDGE_CONTROL_ENABLED = (
     os.getenv("V2_BRIDGE_CONTROL_ENABLED", "false").strip().lower() == "true"
 )
 BRIDGE_EVENT_TELEMETRY_ENABLED = (
-    os.getenv("V2_BRIDGE_EVENT_TELEMETRY_ENABLED", "false").strip().lower()
-    == "true"
+    os.getenv("V2_BRIDGE_EVENT_TELEMETRY_ENABLED", "false").strip().lower() == "true"
 )
 BRIDGE_EVENT_CONTROL_ENABLED = (
-    os.getenv("V2_BRIDGE_EVENT_CONTROL_ENABLED", "false").strip().lower()
-    == "true"
+    os.getenv("V2_BRIDGE_EVENT_CONTROL_ENABLED", "false").strip().lower() == "true"
 )
 RAW_HISTORY_ENABLED = (
     os.getenv("V2_RAW_HISTORY_ENABLED", "false").strip().lower() == "true"
@@ -599,23 +597,38 @@ def _consume(event: dict) -> None:
             raise ContractError("REMOTE_PROCESSING_ROUTE_NOT_CONFIGURED", 503)
         _process_received(validated)
     elif validated["event_type"] == "telemetry.processed.v1":
-        _persist_processed(validated)
-        _evaluate_rules(validated)
+        handled = False
+        if os.getenv("V2_HOT_PROVIDER") == "azure":
+            _persist_processed(validated)
+            handled = True
+        if _six_layer_eventing() and os.getenv("V2_L2_PROVIDER") == "azure":
+            _evaluate_rules(validated)
+            handled = True
+        if not handled:
+            raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
     elif validated["event_type"] == "twin.state.upserted":
         if os.getenv("V2_TWIN_PROVIDER") != "azure":
             raise ContractError("REMOTE_TWIN_ROUTE_NOT_CONFIGURED", 503)
         _materialize_twin_projection(validated)
     elif validated["event_type"] == "event.matched.v1":
+        if _six_layer_eventing() and os.getenv("V2_L2_PROVIDER") != "azure":
+            raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _dispatch_match(validated)
     elif validated["event_type"] == "notification.requested.v1":
+        if _six_layer_eventing() and os.getenv("V2_L2_PROVIDER") != "azure":
+            raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _start_notification_workflow(validated)
     elif validated["event_type"] == "device.command.requested.v1":
+        if _six_layer_eventing() and os.getenv("V2_L1_PROVIDER") != "azure":
+            raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _deliver_device_command(validated)
     elif validated["event_type"] in {
         "extension.action.outcome.v1",
         "notification.workflow.outcome.v1",
         "device.command.outcome.v1",
     }:
+        if _six_layer_eventing() and os.getenv("V2_HOT_PROVIDER") != "azure":
+            raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _store_outcome(validated)
     else:
         raise ContractError("UNSUPPORTED_LOCAL_DOMAIN_EVENT")
@@ -628,16 +641,49 @@ def _consume(event: dict) -> None:
 
 def _consume_eventing_delivery(role: str, event: Mapping[str, Any]) -> None:
     validated = validate_canonical_event(event)
-    if validated["event_type"] != "telemetry.processed.v1":
-        raise ContractError("EVENTING_CONSUMER_EVENT_MISMATCH")
-    if role == "historical-persistence":
-        if os.getenv("V2_HOT_PROVIDER") == "azure":
-            _write_raw_and_rollup(validated)
+    kind = validated["event_type"]
+    if role == "telemetry-processor":
+        if kind != "telemetry.received.v1" or os.getenv("V2_L2_PROVIDER") != "azure":
+            raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
+        _process_received(validated)
+    elif role == "control-router":
+        if kind == "event.matched.v1" and os.getenv("V2_L2_PROVIDER") == "azure":
+            _dispatch_match(validated)
+        elif (
+            kind == "notification.requested.v1"
+            and os.getenv("V2_L2_PROVIDER") == "azure"
+        ):
+            _start_notification_workflow(validated)
+        elif (
+            kind == "device.command.requested.v1"
+            and os.getenv("V2_L1_PROVIDER") == "azure"
+        ):
+            _deliver_device_command(validated)
+        elif (
+            kind
+            in {
+                "extension.action.outcome.v1",
+                "notification.workflow.outcome.v1",
+                "device.command.outcome.v1",
+            }
+            and os.getenv("V2_HOT_PROVIDER") == "azure"
+        ):
+            _store_outcome(validated)
         else:
-            _publish_telemetry(validated)
+            raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
+    elif kind != "telemetry.processed.v1":
+        raise ContractError("EVENTING_CONSUMER_EVENT_MISMATCH")
+    elif role == "historical-persistence":
+        if os.getenv("V2_HOT_PROVIDER") != "azure":
+            raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
+        _write_raw_and_rollup(validated)
     elif role == "twin-state-update":
+        if os.getenv("V2_HOT_PROVIDER") != "azure":
+            raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _project_twin(validated)
     elif role == "rule-evaluator":
+        if os.getenv("V2_L2_PROVIDER") != "azure":
+            raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _evaluate_rules(validated)
     elif role not in {"audit", "realtime-visualization"}:
         raise ContractError("UNKNOWN_EVENTING_CONSUMER")
@@ -1272,4 +1318,3 @@ if RAW_HISTORY_ENABLED:
                     "correlation_id": correlation_id,
                 },
             )
-

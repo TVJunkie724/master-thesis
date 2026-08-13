@@ -61,8 +61,7 @@
       ],
       "extension_slot_ids": [],
       "input_port_ids": [
-        "port.hot-storage.processing-event-in",
-        "port.hot-storage.command-outcome-event-in"
+        "port.hot-storage.eventing-in"
       ],
       "observability_contract_id": "observability.baseline",
       "output_port_ids": [
@@ -88,8 +87,7 @@
       ],
       "observability_contract_id": "observability.baseline",
       "output_port_ids": [
-        "port.ingestion.telemetry-event-out",
-        "port.ingestion.command-outcome-event-out"
+        "port.ingestion.eventing-out"
       ],
       "required": true,
       "required_capability_ids": [
@@ -108,12 +106,11 @@
         "processor.telemetry"
       ],
       "input_port_ids": [
-        "port.processing.telemetry-event-in"
+        "port.processing.eventing-in"
       ],
       "observability_contract_id": "observability.baseline",
       "output_port_ids": [
-        "port.processing.persistence-event-out",
-        "port.processing.device-command-out"
+        "port.processing.eventing-out"
       ],
       "required": true,
       "required_capability_ids": [
@@ -182,12 +179,13 @@
         "capability.event.cost-ownership"
       ],
       "input_port_ids": [
-        "port.eventing.telemetry-in",
-        "port.eventing.control-in"
+        "port.eventing.ingestion-in",
+        "port.eventing.processing-in"
       ],
       "output_port_ids": [
-        "port.eventing.telemetry-out",
-        "port.eventing.control-out"
+        "port.eventing.processing-out",
+        "port.eventing.ingestion-out",
+        "port.eventing.hot-storage-out"
       ],
       "extension_slot_ids": [],
       "cost_owner_ids": [
@@ -196,7 +194,7 @@
       "observability_contract_id": "observability.eventing"
     }
   ],
-  "content_digest": "sha256:4e4aba55de9e675b0c95db88be524822d34ebf28b6eb16d8b6dc7014e84f401b",
+  "content_digest": "sha256:99bb981aa1a60a5e4677609914bc9e341774ef500222da72c4f82efe6f0756c9",
   "description": "Five-layer v2 responsibilities with one independent Eventing and Messaging responsibility for durable routing, fan-out, retry, dead-letter, replay, observability, and cross-cloud transport.",
   "display_name": "Six-layer Eventing",
   "edges": [
@@ -358,7 +356,7 @@
         "timeout_policy": "not_applicable"
       },
       "destination_component_id": "component.eventing",
-      "destination_port_id": "port.eventing.telemetry-in",
+      "destination_port_id": "port.eventing.ingestion-in",
       "edge_contract_id": "canonical-domain-event.v1",
       "edge_contract_version": "1",
       "edge_id": "edge.ingestion-to-eventing",
@@ -369,7 +367,7 @@
       },
       "required": true,
       "source_component_id": "component.ingestion",
-      "source_port_id": "port.ingestion.telemetry-event-out",
+      "source_port_id": "port.ingestion.eventing-out",
       "transfer_workload_ref": {
         "id": "telemetry-update-count",
         "version": "1"
@@ -394,7 +392,7 @@
         "timeout_policy": "not_applicable"
       },
       "destination_component_id": "component.processing",
-      "destination_port_id": "port.processing.telemetry-event-in",
+      "destination_port_id": "port.processing.eventing-in",
       "edge_contract_id": "canonical-domain-event.v1",
       "edge_contract_version": "1",
       "edge_id": "edge.eventing-to-processing",
@@ -405,7 +403,7 @@
       },
       "required": true,
       "source_component_id": "component.eventing",
-      "source_port_id": "port.eventing.telemetry-out",
+      "source_port_id": "port.eventing.processing-out",
       "transfer_workload_ref": {
         "id": "telemetry-update-count",
         "version": "1"
@@ -430,7 +428,7 @@
         "timeout_policy": "not_applicable"
       },
       "destination_component_id": "component.eventing",
-      "destination_port_id": "port.eventing.control-in",
+      "destination_port_id": "port.eventing.processing-in",
       "edge_contract_id": "canonical-domain-event.v1",
       "edge_contract_version": "1",
       "edge_id": "edge.processing-to-eventing",
@@ -441,7 +439,7 @@
       },
       "required": true,
       "source_component_id": "component.processing",
-      "source_port_id": "port.processing.device-command-out",
+      "source_port_id": "port.processing.eventing-out",
       "transfer_workload_ref": {
         "id": "telemetry-update-count",
         "version": "1"
@@ -477,7 +475,7 @@
       },
       "required": true,
       "source_component_id": "component.eventing",
-      "source_port_id": "port.eventing.control-out",
+      "source_port_id": "port.eventing.ingestion-out",
       "transfer_workload_ref": {
         "id": "telemetry-update-count",
         "version": "1"
@@ -502,7 +500,7 @@
         "timeout_policy": "not_applicable"
       },
       "destination_component_id": "component.hot-storage",
-      "destination_port_id": "port.hot-storage.processing-event-in",
+      "destination_port_id": "port.hot-storage.eventing-in",
       "edge_contract_id": "canonical-domain-event.v1",
       "edge_contract_version": "1",
       "edge_id": "edge.eventing-to-hot-storage",
@@ -513,7 +511,7 @@
       },
       "required": true,
       "source_component_id": "component.eventing",
-      "source_port_id": "port.eventing.telemetry-out",
+      "source_port_id": "port.eventing.hot-storage-out",
       "transfer_workload_ref": {
         "id": "telemetry-update-count",
         "version": "1"

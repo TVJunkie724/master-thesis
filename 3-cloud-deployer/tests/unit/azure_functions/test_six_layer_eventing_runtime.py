@@ -63,7 +63,10 @@ def test_received_batch_uses_canonical_same_cloud_delivery(monkeypatch):
         context=_context(),
     )
 
-    deliver.assert_called_once_with(_event("telemetry.received.v1"), None)
+    deliver.assert_called_once_with(
+        _event("telemetry.received.v1"),
+        "telemetry-processor",
+    )
 
 
 def test_processed_batch_names_independent_consumer(monkeypatch):

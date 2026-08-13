@@ -352,9 +352,9 @@ def generate_v2_schemas() -> None:
             raise RuntimeError(f"Transformed schema is not an object: {name}")
         transformed["title"] = str(transformed.get("title", name)).replace("v1", "v2")
         if name == "architecture-profile.schema.json":
-            component_kinds = transformed["$defs"]["logical_component"][
-                "properties"
-            ]["component_kind"]["enum"]
+            component_kinds = transformed["$defs"]["logical_component"]["properties"][
+                "component_kind"
+            ]["enum"]
             if "eventing" not in component_kinds:
                 component_kinds.append("eventing")
         if name == "resolved-twin-architecture.schema.json":
@@ -802,16 +802,39 @@ def build_semantic_registry(profile: dict[str, Any]) -> dict[str, Any]:
             "compatibility_version": "1",
         }
     for port_id, semantics in {
-        "port.eventing.telemetry-in": (
-            "Canonical telemetry and device-outcome events accepted by Eventing."
+        "port.ingestion.eventing-out": (
+            "Canonical telemetry-received and device-command-outcome events emitted "
+            "by L1 for Eventing."
         ),
-        "port.eventing.telemetry-out": (
-            "Canonical telemetry and outcome events delivered from Eventing to L2."
+        "port.processing.eventing-in": (
+            "Canonical telemetry, match, and notification events delivered from "
+            "Eventing to L2 responsibilities."
         ),
-        "port.eventing.control-in": (
-            "Canonical rule/action, notification, and command events accepted by Eventing."
+        "port.processing.eventing-out": (
+            "Canonical processed telemetry, match, notification, command, and "
+            "terminal-outcome events emitted by L2 for Eventing."
         ),
-        "port.eventing.control-out": (
+        "port.hot-storage.eventing-in": (
+            "Canonical processed telemetry and terminal-outcome events delivered "
+            "from Eventing to L3 hot."
+        ),
+        "port.eventing.ingestion-in": (
+            "Canonical telemetry-received and device-command-outcome events accepted "
+            "from L1."
+        ),
+        "port.eventing.processing-out": (
+            "Canonical telemetry, match, and notification events delivered to L2 "
+            "responsibilities."
+        ),
+        "port.eventing.processing-in": (
+            "Canonical processed telemetry, match, notification, command, and "
+            "terminal-outcome events accepted from L2."
+        ),
+        "port.eventing.hot-storage-out": (
+            "Canonical processed and terminal-outcome events delivered from Eventing "
+            "to L3 hot."
+        ),
+        "port.eventing.ingestion-out": (
             "Canonical device-command requests delivered from Eventing to L1."
         ),
     }.items():
@@ -3098,11 +3121,15 @@ def generate_deployment_manifest_v4(
 def reset_generated_tree_preserving_six_layer_fixtures(root: Path) -> None:
     """Reset Five-layer output without deleting additive Six-layer fixtures."""
 
-    preserved = {
-        path.relative_to(root): path.read_bytes()
-        for path in root.rglob("six-layer-*.json")
-        if path.is_file()
-    } if root.exists() else {}
+    preserved = (
+        {
+            path.relative_to(root): path.read_bytes()
+            for path in root.rglob("six-layer-*.json")
+            if path.is_file()
+        }
+        if root.exists()
+        else {}
+    )
     if root.exists():
         shutil.rmtree(root)
     for relative_path, content in preserved.items():

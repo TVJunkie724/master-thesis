@@ -21,7 +21,7 @@
       "compatibility_digest": "sha256:a0c39dcae6c95c2cb25251389c6569a0f5ea4428a0403ccc4cf934541cda06f1"
     }
   ],
-  "content_digest": "sha256:e156a5a04c7cbb96104bec1d2961183cd60113dd94cbaec3e0e7d8bc3aca2cc8",
+  "content_digest": "sha256:f9e0c0fee99a7b05f44967767c3be41f7887005806a585f4aef92025172838a7",
   "cycle_contracts": [
     {
       "compatibility_version": "1",
@@ -275,28 +275,63 @@
       "compatibility_version": "1"
     },
     {
-      "port_id": "port.eventing.telemetry-in",
+      "port_id": "port.ingestion.eventing-out",
       "schema_ref": "canonical-domain-event.v1",
       "envelope_ref": "contract-envelope",
-      "semantics": "Canonical telemetry and device-outcome events accepted by Eventing.",
+      "semantics": "Canonical telemetry-received and device-command-outcome events emitted by L1 for Eventing.",
       "compatibility_version": "1"
     },
     {
-      "port_id": "port.eventing.telemetry-out",
+      "port_id": "port.processing.eventing-in",
       "schema_ref": "canonical-domain-event.v1",
       "envelope_ref": "contract-envelope",
-      "semantics": "Canonical telemetry and outcome events delivered from Eventing to L2.",
+      "semantics": "Canonical telemetry, match, and notification events delivered from Eventing to L2 responsibilities.",
       "compatibility_version": "1"
     },
     {
-      "port_id": "port.eventing.control-in",
+      "port_id": "port.processing.eventing-out",
       "schema_ref": "canonical-domain-event.v1",
       "envelope_ref": "contract-envelope",
-      "semantics": "Canonical rule/action, notification, and command events accepted by Eventing.",
+      "semantics": "Canonical processed telemetry, match, notification, command, and terminal-outcome events emitted by L2 for Eventing.",
       "compatibility_version": "1"
     },
     {
-      "port_id": "port.eventing.control-out",
+      "port_id": "port.hot-storage.eventing-in",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical processed telemetry and terminal-outcome events delivered from Eventing to L3 hot.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.eventing.ingestion-in",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical telemetry-received and device-command-outcome events accepted from L1.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.eventing.processing-out",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical telemetry, match, and notification events delivered to L2 responsibilities.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.eventing.processing-in",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical processed telemetry, match, notification, command, and terminal-outcome events accepted from L2.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.eventing.hot-storage-out",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical processed and terminal-outcome events delivered from Eventing to L3 hot.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.eventing.ingestion-out",
       "schema_ref": "canonical-domain-event.v1",
       "envelope_ref": "contract-envelope",
       "semantics": "Canonical device-command requests delivered from Eventing to L1.",

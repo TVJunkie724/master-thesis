@@ -5,7 +5,7 @@
   "architecture_profile_ref": {
     "id": "six-layer-eventing",
     "version": "1",
-    "digest": "sha256:4e4aba55de9e675b0c95db88be524822d34ebf28b6eb16d8b6dc7014e84f401b"
+    "digest": "sha256:99bb981aa1a60a5e4677609914bc9e341774ef500222da72c4f82efe6f0756c9"
   },
   "provider": "aws",
   "lifecycle_status": "active",
@@ -438,8 +438,8 @@
         "deployment.aws.eventing.v1"
       ],
       "mechanism": "provider_native_trigger",
-      "catalog_input_port_id": "catalog.aws.port.eventing.telemetry-in",
-      "catalog_output_port_id": "catalog.aws.port.ingestion.telemetry-event-out",
+      "catalog_input_port_id": "catalog.aws.port.eventing.ingestion-in",
+      "catalog_output_port_id": "catalog.aws.port.ingestion.eventing-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.ingestion-to-eventing"
@@ -455,8 +455,8 @@
         "deployment.aws.processing.v2"
       ],
       "mechanism": "provider_native_trigger",
-      "catalog_input_port_id": "catalog.aws.port.processing.telemetry-event-in",
-      "catalog_output_port_id": "catalog.aws.port.eventing.telemetry-out",
+      "catalog_input_port_id": "catalog.aws.port.processing.eventing-in",
+      "catalog_output_port_id": "catalog.aws.port.eventing.processing-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.eventing-to-processing"
@@ -472,8 +472,8 @@
         "deployment.aws.eventing.v1"
       ],
       "mechanism": "provider_native_trigger",
-      "catalog_input_port_id": "catalog.aws.port.eventing.control-in",
-      "catalog_output_port_id": "catalog.aws.port.processing.device-command-out",
+      "catalog_input_port_id": "catalog.aws.port.eventing.processing-in",
+      "catalog_output_port_id": "catalog.aws.port.processing.eventing-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.processing-to-eventing"
@@ -490,7 +490,7 @@
       ],
       "mechanism": "provider_native_trigger",
       "catalog_input_port_id": "catalog.aws.port.ingestion.device-command-in",
-      "catalog_output_port_id": "catalog.aws.port.eventing.control-out",
+      "catalog_output_port_id": "catalog.aws.port.eventing.ingestion-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.eventing-to-ingestion"
@@ -506,8 +506,8 @@
         "deployment.aws.hot-storage.v2"
       ],
       "mechanism": "provider_native_trigger",
-      "catalog_input_port_id": "catalog.aws.port.hot-storage.processing-event-in",
-      "catalog_output_port_id": "catalog.aws.port.eventing.telemetry-out",
+      "catalog_input_port_id": "catalog.aws.port.hot-storage.eventing-in",
+      "catalog_output_port_id": "catalog.aws.port.eventing.hot-storage-out",
       "transfer_route_class": "same_provider_same_region",
       "cost_owner_ids": [
         "cost.eventing-to-hot-storage"
@@ -581,5 +581,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:13fe1d870c75429ccd919df3bec4881471394113802df3500ef688d6eee2fe1f"
+  "content_digest": "sha256:e7834d8d57dc89d6bc9b596f0fddff96b5eba4d90f5b283ac269bbd516724d6d"
 }

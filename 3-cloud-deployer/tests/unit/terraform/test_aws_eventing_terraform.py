@@ -35,8 +35,11 @@ def test_aws_event_layer_is_profile_and_provider_gated():
     source = _source("aws_eventing.tf")
     assert "local.six_layer_eventing_enabled" in source
     assert 'var.event_layer_provider == "aws"' in source
-    assert "local.aws_event_l2_local ? 1 : 0" in source
-    assert "local.aws_event_l1_local || local.aws_event_l2_local ? 1 : 0" in source
+    assert "aws_event_local_processed_roles" in source
+    assert (
+        "local.aws_event_l1_local || local.aws_event_l2_local || "
+        "local.aws_event_hot_local"
+    ) in source
 
 
 def test_aws_event_layer_uses_graph_capacity_and_bounded_failure_storage():
@@ -86,9 +89,8 @@ def test_inherited_aws_domain_runtime_routes_through_local_event_layer():
     assert "EVENTING_CONTROL_TOPIC_ARN" in source
     assert "aws_v2_embedded_event_enabled" in source
     assert "local.aws_v2_l2_enabled && local.aws_v2_embedded_event_enabled" in source
-    assert (
-        'local.six_layer_eventing_enabled ? "eventing" : var.layer_1_provider' in source
-    )
+    assert "L1_PROVIDER                       = var.layer_1_provider" in source
+    assert "L2_PROVIDER                       = var.layer_2_provider" in source
     assert "raw_message_delivery = true" in source
 
 
@@ -98,11 +100,9 @@ def test_aws_event_layer_can_be_the_source_of_a_directed_bridge():
     assert 'aws_kinesis_stream.domain_telemetry["received"].arn' in source
     assert 'aws_kinesis_stream.domain_telemetry["processed"].arn' in source
     assert (
-        'resource "aws_sns_topic_subscription" '
-        '"aws_v2_event_bridge_control_source"'
+        'resource "aws_sns_topic_subscription" "aws_v2_event_bridge_control_source"'
     ) in source
     assert "aws_v2_event_bridge_control_types" in source
     assert (
-        'resource "aws_lambda_event_source_mapping" '
-        '"aws_v2_event_bridge_telemetry"'
+        'resource "aws_lambda_event_source_mapping" "aws_v2_event_bridge_telemetry"'
     ) in source

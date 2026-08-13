@@ -64,7 +64,7 @@ def test_inherited_azure_runtime_replaces_embedded_transport_for_six_layer():
         / "providers"
         / "azure"
         / "azure_functions"
-            / "six-layer-domain"
+        / "six-layer-domain"
         / "function_app.py"
     ).read_text(encoding="utf-8")
     assert "azure_v2_embedded_event_enabled" in terraform
@@ -72,6 +72,8 @@ def test_inherited_azure_runtime_replaces_embedded_transport_for_six_layer():
     assert "V2_EVENTING_PROCESSED_HUB_NAME" in terraform
     assert "V2_EVENTING_CONTROL_TOPIC_NAME" in terraform
     assert "V2_EVENTING_DELIVERY_ENDPOINT_ENABLED" in terraform
+    assert "V2_L1_PROVIDER" in terraform
+    assert "V2_L2_PROVIDER" in terraform
     assert "def _publish_eventing_stream" in runtime
     assert "def _publish_eventing_control" in runtime
     assert "def _consume_eventing_delivery" in runtime
@@ -85,12 +87,14 @@ def test_azure_event_layer_can_be_the_source_of_a_directed_bridge():
         / "providers"
         / "azure"
         / "azure_functions"
-            / "six-layer-domain"
+        / "six-layer-domain"
         / "function_app.py"
     ).read_text(encoding="utf-8")
     assert "bridge-received" in terraform
     assert "bridge-processed" in terraform
-    assert 'resource "azurerm_servicebus_subscription" "event_bridge_control"' in terraform
+    assert (
+        'resource "azurerm_servicebus_subscription" "event_bridge_control"' in terraform
+    )
     assert 'resource "azurerm_role_assignment" "azure_event_bridge"' in terraform
     assert 'name="v2-cross-cloud-event-received-bridge"' in function_app
     assert 'name="v2-cross-cloud-event-processed-bridge"' in function_app

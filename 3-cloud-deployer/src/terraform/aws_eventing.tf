@@ -10,8 +10,11 @@ locals {
   )
   aws_event_l1_local = local.aws_event_enabled && var.layer_1_provider == "aws"
   aws_event_l2_local = local.aws_event_enabled && var.layer_2_provider == "aws"
-  aws_event_name     = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 32)
-  aws_event_package  = "${var.project_path}/.build/aws/six-layer-eventing.zip"
+  aws_event_hot_local = (
+    local.aws_event_enabled && var.layer_3_hot_provider == "aws"
+  )
+  aws_event_name    = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 32)
+  aws_event_package = "${var.project_path}/.build/aws/six-layer-eventing.zip"
   aws_event_streams = {
     received  = "${local.aws_event_name}-domain-received"
     processed = "${local.aws_event_name}-domain-processed"
@@ -35,9 +38,26 @@ locals {
       }
     },
   )
+  aws_event_local_processed_roles = concat(
+    local.aws_event_hot_local ? [
+      "historical-persistence",
+      "twin-state-update",
+    ] : [],
+    local.aws_event_l2_local ? ["rule-evaluator"] : [],
+    var.aws_event_kinesis_shards == 200 ? [
+      "audit",
+      "realtime-visualization",
+    ] : [],
+  )
   aws_event_runtime_roles = merge(
-    local.aws_event_l2_local ? local.aws_event_stream_consumers : {},
-    local.aws_event_l1_local || local.aws_event_l2_local ? {
+    local.aws_event_l2_local ? {
+      telemetry-processor = local.aws_event_stream_consumers["telemetry-processor"]
+    } : {},
+    {
+      for role in local.aws_event_local_processed_roles : role =>
+      local.aws_event_stream_consumers[role]
+    },
+    local.aws_event_l1_local || local.aws_event_l2_local || local.aws_event_hot_local ? {
       control-router = { stream = null }
     } : {},
   )
@@ -45,6 +65,8 @@ locals {
     local.aws_event_l2_local ? [
       "event.matched.v1",
       "notification.requested.v1",
+    ] : [],
+    local.aws_event_hot_local ? [
       "extension.action.outcome.v1",
       "notification.workflow.outcome.v1",
       "device.command.outcome.v1",
@@ -299,6 +321,11 @@ resource "aws_iam_role_policy" "event_runtime" {
         Action   = ["lambda:InvokeFunction"]
         Resource = aws_lambda_function.aws_aws_lambda[0].arn
       }] : [],
+      local.aws_event_hot_local ? [{
+        Effect   = "Allow"
+        Action   = ["lambda:InvokeFunction"]
+        Resource = aws_lambda_function.aws_v2_domain_consumer[0].arn
+      }] : [],
       local.aws_event_l1_local ? [{
         Effect = "Allow"
         Action = ["iot:StartCommandExecution"]
@@ -344,6 +371,7 @@ resource "aws_lambda_function" "event_runtime" {
       IOT_COMMANDS_ENDPOINT     = try(data.aws_iot_endpoint.main[0].endpoint_address, "")
       MAX_RECEIVE_COUNT         = tostring(var.aws_event_max_receive_count)
       PROCESSING_FUNCTION_NAME  = local.aws_event_l2_local ? aws_lambda_function.aws_aws_lambda[0].function_name : ""
+      HOT_FUNCTION_NAME         = local.aws_event_hot_local ? aws_lambda_function.aws_v2_domain_consumer[0].function_name : ""
     }
   }
 
@@ -356,7 +384,10 @@ resource "aws_lambda_function" "event_runtime" {
 }
 
 resource "aws_lambda_event_source_mapping" "event_runtime" {
-  for_each                           = local.aws_event_l2_local ? local.aws_event_stream_consumers : {}
+  for_each = {
+    for role, consumer in local.aws_event_runtime_roles : role => consumer
+    if consumer.stream != null
+  }
   event_source_arn                   = aws_kinesis_stream_consumer.domain_consumers[each.key].arn
   function_name                      = aws_lambda_function.event_runtime[each.key].arn
   starting_position                  = "TRIM_HORIZON"
@@ -376,7 +407,7 @@ resource "aws_lambda_event_source_mapping" "event_runtime" {
 }
 
 resource "aws_lambda_event_source_mapping" "domain_control" {
-  count                              = local.aws_event_l1_local || local.aws_event_l2_local ? 1 : 0
+  count                              = local.aws_event_l1_local || local.aws_event_l2_local || local.aws_event_hot_local ? 1 : 0
   event_source_arn                   = aws_sqs_queue.domain_control[0].arn
   function_name                      = aws_lambda_function.event_runtime["control-router"].arn
   batch_size                         = var.aws_event_runtime_batch_max

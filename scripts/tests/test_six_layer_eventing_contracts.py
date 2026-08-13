@@ -38,7 +38,9 @@ class SixLayerEventingContractTests(unittest.TestCase):
         self.assertEqual(self.profile["lifecycle_status"], "active")
         self.assertEqual(self.catalog["lifecycle_status"], "active")
 
-    def test_only_eventing_component_is_added_to_inherited_l1_l5(self) -> None:
+    def test_only_eventing_component_is_added_and_inherited_ports_are_event_routed(
+        self,
+    ) -> None:
         five_components = {
             item["component_id"]: item for item in self.five["components"]
         }
@@ -49,15 +51,68 @@ class SixLayerEventingContractTests(unittest.TestCase):
             set(six_components) - set(five_components),
             {"component.eventing"},
         )
+        event_routed_ports = {
+            "component.ingestion": {
+                "input_port_ids": ["port.ingestion.device-command-in"],
+                "output_port_ids": ["port.ingestion.eventing-out"],
+            },
+            "component.processing": {
+                "input_port_ids": ["port.processing.eventing-in"],
+                "output_port_ids": ["port.processing.eventing-out"],
+            },
+            "component.hot-storage": {
+                "input_port_ids": ["port.hot-storage.eventing-in"],
+                "output_port_ids": five_components["component.hot-storage"][
+                    "output_port_ids"
+                ],
+            },
+        }
         for component_id, component in five_components.items():
-            self.assertEqual(six_components[component_id], component)
+            actual = dict(six_components[component_id])
+            expected = dict(component)
+            if component_id in event_routed_ports:
+                for field, value in event_routed_ports[component_id].items():
+                    expected[field] = value
+            self.assertEqual(actual, expected)
         self.assertEqual(len(self.profile["responsibilities"]), 6)
+
+    def test_event_edges_use_responsibility_named_logical_ports(self) -> None:
+        self.assertEqual(
+            {
+                edge["edge_id"]: (
+                    edge["source_port_id"],
+                    edge["destination_port_id"],
+                )
+                for edge in self.profile["edges"]
+                if "eventing" in edge["edge_id"]
+            },
+            {
+                "edge.ingestion-to-eventing": (
+                    "port.ingestion.eventing-out",
+                    "port.eventing.ingestion-in",
+                ),
+                "edge.eventing-to-processing": (
+                    "port.eventing.processing-out",
+                    "port.processing.eventing-in",
+                ),
+                "edge.processing-to-eventing": (
+                    "port.processing.eventing-out",
+                    "port.eventing.processing-in",
+                ),
+                "edge.eventing-to-ingestion": (
+                    "port.eventing.ingestion-out",
+                    "port.ingestion.device-command-in",
+                ),
+                "edge.eventing-to-hot-storage": (
+                    "port.eventing.hot-storage-out",
+                    "port.hot-storage.eventing-in",
+                ),
+            },
+        )
 
     def test_event_layer_provider_bundles_match_frozen_service_decision(self) -> None:
         expected = {
-            provider: {
-                item["service_id"] for item in CONTRACT.event_services(provider)
-            }
+            provider: {item["service_id"] for item in CONTRACT.event_services(provider)}
             for provider in CONTRACT.PROVIDERS
         }
         actual = {
@@ -161,8 +216,7 @@ class SixLayerEventingContractTests(unittest.TestCase):
                     "six-layer-domain"
                 ),
                 "artifact.platform.gcp.six-layer-domain": (
-                    "3-cloud-deployer/src/providers/gcp/containers/"
-                    "six-layer-domain"
+                    "3-cloud-deployer/src/providers/gcp/containers/six-layer-domain"
                 ),
                 "artifact.shared.phase8-six-layer-bridge-runtime": (
                     "3-cloud-deployer/src/runtime/six_layer_eventing"

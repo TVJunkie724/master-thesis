@@ -1,12 +1,12 @@
 {
   "schema_version": "resolved-twin-architecture.v2",
   "resolution_status": "offline_contract_fixture",
-  "resolution_id": "a43ff2cb-6342-59ce-a685-378af57a2c59",
+  "resolution_id": "ea54ad7c-84ca-5af7-8175-7e3f0ae0aa32",
   "calculation_run_id": "89287aa5-89b4-55dc-88cb-680f2823da48",
   "architecture_profile_ref": {
     "id": "six-layer-eventing",
     "version": "1",
-    "digest": "sha256:4e4aba55de9e675b0c95db88be524822d34ebf28b6eb16d8b6dc7014e84f401b"
+    "digest": "sha256:99bb981aa1a60a5e4677609914bc9e341774ef500222da72c4f82efe6f0756c9"
   },
   "optimization_bundle_ref": {
     "optimization_strategy_id": "cost-minimization-v2",
@@ -23,13 +23,13 @@
     {
       "id": "provider-profile.aws.six-layer-eventing-v1",
       "version": "1",
-      "digest": "sha256:13fe1d870c75429ccd919df3bec4881471394113802df3500ef688d6eee2fe1f",
+      "digest": "sha256:e7834d8d57dc89d6bc9b596f0fddff96b5eba4d90f5b283ac269bbd516724d6d",
       "provider": "aws"
     },
     {
       "id": "provider-profile.azure.six-layer-eventing-v1",
       "version": "1",
-      "digest": "sha256:e114041277beeb3b126af209d2aecd80ad214ad7be8d9b13dcd436cc088b1392",
+      "digest": "sha256:3dada94d976f9afa259dcd6c71bb5af69e89ddaf71832ce2c62684c93d76309d",
       "provider": "azure"
     }
   ],
@@ -63,7 +63,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.azure.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:e114041277beeb3b126af209d2aecd80ad214ad7be8d9b13dcd436cc088b1392"
+        "digest": "sha256:3dada94d976f9afa259dcd6c71bb5af69e89ddaf71832ce2c62684c93d76309d"
       },
       "deployment_component_id": "deployment.azure.archive-storage.v2",
       "deployment_component_version": "1",
@@ -95,7 +95,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.azure.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:e114041277beeb3b126af209d2aecd80ad214ad7be8d9b13dcd436cc088b1392"
+        "digest": "sha256:3dada94d976f9afa259dcd6c71bb5af69e89ddaf71832ce2c62684c93d76309d"
       },
       "deployment_component_id": "deployment.azure.cool-storage.v2",
       "deployment_component_version": "1",
@@ -127,7 +127,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.azure.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:e114041277beeb3b126af209d2aecd80ad214ad7be8d9b13dcd436cc088b1392"
+        "digest": "sha256:3dada94d976f9afa259dcd6c71bb5af69e89ddaf71832ce2c62684c93d76309d"
       },
       "deployment_component_id": "deployment.azure.eventing.v1",
       "deployment_component_version": "1",
@@ -190,7 +190,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.aws.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:13fe1d870c75429ccd919df3bec4881471394113802df3500ef688d6eee2fe1f"
+        "digest": "sha256:e7834d8d57dc89d6bc9b596f0fddff96b5eba4d90f5b283ac269bbd516724d6d"
       },
       "deployment_component_id": "deployment.aws.hot-storage.v2",
       "deployment_component_version": "1",
@@ -226,7 +226,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.aws.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:13fe1d870c75429ccd919df3bec4881471394113802df3500ef688d6eee2fe1f"
+        "digest": "sha256:e7834d8d57dc89d6bc9b596f0fddff96b5eba4d90f5b283ac269bbd516724d6d"
       },
       "deployment_component_id": "deployment.aws.ingestion.v2",
       "deployment_component_version": "1",
@@ -265,7 +265,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.aws.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:13fe1d870c75429ccd919df3bec4881471394113802df3500ef688d6eee2fe1f"
+        "digest": "sha256:e7834d8d57dc89d6bc9b596f0fddff96b5eba4d90f5b283ac269bbd516724d6d"
       },
       "deployment_component_id": "deployment.aws.processing.v2",
       "deployment_component_version": "1",
@@ -300,7 +300,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.azure.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:e114041277beeb3b126af209d2aecd80ad214ad7be8d9b13dcd436cc088b1392"
+        "digest": "sha256:3dada94d976f9afa259dcd6c71bb5af69e89ddaf71832ce2c62684c93d76309d"
       },
       "deployment_component_id": "deployment.azure.twin-state.v2",
       "deployment_component_version": "1",
@@ -333,7 +333,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.aws.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:13fe1d870c75429ccd919df3bec4881471394113802df3500ef688d6eee2fe1f"
+        "digest": "sha256:e7834d8d57dc89d6bc9b596f0fddff96b5eba4d90f5b283ac269bbd516724d6d"
       },
       "deployment_component_id": "deployment.aws.visualization.v2",
       "deployment_component_version": "1",
@@ -544,9 +544,9 @@
       "resolved_edge_id": "resolved.ingestion-to-eventing",
       "edge_id": "edge.ingestion-to-eventing",
       "source_assignment_id": "assignment.ingestion",
-      "source_port_id": "catalog.aws.port.ingestion.telemetry-event-out",
+      "source_port_id": "catalog.aws.port.ingestion.eventing-out",
       "destination_assignment_id": "assignment.eventing",
-      "destination_port_id": "catalog.azure.port.eventing.telemetry-in",
+      "destination_port_id": "catalog.azure.port.eventing.ingestion-in",
       "edge_implementation_id": "edge-implementation.aws-to-azure.ingestion-to-eventing.eventing-v1",
       "mechanism": "cross_provider_adapter",
       "delivery_semantics": {
@@ -589,9 +589,9 @@
       "resolved_edge_id": "resolved.eventing-to-processing",
       "edge_id": "edge.eventing-to-processing",
       "source_assignment_id": "assignment.eventing",
-      "source_port_id": "catalog.azure.port.eventing.telemetry-out",
+      "source_port_id": "catalog.azure.port.eventing.processing-out",
       "destination_assignment_id": "assignment.processing",
-      "destination_port_id": "catalog.aws.port.processing.telemetry-event-in",
+      "destination_port_id": "catalog.aws.port.processing.eventing-in",
       "edge_implementation_id": "edge-implementation.azure-to-aws.eventing-to-processing.eventing-v1",
       "mechanism": "cross_provider_adapter",
       "delivery_semantics": {
@@ -634,9 +634,9 @@
       "resolved_edge_id": "resolved.processing-to-eventing",
       "edge_id": "edge.processing-to-eventing",
       "source_assignment_id": "assignment.processing",
-      "source_port_id": "catalog.aws.port.processing.device-command-out",
+      "source_port_id": "catalog.aws.port.processing.eventing-out",
       "destination_assignment_id": "assignment.eventing",
-      "destination_port_id": "catalog.azure.port.eventing.control-in",
+      "destination_port_id": "catalog.azure.port.eventing.processing-in",
       "edge_implementation_id": "edge-implementation.aws-to-azure.processing-to-eventing.eventing-v1",
       "mechanism": "cross_provider_adapter",
       "delivery_semantics": {
@@ -679,7 +679,7 @@
       "resolved_edge_id": "resolved.eventing-to-ingestion",
       "edge_id": "edge.eventing-to-ingestion",
       "source_assignment_id": "assignment.eventing",
-      "source_port_id": "catalog.azure.port.eventing.control-out",
+      "source_port_id": "catalog.azure.port.eventing.ingestion-out",
       "destination_assignment_id": "assignment.ingestion",
       "destination_port_id": "catalog.aws.port.ingestion.device-command-in",
       "edge_implementation_id": "edge-implementation.azure-to-aws.eventing-to-ingestion.eventing-v1",
@@ -724,9 +724,9 @@
       "resolved_edge_id": "resolved.eventing-to-hot-storage",
       "edge_id": "edge.eventing-to-hot-storage",
       "source_assignment_id": "assignment.eventing",
-      "source_port_id": "catalog.azure.port.eventing.telemetry-out",
+      "source_port_id": "catalog.azure.port.eventing.hot-storage-out",
       "destination_assignment_id": "assignment.hot-storage",
-      "destination_port_id": "catalog.aws.port.hot-storage.processing-event-in",
+      "destination_port_id": "catalog.aws.port.hot-storage.eventing-in",
       "edge_implementation_id": "edge-implementation.azure-to-aws.eventing-to-hot-storage.eventing-v1",
       "mechanism": "cross_provider_adapter",
       "delivery_semantics": {
@@ -780,7 +780,7 @@
   "deployment_specification_ref": {
     "schema_version": "resolved-deployment-specification.v2",
     "calculation_run_id": "89287aa5-89b4-55dc-88cb-680f2823da48",
-    "digest": "sha256:3830de1d6c6ed515363b1ca60af8ba5f8e937d212283d828f9989a967f555d08"
+    "digest": "sha256:b96c1685d41d35442e078511efac3e3266b8f0d7b70f93e709eb9e661c2a0b9b"
   },
   "cost_summary": {
     "currency": "USD",
@@ -943,7 +943,7 @@
     "provider_extra_capability_ids": [],
     "missing_capability_ids": [],
     "validator_version": "2",
-    "validation_digest": "sha256:49207b65c5d720dcbc6a348ae7713282ec5cfa5155a2f3e467afd48260cf9765"
+    "validation_digest": "sha256:ad4cdd206cf8b518d1c16c8fea38a1b80e63a5ec8da190651168b0d4fd0c1a24"
   },
-  "content_digest": "sha256:c6e46aa8f03c48a411faf8a5a411f5b31780e76ab667e8c932d3f4909a3c7588"
+  "content_digest": "sha256:33c7f4258ae35c1e95a186d4f2654c6dd45c623f6d3ddfb9f2a85d3bb9b7cde7"
 }
