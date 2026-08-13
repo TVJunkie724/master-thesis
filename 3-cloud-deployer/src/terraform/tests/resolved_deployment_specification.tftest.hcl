@@ -620,7 +620,7 @@ run "five_layer_v2_azure_source_federates_to_gcp_for_both_channels" {
       length(google_iam_workload_identity_pool_provider.gcp_v2_bridge_from_azure) == 1 &&
       length(google_service_account.gcp_v2_bridge_target_from_azure) == 1 &&
       length(google_service_account_iam_member.gcp_v2_bridge_from_azure) == 1 &&
-      toset(keys(google_pubsub_topic_iam_member.gcp_v2_bridge_from_azure)) == toset(["telemetry", "control"]) &&
+      toset(keys(google_pubsub_topic_iam_member.gcp_v2_bridge_from_azure)) == toset(["remote_telemetry", "remote_control"]) &&
       contains(keys(google_project_service.gcp_v2_required), "sts.googleapis.com") &&
       contains(keys(google_project_service.gcp_v2_required), "iamcredentials.googleapis.com") &&
       length(aws_iam_openid_connect_provider.azure_v2_bridge) == 0
@@ -996,8 +996,8 @@ run "five_layer_v2_gcp_source_federates_to_azure_for_both_channels" {
   assert {
     condition = (
       azurerm_federated_identity_credential.azure_v2_bridge_from_gcp[0].issuer == "https://accounts.google.com" &&
-      azurerm_role_assignment.azure_v2_bridge_from_gcp_telemetry[0].role_definition_name == "Azure Event Hubs Data Sender" &&
-      azurerm_role_assignment.azure_v2_bridge_from_gcp_control[0].role_definition_name == "Azure Service Bus Data Sender"
+      one(values(azurerm_role_assignment.azure_v2_bridge_from_gcp_telemetry)).role_definition_name == "Azure Event Hubs Data Sender" &&
+      one(values(azurerm_role_assignment.azure_v2_bridge_from_gcp_control)).role_definition_name == "Azure Service Bus Data Sender"
     )
     error_message = "GCP-to-Azure federation must retain the Google issuer and channel-specific sender roles; computed subject, audience, and entity scopes are verified structurally."
   }
@@ -1006,7 +1006,7 @@ run "five_layer_v2_gcp_source_federates_to_azure_for_both_channels" {
     condition = (
       length(azuread_application.azure_v2_bridge_audience) == 1 &&
       length(google_iam_workload_identity_pool.gcp_v2_bridge_from_azure) == 1 &&
-      toset(keys(google_pubsub_topic_iam_member.gcp_v2_bridge_from_azure)) == toset(["control"]) &&
+      toset(keys(google_pubsub_topic_iam_member.gcp_v2_bridge_from_azure)) == toset(["remote_control"]) &&
       toset(keys(google_pubsub_topic_iam_member.gcp_v2_remote_landing_publishers)) == toset(["domain"])
     )
     error_message = "The valid reverse Azure command route must retain its independent exact GCP control landing without widening the GCP-to-Azure source identity."
@@ -1327,7 +1327,7 @@ run "five_layer_v2_gcp_l4_stays_independent_from_aws_l3_l5" {
       length(google_iam_workload_identity_pool_provider.gcp_v2_bridge_from_aws) == 1 &&
       length(google_service_account.gcp_v2_bridge_target_from_aws) == 1 &&
       length(google_service_account_iam_member.gcp_v2_bridge_from_aws) == 1 &&
-      toset(keys(google_pubsub_topic_iam_member.gcp_v2_bridge_from_aws)) == toset(["control"])
+      toset(keys(google_pubsub_topic_iam_member.gcp_v2_bridge_from_aws)) == toset(["remote_control"])
     )
     error_message = "AWS-to-GCP control must use one source bridge and one role-restricted Google workload-identity target without telemetry-only resources."
   }

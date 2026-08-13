@@ -28,21 +28,88 @@ locals {
     for route in values(local.azure_v2_outbound_event_routes) :
     route.destination_provider == "gcp" && route.channel_class == "control"
   ])
+  azure_v2_bridge_aws_telemetry_targets = values(merge(
+    anytrue([
+      for route in values(local.azure_v2_outbound_event_routes) :
+      route.destination_provider == "aws" && route.channel_class == "telemetry" && !endswith(route.logical_edge_id, "-to-eventing")
+    ]) ? { remote = aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["inbound"].arn } : {},
+    anytrue([
+      for route in values(local.azure_v2_outbound_event_routes) :
+      route.destination_provider == "aws" && route.channel_class == "telemetry" && endswith(route.logical_edge_id, "-to-eventing") && contains(route.event_types, "telemetry.received.v1")
+    ]) ? { event_received = aws_kinesis_stream.domain_telemetry["received"].arn } : {},
+    anytrue([
+      for route in values(local.azure_v2_outbound_event_routes) :
+      route.destination_provider == "aws" && route.channel_class == "telemetry" && endswith(route.logical_edge_id, "-to-eventing") && contains(route.event_types, "telemetry.processed.v1")
+    ]) ? { event_processed = aws_kinesis_stream.domain_telemetry["processed"].arn } : {},
+  ))
+  azure_v2_bridge_aws_control_targets = values(merge(
+    anytrue([
+      for route in values(local.azure_v2_outbound_event_routes) :
+      route.destination_provider == "aws" && route.channel_class == "control" && !endswith(route.logical_edge_id, "-to-eventing")
+    ]) ? { remote = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["inbound"].arn } : {},
+    anytrue([
+      for route in values(local.azure_v2_outbound_event_routes) :
+      route.destination_provider == "aws" && route.channel_class == "control" && endswith(route.logical_edge_id, "-to-eventing")
+    ]) ? { event = aws_sns_topic.domain_control[0].arn } : {},
+  ))
+  azure_v2_bridge_gcp_topic_targets = merge(
+    anytrue([
+      for route in values(local.azure_v2_outbound_event_routes) :
+      route.destination_provider == "gcp" && route.channel_class == "telemetry" && !endswith(route.logical_edge_id, "-to-eventing")
+    ]) ? { remote_telemetry = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-telemetry-inbound"].name } : {},
+    anytrue([
+      for route in values(local.azure_v2_outbound_event_routes) :
+      route.destination_provider == "gcp" && route.channel_class == "control" && !endswith(route.logical_edge_id, "-to-eventing")
+    ]) ? { remote_control = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-inbound"].name } : {},
+    anytrue([
+      for route in values(local.azure_v2_outbound_event_routes) :
+      route.destination_provider == "gcp" && route.channel_class == "telemetry" && endswith(route.logical_edge_id, "-to-eventing") && contains(route.event_types, "telemetry.received.v1")
+    ]) ? { event_received = google_pubsub_topic.domain_events["received"].name } : {},
+    anytrue([
+      for route in values(local.azure_v2_outbound_event_routes) :
+      route.destination_provider == "gcp" && route.channel_class == "telemetry" && endswith(route.logical_edge_id, "-to-eventing") && contains(route.event_types, "telemetry.processed.v1")
+    ]) ? { event_processed = google_pubsub_topic.domain_events["processed"].name } : {},
+    anytrue([
+      for route in values(local.azure_v2_outbound_event_routes) :
+      route.destination_provider == "gcp" && route.channel_class == "control" && endswith(route.logical_edge_id, "-to-eventing")
+    ]) ? { event_control = google_pubsub_topic.domain_events["control"].name } : {},
+  )
 
   azure_v2_bridge_assertion_audience = local.azure_v2_bridge_enabled ? "api://${azuread_application.azure_v2_bridge_audience[0].client_id}" : ""
 
   azure_v2_bridge_destinations = merge(
     local.azure_v2_bridge_to_aws_enabled ? {
       aws = {
-        telemetry_stream_arn = local.azure_v2_bridge_to_aws_telemetry ? aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["inbound"].arn : ""
-        control_topic_arn    = local.azure_v2_bridge_to_aws_control ? aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["inbound"].arn : ""
+        route_targets = {
+          for route_id, route in local.azure_v2_outbound_event_routes : route_id => merge(
+            route.channel_class == "telemetry" ? {
+              telemetry_stream_arn = endswith(route.logical_edge_id, "-to-eventing") ? (
+                contains(route.event_types, "telemetry.processed.v1") ? aws_kinesis_stream.domain_telemetry["processed"].arn : aws_kinesis_stream.domain_telemetry["received"].arn
+              ) : aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["inbound"].arn
+            } : {},
+            route.channel_class == "control" ? {
+              control_topic_arn = endswith(route.logical_edge_id, "-to-eventing") ? aws_sns_topic.domain_control[0].arn : aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["inbound"].arn
+            } : {},
+          ) if route.destination_provider == "aws"
+        }
       }
     } : {},
     local.azure_v2_bridge_to_gcp_enabled ? {
       gcp = {
-        telemetry_topic = local.azure_v2_bridge_to_gcp_telemetry ? google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-telemetry-inbound"].id : ""
-        control_topic   = local.azure_v2_bridge_to_gcp_control ? google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-inbound"].id : ""
-        api_endpoint    = "europe-west1-pubsub.googleapis.com"
+        route_targets = {
+          for route_id, route in local.azure_v2_outbound_event_routes : route_id => merge(
+            route.channel_class == "telemetry" ? {
+              telemetry_topic = endswith(route.logical_edge_id, "-to-eventing") ? (
+                contains(route.event_types, "telemetry.processed.v1") ? google_pubsub_topic.domain_events["processed"].id : google_pubsub_topic.domain_events["received"].id
+              ) : google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-telemetry-inbound"].id
+              api_endpoint = "europe-west1-pubsub.googleapis.com"
+            } : {},
+            route.channel_class == "control" ? {
+              control_topic = endswith(route.logical_edge_id, "-to-eventing") ? google_pubsub_topic.domain_events["control"].id : google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-inbound"].id
+              api_endpoint  = "europe-west1-pubsub.googleapis.com"
+            } : {},
+          ) if route.destination_provider == "gcp"
+        }
       }
     } : {},
   )
@@ -183,15 +250,15 @@ resource "aws_iam_role_policy" "aws_v2_bridge_target_from_azure" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = concat(
-      local.azure_v2_bridge_to_aws_telemetry ? [{
+      length(local.azure_v2_bridge_aws_telemetry_targets) > 0 ? [{
         Effect   = "Allow"
         Action   = ["kinesis:PutRecord"]
-        Resource = aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["inbound"].arn
+        Resource = local.azure_v2_bridge_aws_telemetry_targets
       }] : [],
-      local.azure_v2_bridge_to_aws_control ? [{
+      length(local.azure_v2_bridge_aws_control_targets) > 0 ? [{
         Effect   = "Allow"
         Action   = ["sns:Publish"]
-        Resource = aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge["inbound"].arn
+        Resource = local.azure_v2_bridge_aws_control_targets
       }] : [],
     )
   })
@@ -251,16 +318,9 @@ resource "google_service_account_iam_member" "gcp_v2_bridge_from_azure" {
 }
 
 resource "google_pubsub_topic_iam_member" "gcp_v2_bridge_from_azure" {
-  for_each = merge(
-    local.azure_v2_bridge_to_gcp_telemetry ? {
-      telemetry = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-telemetry-inbound"].name
-    } : {},
-    local.azure_v2_bridge_to_gcp_control ? {
-      control = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-inbound"].name
-    } : {},
-  )
-  project = local.gcp_project_id
-  topic   = each.value
-  role    = "roles/pubsub.publisher"
-  member  = "serviceAccount:${google_service_account.gcp_v2_bridge_target_from_azure[0].email}"
+  for_each = local.azure_v2_bridge_gcp_topic_targets
+  project  = local.gcp_project_id
+  topic    = each.value
+  role     = "roles/pubsub.publisher"
+  member   = "serviceAccount:${google_service_account.gcp_v2_bridge_target_from_azure[0].email}"
 }

@@ -139,22 +139,27 @@ locals {
     for route in values(local.gcp_v2_outbound_event_routes) : route.channel_class == "telemetry"
   ])
   gcp_v2_remote_telemetry_inbound = anytrue([
-    for route in values(local.gcp_v2_inbound_event_routes) : route.channel_class == "telemetry"
+    for route in values(local.gcp_v2_inbound_event_routes) :
+    route.channel_class == "telemetry" && !endswith(route.logical_edge_id, "-to-eventing")
   ])
   gcp_v2_remote_control_outbound = anytrue([
     for route in values(local.gcp_v2_outbound_event_routes) : route.channel_class == "control"
   ])
   gcp_v2_remote_control_inbound = anytrue([
-    for route in values(local.gcp_v2_inbound_event_routes) : route.channel_class == "control"
+    for route in values(local.gcp_v2_inbound_event_routes) :
+    route.channel_class == "control" && !endswith(route.logical_edge_id, "-to-eventing")
   ])
   gcp_v2_remote_received_inbound = anytrue([
-    for route in values(local.gcp_v2_inbound_event_routes) : contains(route.event_types, "telemetry.received.v1")
+    for route in values(local.gcp_v2_inbound_event_routes) :
+    contains(route.event_types, "telemetry.received.v1") && !endswith(route.logical_edge_id, "-to-eventing")
   ])
   gcp_v2_remote_processed_inbound = anytrue([
-    for route in values(local.gcp_v2_inbound_event_routes) : contains(route.event_types, "telemetry.processed.v1")
+    for route in values(local.gcp_v2_inbound_event_routes) :
+    contains(route.event_types, "telemetry.processed.v1") && !endswith(route.logical_edge_id, "-to-eventing")
   ])
   gcp_v2_remote_inbound_event_types = sort(distinct(flatten([
     for route in values(local.gcp_v2_inbound_event_routes) : route.event_types
+    if !endswith(route.logical_edge_id, "-to-eventing")
   ])))
   gcp_v2_domain_remote_control_outbound = anytrue([
     for route in values(local.gcp_v2_outbound_event_routes) : length(setintersection(

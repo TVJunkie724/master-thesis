@@ -29,6 +29,52 @@ locals {
     for route in values(local.aws_v2_outbound_event_routes) :
     route.destination_provider == "gcp" && route.channel_class == "control"
   ])
+  aws_v2_bridge_azure_telemetry_scopes = merge(
+    anytrue([
+      for route in values(local.aws_v2_outbound_event_routes) :
+      route.destination_provider == "azure" && route.channel_class == "telemetry" && !endswith(route.logical_edge_id, "-to-eventing")
+    ]) ? { remote = azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["inbound"].id } : {},
+    anytrue([
+      for route in values(local.aws_v2_outbound_event_routes) :
+      route.destination_provider == "azure" && route.channel_class == "telemetry" && endswith(route.logical_edge_id, "-to-eventing") && contains(route.event_types, "telemetry.received.v1")
+    ]) ? { event_received = local.azure_event_dedicated ? azurerm_eventhub.domain_telemetry_dedicated["received"].id : azurerm_eventhub.domain_telemetry_standard["received"].id } : {},
+    anytrue([
+      for route in values(local.aws_v2_outbound_event_routes) :
+      route.destination_provider == "azure" && route.channel_class == "telemetry" && endswith(route.logical_edge_id, "-to-eventing") && contains(route.event_types, "telemetry.processed.v1")
+    ]) ? { event_processed = local.azure_event_dedicated ? azurerm_eventhub.domain_telemetry_dedicated["processed"].id : azurerm_eventhub.domain_telemetry_standard["processed"].id } : {},
+  )
+  aws_v2_bridge_azure_control_scopes = merge(
+    anytrue([
+      for route in values(local.aws_v2_outbound_event_routes) :
+      route.destination_provider == "azure" && route.channel_class == "control" && !endswith(route.logical_edge_id, "-to-eventing")
+    ]) ? { remote = azurerm_servicebus_topic.azure_v2_remote_control["inbound"].id } : {},
+    anytrue([
+      for route in values(local.aws_v2_outbound_event_routes) :
+      route.destination_provider == "azure" && route.channel_class == "control" && endswith(route.logical_edge_id, "-to-eventing")
+    ]) ? { event = azurerm_servicebus_topic.domain_control[0].id } : {},
+  )
+  aws_v2_bridge_gcp_topic_targets = merge(
+    anytrue([
+      for route in values(local.aws_v2_outbound_event_routes) :
+      route.destination_provider == "gcp" && route.channel_class == "telemetry" && !endswith(route.logical_edge_id, "-to-eventing")
+    ]) ? { remote_telemetry = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-telemetry-inbound"].name } : {},
+    anytrue([
+      for route in values(local.aws_v2_outbound_event_routes) :
+      route.destination_provider == "gcp" && route.channel_class == "control" && !endswith(route.logical_edge_id, "-to-eventing")
+    ]) ? { remote_control = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-inbound"].name } : {},
+    anytrue([
+      for route in values(local.aws_v2_outbound_event_routes) :
+      route.destination_provider == "gcp" && route.channel_class == "telemetry" && endswith(route.logical_edge_id, "-to-eventing") && contains(route.event_types, "telemetry.received.v1")
+    ]) ? { event_received = google_pubsub_topic.domain_events["received"].name } : {},
+    anytrue([
+      for route in values(local.aws_v2_outbound_event_routes) :
+      route.destination_provider == "gcp" && route.channel_class == "telemetry" && endswith(route.logical_edge_id, "-to-eventing") && contains(route.event_types, "telemetry.processed.v1")
+    ]) ? { event_processed = google_pubsub_topic.domain_events["processed"].name } : {},
+    anytrue([
+      for route in values(local.aws_v2_outbound_event_routes) :
+      route.destination_provider == "gcp" && route.channel_class == "control" && endswith(route.logical_edge_id, "-to-eventing")
+    ]) ? { event_control = google_pubsub_topic.domain_events["control"].name } : {},
+  )
   aws_v2_bridge_telemetry_enabled = local.aws_v2_remote_telemetry_outbound || local.aws_v2_event_remote_telemetry_outbound
   aws_v2_bridge_control_enabled   = local.aws_v2_remote_control_outbound || local.aws_v2_event_remote_control_outbound
   aws_v2_event_bridge_streams = local.aws_event_enabled ? merge(
@@ -53,17 +99,38 @@ locals {
   aws_v2_bridge_destinations = merge(
     local.aws_v2_bridge_to_azure_enabled ? {
       azure = {
-        telemetry_namespace = local.aws_v2_bridge_to_azure_telemetry ? "${azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].name}.servicebus.windows.net" : ""
-        telemetry_entity    = local.aws_v2_bridge_to_azure_telemetry ? azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["inbound"].name : ""
-        control_namespace   = local.aws_v2_bridge_to_azure_control ? "${azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].name}.servicebus.windows.net" : ""
-        control_entity      = local.aws_v2_bridge_to_azure_control ? azurerm_servicebus_topic.azure_v2_remote_control["inbound"].name : ""
+        route_targets = {
+          for route_id, route in local.aws_v2_outbound_event_routes : route_id => merge(
+            route.channel_class == "telemetry" ? {
+              telemetry_namespace = endswith(route.logical_edge_id, "-to-eventing") ? "${local.azure_event_namespace_name}.servicebus.windows.net" : "${azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].name}.servicebus.windows.net"
+              telemetry_entity = endswith(route.logical_edge_id, "-to-eventing") ? (
+                contains(route.event_types, "telemetry.processed.v1") ? local.azure_event_hub_names.processed : local.azure_event_hub_names.received
+              ) : azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["inbound"].name
+            } : {},
+            route.channel_class == "control" ? {
+              control_namespace = endswith(route.logical_edge_id, "-to-eventing") ? "${azurerm_servicebus_namespace.eventing[0].name}.servicebus.windows.net" : "${azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].name}.servicebus.windows.net"
+              control_entity    = endswith(route.logical_edge_id, "-to-eventing") ? azurerm_servicebus_topic.domain_control[0].name : azurerm_servicebus_topic.azure_v2_remote_control["inbound"].name
+            } : {},
+          ) if route.destination_provider == "azure"
+        }
       }
     } : {},
     local.aws_v2_bridge_to_gcp_enabled ? {
       gcp = {
-        telemetry_topic = local.aws_v2_bridge_to_gcp_telemetry ? google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-telemetry-inbound"].id : ""
-        control_topic   = local.aws_v2_bridge_to_gcp_control ? google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-inbound"].id : ""
-        api_endpoint    = "europe-west1-pubsub.googleapis.com"
+        route_targets = {
+          for route_id, route in local.aws_v2_outbound_event_routes : route_id => merge(
+            route.channel_class == "telemetry" ? {
+              telemetry_topic = endswith(route.logical_edge_id, "-to-eventing") ? (
+                contains(route.event_types, "telemetry.processed.v1") ? google_pubsub_topic.domain_events["processed"].id : google_pubsub_topic.domain_events["received"].id
+              ) : google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-telemetry-inbound"].id
+              api_endpoint = "europe-west1-pubsub.googleapis.com"
+            } : {},
+            route.channel_class == "control" ? {
+              control_topic = endswith(route.logical_edge_id, "-to-eventing") ? google_pubsub_topic.domain_events["control"].id : google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-inbound"].id
+              api_endpoint  = "europe-west1-pubsub.googleapis.com"
+            } : {},
+          ) if route.destination_provider == "gcp"
+        }
       }
     } : {},
   )
@@ -420,16 +487,16 @@ resource "azurerm_federated_identity_credential" "azure_v2_bridge_from_aws" {
 }
 
 resource "azurerm_role_assignment" "azure_v2_bridge_from_aws_telemetry" {
-  count                = local.aws_v2_bridge_to_azure_telemetry ? 1 : 0
-  scope                = azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["inbound"].id
+  for_each             = local.aws_v2_bridge_azure_telemetry_scopes
+  scope                = each.value
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = azurerm_user_assigned_identity.azure_v2_bridge_target_from_aws[0].principal_id
   principal_type       = "ServicePrincipal"
 }
 
 resource "azurerm_role_assignment" "azure_v2_bridge_from_aws_control" {
-  count                = local.aws_v2_bridge_to_azure_control ? 1 : 0
-  scope                = azurerm_servicebus_topic.azure_v2_remote_control["inbound"].id
+  for_each             = local.aws_v2_bridge_azure_control_scopes
+  scope                = each.value
   role_definition_name = "Azure Service Bus Data Sender"
   principal_id         = azurerm_user_assigned_identity.azure_v2_bridge_target_from_aws[0].principal_id
   principal_type       = "ServicePrincipal"
@@ -485,16 +552,9 @@ resource "google_service_account_iam_member" "gcp_v2_bridge_from_aws" {
 }
 
 resource "google_pubsub_topic_iam_member" "gcp_v2_bridge_from_aws" {
-  for_each = merge(
-    local.aws_v2_bridge_to_gcp_telemetry ? {
-      telemetry = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-telemetry-inbound"].name
-    } : {},
-    local.aws_v2_bridge_to_gcp_control ? {
-      control = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-inbound"].name
-    } : {},
-  )
-  project = local.gcp_project_id
-  topic   = each.value
-  role    = "roles/pubsub.publisher"
-  member  = "serviceAccount:${google_service_account.gcp_v2_bridge_target_from_aws[0].email}"
+  for_each = local.aws_v2_bridge_gcp_topic_targets
+  project  = local.gcp_project_id
+  topic    = each.value
+  role     = "roles/pubsub.publisher"
+  member   = "serviceAccount:${google_service_account.gcp_v2_bridge_target_from_aws[0].email}"
 }

@@ -45,7 +45,8 @@ locals {
     route.channel_class == "telemetry" && startswith(route.logical_edge_id, "edge.eventing-to-")
   ])
   azure_v2_remote_telemetry_inbound = anytrue([
-    for route in values(local.azure_v2_inbound_event_routes) : route.channel_class == "telemetry"
+    for route in values(local.azure_v2_inbound_event_routes) :
+    route.channel_class == "telemetry" && !endswith(route.logical_edge_id, "-to-eventing")
   ])
   azure_v2_remote_telemetry_routes = {
     for direction, enabled in {
@@ -63,7 +64,8 @@ locals {
     route.channel_class == "control" && startswith(route.logical_edge_id, "edge.eventing-to-")
   ])
   azure_v2_remote_control_inbound = anytrue([
-    for route in values(local.azure_v2_inbound_event_routes) : route.channel_class == "control"
+    for route in values(local.azure_v2_inbound_event_routes) :
+    route.channel_class == "control" && !endswith(route.logical_edge_id, "-to-eventing")
   ])
   azure_v2_remote_control_routes = {
     for direction, enabled in {

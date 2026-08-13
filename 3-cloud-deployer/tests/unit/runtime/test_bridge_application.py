@@ -236,6 +236,91 @@ def test_one_source_application_supports_two_remote_destination_providers(
     assert len(composition_fakes) >= 4
 
 
+def test_one_destination_provider_uses_exact_target_for_each_event_route(
+    composition_fakes,
+):
+    received = _route("aws", "azure")
+    received.update(
+        {
+            "route_id": "graph.ingestion.eventing.telemetry",
+            "logical_edge_id": "edge.ingestion-to-eventing",
+        }
+    )
+    processed = _route("aws", "azure")
+    processed.update(
+        {
+            "route_id": "graph.processing.eventing.telemetry",
+            "logical_edge_id": "edge.processing-to-eventing",
+            "event_types": ["telemetry.processed.v1"],
+        }
+    )
+    bridge = application.build_bridge_application(
+        source_provider="aws",
+        routes_json=json.dumps([received, processed]),
+        destinations_json=json.dumps(
+            {
+                "azure": {
+                    "route_targets": {
+                        received["route_id"]: {
+                            "telemetry_namespace": (
+                                "twin01.servicebus.windows.net"
+                            ),
+                            "telemetry_entity": "received",
+                        },
+                        processed["route_id"]: {
+                            "telemetry_namespace": (
+                                "twin01.servicebus.windows.net"
+                            ),
+                            "telemetry_entity": "processed",
+                        },
+                    }
+                }
+            }
+        ),
+        identities_json=json.dumps(
+            {"azure": _identity("aws", "azure")}
+        ),
+    )
+
+    publishers = bridge._route_publishers
+    assert set(publishers) == {
+        "graph.ingestion.eventing.telemetry",
+        "graph.processing.eventing.telemetry",
+    }
+    assert (
+        publishers["graph.ingestion.eventing.telemetry"]
+        .configuration[0]
+        .telemetry_entity
+        == "received"
+    )
+    assert (
+        publishers["graph.processing.eventing.telemetry"]
+        .configuration[0]
+        .telemetry_entity
+        == "processed"
+    )
+
+
+def test_route_target_configuration_requires_every_exact_route(
+    composition_fakes,
+):
+    route = _route("aws", "azure")
+    with pytest.raises(
+        BridgeContractError,
+        match="INVALID_DESTINATION_CONFIGURATION",
+    ):
+        application.build_bridge_application(
+            source_provider="aws",
+            routes_json=json.dumps([route]),
+            destinations_json=json.dumps(
+                {"azure": {"route_targets": {}}}
+            ),
+            identities_json=json.dumps(
+                {"azure": _identity("aws", "azure")}
+            ),
+        )
+
+
 def test_configuration_rejects_missing_extra_or_same_cloud_targets(
     composition_fakes,
 ):
