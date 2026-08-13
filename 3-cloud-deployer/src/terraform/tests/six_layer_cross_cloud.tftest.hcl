@@ -56,14 +56,13 @@ run "six_layer_aws_azure_gcp_routes_event_targets_without_hidden_landing" {
     aws_outbound_identity_destinations    = ["azure"]
     aws_outbound_identity_issuer          = "https://token.actions.githubusercontent.com"
     azure_event_hubs_throughput_units     = 1
-    azure_event_partitions                = 4
-    azure_event_retention_hours           = 24
     enable_aws_logging                    = false
     enable_azure_logging                  = false
     enable_gcp_logging                    = false
     resolved_component_dimensions = {
-      "dimension.azure.azure.event-hubs-standard-small-medium.throughput_unit_hours" = "730"
+      "dimension.azure.azure.event-hubs-standard-small-medium.throughput_unit_hours" = "0"
       "dimension.azure.azure.event-hubs-standard-small-medium.capacity_unit_hours"   = "0"
+      "dimension.azure.azure.event-hubs-dedicated-large.capacity_unit_hours"         = "4380"
       "dimension.gcp.gcp.cloud-run-storage-job.task_count"                           = "1"
     }
     resolved_cross_cloud_routes = [
@@ -180,7 +179,12 @@ run "six_layer_aws_azure_gcp_routes_event_targets_without_hidden_landing" {
 
   assert {
     condition = (
-      length(azurerm_eventhub.domain_telemetry_standard) == 3 &&
+      length(azapi_resource.event_hubs_dedicated_cluster) == 1 &&
+      azapi_resource.event_hubs_dedicated_cluster[0].body.sku.capacity == 6 &&
+      length(azurerm_eventhub_namespace.eventing_standard) == 0 &&
+      length(azurerm_eventhub_namespace.eventing_dedicated) == 1 &&
+      length(azurerm_eventhub.domain_telemetry_dedicated) == 3 &&
+      azurerm_eventhub.domain_telemetry_dedicated["received"].partition_count == 200 &&
       length(azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge) == 0 &&
       length(azurerm_servicebus_topic.azure_v2_remote_control) == 0 &&
       toset(keys(azurerm_role_assignment.azure_v2_bridge_from_aws_telemetry)) == toset(["event_received"]) &&
