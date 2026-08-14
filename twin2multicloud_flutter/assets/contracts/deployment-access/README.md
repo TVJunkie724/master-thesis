@@ -6,11 +6,13 @@ for the two interactive surfaces of a deployed Twin2MultiCloud PoC:
 - L4 semantic twin inspection;
 - L5 raw and rollup visualization.
 
-An available snapshot contains exactly one L4 and one L5 surface. Historical
-`five-layer-baseline@1` deployments use the explicit unsupported form instead
-of fabricated links. The contract is closed at every object boundary and does
-not accept Terraform output containers, provider credentials, datasource keys,
-tokens, certificates, or passwords.
+An available snapshot contains exactly one L4 and one L5 surface. Its internal
+evidence is valid for `five-layer-baseline@2` and for the inheriting
+`six-layer-eventing@1` profile. Historical `five-layer-baseline@1` deployments
+use the explicit unsupported form instead of fabricated links. The contract is
+closed at every object boundary and does not accept Terraform output
+containers, provider credentials, datasource keys, tokens, certificates, or
+passwords.
 
 `deployment-access-credential.v1` is intentionally separate. It is valid only
 for the explicit GCP Grafana Viewer rotation operation and is returned once.

@@ -28,11 +28,16 @@ class _Config:
         return self.provider
 
 
-def _context(provider: str = "gcp") -> SimpleNamespace:
+def _context(
+    provider: str = "gcp",
+    *,
+    profile_id: str = "five-layer-baseline",
+    profile_version: str = "2",
+) -> SimpleNamespace:
     return SimpleNamespace(
         config=_Config(provider),
         resolved_deployment_graph=SimpleNamespace(
-            profile_ref={"id": "five-layer-baseline", "version": "2"}
+            profile_ref={"id": profile_id, "version": profile_version}
         ),
     )
 
@@ -107,6 +112,24 @@ def test_rotation_patches_only_viewer_secret_replaces_pod_and_reveals_once(
     assert ("patch", "t2mc-grafana", "grafana-runtime", credential["password"]) in fake.calls
     assert ("delete", "t2mc-grafana", "grafana-old") in fake.calls
     assert ("ready", "t2mc-grafana", "app=grafana", {"old-uid"}) in fake.calls
+
+
+def test_rotation_is_available_for_inheriting_six_layer_profile(monkeypatch) -> None:
+    fake = _FakeClient()
+    monkeypatch.setattr(
+        "src.deployment_access.gcp_rotation._bearer_token", lambda _context: "token"
+    )
+
+    credential = rotate_gcp_grafana_viewer(
+        _context(profile_id="six-layer-eventing", profile_version="1"),
+        _outputs(),
+        client_factory=fake,
+        password_factory=lambda: "fixture-six-layer-password-1234",
+        sleep=lambda _seconds: None,
+    )
+
+    assert credential["provider"] == "gcp"
+    assert credential["password"] == "fixture-six-layer-password-1234"
 
 
 def test_rotation_rejects_non_gcp_l5_before_authorization(monkeypatch) -> None:

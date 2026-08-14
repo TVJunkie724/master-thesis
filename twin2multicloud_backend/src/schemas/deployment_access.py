@@ -27,6 +27,12 @@ SURFACE_MATRIX = {
     ("l5", "azure"): ("azure_managed_grafana", "azure_entra", "none"),
     ("l5", "gcp"): ("gcp_grafana_oss", "generated_viewer", "rotate"),
 }
+SUPPORTED_DEPLOYMENT_ACCESS_PROFILES = frozenset(
+    {
+        ("five-layer-baseline", "2"),
+        ("six-layer-eventing", "1"),
+    }
+)
 
 
 class _ClosedModel(BaseModel):
@@ -120,13 +126,18 @@ class DeploymentAccessSurface(_ClosedModel):
 
 class DeploymentAccessEvidence(_ClosedModel):
     schema_version: Literal["deployment-access-evidence.v1"]
-    profile_id: Literal["five-layer-baseline"]
-    profile_version: Literal["2"]
+    profile_id: Literal["five-layer-baseline", "six-layer-eventing"]
+    profile_version: Literal["1", "2"]
     generated_at: datetime
     surfaces: tuple[DeploymentAccessSurface, DeploymentAccessSurface]
 
     @model_validator(mode="after")
     def contains_exact_l4_l5(self) -> "DeploymentAccessEvidence":
+        if (
+            self.profile_id,
+            self.profile_version,
+        ) not in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES:
+            raise ValueError("evidence profile/version is not supported")
         if [surface.layer for surface in self.surfaces] != ["l4", "l5"]:
             raise ValueError("evidence must contain ordered L4 and L5 surfaces")
         return self

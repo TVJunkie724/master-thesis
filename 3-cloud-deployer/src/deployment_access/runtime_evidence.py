@@ -28,6 +28,12 @@ INTERNAL_EVIDENCE_KEYS = frozenset(
         "data_probe_revision",
     }
 )
+SUPPORTED_DEPLOYMENT_ACCESS_PROFILES = frozenset(
+    {
+        ("five-layer-baseline", "2"),
+        ("six-layer-eventing", "1"),
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -45,7 +51,7 @@ class SurfaceRuntimeEvidence:
 
 @dataclass(frozen=True)
 class DeploymentAccessRuntimeEvidence:
-    """Exact L4/L5 proof for one successful Five-layer v2 deployment."""
+    """Exact L4/L5 proof for one successful active-profile deployment."""
 
     surfaces: tuple[SurfaceRuntimeEvidence, SurfaceRuntimeEvidence]
 
@@ -150,7 +156,7 @@ def collect_deployment_access_runtime_evidence(
     if (
         profile_ref.get("id"),
         str(profile_ref.get("version")),
-    ) != ("five-layer-baseline", "2"):
+    ) not in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES:
         return None
     if not isinstance(outputs, dict):
         raise DeploymentAccessRuntimeEvidenceError("Terraform outputs must be an object")

@@ -17,6 +17,8 @@ from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.oauth2 import service_account
 import requests
 
+from .runtime_evidence import SUPPORTED_DEPLOYMENT_ACCESS_PROFILES
+
 
 class GcpViewerRotationError(RuntimeError):
     """Safe failure raised by the bounded GCP Viewer rotation adapter."""
@@ -254,11 +256,10 @@ def rotate_gcp_grafana_viewer(
     graph = getattr(context, "resolved_deployment_graph", None)
     profile = getattr(graph, "profile_ref", {}) if graph is not None else {}
     l5_provider = context.config.get_provider_for_layer("5")
-    if (
-        profile.get("id") != "five-layer-baseline"
-        or str(profile.get("version")) != "2"
-        or str(l5_provider).lower() not in {"gcp", "google"}
-    ):
+    selected_profile = (profile.get("id"), str(profile.get("version")))
+    if selected_profile not in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES or str(
+        l5_provider
+    ).lower() not in {"gcp", "google"}:
         raise GcpViewerRotationError("GCP Grafana rotation is not available")
     bundle = _rotation_bundle(outputs)
     try:

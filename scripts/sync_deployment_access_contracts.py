@@ -48,6 +48,10 @@ SURFACE_MATRIX = {
     ("l5", "azure"): ("azure_managed_grafana", "azure_entra", "none"),
     ("l5", "gcp"): ("gcp_grafana_oss", "generated_viewer", "rotate"),
 }
+EVIDENCE_PROFILES = (
+    ("five-layer-baseline", "2"),
+    ("six-layer-eventing", "1"),
+)
 
 
 def _files(root: Path) -> list[Path]:
@@ -190,14 +194,15 @@ def validate_source() -> str:
     evidence_validator = validators["deployment-access-evidence.schema.json"]
     for snapshot in _placement_snapshots():
         validate_snapshot(snapshot, access_validator)
-        evidence = {
-            "schema_version": "deployment-access-evidence.v1",
-            "profile_id": "five-layer-baseline",
-            "profile_version": "2",
-            "generated_at": snapshot["generated_at"],
-            "surfaces": snapshot["surfaces"],
-        }
-        evidence_validator.validate(evidence)
+        for profile_id, profile_version in EVIDENCE_PROFILES:
+            evidence = {
+                "schema_version": "deployment-access-evidence.v1",
+                "profile_id": profile_id,
+                "profile_version": profile_version,
+                "generated_at": snapshot["generated_at"],
+                "surfaces": snapshot["surfaces"],
+            }
+            evidence_validator.validate(evidence)
     validate_snapshot(
         _load("fixtures/valid/unsupported-historical.json"), access_validator
     )

@@ -17,6 +17,7 @@ from src.schemas.deployment_access import (
     DeploymentAccessEvidence,
     DeploymentAccessCredential,
     DeploymentAccessSnapshot,
+    SUPPORTED_DEPLOYMENT_ACCESS_PROFILES,
 )
 from src.services.service_errors import (
     ConflictError,
@@ -71,7 +72,7 @@ class DeploymentAccessService:
                 reason_code="unsupported_historical_profile",
                 surfaces=(),
             )
-        if profile != ("five-layer-baseline", "2"):
+        if profile not in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES:
             raise ConflictError("DEPLOYMENT_ACCESS_PROFILE_NOT_SUPPORTED")
         try:
             evidence = DeploymentAccessEvidence.model_validate(

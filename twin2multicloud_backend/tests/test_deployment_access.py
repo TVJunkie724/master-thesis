@@ -56,11 +56,17 @@ def _surface(layer: str, provider: str) -> dict:
     }
 
 
-def _evidence(l4: str, l5: str) -> dict:
+def _evidence(
+    l4: str,
+    l5: str,
+    *,
+    profile_id: str = "five-layer-baseline",
+    profile_version: str = "2",
+) -> dict:
     return {
         "schema_version": "deployment-access-evidence.v1",
-        "profile_id": "five-layer-baseline",
-        "profile_version": "2",
+        "profile_id": profile_id,
+        "profile_version": profile_version,
         "generated_at": NOW.isoformat().replace("+00:00", "Z"),
         "surfaces": [_surface("l4", l4), _surface("l5", l5)],
     }
@@ -69,6 +75,7 @@ def _evidence(l4: str, l5: str) -> dict:
 def _seed(
     db,
     *,
+    profile_id: str = "five-layer-baseline",
     profile_version: str = "2",
     l4: str = "aws",
     l5: str = "aws",
@@ -87,10 +94,21 @@ def _seed(
         status="success",
         started_at=NOW,
         completed_at=NOW,
-        profile_id="five-layer-baseline",
+        profile_id=profile_id,
         profile_version=profile_version,
         deployment_access_evidence=(
-            _evidence(l4, l5) if profile_version == "2" else None
+            _evidence(
+                l4,
+                l5,
+                profile_id=profile_id,
+                profile_version=profile_version,
+            )
+            if (profile_id, profile_version)
+            in {
+                ("five-layer-baseline", "2"),
+                ("six-layer-eventing", "1"),
+            }
+            else None
         ),
         terraform_outputs={"unrelated_password": "must-not-be-read"},
     )
@@ -145,8 +163,24 @@ def _rotation_service(db, deployer, *, blocker=None) -> DeploymentAccessService:
 
 @pytest.mark.parametrize("l4", ["aws", "azure", "gcp"])
 @pytest.mark.parametrize("l5", ["aws", "azure", "gcp"])
-def test_all_nine_placements_return_exact_l4_l5(db, l4: str, l5: str) -> None:
-    user, twin, deployment = _seed(db, l4=l4, l5=l5)
+@pytest.mark.parametrize(
+    ("profile_id", "profile_version"),
+    [("five-layer-baseline", "2"), ("six-layer-eventing", "1")],
+)
+def test_all_nine_placements_return_exact_l4_l5(
+    db,
+    l4: str,
+    l5: str,
+    profile_id: str,
+    profile_version: str,
+) -> None:
+    user, twin, deployment = _seed(
+        db,
+        l4=l4,
+        l5=l5,
+        profile_id=profile_id,
+        profile_version=profile_version,
+    )
 
     snapshot = _service(db).get_access(twin.id, user.id)
 
@@ -206,6 +240,18 @@ def test_schema_rejects_provider_auth_mismatch_and_secret_field() -> None:
     evidence["surfaces"][1]["password"] = "secret"
 
     with pytest.raises(PydanticValidationError):
+        DeploymentAccessEvidence.model_validate(evidence)
+
+
+def test_schema_rejects_crossed_active_profile_versions() -> None:
+    evidence = _evidence(
+        "aws",
+        "aws",
+        profile_id="six-layer-eventing",
+        profile_version="2",
+    )
+
+    with pytest.raises(PydanticValidationError, match="profile/version"):
         DeploymentAccessEvidence.model_validate(evidence)
 
 

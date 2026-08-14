@@ -14,6 +14,7 @@ from referencing import Registry, Resource
 from .runtime_evidence import (
     DeploymentAccessRuntimeEvidence,
     DeploymentAccessRuntimeEvidenceError,
+    SUPPORTED_DEPLOYMENT_ACCESS_PROFILES,
     surface_output_evidence,
 )
 
@@ -295,10 +296,10 @@ def project_deployment_access_evidence(
     *,
     generated_at: datetime | None = None,
 ) -> dict[str, Any] | None:
-    """Return exact Five-layer v2 evidence, or None for another profile."""
+    """Return exact active-profile L4/L5 evidence, or None otherwise."""
 
     profile_id, profile_version = _profile_ref(context)
-    if (profile_id, profile_version) != ("five-layer-baseline", "2"):
+    if (profile_id, profile_version) not in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES:
         return None
     if not isinstance(outputs, dict):
         raise DeploymentAccessProjectionError("Terraform outputs must be an object")

@@ -30,11 +30,17 @@ class _Config:
         return self.providers[f"layer_{layer}_provider"]
 
 
-def _context(l4: str, l5: str, *, version: str = "2") -> SimpleNamespace:
+def _context(
+    l4: str,
+    l5: str,
+    *,
+    profile_id: str = "five-layer-baseline",
+    version: str = "2",
+) -> SimpleNamespace:
     return SimpleNamespace(
         config=_Config(l4, l5),
         resolved_deployment_graph=SimpleNamespace(
-            profile_ref={"id": "five-layer-baseline", "version": version}
+            profile_ref={"id": profile_id, "version": version}
         ),
     )
 
@@ -160,17 +166,27 @@ def _outputs() -> dict:
 
 @pytest.mark.parametrize("l4", ["aws", "azure", "gcp"])
 @pytest.mark.parametrize("l5", ["aws", "azure", "gcp"])
+@pytest.mark.parametrize(
+    ("profile_id", "version"),
+    [("five-layer-baseline", "2"), ("six-layer-eventing", "1")],
+)
 def test_projects_exact_two_safe_surfaces_for_all_nine_placements(
-    l4: str, l5: str
+    l4: str, l5: str, profile_id: str, version: str
 ) -> None:
     outputs = _outputs()
     outputs[f"{l4}_component_twin_state_output"]["admin_password"] = "must-not-cross"
 
     evidence = project_deployment_access_evidence(
-        _context(l4, l5), outputs, generated_at=FIXED_TIME
+        _context(l4, l5, profile_id=profile_id, version=version),
+        outputs,
+        generated_at=FIXED_TIME,
     )
 
     assert evidence is not None
+    assert (evidence["profile_id"], evidence["profile_version"]) == (
+        profile_id,
+        version,
+    )
     assert evidence["generated_at"] == "2026-07-31T12:00:00Z"
     assert [(item["layer"], item["provider"]) for item in evidence["surfaces"]] == [
         ("l4", l4),
@@ -186,10 +202,14 @@ def test_projects_exact_two_safe_surfaces_for_all_nine_placements(
 
 @pytest.mark.parametrize("l4", ["aws", "azure", "gcp"])
 @pytest.mark.parametrize("l5", ["aws", "azure", "gcp"])
+@pytest.mark.parametrize(
+    ("profile_id", "version"),
+    [("five-layer-baseline", "2"), ("six-layer-eventing", "1")],
+)
 def test_successful_runtime_gates_mark_all_nine_placements_content_ready(
-    l4: str, l5: str
+    l4: str, l5: str, profile_id: str, version: str
 ) -> None:
-    context = _context(l4, l5)
+    context = _context(l4, l5, profile_id=profile_id, version=version)
     outputs = _outputs()
     context.deployment_access_runtime_evidence = (
         collect_deployment_access_runtime_evidence(context, outputs)
@@ -213,6 +233,17 @@ def test_historical_profile_has_no_deployer_access_evidence() -> None:
     assert (
         project_deployment_access_evidence(
             _context("aws", "aws", version="1"),
+            _outputs(),
+            generated_at=FIXED_TIME,
+        )
+        is None
+    )
+
+
+def test_unknown_profile_has_no_deployer_access_evidence() -> None:
+    assert (
+        project_deployment_access_evidence(
+            _context("aws", "aws", profile_id="unknown-profile", version="1"),
             _outputs(),
             generated_at=FIXED_TIME,
         )
