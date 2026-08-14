@@ -105,6 +105,10 @@ MANAGEMENT_CHEAPEST_EXPIRY = {
     "twin2multicloud_backend/src/services/optimizer_config_projection.py": "8.7",
 }
 PROVIDER_KEY_CONSUMERS = {
+    "twin2multicloud_backend/src/services/deployer_config_validation_service.py": (
+        "layer_4_provider",
+        "layer_5_provider",
+    ),
     "twin2multicloud_backend/src/services/deployment_service.py": (
         "layer_1_provider",
         "layer_2_provider",

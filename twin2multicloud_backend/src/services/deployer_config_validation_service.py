@@ -11,6 +11,7 @@ from src.models.deployer_config import DeployerConfiguration
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.deployer_config import ConfigValidationRequest, ConfigValidationResponse
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
+from src.services.architecture_projection_service import provider_by_logical_component
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import EntityNotFoundError, ValidationError
 
@@ -137,8 +138,7 @@ class DeployerConfigValidationService:
     @staticmethod
     def _phase8_user_config_context(twin) -> dict[str, str] | None:
         selection = twin.architecture_selection
-        optimizer = twin.optimizer_config
-        if selection is None or optimizer is None:
+        if selection is None:
             return None
         identity = (selection.profile_id, selection.profile_version)
         if identity not in {
@@ -147,15 +147,20 @@ class DeployerConfigValidationService:
         }:
             return None
 
-        def normalize(value: str | None) -> str:
-            provider = (value or "").lower()
-            return "gcp" if provider == "google" else provider
+        providers = provider_by_logical_component(twin)
+        l4_provider = providers.get("component.twin-state")
+        l5_provider = providers.get("component.visualization")
+        if l4_provider is None or l5_provider is None:
+            raise ValidationError(
+                "Select one complete optimized architecture before validating "
+                "Phase 8 user access."
+            )
 
         return {
             "architecture_profile_id": selection.profile_id,
             "architecture_profile_version": selection.profile_version,
-            "layer_4_provider": normalize(optimizer.cheapest_l4),
-            "layer_5_provider": normalize(optimizer.cheapest_l5),
+            "layer_4_provider": l4_provider,
+            "layer_5_provider": l5_provider,
         }
 
     def _mark_validation_success(self, twin_id: str, twin, config_type: str) -> None:
