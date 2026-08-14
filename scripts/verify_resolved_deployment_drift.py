@@ -211,6 +211,26 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
             ),
         ),
         Stage(
+            "Phase 8 profile evaluation evidence",
+            _compose_run(
+                project,
+                "2twin2clouds",
+                "sh",
+                "-lc",
+                (
+                    "python scripts/phase_08_profile_evaluation/validate.py "
+                    "&& python -m pytest -q -p no:cacheprovider "
+                    "scripts/phase_08_profile_evaluation/tests "
+                    "&& ruff check scripts/phase_08_profile_evaluation "
+                    "&& ruff format --check scripts/phase_08_profile_evaluation"
+                ),
+                root_mount=True,
+                environment=(
+                    "RUFF_CACHE_DIR=/tmp/phase-8-profile-evaluation-ruff-cache",
+                ),
+            ),
+        ),
+        Stage(
             "Canonical contract and root tests",
             _compose_run(
                 project,

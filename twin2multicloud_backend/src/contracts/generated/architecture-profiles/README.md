@@ -15,12 +15,14 @@ architecture model. Version 1 separates four records:
   deployment dimensions.
 
 The semantic registry, schemas, fixtures, and shared runtime are the Phase 8.2
-contract boundary. Phase 8.3 adds generated, versioned production definitions
-below `definitions/`: the baseline profile, AWS/Azure/GCP implementation
-profiles, the deployment component catalog, pinned source digests, and
-completeness scenarios. These definitions remain dark/read-only. They do not
-make profiles selectable, modify calculations, persist new state, compile
-packages, or execute Terraform.
+contract boundary. Phase 8.3 added generated, versioned production definitions
+below `definitions/`: the baseline profiles, AWS/Azure/GCP implementation
+profiles, deployment component catalogs, pinned source digests, and
+completeness scenarios. Phase 8.9 activated the reviewed
+`five-layer-baseline@2` and `six-layer-eventing@1` definitions across the
+Optimizer, Management API, Deployer, and Flutter for offline calculation and
+preflight. Historical `five-layer-baseline@1` remains read-only. Actual cloud
+deployment stays fail-closed while a resolved supervised live gate is open.
 
 ## Source And Generated Copies
 
@@ -59,5 +61,6 @@ digest field and audit timestamps. Existing resolutions never upgrade
 implicitly.
 
 `ResolvedDeploymentSpecification v1` remains unchanged and valid only for
-`five-layer-baseline@1`. An Eventing profile requires a later deployment
-specification version; no Eventing value may be added to the closed v1 enum.
+`five-layer-baseline@1`. Both active profiles use RTA v2/RDS v2 and Manifest
+v4; Six-layer adds its Eventing component and edges without modifying the
+closed v1 enum or the inherited Five-layer v2 L1-L5 contract.

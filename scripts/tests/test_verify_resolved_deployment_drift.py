@@ -97,6 +97,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
                 "Compose model",
                 "Verification images",
                 "Phase 8 decision evidence",
+                "Phase 8 profile evaluation evidence",
                 "Canonical contract and root tests",
                 "Optimizer formula-to-selection drift",
                 "Management persistence-to-manifest drift",
@@ -145,6 +146,23 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         )
         self.assertIn(
             "scripts/phase_08_service_bundles/freeze_decision.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_profile_evaluation/validate.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_profile_evaluation/tests",
+            rendered,
+        )
+        self.assertIn(
+            "ruff format --check scripts/phase_08_profile_evaluation",
+            rendered,
+        )
+        self.assertIn("-p no:cacheprovider", rendered)
+        self.assertIn(
+            "RUFF_CACHE_DIR=/tmp/phase-8-profile-evaluation-ruff-cache",
             rendered,
         )
         self.assertIn("tests/test_deployment_drift_matrix.py", rendered)
