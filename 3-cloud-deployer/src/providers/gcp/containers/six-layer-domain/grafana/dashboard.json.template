@@ -142,7 +142,7 @@
   "schemaVersion": 42,
   "tags": [
     "twin2multicloud",
-    "five-layer-baseline@2",
+    "six-layer-eventing@1",
     "gcp"
   ],
   "templating": {
@@ -228,4 +228,3 @@
   "version": 1,
   "weekStart": ""
 }
-

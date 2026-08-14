@@ -1,4 +1,4 @@
-"""Bounded AWS runtime handlers for ``five-layer-baseline@2``.
+"""Bounded AWS runtime handlers for ``six-layer-eventing@1``.
 
 One content-addressed ZIP is reused by the event adapter, processor, and
 raw-history reader. Each Lambda selects an explicit handler entry point.
@@ -22,7 +22,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 
-PROFILE = "five-layer-baseline@2"
+PROFILE = "six-layer-eventing@1"
 MAX_POINTS = 1000
 MAX_EVENT_BYTES = 96 * 1024
 MAX_SOURCE_ID_BYTES = 128

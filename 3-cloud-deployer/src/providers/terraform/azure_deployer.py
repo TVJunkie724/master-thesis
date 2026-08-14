@@ -28,6 +28,15 @@ def _is_active_phase8_profile(context: "DeploymentContext") -> bool:
     ) in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES
 
 
+def _active_phase8_profile(context: "DeploymentContext") -> str:
+    graph = getattr(context, "resolved_deployment_graph", None)
+    profile_ref = getattr(graph, "profile_ref", {}) if graph is not None else {}
+    profile = (profile_ref.get("id"), str(profile_ref.get("version")))
+    if profile not in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES:
+        raise RuntimeError("Active Phase 8 architecture profile is required")
+    return f"{profile[0]}@{profile[1]}"
+
+
 def upload_dtdl_models(context: "DeploymentContext", project_path: Path) -> None:
     """Upload DTDL models to Azure Digital Twins."""
     logger.info("  Uploading DTDL models...")
@@ -93,6 +102,7 @@ def configure_azure_grafana(
             function_app_name=str(bundle["reader_function_name"]),
             device_id=device_id,
             metric=metric,
+            architecture_profile=_active_phase8_profile(context),
         )
         logger.info("  Azure Grafana configured")
         return

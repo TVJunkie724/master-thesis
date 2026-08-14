@@ -602,7 +602,11 @@ def _history_target(
     }
 
 
-def _v2_dashboard(device_id: str, metric: str) -> dict[str, Any]:
+def _v2_dashboard(
+    device_id: str,
+    metric: str,
+    architecture_profile: str,
+) -> dict[str, Any]:
     datasource = {"type": JSON_DATASOURCE_PLUGIN_ID, "uid": V2_DATASOURCE_UID}
     field_config = {
         "defaults": {
@@ -621,10 +625,10 @@ def _v2_dashboard(device_id: str, metric: str) -> dict[str, Any]:
         "uid": V2_DASHBOARD_UID,
         "title": "Raw & Rollups",
         "description": (
-            "Five-layer v2 PoC view over provider-local L3 hot storage. "
+            f"{architecture_profile} PoC view over provider-local L3 hot storage. "
             "Empty panels mean that no simulator telemetry exists in the selected interval."
         ),
-        "tags": ["five-layer-baseline@2", "thesis-poc"],
+        "tags": [architecture_profile, "thesis-poc"],
         "timezone": "browser",
         "schemaVersion": 41,
         "version": 0,
@@ -691,6 +695,7 @@ def _upsert_v2_folder_and_dashboard(
     grafana_token: str,
     device_id: str,
     metric: str,
+    architecture_profile: str,
 ) -> None:
     headers = _headers(grafana_token)
     response = requests.get(
@@ -724,9 +729,9 @@ def _upsert_v2_folder_and_dashboard(
         f"{grafana_url}/api/dashboards/db",
         headers=headers,
         json={
-            "dashboard": _v2_dashboard(device_id, metric),
+            "dashboard": _v2_dashboard(device_id, metric, architecture_profile),
             "folderUid": V2_FOLDER_UID,
-            "message": "Provision Five-layer v2 PoC dashboard",
+            "message": f"Provision {architecture_profile} PoC dashboard",
             "overwrite": True,
         },
         timeout=30,
@@ -792,8 +797,9 @@ def configure_five_layer_v2_grafana(
     function_app_name: str,
     device_id: str,
     metric: str,
+    architecture_profile: str,
 ) -> None:
-    """Provision the exact v2 plugin, secret datasource, folder, and dashboard."""
+    """Provision the exact Phase 8 plugin, secret datasource, and dashboard."""
 
     if not all(
         (
@@ -803,9 +809,10 @@ def configure_five_layer_v2_grafana(
             function_app_name,
             device_id,
             metric,
+            architecture_profile,
         )
     ):
-        raise ValueError("Azure Five-layer v2 Grafana inputs must be non-empty")
+        raise ValueError("Azure Phase 8 Grafana inputs must be non-empty")
     _ensure_managed_grafana_plugin(provider, workspace_name)
     grafana_token = _get_grafana_service_account_token(provider)
     if not grafana_token:
@@ -824,6 +831,7 @@ def configure_five_layer_v2_grafana(
         grafana_token=grafana_token,
         device_id=device_id,
         metric=metric,
+        architecture_profile=architecture_profile,
     )
     _probe_v2_surface(
         grafana_url=grafana_url,
@@ -833,4 +841,4 @@ def configure_five_layer_v2_grafana(
         device_id=device_id,
         metric=metric,
     )
-    logger.info("✓ Azure Five-layer v2 Grafana surface is ready")
+    logger.info("✓ Azure %s Grafana surface is ready", architecture_profile)

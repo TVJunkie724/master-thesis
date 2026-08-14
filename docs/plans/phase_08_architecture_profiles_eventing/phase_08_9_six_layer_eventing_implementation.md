@@ -3,7 +3,7 @@ title: "Phase 8.9B: Six-Layer Eventing Implementation"
 description: "Executable delta plan that adds one independent Eventing responsibility to the reviewed Five-layer v2 PoC."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
 lastUpdated: "2026-08-14"
-version: "2.7"
+version: "2.8"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.7"
 - contracts/phase-08-eventing-decision/v1/decision.json
 - contracts/phase-08-eventing-decision/v1/implementation-component-manifest.json
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-14 | VERSION: 2.7
+EXTRACTED: 2026-08-14 | VERSION: 2.8
 -->
 
 # Phase 8.9B: Six-Layer Eventing Implementation
@@ -43,9 +43,13 @@ Deployer, AWS, Azure, GCP, bridge, and Flutter commits are present on the
 required branch. Component gates pass locally without credentials or apply.
 Documentation reconciliation and the repeated final audit are in progress;
 this document therefore does not yet claim the final zero-finding freeze.
-The current audit also binds every inherited Azure and GCP runtime to the
-resolved profile identifier and version; no Six-layer resource may retain a
-hard-coded Five-layer runtime label.
+The current audit also binds every inherited Terraform resource and every
+profile-local AWS, Azure, and GCP runtime to the resolved profile identifier
+and version. Runtime health/read cursors, Twin Explorer text, provider Grafana
+dashboards, and build metadata may not misidentify a Six-layer deployment as
+Five-layer. The inherited finite tiering artifact format deliberately retains
+its `five-layer-v2-storage-*.v1` schema identifier because it is part of the
+unchanged L1-L5 baseline contract, not a deployment-profile label.
 The inherited Layer Access contract now accepts both active profile/version
 pairs. Six-layer deployments therefore project, persist, and expose the same
 typed L4/L5 surfaces as Five-layer v2, including the owner-scoped GCP Grafana

@@ -1,4 +1,4 @@
-"""Provider-neutral contracts for the GCP Five-layer v2 Cloud Run runtime."""
+"""Provider-neutral contracts for the GCP Six-layer v1 Cloud Run runtime."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from typing import Any, Mapping
 import uuid
 
 
-PROFILE = "five-layer-baseline@2"
+PROFILE = "six-layer-eventing@1"
 MAX_EVENT_BYTES = 96 * 1024
 MAX_SOURCE_ID_BYTES = 128
 MAX_RULES = 100
@@ -976,7 +976,7 @@ def build_seed_twin_documents(
             "model_version": "1",
             "model_document": {
                 "display_name": "Twin2MultiCloud PoC Device",
-                "description": "Bounded Five-layer v2 inspection model",
+                "description": "Bounded Six-layer v1 inspection model",
             },
             "last_observed_at": "1970-01-01T00:00:00.000000Z",
             "last_source_sequence": "0",
@@ -1044,4 +1044,3 @@ def build_seed_twin_documents(
             "seed_revision": "gcp-l4-seed.v1",
         }
     return documents
-

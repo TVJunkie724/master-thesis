@@ -230,13 +230,20 @@ def _history_target(device_id: str, metric: str, bucket_seconds: int) -> dict[st
     }
 
 
-def _v2_dashboard(device_id: str, metric: str) -> dict[str, Any]:
+def _v2_dashboard(
+    device_id: str,
+    metric: str,
+    architecture_profile: str,
+) -> dict[str, Any]:
     datasource = {"type": JSON_DATASOURCE_PLUGIN_ID, "uid": V2_DATASOURCE_UID}
     return {
         "uid": V2_DASHBOARD_UID,
         "title": "Twin2MultiCloud Raw & Rollups",
-        "description": "Bounded Five-layer v2 PoC view over provider-local L3 hot storage.",
-        "tags": ["five-layer-baseline@2", "thesis-poc"],
+        "description": (
+            f"Bounded {architecture_profile} PoC view over provider-local "
+            "L3 hot storage."
+        ),
+        "tags": [architecture_profile, "thesis-poc"],
         "timezone": "browser",
         "schemaVersion": 41,
         "version": 0,
@@ -278,7 +285,12 @@ def _v2_dashboard(device_id: str, metric: str) -> dict[str, Any]:
 
 
 def _upsert_v2_dashboard(
-    *, grafana_url: str, token: str, device_id: str, metric: str
+    *,
+    grafana_url: str,
+    token: str,
+    device_id: str,
+    metric: str,
+    architecture_profile: str,
 ) -> None:
     response = requests.get(
         f"{grafana_url}/api/folders/{V2_FOLDER_UID}",
@@ -299,9 +311,9 @@ def _upsert_v2_dashboard(
         f"{grafana_url}/api/dashboards/db",
         headers=_headers(token),
         json={
-            "dashboard": _v2_dashboard(device_id, metric),
+            "dashboard": _v2_dashboard(device_id, metric, architecture_profile),
             "folderUid": V2_FOLDER_UID,
-            "message": "Provision Five-layer v2 PoC dashboard",
+            "message": f"Provision {architecture_profile} PoC dashboard",
             "overwrite": True,
         },
         timeout=30,
@@ -361,11 +373,22 @@ def configure_five_layer_v2_grafana(
     reader_function_name: str,
     device_id: str,
     metric: str,
+    architecture_profile: str,
 ) -> None:
-    """Provision and probe the deterministic Amazon Managed Grafana v12 surface."""
+    """Provision and probe the deterministic Phase 8 Managed Grafana surface."""
 
-    if not all((workspace_id, grafana_url, reader_url, reader_function_name, device_id, metric)):
-        raise ValueError("AWS Five-layer v2 Grafana inputs must be non-empty")
+    if not all(
+        (
+            workspace_id,
+            grafana_url,
+            reader_url,
+            reader_function_name,
+            device_id,
+            metric,
+            architecture_profile,
+        )
+    ):
+        raise ValueError("AWS Phase 8 Grafana inputs must be non-empty")
     reader_key = secrets.token_urlsafe(32)
     _install_reader_key(provider, reader_function_name, reader_key)
     service_account_id, token = _provisioning_service_account(provider, workspace_id)
@@ -382,6 +405,7 @@ def configure_five_layer_v2_grafana(
             token=token,
             device_id=device_id,
             metric=metric,
+            architecture_profile=architecture_profile,
         )
         _probe_v2_surface(
             grafana_url=grafana_url,
@@ -393,7 +417,7 @@ def configure_five_layer_v2_grafana(
         )
     finally:
         _delete_provisioning_service_account(provider, workspace_id, service_account_id)
-    logger.info("✓ AWS Five-layer v2 Grafana surface is ready")
+    logger.info("✓ AWS %s Grafana surface is ready", architecture_profile)
 
 
 # ==========================================

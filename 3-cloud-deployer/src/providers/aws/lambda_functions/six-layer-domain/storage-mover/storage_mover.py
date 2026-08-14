@@ -1,4 +1,4 @@
-"""Finite, idempotent AWS hot-to-cool exporter for Five-layer v2.
+"""Inherited finite, idempotent AWS hot-to-cool exporter for Six-layer v1.
 
 Each scheduled Fargate task owns one deterministic DynamoDB storage-window
 shard. Objects and manifests use conditional creation, so retries can verify
@@ -444,4 +444,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

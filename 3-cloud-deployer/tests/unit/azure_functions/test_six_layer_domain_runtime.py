@@ -30,6 +30,18 @@ finally:
     sys.path.remove(str(SOURCE_ROOT))
 
 
+def test_runtime_has_six_layer_profile_identity():
+    core_spec = importlib.util.spec_from_file_location(
+        "azure_six_layer_domain_profile_core",
+        SOURCE_ROOT / "core.py",
+    )
+    assert core_spec is not None and core_spec.loader is not None
+    core = importlib.util.module_from_spec(core_spec)
+    core_spec.loader.exec_module(core)
+
+    assert core.PROFILE == "six-layer-eventing@1"
+
+
 def _processed_event() -> dict[str, object]:
     return {
         "schema_version": "canonical-domain-event.v1",

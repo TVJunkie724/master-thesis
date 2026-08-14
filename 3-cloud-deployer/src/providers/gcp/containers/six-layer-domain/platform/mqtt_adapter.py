@@ -1,4 +1,4 @@
-"""Bounded authenticated MQTT-to-GCP bridge for the Five-layer v2 PoC.
+"""Bounded authenticated MQTT-to-GCP bridge for the Six-layer v1 PoC.
 
 The adapter deliberately owns only the protocol edge:
 
@@ -334,4 +334,3 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", "8080")),
         threaded=True,
     )
-

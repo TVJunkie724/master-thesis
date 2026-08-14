@@ -4,6 +4,7 @@ from pathlib import Path
 
 
 TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
+PROVIDERS_ROOT = TERRAFORM_ROOT.parent / "providers"
 PROFILE_EXPRESSION = (
     '"${var.architecture_profile_id}@${var.architecture_profile_version}"'
 )
@@ -31,3 +32,18 @@ def test_inherited_resource_labels_identify_the_selected_profile() -> None:
         'architecture-profile = local.six_layer_eventing_enabled ? '
         '"six-layer-eventing-v1" : "five-layer-v2"'
     ) in gcp
+
+
+def test_profile_local_six_layer_runtimes_do_not_claim_five_layer_identity() -> None:
+    roots = (
+        PROVIDERS_ROOT / "aws" / "lambda_functions" / "six-layer-domain",
+        PROVIDERS_ROOT / "azure" / "azure_functions" / "six-layer-domain",
+        PROVIDERS_ROOT / "gcp" / "containers" / "six-layer-domain",
+    )
+
+    for root in roots:
+        for path in root.rglob("*"):
+            if path.is_file() and path.suffix in {".py", ".template"}:
+                source = path.read_text(encoding="utf-8")
+                assert "five-layer-baseline@2" not in source, path
+                assert "Five-layer v2" not in source, path

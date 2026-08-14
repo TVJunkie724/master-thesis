@@ -1,4 +1,4 @@
-"""Azure Functions entry points for ``five-layer-baseline@2``.
+"""Azure Functions entry points for ``six-layer-eventing@1``.
 
 Cross-cloud ingress terminates on Event Hubs or Service Bus.  No public
 function-to-function bridge endpoint is exposed by this package.

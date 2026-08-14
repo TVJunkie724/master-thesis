@@ -15,6 +15,7 @@ ROOT = (
     / "five-layer-v2"
     / "grafana"
 )
+SIX_LAYER_ROOT = ROOT.parents[1] / "six-layer-domain" / "grafana"
 
 
 def test_image_uses_only_the_frozen_signed_artifacts():
@@ -92,6 +93,18 @@ def test_dashboard_has_exactly_the_two_reviewed_history_panels():
     assert set(variables) == {"provider", "deployment", "device", "metric"}
     assert variables["device"]["type"] == "textbox"
     assert variables["metric"]["type"] == "textbox"
+
+
+def test_six_layer_dashboard_reports_its_own_profile():
+    dashboard = json.loads(
+        (SIX_LAYER_ROOT / "dashboard.json.template").read_text("utf-8")
+    )
+
+    assert dashboard["tags"] == [
+        "twin2multicloud",
+        "six-layer-eventing@1",
+        "gcp",
+    ]
 
 
 def test_entrypoint_bootstraps_only_a_viewer_without_logging_secrets():

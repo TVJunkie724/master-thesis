@@ -43,6 +43,10 @@ def _six_layer_module():
     return module
 
 
+def test_six_layer_runtime_has_its_own_profile_identity():
+    assert _six_layer_module().PROFILE == "six-layer-eventing@1"
+
+
 class _Queue:
     def __init__(self):
         self.messages = []

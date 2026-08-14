@@ -1,4 +1,4 @@
-"""Provider-neutral contracts used by the Azure Five-layer v2 Function App."""
+"""Provider-neutral contracts used by the Azure Six-layer v1 Function App."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from typing import Any, Mapping
 import uuid
 
 
-PROFILE = "five-layer-baseline@2"
+PROFILE = "six-layer-eventing@1"
 MAX_EVENT_BYTES = 96 * 1024
 MAX_SOURCE_ID_BYTES = 128
 MAX_POINTS = 1000
@@ -813,4 +813,3 @@ __all__ = [
     "rollup_id",
     "validate_canonical_event",
 ]
-

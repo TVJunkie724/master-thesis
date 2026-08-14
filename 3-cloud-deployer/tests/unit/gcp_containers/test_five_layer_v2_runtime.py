@@ -87,6 +87,20 @@ def _load_six_layer(name: str):
         sys.path.remove(str(SIX_LAYER_SOURCE_ROOT))
 
 
+def test_six_layer_runtime_has_its_own_profile_identity():
+    assert _load_six_layer("core").PROFILE == "six-layer-eventing@1"
+
+
+def test_six_layer_health_reports_its_own_profile(monkeypatch):
+    runtime = _load_six_layer("app")
+    monkeypatch.setenv("RUNTIME_ROLE", "audit")
+
+    response = runtime.app.test_client().get("/healthz")
+
+    assert response.status_code == 200
+    assert response.get_json()["profile"] == "six-layer-eventing@1"
+
+
 def _received(core, *, event_id: str = "event-1", projection: bool = True):
     return core.build_ingress_event(
         {

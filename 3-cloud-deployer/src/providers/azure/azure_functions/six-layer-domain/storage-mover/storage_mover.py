@@ -1,4 +1,4 @@
-"""Finite, idempotent Azure hot-to-cool exporter for Five-layer v2."""
+"""Inherited finite, idempotent Azure hot-to-cool exporter for Six-layer v1."""
 
 from __future__ import annotations
 
@@ -408,4 +408,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -34,6 +34,15 @@ def _is_active_phase8_profile(context: "DeploymentContext") -> bool:
     ) in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES
 
 
+def _active_phase8_profile(context: "DeploymentContext") -> str:
+    graph = getattr(context, "resolved_deployment_graph", None)
+    profile_ref = getattr(graph, "profile_ref", {}) if graph is not None else {}
+    profile = (profile_ref.get("id"), str(profile_ref.get("version")))
+    if profile not in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES:
+        raise RuntimeError("Active Phase 8 architecture profile is required")
+    return f"{profile[0]}@{profile[1]}"
+
+
 def _simulator_iot_policy(*, region: str, account_id: str, device_id: str, topic: str) -> dict:
     """Return the exact runtime permissions needed by one simulator device."""
     return {
@@ -667,6 +676,7 @@ def configure_aws_grafana(
             reader_function_name=str(bundle["reader_function_name"]),
             device_id=device_id,
             metric=metric,
+            architecture_profile=_active_phase8_profile(context),
         )
         return
 

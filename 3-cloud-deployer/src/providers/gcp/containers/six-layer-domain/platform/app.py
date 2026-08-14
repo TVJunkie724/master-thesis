@@ -1,4 +1,4 @@
-"""Role-selected Cloud Run HTTP runtime for GCP Five-layer v2."""
+"""Role-selected Cloud Run HTTP runtime for GCP Six-layer v1."""
 
 from __future__ import annotations
 
@@ -1212,7 +1212,7 @@ body{{font:16px system-ui;max-width:1100px;margin:2rem auto;padding:0 1rem;color
 main{{display:grid;grid-template-columns:minmax(16rem,1fr) 2fr;gap:1.5rem}}section{{border:1px solid #ccd5df;border-radius:12px;padding:1rem}}
 pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f7fa;padding:1rem;border-radius:8px}}a{{color:#0759b0}}
 @media(max-width:720px){{main{{grid-template-columns:1fr}}}}</style></head>
-<body><h1>Twin2MultiCloud Twin Explorer</h1><p>Read-only Five-layer v2 semantic state. No scenes or raw telemetry.</p>
+<body><h1>Twin2MultiCloud Twin Explorer</h1><p>Read-only Six-layer v1 semantic state. No scenes or raw telemetry.</p>
 <main><section><h2>Twins</h2><ul>{twin_links}</ul><h2>Models</h2><ul>{model_items}</ul></section>
 <section><h2>Twin detail</h2>{detail_html}</section></main></body></html>"""
         response = Response(body, content_type="text/html; charset=utf-8")
@@ -1304,7 +1304,7 @@ def raw_history_reader():
         response.headers["cache-control"] = "no-store"
         return response, exc.status
     except Exception:
-        LOGGER.exception("GCP Five-layer v2 raw-history retryable failure")
+        LOGGER.exception("GCP Six-layer v1 raw-history retryable failure")
         response = jsonify(
             {
                 "schema_version": "architecture-runtime-error.v1",
@@ -1389,8 +1389,8 @@ def dispatch():
             raise core.ContractError("RUNTIME_ROLE_NOT_CONFIGURED", 503)
         return jsonify(result), 200
     except core.ContractError as exc:
-        LOGGER.warning("GCP Five-layer v2 contract failure: %s", exc.code)
+        LOGGER.warning("GCP Six-layer v1 contract failure: %s", exc.code)
         return jsonify({"error": {"code": exc.code}}), exc.status
     except Exception:
-        LOGGER.exception("GCP Five-layer v2 retryable runtime failure")
+        LOGGER.exception("GCP Six-layer v1 retryable runtime failure")
         return jsonify({"error": {"code": "RUNTIME_RETRYABLE_FAILURE"}}), 503

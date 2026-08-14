@@ -294,6 +294,7 @@ def test_active_profile_azure_grafana_uses_typed_output(monkeypatch, profile):
         function_app_name="factory-history",
         device_id="sensor-1",
         metric="temperature",
+        architecture_profile=f"{profile[0]}@{profile[1]}",
     )
 
 
@@ -443,7 +444,11 @@ def test_azure_v2_datasource_stores_function_key_only_as_secure_header(monkeypat
 
 
 def test_azure_v2_dashboard_has_bounded_raw_and_rollup_queries():
-    dashboard = layer_5_grafana._v2_dashboard("sensor-1", "temperature")
+    dashboard = layer_5_grafana._v2_dashboard(
+        "sensor-1",
+        "temperature",
+        "five-layer-baseline@2",
+    )
 
     assert dashboard["uid"] == layer_5_grafana.V2_DASHBOARD_UID
     targets = [
@@ -459,6 +464,17 @@ def test_azure_v2_dashboard_has_bounded_raw_and_rollup_queries():
         "No data is a valid initial state"
         in dashboard["panels"][0]["options"]["content"]
     )
+
+
+def test_azure_six_layer_dashboard_reports_resolved_profile():
+    dashboard = layer_5_grafana._v2_dashboard(
+        "sensor-1",
+        "temperature",
+        "six-layer-eventing@1",
+    )
+
+    assert dashboard["tags"] == ["six-layer-eventing@1", "thesis-poc"]
+    assert "six-layer-eventing@1" in dashboard["description"]
 
 
 def test_azure_v2_surface_probe_executes_reader_health_and_dashboard(monkeypatch):
@@ -500,7 +516,11 @@ def test_azure_v2_surface_probe_executes_reader_health_and_dashboard(monkeypatch
 
 
 def test_aws_v2_dashboard_has_bounded_raw_and_rollup_queries():
-    dashboard = aws_layer_5_grafana._v2_dashboard("sensor-1", "temperature")
+    dashboard = aws_layer_5_grafana._v2_dashboard(
+        "sensor-1",
+        "temperature",
+        "five-layer-baseline@2",
+    )
 
     assert dashboard["uid"] == aws_layer_5_grafana.V2_DASHBOARD_UID
     assert dashboard["title"] == "Twin2MultiCloud Raw & Rollups"
@@ -514,6 +534,17 @@ def test_aws_v2_dashboard_has_bounded_raw_and_rollup_queries():
     ]
     assert all(dict(target["params"])["limit"] == "1000" for target in targets)
     assert "test-message utility" in dashboard["panels"][0]["options"]["content"]
+
+
+def test_aws_six_layer_dashboard_reports_resolved_profile():
+    dashboard = aws_layer_5_grafana._v2_dashboard(
+        "sensor-1",
+        "temperature",
+        "six-layer-eventing@1",
+    )
+
+    assert dashboard["tags"] == ["six-layer-eventing@1", "thesis-poc"]
+    assert "six-layer-eventing@1" in dashboard["description"]
 
 
 def test_aws_v2_surface_probe_rejects_non_ok_datasource_health(monkeypatch):
@@ -591,6 +622,7 @@ def test_aws_v2_provisioner_is_deleted_when_content_setup_fails(monkeypatch):
             reader_function_name="reader",
             device_id="sensor-1",
             metric="temperature",
+            architecture_profile="five-layer-baseline@2",
         )
 
     deleted.assert_called_once_with(provider, "g-1234567890", "service-account")
@@ -640,6 +672,7 @@ def test_active_profile_aws_grafana_uses_exact_configurator(monkeypatch, profile
         reader_function_name="reader",
         device_id="sensor-1",
         metric="temperature",
+        architecture_profile=f"{profile[0]}@{profile[1]}",
     )
 
 

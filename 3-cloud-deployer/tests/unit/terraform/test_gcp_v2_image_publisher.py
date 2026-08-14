@@ -183,6 +183,7 @@ def test_publisher_uploads_generation_bound_context_and_returns_digest(tmp_path)
     assert body["serviceAccount"].endswith(
         "/serviceAccounts/build@phase8-project.iam.gserviceaccount.com"
     )
+    assert body["tags"] == ["twin2multicloud", "phase-8", "grafana"]
     assert publisher.evidence_path.stat().st_mode & 0o077 == 0
 
 

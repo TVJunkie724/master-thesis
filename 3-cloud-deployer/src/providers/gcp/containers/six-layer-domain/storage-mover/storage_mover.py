@@ -1,4 +1,4 @@
-"""Finite, idempotent GCP hot-to-cool exporter for Five-layer v2.
+"""Inherited finite, idempotent GCP hot-to-cool exporter for Six-layer v1.
 
 Each Cloud Run task owns a deterministic subset of Firestore timestamp shards
 for exactly one five-minute storage window. Objects and manifests use
@@ -392,4 +392,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

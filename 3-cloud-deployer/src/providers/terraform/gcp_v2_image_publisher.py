@@ -1,4 +1,4 @@
-"""Automatic content-addressed GCP image publication for Five-layer v2.
+"""Automatic content-addressed GCP image publication for active Phase 8 profiles.
 
 The publisher runs only after Terraform has created the deployment Artifact
 Registry, build identity, and short-lived source bucket. It never requires a
@@ -339,7 +339,7 @@ class GcpV2ImagePublisher:
                 "machineType": "E2_HIGHCPU_8",
             },
             "timeout": "1200s",
-            "tags": ["twin2multicloud", "five-layer-v2", request.name],
+            "tags": ["twin2multicloud", "phase-8", request.name],
         }
         operation = (
             self.build_service.projects()
@@ -397,7 +397,7 @@ def image_tfvars(images: Mapping[str, str], tfvars: Mapping[str, Any]) -> dict[s
     if tfvars.get("layer_5_provider") == "google":
         result["gcp_v2_grafana_image"] = images.get("grafana", "")
     if any(not value for key, value in result.items() if key.endswith("_image")):
-        raise RuntimeError("GCP Five-layer v2 image publication is incomplete")
+        raise RuntimeError("GCP Phase 8 image publication is incomplete")
     return result
 
 
