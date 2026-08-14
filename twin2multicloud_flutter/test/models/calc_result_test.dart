@@ -64,6 +64,36 @@ void main() {
     },
   );
 
+  test(
+    'projects Six-layer v1 while keeping Eventing out of the legacy L1-L5 path',
+    () {
+      final architecture =
+          jsonDecode(
+                File(
+                  '../contracts/architecture-profiles/v2/fixtures/valid/'
+                  'six-layer-aws-azure-eventing-small-resolved.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      final total =
+          (architecture['cost_summary']
+                  as Map<String, dynamic>)['monthly_total']
+              as String;
+      final result = CalcResult.fromJson({
+        'totalCost': double.parse(total),
+        'totalCostExact': total,
+        'currency': 'USD',
+        'resolvedTwinArchitecture': architecture,
+        'inputParamsUsed': <String, dynamic>{},
+      });
+
+      expect(result.totalCost, double.parse(total));
+      expect(result.cheapestPath, hasLength(7));
+      expect(result.cheapestPath, isNot(contains(startsWith('EVENT_'))));
+      expect(result.transferCosts, hasLength(9));
+    },
+  );
+
   test('rejects native v2 totals that differ from the architecture', () {
     final architecture =
         jsonDecode(

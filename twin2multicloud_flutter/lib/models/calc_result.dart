@@ -88,12 +88,12 @@ class CalcResult {
     if (json.containsKey('result') && json['result'] is Map<String, dynamic>) {
       final payload = json['result'] as Map<String, dynamic>;
       result = payload.containsKey('resolvedTwinArchitecture')
-          ? _fiveLayerV2ResultProjection(payload)
+          ? _profileV2CompatibilityProjection(payload)
           : payload;
     } else if (json.containsKey('resolvedTwinArchitecture')) {
       // Native v2 architecture evidence is the cost/path source of truth even
       // if a compatibility projection also contains legacy provider keys.
-      result = _fiveLayerV2ResultProjection(json);
+      result = _profileV2CompatibilityProjection(json);
     } else if (json.containsKey('awsCosts')) {
       // Direct format - the json IS the result
       result = json;
@@ -220,7 +220,7 @@ OptimizationProfileTrace? _optimizationProfile(Map<String, dynamic> result) {
   return OptimizationProfileTrace.fromJson(profile);
 }
 
-Map<String, dynamic> _fiveLayerV2ResultProjection(
+Map<String, dynamic> _profileV2CompatibilityProjection(
   Map<String, dynamic> payload,
 ) {
   final rawArchitecture = payload['resolvedTwinArchitecture'];
@@ -247,6 +247,31 @@ Map<String, dynamic> _fiveLayerV2ResultProjection(
     'component.twin-state': 'L4',
     'component.visualization': 'L5',
   };
+  const eventingComponent = 'component.eventing';
+  final expectedLogicalComponents = switch ((
+    architecture.profileRef.id,
+    architecture.profileRef.version,
+  )) {
+    ('five-layer-baseline', '2') => layerByLogicalComponent.keys.toSet(),
+    ('six-layer-eventing', '1') => {
+      ...layerByLogicalComponent.keys,
+      eventingComponent,
+    },
+    _ => throw const FormatException(
+      'Invalid API contract: native v2 profile has no compatibility projection.',
+    ),
+  };
+  final actualLogicalComponents = architecture.componentAssignments
+      .map((item) => item.logicalComponentId)
+      .toSet();
+  if (actualLogicalComponents.length !=
+          architecture.componentAssignments.length ||
+      actualLogicalComponents.length != expectedLogicalComponents.length ||
+      !actualLogicalComponents.containsAll(expectedLogicalComponents)) {
+    throw const FormatException(
+      'Invalid API contract: native v2 assignments do not match the selected profile.',
+    );
+  }
   const providerLabel = {'aws': 'AWS', 'azure': 'Azure', 'gcp': 'GCP'};
   final costs = {
     for (final provider in providerLabel.keys) provider: <String, dynamic>{},
@@ -254,6 +279,10 @@ Map<String, dynamic> _fiveLayerV2ResultProjection(
   final cheapestPath = <String>[];
   final seenLayers = <String>{};
   for (final assignment in architecture.componentAssignments) {
+    // The fixed L1-L5 path is retained only as a compatibility projection.
+    // Six-layer Eventing remains a first-class assignment in the resolved
+    // architecture and its dedicated review, not a fabricated numbered layer.
+    if (assignment.logicalComponentId == eventingComponent) continue;
     final layer = layerByLogicalComponent[assignment.logicalComponentId];
     final provider = assignment.provider.apiValue;
     if (layer == null ||
