@@ -136,6 +136,7 @@ def test_export_twin_omits_legacy_flags_for_phase8_profile(
             "component.archive-storage",
             "component.twin-state",
             "component.visualization",
+            "component.eventing",
         ]
     ]
     monkeypatch.setattr(
