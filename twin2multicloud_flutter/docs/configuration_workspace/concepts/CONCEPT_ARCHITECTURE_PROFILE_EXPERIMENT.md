@@ -2,8 +2,8 @@
 title: "Architecture Profile Experiment"
 description: "A bounded Configuration Workspace experience for selecting, comparing, and deploying the Five-layer v2 and Six-layer v1 thesis profiles."
 tags: [flutter, configuration-workspace, architecture-profiles, eventing, thesis]
-lastUpdated: "2026-08-13"
-version: "1.4"
+lastUpdated: "2026-08-14"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.4"
 - twin2multicloud_flutter/docs/configuration_workspace/RESOLVED_DEPLOYMENT_REVIEW.md
 - FRONTEND_ARCHITECTURE.md
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-13 | VERSION: 1.4
+EXTRACTED: 2026-08-14 | VERSION: 1.5
 -->
 
 # Architecture Profile Experiment
@@ -56,12 +56,12 @@ and fails closed for Six-layer rather than relabeling Five-layer evidence.
 
 ## Motivation
 
-The current Configuration Workspace still presents legacy workload booleans,
-fixed five-slot assumptions, and an optimizer recommendation without a visible
-profile boundary. That would make the thesis experiment scientifically
-ambiguous: a result could appear cheaper because it omits required behavior,
-and Five-layer and Six-layer outcomes could be compared as if they were one
-optimization space.
+Before the profile experiment, the Configuration Workspace presented legacy
+workload booleans, fixed five-slot assumptions, and an optimizer recommendation
+without a visible profile boundary. That would have made the thesis experiment
+scientifically ambiguous: a result could appear cheaper because it omitted
+required behavior, and Five-layer and Six-layer outcomes could be compared as
+if they were one optimization space.
 
 The target experience makes the experimental variable explicit while keeping
 the infrastructure closed-world. It is a thesis demonstrator, not an
@@ -96,8 +96,8 @@ Architecture
     |
     v
 Workload
-    |-- choose core Small / Medium / Large preset or edit supported core fields
-    `-- choose required immutable event Small / Medium / Large scenario
+    |-- choose one immutable core Small / Medium / Large preset
+    `-- use its paired immutable event Small / Medium / Large scenario
     |
     v
 User Logic
@@ -132,12 +132,12 @@ Both selectable profiles use the same functional workload. Events are always
 present, so the legacy event-check, notification, feedback, error-handling,
 scene, and self-hosting feature switches are not shown.
 
-The editable core workload contains device traffic, retention boundaries,
-Twin state/graph activity, and aggregate dashboard usage. The event workload
-is selected by immutable scenario ID. Core and event scenarios are paired by
-size for the frozen thesis evaluation, but they remain separate versioned
-inputs so that Event Layer cost can be attributed without letting users invent
-unsupported combinations.
+Each immutable core workload preset contains device traffic, retention
+boundaries, Twin state/graph activity, and aggregate dashboard usage. Its event
+workload is pinned by immutable scenario ID. Core and event scenarios are
+paired by size for the frozen thesis evaluation, but remain separate versioned
+inputs so that Event Layer cost can be attributed without letting users edit
+fields or invent unsupported combinations.
 
 Storage tiering remains visible as retention behavior, not as optional
 enterprise machinery. The UI explains that raw data moves through hot, cool,

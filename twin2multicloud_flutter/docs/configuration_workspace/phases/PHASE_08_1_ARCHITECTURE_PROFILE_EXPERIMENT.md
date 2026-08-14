@@ -2,8 +2,8 @@
 title: "Phase 8.1: Architecture Profile Experiment"
 description: "Expose Five-layer v2 and Six-layer v1 as bounded, profile-local thesis experiments in the Configuration Workspace."
 tags: [flutter, phase, architecture-profiles, optimizer, eventing]
-lastUpdated: "2026-08-13"
-version: "1.5"
+lastUpdated: "2026-08-14"
+version: "1.6"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.5"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_7_flutter_profile_workflow.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_service_bundle_closure.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_9_six_layer_eventing_implementation.md
-EXTRACTED: 2026-08-13 | VERSION: 1.5
+EXTRACTED: 2026-08-14 | VERSION: 1.6
 -->
 
 # Phase 8.1: Architecture Profile Experiment
@@ -42,7 +42,8 @@ phases and integrate through the same selected architecture.
 - The immutable complete-service decision package approves
   `five-layer-baseline@2` and pins its provider/component manifests.
 - The reviewed Phase 8.8 package pins the shared event scenarios and the
-  `six-layer-eventing@1` Event Layer delta for later activation.
+  `six-layer-eventing@1` Event Layer delta used by the completed 8.9B
+  activation.
 - Management API profile and resolved-architecture endpoints expose strict,
   profile-neutral DTOs.
 - The current Configuration Workspace Phase 8 immutable deployment selection
@@ -73,7 +74,8 @@ phases and integrate through the same selected architecture.
   it now contains exactly Five-layer v2 and Six-layer v1, while
   `five-layer-baseline@1` is historical and read-only.
 - Phase 8.7 does not submit a new-profile calculation. The mandatory event
-  scenario and exact Workload v2 mapping activate atomically in Phase 8.9A.
+  scenario and exact immutable Small/Medium/Large Workload v2 mapping activate
+  atomically in Phase 8.9A and are reused unchanged by Phase 8.9B.
 - Populated fixtures prove that visible workload-field IDs and extension slots
   derive from the selected profile rather than fixed UI layer assumptions.
 - A profile change uses only the server preview/digest, invalidates downstream

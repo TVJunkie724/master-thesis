@@ -20,7 +20,7 @@ For the issue-numbered refactoring index, see [Refactoring Roadmap](refactoring-
 
 ## Current Workstreams
 
-Phase 8 has started. The source-backed current deployment graph in #144, the
+Phase 8 is active. The source-backed current deployment graph in #144, the
 complete `five-layer-baseline@1` target decision in #139, the four drift-gated
 architecture-profile contracts in #149, the deterministic user-function
 prerequisite #113, the exact provider/component catalog in #150, Management
@@ -31,12 +31,13 @@ freezes the event-enabled five-layer control, the six-layer treatment, six
 provider bundles, the exact source-owned cross-cloud bridge, and its
 Small/Medium/Large evidence without claiming runtime or live-cloud support.
 Phase 8.7's compact Flutter profile workflow is implemented and zero-finding
-reviewed locally; the runtime and demo catalogs now expose the one active
-Five-layer v2 profile. Guided cloud bootstrap
+reviewed locally; the runtime and demo catalogs now expose active Five-layer
+v2 and Six-layer v1 definitions. Guided cloud bootstrap
 is implemented and zero-finding reviewed for the deterministic offline PoC;
-production provider adapters remain disabled. Five-layer v2 is active for
-offline selection/evaluation with deployment blocked by explicit supervised
-live-capacity gates. Credential,
+production provider adapters remain disabled. Five-layer v2 and Six-layer v1
+are active for offline selection/evaluation with deployment blocked by
+explicit supervised live-capacity gates. The final 8.9B audit precedes the
+Phase 8.10 evaluation package. Credential,
 remaining Optimizer coverage, manual UI audit, and external authentication work
 remain independently tracked in their GitHub milestones rather than inferred
 from one global "current phase" label.

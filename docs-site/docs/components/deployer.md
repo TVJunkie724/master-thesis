@@ -32,8 +32,8 @@ The Management API sends one validated ZIP containing
 `deployment_manifest.json`, the frozen resolved architecture, the matching
 resolved deployment specification, and the exact generated/project artifacts
 for an operation. Historical Five-layer v1 packages use Manifest 3.0 with
-RTA v1/RDS v1; active Five-layer v2 packages use Manifest 4.0 with RTA v2/RDS
-v2. The Deployer:
+RTA v1/RDS v1; active Five-layer v2 and Six-layer v1 packages use Manifest 4.0
+with separate RTA v2/RDS v2 evidence. The Deployer:
 
 1. applies upload limits and safe archive policy;
 2. validates the archive inventory, both contract digests, run/profile/catalog
@@ -189,8 +189,7 @@ packages; no profile-neutral capability exception is inferred.
 ### Historical profile-neutral mapping
 
 This matrix describes the generic predecessor capability model retained for
-historical manifests. It is not the active `five-layer-baseline@2` selection
-catalog.
+historical manifests. It is not either active Phase 8 selection catalog.
 
 | Layer | AWS | Azure | GCP |
 |---|---|---|---|
@@ -203,7 +202,7 @@ catalog.
 Provider capability is not uniform. Unsupported or limited L4/L5 behavior must remain
 visible instead of being represented as equivalent deployment support.
 
-### Active Five-layer v2 mapping
+### Shared active L1-L5 mapping
 
 | Responsibility | AWS | Azure | GCP |
 |---|---|---|---|
@@ -213,8 +212,10 @@ visible instead of being represented as equivalent deployment support.
 | L4 Twin | IoT TwinMaker | Azure Digital Twins | Cloud Run Twin API/Explorer backed by Firestore |
 | L5 visualization | Managed Grafana and typed Lambda reader | Managed Grafana and typed Functions reader | Grafana OSS on GKE and typed Cloud Run reader |
 
-These rows are selected only through the exact v2 provider profiles and
-validated graph. They do not widen the historical generic capability matrix.
+These rows are selected only through the exact Five-layer v2 or Six-layer v1
+provider profiles and validated graph. Six-layer adds its registered Eventing
+bundle and bridge bindings without changing these rows. Neither profile widens
+the historical generic capability matrix.
 
 `GET /capabilities/providers` publishes the provisioning-side matrix. Complete config
 validation and the Terraform package builder enforce that same registry, rejecting an

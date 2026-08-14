@@ -55,10 +55,11 @@ supervised live-cloud E2E gate.
 
 ### Activated Phase 8 Thesis-PoC Bundles
 
-The following target has contract, calculation, package, Terraform, runtime,
-post-deployment evidence, and local integration implementations. It is active
-for offline profile selection and cost/architecture evaluation. This does not
-mark the remaining supervised live-capacity gates complete:
+The following shared L1-L5 target has contract, calculation, package,
+Terraform, runtime, post-deployment evidence, and local integration
+implementations. Both active profiles use it unchanged for offline selection
+and cost/architecture evaluation. This does not mark the remaining supervised
+live-capacity gates complete:
 
 | Provider | L1 target | L3-hot/L5 target | Independent L4 target | Status |
 |---|---|---|---|---|
@@ -66,9 +67,20 @@ mark the remaining supervised live-capacity gates complete:
 | Azure | IoT Hub | Cosmos DB + typed local reader + Azure Managed Grafana | Azure Digital Twins | selectable for offline evaluation; deployment blocked by listed live gates |
 | GCP | BifroMQ on GKE + Pub/Sub | Firestore Native Standard edition + typed Cloud Run reader + one Grafana pod/Persistent Disk/TLS LoadBalancer on GKE with signed Infinity datasource | Cloud Run Twin API using the deployment's one Firestore Native database with separate L3/L4 collection contracts | selectable for offline evaluation; deployment blocked by listed live gates |
 
-`five-layer-baseline@2` is the only current selectable implementation. A later
-Six-layer plan must inherit its committed L1-L5 target unchanged; it does not
-add GCP's BifroMQ boundary only to that profile.
+`five-layer-baseline@2` embeds the required domain-event behavior in L1/L2.
+`six-layer-eventing@1` inherits the table above unchanged and adds exactly one
+independently assigned Eventing bundle:
+
+| Provider | Six-layer Eventing bundle | Scenario capacity boundary |
+|---|---|---|
+| AWS | Kinesis Data Streams, SNS FIFO, SQS FIFO, Lambda bridge/runtime, S3 failure store, CloudWatch | reviewed S/M/L sizing |
+| Azure | Event Hubs Standard (Dedicated only for the frozen Large threshold), Service Bus Standard, Functions Flex Consumption, Azure Monitor | reviewed S/M/L sizing |
+| GCP | Pub/Sub, Cloud Run service (Worker Pool only for the frozen Large threshold), Cloud Logging | reviewed S/M/L sizing |
+
+The Six-layer graph covers the three single-cloud Event placements and every
+directed provider pair through same-provider direct bindings or the explicit
+source-owned bridge. BifroMQ remains part of the shared GCP L1 boundary; it was
+not added solely for Six-layer.
 
 The first target version keeps
 `provider(L3_hot) == provider(L5)` and places L4 independently. It models

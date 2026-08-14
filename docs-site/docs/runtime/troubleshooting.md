@@ -79,9 +79,9 @@ has an active operation; use status/history rather than starting another.
 ## Manifest Or Deployment Graph Preflight Fails
 
 Operation packages require the manifest version owned by their frozen profile:
-v3 for historical Five-layer v1 evidence and v4 for active Five-layer v2.
-Do not downgrade the archive or copy values from `cheapest_l*` fields. Use the
-stable code to locate the owning contract:
+v3 for historical Five-layer v1 evidence and v4 for active Five-layer v2 or
+Six-layer v1. Do not downgrade the archive or copy values from `cheapest_l*`
+fields. Use the stable code to locate the owning contract:
 
 | Code family | Check |
 |---|---|

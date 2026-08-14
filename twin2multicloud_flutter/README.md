@@ -72,19 +72,20 @@ the supervised live-provider path.
 
 ## Post-Deployment Layer Access
 
-For deployed `five-layer-baseline@2` evidence, Twin Overview renders one typed
-L4 semantic Twin card and one typed L5 raw/rollup Grafana card. Links,
+For deployed `five-layer-baseline@2` or `six-layer-eventing@1` evidence, Twin
+Overview renders one typed L4 semantic Twin card and one typed L5 raw/rollup
+Grafana card. Links,
 provider-owned authentication, capabilities, limitations, and readiness come
 from the owner-scoped Management API; Flutter never derives them from generic
 Terraform outputs. AWS uses Identity Center, Azure uses Entra ID, and GCP L4
 uses IAP. GCP Grafana alone supports an explicit Viewer-password rotation and
 one-time reveal; Flutter does not persist the value.
 
-All nine L4/L5 provider pairs pass against an isolated local Management API.
-That gate creates no cloud resources. The Five-layer v2 profile is active for
-offline selection and evaluation; its explicit live-capacity gates still
-block deployment selection. Actual provider-console browser sign-in remains a
-supervised live check.
+All nine L4/L5 provider pairs pass against an isolated local Management API for
+both active Phase 8 profiles. That gate creates no cloud resources. Five-layer
+v2 and Six-layer v1 are active for offline selection and evaluation; their
+explicit live-capacity gates still block deployment selection. Actual
+provider-console browser sign-in remains a supervised live check.
 
 ## Quality Checks
 

@@ -14,9 +14,12 @@ contracts/architecture-profiles/v1/
   fixtures/
 contracts/architecture-profiles/definitions/
   manifest.json
-  profiles/five-layer-baseline/1/profile.json
-  provider-implementations/five-layer-baseline/1/{aws,azure,gcp}/1.json
-  component-catalogs/baseline/1/catalog.json
+  five-layer-v2-manifest.json
+  six-layer-eventing-v1-manifest.json
+  six-layer-eventing-v1-cost-registry.json
+  profiles/{five-layer-baseline/{1,2},six-layer-eventing/1}/profile.json
+  provider-implementations/{five-layer-baseline/{1,2},six-layer-eventing/1}/{aws,azure,gcp}/1.json
+  component-catalogs/{baseline,complete-service,six-layer-eventing}/1/catalog.json
   fixtures/{resolved,unsupported}/
 ```
 
@@ -101,8 +104,9 @@ invalidation digest; assignments and infrastructure evidence remain
 server-owned.
 
 Optimizer calculation output and profile-matched Deployer package/Terraform
-execution are active. Flutter presents the active Five-layer v2 selection,
-frozen workload, and typed RTA/RDS v2 evidence through Management only.
+execution are active. Flutter presents active Five-layer v2 and Six-layer v1
+selection, frozen workload, and profile-specific typed RTA/RDS v2 evidence
+through Management only.
 
 ## Extending The Deployment Graph
 

@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-14"
-version: "4.13"
+version: "4.14"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.13"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-14 | VERSION: 4.13
+EXTRACTED: 2026-08-14 | VERSION: 4.14
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -223,7 +223,12 @@ tests cover both branches and the corresponding Terraform wiring.
 The GCP follow-up also passes the chosen Event-control topic into the L2 rule
 evaluator and grants the L1 ingress identity its remote-control-outbox publish
 right for a non-GCP Event Layer. This restores rule-match and command-outcome
-returns without introducing an extra broker or service.
+returns to the selected Event responsibility without introducing an extra
+broker or service. The concept and current-system documentation have also been
+reconciled: both active profiles use one immutable paired S/M/L workload,
+Manifest v4 and the typed L4/L5 access handoff; the Six-layer delta alone adds
+the registered Eventing bundle and source-owned bridge. The strict
+documentation build passes locally.
 
 ## Immediate Next Action
 
@@ -299,7 +304,7 @@ Phase 8 is a bounded architecture refactoring for the thesis. It must:
 - derive deployment packages and Terraform inputs from a validated graph;
 - keep platform wrappers, resource names, bindings, identities, permissions,
   and runtime policy out of user code;
-- support one later, evidence-gated `six-layer-eventing@1` profile with the
+- support one separately versioned, evidence-gated `six-layer-eventing@1` profile with the
   same domain-event behavior as `five-layer-baseline@2`;
 - remove the three legacy Eventing feature flags from both new profiles while
   preserving historical read/destroy compatibility;

@@ -359,8 +359,8 @@ Twin Overview
 
 **Sections:**
 - **Layer Access is typed:** it uses `deployment-access.v1`, not arbitrary
-  Terraform output keys. An available Five-layer v2 result contains exactly
-  one independently actionable L4 and L5 surface.
+  Terraform output keys. An available Five-layer v2 or Six-layer v1 result
+  contains exactly one independently actionable L4 and L5 surface.
 - **L4 and L5 remain functionally separate:** L4 exposes semantic current
   state/relationships; L5 exposes L3 raw history and rollups. There is no
   implied L4-to-L5 or 3D path.
@@ -597,7 +597,11 @@ The implementation reference is
 **Left Column - Architecture View (Dynamic Flowchart):**
 - **Dynamic based on Optimizer output:** Shows all architecture components for selected providers
 - **Flowchart visualizes data flow:** L1 → L2 → L3 → L4 → L5 with arrows
-- **Glue/L0 functions shown as connectors** between layers (not a separate layer) in multi-cloud scenarios
+- **Historical Glue/L0 functions shown as connectors** between layers (not a
+  separate layer) in this preserved predecessor wireframe. The current Phase 8
+  resolved graph instead renders the registered direct or bridge edge and its
+  explicit source/destination ownership; it never invents an unspecified Glue
+  layer.
 - Reference: see `/docs/` provider deployment guides (AWS, Azure are up to date)
 - **All components shown**, but un-editable ones are greyed out
 - User-editable components: large blocks with status indicator

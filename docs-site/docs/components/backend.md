@@ -131,7 +131,8 @@ history and correlation by session/operation ID.
 
 Every new successful optimizer run contains one canonical, profile-matched
 resolved deployment specification and resolved architecture. Historical
-Five-layer v1 uses RDS/RTA v1; active Five-layer v2 uses RDS/RTA v2.
+Five-layer v1 uses RDS/RTA v1; active Five-layer v2 and Six-layer v1 use
+separate RDS/RTA v2 evidence.
 Management validates their schemas, closed-world component/dimension registry,
 run ID, provider path, strategy context, immutable pricing references, cross-links,
 and SHA-256 digests before committing any run state. The canonical JSON, digests,
@@ -146,7 +147,7 @@ persisted Optimizer projection before decrypting credentials or materializing fi
 
 The Management API builds the profile-matched `deployment_manifest.json`:
 version 3.0 for historical Five-layer v1 evidence and version 4.0 for active
-Five-layer v2 evidence. It embeds the exact calculation run ID, immutable
+Five-layer v2 or Six-layer v1 evidence. It embeds the exact calculation run ID, immutable
 architecture and specification objects/digests, pinned catalog compatibility,
 derived provider projection, credential-source metadata, and immutable
 extension references. Storage durations and workload fields come from the
@@ -165,8 +166,8 @@ recorded calculation run rather than the latest selection. Drift fails with
 
 Manifest v2 remains readable for historical compatibility only. An operation
 must use the manifest version owned by its frozen profile: v3 for historical
-Five-layer v1 evidence and v4 for active Five-layer v2. Invalid packages never
-fall back across versions or to fixed fields.
+Five-layer v1 evidence and v4 for active Five-layer v2 or Six-layer v1.
+Invalid packages never fall back across versions or to fixed fields.
 
 ## Database Startup And Migrations
 

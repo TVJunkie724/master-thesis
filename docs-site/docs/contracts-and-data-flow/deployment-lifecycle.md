@@ -108,8 +108,8 @@ catalog, graph, or package-selection drift with
 `DEPLOYMENT_GRAPH_RESUME_MISMATCH`.
 
 Manifest v2 is historical read compatibility only. Five-layer v1 operation
-evidence uses Manifest v3; Five-layer v2 operation evidence uses Manifest v4.
-Invalid data never falls back across versions.
+evidence uses Manifest v3; Five-layer v2 and Six-layer v1 operation evidence
+use Manifest v4. Invalid data never falls back across versions.
 
 The Management API persists lifecycle state and normalized operation records.
 Deployer logs cross the boundary as structured events and are redacted before public

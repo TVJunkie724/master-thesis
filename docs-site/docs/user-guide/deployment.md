@@ -33,11 +33,12 @@ Inspect:
 - data-flow verification phases where supported;
 - simulator controls only after required provider material exists.
 
-Layer Access is available only from persisted `five-layer-baseline@2`
-deployment evidence. Historical Five-layer v1 returns an explicit unsupported
-state, and destroyed Twins expose no active links. Open requires the provider
-resource and interactive binding to be ready; content and data-probe status are
-shown independently so one degraded layer never disables the other or Destroy.
+Layer Access is available from persisted `five-layer-baseline@2` or
+`six-layer-eventing@1` deployment evidence. Historical Five-layer v1 returns an
+explicit unsupported state, and destroyed Twins expose no active links. Open
+requires the provider resource and interactive binding to be ready; content
+and data-probe status are shown independently so one degraded layer never
+disables the other or Destroy.
 
 AWS access uses Identity Center, Azure uses Entra ID, and GCP L4 uses IAP. GCP
 Grafana alone offers an explicit Viewer-password rotation. Its one-time value
@@ -57,6 +58,6 @@ They exercise UI state/log handling without contacting providers, but they are n
 live-cloud evidence.
 
 The Layer Access integration uses the same quarantine: a temporary local
-Management API and SQLite database exercise all nine L4/L5 provider pairs,
-owner isolation, redaction, destroy, and rotation concurrency without starting
-Optimizer, Deployer, Terraform, or a provider API.
+Management API and SQLite database exercise all nine L4/L5 provider pairs for
+both active profiles, owner isolation, redaction, destroy, and rotation
+concurrency without starting Optimizer, Deployer, Terraform, or a provider API.

@@ -35,13 +35,12 @@ Users may revisit completed tasks. A material configuration edit can invalidate 
 calculation, readiness result, or `configured` state. The workspace shows the next
 recommended task rather than pretending downstream results remain current.
 
-The active profile list is owned by Management. During the Phase 8.7
-infrastructure step it is intentionally empty: historical Five-layer v1 Twins
-remain readable, but no replacement profile is shown as disabled or “coming
-soon.” Five-layer v2 and Six-layer v1 appear only when their complete runtime
-implementations are activated. A profile change first shows the exact
-server-calculated workload, user-logic, run, and readiness invalidations and
-requires explicit confirmation.
+The active profile list is owned by Management. Its current runtime catalog
+contains Five-layer v2 and Six-layer v1; historical Five-layer v1 Twins remain
+readable but are not selectable for new work. The earlier Phase 8.7 empty
+catalog was an activation seam, not a disabled or “coming soon” UI. A profile
+change first shows the exact server-calculated workload, user-logic, run, and
+readiness invalidations and requires explicit confirmation.
 
 ## Calculation And Evidence
 

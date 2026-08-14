@@ -49,9 +49,9 @@ flowchart TD
 The emergency fallback path is diagnostic. It is not a publishable pricing source and
 must not silently enter cost calculation.
 
-### Five-layer v2 offline publication
+### Phase 8 profile offline publication
 
-The active Five-layer v2 evaluation path consumes three immutable,
+The active Five-layer v2 and Six-layer v1 evaluation paths consume the same three immutable,
 content-addressed provider snapshots published from
 `five_layer_v2_rate_card_sources.v2.json`. The publisher validates exact
 provider/region/source/rate keys, official source hosts, observation time,
@@ -67,6 +67,12 @@ estimates for offline cost comparison; this is not measured request-charge
 evidence. The RDS keeps
 the Cosmos request-charge and autoscale-capacity gates, and Management rejects
 deployment selection until supervised evidence satisfies them.
+
+Six-layer v1 keeps every L1-L5 price from that shared base and adds only the
+registered Eventing bundle, direct/bridge transfer, and destination-ingress
+dimensions from `six-layer-eventing-v1-cost-registry.json`. Its S/M/L Eventing
+scenario is paired with the same immutable core preset, so profile comparison
+does not silently change functional workload.
 
 Rollup storage and rollup operations are different quantities. Storage holds
 at most one rollup item per device, metric, and hour (720 points across the

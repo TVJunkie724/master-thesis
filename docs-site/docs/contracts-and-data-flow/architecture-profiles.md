@@ -21,9 +21,10 @@ architecture read models.
 
 `ResolvedTwinArchitecture` references the exact matching
 `ResolvedDeploymentSpecification` digest and calculation-run ID. Historical
-Five-layer v1 uses RTA v1/RDS v1; active Five-layer v2 uses RTA v2/RDS v2. The
-deployment specification remains the source of truth for provider-specific SKU,
-capacity, memory, storage class, schedule, and billing-mode values.
+Five-layer v1 uses RTA v1/RDS v1; active Five-layer v2 and Six-layer v1 use
+separate immutable RTA v2/RDS v2 evidence. The deployment specification remains
+the source of truth for provider-specific SKU, capacity, memory, storage class,
+schedule, and billing-mode values.
 
 ## Ownership
 
@@ -33,7 +34,7 @@ flowchart LR
     Optimizer["Optimizer"] -->|"derives complete immutable resolution"| Resolution["ResolvedTwinArchitecture"]
     Management["Management API"] -->|"validates and persists immutable run evidence"| Resolution
     Resolution -->|"read-only validation"| Deployer["Deployer"]
-    Flutter["Flutter"] -.->|"Management API only; workflow arrives in Phase 8.7"| Management
+    Flutter["Flutter"] -.->|"Management API only; active profile workflow"| Management
 ```
 
 Authenticated Management clients can select only reviewed profile IDs and
@@ -41,29 +42,28 @@ versions using a server-derived invalidation preview, revision, and digest.
 They cannot author components, edges, provider mappings, service IDs, evidence,
 costs, digests, or Terraform values.
 
-## Dark Calculation And Admission
+## Calculation And Admission
 
 The public Management workload schema contains neither `architectureProfile`
-nor `extensionBindings`. When the Phase 8.5 gate is enabled for canonical
-offline fixtures, Management reads the selected profile and current active
-bindings from owner-scoped persistence, computes the canonical configuration
-digests, and sends only immutable references to the Optimizer. The Optimizer
-admits candidates only after component, capability, port, edge, region,
-pricing/formula, deployment-mapping, and extension completeness checks.
+nor `extensionBindings`. Management reads the selected profile and current
+active bindings from owner-scoped persistence, computes the canonical
+configuration digests, and sends only immutable references to the Optimizer.
+The Optimizer admits candidates only after component, capability, port, edge,
+region, pricing/formula, deployment-mapping, and extension completeness checks.
 
 The winning complete path produces profile-compatible projection fields plus
 one matching immutable contract pair from the same candidate: RTA v1/RDS v1
-for historical v1 evidence or RTA v2/RDS v2 for the active v2 path. Management
-validates their run, profile, optimization-bundle, pricing, deployment, cost,
-extension, and digest cross-links before one atomic commit. A malformed
-response persists only bounded failed-run metadata and never becomes a legacy
-success.
+for historical v1 evidence or profile-specific RTA v2/RDS v2 for either active
+path. Management validates their run, profile, optimization-bundle, pricing,
+deployment, cost, extension, and digest cross-links before one atomic commit.
+A malformed response persists only bounded failed-run metadata and never
+becomes a legacy success.
 
 `ARCHITECTURE_PROFILE_RESOLUTION_ENABLED` defaults to `true` in the Optimizer
-and Management API for `five-layer-baseline@2`. Explicitly setting it to
-`false` is the fail-closed rollback; a failed enabled resolution never falls
-back to a legacy deployment result. Offline RDS v2 evidence remains
-evaluation-only until every listed supervised live-capacity gate is satisfied.
+and Management API for both active profiles. Explicitly setting it to `false`
+is the fail-closed rollback; a failed enabled resolution never falls back to a
+legacy deployment result. Offline RDS v2 evidence remains evaluation-only until
+every listed supervised live-capacity gate is satisfied.
 
 ## Management Persistence
 
@@ -107,43 +107,48 @@ contains the reviewed v2 AWS, Azure, and provider-hosted GCP components, edge
 implementations, package artifacts, and explicit Terraform
 resource/variable/output ownership.
 
-The active offline successor contract is `five-layer-baseline@2`, with
-mandatory embedded domain events, three
-provider-local `L3 hot + L5` raw-visualization bundles, and an independently
-assigned L4. It exposes an L3-hot-to-L5 raw-history edge and an
-L3-hot-to-L4 `twin_projection.v1` edge; L4-to-L5/3D is outside the version.
-Six-layer implementation remains deferred until this L1-L5 activation commit
-is frozen. RTA v2/RDS v2/Manifest v4 offline evidence is selectable for
-evaluation, while unresolved supervised live-capacity gates prevent
-deployment selection.
+The active successor base is `five-layer-baseline@2`, with mandatory embedded
+domain events, three provider-local `L3 hot + L5` raw-visualization bundles,
+and an independently assigned L4. It exposes an L3-hot-to-L5 raw-history edge
+and an L3-hot-to-L4 `twin_projection.v1` edge; L4-to-L5/3D is outside the
+version.
 
-Flutter consumes the seven owner-scoped Management profile,
-selection, preview/change, and resolved-architecture reads through strict Dart
-DTOs. The Configuration Workspace and Demo advertise the one active
-`five-layer-baseline@2` profile and pin its exact digest for new Twins.
-Historical v1 evidence remains readable. Six-layer UI states are not
-advertised as executable.
+The separately active `six-layer-eventing@1` profile inherits that L1-L5 base
+unchanged and adds one independently assigned Eventing responsibility. Its
+registered provider bundle, same-provider direct paths, and source-owned bridge
+cover all single-cloud placements and every directed AWS/Azure/GCP provider
+pair. Both profiles produce their own RTA v2/RDS v2/Manifest v4 offline
+evidence. Unresolved supervised live-capacity gates still prevent deployment
+selection.
 
-Five-layer v2 requires one server-resolved S/M/L Eventing scenario reference.
-Clients will submit only `eventingScenarioId`; Management will pin the
-immutable scenario digest/snapshot. A later Six-layer plan must reuse the same
-reference semantics. Inline Eventing values and historical feature switches
-are not part of the successor request contract.
+Flutter consumes the owner-scoped Management profile, selection,
+preview/change, and resolved-architecture reads through strict Dart DTOs. The
+Configuration Workspace and Demo advertise active `five-layer-baseline@2` and
+`six-layer-eventing@1` definitions and pin the selected exact digest for new
+Twins. Historical Five-layer v1 evidence remains readable. Demo calculation
+remains a truthful Five-layer-only fixture and fails closed for Six-layer;
+the connected local stack calculates both profiles.
+
+Both active profiles require the same server-resolved S/M/L Eventing scenario
+reference paired with the immutable core workload preset. Clients submit the
+exact preset fields and its `eventingScenarioId`; Management rejects any
+modified or mismatched combination and pins the immutable scenario
+digest/snapshot. Inline Eventing values, editable core fields, and historical
+feature switches are not part of the successor request contract.
 
 The catalog binds `processor.telemetry@1` inside the processing responsibility
 to the reviewed Python 3.11 provider adapters. Its catalog-completeness
-scenario is supported now that #113 is complete, while profile selection
-and read APIs are active and architecture-aware calculation admission remains
-dark. This is a user-function extension point, not an Eventing responsibility
-or layer.
+scenario is supported now that #113 is complete; profile selection, read APIs,
+and architecture-aware calculation admission are active. This is a
+user-function extension point, not an Eventing responsibility or layer.
 
 ## Compatibility
 
 `ResolvedDeploymentSpecification v1` remains unchanged and historical-profile
-only. Five-layer v2 uses the separate RDS v2/RTA v2/Manifest v4 chain while
-retaining v1 read support. Six-layer must extend that v2-capable boundary under
-its own reviewed contract delta; it may not reinterpret either existing
-version.
+only. Five-layer v2 and Six-layer v1 use separate evidence through the
+RDS v2/RTA v2/Manifest v4 chain while retaining v1 read support. Six-layer's
+reviewed delta extends the v2-capable boundary without reinterpreting the
+historical or Five-layer contracts.
 
 See [Architecture Contract Development](../developer-guide/architecture-profile-contracts.md)
 for synchronization and extension rules.

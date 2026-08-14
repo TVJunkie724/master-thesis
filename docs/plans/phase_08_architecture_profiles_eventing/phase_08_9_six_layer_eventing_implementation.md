@@ -3,7 +3,7 @@ title: "Phase 8.9B: Six-Layer Eventing Implementation"
 description: "Executable delta plan that adds one independent Eventing responsibility to the reviewed Five-layer v2 PoC."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
 lastUpdated: "2026-08-14"
-version: "2.10"
+version: "2.11"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.10"
 - contracts/phase-08-eventing-decision/v1/decision.json
 - contracts/phase-08-eventing-decision/v1/implementation-component-manifest.json
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-14 | VERSION: 2.10
+EXTRACTED: 2026-08-14 | VERSION: 2.11
 -->
 
 # Phase 8.9B: Six-Layer Eventing Implementation
@@ -43,6 +43,11 @@ Deployer, AWS, Azure, GCP, bridge, and Flutter commits are present on the
 required branch. Component gates pass locally without credentials or apply.
 Documentation reconciliation and the repeated final audit are in progress;
 this document therefore does not yet claim the final zero-finding freeze.
+The current-system documentation now names both active profiles consistently,
+keeps the core/event S/M/L pair immutable, gives both profiles the typed L4/L5
+handoff and Manifest v4 boundary, and distinguishes current registered bridges
+from the predecessor's historical generic Glue wording. The strict MkDocs
+build passes locally.
 The current audit also binds every inherited Terraform resource and every
 profile-local AWS, Azure, and GCP runtime to the resolved profile identifier
 and version. Runtime health/read cursors, Twin Explorer text, provider Grafana

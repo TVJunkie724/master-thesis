@@ -120,14 +120,16 @@ Errors must be captured at every layer and surfaced to the user.
         five-layer baseline. Adding one requires a separately reviewed
         Eventing/error contract and complete provider/deployment support.
 
-## 6. Future Roadmap
+## 6. Current Architecture Program And Remaining Evaluation
 
--   **Architecture profiles:** Replace scattered fixed-layer knowledge with
-    reviewed, versioned closed-world profiles.
--   **Functional completeness:** Reject incomplete provider paths before cost
-    ranking.
--   **Paper validation:** Compare reproducible estimated costs with separately
-    approved observed/live evidence.
+-   **Architecture profiles:** The reviewed, versioned closed-world Five-layer
+    v2 and Six-layer v1 profiles now replace scattered fixed-layer knowledge for
+    the Phase 8 experiment.
+-   **Functional completeness:** Incomplete provider paths are rejected before
+    profile-local cost ranking.
+-   **Remaining paper validation:** Phase 8.10 compares reproducible estimated
+    costs and records separately approved observed/live evidence without
+    treating the latter as a prerequisite for offline thesis evaluation.
 -   **Final E2E:** Keep cost-incurring provider execution supervised and
     explicitly approved.
 

@@ -2,10 +2,10 @@
 
 This page documents the Twin2MultiCloud predecessor graph as reconstructed in
 Phase 8.0. It is immutable historical evidence for the profile migration, not
-the active Five-layer v2 service graph. See
+either active Phase 8 service graph. See
 [Five-layer baseline](five-layer-baseline.md) and
 [Provider capabilities](provider-capabilities.md) for the current selectable
-profile.
+profiles.
 
 <!-- architecture-inventory-diagram-ids:
 edge.runtime.aws.l1-to-l2
