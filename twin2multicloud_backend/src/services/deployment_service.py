@@ -20,7 +20,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Any, Optional, Sequence, TYPE_CHECKING
+from typing import Any, Mapping, Optional, Sequence, TYPE_CHECKING
 
 from src.clients.deployer_client import DeployerClient
 from src.config import settings
@@ -95,6 +95,34 @@ WORKSPACE_PATH_PATTERN = re.compile(
     r"(/[^\s:]+/twin2multicloud-deployer-workspaces/[^\s:]+)"
 )
 STAGE_COMPLETED_MARKER = "T2MC_STAGE_COMPLETED:"
+PHASE_8_COMPARISON_PROFILES = {
+    ("five-layer-baseline", "2"),
+    ("six-layer-eventing", "1"),
+}
+PHASE_8_FIXED_REGIONS = {
+    "aws": "eu-central-1",
+    "azure": "westeurope",
+    "gcp": "europe-west1",
+}
+PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS = {
+    "allowGcpSelfHostedL4",
+    "allowGcpSelfHostedL5",
+    "amountOfActiveEditors",
+    "amountOfActiveViewers",
+    "apiCallsPerDashboardRefresh",
+    "average3DModelSizeInMB",
+    "dashboardRefreshesPerHour",
+    "entityCount",
+    "eventTriggerRate",
+    "eventsPerMessage",
+    "integrateErrorHandling",
+    "needs3DModel",
+    "numberOfEventActions",
+    "orchestrationActionsPerMessage",
+    "returnFeedbackToDevice",
+    "triggerNotificationWorkflow",
+    "useEventChecking",
+}
 
 
 @dataclass(frozen=True)
@@ -278,9 +306,7 @@ def _parse_deployer_sse_data(
             error_code=payload.get("error_code"),
             message=_redact_deployment_message(message),
             outputs=payload.get("outputs") or {},
-            deployment_access_evidence=payload.get(
-                "deployment_access_evidence"
-            ),
+            deployment_access_evidence=payload.get("deployment_access_evidence"),
         )
 
     message = payload.get("message") if payload.get("event") == "log" else None
@@ -303,9 +329,7 @@ def _result_message(
 def _completed_stage_from_log(message: str | None) -> str | None:
     """Extract one bounded Deployer lifecycle stage marker."""
 
-    if not isinstance(message, str) or not message.startswith(
-        STAGE_COMPLETED_MARKER
-    ):
+    if not isinstance(message, str) or not message.startswith(STAGE_COMPLETED_MARKER):
         return None
     stage = message.removeprefix(STAGE_COMPLETED_MARKER)
     return stage if stage in {"package", "preplan", "terraform", "postapply"} else None
@@ -388,9 +412,7 @@ async def run_real_deploy_stream(
                     if result.success and result.outputs:
                         terraform_outputs = result.outputs
                     if result.success and result.deployment_access_evidence:
-                        deployment_access_evidence = (
-                            result.deployment_access_evidence
-                        )
+                        deployment_access_evidence = result.deployment_access_evidence
                 elif log_message:
                     completed_stage = _completed_stage_from_log(log_message)
                     if completed_stage is not None:
@@ -792,11 +814,17 @@ def build_deployment_package(
         user_id,
         required_providers=required_providers,
     )
+    _validate_phase8_deployment_regions(
+        contracts.architecture,
+        providers,
+        deployment_credentials.config_credentials,
+    )
     files = _materialize_deployment_files(
         twin,
         providers,
         deployment_credentials,
         optimizer_params=optimizer_params,
+        architecture_profile_ref=contracts.architecture.get("architecture_profile_ref"),
     )
     binary_files = _materialize_binary_files(twin, providers)
     file_names = sorted(
@@ -832,6 +860,7 @@ def _materialize_deployment_files(
     deployment_credentials: DeploymentCredentials,
     *,
     optimizer_params: dict[str, Any],
+    architecture_profile_ref: Mapping[str, Any] | None = None,
 ) -> tuple[DeploymentPackageFile, ...]:
     """Return the text/JSON files required by the Deployer package contract."""
     dc = twin.deployer_config
@@ -892,7 +921,10 @@ def _materialize_deployment_files(
         DeploymentPackageFile(
             "config_optimization.json",
             json.dumps(
-                _build_optimization_config_from_params(optimizer_params),
+                _build_optimization_config_from_params(
+                    optimizer_params,
+                    architecture_profile_ref=architecture_profile_ref,
+                ),
                 indent=2,
             ),
         )
@@ -1366,9 +1398,7 @@ def _build_main_config(
     if params is not None:
         hot_days = _months_to_days(params.get("hotStorageDurationInMonths"), 1)
         cold_days = _months_to_days(params.get("coolStorageDurationInMonths"), 3)
-        archive_days = _months_to_days(
-            params.get("archiveStorageDurationInMonths"), 12
-        )
+        archive_days = _months_to_days(params.get("archiveStorageDurationInMonths"), 12)
 
     # Mode from Step 1 debug toggle
     mode = (
@@ -1841,7 +1871,11 @@ def _remove_empty_values(values: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _build_optimization_config(oc) -> dict:
+def _build_optimization_config(
+    oc,
+    *,
+    architecture_profile_ref: Mapping[str, Any] | None = None,
+) -> dict:
     """
     Build config_optimization.json with the deployer-expected format.
 
@@ -1854,6 +1888,7 @@ def _build_optimization_config(oc) -> dict:
         return _build_optimization_config_from_params(
             params,
             field_prefix="optimizer_config.params",
+            architecture_profile_ref=architecture_profile_ref,
         )
     return {"result": {"inputParamsUsed": input_params}}
 
@@ -1862,10 +1897,24 @@ def _build_optimization_config_from_params(
     params: dict[str, Any],
     *,
     field_prefix: str = "cost_calculation_run.params_json",
+    architecture_profile_ref: Mapping[str, Any] | None = None,
 ) -> dict[str, dict[str, dict[str, bool]]]:
     """Project immutable calculation parameters into the Deployer flag contract."""
 
     _ensure_optimizer_params_are_executable(params, field_prefix=field_prefix)
+    profile = _architecture_profile_identity(architecture_profile_ref)
+    if profile in PHASE_8_COMPARISON_PROFILES:
+        forbidden = sorted(PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS & params.keys())
+        if forbidden:
+            _raise_package_error(
+                field_prefix,
+                "FORBIDDEN_PROFILE_FIELD",
+                (
+                    "Phase 8 comparison profiles do not accept legacy feature "
+                    f"flags: {', '.join(forbidden)}"
+                ),
+            )
+        return {"result": {"inputParamsUsed": {}}}
     input_params = {
         "useEventChecking": params.get("useEventChecking") is True,
         "triggerNotificationWorkflow": params.get("triggerNotificationWorkflow")
@@ -1875,6 +1924,69 @@ def _build_optimization_config_from_params(
         "needs3DModel": params.get("needs3DModel") is True,
     }
     return {"result": {"inputParamsUsed": input_params}}
+
+
+def _architecture_profile_identity(
+    reference: Mapping[str, Any] | None,
+) -> tuple[str, str] | None:
+    if not isinstance(reference, Mapping):
+        return None
+    profile_id = reference.get("id")
+    version = reference.get("version")
+    if not isinstance(profile_id, str) or not isinstance(version, str):
+        return None
+    return profile_id, version
+
+
+def _validate_phase8_deployment_regions(
+    architecture: Mapping[str, Any],
+    providers: Mapping[str, Any],
+    credentials: Mapping[str, Any],
+) -> None:
+    """Keep deployable Phase 8 evidence inside its priced fixed regions."""
+
+    if (
+        _architecture_profile_identity(architecture.get("architecture_profile_ref"))
+        not in PHASE_8_COMPARISON_PROFILES
+    ):
+        return
+    selected = {
+        normalize_provider_id(provider)
+        for key, provider in providers.items()
+        if key.endswith("_provider") and isinstance(provider, str) and provider
+    }
+    for provider in sorted(selected):
+        payload = credentials.get(provider)
+        if not isinstance(payload, Mapping):
+            continue
+        field = f"{provider}_region"
+        expected = PHASE_8_FIXED_REGIONS[provider]
+        if payload.get(field) != expected:
+            _raise_package_error(
+                f"config_credentials.{provider}.{field}",
+                "DEPLOYMENT_REGION_UNSUPPORTED",
+                (
+                    f"{provider.upper()} is fixed to {expected} for the selected "
+                    "Phase 8 comparison profile."
+                ),
+            )
+    azure = credentials.get("azure")
+    if isinstance(azure, Mapping) and providers.get("layer_1_provider") == "azure":
+        expected = PHASE_8_FIXED_REGIONS["azure"]
+        if azure.get("azure_region_iothub") not in {None, "", expected}:
+            _raise_package_error(
+                "config_credentials.azure.azure_region_iothub",
+                "DEPLOYMENT_REGION_UNSUPPORTED",
+                f"Azure IoT Hub is fixed to {expected} for this profile.",
+            )
+    if isinstance(azure, Mapping) and providers.get("layer_4_provider") == "azure":
+        expected = PHASE_8_FIXED_REGIONS["azure"]
+        if azure.get("azure_region_digital_twin") not in {None, "", expected}:
+            _raise_package_error(
+                "config_credentials.azure.azure_region_digital_twin",
+                "DEPLOYMENT_REGION_UNSUPPORTED",
+                f"Azure Digital Twins is fixed to {expected} for this profile.",
+            )
 
 
 def _validated_run_params(run: Any) -> dict[str, Any]:

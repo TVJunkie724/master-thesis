@@ -16,12 +16,16 @@ from tests.utils.deployment_specification import (
 from src.tfvars_generator import (
     generate_tfvars,
     ConfigurationError,
+    PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS,
     _load_config,
     _load_credentials,
     _load_providers,
     _load_iot_devices,
     _load_platform_user_config,
+    _validate_phase8_optimization_artifact,
+    _validate_phase8_tfvars,
 )
+from src.configuration_validation.complete import V2_FORBIDDEN_OPTIMIZER_FIELDS
 
 
 class TestLoadConfig:
@@ -351,3 +355,65 @@ class TestGenerateTfvars:
         with open(output_path) as f:
             written = json.load(f)
         assert written == result
+
+
+def test_phase8_tfvars_reject_retired_flags_and_shared_token():
+    values = {
+        "layer_1_provider": "aws",
+        "layer_2_provider": "aws",
+        "aws_region": "eu-central-1",
+        "inter_cloud_token": "retired",
+    }
+
+    with pytest.raises(ConfigurationError, match="retired feature or shared-token"):
+        _validate_phase8_tfvars(values, ("six-layer-eventing", "1"))
+
+
+@pytest.mark.parametrize(
+    ("provider_key", "provider", "region_key", "invalid"),
+    [
+        ("layer_1_provider", "aws", "aws_region", "us-east-1"),
+        ("layer_2_provider", "azure", "azure_region", "northeurope"),
+        ("layer_3_hot_provider", "google", "gcp_region", "us-central1"),
+    ],
+)
+def test_phase8_tfvars_reject_unpriced_region(
+    provider_key,
+    provider,
+    region_key,
+    invalid,
+):
+    values = {provider_key: provider, region_key: invalid}
+
+    with pytest.raises(ConfigurationError, match="must be"):
+        _validate_phase8_tfvars(values, ("five-layer-baseline", "2"))
+
+
+def test_phase8_optimizer_artifact_rejects_even_false_legacy_flag(tmp_path):
+    (tmp_path / "config_optimization.json").write_text(
+        json.dumps({"result": {"inputParamsUsed": {"useEventChecking": False}}})
+    )
+
+    with pytest.raises(ConfigurationError, match="legacy feature flags"):
+        _validate_phase8_optimization_artifact(tmp_path)
+
+
+def test_phase8_optimizer_artifact_accepts_empty_input_contract(tmp_path):
+    (tmp_path / "config_optimization.json").write_text(
+        json.dumps({"result": {"inputParamsUsed": {}}})
+    )
+
+    _validate_phase8_optimization_artifact(tmp_path)
+
+
+def test_phase8_tfvars_guard_matches_complete_validation_forbidden_fields():
+    assert PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS == V2_FORBIDDEN_OPTIMIZER_FIELDS
+
+
+def test_phase8_optimizer_artifact_rejects_malformed_input_envelope(tmp_path):
+    (tmp_path / "config_optimization.json").write_text(
+        json.dumps({"result": {"inputParamsUsed": []}})
+    )
+
+    with pytest.raises(ConfigurationError, match="inputParamsUsed must contain"):
+        _validate_phase8_optimization_artifact(tmp_path)

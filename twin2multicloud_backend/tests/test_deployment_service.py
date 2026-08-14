@@ -28,6 +28,7 @@ from src.models.twin import DigitalTwin, TwinState
 from src.models.twin_config import TwinConfiguration
 from src.models.user import User
 from src.services.deployment_service import (
+    PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS,
     DEPLOYMENT_MANIFEST_FILE,
     REQUIRED_DEPLOYER_CONFIG_FILES,
     build_deployment_package,
@@ -42,7 +43,9 @@ from src.services.deployment_service import (
     _build_credentials_config,
     _build_deployment_manifest,
     _build_optimization_config,
+    _build_optimization_config_from_params,
     _component_catalog_ref,
+    _validate_phase8_deployment_regions,
 )
 from src.services.credential_resolution_service import DeploymentCredentials
 from src.services.errors import (
@@ -390,7 +393,9 @@ class TestDeployerSseParsing:
                     "operation": "deploy",
                     "success": True,
                     "outputs": {"endpoint": {"value": "ok"}},
-                    "deployment_access_evidence": {"schema_version": "deployment-access-evidence.v1"},
+                    "deployment_access_evidence": {
+                        "schema_version": "deployment-access-evidence.v1"
+                    },
                     "operation_id": "op-123",
                 }
             ),
@@ -1389,6 +1394,57 @@ class TestBuildOptimizationConfig:
 
         assert result == {"result": {"inputParamsUsed": {}}}
 
+    @pytest.mark.parametrize(
+        "profile_ref",
+        [
+            {"id": "five-layer-baseline", "version": "2"},
+            {"id": "six-layer-eventing", "version": "1"},
+        ],
+    )
+    def test_phase8_profiles_emit_no_legacy_feature_flags(self, profile_ref):
+        result = _build_optimization_config_from_params(
+            {
+                "numberOfDevices": 100,
+                "workloadSize": "small",
+            },
+            architecture_profile_ref=profile_ref,
+        )
+
+        assert result == {"result": {"inputParamsUsed": {}}}
+
+    def test_phase8_profile_rejects_even_false_legacy_feature_flag(self):
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            _build_optimization_config_from_params(
+                {"useEventChecking": False},
+                architecture_profile_ref={
+                    "id": "six-layer-eventing",
+                    "version": "1",
+                },
+            )
+
+        assert exc_info.value.errors[0]["code"] == "FORBIDDEN_PROFILE_FIELD"
+
+    def test_phase8_forbidden_fields_match_frozen_profile_contract(self):
+        assert PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS == {
+            "allowGcpSelfHostedL4",
+            "allowGcpSelfHostedL5",
+            "amountOfActiveEditors",
+            "amountOfActiveViewers",
+            "apiCallsPerDashboardRefresh",
+            "average3DModelSizeInMB",
+            "dashboardRefreshesPerHour",
+            "entityCount",
+            "eventTriggerRate",
+            "eventsPerMessage",
+            "integrateErrorHandling",
+            "needs3DModel",
+            "numberOfEventActions",
+            "orchestrationActionsPerMessage",
+            "returnFeedbackToDevice",
+            "triggerNotificationWorkflow",
+            "useEventChecking",
+        }
+
     def test_rejects_legacy_unsupported_error_handling_topology(self):
         oc = Mock()
         oc.params = json.dumps({"integrateErrorHandling": True})
@@ -1406,6 +1462,50 @@ class TestBuildOptimizationConfig:
                 ),
             }
         ]
+
+
+@pytest.mark.parametrize(
+    ("provider", "field", "invalid"),
+    [
+        ("aws", "aws_region", "us-east-1"),
+        ("azure", "azure_region", "northeurope"),
+        ("gcp", "gcp_region", "us-central1"),
+    ],
+)
+def test_phase8_deployment_rejects_regions_outside_priced_contract(
+    provider,
+    field,
+    invalid,
+):
+    architecture = {
+        "architecture_profile_ref": {
+            "id": "six-layer-eventing",
+            "version": "1",
+        }
+    }
+    providers = {
+        "layer_1_provider": "aws",
+        "layer_2_provider": "azure",
+        "layer_3_hot_provider": "google",
+    }
+    credentials = {
+        "aws": {"aws_region": "eu-central-1"},
+        "azure": {
+            "azure_region": "westeurope",
+            "azure_region_iothub": "westeurope",
+        },
+        "gcp": {"gcp_region": "europe-west1"},
+    }
+    credentials[provider][field] = invalid
+
+    with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+        _validate_phase8_deployment_regions(
+            architecture,
+            providers,
+            credentials,
+        )
+
+    assert exc_info.value.errors[0]["code"] == "DEPLOYMENT_REGION_UNSUPPORTED"
 
 
 class TestBuildDeploymentManifest:
@@ -1483,15 +1583,14 @@ class TestBuildDeploymentManifest:
             ),
             ["config.json", "config_credentials.json"],
             resolved_architecture=fixture["resolved_twin_architecture"],
-            deployment_specification=fixture[
-                "resolved_deployment_specification"
-            ],
+            deployment_specification=fixture["resolved_deployment_specification"],
         )
 
         assert result["manifest_version"] == "4.0"
-        assert result["compatibility"]["component_catalog_ref"] == fixture[
-            "compatibility"
-        ]["component_catalog_ref"]
+        assert (
+            result["compatibility"]["component_catalog_ref"]
+            == fixture["compatibility"]["component_catalog_ref"]
+        )
 
     def test_six_layer_profile_resolves_its_exact_component_catalog(self):
         root = (
@@ -1508,9 +1607,7 @@ class TestBuildDeploymentManifest:
         )
         catalog = json.loads(root.read_text(encoding="utf-8"))
 
-        assert _component_catalog_ref(
-            {"id": "six-layer-eventing", "version": "1"}
-        ) == {
+        assert _component_catalog_ref({"id": "six-layer-eventing", "version": "1"}) == {
             "id": catalog["catalog_id"],
             "version": catalog["catalog_version"],
             "digest": catalog["content_digest"],

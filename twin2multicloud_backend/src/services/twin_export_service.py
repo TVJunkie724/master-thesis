@@ -52,7 +52,16 @@ class TwinExportService:
                 if architecture is not None
                 else self._historical_export_provider_projection(twin)
             )
-            self._add_redacted_config_files(archive, twin, providers)
+            self._add_redacted_config_files(
+                archive,
+                twin,
+                providers,
+                architecture_profile_ref=(
+                    architecture.get("architecture_profile_ref")
+                    if architecture is not None
+                    else None
+                ),
+            )
             if deployer_config:
                 for file in deployment_service._materialize_deployer_artifacts(
                     deployer_config,
@@ -106,7 +115,12 @@ class TwinExportService:
         return twin
 
     def _add_redacted_config_files(
-        self, archive: zipfile.ZipFile, twin: DigitalTwin, providers: dict
+        self,
+        archive: zipfile.ZipFile,
+        twin: DigitalTwin,
+        providers: dict,
+        *,
+        architecture_profile_ref: dict | None = None,
     ) -> None:
         deployer_config = twin.deployer_config
         optimizer_config = twin.optimizer_config
@@ -138,7 +152,10 @@ class TwinExportService:
             archive.writestr(
                 "config_optimization.json",
                 json.dumps(
-                    deployment_service._build_optimization_config(optimizer_config),
+                    deployment_service._build_optimization_config(
+                        optimizer_config,
+                        architecture_profile_ref=architecture_profile_ref,
+                    ),
                     indent=2,
                 ),
             )

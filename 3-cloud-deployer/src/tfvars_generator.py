@@ -38,6 +38,50 @@ from src.terraform_inputs import translate_graph_inputs
 
 logger = logging.getLogger(__name__)
 TERRAFORM_VARIABLE_PATTERN = re.compile(r'variable\s+"([a-zA-Z0-9_]+)"')
+PHASE_8_COMPARISON_PROFILES = {
+    ("five-layer-baseline", "2"),
+    ("six-layer-eventing", "1"),
+}
+PHASE_8_FIXED_REGIONS = {
+    "aws_region": "eu-central-1",
+    "azure_region": "westeurope",
+    "gcp_region": "europe-west1",
+}
+PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS = {
+    "allowGcpSelfHostedL4",
+    "allowGcpSelfHostedL5",
+    "amountOfActiveEditors",
+    "amountOfActiveViewers",
+    "apiCallsPerDashboardRefresh",
+    "average3DModelSizeInMB",
+    "dashboardRefreshesPerHour",
+    "entityCount",
+    "eventTriggerRate",
+    "eventsPerMessage",
+    "integrateErrorHandling",
+    "needs3DModel",
+    "numberOfEventActions",
+    "orchestrationActionsPerMessage",
+    "returnFeedbackToDevice",
+    "triggerNotificationWorkflow",
+    "useEventChecking",
+}
+PHASE_8_FORBIDDEN_TFVARS = {
+    "aws_event_actions",
+    "aws_event_feedback_enabled",
+    "aws_event_feedback_zip_path",
+    "aws_processors",
+    "gcp_event_actions",
+    "gcp_event_feedback_enabled",
+    "gcp_event_feedback_zip_path",
+    "gcp_processors",
+    "inter_cloud_token",
+    "needs_3d_model",
+    "return_feedback_to_device",
+    "scene_assets_path",
+    "trigger_notification_workflow",
+    "use_event_checking",
+}
 
 
 class ConfigurationError(ValueError):
@@ -98,6 +142,7 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
         if validated_manifest.manifest_version in {"3.0", "4.0"}
         else None
     )
+    phase8_profile = _phase8_profile_identity(resolved_graph)
     deployment_tfvars = (
         translate_graph_inputs(resolved_graph).values
         if resolved_graph is not None
@@ -115,8 +160,9 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
     # Load config_events.json (event actions)
     tfvars.update(_load_events(project_dir))
 
-    # Load existing inter-cloud token if available
-    tfvars.update(_load_inter_cloud(project_dir))
+    # Historical v1 HTTP glue alone accepts the old shared-token artifact.
+    if phase8_profile is None:
+        tfvars.update(_load_inter_cloud(project_dir))
 
     # Generate DIGITAL_TWIN_INFO JSON (unified structure for all providers)
     tfvars["digital_twin_info_json"] = _build_digital_twin_info_json(tfvars)
@@ -126,6 +172,8 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
 
     # Load optimization feature flags (for conditional resources)
     optimization_flags = load_optimization_flags(project_dir)
+    if phase8_profile is not None:
+        _validate_phase8_optimization_artifact(project_dir)
 
     # Handle scene_assets_path for 3D models
     scene_assets_path = ""
@@ -137,17 +185,20 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
         else:
             logger.warning("  needs3DModel=true but scene_assets/ not found")
 
-    tfvars.update(
-        {
-            "use_event_checking": optimization_flags["useEventChecking"],
-            "trigger_notification_workflow": optimization_flags[
-                "triggerNotificationWorkflow"
-            ],
-            "return_feedback_to_device": optimization_flags["returnFeedbackToDevice"],
-            "needs_3d_model": optimization_flags["needs3DModel"],
-            "scene_assets_path": scene_assets_path,
-        }
-    )
+    if phase8_profile is None:
+        tfvars.update(
+            {
+                "use_event_checking": optimization_flags["useEventChecking"],
+                "trigger_notification_workflow": optimization_flags[
+                    "triggerNotificationWorkflow"
+                ],
+                "return_feedback_to_device": optimization_flags[
+                    "returnFeedbackToDevice"
+                ],
+                "needs_3d_model": optimization_flags["needs3DModel"],
+                "scene_assets_path": scene_assets_path,
+            }
+        )
 
     # Workflow definition file paths (conditional based on L2 provider)
     # Only set paths when the corresponding provider is used for L2
@@ -199,11 +250,10 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
         )
     )
 
-    # Build GCP user function variables if GCP is used as a provider
-    tfvars.update(_build_gcp_user_function_vars(project_dir, providers))
-
-    # Build AWS user function variables if AWS is used as a provider
-    tfvars.update(_get_aws_user_function_vars(project_dir, providers))
+    if phase8_profile is None:
+        # Historical v1 user functions use the predecessor feature-flag path.
+        tfvars.update(_build_gcp_user_function_vars(project_dir, providers))
+        tfvars.update(_get_aws_user_function_vars(project_dir, providers))
 
     # Bind only contract-validated extension packages into Terraform evidence.
     tfvars.update(_load_validated_extension_packages(project_dir))
@@ -219,6 +269,7 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
             "configuration: " + ", ".join(collisions)
         )
     tfvars.update(deployment_tfvars)
+    _validate_phase8_tfvars(tfvars, phase8_profile)
     _validate_declared_tfvars(tfvars)
 
     # Write output file
@@ -250,6 +301,97 @@ def _validate_declared_tfvars(tfvars: dict[str, object]) -> None:
         raise ConfigurationError(
             "Generated Terraform inputs are not allowlisted by the root "
             "module: " + ", ".join(unknown)
+        )
+
+
+def _phase8_profile_identity(graph) -> tuple[str, str] | None:
+    if graph is None:
+        return None
+    identity = (
+        str(graph.profile_ref.get("id", "")),
+        str(graph.profile_ref.get("version", "")),
+    )
+    return identity if identity in PHASE_8_COMPARISON_PROFILES else None
+
+
+def _validate_phase8_optimization_artifact(project_dir: Path) -> None:
+    path = project_dir / "config_optimization.json"
+    if not path.exists():
+        return
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ConfigurationError(
+            "config_optimization.json contains invalid JSON"
+        ) from exc
+    if not isinstance(value, dict):
+        raise ConfigurationError("config_optimization.json must contain a JSON object")
+    sources = [value]
+    result = value.get("result")
+    if result is not None:
+        if not isinstance(result, dict):
+            raise ConfigurationError(
+                "config_optimization.json result must contain a JSON object"
+            )
+        sources.append(result)
+        input_params = result.get("inputParamsUsed")
+        if input_params is not None:
+            if not isinstance(input_params, dict):
+                raise ConfigurationError(
+                    "config_optimization.json inputParamsUsed must contain a JSON object"
+                )
+            sources.append(input_params)
+    forbidden = sorted(
+        set().union(
+            *(PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS & source.keys() for source in sources)
+        )
+    )
+    if forbidden:
+        raise ConfigurationError(
+            "Phase 8 comparison profiles do not accept legacy feature flags: "
+            + ", ".join(forbidden)
+        )
+
+
+def _validate_phase8_tfvars(
+    tfvars: dict[str, object],
+    profile: tuple[str, str] | None,
+) -> None:
+    if profile is None:
+        return
+    forbidden = sorted(PHASE_8_FORBIDDEN_TFVARS & tfvars.keys())
+    if forbidden:
+        raise ConfigurationError(
+            "Phase 8 Terraform inputs contain retired feature or shared-token fields: "
+            + ", ".join(forbidden)
+        )
+    selected = {
+        "aws": any(
+            value == "aws" for key, value in tfvars.items() if key.endswith("_provider")
+        ),
+        "azure": any(
+            value == "azure"
+            for key, value in tfvars.items()
+            if key.endswith("_provider")
+        ),
+        "gcp": any(
+            value == "google"
+            for key, value in tfvars.items()
+            if key.endswith("_provider")
+        ),
+    }
+    for field, expected in PHASE_8_FIXED_REGIONS.items():
+        provider = field.removesuffix("_region")
+        if selected[provider] and tfvars.get(field) != expected:
+            raise ConfigurationError(
+                f"{field} must be {expected} for the selected Phase 8 comparison profile"
+            )
+    if (
+        tfvars.get("layer_1_provider") == "azure"
+        and tfvars.get("azure_region_iothub") != PHASE_8_FIXED_REGIONS["azure_region"]
+    ):
+        raise ConfigurationError(
+            "azure_region_iothub must be westeurope for the selected Phase 8 comparison profile"
         )
 
 
@@ -392,7 +534,9 @@ def _load_graph_azure_function_zips(
             or item.get("sha256")
             != hashlib.sha256(event_package.read_bytes()).hexdigest()
         ):
-            raise ConfigurationError("Graph-built Azure Event Layer package is invalid.")
+            raise ConfigurationError(
+                "Graph-built Azure Event Layer package is invalid."
+            )
         result["azure_event_zip_path"] = str(event_package)
         discovered.add("azure_six-layer-eventing")
     if discovered != expected_azure:
@@ -995,14 +1139,10 @@ def _load_platform_user_config(project_dir: Path) -> dict:
         ]
 
     if user.get("azure_principal_label"):
-        result["azure_layer_access_principal_label"] = user[
-            "azure_principal_label"
-        ]
+        result["azure_layer_access_principal_label"] = user["azure_principal_label"]
 
     if user.get("gcp_grafana_source_cidrs"):
-        result["gcp_grafana_source_cidrs"] = user[
-            "gcp_grafana_source_cidrs"
-        ]
+        result["gcp_grafana_source_cidrs"] = user["gcp_grafana_source_cidrs"]
 
     return result
 

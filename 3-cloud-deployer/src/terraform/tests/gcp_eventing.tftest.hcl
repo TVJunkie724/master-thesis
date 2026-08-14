@@ -68,7 +68,9 @@ run "six_layer_single_cloud_gcp_adds_independent_event_bundle" {
       length(google_cloud_run_v2_service.event_runtime) == 1 &&
       length(google_cloud_run_v2_worker_pool.event_telemetry) == 0 &&
       length(google_logging_project_bucket_config.eventing) == 1 &&
-      length(google_logging_project_sink.eventing) == 1
+      length(google_logging_project_sink.eventing) == 1 &&
+      length(random_password.inter_cloud_token) == 0 &&
+      length(terraform_data.phase_8_fixed_region_guard) == 1
     )
     error_message = "Six-layer GCP must deploy the complete reviewed Small push Event Layer bundle."
   }

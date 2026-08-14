@@ -248,3 +248,33 @@ resource "terraform_data" "five_layer_v2_retention_guard" {
     }
   }
 }
+
+resource "terraform_data" "phase_8_fixed_region_guard" {
+  count = local.five_layer_v2_enabled ? 1 : 0
+
+  input = {
+    aws_region          = local.deploy_aws ? var.aws_region : null
+    azure_region        = local.deploy_azure ? var.azure_region : null
+    azure_iothub_region = var.layer_1_provider == "azure" ? local.azure_iothub_region : null
+    gcp_region          = local.deploy_gcp ? var.gcp_region : null
+  }
+
+  lifecycle {
+    precondition {
+      condition     = !local.deploy_aws || var.aws_region == "eu-central-1"
+      error_message = "Phase 8 comparison profiles fix AWS to eu-central-1."
+    }
+    precondition {
+      condition     = !local.deploy_azure || var.azure_region == "westeurope"
+      error_message = "Phase 8 comparison profiles fix Azure to westeurope."
+    }
+    precondition {
+      condition     = var.layer_1_provider != "azure" || local.azure_iothub_region == "westeurope"
+      error_message = "Phase 8 comparison profiles fix Azure IoT Hub to westeurope."
+    }
+    precondition {
+      condition     = !local.deploy_gcp || var.gcp_region == "europe-west1"
+      error_message = "Phase 8 comparison profiles fix GCP to europe-west1."
+    }
+  }
+}
