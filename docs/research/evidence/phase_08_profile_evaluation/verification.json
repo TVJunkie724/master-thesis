@@ -46,7 +46,7 @@
     },
     {
       "path": "evaluation-manifest.json",
-      "digest": "sha256:fd6366e0f1c8ab021cd83e6bc1b0bb176be77d74dd1fd63c1b8268e4f3fd7195"
+      "digest": "sha256:a97d68b7d72eb9f2c2948741df2d8d2e6a04e001044551b0455e0f569289c8f0"
     },
     {
       "path": "functional-matrix.json",
@@ -109,7 +109,7 @@
       "digest": "sha256:4b7037b917f1e352556c026477db9130c742591a9754a5e97e26da969a536c40"
     }
   ],
-  "artifact_set_digest": "sha256:e7a2d174e6c896a6b14a17a3a10aed71f3d3d1f031d234f8ce5aad82c1a87eda",
+  "artifact_set_digest": "sha256:e9b7395105aac0c119211fb3f32764727993d3503ce0950794df4a1374b042d9",
   "commands": [
     {
       "command_id": "generator",
@@ -132,7 +132,7 @@
       "command": "python -m pytest scripts/phase_08_profile_evaluation/tests -q",
       "status": "passed",
       "exit_status": 0,
-      "test_count": 9,
+      "test_count": 11,
       "scope": "schema strictness, mutation rejection, cost recomputation, scenario digest, pair coverage, and comparison boundaries"
     },
     {
@@ -164,7 +164,7 @@
       "command": "python scripts/verify_resolved_deployment_drift.py",
       "status": "passed",
       "exit_status": 0,
-      "test_count": 5882,
+      "test_count": 5884,
       "scope": "Phase 8 decision/evaluation, contract and drift tests; Optimizer 979, Management 1131, Deployer 2381 (one skipped), Flutter 893 plus architecture gate; builds, security, docs, static checks, and cleanup"
     }
   ],

@@ -360,6 +360,18 @@ def full_stages(project: str) -> tuple[Stage, ...]:
             ),
         ),
         Stage(
+            "Evaluation runtime image provenance",
+            (
+                "python3",
+                str(
+                    ROOT
+                    / "scripts/phase_08_profile_evaluation/verify_runtime_images.py"
+                ),
+                "--project",
+                project,
+            ),
+        ),
+        Stage(
             "Optimizer full quality gate",
             _compose_run(
                 project,

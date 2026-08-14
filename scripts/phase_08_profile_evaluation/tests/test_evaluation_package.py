@@ -16,6 +16,11 @@ from scripts.phase_08_profile_evaluation.validate import (
     validate_rejections_and_research_mapping,
     validate_schema,
 )
+from scripts.phase_08_profile_evaluation.verify_runtime_images import (
+    SERVICE_NAMES,
+    compare_digests,
+    configured_digests,
+)
 
 
 def read(name: str) -> dict:
@@ -125,3 +130,14 @@ def test_research_question_source_digest_rejects_drift(tmp_path):
 
     with pytest.raises(AssertionError):
         validate_rejections_and_research_mapping(package)
+
+
+def test_runtime_image_config_covers_every_evaluation_service():
+    assert set(configured_digests()) == set(SERVICE_NAMES)
+
+
+def test_runtime_image_digest_drift_is_rejected():
+    expected = {"optimizer": "sha256:" + ("1" * 64)}
+    actual = {"optimizer": "sha256:" + ("2" * 64)}
+    with pytest.raises(AssertionError):
+        compare_digests(expected, actual)

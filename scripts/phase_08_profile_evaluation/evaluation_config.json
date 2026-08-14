@@ -18,19 +18,19 @@
     "container_images": [
       {
         "service": "optimizer",
-        "digest": "sha256:947cdc8bb615206244fac79708542a6caa0e6654339513cf06c58f3b6c729d7f"
+        "digest": "sha256:e4f426838bf3b882ad0d35cfd7dc00c2407a002bef571246fd5f0200e2474d3e"
       },
       {
         "service": "management-api",
-        "digest": "sha256:5e2be935dd42f854d6e7b5eb6a4e138ababb2f36292912b7e484c48032e1cf63"
+        "digest": "sha256:c59139f41649ba2dedc0677d3bb97f1398ec6e21df4244ee434e0434cb33cba3"
       },
       {
         "service": "deployer",
-        "digest": "sha256:31406eb74c743f7a7acdd9feed95a0c6cc55c1317c5384e9c8a9e80c0dcd9c27"
+        "digest": "sha256:dabd2b72bf6fa747bd06619f4b3cdd840d8ad3c76056db8ea62e485410ac5c3c"
       },
       {
         "service": "docs",
-        "digest": "sha256:cfd30ccbba24df682fd06f12c2adde1f9b1b5b09b7708a96c93451b814226ead"
+        "digest": "sha256:e5e4df65053c975205a106de376fd8c2ebcb574f29a16eaee61d8521b6e34558"
       }
     ]
   },
