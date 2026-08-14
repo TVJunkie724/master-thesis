@@ -474,7 +474,7 @@ resource "azurerm_container_app_job" "azure_azure_container_apps_scheduled_stora
 
       env {
         name  = "ARCHITECTURE_PROFILE"
-        value = "five-layer-baseline@2"
+        value = "${var.architecture_profile_id}@${var.architecture_profile_version}"
       }
       env {
         name  = "DEPLOYMENT_ID"
@@ -936,7 +936,7 @@ resource "azurerm_function_app_flex_consumption" "azure_v2_processor_extension" 
   app_settings = {
     FUNCTIONS_WORKER_RUNTIME = "python"
     WEBSITE_RUN_FROM_PACKAGE = "1"
-    ARCHITECTURE_PROFILE     = "five-layer-baseline@2"
+    ARCHITECTURE_PROFILE     = "${var.architecture_profile_id}@${var.architecture_profile_version}"
   }
 
   tags = local.azure_v2_tags
@@ -992,7 +992,7 @@ resource "azurerm_function_app_flex_consumption" "azure_v2_extension_action" {
   app_settings = {
     FUNCTIONS_WORKER_RUNTIME    = "python"
     WEBSITE_RUN_FROM_PACKAGE    = "1"
-    ARCHITECTURE_PROFILE        = "five-layer-baseline@2"
+    ARCHITECTURE_PROFILE        = "${var.architecture_profile_id}@${var.architecture_profile_version}"
     V2_ACTION_ENDPOINT_ENABLED  = "true"
     V2_DOMAIN_CONSUMER_ENABLED  = "false"
     V2_IOT_PROCESSOR_ENABLED    = "false"
@@ -1181,7 +1181,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw
   app_settings = {
     FUNCTIONS_WORKER_RUNTIME = "python"
     WEBSITE_RUN_FROM_PACKAGE = "1"
-    ARCHITECTURE_PROFILE     = "five-layer-baseline@2"
+    ARCHITECTURE_PROFILE     = "${var.architecture_profile_id}@${var.architecture_profile_version}"
     DEPLOYMENT_ID            = local.deployment_suffix
     V2_RAW_HISTORY_ENABLED   = "true"
     V2_COSMOS_ENDPOINT       = azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint

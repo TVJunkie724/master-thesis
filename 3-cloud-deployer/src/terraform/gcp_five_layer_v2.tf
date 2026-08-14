@@ -1169,7 +1169,7 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_iap_twin_explorer" {
 
       env {
         name  = "ARCHITECTURE_PROFILE"
-        value = "five-layer-baseline@2"
+        value = "${var.architecture_profile_id}@${var.architecture_profile_version}"
       }
       env {
         name  = "RUNTIME_ROLE"
@@ -1245,7 +1245,7 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_raw_history_reader" {
 
       env {
         name  = "ARCHITECTURE_PROFILE"
-        value = "five-layer-baseline@2"
+        value = "${var.architecture_profile_id}@${var.architecture_profile_version}"
       }
       env {
         name  = "RUNTIME_ROLE"
@@ -2313,7 +2313,7 @@ resource "google_cloud_run_v2_job" "gcp_gcp_cloud_run_storage_job" {
 
         env {
           name  = "ARCHITECTURE_PROFILE"
-          value = "five-layer-baseline@2"
+          value = "${var.architecture_profile_id}@${var.architecture_profile_version}"
         }
         env {
           name  = "DEPLOYMENT_ID"
