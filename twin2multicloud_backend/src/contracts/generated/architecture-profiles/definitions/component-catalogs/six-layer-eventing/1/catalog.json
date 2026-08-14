@@ -10868,7 +10868,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-domain",
       "platform_handler": "handler.aws.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:b978fc6125b7aa4b60f35d2610dea70b97541766c1e3c03d123830ed7739283d",
+      "source_digest": "sha256:6696ae6ecb087604afb7ef9dffbdb68f4565600ef24a60ecbf17ac281c401761",
       "included_paths": [
         "bridge/Dockerfile",
         "bridge/constraints.txt",
@@ -10926,7 +10926,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-domain",
       "platform_handler": "handler.azure.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:e9cff151ece89d677e9df88c6b2c4b992eb2fe1bf02cfefc51859a5de23658c9",
+      "source_digest": "sha256:4fe05668ac79e8f2f0618438c675f83c095d799f775e768f13f44020659533a7",
       "included_paths": [
         "core.py",
         "function_app.py",
@@ -10990,7 +10990,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/six-layer-domain",
       "platform_handler": "handler.gcp.five-layer-v2",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:707ff318cda67cd7378e3d4bb35e16964406444e6751d6f10222fa87760d3322",
+      "source_digest": "sha256:5e0e98b4f8d4f6279d503aa8b4453dabb0716a94b186f096610beaf78ef79005",
       "included_paths": [
         ".dockerignore",
         "Dockerfile",
@@ -11086,7 +11086,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-eventing",
       "platform_handler": "lambda_function.lambda_handler",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:444b5e7787253d2774062aba3553bf3e0bbb1d545195cb8bb84bc3a41d4caca0",
+      "source_digest": "sha256:12b82f6f4b10b2b0247cb01d18621e3b01377e9103473715afb052c3c9b528ea",
       "included_paths": [
         "lambda_function.py"
       ],
@@ -11124,7 +11124,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-eventing",
       "platform_handler": "function_app.app",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:ca792cdbc5f58820b7646503c680639701ccb9c60815e6462bd81016405f7f14",
+      "source_digest": "sha256:abb77301ac87698dd336820a7920ca03ed3e4b6d40e1f137612434d15eea985c",
       "included_paths": [
         "function_app.py",
         "host.json",
@@ -11163,7 +11163,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/six-layer-eventing",
       "platform_handler": "app.app",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:eea844762690d31640033d84db721c1a79e72b87cba8ece69c84cf46b37375a6",
+      "source_digest": "sha256:df02a0a922881ef8202f18a2180c1bfec343062c10dddd196d76f1b80079e424",
       "included_paths": [
         "Dockerfile",
         "app.py",
@@ -11209,5 +11209,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:97837d9cd6a0e566ace5fc642ea8d456a4c528e46e6e61f0d960de852b9cc871"
+  "content_digest": "sha256:e99bde162b10d648941109157910d6e5d4f29916b42b2ca23408715119a06b33"
 }
