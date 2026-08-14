@@ -213,6 +213,37 @@ class TestDeployerCompleteValidation:
         assert "CAPABILITY_UNAVAILABLE" not in codes
         assert "MISSING_EVENT_ACTION" not in codes
 
+    def test_six_layer_validation_messages_keep_selected_profile_identity(self):
+        response = client.post(
+            "/validate/deployer-complete",
+            json={
+                "deployer_digital_twin_name": "six-layer-twin",
+                "config_events": "[]",
+                "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+                "payloads": VALID_PAYLOADS,
+                "processors": {"device-1": VALID_GCP_PROCESSOR},
+                "cheapest_path": {
+                    "L1": "gcp",
+                    "L2": "gcp",
+                    "L3_hot": "gcp",
+                    "L3_cool": "gcp",
+                    "L3_archive": "gcp",
+                    "L4": "gcp",
+                    "L5": "gcp",
+                    "Eventing": "gcp",
+                },
+                "optimizer_params": {},
+                "architecture_profile_ref": _six_layer_eventing_ref(),
+            },
+        )
+
+        finding = next(
+            error
+            for error in response.json()["errors"]
+            if error["code"] == "INVALID_V2_RULE_SET"
+        )
+        assert finding["message"].startswith("six-layer-eventing@1 ")
+
     def test_v2_rejects_legacy_uploaded_event_action_code(self):
         response = client.post(
             "/validate/deployer-complete",

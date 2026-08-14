@@ -3,7 +3,7 @@ title: "Phase 8.9B: Six-Layer Eventing Implementation"
 description: "Executable delta plan that adds one independent Eventing responsibility to the reviewed Five-layer v2 PoC."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
 lastUpdated: "2026-08-14"
-version: "2.8"
+version: "2.9"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.8"
 - contracts/phase-08-eventing-decision/v1/decision.json
 - contracts/phase-08-eventing-decision/v1/implementation-component-manifest.json
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-14 | VERSION: 2.8
+EXTRACTED: 2026-08-14 | VERSION: 2.9
 -->
 
 # Phase 8.9B: Six-Layer Eventing Implementation
@@ -58,6 +58,15 @@ The same inheritance now covers SDK-owned post-deployment work: AWS TwinMaker
 and Azure Digital Twins receive the deterministic visible seed, AWS/Azure
 Grafana receive the typed dashboard configuration, and Azure publishes the
 finite storage-mover image for either active profile.
+The provider-combination audit additionally proved the L1-to-Event and
+L2-to-Event source paths independently of L2 placement. AWS already resolves
+the local Event log or remote source outbox in Terraform. Azure now makes the
+same selection explicitly in both Function apps and supplies the L2 runtime
+with its local Event-layer and remote outbox destinations. GCP ingress now
+selects its local Event topic or remote source outbox from
+`event_layer_provider`, rather than incorrectly treating a local L2 as a reason
+to bypass a remote Event Layer. Focused no-network runtime and static Terraform
+tests cover both local and remote branches; no cloud resource was created.
 
 The branch gate above now proves the exact reviewed Five-layer v2 commits and
 decision digests, so this document is executable planning authority. It replaces

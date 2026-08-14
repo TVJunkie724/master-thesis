@@ -159,9 +159,12 @@ def _enqueue(event: Mapping[str, Any]) -> None:
 
 
 def _publish_eventing_stream(event: Mapping[str, Any]) -> None:
+    validated = validate_canonical_event(event)
+    if _six_layer_eventing() and os.getenv("V2_EVENT_LAYER_PROVIDER") != "azure":
+        _publish_telemetry(validated)
+        return
     from azure.eventhub import EventData, EventHubProducerClient
 
-    validated = validate_canonical_event(event)
     hub_setting = {
         "telemetry.received.v1": "V2_EVENTING_RECEIVED_HUB_NAME",
         "telemetry.processed.v1": "V2_EVENTING_PROCESSED_HUB_NAME",
@@ -188,6 +191,9 @@ def _publish_eventing_stream(event: Mapping[str, Any]) -> None:
 
 def _publish_eventing_control(event: Mapping[str, Any]) -> None:
     validated = validate_canonical_event(event)
+    if _six_layer_eventing() and os.getenv("V2_EVENT_LAYER_PROVIDER") != "azure":
+        _publish_control(validated)
+        return
     namespace = os.getenv("V2_EVENTING_SERVICE_BUS__fullyQualifiedNamespace", "")
     topic_name = os.getenv("V2_EVENTING_CONTROL_TOPIC_NAME", "")
     if not namespace or namespace.startswith("disabled.") or not topic_name:

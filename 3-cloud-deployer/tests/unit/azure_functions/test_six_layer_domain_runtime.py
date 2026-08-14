@@ -42,6 +42,55 @@ def test_runtime_has_six_layer_profile_identity():
     assert core.PROFILE == "six-layer-eventing@1"
 
 
+def test_remote_event_layer_uses_azure_source_outboxes(monkeypatch):
+    telemetry: list[dict[str, object]] = []
+    control: list[dict[str, object]] = []
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    monkeypatch.setenv("V2_EVENT_LAYER_PROVIDER", "aws")
+    monkeypatch.setattr(runtime, "_publish_telemetry", telemetry.append)
+    monkeypatch.setattr(runtime, "_publish_control", control.append)
+    processed = _processed_event()
+    matched = runtime.derive_event(
+        processed,
+        event_type="event.matched.v1",
+        producer="component.rule-evaluator",
+        payload={
+            "device_id": "device-1",
+            "rule_id": "rule-1",
+            "action": {"type": "lambda", "functionName": "poc-action"},
+        },
+    )
+
+    runtime._publish_eventing_stream(processed)
+    runtime._publish_eventing_control(matched)
+
+    assert telemetry == [processed]
+    assert control == [matched]
+
+
+def test_azure_l2_returns_processed_event_to_selected_event_layer(monkeypatch):
+    processed = _processed_event()
+    published: list[dict[str, object]] = []
+    received = {
+        **processed,
+        "event_type": "telemetry.received.v1",
+        "producer": "component.device-ingress",
+    }
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    monkeypatch.setenv("V2_EVENT_LAYER_PROVIDER", "azure")
+    monkeypatch.setattr(runtime, "_invoke_processor_extension", lambda _event: {})
+    monkeypatch.setattr(
+        runtime,
+        "build_processed_event",
+        lambda _event, _extension: processed,
+    )
+    monkeypatch.setattr(runtime, "_publish_eventing_stream", published.append)
+
+    runtime._process_received(received)
+
+    assert published == [processed]
+
+
 def _processed_event() -> dict[str, object]:
     return {
         "schema_version": "canonical-domain-event.v1",

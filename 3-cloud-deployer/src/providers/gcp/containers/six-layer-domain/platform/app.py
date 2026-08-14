@@ -448,7 +448,11 @@ def _ingress(value: Mapping[str, Any]) -> dict[str, Any]:
         raise core.ContractError("UNEXPECTED_INGRESS_EVENT")
     _publish(
         _route_topic(
-            local_provider=os.environ.get("L2_PROVIDER", ""),
+            local_provider=(
+                os.environ.get("EVENT_LAYER_PROVIDER", "")
+                if _six_layer_eventing()
+                else os.environ.get("L2_PROVIDER", "")
+            ),
             local_topic=os.environ.get("RECEIVED_TOPIC", ""),
             remote_topic=os.environ.get("REMOTE_TELEMETRY_TOPIC", ""),
         ),

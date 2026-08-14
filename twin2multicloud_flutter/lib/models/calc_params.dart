@@ -25,7 +25,7 @@ class CalcParams {
   /// Wire discriminator. Null denotes the historical v1 calculation shape.
   final String? schemaVersion;
 
-  /// Frozen thesis scenario for the strict Five-layer v2 wire variant.
+  /// Frozen thesis scenario for the strict Phase 8 workload-v2 wire variant.
   final FiveLayerWorkloadScenario? scenario;
 
   /// Embedded event workload paired with the selected v2 scenario.
@@ -212,7 +212,7 @@ class CalcParams {
         twinStateMaterializationsPerSecond != null ||
         twinGraphUpdatesPerSecond != null;
     if (hasVariantMetadata && !isFiveLayerV2) {
-      throw StateError('Five-layer v2 workload metadata is inconsistent.');
+      throw StateError('Phase 8 workload-v2 metadata is inconsistent.');
     }
     return isFiveLayerV2 ? _fiveLayerV2Json() : _legacyJson();
   }
@@ -293,7 +293,9 @@ class CalcParams {
     String currency = 'USD',
   }) {
     if (currency != 'USD' && currency != 'EUR') {
-      throw const FormatException('Five-layer v2 currency must be USD or EUR.');
+      throw const FormatException(
+        'Phase 8 workload-v2 currency must be USD or EUR.',
+      );
     }
     final values = switch (scenario) {
       FiveLayerWorkloadScenario.small => const (
@@ -438,12 +440,14 @@ CalcParams _fiveLayerV2FromJson(Map<String, dynamic> json) {
       keys.difference(json.keys.toSet()).isNotEmpty ||
       json['schemaVersion'] != CalcParams.fiveLayerV2SchemaVersion) {
     throw const FormatException(
-      'Five-layer v2 workload fields are incomplete or unsupported.',
+      'Phase 8 workload-v2 fields are incomplete or unsupported.',
     );
   }
   final currency = json['currency'];
   if (currency != 'USD' && currency != 'EUR') {
-    throw const FormatException('Five-layer v2 currency must be USD or EUR.');
+    throw const FormatException(
+      'Phase 8 workload-v2 currency must be USD or EUR.',
+    );
   }
   for (final scenario in FiveLayerWorkloadScenario.values) {
     final candidate = CalcParams.fiveLayerV2(
@@ -455,7 +459,7 @@ CalcParams _fiveLayerV2FromJson(Map<String, dynamic> json) {
     }
   }
   throw const FormatException(
-    'Five-layer v2 workload must match the frozen Small, Medium, or Large scenario.',
+    'Phase 8 workload v2 must match the frozen Small, Medium, or Large scenario.',
   );
 }
 

@@ -105,3 +105,23 @@ def test_azure_event_layer_can_be_the_source_of_a_directed_bridge():
     assert 'name="v2-cross-cloud-event-control-bridge"' in function_app
     assert "if BRIDGE_EVENT_RECEIVED_ENABLED:" in function_app
     assert "if BRIDGE_EVENT_PROCESSED_ENABLED:" in function_app
+
+
+def test_azure_l2_runtime_can_return_to_local_or_remote_event_layer():
+    source = _source("azure_five_layer_v2.tf")
+    processor = source.split(
+        'resource "azurerm_function_app_flex_consumption" '
+        '"azure_azure_functions_flex_consumption"',
+        maxsplit=1,
+    )[1].split(
+        'resource "azurerm_function_app_flex_consumption" '
+        '"azure_v2_processor_extension"',
+        maxsplit=1,
+    )[0]
+
+    assert "V2_EVENT_LAYER_PROVIDER" in processor
+    assert "V2_EVENTING_PROCESSED_HUB_NAME" in processor
+    assert "V2_EVENTING_CONTROL_TOPIC_NAME" in processor
+    assert "V2_BRIDGE_TELEMETRY_HUB_NAME" in processor
+    assert "V2_BRIDGE_TELEMETRY__fullyQualifiedNamespace" in processor
+    assert "V2_BRIDGE_CONTROL_TOPIC_NAME" in processor

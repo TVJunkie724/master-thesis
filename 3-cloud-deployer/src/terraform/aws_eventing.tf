@@ -19,17 +19,6 @@ locals {
     received  = "${local.aws_event_name}-domain-received"
     processed = "${local.aws_event_name}-domain-processed"
   }
-  aws_event_processed_consumer_roles = var.aws_event_kinesis_shards == 200 ? toset([
-    "historical-persistence",
-    "twin-state-update",
-    "rule-evaluator",
-    "audit",
-    "realtime-visualization",
-    ]) : toset([
-    "historical-persistence",
-    "twin-state-update",
-    "rule-evaluator",
-  ])
   aws_event_stream_consumers = merge(
     local.aws_event_l2_local ? {
       telemetry-processor = { stream = "received" }

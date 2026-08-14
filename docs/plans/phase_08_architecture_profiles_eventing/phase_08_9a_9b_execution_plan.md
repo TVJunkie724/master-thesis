@@ -3,7 +3,7 @@ title: "Phase 8.9 Execution Plan: Five-Layer v2 Then Six-Layer v1"
 description: "Cross-stack implementation sequence for the complete bounded Phase 8 thesis PoC."
 tags: [phase-8, architecture-profiles, optimizer, deployer, management-api, flutter, thesis]
 lastUpdated: "2026-08-14"
-version: "1.8"
+version: "1.9"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "1.8"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_9_six_layer_eventing_implementation.md
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md
 - User implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-14 | VERSION: 1.8
+EXTRACTED: 2026-08-14 | VERSION: 1.9
 -->
 
 # Phase 8.9 Execution Plan: Five-Layer v2 Then Six-Layer v1
@@ -42,6 +42,12 @@ AWS/Azure content, profile-correct dashboard provisioning, GCP Viewer rotation,
 and Azure mover image publication as Five-layer v2. The finite tiering wire
 format remains inherited unchanged even though runtime-visible deployment
 identity is Six-layer-specific.
+The same audit now traces the L1-to-Event and L2-to-Event source paths for all
+three providers. AWS's pre-resolved local/remote destinations were confirmed;
+Azure's separate L2 Function now receives the selected Event provider plus its
+remote telemetry/control outboxes; and GCP ingress routes by Event placement,
+not L2 placement. This closes the cases where L1 and L2 share a provider while
+the independent Event Layer is remote, without adding services to the PoC.
 The dependent Eventing, workload, complete-service, Five-layer, and Six-layer
 digest chains were refrozen together before the consolidated safe gate. No live
 cloud deployment or provider sign-in evidence is claimed; explicit live gates

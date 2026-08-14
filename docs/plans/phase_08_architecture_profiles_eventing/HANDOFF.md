@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-14"
-version: "4.11"
+version: "4.12"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.11"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-14 | VERSION: 4.11
+EXTRACTED: 2026-08-14 | VERSION: 4.12
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -213,6 +213,13 @@ v2. The AWS/Azure/GCP runtime health and signed-reader identity is Six-layer;
 only the unchanged finite tiering artifact schema keeps its Five-layer-v2 name
 as part of the inherited L1-L5 wire contract. The final repeated audit and one
 consolidated full-gate rerun remain open. No provider resource was created.
+The subsequent provider-pair trace also closed two independent-event routing
+defects without changing the service plan: Azure's L2 Function now returns
+processed/control events either to the local Azure Event Layer or through the
+existing source outboxes to a remote Event Layer, and GCP ingress chooses its
+local topic or remote outbox from Event placement even when L2 is also GCP.
+AWS already used an exact local/remote destination binding. Focused offline
+tests cover both branches and the corresponding Terraform wiring.
 
 ## Immediate Next Action
 

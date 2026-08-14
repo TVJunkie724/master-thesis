@@ -854,6 +854,62 @@ def test_six_layer_processor_returns_processed_event_to_remote_event_layer(
     assert published[0][1]["event_type"] == core.EVENT_TELEMETRY_PROCESSED
 
 
+def test_six_layer_ingress_routes_to_remote_event_layer_even_when_l2_is_local(
+    monkeypatch,
+):
+    core = _load_six_layer("core")
+    runtime = _load_six_layer("app")
+    published = []
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    monkeypatch.setenv("DEPLOYMENT_ID", "deployment-1")
+    monkeypatch.setenv("EVENT_LAYER_PROVIDER", "aws")
+    monkeypatch.setenv("L2_PROVIDER", "google")
+    monkeypatch.setenv("RECEIVED_TOPIC", "projects/test/topics/local-received")
+    monkeypatch.setenv(
+        "REMOTE_TELEMETRY_TOPIC",
+        "projects/test/topics/to-event-layer",
+    )
+    monkeypatch.setattr(
+        runtime,
+        "_publish",
+        lambda topic, event: published.append((topic, event)),
+    )
+
+    result = runtime._ingress(dict(_received(core)))
+
+    assert result["accepted"] == 1
+    assert published[0][0] == "projects/test/topics/to-event-layer"
+    assert published[0][1]["event_type"] == core.EVENT_TELEMETRY_RECEIVED
+
+
+def test_six_layer_ingress_routes_to_local_event_layer_when_l2_is_remote(
+    monkeypatch,
+):
+    core = _load_six_layer("core")
+    runtime = _load_six_layer("app")
+    published = []
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    monkeypatch.setenv("DEPLOYMENT_ID", "deployment-1")
+    monkeypatch.setenv("EVENT_LAYER_PROVIDER", "google")
+    monkeypatch.setenv("L2_PROVIDER", "azure")
+    monkeypatch.setenv("RECEIVED_TOPIC", "projects/test/topics/local-received")
+    monkeypatch.setenv(
+        "REMOTE_TELEMETRY_TOPIC",
+        "projects/test/topics/unused-remote",
+    )
+    monkeypatch.setattr(
+        runtime,
+        "_publish",
+        lambda topic, event: published.append((topic, event)),
+    )
+
+    result = runtime._ingress(dict(_received(core)))
+
+    assert result["accepted"] == 1
+    assert published[0][0] == "projects/test/topics/local-received"
+    assert published[0][1]["event_type"] == core.EVENT_TELEMETRY_RECEIVED
+
+
 def test_six_layer_processed_landing_fans_out_to_local_hot_and_l2(monkeypatch):
     core = _load_six_layer("core")
     runtime = _load_six_layer("app")

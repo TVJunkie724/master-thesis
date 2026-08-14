@@ -44,7 +44,7 @@ def _five_layer_v2_scenarios() -> tuple[dict, ...]:
             for size in ("small", "medium", "large")
         )
     except (OSError, json.JSONDecodeError) as exc:
-        raise RuntimeError("Five-layer v2 workload fixtures are unavailable") from exc
+        raise RuntimeError("Phase 8 workload-v2 fixtures are unavailable") from exc
 
 
 class OptimizerCalculationParams(BaseModel):
@@ -144,7 +144,7 @@ class OptimizerCalculationParams(BaseModel):
 
 
 class FiveLayerV2OptimizerCalculationParams(BaseModel):
-    """Closed S/M/L workload accepted only with ``five-layer-baseline@2``."""
+    """Closed S/M/L workload shared by both active Phase 8 comparison profiles."""
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
@@ -189,7 +189,7 @@ class FiveLayerV2OptimizerCalculationParams(BaseModel):
         ]
         if payload not in scenarios:
             raise ValueError(
-                "Five-layer v2 accepts only the immutable Small, Medium, or "
+                "Phase 8 workload v2 accepts only the immutable Small, Medium, or "
                 "Large Core scenario"
             )
         return self

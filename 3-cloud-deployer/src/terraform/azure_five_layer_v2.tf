@@ -880,6 +880,10 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
     V2_EVENTING__fullyQualifiedNamespace             = try("${local.azure_event_namespace_name}.servicebus.windows.net", "disabled.servicebus.windows.net")
     V2_EVENTING_SERVICE_BUS__fullyQualifiedNamespace = try("${azurerm_servicebus_namespace.eventing[0].name}.servicebus.windows.net", "disabled.servicebus.windows.net")
     V2_EVENTING_CONTROL_TOPIC_NAME                   = try(azurerm_servicebus_topic.domain_control[0].name, "")
+    V2_EVENT_LAYER_PROVIDER                          = var.event_layer_provider
+    V2_BRIDGE_TELEMETRY_HUB_NAME                     = try(azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["outbound"].name, "disabled")
+    V2_BRIDGE_TELEMETRY__fullyQualifiedNamespace     = local.azure_v2_remote_telemetry_outbound ? "${azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].name}.servicebus.windows.net" : "disabled.servicebus.windows.net"
+    V2_BRIDGE_CONTROL_TOPIC_NAME                     = try(azurerm_servicebus_topic.azure_v2_remote_control["outbound"].name, "disabled")
     V2_LOGIC_APP_CALLBACK_URL                        = azurerm_logic_app_trigger_http_request.azure_azure_logic_apps_consumption[0].callback_url
     V2_IOT_HUB_HOSTNAME                              = try(azurerm_iothub.azure_azure_iot_hub[0].hostname, "")
     V2_RULES_JSON                                    = jsonencode(var.events)

@@ -158,7 +158,7 @@ class CostCalculationRunService:
         ):
             raise architecture_error(
                 "ARCH_PROFILE_NOT_ACTIVE",
-                "Five-layer v2 calculations require architecture profile resolution.",
+                "Phase 8 workload-v2 calculations require architecture profile resolution.",
                 field="params.schemaVersion",
             )
 

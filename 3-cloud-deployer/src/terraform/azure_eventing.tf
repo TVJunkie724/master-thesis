@@ -49,17 +49,6 @@ locals {
     processed = "domain-telemetry-processed"
     failure   = "domain-telemetry-failure"
   }
-  azure_event_processed_consumer_roles = local.azure_event_dedicated ? toset([
-    "historical-persistence",
-    "twin-state-update",
-    "rule-evaluator",
-    "audit",
-    "realtime-visualization",
-    ]) : toset([
-    "historical-persistence",
-    "twin-state-update",
-    "rule-evaluator",
-  ])
   azure_event_consumer_groups = merge(
     local.azure_event_l2_local ? {
       telemetry-processor = { hub = "received" }

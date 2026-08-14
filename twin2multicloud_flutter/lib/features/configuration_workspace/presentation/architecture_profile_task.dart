@@ -138,7 +138,7 @@ class _CatalogBody extends StatelessWidget {
           icon: Icons.inventory_2_outlined,
           title: 'No active architecture profile is available',
           message:
-              'This implementation phase keeps the historical baseline read-only. Five-layer v2 becomes selectable only after its complete runtime profile is published.',
+              'The historical baseline remains read-only, and Management returned no active reviewed Phase 8 profile. Retry after the connected stack publishes its profile catalog.',
           actionLabel: 'Retry',
           onAction: () =>
               bloc.add(const WizardArchitectureProfilesLoadRequested()),

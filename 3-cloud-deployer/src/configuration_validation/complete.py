@@ -428,7 +428,7 @@ def _validate_hierarchy_and_scene(config, l4, params, errors) -> None:
 
 def _validate_event_extensions(config, l2, params, profile, errors) -> None:
     if profile in PHASE_8_COMPARISON_PROFILES:
-        _validate_mandatory_v2_event_extensions(config, l2, errors)
+        _validate_mandatory_v2_event_extensions(config, l2, profile, errors)
         return
     if params["returnFeedbackToDevice"]:
         if not config.event_feedback:
@@ -493,16 +493,17 @@ def _validate_event_extensions(config, l2, params, profile, errors) -> None:
             )
 
 
-def _validate_mandatory_v2_event_extensions(config, l2, errors) -> None:
+def _validate_mandatory_v2_event_extensions(config, l2, profile, errors) -> None:
     del l2
-    _validate_v2_rules(config.config_events, errors)
+    profile_label = f"{profile[0]}@{profile[1]}"
+    _validate_v2_rules(config.config_events, profile_label, errors)
     for name in sorted((config.event_actions or {}).keys()):
         _add(
             errors,
             "UNEXPECTED_EVENT_ACTION",
             f"event_action:{name}",
             (
-                "five-layer-baseline@2 treats functionName/functionNameB as "
+                f"{profile_label} treats functionName/functionNameB as "
                 "logical action IDs and uses its fixed synthetic PoC action and "
                 "notification boundaries"
             ),
@@ -513,7 +514,7 @@ def _validate_mandatory_v2_event_extensions(config, l2, errors) -> None:
             "UNEXPECTED_EVENT_FEEDBACK",
             "event_feedback",
             (
-                "five-layer-baseline@2 uses its provider-owned device command "
+                f"{profile_label} uses its provider-owned device command "
                 "adapter instead of an uploaded event feedback function"
             ),
         )
@@ -523,13 +524,13 @@ def _validate_mandatory_v2_event_extensions(config, l2, errors) -> None:
             "UNEXPECTED_STATE_MACHINE",
             "state_machine",
             (
-                "five-layer-baseline@2 uses its fixed provider workflow instead "
+                f"{profile_label} uses its fixed provider workflow instead "
                 "of an uploaded state machine"
             ),
         )
 
 
-def _validate_v2_rules(content: str | None, errors) -> None:
+def _validate_v2_rules(content: str | None, profile_label: str, errors) -> None:
     try:
         rules = json.loads(content) if content else []
     except json.JSONDecodeError:
@@ -541,7 +542,7 @@ def _validate_v2_rules(content: str | None, errors) -> None:
             errors,
             "INVALID_V2_RULE_SET",
             "config_events",
-            "five-layer-baseline@2 requires between 1 and 100 typed rules",
+            f"{profile_label} requires between 1 and 100 typed rules",
         )
         return
     seen_rule_ids = set()
@@ -570,7 +571,7 @@ def _validate_v2_rules(content: str | None, errors) -> None:
                 "INVALID_V2_TYPED_RULE",
                 f"config_events[{index}].condition",
                 (
-                    "five-layer-baseline@2 conditions require the bounded "
+                    f"{profile_label} conditions require the bounded "
                     "typed operand syntax DOUBLE(...), INTEGER(...), STRING(...), "
                     "or BOOLEAN(...)"
                 ),
@@ -583,7 +584,7 @@ def _validate_v2_rules(content: str | None, errors) -> None:
                 errors,
                 "INVALID_V2_RULE_ID",
                 f"config_events[{index}].rule_id",
-                "five-layer-baseline@2 explicit rule IDs must be non-empty and unique",
+                f"{profile_label} explicit rule IDs must be non-empty and unique",
             )
         else:
             seen_rule_ids.add(rule_id)
