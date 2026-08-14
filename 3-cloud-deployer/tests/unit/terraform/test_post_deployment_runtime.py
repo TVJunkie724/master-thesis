@@ -24,7 +24,12 @@ class ResourceNotFoundError(Exception):
 TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
 
 
-def _aws_context(*, hierarchy=None, devices=None, five_layer_v2=False):
+def _aws_context(
+    *,
+    hierarchy=None,
+    devices=None,
+    profile: tuple[str, str] = ("legacy", "1"),
+):
     twinmaker = SimpleNamespace(
         exceptions=SimpleNamespace(ConflictException=ConflictError),
     )
@@ -42,8 +47,8 @@ def _aws_context(*, hierarchy=None, devices=None, five_layer_v2=False):
     )
     graph = SimpleNamespace(
         profile_ref={
-            "id": "five-layer-baseline" if five_layer_v2 else "legacy",
-            "version": "2" if five_layer_v2 else "1",
+            "id": profile[0],
+            "version": profile[1],
         }
     )
     return SimpleNamespace(
@@ -141,11 +146,17 @@ def test_twinmaker_continues_siblings_then_fails_the_operation(tmp_path):
     assert "must-not-leak" not in str(exc_info.value)
 
 
-def test_aws_v2_creates_and_reads_back_deterministic_visible_seed(tmp_path):
+@pytest.mark.parametrize(
+    "profile",
+    [("five-layer-baseline", "2"), ("six-layer-eventing", "1")],
+)
+def test_active_profile_creates_and_reads_back_deterministic_aws_seed(
+    tmp_path, profile
+):
     context, provider = _aws_context(
         hierarchy=[],
         devices=[{"id": "sensor-1"}],
-        five_layer_v2=True,
+        profile=profile,
     )
     entities = {}
     component_types = {}
@@ -240,9 +251,13 @@ def test_azure_grafana_requires_hot_reader_output():
         azure_deployer.configure_azure_grafana(context, {})
 
 
-def test_azure_v2_grafana_uses_typed_component_output_and_inventory(monkeypatch):
+@pytest.mark.parametrize(
+    "profile",
+    [("five-layer-baseline", "2"), ("six-layer-eventing", "1")],
+)
+def test_active_profile_azure_grafana_uses_typed_output(monkeypatch, profile):
     provider = SimpleNamespace()
-    graph = SimpleNamespace(profile_ref={"id": "five-layer-baseline", "version": "2"})
+    graph = SimpleNamespace(profile_ref={"id": profile[0], "version": profile[1]})
     context = SimpleNamespace(
         providers={"azure": provider},
         resolved_deployment_graph=graph,
@@ -287,6 +302,34 @@ def test_azure_post_deployment_requires_initialized_provider(tmp_path):
 
     with pytest.raises(RuntimeError, match="Azure provider not initialized"):
         azure_deployer.register_azure_iot_devices(context, tmp_path)
+
+
+@pytest.mark.parametrize(
+    "profile",
+    [("five-layer-baseline", "2"), ("six-layer-eventing", "1")],
+)
+def test_active_profile_azure_l4_requests_deterministic_seed(
+    monkeypatch, tmp_path, profile
+):
+    calls = []
+
+    def upload(provider, config, project_path, *, ensure_v2_seed=False):
+        calls.append((provider, config, project_path, ensure_v2_seed))
+
+    monkeypatch.setattr(layer_4_adt, "upload_dtdl_models", upload)
+    provider = object()
+    config = object()
+    context = SimpleNamespace(
+        providers={"azure": provider},
+        config=config,
+        resolved_deployment_graph=SimpleNamespace(
+            profile_ref={"id": profile[0], "version": profile[1]}
+        ),
+    )
+
+    azure_deployer.upload_dtdl_models(context, tmp_path)
+
+    assert calls == [(provider, config, str(tmp_path), True)]
 
 
 def test_new_aws_certificate_is_compensated_when_local_write_fails(
@@ -553,7 +596,11 @@ def test_aws_v2_provisioner_is_deleted_when_content_setup_fails(monkeypatch):
     deleted.assert_called_once_with(provider, "g-1234567890", "service-account")
 
 
-def test_aws_deployer_routes_five_layer_v2_to_the_exact_configurator(monkeypatch):
+@pytest.mark.parametrize(
+    "profile",
+    [("five-layer-baseline", "2"), ("six-layer-eventing", "1")],
+)
+def test_active_profile_aws_grafana_uses_exact_configurator(monkeypatch, profile):
     provider = SimpleNamespace()
     config = SimpleNamespace(
         iot_devices=[
@@ -567,7 +614,7 @@ def test_aws_deployer_routes_five_layer_v2_to_the_exact_configurator(monkeypatch
         providers={"aws": provider},
         config=config,
         resolved_deployment_graph=SimpleNamespace(
-            profile_ref={"id": "five-layer-baseline", "version": "2"}
+            profile_ref={"id": profile[0], "version": profile[1]}
         ),
     )
     configure = MagicMock()

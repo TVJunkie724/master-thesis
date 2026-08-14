@@ -3,7 +3,7 @@ title: "Phase 8.9B: Six-Layer Eventing Implementation"
 description: "Executable delta plan that adds one independent Eventing responsibility to the reviewed Five-layer v2 PoC."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
 lastUpdated: "2026-08-14"
-version: "2.6"
+version: "2.7"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.6"
 - contracts/phase-08-eventing-decision/v1/decision.json
 - contracts/phase-08-eventing-decision/v1/implementation-component-manifest.json
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-14 | VERSION: 2.6
+EXTRACTED: 2026-08-14 | VERSION: 2.7
 -->
 
 # Phase 8.9B: Six-Layer Eventing Implementation
@@ -50,6 +50,10 @@ The inherited Layer Access contract now accepts both active profile/version
 pairs. Six-layer deployments therefore project, persist, and expose the same
 typed L4/L5 surfaces as Five-layer v2, including the owner-scoped GCP Grafana
 Viewer rotation operation; historical Five-layer v1 remains unsupported.
+The same inheritance now covers SDK-owned post-deployment work: AWS TwinMaker
+and Azure Digital Twins receive the deterministic visible seed, AWS/Azure
+Grafana receive the typed dashboard configuration, and Azure publishes the
+finite storage-mover image for either active profile.
 
 The branch gate above now proves the exact reviewed Five-layer v2 commits and
 decision digests, so this document is executable planning authority. It replaces

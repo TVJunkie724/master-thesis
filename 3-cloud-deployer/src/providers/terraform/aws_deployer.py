@@ -10,6 +10,9 @@ from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
 from src.core.secure_files import atomic_write_private_bytes
+from src.deployment_access.runtime_evidence import (
+    SUPPORTED_DEPLOYMENT_ACCESS_PROFILES,
+)
 from src.providers.terraform.runtime_outcome import RuntimeRun
 
 if TYPE_CHECKING:
@@ -22,13 +25,13 @@ V2_SEED_DEVICE_ID = "twin2multicloud-poc-device"
 V2_SEED_COMPONENT_NAME = "Twin2MultiCloudPoCDevice"
 
 
-def _is_five_layer_v2(context: "DeploymentContext") -> bool:
+def _is_active_phase8_profile(context: "DeploymentContext") -> bool:
     graph = getattr(context, "resolved_deployment_graph", None)
     profile_ref = getattr(graph, "profile_ref", {}) if graph is not None else {}
     return (
-        profile_ref.get("id") == "five-layer-baseline"
-        and str(profile_ref.get("version")) == "2"
-    )
+        profile_ref.get("id"),
+        str(profile_ref.get("version")),
+    ) in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES
 
 
 def _simulator_iot_policy(*, region: str, account_id: str, device_id: str, topic: str) -> dict:
@@ -222,7 +225,7 @@ def create_twinmaker_entities(
     hierarchy = context.config.hierarchy
     if not isinstance(hierarchy, list):
         raise ValueError("AWS TwinMaker hierarchy must be a list")
-    if _is_five_layer_v2(context):
+    if _is_active_phase8_profile(context):
         hierarchy = [*hierarchy, _five_layer_v2_seed(context)]
     elif not hierarchy:
         raise ValueError("AWS TwinMaker hierarchy must be a non-empty list")
@@ -258,7 +261,7 @@ def create_twinmaker_entities(
             connector_last_entry_arn=connector_last_entry_arn,
         )
     run.raise_if_failed()
-    if _is_five_layer_v2(context):
+    if _is_active_phase8_profile(context):
         _probe_five_layer_v2_seed(
             twinmaker,
             workspace_id=str(workspace_id),
@@ -634,7 +637,7 @@ def configure_aws_grafana(
 ) -> None:
     """Create the required Grafana datasource or fail the deployment."""
     provider = _require_aws_provider(context)
-    if _is_five_layer_v2(context):
+    if _is_active_phase8_profile(context):
         from src.providers.aws.layers.layer_5_grafana import (
             configure_five_layer_v2_grafana,
         )

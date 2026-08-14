@@ -162,6 +162,12 @@ def test_failed_task_run_is_deleted_before_a_bounded_retry(tmp_path):
 
 def test_selection_and_tfvars_are_bounded_to_the_azure_mover():
     assert azure_v2_container_deployment(_tfvars()) is True
+    six_layer = {
+        **_tfvars(),
+        "architecture_profile_id": "six-layer-eventing",
+        "architecture_profile_version": "1",
+    }
+    assert azure_v2_container_deployment(six_layer) is True
     assert (
         azure_v2_container_deployment(
             {**_tfvars(), "architecture_profile_version": "1"}
@@ -170,5 +176,8 @@ def test_selection_and_tfvars_are_bounded_to_the_azure_mover():
     )
     image = "twinregistry.azurecr.io/storage-mover@sha256:" + "b" * 64
     assert image_tfvars({"storage-mover": image}, _tfvars()) == {
+        "azure_v2_storage_mover_image": image
+    }
+    assert image_tfvars({"storage-mover": image}, six_layer) == {
         "azure_v2_storage_mover_image": image
     }

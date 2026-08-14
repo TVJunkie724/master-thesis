@@ -32,10 +32,14 @@ class AzureV2ImageRequest:
 
 
 def azure_v2_container_deployment(tfvars: Mapping[str, Any]) -> bool:
-    if (
-        tfvars.get("architecture_profile_id") != "five-layer-baseline"
-        or str(tfvars.get("architecture_profile_version")) != "2"
-    ):
+    profile = (
+        tfvars.get("architecture_profile_id"),
+        str(tfvars.get("architecture_profile_version")),
+    )
+    if profile not in {
+        ("five-layer-baseline", "2"),
+        ("six-layer-eventing", "1"),
+    }:
         return False
     return tfvars.get("layer_3_hot_provider") == "azure" or (
         tfvars.get("layer_3_cold_provider") == "azure"
@@ -391,7 +395,7 @@ def image_tfvars(
         return {}
     image = images.get("storage-mover", "")
     if not image:
-        raise RuntimeError("Azure Five-layer v2 image publication is incomplete")
+        raise RuntimeError("Azure active-profile image publication is incomplete")
     return {"azure_v2_storage_mover_image": image}
 
 

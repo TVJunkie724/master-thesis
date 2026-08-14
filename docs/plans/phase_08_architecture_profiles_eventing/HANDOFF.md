@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-14"
-version: "4.9"
+version: "4.10"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.9"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-14 | VERSION: 4.9
+EXTRACTED: 2026-08-14 | VERSION: 4.10
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -207,9 +207,9 @@ paths contain no bridge or inter-cloud transfer. The latest component gates
 pass locally. The current audit corrected exact physical broker consumers,
 GCP Large workers, inherited runtime profile labels, and the shared Layer
 Access handoff: Six-layer deployments now project and expose the same typed
-L4/L5 links and GCP Viewer rotation as Five-layer v2. The final repeated audit
-and one consolidated full-gate rerun remain open. No provider resource was
-created.
+L4/L5 links, deterministic AWS/Azure content, dashboards, GCP Viewer rotation,
+and inherited Azure mover image as Five-layer v2. The final repeated audit and
+one consolidated full-gate rerun remain open. No provider resource was created.
 
 ## Immediate Next Action
 

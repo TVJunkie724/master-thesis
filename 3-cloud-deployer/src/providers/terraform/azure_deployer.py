@@ -9,19 +9,23 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from src.deployment_access.runtime_evidence import (
+    SUPPORTED_DEPLOYMENT_ACCESS_PROFILES,
+)
+
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
 
 logger = logging.getLogger(__name__)
 
 
-def _is_five_layer_v2(context: "DeploymentContext") -> bool:
+def _is_active_phase8_profile(context: "DeploymentContext") -> bool:
     graph = getattr(context, "resolved_deployment_graph", None)
     profile_ref = getattr(graph, "profile_ref", {}) if graph is not None else {}
     return (
-        profile_ref.get("id") == "five-layer-baseline"
-        and str(profile_ref.get("version")) == "2"
-    )
+        profile_ref.get("id"),
+        str(profile_ref.get("version")),
+    ) in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES
 
 
 def upload_dtdl_models(context: "DeploymentContext", project_path: Path) -> None:
@@ -34,7 +38,7 @@ def upload_dtdl_models(context: "DeploymentContext", project_path: Path) -> None
         provider,
         context.config,
         str(project_path),
-        ensure_v2_seed=_is_five_layer_v2(context),
+        ensure_v2_seed=_is_active_phase8_profile(context),
     )
     logger.info("  DTDL models uploaded")
 
@@ -62,7 +66,7 @@ def configure_azure_grafana(
     )
 
     provider = _require_azure_provider(context)
-    if _is_five_layer_v2(context):
+    if _is_active_phase8_profile(context):
         bundle = terraform_outputs.get("azure_component_visualization_output")
         if not isinstance(bundle, dict):
             raise RuntimeError(
