@@ -3,7 +3,7 @@ title: "Phase 8.9B: Six-Layer Eventing Implementation"
 description: "Executable delta plan that adds one independent Eventing responsibility to the reviewed Five-layer v2 PoC."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
 lastUpdated: "2026-08-14"
-version: "2.9"
+version: "2.10"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.9"
 - contracts/phase-08-eventing-decision/v1/decision.json
 - contracts/phase-08-eventing-decision/v1/implementation-component-manifest.json
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-14 | VERSION: 2.9
+EXTRACTED: 2026-08-14 | VERSION: 2.10
 -->
 
 # Phase 8.9B: Six-Layer Eventing Implementation
@@ -67,6 +67,12 @@ selects its local Event topic or remote source outbox from
 `event_layer_provider`, rather than incorrectly treating a local L2 as a reason
 to bypass a remote Event Layer. Focused no-network runtime and static Terraform
 tests cover both local and remote branches; no cloud resource was created.
+The following GCP identity trace closes the matching return paths as well: the
+L2 Cloud Run service receives the selected local Event-control or remote
+control-outbox topic, and the GCP L1 ingress identity receives publisher access
+to the remote control outbox when the Event Layer is not GCP. Consequently,
+rule matches and device-command outcomes return to the independent Event Layer
+under the same resolved placement instead of relying on embedded-topic rights.
 
 The branch gate above now proves the exact reviewed Five-layer v2 commits and
 decision digests, so this document is executable planning authority. It replaces

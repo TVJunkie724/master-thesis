@@ -3,7 +3,7 @@ title: "Phase 8.9 Execution Plan: Five-Layer v2 Then Six-Layer v1"
 description: "Cross-stack implementation sequence for the complete bounded Phase 8 thesis PoC."
 tags: [phase-8, architecture-profiles, optimizer, deployer, management-api, flutter, thesis]
 lastUpdated: "2026-08-14"
-version: "1.9"
+version: "1.10"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "1.9"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_9_six_layer_eventing_implementation.md
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md
 - User implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-14 | VERSION: 1.9
+EXTRACTED: 2026-08-14 | VERSION: 1.10
 -->
 
 # Phase 8.9 Execution Plan: Five-Layer v2 Then Six-Layer v1
@@ -48,6 +48,11 @@ Azure's separate L2 Function now receives the selected Event provider plus its
 remote telemetry/control outboxes; and GCP ingress routes by Event placement,
 not L2 placement. This closes the cases where L1 and L2 share a provider while
 the independent Event Layer is remote, without adding services to the PoC.
+GCP output wiring is now symmetric: the L2 rule evaluator receives the exact
+Event control destination, while the L1 ingress identity publishes command
+outcomes to the remote Event control outbox when required. Terraform native
+plans still pass for single-cloud GCP Large and all six directed provider
+pairs.
 The dependent Eventing, workload, complete-service, Five-layer, and Six-layer
 digest chains were refrozen together before the consolidated safe gate. No live
 cloud deployment or provider sign-in evidence is claimed; explicit live gates

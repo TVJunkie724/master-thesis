@@ -981,6 +981,43 @@ def test_six_layer_event_delivery_rejects_a_misowned_consumer_role(monkeypatch):
         runtime._consume_eventing_delivery("historical-persistence", processed)
 
 
+def test_six_layer_local_rule_evaluator_returns_match_to_event_control(monkeypatch):
+    core = _load_six_layer("core")
+    runtime = _load_six_layer("app")
+    processed = core.build_processed_event(
+        _received(core),
+        _extension_response(_received(core)),
+    )
+    matched = core.derive_event(
+        processed,
+        event_type=core.EVENT_MATCHED,
+        producer="component.rule-evaluator",
+        payload={"device_id": "device-1", "rule_id": "rule-1", "action": {}},
+    )
+    published = []
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    monkeypatch.setenv("L2_PROVIDER", "google")
+    monkeypatch.setenv(
+        "REMOTE_CONTROL_TOPIC",
+        "projects/test/topics/event-control",
+    )
+    monkeypatch.setattr(runtime, "_configured_rules", lambda: [])
+    monkeypatch.setattr(
+        runtime.core,
+        "build_rule_matches",
+        lambda _event, _rules: [matched],
+    )
+    monkeypatch.setattr(
+        runtime,
+        "_publish",
+        lambda topic, event: published.append((topic, event)),
+    )
+
+    runtime._consume_eventing_delivery("rule-evaluator", processed)
+
+    assert published == [("projects/test/topics/event-control", matched)]
+
+
 def test_six_layer_control_landing_routes_match_to_local_l2(monkeypatch):
     core = _load_six_layer("core")
     runtime = _load_six_layer("app")

@@ -39,6 +39,41 @@ def test_gcp_six_layer_processing_returns_to_event_and_hot_projects_directly():
     )
 
 
+def test_gcp_l2_rule_evaluator_can_return_matches_to_selected_event_layer():
+    source = _source("gcp_five_layer_v2.tf")
+    processor = source.split(
+        'resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_service"',
+        maxsplit=1,
+    )[1].split(
+        'resource "google_cloud_run_v2_service" "gcp_v2_processor_extension"',
+        maxsplit=1,
+    )[0]
+
+    assert 'name  = "EVENT_LAYER_PROVIDER"' in processor
+    assert 'name  = "PROCESSED_TOPIC"' in processor
+    assert 'name  = "REMOTE_TELEMETRY_TOPIC"' in processor
+    assert 'name  = "REMOTE_CONTROL_TOPIC"' in processor
+    assert 'google_pubsub_topic.domain_events["control"].id' in processor
+
+
+def test_gcp_remote_event_layer_grants_ingress_control_outbox_publish():
+    source = _source("gcp_five_layer_v2.tf")
+    ingress_policy = source.split(
+        'resource "google_pubsub_topic_iam_member" '
+        '"gcp_v2_ingress_domain_publisher"',
+        maxsplit=1,
+    )[1].split(
+        'resource "google_pubsub_topic_iam_member" '
+        '"gcp_v2_processor_publishers"',
+        maxsplit=1,
+    )[0]
+
+    assert "local.six_layer_eventing_enabled" in ingress_policy
+    assert '"remote-control-outbound"' in ingress_policy
+    assert '"domain"' in ingress_policy
+    assert 'gcp_v2_runtime["ingress"].email' in ingress_policy
+
+
 def test_gcp_large_bridge_uses_pull_workers_only_for_telemetry_sources():
     eventing = _source("gcp_eventing.tf")
     bridge = _source("five_layer_v2_bridge_gcp.tf")

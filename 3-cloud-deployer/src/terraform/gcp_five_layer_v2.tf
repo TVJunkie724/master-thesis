@@ -987,6 +987,10 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_service" {
         value = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-telemetry-outbound"].id, "")
       }
       env {
+        name  = "REMOTE_CONTROL_TOPIC"
+        value = local.gcp_v2_event_layer_local ? google_pubsub_topic.domain_events["control"].id : try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-outbound"].id, "")
+      }
+      env {
         name  = "EVENTING_DELIVERY_ENDPOINT_ENABLED"
         value = tostring(local.gcp_v2_event_layer_local)
       }
@@ -1805,9 +1809,11 @@ resource "google_pubsub_topic_iam_member" "gcp_v2_ingress_publisher" {
 resource "google_pubsub_topic_iam_member" "gcp_v2_ingress_domain_publisher" {
   count   = local.gcp_v2_l1_enabled && !local.gcp_v2_event_layer_local ? 1 : 0
   project = local.gcp_project_id
-  topic   = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["domain"].name
-  role    = "roles/pubsub.publisher"
-  member  = "serviceAccount:${google_service_account.gcp_v2_runtime["ingress"].email}"
+  topic = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics[
+    local.six_layer_eventing_enabled ? "remote-control-outbound" : "domain"
+  ].name
+  role   = "roles/pubsub.publisher"
+  member = "serviceAccount:${google_service_account.gcp_v2_runtime["ingress"].email}"
 }
 
 resource "google_pubsub_topic_iam_member" "gcp_v2_processor_publishers" {

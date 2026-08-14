@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-14"
-version: "4.12"
+version: "4.13"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.12"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-14 | VERSION: 4.12
+EXTRACTED: 2026-08-14 | VERSION: 4.13
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -220,6 +220,10 @@ existing source outboxes to a remote Event Layer, and GCP ingress chooses its
 local topic or remote outbox from Event placement even when L2 is also GCP.
 AWS already used an exact local/remote destination binding. Focused offline
 tests cover both branches and the corresponding Terraform wiring.
+The GCP follow-up also passes the chosen Event-control topic into the L2 rule
+evaluator and grants the L1 ingress identity its remote-control-outbox publish
+right for a non-GCP Event Layer. This restores rule-match and command-outcome
+returns without introducing an extra broker or service.
 
 ## Immediate Next Action
 
