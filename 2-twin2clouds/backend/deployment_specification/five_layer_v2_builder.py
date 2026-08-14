@@ -1041,17 +1041,31 @@ def _build_deployment_specification(
         if eventing_provider == "gcp":
             # Audit and realtime visualization remain Event-Layer-local. L2
             # adds telemetry processing plus rule evaluation; L3 Hot adds
-            # historical persistence plus Twin-state projection.
-            gcp_event_worker_count = 42
+            # historical persistence plus Twin-state projection. Remote
+            # telemetry responsibilities add one source-owned bridge worker
+            # allocation per distinct received/processed Event topic.
+            local_subscription_count = 2
             if assignment["component.processing"] == "gcp":
-                gcp_event_worker_count += 42
+                local_subscription_count += 2
             if assignment["component.hot-storage"] == "gcp":
-                gcp_event_worker_count += 42
+                local_subscription_count += 2
+            bridge_channel_ids: set[str] = set()
+            if assignment["component.processing"] != "gcp":
+                bridge_channel_ids.update(
+                    {"telemetry.received.v1", "telemetry.processed.v1"}
+                )
+            if assignment["component.hot-storage"] != "gcp":
+                bridge_channel_ids.add("telemetry.processed.v1")
+            gcp_event_worker_count = 21 * (
+                local_subscription_count + len(bridge_channel_ids)
+            )
         else:
+            bridge_channel_ids = set()
             if assignment["component.ingestion"] == "gcp":
-                gcp_event_worker_count += 21
+                bridge_channel_ids.add("telemetry.received.v1")
             if assignment["component.processing"] == "gcp":
-                gcp_event_worker_count += 21
+                bridge_channel_ids.add("telemetry.processed.v1")
+            gcp_event_worker_count = 21 * len(bridge_channel_ids)
     selections = []
     bindings = []
     for provider, logical, component_id in selected_groups:
@@ -1135,7 +1149,7 @@ def _build_deployment_specification(
     if (
         profile_id == "six-layer-eventing"
         and resolved_workload.size == "large"
-        and assignment["component.eventing"] == "gcp"
+        and gcp_event_worker_count > 0
     ):
         live_blockers.append("gate.live-capacity.gcp.cloud-run-worker-pool-preview")
     missing_azure_large_measurement = uses_azure_large_autoscale and (

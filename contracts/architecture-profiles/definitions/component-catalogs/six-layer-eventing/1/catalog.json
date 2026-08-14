@@ -11037,7 +11037,7 @@
       "repository_source_path": "3-cloud-deployer/src/runtime/six_layer_eventing",
       "platform_handler": "provider.shared-runtime",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:268f63c0fbdbc0c004fad5357c717cc098fbd579b510396042027fb34cd456db",
+      "source_digest": "sha256:075778643a322473f96f096d13d2759fa35c4526114e87731cebd1bdd7e355fc",
       "included_paths": [
         "__init__.py",
         "aws/__init__.py",
@@ -11209,5 +11209,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:7a842adfe9bfee9853c1145dbe4af102055e0e23dda91ec690a3eaaed6d8a333"
+  "content_digest": "sha256:97837d9cd6a0e566ace5fc642ea8d456a4c528e46e6e61f0d960de852b9cc871"
 }

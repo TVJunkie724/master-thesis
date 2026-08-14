@@ -93,6 +93,12 @@ def build() -> dict[str, Any]:
         "approved_on": "2026-08-03",
         "research_cutoff": "2026-08-08",
         "pre_activation_refreeze": {
+            "refrozen_on": "2026-08-14",
+            "previous_package_digest": "sha256:b52e8d589b10d83219b92d2ac1624b6e3f2e227cd005435e1823a4669c9198a9",
+            "reason": "reconcile topology-specific physical broker consumers, source-channel bridge fan-out, and the exact GCP Large StreamingPull worker allocation before the final offline audit",
+            "scope_change": False,
+            "activated_or_deployed_before_refreeze": False,
+            "prior_refreeze": {
             "refrozen_on": "2026-08-08",
             "previous_package_digest": "sha256:05dfcce680ee12f287816a7babcf47e22b8ac6cf22f803787293db6b011e7296",
             "reason": "close Amazon Managed Grafana v12 service-account automation, explicit IAM Identity Center invitation admission, and the now-published JSON API support end before activation",
@@ -203,6 +209,7 @@ def build() -> dict[str, Any]:
                     },
                 },
             },
+        },
         },
         "regions": {
             "aws": "eu-central-1",

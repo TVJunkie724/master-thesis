@@ -160,7 +160,7 @@
       "responsibility_id": "responsibility.visualization"
     }
   ],
-  "content_digest": "sha256:8ebe9f14978f632c04a25837af1a4b9e4ee4da863f4a972189fb75cd174cac5c",
+  "content_digest": "sha256:d8a57a1f9ff1c530282dd42dcf595f1a9ec8051f8cd8574acfb0a81e655d9386",
   "description": "Functionally complete thesis-PoC profile with mandatory embedded domain events, provider-local L3-hot/L5 raw history, and an independently placeable L4 Twin.",
   "display_name": "Five-layer baseline v2",
   "edges": [
@@ -688,6 +688,6 @@
   "workload_contract_ref": {
     "id": "five-layer-workload",
     "version": "2",
-    "digest": "sha256:c75040905c6d6cd551062f74877a352da0ac05c15f73caeff5f1924bf53d1d19"
+    "digest": "sha256:32fb431fb207e539bc85e6f22ce9bb3d7a9224e18722d41a7cda0339c80b9a95"
   }
 }

@@ -37,3 +37,18 @@ def test_gcp_six_layer_processing_returns_to_event_and_hot_projects_directly():
         "local.six_layer_eventing_enabled && "
         "local.gcp_v2_remote_processed_inbound && local.gcp_v2_l2_enabled" in source
     )
+
+
+def test_gcp_large_bridge_uses_pull_workers_only_for_telemetry_sources():
+    eventing = _source("gcp_eventing.tf")
+    bridge = _source("five_layer_v2_bridge_gcp.tf")
+
+    assert "gcp_event_local_worker_count" in eventing
+    assert "local.gcp_v2_bridge_worker_count" in eventing
+    assert 'resource "google_cloud_run_v2_worker_pool" "gcp_v2_cross_cloud_bridge"' in bridge
+    assert "gcp_v2_bridge_worker_channel_ids" in bridge
+    assert "gcp_v2_bridge_worker_sources" in bridge
+    assert "gcp_v2_bridge_push_sources" in bridge
+    assert 'name  = "BRIDGE_SUBSCRIPTION"' in bridge
+    assert "from phase8_eventing.gcp.runtime import run_worker; run_worker()" in bridge
+    assert 'role         = "roles/pubsub.subscriber"' in bridge

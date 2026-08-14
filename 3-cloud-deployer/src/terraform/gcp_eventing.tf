@@ -79,9 +79,9 @@ locals {
     for key, value in local.gcp_event_subscriptions : key => value
     if !local.gcp_event_large || value.topic == "control"
   }
+  gcp_event_local_worker_count = length(local.gcp_event_worker_subscriptions) * 21
   gcp_event_workers_per_subscription = (
-    length(local.gcp_event_worker_subscriptions) == 0 ? 0 :
-    floor(local.gcp_event_resolved_worker_count / length(local.gcp_event_worker_subscriptions))
+    length(local.gcp_event_worker_subscriptions) == 0 ? 0 : 21
   )
   gcp_event_delivery_targets = merge(
     local.gcp_event_l2_local ? {
@@ -118,6 +118,8 @@ resource "terraform_data" "gcp_eventing_capacity_guard" {
 
   input = {
     worker_count             = local.gcp_event_resolved_worker_count
+    local_worker_count       = local.gcp_event_local_worker_count
+    bridge_worker_count      = local.gcp_v2_bridge_worker_count
     telemetry_subscriptions  = length(local.gcp_event_worker_subscriptions)
     workers_per_subscription = local.gcp_event_workers_per_subscription
     retention_seconds        = local.gcp_event_retention_seconds
@@ -139,11 +141,13 @@ resource "terraform_data" "gcp_eventing_capacity_guard" {
         !local.gcp_event_large ||
         (
           length(local.gcp_event_worker_subscriptions) > 0 &&
-          local.gcp_event_resolved_worker_count % length(local.gcp_event_worker_subscriptions) == 0 &&
-          local.gcp_event_workers_per_subscription == 21
+          local.gcp_event_workers_per_subscription == 21 &&
+          local.gcp_event_resolved_worker_count == (
+            local.gcp_event_local_worker_count + local.gcp_v2_bridge_worker_count
+          )
         )
       )
-      error_message = "GCP Large requires exactly 21 StreamingPull workers per local telemetry subscription."
+      error_message = "GCP Large requires exactly 21 StreamingPull workers per local subscription and distinct bridge telemetry source."
     }
     precondition {
       condition     = contains([86400, 604800], local.gcp_event_retention_seconds)

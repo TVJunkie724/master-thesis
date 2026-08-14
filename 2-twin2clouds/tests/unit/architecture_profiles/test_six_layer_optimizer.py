@@ -619,16 +619,28 @@ def test_all_243_event_topologies_reconcile_to_the_frozen_cost_registry():
             expected_worker_count = 0
             if size == "large":
                 if placement["eventing_provider"] == "gcp":
-                    expected_worker_count = 42
+                    local_subscription_count = 2
                     if placement["processing_provider"] == "gcp":
-                        expected_worker_count += 42
+                        local_subscription_count += 2
                     if placement["hot_storage_provider"] == "gcp":
-                        expected_worker_count += 42
+                        local_subscription_count += 2
+                    bridge_channels = set()
+                    if placement["processing_provider"] != "gcp":
+                        bridge_channels.update(
+                            {"telemetry.received.v1", "telemetry.processed.v1"}
+                        )
+                    if placement["hot_storage_provider"] != "gcp":
+                        bridge_channels.add("telemetry.processed.v1")
+                    expected_worker_count = 21 * (
+                        local_subscription_count + len(bridge_channels)
+                    )
                 else:
+                    bridge_channels = set()
                     if placement["ingestion_provider"] == "gcp":
-                        expected_worker_count += 21
+                        bridge_channels.add("telemetry.received.v1")
                     if placement["processing_provider"] == "gcp":
-                        expected_worker_count += 21
+                        bridge_channels.add("telemetry.processed.v1")
+                    expected_worker_count = 21 * len(bridge_channels)
             assert len(worker_selections) == (1 if expected_worker_count else 0)
             if worker_selections:
                 dimensions = {

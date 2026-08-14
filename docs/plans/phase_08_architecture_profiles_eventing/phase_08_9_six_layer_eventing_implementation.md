@@ -2,8 +2,8 @@
 title: "Phase 8.9B: Six-Layer Eventing Implementation"
 description: "Executable delta plan that adds one independent Eventing responsibility to the reviewed Five-layer v2 PoC."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
-lastUpdated: "2026-08-13"
-version: "2.3"
+lastUpdated: "2026-08-14"
+version: "2.4"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.3"
 - contracts/phase-08-eventing-decision/v1/decision.json
 - contracts/phase-08-eventing-decision/v1/implementation-component-manifest.json
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-13 | VERSION: 2.3
+EXTRACTED: 2026-08-14 | VERSION: 2.4
 -->
 
 # Phase 8.9B: Six-Layer Eventing Implementation
@@ -29,11 +29,11 @@ EXTRACTED: 2026-08-13 | VERSION: 2.3
 | Required base | Reviewed and committed `five-layer-baseline@2` implementation, including workload v2, bootstrap, L4/L5 access, RDS v2, and Deployment Manifest v4 |
 | Inherited implementation commit | `c5c6232478d29a9cc3c7d280bdc9ca0e79c47226` |
 | Five-layer audit-freeze commit | `d4c080f6` |
-| Five-layer profile digest | `sha256:8ebe9f14978f632c04a25837af1a4b9e4ee4da863f4a972189fb75cd174cac5c` |
+| Five-layer profile digest | `sha256:d8a57a1f9ff1c530282dd42dcf595f1a9ec8051f8cd8574acfb0a81e655d9386` |
 | Complete-service catalog digest | `sha256:3396848028a5b8862e1c948a8017cd8e7bb7d118a0ee5edc120cd3d7a3956c1d` |
-| Five-layer activation manifest digest | `sha256:856f9450ec424355685d3b9cab958d8f25e75335050a335b406f3ef87f056263` |
-| Eventing decision file digest | `sha256:027ba4e220e3a211e632f7b462267ba46928de0a4dd949bcf5a6d37a59284e0b` |
-| Eventing implementation-manifest file digest | `sha256:f8ace7160f06c0282d84e16fbd474d8744ac12bd14b2fea14cf47f36ce8b67f3` |
+| Five-layer activation manifest digest | `sha256:319433834c75147d6d18665840a17626dd67dcd182a449fa574e7ab9860aef6f` |
+| Eventing decision file digest | `sha256:b2afdaff2793391f0bab0127c93e13b0ff281964d1184818090781234444be35` |
+| Eventing implementation-manifest file digest | `sha256:bcc8fd9465243bd92028cf7c6cb970973096227048aeac98294f429b1f24252f` |
 | Profile | `six-layer-eventing@1` |
 | Decision authority | Approved `phase-08-eventing-decision@1` plus the committed Five-layer v2 digest |
 | Verification | Offline/no-apply by default; no live cloud resource creation |
@@ -128,6 +128,14 @@ metadata, Terraform/provider support, region availability, and cost/capacity
 assumptions. Deployment preflight fails closed if that exact resource is no
 longer available. This is a visible PoC limitation and no production
 availability or autoscaling claim is made.
+
+For the resolved Large topology, GCP allocates 21 instances per local
+telemetry consumer subscription and per distinct source-owned bridge
+telemetry channel. A physical received/processed source subscription may fan
+out to several destination routes, so target count does not duplicate the
+worker pool. Control subscriptions remain authenticated Pub/Sub push. The RDS
+exports one exact aggregate dimension, and Terraform must reconcile that
+dimension to the sum of local and bridge worker allocations before planning.
 
 ## 5. Event Contracts And Delivery
 

@@ -2,7 +2,7 @@
   "schema_version": "eventing-scenario-catalog.v1",
   "package_id": "phase-08-eventing-implementation@1",
   "decision_ref": "docs/research/evidence/phase_08_eventing/decision.json",
-  "decision_byte_digest": "sha256:027ba4e220e3a211e632f7b462267ba46928de0a4dd949bcf5a6d37a59284e0b",
+  "decision_byte_digest": "sha256:b2afdaff2793391f0bab0127c93e13b0ff281964d1184818090781234444be35",
   "scenario_source_ref": "docs/research/evidence/phase_08_eventing/scenario-inputs.json",
   "scenario_source_byte_digest": "sha256:a49ce526ff03881b944a217913de4b4e10a28d8c27989f0ad9445043a2574506",
   "scenario_source_content_digest": "sha256:1391c4463df31027e6f08bc67c538669a7b18777a9e42136af9d3f79db1f327b",
@@ -94,5 +94,5 @@
     "eventing-medium-v1": "sha256:5450099e4ee0c0498125bc88a860fa1990acec817d3ce68bb7138e140745acee",
     "eventing-large-v1": "sha256:6fffe6fdf45afc95f5d602dc0128479d3d73ad0af0308e8746a8cdb503691702"
   },
-  "content_digest": "sha256:a10b64a238c0c7a076fab825316246e9c232b94a2afaecc37cf8e61c7a96e46b"
+  "content_digest": "sha256:458793664dcad839e6888a986f5d7fc29f2d9bdfbd8d8f94306f3fd820c1ee82"
 }

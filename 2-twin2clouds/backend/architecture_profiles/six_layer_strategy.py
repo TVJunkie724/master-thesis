@@ -29,7 +29,7 @@ from .strategy import (
 SIX_LAYER_EVENTING_V1_PROFILE_REF = ArchitectureProfileRef(
     profile_id="six-layer-eventing",
     profile_version="1",
-    content_digest="sha256:99bb981aa1a60a5e4677609914bc9e341774ef500222da72c4f82efe6f0756c9",
+    content_digest="sha256:0ecbf18fdc54a479c81a81df114fc508983db7da1786836aa1774e03d1665066",
 )
 SIX_LAYER_EVENTING_V1_BUNDLE_REF = OptimizationBundleRef(
     optimization_strategy_id="cost-minimization-v2",

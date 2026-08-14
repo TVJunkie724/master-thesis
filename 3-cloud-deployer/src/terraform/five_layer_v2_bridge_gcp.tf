@@ -7,6 +7,20 @@
 
 locals {
   gcp_v2_bridge_enabled = length(local.gcp_v2_outbound_event_routes) > 0
+  gcp_v2_bridge_large = (
+    local.gcp_v2_bridge_enabled &&
+    local.six_layer_eventing_enabled &&
+    local.gcp_event_resolved_worker_count > 0
+  )
+  gcp_v2_bridge_worker_channel_ids = toset(flatten([
+    for route in values(local.gcp_v2_outbound_event_routes) : [
+      for event_type in route.event_types : event_type
+      if startswith(event_type, "telemetry.")
+    ] if route.channel_class == "telemetry"
+  ]))
+  gcp_v2_bridge_worker_count = (
+    local.gcp_v2_bridge_large ? 21 * length(local.gcp_v2_bridge_worker_channel_ids) : 0
+  )
   gcp_v2_bridge_destinations_selected = toset([
     for route in values(local.gcp_v2_outbound_event_routes) : route.destination_provider
   ])
@@ -144,6 +158,10 @@ locals {
       telemetry = {
         topic_id = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-telemetry-outbound"].id
         filter   = ""
+        worker_instances = 21 * length(distinct(flatten([
+          for route in values(local.gcp_v2_outbound_event_routes) : route.event_types
+          if route.channel_class == "telemetry" && !startswith(route.logical_edge_id, "edge.eventing-to-")
+        ])))
       }
     } : {},
     anytrue([
@@ -151,8 +169,9 @@ locals {
       route.channel_class == "control" && !startswith(route.logical_edge_id, "edge.eventing-to-")
       ]) ? {
       control = {
-        topic_id = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-outbound"].id
-        filter   = ""
+        topic_id         = google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["remote-control-outbound"].id
+        filter           = ""
+        worker_instances = 0
       }
     } : {},
     local.gcp_v2_event_layer_local && anytrue([
@@ -160,8 +179,9 @@ locals {
       startswith(route.logical_edge_id, "edge.eventing-to-") && contains(route.event_types, "telemetry.received.v1")
       ]) ? {
       event-received = {
-        topic_id = google_pubsub_topic.domain_events["received"].id
-        filter   = ""
+        topic_id         = google_pubsub_topic.domain_events["received"].id
+        filter           = ""
+        worker_instances = 21
       }
     } : {},
     local.gcp_v2_event_layer_local && anytrue([
@@ -169,8 +189,9 @@ locals {
       startswith(route.logical_edge_id, "edge.eventing-to-") && contains(route.event_types, "telemetry.processed.v1")
       ]) ? {
       event-processed = {
-        topic_id = google_pubsub_topic.domain_events["processed"].id
-        filter   = ""
+        topic_id         = google_pubsub_topic.domain_events["processed"].id
+        filter           = ""
+        worker_instances = 21
       }
     } : {},
     local.gcp_v2_event_layer_local && anytrue([
@@ -179,13 +200,22 @@ locals {
       ]) ? {
       for index, event_type in local.gcp_v2_event_bridge_control_types :
       "event-control-${index}" => {
-        topic_id = google_pubsub_topic.domain_events["control"].id
+        topic_id         = google_pubsub_topic.domain_events["control"].id
+        worker_instances = 0
         # One bounded filter per event type stays below Pub/Sub's 256-byte
         # subscription-filter limit for every reviewed topology.
         filter = "attributes.event_type = \"${event_type}\""
       }
     } : {},
   )
+  gcp_v2_bridge_worker_sources = local.gcp_v2_bridge_large ? {
+    for key, value in local.gcp_v2_bridge_sources : key => value
+    if value.worker_instances > 0
+  } : {}
+  gcp_v2_bridge_push_sources = {
+    for key, value in local.gcp_v2_bridge_sources : key => value
+    if !local.gcp_v2_bridge_large || value.worker_instances == 0
+  }
   gcp_v2_bridge_failure_topic_id = local.gcp_v2_event_layer_local ? try(
     google_pubsub_topic.domain_events["failure"].id,
     "",
@@ -328,11 +358,14 @@ resource "google_pubsub_subscription" "gcp_v2_bridge_source" {
   filter                     = each.value.filter
   labels                     = local.gcp_v2_labels
 
-  push_config {
-    push_endpoint = google_cloud_run_v2_service.gcp_v2_cross_cloud_bridge[0].uri
-    oidc_token {
-      service_account_email = google_service_account.gcp_v2_bridge[0].email
-      audience              = google_cloud_run_v2_service.gcp_v2_cross_cloud_bridge[0].uri
+  dynamic "push_config" {
+    for_each = contains(keys(local.gcp_v2_bridge_push_sources), each.key) ? [1] : []
+    content {
+      push_endpoint = google_cloud_run_v2_service.gcp_v2_cross_cloud_bridge[0].uri
+      oidc_token {
+        service_account_email = google_service_account.gcp_v2_bridge[0].email
+        audience              = google_cloud_run_v2_service.gcp_v2_cross_cloud_bridge[0].uri
+      }
     }
   }
 
@@ -351,6 +384,111 @@ resource "google_pubsub_subscription" "gcp_v2_bridge_source" {
     google_service_account_iam_member.gcp_v2_bridge_push_token_creator,
     google_pubsub_topic_iam_member.gcp_v2_failure_service_agent_publisher,
     google_pubsub_topic_iam_member.event_failure_service_agent_publisher,
+  ]
+}
+
+resource "terraform_data" "gcp_v2_bridge_capacity_guard" {
+  count = local.gcp_v2_bridge_large ? 1 : 0
+
+  input = {
+    resolved_worker_count = local.gcp_event_resolved_worker_count
+    local_worker_count    = local.gcp_event_local_worker_count
+    bridge_worker_count   = local.gcp_v2_bridge_worker_count
+  }
+
+  lifecycle {
+    precondition {
+      condition = (
+        local.gcp_v2_bridge_worker_count > 0 &&
+        local.gcp_event_resolved_worker_count == (
+          local.gcp_event_local_worker_count + local.gcp_v2_bridge_worker_count
+        )
+      )
+      error_message = "The optimizer-derived GCP Large worker count must cover every local subscription and distinct bridge telemetry source exactly once."
+    }
+  }
+}
+
+resource "google_pubsub_subscription_iam_member" "gcp_v2_bridge_runtime_subscriber" {
+  for_each     = local.gcp_v2_bridge_worker_sources
+  project      = local.gcp_project_id
+  subscription = google_pubsub_subscription.gcp_v2_bridge_source[each.key].name
+  role         = "roles/pubsub.subscriber"
+  member       = "serviceAccount:${google_service_account.gcp_v2_bridge[0].email}"
+}
+
+resource "google_cloud_run_v2_worker_pool" "gcp_v2_cross_cloud_bridge" {
+  for_each            = local.gcp_v2_bridge_worker_sources
+  project             = local.gcp_project_id
+  location            = var.gcp_region
+  name                = substr("${local.gcp_v2_name}-v2-bridge-${each.key}", 0, 49)
+  description         = "Fixed Large StreamingPull source-owned event bridge"
+  deletion_protection = false
+  launch_stage        = "BETA"
+  labels              = local.gcp_v2_labels
+
+  scaling {
+    scaling_mode          = "MANUAL"
+    manual_instance_count = each.value.worker_instances
+  }
+
+  template {
+    service_account = google_service_account.gcp_v2_bridge[0].email
+
+    containers {
+      image   = var.gcp_v2_platform_image
+      command = ["python", "-c", "from phase8_eventing.gcp.runtime import run_worker; run_worker()"]
+
+      resources {
+        limits = {
+          cpu    = tostring(var.gcp_event_worker_cpu)
+          memory = "${var.gcp_event_worker_memory_mib}Mi"
+        }
+      }
+
+      env {
+        name  = "ARCHITECTURE_PROFILE"
+        value = "six-layer-eventing@1"
+      }
+      env {
+        name  = "DEPLOYMENT_ID"
+        value = local.deployment_suffix
+      }
+      env {
+        name  = "BRIDGE_SUBSCRIPTION"
+        value = google_pubsub_subscription.gcp_v2_bridge_source[each.key].id
+      }
+      env {
+        name  = "BRIDGE_ROUTES_JSON"
+        value = jsonencode(values(local.gcp_v2_outbound_event_routes))
+      }
+      env {
+        name  = "BRIDGE_DESTINATIONS_JSON"
+        value = jsonencode(local.gcp_v2_bridge_destinations)
+      }
+      env {
+        name  = "BRIDGE_IDENTITIES_JSON"
+        value = jsonencode(local.gcp_v2_bridge_identities)
+      }
+      env {
+        name  = "BRIDGE_FAILURE_TOPIC"
+        value = local.gcp_v2_bridge_failure_topic_id
+      }
+      env {
+        name  = "AWS_STS_REGIONAL_ENDPOINTS"
+        value = "regional"
+      }
+    }
+  }
+
+  depends_on = [
+    terraform_data.gcp_v2_bridge_capacity_guard,
+    google_pubsub_subscription_iam_member.gcp_v2_bridge_runtime_subscriber,
+    google_pubsub_topic_iam_member.gcp_v2_bridge_failure_publisher,
+    aws_iam_role_policy.aws_v2_bridge_target_from_gcp,
+    azurerm_federated_identity_credential.azure_v2_bridge_from_gcp,
+    azurerm_role_assignment.azure_v2_bridge_from_gcp_telemetry,
+    azurerm_role_assignment.azure_v2_bridge_from_gcp_control,
   ]
 }
 

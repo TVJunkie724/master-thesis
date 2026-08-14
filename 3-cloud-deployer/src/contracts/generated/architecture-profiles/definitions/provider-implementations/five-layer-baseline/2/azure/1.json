@@ -5,7 +5,7 @@
   "architecture_profile_ref": {
     "id": "five-layer-baseline",
     "version": "2",
-    "digest": "sha256:8ebe9f14978f632c04a25837af1a4b9e4ee4da863f4a972189fb75cd174cac5c"
+    "digest": "sha256:d8a57a1f9ff1c530282dd42dcf595f1a9ec8051f8cd8574acfb0a81e655d9386"
   },
   "provider": "azure",
   "lifecycle_status": "active",
@@ -472,5 +472,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:9d2dc83f7ae5a1574516cae7f8cbc03c4caf2774cdef6eec36f2cb1e0ce656e0"
+  "content_digest": "sha256:5ddfcd562cb98bef408a462dc6b751ede8bea9e7a9bd63fcf56d1ad009dd14d6"
 }

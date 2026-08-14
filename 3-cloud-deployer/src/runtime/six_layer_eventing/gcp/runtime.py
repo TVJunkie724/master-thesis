@@ -129,5 +129,31 @@ def streaming_pull_callback(message: object) -> None:
         message.nack()
 
 
-__all__ = ["GcpFailureWriter", "push_request", "streaming_pull_callback"]
+def run_worker() -> None:
+    """Run one bounded StreamingPull stream for a Large bridge worker."""
 
+    from google.api_core.client_options import ClientOptions
+    from google.cloud import pubsub_v1
+
+    subscription = _required_environment("BRIDGE_SUBSCRIPTION")
+    subscriber = pubsub_v1.SubscriberClient(
+        client_options=ClientOptions(api_endpoint=GCP_PUBSUB_ENDPOINT)
+    )
+    future = subscriber.subscribe(
+        subscription,
+        callback=streaming_pull_callback,
+        flow_control=pubsub_v1.types.FlowControl(max_messages=1),
+    )
+    try:
+        future.result()
+    finally:
+        future.cancel()
+        subscriber.close()
+
+
+__all__ = [
+    "GcpFailureWriter",
+    "push_request",
+    "run_worker",
+    "streaming_pull_callback",
+]

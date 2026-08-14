@@ -916,6 +916,7 @@ def event_layer_result(
     channels: list[dict[str, Any]],
     intents: dict[str, dict[str, Any]],
     remote_delivery_channel_ids: set[str] | None = None,
+    local_delivery_consumer_counts: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     prefix = f"event-layer.{provider}.{scenario['scenario_id']}"
     telemetry = select_channels(channels, payload_class="telemetry")
@@ -1172,9 +1173,15 @@ def event_layer_result(
         raise ValueError(provider)
 
     remote_delivery_channel_ids = remote_delivery_channel_ids or set()
-    local_adapter_channels = [
-        row for row in channels if row["channel_id"] not in remote_delivery_channel_ids
-    ]
+    local_adapter_channels = (
+        consumer_fixture(channels, local_delivery_consumer_counts)
+        if local_delivery_consumer_counts is not None
+        else [
+            row
+            for row in channels
+            if row["channel_id"] not in remote_delivery_channel_ids
+        ]
+    )
     adapter_invocations = count_for(local_adapter_channels, "delivery_attempt_count")
     adapter = shared["component_compute_assumptions"]["event_delivery_adapter"]
     if provider == "gcp" and scenario["scenario_id"] == "eventing-large-v1":
@@ -1329,6 +1336,39 @@ def channel_fixture(
     return result
 
 
+def consumer_fixture(
+    channels: list[dict[str, Any]],
+    consumer_counts: dict[str, int],
+) -> list[dict[str, Any]]:
+    """Recompute delivery quantities for an exact physical consumer count."""
+
+    result = []
+    for row in channels:
+        consumer_count = consumer_counts.get(row["channel_id"], 0)
+        if consumer_count <= 0:
+            continue
+        original_consumers = row["consumer_count"]
+        retry_per_consumer = row["retry_delivery_count"] // original_consumers
+        dead_letter_per_consumer = row["dead_letter_count"] // original_consumers
+        replay_per_consumer = row["replay_publish_count"]
+        result.append(
+            dict(
+                row,
+                consumer_count=consumer_count,
+                base_delivery_count=row["publish_count"] * consumer_count,
+                retry_delivery_count=retry_per_consumer * consumer_count,
+                dead_letter_count=dead_letter_per_consumer * consumer_count,
+                replay_delivery_count=replay_per_consumer * consumer_count,
+                delivery_attempt_count=(
+                    row["publish_count"] * consumer_count
+                    + retry_per_consumer * consumer_count
+                    + replay_per_consumer * consumer_count
+                ),
+            )
+        )
+    return result
+
+
 def destination_fixture(
     channels: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -1357,6 +1397,7 @@ def bridge_compute_and_transfer(
     channels: list[dict[str, Any]],
     intents: dict[str, dict[str, Any]],
     prefix: str,
+    worker_telemetry_channel_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     retry_share = Decimal(str(scenario["retry_share"]))
     replay_share = Decimal(str(scenario["replay_share"]))
@@ -1402,7 +1443,13 @@ def bridge_compute_and_transfer(
         }
     elif source_provider == "gcp" and scenario["scenario_id"] == "eventing-large-v1":
         telemetry_channels = [
-            row for row in channel_attempts if row["payload_class"] == "telemetry"
+            row
+            for row in channel_attempts
+            if row["payload_class"] == "telemetry"
+            and (
+                worker_telemetry_channel_ids is None
+                or row["channel_id"] in worker_telemetry_channel_ids
+            )
         ]
         control_channels = [
             row for row in channel_attempts if row["payload_class"] != "telemetry"
@@ -1925,6 +1972,18 @@ def three_provider_result(
         "device.command.outcome.v1",
     }
     all_channel_ids = ingress_produced_channel_ids | processing_produced_channel_ids
+    local_delivery_consumer_counts = {
+        "telemetry.received.v1": int(processing == eventing),
+        "telemetry.processed.v1": (
+            2 + int(processing == eventing) + 2 * int(hot_storage == eventing)
+        ),
+        "event.matched.v1": int(processing == eventing),
+        "notification.requested.v1": int(processing == eventing),
+        "device.command.requested.v1": int(ingress == eventing),
+        "extension.action.outcome.v1": int(hot_storage == eventing),
+        "notification.workflow.outcome.v1": int(hot_storage == eventing),
+        "device.command.outcome.v1": int(hot_storage == eventing),
+    }
     remote_delivery_channel_ids: set[str] = set()
     if processing != eventing:
         remote_delivery_channel_ids |= processing_consumed_channel_ids
@@ -1932,13 +1991,15 @@ def three_provider_result(
         remote_delivery_channel_ids |= hot_storage_consumed_channel_ids
     if ingress != eventing:
         remote_delivery_channel_ids |= ingress_consumed_channel_ids
-    placement_channels = []
-    for row in select_channels(channels, channel_ids=all_channel_ids):
-        placement_channels.extend(
-            channel_fixture([row])
-            if row["channel_id"] in remote_delivery_channel_ids
-            else [row]
-        )
+    event_channel_consumer_counts = {
+        channel_id: local_delivery_consumer_counts[channel_id]
+        + int(channel_id in remote_delivery_channel_ids)
+        for channel_id in all_channel_ids
+    }
+    placement_channels = consumer_fixture(
+        select_channels(channels, channel_ids=all_channel_ids),
+        event_channel_consumer_counts,
+    )
     placement_event_layer = event_layer_result(
         eventing,
         scenario,
@@ -1946,6 +2007,7 @@ def three_provider_result(
         placement_channels,
         intents,
         remote_delivery_channel_ids=remote_delivery_channel_ids,
+        local_delivery_consumer_counts=local_delivery_consumer_counts,
     )
     items: list[dict[str, Any]] = []
     placement_key = f"{ingress}-{eventing}-{processing}"
@@ -2016,6 +2078,7 @@ def three_provider_result(
         "azure": 0,
         "gcp": 0,
     }
+    gcp_worker_telemetry_channels_seen: set[str] = set()
     for (
         role,
         source,
@@ -2033,6 +2096,12 @@ def three_provider_result(
             route_items.extend(
                 source_outbox_cost(source, scenario, fixture, intents, prefix)
             )
+        worker_telemetry_channel_ids = {
+            row["channel_id"]
+            for row in fixture
+            if row["payload_class"] == "telemetry"
+            and row["channel_id"] not in gcp_worker_telemetry_channels_seen
+        }
         route_items.extend(
             bridge_compute_and_transfer(
                 source,
@@ -2041,8 +2110,17 @@ def three_provider_result(
                 fixture,
                 intents,
                 prefix,
+                worker_telemetry_channel_ids=(
+                    worker_telemetry_channel_ids if source == "gcp" else None
+                ),
             )
         )
+        if source == "gcp":
+            gcp_worker_telemetry_channels_seen.update(
+                row["channel_id"]
+                for row in fixture
+                if row["payload_class"] == "telemetry"
+            )
         _, route_log_bytes = observability(fixture, shared)
         bridge_log_bytes_by_provider[source] += route_log_bytes
         if add_destination_landing:

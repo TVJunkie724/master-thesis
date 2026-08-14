@@ -50,7 +50,7 @@
       "artifact_id": "scenario-cost-results",
       "path": "docs/research/evidence/phase_08_eventing/scenario-cost-results.json",
       "schema_version": "scenario-cost-results.v1",
-      "digest": "sha256:9b0f59909ddfd88292b9b8e95778e51e3dac801f8e7d92a098745c1a61892e4e"
+      "digest": "sha256:d738494a049f651b54d342903dd18c878e22d75362550c4eaf82d9eead9b3784"
     },
     {
       "artifact_id": "scenario-inputs",

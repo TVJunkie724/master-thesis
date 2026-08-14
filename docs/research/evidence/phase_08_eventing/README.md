@@ -424,6 +424,14 @@ adapter groups and serializes per key. GCP push delivers one message per
 request to an IAM-protected Cloud Run URL inside the provider integration; that
 URL is not a cross-cloud architecture endpoint. The GCP Large telemetry path
 uses continuous StreamingPull workers with no load-balanced URL.
+The fixed allocation is owned by physical source consumption, not by target
+count: each distinct received/processed telemetry source channel contributes
+21 one-stream workers, while one source subscription may fan the accepted
+event out to multiple destination routes. Consequently an Event-Layer
+`telemetry.processed` topic reused for remote L2 and remote Hot is dimensioned
+once; local Event consumers retain their own 21-worker subscription each. The
+single RDS worker dimension is the exact sum of those local subscriptions and
+source-bridge channels and never exceeds the reviewed 126-instance bound.
 The cost fixture does not assume that AWS/Azure batches are always full: it
 uses one billed invocation per delivery attempt as a conservative bound while
 retaining ten as the configured trigger maximum. This especially avoids
@@ -567,7 +575,7 @@ because fan-out occurs after the landing broker.
 `scenario-cost-results.json` is generated offline by
 `scripts/phase_08_eventing/calculate_scenarios.py`. Its normalized result digest
 is
-`sha256:b09815dbf5d8cf351d80e0d3cdf9242e12f4e1eab20eeadfae66092fc25ad0d8`.
+`sha256:eb145f809a9f3662c1572d7bd05cb00c1a97906732cd9442988f85c8f2b78781`.
 The generator emits per-channel publication, delivery, retry, DLQ, replay,
 retention, compute, workflow, observability, outbox, landing, and transfer
 traces. Reordering source-ledger or pricing-matrix rows does not change the

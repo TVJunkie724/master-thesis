@@ -115,7 +115,35 @@ run "six_layer_aws_azure_gcp_routes_event_targets_without_hidden_landing" {
         destination_provider    = "gcp"
         execution_kind          = "source_event_forwarder"
         channel_class           = "control"
-        event_types             = ["event.matched.v1", "notification.requested.v1", "extension.action.outcome.v1", "notification.workflow.outcome.v1", "device.command.outcome.v1"]
+        event_types             = ["event.matched.v1", "notification.requested.v1"]
+        source_broker_kind      = "control_topic"
+        destination_broker_kind = "control_topic"
+        identity_exchange       = "entra_managed_identity_oidc_to_gcp_workload_identity_federation"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id                = "six.event.hot.telemetry"
+        logical_edge_id         = "edge.eventing-to-hot-storage"
+        source_provider         = "azure"
+        destination_provider    = "gcp"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "telemetry"
+        event_types             = ["telemetry.processed.v1"]
+        source_broker_kind      = "telemetry_stream"
+        destination_broker_kind = "telemetry_stream"
+        identity_exchange       = "entra_managed_identity_oidc_to_gcp_workload_identity_federation"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id                = "six.event.hot.control"
+        logical_edge_id         = "edge.eventing-to-hot-storage"
+        source_provider         = "azure"
+        destination_provider    = "gcp"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "control"
+        event_types             = ["extension.action.outcome.v1", "notification.workflow.outcome.v1", "device.command.outcome.v1"]
         source_broker_kind      = "control_topic"
         destination_broker_kind = "control_topic"
         identity_exchange       = "entra_managed_identity_oidc_to_gcp_workload_identity_federation"
@@ -250,8 +278,8 @@ run "six_layer_azure_gcp_aws_routes_cover_remaining_directed_pairs" {
     resolved_component_dimensions = {
       "dimension.aws.aws.ecs-fargate-storage-mover.task_count"              = "1"
       "dimension.gcp.gcp.cloud-run-storage-job.task_count"                  = "1"
-      "dimension.gcp.gcp.pubsub-separated-event-layer-topics.publish_bytes" = "1029376000"
-      "dimension.gcp.gcp.cloud-run-worker-pool-fixed-large.resource_count"  = "0"
+      "dimension.gcp.gcp.pubsub-separated-event-layer-topics.publish_bytes" = "1000000000000"
+      "dimension.gcp.gcp.cloud-run-worker-pool-fixed-large.resource_count"  = "126"
     }
     resolved_cross_cloud_routes = [
       {
@@ -387,5 +415,29 @@ run "six_layer_azure_gcp_aws_routes_cover_remaining_directed_pairs" {
       toset(keys(azurerm_role_assignment.azure_v2_bridge_from_gcp_control)) == toset(["remote"])
     )
     error_message = "GCP Event Layer outputs must retain the explicit AWS/Azure domain landing boundary."
+  }
+
+  assert {
+    condition = (
+      toset(keys(google_cloud_run_v2_worker_pool.event_telemetry)) == toset([
+        "historical-persistence",
+        "twin-state-update",
+        "audit",
+        "realtime-visualization",
+      ]) &&
+      toset(keys(google_cloud_run_v2_worker_pool.gcp_v2_cross_cloud_bridge)) == toset([
+        "event-received",
+        "event-processed",
+      ]) &&
+      alltrue([
+        for pool in values(google_cloud_run_v2_worker_pool.gcp_v2_cross_cloud_bridge) :
+        pool.scaling[0].manual_instance_count == 21
+      ]) &&
+      alltrue([
+        for key, subscription in google_pubsub_subscription.gcp_v2_bridge_source :
+        length(subscription.push_config) == (startswith(key, "event-control-") ? 1 : 0)
+      ])
+    )
+    error_message = "GCP Large must use StreamingPull pools for distinct bridge telemetry topics while retaining authenticated push for control only."
   }
 }

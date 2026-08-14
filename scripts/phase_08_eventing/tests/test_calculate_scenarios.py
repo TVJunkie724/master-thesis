@@ -206,6 +206,50 @@ class ScenarioCalculationTest(unittest.TestCase):
         )
         self.assertEqual(route_worker["normalized_quantities"]["instances"], 21)
 
+    def test_gcp_large_worker_count_deduplicates_physical_source_channels(self) -> None:
+        scenario = copy.deepcopy(self.scenario["scenarios"][2])
+        shared = copy.deepcopy(self.scenario["shared_assumptions"])
+        channels = CALCULATOR.derive_channels(scenario, shared)
+        intents = CALCULATOR.intent_map(copy.deepcopy(self.pricing))
+        cases = {
+            ("gcp", "gcp", "gcp", "gcp"): 126,
+            ("aws", "gcp", "aws", "azure"): 84,
+            ("aws", "gcp", "gcp", "azure"): 105,
+            ("aws", "gcp", "azure", "gcp"): 126,
+            ("gcp", "aws", "gcp", "azure"): 42,
+        }
+
+        for placement, expected_workers in cases.items():
+            with self.subTest(placement=placement):
+                result = CALCULATOR.three_provider_result(
+                    {
+                        "ingress_provider": placement[0],
+                        "eventing_provider": placement[1],
+                        "processing_provider": placement[2],
+                        "hot_storage_provider": placement[3],
+                        "status": "test",
+                    },
+                    scenario,
+                    shared,
+                    channels,
+                    intents,
+                    include_event_layer_contributions=True,
+                )
+                contributions = (
+                    result["event_layer_cost_contributions"]
+                    + result["bridge_cost_contributions"]
+                )
+                worker_count = sum(
+                    item["normalized_quantities"]["instances"]
+                    for item in contributions
+                    if "instances" in item["normalized_quantities"]
+                    and (
+                        "worker-pool" in item["contribution_id"]
+                        or item["contribution_id"].endswith("delivery-adapter")
+                    )
+                )
+                self.assertEqual(worker_count, expected_workers)
+
     def test_gcp_large_uses_full_bidirectional_mqtt_boundary(self) -> None:
         result = self.build()
         large = result["scenarios"][2]

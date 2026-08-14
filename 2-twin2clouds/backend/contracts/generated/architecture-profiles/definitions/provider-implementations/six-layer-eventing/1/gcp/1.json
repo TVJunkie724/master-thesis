@@ -5,7 +5,7 @@
   "architecture_profile_ref": {
     "id": "six-layer-eventing",
     "version": "1",
-    "digest": "sha256:99bb981aa1a60a5e4677609914bc9e341774ef500222da72c4f82efe6f0756c9"
+    "digest": "sha256:0ecbf18fdc54a479c81a81df114fc508983db7da1786836aa1774e03d1665066"
   },
   "provider": "gcp",
   "lifecycle_status": "active",
@@ -589,5 +589,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:9000498843d1e85c839c78c2ab81aea2844aa9260e0b275b6b628714dcc85258"
+  "content_digest": "sha256:3b328646a741b44c7c142e042b4fbd144162db5784d78b769890d46374f44a4b"
 }

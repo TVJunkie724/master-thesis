@@ -7,14 +7,14 @@ import json
 
 import pytest
 
-from src.runtime.eventing.bridge_core import BridgeContractError, load_routes
-from src.runtime.eventing.gcp import runtime
+from src.runtime.six_layer_eventing.bridge_core import BridgeContractError, load_routes
+from src.runtime.six_layer_eventing.gcp import runtime
 
 
 def _route():
     return {
         "route_id": "route.gcp.aws.telemetry",
-        "logical_edge_id": "edge.ingestion-to-processing",
+        "logical_edge_id": "edge.ingestion-to-eventing",
         "source_provider": "gcp",
         "destination_provider": "aws",
         "execution_kind": "source_event_forwarder",
@@ -166,3 +166,46 @@ def test_streaming_pull_settlement_follows_bridge_result(monkeypatch, accepted):
     runtime.streaming_pull_callback(message)
 
     assert (message.acked, message.nacked) == ((1, 0) if accepted else (0, 1))
+
+
+def test_large_worker_uses_one_regional_stream_and_closes(monkeypatch):
+    from google.cloud import pubsub_v1
+
+    monkeypatch.setenv(
+        "BRIDGE_SUBSCRIPTION",
+        "projects/project-1/subscriptions/bridge-source",
+    )
+    captured = {}
+
+    class Future:
+        def result(self):
+            captured["awaited"] = True
+
+        def cancel(self):
+            captured["cancelled"] = True
+
+    class Subscriber:
+        def __init__(self, **configuration):
+            captured["configuration"] = configuration
+
+        def subscribe(self, subscription, **configuration):
+            captured["subscription"] = subscription
+            captured["subscribe_configuration"] = configuration
+            return Future()
+
+        def close(self):
+            captured["closed"] = True
+
+    monkeypatch.setattr(pubsub_v1, "SubscriberClient", Subscriber)
+
+    runtime.run_worker()
+
+    assert captured["subscription"].endswith("/subscriptions/bridge-source")
+    assert (
+        captured["subscribe_configuration"]["callback"]
+        is runtime.streaming_pull_callback
+    )
+    assert captured["subscribe_configuration"]["flow_control"].max_messages == 1
+    assert captured["awaited"] is True
+    assert captured["cancelled"] is True
+    assert captured["closed"] is True
