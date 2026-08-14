@@ -55,6 +55,15 @@ def test_aws_event_layer_uses_graph_capacity_and_bounded_failure_storage():
         "event_source_arn                   = "
         "aws_kinesis_stream_consumer.domain_consumers[each.key].arn"
     ) in source
+    assert '"bridge-${channel}" => { stream = channel }' in source
+    assert (
+        'aws_kinesis_stream_consumer.domain_consumers["bridge-${each.key}"].arn'
+        in _source("five_layer_v2_bridge_aws.tf")
+    )
+    assert (
+        "count                = "
+        "length(local.aws_event_local_control_event_types) > 0 ? 1 : 0"
+    ) in source
     assert (
         "MessageRetentionPeriod = tostring(var.aws_event_control_archive_hours / 24)"
         in source

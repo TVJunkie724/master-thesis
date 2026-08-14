@@ -432,7 +432,7 @@ resource "aws_lambda_event_source_mapping" "aws_v2_bridge_telemetry" {
 
 resource "aws_lambda_event_source_mapping" "aws_v2_event_bridge_telemetry" {
   for_each                           = local.aws_v2_event_bridge_streams
-  event_source_arn                   = each.value
+  event_source_arn                   = aws_kinesis_stream_consumer.domain_consumers["bridge-${each.key}"].arn
   function_name                      = aws_lambda_function.aws_v2_cross_cloud_bridge[0].arn
   starting_position                  = "LATEST"
   batch_size                         = 10

@@ -92,6 +92,10 @@ def test_azure_event_layer_can_be_the_source_of_a_directed_bridge():
     ).read_text(encoding="utf-8")
     assert "bridge-received" in terraform
     assert "bridge-processed" in terraform
+    assert "azure_event_bridge_received_enabled" in terraform
+    assert "azure_event_bridge_processed_enabled" in terraform
+    assert "V2_BRIDGE_EVENT_RECEIVED_ENABLED" in _source("azure_five_layer_v2.tf")
+    assert "V2_BRIDGE_EVENT_PROCESSED_ENABLED" in _source("azure_five_layer_v2.tf")
     assert (
         'resource "azurerm_servicebus_subscription" "event_bridge_control"' in terraform
     )
@@ -99,3 +103,5 @@ def test_azure_event_layer_can_be_the_source_of_a_directed_bridge():
     assert 'name="v2-cross-cloud-event-received-bridge"' in function_app
     assert 'name="v2-cross-cloud-event-processed-bridge"' in function_app
     assert 'name="v2-cross-cloud-event-control-bridge"' in function_app
+    assert "if BRIDGE_EVENT_RECEIVED_ENABLED:" in function_app
+    assert "if BRIDGE_EVENT_PROCESSED_ENABLED:" in function_app

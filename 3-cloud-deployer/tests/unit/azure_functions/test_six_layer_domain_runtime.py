@@ -51,6 +51,37 @@ def _processed_event() -> dict[str, object]:
 
 
 @pytest.mark.parametrize(
+    ("received_enabled", "processed_enabled"),
+    [(True, False), (False, True)],
+)
+def test_event_bridge_registers_only_the_routed_telemetry_channel(
+    monkeypatch,
+    received_enabled,
+    processed_enabled,
+):
+    monkeypatch.setenv(
+        "V2_BRIDGE_EVENT_RECEIVED_ENABLED",
+        str(received_enabled).lower(),
+    )
+    monkeypatch.setenv(
+        "V2_BRIDGE_EVENT_PROCESSED_ENABLED",
+        str(processed_enabled).lower(),
+    )
+    name = f"azure_six_layer_domain_{received_enabled}_{processed_enabled}"
+    spec = importlib.util.spec_from_file_location(name, SOURCE_ROOT / "function_app.py")
+    assert spec is not None and spec.loader is not None
+    selected_runtime = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(SOURCE_ROOT))
+    try:
+        spec.loader.exec_module(selected_runtime)
+    finally:
+        sys.path.remove(str(SOURCE_ROOT))
+
+    assert hasattr(selected_runtime, "cross_cloud_event_received_bridge") is received_enabled
+    assert hasattr(selected_runtime, "cross_cloud_event_processed_bridge") is processed_enabled
+
+
+@pytest.mark.parametrize(
     ("hot_provider", "l2_provider", "expected"),
     [
         ("azure", "aws", ["persist"]),

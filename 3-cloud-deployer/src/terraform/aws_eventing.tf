@@ -31,11 +31,17 @@ locals {
     "rule-evaluator",
   ])
   aws_event_stream_consumers = merge(
-    { telemetry-processor = { stream = "received" } },
+    local.aws_event_l2_local ? {
+      telemetry-processor = { stream = "received" }
+    } : {},
     {
-      for role in local.aws_event_processed_consumer_roles : role => {
+      for role in local.aws_event_local_processed_roles : role => {
         stream = "processed"
       }
+    },
+    {
+      for channel in keys(local.aws_v2_event_bridge_streams) :
+      "bridge-${channel}" => { stream = channel }
     },
   )
   aws_event_local_processed_roles = concat(
@@ -191,7 +197,7 @@ resource "aws_sqs_queue_policy" "event_control" {
 }
 
 resource "aws_sns_topic_subscription" "domain_control" {
-  count                = local.aws_event_enabled ? 1 : 0
+  count                = length(local.aws_event_local_control_event_types) > 0 ? 1 : 0
   topic_arn            = aws_sns_topic.domain_control[0].arn
   protocol             = "sqs"
   endpoint             = aws_sqs_queue.domain_control[0].arn

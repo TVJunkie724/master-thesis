@@ -61,14 +61,18 @@ locals {
     "rule-evaluator",
   ])
   azure_event_consumer_groups = merge(
-    { telemetry-processor = { hub = "received" } },
+    local.azure_event_l2_local ? {
+      telemetry-processor = { hub = "received" }
+    } : {},
     {
-      for role in local.azure_event_processed_consumer_roles : role => {
+      for role in local.azure_event_local_processed_roles : role => {
         hub = "processed"
       }
     },
-    local.azure_v2_event_remote_telemetry_outbound ? {
-      bridge-received  = { hub = "received" }
+    local.azure_event_bridge_received_enabled ? {
+      bridge-received = { hub = "received" }
+    } : {},
+    local.azure_event_bridge_processed_enabled ? {
       bridge-processed = { hub = "processed" }
     } : {},
   )
@@ -100,6 +104,18 @@ locals {
     for route in values(local.azure_v2_outbound_event_routes) : route.event_types
     if startswith(route.logical_edge_id, "edge.eventing-to-") && route.channel_class == "control"
   ])))
+  azure_event_bridge_received_enabled = anytrue([
+    for route in values(local.azure_v2_outbound_event_routes) :
+    startswith(route.logical_edge_id, "edge.eventing-to-") &&
+    route.channel_class == "telemetry" &&
+    contains(route.event_types, "telemetry.received.v1")
+  ])
+  azure_event_bridge_processed_enabled = anytrue([
+    for route in values(local.azure_v2_outbound_event_routes) :
+    startswith(route.logical_edge_id, "edge.eventing-to-") &&
+    route.channel_class == "telemetry" &&
+    contains(route.event_types, "telemetry.processed.v1")
+  ])
   azure_event_bridge_control_filter = length(local.azure_event_bridge_control_event_types) == 0 ? "1 = 0" : format(
     "event_type IN ('%s')",
     join("','", local.azure_event_bridge_control_event_types),

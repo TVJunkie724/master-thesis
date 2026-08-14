@@ -75,8 +75,11 @@ BRIDGE_TELEMETRY_ENABLED = (
 BRIDGE_CONTROL_ENABLED = (
     os.getenv("V2_BRIDGE_CONTROL_ENABLED", "false").strip().lower() == "true"
 )
-BRIDGE_EVENT_TELEMETRY_ENABLED = (
-    os.getenv("V2_BRIDGE_EVENT_TELEMETRY_ENABLED", "false").strip().lower() == "true"
+BRIDGE_EVENT_RECEIVED_ENABLED = (
+    os.getenv("V2_BRIDGE_EVENT_RECEIVED_ENABLED", "false").strip().lower() == "true"
+)
+BRIDGE_EVENT_PROCESSED_ENABLED = (
+    os.getenv("V2_BRIDGE_EVENT_PROCESSED_ENABLED", "false").strip().lower() == "true"
 )
 BRIDGE_EVENT_CONTROL_ENABLED = (
     os.getenv("V2_BRIDGE_EVENT_CONTROL_ENABLED", "false").strip().lower() == "true"
@@ -1143,7 +1146,7 @@ if BRIDGE_TELEMETRY_ENABLED:
         )
 
 
-if BRIDGE_EVENT_TELEMETRY_ENABLED:
+if BRIDGE_EVENT_RECEIVED_ENABLED:
 
     @app.function_name(name="v2-cross-cloud-event-received-bridge")
     @app.retry(
@@ -1169,6 +1172,8 @@ if BRIDGE_EVENT_TELEMETRY_ENABLED:
             messages,
             attempt_count=_event_hub_delivery_attempt(context),
         )
+
+if BRIDGE_EVENT_PROCESSED_ENABLED:
 
     @app.function_name(name="v2-cross-cloud-event-processed-bridge")
     @app.retry(

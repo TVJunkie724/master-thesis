@@ -213,6 +213,12 @@ run "six_layer_aws_azure_gcp_routes_event_targets_without_hidden_landing" {
       length(azurerm_eventhub_namespace.eventing_dedicated) == 1 &&
       length(azurerm_eventhub.domain_telemetry_dedicated) == 3 &&
       azurerm_eventhub.domain_telemetry_dedicated["received"].partition_count == 200 &&
+      toset(keys(azurerm_eventhub_consumer_group.domain_dedicated)) == toset([
+        "audit",
+        "realtime-visualization",
+        "bridge-received",
+        "bridge-processed",
+      ]) &&
       length(azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge) == 0 &&
       length(azurerm_servicebus_topic.azure_v2_remote_control) == 0 &&
       toset(keys(azurerm_role_assignment.azure_v2_bridge_from_aws_telemetry)) == toset(["event_received"]) &&
