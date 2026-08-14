@@ -2,8 +2,8 @@
 title: "Architecture Profile Workflow Implementation"
 description: "Implemented Flutter state, API, presentation, and Five-/Six-layer activation boundaries for Phase 8.7, Phase 8.9A, and Phase 8.9B."
 tags: [flutter, architecture-profiles, wizard, bloc, phase-8]
-lastUpdated: "2026-08-13"
-version: "1.4"
+lastUpdated: "2026-08-14"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "1.4"
 - twin2multicloud_flutter/lib/features/configuration_workspace/
 - twin2multicloud_flutter/lib/widgets/results/resolved_architecture_review.dart
 - Credential-free OrbStack integration verification on 2026-08-03
-EXTRACTED: 2026-08-13 | VERSION: 1.4
+EXTRACTED: 2026-08-14 | VERSION: 1.5
 -->
 
 # Architecture Profile Workflow Implementation
@@ -117,23 +117,25 @@ rendering, dialog locking, generic tiering/bridge review, all responsive
 boundaries, keyboard selection/cancellation, explicit light/dark status cues,
 and the pricing/navigation regression suite.
 
-The credential-free desktop integration test creates and removes one local
-Twin and verifies the Management-owned active/historical profile boundary.
-The Six-layer Management boundary additionally calculates and persists one
-local Six-layer resolution without Terraform apply. The repository entrypoint
+The credential-free desktop integration tests create and remove local Twins,
+verify the Management-owned active/historical profile boundary, and exercise
+both active profiles. The Six-layer workflow changes the selected profile,
+calculates and persists one local Six-layer resolution, verifies the independent
+`component.eventing` assignment, and confirms that live deployment remains
+blocked without capacity evidence. The repository entrypoint
 runs the tests after Management readiness through OrbStack-compatible Compose.
 It does not refresh prices, contact a provider, deploy, destroy infrastructure,
 or execute Terraform.
 
 The reusable Phase 8.7 implementation commit is `a0f6fb7b`; the Six-layer UI
 activation is recorded by `e977982b` and `a661d789`. Phase 8.7's two review
-perspectives closed all state, UI, and verification findings. The 8.9B final
-cross-stack audit remains in progress. Its latest Flutter rerun passed 888
-tests, static analysis, Web release, and macOS debug builds. The earlier full
-Phase 8.7 14-stage repository gate passed in 545.8 seconds, and the separate OrbStack
-integration passed 10 readiness, 1 profile-boundary, and 1 extension test while
-preserving every pre-existing container. Linux and Windows remain the existing
-host-CI build gates when this branch is integrated.
+perspectives closed all state, UI, and verification findings. The latest 8.9B
+Flutter rerun passed 893 tests, static analysis, Web release, and macOS debug
+builds. The complete OrbStack integration passed 10 readiness, 2 active-profile,
+1 extension, 3 guided-bootstrap, and 10 Layer Access checks in an isolated
+Compose project. Linux and Windows remain the existing host-CI build gates
+when this branch is integrated; the local macOS run does not claim those host
+builds.
 
 Authoritative sources:
 

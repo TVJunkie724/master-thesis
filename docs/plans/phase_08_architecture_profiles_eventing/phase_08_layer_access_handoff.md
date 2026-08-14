@@ -2,8 +2,8 @@
 title: "Phase 8 Five-Layer v2 Layer Access Handoff"
 description: "Feasibility and implementation boundary for usable post-deployment L4 and L5 browser access."
 tags: [architecture, flutter, deployment, identity, digital-twin, grafana, phase-8]
-lastUpdated: "2026-08-11"
-version: "1.4"
+lastUpdated: "2026-08-14"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "1.4"
 - User-approved PoC boundary: inspect both L4 and L5 after deployment, keep L4
   independent from the provider-local L3-hot/L5 bundle, and avoid unjustified
   production infrastructure
-EXTRACTED: 2026-08-11 | VERSION: 1.4
+EXTRACTED: 2026-08-14 | VERSION: 1.5
 -->
 
 # Phase 8 Five-Layer v2 Layer Access Handoff
@@ -44,9 +44,9 @@ implementation slice:
    interactive principal is bound;
 7. the requirement applies to all three single-cloud placements and all six
    `L3-hot == L5 != L4` placements;
-8. Six-layer implementation starts only after reviewed 8.9A and inherits this
-   L1-L5 access contract unchanged; its reviewed plan adds no Event Layer
-   administration card.
+8. Six-layer implementation was sequenced after reviewed 8.9A and now inherits
+   this L1-L5 access contract unchanged; it adds no Event Layer administration
+   card.
 
 This is PoC infrastructure, not an enterprise access portal. It adds only the
 smallest provider support needed to inspect the two scientific layers. Custom
@@ -63,9 +63,12 @@ Viewer rotation metadata; Flutter provides strict state, responsive cards,
 safe external launch, and one-time reveal. An isolated real local Management
 API passes all nine provider pairs and the lifecycle/security edge cases.
 
-This is offline evidence only. `five-layer-baseline@2` remains `draft`, the
-runtime-selectable set remains empty, and no provider browser sign-in, live
-capacity, `terraform apply`, or cloud deployment was performed.
+At this slice's original closure, `five-layer-baseline@2` remained `draft` and
+the runtime-selectable set was empty. Phase 8.9A later activated Five-layer v2
+for offline evaluation, and Phase 8.9B extended the same access contract to
+Six-layer v1. No provider browser sign-in, live capacity proof,
+`terraform apply`, or cloud deployment was performed, so the supervised gates
+remain explicit for both profiles.
 
 ## 1. Feasibility Result
 

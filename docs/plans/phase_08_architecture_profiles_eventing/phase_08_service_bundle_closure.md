@@ -2,8 +2,8 @@
 title: "Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure"
 description: "PoC-focused corrective plan for the executable five-layer-baseline@2 placement experiment."
 tags: [architecture, services, multicloud, identity, capacity, optimizer, deployer, phase-8]
-lastUpdated: "2026-08-11"
-version: "1.18"
+lastUpdated: "2026-08-14"
+version: "1.19"
 ---
 
 <!-- SOURCES:
@@ -18,7 +18,7 @@ version: "1.18"
 - User-approved functionality-first PoC selection, L3-hot/L5 co-location,
   independent L4 placement, Cosmos DB and Firestore L3 continuity, and mandatory
   single-cloud/multicloud coverage
-EXTRACTED: 2026-08-11 | VERSION: 1.18
+EXTRACTED: 2026-08-14 | VERSION: 1.19
 -->
 
 # Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure
@@ -32,12 +32,12 @@ EXTRACTED: 2026-08-11 | VERSION: 1.18
 | Decision evidence | [`phase_08_service_bundle_evaluation.md`](../../research/phase_08_service_bundle_evaluation.md) |
 | Historical profile | `five-layer-baseline@1`, immutable read/verify/destroy only |
 | New profile | `five-layer-baseline@2` |
-| Sequential profile | `six-layer-eventing@1`; its v2 plan is complete but its branch starts only from reviewed Five-layer v2 |
+| Sequential profile | `six-layer-eventing@1`; implemented after the reviewed Five-layer v2 freeze and inheriting its exact L1-L5 boundary |
 | Local environment | OrbStack; no live cloud execution |
 | Selection rule | Provider service bundles are chosen for required functionality and theoretical Small/Medium/Large admissibility, not lowest service price; after that freeze, the Optimizer still ranks complete placement candidates by estimated cost within one profile |
 | PoC rule | Add only components required by the shared functional contract or by a measured capacity boundary |
 | LaTeX | Excluded without separate approval |
-| Review status | Planning and complete-service package reviews are closed; Five-layer v2 runtime slices through offline Layer Access are implemented, while activation and final cross-stack reviews remain open |
+| Review status | Planning, complete-service package, Five-layer v2 activation, and Five-layer cross-stack reviews are closed; Six-layer v1 is implemented on the later profile branch and retains the same supervised live gates |
 
 Where an older Phase 8 plan conflicts with this corrective gate, this document
 controls new-profile implementation. Historical artifacts, digests, and
@@ -145,12 +145,13 @@ Every Five-layer v2 provider bundle must supply:
 12. theoretical Small/Medium/Large capacity evidence with unresolved live
     behavior labeled honestly.
 
-Six-layer implementation remains sequentially deferred until reviewed 8.9A,
-but its delta plan is now complete in
+Six-layer implementation was sequentially deferred until reviewed 8.9A and
+was subsequently completed in
 [`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md).
 It must reuse the committed Five-layer v2 L1-L5 digest unchanged and add only
 the ownership and placement delta introduced by the independent Eventing
-responsibility. This Five-layer document does not activate that profile.
+responsibility. This Five-layer document does not itself authorize changes to
+that later profile.
 
 The immutable Phase 8.8 Six-layer row remains research provenance only. It is
 not an instruction to implement Six-layer in 8.9A.
@@ -1440,8 +1441,10 @@ Five-layer v2 Layer Access implementation verification on 2026-08-11:
 - an isolated real local API passes ten integration cases covering every
   L4/L5 provider pair, owner 404, blocked access, historical, destroyed,
   redaction, replacement rotation, and concurrent 409 behavior;
-- all evidence is credential-free/offline. The profile remains draft and
-  default-off; no browser sign-in or live capacity is claimed.
+- all evidence is credential-free/offline. At this 2026-08-11 slice boundary
+  the profile remained draft and default-off; later 8.9A activation made it
+  selectable only for offline evaluation. No browser sign-in or live capacity
+  is claimed.
 
 ## 10. Failure Codes
 

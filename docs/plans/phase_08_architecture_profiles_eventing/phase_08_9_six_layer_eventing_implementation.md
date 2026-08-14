@@ -3,7 +3,7 @@ title: "Phase 8.9B: Six-Layer Eventing Implementation"
 description: "Executable delta plan that adds one independent Eventing responsibility to the reviewed Five-layer v2 PoC."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
 lastUpdated: "2026-08-14"
-version: "2.12"
+version: "2.13"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.12"
 - contracts/phase-08-eventing-decision/v1/decision.json
 - contracts/phase-08-eventing-decision/v1/implementation-component-manifest.json
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-14 | VERSION: 2.12
+EXTRACTED: 2026-08-14 | VERSION: 2.13
 -->
 
 # Phase 8.9B: Six-Layer Eventing Implementation
@@ -366,8 +366,9 @@ Offline gates must cover:
   mock plans for every selected bundle/pair;
 - Management ownership, revision, persistence, safe error, export, and
   historical compatibility;
-- Flutter model/BLoC/widget/demo and real Management API integration on Web,
-  macOS, Windows, and Linux;
+- Flutter model/BLoC/widget/demo coverage, real Management API integration on
+  the available desktop host, Web plus host-desktop builds, and retained
+  platform-neutral Windows/Linux host-CI gates;
 - secret, endpoint, provider-identifier, tfvars, and log redaction scans.
 
 No default gate deploys a provider resource or claims measured throughput.

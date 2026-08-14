@@ -136,10 +136,10 @@ boundary and are used for provider API authorization.
   directly to a same-provider L3 hot reader. A path whose L5 provider differs
   from L3 hot lacks a current remote reader binding and is explicit unsafe debt.
 
-## Planned Successor Profiles — Not Implemented
+## Successor Profiles Implemented After This Snapshot
 
-The reviewed target for `five-layer-baseline@2` makes the executable raw
-dashboard path and the Twin projection explicit:
+The active offline-evaluation successor `five-layer-baseline@2` makes the
+executable raw dashboard path and the Twin projection explicit:
 
 ```text
 L3 hot -> L5  raw telemetry/history
@@ -148,26 +148,28 @@ L3 hot -> L4  selected current state/model/relationships
 
 For the first profile version, L3 hot and L5 are provider-local while L4 is
 independently placeable. L1, L2, L3 cool, and L3 archive also remain
-independent. L4-to-L5/3D visualization and Six-layer implementation are
-deferred. This target is planning only; it does not change the current
-capability matrix.
+independent. L4-to-L5/3D visualization remains outside the profile. The
+separately active `six-layer-eventing@1` inherits this L1-L5 graph and adds
+only its independently assigned Eventing responsibility. Both profiles are
+selectable for deterministic offline evaluation; explicit supervised
+live-capacity gates still prevent deployment selection.
 
-The current GCP acquisition path starts at Pub/Sub and the simulator publishes
-to Pub/Sub directly. It is not a complete heterogeneous MQTT device boundary.
-The current GCP feedback template also imports the retired Cloud IoT client
-`google.cloud.iot_v1`, so it cannot prove the required command path. The new
-profiles plan BifroMQ on GKE as the MQTT boundary and retain Pub/Sub as the
-durable cloud backbone. BifroMQ is shared by both new profiles and is not an
-Event-Layer-only service.
+The predecessor GCP acquisition path started at Pub/Sub and the simulator
+published to Pub/Sub directly. It is not a complete heterogeneous MQTT device
+boundary. The predecessor GCP feedback template also imported the retired
+Cloud IoT client `google.cloud.iot_v1`, so it cannot prove the required command
+path. The new profiles implement BifroMQ on GKE as the MQTT boundary and retain
+Pub/Sub as the durable cloud backbone. BifroMQ is shared by both active
+profiles and is not an Event-Layer-only service.
 
-The planned PoC storage target uses finite scheduled batch jobs and native
+The implemented PoC storage target uses finite scheduled batch jobs and native
 same-provider lifecycle rules. It does not add storage-specific CDC streams,
 outboxes, brokers, permanent workers, or checkpoint databases unless a later
-capacity test proves them necessary. In the successor workload, hot, cool, and
-archive durations are cumulative data-age boundaries: hot `[0,H)`, cool
-`[H,C)`, archive `[C,A)`, then expiry, with strict ordering for non-empty
-tiers. Five minutes is only the deterministic batch interval, not the
-hot-retention duration.
+versioned capacity decision proves them necessary. In the successor workload,
+hot, cool, and archive durations are cumulative data-age boundaries: hot
+`[0,H)`, cool `[H,C)`, archive `[C,A)`, then expiry, with strict ordering for
+non-empty tiers. Five minutes is only the deterministic batch interval, not
+the hot-retention duration.
 
 The code-verified inventory contains 114 implementations, 64 package/template
 artifacts, 661 Terraform objects, and 90 runtime/deployment edges. It contains
