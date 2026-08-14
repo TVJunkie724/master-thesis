@@ -115,3 +115,5 @@ def test_aws_event_layer_can_be_the_source_of_a_directed_bridge():
     assert (
         'resource "aws_lambda_event_source_mapping" "aws_v2_event_bridge_telemetry"'
     ) in source
+    assert source.count('starting_position                  = "TRIM_HORIZON"') == 2
+    assert 'starting_position                  = "LATEST"' not in source

@@ -414,7 +414,7 @@ resource "aws_lambda_event_source_mapping" "aws_v2_bridge_telemetry" {
   count                              = local.aws_v2_remote_telemetry_outbound ? 1 : 0
   event_source_arn                   = aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn
   function_name                      = aws_lambda_function.aws_v2_cross_cloud_bridge[0].arn
-  starting_position                  = "LATEST"
+  starting_position                  = "TRIM_HORIZON"
   batch_size                         = 10
   maximum_batching_window_in_seconds = 1
   parallelization_factor             = 1
@@ -434,7 +434,7 @@ resource "aws_lambda_event_source_mapping" "aws_v2_event_bridge_telemetry" {
   for_each                           = local.aws_v2_event_bridge_streams
   event_source_arn                   = aws_kinesis_stream_consumer.domain_consumers["bridge-${each.key}"].arn
   function_name                      = aws_lambda_function.aws_v2_cross_cloud_bridge[0].arn
-  starting_position                  = "LATEST"
+  starting_position                  = "TRIM_HORIZON"
   batch_size                         = 10
   maximum_batching_window_in_seconds = 1
   parallelization_factor             = 1
