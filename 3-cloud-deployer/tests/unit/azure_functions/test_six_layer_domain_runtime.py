@@ -17,17 +17,35 @@ SOURCE_ROOT = (
     / "azure_functions"
     / "six-layer-domain"
 )
-SPEC = importlib.util.spec_from_file_location(
-    "azure_six_layer_domain",
-    SOURCE_ROOT / "function_app.py",
-)
-assert SPEC is not None and SPEC.loader is not None
-runtime = importlib.util.module_from_spec(SPEC)
-sys.path.insert(0, str(SOURCE_ROOT))
-try:
-    SPEC.loader.exec_module(runtime)
-finally:
-    sys.path.remove(str(SOURCE_ROOT))
+def _load_runtime(module_name: str):
+    core_spec = importlib.util.spec_from_file_location(
+        f"{module_name}_core",
+        SOURCE_ROOT / "core.py",
+    )
+    assert core_spec is not None and core_spec.loader is not None
+    runtime_core = importlib.util.module_from_spec(core_spec)
+    core_spec.loader.exec_module(runtime_core)
+    spec = importlib.util.spec_from_file_location(
+        module_name,
+        SOURCE_ROOT / "function_app.py",
+    )
+    assert spec is not None and spec.loader is not None
+    selected_runtime = importlib.util.module_from_spec(spec)
+    previous_core = sys.modules.get("core")
+    sys.path.insert(0, str(SOURCE_ROOT))
+    try:
+        sys.modules["core"] = runtime_core
+        spec.loader.exec_module(selected_runtime)
+    finally:
+        sys.path.remove(str(SOURCE_ROOT))
+        if previous_core is None:
+            sys.modules.pop("core", None)
+        else:
+            sys.modules["core"] = previous_core
+    return selected_runtime
+
+
+runtime = _load_runtime("azure_six_layer_domain")
 
 
 def test_runtime_has_six_layer_profile_identity():
@@ -129,14 +147,7 @@ def test_event_bridge_registers_only_the_routed_telemetry_channel(
         str(processed_enabled).lower(),
     )
     name = f"azure_six_layer_domain_{received_enabled}_{processed_enabled}"
-    spec = importlib.util.spec_from_file_location(name, SOURCE_ROOT / "function_app.py")
-    assert spec is not None and spec.loader is not None
-    selected_runtime = importlib.util.module_from_spec(spec)
-    sys.path.insert(0, str(SOURCE_ROOT))
-    try:
-        spec.loader.exec_module(selected_runtime)
-    finally:
-        sys.path.remove(str(SOURCE_ROOT))
+    selected_runtime = _load_runtime(name)
 
     assert hasattr(selected_runtime, "cross_cloud_event_received_bridge") is received_enabled
     assert hasattr(selected_runtime, "cross_cloud_event_processed_bridge") is processed_enabled
