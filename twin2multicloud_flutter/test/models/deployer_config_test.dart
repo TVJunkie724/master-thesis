@@ -128,6 +128,27 @@ void main() {
       expect(requirements.sceneRequired, isFalse);
       expect(requirements.userConfigRequired, isFalse);
     });
+
+    test('profile-owned event behavior excludes retired user artifacts', () {
+      final requirements = DeployerConfigRequirements.fromContext(
+        calcParams: CalcParams.fiveLayerV2(
+          scenario: FiveLayerWorkloadScenario.small,
+        ),
+        layer4Provider: 'AZURE',
+        layer5Provider: 'GCP',
+        deviceIds: const ['sensor'],
+        eventActionNames: const ['notify'],
+        profileOwnsMandatoryEventBehavior: true,
+      );
+
+      expect(requirements.deviceIds, isEmpty);
+      expect(requirements.eventActionNames, isEmpty);
+      expect(requirements.eventFeedbackRequired, isFalse);
+      expect(requirements.eventActionsRequired, isFalse);
+      expect(requirements.stateMachineRequired, isFalse);
+      expect(requirements.hierarchyRequired, isTrue);
+      expect(requirements.sceneRequired, isFalse);
+    });
   });
 
   group('DeployerConfigReadiness', () {

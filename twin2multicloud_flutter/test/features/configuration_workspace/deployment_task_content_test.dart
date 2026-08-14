@@ -13,6 +13,7 @@ import 'package:twin2multicloud_flutter/models/provider_capability.dart';
 import 'package:twin2multicloud_flutter/models/user_function_extension.dart';
 
 import '../../fixtures/provider_capability_fixture.dart';
+import '../../fixtures/architecture_wizard_fixture.dart';
 
 void main() {
   final capabilities = PlatformProviderCapabilities.fromJson(
@@ -109,6 +110,39 @@ void main() {
       find.byKey(const ValueKey('deployment-user-logic-section')),
       findsNothing,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Phase 8 generated config omits retired feature flags', (
+    tester,
+  ) async {
+    final phase8 =
+        architectureReadyWizardState(
+          profileId: 'five-layer-baseline',
+          withExtensionSlot: false,
+        ).copyWith(
+          calcParams: CalcParams.fiveLayerV2(
+            scenario: FiveLayerWorkloadScenario.small,
+          ),
+          calcResult: result(layer2: 'AWS', layer4: 'GCP', layer5: 'GCP'),
+          configIotDevicesValidated: true,
+        );
+
+    await tester.pumpWidget(
+      buildTask(ConfigurationTaskId.dataContracts, wizardState: phase8),
+    );
+
+    expect(find.textContaining('"inputParamsUsed": {}'), findsOneWidget);
+    expect(find.textContaining('No legacy feature flags.'), findsOneWidget);
+    expect(find.text('Event Checking'), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(
+      buildTask(ConfigurationTaskId.userLogic, wizardState: phase8),
+    );
+    await tester.pump();
+
+    expect(find.text('state_machines/aws_step_function.json'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

@@ -195,7 +195,11 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
             ),
             _summaryRow(
               'Event processing',
-              params.useEventChecking ? 'Enabled' : 'Not required',
+              state.usesPhase8ComparisonProfile
+                  ? 'Mandatory in the selected profile'
+                  : params.useEventChecking
+                  ? 'Enabled'
+                  : 'Not required',
             ),
             _summaryRow(
               '3D representation',

@@ -369,6 +369,14 @@ class WizardState extends Equatable {
 
   bool get hasActiveArchitectureProfile => selectedArchitectureSummary != null;
 
+  bool get usesPhase8ComparisonProfile {
+    if (!hasActiveArchitectureProfile) return false;
+    final reference = architectureSelection!.profileRef;
+    return (reference.id == 'five-layer-baseline' &&
+            reference.version == '2') ||
+        (reference.id == 'six-layer-eventing' && reference.version == '1');
+  }
+
   bool get hasHistoricalArchitectureSelection =>
       architectureSelection != null && !hasActiveArchitectureProfile;
 
@@ -633,6 +641,7 @@ class WizardState extends Equatable {
         layer5Provider: layer5Provider,
         deviceIds: deviceIds,
         eventActionNames: eventActionFunctionNames,
+        profileOwnsMandatoryEventBehavior: usesPhase8ComparisonProfile,
       );
 
   DeployerConfigReadiness get deployerReadiness =>
@@ -671,6 +680,7 @@ class WizardState extends Equatable {
   /// Get event action function names from validated config_events.json
   /// Handles both singular 'action' and plural 'actions' formats
   List<String> get eventActionFunctionNames {
+    if (usesPhase8ComparisonProfile) return [];
     if (!configEventsValidated || configEventsJson == null) return [];
     if (calcParams?.useEventChecking != true) return [];
     try {
@@ -741,11 +751,13 @@ class WizardState extends Equatable {
 
   /// Should show feedback function input?
   bool get shouldShowFeedbackFunction =>
+      !usesPhase8ComparisonProfile &&
       configIotDevicesValidated &&
       (calcParams?.returnFeedbackToDevice ?? false);
 
   /// Should show state machine input?
   bool get shouldShowStateMachine =>
+      !usesPhase8ComparisonProfile &&
       configIotDevicesValidated &&
       (calcParams?.triggerNotificationWorkflow ?? false);
 
@@ -876,6 +888,10 @@ class WizardState extends Equatable {
     bool clearDeploymentRun = false,
     bool clearSavedDeploymentRun = false,
     bool clearDeploymentRunSelectionError = false,
+    bool clearPayloadsJson = false,
+    bool clearEventFeedbackContent = false,
+    bool clearEventFeedbackRequirements = false,
+    bool clearStateMachineContent = false,
     // L4 content clear flags
     bool clearHierarchyContent = false,
     bool clearSceneConfigContent = false,
@@ -999,23 +1015,30 @@ class WizardState extends Equatable {
           validatingArtifactIds ?? this.validatingArtifactIds,
       artifactValidationFeedback:
           artifactValidationFeedback ?? this.artifactValidationFeedback,
-      payloadsJson: payloadsJson ?? this.payloadsJson,
+      payloadsJson: clearPayloadsJson
+          ? null
+          : (payloadsJson ?? this.payloadsJson),
       payloadsValidated: payloadsValidated ?? this.payloadsValidated,
       // L2 fields
       processorContents: processorContents ?? this.processorContents,
       processorValidated: processorValidated ?? this.processorValidated,
       processorRequirements:
           processorRequirements ?? this.processorRequirements,
-      eventFeedbackContent: eventFeedbackContent ?? this.eventFeedbackContent,
+      eventFeedbackContent: clearEventFeedbackContent
+          ? null
+          : (eventFeedbackContent ?? this.eventFeedbackContent),
       eventFeedbackValidated:
           eventFeedbackValidated ?? this.eventFeedbackValidated,
-      eventFeedbackRequirements:
-          eventFeedbackRequirements ?? this.eventFeedbackRequirements,
+      eventFeedbackRequirements: clearEventFeedbackRequirements
+          ? null
+          : (eventFeedbackRequirements ?? this.eventFeedbackRequirements),
       eventActionContents: eventActionContents ?? this.eventActionContents,
       eventActionValidated: eventActionValidated ?? this.eventActionValidated,
       eventActionRequirements:
           eventActionRequirements ?? this.eventActionRequirements,
-      stateMachineContent: stateMachineContent ?? this.stateMachineContent,
+      stateMachineContent: clearStateMachineContent
+          ? null
+          : (stateMachineContent ?? this.stateMachineContent),
       stateMachineValidated:
           stateMachineValidated ?? this.stateMachineValidated,
       extensionCatalogLoading:

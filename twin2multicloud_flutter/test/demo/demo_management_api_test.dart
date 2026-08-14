@@ -530,6 +530,7 @@ void main() {
         expect(specification.readiness.blockingGateIds, isNotEmpty);
         expect(architecture.architecture.costSummary.currency, testCase.$2);
         expect(run.optimization.isNativeFiveLayerV2, isTrue);
+        expect(run.optimization.payload, isNot(contains('inputParamsUsed')));
         expect(run.optimization.result.cheapestPath, hasLength(7));
         expect(
           architecture.architecture.costSummary.monthlyTotal,

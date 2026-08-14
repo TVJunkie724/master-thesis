@@ -231,6 +231,7 @@ class _GeneratedOptimizationConfig extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final content = _buildConfigOptimizationJson(state);
+    final inputParams = _optimizationInputParams(state);
     return CollapsibleBlockWrapper(
       title: 'config_optimization.json',
       subtitle: 'Optimizer calculation results',
@@ -245,14 +246,7 @@ class _GeneratedOptimizationConfig extends StatelessWidget {
         sourceLabel: 'Architecture decision',
         jsonContent: content,
         visualContent: ConfigVisualizationBlock.buildOptimizationVisual(
-          inputParams: {
-            'useEventChecking': state.calcParams?.useEventChecking ?? false,
-            'triggerNotificationWorkflow':
-                state.calcParams?.triggerNotificationWorkflow ?? false,
-            'returnFeedbackToDevice':
-                state.calcParams?.returnFeedbackToDevice ?? false,
-            'needs3DModel': state.calcParams?.needs3DModel ?? false,
-          },
+          inputParams: inputParams,
         ),
       ),
     );
@@ -295,17 +289,19 @@ class _GeneratedProviderConfig extends StatelessWidget {
 String _buildConfigOptimizationJson(WizardState state) {
   if (state.calcResult == null) return '// No calculation result';
   return const JsonEncoder.withIndent('  ').convert({
-    'result': {
-      'inputParamsUsed': {
-        'useEventChecking': state.calcParams?.useEventChecking ?? false,
-        'triggerNotificationWorkflow':
-            state.calcParams?.triggerNotificationWorkflow ?? false,
-        'returnFeedbackToDevice':
-            state.calcParams?.returnFeedbackToDevice ?? false,
-        'needs3DModel': state.calcParams?.needs3DModel ?? false,
-      },
-    },
+    'result': {'inputParamsUsed': _optimizationInputParams(state)},
   });
+}
+
+Map<String, bool> _optimizationInputParams(WizardState state) {
+  if (state.usesPhase8ComparisonProfile) return const {};
+  return {
+    'useEventChecking': state.calcParams?.useEventChecking ?? false,
+    'triggerNotificationWorkflow':
+        state.calcParams?.triggerNotificationWorkflow ?? false,
+    'returnFeedbackToDevice': state.calcParams?.returnFeedbackToDevice ?? false,
+    'needs3DModel': state.calcParams?.needs3DModel ?? false,
+  };
 }
 
 String _buildConfigProvidersJson(

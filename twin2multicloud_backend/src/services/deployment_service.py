@@ -123,6 +123,17 @@ PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS = {
     "triggerNotificationWorkflow",
     "useEventChecking",
 }
+PHASE_8_FORBIDDEN_DEPLOYER_FIELDS = (
+    "event_action_contents",
+    "event_action_requirements",
+    "event_feedback_content",
+    "event_feedback_requirements",
+    "processor_contents",
+    "processor_requirements",
+    "scene_config_content",
+    "scene_glb_uploaded",
+    "state_machine_content",
+)
 
 
 @dataclass(frozen=True)
@@ -865,6 +876,7 @@ def _materialize_deployment_files(
     """Return the text/JSON files required by the Deployer package contract."""
     dc = twin.deployer_config
     oc = twin.optimizer_config
+    _validate_phase8_deployer_artifacts(dc, architecture_profile_ref)
     files: list[DeploymentPackageFile] = [
         DeploymentPackageFile(
             "config.json",
@@ -1936,6 +1948,32 @@ def _architecture_profile_identity(
     if not isinstance(profile_id, str) or not isinstance(version, str):
         return None
     return profile_id, version
+
+
+def _validate_phase8_deployer_artifacts(
+    deployer_config: Any,
+    architecture_profile_ref: Mapping[str, Any] | None,
+) -> None:
+    if (
+        _architecture_profile_identity(architecture_profile_ref)
+        not in PHASE_8_COMPARISON_PROFILES
+        or deployer_config is None
+    ):
+        return
+    forbidden = [
+        field
+        for field in PHASE_8_FORBIDDEN_DEPLOYER_FIELDS
+        if bool(getattr(deployer_config, field, None))
+    ]
+    if forbidden:
+        _raise_package_error(
+            "deployer_config",
+            "FORBIDDEN_PROFILE_FIELD",
+            (
+                "Phase 8 comparison profiles do not accept historical user "
+                f"logic or scene artifacts: {', '.join(forbidden)}"
+            ),
+        )
 
 
 def _validate_phase8_deployment_regions(

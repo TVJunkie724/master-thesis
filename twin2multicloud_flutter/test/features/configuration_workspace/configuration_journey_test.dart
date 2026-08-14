@@ -236,6 +236,49 @@ void main() {
       );
     });
 
+    test('Phase 8 readiness does not require retired event artifacts', () {
+      final ready =
+          architectureReadyWizardState(
+            profileId: 'five-layer-baseline',
+            withExtensionSlot: false,
+          ).copyWith(
+            calcParams: CalcParams.fiveLayerV2(
+              scenario: FiveLayerWorkloadScenario.small,
+            ),
+            calcResult: _result(const [
+              'L1_GCP',
+              'L2_GCP',
+              'L3_hot_GCP',
+              'L4_GCP',
+              'L5_GCP',
+            ]),
+            selectedCloudConnectionIds: const {CloudProvider.gcp: 'gcp-deploy'},
+            deployerDigitalTwinName: 'Factory twin',
+            configEventsJson: '[{"rule_id":"temperature-high"}]',
+            configIotDevicesJson: '[{"id":"sensor-1"}]',
+            configJsonValidated: true,
+            configEventsValidated: true,
+            configIotDevicesValidated: true,
+            payloadsJson: '{}',
+            payloadsValidated: true,
+            deploymentRun: TypedApiFixtures.deploymentRun(
+              selectedForDeploymentAt: TypedApiFixtures.timestamp,
+            ),
+            resolvedArchitecturePhase: ResolvedArchitecturePhase.ready,
+            resolvedArchitecture: resolvedArchitectureFixture(
+              provider: CloudProvider.gcp,
+              profileId: 'five-layer-baseline',
+            ),
+          );
+
+      expect(ready.usesPhase8ComparisonProfile, isTrue);
+      expect(ready.deployerRequirements.deviceIds, isEmpty);
+      expect(ready.deployerRequirements.eventActionNames, isEmpty);
+      expect(ready.shouldShowFeedbackFunction, isFalse);
+      expect(ready.shouldShowStateMachine, isFalse);
+      expect(ready.isConfigurationReadyForFinish, isTrue);
+    });
+
     test('blocks deployment tasks until the latest run is selected', () {
       final journey = ConfigurationJourney.fromWizardState(
         architectureReadyWizardState().copyWith(

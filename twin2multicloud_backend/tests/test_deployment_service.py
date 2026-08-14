@@ -45,6 +45,7 @@ from src.services.deployment_service import (
     _build_optimization_config,
     _build_optimization_config_from_params,
     _component_catalog_ref,
+    _validate_phase8_deployer_artifacts,
     _validate_phase8_deployment_regions,
 )
 from src.services.credential_resolution_service import DeploymentCredentials
@@ -1506,6 +1507,45 @@ def test_phase8_deployment_rejects_regions_outside_priced_contract(
         )
 
     assert exc_info.value.errors[0]["code"] == "DEPLOYMENT_REGION_UNSUPPORTED"
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "processor_contents",
+        "event_action_contents",
+        "event_feedback_content",
+        "state_machine_content",
+        "scene_config_content",
+        "scene_glb_uploaded",
+    ],
+)
+def test_phase8_deployment_rejects_historical_user_logic_and_scenes(field):
+    deployer_config = SimpleNamespace(
+        **{
+            name: False if name == "scene_glb_uploaded" else None
+            for name in (
+                "event_action_contents",
+                "event_action_requirements",
+                "event_feedback_content",
+                "event_feedback_requirements",
+                "processor_contents",
+                "processor_requirements",
+                "scene_config_content",
+                "scene_glb_uploaded",
+                "state_machine_content",
+            )
+        }
+    )
+    setattr(deployer_config, field, True if field == "scene_glb_uploaded" else "old")
+
+    with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+        _validate_phase8_deployer_artifacts(
+            deployer_config,
+            {"id": "five-layer-baseline", "version": "2"},
+        )
+
+    assert exc_info.value.errors[0]["code"] == "FORBIDDEN_PROFILE_FIELD"
 
 
 class TestBuildDeploymentManifest:

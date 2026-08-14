@@ -1461,6 +1461,7 @@ class DemoManagementApi implements ManagementApi {
       ..remove('awsCosts')
       ..remove('azureCosts')
       ..remove('gcpCosts')
+      ..remove('inputParamsUsed')
       ..['cheapestPath'] = cheapestPath
       ..['calculationResult'] = _fiveLayerV2CalculationResult(cheapestPath)
       ..['totalCost'] = double.parse(totalCostExact)
@@ -1480,14 +1481,7 @@ class DemoManagementApi implements ManagementApi {
       }
       ..['resolvedTwinArchitecture'] = _copyMap(architecture)
       ..['resolvedDeploymentSpecification'] = _copyMap(specification)
-      ..['pricingCatalogs'] = _demoPricingCatalogContext(store.clock())
-      ..['inputParamsUsed'] = {
-        'useEventChecking': true,
-        'triggerNotificationWorkflow': true,
-        'returnFeedbackToDevice': true,
-        'integrateErrorHandling': false,
-        'needs3DModel': false,
-      };
+      ..['pricingCatalogs'] = _demoPricingCatalogContext(store.clock());
     final optimization = OptimizationResultData.fromApiJson({'result': result});
     final parsedCheapestPath = CheapestPath.fromSegments(cheapestPath);
     final pricingCatalogContext = optimization.result.pricingCatalogContext!;

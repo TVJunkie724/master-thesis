@@ -55,6 +55,9 @@ ResolvedTwinArchitectureRead resolvedArchitectureFixture({
   String runId = 'run-123',
   String twinId = 'twin-1',
   CloudProvider? provider,
+  String profileId = 'fixture-profile',
+  String profileVersion = '2',
+  String profileDigest = fixtureDigest,
 }) {
   final architecture = Map<String, dynamic>.from(
     jsonDecode(
@@ -67,9 +70,9 @@ ResolvedTwinArchitectureRead resolvedArchitectureFixture({
   );
   architecture['calculation_run_id'] = runId;
   architecture['architecture_profile_ref'] = {
-    'id': 'fixture-profile',
-    'version': '2',
-    'digest': fixtureDigest,
+    'id': profileId,
+    'version': profileVersion,
+    'digest': profileDigest,
   };
   final deploymentRef =
       architecture['deployment_specification_ref'] as Map<String, dynamic>;
