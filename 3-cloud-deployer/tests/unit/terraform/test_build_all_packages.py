@@ -16,6 +16,7 @@ import pytest
 
 from src.architecture_profiles import resolve_deployment_graph
 from src.deployment_specification import (
+    DeploymentSpecificationError,
     ValidatedDeploymentManifest,
     validate_deployment_manifest,
     validate_resolved_deployment_specification,
@@ -37,6 +38,7 @@ from src.providers.terraform.package_builder import (
     _aws_six_layer_bridge_selected,
     _aws_v2_bridge_selected,
     _selected_static_function_packages,
+    _validate_graph_package_selection,
 )
 
 
@@ -200,6 +202,33 @@ def test_six_layer_cross_cloud_graph_selects_event_and_bridge_packages():
     } <= package_ids
     assert not _aws_v2_bridge_selected(graph)
     assert _aws_six_layer_bridge_selected(graph)
+
+
+def test_six_layer_project_provider_config_requires_event_owner():
+    graph = _resolve_offline_v4("six-layer-aws-azure-eventing-small.json")
+    providers = {
+        "layer_1_provider": "aws",
+        "layer_2_provider": "aws",
+        "layer_3_hot_provider": "aws",
+        "layer_3_cold_provider": "azure",
+        "layer_3_archive_provider": "azure",
+        "layer_4_provider": "azure",
+        "layer_5_provider": "aws",
+    }
+
+    with pytest.raises(DeploymentSpecificationError) as exc_info:
+        _validate_graph_package_selection(graph, providers)
+
+    assert exc_info.value.code == "DEPLOYMENT_PACKAGE_CATALOG_MISMATCH"
+
+    with patch(
+        "src.providers.terraform.package_builder._artifact_source_digest",
+        side_effect=lambda artifact: artifact["source_digest"],
+    ):
+        _validate_graph_package_selection(
+            graph,
+            providers | {"event_layer_provider": "azure"},
+        )
 
 
 class TestBuildAllPackages:

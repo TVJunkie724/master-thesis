@@ -45,8 +45,10 @@ from src.services.deployment_service import (
     _build_optimization_config,
     _build_optimization_config_from_params,
     _component_catalog_ref,
+    _architecture_provider_ids,
     _validate_phase8_deployer_artifacts,
     _validate_phase8_deployment_regions,
+    _validate_architecture_specification_path,
 )
 from src.services.credential_resolution_service import DeploymentCredentials
 from src.services.errors import (
@@ -711,6 +713,51 @@ class TestBuildProvidersConfig:
                     ]
                 }
             )
+
+    def test_six_layer_adds_independent_event_provider_to_project_config(self):
+        fixture = json.loads(
+            (
+                Path(__file__).resolve().parents[1]
+                / "src/contracts/generated/deployment-manifest/v4/fixtures/valid"
+                / "six-layer-aws-azure-eventing-small.json"
+            ).read_text(encoding="utf-8")
+        )
+
+        providers = _build_providers_config(
+            fixture["resolved_twin_architecture"]
+        )
+
+        assert providers["event_layer_provider"] == "azure"
+
+    def test_v2_specification_matches_all_project_provider_owners(self):
+        fixture = json.loads(
+            (
+                Path(__file__).resolve().parents[1]
+                / "src/contracts/generated/deployment-manifest/v4/fixtures/valid"
+                / "six-layer-aws-azure-eventing-small.json"
+            ).read_text(encoding="utf-8")
+        )
+        architecture = fixture["resolved_twin_architecture"]
+        specification = fixture["resolved_deployment_specification"]
+        providers = _build_providers_config(architecture)
+
+        _validate_architecture_specification_path(
+            providers,
+            architecture,
+            specification,
+        )
+
+        providers["event_layer_provider"] = "google"
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            _validate_architecture_specification_path(
+                providers,
+                architecture,
+                specification,
+            )
+
+        assert exc_info.value.errors[0]["message"] == (
+            "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH"
+        )
 
 
 class TestBuildCredentialsConfig:
@@ -1507,6 +1554,56 @@ def test_phase8_deployment_rejects_regions_outside_priced_contract(
         )
 
     assert exc_info.value.errors[0]["code"] == "DEPLOYMENT_REGION_UNSUPPORTED"
+
+
+def test_six_layer_credential_projection_includes_event_only_provider():
+    architecture = {
+        "component_assignments": [
+            {
+                "logical_component_id": "component.ingestion",
+                "provider": "aws",
+            },
+            {
+                "logical_component_id": "component.eventing",
+                "provider": "azure",
+            },
+        ]
+    }
+
+    assert _architecture_provider_ids(architecture) == {"aws", "azure"}
+
+
+def test_phase8_region_guard_includes_event_only_provider():
+    architecture = {
+        "architecture_profile_ref": {
+            "id": "six-layer-eventing",
+            "version": "1",
+        },
+        "component_assignments": [
+            {
+                "logical_component_id": "component.ingestion",
+                "provider": "aws",
+            },
+            {
+                "logical_component_id": "component.eventing",
+                "provider": "azure",
+            },
+        ],
+    }
+
+    with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+        _validate_phase8_deployment_regions(
+            architecture,
+            {"layer_1_provider": "aws"},
+            {
+                "aws": {"aws_region": "eu-central-1"},
+                "azure": {"azure_region": "northeurope"},
+            },
+        )
+
+    assert exc_info.value.errors[0]["field"] == (
+        "config_credentials.azure.azure_region"
+    )
 
 
 @pytest.mark.parametrize(

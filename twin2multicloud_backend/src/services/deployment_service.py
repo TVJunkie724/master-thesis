@@ -259,6 +259,10 @@ def build_deploy_config(twin) -> dict:
             "l4": provider_config["layer_4_provider"],
             "l5": provider_config["layer_5_provider"],
         }
+        if "event_layer_provider" in provider_config:
+            config["layers"]["eventing"] = provider_config[
+                "event_layer_provider"
+            ]
         if oc.result_json:
             config["optimizer_result"] = json.loads(oc.result_json)
 
@@ -811,12 +815,13 @@ def build_deployment_package(
     optimizer_params = _validated_run_params(contracts.run)
     _ensure_optimizer_params_are_executable(optimizer_params)
     providers = _build_providers_config(contracts.architecture)
+    manifest_providers = _manifest_provider_projection(providers)
     _validate_architecture_specification_path(
         providers,
         contracts.architecture,
         contracts.specification,
     )
-    required_providers = {
+    required_providers = _architecture_provider_ids(contracts.architecture) | {
         normalize_provider_id(provider)
         for key, provider in providers.items()
         if key.endswith("_provider") and provider
@@ -849,7 +854,7 @@ def build_deployment_package(
     extension_references = _extension_manifest_references(files)
     manifest = _build_deployment_manifest(
         twin,
-        providers,
+        manifest_providers,
         deployment_credentials,
         file_names,
         secret_bearing_files,
@@ -1442,6 +1447,7 @@ def _build_providers_config(
         "component.archive-storage": "layer_3_archive_provider",
         "component.twin-state": "layer_4_provider",
         "component.visualization": "layer_5_provider",
+        "component.eventing": "event_layer_provider",
     }
     providers: dict[str, str] = {}
     for assignment in resolved_architecture.get("component_assignments", []):
@@ -1458,7 +1464,16 @@ def _build_providers_config(
                 ],
             )
         providers[key] = provider_id_for_deployer_project(assignment.get("provider"))
-    if set(providers) != set(key_by_component.values()):
+    baseline_keys = set(key_by_component.values()) - {"event_layer_provider"}
+    expected_keys = baseline_keys | (
+        {"event_layer_provider"}
+        if _architecture_profile_identity(
+            resolved_architecture.get("architecture_profile_ref")
+        )
+        == ("six-layer-eventing", "1")
+        else set()
+    )
+    if not baseline_keys <= set(providers) or set(providers) != expected_keys:
         raise DeploymentPackageBuildFailed(
             "The selected architecture provider projection is incomplete",
             [
@@ -1469,6 +1484,15 @@ def _build_providers_config(
             ],
         )
     return providers
+
+
+def _manifest_provider_projection(providers: Mapping[str, str]) -> dict[str, str]:
+    """Keep DeploymentManifest providers on its frozen L1-L5 schema."""
+    return {
+        key: value
+        for key, value in providers.items()
+        if key != "event_layer_provider"
+    }
 
 
 def _build_credentials_config(twin, user_id: str) -> tuple[dict, Optional[dict]]:
@@ -1736,15 +1760,59 @@ def _validate_architecture_specification_path(
         "l4_twin_state": "layer_4_provider",
         "l5_visualization": "layer_5_provider",
     }
-    for component in specification["components"]:
-        slot_id = component["slot_id"]
-        deployer_key = deployer_key_by_slot.get(slot_id)
+    deployer_key_by_logical = {
+        "component.ingestion": "layer_1_provider",
+        "component.processing": "layer_2_provider",
+        "component.hot-storage": "layer_3_hot_provider",
+        "component.cool-storage": "layer_3_cold_provider",
+        "component.archive-storage": "layer_3_archive_provider",
+        "component.twin-state": "layer_4_provider",
+        "component.visualization": "layer_5_provider",
+        "component.eventing": "event_layer_provider",
+    }
+    components = specification.get("components")
+    component_selections = specification.get("component_selections")
+    if isinstance(components, list):
+        entries = (
+            (deployer_key_by_slot.get(component.get("slot_id")), component)
+            for component in components
+            if isinstance(component, Mapping)
+        )
+    elif isinstance(component_selections, list):
+        entries = (
+            (
+                deployer_key_by_logical.get(component.get("logical_component_id")),
+                component,
+            )
+            for component in component_selections
+            if isinstance(component, Mapping)
+        )
+    else:
+        raise DeploymentPackageBuildFailed(
+            "The selected specification has no provider component projection",
+            [
+                {
+                    "field": "resolved_deployment_specification",
+                    "message": "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+                }
+            ],
+        )
+
+    for deployer_key, component in entries:
         if deployer_key is None:
             continue
-        expected_by_key.setdefault(
-            deployer_key,
-            provider_id_for_deployer_project(component["provider"]),
-        )
+        provider = provider_id_for_deployer_project(component.get("provider"))
+        previous = expected_by_key.setdefault(deployer_key, provider)
+        if previous != provider:
+            raise DeploymentPackageBuildFailed(
+                "Specification components disagree on provider ownership",
+                [
+                    {
+                        "field": f"providers.{deployer_key}",
+                        "message": "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+                    }
+                ],
+            )
 
     actual = _remove_empty_values(providers)
     if actual != expected_by_key:
@@ -1951,6 +2019,20 @@ def _architecture_profile_identity(
     return profile_id, version
 
 
+def _architecture_provider_ids(architecture: Mapping[str, Any]) -> set[str]:
+    """Return every cloud owner, including the independent Event Layer."""
+    assignments = architecture.get("component_assignments")
+    if not isinstance(assignments, list):
+        return set()
+    return {
+        normalize_provider_id(provider)
+        for assignment in assignments
+        if isinstance(assignment, Mapping)
+        and isinstance((provider := assignment.get("provider")), str)
+        and provider
+    }
+
+
 def _validate_phase8_deployer_artifacts(
     deployer_config: Any,
     architecture_profile_ref: Mapping[str, Any] | None,
@@ -1989,7 +2071,7 @@ def _validate_phase8_deployment_regions(
         not in PHASE_8_COMPARISON_PROFILES
     ):
         return
-    selected = {
+    selected = _architecture_provider_ids(architecture) | {
         normalize_provider_id(provider)
         for key, provider in providers.items()
         if key.endswith("_provider") and isinstance(provider, str) and provider
