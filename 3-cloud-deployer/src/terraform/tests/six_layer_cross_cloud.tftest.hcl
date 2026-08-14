@@ -447,3 +447,205 @@ run "six_layer_azure_gcp_aws_routes_cover_remaining_directed_pairs" {
     error_message = "GCP Large must use StreamingPull pools for distinct bridge telemetry topics while retaining authenticated push for control only."
   }
 }
+
+run "six_layer_azure_domains_aws_eventing_use_exact_source_consumers" {
+  command = plan
+
+  override_data {
+    target = data.aws_caller_identity.current
+    values = {
+      account_id = "123456789012"
+      arn        = "arn:aws:iam::123456789012:user/terraform-mock"
+      user_id    = "AIDACKCEVSQ6C2EXAMPLE"
+    }
+  }
+
+  variables {
+    digital_twin_name                      = "route-test-c"
+    architecture_profile_id                = "six-layer-eventing"
+    architecture_profile_version           = "1"
+    layer_1_provider                       = "azure"
+    event_layer_provider                   = "aws"
+    layer_2_provider                       = "azure"
+    layer_3_hot_provider                   = "azure"
+    layer_3_cold_provider                  = "azure"
+    layer_3_archive_provider               = "azure"
+    layer_4_provider                       = "azure"
+    layer_5_provider                       = "azure"
+    layer_3_hot_to_cold_interval_days      = 30
+    layer_3_cold_to_archive_interval_days  = 90
+    layer_3_archive_expiry_interval_days   = 365
+    platform_user_email                    = "researcher@example.test"
+    platform_user_first_name               = "Thesis"
+    platform_user_last_name                = "Researcher"
+    azure_layer_access_principal_object_id = "11111111-1111-1111-1111-111111111111"
+    azure_layer_access_principal_label     = "researcher@example.test"
+    aws_event_kinesis_shards               = 1
+    aws_v2_bridge_image                    = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    aws_outbound_identity_required         = true
+    aws_outbound_identity_destinations     = ["azure"]
+    aws_outbound_identity_issuer           = "https://token.actions.githubusercontent.com"
+    azure_v2_storage_mover_image           = "routetestcv2mock.azurecr.io/storage-mover@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    enable_aws_logging                     = false
+    enable_azure_logging                   = false
+    resolved_component_dimensions = {
+      "dimension.aws.aws.kinesis-data-streams.shards_per_stream"              = "1"
+      "dimension.azure.azure.container-apps-scheduled-storage-job.task_count" = "1"
+    }
+    resolved_cross_cloud_routes = [
+      {
+        route_id                = "six.ingestion.event.telemetry"
+        logical_edge_id         = "edge.ingestion-to-eventing"
+        source_provider         = "azure"
+        destination_provider    = "aws"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "telemetry"
+        event_types             = ["telemetry.received.v1"]
+        source_broker_kind      = "telemetry_stream"
+        destination_broker_kind = "telemetry_stream"
+        identity_exchange       = "entra_managed_identity_oidc_to_assume_role_with_web_identity"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id                = "six.ingestion.event.control"
+        logical_edge_id         = "edge.ingestion-to-eventing"
+        source_provider         = "azure"
+        destination_provider    = "aws"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "control"
+        event_types             = ["device.command.outcome.v1"]
+        source_broker_kind      = "control_topic"
+        destination_broker_kind = "control_topic"
+        identity_exchange       = "entra_managed_identity_oidc_to_assume_role_with_web_identity"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id                = "six.processing.event.telemetry"
+        logical_edge_id         = "edge.processing-to-eventing"
+        source_provider         = "azure"
+        destination_provider    = "aws"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "telemetry"
+        event_types             = ["telemetry.processed.v1"]
+        source_broker_kind      = "telemetry_stream"
+        destination_broker_kind = "telemetry_stream"
+        identity_exchange       = "entra_managed_identity_oidc_to_assume_role_with_web_identity"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id                = "six.processing.event.control"
+        logical_edge_id         = "edge.processing-to-eventing"
+        source_provider         = "azure"
+        destination_provider    = "aws"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "control"
+        event_types             = ["event.matched.v1", "notification.requested.v1", "device.command.requested.v1", "extension.action.outcome.v1", "notification.workflow.outcome.v1"]
+        source_broker_kind      = "control_topic"
+        destination_broker_kind = "control_topic"
+        identity_exchange       = "entra_managed_identity_oidc_to_assume_role_with_web_identity"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id                = "six.event.processing.telemetry"
+        logical_edge_id         = "edge.eventing-to-processing"
+        source_provider         = "aws"
+        destination_provider    = "azure"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "telemetry"
+        event_types             = ["telemetry.received.v1", "telemetry.processed.v1"]
+        source_broker_kind      = "telemetry_stream"
+        destination_broker_kind = "telemetry_stream"
+        identity_exchange       = "aws_oidc_to_entra_federated_credential"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id                = "six.event.processing.control"
+        logical_edge_id         = "edge.eventing-to-processing"
+        source_provider         = "aws"
+        destination_provider    = "azure"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "control"
+        event_types             = ["event.matched.v1", "notification.requested.v1"]
+        source_broker_kind      = "control_topic"
+        destination_broker_kind = "control_topic"
+        identity_exchange       = "aws_oidc_to_entra_federated_credential"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id                = "six.event.hot.telemetry"
+        logical_edge_id         = "edge.eventing-to-hot-storage"
+        source_provider         = "aws"
+        destination_provider    = "azure"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "telemetry"
+        event_types             = ["telemetry.processed.v1"]
+        source_broker_kind      = "telemetry_stream"
+        destination_broker_kind = "telemetry_stream"
+        identity_exchange       = "aws_oidc_to_entra_federated_credential"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id                = "six.event.hot.control"
+        logical_edge_id         = "edge.eventing-to-hot-storage"
+        source_provider         = "aws"
+        destination_provider    = "azure"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "control"
+        event_types             = ["extension.action.outcome.v1", "notification.workflow.outcome.v1", "device.command.outcome.v1"]
+        source_broker_kind      = "control_topic"
+        destination_broker_kind = "control_topic"
+        identity_exchange       = "aws_oidc_to_entra_federated_credential"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+      {
+        route_id                = "six.event.ingestion.control"
+        logical_edge_id         = "edge.eventing-to-ingestion"
+        source_provider         = "aws"
+        destination_provider    = "azure"
+        execution_kind          = "source_event_forwarder"
+        channel_class           = "control"
+        event_types             = ["device.command.requested.v1"]
+        source_broker_kind      = "control_topic"
+        destination_broker_kind = "control_topic"
+        identity_exchange       = "aws_oidc_to_entra_federated_credential"
+        payload_contract_id     = "canonical-domain-event.v1"
+        trust_contract_id       = "trust.workload-identity-federation"
+      },
+    ]
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "99999999-9999-4999-8999-999999999999"
+      artifact_digest = "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+      package_path    = "${var.project_path}/.build/azure/six-layer-domain.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/six-layer-domain.zip")}"
+      adapter_id      = "adapter.azure.python311"
+      adapter_version = "1"
+    }]
+  }
+
+  assert {
+    condition = (
+      toset(keys(aws_kinesis_stream_consumer.domain_consumers)) == toset([
+        "bridge-received",
+        "bridge-processed",
+      ]) &&
+      toset(keys(aws_lambda_event_source_mapping.aws_v2_event_bridge_telemetry)) == toset([
+        "received",
+        "processed",
+      ]) &&
+      length(aws_lambda_function.event_runtime) == 0 &&
+      length(aws_sns_topic_subscription.domain_control) == 0 &&
+      length(aws_sns_topic_subscription.aws_v2_event_bridge_control_source) == 1
+    )
+    error_message = "A remote-only AWS Event Layer must allocate only its two source-owned EFO bridge consumers and no empty local control subscriber."
+  }
+}
