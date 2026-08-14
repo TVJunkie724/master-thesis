@@ -34,7 +34,7 @@ when work becomes actionable, then reference the issue here.
 | Phase 5 | Backend Orchestrator Disentanglement | Done | Thin HTTP routes with repositories, services, clients, orchestrators, and a typed deployment lifecycle |
 | Phase 6 | Brain Contracts & Pricing Reliability | Active | Layer contracts complete; capability and expanded provider pricing coverage remain |
 | Phase 7 | Flutter Wizard & Twin Views | Done | Core architecture, configuration workspace, typed boundaries, demo, and all-desktop delivery gates completed |
-| Phase 8 | Twin Architecture Profiles & Eventing | Final review | Five-layer v2 and Six-layer v1 are zero-finding frozen; deterministic Phase 8.10 evidence, current documentation, safe full gates, and credential-free integration proof are complete; live deployment remains separately gated |
+| Phase 8 | Twin Architecture Profiles & Eventing | Complete offline | Five-layer v2, Six-layer v1, deterministic Phase 8.10 evidence, current documentation, safe full gates, credential-free integration proof, and both final reviews are zero-finding frozen; live deployment remains separately gated |
 | Later | Platform Extensions | Backlog | Non-blocking provider and operational extensions |
 
 ## Completed Refactorings
@@ -205,7 +205,7 @@ when work becomes actionable, then reference the issue here.
 | Guided cloud bootstrap / [#154](https://github.com/TVJunkie724/master-thesis/issues/154) | Implemented offline; zero-finding review | Strict guides/sessions, request-only bootstrap authority, deterministic AWS/Azure/GCP lifecycle adapters, generated `thesis-demo-v2` deployment CloudConnections, Deployer admission, shared Settings/Prepare deployment UI, and secret-persistence scans. Production adapters remain disabled |
 | `five-layer-baseline@2` implementation | Active offline; activation gate locally complete | Mandatory embedded domain events, three complete single-cloud targets, six `L3-hot == L5 != L4` targets, admissible mixed L1/L2/cool/archive paths, strict RTA/RDS v2 evidence, and deployment blocking for unresolved supervised live-capacity gates |
 | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Implemented locally; zero-finding audit frozen | Uses the committed Five-layer v2 L1-L5 contract as its immutable base; adds the Event Layer, source-owned bridge, provider runtime/IAM, Management/Optimizer/Deployer/Flutter integration, and local no-cloud verification |
-| [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | In progress locally | Digest-pinned historical-v1/Five-v2/Six-v1 package, strict schemas, required placement/pair coverage, profile-local costs, matched-context deltas, RQ mapping, limitations, mutation tests, and byte-identical regeneration are implemented; current docs and final gates remain |
+| [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Complete offline | Digest-pinned historical-v1/Five-v2/Six-v1 package, strict schemas, required placement/pair coverage, profile-local costs, matched-context deltas, RQ mapping, limitations, mutation tests, byte-identical regeneration, current docs, safe gates, integration proof, and two final zero-finding reviews are frozen locally |
 
 ### Later: Platform Extensions
 

@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-14"
-version: "4.18"
+version: "4.19"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.18"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-14 | VERSION: 4.18
+EXTRACTED: 2026-08-14 | VERSION: 4.19
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -30,12 +30,12 @@ EXTRACTED: 2026-08-14 | VERSION: 4.18
 | Integration branch | `master` |
 | Reviewed implementation base | `c5c6232478d29a9cc3c7d280bdc9ca0e79c47226` on `codex/phase-8-9a-layer-access` |
 | Active implementation branch | `codex/phase-8-evaluation-documentation` |
-| Locally completed implementation | Phase 8.0 / #144 through Phase 8.8, prerequisite #113, guided bootstrap / #154, complete Five-layer v2 / 8.9A, and Six-layer / 8.9B; two final 8.9B review passes and all safe gates are frozen with zero unresolved findings, while issues remain open until publication/merge |
+| Locally completed implementation | Phase 8.0 / #144 through Phase 8.10 / #148, prerequisite #113, guided bootstrap / #154, complete Five-layer v2 / 8.9A, and Six-layer / 8.9B; all prescribed offline reviews and safe gates are frozen with zero unresolved findings, while issues remain open until publication/merge |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
 | Implementation status | Five-layer v2 and Six-layer v1 are active locally across contracts, Optimizer, Management, Deployer/Terraform, provider runtimes, and Flutter. The Six-layer implementation inherits the pinned Five-layer graph and adds only the reviewed Eventing delta. Deployment remains blocked by explicit supervised live-capacity gates. |
-| Next action | Complete the final Phase 8.10 architecture/research and builder/reproducibility/security review cycle, then freeze the evaluation branch. |
+| Next action | Publish or merge the zero-finding Phase 8 branch only on explicit user instruction; any live-cloud E2E remains a separately approved supervised activity. |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -266,9 +266,8 @@ Continue with these boundaries in order:
    gate explicit and fail-closed for deployment;
 3. keep the Six-layer implementation pinned to the exact inherited Five-layer
    commit and contract digests;
-4. preserve the zero-finding Six-layer audit freeze and the committed Phase
-   8.10 deterministic evidence/package while completing only the final two
-   offline review records without live cloud execution.
+4. preserve the zero-finding Six-layer and Phase 8.10 audit freezes and their
+   committed deterministic evidence packages without live cloud execution.
 
 ## Required Reading Order
 
@@ -403,7 +402,7 @@ string conventions or user functions constructing another resource's identity.
 | Guided bootstrap | [#154 Implement guided cloud access bootstrap for bounded deployment identities](https://github.com/TVJunkie724/master-thesis/issues/154) | Request-scoped bootstrap authority and reusable bounded CloudConnections |
 | 8.9A | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | Executable `five-layer-baseline@2` with complete service bundles |
 | 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Implemented and frozen after two final review passes with zero unresolved findings; supervised live gates remain explicit |
-| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Final review: deterministic historical `@1` reproduction and fair profile-local `@2` versus Six-layer evidence, current docs, safe gates, and integration proof are complete |
+| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Complete and zero-finding frozen locally: deterministic historical `@1` reproduction and fair profile-local `@2` versus Six-layer evidence, current docs, safe gates, integration proof, and both final reviews |
 
 Native dependency direction:
 
@@ -753,13 +752,14 @@ Phase 8 is complete only when:
 
 The next agent can begin with:
 
-> Phase 8.0 bis 8.9B sind lokal implementiert und reviewt. Der abschließende
-> Six-Layer-Prüflauf ist credential-frei und ohne Cloud-Apply mit null offenen
-> Findings eingefroren.
+> Phase 8.0 bis 8.10 sind lokal implementiert, dokumentiert und mit null
+> offenen Findings eingefroren. Alle Abschlussprüfungen waren credential-frei
+> und ohne Cloud-Apply.
 > `five-layer-baseline@1` bleibt historische Evidenz,
 > `five-layer-baseline@2` und `six-layer-eventing@1` teilen dieselben
 > verpflichtenden Rule-/Action-/Workflow-/Feedback-Funktionen, und nur das
-> Six-Layer-Profil besitzt eine unabhaengige Eventing-Verantwortung. Als
-> naechstes folgt Phase 8.10 mit reproduzierbarer, getrennt ausgewiesener
-> historischer-v1/Five-v2/Six-v1-Evidenz auf einem eigenen Branch.
-> Live-Cloud-E2E und LaTeX bleiben unangetastet.
+> Six-Layer-Profil besitzt eine unabhängige Eventing-Verantwortung. Die
+> reproduzierbare Evidenz zu historischer v1, Five v2 und Six v1 ist
+> vollständig.
+> Live-Cloud-E2E und LaTeX bleiben unangetastet; als Nächstes steht nur eine
+> ausdrücklich angeordnete Veröffentlichung oder Zusammenführung an.

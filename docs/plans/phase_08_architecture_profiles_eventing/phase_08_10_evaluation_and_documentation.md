@@ -2,8 +2,8 @@
 title: "Phase 8.10: Architecture Profile Evaluation And Documentation"
 description: "Executable offline evaluation and current-documentation plan for historical Five-layer v1, Five-layer v2, and Six-layer v1."
 tags: [architecture, eventing, evaluation, documentation, reproducibility, issue-148]
-lastUpdated: "2026-08-03"
-version: "2.0"
+lastUpdated: "2026-08-14"
+version: "2.1"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.0"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_9_six_layer_eventing_implementation.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_9a_9b_execution_plan.md
 - User-approved PoC and no-live/no-LaTeX boundaries
-EXTRACTED: 2026-08-03 | VERSION: 2.0
+EXTRACTED: 2026-08-14 | VERSION: 2.1
 -->
 
 # Phase 8.10: Architecture Profile Evaluation And Documentation
@@ -223,25 +223,46 @@ findings. Generated outputs and their schemas/generator are committed together.
 
 ## 10. Definition Of Done
 
-- [ ] The manifest pins the entire immutable contract/source/implementation/
+- [x] The manifest pins the entire immutable contract/source/implementation/
       result digest chain for all three profiles.
-- [ ] Functional and capacity evidence precedes all cost interpretation.
-- [ ] Five-layer v2 and Six-layer v1 use identical paired workload and inherited
+- [x] Functional and capacity evidence precedes all cost interpretation.
+- [x] Five-layer v2 and Six-layer v1 use identical paired workload and inherited
       L1-L5 context where compared.
-- [ ] Single-cloud, all six directed bridges, nine Five-layer L3/L5-to-L4
+- [x] Single-cloud, all six directed bridges, nine Five-layer L3/L5-to-L4
       placements, and representative three-provider graphs are covered.
-- [ ] Unsupported/stale/unverified candidates retain reasons and have no
+- [x] Unsupported/stale/unverified candidates retain reasons and have no
       publishable total.
-- [ ] Event Layer incremental functionality and cost remain separate from total
+- [x] Event Layer incremental functionality and cost remain separate from total
       architecture cost.
-- [ ] Every RQ maps to concrete versioned artifacts.
-- [ ] Two clean regenerations are byte-identical.
-- [ ] Safe full repository, Flutter, deployment-contract, docs, link, drift,
+- [x] Every RQ maps to concrete versioned artifacts.
+- [x] Two clean regenerations are byte-identical.
+- [x] Safe full repository, Flutter, deployment-contract, docs, link, drift,
       and secret gates pass.
-- [ ] Current docs describe implemented behavior and exact manual steps;
+- [x] Current docs describe implemented behavior and exact manual steps;
       research docs contain interpretation and limitations.
-- [ ] No live cloud resource, paid operation, provider credential, or browser
+- [x] No live cloud resource, paid operation, provider credential, or browser
       sign-in was used.
-- [ ] LaTeX remains untouched.
-- [ ] Two final reviews report zero findings and the branch ends in a clean
+- [x] LaTeX remains untouched.
+- [x] Two final reviews report zero findings and the branch ends in a clean
       evidence/documentation commit.
+
+## 11. Final Verification Record
+
+The completed offline evaluation freeze records:
+
+- 14 evaluation schema, mutation, provenance, coverage, cost, and comparison
+  tests plus strict package validation;
+- two clean byte-identical regenerations after the final validator changes;
+- one successful 16-stage safe repository gate with 5,887 tests/checks,
+  including 979 Optimizer, 1,131 Management, 2,381 Deployer (one expected
+  skip), 893 Flutter, and 22 Flutter architecture tests;
+- one successful credential-free Flutter integration gate with 26 tests across
+  Management readiness, architecture profiles, user-function extension,
+  guided bootstrap, and Layer Access; and
+- one architecture/research review and one
+  builder/reproducibility/security review, each repeated after its corrections
+  and closed with zero unresolved findings.
+
+All commands used frozen local inputs and OrbStack. No provider credential,
+live provider API, Terraform apply/destroy, browser sign-in, paid operation, or
+LaTeX modification was used.
