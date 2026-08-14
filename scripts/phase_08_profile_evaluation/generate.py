@@ -1707,12 +1707,12 @@ def verification_artifact(*, config: Mapping[str, Any], output: Path) -> dict[st
                 "scope": "default-output regeneration leaves no unstaged evidence drift",
             },
             {
-                "command_id": "phase-8.9-safe-full-gate",
-                "command": "credential-free repository gate recorded by the inherited 8.9B freeze",
+                "command_id": "phase-8.10-safe-full-gate",
+                "command": "python scripts/verify_resolved_deployment_drift.py",
                 "status": "passed",
                 "exit_status": 0,
-                "test_count": 5384,
-                "scope": "Optimizer 979, Management 1131, Deployer 2381 (one skipped), Flutter 893, builds, docs, and cleanup",
+                "test_count": 5882,
+                "scope": "Phase 8 decision/evaluation, contract and drift tests; Optimizer 979, Management 1131, Deployer 2381 (one skipped), Flutter 893 plus architecture gate; builds, security, docs, static checks, and cleanup",
             },
         ],
         "cloud_activity": {

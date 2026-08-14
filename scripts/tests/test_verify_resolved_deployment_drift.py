@@ -117,6 +117,10 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             rendered,
         )
         self.assertIn(
+            "-p no:cacheprovider scripts/tests/test_deployment_manifest_contract_sync.py",
+            rendered,
+        )
+        self.assertIn(
             "scripts/sync_user_function_extension_contracts.py --check",
             rendered,
         )
@@ -238,6 +242,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         self.assertIn("--ignore=tests/e2e", rendered)
         self.assertIn("thesis.sh test frontend", rendered)
         self.assertIn("mkdocs build --strict", rendered)
+        self.assertIn("PIP_CACHE_DIR=/tmp/management-pip-cache", rendered)
         deployer = next(
             stage for stage in stages if stage.name == "Deployer full quality gate"
         )
