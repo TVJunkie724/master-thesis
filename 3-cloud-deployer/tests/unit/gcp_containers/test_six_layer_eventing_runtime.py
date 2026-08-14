@@ -129,3 +129,13 @@ def test_control_tap_acknowledges_event_owned_by_remote_provider(monkeypatch):
     runtime._deliver(_event("device.command.requested.v1"), "control-router")
 
     assert post.called is False
+
+
+def test_canonical_event_rejects_payload_above_portable_96_kib_limit():
+    runtime = _load()
+    event = _event()
+    event["payload"] = {"value": "x" * runtime.MAX_EVENT_BYTES}
+
+    assert runtime.MAX_EVENT_BYTES == 96 * 1024
+    with pytest.raises(runtime.DeliveryError, match="INVALID_CANONICAL_EVENT"):
+        runtime._validate_event(event)

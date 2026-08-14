@@ -3,8 +3,9 @@
 The adapter consumes only the Event Layer's Kinesis stream and SQS FIFO
 subscription.  It acknowledges telemetry after Lambda's durable asynchronous
 invocation queue accepts it and acknowledges control after AWS IoT Commands
-accepts it.  Exhausted SQS deliveries are written to the bounded S3 failure
-store before acknowledgement.
+accepts it. Exhausted control deliveries are written to the bounded SQS dead-
+letter queue before acknowledgement; exhausted telemetry uses the configured
+S3 event-source destination.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ import boto3
 
 
 SCHEMA_VERSION = "canonical-domain-event.v1"
+MAX_EVENT_BYTES = 96 * 1024
 TELEMETRY_EVENT = "telemetry.received.v1"
 PROCESSED_EVENT = "telemetry.processed.v1"
 CONTROL_EVENT = "device.command.requested.v1"
@@ -122,6 +124,12 @@ def _validate_event(event: Mapping[str, Any]) -> None:
         if not isinstance(event.get(field), str) or not event[field]:
             raise DeliveryError("INVALID_CANONICAL_EVENT")
     if not isinstance(event.get("payload"), Mapping):
+        raise DeliveryError("INVALID_CANONICAL_EVENT")
+    try:
+        encoded = _canonical_bytes(event)
+    except (TypeError, ValueError) as exc:
+        raise DeliveryError("INVALID_CANONICAL_EVENT") from exc
+    if len(encoded) > MAX_EVENT_BYTES:
         raise DeliveryError("INVALID_CANONICAL_EVENT")
 
 

@@ -241,6 +241,15 @@ def test_event_type_must_match_the_source_channel(monkeypatch):
     client.start_command_execution.assert_not_called()
 
 
+def test_canonical_event_rejects_payload_above_portable_96_kib_limit():
+    event = _event("telemetry.received.v1")
+    event["payload"] = {"value": "x" * runtime.MAX_EVENT_BYTES}
+
+    assert runtime.MAX_EVENT_BYTES == 96 * 1024
+    with pytest.raises(runtime.DeliveryError, match="INVALID_CANONICAL_EVENT"):
+        runtime._validate_event(event)
+
+
 def test_retryable_failure_returns_only_record_identifier(monkeypatch):
     lambda_client = Mock()
     lambda_client.invoke.return_value = {"StatusCode": 500}

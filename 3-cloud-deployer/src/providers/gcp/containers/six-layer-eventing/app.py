@@ -70,7 +70,7 @@ PROCESSED_ROLES = {
     "audit",
     "realtime-visualization",
 }
-MAX_EVENT_BYTES = 256 * 1024
+MAX_EVENT_BYTES = 96 * 1024
 MAX_RESPONSE_BYTES = 4096
 
 

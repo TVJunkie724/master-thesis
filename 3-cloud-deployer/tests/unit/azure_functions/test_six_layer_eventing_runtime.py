@@ -153,3 +153,12 @@ def test_canonical_envelope_rejects_provider_route_metadata():
 
     with pytest.raises(runtime.DeliveryError, match="INVALID_CANONICAL_EVENT"):
         runtime._validate(event)
+
+
+def test_canonical_event_rejects_payload_above_portable_96_kib_limit():
+    event = _event("telemetry.received.v1")
+    event["payload"] = {"value": "x" * runtime.MAX_EVENT_BYTES}
+
+    assert runtime.MAX_EVENT_BYTES == 96 * 1024
+    with pytest.raises(runtime.DeliveryError, match="INVALID_CANONICAL_EVENT"):
+        runtime._validate(event)

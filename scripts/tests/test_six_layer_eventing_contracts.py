@@ -50,6 +50,33 @@ def _literal_constant(path: Path, name: str):
     raise AssertionError(f"Missing {name} in {path}")
 
 
+def _integer_constant(path: Path, name: str) -> int:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if not (
+            isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == name
+                for target in node.targets
+            )
+        ):
+            continue
+        value = node.value
+        if isinstance(value, ast.Constant) and isinstance(value.value, int):
+            return value.value
+        if (
+            isinstance(value, ast.BinOp)
+            and isinstance(value.op, ast.Mult)
+            and isinstance(value.left, ast.Constant)
+            and isinstance(value.left.value, int)
+            and isinstance(value.right, ast.Constant)
+            and isinstance(value.right.value, int)
+        ):
+            return value.left.value * value.right.value
+        raise AssertionError(f"{name} must remain a literal integer expression")
+    raise AssertionError(f"Missing {name} in {path}")
+
+
 class SixLayerEventingContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -364,6 +391,27 @@ class SixLayerEventingContractTests(unittest.TestCase):
                 _literal_constant(management, name),
                 f"{name} drift would make valid Optimizer evidence fail Management",
             )
+
+    def test_all_six_layer_event_boundaries_share_portable_96_kib_limit(self) -> None:
+        paths = (
+            ROOT / "3-cloud-deployer/src/runtime/six_layer_eventing/bridge_core.py",
+            ROOT / "3-cloud-deployer/src/providers/aws/lambda_functions/"
+            "six-layer-domain/handler.py",
+            ROOT / "3-cloud-deployer/src/providers/aws/lambda_functions/"
+            "six-layer-eventing/lambda_function.py",
+            ROOT / "3-cloud-deployer/src/providers/azure/azure_functions/"
+            "six-layer-domain/core.py",
+            ROOT / "3-cloud-deployer/src/providers/azure/azure_functions/"
+            "six-layer-eventing/function_app.py",
+            ROOT / "3-cloud-deployer/src/providers/gcp/containers/"
+            "six-layer-domain/platform/core.py",
+            ROOT / "3-cloud-deployer/src/providers/gcp/containers/"
+            "six-layer-eventing/app.py",
+        )
+        self.assertEqual(
+            {_integer_constant(path, "MAX_EVENT_BYTES") for path in paths},
+            {96 * 1024},
+        )
 
 
 if __name__ == "__main__":
