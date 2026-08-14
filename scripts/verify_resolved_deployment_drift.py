@@ -269,14 +269,19 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
             _compose_run(
                 project,
                 "management-api",
-                "python",
-                "-m",
-                "pytest",
-                "-q",
-                "tests/test_deployment_drift_matrix.py",
-                "tests/test_resolved_deployment_contract.py",
-                "tests/test_resolved_deployment_specification_service.py",
-                "tests/test_user_function_extension_contract.py",
+                "sh",
+                "-lc",
+                (
+                    "cd /app "
+                    "&& python -m pytest -q "
+                    "tests/test_deployment_drift_matrix.py "
+                    "tests/test_resolved_deployment_contract.py "
+                    "tests/test_resolved_deployment_specification_service.py "
+                    "tests/test_user_function_extension_contract.py "
+                    "&& cd /workspace "
+                    "&& python scripts/verify_six_layer_management_boundary.py"
+                ),
+                root_mount=True,
                 environment=(
                     "APP_ENV=test",
                     "DEBUG=false",

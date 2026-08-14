@@ -165,6 +165,10 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             rendered,
         )
         self.assertIn(
+            "scripts/verify_six_layer_management_boundary.py",
+            rendered,
+        )
+        self.assertIn(
             "tests/unit/terraform/test_native_mock_plans.py",
             rendered,
         )

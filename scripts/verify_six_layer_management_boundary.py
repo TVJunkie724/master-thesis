@@ -62,6 +62,15 @@ RUN_ID = "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a02"
 USER_ID = "phase-8-six-layer-owner"
 TWIN_ID = "phase-8-six-layer-twin"
 ARTIFACT_ID = "artifact.user.processor.example"
+EXPECTED_EVENT_EDGE_IDS = frozenset(
+    {
+        "edge.ingestion-to-eventing",
+        "edge.eventing-to-processing",
+        "edge.processing-to-eventing",
+        "edge.eventing-to-ingestion",
+        "edge.eventing-to-hot-storage",
+    }
+)
 
 
 def _read(path: Path) -> dict:
@@ -306,12 +315,13 @@ def _persist(optimized, workload: dict, registry, context: PricingCatalogContext
         event_edges = [
             edge
             for edge in persisted.resolved_architecture.edges
-            if "eventing" in edge.logical_edge_id
+            if edge.logical_edge_id in EXPECTED_EVENT_EDGE_IDS
         ]
         if (
             len(persisted.resolved_architecture.components) != 8
             or len(persisted.resolved_architecture.edges) != 9
-            or len(event_edges) != 4
+            or {edge.logical_edge_id for edge in event_edges}
+            != EXPECTED_EVENT_EDGE_IDS
             or {edge.mechanism for edge in event_edges}
             != {"cross_provider_adapter"}
         ):
