@@ -7,6 +7,7 @@ Tests D1-D13 from the implementation plan.
 import json
 
 from fastapi.testclient import TestClient
+import pytest
 
 import rest_api
 from src.architecture_profiles.registry import ArchitectureProfileRegistry
@@ -36,6 +37,17 @@ VALID_CONFIG_EVENTS = '[{"condition": "temp > DOUBLE(30)", "action": {"type": "l
 VALID_CONFIG_IOT_DEVICES = '[{"id": "device-1", "properties": ["temperature"]}]'
 VALID_PAYLOADS = '[{"iotDeviceId": "device-1", "temperature": 25}]'
 VALID_AWS_HIERARCHY = '[{"type": "entity", "id": "root", "children": [{"type": "component", "name": "sensor", "componentTypeId": "sensor-type", "properties": [{"name": "temp", "dataType": "DOUBLE"}]}]}]'
+VALID_PHASE8_USER_CONFIG = json.dumps(
+    {
+        "admin_email": "researcher@example.com",
+        "admin_first_name": "Thesis",
+        "admin_last_name": "Researcher",
+        "aws_layer_access_principal_intent": "existing",
+        "azure_principal_object_id": "00000000-0000-4000-8000-000000000001",
+        "azure_principal_label": "researcher@example.com",
+        "gcp_grafana_source_cidrs": ["203.0.113.42/32"],
+    }
+)
 
 
 def _five_layer_v2_ref():
@@ -90,8 +102,157 @@ def test_optimization_file_api_exposes_stable_unsupported_topology_error():
     }
 
 
+def test_phase8_user_config_editor_validation_uses_both_layer_providers():
+    user_config = json.loads(VALID_PHASE8_USER_CONFIG)
+    del user_config["azure_principal_object_id"]
+    user_config["gcp_grafana_source_cidrs"] = ["0.0.0.0/0"]
+    response = client.post(
+        (
+            "/validate/user-config?provider=gcp&"
+            "architecture_profile_id=five-layer-baseline&"
+            "architecture_profile_version=2&layer_4_provider=azure&"
+            "layer_5_provider=gcp"
+        ),
+        files={
+            "file": (
+                "config_user.json",
+                json.dumps(user_config),
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert "user_config.azure_principal_object_id" in response.json()["detail"]
+    assert "user_config.gcp_grafana_source_cidrs" in response.json()["detail"]
+
+
+def test_phase8_user_config_editor_accepts_complete_cross_cloud_identity():
+    response = client.post(
+        (
+            "/validate/user-config?provider=gcp&"
+            "architecture_profile_id=six-layer-eventing&"
+            "architecture_profile_version=1&layer_4_provider=azure&"
+            "layer_5_provider=gcp"
+        ),
+        files={
+            "file": (
+                "config_user.json",
+                VALID_PHASE8_USER_CONFIG,
+                "application/json",
+            )
+        },
+    )
+
+    assert response.status_code == 200
+
+
 class TestDeployerCompleteValidation:
     """Tests for POST /validate/deployer-complete endpoint."""
+
+    @pytest.mark.parametrize(
+        ("profile_ref", "eventing"),
+        [
+            (_five_layer_v2_ref(), None),
+            (_six_layer_eventing_ref(), "gcp"),
+        ],
+    )
+    def test_phase8_profiles_use_owned_processors_and_deterministic_l4_seed(
+        self,
+        profile_ref,
+        eventing,
+    ):
+        path = {
+            "L1": "gcp",
+            "L2": "gcp",
+            "L3_hot": "gcp",
+            "L3_cool": "gcp",
+            "L3_archive": "gcp",
+            "L4": "gcp",
+            "L5": "gcp",
+        }
+        if eventing:
+            path["Eventing"] = eventing
+
+        response = client.post(
+            "/validate/deployer-complete",
+            json={
+                "deployer_digital_twin_name": "phase8-twin",
+                "config_events": VALID_CONFIG_EVENTS,
+                "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+                "payloads": VALID_PAYLOADS,
+                "processors": {},
+                "cheapest_path": path,
+                "optimizer_params": {},
+                "architecture_profile_ref": profile_ref,
+                "user_config": VALID_PHASE8_USER_CONFIG,
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"valid": True, "errors": []}
+
+    def test_phase8_rejects_historical_processor_hierarchy_and_scene_inputs(self):
+        response = client.post(
+            "/validate/deployer-complete",
+            json={
+                "deployer_digital_twin_name": "phase8-twin",
+                "config_events": VALID_CONFIG_EVENTS,
+                "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+                "payloads": VALID_PAYLOADS,
+                "processors": {"device-1": VALID_AZURE_PROCESSOR},
+                "hierarchy": "{}",
+                "scene_config": "{}",
+                "scene_glb_uploaded": True,
+                "cheapest_path": {
+                    "L1": "azure",
+                    "L2": "azure",
+                    "L3_hot": "azure",
+                    "L3_cool": "azure",
+                    "L3_archive": "azure",
+                    "L4": "azure",
+                    "L5": "azure",
+                },
+                "optimizer_params": {},
+                "architecture_profile_ref": _five_layer_v2_ref(),
+                "user_config": VALID_PHASE8_USER_CONFIG,
+            },
+        )
+
+        assert {
+            "UNEXPECTED_PROCESSOR",
+            "FORBIDDEN_PROFILE_FIELD",
+        } <= {error["code"] for error in response.json()["errors"]}
+
+    def test_phase8_user_config_covers_both_l4_and_l5_provider_requirements(self):
+        user_config = json.loads(VALID_PHASE8_USER_CONFIG)
+        del user_config["azure_principal_object_id"]
+        user_config["gcp_grafana_source_cidrs"] = ["0.0.0.0/0"]
+        response = client.post(
+            "/validate/deployer-complete",
+            json={
+                "deployer_digital_twin_name": "phase8-twin",
+                "config_events": VALID_CONFIG_EVENTS,
+                "config_iot_devices": VALID_CONFIG_IOT_DEVICES,
+                "payloads": VALID_PAYLOADS,
+                "cheapest_path": {
+                    "L1": "azure",
+                    "L2": "azure",
+                    "L3_hot": "azure",
+                    "L3_cool": "gcp",
+                    "L3_archive": "gcp",
+                    "L4": "azure",
+                    "L5": "gcp",
+                },
+                "optimizer_params": {},
+                "architecture_profile_ref": _five_layer_v2_ref(),
+                "user_config": json.dumps(user_config),
+            },
+        )
+
+        fields = {error["field"] for error in response.json()["errors"]}
+        assert "user_config.azure_principal_object_id" in fields
+        assert "user_config.gcp_grafana_source_cidrs" in fields
 
     def test_D1_gcp_l4_l5_are_rejected_as_unavailable(self):
         """D1: GCP L4/L5 must fail before deployment side effects."""

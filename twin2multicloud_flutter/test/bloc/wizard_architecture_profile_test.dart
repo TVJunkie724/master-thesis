@@ -617,47 +617,66 @@ void main() {
     expect(state.resolvedArchitectureError, contains('does not match'));
   });
 
-  test('confirmed invalidation clears persisted legacy L2 artifacts', () async {
-    final bloc = WizardBloc(
-      api: api,
-      initialState: const WizardState(
-        status: WizardStatus.ready,
-        step3Invalidated: true,
-        payloadsJson: '{"sensor":[]}',
-        payloadsValidated: true,
-        processorContents: {'sensor': 'processor'},
-        processorValidated: {'sensor': true},
-        processorRequirements: {'sensor': 'requests==2'},
-        eventFeedbackContent: 'feedback',
-        eventFeedbackValidated: true,
-        eventFeedbackRequirements: 'httpx==1',
-        eventActionContents: {'notify': 'action'},
-        eventActionValidated: {'notify': true},
-        eventActionRequirements: {'notify': 'pydantic==2'},
-        stateMachineContent: '{"workflow":true}',
-        stateMachineValidated: true,
-      ),
-    );
-    addTearDown(bloc.close);
+  test(
+    'confirmed invalidation clears persisted legacy profile artifacts',
+    () async {
+      final bloc = WizardBloc(
+        api: api,
+        initialState: const WizardState(
+          status: WizardStatus.ready,
+          step3Invalidated: true,
+          payloadsJson: '{"sensor":[]}',
+          payloadsValidated: true,
+          processorContents: {'sensor': 'processor'},
+          processorValidated: {'sensor': true},
+          processorRequirements: {'sensor': 'requests==2'},
+          eventFeedbackContent: 'feedback',
+          eventFeedbackValidated: true,
+          eventFeedbackRequirements: 'httpx==1',
+          eventActionContents: {'notify': 'action'},
+          eventActionValidated: {'notify': true},
+          eventActionRequirements: {'notify': 'pydantic==2'},
+          stateMachineContent: '{"workflow":true}',
+          stateMachineValidated: true,
+          hierarchyContent: '{"root":"legacy"}',
+          hierarchyValidated: true,
+          sceneConfigContent: '{"scene":"legacy"}',
+          sceneConfigValidated: true,
+          sceneGlbUploaded: true,
+          userConfigContent: '{"admin_email":"researcher@example.com"}',
+          userConfigValidated: true,
+        ),
+      );
+      addTearDown(bloc.close);
 
-    final completed = bloc.stream.firstWhere(
-      (state) => !state.step3Invalidated,
-    );
-    bloc.add(const WizardProceedWithNewResults());
-    final state = await completed;
-    final update = state.deployerConfigData.toUpdateRequest().toJson();
+      final completed = bloc.stream.firstWhere(
+        (state) => !state.step3Invalidated,
+      );
+      bloc.add(const WizardProceedWithNewResults());
+      final state = await completed;
+      final update = state.deployerConfigData.toUpdateRequest().toJson();
 
-    expect(state.payloadsJson, isNull);
-    expect(state.processorContents, isEmpty);
-    expect(state.processorRequirements, isEmpty);
-    expect(state.eventFeedbackContent, isNull);
-    expect(state.eventFeedbackRequirements, isNull);
-    expect(state.eventActionContents, isEmpty);
-    expect(state.eventActionRequirements, isEmpty);
-    expect(state.stateMachineContent, isNull);
-    expect(update['event_feedback_content'], isNull);
-    expect(update['state_machine_content'], isNull);
-  });
+      expect(state.payloadsJson, isNull);
+      expect(state.processorContents, isEmpty);
+      expect(state.processorRequirements, isEmpty);
+      expect(state.eventFeedbackContent, isNull);
+      expect(state.eventFeedbackRequirements, isNull);
+      expect(state.eventActionContents, isEmpty);
+      expect(state.eventActionRequirements, isEmpty);
+      expect(state.stateMachineContent, isNull);
+      expect(state.hierarchyContent, isNull);
+      expect(state.hierarchyValidated, isFalse);
+      expect(state.sceneConfigContent, isNull);
+      expect(state.sceneConfigValidated, isFalse);
+      expect(state.sceneGlbUploaded, isFalse);
+      expect(state.userConfigContent, isNotNull);
+      expect(state.userConfigValidated, isFalse);
+      expect(update['event_feedback_content'], isNull);
+      expect(update['state_machine_content'], isNull);
+      expect(update['hierarchy_content'], isNull);
+      expect(update['scene_config_content'], isNull);
+    },
+  );
 }
 
 TwinArchitectureSelection _historicalSelection() =>

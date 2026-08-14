@@ -5,6 +5,8 @@ from __future__ import annotations
 import pytest
 
 from src.models.deployer_config import DeployerConfiguration
+from src.models.architecture_profile import TwinArchitectureSelection
+from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
@@ -36,8 +38,22 @@ class _FakeDeployerClient:
         self.exc = exc
         self.calls = []
 
-    async def validate_config_file(self, endpoint, files, *, provider=None):
-        self.calls.append({"endpoint": endpoint, "files": files, "provider": provider})
+    async def validate_config_file(
+        self,
+        endpoint,
+        files,
+        *,
+        provider=None,
+        context_params=None,
+    ):
+        self.calls.append(
+            {
+                "endpoint": endpoint,
+                "files": files,
+                "provider": provider,
+                "context_params": context_params,
+            }
+        )
         if self.exc:
             raise self.exc
         return self.response
@@ -126,6 +142,47 @@ async def test_validate_scene_config_includes_existing_hierarchy(db_session):
     files = deployer_client.calls[0]["files"]
     assert files["scene_file"][0] == "scene.json"
     assert files["hierarchy_file"][1] == b'{"root": []}'
+
+
+@pytest.mark.asyncio
+async def test_phase8_user_config_validation_uses_trusted_l4_l5_context(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    db_session.add_all(
+        [
+            TwinArchitectureSelection(
+                twin_id=twin.id,
+                user_id=user.id,
+                profile_id="five-layer-baseline",
+                profile_version="2",
+                profile_digest="sha256:" + "a" * 64,
+                revision=1,
+                selected_by_user_id=user.id,
+            ),
+            OptimizerConfiguration(
+                twin_id=twin.id,
+                cheapest_l4="Azure",
+                cheapest_l5="Google",
+            ),
+        ]
+    )
+    db_session.commit()
+    db_session.refresh(twin)
+    deployer_client = _FakeDeployerClient()
+
+    await _service(db_session, deployer_client).validate_config(
+        twin.id,
+        user.id,
+        "user-config",
+        ConfigValidationRequest(content="{}", provider="gcp"),
+    )
+
+    assert deployer_client.calls[0]["context_params"] == {
+        "architecture_profile_id": "five-layer-baseline",
+        "architecture_profile_version": "2",
+        "layer_4_provider": "azure",
+        "layer_5_provider": "gcp",
+    }
 
 
 @pytest.mark.asyncio

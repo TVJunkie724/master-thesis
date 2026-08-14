@@ -317,13 +317,21 @@ def process_event(request):
   static const userConfig = '''{
   "admin_email": "your-email@example.com",
   "admin_first_name": "Platform",
-  "admin_last_name": "Admin"
+  "admin_last_name": "Admin",
+  "aws_layer_access_principal_intent": "existing",
+  "azure_principal_object_id": "00000000-0000-4000-8000-000000000001",
+  "azure_principal_label": "your-user@example.com",
+  "gcp_grafana_source_cidrs": ["203.0.113.42/32"]
 }''';
 
   /// Azure-specific user config (requires tenant format email)
   static const azureUserConfig = '''{
   "admin_email": "user@yourtenant.onmicrosoft.com",
   "admin_first_name": "Platform",
-  "admin_last_name": "Admin"
+  "admin_last_name": "Admin",
+  "aws_layer_access_principal_intent": "existing",
+  "azure_principal_object_id": "00000000-0000-4000-8000-000000000001",
+  "azure_principal_label": "user@yourtenant.onmicrosoft.com",
+  "gcp_grafana_source_cidrs": ["203.0.113.42/32"]
 }''';
 }

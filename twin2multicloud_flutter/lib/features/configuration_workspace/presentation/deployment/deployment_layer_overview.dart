@@ -220,7 +220,7 @@ class DeploymentLayerOverview extends StatelessWidget {
         if (selectable)
           CollapsibleBlockWrapper(
             title: 'config_user.json',
-            subtitle: 'Grafana dashboard configuration',
+            subtitle: 'L4/L5 browser access identity',
             icon: Icons.dashboard,
             isValid: state.userConfigValidated ? true : null,
             showEditBadge: true,
@@ -230,12 +230,14 @@ class DeploymentLayerOverview extends StatelessWidget {
             child: FileEditorBlock(
               showHeader: false,
               filename: 'config_user.json',
-              description: 'Grafana dashboard user configuration',
+              description: 'Read-only Twin and dashboard access configuration',
               icon: Icons.dashboard,
               isHighlighted: true,
               constraints:
-                  '• Dashboard panels and queries\n• Data source configuration',
-              exampleContent: Step3Examples.userConfig,
+                  '• Platform user identity\n• Selected-provider access intent\n• GCP Grafana source CIDRs when applicable',
+              exampleContent: provider?.toLowerCase() == 'azure'
+                  ? Step3Examples.azureUserConfig
+                  : Step3Examples.userConfig,
               initialContent: state.userConfigContent ?? '',
               isValidated: state.userConfigValidated,
               isValidating: state.isArtifactValidating('user-config'),

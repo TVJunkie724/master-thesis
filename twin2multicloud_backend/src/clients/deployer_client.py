@@ -81,12 +81,15 @@ class DeployerClient(ExternalServiceClient):
         files: dict[str, tuple[str, bytes, str]],
         *,
         provider: str | None = None,
+        context_params: dict[str, str] | None = None,
     ) -> dict[str, Any]:
-        params = {"provider": provider} if provider else None
+        params = dict(context_params or {})
+        if provider:
+            params["provider"] = provider
         return await self._request_json(
             "POST",
             f"/validate/{endpoint}",
-            params=params,
+            params=params or None,
             files=files,
             timeout=30.0,
         )

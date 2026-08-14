@@ -128,6 +128,7 @@ PHASE_8_FORBIDDEN_DEPLOYER_FIELDS = (
     "event_action_requirements",
     "event_feedback_content",
     "event_feedback_requirements",
+    "hierarchy_content",
     "processor_contents",
     "processor_requirements",
     "scene_config_content",

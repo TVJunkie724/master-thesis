@@ -641,6 +641,12 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
         stateMachineContent: null,
         clearStateMachineContent: true,
         stateMachineValidated: false,
+        clearHierarchyContent: true,
+        hierarchyValidated: false,
+        clearSceneConfigContent: true,
+        sceneConfigValidated: false,
+        sceneGlbUploaded: false,
+        userConfigValidated: false,
       ),
     );
   }
@@ -696,6 +702,12 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
         stateMachineContent: null,
         clearStateMachineContent: true,
         stateMachineValidated: false,
+        clearHierarchyContent: true,
+        hierarchyValidated: false,
+        clearSceneConfigContent: true,
+        sceneConfigValidated: false,
+        sceneGlbUploaded: false,
+        userConfigValidated: false,
       ),
     );
     await _onSaveDraft(const WizardSaveDraft(), emit);
@@ -725,6 +737,12 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
         stateMachineContent: null,
         clearStateMachineContent: true,
         stateMachineValidated: false,
+        clearHierarchyContent: true,
+        hierarchyValidated: false,
+        clearSceneConfigContent: true,
+        sceneConfigValidated: false,
+        sceneGlbUploaded: false,
+        userConfigValidated: false,
       ),
     );
     _onNextStep(const WizardNextStep(), emit);
@@ -754,6 +772,12 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
         stateMachineContent: null,
         clearStateMachineContent: true,
         stateMachineValidated: false,
+        clearHierarchyContent: true,
+        hierarchyValidated: false,
+        clearSceneConfigContent: true,
+        sceneConfigValidated: false,
+        sceneGlbUploaded: false,
+        userConfigValidated: false,
         clearWarning: true,
       ),
     );

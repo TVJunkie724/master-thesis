@@ -144,6 +144,34 @@ async def test_validate_config_file_posts_multipart_validation_contract():
 
 
 @pytest.mark.asyncio
+async def test_validate_config_file_forwards_trusted_context_params():
+    seen = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json={"message": "Valid"})
+
+    await _client_with_handler(handler).validate_config_file(
+        "user-config",
+        {"file": ("config_user.json", b"{}", "application/json")},
+        provider="gcp",
+        context_params={
+            "architecture_profile_id": "five-layer-baseline",
+            "architecture_profile_version": "2",
+            "layer_4_provider": "azure",
+            "layer_5_provider": "gcp",
+        },
+    )
+
+    assert seen["url"] == (
+        "http://deployer.test/validate/user-config?"
+        "architecture_profile_id=five-layer-baseline&"
+        "architecture_profile_version=2&layer_4_provider=azure&"
+        "layer_5_provider=gcp&provider=gcp"
+    )
+
+
+@pytest.mark.asyncio
 async def test_check_cooldown_sends_expected_query_params():
     seen = {}
     destroyed_at = datetime(2026, 4, 26, 10, 15, tzinfo=timezone.utc)

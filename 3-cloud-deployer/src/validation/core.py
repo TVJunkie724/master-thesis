@@ -12,9 +12,10 @@ Usage:
     run_all_checks(accessor)  # Raises ValueError on failure
 """
 
-import os
-import json
 import ast
+import ipaddress
+import json
+import os
 import re
 from typing import Dict, List, Set, Any, Optional, Protocol
 from dataclasses import dataclass, field
@@ -36,6 +37,11 @@ PROVIDER_FUNCTION_DIRS = {
     "azure": "azure_functions",
     "google": "cloud_functions",
     "gcp": "cloud_functions",  # alias
+}
+
+PHASE_8_COMPARISON_PROFILES = {
+    ("five-layer-baseline", "2"),
+    ("six-layer-eventing", "1"),
 }
 
 FORBIDDEN_MANIFEST_CREDENTIAL_KEYS = {
@@ -127,6 +133,7 @@ class ValidationContext:
     iot_config: List[Dict[str, Any]] = field(default_factory=list)
     credentials_config: Dict[str, Any] = field(default_factory=dict)
     user_config: Dict[str, Any] = field(default_factory=dict)  # From config_user.json
+    architecture_profile: tuple[str, str] | None = None
     
     # Tracked directories/files (populated during context build)
     seen_event_actions: Set[str] = field(default_factory=set)
@@ -431,6 +438,17 @@ def check_deployment_manifest(
         )
 
     validate_deployment_manifest(manifest, ctx.prov_config)
+    architecture = manifest.get("resolved_twin_architecture")
+    reference = (
+        architecture.get("architecture_profile_ref")
+        if isinstance(architecture, dict)
+        else None
+    )
+    if isinstance(reference, dict):
+        profile_id = reference.get("id")
+        profile_version = reference.get("version")
+        if isinstance(profile_id, str) and isinstance(profile_version, str):
+            ctx.architecture_profile = (profile_id, profile_version)
 
 
 def _is_string_list(value: Any) -> bool:
@@ -768,7 +786,7 @@ def check_credentials_per_provider(ctx: ValidationContext) -> None:
     
     configured_providers = set()
     for key, value in ctx.prov_config.items():
-        if key.startswith("layer_") and value:
+        if (key.startswith("layer_") or key == "event_layer_provider") and value:
             # Skip 'none' - it's a placeholder for disabled layers, not a real provider
             if value.lower() != "none":
                 configured_providers.add(value.lower())
@@ -936,28 +954,46 @@ def check_user_config_for_l4_l5(accessor: FileAccessor, ctx: ValidationContext) 
     - Validates email format
     - For Azure: validates domain is verified (.onmicrosoft.com or commonly verified)
     """
-    l5_provider = ctx.prov_config.get("layer_5_provider", "").lower()
+    l4_provider = _normalized_provider(ctx.prov_config.get("layer_4_provider", ""))
+    l5_provider = _normalized_provider(ctx.prov_config.get("layer_5_provider", ""))
+    phase8 = ctx.architecture_profile in PHASE_8_COMPARISON_PROFILES
     
     # Only required for AWS and Azure L5
-    if l5_provider not in ["aws", "azure"]:
+    if not phase8 and l5_provider not in ["aws", "azure"]:
         return
     
     # Check if config_user.json exists and has data
     if not ctx.user_config:
         raise ValueError(
-            f"Missing config_user.json. Required when layer_5_provider='{l5_provider}'.\n"
+            (
+                "Missing config_user.json. Phase 8 comparison profiles require "
+                "a platform identity for usable L4/L5 access.\n"
+                if phase8
+                else f"Missing config_user.json. Required when layer_5_provider='{l5_provider}'.\n"
+            )
+            +
             "Create this file with: {\"admin_email\": \"your-email@domain.com\", "
             "\"admin_first_name\": \"Platform\", \"admin_last_name\": \"Admin\"}"
         )
     
     admin_email = ctx.user_config.get("admin_email", "")
-    aws_intent = ctx.user_config.get(
-        "aws_layer_access_principal_intent", "existing"
-    )
-    if aws_intent not in {"existing", "invite_builtin"}:
+    aws_intent = ctx.user_config.get("aws_layer_access_principal_intent")
+    if (
+        (phase8 and "aws" in {l4_provider, l5_provider})
+        and aws_intent not in {"existing", "invite_builtin"}
+    ) or (
+        not phase8
+        and ctx.user_config.get("aws_layer_access_principal_intent", "existing")
+        not in {"existing", "invite_builtin"}
+    ):
         raise ValueError(
             "aws_layer_access_principal_intent must be existing or invite_builtin"
         )
+
+    if phase8:
+        _check_phase8_user_config(ctx.user_config, l4_provider, l5_provider)
+        logger.info(f"  ✓ Phase 8 platform user: {admin_email}")
+        return
     
     # Allow empty email to skip user provisioning (only deployer role will be assigned)
     if not admin_email:
@@ -993,6 +1029,98 @@ def check_user_config_for_l4_l5(accessor: FileAccessor, ctx: ValidationContext) 
         logger.info(f"  ✓ Platform user (Azure): {admin_email}")
     else:
         logger.info(f"  ✓ Platform user (AWS): {admin_email}")
+
+
+def _normalized_provider(value: Any) -> str:
+    normalized = value.lower() if isinstance(value, str) else ""
+    return "gcp" if normalized == "google" else normalized
+
+
+def _check_phase8_user_config(
+    user_config: Dict[str, Any],
+    l4_provider: str,
+    l5_provider: str,
+) -> None:
+    for field_name in ("admin_email", "admin_first_name", "admin_last_name"):
+        value = user_config.get(field_name)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(
+                f"{field_name} must be a non-empty string for Phase 8 L4/L5 access"
+            )
+
+    admin_email = user_config["admin_email"]
+    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    if not re.match(pattern, admin_email):
+        raise ValueError(f"Invalid email format for admin_email: '{admin_email}'.")
+
+    if "azure" in {l4_provider, l5_provider}:
+        object_id = user_config.get("azure_principal_object_id")
+        if not isinstance(object_id, str) or not re.fullmatch(
+            r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+            r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+            object_id,
+        ):
+            raise ValueError(
+                "Azure L4/L5 requires an existing Entra principal object ID UUID"
+            )
+        label = user_config.get("azure_principal_label")
+        if not isinstance(label, str) or not label.strip():
+            raise ValueError(
+                "Azure L4/L5 requires a non-empty Entra principal label or UPN"
+            )
+
+    if l5_provider == "gcp":
+        cidrs = user_config.get("gcp_grafana_source_cidrs")
+        if not isinstance(cidrs, list) or not cidrs:
+            raise ValueError(
+                "GCP L5 requires at least one bounded Grafana source CIDR"
+            )
+        for cidr in cidrs:
+            if not isinstance(cidr, str) or cidr in {"0.0.0.0/0", "::/0"}:
+                raise ValueError(
+                    "GCP Grafana source CIDRs must be valid and non-wildcard"
+                )
+            try:
+                ipaddress.ip_network(cidr, strict=False)
+            except ValueError as exc:
+                raise ValueError(
+                    "GCP Grafana source CIDRs must be valid and non-wildcard"
+                ) from exc
+
+
+def check_phase8_profile_artifacts(ctx: ValidationContext) -> None:
+    """Reject historical user-owned runtime inputs in active Phase 8 packages."""
+    relative_files = [
+        path[len(ctx.project_root):] if ctx.project_root and path.startswith(ctx.project_root) else path
+        for path in ctx.all_files
+    ]
+    historical_asset_names = {
+        CONSTANTS.CONFIG_HIERARCHY_FILE,
+        CONSTANTS.AWS_HIERARCHY_FILE,
+        CONSTANTS.AZURE_HIERARCHY_FILE,
+        CONSTANTS.SCENE_GLB_FILE,
+        CONSTANTS.SCENE_JSON_FILE,
+        CONSTANTS.AZURE_SCENE_CONFIG_FILE,
+    }
+    forbidden = []
+    for path in relative_files:
+        basename = os.path.basename(path)
+        if (
+            "/processors/" in f"/{path}"
+            or "/event_actions/" in f"/{path}"
+            or "/event-feedback/" in f"/{path}"
+            or path.startswith(f"{CONSTANTS.TWIN_HIERARCHY_DIR_NAME}/")
+            or path.startswith(f"{CONSTANTS.SCENE_ASSETS_DIR_NAME}/")
+            or basename in CONSTANTS.STATE_MACHINE_SIGNATURES
+            or basename in historical_asset_names
+        ):
+            forbidden.append(path)
+    if forbidden:
+        raise ValueError(
+            "Phase 8 comparison profiles do not accept historical processor, "
+            "event-action, hierarchy, state-machine, or scene artifacts: "
+            + ", ".join(sorted(forbidden))
+        )
 
 
 
@@ -1035,20 +1163,25 @@ def run_all_checks(
     l2_provider = l2_provider.lower()
     
     # Phase 4: Provider-specific validations
-    check_provider_function_directory(accessor, ctx, l2_provider)
-    check_state_machines(accessor, ctx)  # Already uses ctx.prov_config
-    check_processor_syntax(accessor, ctx, l2_provider)
-    check_event_actions(ctx)
-    check_event_action_types(ctx)  # Validate workflow action types match L2 provider
-    check_feedback_function(ctx)
-    check_processor_folders_match_devices(accessor, ctx, l2_provider)
-    check_state_machine_presence(ctx)  # Already provider-aware
+    phase8 = ctx.architecture_profile in PHASE_8_COMPARISON_PROFILES
+    if phase8:
+        check_phase8_profile_artifacts(ctx)
+    else:
+        check_provider_function_directory(accessor, ctx, l2_provider)
+        check_state_machines(accessor, ctx)  # Already uses ctx.prov_config
+        check_processor_syntax(accessor, ctx, l2_provider)
+        check_event_actions(ctx)
+        check_event_action_types(ctx)  # Validate workflow action types match L2 provider
+        check_feedback_function(ctx)
+        check_processor_folders_match_devices(accessor, ctx, l2_provider)
+        check_state_machine_presence(ctx)  # Already provider-aware
     
     # Phase 5: Cross-cutting validations
     check_payloads_vs_devices(accessor, ctx)
     check_credentials_per_provider(ctx)
-    check_hierarchy_provider_match(accessor, ctx)
-    check_scene_assets(accessor, ctx)
+    if not phase8:
+        check_hierarchy_provider_match(accessor, ctx)
+        check_scene_assets(accessor, ctx)
     check_user_config_for_l4_l5(accessor, ctx)  # Validates config_user.json
     
     logger.info("✓ All validation checks passed")
@@ -1116,28 +1249,37 @@ def run_all_checks_aggregated(
         return result
     
     # Phase 4: Provider-specific validations (each collected separately)
-    for check_fn, args in [
-        (check_provider_function_directory, (accessor, ctx, l2_provider)),
-        (check_state_machines, (accessor, ctx)),
-        (check_processor_syntax, (accessor, ctx, l2_provider)),
-        (check_event_actions, (ctx,)),
-        (check_event_action_types, (ctx,)),  # Validate workflow action types match L2 provider
-        (check_feedback_function, (ctx,)),
-        (check_processor_folders_match_devices, (accessor, ctx, l2_provider)),
-        (check_state_machine_presence, (ctx,)),
-    ]:
+    phase8 = ctx.architecture_profile in PHASE_8_COMPARISON_PROFILES
+    provider_checks = (
+        [(check_phase8_profile_artifacts, (ctx,))]
+        if phase8
+        else [
+            (check_provider_function_directory, (accessor, ctx, l2_provider)),
+            (check_state_machines, (accessor, ctx)),
+            (check_processor_syntax, (accessor, ctx, l2_provider)),
+            (check_event_actions, (ctx,)),
+            (check_event_action_types, (ctx,)),
+            (check_feedback_function, (ctx,)),
+            (check_processor_folders_match_devices, (accessor, ctx, l2_provider)),
+            (check_state_machine_presence, (ctx,)),
+        ]
+    )
+    for check_fn, args in provider_checks:
         try:
             check_fn(*args)
         except ValueError as e:
             result.add_error(str(e))
     
     # Phase 5: Cross-cutting validations
-    cross_checks = [
-        (check_payloads_vs_devices, (accessor, ctx)),
-        (check_hierarchy_provider_match, (accessor, ctx)),
-        (check_scene_assets, (accessor, ctx)),
-        (check_user_config_for_l4_l5, (accessor, ctx)),
-    ]
+    cross_checks = [(check_payloads_vs_devices, (accessor, ctx))]
+    if not phase8:
+        cross_checks.extend(
+            [
+                (check_hierarchy_provider_match, (accessor, ctx)),
+                (check_scene_assets, (accessor, ctx)),
+            ]
+        )
+    cross_checks.append((check_user_config_for_l4_l5, (accessor, ctx)))
     
     # Optionally skip credential check in Mode A
     if not ctx.skip_credentials:

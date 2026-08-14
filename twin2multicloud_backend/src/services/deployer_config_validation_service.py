@@ -104,6 +104,11 @@ class DeployerConfigValidationService:
                 deployer_endpoint,
                 files,
                 provider=request.provider,
+                context_params=(
+                    self._phase8_user_config_context(twin)
+                    if config_type == "user-config"
+                    else None
+                ),
             )
 
         files = {"file": (f"config_{config_type}.json", request.content.encode(), "application/json")}
@@ -127,6 +132,30 @@ class DeployerConfigValidationService:
         return {
             "scene_file": ("scene.json", content.encode(), "application/json"),
             "hierarchy_file": ("hierarchy.json", (hierarchy_content or "").encode(), "application/json"),
+        }
+
+    @staticmethod
+    def _phase8_user_config_context(twin) -> dict[str, str] | None:
+        selection = twin.architecture_selection
+        optimizer = twin.optimizer_config
+        if selection is None or optimizer is None:
+            return None
+        identity = (selection.profile_id, selection.profile_version)
+        if identity not in {
+            ("five-layer-baseline", "2"),
+            ("six-layer-eventing", "1"),
+        }:
+            return None
+
+        def normalize(value: str | None) -> str:
+            provider = (value or "").lower()
+            return "gcp" if provider == "google" else provider
+
+        return {
+            "architecture_profile_id": selection.profile_id,
+            "architecture_profile_version": selection.profile_version,
+            "layer_4_provider": normalize(optimizer.cheapest_l4),
+            "layer_5_provider": normalize(optimizer.cheapest_l5),
         }
 
     def _mark_validation_success(self, twin_id: str, twin, config_type: str) -> None:

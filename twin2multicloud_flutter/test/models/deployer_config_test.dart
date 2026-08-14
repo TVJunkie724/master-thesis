@@ -146,8 +146,9 @@ void main() {
       expect(requirements.eventFeedbackRequired, isFalse);
       expect(requirements.eventActionsRequired, isFalse);
       expect(requirements.stateMachineRequired, isFalse);
-      expect(requirements.hierarchyRequired, isTrue);
+      expect(requirements.hierarchyRequired, isFalse);
       expect(requirements.sceneRequired, isFalse);
+      expect(requirements.userConfigRequired, isTrue);
     });
   });
 

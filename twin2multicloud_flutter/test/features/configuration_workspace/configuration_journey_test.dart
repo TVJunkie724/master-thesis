@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
+import 'package:twin2multicloud_flutter/config/step3_examples.dart';
 import 'package:twin2multicloud_flutter/features/configuration_workspace/domain/configuration_journey.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/calc_result.dart';
@@ -261,6 +262,8 @@ void main() {
             configIotDevicesValidated: true,
             payloadsJson: '{}',
             payloadsValidated: true,
+            userConfigContent: Step3Examples.userConfig,
+            userConfigValidated: true,
             deploymentRun: TypedApiFixtures.deploymentRun(
               selectedForDeploymentAt: TypedApiFixtures.timestamp,
             ),

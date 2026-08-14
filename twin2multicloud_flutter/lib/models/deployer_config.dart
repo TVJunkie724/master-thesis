@@ -266,12 +266,14 @@ class DeployerConfigRequirements extends Equatable {
       stateMachineRequired:
           !profileOwnsMandatoryEventBehavior &&
           calcParams?.triggerNotificationWorkflow == true,
-      hierarchyRequired: l4UsesManagedAssets,
+      hierarchyRequired:
+          !profileOwnsMandatoryEventBehavior && l4UsesManagedAssets,
       sceneRequired:
           !profileOwnsMandatoryEventBehavior &&
           calcParams?.needs3DModel == true &&
           l4UsesManagedAssets,
-      userConfigRequired: _isAwsOrAzure(layer5Provider),
+      userConfigRequired:
+          profileOwnsMandatoryEventBehavior || _isAwsOrAzure(layer5Provider),
     );
   }
 

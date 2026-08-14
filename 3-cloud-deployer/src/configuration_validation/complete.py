@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import math
 import re
@@ -57,6 +58,10 @@ V2_FORBIDDEN_OPTIMIZER_FIELDS = {
     "useEventChecking",
 }
 EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+UUID_PATTERN = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 V2_CONDITION_PATTERN = re.compile(r"^\s*(\S+)\s*(<=|>=|==|!=|<|>)\s*(\S+)\s*$")
 V2_TYPED_OPERAND_PATTERN = re.compile(
     r"^(?:DOUBLE|INTEGER|STRING|BOOLEAN)\([^()\r\n]*\)$"
@@ -87,10 +92,10 @@ def validate_complete_configuration(
     device_ids = _parse_device_ids(config.config_iot_devices)
 
     _validate_payloads(config.payloads, device_ids, errors)
-    _validate_processors(config.processors or {}, device_ids, l2, errors)
-    _validate_hierarchy_and_scene(config, l4, params, errors)
+    _validate_processors(config.processors or {}, device_ids, l2, profile, errors)
+    _validate_hierarchy_and_scene(config, l4, params, profile, errors)
     _validate_event_extensions(config, l2, params, profile, errors)
-    _validate_user_config(config.user_config, l5, errors)
+    _validate_user_config(config.user_config, l4, l5, profile, errors)
     return DeployerValidationResponse(valid=not errors, errors=errors)
 
 
@@ -349,8 +354,21 @@ def _validate_processors(
     processors: dict[str, str],
     device_ids: list[str],
     provider: str | None,
+    profile: tuple[str, str] | None,
     errors: list[ValidationError],
 ) -> None:
+    if profile in PHASE_8_COMPARISON_PROFILES:
+        for device_id in sorted(processors):
+            _add(
+                errors,
+                "UNEXPECTED_PROCESSOR",
+                f"processor:{device_id}",
+                (
+                    f"{profile[0]}@{profile[1]} provides the bounded telemetry "
+                    "processor as a profile-owned runtime component"
+                ),
+            )
+        return
     configured = set(device_ids)
     for device_id in sorted(configured - processors.keys()):
         _add(
@@ -379,7 +397,26 @@ def _validate_processors(
         )
 
 
-def _validate_hierarchy_and_scene(config, l4, params, errors) -> None:
+def _validate_hierarchy_and_scene(config, l4, params, profile, errors) -> None:
+    if profile in PHASE_8_COMPARISON_PROFILES:
+        profile_label = f"{profile[0]}@{profile[1]}"
+        for field, present in (
+            ("hierarchy", bool(config.hierarchy)),
+            ("scene_config", bool(config.scene_config)),
+            ("scene_glb", config.scene_glb_uploaded),
+        ):
+            if present:
+                _add(
+                    errors,
+                    "FORBIDDEN_PROFILE_FIELD",
+                    field,
+                    (
+                        f"{profile_label} derives its bounded L4 seed from the "
+                        "configured PoC devices and does not accept manual hierarchy "
+                        "or scene artifacts"
+                    ),
+                )
+        return
     if l4 not in {"aws", "azure"}:
         return
     if not config.hierarchy:
@@ -625,15 +662,21 @@ def _parse_action_names(content: str | None) -> list[str]:
     return sorted(names)
 
 
-def _validate_user_config(content, l5, errors) -> None:
-    if l5 not in {"aws", "azure"}:
+def _validate_user_config(content, l4, l5, profile, errors) -> None:
+    phase8 = profile in PHASE_8_COMPARISON_PROFILES
+    if not phase8 and l5 not in {"aws", "azure"}:
         return
     if not content:
         _add(
             errors,
             "MISSING_USER_CONFIG",
             "user_config",
-            f"User config is required for L5 provider ({l5.upper()})",
+            (
+                "Phase 8 comparison profiles require the platform identity used "
+                "for usable L4/L5 access"
+                if phase8
+                else f"User config is required for L5 provider ({l5.upper()})"
+            ),
         )
         return
     try:
@@ -668,6 +711,7 @@ def _validate_user_config(content, l5, errors) -> None:
         )
     elif (
         email
+        and not phase8
         and l5 == "azure"
         and not email.split("@", 1)[1].lower().endswith(".onmicrosoft.com")
     ):
@@ -677,13 +721,99 @@ def _validate_user_config(content, l5, errors) -> None:
             "user_config",
             "Azure admin_email must use the tenant onmicrosoft.com domain",
         )
-    aws_intent = value.get("aws_layer_access_principal_intent", "existing")
-    if aws_intent not in {"existing", "invite_builtin"}:
-        _add(
-            errors,
-            "INVALID_USER_CONFIG",
-            "user_config",
-            "aws_layer_access_principal_intent must be existing or invite_builtin",
+    if not phase8:
+        aws_intent = value.get("aws_layer_access_principal_intent", "existing")
+        if aws_intent not in {"existing", "invite_builtin"}:
+            _add(
+                errors,
+                "INVALID_USER_CONFIG",
+                "user_config.aws_layer_access_principal_intent",
+                "aws_layer_access_principal_intent must be existing or invite_builtin",
+            )
+        return
+
+    for field in ("admin_email", "admin_first_name", "admin_last_name"):
+        field_value = value.get(field)
+        if not isinstance(field_value, str) or not field_value.strip():
+            _add(
+                errors,
+                "INVALID_USER_CONFIG",
+                f"user_config.{field}",
+                f"{field} must be a non-empty string for Phase 8 L4/L5 access",
+            )
+
+    selected = {provider for provider in (l4, l5) if provider in PROVIDERS}
+    if "aws" in selected:
+        aws_intent = value.get("aws_layer_access_principal_intent")
+        if aws_intent not in {"existing", "invite_builtin"}:
+            _add(
+                errors,
+                "INVALID_USER_CONFIG",
+                "user_config.aws_layer_access_principal_intent",
+                "AWS L4/L5 requires explicit existing or invite_builtin principal intent",
+            )
+
+    if "azure" in selected:
+        object_id = value.get("azure_principal_object_id")
+        if not isinstance(object_id, str) or not UUID_PATTERN.fullmatch(object_id):
+            _add(
+                errors,
+                "INVALID_USER_CONFIG",
+                "user_config.azure_principal_object_id",
+                "Azure L4/L5 requires an existing Entra principal object ID UUID",
+            )
+        label = value.get("azure_principal_label")
+        if not isinstance(label, str) or not label.strip():
+            _add(
+                errors,
+                "INVALID_USER_CONFIG",
+                "user_config.azure_principal_label",
+                "Azure L4/L5 requires a non-empty Entra principal label or UPN",
+            )
+
+    if l5 == "gcp":
+        cidrs = value.get("gcp_grafana_source_cidrs")
+        if not isinstance(cidrs, list) or not cidrs:
+            _add(
+                errors,
+                "INVALID_USER_CONFIG",
+                "user_config.gcp_grafana_source_cidrs",
+                "GCP L5 requires at least one bounded Grafana source CIDR",
+            )
+        elif not all(_valid_bounded_cidr(cidr) for cidr in cidrs):
+            _add(
+                errors,
+                "INVALID_USER_CONFIG",
+                "user_config.gcp_grafana_source_cidrs",
+                "GCP Grafana source CIDRs must be valid and must not be wildcard routes",
+            )
+
+
+def _valid_bounded_cidr(value: object) -> bool:
+    if not isinstance(value, str) or value in {"0.0.0.0/0", "::/0"}:
+        return False
+    try:
+        ipaddress.ip_network(value, strict=False)
+    except ValueError:
+        return False
+    return True
+
+
+def validate_phase8_user_config_content(
+    content: str,
+    *,
+    l4_provider: str | None,
+    l5_provider: str | None,
+    profile: tuple[str, str],
+) -> None:
+    """Validate one user-config editor payload with its trusted profile context."""
+    if profile not in PHASE_8_COMPARISON_PROFILES:
+        raise ValueError("Architecture profile is not an active Phase 8 profile")
+    errors: list[ValidationError] = []
+    _validate_user_config(content, l4_provider, l5_provider, profile, errors)
+    if errors:
+        raise ValueError(
+            "; ".join(f"{error.field}: {error.message}" for error in errors)
         )
 
 
