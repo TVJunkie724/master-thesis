@@ -77,7 +77,7 @@ locals {
     "${var.gcp_region}-docker.pkg.dev/${local.gcp_project_id}/${local.gcp_v2_name}-v2/"
   )
   gcp_v2_labels = merge(local.gcp_common_labels, {
-    architecture-profile = "five-layer-v2"
+    architecture-profile = local.six_layer_eventing_enabled ? "six-layer-eventing-v1" : "five-layer-v2"
   })
 
   gcp_v2_large_scenario = (

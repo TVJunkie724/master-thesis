@@ -171,7 +171,7 @@ locals {
     : "${var.project_path}/.build/azure/five-layer-v2.zip"
   )
   azure_v2_tags = merge(local.common_tags, {
-    ArchitectureProfile = "five-layer-baseline@2"
+    ArchitectureProfile = "${var.architecture_profile_id}@${var.architecture_profile_version}"
   })
   azure_v2_processor_extensions = local.azure_v2_l2_enabled ? {
     for package in var.validated_extension_packages : package.artifact_id => package

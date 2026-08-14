@@ -18,3 +18,16 @@ def test_inherited_azure_and_gcp_runtimes_use_the_resolved_profile() -> None:
         assert 'ARCHITECTURE_PROFILE     = "five-layer-baseline@2"' not in source
         assert 'ARCHITECTURE_PROFILE        = "five-layer-baseline@2"' not in source
         assert PROFILE_EXPRESSION in source
+
+
+def test_inherited_resource_labels_identify_the_selected_profile() -> None:
+    azure = (TERRAFORM_ROOT / "azure_five_layer_v2.tf").read_text(
+        encoding="utf-8"
+    )
+    gcp = (TERRAFORM_ROOT / "gcp_five_layer_v2.tf").read_text(encoding="utf-8")
+
+    assert f"ArchitectureProfile = {PROFILE_EXPRESSION}" in azure
+    assert (
+        'architecture-profile = local.six_layer_eventing_enabled ? '
+        '"six-layer-eventing-v1" : "five-layer-v2"'
+    ) in gcp
