@@ -2,8 +2,8 @@
 title: "Frontend Delta Roadmap"
 description: "Cross-pillar roadmap for aligning Flutter with the credential, pricing, deployment, and configuration refactors."
 tags: [flutter, roadmap, credentials, pricing, deployment, wizard]
-lastUpdated: "2026-08-11"
-version: "1.9"
+lastUpdated: "2026-08-14"
+version: "2.0"
 ---
 
 <!-- SOURCES:
@@ -24,7 +24,7 @@ version: "1.9"
 - twin2multicloud_flutter/lib/screens/twin_overview/twin_overview_screen.dart
 - twin2multicloud_flutter/lib/models/wizard_config_requests.dart
 - twin2multicloud_flutter/docs/frontend_architecture_refactoring/ROADMAP_FRONTEND_ARCHITECTURE_REFACTORING.md
-EXTRACTED: 2026-08-11 | VERSION: 1.9
+EXTRACTED: 2026-08-14 | VERSION: 2.0
 -->
 
 # Frontend Delta Roadmap
@@ -178,6 +178,7 @@ complete. New product work still requires a dedicated implementation plan
 before Flutter code changes.
 
 Frontend Delta 8.6 is implemented and verified against a credential-free local
-Management API for every L4/L5 provider pair. This does not activate the
-still-draft Five-layer v2 profile and does not claim provider-console browser
-sign-in; those remain Phase 8.9A publication and supervised-live boundaries.
+Management API for every L4/L5 provider pair. Five-layer v2 and Six-layer v1
+are now active for offline calculation; Phase 8.10 generates research evidence
+without adding frontend behavior. Provider-console browser sign-in remains a
+separate supervised-live boundary.

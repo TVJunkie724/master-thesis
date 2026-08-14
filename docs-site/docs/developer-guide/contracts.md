@@ -133,15 +133,17 @@ selection only while its catalog/account context remains current. Existing runs
 without v1 remain inspectable but have compatibility status
 `legacy_not_deployable`.
 
-`DeploymentManifest 2.0` binds the selected run ID, exact specification object,
-and digest. The Deployer validates the same generated contract before creating
-an operation workspace, verifies the exact provider/component/dimension
-binding, and translates only allowlisted `deployable_selection`
-`terraform_target` dimensions. The translation is pure and deterministic;
-usage tiers, account-scope state, and non-deployable assumptions produce no
-Terraform variables. Missing, stale, conflicting, or unknown mappings fail
-with stable redacted errors. No downstream component may synthesize missing
-dimensions from calculator or Terraform defaults.
+Manifest v2 introduced the selected run ID, exact specification object, and
+digest. It is now a historical reader only. Five-layer v1 operations use
+Manifest v3 with RTA/RDS v1; active Five-layer v2 and Six-layer v1 operations
+use Manifest v4 with RTA/RDS v2. The Deployer validates the matching generated
+contract before creating an operation workspace, verifies the exact
+provider/component/dimension binding, and translates only allowlisted
+`deployable_selection` `terraform_target` dimensions. The translation is pure
+and deterministic; usage tiers, account-scope state, and non-deployable
+assumptions produce no Terraform variables. Missing, stale, conflicting, or
+unknown mappings fail with stable redacted errors. No downstream component may
+synthesize missing dimensions from calculator or Terraform defaults.
 
 ### Architecture Profile Contracts
 

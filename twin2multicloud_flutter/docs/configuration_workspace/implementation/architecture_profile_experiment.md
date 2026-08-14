@@ -3,7 +3,7 @@ title: "Architecture Profile Workflow Implementation"
 description: "Implemented Flutter state, API, presentation, and Five-/Six-layer activation boundaries for Phase 8.7, Phase 8.9A, and Phase 8.9B."
 tags: [flutter, architecture-profiles, wizard, bloc, phase-8]
 lastUpdated: "2026-08-14"
-version: "1.6"
+version: "1.7"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "1.6"
 - twin2multicloud_flutter/lib/features/configuration_workspace/
 - twin2multicloud_flutter/lib/widgets/results/resolved_architecture_review.dart
 - Credential-free OrbStack integration verification on 2026-08-03
-EXTRACTED: 2026-08-14 | VERSION: 1.6
+EXTRACTED: 2026-08-14 | VERSION: 1.7
 -->
 
 # Architecture Profile Workflow Implementation
@@ -138,6 +138,11 @@ when this branch is integrated; the local macOS run does not claim those host
 builds. Two final 8.9B reviews of the complete profile workflow and its
 cross-stack contract reached zero unresolved findings; the offline result is
 frozen for Phase 8.10 evaluation, while live-capacity gates remain fail-closed.
+
+Phase 8.10 now generates the thesis evaluation as a deterministic repository
+evidence package. That package evaluates the historical v1 reconstruction and
+the two active profiles, but it does not add another Flutter flow, turn the UI
+into an evaluation dashboard, or authorize a cross-profile winner claim.
 
 Authoritative sources:
 

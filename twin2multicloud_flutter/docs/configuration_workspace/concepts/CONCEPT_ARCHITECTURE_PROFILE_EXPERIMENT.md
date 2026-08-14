@@ -3,7 +3,7 @@ title: "Architecture Profile Experiment"
 description: "A bounded Configuration Workspace experience for selecting, comparing, and deploying the Five-layer v2 and Six-layer v1 thesis profiles."
 tags: [flutter, configuration-workspace, architecture-profiles, eventing, thesis]
 lastUpdated: "2026-08-14"
-version: "1.5"
+version: "1.6"
 ---
 
 <!-- SOURCES:
@@ -16,7 +16,7 @@ version: "1.5"
 - twin2multicloud_flutter/docs/configuration_workspace/RESOLVED_DEPLOYMENT_REVIEW.md
 - FRONTEND_ARCHITECTURE.md
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-14 | VERSION: 1.5
+EXTRACTED: 2026-08-14 | VERSION: 1.6
 -->
 
 # Architecture Profile Experiment
@@ -53,6 +53,10 @@ profile space. Deployment remains blocked whenever a resolved candidate lists
 an unsatisfied supervised live-capacity gate. Demo mode exposes both profile
 definitions for comparison; its calculation fixture remains Five-layer-only
 and fails closed for Six-layer rather than relabeling Five-layer evidence.
+
+Phase 8.10 implements the comparison methodology as separate, reproducible
+research evidence. It does not introduce an Event feature flag, a third UI
+workflow, or a global recommendation between the two active profiles.
 
 ## Motivation
 

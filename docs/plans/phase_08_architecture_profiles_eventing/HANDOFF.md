@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-14"
-version: "4.16"
+version: "4.17"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.16"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-14 | VERSION: 4.16
+EXTRACTED: 2026-08-14 | VERSION: 4.17
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -29,13 +29,13 @@ EXTRACTED: 2026-08-14 | VERSION: 4.16
 | Repository | `TVJunkie724/master-thesis` |
 | Integration branch | `master` |
 | Reviewed implementation base | `c5c6232478d29a9cc3c7d280bdc9ca0e79c47226` on `codex/phase-8-9a-layer-access` |
-| Active implementation branch | `codex/phase-8-six-layer-eventing-v1` |
+| Active implementation branch | `codex/phase-8-evaluation-documentation` |
 | Locally completed implementation | Phase 8.0 / #144 through Phase 8.8, prerequisite #113, guided bootstrap / #154, complete Five-layer v2 / 8.9A, and Six-layer / 8.9B; two final 8.9B review passes and all safe gates are frozen with zero unresolved findings, while issues remain open until publication/merge |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
 | Implementation status | Five-layer v2 and Six-layer v1 are active locally across contracts, Optimizer, Management, Deployer/Terraform, provider runtimes, and Flutter. The Six-layer implementation inherits the pinned Five-layer graph and adds only the reviewed Eventing delta. Deployment remains blocked by explicit supervised live-capacity gates. |
-| Next action | Start Phase 8.10 on a separate branch and generate deterministic historical-v1/Five-v2/Six-v1 evaluation evidence plus current-system documentation from the frozen offline implementations. |
+| Next action | Complete Phase 8.10 current/research documentation, run the full safe gate and two zero-finding reviews, then freeze the evaluation branch. |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -237,6 +237,17 @@ a root drift test compares both ownership constants.
 Management also cross-checks the typed Layer Access evidence profile/version
 against its owning deployment, closing the remaining inherited-evidence swap.
 
+Phase 8.10 now has a committed deterministic evidence baseline at `fd2f657a`.
+The `phase-08-profile-evaluation@1` package pins the complete contract,
+implementation, workload, pricing, source, generator/schema, environment, and
+result chain for historical Five-layer v1, Five-layer v2, and Six-layer v1.
+It evaluates functional completeness before theoretical capacity and estimated
+cost, covers every required single-/multi-cloud placement and directed Event
+provider pair, preserves unsupported/unverified subjects without totals, maps
+RQ1-RQ3.2, and passes strict validation, eight mutation/coverage tests, and two
+byte-identical clean regenerations. No provider credential, Terraform apply,
+browser sign-in, paid operation, or LaTeX change is part of that evidence.
+
 ## Immediate Next Action
 
 Both profiles are active for offline evaluation but not live deployment.
@@ -247,10 +258,11 @@ Continue with these boundaries in order:
    Phase 8.7 workflow, and reviewed offline guided-bootstrap boundary;
 2. keep `five-layer-baseline@1` historical and keep every v2 live-capacity
    gate explicit and fail-closed for deployment;
-3. keep `codex/phase-8-six-layer-eventing-v1` pinned to the exact inherited
-   Five-layer commit and contract digests;
-4. preserve the zero-finding Six-layer audit freeze and complete Phase 8.10
-   evaluation on a separate branch without live cloud execution.
+3. keep the Six-layer implementation pinned to the exact inherited Five-layer
+   commit and contract digests;
+4. preserve the zero-finding Six-layer audit freeze and the committed Phase
+   8.10 deterministic evidence package while completing documentation and
+   final gates without live cloud execution.
 
 ## Required Reading Order
 

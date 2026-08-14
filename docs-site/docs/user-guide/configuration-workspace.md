@@ -42,6 +42,35 @@ catalog was an activation seam, not a disabled or “coming soon” UI. A profil
 change first shows the exact server-calculated workload, user-logic, run, and
 readiness invalidations and requires explicit confirmation.
 
+## First Real-Provider Lifecycle
+
+No cloud preparation is required before creating a draft Twin or calculating
+an offline architecture. Real deployment access follows this exact current PoC
+boundary:
+
+1. Outside the app, create or select the provider account/subscription/project,
+   enable billing where required, and obtain temporary owner/admin bootstrap
+   authority.
+2. Start the UI and create/configure/calculate the Twin without that authority.
+3. Resolve the selected providers in **Prepare deployment -> Cloud access**.
+   The in-app deterministic adapters are offline only. For a real provider,
+   request the reviewed manual bootstrap plan, authenticate through the
+   provider CLI, inspect the dry run, and apply it explicitly.
+4. Import and validate only the generated bounded `thesis-demo-v2`
+   CloudConnection. Bind it to the Twin; the initial owner/admin credential is
+   neither imported nor retained by the app.
+5. Revoke or delete the temporary owner/admin authority and complete any
+   provider-side manual cleanup before acknowledging it in the workflow.
+6. Run Twin deployment preflight. Complete only the exact account-level,
+   billing, quota, policy, AWS Identity Center, or GCP OAuth prerequisite the
+   preflight reports, then recheck through the bounded connection.
+7. Deploy only in a separately approved supervised run. After successful live
+   verification, Twin Overview can expose the generated L4 semantic-Twin and
+   L5 Grafana links with their provider-owned access instructions.
+
+The repository's offline evaluation and default tests stop before steps 3-7
+perform any provider mutation. They do not produce live links or credentials.
+
 ## Calculation And Evidence
 
 Calculate creates a durable server-owned optimizer run for the current twin.

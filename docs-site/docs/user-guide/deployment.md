@@ -61,3 +61,8 @@ The Layer Access integration uses the same quarantine: a temporary local
 Management API and SQLite database exercise all nine L4/L5 provider pairs for
 both active profiles, owner isolation, redaction, destroy, and rotation
 concurrency without starting Optimizer, Deployer, Terraform, or a provider API.
+
+The Phase 8.10 evaluation likewise stops at deterministic RTA/RDS and
+deployment-preflight evidence. Its resolved architecture files, estimated
+costs, and generated Markdown are not proof that deployment ran and cannot be
+used as live Layer Access credentials or URLs.

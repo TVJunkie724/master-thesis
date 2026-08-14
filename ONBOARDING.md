@@ -21,6 +21,16 @@ Read `integration_vision.md` to understand the complete ecosystem.
 **Key concepts to understand:**
 - The 5-Layer Architecture (Data Acquisition, Processing, Storage, Management, Visualization)
 - How the 3 core projects relate: Orchestrator → Brain → Muscle
+- The current closed profile boundary: historical `five-layer-baseline@1`,
+  active offline `five-layer-baseline@2`, and active offline
+  `six-layer-eventing@1`. Six-layer inherits the same L1-L5 contract and adds
+  only the independent Eventing responsibility.
+
+For Phase 8 work, read
+`docs/plans/phase_08_architecture_profiles_eventing/HANDOFF.md` and the
+machine-readable evidence index at
+`docs/research/evidence/phase_08_profile_evaluation/README.md` before changing
+contracts, cost logic, deployment graphs, or current documentation.
 
 ---
 
@@ -203,6 +213,18 @@ rm -rf "$tmpdir"
 ```bash
 docker run --rm -v "$PWD/3-cloud-deployer:/app" -w /app -e PYTHONPATH=/app 3cloud-deployer:latest python -m pytest tests/unit tests/api tests/integration tests/test_gcp_simulator.py -q
 ```
+
+**Phase 8 evaluation (safe, frozen local evidence only):**
+
+```bash
+docker --context orbstack compose run --rm --no-deps \
+  -v "$PWD:/workspace" -w /workspace 2twin2clouds \
+  python scripts/phase_08_profile_evaluation/validate.py
+```
+
+The generator and reproducibility checker enumerate offline candidates and do
+not call a provider. Do not substitute pricing refresh, Terraform apply/destroy,
+browser sign-in, or `tests/e2e/` for this evidence gate.
 
 ---
 

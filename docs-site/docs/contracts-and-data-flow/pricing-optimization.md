@@ -74,6 +74,13 @@ dimensions from `six-layer-eventing-v1-cost-registry.json`. Its S/M/L Eventing
 scenario is paired with the same immutable core preset, so profile comparison
 does not silently change functional workload.
 
+The Phase 8.10 package evaluates each active profile locally and then produces
+27 matched-context deltas for the three sizes and nine admissible L3/L5-to-L4
+placements. It also covers all six directed Event-provider pairs. The generated
+summary must not be read as one cross-profile optimizer race: profile-local
+winners answer different bounded architecture questions, while only the
+matched inherited L1-L5 rows isolate the explicit Eventing treatment.
+
 Rollup storage and rollup operations are different quantities. Storage holds
 at most one rollup item per device, metric, and hour (720 points across the
 30-day hot window). Every accepted telemetry record still performs one raw

@@ -24,6 +24,10 @@ conclusions.
 - migration, encryption, redaction, rate-limit, audit, and transport tests;
 - deterministic offline demo plus Web, macOS, Windows, and Linux build gates;
 - local credential-free Compose integration.
+- a digest-pinned Phase 8.10 offline profile-evaluation package covering the
+  historical v1 reconstruction, Five-layer v2 and Six-layer v1 S/M/L spaces,
+  all active single-cloud cases, nine L3/L5-to-L4 placements, all six directed
+  Event-provider pairs, and byte-identical regeneration.
 
 Cross-platform support means that the same Flutter source compiles for Web and
 all three desktop operating systems on native CI runners. It does not include
@@ -151,6 +155,12 @@ adapters are contract-tested offline, but browser access, provider policy,
 quota, and live capacity remain supervised gates. They cannot be presented as
 deployment-ready. See
 [Provider Capabilities](../architecture/provider-capabilities.md).
+
+The evaluation is deliberately not cost-optimized as a service-selection
+exercise: the reviewed functionally complete PoC bundles are fixed first so
+their estimated cost differences remain visible. It does not establish managed
+service equivalence, production fitness, invoice accuracy, measured throughput,
+live identity exchange, or successful L4/L5 browser access.
 Firestore L3 uses scenario-derived timestamp shards; Firestore L4 is
 deliberately limited to point and one-hop relationship queries. Arbitrary graph
 algorithms are not supported. The current Pub/Sub acquisition path and retired

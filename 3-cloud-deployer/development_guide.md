@@ -11,9 +11,10 @@ architecture, cloud bootstrap, and thesis context belong in `docs-site/`.
 - Keep `upload/<project>/` limited to durable, secret-free project definitions.
 - Materialize credentials only through `OperationPackageStore`; operation
   routes must require and consume an `X-Operation-Package` token.
-- Require `DeploymentManifest 2.0` and a valid frozen
-  `ResolvedDeploymentSpecification v1` before deployment, destruction, or
-  credential-backed drift operations.
+- Require the profile-matched manifest and frozen resolved evidence before
+  deployment, destruction, or credential-backed drift operations: v3 with
+  RTA/RDS v1 for historical Five-layer v1, or v4 with RTA/RDS v2 for active
+  Five-layer v2 and Six-layer v1. Manifest v2 is a historical reader only.
 - Add deployment variables only through the canonical generated dimension
   registry and pure translator. Never infer specification-owned values from
   Terraform defaults.

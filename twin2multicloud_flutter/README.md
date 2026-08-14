@@ -118,3 +118,7 @@ be selected for deployment while a listed live-capacity gate remains. Demo
 mode exposes both profile definitions but intentionally fails closed when a
 Six-layer calculation is requested because it has no canonical Six-layer
 calculation fixture.
+
+The deterministic Phase 8.10 thesis evaluation is generated outside Flutter.
+The UI presents only Management-owned, profile-local resolved results and does
+not derive a universal Five-versus-Six winner from the research evidence.

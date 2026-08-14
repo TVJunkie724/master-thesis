@@ -26,6 +26,11 @@ The API returns metadata and validation results, never the stored plaintext payl
 
 ## Bootstrap A Scoped Connection
 
+Provider owner/admin authority is created or obtained outside the application;
+the app cannot create the initial root/owner credential from nothing. Creating
+a Twin, choosing a profile, entering the frozen workload, and calculating an
+offline result need no cloud credential.
+
 The shared guided flow is available from **Settings -> Cloud Accounts &
 Access** and **Prepare deployment -> Cloud access**:
 
@@ -44,8 +49,10 @@ restored into Flutter state or persisted by Management. Resume, cancel,
 recheck, start-new, and credential re-entry remain available without claiming
 that local release equals provider revocation.
 
-The local PoC uses deterministic adapters and creates no live cloud identity or
-resource. Production adapters are disabled. For supervised live-provider work,
+The local PoC guided flow accepts only deterministic test authority and creates
+no live cloud identity or resource. Production adapters are disabled, so a real
+owner/admin credential must not be pasted into the current guided UI. For
+supervised live-provider work,
 the compatible manual, versioned static-script workflow remains available:
 
 1. request the provider bootstrap plan through the authenticated Management API;
@@ -54,6 +61,11 @@ the compatible manual, versioned static-script workflow remains available:
 4. run the script without `--apply`, review its plan, then apply explicitly;
 5. store its generated deployment CloudConnection JSON only in an ignored local path;
 6. import that generated connection and validate it before binding it to a twin.
+
+After the bounded deployment identity is validated and imported, the original
+owner/admin credential is no longer used by Twin calculation or normal
+deployment preflight. Revoke or delete it according to the provider-side plan;
+do not claim completion until any required manual cleanup is actually done.
 
 The manual `plan`/`import` endpoints never receive the administrator credential;
 authentication remains in the provider CLI. Current bootstrap scripts create

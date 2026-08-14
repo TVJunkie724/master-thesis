@@ -51,6 +51,10 @@ and therefore remains read-only. The active `five-layer-baseline@2` instead
 uses the reviewed provider-hosted GCP Twin API and Grafana-on-GKE bundle; any
 missing capability or supervised capacity evidence still fails closed and is
 never represented as a zero-cost deployable alternative.
+The separately active `six-layer-eventing@1` inherits that exact L1-L5 base and
+adds an independently placed Eventing component. The Optimizer ranks candidates
+inside one profile only; it never chooses a universal winner across Five- and
+Six-layer scopes.
 
 ## Start
 
@@ -191,6 +195,21 @@ provider billing blocks first: 0.5 KB for F1 and 4 KB for paid Standard tiers.
 The result keeps physical messages, billable messages, included messages per
 unit, SKU, and capacity together under `details.tierSelection`, making the
 formula and deployable selection directly auditable.
+
+## Frozen Phase 8 Evaluation
+
+The repository-level generator under
+`scripts/phase_08_profile_evaluation/` invokes the production profile
+strategies against the pinned S/M/L workloads and immutable regional rate
+cards. It covers 729 Five-layer v2 and 2,187 Six-layer v1 candidates per size,
+three single-cloud placements, all nine L3/L5-to-L4 placements, all six
+directed Event-provider pairs, and representative three-provider graphs.
+
+Results, rejected/no-total cases, matched-context deltas, limitations, RQ
+mapping, and RTA/RDS evidence are versioned under
+`docs/research/evidence/phase_08_profile_evaluation/`. The package reports
+profile-local winners and keeps independent Event Layer cost separate; it is
+offline estimation evidence, not a provider invoice or live-capacity result.
 
 ## Repository Layout
 

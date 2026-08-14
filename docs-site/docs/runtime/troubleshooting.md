@@ -117,3 +117,19 @@ configured event or downstream response.
 
 Stop and verify the command. Safe defaults exclude `tests/e2e`, do not enable the local
 credential overlay, and do not call refresh/deploy/destroy/simulator cloud operations.
+
+## Phase 8 Evaluation Drift
+
+Run the frozen local checks from the repository root:
+
+```bash
+docker --context orbstack compose run --rm --no-deps \
+  -v "$PWD:/workspace" -w /workspace 2twin2clouds \
+  python scripts/phase_08_profile_evaluation/validate.py
+```
+
+A digest error means a pinned contract, workload, implementation, pricing,
+source, generator, schema, or result changed. Do not patch generated JSON by
+hand. Reconcile the source and rerun `generate.py`, then require the
+byte-identical `verify_reproducibility.py` gate. Neither command requires or
+uses provider credentials.

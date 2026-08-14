@@ -25,7 +25,9 @@ implementation plans are authoritative.
   detail acknowledgement, revisioned invalidation preview, stale-conflict
   recovery, and resolved-run review. The visible order is Define twin,
   Architecture, Workload, User Logic, Optimize and review, Deployment review.
-  Workload and calculation fail closed while no active profile is published.
+  The active catalog contains Five-layer v2 and Six-layer v1; historical
+  Five-layer v1 remains read-only. Results stay profile-local and the UI does
+  not claim one universal Five-versus-Six winner.
 - Logical graphs are typed and read-only: wide/medium layouts use bounded
   Sugiyama overview/component projections; compact layouts list only declared
   labeled edges. Flutter never invents topology or offers infrastructure

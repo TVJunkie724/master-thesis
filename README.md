@@ -24,6 +24,30 @@ live separately under [`docs/research/`](docs/research/).
 
 ---
 
+## Current Architecture Profiles
+
+The closed Phase 8 catalog exposes two profiles for new offline calculations:
+
+- `five-layer-baseline@2` keeps the five scientific responsibilities and
+  embeds the mandatory rule/action/workflow/device-feedback behavior in L1/L2;
+- `six-layer-eventing@1` inherits the identical L1-L5 contract and adds one
+  independently assigned Eventing responsibility for brokered delivery,
+  fan-out, retry/DLQ, replay, ordering, observability, and cross-cloud routes.
+
+Both profiles require L3 hot and L5 to share a provider; L4 remains independently
+placeable. Historical `five-layer-baseline@1` stays readable for reproduction
+and compatibility but is not selectable for new work. The reproducible offline
+evaluation is under
+[`docs/research/evidence/phase_08_profile_evaluation/`](docs/research/evidence/phase_08_profile_evaluation/).
+It does not prove a provider deployment, live capacity, or browser sign-in.
+
+For the exact first-use sequence from externally obtained provider bootstrap
+authority through a bounded CloudConnection, Twin calculation, deployment
+preflight, and eventual L4/L5 access, see the
+[Configuration Workspace guide](docs-site/docs/user-guide/configuration-workspace.md#first-real-provider-lifecycle).
+
+---
+
 ## Prerequisites
 
 - **Docker** (OrbStack, Docker Desktop, or similar) — used to run all three backend services
@@ -351,9 +375,22 @@ The deployment-contract gate strips provider credential environment variables,
 rejects cloud credential overlays and `RUN_E2E_TESTS=1`, uses isolated temporary
 runtime secrets, performs no `terraform apply`, and removes its verification
 containers, networks, and volumes. The focused mode validates the frozen
-Optimizer result through Management persistence, Manifest v2, typed tfvars, and
+Optimizer result through Management persistence, the profile-matched Manifest
+v3/v4 boundary, typed tfvars, and
 credential-free Terraform mock plans. The no-argument command additionally
 runs all safe service, Flutter, documentation, static, and security gates.
+
+**Reproduce the Phase 8 profile evaluation without cloud access:**
+
+```bash
+docker --context orbstack compose run --rm --no-deps \
+  -v "$PWD:/workspace" -w /workspace 2twin2clouds \
+  python scripts/phase_08_profile_evaluation/validate.py
+
+docker --context orbstack compose run --rm --no-deps \
+  -v "$PWD:/workspace" -w /workspace 2twin2clouds \
+  python scripts/phase_08_profile_evaluation/verify_reproducibility.py
+```
 
 > ⚠️ **Never run E2E tests (`tests/e2e/`) without explicit intent** — they can
 > deploy real cloud resources and incur cost.

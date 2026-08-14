@@ -2,8 +2,8 @@
 title: "Guided Cloud Access Bootstrap Implementation"
 description: "Implemented offline PoC boundary for request-only bootstrap authority, bounded deployment CloudConnections, and the shared Flutter flow."
 tags: [flutter, bootstrap, cloud-connections, security, phase-8]
-lastUpdated: "2026-08-05"
-version: "1.0"
+lastUpdated: "2026-08-14"
+version: "1.1"
 ---
 
 # Guided Cloud Access Bootstrap Implementation
@@ -115,5 +115,6 @@ remaining finding.
 - `e15c36ae` manual cleanup guidance and Twin-provider admission review fix
 - `8279f3b1` deterministic concurrency-gate stabilization
 
-The next branch owns `five-layer-baseline@2`. This implementation does not
-activate any architecture profile.
+Later Phase 8.9 activation work published Five-layer v2 and Six-layer v1. This
+bootstrap slice itself still makes no live-provider or architecture-capacity
+claim.

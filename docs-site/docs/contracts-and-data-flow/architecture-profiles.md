@@ -136,6 +136,22 @@ modified or mismatched combination and pins the immutable scenario
 digest/snapshot. Inline Eventing values, editable core fields, and historical
 feature switches are not part of the successor request contract.
 
+## Reproducible Offline Evaluation
+
+Phase 8.10 freezes one credential-free evaluation package at
+`docs/research/evidence/phase_08_profile_evaluation/`. Its manifest pins the
+historical, Five-layer v2, and Six-layer v1 contracts, production resolution
+code, provider/component/Terraform bundles, workloads, price snapshots,
+formulas, source ledgers, generator, schemas, runtime image digests, and every
+result artifact.
+
+Functional completeness is evaluated before theoretical capacity and estimated
+cost. Five-layer v2 and Six-layer v1 are ranked separately; cross-profile rows
+use identical inherited L1-L5 assignments and report the Event Layer scope
+apart from the whole-architecture delta. Unsupported and distinct unverified
+live-gate subjects carry reasons but no publishable total. Two clean
+regenerations must be byte-identical.
+
 The catalog binds `processor.telemetry@1` inside the processing responsibility
 to the reviewed Python 3.11 provider adapters. Its catalog-completeness
 scenario is supported now that #113 is complete; profile selection, read APIs,
