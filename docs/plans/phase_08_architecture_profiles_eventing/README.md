@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Mini-Roadmap"
 description: "Ordered implementation roadmap for closed-world Twin architecture profiles, the hardened five-layer baseline, and the bounded Eventing extension."
 tags: [architecture, eventing, roadmap, optimizer, deployer, management-api, flutter, thesis]
 lastUpdated: "2026-08-14"
-version: "3.8"
+version: "3.9"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "3.8"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
 - GitHub issues #112, #113, #138, #139, #140, #142, #144, #146, #148, #149, #150, #151, #152, #153, #154, and #155
 - User-approved closed-world profile, baseline-first, Eventing-gate, documentation, and E2E boundaries
-EXTRACTED: 2026-08-14 | VERSION: 3.8
+EXTRACTED: 2026-08-14 | VERSION: 3.9
 -->
 
 # Phase 8 Architecture Profiles And Eventing Mini-Roadmap
@@ -25,7 +25,7 @@ EXTRACTED: 2026-08-14 | VERSION: 3.8
 | Parent issue | [#112](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Base branch | `master` |
 | Planning branch | `codex/phase-8-service-bundle-closure` |
-| Status | Phases 8.0-8.9B are frozen locally; the deterministic Phase 8.10 evidence package is implemented and byte-reproducible, while current documentation and final full gates remain; no live deployment is authorized |
+| Status | Phases 8.0-8.9B are frozen locally; the deterministic Phase 8.10 evidence, current documentation, 16-stage safe gate, and credential-free Flutter integration gate are complete, while the final two-review freeze is in progress; no live deployment is authorized |
 | Final live E2E | Deliberately deferred and not part of the default gates |
 
 ## Purpose
@@ -157,7 +157,7 @@ component catalog entries still own the exact executable resource mapping.
 | Service closure / 8.9A plan | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | [`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md) + [`phase_08_9a_9b_execution_plan.md`](phase_08_9a_9b_execution_plan.md) + [`phase_08_layer_access_handoff.md`](phase_08_layer_access_handoff.md) | Approved [`phase-08-complete-service-bundles@1`](../../research/evidence/phase_08_service_bundles/README.md) plus complete provider/runtime, Layer Access, active offline profile, immutable pricing, and strict Demo RTA/RDS v2 implementation; no live-cloud evidence | Closed locally at implementation commit `c5c62324`; supervised live gates deliberately remain deployment-blocking |
 | 8.9A | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | [`phase_08_9a_9b_execution_plan.md`](phase_08_9a_9b_execution_plan.md) | Complete and zero-finding reviewed locally: v2 contracts/provider profiles, workload/cost resolution, Terraform/runtime bundles, post-deployment evidence, Management, Flutter, and Demo parity are active for offline evaluation | Preserve the frozen Five-layer boundary while 8.9B adds only its Event Layer delta |
 | 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | [`phase_08_9_six_layer_eventing_implementation.md`](phase_08_9_six_layer_eventing_implementation.md) | Implemented and zero-finding frozen locally: strict Event Layer delta, exact S/M/L topology costs, all directed bridges, provider runtimes, Management persistence, Deployer/Terraform packages, and Flutter profile presentation | Supervised live gates remain explicit |
-| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | [`phase_08_10_evaluation_and_documentation.md`](phase_08_10_evaluation_and_documentation.md) | In progress: historical-v1/Five-v2/Six-v1 evidence is generated, schema/digest/mutation gates pass, and two clean regenerations are byte-identical; current docs and final gates remain | Frozen Five-layer and Six-layer implementations |
+| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | [`phase_08_10_evaluation_and_documentation.md`](phase_08_10_evaluation_and_documentation.md) | Final review: historical-v1/Five-v2/Six-v1 evidence, current docs, runtime-image provenance, two clean regenerations, the 16-stage safe gate, and the credential-free Flutter integration gate are complete | Frozen Five-layer and Six-layer implementations |
 
 Provider implementation work inside one phase may be parallelized only after
 the phase's shared contract is committed. AWS, Azure, and GCP must pass the same
@@ -172,9 +172,9 @@ Phase 8.8 was completed as an offline evidence activity before Phase 8.6
 runtime activation. This does not reorder implementation dependencies:
 Phase 8.6, Phase 8.7, the offline guided-bootstrap closure, and Phase 8.9A are
 complete local predecessors. Phase 8.9B is now frozen after two final review
-passes with zero unresolved findings. Phase 8.10 is active: its evidence
-generator/package is committed, while current documentation and final gates
-remain.
+passes with zero unresolved findings. Phase 8.10 has completed its evidence,
+documentation, reproducibility, full safe-gate, and Flutter-integration work;
+only the prescribed final two-review freeze remains in progress.
 Accordingly, #146 is no longer natively blocked by #152; its reviewed evidence
 is the immutable decision authority for the Eventing implementation path.
 

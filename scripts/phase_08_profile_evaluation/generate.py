@@ -1679,7 +1679,7 @@ def verification_artifact(*, config: Mapping[str, Any], output: Path) -> dict[st
                 "command": "python -m pytest scripts/phase_08_profile_evaluation/tests -q",
                 "status": "passed",
                 "exit_status": 0,
-                "test_count": 11,
+                "test_count": 14,
                 "scope": "schema strictness, mutation rejection, cost recomputation, scenario digest, pair coverage, and comparison boundaries",
             },
             {
@@ -1711,7 +1711,7 @@ def verification_artifact(*, config: Mapping[str, Any], output: Path) -> dict[st
                 "command": "python scripts/verify_resolved_deployment_drift.py",
                 "status": "passed",
                 "exit_status": 0,
-                "test_count": 5884,
+                "test_count": 5887,
                 "scope": "Phase 8 decision/evaluation, contract and drift tests; Optimizer 979, Management 1131, Deployer 2381 (one skipped), Flutter 893 plus architecture gate; builds, security, docs, static checks, and cleanup",
             },
         ],

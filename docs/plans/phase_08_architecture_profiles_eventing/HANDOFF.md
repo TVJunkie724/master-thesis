@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-14"
-version: "4.17"
+version: "4.18"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.17"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-14 | VERSION: 4.17
+EXTRACTED: 2026-08-14 | VERSION: 4.18
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -35,7 +35,7 @@ EXTRACTED: 2026-08-14 | VERSION: 4.17
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
 | Implementation status | Five-layer v2 and Six-layer v1 are active locally across contracts, Optimizer, Management, Deployer/Terraform, provider runtimes, and Flutter. The Six-layer implementation inherits the pinned Five-layer graph and adds only the reviewed Eventing delta. Deployment remains blocked by explicit supervised live-capacity gates. |
-| Next action | Complete Phase 8.10 current/research documentation, run the full safe gate and two zero-finding reviews, then freeze the evaluation branch. |
+| Next action | Complete the final Phase 8.10 architecture/research and builder/reproducibility/security review cycle, then freeze the evaluation branch. |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -211,8 +211,9 @@ same typed L4/L5 links, deterministic AWS/Azure content, profile-correct
 dashboards, GCP Viewer rotation, and inherited Azure mover image as Five-layer
 v2. The AWS/Azure/GCP runtime health and signed-reader identity is Six-layer;
 only the unchanged finite tiering artifact schema keeps its Five-layer-v2 name
-as part of the inherited L1-L5 wire contract. The final repeated audit and one
-consolidated full-gate rerun remain open. No provider resource was created.
+as part of the inherited L1-L5 wire contract. The repeated Six-layer audit and
+consolidated full-gate rerun are frozen with zero findings. No provider
+resource was created.
 The subsequent provider-pair trace also closed two independent-event routing
 defects without changing the service plan: Azure's L2 Function now returns
 processed/control events either to the local Azure Event Layer or through the
@@ -237,16 +238,21 @@ a root drift test compares both ownership constants.
 Management also cross-checks the typed Layer Access evidence profile/version
 against its owning deployment, closing the remaining inherited-evidence swap.
 
-Phase 8.10 now has a committed deterministic evidence baseline at `fd2f657a`.
+Phase 8.10 has a committed deterministic evidence baseline beginning at
+`fd2f657a`, with current documentation, research interpretation, the mandatory
+evaluation gate, and runtime-image provenance added in subsequent clean
+commits.
 The `phase-08-profile-evaluation@1` package pins the complete contract,
 implementation, workload, pricing, source, generator/schema, environment, and
 result chain for historical Five-layer v1, Five-layer v2, and Six-layer v1.
 It evaluates functional completeness before theoretical capacity and estimated
 cost, covers every required single-/multi-cloud placement and directed Event
 provider pair, preserves unsupported/unverified subjects without totals, maps
-RQ1-RQ3.2, and passes strict validation, eight mutation/coverage tests, and two
-byte-identical clean regenerations. No provider credential, Terraform apply,
-browser sign-in, paid operation, or LaTeX change is part of that evidence.
+RQ1-RQ3.2, and passes strict validation, 14 unit/mutation/coverage tests, two
+byte-identical clean regenerations, the 16-stage safe repository gate, and the
+credential-free Flutter integration gate. No provider credential, Terraform
+apply, browser sign-in, paid operation, or LaTeX change is part of that
+evidence.
 
 ## Immediate Next Action
 
@@ -261,8 +267,8 @@ Continue with these boundaries in order:
 3. keep the Six-layer implementation pinned to the exact inherited Five-layer
    commit and contract digests;
 4. preserve the zero-finding Six-layer audit freeze and the committed Phase
-   8.10 deterministic evidence package while completing documentation and
-   final gates without live cloud execution.
+   8.10 deterministic evidence/package while completing only the final two
+   offline review records without live cloud execution.
 
 ## Required Reading Order
 
@@ -397,7 +403,7 @@ string conventions or user functions constructing another resource's identity.
 | Guided bootstrap | [#154 Implement guided cloud access bootstrap for bounded deployment identities](https://github.com/TVJunkie724/master-thesis/issues/154) | Request-scoped bootstrap authority and reusable bounded CloudConnections |
 | 8.9A | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | Executable `five-layer-baseline@2` with complete service bundles |
 | 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Implemented and frozen after two final review passes with zero unresolved findings; supervised live gates remain explicit |
-| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Next: historical `@1` reproduction plus fair, profile-local `@2` versus Six-layer evaluation |
+| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Final review: deterministic historical `@1` reproduction and fair profile-local `@2` versus Six-layer evidence, current docs, safe gates, and integration proof are complete |
 
 Native dependency direction:
 

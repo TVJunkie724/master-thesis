@@ -11,9 +11,11 @@ from scripts.phase_08_profile_evaluation.generate import semantic_digest
 from scripts.phase_08_profile_evaluation.validate import (
     DEFAULT_PACKAGE,
     SCHEMA_DIRECTORY,
+    package_path,
     validate_cost,
     validate_package,
     validate_rejections_and_research_mapping,
+    validate_scenarios_and_deltas,
     validate_schema,
 )
 from scripts.phase_08_profile_evaluation.verify_runtime_images import (
@@ -136,8 +138,68 @@ def test_runtime_image_config_covers_every_evaluation_service():
     assert set(configured_digests()) == set(SERVICE_NAMES)
 
 
+def test_duplicate_runtime_image_service_is_rejected(tmp_path):
+    config = json.loads(
+        (
+            DEFAULT_PACKAGE.parents[3]
+            / "scripts/phase_08_profile_evaluation/evaluation_config.json"
+        ).read_text(encoding="utf-8")
+    )
+    config["runtime"]["container_images"].append(
+        copy.deepcopy(config["runtime"]["container_images"][0])
+    )
+    config_path = tmp_path / "evaluation_config.json"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    with pytest.raises(AssertionError, match="exactly once"):
+        configured_digests(config_path)
+
+
 def test_runtime_image_digest_drift_is_rejected():
     expected = {"optimizer": "sha256:" + ("1" * 64)}
     actual = {"optimizer": "sha256:" + ("2" * 64)}
     with pytest.raises(AssertionError):
         compare_digests(expected, actual)
+
+
+def test_package_path_rejects_parent_traversal(tmp_path):
+    with pytest.raises(AssertionError):
+        package_path(tmp_path / "evidence", "../outside.json")
+
+
+def test_embedded_scenario_payload_must_match_its_frozen_source(tmp_path):
+    package = tmp_path / "evidence"
+    shutil.copytree(DEFAULT_PACKAGE, package)
+    scenario_path = package / "scenario-manifest.json"
+    scenarios = json.loads(scenario_path.read_text(encoding="utf-8"))
+    paired = scenarios["paired_scenarios"][0]
+    paired["core_workload"]["numberOfDevices"] += 1
+    paired["paired_workload_digest"] = semantic_digest(
+        {"core": paired["core_workload"], "eventing": paired["eventing_workload"]}
+    )
+    scenario_path.write_text(json.dumps(scenarios), encoding="utf-8")
+
+    with pytest.raises(AssertionError):
+        validate_scenarios_and_deltas(package)
+
+    shutil.rmtree(package)
+    shutil.copytree(DEFAULT_PACKAGE, package)
+    scenarios = json.loads(scenario_path.read_text(encoding="utf-8"))
+    scenarios["paired_scenarios"][0]["eventing_source"]["path"] = (
+        "contracts/five-layer-workload/v2/fixtures/valid/core-small.json"
+    )
+    scenario_path.write_text(json.dumps(scenarios), encoding="utf-8")
+
+    with pytest.raises(AssertionError):
+        validate_scenarios_and_deltas(package)
+
+    shutil.rmtree(package)
+    shutil.copytree(DEFAULT_PACKAGE, package)
+    scenarios = json.loads(scenario_path.read_text(encoding="utf-8"))
+    historical = scenarios["historical_scenarios"][0]
+    historical["workload"]["entityCount"] += 1
+    historical["workload_digest"] = semantic_digest(historical["workload"])
+    scenario_path.write_text(json.dumps(scenarios), encoding="utf-8")
+
+    with pytest.raises(AssertionError):
+        validate_scenarios_and_deltas(package)

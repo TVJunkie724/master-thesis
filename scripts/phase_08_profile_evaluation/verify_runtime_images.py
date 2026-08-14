@@ -26,6 +26,12 @@ def configured_digests(config_path: Path = CONFIG_PATH) -> dict[str, str]:
     config = json.loads(config_path.read_text(encoding="utf-8"))
     rows = config["runtime"]["container_images"]
     result = {row["service"]: row["digest"] for row in rows}
+    if len(rows) != len(SERVICE_NAMES) or len(result) != len(rows):
+        raise AssertionError(
+            "runtime image services must occur exactly once: "
+            f"expected={sorted(SERVICE_NAMES)}, "
+            f"actual={[row['service'] for row in rows]}"
+        )
     if set(result) != set(SERVICE_NAMES):
         raise AssertionError(
             f"runtime image service drift: expected={sorted(SERVICE_NAMES)}, "

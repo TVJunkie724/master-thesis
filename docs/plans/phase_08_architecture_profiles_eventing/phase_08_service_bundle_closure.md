@@ -3,7 +3,7 @@ title: "Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure"
 description: "PoC-focused corrective plan for the executable five-layer-baseline@2 placement experiment."
 tags: [architecture, services, multicloud, identity, capacity, optimizer, deployer, phase-8]
 lastUpdated: "2026-08-14"
-version: "1.19"
+version: "1.20"
 ---
 
 <!-- SOURCES:
@@ -18,7 +18,7 @@ version: "1.19"
 - User-approved functionality-first PoC selection, L3-hot/L5 co-location,
   independent L4 placement, Cosmos DB and Firestore L3 continuity, and mandatory
   single-cloud/multicloud coverage
-EXTRACTED: 2026-08-14 | VERSION: 1.19
+EXTRACTED: 2026-08-14 | VERSION: 1.20
 -->
 
 # Phase 8 Five-Layer v2 Service-Bundle And Boundary Closure
@@ -1576,7 +1576,7 @@ and correlation ID.
       are rejected for v2.
 - [x] Each new-profile run resolves one immutable Eventing scenario reference;
       Flutter/callers cannot edit or duplicate its canonical fields.
-- [ ] Both scenario families pass theoretical Small/Medium/Large admission or
+- [x] Both scenario families pass theoretical Small/Medium/Large admission or
       return an explicit unsupported result.
 - [x] Live uncertainty remains visible and no offline check claims live proof.
 - [x] Optimizer, Management, Deployer, Terraform, Flutter, research, and MkDocs

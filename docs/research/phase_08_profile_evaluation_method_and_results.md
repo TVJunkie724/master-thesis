@@ -52,15 +52,16 @@ Terraform, or create a cloud resource.
 ## Frozen Scenario And Placement Coverage
 
 The active-profile matrix contains paired Small, Medium, and Large scenarios.
-For each size it covers:
+For each size both profiles cover:
 
-- all three single-cloud placements;
-- all nine combinations of provider-local L3-hot/L5 with independently placed
-  L4;
-- all six directed cross-provider Event routes;
-- same-provider Event routes, which correctly require neither a bridge nor
-  cross-cloud transfer; and
-- one representative admissible three-provider Six-layer graph.
+- all nine L3-hot/L5-to-L4 placements, including the three single-cloud
+  placements.
+
+For each size Six-layer v1 additionally covers all six directed cross-provider
+Event routes, all three same-provider Event routes (which correctly require
+neither a bridge nor cross-cloud transfer), and one representative admissible
+three-provider graph. Five-layer v2 has no independent Event placement or
+Event-provider-pair result.
 
 Five-layer v2 costs 729 admissible candidates per size. Six-layer v1 costs
 2,187 per size because the independently placed Event Layer adds a provider
@@ -142,12 +143,26 @@ ledger is
 
 ## Reproduction
 
-From the repository root, the complete offline evidence can be checked with:
+From the repository root, use the frozen Optimizer image and the local
+OrbStack context. The repository remains read-only during validation and the
+two clean regenerations:
 
 ```bash
-python3 scripts/phase_08_profile_evaluation/validate.py
-python3 -m unittest discover -s scripts/phase_08_profile_evaluation/tests -p 'test_*.py'
-python3 scripts/phase_08_profile_evaluation/verify_reproducibility.py
+python3 scripts/phase_08_profile_evaluation/verify_runtime_images.py \
+  --project master-thesis-deployment-contract
+
+docker --context orbstack run --rm \
+  -e RUFF_CACHE_DIR=/tmp/phase-8-profile-evaluation-ruff-cache \
+  -v "$PWD:/workspace:ro" -w /workspace 2twin2clouds \
+  sh -lc 'python scripts/phase_08_profile_evaluation/validate.py \
+    && python -m pytest -q -p no:cacheprovider \
+      scripts/phase_08_profile_evaluation/tests \
+    && ruff check scripts/phase_08_profile_evaluation \
+    && ruff format --check scripts/phase_08_profile_evaluation'
+
+docker --context orbstack run --rm \
+  -v "$PWD:/workspace:ro" -w /workspace 2twin2clouds \
+  python scripts/phase_08_profile_evaluation/verify_reproducibility.py
 ```
 
 The reproducibility verifier regenerates the package twice in clean temporary

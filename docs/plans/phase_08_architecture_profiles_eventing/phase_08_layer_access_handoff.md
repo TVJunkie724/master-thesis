@@ -3,7 +3,7 @@ title: "Phase 8 Five-Layer v2 Layer Access Handoff"
 description: "Feasibility and implementation boundary for usable post-deployment L4 and L5 browser access."
 tags: [architecture, flutter, deployment, identity, digital-twin, grafana, phase-8]
 lastUpdated: "2026-08-14"
-version: "1.5"
+version: "1.6"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "1.5"
 - User-approved PoC boundary: inspect both L4 and L5 after deployment, keep L4
   independent from the provider-local L3-hot/L5 bundle, and avoid unjustified
   production infrastructure
-EXTRACTED: 2026-08-14 | VERSION: 1.5
+EXTRACTED: 2026-08-14 | VERSION: 1.6
 -->
 
 # Phase 8 Five-Layer v2 Layer Access Handoff
@@ -538,20 +538,20 @@ an admission prerequisite instead of claiming universal unattended setup.
 - [x] Exactly one typed L4 and one typed L5 access surface resolve for every
       Five-layer v2 deployment.
 - [x] All nine placement fixtures pass, including all three single-cloud rows.
-- [ ] AWS, Azure, and GCP interactive identity prerequisites are preflighted
+- [x] AWS, Azure, and GCP interactive identity prerequisites are preflighted
       independently from deployment credentials.
-- [ ] A missing deployment CloudConnection starts the guided bootstrap rather
+- [x] A missing deployment CloudConnection starts the guided bootstrap rather
       than requiring the user to construct bounded deployment credentials
       manually; request-only bootstrap authority creates the bounded
       connection and is never deliberately retained after its execute request.
-- [ ] AWS L4 organization-instance activation, GCP no-organization/external
+- [x] AWS L4 organization-instance activation, GCP no-organization/external
       OAuth, quota, billing, and organization-policy actions pause with typed
       remediation and resume through the generated CloudConnection.
-- [ ] Bootstrap-secret release, provider expiry, provider-side revocation,
+- [x] Bootstrap-secret release, provider expiry, provider-side revocation,
       manual cleanup, and user-owned non-revocation are distinct truthful
       states.
-- [ ] Each L4 opens a usable semantic Twin UI with deterministic content.
-- [ ] Each L5 opens a usable Grafana dashboard with deterministic raw/rollup
+- [x] Each L4 opens a usable semantic Twin UI with deterministic content.
+- [x] Each L5 opens a usable Grafana dashboard with deterministic raw/rollup
       content and an honest no-data state.
 - [x] No L4-to-L5, scene, 3D, or custom Grafana Twin plugin is introduced.
 - [x] GCP uses one Firestore database per deployment and documents its weaker
@@ -562,10 +562,10 @@ an admission prerequisite instead of claiming universal unattended setup.
       once; no provisioning or reader secret crosses the Management boundary.
 - [x] Rotation is serialized and non-retried, and the credential never enters
       logs, state projections, metrics, or clipboard automatically.
-- [ ] L4 inspection reads, seed writes, GCP Explorer runtime, interactive
+- [x] L4 inspection reads, seed writes, GCP Explorer runtime, interactive
       bindings, and mandatory human seats are priced rather than hidden.
 - [x] Destroy and redeploy invalidate old URLs, bindings, credentials, and
       access evidence.
 - [x] Offline tests make no live-cloud/browser claim.
-- [ ] Two fresh architect/builder and cross-stack reviews have zero unresolved
+- [x] Two fresh architect/builder and cross-stack reviews have zero unresolved
       findings before profile activation.

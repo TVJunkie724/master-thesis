@@ -25,6 +25,8 @@ CONFIG_SCHEMA = Path(__file__).with_name("evaluation-config.schema.json")
 PROVIDERS = ("aws", "azure", "gcp")
 SIZES = ("small", "medium", "large")
 DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
+CORE_WORKLOAD_ROOT = REPOSITORY_ROOT / "contracts/five-layer-workload/v2"
+EVENT_SCENARIO_CATALOG = CORE_WORKLOAD_ROOT / "eventing-scenario-catalog.json"
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -55,6 +57,13 @@ def byte_digest(path: Path) -> str:
 def repository_path(relative_path: str) -> Path:
     path = (REPOSITORY_ROOT / relative_path).resolve()
     assert path.is_relative_to(REPOSITORY_ROOT.resolve()), relative_path
+    return path
+
+
+def package_path(package: Path, relative_path: str) -> Path:
+    package_root = package.resolve()
+    path = (package_root / relative_path).resolve()
+    assert path.is_relative_to(package_root), relative_path
     return path
 
 
@@ -176,14 +185,18 @@ def validate_manifest_digests(package: Path) -> None:
             assert reference["file_count"] == 1
         assert digest == reference["digest"], reference["path"]
     for row in manifest["output_artifacts"]:
-        assert byte_digest(package / row["path"]) == row["digest"], row["path"]
+        assert byte_digest(package_path(package, row["path"])) == row["digest"], row[
+            "path"
+        ]
     assert (
         semantic_digest(manifest["output_artifacts"]) == manifest["result_set_digest"]
     )
 
     verification = read_json(package / "verification.json")
     for row in verification["artifact_digests"]:
-        assert byte_digest(package / row["path"]) == row["digest"], row["path"]
+        assert byte_digest(package_path(package, row["path"])) == row["digest"], row[
+            "path"
+        ]
     assert (
         semantic_digest(verification["artifact_digests"])
         == verification["artifact_set_digest"]
@@ -284,8 +297,27 @@ def validate_active_results(package: Path) -> None:
 
 def validate_scenarios_and_deltas(package: Path) -> None:
     scenarios = read_json(package / "scenario-manifest.json")
+    event_catalog = read_json(EVENT_SCENARIO_CATALOG)
+    event_scenarios = {item["scenario_id"]: item for item in event_catalog["scenarios"]}
     assert {item["size"] for item in scenarios["paired_scenarios"]} == set(SIZES)
     for item in scenarios["paired_scenarios"]:
+        expected_core_path = (
+            CORE_WORKLOAD_ROOT / "fixtures/valid" / f"core-{item['size']}.json"
+        )
+        assert repository_path(item["core_source"]["path"]) == expected_core_path
+        assert (
+            repository_path(item["eventing_source"]["path"]) == EVENT_SCENARIO_CATALOG
+        )
+        assert (
+            read_json(repository_path(item["core_source"]["path"]))
+            == item["core_workload"]
+        )
+        event_scenario_id = item["eventing_workload"]["scenario_id"]
+        assert event_scenarios[event_scenario_id] == item["eventing_workload"]
+        assert (
+            event_catalog["scenario_digests"][event_scenario_id]
+            == item["eventing_source"]["digest"]
+        )
         assert item["paired_workload_digest"] == semantic_digest(
             {"core": item["core_workload"], "eventing": item["eventing_workload"]}
         )
@@ -301,12 +333,25 @@ def validate_scenarios_and_deltas(package: Path) -> None:
             semantic_digest(item["eventing_workload"])
             == item["eventing_source"]["digest"]
         )
+    config = read_json(CONFIG_PATH)
+    configured_historical = {
+        item["scenario_id"]: item for item in config["historical_scenarios"]
+    }
+    assert {item["scenario_id"] for item in scenarios["historical_scenarios"]} == set(
+        configured_historical
+    )
     for item in scenarios["historical_scenarios"]:
+        configured = configured_historical[item["scenario_id"]]
+        assert item["source"]["path"] == configured["input_path"]
+        assert item["overrides"] == configured["overrides"]
         assert item["workload_digest"] == semantic_digest(item["workload"])
         assert (
             byte_digest(repository_path(item["source"]["path"]))
             == item["source"]["digest"]
         )
+        expected_workload = read_json(repository_path(item["source"]["path"]))
+        expected_workload.update(item["overrides"])
+        assert expected_workload == item["workload"]
 
     deltas = read_json(package / "architecture-deltas.json")
     assert not deltas["cross_profile_optimizer_winner_selected"]
@@ -329,7 +374,7 @@ def validate_rejections_and_research_mapping(package: Path) -> None:
         assert "monthly_total" not in item and "total" not in item
         for evidence_path in item["evidence_paths"]:
             path = (
-                package / evidence_path
+                package_path(package, evidence_path)
                 if evidence_path.startswith("resolved-architectures/")
                 else repository_path(evidence_path)
             )

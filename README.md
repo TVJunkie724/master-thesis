@@ -383,12 +383,15 @@ runs all safe service, Flutter, documentation, static, and security gates.
 **Reproduce the Phase 8 profile evaluation without cloud access:**
 
 ```bash
-docker --context orbstack compose run --rm --no-deps \
-  -v "$PWD:/workspace" -w /workspace 2twin2clouds \
+python3 scripts/phase_08_profile_evaluation/verify_runtime_images.py \
+  --project master-thesis-deployment-contract
+
+docker --context orbstack run --rm \
+  -v "$PWD:/workspace:ro" -w /workspace 2twin2clouds \
   python scripts/phase_08_profile_evaluation/validate.py
 
-docker --context orbstack compose run --rm --no-deps \
-  -v "$PWD:/workspace" -w /workspace 2twin2clouds \
+docker --context orbstack run --rm \
+  -v "$PWD:/workspace:ro" -w /workspace 2twin2clouds \
   python scripts/phase_08_profile_evaluation/verify_reproducibility.py
 ```
 

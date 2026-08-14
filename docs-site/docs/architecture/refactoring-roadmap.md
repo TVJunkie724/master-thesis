@@ -34,7 +34,7 @@ when work becomes actionable, then reference the issue here.
 | Phase 5 | Backend Orchestrator Disentanglement | Done | Thin HTTP routes with repositories, services, clients, orchestrators, and a typed deployment lifecycle |
 | Phase 6 | Brain Contracts & Pricing Reliability | Active | Layer contracts complete; capability and expanded provider pricing coverage remain |
 | Phase 7 | Flutter Wizard & Twin Views | Done | Core architecture, configuration workspace, typed boundaries, demo, and all-desktop delivery gates completed |
-| Phase 8 | Twin Architecture Profiles & Eventing | Active | Five-layer v2 and Six-layer v1 are zero-finding frozen; the deterministic Phase 8.10 evidence package is implemented and current-documentation/final gates are in progress; live deployment remains separately gated |
+| Phase 8 | Twin Architecture Profiles & Eventing | Final review | Five-layer v2 and Six-layer v1 are zero-finding frozen; deterministic Phase 8.10 evidence, current documentation, safe full gates, and credential-free integration proof are complete; live deployment remains separately gated |
 | Later | Platform Extensions | Backlog | Non-blocking provider and operational extensions |
 
 ## Completed Refactorings
@@ -229,9 +229,9 @@ when work becomes actionable, then reference the issue here.
 
 ## Next Recommended Sequence
 
-1. Preserve and validate the generated Phase 8.10 evidence from the frozen
-   offline `five-layer-baseline@2` and `six-layer-eventing@1` contracts,
-   keeping every unresolved supervised live-capacity gate fail-closed.
+1. Preserve the validated Phase 8.10 evidence from the frozen offline
+   `five-layer-baseline@2` and `six-layer-eventing@1` contracts, keeping every
+   unresolved supervised live-capacity gate fail-closed.
 2. Continue the remaining Phase 6 service/tier and fetcher work in
    [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
    [#32](https://github.com/TVJunkie724/master-thesis/issues/32) as separate
@@ -240,7 +240,7 @@ when work becomes actionable, then reference the issue here.
 3. Keep the #113 user-function execution contract, Phase 8.3 slot mappings,
    Phase 8.4 persistence contract, Phase 8.5 immutable resolution output, and
    Phase 8.6 graph compiler, reviewed Phase 8.7 UI, and guided-bootstrap
-   boundary stable during the final profile audit and Phase 8.10 evaluation.
+   boundary stable after the completed profile audit and Phase 8.10 evaluation.
 4. Follow the reviewed
    `docs/plans/phase_08_architecture_profiles_eventing/README.md` order without
    skipping its baseline, contract, migration, functional-completeness,
@@ -249,6 +249,6 @@ when work becomes actionable, then reference the issue here.
    contracts are stable (#33 and #34).
 6. Complete the remaining functional issues, then run the user-led visual audit
    in [#111](https://github.com/TVJunkie724/master-thesis/issues/111).
-7. Produce the credential-free Phase 8.10 thesis evidence after the profile
-   freeze; keep live-cloud E2E and finalization separate until the manual UI
-   audit and explicitly supervised provider checks are complete.
+7. Use the frozen credential-free Phase 8.10 evidence for later thesis
+   synthesis; keep live-cloud E2E separate until the manual UI audit and
+   explicitly supervised provider checks are complete.
