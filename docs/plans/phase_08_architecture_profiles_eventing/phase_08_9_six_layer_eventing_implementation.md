@@ -3,7 +3,7 @@ title: "Phase 8.9B: Six-Layer Eventing Implementation"
 description: "Executable delta plan that adds one independent Eventing responsibility to the reviewed Five-layer v2 PoC."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
 lastUpdated: "2026-08-14"
-version: "2.13"
+version: "2.14"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.13"
 - contracts/phase-08-eventing-decision/v1/decision.json
 - contracts/phase-08-eventing-decision/v1/implementation-component-manifest.json
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-14 | VERSION: 2.13
+EXTRACTED: 2026-08-14 | VERSION: 2.14
 -->
 
 # Phase 8.9B: Six-Layer Eventing Implementation
@@ -41,8 +41,10 @@ EXTRACTED: 2026-08-14 | VERSION: 2.13
 **Implementation checkpoint:** The scoped contract, Optimizer, Management,
 Deployer, AWS, Azure, GCP, bridge, and Flutter commits are present on the
 required branch. Component gates pass locally without credentials or apply.
-Documentation reconciliation and the repeated final audit are in progress;
-this document therefore does not yet claim the final zero-finding freeze.
+Documentation reconciliation and two final review passes are complete with
+zero unresolved findings. This revision is the reviewed 8.9B freeze handed to
+Phase 8.10; supervised live-capacity evidence remains explicitly absent and
+deployment-blocking.
 The current-system documentation now names both active profiles consistently,
 keeps the core/event S/M/L pair immutable, gives both profiles the typed L4/L5
 handoff and Manifest v4 boundary, and distinguishes current registered bridges
@@ -343,6 +345,7 @@ Each boundary must be clean, reviewed, and committed before the next begins:
    (`e977982b`, with Demo catalog activation `a661d789`)
 10. `[AI-0803-EVDOC] docs(phase-8): document six-layer implementation`
 11. `[AI-0803-EVRV] fix(phase-8): close six-layer audit findings`
+    (`8677027f` through `e3228922` plus this freeze commit)
 
 Generated contract copies may be included with their owning contract commit;
 unrelated changes must not be swept into these commits.
@@ -373,6 +376,35 @@ Offline gates must cover:
 
 No default gate deploys a provider resource or claims measured throughput.
 
+### 13.1 Final Freeze Evidence
+
+The first final review pass reconciled stale current-status documentation,
+profile/snapshot wording, runtime identity propagation, Layer Access evidence,
+and a standalone Management verifier that still expected four Event edges.
+The verifier now requires the exact five-edge Event flow and is part of the
+regular Management persistence gate.
+
+The second pass rechecked the concept, plans, contracts, generated copies,
+Optimizer/Management/Deployer boundaries, provider runtimes, bridge security,
+Flutter workflow, and documentation. It found no unresolved issue. The pinned
+runtime SDK surface was also installed in an ephemeral Python 3.11 container
+and verified for AWS web-identity exchange, Azure Event Hubs and Service Bus,
+and ordered GCP Pub/Sub publication.
+
+Verification remained credential-free and created no provider resources:
+
+- the complete safe repository gate passed in 1,041.4 seconds with 979
+  Optimizer, 1,131 Management, 2,381 Deployer tests (one skipped), and 893
+  Flutter tests, plus analyzer, Web release, macOS debug, strict MkDocs, static
+  checks, and cleanup;
+- after the final verifier changes, the focused deployment-contract gate
+  passed in 127.8 seconds with 35 decision-evidence, 19 implementation-manifest,
+  116 canonical-contract, 6 root-orchestrator, 40 Optimizer, 95 Management,
+  and 156 Deployer/Terraform checks;
+- the standalone persisted-graph verifier observed 8 components, 9 edges,
+  exactly 5 Event bridges, and 32 result items;
+- the final strict MkDocs build passed.
+
 ## 14. Definition Of Done
 
 - [x] The exact reviewed Event Layer bundles are implemented; no service was
@@ -386,7 +418,7 @@ No default gate deploys a provider resource or claims measured throughput.
 - [x] RTA v2/RDS v2/Manifest v4, persistence, graph, packages, Terraform, permissions,
       pricing, and UI agree on one immutable resolution digest.
 - [x] Historical contracts remain read/verify/destroy-only and byte-stable.
-- [ ] Safe full repository verification passes with real cloud E2E excluded.
-- [ ] Two independent implementation reviews reach zero unresolved findings.
-- [ ] A final clean commit records only reviewed 8.9B work.
-- [ ] Phase 8.10 receives frozen separate Five-layer and Six-layer evidence.
+- [x] Safe full repository verification passes with real cloud E2E excluded.
+- [x] Two independent implementation reviews reach zero unresolved findings.
+- [x] A final clean commit records only reviewed 8.9B work.
+- [x] Phase 8.10 receives frozen separate Five-layer and Six-layer evidence.

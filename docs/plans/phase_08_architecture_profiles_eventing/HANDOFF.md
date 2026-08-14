@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-14"
-version: "4.15"
+version: "4.16"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.15"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-14 | VERSION: 4.15
+EXTRACTED: 2026-08-14 | VERSION: 4.16
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -30,12 +30,12 @@ EXTRACTED: 2026-08-14 | VERSION: 4.15
 | Integration branch | `master` |
 | Reviewed implementation base | `c5c6232478d29a9cc3c7d280bdc9ca0e79c47226` on `codex/phase-8-9a-layer-access` |
 | Active implementation branch | `codex/phase-8-six-layer-eventing-v1` |
-| Locally completed implementation | Phase 8.0 / #144 through Phase 8.8, prerequisite #113, guided bootstrap / #154, complete Five-layer v2 / 8.9A, and the Six-layer / 8.9B implementation slices; final 8.9B audit remains in progress and issues remain open until publication/merge |
+| Locally completed implementation | Phase 8.0 / #144 through Phase 8.8, prerequisite #113, guided bootstrap / #154, complete Five-layer v2 / 8.9A, and Six-layer / 8.9B; two final 8.9B review passes and all safe gates are frozen with zero unresolved findings, while issues remain open until publication/merge |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
 | Implementation status | Five-layer v2 and Six-layer v1 are active locally across contracts, Optimizer, Management, Deployer/Terraform, provider runtimes, and Flutter. The Six-layer implementation inherits the pinned Five-layer graph and adds only the reviewed Eventing delta. Deployment remains blocked by explicit supervised live-capacity gates. |
-| Next action | Complete the repeated Six-layer concept/plan/implementation audit and credential-free full gate, freeze the reviewed evidence, then start Phase 8.10 on a separate branch. |
+| Next action | Start Phase 8.10 on a separate branch and generate deterministic historical-v1/Five-v2/Six-v1 evaluation evidence plus current-system documentation from the frozen offline implementations. |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -249,8 +249,8 @@ Continue with these boundaries in order:
    gate explicit and fail-closed for deployment;
 3. keep `codex/phase-8-six-layer-eventing-v1` pinned to the exact inherited
    Five-layer commit and contract digests;
-4. finish the repeated Six-layer audit and full credential-free gate, freeze
-   its evidence, then complete Phase 8.10 evaluation on a separate branch.
+4. preserve the zero-finding Six-layer audit freeze and complete Phase 8.10
+   evaluation on a separate branch without live cloud execution.
 
 ## Required Reading Order
 
@@ -384,8 +384,8 @@ string conventions or user functions constructing another resource's identity.
 | Service closure | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | Complete AWS/Azure/provider-hosted-GCP bundles, storage routes, workload/capacity semantics, and immutable decision package |
 | Guided bootstrap | [#154 Implement guided cloud access bootstrap for bounded deployment identities](https://github.com/TVJunkie724/master-thesis/issues/154) | Request-scoped bootstrap authority and reusable bounded CloudConnections |
 | 8.9A | [#155 Implement complete five-layer-baseline@2 across the platform](https://github.com/TVJunkie724/master-thesis/issues/155) | Executable `five-layer-baseline@2` with complete service bundles |
-| 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Implemented strict Event Layer delta; final repeated audit and freeze are in progress |
-| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Planned after reviewed Six-layer; historical `@1` reproduction plus fair `@2` versus Six-layer evaluation |
+| 8.9B | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Implemented and frozen after two final review passes with zero unresolved findings; supervised live gates remain explicit |
+| 8.10 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Next: historical `@1` reproduction plus fair, profile-local `@2` versus Six-layer evaluation |
 
 Native dependency direction:
 
@@ -735,13 +735,13 @@ Phase 8 is complete only when:
 
 The next agent can begin with:
 
-> Phase 8.0 bis 8.9A sind implementiert und reviewt; Phase 8.9B ist lokal über
-> Contracts, Optimizer, Management, Deployer, Provider-Runtimes und Flutter
-> umgesetzt, seine abschließende wiederholte Prüfung läuft noch.
+> Phase 8.0 bis 8.9B sind lokal implementiert und reviewt. Der abschließende
+> Six-Layer-Prüflauf ist credential-frei und ohne Cloud-Apply mit null offenen
+> Findings eingefroren.
 > `five-layer-baseline@1` bleibt historische Evidenz,
 > `five-layer-baseline@2` und `six-layer-eventing@1` teilen dieselben
 > verpflichtenden Rule-/Action-/Workflow-/Feedback-Funktionen, und nur das
 > Six-Layer-Profil besitzt eine unabhaengige Eventing-Verantwortung. Als
-> naechstes folgen der konsolidierte credential-freie No-Apply-Gate, der
-> Zero-Finding-Freeze-Commit und danach Phase 8.10 auf einem eigenen Branch.
+> naechstes folgt Phase 8.10 mit reproduzierbarer, getrennt ausgewiesener
+> historischer-v1/Five-v2/Six-v1-Evidenz auf einem eigenen Branch.
 > Live-Cloud-E2E und LaTeX bleiben unangetastet.

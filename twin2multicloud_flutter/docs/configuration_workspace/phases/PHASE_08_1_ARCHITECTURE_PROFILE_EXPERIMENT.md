@@ -3,7 +3,7 @@ title: "Phase 8.1: Architecture Profile Experiment"
 description: "Expose Five-layer v2 and Six-layer v1 as bounded, profile-local thesis experiments in the Configuration Workspace."
 tags: [flutter, phase, architecture-profiles, optimizer, eventing]
 lastUpdated: "2026-08-14"
-version: "1.6"
+version: "1.7"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.6"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_7_flutter_profile_workflow.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_service_bundle_closure.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_9_six_layer_eventing_implementation.md
-EXTRACTED: 2026-08-14 | VERSION: 1.6
+EXTRACTED: 2026-08-14 | VERSION: 1.7
 -->
 
 # Phase 8.1: Architecture Profile Experiment
@@ -21,8 +21,9 @@ EXTRACTED: 2026-08-14 | VERSION: 1.6
 implemented locally. The runtime and demo catalogs expose Five-layer v2 and
 Six-layer v1 for offline selection; the connected local stack calculates both
 profiles, while Demo calculation remains a truthful Five-layer-only fixture.
-Live-capacity gates still block deployment. The final 8.9B audit is in
-progress. See the [implementation reference](../implementation/architecture_profile_experiment.md).
+Live-capacity gates still block deployment. The final 8.9B audit is frozen
+after two credential-free review passes with zero unresolved findings. See the
+[implementation reference](../implementation/architecture_profile_experiment.md).
 
 ## Summary
 
