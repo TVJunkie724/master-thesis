@@ -3,7 +3,7 @@ title: "Phase 8.9B: Six-Layer Eventing Implementation"
 description: "Executable delta plan that adds one independent Eventing responsibility to the reviewed Five-layer v2 PoC."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
 lastUpdated: "2026-08-14"
-version: "2.11"
+version: "2.12"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,7 @@ version: "2.11"
 - contracts/phase-08-eventing-decision/v1/decision.json
 - contracts/phase-08-eventing-decision/v1/implementation-component-manifest.json
 - User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
-EXTRACTED: 2026-08-14 | VERSION: 2.11
+EXTRACTED: 2026-08-14 | VERSION: 2.12
 -->
 
 # Phase 8.9B: Six-Layer Eventing Implementation
@@ -48,6 +48,15 @@ keeps the core/event S/M/L pair immutable, gives both profiles the typed L4/L5
 handoff and Manifest v4 boundary, and distinguishes current registered bridges
 from the predecessor's historical generic Glue wording. The strict MkDocs
 build passes locally.
+The cross-service cost-evidence review found and closed a stale Management
+topology-registry digest plus a missing `eventing-to-hot-storage` ownership
+route. Management now verifies the digest from its synchronized registry copy,
+uses the exact Optimizer Event flow matrix, and has a root drift test plus a
+full Six-layer ledger regression. This is validation/routing evidence only and
+adds no service or deployment behavior.
+The same admission review now rejects typed L4/L5 access evidence when its
+profile/version differs from the persisted deployment. Five-layer-shaped
+evidence can no longer be attached to a Six-layer deployment or vice versa.
 The current audit also binds every inherited Terraform resource and every
 profile-local AWS, Azure, and GCP runtime to the resolved profile identifier
 and version. Runtime health/read cursors, Twin Explorer text, provider Grafana

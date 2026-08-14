@@ -17,7 +17,11 @@ from src.repositories.deployment_repository import DeploymentRepository
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.deployment_access import DeploymentAccessEvidence
 from src.services.deployment_access_service import DeploymentAccessService
-from src.services.service_errors import ConflictError, EntityNotFoundError, ValidationError
+from src.services.service_errors import (
+    ConflictError,
+    EntityNotFoundError,
+    ValidationError,
+)
 
 
 NOW = datetime(2026, 7, 31, 12, 0, tzinfo=timezone.utc)
@@ -234,6 +238,19 @@ def test_invalid_persisted_evidence_fails_closed_without_output_fallback(db) -> 
         _service(db).get_access(twin.id, user.id)
 
 
+def test_persisted_evidence_must_match_the_deployment_profile(db) -> None:
+    user, twin, deployment = _seed(
+        db,
+        profile_id="six-layer-eventing",
+        profile_version="1",
+    )
+    deployment.deployment_access_evidence = _evidence("aws", "aws")
+    db.commit()
+
+    with pytest.raises(ValidationError, match="EVIDENCE_PROFILE_MISMATCH"):
+        _service(db).get_access(twin.id, user.id)
+
+
 def test_schema_rejects_provider_auth_mismatch_and_secret_field() -> None:
     evidence = _evidence("aws", "gcp")
     evidence["surfaces"][0]["auth"]["mode"] = "azure_entra"
@@ -300,9 +317,10 @@ async def test_gcp_rotation_reveals_once_and_persists_only_metadata(db) -> None:
     assert credential.password not in repr(credential)
     assert deployer.calls == [("fixture-resource", "fixture-operation-token")]
     assert deployment.layer_access_credential_rotated_at == NOW.replace(tzinfo=None)
-    assert deployment.layer_access_credential_fingerprint == hashlib.sha256(
-        credential.password.encode()
-    ).hexdigest()
+    assert (
+        deployment.layer_access_credential_fingerprint
+        == hashlib.sha256(credential.password.encode()).hexdigest()
+    )
     assert credential.password not in str(deployment.__dict__)
 
 
@@ -338,9 +356,7 @@ async def test_concurrent_rotation_returns_exact_conflict_without_waiting(db) ->
 
     deployer = BlockingDeployer()
     service = _rotation_service(db, deployer)
-    first = asyncio.create_task(
-        service.rotate_gcp_grafana_viewer(twin.id, user.id)
-    )
+    first = asyncio.create_task(service.rotate_gcp_grafana_viewer(twin.id, user.id))
     await started.wait()
 
     with pytest.raises(ConflictError, match="ROTATION_IN_PROGRESS"):

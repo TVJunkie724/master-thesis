@@ -456,16 +456,18 @@ CalculationParams = Annotated[
         "**How it works:**\n"
         "1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n"
         "2. Resolves the exact reviewed provider-region catalogs supplied in `providerPricingCatalogs`\n"
-        "3. Enumerates every executable complete Five-Layer provider assignment\n"
-        "4. Prices all six approved layer-to-layer routes with aggregate transfer allowances\n"
+        "3. Enumerates every executable assignment inside the selected Five-layer v2 or Six-layer v1 profile\n"
+        "4. Prices its reviewed direct, tiering, Twin-projection, and Cross-Cloud routes\n"
         "5. Scores complete layer and route totals and returns the deterministic winner\n"
         "6. Returns detailed cost, route, billing-pool, and immutable evidence context\n\n"
-        "**The 5 Architectural Layers:**\n"
+        "**The shared 5 architectural layers:**\n"
         "- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n"
         "- **L2 (Processing):** Data processing, event detection, notifications\n"
         "- **L3 (Storage):** Hot/Cool/Archive storage tiers - each can be on different providers\n"
-        "- **L4 (Management):** Digital Twin entity management and 3D modeling\n"
+        "- **L4 (Management):** Digital Twin state and bounded relationship management\n"
         "- **L5 (Visualization):** Dashboards and user interfaces\n\n"
+        "Six-layer v1 keeps those responsibilities unchanged and adds one independently assigned "
+        "Eventing responsibility. Five-layer v2 embeds the same required event behavior in L1/L2.\n\n"
         "**Important:** This is a calculation-only endpoint. It does not deploy any resources. "
         "Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure."
     ),
@@ -854,7 +856,7 @@ def _resolve_architecture_context(params: CalculationParams):
     return build_resolution_context(
         registry=ArchitectureProfileRegistry(
             profile_id=params.architectureProfile.profileId,
-            profile_version=params.architectureProfile.profileVersion
+            profile_version=params.architectureProfile.profileVersion,
         ),
         calculation_run_id=str(params.calculationRunId),
         architecture_profile=params.architectureProfile.model_dump(),

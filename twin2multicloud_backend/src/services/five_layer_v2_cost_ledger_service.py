@@ -18,9 +18,6 @@ from src.services.resolved_deployment_specification_service import (
 
 
 FORMULA_REF = "formula.phase-08-complete-service-bundles"
-SIX_LAYER_TOPOLOGY_COST_REGISTRY_DIGEST = (
-    "sha256:06c0a075f4db7944f4db5a43b4e58f7c5d9172220f0677ea514fc3a0ad5f3f1e"
-)
 PROVIDER_LABEL = {"aws": "AWS", "azure": "Azure", "gcp": "GCP"}
 WORKLOAD_ROOT = (
     Path(__file__).resolve().parents[1]
@@ -122,9 +119,6 @@ SIX_LAYER_EVENT_FLOWS = (
             "telemetry.processed.v1",
             "event.matched.v1",
             "notification.requested.v1",
-            "extension.action.outcome.v1",
-            "notification.workflow.outcome.v1",
-            "device.command.outcome.v1",
         ),
     ),
     (
@@ -145,6 +139,17 @@ SIX_LAYER_EVENT_FLOWS = (
         "component.eventing",
         "component.ingestion",
         ("device.command.requested.v1",),
+    ),
+    (
+        "edge.eventing-to-hot-storage",
+        "component.eventing",
+        "component.hot-storage",
+        (
+            "telemetry.processed.v1",
+            "extension.action.outcome.v1",
+            "notification.workflow.outcome.v1",
+            "device.command.outcome.v1",
+        ),
     ),
 )
 
@@ -187,9 +192,40 @@ def _canonical_json(value: object) -> str:
 
 
 def _digest(value: object) -> str:
-    return "sha256:" + hashlib.sha256(
-        _canonical_json(value).encode("utf-8")
-    ).hexdigest()
+    return (
+        "sha256:" + hashlib.sha256(_canonical_json(value).encode("utf-8")).hexdigest()
+    )
+
+
+@lru_cache(maxsize=1)
+def _six_layer_topology_cost_registry_digest() -> str:
+    """Return the verified digest from the synchronized canonical copy."""
+
+    path = (
+        V2_CONTRACT_ROOT.parents[1]
+        / "architecture-profiles"
+        / "definitions"
+        / "six-layer-eventing-v1-cost-registry.json"
+    )
+    try:
+        registry = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(
+            "Six-layer Eventing topology cost registry is unavailable"
+        ) from exc
+    if not isinstance(registry, dict):
+        raise RuntimeError(
+            "Six-layer Eventing topology cost registry must be an object"
+        )
+    supplied = registry.pop("content_digest", None)
+    if (
+        registry.get("schema_version") != "six-layer-eventing-topology-cost-registry.v1"
+        or registry.get("currency") != "USD"
+        or not isinstance(supplied, str)
+        or supplied != _digest(registry)
+    ):
+        raise RuntimeError("Six-layer Eventing topology cost registry digest drifted")
+    return supplied
 
 
 def _decimal(value: object, field: str) -> Decimal:
@@ -222,12 +258,9 @@ def _sources() -> tuple[dict[str, Any], dict[str, dict[str, Any]], dict[str, Any
         )
         fixtures = {
             size: json.loads(
-                (
-                    WORKLOAD_ROOT
-                    / "fixtures"
-                    / "valid"
-                    / f"core-{size}.json"
-                ).read_text(encoding="utf-8")
+                (WORKLOAD_ROOT / "fixtures" / "valid" / f"core-{size}.json").read_text(
+                    encoding="utf-8"
+                )
             )
             for size in ("small", "medium", "large")
         }
@@ -283,12 +316,8 @@ def _domain_event_channel_quantities(
 ) -> dict[str, tuple[Decimal, Decimal]]:
     events = Decimal(int(scenario["events_per_month"]))
     matches = events * Decimal(str(scenario["rule_match_share"]))
-    workflows = matches * Decimal(
-        str(scenario["workflow_start_share_of_matches"])
-    )
-    commands = matches * Decimal(
-        str(scenario["device_command_share_of_matches"])
-    )
+    workflows = matches * Decimal(str(scenario["workflow_start_share_of_matches"]))
+    commands = matches * Decimal(str(scenario["device_command_share_of_matches"]))
     publishes = {
         "telemetry.received.v1": events,
         "telemetry.processed.v1": events,
@@ -334,21 +363,18 @@ def _route_quantities(
     scenario: Mapping[str, Any],
 ) -> dict[str, str]:
     month_seconds = Decimal("2592000")
-    interval_seconds = (
-        Decimal(str(workload["deviceSendingIntervalInMinutes"])) * Decimal(60)
-    )
+    interval_seconds = Decimal(
+        str(workload["deviceSendingIntervalInMinutes"])
+    ) * Decimal(60)
     messages = (
-        Decimal(int(workload["numberOfDevices"]))
-        * month_seconds
-        / interval_seconds
+        Decimal(int(workload["numberOfDevices"])) * month_seconds / interval_seconds
     ).to_integral_value(rounding=ROUND_CEILING)
     payload_bytes = Decimal(str(workload["averageSizeOfMessageInKb"])) * 1024
     if route_class == "domain_event_cross_cloud":
         channels = _domain_event_channel_quantities(scenario)
         try:
             selected = [
-                channels[flow_id.split(":", 1)[0]]
-                for flow_id in domain_flow_ids
+                channels[flow_id.split(":", 1)[0]] for flow_id in domain_flow_ids
             ]
         except KeyError as exc:
             _fail("costLedger.route_costs", f"Unknown domain-event flow {exc.args[0]}")
@@ -392,8 +418,7 @@ def _expected_routes(
         if item["scenario_id"] == eventing_ref["id"]
     )
     route_index = {
-        (item["route_class"], item["pair"]): item
-        for item in registry["route_owners"]
+        (item["route_class"], item["pair"]): item for item in registry["route_owners"]
     }
     routes: list[ExpectedRoute] = []
 
@@ -444,9 +469,12 @@ def _expected_routes(
     domain_flows: dict[tuple[str, str], list[str]] = {}
     uses_event_layer = "component.eventing" in assignment
     if uses_event_layer:
-        for edge_id, source_logical, destination_logical, flow_ids in (
-            SIX_LAYER_EVENT_FLOWS
-        ):
+        for (
+            edge_id,
+            source_logical,
+            destination_logical,
+            flow_ids,
+        ) in SIX_LAYER_EVENT_FLOWS:
             source = assignment[source_logical]
             destination = assignment[destination_logical]
             if source == destination:
@@ -499,9 +527,7 @@ def _expected_routes(
 def _selection_digest(selection: Mapping[str, Any]) -> str:
     return _digest(
         {
-            "implementation_component_id": selection[
-                "implementation_component_id"
-            ],
+            "implementation_component_id": selection["implementation_component_id"],
             "implementation_component_digest": selection[
                 "implementation_component_digest"
             ],
@@ -610,7 +636,7 @@ def validate_five_layer_v2_cost_ledger(
             or (
                 topology_component
                 and quote["topology_cost_registry_digest"]
-                != SIX_LAYER_TOPOLOGY_COST_REGISTRY_DIGEST
+                != _six_layer_topology_cost_registry_digest()
             )
         ):
             _fail(
@@ -695,9 +721,7 @@ def validate_five_layer_v2_cost_ledger(
             "costLedger.route_costs",
         )
         expected_digests = {
-            "source": catalog_context.catalogs[
-                route.source_provider
-            ].content_digest,
+            "source": catalog_context.catalogs[route.source_provider].content_digest,
             "destination": catalog_context.catalogs[
                 route.destination_provider
             ].content_digest,
@@ -713,7 +737,7 @@ def validate_five_layer_v2_cost_ledger(
             or (
                 topology_route
                 and quote["topology_cost_registry_digest"]
-                != SIX_LAYER_TOPOLOGY_COST_REGISTRY_DIGEST
+                != _six_layer_topology_cost_registry_digest()
             )
             or not isinstance(quote["allocations"], list)
         ):

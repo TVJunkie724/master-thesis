@@ -79,9 +79,9 @@ class DeploymentAccessService:
                 deployment.deployment_access_evidence
             )
         except (PydanticValidationError, TypeError) as exc:
-            raise ValidationError(
-                "DEPLOYMENT_ACCESS_EVIDENCE_INVALID"
-            ) from exc
+            raise ValidationError("DEPLOYMENT_ACCESS_EVIDENCE_INVALID") from exc
+        if (evidence.profile_id, evidence.profile_version) != profile:
+            raise ValidationError("DEPLOYMENT_ACCESS_EVIDENCE_PROFILE_MISMATCH")
         return DeploymentAccessSnapshot(
             twin_id=twin.id,
             deployment_id=deployment.id,
@@ -102,10 +102,7 @@ class DeploymentAccessService:
             raise RuntimeError("Rotation requires a database unit of work")
         snapshot = self.get_access(twin_id, user_id)
         l5 = snapshot.surfaces[1]
-        if (
-            l5.provider != "gcp"
-            or l5.auth.credential_action != "rotate"
-        ):
+        if l5.provider != "gcp" or l5.auth.credential_action != "rotate":
             raise ConflictError("GCP_GRAFANA_VIEWER_ROTATION_NOT_AVAILABLE")
         deployment = self._deployments.latest_successful_deploy(twin_id)
         if deployment is None:
@@ -167,9 +164,7 @@ class DeploymentAccessService:
     def _acquire_rotation(deployment_id: str) -> None:
         with _ROTATION_GUARD:
             if deployment_id in _ACTIVE_ROTATIONS:
-                raise ConflictError(
-                    "GCP_GRAFANA_VIEWER_ROTATION_IN_PROGRESS"
-                )
+                raise ConflictError("GCP_GRAFANA_VIEWER_ROTATION_IN_PROGRESS")
             _ACTIVE_ROTATIONS.add(deployment_id)
 
     @staticmethod

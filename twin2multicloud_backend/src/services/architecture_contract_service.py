@@ -1,8 +1,8 @@
-"""Read-only architecture-profile contract service.
+"""Read-only architecture-profile contract validation service.
 
-Phase 8.2 exposes no routes and persists nothing. Pydantic first establishes a
-bounded typed read boundary; the generated validator enforces the full schema
-and semantic contract.
+Pydantic first establishes a bounded typed read boundary; the generated
+validator enforces the full schema and semantic contract used by the active
+profile APIs and persistence services.
 """
 
 from __future__ import annotations

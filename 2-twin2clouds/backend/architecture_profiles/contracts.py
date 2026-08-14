@@ -1,6 +1,7 @@
-"""Immutable architecture-profile contract reader for the Optimizer.
+"""Immutable architecture-profile contract reader for Optimizer resolution.
 
-Phase 8.2 deliberately does not connect this reader to calculation paths.
+The reader was introduced dark in Phase 8.2 and now validates both active
+Phase 8 profile calculation paths while retaining the historical v1 runtime.
 """
 
 from __future__ import annotations

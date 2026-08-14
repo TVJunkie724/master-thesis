@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import importlib.util
 from decimal import Decimal
 import json
@@ -23,6 +24,30 @@ def _load_contract_module():
 
 
 CONTRACT = _load_contract_module()
+
+
+def _literal_constant(path: Path, name: str):
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in tree.body:
+        value = None
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == name
+            for target in node.targets
+        ):
+            value = node.value
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == name
+        ):
+            value = node.value
+        if value is not None:
+            if name == "SIX_LAYER_EVENT_COMPONENT_IDS":
+                if not isinstance(value, ast.Call) or len(value.args) != 1:
+                    raise AssertionError(f"{name} must remain one frozen literal set")
+                value = value.args[0]
+            return ast.literal_eval(value)
+    raise AssertionError(f"Missing {name} in {path}")
 
 
 class SixLayerEventingContractTests(unittest.TestCase):
@@ -313,6 +338,31 @@ class SixLayerEventingContractTests(unittest.TestCase):
                     key: value["event_scope_total_usd"]
                     for key, value in reviewed_three_provider.items()
                 },
+            )
+
+    def test_optimizer_and_management_share_exact_event_cost_ownership(self) -> None:
+        optimizer = (
+            ROOT
+            / "2-twin2clouds"
+            / "backend"
+            / "architecture_profiles"
+            / "five_layer_v2_costing.py"
+        )
+        management = (
+            ROOT
+            / "twin2multicloud_backend"
+            / "src"
+            / "services"
+            / "five_layer_v2_cost_ledger_service.py"
+        )
+        for name in (
+            "SIX_LAYER_EVENT_COMPONENT_IDS",
+            "SIX_LAYER_EVENT_FLOWS",
+        ):
+            self.assertEqual(
+                _literal_constant(optimizer, name),
+                _literal_constant(management, name),
+                f"{name} drift would make valid Optimizer evidence fail Management",
             )
 
 

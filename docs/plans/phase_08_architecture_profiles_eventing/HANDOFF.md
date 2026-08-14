@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-14"
-version: "4.14"
+version: "4.15"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.14"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-14 | VERSION: 4.14
+EXTRACTED: 2026-08-14 | VERSION: 4.15
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -229,6 +229,13 @@ reconciled: both active profiles use one immutable paired S/M/L workload,
 Manifest v4 and the typed L4/L5 access handoff; the Six-layer delta alone adds
 the registered Eventing bundle and source-owned bridge. The strict
 documentation build passes locally.
+The following Management cost-ledger audit closed a stale topology-registry
+digest and restored exact parity with the Optimizer's five Event-edge flow
+matrix, including `edge.eventing-to-hot-storage`. Management derives and
+integrity-checks the current digest from its synchronized contract copy, while
+a root drift test compares both ownership constants.
+Management also cross-checks the typed Layer Access evidence profile/version
+against its owning deployment, closing the remaining inherited-evidence swap.
 
 ## Immediate Next Action
 

@@ -3,7 +3,7 @@ title: "Phase 8.9 Execution Plan: Five-Layer v2 Then Six-Layer v1"
 description: "Cross-stack implementation sequence for the complete bounded Phase 8 thesis PoC."
 tags: [phase-8, architecture-profiles, optimizer, deployer, management-api, flutter, thesis]
 lastUpdated: "2026-08-14"
-version: "1.11"
+version: "1.12"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "1.11"
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_9_six_layer_eventing_implementation.md
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md
 - User implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-14 | VERSION: 1.11
+EXTRACTED: 2026-08-14 | VERSION: 1.12
 -->
 
 # Phase 8.9 Execution Plan: Five-Layer v2 Then Six-Layer v1
@@ -63,6 +63,12 @@ workload is immutable, Six-layer inherits L1-L5 and Layer Access unchanged,
 and only its Event responsibility and registered bridge are added. The strict
 documentation build passes; the independent final code reviews and full safe
 gate remain open.
+The Management admission audit also now accepts the exact current Six-layer
+topology-cost digest and reconstructs all five Event edges, including the
+independent Event-to-hot-storage route. A cross-project drift test prevents
+Optimizer and Management event-cost ownership from diverging again.
+Layer Access admission additionally binds the evidence profile/version to the
+persisted deployment rather than accepting either valid active-profile shape.
 
 The activation calculation uses immutable AWS/Azure/GCP rate-card snapshots
 published from a validated source manifest for the exact S/M/L workloads and

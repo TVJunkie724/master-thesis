@@ -1,4 +1,4 @@
-"""Read-only Phase 8.3 profile/catalog summaries for future Management APIs."""
+"""Historical Five-layer v1 Phase 8.3 profile/catalog summary."""
 
 from __future__ import annotations
 
@@ -61,23 +61,15 @@ def _read(path: Path) -> dict[str, Any]:
 
 
 class ArchitectureCatalogReadService:
-    """Expose a typed internal projection without routes or persistence."""
+    """Expose the retained dark v1 inventory projection without persistence."""
 
     @staticmethod
     def read_summary() -> ArchitectureCatalogSummary:
         profile = _read(
-            DEFINITIONS_ROOT
-            / "profiles"
-            / "five-layer-baseline"
-            / "1"
-            / "profile.json"
+            DEFINITIONS_ROOT / "profiles" / "five-layer-baseline" / "1" / "profile.json"
         )
         catalog = _read(
-            DEFINITIONS_ROOT
-            / "component-catalogs"
-            / "baseline"
-            / "1"
-            / "catalog.json"
+            DEFINITIONS_ROOT / "component-catalogs" / "baseline" / "1" / "catalog.json"
         )
         providers = tuple(
             _read(
@@ -102,8 +94,7 @@ class ArchitectureCatalogReadService:
                     document["capability_claims"]["missing_capability_ids"]
                 ),
                 reason_codes=tuple(
-                    reason["reason_code"]
-                    for reason in document["unsupported_reasons"]
+                    reason["reason_code"] for reason in document["unsupported_reasons"]
                 ),
             )
             for document in providers
