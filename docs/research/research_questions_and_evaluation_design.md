@@ -7,9 +7,10 @@ their rationale, the evidence required to answer them, and the relationship
 between the implementation and the thesis evaluation.
 
 The question set was accepted as the working direction during the architecture
-discussion on 2026-07-17. It is not yet final thesis prose. The wording must be
-reviewed once more when the implementation scope and evaluation scenarios are
-frozen, before it replaces the commented scaffold in
+discussion on 2026-07-17. The implementation scope and bounded evaluation
+scenarios are now frozen, and Phase 8.10 evidence maps to the questions. It is
+not yet final thesis prose: supervisor review and the deliberate LaTeX
+synthesis still precede replacement of the commented scaffold in
 `twin2multicloud-latex/chapters/introduction.tex`.
 
 This note is deliberately separate from the published user and developer
@@ -22,6 +23,7 @@ Related research material:
 - [Digital Twin Architecture And Eventing Layer](digital_twin_architecture_and_eventing_layer.md)
 - [Pricing Evidence Dataflow](pricing_evidence_dataflow.md)
 - [Cloud Pricing Industry Context](cloud_pricing_industry_context.md)
+- [Phase 8 Architecture-Profile Evaluation Method And Results](phase_08_profile_evaluation_method_and_results.md)
 
 ## Core Thesis Focus
 
@@ -530,12 +532,12 @@ The current refactoring introduced strong extension points for:
 - deployment manifests and provider capability contracts; and
 - result traceability.
 
-The repository now has a bounded architecture-profile contract and a dark
-Optimizer/Management resolution path. Runtime Deployer and Flutter boundaries
-still reflect the fixed predecessor layer set until Phases 8.6 and 8.7
-complete. Adding a new service inside an existing responsibility is a bounded
-extension; activating `LE` as a new architectural responsibility remains a
-cross-project implementation change.
+The repository now has a bounded architecture-profile contract and active
+Optimizer, Management, Deployer, and Flutter paths for Five-layer v2 and
+Six-layer v1. Adding a new service inside an existing responsibility remains a
+bounded extension; the completed `LE` activation demonstrates that adding an
+architectural responsibility is a reviewed cross-project change rather than a
+UI-authored topology edit.
 
 The closed-world contract separates:
 
@@ -558,17 +560,21 @@ six-layer-eventing@1
 ```
 
 This contract keeps the approved historical baseline reproducible and makes
-both new comparison profiles data-driven and iterable. Phase 8.8 has approved
+both active comparison profiles data-driven and iterable. Phase 8.8 approved
 their shared behavior, exact provider bundles, cross-cloud bridge, and
-non-executable implementation blueprint as offline evidence.
-`five-layer-baseline@2` and `six-layer-eventing@1` become runtime-selectable
-only after their respective Phase 8.9 implementation gates and all inherited
-dark Phase 8.6 compiler, Phase 8.7 UI, and complete-service decision gates
-pass.
+implementation blueprint; Phase 8.9 then passed the inherited Phase 8.6
+compiler, Phase 8.7 UI, complete-service, and activation gates. Both new
+profiles are runtime-selectable for offline calculation, while supervised
+live-capacity gates remain fail-closed.
 It must not become a general architecture editor or arbitrary topology engine.
 Each profile owns its admissibility gate, candidate set, and optimization run.
 Cross-profile evaluation compares reported deltas; it does not silently merge
 different functional scopes into one ranking.
+
+Phase 8.10 now records that bounded evaluation in a deterministic evidence
+package. Its method and interpretation are documented in
+[`phase_08_profile_evaluation_method_and_results.md`](phase_08_profile_evaluation_method_and_results.md);
+the generated package is the authority for exact totals and digests.
 
 Both new profiles freeze the same European region set (`eu-central-1`,
 `westeurope`, `europe-west1`) and interpret `H`, `C`, and `A` as cumulative
@@ -652,9 +658,9 @@ version/license, compute, identity, persistence, networking, operations,
 capacity, deployment, cleanup, and cost ownership are explicit. Absence of a
 single managed product is not itself a functional rejection.
 
-Two scenario families remain distinct. Five-layer v2 freezes its standalone
-evidence first; a later separately approved Six-layer plan may pair the same
-scenario snapshots by size for the final comparison:
+Two scenario families remain distinct. Five-layer v2 froze its standalone
+evidence first; the separately approved Six-layer implementation pairs the
+same scenario snapshots by size for the final bounded comparison:
 
 - Core Twin scenarios determine device telemetry, storage retention, Twin and
   semantic update bounds, and aggregate raw-history dashboard queries;
@@ -663,8 +669,8 @@ scenario snapshots by size for the final comparison:
 
 Runtime requests select one immutable `eventingScenarioId`; Management resolves
 and digest-checks the canonical Phase 8.8 object. Five-layer v2 persists the
-selected scenario ID and workload digest. A later fair comparison must reuse
-those exact values rather than recalculate the baseline. Inline custom Eventing
+selected scenario ID and workload digest. A fair comparison reuses those exact
+values rather than recalculating the baseline. Inline custom Eventing
 values require a later contract version and are not mislabeled as frozen v1
 evidence.
 
@@ -708,11 +714,13 @@ Five-layer v2 and require a later versioned capability decision.
 Before these questions become final thesis text:
 
 - [ ] Complete the systematic literature search and citation chaining.
-- [ ] Freeze the implemented architecture profiles.
-- [ ] Finalize mandatory capabilities and provider profile mappings.
-- [ ] Finalize formulas, pricing evidence, tiers, transfer ownership, and
+- [x] Freeze the implemented architecture profiles.
+- [x] Finalize mandatory capabilities and provider profile mappings.
+- [x] Finalize formulas, pricing evidence, tiers, transfer ownership, and
       publishability gates.
-- [ ] Define the final workload scenarios and sensitivity variables.
+- [x] Define the bounded Small/Medium/Large evaluation scenarios.
+- [x] Generate and reproduce the deterministic Phase 8.10 offline evidence.
+- [ ] Define any additional sensitivity variables beyond the frozen evaluation.
 - [ ] Align chapter structure and contribution wording with the approved RQs.
 - [ ] Review the RQs with the thesis supervisor.
 - [ ] Replace the outdated commented RQs in `introduction.tex`.

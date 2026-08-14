@@ -334,9 +334,16 @@ def validate_rejections_and_research_mapping(package: Path) -> None:
                 else repository_path(evidence_path)
             )
             assert path.is_file(), evidence_path
-    assert {
-        item["rq_id"] for item in read_json(package / "rq-mapping.json")["mappings"]
-    } == {"RQ1", "RQ2", "RQ3", "RQ3.1", "RQ3.2"}
+    mapping = read_json(package / "rq-mapping.json")
+    source = mapping["research_question_source"]
+    assert byte_digest(repository_path(source["path"])) == source["digest"]
+    assert {item["rq_id"] for item in mapping["mappings"]} == {
+        "RQ1",
+        "RQ2",
+        "RQ3",
+        "RQ3.1",
+        "RQ3.2",
+    }
     functional = read_json(package / "functional-matrix.json")
     assert functional["evaluation_order"][0] == "functional_completeness"
     assert not functional["comparison_boundary"]["cross_profile_optimizer_winner"]

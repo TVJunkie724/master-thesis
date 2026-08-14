@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 from decimal import Decimal
 import json
+import shutil
 
 import pytest
 
@@ -12,6 +13,7 @@ from scripts.phase_08_profile_evaluation.validate import (
     SCHEMA_DIRECTORY,
     validate_cost,
     validate_package,
+    validate_rejections_and_research_mapping,
     validate_schema,
 )
 
@@ -111,3 +113,15 @@ def test_cross_profile_delta_never_becomes_a_global_winner():
         row["inherited_l1_l5_assignment"] == row["six_layer_inherited_l1_l5_assignment"]
         for row in deltas["matched_context_cost_deltas"]
     )
+
+
+def test_research_question_source_digest_rejects_drift(tmp_path):
+    package = tmp_path / "evidence"
+    shutil.copytree(DEFAULT_PACKAGE, package)
+    mapping_path = package / "rq-mapping.json"
+    mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+    mapping["research_question_source"]["digest"] = "sha256:" + ("0" * 64)
+    mapping_path.write_text(json.dumps(mapping), encoding="utf-8")
+
+    with pytest.raises(AssertionError):
+        validate_rejections_and_research_mapping(package)

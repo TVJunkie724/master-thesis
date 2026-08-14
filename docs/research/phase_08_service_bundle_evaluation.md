@@ -2,8 +2,8 @@
 title: "Phase 8 Five-Layer v2 Service-Bundle Evaluation"
 description: "PoC-focused functional, placement, identity, and capacity evaluation for five-layer-baseline@2."
 tags: [architecture, digital-twin, eventing, multicloud, services, capacity, phase-8]
-lastUpdated: "2026-08-03"
-version: "1.9"
+lastUpdated: "2026-08-14"
+version: "2.0"
 ---
 
 <!-- SOURCES:
@@ -14,7 +14,7 @@ version: "1.9"
 - User-approved functionality-first PoC rule, L3-hot/L5 placement experiment,
   Azure Cosmos DB and GCP Firestore L3 continuity, and Small/Medium/Large
   evaluation
-EXTRACTED: 2026-08-03 | VERSION: 1.9
+EXTRACTED: 2026-08-14 | VERSION: 2.0
 -->
 
 # Phase 8 Five-Layer v2 Service-Bundle Evaluation
@@ -25,11 +25,11 @@ Select one implementable service bundle per provider for
 `five-layer-baseline@2`: five scientific responsibilities with mandatory
 domain-event behavior embedded in their owners.
 
-This evaluation selects the complete Five-layer v2 boundary. The immutable
-complete-service package also records the already reviewed Six-layer service
-delta, but does not activate it: `six-layer-eventing@1` must inherit the
-reviewed Five-layer v2 L1-L5 services, workload, and placement rules unchanged
-and execute only on its separate branch after Five-layer review.
+This evaluation selected the complete Five-layer v2 boundary. The immutable
+complete-service package also records the reviewed Six-layer service delta.
+The later Phase 8.9 activation implemented both profiles while preserving the
+rule that `six-layer-eventing@1` inherits the reviewed Five-layer v2 L1-L5
+services, workload, and placement rules unchanged.
 
 The proof of concept is not a cost-minimization exercise. A service is selected
 when it closes the required function and has a credible theoretical
@@ -82,8 +82,8 @@ not through L4.
 | Profile | Role | Lifecycle |
 |---|---|---|
 | `five-layer-baseline@1` | Historical paper-compatible reference | Immutable; read, reproduce, verify, and destroy only |
-| `five-layer-baseline@2` | New five-responsibility control with mandatory embedded events | Implement first; offline activation only after complete-service gates |
-| `six-layer-eventing@1` | Later treatment profile with an independent Event Layer | Service delta approved offline; implementation remains deferred until reviewed Five-layer v2 |
+| `five-layer-baseline@2` | Five-responsibility control with mandatory embedded events | Active for reviewed offline calculation; live-capacity gates remain separate |
+| `six-layer-eventing@1` | Treatment profile with an independent Event Layer | Active for reviewed offline calculation after the Five-layer v2 freeze; live-capacity gates remain separate |
 
 No implementation silently repairs `@1`. Its current public
 Function/shared-token boundary and L3/Grafana mismatch remain historical debt,
@@ -796,7 +796,7 @@ directions remain observable and costed.
 
 ## Offline Activation And Live-Readiness Gates
 
-Five-layer v2 does not activate offline until all of the following pass:
+Five-layer v2 could not activate offline until all of the following passed:
 
 1. immutable complete-provider bundle, workload, route, and component manifests;
 2. exact Eventing scenario reference/digest resolution plus formulas and
@@ -817,6 +817,17 @@ Five-layer v2 does not activate offline until all of the following pass:
 An offline-activated profile is not live-ready. Provider quota approval, real
 identity exchange, workload-specific throughput, plugin behavior, and cloud
 cleanup require separately approved supervised evidence.
+
+## Phase 8.10 Evaluation Use
+
+The deterministic Phase 8.10 package now consumes these frozen service-bundle
+decisions for the historical v1 reconstruction and the active Five-layer v2
+and Six-layer v1 profile-local result sets. It applies functional and
+theoretical-capacity gates before cost, covers the complete single-cloud and
+bounded multicloud matrix, and reports unsupported or live-unverified cases
+without totals. Method, interpretation, and exact generated evidence are
+indexed in
+[`phase_08_profile_evaluation_method_and_results.md`](phase_08_profile_evaluation_method_and_results.md).
 
 ## Primary Source Ledger
 

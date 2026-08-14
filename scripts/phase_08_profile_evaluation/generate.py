@@ -199,9 +199,7 @@ def frozen_input_references() -> list[dict[str, Any]]:
             REPOSITORY_ROOT
             / "contracts/architecture-inventory/v1/five-layer-baseline-v1-decision.json",
         ),
-        ("evaluation", Path(__file__).resolve()),
-        ("evaluation", CONFIG_PATH),
-        ("evaluation", CONFIG_SCHEMA_PATH),
+        ("evaluation", Path(__file__).resolve().parent),
         ("evaluation", EVALUATION_SCHEMA_ROOT),
         ("functional", EVENT_CAPABILITY_SOURCE),
         ("functional", SERVICE_BUNDLE_SOURCE),
@@ -1681,7 +1679,7 @@ def verification_artifact(*, config: Mapping[str, Any], output: Path) -> dict[st
                 "command": "python -m pytest scripts/phase_08_profile_evaluation/tests -q",
                 "status": "passed",
                 "exit_status": 0,
-                "test_count": 8,
+                "test_count": 9,
                 "scope": "schema strictness, mutation rejection, cost recomputation, scenario digest, pair coverage, and comparison boundaries",
             },
             {

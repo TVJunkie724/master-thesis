@@ -7,8 +7,9 @@ decomposition used by Twin2MultiCloud. It is input for the later thesis
 synthesis and the architecture audit in GitHub issue
 [#112](https://github.com/TVJunkie724/master-thesis/issues/112), not a decision
 to replace the implemented architecture by itself. The note began as
-pre-decision research; its final section now records the separately reviewed
-Phase 8.8 decision. It is deliberately not part of the published user and
+pre-decision research; its final sections now record the separately reviewed
+Phase 8.8 decision, the Phase 8.9 offline activation, and the Phase 8.10
+evaluation boundary. It is deliberately not part of the published user and
 developer documentation.
 
 The related implementation hardening for user-provided function logic,
@@ -1305,13 +1306,18 @@ backbone for commands and correlated outcomes. Reconnect ordering degradation,
 the selected image's 64-KiB capacity, and node/failure behavior remain explicit
 live-readiness gates.
 
-This approval is deliberately not a claim that Eventing is implemented or
-live-verified. The complete-service closure plus Phase 8.6 and Phase 8.7 still
-precede Phase 8.9 activation. All
-six directed workload-identity exchanges, the theoretical Large allocations,
-and the GCP hosted BifroMQ device boundary remain explicit implementation or
-supervised-live gates. General topology optimization remains a separate future
-research direction.
+Phase 8.9 has since implemented and frozen the offline Five-layer v2 and
+Six-layer v1 profiles after the complete-service, Deployer, Flutter, and
+cross-stack gates. This is deliberately not a claim that Eventing is
+live-verified. All six directed workload-identity exchanges, the theoretical
+Large allocations, the GCP hosted BifroMQ device boundary, and interactive
+provider sign-in remain supervised-live gates. General topology optimization
+remains a separate future research direction.
+
+Phase 8.10 evaluates the frozen profiles with functional and theoretical-
+capacity gates before cost. Its method, bounded interpretation, and evidence
+index are documented in
+[`phase_08_profile_evaluation_method_and_results.md`](phase_08_profile_evaluation_method_and_results.md).
 
 The thesis does not need to catalogue every potentially relevant provider
 service. It evaluates one bounded, justified composition per provider.
@@ -1355,8 +1361,8 @@ feasibility and residual limitations are recorded in
 [`phase_08_layer_access_handoff.md`](../plans/phase_08_architecture_profiles_eventing/phase_08_layer_access_handoff.md).
 
 L4-to-L5 Twin context, 3D scenes, and the ADX migration are outside
-Five-layer v2. Six-layer implementation is separately deferred until the
-Five-layer L1-L5 evidence is frozen.
+Five-layer v2. Six-layer v1 was subsequently activated only after the
+Five-layer L1-L5 evidence was frozen.
 
 The comparison fixes AWS to `eu-central-1`, Azure to `westeurope`, and GCP to
 `europe-west1`; region selection is outside these profile versions. The new

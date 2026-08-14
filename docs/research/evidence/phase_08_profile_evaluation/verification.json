@@ -46,7 +46,7 @@
     },
     {
       "path": "evaluation-manifest.json",
-      "digest": "sha256:53a6a2bab017bb1a23b354d0f921c6f90e421d2ffac8680e6804917788a122f0"
+      "digest": "sha256:12c68e610fea77faf79e4c78e83911a28b13cbd62b4ac7126a08e5568dcfa180"
     },
     {
       "path": "functional-matrix.json",
@@ -102,14 +102,14 @@
     },
     {
       "path": "rq-mapping.json",
-      "digest": "sha256:8b2654c51b61ed4d91bec98b372f32dc0ab54a8d9f0ef1c60491325d44ec3e10"
+      "digest": "sha256:9d5355d5e680e182095f5e661598b91a74def0a909c9effb6e90755564ffed41"
     },
     {
       "path": "scenario-manifest.json",
       "digest": "sha256:4b7037b917f1e352556c026477db9130c742591a9754a5e97e26da969a536c40"
     }
   ],
-  "artifact_set_digest": "sha256:753d6d3bb9b6132e7391b651f3514d0182b9d77e0fa28b86b02568726001a465",
+  "artifact_set_digest": "sha256:5366d0e5ac91d7f95b94f9da443ba57ee00d8a5bb8cb748395b8d5e5bfab2bb9",
   "commands": [
     {
       "command_id": "generator",
@@ -132,7 +132,7 @@
       "command": "python -m pytest scripts/phase_08_profile_evaluation/tests -q",
       "status": "passed",
       "exit_status": 0,
-      "test_count": 8,
+      "test_count": 9,
       "scope": "schema strictness, mutation rejection, cost recomputation, scenario digest, pair coverage, and comparison boundaries"
     },
     {

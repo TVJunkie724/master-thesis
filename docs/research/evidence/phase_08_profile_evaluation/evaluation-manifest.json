@@ -93,24 +93,10 @@
     },
     {
       "category": "evaluation",
-      "path": "scripts/phase_08_profile_evaluation/evaluation-config.schema.json",
-      "kind": "file",
-      "digest": "sha256:ed71207692ebeaa87f2b8c839e00a97ea92a8d867e8e7682eaacfe330bed7039",
-      "file_count": 1
-    },
-    {
-      "category": "evaluation",
-      "path": "scripts/phase_08_profile_evaluation/evaluation_config.json",
-      "kind": "file",
-      "digest": "sha256:69637886c15126540b02826106cc0e1c9cb73da76a947ca5850272bd3f6de046",
-      "file_count": 1
-    },
-    {
-      "category": "evaluation",
-      "path": "scripts/phase_08_profile_evaluation/generate.py",
-      "kind": "file",
-      "digest": "sha256:2b93b683fb612d95e1672291d4dc459f72f46d48c035b3d2648ddadd012cf0d2",
-      "file_count": 1
+      "path": "scripts/phase_08_profile_evaluation",
+      "kind": "tree",
+      "digest": "sha256:560466c6dc84c2994f2e7b552c6129b316c10314b0832106bf76f7115af1e736",
+      "file_count": 8
     },
     {
       "category": "formula",
@@ -399,12 +385,12 @@
     },
     {
       "path": "rq-mapping.json",
-      "digest": "sha256:8b2654c51b61ed4d91bec98b372f32dc0ab54a8d9f0ef1c60491325d44ec3e10"
+      "digest": "sha256:9d5355d5e680e182095f5e661598b91a74def0a909c9effb6e90755564ffed41"
     },
     {
       "path": "scenario-manifest.json",
       "digest": "sha256:4b7037b917f1e352556c026477db9130c742591a9754a5e97e26da969a536c40"
     }
   ],
-  "result_set_digest": "sha256:a1429f376d8aa1afc03be77f07b67a6f3461710bfd1d274d018b213edb2c0e14"
+  "result_set_digest": "sha256:f651a975a08e2abdcc4833f994deb18a16afc7edba73aba20bd9b385bd17918f"
 }
