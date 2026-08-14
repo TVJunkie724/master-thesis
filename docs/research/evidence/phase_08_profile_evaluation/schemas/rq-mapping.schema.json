@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "rq-mapping.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["$schema", "schema_version", "package_id", "research_question_source", "mappings"],
+  "properties": {
+    "$schema": {"const": "schemas/rq-mapping.schema.json"}, "schema_version": {"const": "phase-08-rq-mapping.v1"},
+    "package_id": {"const": "phase-08-profile-evaluation@1"},
+    "research_question_source": {
+      "type": "object", "additionalProperties": false, "required": ["path", "digest"],
+      "properties": {"path": {"const": "docs/research/research_questions_and_evaluation_design.md"}, "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+    },
+    "mappings": {
+      "type": "array", "minItems": 5, "maxItems": 5,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["rq_id", "claim_boundary", "artifact_paths"],
+        "properties": {"rq_id": {"enum": ["RQ1", "RQ2", "RQ3", "RQ3.1", "RQ3.2"]}, "claim_boundary": {"type": "string", "minLength": 1}, "artifact_paths": {"type": "array", "minItems": 1, "items": {"type": "string", "not": {"pattern": "^/"}}}}
+      }
+    }
+  }
+}

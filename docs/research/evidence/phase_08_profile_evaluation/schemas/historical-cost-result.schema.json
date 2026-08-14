@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "historical-cost-result.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["$schema", "schema_version", "profile_id", "comparison_scope", "pricing_source", "scenarios", "ranked_with_active_profiles"],
+  "properties": {
+    "$schema": {"const": "../schemas/historical-cost-result.schema.json"},
+    "schema_version": {"const": "phase-08-historical-cost-result.v1"},
+    "profile_id": {"const": "five-layer-baseline@1"}, "comparison_scope": {"const": "historical_reconstruction_only"},
+    "pricing_source": {
+      "type": "object", "additionalProperties": false, "required": ["path", "digest", "observation_policy"],
+      "properties": {"path": {"type": "string", "not": {"pattern": "^/"}}, "digest": {"$ref": "#/$defs/digest"}, "observation_policy": {"const": "repository_snapshot_not_cross_profile_comparable"}}
+    },
+    "scenarios": {
+      "type": "array", "minItems": 2,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["scenario_id", "status", "workload_digest", "winning_candidate_id", "winning_assignment", "monthly_total", "currency", "enumerated_candidate_count", "single_cloud_results", "provider_layer_totals", "resolved_architecture_path", "resolved_deployment_specification_digest", "category_breakdown_status"],
+        "properties": {
+          "scenario_id": {"type": "string"}, "status": {"const": "historical_reconstruction"}, "workload_digest": {"$ref": "#/$defs/digest"},
+          "winning_candidate_id": {"type": "string"}, "winning_assignment": {"type": "array", "minItems": 7, "items": {"type": "string"}},
+          "monthly_total": {"$ref": "#/$defs/amount"}, "currency": {"const": "USD"}, "enumerated_candidate_count": {"type": "integer", "minimum": 1},
+          "single_cloud_results": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/singleCloud"}},
+          "provider_layer_totals": {"type": "object", "required": ["aws", "azure", "gcp"], "additionalProperties": {"type": "object", "additionalProperties": {"$ref": "#/$defs/amount"}}},
+          "resolved_architecture_path": {"type": "string", "not": {"pattern": "^/"}}, "resolved_deployment_specification_digest": {"$ref": "#/$defs/digest"},
+          "category_breakdown_status": {"const": "not_retrofitted_to_historical_contract"}
+        }
+      }
+    },
+    "ranked_with_active_profiles": {"const": false}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "amount": {"type": "string", "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]+)?$"},
+    "singleCloud": {
+      "type": "object", "additionalProperties": false, "required": ["provider", "status"],
+      "properties": {"provider": {"enum": ["aws", "azure", "gcp"]}, "status": {"enum": ["historical_reconstruction", "unsupported"]}, "monthly_total": {"$ref": "#/$defs/amount"}, "reason_code": {"type": "string"}},
+      "allOf": [{"if": {"properties": {"status": {"const": "unsupported"}}}, "then": {"required": ["reason_code"], "not": {"required": ["monthly_total"]}}, "else": {"required": ["monthly_total"], "not": {"required": ["reason_code"]}}}]
+    }
+  }
+}

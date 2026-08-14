@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "evaluation-manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "package_id", "implementation_freeze_commit", "profiles", "frozen_inputs", "environment", "evaluation_policy", "output_artifacts", "result_set_digest"],
+  "properties": {
+    "$schema": {"const": "schemas/evaluation-manifest.schema.json"},
+    "schema_version": {"const": "phase-08-profile-evaluation-manifest.v1"},
+    "package_id": {"const": "phase-08-profile-evaluation@1"},
+    "implementation_freeze_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "profiles": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "version", "role"],
+        "properties": {
+          "id": {"enum": ["five-layer-baseline", "six-layer-eventing"]},
+          "version": {"enum": ["1", "2"]},
+          "role": {"enum": ["historical", "control", "treatment"]}
+        }
+      }
+    },
+    "frozen_inputs": {
+      "type": "array", "minItems": 20,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["category", "path", "kind", "digest", "file_count"],
+        "properties": {
+          "category": {"enum": ["architecture", "evaluation", "functional", "implementation", "provider", "component", "permission", "package", "terraform", "bootstrap", "access", "workload", "scenario", "pricing", "formula", "source"]},
+          "path": {"type": "string", "minLength": 1, "not": {"pattern": "^/"}},
+          "kind": {"enum": ["file", "tree"]},
+          "digest": {"$ref": "#/$defs/digest"},
+          "file_count": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "environment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["host_platform", "container_platform", "python_version", "container_images", "generator"],
+      "properties": {
+        "host_platform": {"type": "string", "minLength": 1},
+        "container_platform": {"type": "string", "minLength": 1},
+        "python_version": {"type": "string", "pattern": "^3\\.11"},
+        "container_images": {
+          "type": "array", "minItems": 4,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["service", "digest"],
+            "properties": {"service": {"type": "string", "minLength": 1}, "digest": {"$ref": "#/$defs/digest"}}
+          }
+        },
+        "generator": {
+          "type": "object", "additionalProperties": false,
+          "required": ["id", "version", "command", "container_command"],
+          "properties": {
+            "id": {"const": "phase-08-profile-evaluation-generator"},
+            "version": {"const": "1.0.0"},
+            "command": {"type": "string", "minLength": 1},
+            "container_command": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "evaluation_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mode", "functional_before_cost", "profile_local_ranking_only", "publish_total_for_rejected_candidate", "live_cloud_claims", "latex_modified"],
+      "properties": {
+        "mode": {"const": "offline_deterministic_no_apply"},
+        "functional_before_cost": {"const": true},
+        "profile_local_ranking_only": {"const": true},
+        "publish_total_for_rejected_candidate": {"const": false},
+        "live_cloud_claims": {"const": false},
+        "latex_modified": {"const": false}
+      }
+    },
+    "output_artifacts": {"$ref": "#/$defs/digestRows"},
+    "result_set_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "digestRows": {
+      "type": "array", "minItems": 10,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["path", "digest"],
+        "properties": {"path": {"type": "string", "minLength": 1, "not": {"pattern": "^/"}}, "digest": {"$ref": "#/$defs/digest"}}
+      }
+    }
+  }
+}

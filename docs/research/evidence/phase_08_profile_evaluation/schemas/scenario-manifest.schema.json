@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "scenario-manifest.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["$schema", "schema_version", "package_id", "regions", "currency", "observation_policy", "pricing_snapshots", "paired_scenarios", "historical_scenarios", "coverage"],
+  "properties": {
+    "$schema": {"const": "schemas/scenario-manifest.schema.json"},
+    "schema_version": {"const": "phase-08-profile-scenarios.v1"},
+    "package_id": {"const": "phase-08-profile-evaluation@1"},
+    "regions": {
+      "type": "object", "additionalProperties": false, "required": ["aws", "azure", "gcp"],
+      "properties": {"aws": {"const": "eu-central-1"}, "azure": {"const": "westeurope"}, "gcp": {"const": "europe-west1"}}
+    },
+    "currency": {
+      "type": "object", "additionalProperties": false, "required": ["code", "conversion_policy"],
+      "properties": {"code": {"const": "USD"}, "conversion_policy": {"const": "usd_identity_no_conversion"}}
+    },
+    "observation_policy": {
+      "type": "object", "additionalProperties": false, "required": ["evaluation_cutoff", "pricing_observation_timestamp", "generation_timestamp_policy"],
+      "properties": {
+        "evaluation_cutoff": {"type": "string", "format": "date"},
+        "pricing_observation_timestamp": {"type": "string", "format": "date-time"},
+        "generation_timestamp_policy": {"const": "no_runtime_timestamp_in_generated_artifacts"}
+      }
+    },
+    "pricing_snapshots": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["provider", "region", "snapshot_id", "digest", "fetched_at", "source", "review_status"],
+        "properties": {
+          "provider": {"enum": ["aws", "azure", "gcp"]}, "region": {"type": "string"}, "snapshot_id": {"type": "string"},
+          "digest": {"$ref": "#/$defs/digest"}, "fetched_at": {"type": "string", "format": "date-time"},
+          "source": {"type": "string"}, "review_status": {"const": "reviewed"}
+        }
+      }
+    },
+    "paired_scenarios": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["scenario_id", "size", "core_workload", "core_source", "eventing_workload", "eventing_source", "paired_workload_digest"],
+        "properties": {
+          "scenario_id": {"type": "string", "pattern": "^profile-evaluation-(small|medium|large)-v1$"},
+          "size": {"enum": ["small", "medium", "large"]},
+          "core_workload": {"type": "object"}, "eventing_workload": {"type": "object"},
+          "core_source": {"$ref": "#/$defs/source"}, "eventing_source": {"$ref": "#/$defs/source"},
+          "paired_workload_digest": {"$ref": "#/$defs/digest"}
+        }
+      }
+    },
+    "historical_scenarios": {
+      "type": "array", "minItems": 2,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["scenario_id", "source", "overrides", "workload", "workload_digest", "comparison_scope"],
+        "properties": {
+          "scenario_id": {"type": "string"}, "source": {"$ref": "#/$defs/source"}, "overrides": {"type": "object"},
+          "workload": {"type": "object"}, "workload_digest": {"$ref": "#/$defs/digest"},
+          "comparison_scope": {"const": "historical_reconstruction_only"}
+        }
+      }
+    },
+    "coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sizes", "single_cloud_placements_per_profile_and_size", "five_layer_online_placements_per_size", "directed_event_provider_pairs_per_size", "representative_three_provider_placements_per_size"],
+      "properties": {
+        "sizes": {"const": 3}, "single_cloud_placements_per_profile_and_size": {"const": 3},
+        "five_layer_online_placements_per_size": {"const": 9}, "directed_event_provider_pairs_per_size": {"const": 6},
+        "representative_three_provider_placements_per_size": {"const": 1}
+      }
+    }
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "source": {
+      "type": "object", "additionalProperties": false, "required": ["path", "digest"],
+      "properties": {"path": {"type": "string", "minLength": 1, "not": {"pattern": "^/"}}, "digest": {"$ref": "#/$defs/digest"}}
+    }
+  }
+}

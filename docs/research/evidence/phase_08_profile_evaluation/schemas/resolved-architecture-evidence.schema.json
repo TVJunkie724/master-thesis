@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "resolved-architecture-evidence.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["$schema", "schema_version", "profile_id", "scenario_id", "status", "resolved_twin_architecture", "resolved_twin_architecture_digest", "resolved_deployment_specification", "resolved_deployment_specification_digest"],
+  "properties": {
+    "$schema": {"const": "../schemas/resolved-architecture-evidence.schema.json"},
+    "schema_version": {"const": "phase-08-resolved-architecture-evidence.v1"},
+    "profile_id": {"enum": ["five-layer-baseline@1", "five-layer-baseline@2", "six-layer-eventing@1"]},
+    "scenario_id": {"type": "string", "minLength": 1}, "status": {"enum": ["historical_reconstruction", "supported_offline_estimate", "unsupported"]},
+    "resolved_twin_architecture": {"type": ["object", "null"]},
+    "resolved_twin_architecture_digest": {"oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+    "resolved_deployment_specification": {"type": ["object", "null"]},
+    "resolved_deployment_specification_digest": {"oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+    "reason_code": {"const": "ARCH_PROVIDER_IMPLEMENTATION_MISSING"},
+    "evidence_paths": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1, "not": {"pattern": "^/"}}, "uniqueItems": true}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "unsupported"}}},
+      "then": {
+        "required": ["reason_code", "evidence_paths"],
+        "properties": {
+          "resolved_twin_architecture": {"type": "null"},
+          "resolved_twin_architecture_digest": {"type": "null"},
+          "resolved_deployment_specification": {"type": "null"},
+          "resolved_deployment_specification_digest": {"type": "null"}
+        }
+      },
+      "else": {
+        "properties": {
+          "resolved_deployment_specification": {"type": "object"},
+          "resolved_deployment_specification_digest": {"$ref": "#/$defs/digest"}
+        }
+      }
+    }
+  ],
+  "$defs": {"digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+}

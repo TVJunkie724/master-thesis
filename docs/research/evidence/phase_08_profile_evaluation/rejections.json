@@ -1,0 +1,121 @@
+{
+  "$schema": "schemas/rejections.schema.json",
+  "schema_version": "phase-08-rejections.v1",
+  "package_id": "phase-08-profile-evaluation@1",
+  "rejections": [
+    {
+      "candidate_id": "five-layer-baseline@1:all-gcp",
+      "profile_id": "five-layer-baseline@1",
+      "status": "unsupported",
+      "reason_code": "ARCH_PROVIDER_IMPLEMENTATION_MISSING",
+      "reason": "Historical GCP L4 and L5 implementations are absent.",
+      "publishable_total_present": false,
+      "evidence_paths": [
+        "contracts/architecture-profiles/definitions/provider-implementations/five-layer-baseline/1/gcp/1.json",
+        "resolved-architectures/five-layer-baseline-1-historical-base-v1-all-gcp-unsupported.json",
+        "resolved-architectures/five-layer-baseline-1-historical-edge-heavy-v1-all-gcp-unsupported.json"
+      ]
+    },
+    {
+      "candidate_id": "active-profiles:legacy-event-feature-flags",
+      "profile_id": "five-layer-baseline@2+six-layer-eventing@1",
+      "status": "unsupported",
+      "reason_code": "ARCH_WORKLOAD_INCOMPATIBLE",
+      "reason": "The active profiles require one immutable Eventing scenario and reject the three historical Event feature flags.",
+      "publishable_total_present": false,
+      "evidence_paths": [
+        "contracts/five-layer-workload/v2/fixtures/invalid/retired-event-flag.json",
+        "contracts/five-layer-workload/v2/workload.schema.json"
+      ]
+    },
+    {
+      "candidate_id": "live-gate:five-layer-baseline@2:azure-large-cosmos-capacity",
+      "profile_id": "five-layer-baseline@2",
+      "status": "unverified",
+      "reason_code": "ARCH_LIVE_CAPACITY_EVIDENCE_REQUIRED",
+      "reason": "The architecture retains a supported offline estimate, but the distinct 108000-RU/s live-capacity claim remains unverified until supervised Cosmos request-charge and autoscale checks pass; this live gate has no total.",
+      "publishable_total_present": false,
+      "evidence_paths": [
+        "docs/research/evidence/phase_08_service_bundles/capacity-matrix.json"
+      ]
+    },
+    {
+      "candidate_id": "live-gate:six-layer-eventing@1:gcp-large-worker-pool-capacity",
+      "profile_id": "six-layer-eventing@1",
+      "status": "unverified",
+      "reason_code": "ARCH_LIVE_CAPACITY_EVIDENCE_REQUIRED",
+      "reason": "The architecture retains a supported offline estimate, but the distinct fixed Large Worker Pool Preview live-capacity claim remains unverified pending a supervised availability and capacity check; this live gate has no total.",
+      "publishable_total_present": false,
+      "evidence_paths": [
+        "contracts/architecture-profiles/definitions/six-layer-eventing-v1-cost-registry.json"
+      ]
+    },
+    {
+      "candidate_id": "five-layer-baseline@2:l3-hot-aws-l5-azure",
+      "profile_id": "five-layer-baseline@2",
+      "status": "unsupported",
+      "reason_code": "ARCH_PROFILE_CONSTRAINT_VIOLATION",
+      "reason": "L3 hot and L5 must be provider-local in the reviewed PoC.",
+      "publishable_total_present": false,
+      "evidence_paths": [
+        "contracts/architecture-profiles/definitions/five-layer-v2-manifest.json"
+      ]
+    },
+    {
+      "candidate_id": "five-layer-baseline@2:l3-hot-aws-l5-gcp",
+      "profile_id": "five-layer-baseline@2",
+      "status": "unsupported",
+      "reason_code": "ARCH_PROFILE_CONSTRAINT_VIOLATION",
+      "reason": "L3 hot and L5 must be provider-local in the reviewed PoC.",
+      "publishable_total_present": false,
+      "evidence_paths": [
+        "contracts/architecture-profiles/definitions/five-layer-v2-manifest.json"
+      ]
+    },
+    {
+      "candidate_id": "five-layer-baseline@2:l3-hot-azure-l5-aws",
+      "profile_id": "five-layer-baseline@2",
+      "status": "unsupported",
+      "reason_code": "ARCH_PROFILE_CONSTRAINT_VIOLATION",
+      "reason": "L3 hot and L5 must be provider-local in the reviewed PoC.",
+      "publishable_total_present": false,
+      "evidence_paths": [
+        "contracts/architecture-profiles/definitions/five-layer-v2-manifest.json"
+      ]
+    },
+    {
+      "candidate_id": "five-layer-baseline@2:l3-hot-azure-l5-gcp",
+      "profile_id": "five-layer-baseline@2",
+      "status": "unsupported",
+      "reason_code": "ARCH_PROFILE_CONSTRAINT_VIOLATION",
+      "reason": "L3 hot and L5 must be provider-local in the reviewed PoC.",
+      "publishable_total_present": false,
+      "evidence_paths": [
+        "contracts/architecture-profiles/definitions/five-layer-v2-manifest.json"
+      ]
+    },
+    {
+      "candidate_id": "five-layer-baseline@2:l3-hot-gcp-l5-aws",
+      "profile_id": "five-layer-baseline@2",
+      "status": "unsupported",
+      "reason_code": "ARCH_PROFILE_CONSTRAINT_VIOLATION",
+      "reason": "L3 hot and L5 must be provider-local in the reviewed PoC.",
+      "publishable_total_present": false,
+      "evidence_paths": [
+        "contracts/architecture-profiles/definitions/five-layer-v2-manifest.json"
+      ]
+    },
+    {
+      "candidate_id": "five-layer-baseline@2:l3-hot-gcp-l5-azure",
+      "profile_id": "five-layer-baseline@2",
+      "status": "unsupported",
+      "reason_code": "ARCH_PROFILE_CONSTRAINT_VIOLATION",
+      "reason": "L3 hot and L5 must be provider-local in the reviewed PoC.",
+      "publishable_total_present": false,
+      "evidence_paths": [
+        "contracts/architecture-profiles/definitions/five-layer-v2-manifest.json"
+      ]
+    }
+  ],
+  "no_total_policy": "unsupported_stale_or_unverified_candidates_never_receive_a_publishable_total"
+}

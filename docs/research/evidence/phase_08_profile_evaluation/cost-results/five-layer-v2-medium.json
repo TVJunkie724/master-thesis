@@ -1,0 +1,2736 @@
+{
+  "$schema": "../schemas/cost-result.schema.json",
+  "schema_version": "phase-08-profile-cost-result.v1",
+  "profile_id": "five-layer-baseline@2",
+  "scenario_id": "profile-evaluation-medium-v1",
+  "size": "medium",
+  "currency": "USD",
+  "comparison_scope": "profile_local",
+  "optimizer_result": {
+    "enumerated_candidate_count": 729,
+    "costed_candidate_count": 729,
+    "rejected_by_error_code": {},
+    "winner": {
+      "candidate_id": "aws|aws|aws|aws|aws|aws|aws",
+      "assignment": {
+        "component.archive-storage": "aws",
+        "component.cool-storage": "aws",
+        "component.hot-storage": "aws",
+        "component.ingestion": "aws",
+        "component.processing": "aws",
+        "component.twin-state": "aws",
+        "component.visualization": "aws"
+      },
+      "status": "supported_offline_estimate",
+      "functional_status": "complete",
+      "capacity_status": "theoretical_pass_live_pending",
+      "live_verification_status": "pending_supervised_run",
+      "blocking_live_gate_ids": [
+        "gate.live-capacity.aws.dynamodb-partition-distribution",
+        "gate.live-capacity.aws.reader-latency-and-quota",
+        "gate.live-capacity.aws.twinmaker-query-behavior",
+        "gate.live-pricing.aws.twinmaker-account-plan"
+      ],
+      "resolved_architecture_path": "resolved-architectures/five-layer-baseline-2-medium.json",
+      "resolved_twin_architecture_digest": "sha256:d7aeb2c2595ce80a8f8897b01ae4b87de9c5f5602a405d47710bcd41cb825989",
+      "resolved_deployment_specification_digest": "sha256:61b189c1b86be7e9a0bbf3aa0e3f3e3c56b864339c19286ffdf9d2aad241c0cb",
+      "cost": {
+        "monthly_total": "2997.009071925",
+        "category_totals": {
+          "service": "0",
+          "request-throughput": "1455.748391625",
+          "storage": "1203.6866",
+          "transfer": "0",
+          "tiering": "1.03068",
+          "observability": "56.304",
+          "failure-replay": "5.075",
+          "visualization-seat": "275.1644003",
+          "bridge": "0"
+        },
+        "event_transport_scope_total": "23.175875625",
+        "independent_event_layer_total": "0",
+        "contributions": [
+          {
+            "contribution_id": "component:aws.iot-core",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "345.606",
+            "cost_owner_id": "cost::aws.iot-core"
+          },
+          {
+            "contribution_id": "component:aws.iot-commands",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "74.85",
+            "cost_owner_id": "cost::aws.iot-commands"
+          },
+          {
+            "contribution_id": "component:aws.lambda",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "789.12144",
+            "cost_owner_id": "cost::aws.lambda"
+          },
+          {
+            "contribution_id": "component:aws.step-functions-standard",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "1.875",
+            "cost_owner_id": "cost::aws.step-functions-standard"
+          },
+          {
+            "contribution_id": "component:aws.dynamodb-on-demand-raw",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "577.53",
+            "cost_owner_id": "cost::aws.dynamodb-on-demand-raw"
+          },
+          {
+            "contribution_id": "component:aws.dynamodb-on-demand-hourly-rollup",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "588.2616",
+            "cost_owner_id": "cost::aws.dynamodb-on-demand-hourly-rollup"
+          },
+          {
+            "contribution_id": "component:aws.s3-standard-ia",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.cool-storage",
+            "category": "storage",
+            "monthly_amount": "4.455",
+            "cost_owner_id": "cost::aws.s3-standard-ia"
+          },
+          {
+            "contribution_id": "component:aws.s3-glacier-deep-archive",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.archive-storage",
+            "category": "storage",
+            "monthly_amount": "33.39",
+            "cost_owner_id": "cost::aws.s3-glacier-deep-archive"
+          },
+          {
+            "contribution_id": "component:aws.iot-twinmaker-standard",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "request-throughput",
+            "monthly_amount": "221.120076",
+            "cost_owner_id": "cost::aws.iot-twinmaker-standard"
+          },
+          {
+            "contribution_id": "component:aws.amazon-managed-grafana-12",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "275",
+            "cost_owner_id": "cost::aws.amazon-managed-grafana-12"
+          },
+          {
+            "contribution_id": "component:aws.lambda-raw-history-reader",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0.1644003",
+            "cost_owner_id": "cost::aws.lambda-raw-history-reader"
+          },
+          {
+            "contribution_id": "component:aws.grafana-marcusolsson-json-datasource",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::aws.grafana-marcusolsson-json-datasource"
+          },
+          {
+            "contribution_id": "component:aws.sqs-fifo",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "failure-replay",
+            "monthly_amount": "5.075",
+            "cost_owner_id": "cost::aws.sqs-fifo"
+          },
+          {
+            "contribution_id": "component:aws.lambda-event-adapter",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "23.175875625",
+            "cost_owner_id": "cost::aws.lambda-event-adapter"
+          },
+          {
+            "contribution_id": "component:aws.cloudwatch",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "56.304",
+            "cost_owner_id": "cost::aws.cloudwatch"
+          },
+          {
+            "contribution_id": "component:aws.iam-identity-center-layer-access",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "service",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::aws.iam-identity-center-layer-access"
+          },
+          {
+            "contribution_id": "component:aws.eventbridge-scheduler",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "0.00864",
+            "cost_owner_id": "cost::aws.eventbridge-scheduler"
+          },
+          {
+            "contribution_id": "component:aws.ecs-fargate-storage-mover",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "1.02204",
+            "cost_owner_id": "cost::aws.ecs-fargate-storage-mover"
+          },
+          {
+            "contribution_id": "component:aws.ecr-if-container-selected",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "0.05",
+            "cost_owner_id": "cost::aws.ecr-if-container-selected"
+          }
+        ],
+        "exact_once_owner_count": 19
+      }
+    }
+  },
+  "online_placement_results": [
+    {
+      "candidate_id": "aws|aws|aws|aws|aws|aws|aws",
+      "assignment": {
+        "component.archive-storage": "aws",
+        "component.cool-storage": "aws",
+        "component.hot-storage": "aws",
+        "component.ingestion": "aws",
+        "component.processing": "aws",
+        "component.twin-state": "aws",
+        "component.visualization": "aws"
+      },
+      "status": "supported_offline_estimate",
+      "functional_status": "complete",
+      "capacity_status": "theoretical_pass_live_pending",
+      "live_verification_status": "pending_supervised_run",
+      "blocking_live_gate_ids": [
+        "gate.live-capacity.aws.dynamodb-partition-distribution",
+        "gate.live-capacity.aws.reader-latency-and-quota",
+        "gate.live-capacity.aws.twinmaker-query-behavior",
+        "gate.live-pricing.aws.twinmaker-account-plan"
+      ],
+      "resolved_deployment_specification_digest": "sha256:462bcf34bee3692461d5c37b5314a82c5b2ee0419cc512db813012036886b87b",
+      "cost": {
+        "monthly_total": "2997.009071925",
+        "category_totals": {
+          "service": "0",
+          "request-throughput": "1455.748391625",
+          "storage": "1203.6866",
+          "transfer": "0",
+          "tiering": "1.03068",
+          "observability": "56.304",
+          "failure-replay": "5.075",
+          "visualization-seat": "275.1644003",
+          "bridge": "0"
+        },
+        "event_transport_scope_total": "23.175875625",
+        "independent_event_layer_total": "0",
+        "contributions": [
+          {
+            "contribution_id": "component:aws.iot-core",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "345.606",
+            "cost_owner_id": "cost::aws.iot-core"
+          },
+          {
+            "contribution_id": "component:aws.iot-commands",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "74.85",
+            "cost_owner_id": "cost::aws.iot-commands"
+          },
+          {
+            "contribution_id": "component:aws.lambda",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "789.12144",
+            "cost_owner_id": "cost::aws.lambda"
+          },
+          {
+            "contribution_id": "component:aws.step-functions-standard",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "1.875",
+            "cost_owner_id": "cost::aws.step-functions-standard"
+          },
+          {
+            "contribution_id": "component:aws.dynamodb-on-demand-raw",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "577.53",
+            "cost_owner_id": "cost::aws.dynamodb-on-demand-raw"
+          },
+          {
+            "contribution_id": "component:aws.dynamodb-on-demand-hourly-rollup",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "588.2616",
+            "cost_owner_id": "cost::aws.dynamodb-on-demand-hourly-rollup"
+          },
+          {
+            "contribution_id": "component:aws.s3-standard-ia",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.cool-storage",
+            "category": "storage",
+            "monthly_amount": "4.455",
+            "cost_owner_id": "cost::aws.s3-standard-ia"
+          },
+          {
+            "contribution_id": "component:aws.s3-glacier-deep-archive",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.archive-storage",
+            "category": "storage",
+            "monthly_amount": "33.39",
+            "cost_owner_id": "cost::aws.s3-glacier-deep-archive"
+          },
+          {
+            "contribution_id": "component:aws.iot-twinmaker-standard",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "request-throughput",
+            "monthly_amount": "221.120076",
+            "cost_owner_id": "cost::aws.iot-twinmaker-standard"
+          },
+          {
+            "contribution_id": "component:aws.amazon-managed-grafana-12",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "275",
+            "cost_owner_id": "cost::aws.amazon-managed-grafana-12"
+          },
+          {
+            "contribution_id": "component:aws.lambda-raw-history-reader",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0.1644003",
+            "cost_owner_id": "cost::aws.lambda-raw-history-reader"
+          },
+          {
+            "contribution_id": "component:aws.grafana-marcusolsson-json-datasource",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::aws.grafana-marcusolsson-json-datasource"
+          },
+          {
+            "contribution_id": "component:aws.sqs-fifo",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "failure-replay",
+            "monthly_amount": "5.075",
+            "cost_owner_id": "cost::aws.sqs-fifo"
+          },
+          {
+            "contribution_id": "component:aws.lambda-event-adapter",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "23.175875625",
+            "cost_owner_id": "cost::aws.lambda-event-adapter"
+          },
+          {
+            "contribution_id": "component:aws.cloudwatch",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "56.304",
+            "cost_owner_id": "cost::aws.cloudwatch"
+          },
+          {
+            "contribution_id": "component:aws.iam-identity-center-layer-access",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "service",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::aws.iam-identity-center-layer-access"
+          },
+          {
+            "contribution_id": "component:aws.eventbridge-scheduler",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "0.00864",
+            "cost_owner_id": "cost::aws.eventbridge-scheduler"
+          },
+          {
+            "contribution_id": "component:aws.ecs-fargate-storage-mover",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "1.02204",
+            "cost_owner_id": "cost::aws.ecs-fargate-storage-mover"
+          },
+          {
+            "contribution_id": "component:aws.ecr-if-container-selected",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "0.05",
+            "cost_owner_id": "cost::aws.ecr-if-container-selected"
+          }
+        ],
+        "exact_once_owner_count": 19
+      },
+      "placement_id": "aws-l3l5-aws-l4",
+      "placement_class": "single_cloud"
+    },
+    {
+      "candidate_id": "aws|aws|aws|aws|aws|azure|aws",
+      "assignment": {
+        "component.archive-storage": "aws",
+        "component.cool-storage": "aws",
+        "component.hot-storage": "aws",
+        "component.ingestion": "aws",
+        "component.processing": "aws",
+        "component.twin-state": "azure",
+        "component.visualization": "aws"
+      },
+      "status": "supported_offline_estimate",
+      "functional_status": "complete",
+      "capacity_status": "theoretical_pass_live_pending",
+      "live_verification_status": "pending_supervised_run",
+      "blocking_live_gate_ids": [
+        "gate.live-capacity.aws.dynamodb-partition-distribution",
+        "gate.live-capacity.aws.reader-latency-and-quota",
+        "gate.live-capacity.aws.twinmaker-query-behavior",
+        "gate.live-capacity.azure.cosmos-partition-distribution",
+        "gate.live-capacity.azure.cosmos-request-charge-fixture",
+        "gate.live-capacity.azure.reader-latency-and-quota"
+      ],
+      "resolved_deployment_specification_digest": "sha256:3f3ddcc8b16af6f4a4a558f925d2ca8d371629e96cd2cd413f37d95bf94c828e",
+      "cost": {
+        "monthly_total": "3528.49294147734375",
+        "category_totals": {
+          "service": "21.90318",
+          "request-throughput": "1221.26437",
+          "storage": "1203.6866",
+          "transfer": "0",
+          "tiering": "1.03068",
+          "observability": "321.504",
+          "failure-replay": "5.075",
+          "visualization-seat": "275.1644003",
+          "bridge": "478.86471117734375"
+        },
+        "event_transport_scope_total": "478.86471117734375",
+        "independent_event_layer_total": "0",
+        "contributions": [
+          {
+            "contribution_id": "component:aws.iot-core",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "345.606",
+            "cost_owner_id": "cost::aws.iot-core"
+          },
+          {
+            "contribution_id": "component:aws.iot-commands",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "74.85",
+            "cost_owner_id": "cost::aws.iot-commands"
+          },
+          {
+            "contribution_id": "component:aws.lambda",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "789.12144",
+            "cost_owner_id": "cost::aws.lambda"
+          },
+          {
+            "contribution_id": "component:aws.step-functions-standard",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "1.875",
+            "cost_owner_id": "cost::aws.step-functions-standard"
+          },
+          {
+            "contribution_id": "component:aws.dynamodb-on-demand-raw",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "577.53",
+            "cost_owner_id": "cost::aws.dynamodb-on-demand-raw"
+          },
+          {
+            "contribution_id": "component:aws.dynamodb-on-demand-hourly-rollup",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "588.2616",
+            "cost_owner_id": "cost::aws.dynamodb-on-demand-hourly-rollup"
+          },
+          {
+            "contribution_id": "component:aws.s3-standard-ia",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.cool-storage",
+            "category": "storage",
+            "monthly_amount": "4.455",
+            "cost_owner_id": "cost::aws.s3-standard-ia"
+          },
+          {
+            "contribution_id": "component:aws.s3-glacier-deep-archive",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.archive-storage",
+            "category": "storage",
+            "monthly_amount": "33.39",
+            "cost_owner_id": "cost::aws.s3-glacier-deep-archive"
+          },
+          {
+            "contribution_id": "component:azure.digital-twins",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "service",
+            "monthly_amount": "21.90318",
+            "cost_owner_id": "cost::azure.digital-twins"
+          },
+          {
+            "contribution_id": "component:aws.amazon-managed-grafana-12",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "275",
+            "cost_owner_id": "cost::aws.amazon-managed-grafana-12"
+          },
+          {
+            "contribution_id": "component:aws.lambda-raw-history-reader",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0.1644003",
+            "cost_owner_id": "cost::aws.lambda-raw-history-reader"
+          },
+          {
+            "contribution_id": "component:aws.grafana-marcusolsson-json-datasource",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::aws.grafana-marcusolsson-json-datasource"
+          },
+          {
+            "contribution_id": "component:aws.sqs-fifo",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "failure-replay",
+            "monthly_amount": "5.075",
+            "cost_owner_id": "cost::aws.sqs-fifo"
+          },
+          {
+            "contribution_id": "component:aws.lambda-event-adapter",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "bridge",
+            "monthly_amount": "23.175875625",
+            "cost_owner_id": "cost::aws.lambda-event-adapter"
+          },
+          {
+            "contribution_id": "component:aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "bridge",
+            "monthly_amount": "157.857625",
+            "cost_owner_id": "cost::aws.kinesis-only-for-reviewed-remote-telemetry-edge"
+          },
+          {
+            "contribution_id": "component:aws.sns-fifo-only-for-reviewed-remote-control-edge",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "bridge",
+            "monthly_amount": "7.37121055234375",
+            "cost_owner_id": "cost::aws.sns-fifo-only-for-reviewed-remote-control-edge"
+          },
+          {
+            "contribution_id": "component:azure.service-bus-standard",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "request-throughput",
+            "monthly_amount": "9.81193",
+            "cost_owner_id": "cost::azure.service-bus-standard"
+          },
+          {
+            "contribution_id": "component:azure.functions-flex-event-adapter",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "bridge",
+            "monthly_amount": "42.63",
+            "cost_owner_id": "cost::azure.functions-flex-event-adapter"
+          },
+          {
+            "contribution_id": "component:azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "bridge",
+            "monthly_amount": "240.9",
+            "cost_owner_id": "cost::azure.event-hubs-only-for-reviewed-remote-telemetry-edge"
+          },
+          {
+            "contribution_id": "component:aws.cloudwatch",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "56.304",
+            "cost_owner_id": "cost::aws.cloudwatch"
+          },
+          {
+            "contribution_id": "component:aws.iam-identity-center-layer-access",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.visualization",
+            "category": "service",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::aws.iam-identity-center-layer-access"
+          },
+          {
+            "contribution_id": "component:azure.monitor",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "observability",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::azure.monitor"
+          },
+          {
+            "contribution_id": "component:azure.log-analytics-shared-workspace",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "observability",
+            "monthly_amount": "265.2",
+            "cost_owner_id": "cost::azure.log-analytics-shared-workspace"
+          },
+          {
+            "contribution_id": "component:azure.entra-layer-access-bindings",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "service",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::azure.entra-layer-access-bindings"
+          },
+          {
+            "contribution_id": "component:aws.eventbridge-scheduler",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "0.00864",
+            "cost_owner_id": "cost::aws.eventbridge-scheduler"
+          },
+          {
+            "contribution_id": "component:aws.ecs-fargate-storage-mover",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "1.02204",
+            "cost_owner_id": "cost::aws.ecs-fargate-storage-mover"
+          },
+          {
+            "contribution_id": "component:aws.ecr-if-container-selected",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "0.05",
+            "cost_owner_id": "cost::aws.ecr-if-container-selected"
+          },
+          {
+            "contribution_id": "route:cost::route::domain_event_cross_cloud::aws->azure",
+            "kind": "route",
+            "provider": "aws",
+            "logical_component_id": null,
+            "category": "bridge",
+            "monthly_amount": "6.93",
+            "cost_owner_id": "cost::route::domain_event_cross_cloud::aws->azure"
+          },
+          {
+            "contribution_id": "route:cost::route::twin_projection_cross_cloud::aws->azure",
+            "kind": "route",
+            "provider": "aws",
+            "logical_component_id": null,
+            "category": "transfer",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::route::twin_projection_cross_cloud::aws->azure"
+          }
+        ],
+        "exact_once_owner_count": 29
+      },
+      "placement_id": "aws-l3l5-azure-l4",
+      "placement_class": "l3l5_local_l4_remote"
+    },
+    {
+      "candidate_id": "aws|aws|aws|aws|aws|gcp|aws",
+      "assignment": {
+        "component.archive-storage": "aws",
+        "component.cool-storage": "aws",
+        "component.hot-storage": "aws",
+        "component.ingestion": "aws",
+        "component.processing": "aws",
+        "component.twin-state": "gcp",
+        "component.visualization": "aws"
+      },
+      "status": "supported_offline_estimate",
+      "functional_status": "complete",
+      "capacity_status": "theoretical_pass_live_pending",
+      "live_verification_status": "pending_supervised_run",
+      "blocking_live_gate_ids": [
+        "gate.live-capacity.aws.dynamodb-partition-distribution",
+        "gate.live-capacity.aws.reader-latency-and-quota",
+        "gate.live-capacity.aws.twinmaker-query-behavior",
+        "gate.live-capacity.gcp.bifromq-cluster-behavior",
+        "gate.live-capacity.gcp.firestore-gradual-ramp-and-transaction-contention",
+        "gate.live-capacity.gcp.reader-latency-and-quota"
+      ],
+      "resolved_deployment_specification_digest": "sha256:026df82708432cbb2af83b27c3c7e7dcf3658f419c33955305b1f72d5013f09c",
+      "cost": {
+        "monthly_total": "16634.05338845615234375",
+        "category_totals": {
+          "service": "0",
+          "request-throughput": "14644.93192577880859375",
+          "storage": "1215.9526712",
+          "transfer": "0",
+          "tiering": "1.03068",
+          "observability": "99.654",
+          "failure-replay": "5.075",
+          "visualization-seat": "275.1644003",
+          "bridge": "392.24471117734375"
+        },
+        "event_transport_scope_total": "392.24471117734375",
+        "independent_event_layer_total": "0",
+        "contributions": [
+          {
+            "contribution_id": "component:aws.iot-core",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "345.606",
+            "cost_owner_id": "cost::aws.iot-core"
+          },
+          {
+            "contribution_id": "component:aws.iot-commands",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "74.85",
+            "cost_owner_id": "cost::aws.iot-commands"
+          },
+          {
+            "contribution_id": "component:aws.lambda",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "789.12144",
+            "cost_owner_id": "cost::aws.lambda"
+          },
+          {
+            "contribution_id": "component:aws.step-functions-standard",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "1.875",
+            "cost_owner_id": "cost::aws.step-functions-standard"
+          },
+          {
+            "contribution_id": "component:aws.dynamodb-on-demand-raw",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "577.53",
+            "cost_owner_id": "cost::aws.dynamodb-on-demand-raw"
+          },
+          {
+            "contribution_id": "component:aws.dynamodb-on-demand-hourly-rollup",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "588.2616",
+            "cost_owner_id": "cost::aws.dynamodb-on-demand-hourly-rollup"
+          },
+          {
+            "contribution_id": "component:aws.s3-standard-ia",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.cool-storage",
+            "category": "storage",
+            "monthly_amount": "4.455",
+            "cost_owner_id": "cost::aws.s3-standard-ia"
+          },
+          {
+            "contribution_id": "component:aws.s3-glacier-deep-archive",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.archive-storage",
+            "category": "storage",
+            "monthly_amount": "33.39",
+            "cost_owner_id": "cost::aws.s3-glacier-deep-archive"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-twin-api-materializer",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "request-throughput",
+            "monthly_amount": "6704.64",
+            "cost_owner_id": "cost::gcp.cloud-run-twin-api-materializer"
+          },
+          {
+            "contribution_id": "component:gcp.firestore-native-standard-bounded-twin",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "storage",
+            "monthly_amount": "12.2660712",
+            "cost_owner_id": "cost::gcp.firestore-native-standard-bounded-twin"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-iap-twin-explorer",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "request-throughput",
+            "monthly_amount": "6704.64",
+            "cost_owner_id": "cost::gcp.cloud-run-iap-twin-explorer"
+          },
+          {
+            "contribution_id": "component:gcp.direct-iap-layer-access",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "service",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.direct-iap-layer-access"
+          },
+          {
+            "contribution_id": "component:aws.amazon-managed-grafana-12",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "275",
+            "cost_owner_id": "cost::aws.amazon-managed-grafana-12"
+          },
+          {
+            "contribution_id": "component:aws.lambda-raw-history-reader",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0.1644003",
+            "cost_owner_id": "cost::aws.lambda-raw-history-reader"
+          },
+          {
+            "contribution_id": "component:aws.grafana-marcusolsson-json-datasource",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::aws.grafana-marcusolsson-json-datasource"
+          },
+          {
+            "contribution_id": "component:aws.sqs-fifo",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "failure-replay",
+            "monthly_amount": "5.075",
+            "cost_owner_id": "cost::aws.sqs-fifo"
+          },
+          {
+            "contribution_id": "component:aws.lambda-event-adapter",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "bridge",
+            "monthly_amount": "23.175875625",
+            "cost_owner_id": "cost::aws.lambda-event-adapter"
+          },
+          {
+            "contribution_id": "component:aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "bridge",
+            "monthly_amount": "157.857625",
+            "cost_owner_id": "cost::aws.kinesis-only-for-reviewed-remote-telemetry-edge"
+          },
+          {
+            "contribution_id": "component:aws.sns-fifo-only-for-reviewed-remote-control-edge",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "bridge",
+            "monthly_amount": "7.37121055234375",
+            "cost_owner_id": "cost::aws.sns-fifo-only-for-reviewed-remote-control-edge"
+          },
+          {
+            "contribution_id": "component:gcp.pubsub-separated-embedded-topics",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "request-throughput",
+            "monthly_amount": "24.19948577880859375",
+            "cost_owner_id": "cost::gcp.pubsub-separated-embedded-topics"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-event-adapter",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "bridge",
+            "monthly_amount": "196.91",
+            "cost_owner_id": "cost::gcp.cloud-run-event-adapter"
+          },
+          {
+            "contribution_id": "component:aws.cloudwatch",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "56.304",
+            "cost_owner_id": "cost::aws.cloudwatch"
+          },
+          {
+            "contribution_id": "component:aws.iam-identity-center-layer-access",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.visualization",
+            "category": "service",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::aws.iam-identity-center-layer-access"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-logging",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "observability",
+            "monthly_amount": "43.35",
+            "cost_owner_id": "cost::gcp.cloud-logging"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-monitoring",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "observability",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.cloud-monitoring"
+          },
+          {
+            "contribution_id": "component:aws.eventbridge-scheduler",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "0.00864",
+            "cost_owner_id": "cost::aws.eventbridge-scheduler"
+          },
+          {
+            "contribution_id": "component:aws.ecs-fargate-storage-mover",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "1.02204",
+            "cost_owner_id": "cost::aws.ecs-fargate-storage-mover"
+          },
+          {
+            "contribution_id": "component:aws.ecr-if-container-selected",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "0.05",
+            "cost_owner_id": "cost::aws.ecr-if-container-selected"
+          },
+          {
+            "contribution_id": "component:gcp.artifact-registry-if-container-selected",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "tiering",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.artifact-registry-if-container-selected"
+          },
+          {
+            "contribution_id": "route:cost::route::domain_event_cross_cloud::aws->gcp",
+            "kind": "route",
+            "provider": "aws",
+            "logical_component_id": null,
+            "category": "bridge",
+            "monthly_amount": "6.93",
+            "cost_owner_id": "cost::route::domain_event_cross_cloud::aws->gcp"
+          },
+          {
+            "contribution_id": "route:cost::route::twin_projection_cross_cloud::aws->gcp",
+            "kind": "route",
+            "provider": "aws",
+            "logical_component_id": null,
+            "category": "transfer",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::route::twin_projection_cross_cloud::aws->gcp"
+          }
+        ],
+        "exact_once_owner_count": 31
+      },
+      "placement_id": "aws-l3l5-gcp-l4",
+      "placement_class": "l3l5_local_l4_remote"
+    },
+    {
+      "candidate_id": "azure|azure|azure|azure|azure|aws|azure",
+      "assignment": {
+        "component.archive-storage": "azure",
+        "component.cool-storage": "azure",
+        "component.hot-storage": "azure",
+        "component.ingestion": "azure",
+        "component.processing": "azure",
+        "component.twin-state": "aws",
+        "component.visualization": "azure"
+      },
+      "status": "supported_offline_estimate",
+      "functional_status": "complete",
+      "capacity_status": "theoretical_pass_live_pending",
+      "live_verification_status": "pending_supervised_run",
+      "blocking_live_gate_ids": [
+        "gate.live-capacity.aws.dynamodb-partition-distribution",
+        "gate.live-capacity.aws.reader-latency-and-quota",
+        "gate.live-capacity.aws.twinmaker-query-behavior",
+        "gate.live-capacity.azure.cosmos-partition-distribution",
+        "gate.live-capacity.azure.cosmos-request-charge-fixture",
+        "gate.live-capacity.azure.reader-latency-and-quota",
+        "gate.live-pricing.aws.twinmaker-account-plan"
+      ],
+      "resolved_deployment_specification_digest": "sha256:2bd576f3c9c4dde8b2911da13282958e8075f1aa55c8efbde90ee01e8d7ca1a0",
+      "cost": {
+        "monthly_total": "5630.78951717734375",
+        "category_totals": {
+          "service": "0",
+          "request-throughput": "2191.827006",
+          "storage": "2282.0984",
+          "transfer": "0",
+          "tiering": "108.864",
+          "observability": "321.504",
+          "failure-replay": "5.075",
+          "visualization-seat": "242.7874",
+          "bridge": "478.63371117734375"
+        },
+        "event_transport_scope_total": "478.63371117734375",
+        "independent_event_layer_total": "0",
+        "contributions": [
+          {
+            "contribution_id": "component:azure.iot-hub",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "500",
+            "cost_owner_id": "cost::azure.iot-hub"
+          },
+          {
+            "contribution_id": "component:azure.functions-flex-consumption",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "1451.52",
+            "cost_owner_id": "cost::azure.functions-flex-consumption"
+          },
+          {
+            "contribution_id": "component:azure.logic-apps-consumption",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "9.375",
+            "cost_owner_id": "cost::azure.logic-apps-consumption"
+          },
+          {
+            "contribution_id": "component:azure.cosmos-db-nosql-raw-and-rollup",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "2271.1292",
+            "cost_owner_id": "cost::azure.cosmos-db-nosql-raw-and-rollup"
+          },
+          {
+            "contribution_id": "component:azure.blob-cool",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.cool-storage",
+            "category": "storage",
+            "monthly_amount": "3.3",
+            "cost_owner_id": "cost::azure.blob-cool"
+          },
+          {
+            "contribution_id": "component:azure.blob-archive",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.archive-storage",
+            "category": "storage",
+            "monthly_amount": "2.6712",
+            "cost_owner_id": "cost::azure.blob-archive"
+          },
+          {
+            "contribution_id": "component:aws.iot-twinmaker-standard",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "request-throughput",
+            "monthly_amount": "221.120076",
+            "cost_owner_id": "cost::aws.iot-twinmaker-standard"
+          },
+          {
+            "contribution_id": "component:azure.managed-grafana-12-standard",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "242.485",
+            "cost_owner_id": "cost::azure.managed-grafana-12-standard"
+          },
+          {
+            "contribution_id": "component:azure.functions-flex-raw-history-reader",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0.3024",
+            "cost_owner_id": "cost::azure.functions-flex-raw-history-reader"
+          },
+          {
+            "contribution_id": "component:azure.grafana-marcusolsson-json-datasource",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::azure.grafana-marcusolsson-json-datasource"
+          },
+          {
+            "contribution_id": "component:aws.sqs-fifo",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "failure-replay",
+            "monthly_amount": "5.075",
+            "cost_owner_id": "cost::aws.sqs-fifo"
+          },
+          {
+            "contribution_id": "component:aws.lambda-event-adapter",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "bridge",
+            "monthly_amount": "23.175875625",
+            "cost_owner_id": "cost::aws.lambda-event-adapter"
+          },
+          {
+            "contribution_id": "component:aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "bridge",
+            "monthly_amount": "157.857625",
+            "cost_owner_id": "cost::aws.kinesis-only-for-reviewed-remote-telemetry-edge"
+          },
+          {
+            "contribution_id": "component:aws.sns-fifo-only-for-reviewed-remote-control-edge",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "bridge",
+            "monthly_amount": "7.37121055234375",
+            "cost_owner_id": "cost::aws.sns-fifo-only-for-reviewed-remote-control-edge"
+          },
+          {
+            "contribution_id": "component:azure.service-bus-standard",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "9.81193",
+            "cost_owner_id": "cost::azure.service-bus-standard"
+          },
+          {
+            "contribution_id": "component:azure.functions-flex-event-adapter",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "bridge",
+            "monthly_amount": "42.63",
+            "cost_owner_id": "cost::azure.functions-flex-event-adapter"
+          },
+          {
+            "contribution_id": "component:azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "bridge",
+            "monthly_amount": "240.9",
+            "cost_owner_id": "cost::azure.event-hubs-only-for-reviewed-remote-telemetry-edge"
+          },
+          {
+            "contribution_id": "component:aws.cloudwatch",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "observability",
+            "monthly_amount": "56.304",
+            "cost_owner_id": "cost::aws.cloudwatch"
+          },
+          {
+            "contribution_id": "component:aws.iam-identity-center-layer-access",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "service",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::aws.iam-identity-center-layer-access"
+          },
+          {
+            "contribution_id": "component:azure.monitor",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::azure.monitor"
+          },
+          {
+            "contribution_id": "component:azure.log-analytics-shared-workspace",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "265.2",
+            "cost_owner_id": "cost::azure.log-analytics-shared-workspace"
+          },
+          {
+            "contribution_id": "component:azure.entra-layer-access-bindings",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.visualization",
+            "category": "service",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::azure.entra-layer-access-bindings"
+          },
+          {
+            "contribution_id": "component:azure.container-apps-scheduled-storage-job",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "108.864",
+            "cost_owner_id": "cost::azure.container-apps-scheduled-storage-job"
+          },
+          {
+            "contribution_id": "component:azure.acr-basic-if-container-selected",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "4.998",
+            "cost_owner_id": "cost::azure.acr-basic-if-container-selected"
+          },
+          {
+            "contribution_id": "route:cost::route::domain_event_cross_cloud::azure->aws",
+            "kind": "route",
+            "provider": "azure",
+            "logical_component_id": null,
+            "category": "bridge",
+            "monthly_amount": "6.699",
+            "cost_owner_id": "cost::route::domain_event_cross_cloud::azure->aws"
+          },
+          {
+            "contribution_id": "route:cost::route::twin_projection_cross_cloud::azure->aws",
+            "kind": "route",
+            "provider": "azure",
+            "logical_component_id": null,
+            "category": "transfer",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::route::twin_projection_cross_cloud::azure->aws"
+          }
+        ],
+        "exact_once_owner_count": 26
+      },
+      "placement_id": "azure-l3l5-aws-l4",
+      "placement_class": "l3l5_local_l4_remote"
+    },
+    {
+      "candidate_id": "azure|azure|azure|azure|azure|azure|azure",
+      "assignment": {
+        "component.archive-storage": "azure",
+        "component.cool-storage": "azure",
+        "component.hot-storage": "azure",
+        "component.ingestion": "azure",
+        "component.processing": "azure",
+        "component.twin-state": "azure",
+        "component.visualization": "azure"
+      },
+      "status": "supported_offline_estimate",
+      "functional_status": "complete",
+      "capacity_status": "theoretical_pass_live_pending",
+      "live_verification_status": "pending_supervised_run",
+      "blocking_live_gate_ids": [
+        "gate.live-capacity.azure.cosmos-partition-distribution",
+        "gate.live-capacity.azure.cosmos-request-charge-fixture",
+        "gate.live-capacity.azure.reader-latency-and-quota"
+      ],
+      "resolved_deployment_specification_digest": "sha256:9606f91248c0924381424809daf8854fb7ff4a37c8d38c1c2f03dc3a6ec58770",
+      "cost": {
+        "monthly_total": "4934.18991",
+        "category_totals": {
+          "service": "21.90318",
+          "request-throughput": "2013.33693",
+          "storage": "2282.0984",
+          "transfer": "0",
+          "tiering": "108.864",
+          "observability": "265.2",
+          "failure-replay": "0",
+          "visualization-seat": "242.7874",
+          "bridge": "0"
+        },
+        "event_transport_scope_total": "42.63",
+        "independent_event_layer_total": "0",
+        "contributions": [
+          {
+            "contribution_id": "component:azure.iot-hub",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "500",
+            "cost_owner_id": "cost::azure.iot-hub"
+          },
+          {
+            "contribution_id": "component:azure.functions-flex-consumption",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "1451.52",
+            "cost_owner_id": "cost::azure.functions-flex-consumption"
+          },
+          {
+            "contribution_id": "component:azure.logic-apps-consumption",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "9.375",
+            "cost_owner_id": "cost::azure.logic-apps-consumption"
+          },
+          {
+            "contribution_id": "component:azure.cosmos-db-nosql-raw-and-rollup",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "2271.1292",
+            "cost_owner_id": "cost::azure.cosmos-db-nosql-raw-and-rollup"
+          },
+          {
+            "contribution_id": "component:azure.blob-cool",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.cool-storage",
+            "category": "storage",
+            "monthly_amount": "3.3",
+            "cost_owner_id": "cost::azure.blob-cool"
+          },
+          {
+            "contribution_id": "component:azure.blob-archive",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.archive-storage",
+            "category": "storage",
+            "monthly_amount": "2.6712",
+            "cost_owner_id": "cost::azure.blob-archive"
+          },
+          {
+            "contribution_id": "component:azure.digital-twins",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "service",
+            "monthly_amount": "21.90318",
+            "cost_owner_id": "cost::azure.digital-twins"
+          },
+          {
+            "contribution_id": "component:azure.managed-grafana-12-standard",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "242.485",
+            "cost_owner_id": "cost::azure.managed-grafana-12-standard"
+          },
+          {
+            "contribution_id": "component:azure.functions-flex-raw-history-reader",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0.3024",
+            "cost_owner_id": "cost::azure.functions-flex-raw-history-reader"
+          },
+          {
+            "contribution_id": "component:azure.grafana-marcusolsson-json-datasource",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::azure.grafana-marcusolsson-json-datasource"
+          },
+          {
+            "contribution_id": "component:azure.service-bus-standard",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "9.81193",
+            "cost_owner_id": "cost::azure.service-bus-standard"
+          },
+          {
+            "contribution_id": "component:azure.functions-flex-event-adapter",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "42.63",
+            "cost_owner_id": "cost::azure.functions-flex-event-adapter"
+          },
+          {
+            "contribution_id": "component:azure.monitor",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::azure.monitor"
+          },
+          {
+            "contribution_id": "component:azure.log-analytics-shared-workspace",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "265.2",
+            "cost_owner_id": "cost::azure.log-analytics-shared-workspace"
+          },
+          {
+            "contribution_id": "component:azure.entra-layer-access-bindings",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "service",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::azure.entra-layer-access-bindings"
+          },
+          {
+            "contribution_id": "component:azure.container-apps-scheduled-storage-job",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "108.864",
+            "cost_owner_id": "cost::azure.container-apps-scheduled-storage-job"
+          },
+          {
+            "contribution_id": "component:azure.acr-basic-if-container-selected",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "4.998",
+            "cost_owner_id": "cost::azure.acr-basic-if-container-selected"
+          }
+        ],
+        "exact_once_owner_count": 17
+      },
+      "placement_id": "azure-l3l5-azure-l4",
+      "placement_class": "single_cloud"
+    },
+    {
+      "candidate_id": "azure|azure|azure|azure|azure|gcp|azure",
+      "assignment": {
+        "component.archive-storage": "azure",
+        "component.cool-storage": "azure",
+        "component.hot-storage": "azure",
+        "component.ingestion": "azure",
+        "component.processing": "azure",
+        "component.twin-state": "gcp",
+        "component.visualization": "azure"
+      },
+      "status": "supported_offline_estimate",
+      "functional_status": "complete",
+      "capacity_status": "theoretical_pass_live_pending",
+      "live_verification_status": "pending_supervised_run",
+      "blocking_live_gate_ids": [
+        "gate.live-capacity.azure.cosmos-partition-distribution",
+        "gate.live-capacity.azure.cosmos-request-charge-fixture",
+        "gate.live-capacity.azure.reader-latency-and-quota",
+        "gate.live-capacity.gcp.bifromq-cluster-behavior",
+        "gate.live-capacity.gcp.firestore-gradual-ramp-and-transaction-contention",
+        "gate.live-capacity.gcp.reader-latency-and-quota"
+      ],
+      "resolved_deployment_specification_digest": "sha256:fb18a94361b1f55d6b309404e236b1b8ca6b5a7f2529cbca488f8586056721b2",
+      "cost": {
+        "monthly_total": "18845.89128697880859375",
+        "category_totals": {
+          "service": "0",
+          "request-throughput": "15404.18641577880859375",
+          "storage": "2294.3644712",
+          "transfer": "0",
+          "tiering": "108.864",
+          "observability": "308.55",
+          "failure-replay": "0",
+          "visualization-seat": "242.7874",
+          "bridge": "487.139"
+        },
+        "event_transport_scope_total": "487.139",
+        "independent_event_layer_total": "0",
+        "contributions": [
+          {
+            "contribution_id": "component:azure.iot-hub",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "500",
+            "cost_owner_id": "cost::azure.iot-hub"
+          },
+          {
+            "contribution_id": "component:azure.functions-flex-consumption",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "1451.52",
+            "cost_owner_id": "cost::azure.functions-flex-consumption"
+          },
+          {
+            "contribution_id": "component:azure.logic-apps-consumption",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "9.375",
+            "cost_owner_id": "cost::azure.logic-apps-consumption"
+          },
+          {
+            "contribution_id": "component:azure.cosmos-db-nosql-raw-and-rollup",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "2271.1292",
+            "cost_owner_id": "cost::azure.cosmos-db-nosql-raw-and-rollup"
+          },
+          {
+            "contribution_id": "component:azure.blob-cool",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.cool-storage",
+            "category": "storage",
+            "monthly_amount": "3.3",
+            "cost_owner_id": "cost::azure.blob-cool"
+          },
+          {
+            "contribution_id": "component:azure.blob-archive",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.archive-storage",
+            "category": "storage",
+            "monthly_amount": "2.6712",
+            "cost_owner_id": "cost::azure.blob-archive"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-twin-api-materializer",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "request-throughput",
+            "monthly_amount": "6704.64",
+            "cost_owner_id": "cost::gcp.cloud-run-twin-api-materializer"
+          },
+          {
+            "contribution_id": "component:gcp.firestore-native-standard-bounded-twin",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "storage",
+            "monthly_amount": "12.2660712",
+            "cost_owner_id": "cost::gcp.firestore-native-standard-bounded-twin"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-iap-twin-explorer",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "request-throughput",
+            "monthly_amount": "6704.64",
+            "cost_owner_id": "cost::gcp.cloud-run-iap-twin-explorer"
+          },
+          {
+            "contribution_id": "component:gcp.direct-iap-layer-access",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "service",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.direct-iap-layer-access"
+          },
+          {
+            "contribution_id": "component:azure.managed-grafana-12-standard",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "242.485",
+            "cost_owner_id": "cost::azure.managed-grafana-12-standard"
+          },
+          {
+            "contribution_id": "component:azure.functions-flex-raw-history-reader",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0.3024",
+            "cost_owner_id": "cost::azure.functions-flex-raw-history-reader"
+          },
+          {
+            "contribution_id": "component:azure.grafana-marcusolsson-json-datasource",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::azure.grafana-marcusolsson-json-datasource"
+          },
+          {
+            "contribution_id": "component:azure.service-bus-standard",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "9.81193",
+            "cost_owner_id": "cost::azure.service-bus-standard"
+          },
+          {
+            "contribution_id": "component:azure.functions-flex-event-adapter",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "bridge",
+            "monthly_amount": "42.63",
+            "cost_owner_id": "cost::azure.functions-flex-event-adapter"
+          },
+          {
+            "contribution_id": "component:azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "bridge",
+            "monthly_amount": "240.9",
+            "cost_owner_id": "cost::azure.event-hubs-only-for-reviewed-remote-telemetry-edge"
+          },
+          {
+            "contribution_id": "component:gcp.pubsub-separated-embedded-topics",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "request-throughput",
+            "monthly_amount": "24.19948577880859375",
+            "cost_owner_id": "cost::gcp.pubsub-separated-embedded-topics"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-event-adapter",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "bridge",
+            "monthly_amount": "196.91",
+            "cost_owner_id": "cost::gcp.cloud-run-event-adapter"
+          },
+          {
+            "contribution_id": "component:azure.monitor",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::azure.monitor"
+          },
+          {
+            "contribution_id": "component:azure.log-analytics-shared-workspace",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "265.2",
+            "cost_owner_id": "cost::azure.log-analytics-shared-workspace"
+          },
+          {
+            "contribution_id": "component:azure.entra-layer-access-bindings",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.visualization",
+            "category": "service",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::azure.entra-layer-access-bindings"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-logging",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "observability",
+            "monthly_amount": "43.35",
+            "cost_owner_id": "cost::gcp.cloud-logging"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-monitoring",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "observability",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.cloud-monitoring"
+          },
+          {
+            "contribution_id": "component:azure.container-apps-scheduled-storage-job",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "108.864",
+            "cost_owner_id": "cost::azure.container-apps-scheduled-storage-job"
+          },
+          {
+            "contribution_id": "component:azure.acr-basic-if-container-selected",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "4.998",
+            "cost_owner_id": "cost::azure.acr-basic-if-container-selected"
+          },
+          {
+            "contribution_id": "component:gcp.artifact-registry-if-container-selected",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "tiering",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.artifact-registry-if-container-selected"
+          },
+          {
+            "contribution_id": "route:cost::route::domain_event_cross_cloud::azure->gcp",
+            "kind": "route",
+            "provider": "azure",
+            "logical_component_id": null,
+            "category": "bridge",
+            "monthly_amount": "6.699",
+            "cost_owner_id": "cost::route::domain_event_cross_cloud::azure->gcp"
+          },
+          {
+            "contribution_id": "route:cost::route::twin_projection_cross_cloud::azure->gcp",
+            "kind": "route",
+            "provider": "azure",
+            "logical_component_id": null,
+            "category": "transfer",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::route::twin_projection_cross_cloud::azure->gcp"
+          }
+        ],
+        "exact_once_owner_count": 28
+      },
+      "placement_id": "azure-l3l5-gcp-l4",
+      "placement_class": "l3l5_local_l4_remote"
+    },
+    {
+      "candidate_id": "gcp|gcp|gcp|gcp|gcp|aws|gcp",
+      "assignment": {
+        "component.archive-storage": "gcp",
+        "component.cool-storage": "gcp",
+        "component.hot-storage": "gcp",
+        "component.ingestion": "gcp",
+        "component.processing": "gcp",
+        "component.twin-state": "aws",
+        "component.visualization": "gcp"
+      },
+      "status": "supported_offline_estimate",
+      "functional_status": "complete",
+      "capacity_status": "theoretical_pass_live_pending",
+      "live_verification_status": "pending_supervised_run",
+      "blocking_live_gate_ids": [
+        "gate.live-capacity.aws.dynamodb-partition-distribution",
+        "gate.live-capacity.aws.reader-latency-and-quota",
+        "gate.live-capacity.aws.twinmaker-query-behavior",
+        "gate.live-capacity.gcp.bifromq-cluster-behavior",
+        "gate.live-capacity.gcp.firestore-gradual-ramp-and-transaction-contention",
+        "gate.live-capacity.gcp.reader-latency-and-quota",
+        "gate.live-pricing.aws.twinmaker-account-plan"
+      ],
+      "resolved_deployment_specification_digest": "sha256:36a20c74e698ff5ffe74a774b8e9e2b0d89425aa361d3c5ee2874a0e2af87778",
+      "cost": {
+        "monthly_total": "9212.41550253427734375",
+        "category_totals": {
+          "service": "0",
+          "request-throughput": "7104.66683015380859375",
+          "storage": "1518.5662",
+          "transfer": "0.36",
+          "tiering": "14.356",
+          "observability": "99.654",
+          "failure-replay": "5.075",
+          "visualization-seat": "64.742761203125",
+          "bridge": "404.99471117734375"
+        },
+        "event_transport_scope_total": "404.99471117734375",
+        "independent_event_layer_total": "0",
+        "contributions": [
+          {
+            "contribution_id": "component:apache.bifromq-4.0.0-incubating-on-gke-standard",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "133.263909",
+            "cost_owner_id": "cost::apache.bifromq-4.0.0-incubating-on-gke-standard"
+          },
+          {
+            "contribution_id": "component:gcp.external-load-balancer",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "19.568359375",
+            "cost_owner_id": "cost::gcp.external-load-balancer"
+          },
+          {
+            "contribution_id": "component:gcp.ordered-mqtt-pubsub-adapter",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.ordered-mqtt-pubsub-adapter"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-service",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "6704.64",
+            "cost_owner_id": "cost::gcp.cloud-run-service"
+          },
+          {
+            "contribution_id": "component:gcp.workflows",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "1.875",
+            "cost_owner_id": "cost::gcp.workflows"
+          },
+          {
+            "contribution_id": "component:gcp.firestore-native-standard-raw-and-rollup",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "1512.8586",
+            "cost_owner_id": "cost::gcp.firestore-native-standard-raw-and-rollup"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-storage-nearline",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.cool-storage",
+            "category": "storage",
+            "monthly_amount": "3.63",
+            "cost_owner_id": "cost::gcp.cloud-storage-nearline"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-storage-archive",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.archive-storage",
+            "category": "storage",
+            "monthly_amount": "2.0776",
+            "cost_owner_id": "cost::gcp.cloud-storage-archive"
+          },
+          {
+            "contribution_id": "component:aws.iot-twinmaker-standard",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "request-throughput",
+            "monthly_amount": "221.120076",
+            "cost_owner_id": "cost::aws.iot-twinmaker-standard"
+          },
+          {
+            "contribution_id": "component:grafana.oss-12-on-gke",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "44.421303",
+            "cost_owner_id": "cost::grafana.oss-12-on-gke"
+          },
+          {
+            "contribution_id": "component:gcp.persistent-disk-rwo",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0.4",
+            "cost_owner_id": "cost::gcp.persistent-disk-rwo"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-raw-history-reader",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "1.3968",
+            "cost_owner_id": "cost::gcp.cloud-run-raw-history-reader"
+          },
+          {
+            "contribution_id": "component:grafana.yesoreyeram-infinity-datasource",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::grafana.yesoreyeram-infinity-datasource"
+          },
+          {
+            "contribution_id": "component:gcp.grafana-tls-load-balancer",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "18.524658203125",
+            "cost_owner_id": "cost::gcp.grafana-tls-load-balancer"
+          },
+          {
+            "contribution_id": "component:aws.sqs-fifo",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "failure-replay",
+            "monthly_amount": "5.075",
+            "cost_owner_id": "cost::aws.sqs-fifo"
+          },
+          {
+            "contribution_id": "component:aws.lambda-event-adapter",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "bridge",
+            "monthly_amount": "23.175875625",
+            "cost_owner_id": "cost::aws.lambda-event-adapter"
+          },
+          {
+            "contribution_id": "component:aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "bridge",
+            "monthly_amount": "157.857625",
+            "cost_owner_id": "cost::aws.kinesis-only-for-reviewed-remote-telemetry-edge"
+          },
+          {
+            "contribution_id": "component:aws.sns-fifo-only-for-reviewed-remote-control-edge",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "bridge",
+            "monthly_amount": "7.37121055234375",
+            "cost_owner_id": "cost::aws.sns-fifo-only-for-reviewed-remote-control-edge"
+          },
+          {
+            "contribution_id": "component:gcp.pubsub-separated-embedded-topics",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "24.19948577880859375",
+            "cost_owner_id": "cost::gcp.pubsub-separated-embedded-topics"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-event-adapter",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "bridge",
+            "monthly_amount": "196.91",
+            "cost_owner_id": "cost::gcp.cloud-run-event-adapter"
+          },
+          {
+            "contribution_id": "component:aws.cloudwatch",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "observability",
+            "monthly_amount": "56.304",
+            "cost_owner_id": "cost::aws.cloudwatch"
+          },
+          {
+            "contribution_id": "component:aws.iam-identity-center-layer-access",
+            "kind": "component",
+            "provider": "aws",
+            "logical_component_id": "component.twin-state",
+            "category": "service",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::aws.iam-identity-center-layer-access"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-logging",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "43.35",
+            "cost_owner_id": "cost::gcp.cloud-logging"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-monitoring",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.cloud-monitoring"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-scheduler",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "0.1",
+            "cost_owner_id": "cost::gcp.cloud-scheduler"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-storage-job",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "14.256",
+            "cost_owner_id": "cost::gcp.cloud-run-storage-job"
+          },
+          {
+            "contribution_id": "component:gcp.artifact-registry-if-container-selected",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.artifact-registry-if-container-selected"
+          },
+          {
+            "contribution_id": "route:cost::route::domain_event_cross_cloud::gcp->aws",
+            "kind": "route",
+            "provider": "gcp",
+            "logical_component_id": null,
+            "category": "bridge",
+            "monthly_amount": "19.68",
+            "cost_owner_id": "cost::route::domain_event_cross_cloud::gcp->aws"
+          },
+          {
+            "contribution_id": "route:cost::route::twin_projection_cross_cloud::gcp->aws",
+            "kind": "route",
+            "provider": "gcp",
+            "logical_component_id": null,
+            "category": "transfer",
+            "monthly_amount": "0.36",
+            "cost_owner_id": "cost::route::twin_projection_cross_cloud::gcp->aws"
+          }
+        ],
+        "exact_once_owner_count": 29
+      },
+      "placement_id": "gcp-l3l5-aws-l4",
+      "placement_class": "l3l5_local_l4_remote"
+    },
+    {
+      "candidate_id": "gcp|gcp|gcp|gcp|gcp|azure|gcp",
+      "assignment": {
+        "component.archive-storage": "gcp",
+        "component.cool-storage": "gcp",
+        "component.hot-storage": "gcp",
+        "component.ingestion": "gcp",
+        "component.processing": "gcp",
+        "component.twin-state": "azure",
+        "component.visualization": "gcp"
+      },
+      "status": "supported_offline_estimate",
+      "functional_status": "complete",
+      "capacity_status": "theoretical_pass_live_pending",
+      "live_verification_status": "pending_supervised_run",
+      "blocking_live_gate_ids": [
+        "gate.live-capacity.azure.cosmos-partition-distribution",
+        "gate.live-capacity.azure.cosmos-request-charge-fixture",
+        "gate.live-capacity.azure.reader-latency-and-quota",
+        "gate.live-capacity.gcp.bifromq-cluster-behavior",
+        "gate.live-capacity.gcp.firestore-gradual-ramp-and-transaction-contention",
+        "gate.live-capacity.gcp.reader-latency-and-quota"
+      ],
+      "resolved_deployment_specification_digest": "sha256:a55344793121c932b3085916af5c5348092a9f20ebc8ec1ba09b12ea550fd389",
+      "cost": {
+        "monthly_total": "9321.95682535693359375",
+        "category_totals": {
+          "service": "21.90318",
+          "request-throughput": "6893.35868415380859375",
+          "storage": "1518.5662",
+          "transfer": "0.36",
+          "tiering": "14.356",
+          "observability": "308.55",
+          "failure-replay": "0",
+          "visualization-seat": "64.742761203125",
+          "bridge": "500.12"
+        },
+        "event_transport_scope_total": "500.12",
+        "independent_event_layer_total": "0",
+        "contributions": [
+          {
+            "contribution_id": "component:apache.bifromq-4.0.0-incubating-on-gke-standard",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "133.263909",
+            "cost_owner_id": "cost::apache.bifromq-4.0.0-incubating-on-gke-standard"
+          },
+          {
+            "contribution_id": "component:gcp.external-load-balancer",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "19.568359375",
+            "cost_owner_id": "cost::gcp.external-load-balancer"
+          },
+          {
+            "contribution_id": "component:gcp.ordered-mqtt-pubsub-adapter",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.ordered-mqtt-pubsub-adapter"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-service",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "6704.64",
+            "cost_owner_id": "cost::gcp.cloud-run-service"
+          },
+          {
+            "contribution_id": "component:gcp.workflows",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "1.875",
+            "cost_owner_id": "cost::gcp.workflows"
+          },
+          {
+            "contribution_id": "component:gcp.firestore-native-standard-raw-and-rollup",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "1512.8586",
+            "cost_owner_id": "cost::gcp.firestore-native-standard-raw-and-rollup"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-storage-nearline",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.cool-storage",
+            "category": "storage",
+            "monthly_amount": "3.63",
+            "cost_owner_id": "cost::gcp.cloud-storage-nearline"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-storage-archive",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.archive-storage",
+            "category": "storage",
+            "monthly_amount": "2.0776",
+            "cost_owner_id": "cost::gcp.cloud-storage-archive"
+          },
+          {
+            "contribution_id": "component:azure.digital-twins",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "service",
+            "monthly_amount": "21.90318",
+            "cost_owner_id": "cost::azure.digital-twins"
+          },
+          {
+            "contribution_id": "component:grafana.oss-12-on-gke",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "44.421303",
+            "cost_owner_id": "cost::grafana.oss-12-on-gke"
+          },
+          {
+            "contribution_id": "component:gcp.persistent-disk-rwo",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0.4",
+            "cost_owner_id": "cost::gcp.persistent-disk-rwo"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-raw-history-reader",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "1.3968",
+            "cost_owner_id": "cost::gcp.cloud-run-raw-history-reader"
+          },
+          {
+            "contribution_id": "component:grafana.yesoreyeram-infinity-datasource",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::grafana.yesoreyeram-infinity-datasource"
+          },
+          {
+            "contribution_id": "component:gcp.grafana-tls-load-balancer",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "18.524658203125",
+            "cost_owner_id": "cost::gcp.grafana-tls-load-balancer"
+          },
+          {
+            "contribution_id": "component:azure.service-bus-standard",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "request-throughput",
+            "monthly_amount": "9.81193",
+            "cost_owner_id": "cost::azure.service-bus-standard"
+          },
+          {
+            "contribution_id": "component:azure.functions-flex-event-adapter",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "bridge",
+            "monthly_amount": "42.63",
+            "cost_owner_id": "cost::azure.functions-flex-event-adapter"
+          },
+          {
+            "contribution_id": "component:azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "bridge",
+            "monthly_amount": "240.9",
+            "cost_owner_id": "cost::azure.event-hubs-only-for-reviewed-remote-telemetry-edge"
+          },
+          {
+            "contribution_id": "component:gcp.pubsub-separated-embedded-topics",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "24.19948577880859375",
+            "cost_owner_id": "cost::gcp.pubsub-separated-embedded-topics"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-event-adapter",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "bridge",
+            "monthly_amount": "196.91",
+            "cost_owner_id": "cost::gcp.cloud-run-event-adapter"
+          },
+          {
+            "contribution_id": "component:azure.monitor",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "observability",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::azure.monitor"
+          },
+          {
+            "contribution_id": "component:azure.log-analytics-shared-workspace",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "observability",
+            "monthly_amount": "265.2",
+            "cost_owner_id": "cost::azure.log-analytics-shared-workspace"
+          },
+          {
+            "contribution_id": "component:azure.entra-layer-access-bindings",
+            "kind": "component",
+            "provider": "azure",
+            "logical_component_id": "component.twin-state",
+            "category": "service",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::azure.entra-layer-access-bindings"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-logging",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "43.35",
+            "cost_owner_id": "cost::gcp.cloud-logging"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-monitoring",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.cloud-monitoring"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-scheduler",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "0.1",
+            "cost_owner_id": "cost::gcp.cloud-scheduler"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-storage-job",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "14.256",
+            "cost_owner_id": "cost::gcp.cloud-run-storage-job"
+          },
+          {
+            "contribution_id": "component:gcp.artifact-registry-if-container-selected",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.artifact-registry-if-container-selected"
+          },
+          {
+            "contribution_id": "route:cost::route::domain_event_cross_cloud::gcp->azure",
+            "kind": "route",
+            "provider": "gcp",
+            "logical_component_id": null,
+            "category": "bridge",
+            "monthly_amount": "19.68",
+            "cost_owner_id": "cost::route::domain_event_cross_cloud::gcp->azure"
+          },
+          {
+            "contribution_id": "route:cost::route::twin_projection_cross_cloud::gcp->azure",
+            "kind": "route",
+            "provider": "gcp",
+            "logical_component_id": null,
+            "category": "transfer",
+            "monthly_amount": "0.36",
+            "cost_owner_id": "cost::route::twin_projection_cross_cloud::gcp->azure"
+          }
+        ],
+        "exact_once_owner_count": 29
+      },
+      "placement_id": "gcp-l3l5-azure-l4",
+      "placement_class": "l3l5_local_l4_remote"
+    },
+    {
+      "candidate_id": "gcp|gcp|gcp|gcp|gcp|gcp|gcp",
+      "assignment": {
+        "component.archive-storage": "gcp",
+        "component.cool-storage": "gcp",
+        "component.hot-storage": "gcp",
+        "component.ingestion": "gcp",
+        "component.processing": "gcp",
+        "component.twin-state": "gcp",
+        "component.visualization": "gcp"
+      },
+      "status": "supported_offline_estimate",
+      "functional_status": "complete",
+      "capacity_status": "theoretical_pass_live_pending",
+      "live_verification_status": "pending_supervised_run",
+      "blocking_live_gate_ids": [
+        "gate.live-capacity.gcp.bifromq-cluster-behavior",
+        "gate.live-capacity.gcp.firestore-gradual-ramp-and-transaction-contention",
+        "gate.live-capacity.gcp.reader-latency-and-quota"
+      ],
+      "resolved_deployment_specification_digest": "sha256:49d89e42e5b3ed358d681daef18733eee80b74a5c3fa04eb6e645c342f9d980f",
+      "cost": {
+        "monthly_total": "22143.01778655693359375",
+        "category_totals": {
+          "service": "0",
+          "request-throughput": "20489.73675415380859375",
+          "storage": "1530.8322712",
+          "transfer": "0",
+          "tiering": "14.356",
+          "observability": "43.35",
+          "failure-replay": "0",
+          "visualization-seat": "64.742761203125",
+          "bridge": "0"
+        },
+        "event_transport_scope_total": "196.91",
+        "independent_event_layer_total": "0",
+        "contributions": [
+          {
+            "contribution_id": "component:apache.bifromq-4.0.0-incubating-on-gke-standard",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "133.263909",
+            "cost_owner_id": "cost::apache.bifromq-4.0.0-incubating-on-gke-standard"
+          },
+          {
+            "contribution_id": "component:gcp.external-load-balancer",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "19.568359375",
+            "cost_owner_id": "cost::gcp.external-load-balancer"
+          },
+          {
+            "contribution_id": "component:gcp.ordered-mqtt-pubsub-adapter",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.ordered-mqtt-pubsub-adapter"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-service",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "6704.64",
+            "cost_owner_id": "cost::gcp.cloud-run-service"
+          },
+          {
+            "contribution_id": "component:gcp.workflows",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.processing",
+            "category": "request-throughput",
+            "monthly_amount": "1.875",
+            "cost_owner_id": "cost::gcp.workflows"
+          },
+          {
+            "contribution_id": "component:gcp.firestore-native-standard-raw-and-rollup",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.hot-storage",
+            "category": "storage",
+            "monthly_amount": "1512.8586",
+            "cost_owner_id": "cost::gcp.firestore-native-standard-raw-and-rollup"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-storage-nearline",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.cool-storage",
+            "category": "storage",
+            "monthly_amount": "3.63",
+            "cost_owner_id": "cost::gcp.cloud-storage-nearline"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-storage-archive",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.archive-storage",
+            "category": "storage",
+            "monthly_amount": "2.0776",
+            "cost_owner_id": "cost::gcp.cloud-storage-archive"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-twin-api-materializer",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "request-throughput",
+            "monthly_amount": "6704.64",
+            "cost_owner_id": "cost::gcp.cloud-run-twin-api-materializer"
+          },
+          {
+            "contribution_id": "component:gcp.firestore-native-standard-bounded-twin",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "storage",
+            "monthly_amount": "12.2660712",
+            "cost_owner_id": "cost::gcp.firestore-native-standard-bounded-twin"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-iap-twin-explorer",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "request-throughput",
+            "monthly_amount": "6704.64",
+            "cost_owner_id": "cost::gcp.cloud-run-iap-twin-explorer"
+          },
+          {
+            "contribution_id": "component:gcp.direct-iap-layer-access",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.twin-state",
+            "category": "service",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.direct-iap-layer-access"
+          },
+          {
+            "contribution_id": "component:grafana.oss-12-on-gke",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "44.421303",
+            "cost_owner_id": "cost::grafana.oss-12-on-gke"
+          },
+          {
+            "contribution_id": "component:gcp.persistent-disk-rwo",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0.4",
+            "cost_owner_id": "cost::gcp.persistent-disk-rwo"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-raw-history-reader",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "1.3968",
+            "cost_owner_id": "cost::gcp.cloud-run-raw-history-reader"
+          },
+          {
+            "contribution_id": "component:grafana.yesoreyeram-infinity-datasource",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::grafana.yesoreyeram-infinity-datasource"
+          },
+          {
+            "contribution_id": "component:gcp.grafana-tls-load-balancer",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.visualization",
+            "category": "visualization-seat",
+            "monthly_amount": "18.524658203125",
+            "cost_owner_id": "cost::gcp.grafana-tls-load-balancer"
+          },
+          {
+            "contribution_id": "component:gcp.pubsub-separated-embedded-topics",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "24.19948577880859375",
+            "cost_owner_id": "cost::gcp.pubsub-separated-embedded-topics"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-event-adapter",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "request-throughput",
+            "monthly_amount": "196.91",
+            "cost_owner_id": "cost::gcp.cloud-run-event-adapter"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-logging",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "43.35",
+            "cost_owner_id": "cost::gcp.cloud-logging"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-monitoring",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.ingestion",
+            "category": "observability",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.cloud-monitoring"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-scheduler",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "0.1",
+            "cost_owner_id": "cost::gcp.cloud-scheduler"
+          },
+          {
+            "contribution_id": "component:gcp.cloud-run-storage-job",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "14.256",
+            "cost_owner_id": "cost::gcp.cloud-run-storage-job"
+          },
+          {
+            "contribution_id": "component:gcp.artifact-registry-if-container-selected",
+            "kind": "component",
+            "provider": "gcp",
+            "logical_component_id": "component.hot-storage",
+            "category": "tiering",
+            "monthly_amount": "0",
+            "cost_owner_id": "cost::gcp.artifact-registry-if-container-selected"
+          }
+        ],
+        "exact_once_owner_count": 24
+      },
+      "placement_id": "gcp-l3l5-gcp-l4",
+      "placement_class": "single_cloud"
+    }
+  ],
+  "directed_event_pair_results": [],
+  "representative_three_provider_result": null,
+  "interpretation": {
+    "estimated_operational_cost_only": true,
+    "profile_local_ranking_only": true,
+    "measured_invoice_or_throughput": false,
+    "shared_resource_allocation_policy": "fixed_shared_resources_charged_once_to_declared_cost_owner_without_consumer_apportionment",
+    "same_provider_bridge_policy": "cross_cloud_bridge_and_egress_zero_when_source_equals_destination"
+  }
+}
