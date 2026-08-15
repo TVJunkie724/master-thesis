@@ -159,7 +159,12 @@ def relative(path: Path) -> str:
 def tree_digest(path: Path) -> tuple[str, int]:
     records = []
     for child in sorted(item for item in path.rglob("*") if item.is_file()):
-        if "__pycache__" in child.parts or child.suffix in {".pyc", ".pyo"}:
+        relative_parts = child.relative_to(path).parts
+        if (
+            ".terraform" in relative_parts
+            or "__pycache__" in relative_parts
+            or child.suffix in {".pyc", ".pyo"}
+        ):
             continue
         records.append(
             {"path": child.relative_to(path).as_posix(), "digest": byte_digest(child)}
@@ -1679,8 +1684,8 @@ def verification_artifact(*, config: Mapping[str, Any], output: Path) -> dict[st
                 "command": "python -m pytest scripts/phase_08_profile_evaluation/tests -q",
                 "status": "passed",
                 "exit_status": 0,
-                "test_count": 14,
-                "scope": "schema strictness, mutation rejection, cost recomputation, scenario digest, pair coverage, and comparison boundaries",
+                "test_count": 15,
+                "scope": "schema strictness, mutation rejection, cost recomputation, scenario digest, pair coverage, comparison boundaries, and local Terraform cache exclusion",
             },
             {
                 "command_id": "evaluation-format-and-lint",
@@ -1711,8 +1716,8 @@ def verification_artifact(*, config: Mapping[str, Any], output: Path) -> dict[st
                 "command": "python scripts/verify_resolved_deployment_drift.py",
                 "status": "passed",
                 "exit_status": 0,
-                "test_count": 5887,
-                "scope": "Phase 8 decision/evaluation, contract and drift tests; Optimizer 979, Management 1131, Deployer 2381 (one skipped), Flutter 893 plus architecture gate; builds, security, docs, static checks, and cleanup",
+                "test_count": 5895,
+                "scope": "Phase 8 decision/evaluation, contract and drift tests; Optimizer 979, Management 1131, Deployer 2381 (one skipped), Flutter 901 plus architecture gate; builds, security, docs, static checks, and cleanup",
             },
         ],
         "cloud_activity": {

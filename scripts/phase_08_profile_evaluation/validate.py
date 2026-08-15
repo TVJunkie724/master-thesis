@@ -70,7 +70,12 @@ def package_path(package: Path, relative_path: str) -> Path:
 def tree_digest(path: Path) -> tuple[str, int]:
     records = []
     for child in sorted(item for item in path.rglob("*") if item.is_file()):
-        if "__pycache__" in child.parts or child.suffix in {".pyc", ".pyo"}:
+        relative_parts = child.relative_to(path).parts
+        if (
+            ".terraform" in relative_parts
+            or "__pycache__" in relative_parts
+            or child.suffix in {".pyc", ".pyo"}
+        ):
             continue
         records.append(
             {

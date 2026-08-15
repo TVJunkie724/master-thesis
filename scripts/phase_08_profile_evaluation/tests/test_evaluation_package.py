@@ -7,7 +7,10 @@ import shutil
 
 import pytest
 
-from scripts.phase_08_profile_evaluation.generate import semantic_digest
+from scripts.phase_08_profile_evaluation.generate import (
+    semantic_digest,
+    tree_digest as generation_tree_digest,
+)
 from scripts.phase_08_profile_evaluation.validate import (
     DEFAULT_PACKAGE,
     SCHEMA_DIRECTORY,
@@ -17,6 +20,7 @@ from scripts.phase_08_profile_evaluation.validate import (
     validate_rejections_and_research_mapping,
     validate_scenarios_and_deltas,
     validate_schema,
+    tree_digest as validation_tree_digest,
 )
 from scripts.phase_08_profile_evaluation.verify_runtime_images import (
     SERVICE_NAMES,
@@ -165,6 +169,16 @@ def test_runtime_image_digest_drift_is_rejected():
 def test_package_path_rejects_parent_traversal(tmp_path):
     with pytest.raises(AssertionError):
         package_path(tmp_path / "evidence", "../outside.json")
+
+
+def test_tree_digests_ignore_local_terraform_provider_cache(tmp_path):
+    (tmp_path / "main.tf").write_text("terraform {}\n", encoding="utf-8")
+    provider = tmp_path / ".terraform/providers/example/provider"
+    provider.parent.mkdir(parents=True)
+    provider.write_bytes(b"local platform-specific binary")
+
+    assert generation_tree_digest(tmp_path) == validation_tree_digest(tmp_path)
+    assert generation_tree_digest(tmp_path)[1] == 1
 
 
 def test_embedded_scenario_payload_must_match_its_frozen_source(tmp_path):
