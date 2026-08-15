@@ -100,10 +100,7 @@ void main() {
 
     expect(find.byType(WizardView), findsOneWidget);
     expect(find.text('Dashboard destination'), findsNothing);
-    expect(
-      find.text('Saved. Configuration reverted to draft.'),
-      findsOneWidget,
-    );
+    expect(find.text('Draft saved!'), findsOneWidget);
   });
 
   testWidgets('settings navigation uses the shared unsaved-exit contract', (

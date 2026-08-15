@@ -48,7 +48,40 @@ void main() {
     await bloc.stream.firstWhere(
       (state) => state.status == WizardStatus.ready && !state.hasUnsavedChanges,
     );
+    expect(bloc.state.successMessage, 'Draft saved!');
     verify(() => api.updateTwinConfigRequest('twin-1', any())).called(1);
     verifyNever(() => api.updateTwin(any(), state: any(named: 'state')));
   });
+
+  test(
+    'saving a configured twin reports an actual regression to draft',
+    () async {
+      final api = _MockApiService();
+      when(() => api.updateTwinConfigRequest('twin-1', any())).thenAnswer(
+        (_) async =>
+            TypedApiFixtures.twinConfig(twinId: 'twin-1', twinState: 'draft'),
+      );
+      final bloc = WizardBloc(
+        api: api,
+        initialState: const WizardState(
+          mode: WizardMode.edit,
+          status: WizardStatus.ready,
+          twinId: 'twin-1',
+          twinName: 'Factory twin',
+          twinState: 'configured',
+        ),
+      );
+      addTearDown(bloc.close);
+
+      bloc.add(const WizardSaveDraft());
+      await bloc.stream.firstWhere(
+        (state) => state.status == WizardStatus.ready,
+      );
+
+      expect(
+        bloc.state.successMessage,
+        'Saved. Configuration reverted to draft.',
+      );
+    },
+  );
 }
