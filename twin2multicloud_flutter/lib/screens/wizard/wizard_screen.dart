@@ -468,7 +468,6 @@ class _WizardViewState extends ConsumerState<WizardView> {
         context.go('/settings');
       case _WorkspaceExitDestination.logout:
         await ref.read(authProvider.notifier).logout();
-        if (context.mounted) context.go('/login');
     }
   }
 }

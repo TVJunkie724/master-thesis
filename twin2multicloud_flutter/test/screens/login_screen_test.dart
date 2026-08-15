@@ -6,11 +6,36 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/models/authentication.dart';
+import 'package:twin2multicloud_flutter/providers/auth_provider.dart';
 import 'package:twin2multicloud_flutter/providers/runtime_providers.dart';
 import 'package:twin2multicloud_flutter/screens/login_screen.dart';
 import 'package:twin2multicloud_flutter/services/management_api.dart';
 
 class _MockManagementApi extends Mock implements ManagementApi {}
+
+final _loginRouterProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authProvider);
+  final router = GoRouter(
+    initialLocation: '/login',
+    redirect: (_, state) {
+      final isLoggingIn = state.matchedLocation == '/login';
+      if (!authState.isAuthenticated && !isLoggingIn) return '/login';
+      if (authState.isAuthenticated && isLoggingIn) return '/dashboard';
+      return null;
+    },
+    routes: [
+      GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+      GoRoute(
+        path: '/dashboard',
+        builder: (_, _) => const Scaffold(
+          body: Center(child: Text('Authenticated destination')),
+        ),
+      ),
+    ],
+  );
+  ref.onDispose(router.dispose);
+  return router;
+});
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -40,6 +65,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Authenticated destination'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     verify(() => api.setToken('local-token')).called(1);
   });
 
@@ -69,6 +95,34 @@ void main() {
           .onPressed,
       isNull,
     );
+  });
+
+  testWidgets('auth redirects own logout across router replacement', (
+    tester,
+  ) async {
+    final api = _MockManagementApi();
+    await _pump(
+      tester,
+      runtime: AppRuntimeConfig.development(
+        managementApiBaseUri: Uri.parse('http://management.test'),
+        developmentAuthToken: 'local-token',
+      ),
+      api: api,
+    );
+
+    await tester.tap(find.text('Continue in local development'));
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.text('Authenticated destination')),
+    );
+
+    await container.read(authProvider.notifier).logout();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Continue in local development'), findsOneWidget);
+    expect(find.text('Authenticated destination'), findsNothing);
+    expect(tester.takeException(), isNull);
+    verify(() => api.setToken(null)).called(1);
   });
 
   testWidgets('demo login surface cannot expose network sign-in controls', (
@@ -124,20 +178,6 @@ Future<void> _pump(
   ThemeData? theme,
   TextScaler textScaler = TextScaler.noScaling,
 }) async {
-  final router = GoRouter(
-    initialLocation: '/login',
-    routes: [
-      GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
-      GoRoute(
-        path: '/dashboard',
-        builder: (_, _) => const Scaffold(
-          body: Center(child: Text('Authenticated destination')),
-        ),
-      ),
-    ],
-  );
-  addTearDown(router.dispose);
-
   if (runtime.mode == AppMode.production) {
     when(() => api.getAuthProviders()).thenAnswer(
       (_) async => const [
@@ -163,15 +203,27 @@ Future<void> _pump(
         appRuntimeProvider.overrideWithValue(runtime),
         apiServiceProvider.overrideWithValue(api),
       ],
-      child: MaterialApp.router(
-        theme: theme,
-        routerConfig: router,
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: textScaler),
-          child: child ?? const SizedBox.shrink(),
-        ),
-      ),
+      child: _LoginTestApp(theme: theme, textScaler: textScaler),
     ),
   );
   await tester.pumpAndSettle();
+}
+
+class _LoginTestApp extends ConsumerWidget {
+  const _LoginTestApp({required this.theme, required this.textScaler});
+
+  final ThemeData? theme;
+  final TextScaler textScaler;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return MaterialApp.router(
+      theme: theme,
+      routerConfig: ref.watch(_loginRouterProvider),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+        child: child ?? const SizedBox.shrink(),
+      ),
+    );
+  }
 }

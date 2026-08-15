@@ -58,7 +58,6 @@ class SettingsScreen extends ConsumerWidget {
             onSelected: (value) async {
               if (value == 'logout') {
                 await ref.read(authProvider.notifier).logout();
-                if (context.mounted) context.go('/login');
               }
             },
             itemBuilder: (context) => [
