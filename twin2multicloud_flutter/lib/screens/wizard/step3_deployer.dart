@@ -26,10 +26,12 @@ class _Step3DeployerState extends State<Step3Deployer> {
   Widget build(BuildContext context) {
     return BlocBuilder<WizardBloc, WizardState>(
       builder: (context, state) {
+        final requiresOptimizationResult =
+            widget.taskId != ConfigurationTaskId.userLogic;
         return Column(
           children: [
             Expanded(
-              child: state.calcResult == null
+              child: state.calcResult == null && requiresOptimizationResult
                   ? const Step3NoResultMessage()
                   : DeploymentTaskContent(
                       state: state,

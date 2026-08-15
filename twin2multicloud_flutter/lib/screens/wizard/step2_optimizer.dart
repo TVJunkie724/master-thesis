@@ -201,10 +201,17 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                   ? 'Enabled'
                   : 'Not required',
             ),
-            _summaryRow(
-              '3D representation',
-              params.needs3DModel ? 'Required' : 'Not required',
-            ),
+            if (state.usesPhase8ComparisonProfile) ...[
+              _summaryRow('Twin entities', '${params.entityCount}'),
+              _summaryRow(
+                'Dashboard refreshes',
+                '${params.dashboardRefreshesPerHour}/hour',
+              ),
+            ] else
+              _summaryRow(
+                '3D representation',
+                params.needs3DModel ? 'Required' : 'Not required',
+              ),
             _summaryRow('Currency', params.currency),
           ],
         ),
@@ -243,7 +250,10 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
         ),
         const SizedBox(height: 8),
         Text(
-          _taskDescription(widget.taskId),
+          _taskDescription(
+            widget.taskId,
+            usesPhase8Profile: state.usesPhase8ComparisonProfile,
+          ),
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -294,7 +304,10 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     _ => 'Calculation inputs',
   };
 
-  String _taskDescription(ConfigurationTaskId? taskId) => switch (taskId) {
+  String _taskDescription(
+    ConfigurationTaskId? taskId, {
+    required bool usesPhase8Profile,
+  }) => switch (taskId) {
     ConfigurationTaskId.scenarioAndCurrency =>
       'Start from a representative scenario and choose the reporting currency.',
     ConfigurationTaskId.deviceTraffic =>
@@ -304,7 +317,9 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     ConfigurationTaskId.retention =>
       'Define how long telemetry remains in each storage tier.',
     ConfigurationTaskId.twinCapabilities =>
-      'Describe 3D representation and dashboard usage requirements.',
+      usesPhase8Profile
+          ? 'Review the frozen twin-state and dashboard activity.'
+          : 'Describe 3D representation and dashboard usage requirements.',
     _ =>
       'Configure your digital twin workload parameters to calculate optimized costs.',
   };

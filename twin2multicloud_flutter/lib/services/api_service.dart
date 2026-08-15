@@ -1336,7 +1336,7 @@ class ApiService implements ManagementApi {
   // Deployment Verification
   // ==========================================================================
 
-  /// Run structured infrastructure verification (L0-L5 checks)
+  /// Run structured infrastructure verification for the selected architecture.
   /// Returns {checks: List, summary: {pass_count, fail_count, skip_count, total, healthy}}
   @override
   Future<Map<String, dynamic>> verifyInfrastructure(String twinId) async {

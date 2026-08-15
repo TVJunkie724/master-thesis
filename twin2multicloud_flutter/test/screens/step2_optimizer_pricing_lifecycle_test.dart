@@ -4,9 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
 import 'package:twin2multicloud_flutter/features/configuration_workspace/domain/configuration_journey.dart';
+import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/pricing_health.dart';
 import 'package:twin2multicloud_flutter/screens/wizard/step2_optimizer.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
+
+import '../fixtures/architecture_wizard_fixture.dart';
 
 class MockApiService extends Mock implements ApiService {}
 
@@ -43,6 +46,39 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('Phase 8 workload shows frozen twin activity without 3D intent', (
+    tester,
+  ) async {
+    final api = MockApiService();
+    final state = architectureReadyWizardState(profileId: 'five-layer-baseline')
+        .copyWith(
+          calcParams: CalcParams.fiveLayerV2(
+            scenario: FiveLayerWorkloadScenario.small,
+          ),
+        );
+    final bloc = WizardBloc(api: api, initialState: state);
+    addTearDown(bloc.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BlocProvider<WizardBloc>.value(
+          value: bloc,
+          child: const Scaffold(
+            body: Step2Optimizer(taskId: ConfigurationTaskId.twinCapabilities),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.text('Review the frozen twin-state and dashboard activity.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('3D representation'), findsNothing);
+    expect(find.text('Twin and dashboard activity'), findsOneWidget);
+  });
 }
 
 PricingHealthResponse _health() => PricingHealthResponse.fromJson({

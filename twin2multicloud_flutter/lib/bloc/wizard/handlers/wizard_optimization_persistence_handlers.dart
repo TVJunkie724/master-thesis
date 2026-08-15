@@ -486,6 +486,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
       final newTwinState = configResponse.twinState;
       final bool stateRegressed =
           newTwinState != null &&
+          state.twinState != null &&
           newTwinState != state.twinState &&
           newTwinState == 'draft';
 
