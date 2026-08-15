@@ -90,9 +90,14 @@ class _Summary extends StatelessWidget {
             'Storage retention': params == null
                 ? 'Not set'
                 : '${params.hotStorageDurationInMonths} / ${params.coolStorageDurationInMonths} / ${params.archiveStorageDurationInMonths} months',
-            '3D representation': params?.needs3DModel == true
-                ? 'Required'
-                : 'Not required',
+            if (state.usesPhase8ComparisonProfile) ...{
+              'Twin entities': '${params?.entityCount ?? 0}',
+              'Dashboard refreshes':
+                  '${params?.dashboardRefreshesPerHour ?? 0}/hour',
+            } else
+              '3D representation': params?.needs3DModel == true
+                  ? 'Required'
+                  : 'Not required',
           },
         ),
         _SummarySection(

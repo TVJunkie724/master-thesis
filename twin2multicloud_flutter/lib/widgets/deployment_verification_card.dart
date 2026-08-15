@@ -178,7 +178,7 @@ class _InfrastructureSection extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'Verify deployed cloud resources across L0-L5. Duration: 5-30s. Cost: none.',
+          'Verify deployed cloud resources across the selected architecture. Duration: 5-30s. Cost: none.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -301,7 +301,7 @@ class _EventConditionHint extends StatelessWidget {
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              'If event checking is enabled, payload values must match configured event conditions.',
+              'Payload values must satisfy any configured event conditions.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

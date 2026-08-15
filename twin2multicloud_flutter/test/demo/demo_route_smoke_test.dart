@@ -76,4 +76,48 @@ void main() {
       },
     );
   }
+
+  testWidgets('new twin enters the credential-free wizard directly', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final runtime = AppRuntimeConfig.demo(demoScenario: DemoScenario.showcase);
+    final composition = await tester.runAsync(
+      () => RuntimeComposition.bootstrap(runtime),
+    );
+    expect(composition, isNotNull);
+    final resolvedComposition = composition!;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appRuntimeProvider.overrideWithValue(runtime),
+          apiServiceProvider.overrideWithValue(
+            resolvedComposition.managementApi,
+          ),
+          logStreamClientFactoryProvider.overrideWithValue(
+            resolvedComposition.logStreamClientFactory,
+          ),
+          initialUserProvider.overrideWithValue(
+            resolvedComposition.initialUser,
+          ),
+        ],
+        child: const Twin2MultiCloudApp(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    await tester.tap(find.widgetWithText(FilledButton, 'New Twin'));
+    await tester.pumpAndSettle(const Duration(milliseconds: 200));
+
+    expect(find.byType(WizardScreen), findsOneWidget);
+    expect(find.text('Set Up Cloud Credentials'), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+  });
 }

@@ -54,6 +54,18 @@ void main() {
     expect(find.text('DEPLOYMENT VERIFICATION'), findsOneWidget);
     expect(find.text('CHECK INFRASTRUCTURE'), findsOneWidget);
     expect(find.text('VERIFY DATA FLOW'), findsOneWidget);
+    expect(
+      find.text(
+        'Verify deployed cloud resources across the selected architecture. Duration: 5-30s. Cost: none.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Payload values must satisfy any configured event conditions.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('L0-L5'), findsNothing);
+    expect(find.textContaining('event checking is enabled'), findsNothing);
 
     await tester.tap(find.text('CHECK INFRASTRUCTURE'));
     await tester.pumpAndSettle();

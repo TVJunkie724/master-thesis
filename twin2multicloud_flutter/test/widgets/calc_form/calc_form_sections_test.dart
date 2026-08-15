@@ -253,6 +253,33 @@ void main() {
     expect(find.byType(Switch), findsNothing);
   });
 
+  testWidgets('Phase 8 twin capabilities omit historical 3D language', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CalcForm(
+              profileId: 'five-layer-baseline',
+              profileVersion: '2',
+              section: CalcFormSection.twinCapabilities,
+              initialParams: CalcParams.fiveLayerV2(
+                scenario: FiveLayerWorkloadScenario.small,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Twin and dashboard activity'), findsOneWidget);
+    expect(find.text('Twin entities'), findsOneWidget);
+    expect(find.textContaining('3D representation'), findsNothing);
+    expect(find.text('Is a 3D Model Necessary?'), findsNothing);
+  });
+
   testWidgets(
     'Five-layer v2 scenario cards follow all supported responsive boundaries',
     (tester) async {
