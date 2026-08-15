@@ -95,7 +95,7 @@
       "category": "evaluation",
       "path": "scripts/phase_08_profile_evaluation",
       "kind": "tree",
-      "digest": "sha256:89fd4101f81db5d2a31c8ee3897ca905edae66768e963b098ae076f397d4baca",
+      "digest": "sha256:8b85da7bd987c7986379b23c12168846a38efa9249e74702275ac70527e22c2f",
       "file_count": 9
     },
     {
@@ -242,8 +242,8 @@
       "category": "terraform",
       "path": "3-cloud-deployer/src/terraform",
       "kind": "tree",
-      "digest": "sha256:91a3bed9dc78b5097192bf3edab0c9c303090e4a7818b742dab51ceeccea5b1c",
-      "file_count": 64
+      "digest": "sha256:f507308247b0580924b8aff99ead77344be48b372e848c6ea695f3515c77dc7c",
+      "file_count": 45
     },
     {
       "category": "workload",

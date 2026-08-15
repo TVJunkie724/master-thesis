@@ -46,7 +46,7 @@
     },
     {
       "path": "evaluation-manifest.json",
-      "digest": "sha256:51226a691c2cfcbc0cea077be171c4e843879aba1c0692db30abbac7cefa7dbd"
+      "digest": "sha256:400266cfeb659ea3511e9c7ca20ec994d959d3cea80d2579a205a93105d42b53"
     },
     {
       "path": "functional-matrix.json",
@@ -109,7 +109,7 @@
       "digest": "sha256:4b7037b917f1e352556c026477db9130c742591a9754a5e97e26da969a536c40"
     }
   ],
-  "artifact_set_digest": "sha256:4717f66a0a3d584ca26fe5d23935b45ff645fc55898f5a22271b38fa43937887",
+  "artifact_set_digest": "sha256:1e12807b8f05e6bae096e84fdab4a41207b4f4b6099bc9c830fd2205c504f55c",
   "commands": [
     {
       "command_id": "generator",
@@ -132,8 +132,8 @@
       "command": "python -m pytest scripts/phase_08_profile_evaluation/tests -q",
       "status": "passed",
       "exit_status": 0,
-      "test_count": 14,
-      "scope": "schema strictness, mutation rejection, cost recomputation, scenario digest, pair coverage, and comparison boundaries"
+      "test_count": 15,
+      "scope": "schema strictness, mutation rejection, cost recomputation, scenario digest, pair coverage, comparison boundaries, and local Terraform cache exclusion"
     },
     {
       "command_id": "evaluation-format-and-lint",
@@ -164,8 +164,8 @@
       "command": "python scripts/verify_resolved_deployment_drift.py",
       "status": "passed",
       "exit_status": 0,
-      "test_count": 5887,
-      "scope": "Phase 8 decision/evaluation, contract and drift tests; Optimizer 979, Management 1131, Deployer 2381 (one skipped), Flutter 893 plus architecture gate; builds, security, docs, static checks, and cleanup"
+      "test_count": 5895,
+      "scope": "Phase 8 decision/evaluation, contract and drift tests; Optimizer 979, Management 1131, Deployer 2381 (one skipped), Flutter 901 plus architecture gate; builds, security, docs, static checks, and cleanup"
     }
   ],
   "cloud_activity": {
