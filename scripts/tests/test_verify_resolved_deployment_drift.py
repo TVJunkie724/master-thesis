@@ -16,6 +16,34 @@ from scripts import verify_resolved_deployment_drift as verification
 
 
 class DeploymentDriftVerificationTests(unittest.TestCase):
+    def test_workflow_triggers_cover_focused_gate_inputs(self) -> None:
+        workflow = (
+            verification.ROOT / ".github/workflows/deployment-contract.yml"
+        ).read_text(encoding="utf-8")
+        required_paths = (
+            "contracts/architecture-inventory/**",
+            "contracts/cloud-bootstrap/**",
+            "contracts/five-layer-workload/**",
+            "contracts/user-function-extension/**",
+            "docs/research/evidence/phase_08_profile_evaluation/**",
+            "scripts/phase_08_profile_evaluation/**",
+            "scripts/generate_deployment_manifest_fixtures.py",
+            "scripts/sync_cloud_bootstrap_contracts.py",
+            "scripts/sync_five_layer_v2_contracts.py",
+            "scripts/sync_five_layer_workload_contract.py",
+            "scripts/sync_six_layer_eventing_contracts.py",
+            "scripts/sync_user_function_extension_contracts.py",
+            "scripts/verify_six_layer_management_boundary.py",
+        )
+
+        for path in required_paths:
+            with self.subTest(path=path):
+                self.assertEqual(
+                    workflow.count(f'- "{path}"'),
+                    2,
+                    f"{path} must trigger both push and pull-request gates",
+                )
+
     def test_rejects_e2e_and_cloud_overlay_modes(self) -> None:
         unsafe_environments = (
             {"RUN_E2E_TESTS": "1"},
