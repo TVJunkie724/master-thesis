@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/schemas/phase-08-eventing/eventing-workload.schema.json",
+  "title": "Eventing workload v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scenario_id",
+    "events_per_month",
+    "publish_requests_per_month",
+    "average_event_payload_bytes",
+    "mandatory_processed_consumers",
+    "extra_processed_consumers",
+    "retry_share",
+    "dead_letter_share",
+    "replay_share",
+    "retention_hours",
+    "ordering_scope",
+    "required_delivery_semantics",
+    "max_delivery_latency_seconds",
+    "peak_events_per_second",
+    "active_partition_keys",
+    "concurrent_device_connections",
+    "rule_match_share",
+    "workflow_start_share_of_matches",
+    "device_command_share_of_matches",
+    "bounded_synthetic_scenario"
+  ],
+  "properties": {
+    "scenario_id": {"type": "string", "pattern": "^eventing-(small|medium|large)-v1$"},
+    "events_per_month": {"type": "integer", "minimum": 0},
+    "publish_requests_per_month": {"type": "integer", "minimum": 0},
+    "average_event_payload_bytes": {"type": "integer", "minimum": 1},
+    "mandatory_processed_consumers": {
+      "const": [
+        "consumer.historical-persistence",
+        "consumer.twin-state-update",
+        "consumer.rule-evaluator"
+      ]
+    },
+    "extra_processed_consumers": {
+      "type": "array",
+      "items": {
+        "enum": ["consumer.audit", "consumer.realtime-visualization"]
+      },
+      "uniqueItems": true
+    },
+    "retry_share": {"type": "number", "minimum": 0, "maximum": 1},
+    "dead_letter_share": {"type": "number", "minimum": 0, "maximum": 1},
+    "replay_share": {"type": "number", "minimum": 0, "maximum": 1},
+    "retention_hours": {"type": "integer", "minimum": 0},
+    "ordering_scope": {"const": "per_device"},
+    "required_delivery_semantics": {"const": "at_least_once"},
+    "max_delivery_latency_seconds": {"type": "integer", "minimum": 1},
+    "peak_events_per_second": {"type": "number", "minimum": 0},
+    "active_partition_keys": {"type": "integer", "minimum": 1},
+    "concurrent_device_connections": {"type": "integer", "minimum": 1},
+    "rule_match_share": {"type": "number", "minimum": 0, "maximum": 1},
+    "workflow_start_share_of_matches": {"type": "number", "minimum": 0, "maximum": 1},
+    "device_command_share_of_matches": {"type": "number", "minimum": 0, "maximum": 1},
+    "bounded_synthetic_scenario": {"const": true}
+  }
+}

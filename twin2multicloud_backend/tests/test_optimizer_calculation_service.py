@@ -65,11 +65,12 @@ class FakePricingCatalogContextService:
         return self.context
 
 
-def _service(fake):
+def _service(fake, *, architecture_resolution_enabled=False):
     return OptimizerCalculationService(
         optimizer_client=fake,
         aws_twinmaker_contexts=FakeAwsTwinMakerContextService(),
         pricing_catalog_contexts=FakePricingCatalogContextService(),
+        architecture_resolution_enabled=architecture_resolution_enabled,
     )
 
 
@@ -97,6 +98,23 @@ async def test_calculate_forwards_params_and_returns_optimizer_payload():
             },
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_architecture_gate_blocks_proxy_without_twin_context():
+    fake = FakeOptimizerClient(optimizer_transfer_result())
+
+    with pytest.raises(DownstreamServiceError) as exc_info:
+        await _service(
+            fake,
+            architecture_resolution_enabled=True,
+        ).calculate({"numberOfDevices": 10}, "user-1")
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.public_detail == (
+        "Architecture-aware calculations require a Twin-owned optimizer run."
+    )
+    assert fake.calls == []
 
 
 @pytest.mark.asyncio

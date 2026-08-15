@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/schemas/phase-08-eventing/pricing-model-matrix.schema.json",
+  "title": "Phase 8 pricing model matrix",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "matrix_id",
+    "source_ledger_ref",
+    "formula_ledger_ref",
+    "price_intents",
+    "selected_bundle_intents",
+    "bridge_source_intents",
+    "bridge_destination_intents",
+    "rejected_member_dimensions"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": "pricing-model-matrix.v1"},
+    "matrix_id": {"const": "phase-08-eventing-pricing@1"},
+    "source_ledger_ref": {"const": "phase-08-eventing-sources@1"},
+    "formula_ledger_ref": {"const": "phase-08-formulas@1"},
+    "price_intents": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/intent"}
+    },
+    "selected_bundle_intents": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {"$ref": "#/$defs/bundle"}
+    },
+    "bridge_source_intents": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/bridge"}
+    },
+    "bridge_destination_intents": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/destinationBridge"}
+    },
+    "rejected_member_dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/rejected"}
+    }
+  },
+  "$defs": {
+    "provider": {"enum": ["aws", "azure", "gcp"]},
+    "intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "intent_id",
+        "provider",
+        "service_or_bundle_member",
+        "provider_meter_or_sku_id",
+        "source_type",
+        "source_id",
+        "raw_unit",
+        "normalized_unit",
+        "normalization_rule_id",
+        "formula_id",
+        "unit_price_usd",
+        "free_quantity",
+        "tier_schedule",
+        "rounding_rule",
+        "region",
+        "currency",
+        "effective_at",
+        "fetchability",
+        "publishability"
+      ],
+      "properties": {
+        "intent_id": {"type": "string", "pattern": "^intent\\."},
+        "provider": {"$ref": "#/$defs/provider"},
+        "service_or_bundle_member": {"type": "string", "minLength": 1},
+        "provider_meter_or_sku_id": {"type": "string", "minLength": 1},
+        "source_type": {
+          "enum": [
+            "dynamic_provider_api",
+            "official_static_documentation",
+            "reviewed_repository_catalog",
+            "official_vendor_documentation"
+          ]
+        },
+        "source_id": {"type": "string", "pattern": "^source\\."},
+        "raw_unit": {"type": "string", "minLength": 1},
+        "normalized_unit": {"type": "string", "minLength": 1},
+        "normalization_rule_id": {"type": "string", "minLength": 1},
+        "formula_id": {"type": "string", "pattern": "^formula\\."},
+        "unit_price_usd": {"type": "number", "minimum": 0},
+        "free_quantity": {"type": "number", "minimum": 0},
+        "tier_schedule": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from_quantity", "up_to_quantity", "unit_price_usd"],
+            "properties": {
+              "from_quantity": {"type": "number", "minimum": 0},
+              "up_to_quantity": {
+                "oneOf": [
+                  {"type": "number", "exclusiveMinimum": 0},
+                  {"const": "unbounded"}
+                ]
+              },
+              "unit_price_usd": {"type": "number", "minimum": 0}
+            }
+          }
+        },
+        "rounding_rule": {"type": "string", "minLength": 1},
+        "region": {"type": "string", "minLength": 1},
+        "currency": {"const": "USD"},
+        "effective_at": {
+          "oneOf": [
+            {"type": "string", "format": "date"},
+            {"const": "not_published"}
+          ]
+        },
+        "fetchability": {
+          "enum": [
+            "dynamic_provider_api",
+            "account_scoped_provider_api",
+            "official_static_documentation",
+            "derived_calculation",
+            "not_applicable"
+          ]
+        },
+        "publishability": {"const": "publishable"}
+      }
+    },
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bundle_id", "intent_ids"],
+      "properties": {
+        "bundle_id": {"type": "string", "pattern": "^bundle\\."},
+        "intent_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^intent\\."},
+          "uniqueItems": true
+        }
+      }
+    },
+    "bridge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_provider", "intent_ids"],
+      "properties": {
+        "source_provider": {"$ref": "#/$defs/provider"},
+        "intent_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^intent\\."},
+          "uniqueItems": true
+        }
+      }
+    },
+    "destinationBridge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["destination_provider", "telemetry_intent_ids", "control_intent_ids"],
+      "properties": {
+        "destination_provider": {"$ref": "#/$defs/provider"},
+        "telemetry_intent_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^intent\\."},
+          "uniqueItems": true
+        },
+        "control_intent_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^intent\\."},
+          "uniqueItems": true
+        }
+      }
+    },
+    "rejected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alternative_id", "pricing_status", "dimensions", "reason"],
+      "properties": {
+        "alternative_id": {"type": "string", "pattern": "^alternative\\."},
+        "pricing_status": {"enum": ["price_visible_not_calculated", "not_applicable_retired", "unpublishable_custom_quote"]},
+        "dimensions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["dimension", "source_id"],
+            "properties": {
+              "dimension": {"type": "string", "minLength": 1},
+              "source_id": {"type": "string", "pattern": "^source\\."}
+            }
+          }
+        },
+        "reason": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

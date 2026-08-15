@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/contracts/deployment-access/v1/deployment-access-evidence.schema.json",
+  "title": "Secret-free Deployer access evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "profile_version",
+    "generated_at",
+    "surfaces"
+  ],
+  "properties": {
+    "schema_version": {"const": "deployment-access-evidence.v1"},
+    "profile_id": {
+      "enum": ["five-layer-baseline", "six-layer-eventing"]
+    },
+    "profile_version": {"enum": ["1", "2"]},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "surfaces": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "$ref": "https://twin2multicloud.local/contracts/deployment-access/v1/deployment-access.schema.json#/$defs/surface"
+      },
+      "contains": {"properties": {"layer": {"const": "l4"}}},
+      "minContains": 1,
+      "maxContains": 1
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "profile_id": {"const": "five-layer-baseline"},
+        "profile_version": {"const": "2"}
+      }
+    },
+    {
+      "properties": {
+        "profile_id": {"const": "six-layer-eventing"},
+        "profile_version": {"const": "1"}
+      }
+    }
+  ]
+}

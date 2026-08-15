@@ -1,4 +1,37 @@
-# Flutter Frontend Architecture Proposal (v3)
+# Flutter Frontend Architecture (v4)
+
+## Current Implementation Boundary
+
+This document contains the original design rationale as well as current
+architecture constraints. Where historical examples or estimates below differ
+from the implemented system, the current code, `docs-site/`, and reviewed
+implementation plans are authoritative.
+
+- Flutter calls only the Management API. Optimizer and Deployer ports are
+  internal/diagnostic boundaries.
+- Riverpod owns runtime mode, authentication, and `ManagementApi` composition.
+  Feature BLoCs own complex workflows such as configuration and deployment.
+- Web, macOS, Windows, and Linux are all mandatory supported targets. Android,
+  iOS, and Fuchsia are unsupported.
+- Operation logs use Management API SSE. A transport failure becomes a bounded
+  reconnect/error state; it does not authorize a direct downstream call.
+- The implemented Configuration Workspace supersedes the historical
+  credential-first wizard below. Draft, workload, calculation, and architecture
+  review remain credential-free. Guided creation of a bounded deployment
+  CloudConnection is implemented in Prepare deployment and the shared Settings
+  entry point through a deterministic offline adapter; see
+  [Configuration Workspace Phase 9](twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md).
+- `WizardBloc` owns the server-driven architecture catalog, pinned selection,
+  detail acknowledgement, revisioned invalidation preview, stale-conflict
+  recovery, and resolved-run review. The visible order is Define twin,
+  Architecture, Workload, User Logic, Optimize and review, Deployment review.
+  The active catalog contains Five-layer v2 and Six-layer v1; historical
+  Five-layer v1 remains read-only. Results stay profile-local and the UI does
+  not claim one universal Five-versus-Six winner.
+- Logical graphs are typed and read-only: wide/medium layouts use bounded
+  Sugiyama overview/component projections; compact layouts list only declared
+  labeled edges. Flutter never invents topology or offers infrastructure
+  editing.
 
 ## Architecture Overview
 
@@ -37,9 +70,11 @@
 |--------|------|------|--------|
 | **WebSocket** | Bidirectional, low latency | Complex setup, connection management | ❌ Overkill |
 | **Polling** | Simple, no special server code | Wastes bandwidth, 2-5s delay | ❌ Poor UX |
-| **SSE** | One-way streaming, native HTTP, auto-reconnect | Unidirectional only | ✅ **Perfect fit** |
+| **SSE** | One-way streaming, native HTTP, bounded reconnect through the owning BLoC | Unidirectional only | ✅ **Selected** |
 
-**Why SSE?** Deployment logs are **one-way** (server → client). SSE is simpler than WebSocket and supported by Flutter Web and Desktop via `eventsource` package.
+**Why SSE?** Deployment logs are **one-way** (server → client). The current
+`SseService` uses the tracked `http` package on Flutter Web and desktop; the
+owning feature BLoC controls reconnect and error behavior.
 
 ```python
 # FastAPI SSE endpoint (simple!)
@@ -117,9 +152,10 @@ All of these are **Flutter/Dart packages** (libraries):
 
 | Package | What It Does |
 |---------|--------------|
-| **Riverpod** | State management - how Flutter handles app-wide data. Like Redux for React. |
-| **dio** | HTTP client for API calls. Better than built-in `http` package. |
-| **eventsource_client** | Listens to SSE streams for real-time logs. |
+| **Riverpod** | Runtime mode, authentication, and API adapter composition. |
+| **flutter_bloc** | Complex feature workflows and state transitions. |
+| **dio** | Management API request/response client. |
+| **http** | Streaming transport used by `SseService`. |
 | **go_router** | URL-based navigation. Essential for web (browser back/forward). |
 | **Material 3** | Google's design system (buttons, cards, etc.). Built into Flutter. |
 
@@ -302,81 +338,56 @@ graph TD
 
 ### 3. Digital Twin View (read-only)
 
+The original wireframe below predates the implemented Twin Overview operation
+hardening. The current screen order is Navigation, Twin identity, Deployment
+Readiness, Deployment Actions, deployed-only Testing Utilities, redacted
+Terraform Outputs, Verification, and Configuration Review. Frontend Delta 8.6
+adds one deployed-only section between Readiness and Actions:
+
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│  Twin2MultiCloud                                    [User Avatar ▼] │  ← Header (same on all screens)
-├─────────────────────────────────────────────────────────────────────┤
-│  ← Back to Dashboard          Smart Home Digital Twin               │
-├─────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────────────────┐│
-│  │  ACTIONS (not collapsible)                                      ││
-│  │  [Edit Twin] [Deploy] [Destroy] [Check Status]                  ││
-│  │                                                                 ││
-│  │  Log Window (appears when action clicked):                      ││
-│  │  ┌────────────────────────────────────────────────────────────┐ ││
-│  │  │ > terraform init...                                        │ ││
-│  │  │ > terraform plan...                                        │ ││
-│  │  │ > terraform apply...                                       │ ││
-│  │  └────────────────────────────────────────────────────────────┘ ││
-│  └─────────────────────────────────────────────────────────────────┘│
-│                                                                     │
-│  ▼ Access & Links                                                   │
-│  ┌─────────────────────────────────────────────────────────────────┐│
-│  │ Grafana:  https://xxx.grafana.aws.com   Login: admin@email.com ││
-│  │ IoT Hub:  https://xxx.azure.com                                ││
-│  │ Console:  [AWS ↗] [Azure ↗] [GCP ↗]                            ││
-│  └─────────────────────────────────────────────────────────────────┘│
-│                                                                     │
-│  ▼ Deployment Status                                                │
-│  ┌─────────────────────────────────────────────────────────────────┐│
-│  │  State: 🟢 Deployed (2 days ago)                                ││
-│  │                                                                 ││
-│  │  L1 Data Acquisition  ───► AWS IoT Core                        ││
-│  │  L2 Processing        ───► AWS Lambda                          ││
-│  │  L3 Storage           ───► Azure Cosmos (hot) + AWS S3 (cold)  ││
-│  │  L4 Management        ───► Azure Digital Twins                 ││
-│  │  L5 Visualization     ───► AWS Grafana                         ││
-│  └─────────────────────────────────────────────────────────────────┘│
-│                                                                     │
-│  ▼ Configuration Files                                              │
-│  ┌─────────────────────────────────────────────────────────────────┐│
-│  │  ▸ config.json           v3  [View] [Download] [History ▼]     ││
-│  │  ▸ config_grafana.json   v1  [View] [Download] [History ▼]     ││
-│  │  ▸ payloads.json         v2  [View] [Download] [History ▼]     ││
-│  └─────────────────────────────────────────────────────────────────┘│
-│                                                                     │
-│  ▼ User Functions                                                   │
-│  ┌─────────────────────────────────────────────────────────────────┐│
-│  │  ▸ processors/temp-sensor/     [View] [Download] [History ▼]   ││
-│  │  ▸ processors/humidity-sensor/ [View] [Download] [History ▼]   ││
-│  │  ▸ event-feedback/             [View] [Download] [History ▼]   ││
-│  └─────────────────────────────────────────────────────────────────┘│
-│                                                                     │
-│  ▼ Deployment History (TBD - keeping for now)                       │
-│  ┌─────────────────────────────────────────────────────────────────┐│
-│  │  Dec 23, 2024 14:30  SUCCESS  "Added humidity sensor"          ││
-│  │  Dec 20, 2024 09:15  SUCCESS  "Initial deployment"             ││
-│  └─────────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────────┘
+Twin Overview
+|-- Deployment Readiness
+|-- Layer Access                              [implemented offline]
+|   |-- L4 Semantic Twin
+|   |   `-- provider service, readiness, identity, Open Twin UI
+|   `-- L5 Raw & Rollups
+|       `-- provider Grafana, readiness, identity, Open Grafana
+|-- Deployment Actions and structured logs
+|-- Testing Utilities                         [deployed only]
+|-- Terraform Outputs                         [technical, redacted]
+|-- Deployment Verification
+`-- Configuration Review
 ```
 
 **Sections:**
-- **Header**: Twin2MultiCloud branding + user avatar (same on ALL screens)
-- **Actions** (NOT collapsible): Edit, Deploy, Destroy, Check Status → opens log window
-- **Access & Links** (▼): Grafana URL + login, cloud console links
-- **Deployment Status** (▼): State badge + layer→provider mapping
-- **Configuration Files** (▼): List with [View] [Download] [History ▼] actions
-- **User Functions** (▼): Grouped by type (processors, event-feedback, etc.)
-- **Deployment History** (▼): Timeline with status and description (TBD)
+- **Layer Access is typed:** it uses `deployment-access.v1`, not arbitrary
+  Terraform output keys. An available Five-layer v2 or Six-layer v1 result
+  contains exactly one independently actionable L4 and L5 surface.
+- **L4 and L5 remain functionally separate:** L4 exposes semantic current
+  state/relationships; L5 exposes L3 raw history and rollups. There is no
+  implied L4-to-L5 or 3D path.
+- **Authentication is provider-owned:** AWS Identity Center, Microsoft Entra,
+  or GCP IAP is shown as an identity label, never as a provider password. GCP
+  Grafana alone has an explicit one-time human Viewer credential workflow.
+- **Generic outputs stay technical evidence:** they remain redacted and lower
+  in the page hierarchy.
 
-**[History ▼] dropdown**: Shows previous versions with description, allows rollback (UI details TBD)
+The binding concept and full responsive widget/state/API/test plan are
+[Twin Layer Access Handoff](twin2multicloud_flutter/docs/frontend_delta/concepts/CONCEPT_TWIN_LAYER_ACCESS_HANDOFF.md)
+and
+[its implementation plan](twin2multicloud_flutter/implementation_plans/2026-07-31_twin_layer_access_handoff.md).
+The implementation reference is
+[Layer Access Panel](twin2multicloud_flutter/docs/frontend_delta/implementation/layer_access_panel.md).
 
 ---
 
 ### 4. Create/Edit Twin Wizard
 
 > [!NOTE]
-> This wizard is used for both **creating new twins** and **editing existing twins**. All steps support caching/draft saving.
+> The following wireframes preserve the original design history. The current
+> application uses the dependency-aware Configuration Workspace. In particular,
+> credentials no longer gate draft creation or optimization; deployment access
+> is selected or bootstrapped only after architecture selection.
 
 #### Wizard Step Indicator
 
@@ -588,7 +599,11 @@ graph TD
 **Left Column - Architecture View (Dynamic Flowchart):**
 - **Dynamic based on Optimizer output:** Shows all architecture components for selected providers
 - **Flowchart visualizes data flow:** L1 → L2 → L3 → L4 → L5 with arrows
-- **Glue/L0 functions shown as connectors** between layers (not a separate layer) in multi-cloud scenarios
+- **Historical Glue/L0 functions shown as connectors** between layers (not a
+  separate layer) in this preserved predecessor wireframe. The current Phase 8
+  resolved graph instead renders the registered direct or bridge edge and its
+  explicit source/destination ownership; it never invents an unspecified Glue
+  layer.
 - Reference: see `/docs/` provider deployment guides (AWS, Azure are up to date)
 - **All components shown**, but un-editable ones are greyed out
 - User-editable components: large blocks with status indicator
@@ -692,8 +707,8 @@ CREATE TABLE deployments (
 
 | Topic | Decision | Notes |
 |-------|----------|-------|
-| **Frontend** | Flutter (Web + Desktop) | Web primary, Desktop secondary |
-| **Backend** | Python FastAPI (new Management API) | Ports: 5003 Optimizer, 5004 Deployer, 5005 Management |
+| **Frontend** | Flutter (Web + Desktop) | Web, macOS, Windows, and Linux are mandatory |
+| **Backend** | Python FastAPI Management API | Ports: 5003 Optimizer, 5004 Deployer, 5005 Management |
 | **Database** | SQLite | Relational fits this use case; easy migration to PostgreSQL |
 | **Real-time logs** | SSE (Server-Sent Events) | One-way, simpler than WebSocket |
 | **Authentication** | Google OAuth + JWT | Extensible plugin pattern for future providers |
@@ -739,7 +754,7 @@ CREATE TABLE deployments (
 |------|----------|------------|
 | **Step 2 JS Port Complexity** | HIGH | The Optimizer UI has ~500+ lines of conditional JS. **Mitigation:** Create a mapping doc of all UI behaviors before coding. Consider phased approach: basic inputs first, advanced toggles later. |
 | **Step 3 Flowchart Rendering** | MEDIUM | Custom flowchart is complex. **Mitigation:** Use existing Flutter packages (`graphview`, `flutter_flow_chart`) rather than custom canvas drawing. Start with simple box-arrow layout. |
-| **SSE in Flutter Web** | LOW | SSE is less battle-tested in Flutter Web than native. **Mitigation:** Fall back to polling if SSE fails to connect. Test early. |
+| **SSE in Flutter Web** | LOW | SSE is less battle-tested in Flutter Web than native. **Mitigation:** Use bounded reconnect and explicit error states through the Management API. Test early. |
 | **Credential Storage Security** | MEDIUM | Storing cloud credentials in SQLite. **Mitigation:** Encrypt at rest using `sqlcipher` or store only in memory with secure keychain integration. Document threat model. |
 | **22-day Estimate** | HIGH | Ambitious for thesis timeline. **Mitigation:** Identify MVP-cut scope (see below). |
 
@@ -752,7 +767,7 @@ If the 22-day estimate is too long, here's a prioritized cut list:
 | Simplify Step 3 flowchart → static image per scenario | 2 days | Acceptable for demo |
 | Skip [History ▼] rollback UI → keep backend versioning | 1 day | Can add post-thesis |
 | Mock OAuth → hardcoded test user | 1 day | Fine for local demo |
-| Desktop build → Web only | 0.5 day | Low priority anyway |
+| ~~Desktop build → Web only~~ | 0 days | Rejected: all four supported targets are mandatory |
 | Simplify Step 2 → fewer advanced toggles | 1 day | Core calculation still works |
 
 **Minimum viable: ~17 days** with cuts above.

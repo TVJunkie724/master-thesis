@@ -50,8 +50,9 @@ exactly.
 
 ### Resolved Deployment Specification
 
-`ResolvedDeploymentSpecification v1` is the repository contract that binds a
-cost-model winner to its eventual infrastructure settings. Its source of truth is:
+`ResolvedDeploymentSpecification v1/v2` are the repository contracts that
+bind a profile-specific cost-model winner to its eventual infrastructure
+settings. Their sources of truth are:
 
 ```text
 contracts/resolved-deployment-specification/v1/
@@ -60,18 +61,22 @@ contracts/resolved-deployment-specification/v1/
   verification-matrix.schema.json
   verification-matrix.json
   fixtures/
+
+contracts/resolved-deployment-specification/v2/
+  schema.json
+  deployment-dimensions.json
+  fixtures/
 ```
 
-The schema fixes the wire shape. The dimension registry is the closed-world
-mapping for the current `five-layer-baseline@1`: component IDs, provider and
-slot ownership, allowed values, value origin, unit, classification, and
-Terraform target. The optimization context binds each provider's immutable
-catalog snapshot ID, pricing region, and content digest. It also defines the
-five existing cross-cloud receiver
-boundaries; glue components are required exactly for receiver providers whose
-boundary crosses clouds, and are forbidden for a single-cloud path. Generated
-copies below the Optimizer, Management API, and Deployer build contexts are
-never edited by hand.
+Each schema fixes its wire shape. The v1 dimension registry remains the
+closed-world historical `five-layer-baseline@1` mapping. RDS v2 represents the
+active `five-layer-baseline@2` component selections, exact dimensions,
+bindings, optimization evidence, and readiness gates without coercing them
+into v1 enums. Both versions bind each provider's immutable catalog snapshot
+ID, pricing region, and content digest. Cross-cloud support components are
+required exactly where the selected route crosses providers and forbidden for
+a local path. Generated copies below the Optimizer, Management API, and
+Deployer build contexts are never edited by hand.
 
 The verification matrix is test evidence rather than a runtime registry. It
 contains independent expected values for 31 deployable components, 54
@@ -128,15 +133,47 @@ selection only while its catalog/account context remains current. Existing runs
 without v1 remain inspectable but have compatibility status
 `legacy_not_deployable`.
 
-`DeploymentManifest 2.0` binds the selected run ID, exact specification object,
-and digest. The Deployer validates the same generated contract before creating
-an operation workspace, verifies the exact provider/component/dimension
-binding, and translates only allowlisted `deployable_selection`
-`terraform_target` dimensions. The translation is pure and deterministic;
-usage tiers, account-scope state, and non-deployable assumptions produce no
-Terraform variables. Missing, stale, conflicting, or unknown mappings fail
-with stable redacted errors. No downstream component may synthesize missing
-dimensions from calculator or Terraform defaults.
+Manifest v2 introduced the selected run ID, exact specification object, and
+digest. It is now a historical reader only. Five-layer v1 operations use
+Manifest v3 with RTA/RDS v1; active Five-layer v2 and Six-layer v1 operations
+use Manifest v4 with RTA/RDS v2. The Deployer validates the matching generated
+contract before creating an operation workspace, verifies the exact
+provider/component/dimension binding, and translates only allowlisted
+`deployable_selection` `terraform_target` dimensions. The translation is pure
+and deterministic; usage tiers, account-scope state, and non-deployable
+assumptions produce no Terraform variables. Missing, stale, conflicting, or
+unknown mappings fail with stable redacted errors. No downstream component may
+synthesize missing dimensions from calculator or Terraform defaults.
+
+### Architecture Profile Contracts
+
+The repository also contains the Phase 8 architecture-profile v1 bundle:
+
+```text
+contracts/architecture-profiles/v1/
+```
+
+It separates logical `ArchitectureProfile`, provider-specific
+`ProviderImplementationProfile`, deployable `DeploymentComponentCatalog`, and
+immutable `ResolvedTwinArchitecture` records. All three backend services expose
+the same validator. Phase 8.3 adds exact generated AWS/Azure/GCP definitions;
+Phase 8.4 adds Management profile selection, migration, immutable persistence,
+and safe read APIs. Optimizer calculation output, deployment, Terraform, and
+Flutter activation remain later phase boundaries.
+
+The shared local-only validator enforces canonical digests, closed versions,
+reference and cycle integrity, capability completeness, size bounds, and
+secret-like data rejection with stable `ARCH_*` codes. Generated service
+copies are byte-identical and drift-gated:
+
+```bash
+python scripts/sync_architecture_profile_contracts.py --check
+python scripts/check_architecture_profile_catalog.py
+```
+
+See
+[Architecture Contract Development](architecture-profile-contracts.md) before
+changing a schema, profile version, provider mapping, or catalog entry.
 
 AWS, Azure, and GCP have completed provider resource binding. AWS deployable values
 reach Lambda memory, DynamoDB billing mode, S3 storage classes, and transition

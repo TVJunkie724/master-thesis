@@ -1,5 +1,6 @@
 from src.api.routes import (
     auth,
+    architecture_profiles,
     twins,
     twin_operations,
     health,
@@ -11,10 +12,12 @@ from src.api.routes import (
     optimizer_runs,
     pricing_refresh,
     pricing_review,
+    user_function_extensions,
 )
 
 __all__ = [
     "auth",
+    "architecture_profiles",
     "twins",
     "twin_operations",
     "health",
@@ -26,4 +29,5 @@ __all__ = [
     "optimizer_runs",
     "pricing_refresh",
     "pricing_review",
+    "user_function_extensions",
 ]

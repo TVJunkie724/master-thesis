@@ -9,10 +9,25 @@ from src.models.deployment import Deployment, DeploymentStatus
 from src.models.deployment_log import DeploymentLog, OperationType
 from src.models.deployment_preflight import DeploymentPreflightCache
 from src.models.cloud_connection import CloudConnection
+from src.models.cloud_bootstrap_session import CloudBootstrapSession
 from src.models.cost_calculation import CostCalculationRun, CostCalculationResultItem
 from src.models.pricing_refresh_run import PricingRefreshRun
 from src.models.pricing_review import PricingCandidateReport, PricingReviewDecision
 from src.models.credential_security_event import CredentialSecurityEvent
+from src.models.user_function_extension import (
+    TwinExtensionBinding,
+    UserFunctionArtifact,
+    UserFunctionArtifactDependency,
+    UserFunctionArtifactFile,
+    UserFunctionAuditEvent,
+)
+from src.models.architecture_profile import (
+    ArchitectureAuditEvent,
+    ResolvedArchitectureComponentAssignment,
+    ResolvedArchitectureEdge,
+    ResolvedTwinArchitectureRecord,
+    TwinArchitectureSelection,
+)
 from src.models.authentication import (
     AuthenticationEvent,
     AuthLoginTransaction,
@@ -25,8 +40,15 @@ __all__ = [
     "User", "DigitalTwin", "TwinState", "TwinConfiguration", "OptimizerConfiguration",
     "DeployerConfiguration", "FileVersion", "Deployment", "DeploymentStatus",
     "DeploymentLog", "OperationType", "DeploymentPreflightCache", "CloudConnection",
+    "CloudBootstrapSession",
     "CostCalculationRun", "CostCalculationResultItem", "PricingRefreshRun",
     "PricingCandidateReport", "PricingReviewDecision",
     "CredentialSecurityEvent",
+    "UserFunctionArtifact", "UserFunctionArtifactFile",
+    "UserFunctionArtifactDependency", "TwinExtensionBinding",
+    "UserFunctionAuditEvent",
+    "TwinArchitectureSelection", "ResolvedTwinArchitectureRecord",
+    "ResolvedArchitectureComponentAssignment", "ResolvedArchitectureEdge",
+    "ArchitectureAuditEvent",
     "AuthenticationEvent", "AuthLoginTransaction", "AuthSession", "ExternalIdentity",
 ]

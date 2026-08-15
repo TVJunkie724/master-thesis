@@ -13,6 +13,8 @@ import 'package:twin2multicloud_flutter/providers/runtime_providers.dart';
 import 'package:twin2multicloud_flutter/screens/wizard/wizard_screen.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
+import '../fixtures/architecture_wizard_fixture.dart';
+
 class MockApiService extends Mock implements ApiService {}
 
 void main() {
@@ -25,7 +27,22 @@ void main() {
     final api = MockApiService();
     final health = Completer<PricingHealthResponse>();
     when(() => api.getPricingHealth()).thenAnswer((_) => health.future);
-    final bloc = WizardBloc(api: api);
+    final initialState = architectureReadyWizardState(withExtensionSlot: false);
+    when(
+      () => api.listArchitectureProfiles(),
+    ).thenAnswer((_) async => initialState.architectureProfiles);
+    when(
+      () => api.getTwinArchitectureSelection('twin-1'),
+    ).thenAnswer((_) async => initialState.architectureSelection!);
+    when(
+      () => api.getArchitectureProfile('fixture-profile', '2'),
+    ).thenAnswer((_) async => initialState.architectureProfileDetail!);
+    when(() => api.listExtensionSlots()).thenAnswer((_) async => []);
+    when(() => api.listUserFunctionArtifacts()).thenAnswer((_) async => []);
+    when(
+      () => api.listTwinExtensionBindings('twin-1'),
+    ).thenAnswer((_) async => []);
+    final bloc = WizardBloc(api: api, initialState: initialState);
     addTearDown(bloc.close);
 
     bloc.add(const WizardTwinNameChanged('Pricing gate test'));

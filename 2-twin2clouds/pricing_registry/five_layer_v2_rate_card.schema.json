@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/pricing/five-layer-v2-rate-card/v1",
+  "title": "Five-layer v2 immutable provider rate card",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "baseCurrency",
+    "currencyConversions",
+    "formulaReference",
+    "componentRates",
+    "routeRates"
+  ],
+  "properties": {
+    "schemaVersion": {"const": "five-layer-v2-rate-card.v2"},
+    "baseCurrency": {"const": "USD"},
+    "currencyConversions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["USD", "EUR"],
+      "properties": {
+        "USD": {"const": "1"},
+        "EUR": {"$ref": "#/$defs/positiveDecimal"}
+      }
+    },
+    "formulaReference": {
+      "const": "formula.phase-08-complete-service-bundles"
+    },
+    "componentRates": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[a-z][a-z0-9.-]+$"},
+      "additionalProperties": {"$ref": "#/$defs/componentRate"}
+    },
+    "routeRates": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "domain_event_cross_cloud",
+          "twin_projection_cross_cloud",
+          "storage_hot_to_cool_cross_cloud",
+          "storage_cool_to_archive_cross_cloud"
+        ]
+      },
+      "additionalProperties": {"$ref": "#/$defs/routeRate"}
+    }
+  },
+  "$defs": {
+    "decimal": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+    },
+    "positiveDecimal": {
+      "type": "string",
+      "pattern": "^(?:0\\.[0-9]*[1-9][0-9]*|[1-9][0-9]*(?:\\.[0-9]+)?)$"
+    },
+    "selectorValue": {
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {"type": "integer", "minimum": 0}
+      ]
+    },
+    "tier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["upTo", "pricePerUnit"],
+      "properties": {
+        "upTo": {
+          "oneOf": [
+            {"$ref": "#/$defs/decimal"},
+            {"type": "null"}
+          ]
+        },
+        "pricePerUnit": {"$ref": "#/$defs/decimal"}
+      }
+    },
+    "meter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "unit",
+        "billingIncrement",
+        "freeQuantity",
+        "minimumCharge",
+        "tiers"
+      ],
+      "properties": {
+        "dimension": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "unit": {"type": "string", "minLength": 1, "maxLength": 64},
+        "billingIncrement": {"$ref": "#/$defs/decimal"},
+        "freeQuantity": {"$ref": "#/$defs/decimal"},
+        "minimumCharge": {"$ref": "#/$defs/decimal"},
+        "tiers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/tier"}
+        }
+      }
+    },
+    "variant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selectors", "meters", "nonBillableDimensions"],
+      "properties": {
+        "selectors": {
+          "type": "object",
+          "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"},
+          "additionalProperties": {"$ref": "#/$defs/selectorValue"}
+        },
+        "meters": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/meter"}
+        },
+        "nonBillableDimensions": {
+          "type": "object",
+          "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"},
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        }
+      }
+    },
+    "componentRate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["variants"],
+      "properties": {
+        "variants": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/variant"}
+        }
+      }
+    },
+    "routeRate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceVariants", "destinationVariants"],
+      "properties": {
+        "sourceVariants": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/variant"}
+        },
+        "destinationVariants": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/variant"}
+        }
+      }
+    }
+  }
+}

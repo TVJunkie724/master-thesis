@@ -88,8 +88,15 @@ def deploy_all(
         strategy = create_terraform_strategy(runtime_context)
         if operation_context:
             with operation_step(logger, operation_context, "terraform_deploy"):
-                return strategy.deploy_all(runtime_context)
-        return strategy.deploy_all(runtime_context)
+                outputs = strategy.deploy_all(runtime_context)
+        else:
+            outputs = strategy.deploy_all(runtime_context)
+        context.deployment_access_runtime_evidence = getattr(
+            runtime_context,
+            "deployment_access_runtime_evidence",
+            None,
+        )
+        return outputs
 
 
 def destroy_all(
@@ -188,8 +195,15 @@ def deploy_all_terraform(
         )
         if operation_context:
             with operation_step(logger, operation_context, "terraform_deploy"):
-                return strategy.deploy_all(runtime_context)
-        return strategy.deploy_all(runtime_context)
+                outputs = strategy.deploy_all(runtime_context)
+        else:
+            outputs = strategy.deploy_all(runtime_context)
+        context.deployment_access_runtime_evidence = getattr(
+            runtime_context,
+            "deployment_access_runtime_evidence",
+            None,
+        )
+        return outputs
 
 
 def destroy_all_terraform(
@@ -251,6 +265,11 @@ async def deploy_all_stream(
         else:
             async for line in runtime_strategy.deploy_all_async(runtime_context):
                 yield line
+        context.deployment_access_runtime_evidence = getattr(
+            runtime_context,
+            "deployment_access_runtime_evidence",
+            None,
+        )
         if output_sink is not None:
             output_sink["outputs"] = runtime_strategy.get_outputs()
 

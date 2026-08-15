@@ -1,0 +1,152 @@
+{
+  "$schema": "schemas/scenario-inputs.schema.json",
+  "schema_version": "scenario-inputs.v1",
+  "scenario_set_id": "phase-08-eventing-scenarios@1",
+  "workload_schema_ref": "eventing-workload.schema.json",
+  "shared_assumptions": {
+    "average_envelope_overhead_bytes": 1024,
+    "average_match_payload_bytes": 1024,
+    "average_notification_payload_bytes": 1024,
+    "average_device_command_payload_bytes": 1024,
+    "average_outcome_payload_bytes": 512,
+    "extension_actions_per_match": 1,
+    "workflow_actions_per_execution": 4,
+    "workflow_internal_actions_per_execution": 3,
+    "workflow_external_actions_per_execution": 1,
+    "terminal_outcome_events_per_invocation": {
+      "extension_action": 1,
+      "workflow": 1,
+      "device_command": 1
+    },
+    "component_compute_assumptions": {
+      "rule_evaluator": {
+        "duration_ms": 50,
+        "memory_mib": 256
+      },
+      "extension_action": {
+        "duration_ms": 100,
+        "memory_mib": 256
+      },
+      "event_delivery_adapter": {
+        "duration_ms": 50,
+        "memory_mib": 256
+      },
+      "workflow_adapter": {
+        "duration_ms": 50,
+        "memory_mib": 256
+      },
+      "device_command_adapter": {
+        "duration_ms": 100,
+        "memory_mib": 256
+      },
+      "bridge": {
+        "duration_ms": 250,
+        "memory_mib": 512,
+        "max_batch_events": 10
+      }
+    },
+    "observability_assumptions": {
+      "telemetry_sample_share": 0.01,
+      "fully_captured_record_classes": [
+        "match",
+        "notification_request",
+        "device_command_request",
+        "terminal_outcome",
+        "retry",
+        "dead_letter",
+        "replay",
+        "bridge_terminal_failure"
+      ],
+      "average_record_bytes": 1024,
+      "retention_days": 30
+    }
+  },
+  "provider_regions": {
+    "aws": "eu-central-1",
+    "azure": "westeurope",
+    "gcp": "europe-west1"
+  },
+  "scenarios": [
+    {
+      "scenario_id": "eventing-small-v1",
+      "events_per_month": 100000,
+      "publish_requests_per_month": 100000,
+      "average_event_payload_bytes": 4096,
+      "mandatory_processed_consumers": [
+        "consumer.historical-persistence",
+        "consumer.twin-state-update",
+        "consumer.rule-evaluator"
+      ],
+      "extra_processed_consumers": [],
+      "retry_share": 0.001,
+      "dead_letter_share": 0.0001,
+      "replay_share": 0,
+      "retention_hours": 24,
+      "ordering_scope": "per_device",
+      "required_delivery_semantics": "at_least_once",
+      "max_delivery_latency_seconds": 30,
+      "peak_events_per_second": 10,
+      "active_partition_keys": 100,
+      "concurrent_device_connections": 100,
+      "rule_match_share": 0.01,
+      "workflow_start_share_of_matches": 0.25,
+      "device_command_share_of_matches": 0.25,
+      "bounded_synthetic_scenario": true
+    },
+    {
+      "scenario_id": "eventing-medium-v1",
+      "events_per_month": 10000000,
+      "publish_requests_per_month": 10000000,
+      "average_event_payload_bytes": 16384,
+      "mandatory_processed_consumers": [
+        "consumer.historical-persistence",
+        "consumer.twin-state-update",
+        "consumer.rule-evaluator"
+      ],
+      "extra_processed_consumers": [],
+      "retry_share": 0.005,
+      "dead_letter_share": 0.0005,
+      "replay_share": 0.01,
+      "retention_hours": 168,
+      "ordering_scope": "per_device",
+      "required_delivery_semantics": "at_least_once",
+      "max_delivery_latency_seconds": 10,
+      "peak_events_per_second": 250,
+      "active_partition_keys": 10000,
+      "concurrent_device_connections": 10000,
+      "rule_match_share": 0.01,
+      "workflow_start_share_of_matches": 0.25,
+      "device_command_share_of_matches": 0.25,
+      "bounded_synthetic_scenario": true
+    },
+    {
+      "scenario_id": "eventing-large-v1",
+      "events_per_month": 100000000,
+      "publish_requests_per_month": 100000000,
+      "average_event_payload_bytes": 65536,
+      "mandatory_processed_consumers": [
+        "consumer.historical-persistence",
+        "consumer.twin-state-update",
+        "consumer.rule-evaluator"
+      ],
+      "extra_processed_consumers": [
+        "consumer.audit",
+        "consumer.realtime-visualization"
+      ],
+      "retry_share": 0.01,
+      "dead_letter_share": 0.001,
+      "replay_share": 0.02,
+      "retention_hours": 168,
+      "ordering_scope": "per_device",
+      "required_delivery_semantics": "at_least_once",
+      "max_delivery_latency_seconds": 5,
+      "peak_events_per_second": 2500,
+      "active_partition_keys": 100000,
+      "concurrent_device_connections": 100000,
+      "rule_match_share": 0.01,
+      "workflow_start_share_of_matches": 0.25,
+      "device_command_share_of_matches": 0.25,
+      "bounded_synthetic_scenario": true
+    }
+  ]
+}

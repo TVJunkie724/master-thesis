@@ -1,5 +1,6 @@
 import 'pricing_catalog.dart';
 import 'optimizer_transfer_pricing.dart';
+import 'resolved_twin_architecture.dart';
 
 /// Calculation result from Optimizer API.
 ///
@@ -85,7 +86,14 @@ class CalcResult {
     // Handle both wrapped and unwrapped response formats
     final Map<String, dynamic> result;
     if (json.containsKey('result') && json['result'] is Map<String, dynamic>) {
-      result = json['result'] as Map<String, dynamic>;
+      final payload = json['result'] as Map<String, dynamic>;
+      result = payload.containsKey('resolvedTwinArchitecture')
+          ? _profileV2CompatibilityProjection(payload)
+          : payload;
+    } else if (json.containsKey('resolvedTwinArchitecture')) {
+      // Native v2 architecture evidence is the cost/path source of truth even
+      // if a compatibility projection also contains legacy provider keys.
+      result = _profileV2CompatibilityProjection(json);
     } else if (json.containsKey('awsCosts')) {
       // Direct format - the json IS the result
       result = json;
@@ -176,11 +184,7 @@ class CalcResult {
           .toList(),
       transferCosts: parseTransferCosts(result['transferCosts']),
       traceSchemaVersion: result['trace_schema_version']?.toString(),
-      optimizationProfile: result['optimizationProfile'] is Map
-          ? OptimizationProfileTrace.fromJson(
-              Map<String, dynamic>.from(result['optimizationProfile'] as Map),
-            )
-          : null,
+      optimizationProfile: _optimizationProfile(result),
       evidenceReferences: result['evidenceReferences'] is Map
           ? Map<String, dynamic>.from(result['evidenceReferences'] as Map)
           : null,
@@ -202,6 +206,171 @@ class CalcResult {
       ),
     );
   }
+}
+
+OptimizationProfileTrace? _optimizationProfile(Map<String, dynamic> result) {
+  final raw = result['optimizationProfile'];
+  if (raw is! Map) return null;
+  final profile = Map<String, dynamic>.from(raw);
+  profile.putIfAbsent('profile_id', () => result['optimization_profile_id']);
+  profile.putIfAbsent(
+    'result_schema_version',
+    () => result['result_schema_version'],
+  );
+  return OptimizationProfileTrace.fromJson(profile);
+}
+
+Map<String, dynamic> _profileV2CompatibilityProjection(
+  Map<String, dynamic> payload,
+) {
+  final rawArchitecture = payload['resolvedTwinArchitecture'];
+  if (rawArchitecture is! Map) {
+    throw const FormatException(
+      'Invalid API contract: native v2 result is missing its resolved architecture.',
+    );
+  }
+  final architecture = ResolvedTwinArchitecture.fromJson(
+    Map<String, dynamic>.from(rawArchitecture),
+  );
+  if (architecture.schemaVersion != ResolvedTwinArchitecture.v2SchemaVersion) {
+    throw const FormatException(
+      'Invalid API contract: native optimizer result architecture is not v2.',
+    );
+  }
+
+  const layerByLogicalComponent = {
+    'component.ingestion': 'L1',
+    'component.processing': 'L2',
+    'component.hot-storage': 'L3_hot',
+    'component.cool-storage': 'L3_cool',
+    'component.archive-storage': 'L3_archive',
+    'component.twin-state': 'L4',
+    'component.visualization': 'L5',
+  };
+  const eventingComponent = 'component.eventing';
+  final expectedLogicalComponents = switch ((
+    architecture.profileRef.id,
+    architecture.profileRef.version,
+  )) {
+    ('five-layer-baseline', '2') => layerByLogicalComponent.keys.toSet(),
+    ('six-layer-eventing', '1') => {
+      ...layerByLogicalComponent.keys,
+      eventingComponent,
+    },
+    _ => throw const FormatException(
+      'Invalid API contract: native v2 profile has no compatibility projection.',
+    ),
+  };
+  final actualLogicalComponents = architecture.componentAssignments
+      .map((item) => item.logicalComponentId)
+      .toSet();
+  if (actualLogicalComponents.length !=
+          architecture.componentAssignments.length ||
+      actualLogicalComponents.length != expectedLogicalComponents.length ||
+      !actualLogicalComponents.containsAll(expectedLogicalComponents)) {
+    throw const FormatException(
+      'Invalid API contract: native v2 assignments do not match the selected profile.',
+    );
+  }
+  const providerLabel = {'aws': 'AWS', 'azure': 'Azure', 'gcp': 'GCP'};
+  final costs = {
+    for (final provider in providerLabel.keys) provider: <String, dynamic>{},
+  };
+  final cheapestPath = <String>[];
+  final seenLayers = <String>{};
+  for (final assignment in architecture.componentAssignments) {
+    // The fixed L1-L5 path is retained only as a compatibility projection.
+    // Six-layer Eventing remains a first-class assignment in the resolved
+    // architecture and its dedicated review, not a fabricated numbered layer.
+    if (assignment.logicalComponentId == eventingComponent) continue;
+    final layer = layerByLogicalComponent[assignment.logicalComponentId];
+    final provider = assignment.provider.apiValue;
+    if (layer == null ||
+        !seenLayers.add(layer) ||
+        !costs.containsKey(provider)) {
+      throw const FormatException(
+        'Invalid API contract: native v2 assignments do not cover each layer exactly once.',
+      );
+    }
+    final amount = _fiveLayerV2Amount(
+      assignment.costContribution.monthlyAmount,
+    );
+    costs[provider]![layer] = {
+      'cost': amount,
+      'components': {assignment.deploymentComponentId: amount},
+    };
+    cheapestPath.add('${layer}_${providerLabel[provider]}');
+  }
+  if (seenLayers.length != layerByLogicalComponent.length) {
+    throw const FormatException(
+      'Invalid API contract: native v2 result has an incomplete layer path.',
+    );
+  }
+  cheapestPath.sort(
+    (left, right) =>
+        _fiveLayerV2LayerOrder(left).compareTo(_fiveLayerV2LayerOrder(right)),
+  );
+
+  final transferCosts = <String, double>{};
+  for (final edge in architecture.resolvedEdges) {
+    transferCosts[edge.edgeId] = _fiveLayerV2Amount(
+      edge.costContribution.monthlyAmount,
+    );
+  }
+  final exactTotal = _fiveLayerV2Amount(architecture.costSummary.monthlyTotal);
+  final responseTotal = payload['totalCost'];
+  if (responseTotal is! num ||
+      !responseTotal.isFinite ||
+      responseTotal < 0 ||
+      (responseTotal.toDouble() - exactTotal).abs() > 0.000000001) {
+    throw const FormatException(
+      'Invalid API contract: native v2 result total differs from its architecture.',
+    );
+  }
+  if (payload['totalCostExact'] != architecture.costSummary.monthlyTotal ||
+      payload['currency'] != architecture.costSummary.currency) {
+    throw const FormatException(
+      'Invalid API contract: native v2 exact cost evidence is inconsistent.',
+    );
+  }
+
+  return {
+    ...payload,
+    'awsCosts': costs['aws'],
+    'azureCosts': costs['azure'],
+    'gcpCosts': costs['gcp'],
+    'cheapestPath': cheapestPath,
+    'transferCosts': transferCosts,
+  };
+}
+
+double _fiveLayerV2Amount(String value) {
+  final parsed = double.tryParse(value);
+  if (parsed == null || !parsed.isFinite || parsed < 0) {
+    throw const FormatException(
+      'Invalid API contract: native v2 cost must be finite and non-negative.',
+    );
+  }
+  return parsed;
+}
+
+int _fiveLayerV2LayerOrder(String segment) {
+  const order = [
+    'L1_',
+    'L2_',
+    'L3_hot_',
+    'L3_cool_',
+    'L3_archive_',
+    'L4_',
+    'L5_',
+  ];
+  final index = order.indexWhere(segment.startsWith);
+  if (index < 0) {
+    throw const FormatException(
+      'Invalid API contract: native v2 path contains an unknown layer.',
+    );
+  }
+  return index;
 }
 
 class PricingFieldTraceRecord {

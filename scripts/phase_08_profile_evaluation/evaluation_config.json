@@ -1,0 +1,94 @@
+{
+  "$schema": "evaluation-config.schema.json",
+  "schema_version": "phase-08-profile-evaluation-config.v1",
+  "package_id": "phase-08-profile-evaluation@1",
+  "implementation_freeze_commit": "473a53ace895bab62459f57f3d0fe2d05e1e19ee",
+  "evaluation_cutoff": "2026-08-14",
+  "observation_timestamp": "2026-08-11T10:12:00Z",
+  "currency": "USD",
+  "regions": {
+    "aws": "eu-central-1",
+    "azure": "westeurope",
+    "gcp": "europe-west1"
+  },
+  "runtime": {
+    "host_platform": "darwin-arm64",
+    "container_platform": "linux-arm64",
+    "python_version": "3.11",
+    "container_images": [
+      {
+        "service": "optimizer",
+        "digest": "sha256:e4f426838bf3b882ad0d35cfd7dc00c2407a002bef571246fd5f0200e2474d3e"
+      },
+      {
+        "service": "management-api",
+        "digest": "sha256:c59139f41649ba2dedc0677d3bb97f1398ec6e21df4244ee434e0434cb33cba3"
+      },
+      {
+        "service": "deployer",
+        "digest": "sha256:dabd2b72bf6fa747bd06619f4b3cdd840d8ad3c76056db8ea62e485410ac5c3c"
+      },
+      {
+        "service": "docs",
+        "digest": "sha256:e5e4df65053c975205a106de376fd8c2ebcb574f29a16eaee61d8521b6e34558"
+      }
+    ]
+  },
+  "generator": {
+    "id": "phase-08-profile-evaluation-generator",
+    "version": "1.0.0",
+    "command": "python scripts/phase_08_profile_evaluation/generate.py",
+    "container_command": "docker --context orbstack compose run --rm --no-deps -v $PWD:/workspace -w /workspace 2twin2clouds python scripts/phase_08_profile_evaluation/generate.py"
+  },
+  "historical_scenarios": [
+    {
+      "scenario_id": "historical-base-v1",
+      "input_path": "2-twin2clouds/example_input.json",
+      "overrides": {
+        "entityCount": 100
+      }
+    },
+    {
+      "scenario_id": "historical-edge-heavy-v1",
+      "input_path": "2-twin2clouds/example_input.json",
+      "overrides": {
+        "numberOfDevices": 10000,
+        "averageSizeOfMessageInKb": 256.0,
+        "deviceSendingIntervalInMinutes": 1.0,
+        "entityCount": 10000
+      }
+    }
+  ],
+  "representative_three_provider_placements": {
+    "small": {
+      "component.ingestion": "aws",
+      "component.eventing": "azure",
+      "component.processing": "gcp",
+      "component.hot-storage": "gcp",
+      "component.cool-storage": "gcp",
+      "component.archive-storage": "gcp",
+      "component.twin-state": "azure",
+      "component.visualization": "gcp"
+    },
+    "medium": {
+      "component.ingestion": "azure",
+      "component.eventing": "gcp",
+      "component.processing": "aws",
+      "component.hot-storage": "aws",
+      "component.cool-storage": "azure",
+      "component.archive-storage": "azure",
+      "component.twin-state": "gcp",
+      "component.visualization": "aws"
+    },
+    "large": {
+      "component.ingestion": "gcp",
+      "component.eventing": "aws",
+      "component.processing": "azure",
+      "component.hot-storage": "azure",
+      "component.cool-storage": "gcp",
+      "component.archive-storage": "gcp",
+      "component.twin-state": "aws",
+      "component.visualization": "azure"
+    }
+  }
+}

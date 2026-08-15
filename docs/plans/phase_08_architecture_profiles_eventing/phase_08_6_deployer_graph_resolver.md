@@ -2,8 +2,8 @@
 title: "Phase 8.6: Deployer Graph Resolver And Staged Binding Preflight"
 description: "Implementation plan for deterministic graph resolution, package binding, and fail-closed Terraform preflight."
 tags: [architecture, deployer, graph, manifest, terraform, preflight, issue-152]
-lastUpdated: "2026-07-19"
-version: "1.0"
+lastUpdated: "2026-08-03"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.0"
 - Phase 8.5 ResolvedTwinArchitecture output
 - contracts/deployment-manifest and contracts/resolved-deployment-specification
 - Current Deployer package, operation-state, Terraform, logging, and ephemeral-workspace boundaries
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+EXTRACTED: 2026-08-03 | VERSION: 1.5
 -->
 
 # Phase 8.6: Deployer Graph Resolver And Staged Binding Preflight
@@ -25,13 +25,29 @@ EXTRACTED: 2026-07-19 | VERSION: 1.0
 | Issue | [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) |
 | Milestone | Phase 8 - Twin Architecture Profiles & Eventing |
 | Recommended branch | `codex/phase-8-deployer-graph-resolver` |
-| Base branch | `master` |
+| Branch base | Reviewed Phase 8.5 implementation plus the approved Phase 8.8 planning/evidence commit; the branch ultimately targets `master` |
 | Blocked by | Phase 8.5 / #151 |
-| Produces | Executable profile-driven baseline for Flutter and Eventing gate |
+| Produces | Dark generic graph/compiler foundation for Flutter contracts and later new-profile implementation |
 | Live cloud E2E | Forbidden |
+| Implementation status | Implemented, integrated with the immutable complete-service decision, and locally reviewed to zero findings; activation remains dark |
 
 All graph, manifest, binding, package, Terraform, state, error, security, and
 compatibility requirements in this plan are mandatory.
+
+## Corrective Activation Addendum
+
+This phase may complete Manifest v3, deterministic graph resolution, binding
+preflight, compatibility readers, and frozen evidence, but it must remain dark.
+It must not promote `five-layer-baseline@1`, the current AWS/Azure provider
+profiles, the uncontracted direct L3-hot-to-Grafana datasource, or the public
+Function/shared-token cross-cloud runtime. The generic compiler must permit
+multiple typed edges between responsibilities: the historical L4-to-L5 edge
+remains representable, while Phase 8.9A can register L3-hot-to-L5 raw-history
+and L3-hot-to-L4 Twin-projection edges. Complete executable bundles are
+introduced and activated only by Phase 8.9A after
+[`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md) and
+its immutable decision package pass. Any older rollout or Definition-of-Done
+text that says Phase 8.6 activates `@1` is superseded by this addendum.
 
 ## 1. Outcome
 
@@ -458,10 +474,12 @@ Rollout:
 
 1. ship v3 readers/writers dark;
 2. run cross-stack no-apply gates;
-3. enable v3 for new deployments;
-4. keep v2 historical read/destroy support;
-5. monitor graph/preflight codes;
-6. remove executable reads of fixed provider fields.
+3. keep the historical AWS/Azure/GCP provider profiles non-executable;
+4. keep Phase 8.5 architecture-aware calculation admission off;
+5. retain v2/v3 historical read/destroy inspection without new operation
+   fallback;
+6. exercise graph/preflight codes through fixtures;
+7. publish the dark compiler boundary for Phase 8.7 and Phase 8.9A.
 
 Rollback disables new deployment creation rather than silently using v2 or
 fixed fields. Existing v3 operations remain inspectable/destroyable using
@@ -469,24 +487,53 @@ frozen evidence.
 
 ## 16. Definition Of Done
 
-- [ ] Manifest v3 carries matching immutable architecture and deployment
+- [x] Manifest v3 carries matching immutable architecture and deployment
       specification contracts.
-- [ ] Every architecture component/edge becomes one deterministic graph
+- [x] Every architecture component/edge becomes one deterministic graph
       node/edge with explicit catalog ownership.
-- [ ] Every required input resolves exactly once from an approved binding.
-- [ ] Forbidden cycles, missing/incompatible/unauthorized bindings, and stale
+- [x] Every required input resolves exactly once from an approved binding.
+- [x] Forbidden cycles, missing/incompatible/unauthorized bindings, and stale
       catalogs fail before package or Terraform side effects.
-- [ ] Package builders consume graph nodes and remain deterministic.
-- [ ] Terraform inputs are typed, allowlisted, graph-derived, and symbol-checked.
-- [ ] No domain/user function constructs another component's identity.
-- [ ] Fixed `cheapest_l*` fields cannot influence a new executable package.
-- [ ] Retry, recovery, destroy, state, logs, redaction, and ephemeral cleanup
+- [x] Package builders consume graph nodes and remain deterministic.
+- [x] Terraform inputs are typed, allowlisted, graph-derived, and symbol-checked.
+- [x] No domain/user function constructs another component's identity.
+- [x] Fixed `cheapest_l*` fields cannot influence a new executable package.
+- [x] Retry, recovery, destroy, state, logs, redaction, and ephemeral cleanup
       are bound to frozen graph evidence.
-- [ ] v2 remains historical only; invalid v3 never falls back.
-- [ ] All-AWS, all-Azure, mixed, unsupported, negative graph/package, and
+- [x] v2 remains historical only; invalid v3 never falls back.
+- [x] No historical provider profile or architecture-aware calculation path is
+      activated by this phase.
+- [x] Phase 8.9A can consume the typed compiler only after the separate
+      complete-service decision and bundles pass.
+- [x] All-AWS, all-Azure, mixed, unsupported, negative graph/package, and
       offline Terraform fixtures pass.
-- [ ] Full safe Management and Deployer suites plus deployment drift pass.
-- [ ] No live provider API, credentials, apply, destroy, or E2E runs.
-- [ ] Product/developer docs, roadmap, and #152 are updated.
-- [ ] Two reviews find no unresolved issue.
-- [ ] The structured commit references #152.
+- [x] Full safe Management and Deployer suites plus deployment drift pass.
+- [x] No live provider API, credentials, apply, destroy, or E2E runs.
+- [x] Product/developer docs and roadmaps are updated; #152 is referenced by
+      the structured implementation commit and remains open until publication.
+- [x] Two reviews find no unresolved issue.
+- [x] The structured commit references #152.
+
+## 17. Local Implementation Evidence
+
+The dark compiler was committed as `04295b76` on the integrated foundation,
+after the complete-service decision `4932a097`. Integration findings were
+closed by `cb2f82ac` and `757116ac`; none changes a frozen decision artifact or
+enables profile selection.
+
+The final credential-free OrbStack gate passed all 14 stages in 560.4 seconds:
+
+- 31 Eventing-decision and 17 complete-service-package tests;
+- 67 canonical/root contract tests plus five Manifest v3 sync tests;
+- 40 focused and 885 full Optimizer tests;
+- 87 focused and 1,017 full Management tests;
+- 119 focused and 1,872 full Deployer tests, with one intentional skip;
+- 20 Flutter architecture/entrypoint tests, 730 unit/widget tests, static
+  analysis, Web release build, and macOS debug build;
+- strict MkDocs, shell syntax, Flutter architecture, digest, generated-copy,
+  Terraform formatting/mock-plan, security, dependency, and diff checks.
+
+No live cloud API, provider credential, Terraform apply/destroy, E2E, paid
+resource, or LaTeX action was used. The compiler and architecture-aware
+admission remain default-off until the later reviewed profile phase activates
+them.

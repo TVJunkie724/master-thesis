@@ -1,0 +1,32 @@
+{
+  "schema_version": "deployment-access.v1",
+  "twin_id": "twin-invalid",
+  "deployment_id": "deployment-invalid",
+  "generated_at": "2026-07-31T12:00:00Z",
+  "availability": "available",
+  "reason_code": null,
+  "surfaces": [
+    {
+      "layer": "l4",
+      "provider": "aws",
+      "service_id": "aws_iot_twinmaker",
+      "display_name": "AWS IoT TwinMaker",
+      "url": "https://example.invalid/l4",
+      "auth": {"mode": "azure_entra", "principal_label": "researcher@example.invalid", "credential_action": "none"},
+      "readiness": {"resource": "ready", "access_binding": "ready", "content": "ready", "data_probe": "ready", "browser_sign_in": "unverified"},
+      "capabilities": ["entities"],
+      "limitations": []
+    },
+    {
+      "layer": "l5",
+      "provider": "aws",
+      "service_id": "aws_managed_grafana",
+      "display_name": "Amazon Managed Grafana",
+      "url": "https://example.invalid/l5",
+      "auth": {"mode": "aws_identity_center", "principal_label": "researcher@example.invalid", "credential_action": "none"},
+      "readiness": {"resource": "ready", "access_binding": "ready", "content": "ready", "data_probe": "ready", "browser_sign_in": "unverified"},
+      "capabilities": ["recent-raw"],
+      "limitations": []
+    }
+  ]
+}

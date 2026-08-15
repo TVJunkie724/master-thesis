@@ -25,6 +25,7 @@ development uses an explicit development sign-in.
 - [Dashboard and Twins](dashboard-and-twins.md)
 - [Cloud Accounts](cloud-accounts.md)
 - [Configuration Workspace](configuration-workspace.md)
+- [User-Function Extensions](user-function-extensions.md)
 - [Pricing Review](pricing-review.md)
 - [Deployment and Verification](deployment.md)
 - [Multi-Cloud Walkthrough](multi-cloud-walkthrough.md)

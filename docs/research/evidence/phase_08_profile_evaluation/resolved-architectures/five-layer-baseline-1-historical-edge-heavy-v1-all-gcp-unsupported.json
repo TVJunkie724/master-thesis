@@ -1,0 +1,15 @@
+{
+  "$schema": "../schemas/resolved-architecture-evidence.schema.json",
+  "schema_version": "phase-08-resolved-architecture-evidence.v1",
+  "profile_id": "five-layer-baseline@1",
+  "scenario_id": "historical-edge-heavy-v1",
+  "status": "unsupported",
+  "resolved_twin_architecture": null,
+  "resolved_twin_architecture_digest": null,
+  "resolved_deployment_specification": null,
+  "resolved_deployment_specification_digest": null,
+  "reason_code": "ARCH_PROVIDER_IMPLEMENTATION_MISSING",
+  "evidence_paths": [
+    "contracts/architecture-profiles/definitions/provider-implementations/five-layer-baseline/1/gcp/1.json"
+  ]
+}

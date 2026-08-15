@@ -1,0 +1,395 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/contracts/architecture-profiles/v1/semantic-registry.schema.json",
+  "title": "Architecture profile semantic registry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "registry_id",
+    "registry_version",
+    "supported_schema_versions",
+    "supported_providers",
+    "known_error_codes",
+    "field_ownership",
+    "cycle_contracts",
+    "compatible_optimization_bundles",
+    "port_contracts",
+    "deployment_specification_compatibility",
+    "limits",
+    "content_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "semantic-registry.v1"
+    },
+    "registry_id": {
+      "$ref": "#/$defs/stable_id"
+    },
+    "registry_version": {
+      "$ref": "#/$defs/version"
+    },
+    "supported_schema_versions": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "architecture-profile.v1",
+          "deployment-component-catalog.v1",
+          "provider-implementation-profile.v1",
+          "resolved-twin-architecture.v1",
+          "semantic-registry.v1"
+        ]
+      }
+    },
+    "supported_providers": {
+      "type": "array",
+      "const": [
+        "aws",
+        "azure",
+        "gcp"
+      ]
+    },
+    "known_error_codes": {
+      "type": "array",
+      "minItems": 13,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^ARCH_[A-Z_]+$"
+      }
+    },
+    "field_ownership": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/field_ownership"
+      }
+    },
+    "cycle_contracts": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/cycle_contract"
+      }
+    },
+    "compatible_optimization_bundles": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/$defs/optimization_bundle"
+      }
+    },
+    "port_contracts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/port_contract"
+      }
+    },
+    "deployment_specification_compatibility": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/deployment_compatibility"
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_document_bytes",
+        "max_depth",
+        "max_array_items",
+        "max_errors"
+      ],
+      "properties": {
+        "max_document_bytes": {
+          "const": 2000000
+        },
+        "max_depth": {
+          "const": 32
+        },
+        "max_array_items": {
+          "const": 2048
+        },
+        "max_errors": {
+          "const": 20
+        }
+      }
+    },
+    "content_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "stable_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$",
+      "maxLength": 12
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "provider": {
+      "enum": [
+        "aws",
+        "azure",
+        "gcp"
+      ]
+    },
+    "decimal": {
+      "type": "string",
+      "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+      "maxLength": 80
+    },
+    "versioned_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        }
+      }
+    },
+    "pinned_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "optimization_bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "optimization_strategy_id",
+        "optimization_strategy_version",
+        "calculation_strategy_id",
+        "calculation_strategy_version",
+        "formula_set_id",
+        "formula_set_version",
+        "scoring_strategy_id",
+        "scoring_strategy_version",
+        "pricing_registry_id",
+        "pricing_registry_versions",
+        "workload_contract_id",
+        "workload_contract_version",
+        "deployment_specification_versions",
+        "compatibility_digest"
+      ],
+      "properties": {
+        "optimization_strategy_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "optimization_strategy_version": {
+          "$ref": "#/$defs/version"
+        },
+        "calculation_strategy_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "calculation_strategy_version": {
+          "$ref": "#/$defs/version"
+        },
+        "formula_set_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "formula_set_version": {
+          "$ref": "#/$defs/version"
+        },
+        "scoring_strategy_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "scoring_strategy_version": {
+          "$ref": "#/$defs/version"
+        },
+        "pricing_registry_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "pricing_registry_versions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/version"
+          }
+        },
+        "workload_contract_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "workload_contract_version": {
+          "$ref": "#/$defs/version"
+        },
+        "deployment_specification_versions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^resolved-deployment-specification\\.v[1-9][0-9]*$"
+          }
+        },
+        "compatibility_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "port_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "port_id",
+        "schema_ref",
+        "envelope_ref",
+        "semantics",
+        "compatibility_version"
+      ],
+      "properties": {
+        "port_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "schema_ref": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "envelope_ref": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "semantics": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "compatibility_version": {
+          "$ref": "#/$defs/version"
+        }
+      }
+    },
+    "deployment_compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "architecture_profile_ids",
+        "architecture_profile_versions"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "pattern": "^resolved-deployment-specification\\.v[1-9][0-9]*$"
+        },
+        "architecture_profile_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/stable_id"
+          }
+        },
+        "architecture_profile_versions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/version"
+          }
+        }
+      }
+    },
+    "field_ownership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_kind",
+        "field_path",
+        "author",
+        "mutability"
+      ],
+      "properties": {
+        "contract_kind": {
+          "enum": [
+            "architecture-profile.v1",
+            "deployment-component-catalog.v1",
+            "provider-implementation-profile.v1",
+            "resolved-twin-architecture.v1"
+          ]
+        },
+        "field_path": {
+          "type": "string",
+          "pattern": "^/(?:[a-z][a-z0-9_]*(?:/[a-z][a-z0-9_]*)*)?$",
+          "maxLength": 240
+        },
+        "author": {
+          "enum": [
+            "repository_developer",
+            "management_api_input",
+            "optimizer_derived"
+          ]
+        },
+        "mutability": {
+          "enum": [
+            "versioned_definition",
+            "immutable_input",
+            "immutable_derived"
+          ]
+        }
+      }
+    },
+    "cycle_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cycle_id",
+        "workflow_semantics",
+        "compatibility_version"
+      ],
+      "properties": {
+        "cycle_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "workflow_semantics": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "compatibility_version": {
+          "$ref": "#/$defs/version"
+        }
+      }
+    }
+  }
+}

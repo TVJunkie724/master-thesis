@@ -17,14 +17,20 @@ from src.services.twin_export_service import REDACTED, TwinExportService
 
 
 def _create_user(db) -> User:
-    user = User(email="twin-export-service@example.test", name="Twin Export", auth_provider="google")
+    user = User(
+        email="twin-export-service@example.test",
+        name="Twin Export",
+        auth_provider="google",
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
     return user
 
 
-def _create_twin(db, user: User, state: TwinState = TwinState.CONFIGURED) -> DigitalTwin:
+def _create_twin(
+    db, user: User, state: TwinState = TwinState.CONFIGURED
+) -> DigitalTwin:
     twin = DigitalTwin(name="Export Twin", user_id=user.id, state=state)
     db.add(twin)
     db.commit()
@@ -35,7 +41,9 @@ def _create_twin(db, user: User, state: TwinState = TwinState.CONFIGURED) -> Dig
 def test_export_twin_redacts_credentials_and_preserves_config_shape(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="AWS", cheapest_l2="AZURE"))
+    db_session.add(
+        OptimizerConfiguration(twin_id=twin.id, cheapest_l1="AWS", cheapest_l2="AZURE")
+    )
     db_session.add(
         DeployerConfiguration(
             twin_id=twin.id,
@@ -64,7 +72,9 @@ def test_export_twin_redacts_credentials_and_preserves_config_shape(db_session):
     )
     db_session.commit()
 
-    archive = TwinExportService(db_session).export_twin(twin_id=twin.id, user_id=user.id)
+    archive = TwinExportService(db_session).export_twin(
+        twin_id=twin.id, user_id=user.id
+    )
 
     assert archive.filename == "export-twin_config.zip"
     zip_bytes = archive.content.getvalue()
@@ -96,6 +106,59 @@ def test_export_twin_redacts_credentials_and_preserves_config_shape(db_session):
         assert credentials["azure"]["azure_client_secret"] == REDACTED
         assert credentials["gcp"]["gcp_project_id"] == "public-project-id"
         assert credentials["gcp"]["gcp_service_account_json"] == REDACTED
+
+
+def test_export_twin_omits_legacy_flags_for_phase8_profile(
+    db_session,
+    monkeypatch,
+):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    db_session.add(
+        OptimizerConfiguration(
+            twin_id=twin.id,
+            cheapest_l1="AWS",
+            cheapest_l2="AWS",
+            params=json.dumps({"numberOfDevices": 100}),
+        )
+    )
+    db_session.commit()
+    assignments = [
+        {
+            "logical_component_id": component,
+            "provider": "aws",
+        }
+        for component in [
+            "component.ingestion",
+            "component.processing",
+            "component.hot-storage",
+            "component.cool-storage",
+            "component.archive-storage",
+            "component.twin-state",
+            "component.visualization",
+            "component.eventing",
+        ]
+    ]
+    monkeypatch.setattr(
+        "src.services.twin_export_service.selected_architecture_document",
+        lambda _twin: {
+            "architecture_profile_ref": {
+                "id": "six-layer-eventing",
+                "version": "1",
+            },
+            "component_assignments": assignments,
+        },
+    )
+
+    archive = TwinExportService(db_session).export_twin(
+        twin_id=twin.id,
+        user_id=user.id,
+    )
+
+    with zipfile.ZipFile(archive.content) as zip_file:
+        optimization = json.loads(zip_file.read("config_optimization.json"))
+
+    assert optimization == {"result": {"inputParamsUsed": {}}}
 
 
 def test_export_twin_rejects_missing_twin(db_session):

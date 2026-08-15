@@ -39,6 +39,27 @@ def _simulator_headers(provider: str = "azure") -> dict[str, str]:
     }
 
 
+def _graph_evidence() -> dict[str, object]:
+    return {
+        "graph_schema_version": "resolved-deployment-graph.v1",
+        "graph_id": "graph-1",
+        "calculation_run_id": "run-1",
+        "graph_digest": "sha256:" + ("1" * 64),
+        "architecture_digest": "sha256:" + ("2" * 64),
+        "profile_id": "five-layer-baseline",
+        "profile_version": "1",
+        "catalog_id": "baseline",
+        "catalog_version": "1",
+        "catalog_digest": "sha256:" + ("3" * 64),
+        "specification_digest": "sha256:" + ("4" * 64),
+        "package_selection_digest": "sha256:" + ("5" * 64),
+        "node_count": 7,
+        "edge_count": 6,
+        "binding_count": 21,
+        "stage_ids": ["package", "preplan", "terraform", "postapply"],
+    }
+
+
 @pytest.mark.asyncio
 async def test_validate_deployer_complete_posts_exact_endpoint_and_payload():
     seen = {}
@@ -123,6 +144,34 @@ async def test_validate_config_file_posts_multipart_validation_contract():
 
 
 @pytest.mark.asyncio
+async def test_validate_config_file_forwards_trusted_context_params():
+    seen = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json={"message": "Valid"})
+
+    await _client_with_handler(handler).validate_config_file(
+        "user-config",
+        {"file": ("config_user.json", b"{}", "application/json")},
+        provider="gcp",
+        context_params={
+            "architecture_profile_id": "five-layer-baseline",
+            "architecture_profile_version": "2",
+            "layer_4_provider": "azure",
+            "layer_5_provider": "gcp",
+        },
+    )
+
+    assert seen["url"] == (
+        "http://deployer.test/validate/user-config?"
+        "architecture_profile_id=five-layer-baseline&"
+        "architecture_profile_version=2&layer_4_provider=azure&"
+        "layer_5_provider=gcp&provider=gcp"
+    )
+
+
+@pytest.mark.asyncio
 async def test_check_cooldown_sends_expected_query_params():
     seen = {}
     destroyed_at = datetime(2026, 4, 26, 10, 15, tzinfo=timezone.utc)
@@ -141,6 +190,46 @@ async def test_check_cooldown_sends_expected_query_params():
         "http://deployer.test/infrastructure/cooldown-check?"
         "destroyed_at=2026-04-26T10%3A15%3A00%2B00%3A00Z&uses_gcp_firestore=true"
     )
+
+
+@pytest.mark.asyncio
+async def test_viewer_rotation_posts_once_with_only_operation_package_header():
+    seen = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(
+            (
+                request.method,
+                str(request.url),
+                request.headers["x-operation-package"],
+                request.read(),
+            )
+        )
+        return httpx.Response(
+            200,
+            json={
+                "schema_version": "deployment-access-credential.v1",
+                "layer": "l5",
+                "provider": "gcp",
+                "username": "researcher@example.invalid",
+                "password": "fixture-password",
+                "issued_at": "2026-07-31T12:00:00Z",
+            },
+        )
+
+    response = await _client_with_handler(
+        handler
+    ).rotate_gcp_grafana_viewer_credential("factory", "one-shot-token")
+
+    assert response["password"] == "fixture-password"
+    assert seen == [
+        (
+            "POST",
+            "http://deployer.test/infrastructure/deployment-access/l5/credentials:rotate?project_name=factory",
+            "one-shot-token",
+            b"",
+        )
+    ]
 
 
 @pytest.mark.asyncio
@@ -370,6 +459,7 @@ async def test_stage_operation_package_sends_canonical_multipart_contract():
         "operation_token": "a" * 43,
         "expires_at": "2099-01-01T00:00:00Z",
         "warnings": [],
+        "graph_evidence": _graph_evidence(),
     }
 
     async def handler(request: httpx.Request) -> httpx.Response:
@@ -388,6 +478,28 @@ async def test_stage_operation_package_sends_canonical_multipart_contract():
 
 
 @pytest.mark.asyncio
+async def test_stage_operation_package_accepts_profile_owned_graph_cardinality():
+    evidence = _graph_evidence()
+    evidence.update({"node_count": 19, "edge_count": 27, "binding_count": 83})
+    payload = {
+        "project_name": "factory",
+        "operation_token": "a" * 43,
+        "expires_at": "2099-01-01T00:00:00Z",
+        "warnings": [],
+        "graph_evidence": evidence,
+    }
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    client = _client_with_handler(handler)
+
+    result = await client.stage_operation_package("factory", b"zip")
+
+    assert result["graph_evidence"]["edge_count"] == 27
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "payload",
     [
@@ -396,24 +508,34 @@ async def test_stage_operation_package_sends_canonical_multipart_contract():
             "operation_token": "a" * 43,
             "expires_at": "2099-01-01T00:00:00Z",
             "warnings": [],
+            "graph_evidence": _graph_evidence(),
         },
         {
             "project_name": "factory",
             "operation_token": "short",
             "expires_at": "2099-01-01T00:00:00Z",
             "warnings": [],
+            "graph_evidence": _graph_evidence(),
         },
         {
             "project_name": "factory",
             "operation_token": "a" * 43,
             "expires_at": "2020-01-01T00:00:00Z",
             "warnings": [],
+            "graph_evidence": _graph_evidence(),
         },
         {
             "project_name": "factory",
             "operation_token": "a" * 43,
             "expires_at": "2099-01-01T00:00:00Z",
             "warnings": [1],
+            "graph_evidence": _graph_evidence(),
+        },
+        {
+            "project_name": "factory",
+            "operation_token": "a" * 43,
+            "expires_at": "2099-01-01T00:00:00Z",
+            "warnings": [],
         },
     ],
 )

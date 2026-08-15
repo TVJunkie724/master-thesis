@@ -161,6 +161,105 @@ void main() {
       });
     });
 
+    group('Five-layer v2', () {
+      test(
+        'serializes the exact frozen Small workload with embedded events',
+        () {
+          final params = CalcParams.fiveLayerV2(
+            scenario: FiveLayerWorkloadScenario.small,
+          );
+
+          expect(params.isFiveLayerV2, isTrue);
+          expect(params.toJson(), {
+            'schemaVersion': 'five-layer-workload.v2',
+            'numberOfDevices': 100,
+            'deviceSendingIntervalInMinutes': 2.0,
+            'averageSizeOfMessageInKb': 0.25,
+            'numberOfDeviceTypes': 1,
+            'hotStorageDurationInMonths': 1,
+            'coolStorageDurationInMonths': 3,
+            'archiveStorageDurationInMonths': 12,
+            'twinEntityCount': 100,
+            'aggregateDashboardRefreshesPerHour': 12,
+            'apiCallsPerAggregateDashboardRefresh': 1,
+            'dashboardActiveHoursPerDay': 1,
+            'monthlyEditorSeats': 2,
+            'monthlyViewerSeats': 1,
+            'twinStateMaterializationsPerSecond': 0.1,
+            'twinGraphUpdatesPerSecond': 0.01,
+            'eventingScenarioId': 'eventing-small-v1',
+            'currency': 'USD',
+          });
+          expect(params.toJson(), isNot(contains('useEventChecking')));
+          expect(params.toJson(), isNot(contains('needs3DModel')));
+        },
+      );
+
+      test('round-trips Large EUR without changing its scenario identity', () {
+        final original = CalcParams.fiveLayerV2(
+          scenario: FiveLayerWorkloadScenario.large,
+          currency: 'EUR',
+        );
+
+        final parsed = CalcParams.fromJson(original.toJson());
+
+        expect(parsed.scenario, FiveLayerWorkloadScenario.large);
+        expect(parsed.eventingScenarioId, 'eventing-large-v1');
+        expect(parsed.currency, 'EUR');
+        expect(parsed.toJson(), original.toJson());
+      });
+
+      test('rejects unknown fields and mismatched event scenarios', () {
+        final valid = CalcParams.fiveLayerV2(
+          scenario: FiveLayerWorkloadScenario.medium,
+        ).toJson();
+
+        expect(
+          () => CalcParams.fromJson({...valid, 'useEventChecking': true}),
+          throwsFormatException,
+        );
+        expect(
+          () => CalcParams.fromJson({
+            ...valid,
+            'eventingScenarioId': 'eventing-large-v1',
+          }),
+          throwsFormatException,
+        );
+      });
+
+      test('does not silently serialize inconsistent variant metadata', () {
+        final inconsistent = CalcParams(
+          numberOfDevices: 100,
+          deviceSendingIntervalInMinutes: 2,
+          averageSizeOfMessageInKb: 0.25,
+          hotStorageDurationInMonths: 1,
+          coolStorageDurationInMonths: 3,
+          archiveStorageDurationInMonths: 12,
+          needs3DModel: false,
+          dashboardRefreshesPerHour: 12,
+          amountOfActiveEditors: 2,
+          amountOfActiveViewers: 1,
+          schemaVersion: CalcParams.fiveLayerV2SchemaVersion,
+        );
+
+        expect(inconsistent.toJson, throwsStateError);
+      });
+
+      test('currency change preserves every frozen workload dimension', () {
+        final usd = CalcParams.fiveLayerV2(
+          scenario: FiveLayerWorkloadScenario.medium,
+        );
+        final eur = CalcParams.fiveLayerV2(
+          scenario: usd.scenario!,
+          currency: 'EUR',
+        );
+
+        final usdIdentity = {...usd.toJson()}..remove('currency');
+        final eurIdentity = {...eur.toJson()}..remove('currency');
+        expect(eurIdentity, usdIdentity);
+      });
+    });
+
     // ============================================================
     // Edge Case Tests
     // ============================================================

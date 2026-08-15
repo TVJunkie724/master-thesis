@@ -28,7 +28,7 @@ void main() {
 
     expect(find.text('AWS'), findsOneWidget);
     expect(find.text('No AWS Cloud Connections yet.'), findsOneWidget);
-    expect(find.text('New connection'), findsOneWidget);
+    expect(find.text('Import existing (advanced)'), findsOneWidget);
   });
 
   testWidgets('renders selected connection summary', (tester) async {

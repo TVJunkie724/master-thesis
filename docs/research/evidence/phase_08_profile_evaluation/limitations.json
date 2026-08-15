@@ -1,0 +1,85 @@
+{
+  "$schema": "schemas/limitations.schema.json",
+  "schema_version": "phase-08-limitations.v1",
+  "package_id": "phase-08-profile-evaluation@1",
+  "limitations": [
+    {
+      "limitation_id": "construct.service-equivalence",
+      "validity_class": "construct",
+      "statement": "Curated service bundles satisfy the bounded contract but are not universally equivalent provider products.",
+      "status": "accepted_poc_boundary"
+    },
+    {
+      "limitation_id": "construct.estimated-cost",
+      "validity_class": "construct",
+      "statement": "Estimated monthly cost is not an invoice and excludes billing reconciliation.",
+      "status": "accepted_poc_boundary"
+    },
+    {
+      "limitation_id": "internal.price-observation",
+      "validity_class": "internal",
+      "statement": "Provider snapshots share the recorded repository publication timestamp, not one atomic provider-side observation.",
+      "status": "accepted_poc_boundary"
+    },
+    {
+      "limitation_id": "internal.bridge-breakdown",
+      "validity_class": "internal",
+      "statement": "Full-profile route ledgers preserve exact ownership but some bridge landing/forwarder detail is evaluated in the separately pinned Phase 8.8 ledger.",
+      "status": "accepted_poc_boundary"
+    },
+    {
+      "limitation_id": "internal.capacity",
+      "validity_class": "internal",
+      "statement": "Small/Medium/Large capacity is theoretical; no load generation or live quota evidence is claimed.",
+      "status": "accepted_poc_boundary"
+    },
+    {
+      "limitation_id": "external.regions",
+      "validity_class": "external",
+      "statement": "Results are limited to eu-central-1, westeurope, and europe-west1.",
+      "status": "accepted_poc_boundary"
+    },
+    {
+      "limitation_id": "external.workloads",
+      "validity_class": "external",
+      "statement": "Three synthetic bounded scenarios do not represent every Digital Twin workload.",
+      "status": "accepted_poc_boundary"
+    },
+    {
+      "limitation_id": "external.gcp-hosted-components",
+      "validity_class": "external",
+      "statement": "BifroMQ, Grafana OSS, and the GCP Twin API are provider-hosted PoC components with maintenance and integration risk.",
+      "status": "accepted_poc_boundary"
+    },
+    {
+      "limitation_id": "conclusion.price-drift",
+      "validity_class": "conclusion",
+      "statement": "Small ranking differences may change as prices, free grants, Preview status, or plugin availability change.",
+      "status": "accepted_poc_boundary"
+    },
+    {
+      "limitation_id": "conclusion.live-access",
+      "validity_class": "conclusion",
+      "statement": "Bootstrap, IAM, L4/L5 access, deployment, and cleanup are not proven until a separately approved supervised run.",
+      "status": "accepted_poc_boundary"
+    },
+    {
+      "limitation_id": "security.credentials",
+      "validity_class": "security",
+      "statement": "No provider credential, account identifier, browser session, state file, or raw provider response is included in this package.",
+      "status": "accepted_poc_boundary"
+    },
+    {
+      "limitation_id": "scope.no-latex",
+      "validity_class": "scope",
+      "statement": "The evaluation package does not edit or claim finalized LaTeX thesis prose.",
+      "status": "accepted_poc_boundary"
+    }
+  ],
+  "live_claims": {
+    "measured_throughput": false,
+    "successful_provider_deployment": false,
+    "verified_provider_identity_exchange": false,
+    "verified_l4_l5_browser_access": false
+  }
+}

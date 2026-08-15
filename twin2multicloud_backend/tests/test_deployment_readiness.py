@@ -37,7 +37,7 @@ def _create_user(db, email: str = "readiness@example.test") -> User:
 def _connection_request(
     provider: str,
     *,
-    permission_set_version: str | None = "thesis-demo-v1",
+    permission_set_version: str | None = "thesis-demo-v2",
     purpose: str = "deployment",
 ) -> CloudConnectionCreate:
     common = {
@@ -117,7 +117,7 @@ def _create_twin(
                 provider,
                 permission_set_version=(permission_versions or {}).get(
                     provider,
-                    "thesis-demo-v1",
+                    "thesis-demo-v2",
                 ),
                 purpose=(purposes or {}).get(provider, "deployment"),
             ),
@@ -178,8 +178,8 @@ def test_readiness_contract_rejects_inconsistent_or_empty_provider_evidence():
                 "ready": True,
                 "status": "ready",
                 "summary": "Ready",
-                "expected_permission_set_version": "thesis-demo-v1",
-                "supplied_permission_set_version": "thesis-demo-v1",
+                "expected_permission_set_version": "thesis-demo-v2",
+                "supplied_permission_set_version": "thesis-demo-v2",
                 "permission_set_status": "matched",
                 "checked_at": "2026-07-14T09:00:00Z",
                 "checks": [

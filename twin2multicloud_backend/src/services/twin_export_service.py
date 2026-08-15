@@ -12,6 +12,11 @@ from sqlalchemy.orm import Session
 from src.models.twin import DigitalTwin
 from src.repositories.twin_repository import TwinRepository
 from src.services import deployment_service
+from src.services.architecture_projection_service import (
+    selected_architecture_document,
+)
+from src.services.optimizer_config_projection import cheapest_path_dict
+from src.services.provider_contract import provider_id_for_deployer_project
 from src.services.service_errors import EntityNotFoundError
 
 
@@ -41,8 +46,22 @@ class TwinExportService:
         deployer_config = twin.deployer_config
 
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-            providers = deployment_service._build_providers_config(twin)
-            self._add_redacted_config_files(archive, twin, providers)
+            architecture = selected_architecture_document(twin)
+            providers = (
+                deployment_service._build_providers_config(architecture)
+                if architecture is not None
+                else self._historical_export_provider_projection(twin)
+            )
+            self._add_redacted_config_files(
+                archive,
+                twin,
+                providers,
+                architecture_profile_ref=(
+                    architecture.get("architecture_profile_ref")
+                    if architecture is not None
+                    else None
+                ),
+            )
             if deployer_config:
                 for file in deployment_service._materialize_deployer_artifacts(
                     deployer_config,
@@ -50,11 +69,15 @@ class TwinExportService:
                     providers,
                 ):
                     archive.writestr(file.path, file.content)
-                for binary_file in deployment_service._materialize_binary_files(twin, providers):
+                for binary_file in deployment_service._materialize_binary_files(
+                    twin, providers
+                ):
                     archive.write(binary_file.path, binary_file.archive_path)
 
             if deployer_config and deployer_config.payloads_json:
-                archive.writestr("iot_device_simulator/payloads.json", deployer_config.payloads_json)
+                archive.writestr(
+                    "iot_device_simulator/payloads.json", deployer_config.payloads_json
+                )
 
         zip_buffer.seek(0)
         return TwinExportArchive(
@@ -62,29 +85,79 @@ class TwinExportService:
             filename=f"{twin.name.lower().replace(' ', '-')}_config.zip",
         )
 
+    @staticmethod
+    def _historical_export_provider_projection(twin: DigitalTwin) -> dict[str, str]:
+        """Preserve non-executable export of pre-architecture Twin records."""
+
+        optimizer = twin.optimizer_config
+        if optimizer is None:
+            return {}
+        path = cheapest_path_dict(optimizer)
+        key_by_slot = {
+            "l1": "layer_1_provider",
+            "l2": "layer_2_provider",
+            "l3_hot": "layer_3_hot_provider",
+            "l3_cool": "layer_3_cold_provider",
+            "l3_archive": "layer_3_archive_provider",
+            "l4": "layer_4_provider",
+            "l5": "layer_5_provider",
+        }
+        return {
+            key_by_slot[slot]: provider_id_for_deployer_project(provider)
+            for slot, provider in path.items()
+            if provider
+        }
+
     def _load_twin(self, twin_id: str, user_id: str) -> DigitalTwin:
         twin = self.twin_repository.get_with_configs_for_user(twin_id, user_id)
         if not twin:
             raise EntityNotFoundError("Twin not found")
         return twin
 
-    def _add_redacted_config_files(self, archive: zipfile.ZipFile, twin: DigitalTwin, providers: dict) -> None:
+    def _add_redacted_config_files(
+        self,
+        archive: zipfile.ZipFile,
+        twin: DigitalTwin,
+        providers: dict,
+        *,
+        architecture_profile_ref: dict | None = None,
+    ) -> None:
         deployer_config = twin.deployer_config
         optimizer_config = twin.optimizer_config
 
-        archive.writestr("config.json", json.dumps(deployment_service._build_main_config(twin), indent=2))
+        archive.writestr(
+            "config.json",
+            json.dumps(deployment_service._build_main_config(twin), indent=2),
+        )
         archive.writestr("config_providers.json", json.dumps(providers, indent=2))
-        archive.writestr("config_credentials.json", json.dumps(self._redacted_credentials_config(twin), indent=2))
+        archive.writestr(
+            "config_credentials.json",
+            json.dumps(self._redacted_credentials_config(twin), indent=2),
+        )
 
         if deployer_config:
-            self._write_if_present(archive, "config_iot_devices.json", deployer_config.config_iot_devices_json)
-            self._write_if_present(archive, "config_events.json", deployer_config.config_events_json)
-            self._write_if_present(archive, "config_user.json", deployer_config.user_config_content)
+            self._write_if_present(
+                archive,
+                "config_iot_devices.json",
+                deployer_config.config_iot_devices_json,
+            )
+            self._write_if_present(
+                archive, "config_events.json", deployer_config.config_events_json
+            )
+            self._write_if_present(
+                archive, "config_user.json", deployer_config.user_config_content
+            )
 
         if optimizer_config:
             archive.writestr(
                 "config_optimization.json",
-                json.dumps(deployment_service._build_optimization_config(optimizer_config), indent=2),
+                json.dumps(
+                    deployment_service._build_optimization_config(
+                        optimizer_config,
+                        architecture_profile_ref=architecture_profile_ref,
+                    ),
+                    indent=2,
+                ),
             )
 
     @staticmethod
@@ -113,7 +186,8 @@ class TwinExportService:
                 "azure_client_secret": REDACTED,
                 "azure_region": azure_region,
                 "azure_region_iothub": config.azure_region_iothub or azure_region,
-                "azure_region_digital_twin": config.azure_region_digital_twin or azure_region,
+                "azure_region_digital_twin": config.azure_region_digital_twin
+                or azure_region,
             }
 
         if config.gcp_project_id:
@@ -130,6 +204,8 @@ class TwinExportService:
         return result
 
     @staticmethod
-    def _write_if_present(archive: zipfile.ZipFile, path: str, content: str | None) -> None:
+    def _write_if_present(
+        archive: zipfile.ZipFile, path: str, content: str | None
+    ) -> None:
         if content is not None:
             archive.writestr(path, content)

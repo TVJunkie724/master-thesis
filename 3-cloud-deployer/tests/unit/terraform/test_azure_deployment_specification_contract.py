@@ -72,8 +72,8 @@ def test_azure_l0_is_derived_from_registered_receiver_topology():
     ):
         assert condition in setup
     assert (
-        'azure_l0_enabled = local.azure_cross_cloud_receiver_required || '
-        'var.layer_4_provider == "azure"'
+        'azure_l0_enabled = local.azure_v1_enabled && ( '
+        'local.azure_cross_cloud_receiver_required || var.layer_4_provider == "azure" )'
     ) in setup
 
     glue = _normalized_source("azure_glue.tf")

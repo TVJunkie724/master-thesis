@@ -1,5 +1,6 @@
 import json
 from dataclasses import replace
+from decimal import Decimal
 
 import pytest
 
@@ -281,6 +282,51 @@ def test_cost_only_strategy_uses_candidate_id_as_deterministic_tie_break():
     assert [
         candidate.candidate_id for candidate in strategy.rank(tied)
     ] == ["aws|aws", "azure|aws", "gcp|aws"]
+
+
+def test_cost_only_strategy_prefers_explicit_architecture_assignment_tie_break():
+    from backend.optimization.metrics import MetricResult
+    from backend.optimization.scoring import OptimizationCandidate
+
+    metric = MetricResult("cost", 10.0, "USD/month", "api_backed")
+    legacy_first = OptimizationCandidate(
+        candidate_id="aws|aws",
+        metrics={"cost": metric},
+        canonical_tie_break_key=("component.ingestion", "azure", "deployment.z"),
+    )
+    architecture_first = OptimizationCandidate(
+        candidate_id="azure|azure",
+        metrics={"cost": metric},
+        canonical_tie_break_key=("component.ingestion", "aws", "deployment.a"),
+    )
+
+    assert CostOnlyScoringStrategy().select_best(
+        [legacy_first, architecture_first]
+    ) is architecture_first
+
+
+def test_cost_only_strategy_ranks_by_exact_decimal_before_tie_break():
+    from backend.optimization.metrics import MetricResult
+    from backend.optimization.scoring import OptimizationCandidate
+
+    metric = MetricResult("cost", 1.0, "USD/month", "api_backed")
+    lexicographically_first_but_more_expensive = OptimizationCandidate(
+        candidate_id="a",
+        metrics={"cost": metric},
+        exact_metric_values={"cost": Decimal("1.0000000000000000002")},
+    )
+    lexicographically_last_but_cheaper = OptimizationCandidate(
+        candidate_id="z",
+        metrics={"cost": metric},
+        exact_metric_values={"cost": Decimal("1.0000000000000000001")},
+    )
+
+    assert CostOnlyScoringStrategy().select_best(
+        [
+            lexicographically_first_but_more_expensive,
+            lexicographically_last_but_cheaper,
+        ]
+    ) is lexicographically_last_but_cheaper
 
 
 def test_result_metadata_is_management_api_serializable_and_uses_pricing_service():

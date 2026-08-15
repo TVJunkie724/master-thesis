@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "architecture-deltas.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["$schema", "schema_version", "package_id", "functional_deltas", "matched_context_cost_deltas", "cross_profile_optimizer_winner_selected", "cross_profile_rule"],
+  "properties": {
+    "$schema": {"const": "schemas/architecture-deltas.schema.json"}, "schema_version": {"const": "phase-08-architecture-deltas.v1"},
+    "package_id": {"const": "phase-08-profile-evaluation@1"},
+    "functional_deltas": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["from_profile", "to_profile", "comparison_scope", "delta", "interpretation"],
+        "properties": {
+          "from_profile": {"enum": ["five-layer-baseline@1", "five-layer-baseline@2"]},
+          "to_profile": {"enum": ["five-layer-baseline@2", "six-layer-eventing@1"]},
+          "comparison_scope": {"enum": ["historical_to_functionally_complete_successor", "functionally_aligned_event_layer_treatment"]},
+          "delta": {"$ref": "#/$defs/delta"}, "interpretation": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "matched_context_cost_deltas": {
+      "type": "array", "minItems": 27, "maxItems": 27,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["comparison_id", "size", "inherited_l1_l5_assignment", "six_layer_inherited_l1_l5_assignment", "six_layer_event_provider", "five_layer_monthly_total", "six_layer_monthly_total", "total_delta", "six_layer_event_scope_total", "currency", "comparison_status"],
+        "properties": {
+          "comparison_id": {"type": "string"}, "size": {"enum": ["small", "medium", "large"]},
+          "inherited_l1_l5_assignment": {"type": "object", "minProperties": 7, "maxProperties": 7, "additionalProperties": {"enum": ["aws", "azure", "gcp"]}},
+          "six_layer_inherited_l1_l5_assignment": {"type": "object", "minProperties": 7, "maxProperties": 7, "additionalProperties": {"enum": ["aws", "azure", "gcp"]}},
+          "six_layer_event_provider": {"enum": ["aws", "azure", "gcp"]},
+          "five_layer_monthly_total": {"$ref": "#/$defs/amount"}, "six_layer_monthly_total": {"$ref": "#/$defs/amount"},
+          "total_delta": {"$ref": "#/$defs/signedAmount"}, "six_layer_event_scope_total": {"$ref": "#/$defs/amount"},
+          "currency": {"const": "USD"}, "comparison_status": {"const": "matched_context_offline_estimate"}
+        }
+      }
+    },
+    "cross_profile_optimizer_winner_selected": {"const": false},
+    "cross_profile_rule": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "amount": {"type": "string", "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]+)?$"},
+    "signedAmount": {"type": "string", "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"},
+    "setDelta": {
+      "type": "object", "additionalProperties": false, "required": ["added", "removed", "retained"],
+      "properties": {"added": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}, "removed": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}, "retained": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}}
+    },
+    "delta": {
+      "type": "object", "additionalProperties": false, "required": ["responsibilities", "components", "edges"],
+      "properties": {"responsibilities": {"$ref": "#/$defs/setDelta"}, "components": {"$ref": "#/$defs/setDelta"}, "edges": {"$ref": "#/$defs/setDelta"}}
+    }
+  }
+}

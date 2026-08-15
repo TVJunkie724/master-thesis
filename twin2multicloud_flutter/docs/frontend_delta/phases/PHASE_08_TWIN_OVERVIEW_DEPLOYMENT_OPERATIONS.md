@@ -2,8 +2,8 @@
 title: "Phase 8: Twin Overview Deployment Operations"
 description: "Plan Twin Overview hardening for deploy, destroy, preflight, logs, outputs, and permission-set visibility."
 tags: [flutter, frontend-delta, twin-overview, deployment, preflight]
-lastUpdated: "2026-07-14"
-version: "1.3"
+lastUpdated: "2026-08-11"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -18,7 +18,10 @@ EXTRACTED: 2026-06-13 | VERSION: 1.0
 
 # Phase 8: Twin Overview Deployment Operations
 
-**Status:** Done on `codex/twin-overview-operations-hardening`.
+**Status:** Subphases 8.1-8.5 and the credential-free implementation of 8.6
+Layer Access are done. Five-layer v2 is active for offline evaluation;
+supervised cloud browser sign-in and capacity evidence remain separate live
+gates and prevent deployment selection.
 
 The binding implementation contract is
 [`2026-07-14_twin_overview_operations_hardening.md`](../../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md).
@@ -35,6 +38,7 @@ and the final responsive/accessibility quality gate.
 | 8.3 Persisted log catch-up and SSE recovery | Done | 51 focused backend tests, 592 complete backend tests, 466 complete Flutter tests, Bandit/analyzer clean, Web/macOS builds pass |
 | 8.4 Trace/simulator workflows and secure archives | Done | 34 focused and 1,131 offline Deployer tests; 53 focused and 601 complete Management API tests; 480 complete Flutter tests; Terraform/Bandit/analyzer/build gates pass |
 | 8.5 Responsive/accessibility release gate | Done | 57 focused BLoC/widget/screen tests; 495 complete Flutter tests; analyzer clean; Web/macOS release builds pass |
+| 8.6 L4/L5 Layer Access handoff | Done offline | Strict Management/Deployer/Dart contracts, BLoC/widgets/dialogs, all-nine local API integration, [component reference](../implementation/layer_access_panel.md), and [implementation plan](../../../implementation_plans/2026-07-31_twin_layer_access_handoff.md) |
 
 The 8.1 gate covers Management API and demo adapters, strict versioned parsers,
 session-scoped cursors, immutable output/download data, and stale-state clearing.
@@ -74,6 +78,16 @@ defense-in-depth output redaction for rendering and clipboard copy. The typed
 deployment-output snapshot remains intact from the Management API adapter to
 the UI. Verification used the offline demo and no live cloud resources.
 
+The 8.6 gate adds persisted secret-free deployment access evidence, exact L4
+and L5 surfaces for `five-layer-baseline@2`, historical-v1 unsupported state,
+independent readiness, safe external launching, and explicit one-time GCP
+Grafana Viewer rotation. Deployer evidence distinguishes resource,
+interactive binding, deterministic content, and data-probe readiness. A real
+local Management API integration suite exercises all nine L4/L5 placements,
+owner isolation, blocked access, destroy, output redaction, sequential
+rotation, and server-side concurrency. No cloud resource was created and
+browser sign-in remains unverified.
+
 ## Summary
 
 Harden the Twin Overview deployment surface so deploy/destroy actions, preflight
@@ -87,6 +101,8 @@ actionable.
 | Structured log and error UX | Direct Terraform workspace access |
 | Output persistence and copy/download behavior | Layer-by-layer redeployment |
 | Simulator/test message utilities | Treating test utilities as deployment success criteria |
+| Typed post-deployment L4/L5 links and readiness | Inferring access from Terraform output names |
+| One-time GCP Grafana Viewer reveal | Displaying provider, Admin, or reader credentials |
 
 ## Prerequisites
 
@@ -95,6 +111,8 @@ actionable.
 - Deployment SSE contract is stable.
 - If simulator/test utility Management API contracts are missing, Phase 1 must
   record them as backend gaps with approved implementation plans.
+- [FR-001](../../feature-requests/FR_001_DEPLOYMENT_LAYER_ACCESS_READ_MODEL.md)
+  and its strict fixtures are implemented and offline verified.
 
 ## Deliverables
 
@@ -105,6 +123,9 @@ actionable.
 - Output card requirements and residual-risk messaging.
 - Simulator/test utility requirements for deployed twins, including broken-state
   handling and visible diagnostic output.
+- Two sibling Layer Access cards for the semantic L4 UI and raw/rollup L5 UI,
+  including external launch, independent partial failure, and GCP Viewer
+  rotation/reveal.
 
 ## UI Shape
 
@@ -114,6 +135,9 @@ Twin Overview
 |   |-- preflight status
 |   |-- permission-set status
 |   `-- remediation actions
+|-- Layer Access
+|   |-- L4 Semantic Twin: provider/service/readiness/Open
+|   `-- L5 Raw & Rollups: provider/service/readiness/Open
 |-- Deployment Actions
 |   |-- Deploy / Destroy
 |   `-- structured logs
@@ -131,6 +155,12 @@ Twin Overview
 - Test utilities call Management API routes only.
 - Diagnostic output is collapsed by default and separate from primary deploy
   status.
+- Layer Access loads through `TwinOverviewBloc`; widgets receive typed state
+  and callbacks only.
+- The screen composition boundary reuses the injected external launcher;
+  access widgets never call `url_launcher` directly.
+- A GCP Viewer password exists only in the one-time dialog-local value and is
+  discarded when the dialog closes.
 - The architect implementation plan must include desktop and compact Web ASCII
   layouts before build work starts.
 
@@ -145,15 +175,26 @@ Twin Overview
 - Deploy/destroy SSE states are resilient to refresh and reconnect where the
   backend supports it.
 - Terraform/deployment outputs remain visible after successful deploy reload.
+- Every deployed Five-layer v2 Twin shows exactly one independently actionable
+  L4 card and one L5 card; historical/destroyed Twins show no fabricated links.
+- All nine L3/L4/L5 placements render from the same strict contract.
+- L4/L5 links are HTTPS, provider/auth modes are explained, and partial access
+  failure does not disable the unaffected layer or deployment cleanup.
 
 ## Verification
 
-- Later implementation requires BLoC tests for deploy, destroy, reconnect,
-  failure, simulator/test utility states, and output persistence states.
+- BLoC tests cover deploy, destroy, reconnect, failure, simulator/test utility,
+  output persistence, Layer Access refresh, stale-response, and one-time
+  credential states.
 - Widget tests cover preflight pass/fail/outdated/missing permission-set states.
 - Widget tests cover testing utility success, failure, running, and unavailable
   states.
-- Integration tests run against local Management API without cloud E2E.
+- `integration_test/twin_layer_access_flow_test.dart` passes ten hard-asserted
+  cases against an isolated real local Management API and temporary SQLite
+  database. The suite uses no mocked HTTP and no cloud E2E.
+- `flutter analyze`, the focused Management/Layer Access suites, and the local
+  macOS integration build pass. Full repository gates are rerun at the final
+  Phase 8.9A review boundary.
 
 ## Roadmap Anchor
 

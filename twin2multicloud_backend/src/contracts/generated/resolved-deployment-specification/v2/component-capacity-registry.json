@@ -1,0 +1,1911 @@
+{
+  "schema_version": "five-layer-v2-component-capacity-registry.v1",
+  "package_ref": {
+    "id": "phase-08-complete-service-bundles",
+    "version": "1",
+    "digest": "sha256:8c422bd768dfbe41587b79907c23b8f2a2b27b00adf83ec7d3bac2373492809f"
+  },
+  "capacity_evidence_digest": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a",
+  "pricing_ownership_digest": "sha256:a25799ee9a15a409036222cab676c2c1e9fada0873d53f59ba83d7942a3324ec",
+  "price_value_policy": "live_versioned_optimizer_catalog_only_no_static_fallback",
+  "same_provider_rule": {
+    "bridge_component_count": 0,
+    "cross_cloud_egress_cost": 0,
+    "local_service_operations_are_still_priced": true
+  },
+  "shared_support_rules": [
+    "one_registry_per_selected_provider_with_platform_owned_containers",
+    "one_firestore_database_per_deployment_when_gcp_l3_or_l4_is_selected",
+    "one_gcp_gke_cluster_control_plane_when_l1_and_l5_are_both_gcp",
+    "one_azure_log_analytics_workspace_per_selected_azure_bundle"
+  ],
+  "provider_bundles": [
+    {
+      "provider": "aws",
+      "region": "eu-central-1",
+      "layers": {
+        "l1_acquisition": [
+          "aws.iot-core",
+          "aws.iot-commands"
+        ],
+        "l2_processing": [
+          "aws.lambda",
+          "aws.step-functions-standard"
+        ],
+        "l3_hot": [
+          "aws.dynamodb-on-demand-raw",
+          "aws.dynamodb-on-demand-hourly-rollup"
+        ],
+        "l3_cool": [
+          "aws.s3-standard-ia"
+        ],
+        "l3_archive": [
+          "aws.s3-glacier-deep-archive"
+        ],
+        "l4_twin": [
+          "aws.iot-twinmaker-standard"
+        ],
+        "l5_visualization": [
+          "aws.amazon-managed-grafana-12",
+          "aws.lambda-raw-history-reader",
+          "aws.grafana-marcusolsson-json-datasource"
+        ]
+      },
+      "support_components": [
+        "aws.eventbridge-scheduler",
+        "aws.ecs-fargate-storage-mover",
+        "aws.ecr-if-container-selected",
+        "aws.cloudwatch",
+        "aws.iam-identity-center-layer-access"
+      ],
+      "embedded_event_components": [
+        "aws.sqs-fifo",
+        "aws.lambda-event-adapter",
+        "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "aws.sns-fifo-only-for-reviewed-remote-control-edge"
+      ],
+      "six_layer_event_components": [
+        "aws.kinesis-data-streams",
+        "aws.sns-fifo",
+        "aws.sqs-fifo",
+        "aws.lambda-event-worker",
+        "aws.s3-event-failure-store",
+        "aws.cloudwatch"
+      ],
+      "scenario_selection": {
+        "small": "same_service_family",
+        "medium": "same_service_family",
+        "large": "same_service_family_with_calculated_capacity"
+      }
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "layers": {
+        "l1_acquisition": [
+          "azure.iot-hub"
+        ],
+        "l2_processing": [
+          "azure.functions-flex-consumption",
+          "azure.logic-apps-consumption"
+        ],
+        "l3_hot": [
+          "azure.cosmos-db-nosql-raw-and-rollup"
+        ],
+        "l3_cool": [
+          "azure.blob-cool"
+        ],
+        "l3_archive": [
+          "azure.blob-archive"
+        ],
+        "l4_twin": [
+          "azure.digital-twins"
+        ],
+        "l5_visualization": [
+          "azure.managed-grafana-12-standard",
+          "azure.functions-flex-raw-history-reader",
+          "azure.grafana-marcusolsson-json-datasource"
+        ]
+      },
+      "support_components": [
+        "azure.container-apps-scheduled-storage-job",
+        "azure.acr-basic-if-container-selected",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace",
+        "azure.entra-layer-access-bindings"
+      ],
+      "embedded_event_components": [
+        "azure.service-bus-standard",
+        "azure.functions-flex-event-adapter",
+        "azure.event-hubs-only-for-reviewed-remote-telemetry-edge"
+      ],
+      "six_layer_event_components": [
+        "azure.event-hubs-standard-small-medium",
+        "azure.event-hubs-dedicated-large",
+        "azure.service-bus-standard",
+        "azure.functions-flex-event-worker",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace"
+      ],
+      "scenario_selection": {
+        "small": "cosmos-serverless-and-grafana-standard-x1",
+        "medium": "cosmos-serverless-and-grafana-standard-x1",
+        "large": "cosmos-calculated-autoscale-and-grafana-standard-x2"
+      },
+      "rejected_alternatives": [
+        "azure.data-explorer-as-l3-hot"
+      ]
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "layers": {
+        "l1_acquisition": [
+          "apache.bifromq-4.0.0-incubating-on-gke-standard",
+          "gcp.external-load-balancer",
+          "gcp.ordered-mqtt-pubsub-adapter"
+        ],
+        "l2_processing": [
+          "gcp.cloud-run-service",
+          "gcp.workflows"
+        ],
+        "l3_hot": [
+          "gcp.firestore-native-standard-raw-and-rollup"
+        ],
+        "l3_cool": [
+          "gcp.cloud-storage-nearline"
+        ],
+        "l3_archive": [
+          "gcp.cloud-storage-archive"
+        ],
+        "l4_twin": [
+          "gcp.cloud-run-twin-api-materializer",
+          "gcp.firestore-native-standard-bounded-twin",
+          "gcp.cloud-run-iap-twin-explorer",
+          "gcp.direct-iap-layer-access"
+        ],
+        "l5_visualization": [
+          "grafana.oss-12-on-gke",
+          "gcp.persistent-disk-rwo",
+          "gcp.cloud-run-raw-history-reader",
+          "grafana.yesoreyeram-infinity-datasource",
+          "gcp.grafana-tls-load-balancer"
+        ]
+      },
+      "support_components": [
+        "gcp.cloud-scheduler",
+        "gcp.cloud-run-storage-job",
+        "gcp.artifact-registry-if-container-selected",
+        "gcp.cloud-logging",
+        "gcp.cloud-monitoring"
+      ],
+      "embedded_event_components": [
+        "gcp.pubsub-separated-embedded-topics",
+        "gcp.cloud-run-event-adapter"
+      ],
+      "six_layer_event_components": [
+        "gcp.pubsub-separated-event-layer-topics",
+        "gcp.cloud-run-event-service-small-medium",
+        "gcp.cloud-run-worker-pool-fixed-large",
+        "gcp.cloud-logging",
+        "gcp.cloud-monitoring"
+      ],
+      "scenario_selection": {
+        "small": "firestore-one-shard-grafana-e2-standard-4",
+        "medium": "firestore-one-shard-grafana-e2-standard-4",
+        "large": "firestore-sixteen-shards-grafana-e2-standard-8"
+      },
+      "shared_resource_rules": [
+        "one_named_firestore_database_per_deployment_with_distinct_l3_l4_collections_and_identities",
+        "reuse_bifromq_gke_cluster_for_grafana_when_l1_is_gcp",
+        "one_incremental_grafana_node_without_isolation_only_node_pool",
+        "separate_l1_and_event_layer_pubsub_resources_and_cost_ownership"
+      ],
+      "accepted_limitations": [
+        "firestore_server_iam_is_database_wide_not_collection_scoped",
+        "grafana_uses_one_replica_and_rwo_sqlite_for_the_poc",
+        "grafana_endpoint_uses_generated_tls_and_cidr_allowlist_without_public_dns_or_public_ca",
+        "large_six_layer_worker_pool_is_preview_fixed_size_and_non_autoscaling"
+      ],
+      "rejected_alternatives": [
+        "bigquery-as-l3-hot",
+        "spanner-graph-as-l4",
+        "custom-twin-grafana-plugin",
+        "dedicated-grafana-node-pool"
+      ]
+    }
+  ],
+  "scenario_capacity": [
+    {
+      "scenario_id": "core-small-v2",
+      "size": "small",
+      "derived": {
+        "canonical_payload_bytes": "256",
+        "canonical_batch_bytes": "64000",
+        "canonical_batch_mib": "0.06103515625",
+        "storage_byte_derived_tasks": 1,
+        "azure_partition_derived_tasks": 1,
+        "aws_storage_tasks": 1,
+        "azure_storage_tasks": 1,
+        "gcp_storage_tasks": 1,
+        "storage_objects_per_batch_lower_bound": 1,
+        "aggregate_dashboard_query_rate_per_second": "0.003333333333",
+        "reader_max_concurrent_requests": 2,
+        "firestore_timestamp_shards": 1,
+        "firestore_planned_raw_writes_per_shard_second": "0.833333333333",
+        "monthly_raw_payload_bytes": "552960000",
+        "hot_payload_gib": "0.514984130859",
+        "cool_payload_gib": "1.029968261719",
+        "archive_payload_gib": "4.634857177734",
+        "cosmos_max_hot_payload_bytes_per_device": "5529600",
+        "cosmos_logical_partition_below_20_gb": true,
+        "maximum_aggregate_rollup_points": 720,
+        "l4_inspection_reads_per_month": 240
+      },
+      "provider_admission": {
+        "aws": {
+          "status": "theoretically_admissible",
+          "live_gates": [
+            "dynamodb_partition_distribution",
+            "reader_latency_and_quota",
+            "twinmaker_query_behavior"
+          ]
+        },
+        "azure": {
+          "status": "conditionally_theoretically_admissible",
+          "cosmos_capacity_mode": "serverless",
+          "published_serverless_partition_ru_per_second": 5000,
+          "published_logical_partition_limit_bytes": 20000000000,
+          "request_charge_fixture_required_before_activation": true,
+          "live_gates": [
+            "cosmos_request_charge_fixture",
+            "cosmos_partition_distribution",
+            "reader_latency_and_quota"
+          ]
+        },
+        "gcp": {
+          "status": "conditionally_theoretically_admissible",
+          "live_gates": [
+            "firestore_gradual_ramp_and_transaction_contention",
+            "reader_latency_and_quota",
+            "bifromq_cluster_behavior"
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "core-medium-v2",
+      "size": "medium",
+      "derived": {
+        "canonical_payload_bytes": "512",
+        "canonical_batch_bytes": "20480000",
+        "canonical_batch_mib": "19.53125",
+        "storage_byte_derived_tasks": 1,
+        "azure_partition_derived_tasks": 4,
+        "aws_storage_tasks": 1,
+        "azure_storage_tasks": 4,
+        "gcp_storage_tasks": 1,
+        "storage_objects_per_batch_lower_bound": 1,
+        "aggregate_dashboard_query_rate_per_second": "0.166666666667",
+        "reader_max_concurrent_requests": 3,
+        "firestore_timestamp_shards": 1,
+        "firestore_planned_raw_writes_per_shard_second": "133.333333333333",
+        "monthly_raw_payload_bytes": "176947200000",
+        "hot_payload_gib": "164.794921875",
+        "cool_payload_gib": "329.58984375",
+        "archive_payload_gib": "1483.154296875",
+        "cosmos_max_hot_payload_bytes_per_device": "44236800",
+        "cosmos_logical_partition_below_20_gb": true,
+        "maximum_aggregate_rollup_points": 720,
+        "l4_inspection_reads_per_month": 240
+      },
+      "provider_admission": {
+        "aws": {
+          "status": "theoretically_admissible",
+          "live_gates": [
+            "dynamodb_partition_distribution",
+            "reader_latency_and_quota",
+            "twinmaker_query_behavior"
+          ]
+        },
+        "azure": {
+          "status": "conditionally_theoretically_admissible",
+          "cosmos_capacity_mode": "serverless",
+          "published_serverless_partition_ru_per_second": 5000,
+          "published_logical_partition_limit_bytes": 20000000000,
+          "request_charge_fixture_required_before_activation": true,
+          "live_gates": [
+            "cosmos_request_charge_fixture",
+            "cosmos_partition_distribution",
+            "reader_latency_and_quota"
+          ]
+        },
+        "gcp": {
+          "status": "conditionally_theoretically_admissible",
+          "live_gates": [
+            "firestore_gradual_ramp_and_transaction_contention",
+            "reader_latency_and_quota",
+            "bifromq_cluster_behavior"
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "core-large-v2",
+      "size": "large",
+      "derived": {
+        "canonical_payload_bytes": "819.2",
+        "canonical_batch_bytes": "1228800000",
+        "canonical_batch_mib": "1171.875",
+        "storage_byte_derived_tasks": 3,
+        "azure_partition_derived_tasks": 30,
+        "aws_storage_tasks": 3,
+        "azure_storage_tasks": 30,
+        "gcp_storage_tasks": 3,
+        "storage_objects_per_batch_lower_bound": 19,
+        "aggregate_dashboard_query_rate_per_second": "3.333333333333",
+        "reader_max_concurrent_requests": 42,
+        "firestore_timestamp_shards": 16,
+        "firestore_planned_raw_writes_per_shard_second": "312.5",
+        "monthly_raw_payload_bytes": "10616832000000",
+        "hot_payload_gib": "9887.6953125",
+        "cool_payload_gib": "19775.390625",
+        "archive_payload_gib": "88989.2578125",
+        "cosmos_max_hot_payload_bytes_per_device": "353894400",
+        "cosmos_logical_partition_below_20_gb": true,
+        "maximum_aggregate_rollup_points": 720,
+        "l4_inspection_reads_per_month": 240
+      },
+      "provider_admission": {
+        "aws": {
+          "status": "theoretically_admissible",
+          "live_gates": [
+            "dynamodb_partition_distribution",
+            "reader_latency_and_quota",
+            "twinmaker_query_behavior"
+          ]
+        },
+        "azure": {
+          "status": "conditionally_theoretically_admissible",
+          "cosmos_capacity_mode": "autoscale",
+          "published_serverless_partition_ru_per_second": 5000,
+          "published_logical_partition_limit_bytes": 20000000000,
+          "request_charge_fixture_required_before_activation": true,
+          "live_gates": [
+            "cosmos_request_charge_fixture",
+            "cosmos_partition_distribution",
+            "reader_latency_and_quota"
+          ]
+        },
+        "gcp": {
+          "status": "conditionally_theoretically_admissible",
+          "live_gates": [
+            "firestore_gradual_ramp_and_transaction_contention",
+            "reader_latency_and_quota",
+            "bifromq_cluster_behavior"
+          ]
+        }
+      }
+    }
+  ],
+  "components": [
+    {
+      "component_id": "apache.bifromq-4.0.0-incubating-on-gke-standard",
+      "component_digest": "sha256:1f314a655aa01f6df935e29a027865c3816e7e1685bb48a3a5e1df27ce0f33fa",
+      "provider": "gcp",
+      "responsibilities": [
+        "l1_acquisition"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "node_count",
+        "node_hours",
+        "connected_devices",
+        "messages"
+      ],
+      "pricing_owner_id": "cost::apache.bifromq-4.0.0-incubating-on-gke-standard",
+      "pricing_catalog_key": "apache.bifromq-4.0.0-incubating-on-gke-standard",
+      "deduplication_key": "apache.bifromq-4.0.0-incubating-on-gke-standard"
+    },
+    {
+      "component_id": "aws.amazon-managed-grafana-12",
+      "component_digest": "sha256:1084a50173eb665b483c68c7916534d0c69d37ba3caa7ae52cf7fb62b2377d2d",
+      "provider": "aws",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
+      ],
+      "pricing_owner_id": "cost::aws.amazon-managed-grafana-12",
+      "pricing_catalog_key": "aws.amazon-managed-grafana-12",
+      "deduplication_key": "aws.amazon-managed-grafana-12"
+    },
+    {
+      "component_id": "aws.cloudwatch",
+      "component_digest": "sha256:05972cb9d2e00ab4891d8a21856f4e4ea8732e60cd4e72b357eef67e60d83f37",
+      "provider": "aws",
+      "responsibilities": [
+        "event_layer",
+        "support"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "log_ingestion_gib",
+        "retained_log_gib_month"
+      ],
+      "pricing_owner_id": "cost::aws.cloudwatch",
+      "pricing_catalog_key": "aws.cloudwatch",
+      "deduplication_key": "aws.cloudwatch"
+    },
+    {
+      "component_id": "aws.dynamodb-on-demand-hourly-rollup",
+      "component_digest": "sha256:96ce314d581ddd279d82833ea93c68dbeb9dc8494f23f63504910dfe95d5127f",
+      "provider": "aws",
+      "responsibilities": [
+        "l3_hot"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "read_requests",
+        "write_requests",
+        "stored_gib_month"
+      ],
+      "pricing_owner_id": "cost::aws.dynamodb-on-demand-hourly-rollup",
+      "pricing_catalog_key": "aws.dynamodb-on-demand-hourly-rollup",
+      "deduplication_key": "aws.dynamodb-on-demand-hourly-rollup"
+    },
+    {
+      "component_id": "aws.dynamodb-on-demand-raw",
+      "component_digest": "sha256:f0df5070f0a6eb1939374a660aefcce91a101127a21c1d99b0d4d4105bb30c57",
+      "provider": "aws",
+      "responsibilities": [
+        "l3_hot"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "read_requests",
+        "write_requests",
+        "stored_gib_month"
+      ],
+      "pricing_owner_id": "cost::aws.dynamodb-on-demand-raw",
+      "pricing_catalog_key": "aws.dynamodb-on-demand-raw",
+      "deduplication_key": "aws.dynamodb-on-demand-raw"
+    },
+    {
+      "component_id": "aws.ecr-if-container-selected",
+      "component_digest": "sha256:7ea6e0b1359b9a63a49fed6ba678cd828f6b178899aba08f532f183b0a2d3179",
+      "provider": "aws",
+      "responsibilities": [
+        "support"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ],
+      "pricing_owner_id": "cost::aws.ecr-if-container-selected",
+      "pricing_catalog_key": "aws.ecr-if-container-selected",
+      "deduplication_key": "aws.ecr-if-container-selected"
+    },
+    {
+      "component_id": "aws.ecs-fargate-storage-mover",
+      "component_digest": "sha256:707ab195b6150644e229e5428ef0b4288fe82780a278eda01180495839188ea6",
+      "provider": "aws",
+      "responsibilities": [
+        "support"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month",
+        "task_count"
+      ],
+      "pricing_owner_id": "cost::aws.ecs-fargate-storage-mover",
+      "pricing_catalog_key": "aws.ecs-fargate-storage-mover",
+      "deduplication_key": "aws.ecs-fargate-storage-mover"
+    },
+    {
+      "component_id": "aws.eventbridge-scheduler",
+      "component_digest": "sha256:2e7efd4f05372746d7440936344019052f3f6343d41924f00db71f3a458740d4",
+      "provider": "aws",
+      "responsibilities": [
+        "support"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "scheduled_invocations"
+      ],
+      "pricing_owner_id": "cost::aws.eventbridge-scheduler",
+      "pricing_catalog_key": "aws.eventbridge-scheduler",
+      "deduplication_key": "aws.eventbridge-scheduler"
+    },
+    {
+      "component_id": "aws.grafana-marcusolsson-json-datasource",
+      "component_digest": "sha256:20d8e5759673f65fc662d6edd00e426e5917e3dc497f85defe28714a50d401d6",
+      "provider": "aws",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
+      ],
+      "pricing_owner_id": "cost::aws.grafana-marcusolsson-json-datasource",
+      "pricing_catalog_key": "aws.grafana-marcusolsson-json-datasource",
+      "deduplication_key": "aws.grafana-marcusolsson-json-datasource"
+    },
+    {
+      "component_id": "aws.iam-identity-center-layer-access",
+      "component_digest": "sha256:3babbd828189d0e725763a47bd5b878a0698ae7b748c635b804a5f6fe0820c87",
+      "provider": "aws",
+      "responsibilities": [
+        "support"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ],
+      "pricing_owner_id": "cost::aws.iam-identity-center-layer-access",
+      "pricing_catalog_key": "aws.iam-identity-center-layer-access",
+      "deduplication_key": "aws.iam-identity-center-layer-access"
+    },
+    {
+      "component_id": "aws.iot-commands",
+      "component_digest": "sha256:e3cf8ac53625522d5fb070deb0a0eb4a1b39fac51773244d14b122771050f70b",
+      "provider": "aws",
+      "responsibilities": [
+        "l1_acquisition"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "connected_devices",
+        "messages"
+      ],
+      "pricing_owner_id": "cost::aws.iot-commands",
+      "pricing_catalog_key": "aws.iot-commands",
+      "deduplication_key": "aws.iot-commands"
+    },
+    {
+      "component_id": "aws.iot-core",
+      "component_digest": "sha256:3830204dcae431e5950ab453f7b547b9d395bb0b4abe5fb1ab0ac486fee51798",
+      "provider": "aws",
+      "responsibilities": [
+        "l1_acquisition"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "connected_devices",
+        "messages"
+      ],
+      "pricing_owner_id": "cost::aws.iot-core",
+      "pricing_catalog_key": "aws.iot-core",
+      "deduplication_key": "aws.iot-core"
+    },
+    {
+      "component_id": "aws.iot-twinmaker-standard",
+      "component_digest": "sha256:2c0563d78039141aafa0f73049afe748f29d92efad8391e7183ab67baf469ee3",
+      "provider": "aws",
+      "responsibilities": [
+        "l4_twin"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "connected_devices",
+        "messages",
+        "twin_entities",
+        "twin_operations"
+      ],
+      "pricing_owner_id": "cost::aws.iot-twinmaker-standard",
+      "pricing_catalog_key": "aws.iot-twinmaker-standard",
+      "deduplication_key": "aws.iot-twinmaker-standard"
+    },
+    {
+      "component_id": "aws.kinesis-data-streams",
+      "component_digest": "sha256:e67606d28eff29a461d7a17beef9ef147406637829de7660701524044fd47953",
+      "provider": "aws",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stream_count",
+        "shards_per_stream",
+        "shard_hours",
+        "payload_units"
+      ],
+      "pricing_owner_id": "cost::aws.kinesis-data-streams",
+      "pricing_catalog_key": "aws.kinesis-data-streams",
+      "deduplication_key": "aws.kinesis-data-streams"
+    },
+    {
+      "component_id": "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+      "component_digest": "sha256:df8682f7743d475f40b0741b05afaf611ba2fca8096092f52ee545ee4d73bce5",
+      "provider": "aws",
+      "responsibilities": [
+        "embedded_event"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stream_count",
+        "shards_per_stream",
+        "shard_hours",
+        "payload_units"
+      ],
+      "pricing_owner_id": "cost::aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+      "pricing_catalog_key": "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+      "deduplication_key": "aws.kinesis-only-for-reviewed-remote-telemetry-edge"
+    },
+    {
+      "component_id": "aws.lambda",
+      "component_digest": "sha256:eec6ce553efa90e04126f935b823e681ae31eab5bccb45070c18a2974b6942d9",
+      "provider": "aws",
+      "responsibilities": [
+        "l2_processing"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "gib_seconds"
+      ],
+      "pricing_owner_id": "cost::aws.lambda",
+      "pricing_catalog_key": "aws.lambda",
+      "deduplication_key": "aws.lambda"
+    },
+    {
+      "component_id": "aws.lambda-event-adapter",
+      "component_digest": "sha256:8d1468980b8b63cb61e00ee9d6dd8a9f01ae13172c6e4d5a417254c4371fd5f7",
+      "provider": "aws",
+      "responsibilities": [
+        "embedded_event"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "gib_seconds"
+      ],
+      "pricing_owner_id": "cost::aws.lambda-event-adapter",
+      "pricing_catalog_key": "aws.lambda-event-adapter",
+      "deduplication_key": "aws.lambda-event-adapter"
+    },
+    {
+      "component_id": "aws.lambda-event-worker",
+      "component_digest": "sha256:68bc70a98dd671ca5a26916199f70eaef117b379f4781081cbefd84b668db8e2",
+      "provider": "aws",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "gib_seconds"
+      ],
+      "pricing_owner_id": "cost::aws.lambda-event-worker",
+      "pricing_catalog_key": "aws.lambda-event-worker",
+      "deduplication_key": "aws.lambda-event-worker"
+    },
+    {
+      "component_id": "aws.lambda-raw-history-reader",
+      "component_digest": "sha256:7632e551beb9fbc103bcbd9ffc753d8dc8cfe12e1b13f1463c11f25be05e6f52",
+      "provider": "aws",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "gib_seconds"
+      ],
+      "pricing_owner_id": "cost::aws.lambda-raw-history-reader",
+      "pricing_catalog_key": "aws.lambda-raw-history-reader",
+      "deduplication_key": "aws.lambda-raw-history-reader"
+    },
+    {
+      "component_id": "aws.s3-event-failure-store",
+      "component_digest": "sha256:1e6c9b46e1c2372e45f736bfabb0da21601a4e1257448a2c0c017afd972fb2fc",
+      "provider": "aws",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ],
+      "pricing_owner_id": "cost::aws.s3-event-failure-store",
+      "pricing_catalog_key": "aws.s3-event-failure-store",
+      "deduplication_key": "aws.s3-event-failure-store"
+    },
+    {
+      "component_id": "aws.s3-glacier-deep-archive",
+      "component_digest": "sha256:f6a2a97ad2458ae4c62c8b0a1a6a05ac2e04dba1511ac931c4159d3e8c3d0b86",
+      "provider": "aws",
+      "responsibilities": [
+        "l3_archive"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ],
+      "pricing_owner_id": "cost::aws.s3-glacier-deep-archive",
+      "pricing_catalog_key": "aws.s3-glacier-deep-archive",
+      "deduplication_key": "aws.s3-glacier-deep-archive"
+    },
+    {
+      "component_id": "aws.s3-standard-ia",
+      "component_digest": "sha256:1c2c68d9864e02d59b27ad532b9c0cd82c8e7329a360a6f7302b6c22e4df6ba8",
+      "provider": "aws",
+      "responsibilities": [
+        "l3_cool"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ],
+      "pricing_owner_id": "cost::aws.s3-standard-ia",
+      "pricing_catalog_key": "aws.s3-standard-ia",
+      "deduplication_key": "aws.s3-standard-ia"
+    },
+    {
+      "component_id": "aws.sns-fifo",
+      "component_digest": "sha256:84cf1b0cc4ec3bee84f37b724563263517bf3a850562ba18203b2b889963ff6d",
+      "provider": "aws",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "publishes",
+        "delivery_bytes"
+      ],
+      "pricing_owner_id": "cost::aws.sns-fifo",
+      "pricing_catalog_key": "aws.sns-fifo",
+      "deduplication_key": "aws.sns-fifo"
+    },
+    {
+      "component_id": "aws.sns-fifo-only-for-reviewed-remote-control-edge",
+      "component_digest": "sha256:a63b0dfb5c9db82f8eeea5ef82cd567d206e8e883920d81ba048ab7b2f9f168e",
+      "provider": "aws",
+      "responsibilities": [
+        "embedded_event"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "publishes",
+        "delivery_bytes"
+      ],
+      "pricing_owner_id": "cost::aws.sns-fifo-only-for-reviewed-remote-control-edge",
+      "pricing_catalog_key": "aws.sns-fifo-only-for-reviewed-remote-control-edge",
+      "deduplication_key": "aws.sns-fifo-only-for-reviewed-remote-control-edge"
+    },
+    {
+      "component_id": "aws.sqs-fifo",
+      "component_digest": "sha256:d85e4aff802be615f989cb734d65366551393cc16874808cbd1a445a6d824a83",
+      "provider": "aws",
+      "responsibilities": [
+        "embedded_event",
+        "event_layer"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests"
+      ],
+      "pricing_owner_id": "cost::aws.sqs-fifo",
+      "pricing_catalog_key": "aws.sqs-fifo",
+      "deduplication_key": "aws.sqs-fifo"
+    },
+    {
+      "component_id": "aws.step-functions-standard",
+      "component_digest": "sha256:c6f8c3c870cda218f7564354d5770cbf99ac2bacce7d93aab77c88a80e0bb2d9",
+      "provider": "aws",
+      "responsibilities": [
+        "l2_processing"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "execution_seconds",
+        "workflow_executions",
+        "workflow_transitions"
+      ],
+      "pricing_owner_id": "cost::aws.step-functions-standard",
+      "pricing_catalog_key": "aws.step-functions-standard",
+      "deduplication_key": "aws.step-functions-standard"
+    },
+    {
+      "component_id": "azure.acr-basic-if-container-selected",
+      "component_digest": "sha256:f4b4f4899c355509660701faec6dc94488030dde47bc50842016b782cae076a1",
+      "provider": "azure",
+      "responsibilities": [
+        "support"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ],
+      "pricing_owner_id": "cost::azure.acr-basic-if-container-selected",
+      "pricing_catalog_key": "azure.acr-basic-if-container-selected",
+      "deduplication_key": "azure.acr-basic-if-container-selected"
+    },
+    {
+      "component_id": "azure.blob-archive",
+      "component_digest": "sha256:19f80fe193b9f8e2875d04db75ffcb3814030518c328ba4c44e561e8a235ad8a",
+      "provider": "azure",
+      "responsibilities": [
+        "l3_archive"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ],
+      "pricing_owner_id": "cost::azure.blob-archive",
+      "pricing_catalog_key": "azure.blob-archive",
+      "deduplication_key": "azure.blob-archive"
+    },
+    {
+      "component_id": "azure.blob-cool",
+      "component_digest": "sha256:72fbe21e7c0b97c3b7ecd24673f8f2d6d05df30c0d9e9b60056b620635df13af",
+      "provider": "azure",
+      "responsibilities": [
+        "l3_cool"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ],
+      "pricing_owner_id": "cost::azure.blob-cool",
+      "pricing_catalog_key": "azure.blob-cool",
+      "deduplication_key": "azure.blob-cool"
+    },
+    {
+      "component_id": "azure.container-apps-scheduled-storage-job",
+      "component_digest": "sha256:eb210affef7b9d6343626c1c66a6292968daef26cb907add764ba26c4ab7b6df",
+      "provider": "azure",
+      "responsibilities": [
+        "support"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month",
+        "task_count"
+      ],
+      "pricing_owner_id": "cost::azure.container-apps-scheduled-storage-job",
+      "pricing_catalog_key": "azure.container-apps-scheduled-storage-job",
+      "deduplication_key": "azure.container-apps-scheduled-storage-job"
+    },
+    {
+      "component_id": "azure.cosmos-db-nosql-raw-and-rollup",
+      "component_digest": "sha256:8c0f8eaf8742371b23b8d8f6a3de2a01ae5b442e93db426d92ecb3a5d783fd29",
+      "provider": "azure",
+      "responsibilities": [
+        "l3_hot"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "request_units",
+        "stored_gib_month",
+        "capacity_mode",
+        "autoscale_max_ru_per_second"
+      ],
+      "pricing_owner_id": "cost::azure.cosmos-db-nosql-raw-and-rollup",
+      "pricing_catalog_key": "azure.cosmos-db-nosql-raw-and-rollup",
+      "deduplication_key": "azure.cosmos-db-nosql-raw-and-rollup"
+    },
+    {
+      "component_id": "azure.digital-twins",
+      "component_digest": "sha256:97df946429ae9ff9cdcbc0f7f1f9383c4a1752458a261061cce391164ad77a57",
+      "provider": "azure",
+      "responsibilities": [
+        "l4_twin"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "twin_entities",
+        "twin_operations"
+      ],
+      "pricing_owner_id": "cost::azure.digital-twins",
+      "pricing_catalog_key": "azure.digital-twins",
+      "deduplication_key": "azure.digital-twins"
+    },
+    {
+      "component_id": "azure.entra-layer-access-bindings",
+      "component_digest": "sha256:7ffcc833e480d183f5d8d6646628fbbb2e1d0c2c665b75971dfe67173c67667a",
+      "provider": "azure",
+      "responsibilities": [
+        "support"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ],
+      "pricing_owner_id": "cost::azure.entra-layer-access-bindings",
+      "pricing_catalog_key": "azure.entra-layer-access-bindings",
+      "deduplication_key": "azure.entra-layer-access-bindings"
+    },
+    {
+      "component_id": "azure.event-hubs-dedicated-large",
+      "component_digest": "sha256:e41d9d4eae477fa2e8e76429d16acb3a476f7abbbf00304526cf79439aa1e346",
+      "provider": "azure",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "throughput_unit_hours",
+        "capacity_unit_hours"
+      ],
+      "pricing_owner_id": "cost::azure.event-hubs-dedicated-large",
+      "pricing_catalog_key": "azure.event-hubs-dedicated-large",
+      "deduplication_key": "azure.event-hubs-dedicated-large"
+    },
+    {
+      "component_id": "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+      "component_digest": "sha256:b6c57083062f2763eb52946acc282e81a4b72a62f9320f8a5338606c2e3b8a04",
+      "provider": "azure",
+      "responsibilities": [
+        "embedded_event"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "throughput_unit_hours",
+        "capacity_unit_hours"
+      ],
+      "pricing_owner_id": "cost::azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+      "pricing_catalog_key": "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+      "deduplication_key": "azure.event-hubs-only-for-reviewed-remote-telemetry-edge"
+    },
+    {
+      "component_id": "azure.event-hubs-standard-small-medium",
+      "component_digest": "sha256:9c761e9c9c81dd5338f7367146894c96f602be6cc9347dc7665236e6e5e265bf",
+      "provider": "azure",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "throughput_unit_hours",
+        "capacity_unit_hours"
+      ],
+      "pricing_owner_id": "cost::azure.event-hubs-standard-small-medium",
+      "pricing_catalog_key": "azure.event-hubs-standard-small-medium",
+      "deduplication_key": "azure.event-hubs-standard-small-medium"
+    },
+    {
+      "component_id": "azure.functions-flex-consumption",
+      "component_digest": "sha256:8c6919d24d79deee270f6d785f6b42a08565ce894b2f3ee85d9f44b16b7ab632",
+      "provider": "azure",
+      "responsibilities": [
+        "l2_processing"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "execution_seconds"
+      ],
+      "pricing_owner_id": "cost::azure.functions-flex-consumption",
+      "pricing_catalog_key": "azure.functions-flex-consumption",
+      "deduplication_key": "azure.functions-flex-consumption"
+    },
+    {
+      "component_id": "azure.functions-flex-event-adapter",
+      "component_digest": "sha256:caddf9bb4c1be63db9354cdfb89a81fca1f92a96a1e66069db71aa521efa2dea",
+      "provider": "azure",
+      "responsibilities": [
+        "embedded_event"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "execution_seconds"
+      ],
+      "pricing_owner_id": "cost::azure.functions-flex-event-adapter",
+      "pricing_catalog_key": "azure.functions-flex-event-adapter",
+      "deduplication_key": "azure.functions-flex-event-adapter"
+    },
+    {
+      "component_id": "azure.functions-flex-event-worker",
+      "component_digest": "sha256:bd12df5b937fbb6d2e9a2be2add928ebba1c733e3d33e1e3c62add24b88140b8",
+      "provider": "azure",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "execution_seconds"
+      ],
+      "pricing_owner_id": "cost::azure.functions-flex-event-worker",
+      "pricing_catalog_key": "azure.functions-flex-event-worker",
+      "deduplication_key": "azure.functions-flex-event-worker"
+    },
+    {
+      "component_id": "azure.functions-flex-raw-history-reader",
+      "component_digest": "sha256:c98c91dc2576733d17f790058d7ff9327392e46c6eb8422efd7e53361641bae5",
+      "provider": "azure",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "execution_seconds"
+      ],
+      "pricing_owner_id": "cost::azure.functions-flex-raw-history-reader",
+      "pricing_catalog_key": "azure.functions-flex-raw-history-reader",
+      "deduplication_key": "azure.functions-flex-raw-history-reader"
+    },
+    {
+      "component_id": "azure.grafana-marcusolsson-json-datasource",
+      "component_digest": "sha256:34f020edfb3b8a2d2262c9f69f85fd781715a5f5f10adb1e10bfb726b1f1f6cc",
+      "provider": "azure",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
+      ],
+      "pricing_owner_id": "cost::azure.grafana-marcusolsson-json-datasource",
+      "pricing_catalog_key": "azure.grafana-marcusolsson-json-datasource",
+      "deduplication_key": "azure.grafana-marcusolsson-json-datasource"
+    },
+    {
+      "component_id": "azure.iot-hub",
+      "component_digest": "sha256:552207ade576c93bdd28c161bd5283b1ff5ef7fd257990a08bad937195bc32d7",
+      "provider": "azure",
+      "responsibilities": [
+        "l1_acquisition"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "connected_devices",
+        "messages"
+      ],
+      "pricing_owner_id": "cost::azure.iot-hub",
+      "pricing_catalog_key": "azure.iot-hub",
+      "deduplication_key": "azure.iot-hub"
+    },
+    {
+      "component_id": "azure.log-analytics-shared-workspace",
+      "component_digest": "sha256:2241615a2bcd75c0262d1a2ee3230c2756c931e0c7048609a4851279b14eeca6",
+      "provider": "azure",
+      "responsibilities": [
+        "event_layer",
+        "support"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "log_ingestion_gib",
+        "retained_log_gib_month"
+      ],
+      "pricing_owner_id": "cost::azure.log-analytics-shared-workspace",
+      "pricing_catalog_key": "azure.log-analytics-shared-workspace",
+      "deduplication_key": "azure.log-analytics-shared-workspace"
+    },
+    {
+      "component_id": "azure.logic-apps-consumption",
+      "component_digest": "sha256:42eac9875f9db4209cfd05089d8a91d4c34e73a3ac456d0f752d87541c031d97",
+      "provider": "azure",
+      "responsibilities": [
+        "l2_processing"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workflow_executions",
+        "workflow_transitions"
+      ],
+      "pricing_owner_id": "cost::azure.logic-apps-consumption",
+      "pricing_catalog_key": "azure.logic-apps-consumption",
+      "deduplication_key": "azure.logic-apps-consumption"
+    },
+    {
+      "component_id": "azure.managed-grafana-12-standard",
+      "component_digest": "sha256:b12a873dfdd1e505eb326a2259829ee497047c17eb47afbaeef64a79c3280d23",
+      "provider": "azure",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
+      ],
+      "pricing_owner_id": "cost::azure.managed-grafana-12-standard",
+      "pricing_catalog_key": "azure.managed-grafana-12-standard",
+      "deduplication_key": "azure.managed-grafana-12-standard"
+    },
+    {
+      "component_id": "azure.monitor",
+      "component_digest": "sha256:f02006dac8de448637f57b0469287c42a11b238acb59226cad1eab28fc47da90",
+      "provider": "azure",
+      "responsibilities": [
+        "event_layer",
+        "support"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "log_ingestion_gib",
+        "retained_log_gib_month"
+      ],
+      "pricing_owner_id": "cost::azure.monitor",
+      "pricing_catalog_key": "azure.monitor",
+      "deduplication_key": "azure.monitor"
+    },
+    {
+      "component_id": "azure.service-bus-standard",
+      "component_digest": "sha256:77a498536d0acbeb389bd53e81620ea3e8615eb034a7a49149ba2269dfb03562",
+      "provider": "azure",
+      "responsibilities": [
+        "embedded_event",
+        "event_layer"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "messaging_unit_hours",
+        "operations"
+      ],
+      "pricing_owner_id": "cost::azure.service-bus-standard",
+      "pricing_catalog_key": "azure.service-bus-standard",
+      "deduplication_key": "azure.service-bus-standard"
+    },
+    {
+      "component_id": "gcp.artifact-registry-if-container-selected",
+      "component_digest": "sha256:12a3f6e7a1f717755f591d41de5406e852aa49d921ed8fecc34a49ecf413a2aa",
+      "provider": "gcp",
+      "responsibilities": [
+        "support"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ],
+      "pricing_owner_id": "cost::gcp.artifact-registry-if-container-selected",
+      "pricing_catalog_key": "gcp.artifact-registry-if-container-selected",
+      "deduplication_key": "gcp.artifact-registry-if-container-selected"
+    },
+    {
+      "component_id": "gcp.cloud-logging",
+      "component_digest": "sha256:18a3d4d5c3a59aab4a691ab4162fd27d119227d7b268b65ef92061d54b48d812",
+      "provider": "gcp",
+      "responsibilities": [
+        "event_layer",
+        "support"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "log_ingestion_gib",
+        "retained_log_gib_month"
+      ],
+      "pricing_owner_id": "cost::gcp.cloud-logging",
+      "pricing_catalog_key": "gcp.cloud-logging",
+      "deduplication_key": "gcp.cloud-logging"
+    },
+    {
+      "component_id": "gcp.cloud-monitoring",
+      "component_digest": "sha256:31496276f73d09c352cc6f17546d8f62c5b2dfd05d52999fa123f5072fcff67a",
+      "provider": "gcp",
+      "responsibilities": [
+        "event_layer",
+        "support"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "log_ingestion_gib",
+        "retained_log_gib_month"
+      ],
+      "pricing_owner_id": "cost::gcp.cloud-monitoring",
+      "pricing_catalog_key": "gcp.cloud-monitoring",
+      "deduplication_key": "gcp.cloud-monitoring"
+    },
+    {
+      "component_id": "gcp.cloud-run-event-adapter",
+      "component_digest": "sha256:f661159c7ffd7c7226b95171d86aba3a6a7d317dcb204fa1dc9eac0600f396a7",
+      "provider": "gcp",
+      "responsibilities": [
+        "embedded_event"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
+      ],
+      "pricing_owner_id": "cost::gcp.cloud-run-event-adapter",
+      "pricing_catalog_key": "gcp.cloud-run-event-adapter",
+      "deduplication_key": "gcp.cloud-run-event-adapter"
+    },
+    {
+      "component_id": "gcp.cloud-run-event-service-small-medium",
+      "component_digest": "sha256:cd263adb0a0245d8cc494f54ceb2c262ceba956e389b2e6aaf38a16812ce7322",
+      "provider": "gcp",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
+      ],
+      "pricing_owner_id": "cost::gcp.cloud-run-event-service-small-medium",
+      "pricing_catalog_key": "gcp.cloud-run-event-service-small-medium",
+      "deduplication_key": "gcp.cloud-run-event-service-small-medium"
+    },
+    {
+      "component_id": "gcp.cloud-run-iap-twin-explorer",
+      "component_digest": "sha256:c3b5ffe4c20dd249a154a611e786b66ca826d3aedc23579cd0130a2cd5f80937",
+      "provider": "gcp",
+      "responsibilities": [
+        "l4_twin"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds",
+        "twin_entities",
+        "twin_operations"
+      ],
+      "pricing_owner_id": "cost::gcp.cloud-run-iap-twin-explorer",
+      "pricing_catalog_key": "gcp.cloud-run-iap-twin-explorer",
+      "deduplication_key": "gcp.cloud-run-iap-twin-explorer"
+    },
+    {
+      "component_id": "gcp.cloud-run-raw-history-reader",
+      "component_digest": "sha256:daed0920d6de6451149faa7f8da846fc1eab986bb5a5dd8e6fa9dfb578954a05",
+      "provider": "gcp",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
+      ],
+      "pricing_owner_id": "cost::gcp.cloud-run-raw-history-reader",
+      "pricing_catalog_key": "gcp.cloud-run-raw-history-reader",
+      "deduplication_key": "gcp.cloud-run-raw-history-reader"
+    },
+    {
+      "component_id": "gcp.cloud-run-service",
+      "component_digest": "sha256:533fec9abc15888b0edf2d0c0c44eb9d9d28e51dbca57cd8235037a5895df29b",
+      "provider": "gcp",
+      "responsibilities": [
+        "l2_processing"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
+      ],
+      "pricing_owner_id": "cost::gcp.cloud-run-service",
+      "pricing_catalog_key": "gcp.cloud-run-service",
+      "deduplication_key": "gcp.cloud-run-service"
+    },
+    {
+      "component_id": "gcp.cloud-run-storage-job",
+      "component_digest": "sha256:0cb4069fc4a636adae39e34a49c72d5488d206aa189df3fd66a091df7f9ca1c1",
+      "provider": "gcp",
+      "responsibilities": [
+        "support"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month",
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds",
+        "task_count"
+      ],
+      "pricing_owner_id": "cost::gcp.cloud-run-storage-job",
+      "pricing_catalog_key": "gcp.cloud-run-storage-job",
+      "deduplication_key": "gcp.cloud-run-storage-job"
+    },
+    {
+      "component_id": "gcp.cloud-run-twin-api-materializer",
+      "component_digest": "sha256:0ef0dc98cc2a99c02351db4de987209153874d344cf03fcf3ef59cc4bc644cb8",
+      "provider": "gcp",
+      "responsibilities": [
+        "l4_twin"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds",
+        "twin_entities",
+        "twin_operations"
+      ],
+      "pricing_owner_id": "cost::gcp.cloud-run-twin-api-materializer",
+      "pricing_catalog_key": "gcp.cloud-run-twin-api-materializer",
+      "deduplication_key": "gcp.cloud-run-twin-api-materializer"
+    },
+    {
+      "component_id": "gcp.cloud-run-worker-pool-fixed-large",
+      "component_digest": "sha256:d205410807c1baf89ee920e920a9672d1fd6ae1e9bcad8a3cb7f50b5bd3c417a",
+      "provider": "gcp",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "vcpu_seconds",
+        "memory_gib_seconds"
+      ],
+      "pricing_owner_id": "cost::gcp.cloud-run-worker-pool-fixed-large",
+      "pricing_catalog_key": "gcp.cloud-run-worker-pool-fixed-large",
+      "deduplication_key": "gcp.cloud-run-worker-pool-fixed-large"
+    },
+    {
+      "component_id": "gcp.cloud-scheduler",
+      "component_digest": "sha256:f14ecb70fe712157edc0bbdf29d143d1a0c9876112657b463ef5acec1663d6a1",
+      "provider": "gcp",
+      "responsibilities": [
+        "support"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "scheduled_invocations"
+      ],
+      "pricing_owner_id": "cost::gcp.cloud-scheduler",
+      "pricing_catalog_key": "gcp.cloud-scheduler",
+      "deduplication_key": "gcp.cloud-scheduler"
+    },
+    {
+      "component_id": "gcp.cloud-storage-archive",
+      "component_digest": "sha256:4094f3c6110df53385971608ad0b3b5c978dca569d2874086640a80c4e4aad9f",
+      "provider": "gcp",
+      "responsibilities": [
+        "l3_archive"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ],
+      "pricing_owner_id": "cost::gcp.cloud-storage-archive",
+      "pricing_catalog_key": "gcp.cloud-storage-archive",
+      "deduplication_key": "gcp.cloud-storage-archive"
+    },
+    {
+      "component_id": "gcp.cloud-storage-nearline",
+      "component_digest": "sha256:9285307adc1671d4b8631ef459dac192620c6faab99a504b8f8c70fd113a733f",
+      "provider": "gcp",
+      "responsibilities": [
+        "l3_cool"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ],
+      "pricing_owner_id": "cost::gcp.cloud-storage-nearline",
+      "pricing_catalog_key": "gcp.cloud-storage-nearline",
+      "deduplication_key": "gcp.cloud-storage-nearline"
+    },
+    {
+      "component_id": "gcp.direct-iap-layer-access",
+      "component_digest": "sha256:b48ca5250a800ec0dc03d6120bdfcbea90b5a3aaf2d468f229744700d6361f14",
+      "provider": "gcp",
+      "responsibilities": [
+        "l4_twin"
+      ],
+      "capacity_dimensions": [
+        "resource_count"
+      ],
+      "pricing_owner_id": "cost::gcp.direct-iap-layer-access",
+      "pricing_catalog_key": "gcp.direct-iap-layer-access",
+      "deduplication_key": "gcp.direct-iap-layer-access"
+    },
+    {
+      "component_id": "gcp.external-load-balancer",
+      "component_digest": "sha256:c3b72677a85b91fd4e932a50b43119207ea329ea0738102360f22cb37e6805c1",
+      "provider": "gcp",
+      "responsibilities": [
+        "l1_acquisition"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "rule_hours",
+        "processed_bytes"
+      ],
+      "pricing_owner_id": "cost::gcp.external-load-balancer",
+      "pricing_catalog_key": "gcp.external-load-balancer",
+      "deduplication_key": "gcp.external-load-balancer"
+    },
+    {
+      "component_id": "gcp.firestore-native-standard-bounded-twin",
+      "component_digest": "sha256:827348cc660e0331a99e36ed4c33cb62ba21776e8bac29dfe3f253a545ea180b",
+      "provider": "gcp",
+      "responsibilities": [
+        "l4_twin"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "document_reads",
+        "document_writes",
+        "document_deletes",
+        "stored_gib_month",
+        "timestamp_shards",
+        "twin_entities",
+        "twin_operations"
+      ],
+      "pricing_owner_id": "cost::gcp.firestore-native-standard-bounded-twin",
+      "pricing_catalog_key": "gcp.firestore-native-standard-bounded-twin",
+      "deduplication_key": "gcp.firestore-native-standard-bounded-twin"
+    },
+    {
+      "component_id": "gcp.firestore-native-standard-raw-and-rollup",
+      "component_digest": "sha256:98027aabd943736d98072f67870fb8b988c2580542b37403edd345da42a5eb6d",
+      "provider": "gcp",
+      "responsibilities": [
+        "l3_hot"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "document_reads",
+        "document_writes",
+        "document_deletes",
+        "stored_gib_month",
+        "timestamp_shards"
+      ],
+      "pricing_owner_id": "cost::gcp.firestore-native-standard-raw-and-rollup",
+      "pricing_catalog_key": "gcp.firestore-native-standard-raw-and-rollup",
+      "deduplication_key": "gcp.firestore-native-standard-raw-and-rollup"
+    },
+    {
+      "component_id": "gcp.grafana-tls-load-balancer",
+      "component_digest": "sha256:fd66cb19daa23833fd6d59b44d5cb2a0c0cff8f1bad88562f491a93c20c4e119",
+      "provider": "gcp",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats",
+        "rule_hours",
+        "processed_bytes"
+      ],
+      "pricing_owner_id": "cost::gcp.grafana-tls-load-balancer",
+      "pricing_catalog_key": "gcp.grafana-tls-load-balancer",
+      "deduplication_key": "gcp.grafana-tls-load-balancer"
+    },
+    {
+      "component_id": "gcp.ordered-mqtt-pubsub-adapter",
+      "component_digest": "sha256:9b6e86a8c1eef60800c5ea5a32d55f7ada658081369fffab6e7a149095fe9d87",
+      "provider": "gcp",
+      "responsibilities": [
+        "l1_acquisition"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "publish_bytes",
+        "delivery_bytes",
+        "connected_devices",
+        "messages",
+        "node_count",
+        "node_hours"
+      ],
+      "pricing_owner_id": "cost::gcp.ordered-mqtt-pubsub-adapter",
+      "pricing_catalog_key": "gcp.ordered-mqtt-pubsub-adapter",
+      "deduplication_key": "gcp.ordered-mqtt-pubsub-adapter"
+    },
+    {
+      "component_id": "gcp.persistent-disk-rwo",
+      "component_digest": "sha256:10ae8b33835f5d6a4e9ed45ce8b2bb9d7ff539dcbcd2af39f1e86de82a843673",
+      "provider": "gcp",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "stored_gib_month"
+      ],
+      "pricing_owner_id": "cost::gcp.persistent-disk-rwo",
+      "pricing_catalog_key": "gcp.persistent-disk-rwo",
+      "deduplication_key": "gcp.persistent-disk-rwo"
+    },
+    {
+      "component_id": "gcp.pubsub-separated-embedded-topics",
+      "component_digest": "sha256:778ea3f91335f7f6deeea97cc43f270921eef334bfb6ac457db07f43139f174a",
+      "provider": "gcp",
+      "responsibilities": [
+        "embedded_event"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "publish_bytes",
+        "delivery_bytes"
+      ],
+      "pricing_owner_id": "cost::gcp.pubsub-separated-embedded-topics",
+      "pricing_catalog_key": "gcp.pubsub-separated-embedded-topics",
+      "deduplication_key": "gcp.pubsub-separated-embedded-topics"
+    },
+    {
+      "component_id": "gcp.pubsub-separated-event-layer-topics",
+      "component_digest": "sha256:31c1185c4ae1444a3a46773bb1ddd4e9b56fb6f4476b6a0f52afa0c053652e4c",
+      "provider": "gcp",
+      "responsibilities": [
+        "event_layer"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "publish_bytes",
+        "delivery_bytes"
+      ],
+      "pricing_owner_id": "cost::gcp.pubsub-separated-event-layer-topics",
+      "pricing_catalog_key": "gcp.pubsub-separated-event-layer-topics",
+      "deduplication_key": "gcp.pubsub-separated-event-layer-topics"
+    },
+    {
+      "component_id": "gcp.workflows",
+      "component_digest": "sha256:7007821904555445cb14ec8bb84d8981ca527c5d75ee777c1c5ffc6b30bd9b5f",
+      "provider": "gcp",
+      "responsibilities": [
+        "l2_processing"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workflow_executions",
+        "workflow_transitions"
+      ],
+      "pricing_owner_id": "cost::gcp.workflows",
+      "pricing_catalog_key": "gcp.workflows",
+      "deduplication_key": "gcp.workflows"
+    },
+    {
+      "component_id": "grafana.oss-12-on-gke",
+      "component_digest": "sha256:d3724e523fc404d99103aea5f91c58e5b53ff8ee37d36036d80a5fe8d19dbef8",
+      "provider": "gcp",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats",
+        "node_count",
+        "node_hours"
+      ],
+      "pricing_owner_id": "cost::grafana.oss-12-on-gke",
+      "pricing_catalog_key": "grafana.oss-12-on-gke",
+      "deduplication_key": "grafana.oss-12-on-gke"
+    },
+    {
+      "component_id": "grafana.yesoreyeram-infinity-datasource",
+      "component_digest": "sha256:eab63d52bb562457f7d28500c01de5f4b505cc281db2030944fc68028be8a095",
+      "provider": "gcp",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
+      ],
+      "pricing_owner_id": "cost::grafana.yesoreyeram-infinity-datasource",
+      "pricing_catalog_key": "grafana.yesoreyeram-infinity-datasource",
+      "deduplication_key": "grafana.yesoreyeram-infinity-datasource"
+    }
+  ],
+  "route_owners": [
+    {
+      "cost_owner_id": "cost::route::twin_projection_cross_cloud::aws->azure",
+      "route_class": "twin_projection_cross_cloud",
+      "pair": "aws->azure",
+      "source_provider": "aws",
+      "destination_provider": "azure",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "twin_projection_cross_cloud::aws->azure"
+    },
+    {
+      "cost_owner_id": "cost::route::twin_projection_cross_cloud::aws->gcp",
+      "route_class": "twin_projection_cross_cloud",
+      "pair": "aws->gcp",
+      "source_provider": "aws",
+      "destination_provider": "gcp",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "twin_projection_cross_cloud::aws->gcp"
+    },
+    {
+      "cost_owner_id": "cost::route::twin_projection_cross_cloud::azure->aws",
+      "route_class": "twin_projection_cross_cloud",
+      "pair": "azure->aws",
+      "source_provider": "azure",
+      "destination_provider": "aws",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "twin_projection_cross_cloud::azure->aws"
+    },
+    {
+      "cost_owner_id": "cost::route::twin_projection_cross_cloud::azure->gcp",
+      "route_class": "twin_projection_cross_cloud",
+      "pair": "azure->gcp",
+      "source_provider": "azure",
+      "destination_provider": "gcp",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "twin_projection_cross_cloud::azure->gcp"
+    },
+    {
+      "cost_owner_id": "cost::route::twin_projection_cross_cloud::gcp->aws",
+      "route_class": "twin_projection_cross_cloud",
+      "pair": "gcp->aws",
+      "source_provider": "gcp",
+      "destination_provider": "aws",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "twin_projection_cross_cloud::gcp->aws"
+    },
+    {
+      "cost_owner_id": "cost::route::twin_projection_cross_cloud::gcp->azure",
+      "route_class": "twin_projection_cross_cloud",
+      "pair": "gcp->azure",
+      "source_provider": "gcp",
+      "destination_provider": "azure",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "twin_projection_cross_cloud::gcp->azure"
+    },
+    {
+      "cost_owner_id": "cost::route::storage_hot_to_cool_cross_cloud::aws->azure",
+      "route_class": "storage_hot_to_cool_cross_cloud",
+      "pair": "aws->azure",
+      "source_provider": "aws",
+      "destination_provider": "azure",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "storage_hot_to_cool_cross_cloud::aws->azure"
+    },
+    {
+      "cost_owner_id": "cost::route::storage_hot_to_cool_cross_cloud::aws->gcp",
+      "route_class": "storage_hot_to_cool_cross_cloud",
+      "pair": "aws->gcp",
+      "source_provider": "aws",
+      "destination_provider": "gcp",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "storage_hot_to_cool_cross_cloud::aws->gcp"
+    },
+    {
+      "cost_owner_id": "cost::route::storage_hot_to_cool_cross_cloud::azure->aws",
+      "route_class": "storage_hot_to_cool_cross_cloud",
+      "pair": "azure->aws",
+      "source_provider": "azure",
+      "destination_provider": "aws",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "storage_hot_to_cool_cross_cloud::azure->aws"
+    },
+    {
+      "cost_owner_id": "cost::route::storage_hot_to_cool_cross_cloud::azure->gcp",
+      "route_class": "storage_hot_to_cool_cross_cloud",
+      "pair": "azure->gcp",
+      "source_provider": "azure",
+      "destination_provider": "gcp",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "storage_hot_to_cool_cross_cloud::azure->gcp"
+    },
+    {
+      "cost_owner_id": "cost::route::storage_hot_to_cool_cross_cloud::gcp->aws",
+      "route_class": "storage_hot_to_cool_cross_cloud",
+      "pair": "gcp->aws",
+      "source_provider": "gcp",
+      "destination_provider": "aws",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "storage_hot_to_cool_cross_cloud::gcp->aws"
+    },
+    {
+      "cost_owner_id": "cost::route::storage_hot_to_cool_cross_cloud::gcp->azure",
+      "route_class": "storage_hot_to_cool_cross_cloud",
+      "pair": "gcp->azure",
+      "source_provider": "gcp",
+      "destination_provider": "azure",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "storage_hot_to_cool_cross_cloud::gcp->azure"
+    },
+    {
+      "cost_owner_id": "cost::route::storage_cool_to_archive_cross_cloud::aws->azure",
+      "route_class": "storage_cool_to_archive_cross_cloud",
+      "pair": "aws->azure",
+      "source_provider": "aws",
+      "destination_provider": "azure",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "storage_cool_to_archive_cross_cloud::aws->azure"
+    },
+    {
+      "cost_owner_id": "cost::route::storage_cool_to_archive_cross_cloud::aws->gcp",
+      "route_class": "storage_cool_to_archive_cross_cloud",
+      "pair": "aws->gcp",
+      "source_provider": "aws",
+      "destination_provider": "gcp",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "storage_cool_to_archive_cross_cloud::aws->gcp"
+    },
+    {
+      "cost_owner_id": "cost::route::storage_cool_to_archive_cross_cloud::azure->aws",
+      "route_class": "storage_cool_to_archive_cross_cloud",
+      "pair": "azure->aws",
+      "source_provider": "azure",
+      "destination_provider": "aws",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "storage_cool_to_archive_cross_cloud::azure->aws"
+    },
+    {
+      "cost_owner_id": "cost::route::storage_cool_to_archive_cross_cloud::azure->gcp",
+      "route_class": "storage_cool_to_archive_cross_cloud",
+      "pair": "azure->gcp",
+      "source_provider": "azure",
+      "destination_provider": "gcp",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "storage_cool_to_archive_cross_cloud::azure->gcp"
+    },
+    {
+      "cost_owner_id": "cost::route::storage_cool_to_archive_cross_cloud::gcp->aws",
+      "route_class": "storage_cool_to_archive_cross_cloud",
+      "pair": "gcp->aws",
+      "source_provider": "gcp",
+      "destination_provider": "aws",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "storage_cool_to_archive_cross_cloud::gcp->aws"
+    },
+    {
+      "cost_owner_id": "cost::route::storage_cool_to_archive_cross_cloud::gcp->azure",
+      "route_class": "storage_cool_to_archive_cross_cloud",
+      "pair": "gcp->azure",
+      "source_provider": "gcp",
+      "destination_provider": "azure",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "storage_cool_to_archive_cross_cloud::gcp->azure"
+    },
+    {
+      "cost_owner_id": "cost::route::domain_event_cross_cloud::aws->azure",
+      "route_class": "domain_event_cross_cloud",
+      "pair": "aws->azure",
+      "source_provider": "aws",
+      "destination_provider": "azure",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "domain_event_cross_cloud::aws->azure"
+    },
+    {
+      "cost_owner_id": "cost::route::domain_event_cross_cloud::aws->gcp",
+      "route_class": "domain_event_cross_cloud",
+      "pair": "aws->gcp",
+      "source_provider": "aws",
+      "destination_provider": "gcp",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "domain_event_cross_cloud::aws->gcp"
+    },
+    {
+      "cost_owner_id": "cost::route::domain_event_cross_cloud::azure->aws",
+      "route_class": "domain_event_cross_cloud",
+      "pair": "azure->aws",
+      "source_provider": "azure",
+      "destination_provider": "aws",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "domain_event_cross_cloud::azure->aws"
+    },
+    {
+      "cost_owner_id": "cost::route::domain_event_cross_cloud::azure->gcp",
+      "route_class": "domain_event_cross_cloud",
+      "pair": "azure->gcp",
+      "source_provider": "azure",
+      "destination_provider": "gcp",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "domain_event_cross_cloud::azure->gcp"
+    },
+    {
+      "cost_owner_id": "cost::route::domain_event_cross_cloud::gcp->aws",
+      "route_class": "domain_event_cross_cloud",
+      "pair": "gcp->aws",
+      "source_provider": "gcp",
+      "destination_provider": "aws",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "domain_event_cross_cloud::gcp->aws"
+    },
+    {
+      "cost_owner_id": "cost::route::domain_event_cross_cloud::gcp->azure",
+      "route_class": "domain_event_cross_cloud",
+      "pair": "gcp->azure",
+      "source_provider": "gcp",
+      "destination_provider": "azure",
+      "dimensions": [
+        "source_runtime",
+        "destination_operations",
+        "cross_cloud_egress_bytes"
+      ],
+      "deduplication_key": "domain_event_cross_cloud::gcp->azure"
+    }
+  ],
+  "content_digest": "sha256:9d5dd39619132876cdd115517bf3e906458f4d30f0d6259e1df8d3be4d944899"
+}

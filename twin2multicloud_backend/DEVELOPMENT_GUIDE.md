@@ -27,6 +27,17 @@ Flutter
 - `PricingCatalogContextService` is the sole resolver for calculation,
   pricing-health, persisted evidence, and deployment-selection catalog
   references. Do not infer readiness from legacy snapshot blobs or timestamps.
+- Architecture-aware calculation is default-on through
+  `ARCHITECTURE_PROFILE_RESOLUTION_ENABLED`; explicit `false` is the rollback.
+  Only the Twin-owned optimizer-run
+  service may enrich the internal request from the persisted profile selection
+  and active immutable extension bindings. Public calculation schemas must not
+  accept those fields.
+- When the architecture gate is enabled, a successful calculation atomically
+  persists the result, deployment specification, and validated
+  `ResolvedTwinArchitecture`. Invalid or missing architecture evidence creates
+  only a bounded failed run; it must never fall back to a legacy successful
+  run.
 - Reusable cloud credentials live only in encrypted, user-owned
   `CloudConnection` records.
 - Credential-bearing deployment packages are staged for one Deployer operation
@@ -98,6 +109,9 @@ runtime database under `/var/lib/twin2multicloud-management/data/`.
 9. Persist exact immutable pricing references in Management; full public
    pricing catalogs remain in the Optimizer and require an explicit,
    size-bounded diagnostic read.
+10. Preserve the active Five-layer v2 profile/catalog/provider lifecycle as one
+    atomic contract. Offline fixtures remain evaluation evidence, and their
+    unresolved live-capacity gates must never be bypassed for deployment.
 
 ## Upload And Runtime Safety
 

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../config/app_runtime.dart';
 import '../models/authentication.dart';
@@ -115,7 +114,6 @@ class _DevelopmentLogin extends ConsumerWidget {
       onPressed: () async {
         try {
           await ref.read(authProvider.notifier).continueInDevelopment();
-          if (context.mounted) context.go('/dashboard');
         } on StateError {
           if (!context.mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(

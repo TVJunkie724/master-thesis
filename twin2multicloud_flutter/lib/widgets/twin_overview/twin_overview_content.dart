@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../bloc/twin_overview/twin_overview_state.dart';
+import '../../models/deployment_access.dart';
 import '../../theme/spacing.dart';
 import '../terraform_outputs_card.dart';
 import 'deployment_operations_panel.dart';
 import 'deployment_readiness_panel.dart';
+import 'layer_access_panel.dart';
 import 'testing_utilities_panel.dart';
 import 'twin_overview_code_artifact.dart';
 import 'twin_overview_configuration_review.dart';
@@ -25,6 +27,9 @@ class TwinOverviewContent extends StatelessWidget {
   final VoidCallback onStartTrace;
   final VoidCallback onCancelTrace;
   final VoidCallback onDownloadSimulator;
+  final VoidCallback onRetryLayerAccess;
+  final ValueChanged<DeploymentAccessSurface> onOpenLayerAccess;
+  final VoidCallback onRotateLayerAccessCredential;
   final ValueChanged<String> onOutputCopyFeedback;
   final ValueChanged<TwinOverviewCodeArtifact> onViewArtifact;
   final ValueChanged<TwinOverviewCodeArtifact> onDownloadArtifact;
@@ -44,6 +49,9 @@ class TwinOverviewContent extends StatelessWidget {
     required this.onStartTrace,
     required this.onCancelTrace,
     required this.onDownloadSimulator,
+    required this.onRetryLayerAccess,
+    required this.onOpenLayerAccess,
+    required this.onRotateLayerAccessCredential,
     required this.onOutputCopyFeedback,
     required this.onViewArtifact,
     required this.onDownloadArtifact,
@@ -81,6 +89,15 @@ class TwinOverviewContent extends StatelessWidget {
                   onRunPreflight: onRunPreflight,
                   onOpenCloudAccounts: onOpenCloudAccounts,
                 ),
+                if (isDeployed) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  LayerAccessPanel(
+                    state: state.layerAccess,
+                    onRetry: onRetryLayerAccess,
+                    onOpenSurface: onOpenLayerAccess,
+                    onRotateViewerCredential: onRotateLayerAccessCredential,
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.lg),
                 DeploymentOperationsPanel(
                   twinState: state.twinState,

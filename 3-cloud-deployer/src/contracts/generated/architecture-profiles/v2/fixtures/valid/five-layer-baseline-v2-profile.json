@@ -1,0 +1,693 @@
+{
+  "compatibility": {
+    "supported_contract_versions": [
+      "five-layer-workload.v2",
+      "resolved-deployment-specification.v2"
+    ],
+    "provider_implementation_schema_versions": [
+      "provider-implementation-profile.v2"
+    ],
+    "catalog_schema_versions": [
+      "deployment-component-catalog.v2"
+    ],
+    "resolved_architecture_schema_versions": [
+      "resolved-twin-architecture.v2"
+    ]
+  },
+  "components": [
+    {
+      "component_id": "component.archive-storage",
+      "component_kind": "storage",
+      "cost_owner_ids": [
+        "cost.archive-storage"
+      ],
+      "extension_slot_ids": [],
+      "input_port_ids": [
+        "port.archive-storage.write-in"
+      ],
+      "observability_contract_id": "observability.baseline",
+      "output_port_ids": [],
+      "required": true,
+      "required_capability_ids": [
+        "capability.archive-storage"
+      ],
+      "responsibility_id": "responsibility.storage"
+    },
+    {
+      "component_id": "component.cool-storage",
+      "component_kind": "storage",
+      "cost_owner_ids": [
+        "cost.cool-storage"
+      ],
+      "extension_slot_ids": [],
+      "input_port_ids": [
+        "port.cool-storage.write-in"
+      ],
+      "observability_contract_id": "observability.baseline",
+      "output_port_ids": [
+        "port.cool-storage.transition-out"
+      ],
+      "required": true,
+      "required_capability_ids": [
+        "capability.cool-storage"
+      ],
+      "responsibility_id": "responsibility.storage"
+    },
+    {
+      "component_id": "component.hot-storage",
+      "component_kind": "storage",
+      "cost_owner_ids": [
+        "cost.hot-storage"
+      ],
+      "extension_slot_ids": [],
+      "input_port_ids": [
+        "port.hot-storage.processing-event-in",
+        "port.hot-storage.command-outcome-event-in"
+      ],
+      "observability_contract_id": "observability.baseline",
+      "output_port_ids": [
+        "port.hot-storage.transition-out",
+        "port.hot-storage.twin-projection-out",
+        "port.hot-storage.raw-history-out"
+      ],
+      "required": true,
+      "required_capability_ids": [
+        "capability.hot-storage"
+      ],
+      "responsibility_id": "responsibility.storage"
+    },
+    {
+      "component_id": "component.ingestion",
+      "component_kind": "ingress",
+      "cost_owner_ids": [
+        "cost.ingestion"
+      ],
+      "extension_slot_ids": [],
+      "input_port_ids": [
+        "port.ingestion.device-command-in"
+      ],
+      "observability_contract_id": "observability.baseline",
+      "output_port_ids": [
+        "port.ingestion.telemetry-event-out",
+        "port.ingestion.command-outcome-event-out"
+      ],
+      "required": true,
+      "required_capability_ids": [
+        "capability.ingestion",
+        "capability.embedded-domain-event-ingress"
+      ],
+      "responsibility_id": "responsibility.ingestion"
+    },
+    {
+      "component_id": "component.processing",
+      "component_kind": "processor",
+      "cost_owner_ids": [
+        "cost.processing"
+      ],
+      "extension_slot_ids": [
+        "processor.telemetry"
+      ],
+      "input_port_ids": [
+        "port.processing.telemetry-event-in"
+      ],
+      "observability_contract_id": "observability.baseline",
+      "output_port_ids": [
+        "port.processing.persistence-event-out",
+        "port.processing.device-command-out"
+      ],
+      "required": true,
+      "required_capability_ids": [
+        "capability.processing",
+        "capability.embedded-domain-event-routing",
+        "capability.mandatory-rule-action-feedback"
+      ],
+      "responsibility_id": "responsibility.processing"
+    },
+    {
+      "component_id": "component.twin-state",
+      "component_kind": "twin_state",
+      "cost_owner_ids": [
+        "cost.twin-state"
+      ],
+      "extension_slot_ids": [],
+      "input_port_ids": [
+        "port.twin-state.projection-in"
+      ],
+      "observability_contract_id": "observability.baseline",
+      "output_port_ids": [],
+      "required": true,
+      "required_capability_ids": [
+        "capability.twin-state"
+      ],
+      "responsibility_id": "responsibility.twin-state"
+    },
+    {
+      "component_id": "component.visualization",
+      "component_kind": "visualization",
+      "cost_owner_ids": [
+        "cost.visualization"
+      ],
+      "extension_slot_ids": [],
+      "input_port_ids": [
+        "port.visualization.raw-history-in"
+      ],
+      "observability_contract_id": "observability.baseline",
+      "output_port_ids": [],
+      "required": true,
+      "required_capability_ids": [
+        "capability.visualization"
+      ],
+      "responsibility_id": "responsibility.visualization"
+    }
+  ],
+  "content_digest": "sha256:d8a57a1f9ff1c530282dd42dcf595f1a9ec8051f8cd8574acfb0a81e655d9386",
+  "description": "Functionally complete thesis-PoC profile with mandatory embedded domain events, provider-local L3-hot/L5 raw history, and an independently placeable L4 Twin.",
+  "display_name": "Five-layer baseline v2",
+  "edges": [
+    {
+      "cost_owner_ids": [
+        "cost.cool-to-archive-storage"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_id": "component.archive-storage",
+      "destination_port_id": "port.archive-storage.write-in",
+      "edge_contract_id": "storage_transition.v1",
+      "edge_contract_version": "1",
+      "edge_id": "edge.cool-to-archive-storage",
+      "observability_requirements": {
+        "bounded_error_contract": "required",
+        "correlation": "required",
+        "metrics": "required"
+      },
+      "required": true,
+      "source_component_id": "component.cool-storage",
+      "source_port_id": "port.cool-storage.transition-out",
+      "transfer_workload_ref": {
+        "id": "telemetry-update-count",
+        "version": "1"
+      },
+      "trust_requirements": {
+        "authentication": "workload_identity",
+        "authorization": "least_privilege_capability_set",
+        "transport": "tls"
+      }
+    },
+    {
+      "cost_owner_ids": [
+        "cost.hot-storage-to-twin-state"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_id": "component.twin-state",
+      "destination_port_id": "port.twin-state.projection-in",
+      "edge_contract_id": "twin_projection.v1",
+      "edge_contract_version": "1",
+      "edge_id": "edge.hot-storage-to-twin-state",
+      "observability_requirements": {
+        "bounded_error_contract": "required",
+        "correlation": "required",
+        "metrics": "required"
+      },
+      "required": true,
+      "source_component_id": "component.hot-storage",
+      "source_port_id": "port.hot-storage.twin-projection-out",
+      "transfer_workload_ref": {
+        "id": "telemetry-update-count",
+        "version": "1"
+      },
+      "trust_requirements": {
+        "authentication": "workload_identity",
+        "authorization": "least_privilege_capability_set",
+        "transport": "tls"
+      }
+    },
+    {
+      "cost_owner_ids": [
+        "cost.hot-to-cool-storage"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_id": "component.cool-storage",
+      "destination_port_id": "port.cool-storage.write-in",
+      "edge_contract_id": "storage_transition.v1",
+      "edge_contract_version": "1",
+      "edge_id": "edge.hot-to-cool-storage",
+      "observability_requirements": {
+        "bounded_error_contract": "required",
+        "correlation": "required",
+        "metrics": "required"
+      },
+      "required": true,
+      "source_component_id": "component.hot-storage",
+      "source_port_id": "port.hot-storage.transition-out",
+      "transfer_workload_ref": {
+        "id": "telemetry-update-count",
+        "version": "1"
+      },
+      "trust_requirements": {
+        "authentication": "workload_identity",
+        "authorization": "least_privilege_capability_set",
+        "transport": "tls"
+      }
+    },
+    {
+      "cost_owner_ids": [
+        "cost.ingestion-to-processing"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_id": "component.processing",
+      "destination_port_id": "port.processing.telemetry-event-in",
+      "edge_contract_id": "canonical-domain-event.v1",
+      "edge_contract_version": "1",
+      "edge_id": "edge.ingestion-to-processing",
+      "observability_requirements": {
+        "bounded_error_contract": "required",
+        "correlation": "required",
+        "metrics": "required"
+      },
+      "required": true,
+      "source_component_id": "component.ingestion",
+      "source_port_id": "port.ingestion.telemetry-event-out",
+      "transfer_workload_ref": {
+        "id": "telemetry-update-count",
+        "version": "1"
+      },
+      "trust_requirements": {
+        "authentication": "workload_identity",
+        "authorization": "least_privilege_capability_set",
+        "transport": "tls"
+      }
+    },
+    {
+      "cost_owner_ids": [
+        "cost.processing-to-hot-storage"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_id": "component.hot-storage",
+      "destination_port_id": "port.hot-storage.processing-event-in",
+      "edge_contract_id": "canonical-domain-event.v1",
+      "edge_contract_version": "1",
+      "edge_id": "edge.processing-to-hot-storage",
+      "observability_requirements": {
+        "bounded_error_contract": "required",
+        "correlation": "required",
+        "metrics": "required"
+      },
+      "required": true,
+      "source_component_id": "component.processing",
+      "source_port_id": "port.processing.persistence-event-out",
+      "transfer_workload_ref": {
+        "id": "telemetry-update-count",
+        "version": "1"
+      },
+      "trust_requirements": {
+        "authentication": "workload_identity",
+        "authorization": "least_privilege_capability_set",
+        "transport": "tls"
+      }
+    },
+    {
+      "cost_owner_ids": [
+        "cost.hot-storage-to-visualization"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "not_applicable",
+        "idempotency": "required",
+        "mode": "synchronous",
+        "ordering": "not_required",
+        "replay": "not_supported",
+        "retry_policy": "bounded_backoff",
+        "timeout_policy": "bounded"
+      },
+      "destination_component_id": "component.visualization",
+      "destination_port_id": "port.visualization.raw-history-in",
+      "edge_contract_id": "raw_history_query.v1",
+      "edge_contract_version": "1",
+      "edge_id": "edge.hot-storage-to-visualization",
+      "observability_requirements": {
+        "bounded_error_contract": "required",
+        "correlation": "required",
+        "metrics": "required"
+      },
+      "required": true,
+      "source_component_id": "component.hot-storage",
+      "source_port_id": "port.hot-storage.raw-history-out",
+      "transfer_workload_ref": {
+        "id": "logical-query-count",
+        "version": "1"
+      },
+      "trust_requirements": {
+        "authentication": "workload_identity",
+        "authorization": "least_privilege_capability_set",
+        "transport": "tls"
+      }
+    },
+    {
+      "cost_owner_ids": [
+        "cost.ingestion-to-processing"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_id": "component.ingestion",
+      "destination_port_id": "port.ingestion.device-command-in",
+      "edge_contract_id": "canonical-domain-event.v1",
+      "edge_contract_version": "1",
+      "edge_id": "edge.processing-to-ingestion",
+      "observability_requirements": {
+        "bounded_error_contract": "required",
+        "correlation": "required",
+        "metrics": "required"
+      },
+      "required": true,
+      "source_component_id": "component.processing",
+      "source_port_id": "port.processing.device-command-out",
+      "transfer_workload_ref": {
+        "id": "telemetry-update-count",
+        "version": "1"
+      },
+      "trust_requirements": {
+        "authentication": "workload_identity",
+        "authorization": "least_privilege_capability_set",
+        "transport": "tls"
+      }
+    },
+    {
+      "cost_owner_ids": [
+        "cost.ingestion-to-processing"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_id": "component.hot-storage",
+      "destination_port_id": "port.hot-storage.command-outcome-event-in",
+      "edge_contract_id": "canonical-domain-event.v1",
+      "edge_contract_version": "1",
+      "edge_id": "edge.ingestion-to-hot-storage",
+      "observability_requirements": {
+        "bounded_error_contract": "required",
+        "correlation": "required",
+        "metrics": "required"
+      },
+      "required": true,
+      "source_component_id": "component.ingestion",
+      "source_port_id": "port.ingestion.command-outcome-event-out",
+      "transfer_workload_ref": {
+        "id": "telemetry-update-count",
+        "version": "1"
+      },
+      "trust_requirements": {
+        "authentication": "workload_identity",
+        "authorization": "least_privilege_capability_set",
+        "transport": "tls"
+      }
+    }
+  ],
+  "extension_slots": [
+    {
+      "artifact_policy_id": "artifact-policy.user-function.v1",
+      "component_id": "component.processing",
+      "configuration_contract_ref": {
+        "id": "processor-configuration",
+        "version": "1"
+      },
+      "input_contract_ref": {
+        "id": "normalized-telemetry",
+        "version": "1"
+      },
+      "output_contract_ref": {
+        "id": "processed-telemetry",
+        "version": "1"
+      },
+      "slot_id": "processor.telemetry",
+      "slot_version": "1"
+    }
+  ],
+  "functional_completeness_rules": [
+    {
+      "capability_id": "capability.ingestion",
+      "evidence": "responsibility.ingestion and target L1-to-L2 edge",
+      "required": true
+    },
+    {
+      "capability_id": "capability.processing",
+      "evidence": "responsibility.processing and target L2-to-L3-hot edge",
+      "required": true
+    },
+    {
+      "capability_id": "capability.hot-storage",
+      "evidence": "l3_hot_storage optimization slot",
+      "required": true
+    },
+    {
+      "capability_id": "capability.cool-storage",
+      "evidence": "l3_cool_storage optimization slot",
+      "required": true
+    },
+    {
+      "capability_id": "capability.archive-storage",
+      "evidence": "l3_archive_storage optimization slot",
+      "required": true
+    },
+    {
+      "capability_id": "capability.twin-state",
+      "evidence": "responsibility.twin-state and target L3-hot-to-L4 edge",
+      "required": true
+    },
+    {
+      "capability_id": "capability.visualization",
+      "evidence": "responsibility.visualization and target L4-to-L5 edge",
+      "required": true
+    },
+    {
+      "capability_id": "capability.five-scientific-responsibilities",
+      "evidence": "required_responsibilities",
+      "required": true
+    },
+    {
+      "capability_id": "capability.seven-costed-optimization-slots",
+      "evidence": "optimization_slots",
+      "required": true
+    },
+    {
+      "capability_id": "capability.six-baseline-flows",
+      "evidence": "required_scenarios",
+      "required": true
+    },
+    {
+      "capability_id": "capability.explicit-component-bindings",
+      "evidence": "edge_decisions.resource_binding_source",
+      "required": true
+    },
+    {
+      "capability_id": "capability.fail-closed-provider-admissibility",
+      "evidence": "provider_admissibility",
+      "required": true
+    },
+    {
+      "capability_id": "capability.embedded-domain-event-flow",
+      "evidence": "phase-08-eventing-decision@1 mandatory shared behavior",
+      "required": true
+    },
+    {
+      "capability_id": "capability.provider-local-raw-visualization",
+      "evidence": "L3 hot and L5 assignments share one provider",
+      "required": true
+    },
+    {
+      "capability_id": "capability.independent-twin-placement",
+      "evidence": "L3-hot-to-L4 typed Twin projection edge",
+      "required": true
+    }
+  ],
+  "graph_policy": {
+    "cycle_policy": "allowlisted",
+    "allowed_cycle_ids": [
+      "cycle.ingestion.processing"
+    ],
+    "optional_components": [],
+    "user_topology_editable": false
+  },
+  "lifecycle_status": "active",
+  "optimization_bundle": {
+    "optimization_strategy_id": "cost-minimization-v2",
+    "optimization_strategy_version": "2",
+    "calculation_strategy_id": "profile-resolution-v2",
+    "calculation_strategy_version": "2",
+    "formula_set_id": "phase-08-complete-service-bundles",
+    "formula_set_version": "1",
+    "scoring_strategy_id": "profile-local-min-total-cost-v2",
+    "scoring_strategy_version": "2",
+    "pricing_registry_id": "phase-08-complete-service-pricing",
+    "pricing_registry_versions": [
+      "1"
+    ],
+    "workload_contract_id": "five-layer-workload",
+    "workload_contract_version": "2",
+    "deployment_specification_versions": [
+      "resolved-deployment-specification.v2"
+    ],
+    "compatibility_digest": "sha256:a0c39dcae6c95c2cb25251389c6569a0f5ea4428a0403ccc4cf934541cda06f1"
+  },
+  "optimization_slot_ids": [
+    "l1_ingestion",
+    "l2_processing",
+    "l3_hot_storage",
+    "l3_cool_storage",
+    "l3_archive_storage",
+    "l4_twin_state",
+    "l5_visualization"
+  ],
+  "profile_id": "five-layer-baseline",
+  "profile_version": "2",
+  "responsibilities": [
+    {
+      "capability_requirements": [
+        "capability.ingestion"
+      ],
+      "cost_category_ids": [
+        "cost.ingestion"
+      ],
+      "display_name": "Ingestion",
+      "evaluation_order": 1,
+      "logical_component_ids": [
+        "component.ingestion"
+      ],
+      "required": true,
+      "responsibility_id": "responsibility.ingestion",
+      "workload_field_refs": [
+        "workload.telemetry-update-count"
+      ]
+    },
+    {
+      "capability_requirements": [
+        "capability.processing"
+      ],
+      "cost_category_ids": [
+        "cost.processing"
+      ],
+      "display_name": "Processing",
+      "evaluation_order": 2,
+      "logical_component_ids": [
+        "component.processing"
+      ],
+      "required": true,
+      "responsibility_id": "responsibility.processing",
+      "workload_field_refs": [
+        "workload.telemetry-update-count"
+      ]
+    },
+    {
+      "capability_requirements": [
+        "capability.storage"
+      ],
+      "cost_category_ids": [
+        "cost.storage"
+      ],
+      "display_name": "Storage",
+      "evaluation_order": 3,
+      "logical_component_ids": [
+        "component.archive-storage",
+        "component.cool-storage",
+        "component.hot-storage"
+      ],
+      "required": true,
+      "responsibility_id": "responsibility.storage",
+      "workload_field_refs": [
+        "workload.telemetry-update-count"
+      ]
+    },
+    {
+      "capability_requirements": [
+        "capability.twin-state"
+      ],
+      "cost_category_ids": [
+        "cost.twin-state"
+      ],
+      "display_name": "Twin state",
+      "evaluation_order": 4,
+      "logical_component_ids": [
+        "component.twin-state"
+      ],
+      "required": true,
+      "responsibility_id": "responsibility.twin-state",
+      "workload_field_refs": [
+        "workload.telemetry-update-count"
+      ]
+    },
+    {
+      "capability_requirements": [
+        "capability.visualization"
+      ],
+      "cost_category_ids": [
+        "cost.visualization"
+      ],
+      "display_name": "Visualization",
+      "evaluation_order": 5,
+      "logical_component_ids": [
+        "component.visualization"
+      ],
+      "required": true,
+      "responsibility_id": "responsibility.visualization",
+      "workload_field_refs": [
+        "workload.logical-query-count"
+      ]
+    }
+  ],
+  "schema_version": "architecture-profile.v2",
+  "workload_contract_ref": {
+    "id": "five-layer-workload",
+    "version": "2",
+    "digest": "sha256:32fb431fb207e539bc85e6f22ce9bb3d7a9224e18722d41a7cda0339c80b9a95"
+  }
+}

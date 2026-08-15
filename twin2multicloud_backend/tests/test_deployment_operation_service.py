@@ -6,6 +6,7 @@ import asyncio
 import pytest
 
 from src.models.optimizer_config import OptimizerConfiguration
+from src.models.deployment import Deployment
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
@@ -137,7 +138,7 @@ async def test_deploy_normalizes_google_alias_for_deployer_api(db_session, monke
         twin_repository=TwinRepository(db_session),
         session_creator=_session_recorder(session_records),
         task_scheduler=asyncio.create_task,
-        project_preparer=lambda _twin, _user_id: _async_resource_name(),
+        project_preparer=lambda _twin, _user_id: _async_resource_name("gcp"),
     )
 
     await service.deploy_twin(
@@ -150,8 +151,23 @@ async def test_deploy_normalizes_google_alias_for_deployer_api(db_session, monke
     assert stream_calls[0]["provider"] == "gcp"
 
 
-async def _async_resource_name():
-    return PreparedDeploymentProject("resource-name", "operation-token")
+async def _async_resource_name(provider: str = "aws"):
+    return PreparedDeploymentProject(
+        "resource-name",
+        "operation-token",
+        provider=provider,
+    )
+
+
+def _graph_evidence(digit: str = "1") -> dict:
+    return {
+        "architecture_digest": "sha256:" + (digit * 64),
+        "graph_digest": "sha256:" + (digit * 64),
+        "profile_id": "five-layer-baseline",
+        "profile_version": "1",
+        "catalog_id": "baseline-component-catalog",
+        "catalog_version": "1",
+    }
 
 
 @pytest.mark.asyncio
@@ -485,6 +501,50 @@ async def test_destroy_fails_closed_and_restores_state_when_project_preparation_
     assert "DESTROY-SECRET" not in exc.value.public_detail
     assert session_records == []
     assert scheduled == []
+
+
+@pytest.mark.asyncio
+async def test_destroy_rejects_changed_graph_against_frozen_deploy(
+    db_session,
+):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.DEPLOYED)
+    frozen = _graph_evidence("1")
+    db_session.add(
+        Deployment(
+            twin_id=twin.id,
+            session_id="frozen-deploy-session",
+            operation_type="deploy",
+            status="success",
+            architecture_digest=frozen["architecture_digest"],
+            graph_digest=frozen["graph_digest"],
+            profile_id=frozen["profile_id"],
+            profile_version=frozen["profile_version"],
+            catalog_id=frozen["catalog_id"],
+            catalog_version=frozen["catalog_version"],
+        )
+    )
+    db_session.commit()
+
+    async def changed_preparer(_twin, _user_id):
+        return PreparedDeploymentProject(
+            "resource-name",
+            "operation-token",
+            graph_evidence=_graph_evidence("2"),
+        )
+
+    with pytest.raises(DownstreamServiceError):
+        await _service(
+            db_session,
+            project_preparer=changed_preparer,
+        ).destroy_twin(
+            twin_id=twin.id,
+            user_id=user.id,
+            test_mode=False,
+        )
+
+    db_session.refresh(twin)
+    assert twin.state == TwinState.DEPLOYED
 
 
 @pytest.mark.asyncio

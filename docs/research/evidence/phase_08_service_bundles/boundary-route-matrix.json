@@ -1,0 +1,234 @@
+{
+  "$schema": "./schemas/package-artifact.schema.json",
+  "schema_version": "1.0.0",
+  "package_id": "phase-08-complete-service-bundles@1",
+  "artifact_id": "boundary-route-matrix",
+  "providers": [
+    "aws",
+    "azure",
+    "gcp"
+  ],
+  "directed_cross_cloud_pairs": [
+    "aws->azure",
+    "aws->gcp",
+    "azure->aws",
+    "azure->gcp",
+    "gcp->aws",
+    "gcp->azure"
+  ],
+  "same_provider_pairs": [
+    "aws->aws",
+    "azure->azure",
+    "gcp->gcp"
+  ],
+  "online_placements": [
+    {
+      "placement_id": "aws-l3l5-aws-l4",
+      "l3_hot_l5_provider": "aws",
+      "l4_provider": "aws",
+      "projection_route": "aws->aws"
+    },
+    {
+      "placement_id": "aws-l3l5-azure-l4",
+      "l3_hot_l5_provider": "aws",
+      "l4_provider": "azure",
+      "projection_route": "aws->azure"
+    },
+    {
+      "placement_id": "aws-l3l5-gcp-l4",
+      "l3_hot_l5_provider": "aws",
+      "l4_provider": "gcp",
+      "projection_route": "aws->gcp"
+    },
+    {
+      "placement_id": "azure-l3l5-aws-l4",
+      "l3_hot_l5_provider": "azure",
+      "l4_provider": "aws",
+      "projection_route": "azure->aws"
+    },
+    {
+      "placement_id": "azure-l3l5-azure-l4",
+      "l3_hot_l5_provider": "azure",
+      "l4_provider": "azure",
+      "projection_route": "azure->azure"
+    },
+    {
+      "placement_id": "azure-l3l5-gcp-l4",
+      "l3_hot_l5_provider": "azure",
+      "l4_provider": "gcp",
+      "projection_route": "azure->gcp"
+    },
+    {
+      "placement_id": "gcp-l3l5-aws-l4",
+      "l3_hot_l5_provider": "gcp",
+      "l4_provider": "aws",
+      "projection_route": "gcp->aws"
+    },
+    {
+      "placement_id": "gcp-l3l5-azure-l4",
+      "l3_hot_l5_provider": "gcp",
+      "l4_provider": "azure",
+      "projection_route": "gcp->azure"
+    },
+    {
+      "placement_id": "gcp-l3l5-gcp-l4",
+      "l3_hot_l5_provider": "gcp",
+      "l4_provider": "gcp",
+      "projection_route": "gcp->gcp"
+    }
+  ],
+  "route_classes": [
+    {
+      "route_class": "raw_history_query",
+      "contract": "raw_history_query.v1",
+      "pairs": [
+        "aws->aws",
+        "azure->azure",
+        "gcp->gcp"
+      ],
+      "cross_cloud_allowed": false,
+      "bridge": "none"
+    },
+    {
+      "route_class": "twin_projection_local",
+      "contract": "twin_projection.v1",
+      "pairs": [
+        "aws->aws",
+        "azure->azure",
+        "gcp->gcp"
+      ],
+      "bridge": "provider_local_sdk_or_trigger"
+    },
+    {
+      "route_class": "twin_projection_cross_cloud",
+      "contract": "twin_projection.v1",
+      "pairs": [
+        "aws->azure",
+        "aws->gcp",
+        "azure->aws",
+        "azure->gcp",
+        "gcp->aws",
+        "gcp->azure"
+      ],
+      "bridge": "phase-08-cross-cloud-bridge@1",
+      "runtime_owner": "source_provider",
+      "destination": "destination_broker_data_plane",
+      "public_destination_function": false,
+      "static_cross_cloud_secret": false
+    },
+    {
+      "route_class": "storage_hot_to_cool_local",
+      "contract": "storage_transition.v1",
+      "pairs": [
+        "aws->aws",
+        "azure->azure",
+        "gcp->gcp"
+      ],
+      "runtime_owner": "hot_source_provider",
+      "bridge": "none",
+      "implementation": "finite_scheduled_export_job"
+    },
+    {
+      "route_class": "storage_hot_to_cool_cross_cloud",
+      "contract": "storage_transition.v1",
+      "pairs": [
+        "aws->azure",
+        "aws->gcp",
+        "azure->aws",
+        "azure->gcp",
+        "gcp->aws",
+        "gcp->azure"
+      ],
+      "runtime_owner": "hot_source_provider",
+      "implementation": "finite_scheduled_export_job_with_short_lived_destination_identity"
+    },
+    {
+      "route_class": "storage_cool_to_archive_local",
+      "contract": "storage_transition.v1",
+      "pairs": [
+        "aws->aws",
+        "azure->azure",
+        "gcp->gcp"
+      ],
+      "runtime_owner": "storage_provider",
+      "bridge": "none",
+      "implementation": "native_object_lifecycle"
+    },
+    {
+      "route_class": "storage_cool_to_archive_cross_cloud",
+      "contract": "storage_transition.v1",
+      "pairs": [
+        "aws->azure",
+        "aws->gcp",
+        "azure->aws",
+        "azure->gcp",
+        "gcp->aws",
+        "gcp->azure"
+      ],
+      "runtime_owner": "cool_source_provider",
+      "implementation": "finite_manifest_copy_with_short_lived_destination_identity_and_destination_lifecycle"
+    },
+    {
+      "route_class": "domain_event_cross_cloud",
+      "contract": "canonical-domain-event.v1",
+      "pairs": [
+        "aws->azure",
+        "aws->gcp",
+        "azure->aws",
+        "azure->gcp",
+        "gcp->aws",
+        "gcp->azure"
+      ],
+      "bridge": "phase-08-cross-cloud-bridge@1",
+      "runtime_owner": "source_provider",
+      "destination": "destination_broker_data_plane"
+    },
+    {
+      "route_class": "domain_event_local",
+      "contract": "canonical-domain-event.v1",
+      "pairs": [
+        "aws->aws",
+        "azure->azure",
+        "gcp->gcp"
+      ],
+      "bridge": "none",
+      "egress_cost": false
+    }
+  ],
+  "identity_exchanges": [
+    {
+      "pair": "aws->azure",
+      "exchange": "aws_oidc_to_entra_federated_credential"
+    },
+    {
+      "pair": "aws->gcp",
+      "exchange": "aws_subject_token_to_gcp_workload_identity_federation"
+    },
+    {
+      "pair": "azure->aws",
+      "exchange": "entra_managed_identity_oidc_to_assume_role_with_web_identity"
+    },
+    {
+      "pair": "azure->gcp",
+      "exchange": "entra_managed_identity_oidc_to_gcp_workload_identity_federation"
+    },
+    {
+      "pair": "gcp->aws",
+      "exchange": "google_service_account_oidc_to_assume_role_with_web_identity"
+    },
+    {
+      "pair": "gcp->azure",
+      "exchange": "google_service_account_oidc_to_entra_federated_credential"
+    }
+  ],
+  "negative_routes": [
+    {
+      "condition": "l3_hot_provider_differs_from_l5_provider",
+      "error_code": "PROFILE_RAW_VISUALIZATION_COLOCATION_REQUIRED"
+    },
+    {
+      "condition": "l4_to_l5_requested",
+      "error_code": "PROFILE_L4_TO_L5_NOT_SUPPORTED"
+    }
+  ]
+}

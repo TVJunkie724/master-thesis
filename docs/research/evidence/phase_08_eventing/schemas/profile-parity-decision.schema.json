@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/schemas/phase-08-eventing/profile-parity-decision.schema.json",
+  "title": "Phase 8 eventing profile parity decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "decision_id",
+    "profiles",
+    "shared_domain_behavior_ref",
+    "comparison_rule",
+    "legacy_flag_policy"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": "profile-parity-decision.v1"},
+    "decision_id": {"const": "phase-08-eventing-profile-parity@1"},
+    "profiles": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "profile_id",
+          "role",
+          "mutable",
+          "domain_behavior",
+          "eventing_responsibility"
+        ],
+        "properties": {
+          "profile_id": {
+            "enum": [
+              "five-layer-baseline@1",
+              "five-layer-baseline@2",
+              "six-layer-eventing@1"
+            ]
+          },
+          "role": {"type": "string", "minLength": 1},
+          "mutable": {"type": "boolean"},
+          "domain_behavior": {"type": "string", "minLength": 1},
+          "eventing_responsibility": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "shared_domain_behavior_ref": {"const": "domain-event-flow@1"},
+    "comparison_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "functional_parity_profiles",
+        "transport_semantics_may_differ",
+        "historical_profile_ranked_with_new_profiles"
+      ],
+      "properties": {
+        "functional_parity_profiles": {
+          "const": ["five-layer-baseline@2", "six-layer-eventing@1"]
+        },
+        "transport_semantics_may_differ": {"const": true},
+        "historical_profile_ranked_with_new_profiles": {"const": false}
+      }
+    },
+    "legacy_flag_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["flags", "new_profile_behavior", "historical_behavior"],
+      "properties": {
+        "flags": {
+          "const": [
+            "useEventChecking",
+            "triggerNotificationWorkflow",
+            "returnFeedbackToDevice"
+          ]
+        },
+        "new_profile_behavior": {"const": "reject"},
+        "historical_behavior": {"const": "read_destroy_only"}
+      }
+    }
+  }
+}

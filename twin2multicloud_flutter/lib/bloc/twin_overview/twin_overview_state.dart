@@ -2,6 +2,7 @@
 // State classes for the twin overview BLoC
 
 import 'package:equatable/equatable.dart';
+import '../../models/deployment_access.dart';
 import '../../models/deployment_readiness.dart';
 import '../../models/deployment_operations.dart';
 import '../../models/deployer_config.dart';
@@ -329,6 +330,88 @@ class SimulatorDownloadViewState extends Equatable {
   List<Object?> get props => [phase, filename, provider, message, requestToken];
 }
 
+enum LayerAccessViewPhase { idle, loading, ready, unsupported, failed }
+
+class LayerAccessViewState extends Equatable {
+  final LayerAccessViewPhase phase;
+  final DeploymentAccessSnapshot? snapshot;
+  final String? errorMessage;
+  final bool rotatingViewerCredential;
+  final String? rotationError;
+  final int credentialRequestToken;
+
+  // The one-time password is deliberately transient and excluded from props.
+  final DeploymentAccessCredential? pendingCredential;
+
+  const LayerAccessViewState({
+    this.phase = LayerAccessViewPhase.idle,
+    this.snapshot,
+    this.errorMessage,
+    this.rotatingViewerCredential = false,
+    this.rotationError,
+    this.credentialRequestToken = 0,
+    this.pendingCredential,
+  });
+
+  factory LayerAccessViewState.fromSnapshot(
+    DeploymentAccessSnapshot snapshot, {
+    int credentialRequestToken = 0,
+  }) {
+    return LayerAccessViewState(
+      phase: snapshot.availability == DeploymentAccessAvailability.available
+          ? LayerAccessViewPhase.ready
+          : LayerAccessViewPhase.unsupported,
+      snapshot: snapshot,
+      credentialRequestToken: credentialRequestToken,
+    );
+  }
+
+  bool get hasAvailableSurfaces =>
+      phase == LayerAccessViewPhase.ready &&
+      snapshot?.availability == DeploymentAccessAvailability.available;
+
+  LayerAccessViewState copyWith({
+    LayerAccessViewPhase? phase,
+    DeploymentAccessSnapshot? snapshot,
+    String? errorMessage,
+    bool? rotatingViewerCredential,
+    String? rotationError,
+    int? credentialRequestToken,
+    DeploymentAccessCredential? pendingCredential,
+    bool clearSnapshot = false,
+    bool clearError = false,
+    bool clearRotationError = false,
+    bool clearPendingCredential = false,
+  }) {
+    return LayerAccessViewState(
+      phase: phase ?? this.phase,
+      snapshot: clearSnapshot ? null : (snapshot ?? this.snapshot),
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      rotatingViewerCredential:
+          rotatingViewerCredential ?? this.rotatingViewerCredential,
+      rotationError: clearRotationError
+          ? null
+          : (rotationError ?? this.rotationError),
+      credentialRequestToken:
+          credentialRequestToken ?? this.credentialRequestToken,
+      pendingCredential: clearPendingCredential
+          ? null
+          : (pendingCredential ?? this.pendingCredential),
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    phase,
+    snapshot,
+    errorMessage,
+    rotatingViewerCredential,
+    rotationError,
+    credentialRequestToken,
+    pendingCredential != null,
+  ];
+}
+
 abstract class TwinOverviewState extends Equatable {
   const TwinOverviewState();
 
@@ -365,6 +448,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final bool canDelete;
 
   final DeploymentReadinessViewState deploymentReadiness;
+  final LayerAccessViewState layerAccess;
 
   // Deployment operation and independent testing utility states
   final DeploymentOperationViewState deploymentOperation;
@@ -397,6 +481,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     required this.canEdit,
     required this.canDelete,
     this.deploymentReadiness = const DeploymentReadinessViewState.initial(),
+    this.layerAccess = const LayerAccessViewState(),
     this.deploymentOperation = const DeploymentOperationViewState(),
     this.trace = const TraceViewState(),
     this.simulatorDownload = const SimulatorDownloadViewState(),
@@ -436,6 +521,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     bool? canEdit,
     bool? canDelete,
     DeploymentReadinessViewState? deploymentReadiness,
+    LayerAccessViewState? layerAccess,
     DeploymentOperationViewState? deploymentOperation,
     TraceViewState? trace,
     SimulatorDownloadViewState? simulatorDownload,
@@ -465,6 +551,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
       canEdit: canEdit ?? this.canEdit,
       canDelete: canDelete ?? this.canDelete,
       deploymentReadiness: deploymentReadiness ?? this.deploymentReadiness,
+      layerAccess: layerAccess ?? this.layerAccess,
       deploymentOperation: deploymentOperation ?? this.deploymentOperation,
       trace: trace ?? this.trace,
       simulatorDownload: simulatorDownload ?? this.simulatorDownload,
@@ -497,6 +584,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     canEdit,
     canDelete,
     deploymentReadiness,
+    layerAccess,
     deploymentOperation,
     trace,
     simulatorDownload,

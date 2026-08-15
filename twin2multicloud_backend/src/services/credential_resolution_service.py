@@ -38,7 +38,9 @@ class DeploymentCredentials:
 class CredentialResolutionService:
     """Resolves runtime credentials from bound CloudConnections only."""
 
-    def resolve_plaintext_credentials(self, provider: str, credentials) -> ProviderCredentials:
+    def resolve_plaintext_credentials(
+        self, provider: str, credentials
+    ) -> ProviderCredentials:
         """Resolve request-body credentials without persisting or decrypting them."""
         provider = self._normalize_provider(provider)
         if provider not in {"aws", "azure", "gcp"}:
@@ -58,12 +60,19 @@ class CredentialResolutionService:
         payload = self.build_plaintext_payload(provider, credentials)
         return self._build_provider_credentials(provider, payload, "plaintext", None)
 
-    def resolve_provider_credentials(self, twin, user_id: str, provider: str) -> ProviderCredentials:
+    def resolve_provider_credentials(
+        self, twin, user_id: str, provider: str
+    ) -> ProviderCredentials:
         provider = self._normalize_provider(provider)
         errors: list[dict[str, Any]] = []
 
         if not getattr(twin, "configuration", None):
-            raise self._failed(errors, provider, "MISSING_CONFIGURATION", "Twin configuration is missing")
+            raise self._failed(
+                errors,
+                provider,
+                "MISSING_CONFIGURATION",
+                "Twin configuration is missing",
+            )
 
         config = twin.configuration
         connection_id = self._connection_id(config, provider)
@@ -87,14 +96,22 @@ class CredentialResolutionService:
                     "Pricing Cloud Connections cannot provide deployment credentials",
                     source_id=connection_id,
                 )
-            payload = self._decrypt_cloud_connection(connection, user_id, provider, errors)
+            payload = self._decrypt_cloud_connection(
+                connection, user_id, provider, errors
+            )
             if errors:
                 raise self._failed_from_errors(errors)
-            return self._build_provider_credentials(provider, payload, "cloud_connection", connection_id)
+            return self._build_provider_credentials(
+                provider, payload, "cloud_connection", connection_id
+            )
 
-        payload = self._legacy_twin_config_payload(config, user_id, getattr(twin, "id", ""), provider)
+        payload = self._legacy_twin_config_payload(
+            config, user_id, getattr(twin, "id", ""), provider
+        )
         if payload is not None:
-            return self._build_provider_credentials(provider, payload, "legacy_twin_config", None)
+            return self._build_provider_credentials(
+                provider, payload, "legacy_twin_config", None
+            )
 
         raise self._failed(
             errors,
@@ -113,11 +130,13 @@ class CredentialResolutionService:
         if not providers:
             raise CredentialResolutionFailed(
                 "Cannot resolve deployment credentials",
-                [{
-                    "code": "NO_DEPLOYMENT_PROVIDERS",
-                    "field": "optimizer_config",
-                    "message": "No deployment providers are selected",
-                }],
+                [
+                    {
+                        "code": "NO_DEPLOYMENT_PROVIDERS",
+                        "field": "optimizer_config",
+                        "message": "No deployment providers are selected",
+                    }
+                ],
             )
 
         resolved: dict[str, ProviderCredentials] = {}
@@ -133,7 +152,9 @@ class CredentialResolutionService:
                 errors.extend(exc.errors)
 
         if errors:
-            raise CredentialResolutionFailed("Cannot resolve deployment credentials", errors)
+            raise CredentialResolutionFailed(
+                "Cannot resolve deployment credentials", errors
+            )
 
         return DeploymentCredentials(
             providers=tuple(providers),
@@ -173,7 +194,8 @@ class CredentialResolutionService:
                 "azure_tenant_id": credentials.tenant_id,
                 "azure_region": azure_region,
                 "azure_region_iothub": credentials.region_iothub or azure_region,
-                "azure_region_digital_twin": credentials.region_digital_twin or azure_region,
+                "azure_region_digital_twin": credentials.region_digital_twin
+                or azure_region,
             }
 
         if provider == "gcp":
@@ -187,14 +209,22 @@ class CredentialResolutionService:
 
         raise CredentialResolutionFailed(
             "Cannot resolve deployment credentials",
-            [cls._error(provider, "UNSUPPORTED_PROVIDER", "Unsupported cloud provider")],
+            [
+                cls._error(
+                    provider, "UNSUPPORTED_PROVIDER", "Unsupported cloud provider"
+                )
+            ],
         )
 
     @classmethod
-    def build_optimizer_payload(cls, provider: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def build_optimizer_payload(
+        cls, provider: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         provider = cls._normalize_provider(provider)
         if provider == "gcp":
-            project_id = payload.get("gcp_project_id") or cls._gcp_project_id_from_service_account(payload)
+            project_id = payload.get(
+                "gcp_project_id"
+            ) or cls._gcp_project_id_from_service_account(payload)
             result = {
                 "gcp_credentials_file": payload.get("gcp_credentials_file"),
                 "gcp_project_id": project_id,
@@ -206,7 +236,9 @@ class CredentialResolutionService:
         return payload.copy()
 
     @classmethod
-    def build_deployer_validation_payload(cls, provider: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def build_deployer_validation_payload(
+        cls, provider: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         if cls._normalize_provider(provider) == "gcp":
             return cls.build_optimizer_payload(provider, payload)
         return payload.copy()
@@ -223,7 +255,9 @@ class CredentialResolutionService:
 
         service_account_raw = payload.get("gcp_credentials_file")
         service_account_json = cls._parse_gcp_service_account(service_account_raw)
-        project_id = payload.get("gcp_project_id") or cls._gcp_project_id_from_service_account(payload)
+        project_id = payload.get(
+            "gcp_project_id"
+        ) or cls._gcp_project_id_from_service_account(payload)
         deployer_payload = {
             "gcp_project_id": project_id,
             "gcp_region": payload.get("gcp_region") or "europe-west1",
@@ -231,7 +265,9 @@ class CredentialResolutionService:
         }
         if payload.get("gcp_billing_account"):
             deployer_payload["gcp_billing_account"] = payload["gcp_billing_account"]
-        return {key: value for key, value in deployer_payload.items() if value}, service_account_json
+        return {
+            key: value for key, value in deployer_payload.items() if value
+        }, service_account_json
 
     @staticmethod
     def configured_providers(twin) -> set[str]:
@@ -249,9 +285,25 @@ class CredentialResolutionService:
                 providers.add(provider)
         return providers
 
+    @staticmethod
+    def required_providers_from_architecture(twin) -> set[str]:
+        """Return providers owned by the selected immutable architecture."""
+
+        from src.services.architecture_projection_service import (
+            required_providers,
+        )
+
+        return required_providers(twin)
+
     @classmethod
     def required_providers_from_optimizer(cls, optimizer_config) -> set[str]:
-        if not optimizer_config:
+        """Return the historical seven-slot provider projection.
+
+        This remains a migration/read compatibility boundary. Executable v3
+        packages pass their selected-architecture provider set explicitly.
+        """
+
+        if optimizer_config is None:
             return set()
         fields = (
             "cheapest_l1",
@@ -263,11 +315,21 @@ class CredentialResolutionService:
             "cheapest_l5",
         )
         providers = {
-            cls._normalize_provider(getattr(optimizer_config, field))
+            cls._normalize_provider(getattr(optimizer_config, field, None))
             for field in fields
-            if getattr(optimizer_config, field, None)
         }
         return {provider for provider in providers if provider}
+
+    @classmethod
+    def required_providers_for_compatibility(cls, twin) -> set[str]:
+        """Prefer the immutable architecture and fall back for legacy twins."""
+
+        selected = cls.required_providers_from_architecture(twin)
+        if selected:
+            return selected
+        return cls.required_providers_from_optimizer(
+            getattr(twin, "optimizer_config", None)
+        )
 
     def _build_provider_credentials(
         self,
@@ -280,13 +342,17 @@ class CredentialResolutionService:
         if errors:
             raise self._failed_from_errors(errors)
 
-        deployer_config_payload, gcp_credentials_json = self.build_deployer_config_payload(provider, payload)
+        deployer_config_payload, gcp_credentials_json = (
+            self.build_deployer_config_payload(provider, payload)
+        )
         return ProviderCredentials(
             provider=provider,
             source=source,
             source_id=source_id,
             optimizer_payload=self.build_optimizer_payload(provider, payload),
-            deployer_validation_payload=self.build_deployer_validation_payload(provider, payload),
+            deployer_validation_payload=self.build_deployer_validation_payload(
+                provider, payload
+            ),
             deployer_config_payload=deployer_config_payload,
             gcp_credentials_json=gcp_credentials_json,
         )
@@ -335,12 +401,18 @@ class CredentialResolutionService:
                 if not has_legacy:
                     return None
                 payload = {
-                    "aws_access_key_id": self._decrypt_optional(config.aws_access_key_id, user_id, twin_id),
-                    "aws_secret_access_key": self._decrypt_optional(config.aws_secret_access_key, user_id, twin_id),
+                    "aws_access_key_id": self._decrypt_optional(
+                        config.aws_access_key_id, user_id, twin_id
+                    ),
+                    "aws_secret_access_key": self._decrypt_optional(
+                        config.aws_secret_access_key, user_id, twin_id
+                    ),
                     "aws_region": config.aws_region,
                 }
                 if config.aws_session_token:
-                    payload["aws_session_token"] = decrypt(config.aws_session_token, user_id, twin_id)
+                    payload["aws_session_token"] = decrypt(
+                        config.aws_session_token, user_id, twin_id
+                    )
                 if config.aws_sso_region:
                     payload["aws_sso_region"] = config.aws_sso_region
                 return payload
@@ -359,26 +431,43 @@ class CredentialResolutionService:
                     return None
                 azure_region = config.azure_region
                 return {
-                    "azure_subscription_id": self._decrypt_optional(config.azure_subscription_id, user_id, twin_id),
-                    "azure_tenant_id": self._decrypt_optional(config.azure_tenant_id, user_id, twin_id),
-                    "azure_client_id": self._decrypt_optional(config.azure_client_id, user_id, twin_id),
-                    "azure_client_secret": self._decrypt_optional(config.azure_client_secret, user_id, twin_id),
+                    "azure_subscription_id": self._decrypt_optional(
+                        config.azure_subscription_id, user_id, twin_id
+                    ),
+                    "azure_tenant_id": self._decrypt_optional(
+                        config.azure_tenant_id, user_id, twin_id
+                    ),
+                    "azure_client_id": self._decrypt_optional(
+                        config.azure_client_id, user_id, twin_id
+                    ),
+                    "azure_client_secret": self._decrypt_optional(
+                        config.azure_client_secret, user_id, twin_id
+                    ),
                     "azure_region": azure_region,
                     "azure_region_iothub": config.azure_region_iothub or azure_region,
-                    "azure_region_digital_twin": config.azure_region_digital_twin or azure_region,
+                    "azure_region_digital_twin": config.azure_region_digital_twin
+                    or azure_region,
                 }
 
             has_legacy = any(
                 getattr(config, field, None)
-                for field in ("gcp_project_id", "gcp_billing_account", "gcp_service_account_json")
+                for field in (
+                    "gcp_project_id",
+                    "gcp_billing_account",
+                    "gcp_service_account_json",
+                )
             )
             if not has_legacy:
                 return None
             return {
                 "gcp_project_id": config.gcp_project_id,
-                "gcp_billing_account": self._decrypt_optional(config.gcp_billing_account, user_id, twin_id),
+                "gcp_billing_account": self._decrypt_optional(
+                    config.gcp_billing_account, user_id, twin_id
+                ),
                 "gcp_region": config.gcp_region,
-                "gcp_credentials_file": self._decrypt_optional(config.gcp_service_account_json, user_id, twin_id),
+                "gcp_credentials_file": self._decrypt_optional(
+                    config.gcp_service_account_json, user_id, twin_id
+                ),
             }
         except ValueError as exc:
             logger.warning(
@@ -394,14 +483,20 @@ class CredentialResolutionService:
             ) from exc
 
     @staticmethod
-    def _decrypt_optional(ciphertext: str | None, user_id: str, twin_id: str) -> str | None:
+    def _decrypt_optional(
+        ciphertext: str | None, user_id: str, twin_id: str
+    ) -> str | None:
         if not ciphertext:
             return None
         return decrypt(ciphertext, user_id, twin_id)
 
-    def _deployment_providers(self, twin, required_providers: set[str] | None) -> list[str]:
-        selected_providers = required_providers or self.required_providers_from_optimizer(
-            getattr(twin, "optimizer_config", None)
+    def _deployment_providers(
+        self, twin, required_providers: set[str] | None
+    ) -> list[str]:
+        selected_providers = (
+            required_providers
+            if required_providers is not None
+            else self.required_providers_for_compatibility(twin)
         )
         providers = {
             self._normalize_provider(provider)
@@ -413,7 +508,9 @@ class CredentialResolutionService:
         return sorted(providers)
 
     @classmethod
-    def _validate_payload(cls, provider: str, payload: dict[str, Any]) -> list[dict[str, Any]]:
+    def _validate_payload(
+        cls, provider: str, payload: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         required = {
             "aws": ("aws_access_key_id", "aws_secret_access_key", "aws_region"),
             "azure": (
@@ -435,14 +532,21 @@ class CredentialResolutionService:
         ):
             missing.append("gcp_project_id_or_billing_account")
         return [
-            cls._error(provider, "MISSING_CREDENTIAL_FIELD", f"Missing required credential field: {field}", field=field)
+            cls._error(
+                provider,
+                "MISSING_CREDENTIAL_FIELD",
+                f"Missing required credential field: {field}",
+                field=field,
+            )
             for field in missing
         ]
 
     @staticmethod
     def _connection_id(config, provider: str) -> str | None:
         connection_id = getattr(config, f"{provider}_cloud_connection_id", None)
-        return connection_id if isinstance(connection_id, str) and connection_id else None
+        return (
+            connection_id if isinstance(connection_id, str) and connection_id else None
+        )
 
     @staticmethod
     def _normalize_provider(provider: str | None) -> str:
@@ -451,15 +555,21 @@ class CredentialResolutionService:
         return normalize_optional_provider_id(provider) or ""
 
     @classmethod
-    def _gcp_project_id_from_service_account(cls, payload: dict[str, Any]) -> str | None:
-        service_account = cls._parse_gcp_service_account(payload.get("gcp_credentials_file"), allow_missing=True)
+    def _gcp_project_id_from_service_account(
+        cls, payload: dict[str, Any]
+    ) -> str | None:
+        service_account = cls._parse_gcp_service_account(
+            payload.get("gcp_credentials_file"), allow_missing=True
+        )
         if not service_account:
             return None
         project_id = service_account.get("project_id")
         return project_id if isinstance(project_id, str) and project_id else None
 
     @staticmethod
-    def _parse_gcp_service_account(raw: Any, allow_missing: bool = False) -> dict[str, Any] | None:
+    def _parse_gcp_service_account(
+        raw: Any, allow_missing: bool = False
+    ) -> dict[str, Any] | None:
         if not raw:
             if allow_missing:
                 return None
@@ -537,4 +647,6 @@ class CredentialResolutionService:
 
     @staticmethod
     def _failed_from_errors(errors: list[dict[str, Any]]) -> CredentialResolutionFailed:
-        return CredentialResolutionFailed("Cannot resolve deployment credentials", errors)
+        return CredentialResolutionFailed(
+            "Cannot resolve deployment credentials", errors
+        )

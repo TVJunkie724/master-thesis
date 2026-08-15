@@ -24,6 +24,7 @@ def test_deployment_result_serializes_stable_shape():
         "provider": "aws",
         "operation_id": "op-123",
         "terraform_outputs": {"endpoint": {"value": "https://example.test"}},
+        "deployment_access_evidence": None,
     }
 
 

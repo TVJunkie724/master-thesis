@@ -30,6 +30,26 @@ class TwinOverviewRunDeploymentPreflight extends TwinOverviewEvent {
   const TwinOverviewRunDeploymentPreflight();
 }
 
+/// Retry the independently loaded L4/L5 access read model.
+class TwinOverviewRetryLayerAccess extends TwinOverviewEvent {
+  const TwinOverviewRetryLayerAccess();
+}
+
+/// Rotate the one-time viewer credential for a GCP Grafana L5 surface.
+class TwinOverviewRotateGcpGrafanaViewerCredential extends TwinOverviewEvent {
+  const TwinOverviewRotateGcpGrafanaViewerCredential();
+}
+
+/// Acknowledge that the reveal dialog consumed a one-time credential.
+class TwinOverviewAccessCredentialConsumed extends TwinOverviewEvent {
+  final int requestToken;
+
+  const TwinOverviewAccessCredentialConsumed(this.requestToken);
+
+  @override
+  List<Object?> get props => [requestToken];
+}
+
 /// Trigger deployment
 class TwinOverviewDeploy extends TwinOverviewEvent {
   const TwinOverviewDeploy();

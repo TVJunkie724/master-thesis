@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "rejections.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["$schema", "schema_version", "package_id", "rejections", "no_total_policy"],
+  "properties": {
+    "$schema": {"const": "schemas/rejections.schema.json"}, "schema_version": {"const": "phase-08-rejections.v1"},
+    "package_id": {"const": "phase-08-profile-evaluation@1"},
+    "rejections": {
+      "type": "array", "minItems": 10,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["candidate_id", "profile_id", "status", "reason_code", "reason", "publishable_total_present", "evidence_paths"],
+        "properties": {
+          "candidate_id": {"type": "string", "minLength": 1}, "profile_id": {"type": "string", "minLength": 1},
+          "status": {"enum": ["unsupported", "unverified"]}, "reason_code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
+          "reason": {"type": "string", "minLength": 1}, "publishable_total_present": {"const": false},
+          "evidence_paths": {"type": "array", "minItems": 1, "items": {"type": "string", "not": {"pattern": "^/"}}}
+        },
+        "not": {"anyOf": [{"required": ["monthly_total"]}, {"required": ["total"]}]}
+      }
+    },
+    "no_total_policy": {"const": "unsupported_stale_or_unverified_candidates_never_receive_a_publishable_total"}
+  }
+}

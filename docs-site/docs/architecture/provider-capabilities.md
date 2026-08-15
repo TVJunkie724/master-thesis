@@ -43,9 +43,53 @@ The current platform exposes all 21 provider-layer rows:
 | Azure | available | available | available | available | available | available | available |
 | GCP | available | available | available | available | available | unsupported, planned | unsupported, planned |
 
+This first table is the profile-neutral legacy capability endpoint used by the
+historical manual layer path. It intentionally does not promote GCP L4/L5
+globally. The closed-world Five-layer v2 provider profile below owns separate
+GCP L4/L5 implementations; Deployer admits those only when an exact validated
+`five-layer-baseline@2` graph is present.
+
 `available` means that both calculation and deployment implementations exist and have
 deterministic contract evidence. It does not mean that the path has passed the final
 supervised live-cloud E2E gate.
+
+### Activated Phase 8 Thesis-PoC Bundles
+
+The following shared L1-L5 target has contract, calculation, package,
+Terraform, runtime, post-deployment evidence, and local integration
+implementations. Both active profiles use it unchanged for offline selection
+and cost/architecture evaluation. This does not mark the remaining supervised
+live-capacity gates complete:
+
+| Provider | L1 target | L3-hot/L5 target | Independent L4 target | Status |
+|---|---|---|---|---|
+| AWS | IoT Core and IoT Commands | DynamoDB + typed local reader + Amazon Managed Grafana | IoT TwinMaker | selectable for offline evaluation; deployment blocked by listed live gates |
+| Azure | IoT Hub | Cosmos DB + typed local reader + Azure Managed Grafana | Azure Digital Twins | selectable for offline evaluation; deployment blocked by listed live gates |
+| GCP | BifroMQ on GKE + Pub/Sub | Firestore Native Standard edition + typed Cloud Run reader + one Grafana pod/Persistent Disk/TLS LoadBalancer on GKE with signed Infinity datasource | Cloud Run Twin API using the deployment's one Firestore Native database with separate L3/L4 collection contracts | selectable for offline evaluation; deployment blocked by listed live gates |
+
+`five-layer-baseline@2` embeds the required domain-event behavior in L1/L2.
+`six-layer-eventing@1` inherits the table above unchanged and adds exactly one
+independently assigned Eventing bundle:
+
+| Provider | Six-layer Eventing bundle | Scenario capacity boundary |
+|---|---|---|
+| AWS | Kinesis Data Streams, SNS FIFO, SQS FIFO, Lambda bridge/runtime, S3 failure store, CloudWatch | reviewed S/M/L sizing |
+| Azure | Event Hubs Standard (Dedicated only for the frozen Large threshold), Service Bus Standard, Functions Flex Consumption, Azure Monitor | reviewed S/M/L sizing |
+| GCP | Pub/Sub, Cloud Run service (Worker Pool only for the frozen Large threshold), Cloud Logging | reviewed S/M/L sizing |
+
+The Six-layer graph covers the three single-cloud Event placements and every
+directed provider pair through same-provider direct bindings or the explicit
+source-owned bridge. BifroMQ remains part of the shared GCP L1 boundary; it was
+not added solely for Six-layer.
+
+The first target version keeps
+`provider(L3_hot) == provider(L5)` and places L4 independently. It models
+raw-history visualization from L3 hot and selected Twin projection from L3 hot
+to L4. L4-to-L5/3D visualization, ADX migration, Spanner Graph, a default
+dedicated Grafana node pool, and storage-specific CDC/outbox/broker pipelines
+are not selected for the PoC. Profile publication is complete, but supervised
+browser/capacity evidence remains pending and keeps deployment selection
+blocked.
 
 ## Contract Semantics
 
@@ -91,8 +135,9 @@ retry. No hard-coded fallback matrix is activated.
 7. Record supervised live evidence separately before changing a row to
    `live_verified`.
 
-Roadmap intent alone never makes a path selectable. GCP L4/L5 implementation remains
-tracked by [#54](https://github.com/TVJunkie724/master-thesis/issues/54). A separate
-architecture audit is tracked by
-[#112](https://github.com/TVJunkie724/master-thesis/issues/112); until an implemented
-contract changes, this page documents the current runtime matrix only.
+Roadmap intent alone never makes a path selectable. Issue
+[#54](https://github.com/TVJunkie724/master-thesis/issues/54) still tracks
+profile-neutral GCP L4/L5 support; the active Five-layer v2 implementation is
+the narrower closed-world exception documented above. The broader architecture
+audit remains tracked by
+[#112](https://github.com/TVJunkie724/master-thesis/issues/112).

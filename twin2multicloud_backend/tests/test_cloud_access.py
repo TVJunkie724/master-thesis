@@ -16,7 +16,7 @@ def _aws_request(display_name="AWS Deployment"):
     return {
         "provider": "aws",
         "display_name": display_name,
-        "permission_set_version": "thesis-demo-v1",
+        "permission_set_version": "thesis-demo-v2",
         "cloud_scope": {"account_id": "123456789012", "region": "eu-central-1"},
         "aws": {
             "access_key_id": "AKIAIOSFODNN7EXAMPLE",

@@ -28,10 +28,336 @@ variable "project_path" {
   type        = string
 }
 
+variable "architecture_profile_id" {
+  description = "Resolved immutable architecture profile identifier"
+  type        = string
+  default     = "five-layer-baseline"
+}
+
+variable "architecture_profile_version" {
+  description = "Resolved immutable architecture profile version"
+  type        = string
+  default     = "1"
+
+  validation {
+    condition     = contains(["1", "2"], var.architecture_profile_version)
+    error_message = "architecture_profile_version must be a supported immutable version."
+  }
+}
+
+variable "event_layer_provider" {
+  description = "Cloud provider for the independent Six-layer Eventing responsibility"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = contains(["", "aws", "azure", "google"], var.event_layer_provider)
+    error_message = "event_layer_provider must be empty, 'aws', 'azure', or 'google'."
+  }
+}
+
 variable "digital_twin_info_json" {
   description = "JSON string containing full Digital Twin configuration (config, config_iot_devices, config_providers, config_events)"
   type        = string
   default     = "{}"
+}
+
+variable "resolved_component_dimensions" {
+  description = "Validated component capacity and usage dimensions projected from the resolved graph"
+  type        = map(string)
+  default     = {}
+}
+
+# ==============================================================================
+# Six-layer Eventing: AWS bundle inputs
+# ==============================================================================
+
+variable "aws_event_kinesis_shards" {
+  description = "Optimizer-derived shards per Event Layer telemetry stream"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.aws_event_kinesis_shards == null ? true : contains([1, 6, 200], var.aws_event_kinesis_shards)
+    error_message = "aws_event_kinesis_shards must match the reviewed Small, Medium, or Large allocation."
+  }
+}
+
+variable "aws_event_retention_hours" {
+  description = "Optional reviewed Kinesis retention override; null derives it from the selected shard allocation"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.aws_event_retention_hours == null ? true : contains([24, 168], var.aws_event_retention_hours)
+    error_message = "aws_event_retention_hours must be 24 or 168."
+  }
+}
+
+variable "aws_event_control_archive_hours" {
+  description = "SNS FIFO control replay window"
+  type        = number
+  default     = 168
+
+  validation {
+    condition     = contains([24, 168], var.aws_event_control_archive_hours)
+    error_message = "aws_event_control_archive_hours must be 24 or 168."
+  }
+}
+
+variable "aws_event_max_receive_count" {
+  description = "SQS receive count at which control delivery writes the safe terminal record"
+  type        = number
+  default     = 6
+
+  validation {
+    condition     = var.aws_event_max_receive_count == 6
+    error_message = "aws_event_max_receive_count is frozen to the reviewed PoC value 6."
+  }
+}
+
+variable "aws_event_dlq_retention_hours" {
+  description = "Retention of terminal Event Layer failures in S3"
+  type        = number
+  default     = 168
+
+  validation {
+    condition     = contains([24, 168], var.aws_event_dlq_retention_hours)
+    error_message = "aws_event_dlq_retention_hours must be 24 or 168."
+  }
+}
+
+variable "aws_event_runtime_memory_mib" {
+  description = "Memory allocation of the AWS Event Layer delivery adapter"
+  type        = number
+  default     = 256
+
+  validation {
+    condition     = var.aws_event_runtime_memory_mib == 256
+    error_message = "aws_event_runtime_memory_mib is frozen to the reviewed PoC value 256."
+  }
+}
+
+variable "aws_event_runtime_batch_max" {
+  description = "Maximum Event Layer delivery batch"
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.aws_event_runtime_batch_max == 10
+    error_message = "aws_event_runtime_batch_max is frozen to the reviewed PoC value 10."
+  }
+}
+
+variable "aws_event_log_retention_days" {
+  description = "CloudWatch log retention for the independent Event Layer"
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.aws_event_log_retention_days == 30
+    error_message = "aws_event_log_retention_days is frozen to the reviewed PoC value 30."
+  }
+}
+
+# ==============================================================================
+# Six-layer Eventing: Azure bundle inputs
+# ==============================================================================
+
+variable "azure_event_hubs_dedicated_capacity_units" {
+  description = "Optimizer-derived Event Hubs Dedicated capacity units"
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = contains([0, 6], var.azure_event_hubs_dedicated_capacity_units)
+    error_message = "azure_event_hubs_dedicated_capacity_units must be 0 or the reviewed Large allocation 6."
+  }
+}
+
+variable "azure_event_hubs_throughput_units" {
+  description = "Optimizer-derived Event Hubs Standard throughput units"
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = contains([1, 11], var.azure_event_hubs_throughput_units)
+    error_message = "azure_event_hubs_throughput_units must match the reviewed Small or Medium allocation."
+  }
+}
+
+variable "azure_event_partitions" {
+  description = "Partitions per Event Layer telemetry hub"
+  type        = number
+  default     = 4
+
+  validation {
+    condition     = contains([4, 16, 200], var.azure_event_partitions)
+    error_message = "azure_event_partitions must match the reviewed Small, Medium, or Large allocation."
+  }
+}
+
+variable "azure_event_retention_hours" {
+  description = "Event Hubs and Service Bus replay window"
+  type        = number
+  default     = 24
+
+  validation {
+    condition     = contains([24, 168], var.azure_event_retention_hours)
+    error_message = "azure_event_retention_hours must be 24 or 168."
+  }
+}
+
+variable "azure_event_max_delivery_count" {
+  description = "Service Bus delivery count before native dead-lettering"
+  type        = number
+  default     = 6
+
+  validation {
+    condition     = var.azure_event_max_delivery_count == 6
+    error_message = "azure_event_max_delivery_count is frozen to the reviewed PoC value 6."
+  }
+}
+
+variable "azure_event_runtime_memory_mib" {
+  description = "Memory allocation of the Azure Event Layer Function app"
+  type        = number
+  default     = 2048
+
+  validation {
+    condition     = var.azure_event_runtime_memory_mib == 2048
+    error_message = "azure_event_runtime_memory_mib is frozen to the reviewed PoC value 2048."
+  }
+}
+
+variable "azure_event_runtime_batch_max" {
+  description = "Maximum Event Layer delivery batch"
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.azure_event_runtime_batch_max == 10
+    error_message = "azure_event_runtime_batch_max is frozen to the reviewed PoC value 10."
+  }
+}
+
+variable "azure_event_log_retention_days" {
+  description = "Log Analytics retention for the independent Event Layer"
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.azure_event_log_retention_days == 30
+    error_message = "azure_event_log_retention_days is frozen to the reviewed PoC value 30."
+  }
+}
+
+variable "gcp_event_retention_seconds" {
+  description = "Reviewed Pub/Sub topic and subscription retention for the independent GCP Event Layer"
+  type        = number
+  default     = 86400
+
+  validation {
+    condition     = contains([86400, 604800], var.gcp_event_retention_seconds)
+    error_message = "gcp_event_retention_seconds must be the reviewed one- or seven-day value."
+  }
+}
+
+variable "gcp_event_max_delivery_attempts" {
+  description = "Approximate Pub/Sub attempts before native dead-letter forwarding"
+  type        = number
+  default     = 6
+
+  validation {
+    condition     = var.gcp_event_max_delivery_attempts == 6
+    error_message = "gcp_event_max_delivery_attempts is frozen to the reviewed six-attempt budget."
+  }
+}
+
+variable "gcp_event_runtime_cpu" {
+  description = "Cloud Run event service vCPU allocation"
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.gcp_event_runtime_cpu == 1
+    error_message = "gcp_event_runtime_cpu is frozen to one vCPU for the thesis PoC."
+  }
+}
+
+variable "gcp_event_runtime_memory_mib" {
+  description = "Cloud Run event service memory in MiB"
+  type        = number
+  default     = 512
+
+  validation {
+    condition     = var.gcp_event_runtime_memory_mib == 512
+    error_message = "gcp_event_runtime_memory_mib is frozen to 512 MiB for the thesis PoC."
+  }
+}
+
+variable "gcp_event_worker_count" {
+  description = "Total optimizer-derived Large telemetry StreamingPull worker instances"
+  type        = number
+  default     = 0
+
+  validation {
+    condition = (
+      var.gcp_event_worker_count == 0 ||
+      (
+        var.gcp_event_worker_count <= 126 &&
+        var.gcp_event_worker_count % 21 == 0
+      )
+    )
+    error_message = "gcp_event_worker_count must be zero or a reviewed 21-instance-per-subscription Large allocation up to 126."
+  }
+}
+
+variable "gcp_event_worker_cpu" {
+  description = "Cloud Run event worker vCPU allocation"
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.gcp_event_worker_cpu == 1
+    error_message = "gcp_event_worker_cpu is frozen to one vCPU for the thesis PoC."
+  }
+}
+
+variable "gcp_event_worker_memory_mib" {
+  description = "Cloud Run event worker memory in MiB"
+  type        = number
+  default     = 512
+
+  validation {
+    condition     = var.gcp_event_worker_memory_mib == 512
+    error_message = "gcp_event_worker_memory_mib is frozen to 512 MiB for the thesis PoC."
+  }
+}
+
+variable "gcp_event_log_retention_days" {
+  description = "Dedicated Cloud Logging bucket retention for Event Layer evidence"
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.gcp_event_log_retention_days == 30
+    error_message = "gcp_event_log_retention_days is frozen to 30 days for the thesis PoC."
+  }
+}
+
+variable "gcp_event_runtime_image" {
+  description = "Content-addressed GCP Six-layer Event Layer runtime image"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.gcp_event_runtime_image == "" ||
+      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_event_runtime_image))
+    )
+    error_message = "gcp_event_runtime_image must be an Artifact Registry image pinned by sha256 digest."
+  }
 }
 
 # ==============================================================================
@@ -89,6 +415,48 @@ variable "layer_5_provider" {
 # ==============================================================================
 # Resolved Deployment Specification - AWS
 # ==============================================================================
+
+variable "aws_v2_storage_mover_image" {
+  description = "Content-addressed AWS Five-layer v2 finite storage-mover image"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.aws_v2_storage_mover_image == "" ||
+      can(regex("^[0-9]+\\.dkr\\.ecr\\.[a-z0-9-]+\\.amazonaws\\.com/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.aws_v2_storage_mover_image))
+    )
+    error_message = "aws_v2_storage_mover_image must be an ECR image pinned by sha256 digest."
+  }
+}
+
+variable "aws_v2_bridge_image" {
+  description = "Content-addressed AWS Five-layer v2 outbound event-bridge Lambda image"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.aws_v2_bridge_image == "" ||
+      can(regex("^[0-9]+\\.dkr\\.ecr\\.[a-z0-9-]+\\.amazonaws\\.com/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.aws_v2_bridge_image))
+    )
+    error_message = "aws_v2_bridge_image must be an ECR image pinned by sha256 digest."
+  }
+}
+
+variable "azure_v2_storage_mover_image" {
+  description = "Content-addressed Azure Five-layer v2 finite storage-mover image"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.azure_v2_storage_mover_image == "" ||
+      can(regex("^[a-z0-9]+\\.azurecr\\.io/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.azure_v2_storage_mover_image))
+    )
+    error_message = "azure_v2_storage_mover_image must be an ACR image pinned by sha256 digest."
+  }
+}
 
 variable "aws_l1_lambda_memory_mb" {
   description = "Specification-selected memory for AWS L1 Lambda functions"
@@ -748,6 +1116,37 @@ variable "platform_user_last_name" {
   default     = "Admin"
 }
 
+variable "aws_layer_access_principal_intent" {
+  description = "Five-layer v2 AWS browser principal behavior: resolve an existing Identity Center user, or explicitly invite one in the built-in directory"
+  type        = string
+  default     = "existing"
+
+  validation {
+    condition     = contains(["existing", "invite_builtin"], var.aws_layer_access_principal_intent)
+    error_message = "aws_layer_access_principal_intent must be existing or invite_builtin."
+  }
+}
+
+variable "azure_layer_access_principal_object_id" {
+  description = "Existing Entra principal object ID receiving Five-layer v2 ADT Reader and Grafana Viewer access; the platform never creates this principal"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.azure_layer_access_principal_object_id == "" ||
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.azure_layer_access_principal_object_id))
+    )
+    error_message = "azure_layer_access_principal_object_id must be an Entra object ID UUID when provided."
+  }
+}
+
+variable "azure_layer_access_principal_label" {
+  description = "Non-secret label or UPN shown with the existing Entra layer-access principal"
+  type        = string
+  default     = ""
+}
+
 # ==============================================================================
 # GCP Credentials (from config_credentials.json)
 # ==============================================================================
@@ -776,6 +1175,82 @@ variable "gcp_region" {
   default     = "europe-west1"
 }
 
+variable "gcp_v2_platform_image" {
+  description = "Content-addressed GCP Five-layer v2 platform runtime image"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.gcp_v2_platform_image == "" ||
+      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_v2_platform_image))
+    )
+    error_message = "gcp_v2_platform_image must be an Artifact Registry image pinned by sha256 digest."
+  }
+}
+
+variable "gcp_v2_processor_extension_image" {
+  description = "Content-addressed GCP processor.telemetry@1 adapter image"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.gcp_v2_processor_extension_image == "" ||
+      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_v2_processor_extension_image))
+    )
+    error_message = "gcp_v2_processor_extension_image must be an Artifact Registry image pinned by sha256 digest."
+  }
+}
+
+variable "gcp_v2_storage_mover_image" {
+  description = "Content-addressed GCP Five-layer v2 finite storage-mover image"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.gcp_v2_storage_mover_image == "" ||
+      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_v2_storage_mover_image))
+    )
+    error_message = "gcp_v2_storage_mover_image must be an Artifact Registry image pinned by sha256 digest."
+  }
+}
+
+variable "gcp_v2_grafana_image" {
+  description = "Content-addressed GCP Five-layer v2 Grafana image with the reviewed signed Infinity plugin"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.gcp_v2_grafana_image == "" ||
+      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_v2_grafana_image))
+    )
+    error_message = "gcp_v2_grafana_image must be an Artifact Registry image pinned by sha256 digest."
+  }
+}
+
+variable "gcp_v2_kubernetes_stage_enabled" {
+  description = "Activate the automatic post-cluster Kubernetes apply stage for Five-layer v2"
+  type        = bool
+  default     = true
+}
+
+variable "gcp_grafana_source_cidrs" {
+  description = "Non-empty researcher CIDR allowlist for the GCP Grafana TLS LoadBalancer"
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for cidr in var.gcp_grafana_source_cidrs :
+      can(cidrhost(cidr, 0)) && !contains(["0.0.0.0/0", "::/0"], cidr)
+    ])
+    error_message = "gcp_grafana_source_cidrs must contain valid bounded CIDRs and must not contain a wildcard route."
+  }
+}
+
 variable "gcp_billing_account" {
   description = "GCP Billing Account ID for project creation (for organization accounts)"
   type        = string
@@ -797,6 +1272,12 @@ variable "layer_3_cold_to_archive_interval_days" {
   description = "Days before moving data from cold to archive storage"
   type        = number
   default     = 90
+}
+
+variable "layer_3_archive_expiry_interval_days" {
+  description = "Cumulative age in days after which archived data expires"
+  type        = number
+  default     = 360
 }
 
 # ==============================================================================
@@ -958,6 +1439,69 @@ variable "inter_cloud_token" {
   sensitive   = true
 }
 
+variable "aws_outbound_identity_required" {
+  description = "Whether the resolved graph contains an AWS-to-Azure workload-identity route"
+  type        = bool
+  default     = false
+}
+
+variable "aws_outbound_identity_destinations" {
+  description = "Remote providers that trust the account-scoped AWS outbound identity issuer"
+  type        = list(string)
+  default     = []
+}
+
+variable "aws_outbound_identity_issuer" {
+  description = "Non-secret AWS outbound identity issuer discovered during preplan"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.aws_outbound_identity_issuer == "" || startswith(var.aws_outbound_identity_issuer, "https://")
+    error_message = "The AWS outbound identity issuer must be empty or use HTTPS."
+  }
+}
+
+variable "resolved_cross_cloud_routes" {
+  description = "Non-secret directed edge contracts compiled from the immutable deployment graph"
+  type = list(object({
+    route_id                = string
+    logical_edge_id         = string
+    source_provider         = string
+    destination_provider    = string
+    execution_kind          = string
+    channel_class           = string
+    event_types             = list(string)
+    source_broker_kind      = string
+    destination_broker_kind = string
+    identity_exchange       = string
+    payload_contract_id     = string
+    trust_contract_id       = string
+  }))
+  default = []
+
+  validation {
+    condition = alltrue([
+      for route in var.resolved_cross_cloud_routes :
+      contains(["aws", "azure", "gcp"], route.source_provider) &&
+      contains(["aws", "azure", "gcp"], route.destination_provider) &&
+      route.source_provider != route.destination_provider &&
+      contains(["source_event_forwarder", "finite_storage_job"], route.execution_kind) &&
+      contains(["telemetry", "control", "storage"], route.channel_class) &&
+      contains(["telemetry_stream", "control_topic", "object_storage"], route.source_broker_kind) &&
+      route.source_broker_kind == route.destination_broker_kind &&
+      (
+        (route.execution_kind == "finite_storage_job" && route.channel_class == "storage" && length(route.event_types) == 0 && route.source_broker_kind == "object_storage") ||
+        (route.execution_kind == "source_event_forwarder" && route.channel_class != "storage" && length(route.event_types) > 0 && route.source_broker_kind != "object_storage")
+      ) &&
+      route.identity_exchange != "" &&
+      route.payload_contract_id != "" &&
+      route.trust_contract_id == "trust.workload-identity-federation"
+    ])
+    error_message = "Every resolved cross-cloud route must use a closed provider pair, execution kind, payload, and workload-identity trust."
+  }
+}
+
 # ==============================================================================
 # Azure Function ZIP Deployment Paths
 # These paths are populated by tfvars_generator.py with pre-built function ZIPs.
@@ -993,6 +1537,39 @@ variable "azure_user_zip_path" {
   description = "Path to user functions ZIP (processors, event_actions, event-feedback)"
   type        = string
   default     = ""
+}
+
+variable "azure_v2_zip_path" {
+  description = "Content-addressed Five-layer v2 Azure Function App package"
+  type        = string
+  default     = ""
+}
+
+variable "azure_event_zip_path" {
+  description = "Content-addressed Six-layer Azure Event Layer Function package"
+  type        = string
+  default     = ""
+}
+
+# ==============================================================================
+# Validated User-Function Extension Packages
+# Phase 8.3 provider catalogs bind these reviewed packages to executable slots.
+# This prerequisite records and verifies immutable package references only.
+# ==============================================================================
+
+variable "validated_extension_packages" {
+  description = "Contract-validated immutable extension package evidence"
+  type = list(object({
+    slot_id         = string
+    slot_version    = string
+    artifact_id     = string
+    artifact_digest = string
+    package_path    = string
+    package_digest  = string
+    adapter_id      = string
+    adapter_version = string
+  }))
+  default = []
 }
 
 # ==============================================================================

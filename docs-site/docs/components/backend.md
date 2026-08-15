@@ -8,6 +8,7 @@ history, CloudConnections, and lifecycle transitions.
 
 - authenticate users and enforce owner scope;
 - persist twins, configuration, file versions, calculation runs, reviews, deployments, and logs;
+- persist revisioned architecture-profile selections and immutable resolved architectures;
 - encrypt and manage reusable CloudConnections;
 - validate configuration and deployment readiness;
 - call Optimizer and Deployer through typed clients;
@@ -46,10 +47,14 @@ FastAPI route
 | `/twins/{id}/config` | configuration workspace persistence and validation |
 | `/twins/{id}/optimizer-config` | typed optimization inputs and projections |
 | `/twins/{id}/optimizer-runs` | durable calculation execution/results |
+| `/architecture-profiles` | active reviewed profile summaries and detail |
+| `/twins/{id}/architecture-profile` | pinned selection, invalidation preview, and revisioned profile change |
+| `/twins/{id}/resolved-architecture` | immutable architecture of the selected run |
+| `/optimizer-runs/{run_id}/resolved-architecture` | owner-scoped immutable run architecture |
 | `/twins/{id}/optimizer-runs/{run_id}/pricing-evidence` | owner-scoped compact, field-level, and exact transfer-route calculation evidence |
 | `/twins/{id}/deployer` | deployment configuration and readiness |
 | `/cloud-connections` | reusable encrypted credentials, validation, binding/defaults |
-| `/cloud-bootstrap` | secret-free manual bootstrap plans and generated deployment-connection import |
+| `/cloud-bootstrap` | safe guides, owner-scoped session lifecycle, request-only execute, manual cleanup acknowledgement, and compatible manual plan/import |
 | `/cloud-access` | account-level capability inventory |
 | `/platform/provider-capabilities` | aggregate Optimizer/Deployer provider-layer capability contract |
 | `/optimizer/pricing-refresh` | provider refresh run lifecycle |
@@ -70,11 +75,14 @@ User
   +-- DigitalTwin
   |     +-- TwinConfiguration
   |     +-- OptimizerConfiguration -- CostCalculationRun -- ResultItem
+  |     |                              +-- ResolvedTwinArchitecture
+  |     +-- TwinArchitectureSelection
   |     +-- DeployerConfiguration
   |     +-- FileVersion
   |     +-- Deployment -- DeploymentLog
   |     +-- DeploymentPreflightCache
   +-- CloudConnection
+  +-- CloudBootstrapSession
 
 PricingRefreshRun
 PricingCandidateReport
@@ -95,7 +103,12 @@ never return the decrypted payload. Purpose distinguishes deployment and pricing
 one user-level pricing default is enforced per provider.
 
 Credential mutation/validation/bootstrap operations are rate limited and audited.
-Downstream validation messages are redacted before response or persistence.
+`CloudBootstrapSession` persists safe scope, pack, finding, disposal, revision,
+and connection-summary state only. Bootstrap credentials exist only in the
+sensitive execute request and are excluded from diagnostics and persistence.
+The deterministic offline adapters create no cloud resources; production
+provider adapters fail closed. Downstream validation messages are redacted
+before response or persistence.
 
 ## Provider Capability Aggregation
 
@@ -116,12 +129,15 @@ archive generation, package staging, stream handling, result persistence, rollba
 and recovery. A deployment record is separate from twin state, enabling operation
 history and correlation by session/operation ID.
 
-Every new successful optimizer run contains one canonical
-`ResolvedDeploymentSpecification v1`. Management validates its schema, closed-world
-component/dimension registry, run ID, provider path, strategy context, immutable
-pricing references, and SHA-256 digest before committing any run state. The canonical
-JSON, digest, version, and compatibility status are immutable after insertion.
-Historical runs remain readable as `legacy_not_deployable`; they are never upgraded by
+Every new successful optimizer run contains one canonical, profile-matched
+resolved deployment specification and resolved architecture. Historical
+Five-layer v1 uses RDS/RTA v1; active Five-layer v2 and Six-layer v1 use
+separate RDS/RTA v2 evidence.
+Management validates their schemas, closed-world component/dimension registry,
+run ID, provider path, strategy context, immutable pricing references, cross-links,
+and SHA-256 digests before committing any run state. The canonical JSON, digests,
+versions, and compatibility statuses are immutable after insertion. Historical
+runs remain readable as `legacy_not_deployable`; they are never upgraded by
 guessing provider settings from legacy cheapest-layer columns.
 
 Exactly one compatible run may be selected per twin/user. A partial unique database
@@ -129,14 +145,29 @@ index enforces this invariant in addition to the application transaction. Packag
 generation revalidates the stored object and requires its provider path to equal the
 persisted Optimizer projection before decrypting credentials or materializing files.
 
-The Management API builds `deployment_manifest.json` version `2.0`, embedding the
-exact calculation run ID, specification object, and digest. It submits exact archive
-bytes to the Deployer, receives an operation-package token, and uses that token for
-the deploy/destroy operation. It does not write into Deployer templates directly.
-The Deployer revalidates Manifest v2, the specification digest, provider path,
-components, dimensions, and formula/evidence bindings before staging runtime
-state. It translates only allowlisted deployment selections into typed tfvars;
-unknown or drifting contracts fail closed.
+The Management API builds the profile-matched `deployment_manifest.json`:
+version 3.0 for historical Five-layer v1 evidence and version 4.0 for active
+Five-layer v2 or Six-layer v1 evidence. It embeds the exact calculation run ID, immutable
+architecture and specification objects/digests, pinned catalog compatibility,
+derived provider projection, credential-source metadata, and immutable
+extension references. Storage durations and workload fields come from the
+selected run's immutable `params_json`, not the currently editable Optimizer
+configuration. Fixed `cheapest_l*` columns are historical projections and
+cannot influence executable packages.
+
+It submits exact archive bytes to the Deployer, receives an operation-package token
+and bounded graph evidence, validates that evidence, and persists it with the
+deployment. The Deployer compiles the graph and revalidates packages/tfvars before
+Terraform. Management records monotonic graph-stage completion from the stream.
+Retry and destroy compare the complete frozen evidence, including architecture,
+specification, catalog, graph, and package-selection digests. Destroy selects the
+recorded calculation run rather than the latest selection. Drift fails with
+`DEPLOYMENT_GRAPH_RESUME_MISMATCH`.
+
+Manifest v2 remains readable for historical compatibility only. An operation
+must use the manifest version owned by its frozen profile: v3 for historical
+Five-layer v1 evidence and v4 for active Five-layer v2 or Six-layer v1.
+Invalid packages never fall back across versions or to fixed fields.
 
 ## Database Startup And Migrations
 
@@ -150,6 +181,12 @@ contains a complete, internally valid exact reference set.
 Migration `020` adds the immutable resolved-deployment columns, classifies existing
 runs as `legacy_not_deployable`, normalizes any historical duplicate selections, and
 adds digest, status, immutability, and single-selection database guards.
+Migration `022` adds pinned Twin architecture selections, immutable canonical
+run resolutions and derived component/edge projections, conservatively
+classifies legacy runs, deselects non-resolvable history, and installs
+immutability and append-only audit guards.
+Migration `023_deployment_graph_evidence` adds bounded graph/profile/catalog/stage
+evidence to operation records without inventing evidence for history.
 
 SQLite is the local single-node storage choice. A production multi-replica deployment would
 require a managed relational database and a migration framework appropriate to it.

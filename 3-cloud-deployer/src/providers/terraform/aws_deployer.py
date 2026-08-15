@@ -10,12 +10,37 @@ from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
 from src.core.secure_files import atomic_write_private_bytes
+from src.deployment_access.runtime_evidence import (
+    SUPPORTED_DEPLOYMENT_ACCESS_PROFILES,
+)
 from src.providers.terraform.runtime_outcome import RuntimeRun
 
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
 
 logger = logging.getLogger(__name__)
+
+V2_SEED_ROOT_ID = "twin2multicloud-poc-root"
+V2_SEED_DEVICE_ID = "twin2multicloud-poc-device"
+V2_SEED_COMPONENT_NAME = "Twin2MultiCloudPoCDevice"
+
+
+def _is_active_phase8_profile(context: "DeploymentContext") -> bool:
+    graph = getattr(context, "resolved_deployment_graph", None)
+    profile_ref = getattr(graph, "profile_ref", {}) if graph is not None else {}
+    return (
+        profile_ref.get("id"),
+        str(profile_ref.get("version")),
+    ) in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES
+
+
+def _active_phase8_profile(context: "DeploymentContext") -> str:
+    graph = getattr(context, "resolved_deployment_graph", None)
+    profile_ref = getattr(graph, "profile_ref", {}) if graph is not None else {}
+    profile = (profile_ref.get("id"), str(profile_ref.get("version")))
+    if profile not in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES:
+        raise RuntimeError("Active Phase 8 architecture profile is required")
+    return f"{profile[0]}@{profile[1]}"
 
 
 def _simulator_iot_policy(*, region: str, account_id: str, device_id: str, topic: str) -> dict:
@@ -110,6 +135,91 @@ def _hierarchy_contains_component(nodes: list[dict]) -> bool:
     )
 
 
+def _five_layer_v2_seed(context: "DeploymentContext") -> dict:
+    """Return the deterministic minimal TwinMaker graph used by the thesis PoC."""
+    configured_devices = getattr(context.config, "iot_devices", [])
+    devices = configured_devices if isinstance(configured_devices, list) else []
+    first_device = devices[0] if devices and isinstance(devices[0], dict) else {}
+    source_device_id = str(
+        first_device.get("id") or first_device.get("device_id") or "poc-device-001"
+    )
+    return {
+        "type": "entity",
+        "id": V2_SEED_ROOT_ID,
+        "children": [
+            {
+                "type": "entity",
+                "id": V2_SEED_DEVICE_ID,
+                "children": [
+                    {
+                        "type": "component",
+                        "name": V2_SEED_COMPONENT_NAME,
+                        "componentTypeId": V2_SEED_COMPONENT_NAME,
+                        "properties": [
+                            {"name": "value", "dataType": "DOUBLE"},
+                        ],
+                        "constProperties": [
+                            {
+                                "name": "sourceDeviceId",
+                                "dataType": "STRING",
+                                "value": source_device_id,
+                            },
+                            {
+                                "name": "status",
+                                "dataType": "STRING",
+                                "value": "awaiting-telemetry",
+                            },
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def _probe_five_layer_v2_seed(
+    twinmaker,
+    *,
+    workspace_id: str,
+    twin_name: str,
+) -> None:
+    """Read back the bounded seed graph through the deployed TwinMaker API."""
+    component_type_id = f"{twin_name}-{V2_SEED_COMPONENT_NAME}"
+    run = RuntimeRun("AWS", "TwinMaker content probe", logger)
+
+    def read_component_type() -> None:
+        response = twinmaker.get_component_type(
+            workspaceId=workspace_id,
+            componentTypeId=component_type_id,
+        )
+        if response.get("status", {}).get("state") != "ACTIVE":
+            raise RuntimeError("TwinMaker seed component type is not active")
+
+    def read_root() -> None:
+        response = twinmaker.get_entity(
+            workspaceId=workspace_id,
+            entityId=V2_SEED_ROOT_ID,
+        )
+        if response.get("entityId") != V2_SEED_ROOT_ID:
+            raise RuntimeError("TwinMaker seed root readback returned the wrong entity")
+
+    def read_device() -> None:
+        response = twinmaker.get_entity(
+            workspaceId=workspace_id,
+            entityId=V2_SEED_DEVICE_ID,
+        )
+        if response.get("parentEntityId") != V2_SEED_ROOT_ID:
+            raise RuntimeError("TwinMaker seed relationship is not readable")
+        component = response.get("components", {}).get(V2_SEED_COMPONENT_NAME, {})
+        if component.get("componentTypeId") != component_type_id:
+            raise RuntimeError("TwinMaker seed component is not readable")
+
+    run.attempt(component_type_id, read_component_type)
+    run.attempt(V2_SEED_ROOT_ID, read_root)
+    run.attempt(V2_SEED_DEVICE_ID, read_device)
+    run.raise_if_failed()
+
+
 def create_twinmaker_entities(
     context: "DeploymentContext",
     project_path: Path,
@@ -122,7 +232,11 @@ def create_twinmaker_entities(
     if not workspace_id:
         raise RuntimeError("Terraform output aws_twinmaker_workspace_id is required")
     hierarchy = context.config.hierarchy
-    if not isinstance(hierarchy, list) or not hierarchy:
+    if not isinstance(hierarchy, list):
+        raise ValueError("AWS TwinMaker hierarchy must be a list")
+    if _is_active_phase8_profile(context):
+        hierarchy = [*hierarchy, _five_layer_v2_seed(context)]
+    elif not hierarchy:
         raise ValueError("AWS TwinMaker hierarchy must be a non-empty list")
 
     twinmaker = provider.clients["twinmaker"]
@@ -156,6 +270,12 @@ def create_twinmaker_entities(
             connector_last_entry_arn=connector_last_entry_arn,
         )
     run.raise_if_failed()
+    if _is_active_phase8_profile(context):
+        _probe_five_layer_v2_seed(
+            twinmaker,
+            workspace_id=str(workspace_id),
+            twin_name=twin_name,
+        )
 
 
 def _create_twinmaker_node(
@@ -525,9 +645,43 @@ def configure_aws_grafana(
     terraform_outputs: dict,
 ) -> None:
     """Create the required Grafana datasource or fail the deployment."""
+    provider = _require_aws_provider(context)
+    if _is_active_phase8_profile(context):
+        from src.providers.aws.layers.layer_5_grafana import (
+            configure_five_layer_v2_grafana,
+        )
+
+        bundle = terraform_outputs.get("aws_component_visualization_output")
+        if not isinstance(bundle, dict):
+            raise RuntimeError(
+                "Terraform output aws_component_visualization_output is required"
+            )
+        required = {
+            "workspace_id",
+            "workspace_url",
+            "reader_url",
+            "reader_function_name",
+        }
+        missing = sorted(key for key in required if not bundle.get(key))
+        if missing:
+            raise RuntimeError(
+                "AWS visualization output is missing: " + ", ".join(missing)
+            )
+        device_id, metric = _default_v2_dashboard_series(context.config)
+        configure_five_layer_v2_grafana(
+            provider,
+            workspace_id=str(bundle["workspace_id"]),
+            grafana_url=str(bundle["workspace_url"]).rstrip("/"),
+            reader_url=str(bundle["reader_url"]),
+            reader_function_name=str(bundle["reader_function_name"]),
+            device_id=device_id,
+            metric=metric,
+            architecture_profile=_active_phase8_profile(context),
+        )
+        return
+
     import requests
 
-    _require_aws_provider(context)
     required = {
         "endpoint": terraform_outputs.get("aws_grafana_endpoint"),
         "api_key": terraform_outputs.get("aws_grafana_api_key"),
@@ -553,3 +707,19 @@ def configure_aws_grafana(
     )
     if response.status_code not in {200, 201, 409}:
         raise RuntimeError(f"Grafana API returned HTTP {response.status_code}")
+
+
+def _default_v2_dashboard_series(config) -> tuple[str, str]:
+    devices = config.iot_devices if isinstance(config.iot_devices, list) else []
+    device = devices[0] if devices and isinstance(devices[0], dict) else {}
+    device_id = str(device.get("id") or device.get("device_id") or "poc-device-001")
+    properties = device.get("properties", [])
+    first_property = (
+        properties[0]
+        if isinstance(properties, list)
+        and properties
+        and isinstance(properties[0], dict)
+        else {}
+    )
+    metric = str(first_property.get("name") or "temperature")
+    return device_id, metric

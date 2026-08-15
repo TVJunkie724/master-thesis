@@ -1,0 +1,255 @@
+{
+  "$schema": "./schemas/package-artifact.schema.json",
+  "schema_version": "1.0.0",
+  "package_id": "phase-08-complete-service-bundles@1",
+  "artifact_id": "complete-provider-bundles",
+  "selection_policy": {
+    "primary_criterion": "mandatory_functional_completeness",
+    "secondary_criterion": "theoretical_small_medium_large_admissibility",
+    "service_family_cost_optimization": false,
+    "candidate_cost_ranking_after_admission": true,
+    "silent_service_substitution": false
+  },
+  "providers": [
+    {
+      "provider": "aws",
+      "region": "eu-central-1",
+      "layers": {
+        "l1_acquisition": [
+          "aws.iot-core",
+          "aws.iot-commands"
+        ],
+        "l2_processing": [
+          "aws.lambda",
+          "aws.step-functions-standard"
+        ],
+        "l3_hot": [
+          "aws.dynamodb-on-demand-raw",
+          "aws.dynamodb-on-demand-hourly-rollup"
+        ],
+        "l3_cool": [
+          "aws.s3-standard-ia"
+        ],
+        "l3_archive": [
+          "aws.s3-glacier-deep-archive"
+        ],
+        "l4_twin": [
+          "aws.iot-twinmaker-standard"
+        ],
+        "l5_visualization": [
+          "aws.amazon-managed-grafana-12",
+          "aws.lambda-raw-history-reader",
+          "aws.grafana-marcusolsson-json-datasource"
+        ]
+      },
+      "support_components": [
+        "aws.eventbridge-scheduler",
+        "aws.ecs-fargate-storage-mover",
+        "aws.ecr-if-container-selected",
+        "aws.cloudwatch",
+        "aws.iam-identity-center-layer-access"
+      ],
+      "embedded_event_components": [
+        "aws.sqs-fifo",
+        "aws.lambda-event-adapter",
+        "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "aws.sns-fifo-only-for-reviewed-remote-control-edge"
+      ],
+      "six_layer_event_components": [
+        "aws.kinesis-data-streams",
+        "aws.sns-fifo",
+        "aws.sqs-fifo",
+        "aws.lambda-event-worker",
+        "aws.s3-event-failure-store",
+        "aws.cloudwatch"
+      ],
+      "scenario_selection": {
+        "small": "same_service_family",
+        "medium": "same_service_family",
+        "large": "same_service_family_with_calculated_capacity"
+      }
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "layers": {
+        "l1_acquisition": [
+          "azure.iot-hub"
+        ],
+        "l2_processing": [
+          "azure.functions-flex-consumption",
+          "azure.logic-apps-consumption"
+        ],
+        "l3_hot": [
+          "azure.cosmos-db-nosql-raw-and-rollup"
+        ],
+        "l3_cool": [
+          "azure.blob-cool"
+        ],
+        "l3_archive": [
+          "azure.blob-archive"
+        ],
+        "l4_twin": [
+          "azure.digital-twins"
+        ],
+        "l5_visualization": [
+          "azure.managed-grafana-12-standard",
+          "azure.functions-flex-raw-history-reader",
+          "azure.grafana-marcusolsson-json-datasource"
+        ]
+      },
+      "support_components": [
+        "azure.container-apps-scheduled-storage-job",
+        "azure.acr-basic-if-container-selected",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace",
+        "azure.entra-layer-access-bindings"
+      ],
+      "embedded_event_components": [
+        "azure.service-bus-standard",
+        "azure.functions-flex-event-adapter",
+        "azure.event-hubs-only-for-reviewed-remote-telemetry-edge"
+      ],
+      "six_layer_event_components": [
+        "azure.event-hubs-standard-small-medium",
+        "azure.event-hubs-dedicated-large",
+        "azure.service-bus-standard",
+        "azure.functions-flex-event-worker",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace"
+      ],
+      "scenario_selection": {
+        "small": "cosmos-serverless-and-grafana-standard-x1",
+        "medium": "cosmos-serverless-and-grafana-standard-x1",
+        "large": "cosmos-calculated-autoscale-and-grafana-standard-x2"
+      },
+      "rejected_alternatives": [
+        "azure.data-explorer-as-l3-hot"
+      ]
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "layers": {
+        "l1_acquisition": [
+          "apache.bifromq-4.0.0-incubating-on-gke-standard",
+          "gcp.external-load-balancer",
+          "gcp.ordered-mqtt-pubsub-adapter"
+        ],
+        "l2_processing": [
+          "gcp.cloud-run-service",
+          "gcp.workflows"
+        ],
+        "l3_hot": [
+          "gcp.firestore-native-standard-raw-and-rollup"
+        ],
+        "l3_cool": [
+          "gcp.cloud-storage-nearline"
+        ],
+        "l3_archive": [
+          "gcp.cloud-storage-archive"
+        ],
+        "l4_twin": [
+          "gcp.cloud-run-twin-api-materializer",
+          "gcp.firestore-native-standard-bounded-twin",
+          "gcp.cloud-run-iap-twin-explorer",
+          "gcp.direct-iap-layer-access"
+        ],
+        "l5_visualization": [
+          "grafana.oss-12-on-gke",
+          "gcp.persistent-disk-rwo",
+          "gcp.cloud-run-raw-history-reader",
+          "grafana.yesoreyeram-infinity-datasource",
+          "gcp.grafana-tls-load-balancer"
+        ]
+      },
+      "support_components": [
+        "gcp.cloud-scheduler",
+        "gcp.cloud-run-storage-job",
+        "gcp.artifact-registry-if-container-selected",
+        "gcp.cloud-logging",
+        "gcp.cloud-monitoring"
+      ],
+      "embedded_event_components": [
+        "gcp.pubsub-separated-embedded-topics",
+        "gcp.cloud-run-event-adapter"
+      ],
+      "six_layer_event_components": [
+        "gcp.pubsub-separated-event-layer-topics",
+        "gcp.cloud-run-event-service-small-medium",
+        "gcp.cloud-run-worker-pool-fixed-large",
+        "gcp.cloud-logging",
+        "gcp.cloud-monitoring"
+      ],
+      "scenario_selection": {
+        "small": "firestore-one-shard-grafana-e2-standard-4",
+        "medium": "firestore-one-shard-grafana-e2-standard-4",
+        "large": "firestore-sixteen-shards-grafana-e2-standard-8"
+      },
+      "shared_resource_rules": [
+        "one_named_firestore_database_per_deployment_with_distinct_l3_l4_collections_and_identities",
+        "reuse_bifromq_gke_cluster_for_grafana_when_l1_is_gcp",
+        "one_incremental_grafana_node_without_isolation_only_node_pool",
+        "separate_l1_and_event_layer_pubsub_resources_and_cost_ownership"
+      ],
+      "accepted_limitations": [
+        "firestore_server_iam_is_database_wide_not_collection_scoped",
+        "grafana_uses_one_replica_and_rwo_sqlite_for_the_poc",
+        "grafana_endpoint_uses_generated_tls_and_cidr_allowlist_without_public_dns_or_public_ca",
+        "large_six_layer_worker_pool_is_preview_fixed_size_and_non_autoscaling"
+      ],
+      "rejected_alternatives": [
+        "bigquery-as-l3-hot",
+        "spanner-graph-as-l4",
+        "custom-twin-grafana-plugin",
+        "dedicated-grafana-node-pool"
+      ]
+    }
+  ],
+  "pinned_self_hosted_artifacts": [
+    {
+      "artifact_id": "apache-bifromq-linux-amd64",
+      "image": "docker.io/apache/bifromq:4.0.0-incubating",
+      "digest": "sha256:14856495892e3b84d25092a90de3c2fc149a3482afd283abb95fdff18effd924",
+      "license": "Apache-2.0",
+      "architecture": "linux/amd64"
+    },
+    {
+      "artifact_id": "grafana-oss-multiarch",
+      "image": "docker.io/grafana/grafana:12.4.2",
+      "digest": "sha256:83749231c3835e390a3144e5e940203e42b9589761f20ef3169c716e734ad505",
+      "license": "AGPL-3.0-only",
+      "architecture": "multiarch"
+    },
+    {
+      "artifact_id": "infinity-plugin-linux-amd64",
+      "download": "https://grafana.com/api/plugins/yesoreyeram-infinity-datasource/versions/3.10.1/download?os=linux&arch=amd64",
+      "version": "3.10.1",
+      "digest": "sha256:39d1cac9bcd2f7f2e46607319cb27afb8592ab0fcbc57968dc9fb86f3ef69a59",
+      "license": "Apache-2.0",
+      "grafana_requirement": ">=11.6.0-0",
+      "architecture": "linux/amd64"
+    }
+  ],
+  "plugin_decisions": [
+    {
+      "plugin_id": "marcusolsson-json-datasource",
+      "runtime": "aws_and_azure_managed_grafana_12",
+      "selected_version": "1.4.0",
+      "grafana_requirement": ">=12.0.0-0",
+      "status": "deprecated_poc_dependency",
+      "hard_end_date": "2027-02-01",
+      "deployment_preflight": "exact_catalog_version_and_grafana_12_compatibility_required",
+      "silent_substitute": false
+    },
+    {
+      "plugin_id": "yesoreyeram-infinity-datasource",
+      "runtime": "gcp_self_hosted_grafana_12",
+      "selected_version": "3.10.1",
+      "artifact_digest": "sha256:39d1cac9bcd2f7f2e46607319cb27afb8592ab0fcbc57968dc9fb86f3ef69a59",
+      "status": "selected_signed_plugin",
+      "deployment_preflight": "content_digest_signature_license_and_grafana_12_compatibility_required",
+      "silent_substitute": false
+    }
+  ]
+}

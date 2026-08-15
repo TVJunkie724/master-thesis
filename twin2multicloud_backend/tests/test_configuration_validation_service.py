@@ -3,6 +3,7 @@ import json
 import pytest
 
 from src.models.cloud_connection import CloudConnection
+from src.models.architecture_profile import TwinArchitectureSelection
 from src.models.deployer_config import DeployerConfiguration
 from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin
@@ -99,6 +100,32 @@ async def test_validate_configured_transition_sends_exact_optimizer_and_deployer
     assert deployer.payload["event_actions"] == {"action-1": "print('ok')"}
     assert deployer.payload["optimizer_params"] == {"devices": 10}
     assert deployer.payload["cheapest_path"] == {"L1": "aws"}
+    assert deployer.payload["architecture_profile_ref"] is None
+
+
+@pytest.mark.asyncio
+async def test_validate_configured_transition_pins_profile_for_deployer_validation():
+    optimizer = FakeOptimizerClient({"valid": True})
+    deployer = FakeDeployerClient({"valid": True})
+    service = ConfigurationValidationService(optimizer, deployer)
+    twin = _configured_twin()
+    twin.architecture_selection = TwinArchitectureSelection(
+        id="selection-1",
+        twin_id=twin.id,
+        user_id=twin.user_id,
+        selected_by_user_id=twin.user_id,
+        profile_id="five-layer-baseline",
+        profile_version="2",
+        profile_digest="sha256:" + "a" * 64,
+    )
+
+    await service.validate_configured_transition(twin)
+
+    assert deployer.payload["architecture_profile_ref"] == {
+        "id": "five-layer-baseline",
+        "version": "2",
+        "digest": "sha256:" + "a" * 64,
+    }
 
 
 @pytest.mark.asyncio

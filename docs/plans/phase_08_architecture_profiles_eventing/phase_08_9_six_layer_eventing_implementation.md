@@ -1,793 +1,424 @@
 ---
-title: "Phase 8.9: Implement six-layer-eventing@1"
-description: "Implementation plan for one executable closed-world Eventing profile using the approved generic architecture extension points."
+title: "Phase 8.9B: Six-Layer Eventing Implementation"
+description: "Executable delta plan that adds one independent Eventing responsibility to the reviewed Five-layer v2 PoC."
 tags: [architecture, eventing, optimizer, management-api, deployer, flutter, issue-140]
-lastUpdated: "2026-07-19"
-version: "1.0"
+lastUpdated: "2026-08-14"
+version: "2.14"
 ---
 
 <!-- SOURCES:
 - GitHub issue #140
-- Approved Phase 8.8 Eventing decision package
-- Phase 8.2-8.7 contracts and implementations
-- docs/research/digital_twin_architecture_and_eventing_layer.md
-- Existing resolved-deployment-specification, DeploymentManifest, provider, Terraform, and Flutter extension points
-- User-approved bounded six-layer profile with no arbitrary graph editor
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+- docs/plans/phase_08_architecture_profiles_eventing/phase_08_8_eventing_decision_gate.md
+- docs/plans/phase_08_architecture_profiles_eventing/phase_08_service_bundle_closure.md
+- docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
+- docs/plans/phase_08_architecture_profiles_eventing/phase_08_layer_access_handoff.md
+- contracts/phase-08-eventing-decision/v1/decision.json
+- contracts/phase-08-eventing-decision/v1/implementation-component-manifest.json
+- User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
+EXTRACTED: 2026-08-14 | VERSION: 2.14
 -->
 
-# Phase 8.9: Implement `six-layer-eventing@1`
+# Phase 8.9B: Six-Layer Eventing Implementation
 
-## 0. Metadata
+## 0. Authority And Branch Gate
 
 | Field | Value |
 |---|---|
 | Issue | [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) |
-| Milestone | Phase 8 - Twin Architecture Profiles & Eventing |
-| Recommended branch | `codex/phase-8-six-layer-eventing` |
-| Base branch | `master` |
-| Blocked by | Phase 8.7 / #138 and approved Phase 8.8 / #146 |
-| Produces | Executable closed-world `six-layer-eventing@1` |
-| Targets | AWS/Azure/GCP Eventing bundles, admissible whole paths, Web, macOS, Windows, Linux |
-| Live cloud E2E | Forbidden |
+| Branch | `codex/phase-8-six-layer-eventing-v1` |
+| Required base | Reviewed and committed `five-layer-baseline@2` implementation, including workload v2, bootstrap, L4/L5 access, RDS v2, and Deployment Manifest v4 |
+| Inherited implementation commit | `c5c6232478d29a9cc3c7d280bdc9ca0e79c47226` |
+| Five-layer audit-freeze commit | `d4c080f6` |
+| Five-layer profile digest | `sha256:d8a57a1f9ff1c530282dd42dcf595f1a9ec8051f8cd8574acfb0a81e655d9386` |
+| Complete-service catalog digest | `sha256:3396848028a5b8862e1c948a8017cd8e7bb7d118a0ee5edc120cd3d7a3956c1d` |
+| Five-layer activation manifest digest | `sha256:319433834c75147d6d18665840a17626dd67dcd182a449fa574e7ab9860aef6f` |
+| Eventing decision file digest | `sha256:b2afdaff2793391f0bab0127c93e13b0ff281964d1184818090781234444be35` |
+| Eventing implementation-manifest file digest | `sha256:bcc8fd9465243bd92028cf7c6cb970973096227048aeac98294f429b1f24252f` |
+| Profile | `six-layer-eventing@1` |
+| Decision authority | Approved `phase-08-eventing-decision@1` plus the committed Five-layer v2 digest |
+| Verification | Offline/no-apply by default; no live cloud resource creation |
 
-Every contract, provider bundle, formula, package, permission, Terraform
-binding, API field, UI state, test, and Definition of Done item in this plan is
-mandatory. The phase must use the exact approved Phase 8.8 bundle and bridge
-IDs; it must not substitute another service during implementation.
+**Implementation checkpoint:** The scoped contract, Optimizer, Management,
+Deployer, AWS, Azure, GCP, bridge, and Flutter commits are present on the
+required branch. Component gates pass locally without credentials or apply.
+Documentation reconciliation and two final review passes are complete with
+zero unresolved findings. This revision is the reviewed 8.9B freeze handed to
+Phase 8.10; supervised live-capacity evidence remains explicitly absent and
+deployment-blocking.
+The current-system documentation now names both active profiles consistently,
+keeps the core/event S/M/L pair immutable, gives both profiles the typed L4/L5
+handoff and Manifest v4 boundary, and distinguishes current registered bridges
+from the predecessor's historical generic Glue wording. The strict MkDocs
+build passes locally.
+The cross-service cost-evidence review found and closed a stale Management
+topology-registry digest plus a missing `eventing-to-hot-storage` ownership
+route. Management now verifies the digest from its synchronized registry copy,
+uses the exact Optimizer Event flow matrix, and has a root drift test plus a
+full Six-layer ledger regression. This is validation/routing evidence only and
+adds no service or deployment behavior.
+The same admission review now rejects typed L4/L5 access evidence when its
+profile/version differs from the persisted deployment. Five-layer-shaped
+evidence can no longer be attached to a Six-layer deployment or vice versa.
+The current audit also binds every inherited Terraform resource and every
+profile-local AWS, Azure, and GCP runtime to the resolved profile identifier
+and version. Runtime health/read cursors, Twin Explorer text, provider Grafana
+dashboards, and build metadata may not misidentify a Six-layer deployment as
+Five-layer. The inherited finite tiering artifact format deliberately retains
+its `five-layer-v2-storage-*.v1` schema identifier because it is part of the
+unchanged L1-L5 baseline contract, not a deployment-profile label.
+The inherited Layer Access contract now accepts both active profile/version
+pairs. Six-layer deployments therefore project, persist, and expose the same
+typed L4/L5 surfaces as Five-layer v2, including the owner-scoped GCP Grafana
+Viewer rotation operation; historical Five-layer v1 remains unsupported.
+The same inheritance now covers SDK-owned post-deployment work: AWS TwinMaker
+and Azure Digital Twins receive the deterministic visible seed, AWS/Azure
+Grafana receive the typed dashboard configuration, and Azure publishes the
+finite storage-mover image for either active profile.
+The provider-combination audit additionally proved the L1-to-Event and
+L2-to-Event source paths independently of L2 placement. AWS already resolves
+the local Event log or remote source outbox in Terraform. Azure now makes the
+same selection explicitly in both Function apps and supplies the L2 runtime
+with its local Event-layer and remote outbox destinations. GCP ingress now
+selects its local Event topic or remote source outbox from
+`event_layer_provider`, rather than incorrectly treating a local L2 as a reason
+to bypass a remote Event Layer. Focused no-network runtime and static Terraform
+tests cover both local and remote branches; no cloud resource was created.
+The following GCP identity trace closes the matching return paths as well: the
+L2 Cloud Run service receives the selected local Event-control or remote
+control-outbox topic, and the GCP L1 ingress identity receives publisher access
+to the remote control outbox when the Event Layer is not GCP. Consequently,
+rule matches and device-command outcomes return to the independent Event Layer
+under the same resolved placement instead of relying on embedded-topic rights.
+
+The branch gate above now proves the exact reviewed Five-layer v2 commits and
+decision digests, so this document is executable planning authority. It replaces
+the suspended pre-2026-07-29 draft in full. No BigQuery, ADX, scene/3D,
+L3/L4/L5 co-location, dual visualization path, or L4-to-L5 edge survives from
+that historical draft.
 
 ## 1. Outcome
 
-Add one executable, versioned Eventing architecture profile through the same
-generic extension points used by the hardened five-layer baseline:
+`six-layer-eventing@1` inherits the complete Five-layer v2 L1-L5 profile and
+adds one nonlinear Eventing and Messaging responsibility. The domain behavior
+is identical in both comparison profiles: rule evaluation, event actions,
+notification workflow, and device feedback are mandatory. The difference is
+where routing, durable buffering, fan-out, retry/DLQ, replay, observability,
+and cross-cloud transport are owned and costed.
 
 ```text
-six-layer-eventing@1
-  -> profile and provider catalogs
-  -> functionally complete Optimizer candidates
-  -> immutable Management resolution
-  -> DeploymentManifest v4
-  -> deterministic Deployer graph
-  -> explicit Terraform resources and provider packages
-  -> compact Flutter selection and review
+five-layer-baseline@2 L1-L5 digest
+              |
+              v
+same domain events + independent Eventing responsibility
+              |
+              +--> provider-local Event Layer bundle
+              +--> source-owned bridge only for a remote destination
+              +--> Event Layer cost/evidence dimensions
+              |
+              v
+six-layer-eventing@1 resolved architecture and deployment manifest
 ```
 
-The profile adds Eventing and Messaging as a nonlinear responsibility with
-explicit routing, buffering, fan-out, retry, DLQ, replay/redrive,
-observability, and cross-cloud transport. It does not add a broker between
-every function and does not create a general event-topology editor.
-
-### Scope Boundary
+## 2. Scope Boundary
 
 | Included | Excluded |
 |---|---|
-| The exact approved six-layer profile, RDS v2/Manifest v4, Eventing workload/pricing/formulas, normalized persistence, provider bundles, packages, permissions, static Terraform, bridge, failure semantics, compact Flutter workflow, and broad offline gates | Unapproved provider substitutions, arbitrary profiles/topologies, unrelated optimization strategies, dynamic Terraform, all-provider-path claims not proven by capabilities, and live provider execution |
+| One curated Event Layer bundle for AWS, Azure, and GCP | Every provider event service or user-selectable broker |
+| Three single-cloud cases, all six directed two-provider pairs, and valid three-provider hub/spoke paths | A premise that a provider is permanently sender-only or receiver-only |
+| Source-owned cross-cloud bridge with short-lived destination identity | Public destination Function endpoint, shared static token, or permanent cross-cloud key |
+| Exact Eventing workload, capacity, price, transfer, observability, and failure ownership | Cost-minimizing service substitution or a generic topology optimizer |
+| Static Terraform resources and registered provider packages | Runtime-generated Terraform |
+| Profile-local Optimizer results and the existing compact Flutter workflow | A second Eventing wizard or inline event flags |
+| Offline contract/package/Terraform tests and credential-free Management integration | Automatic live-cloud E2E, paid load tests, or production SLO claims |
 
-## 2. Activation Preconditions
+## 3. Inherited Five-Layer Contract
 
-Implementation may start only when:
+The following are inherited byte-for-byte from the reviewed 8.9A boundary and
+must not be reimplemented or reinterpreted:
 
-1. Phase 8.8 `decision.json` is `approved`;
-2. all three selected provider bundle refs resolve;
-3. every mandatory capability is complete;
-4. every pricing/formula field is publishable;
-5. the canonical envelope and bridge ownership are approved;
-6. the Phase 8.8 implementation component manifest resolves every exact
-   cross-project ID, resource type, adapter, package, permission, port,
-   binding, file target, and test owner without duplicates;
-7. Phase 8.7 all-platform and real-Management integration gates pass;
-8. no native blocker is open.
+- L1-L5 logical components and services;
+- L3 hot/cool/archive and hourly-rollup semantics;
+- `provider(L3_hot) == provider(L5)` with independently placed L4;
+- `raw_history_query.v1` from L3 hot to L5;
+- `twin_projection.v1` from L3 hot to L4;
+- no L4-to-L5 edge and no scene/3D requirement;
+- nine L3/L5-to-L4 placements;
+- one GCP Firestore database per deployment with separate L3/L4 ownership;
+- guided bootstrap, bounded CloudConnections, provider prerequisites, and
+  deployment preflight;
+- exactly one L4 and one L5 post-deployment access card;
+- workload v2 core fields, immutable event scenarios, fixed regions, and
+  historical `five-layer-baseline@1` read/destroy compatibility.
 
-The implementation must verify these conditions through
-`scripts/phase_08_eventing/validate_decision_package.py --strict` before any
-runtime file is changed. A rejected or stale decision aborts the phase.
-No builder may substitute a provider service, invent an unlisted file target,
-or reinterpret an unresolved manifest entry. Such a finding reopens Phase 8.8
-and creates a new immutable decision-package version before implementation
-continues.
+Any required change to this list blocks 8.9B and reopens 8.9A review.
 
-## 3. Fixed Architecture
+## 4. Selected Event Layer Bundles
 
-Add:
+Every listed row is a bundle. The services are complementary responsibilities,
+not alternatives presented to the runtime user.
 
-```text
-ArchitectureProfile: six-layer-eventing@1
+| Provider | Telemetry transport | Ordered control/fan-out | Runtime | Failure/observability | Scenario rule |
+|---|---|---|---|---|---|
+| AWS | Kinesis Data Streams | SNS FIFO plus SQS FIFO subscriptions | Lambda | S3 failure destination plus CloudWatch metrics/logs | Stream/shard count is derived from the frozen scenario; Large retains the reviewed two-channel capacity and headroom calculation |
+| Azure | Event Hubs Standard for Small/Medium, Dedicated for Large | Service Bus Standard | Functions Flex Consumption | Azure Monitor system metrics plus explicit diagnostic settings to one shared Log Analytics workspace | Event Hubs owns high-rate telemetry; Service Bus owns ordered low-rate control and bridge work |
+| GCP | Pub/Sub | Separate Pub/Sub topics/subscriptions for control | Cloud Run services; a fixed-size Cloud Run worker pool only for the Large telemetry adapter selected by the decision package | Cloud Logging and platform Cloud Monitoring metrics | L1 and L6 may use the same service family but remain different resources, identities, topics, costs, and logical ownership |
 
-Responsibilities:
-  Data acquisition
-  Data processing
-  Historical storage
-  Digital Twin state
-  Visualization
-  Eventing and messaging
-```
+Azure Monitor and Google Cloud Monitoring are provider-platform monitoring
+capabilities, not additional custom brokers. No alerting estate, dashboard
+fleet, tracing platform, or permanent worker is added without an exact
+decision-package entry.
 
-Eventing components and edges come only from the approved decision package.
-The profile must preserve the semantic names of the baseline responsibilities;
-numeric labels are display metadata, not primary IDs.
+Cloud Run worker pools remain a Pre-GA/Preview resource and do not autoscale.
+The Large bundle must freeze the manual instance count, Preview terms/source
+metadata, Terraform/provider support, region availability, and cost/capacity
+assumptions. Deployment preflight fails closed if that exact resource is no
+longer available. This is a visible PoC limitation and no production
+availability or autoscaling claim is made.
 
-Required topology properties:
+For the resolved Large topology, GCP allocates 21 instances per local
+telemetry consumer subscription and per distinct source-owned bridge
+telemetry channel. A physical received/processed source subscription may fan
+out to several destination routes, so target count does not duplicate the
+worker pool. Control subscriptions remain authenticated Pub/Sub push. The RDS
+exports one exact aggregate dimension, and Terraform must reconcile that
+dimension to the sum of local and bridge worker allocations before planning.
 
-- producers publish canonical domain events through platform-owned adapters;
-- producers do not know consumer function identities or physical destinations;
-- independent consumers subscribe through cataloged edges;
-- required buffering, retry, DLQ, and replay/redrive are explicit components;
-- L1-L5 components may connect to Eventing where the approved graph requires;
-- internal helper calls within one cohesive component remain in-process;
-- stateful ordered orchestration uses an approved workflow component rather
-  than an accidental topic chain;
-- synchronous request/response edges remain typed synchronous edges when the
-  functional requirement demands immediate response.
+## 5. Event Contracts And Delivery
 
-## 4. Contract Evolution
+All providers implement the approved canonical event envelope and strict
+schema version. The registered edges declare:
 
-### 4.1 Architecture Contracts
+- source/destination logical component;
+- channel (`telemetry`, `control`, `notification`, `feedback`, or `failure`);
+- ordering key and scope;
+- at-least-once delivery and idempotency key;
+- retry budget and terminal failure destination;
+- replay/redrive owner and retention;
+- safe correlation and observability fields;
+- transfer direction and cost owner;
+- same-provider or cross-cloud transport binding.
 
-Retain schema v1 and add new semantic definitions/fixtures:
+An upstream domain function publishes to a registered local endpoint. It never
+constructs a downstream function name, ARN, URL, topic, namespace, or physical
+resource identifier.
 
-```text
-contracts/architecture-profiles/v1/
-  profiles/six-layer-eventing.1.json
-  provider-profiles/
-    aws-six-layer-eventing.1.json
-    azure-six-layer-eventing.1.json
-    gcp-six-layer-eventing.1.json
-  catalogs/eventing-components.1.json
-  fixtures/valid/
-    all-aws-eventing-resolved-architecture.json
-    all-azure-eventing-resolved-architecture.json
-    mixed-eventing-on-gcp-resolved-architecture.json
-    mixed-eventing-resolved-architecture.json
-  fixtures/invalid/
-    unsupported-single-provider-path.json
-```
+## 6. Cross-Cloud Bridge
 
-`ResolvedTwinArchitecture v1` is already responsibility/component based and
-remains valid. Its profile, provider profile, catalog, formula, evidence,
-extension, and graph refs pin the Eventing implementation.
-
-The positive fixture set must assign the Eventing responsibility to AWS,
-Azure, and GCP at least once within an otherwise functionally complete whole
-architecture. It must not assume that every provider can implement every other
-responsibility. An all-GCP whole path is positive only when the Phase 8.5
-capability gate proves all six responsibilities complete; otherwise it remains
-an explicit negative fixture with exact unsupported reasons.
-
-### 4.2 `ResolvedDeploymentSpecification v2`
-
-Create:
+The only v1 bridge is source-owned:
 
 ```text
-contracts/resolved-deployment-specification/v2/
-  schema.json
-  deployment-dimensions.json
-  verification-matrix.json
-  verification-matrix.schema.json
-  fixtures/
+source durable broker/subscription
+          |
+          v
+source-provider bridge runtime
+          |
+          v
+short-lived destination workload identity
+          |
+          v
+destination broker data-plane API
+          |
+          v
+durable destination acceptance
+          |
+          `--> acknowledge source message
 ```
 
-V2 replaces the fixed `slot_id` enum with:
-
-- `responsibility_id`;
-- `logical_component_id`;
-- `deployment_component_id` and version;
-- `provider`;
-- `service_id`;
-- `required`;
-- typed deployment `dimensions`.
-
-It accepts only profile/catalog-declared component IDs. It does not accept
-arbitrary client-authored layer names. The dimension registry maps each
-deployment component to exact required/optional dimensions, formulas,
-classification, type, range, allowed values, and Terraform bindings.
-
-Both active profiles emit v2 for new calculations after activation. V1 remains
-readable for historical five-layer runs and is never widened or rewritten.
-There is no automatic conversion of a frozen v1 run to v2.
-
-### 4.3 DeploymentManifest v4
-
-Create Manifest v4 because Manifest v3 pins deployment specification v1:
-
-```text
-contracts/deployment-manifest/v4/
-  schema.json
-  fixtures/
-```
-
-V4 carries:
-
-- full secret-free `ResolvedTwinArchitecture v1`;
-- full `ResolvedDeploymentSpecification v2`;
-- exact decision/profile/provider/catalog/bridge digests;
-- the existing package, Twin, calculation, credential-source, and
-  compatibility metadata.
-
-Manifest v2 remains historical for pre-architecture-profile operations, and
-Manifest v3 remains historical for frozen profile-driven baseline operations.
-Both remain readable and destroyable. New five-layer and Eventing operations
-require v4 after activation. Invalid v4 never falls back to v3 or v2.
-
-### 4.4 Sync And Compatibility
-
-Extend existing sync scripts and `.github/workflows/deployment-contract.yml`.
-Optimizer, Management, and Deployer generated copies must be byte-identical.
-Compatibility tests must prove:
-
-- v1 specification + Manifest v2 pre-profile historical read/destroy;
-- v1 specification + Manifest v3 historical read/destroy;
-- v2 specification + Manifest v4 new baseline deploy;
-- v2 specification + Manifest v4 new Eventing deploy;
-- new deploy/redeploy/verify/package rejects Manifest v2 and v3 after v4
-  activation while their historical read/destroy paths remain available;
-- every cross-version mismatch fails closed.
-
-## 5. Eventing Workload And Optimization
-
-### 5.1 Workload Contract
-
-Add the approved `eventing-workload.v1` fields to the profile-bound workload
-bundle. The user-facing workload remains one typed object; Eventing fields are
-required only by `six-layer-eventing@1`.
-
-The Management API, Optimizer, and Flutter must share exact constraints for:
-
-- events/month and payload bytes;
-- consumers and fan-out deliveries;
-- retry, DLQ, replay shares;
-- retention;
-- ordering scope;
-- required delivery semantics;
-- peak throughput and partition-key count;
-- cross-cloud delivery share;
-- exact provider-region pricing catalog references.
-
-Unknown, hidden, or stale Eventing fields fail validation. Switching back to
-the baseline uses the Phase 8.4 preview/digest flow to clear them atomically.
-
-### 5.2 Pricing Registry
-
-For every approved bundle member, register:
-
-- `PricingIntent` fields;
-- exact dynamic/account-scoped/static-official source policy;
-- meter/SKU/product selectors and rejected alternatives;
-- normalization rule;
-- formula ID/version;
-- free quota, tier, minimum capacity, and rounding behavior;
-- transfer and adapter cost ownership;
-- evidence freshness/review policy.
-
-Official-static fields use the current reviewed evidence path. They are never
-loaded through an emergency fallback or represented as fetched.
-
-### 5.3 Formula Set And Strategy Bundle
-
-Add one versioned Eventing formula set and bind it into the
-`six-layer-eventing@1` optimization bundle:
-
-```text
-optimization strategy
-  + calculation strategy
-  + Eventing formula set
-  + pricing registry version
-  + workload contract
-  + deployment specification v2
-  + profile/provider catalogs
-```
-
-Formulas must expose:
-
-- provider-billed request/message chunks;
-- ingestion, delivery, fan-out, retry, DLQ, retention, replay;
-- fixed capacity/partition resources;
-- adapter/workflow compute;
-- same-region, cross-region, and cross-cloud transfer;
-- total and field-level evidence references.
-
-No formula may infer a provider tier from a display string.
-
-### 5.4 Candidate Resolution
-
-Extend the Phase 8.5 profile resolver; do not add an Eventing-only optimizer
-endpoint.
-
-For each candidate:
-
-1. load approved provider profile/catalog versions;
-2. map every Eventing logical component and edge;
-3. prove mandatory capabilities;
-4. validate pricing/formula/specification compatibility;
-5. calculate component/edge costs and transfer routes;
-6. reject incomplete or unpublishable candidates;
-7. rank complete whole-architecture paths;
-8. emit RTA v1 and RDS v2 with matching profile/run/digests.
-
-Single-cloud and mixed candidates stay in one result set only when they use the
-same `six-layer-eventing@1` functional contract. Baseline candidates remain a
-separate optimizer run/profile.
-
-## 6. Management API And Persistence
-
-The generic Phase 8.4 tables continue to store resolutions and assignments.
-Add only:
-
-- v2 deployment-specification persistence/validation;
-- Eventing workload fields in normalized Twin workload persistence;
-- decision/provider/catalog/bridge digest projections needed for query and
-  audit;
-- profile-aware run/result summaries;
-- Eventing evidence DTOs through existing collapsed evidence endpoints.
-
-Do not add `cheapest_eventing`, provider-specific Eventing columns, raw
-pricing JSON fields, or a second Eventing resolution table.
-
-Required API behavior:
-
-- `/architecture-profiles` returns Eventing only after full activation;
-- profile detail returns the Eventing graph and provider availability;
-- calculation create derives the Eventing bundle from selected profile;
-- run/resolution endpoints return typed Eventing assignments and edges;
-- deployment requires matching RTA v1 + RDS v2;
-- profile-change preview includes Eventing workload/binding invalidation;
-- unsupported or incomplete provider/profile combinations fail with stable
-  safe codes.
-
-All writes remain owner-scoped and transactional. Flutter cannot author
-provider bundles, Eventing service IDs, formulas, cost values, graph edges,
-tiers, or deployment dimensions.
-
-## 7. Deployer Catalog And Graph
-
-Register only the three approved provider bundles. Each selected bundle member
-must have:
-
-- deployment component and version;
-- provider service and approved tier/mode;
-- package/runtime adapter where required;
-- explicit Terraform module/resource address;
-- allowlisted inputs and outputs;
-- permission capabilities and permission-set version;
-- input/output ports and envelope version;
-- delivery/retry/DLQ/replay contract refs;
-- error/observability/cleanup refs;
-- pricing/formula/specification dimension refs;
-- dependency and lifecycle stages.
-
-The existing generic `ResolvedDeploymentGraph v1` remains valid. Add Eventing
-nodes and edges through catalog data, not switch statements on `eventing`.
-
-Preflight must reject:
-
-- missing/extra Eventing component;
-- unsupported provider/region/tier;
-- envelope or port mismatch;
-- unresolved destination/topic/queue/subscription/output;
-- permission-set gap;
-- illegal producer-to-consumer identity construction;
-- missing retry/DLQ/replay/observability resource;
-- bridge direction/trust mismatch;
-- RDS v2 dimension mismatch;
-- catalog/decision digest drift.
-
-## 8. Runtime Adapters And Packages
-
-Implement `eventing-envelope.v1` in platform-owned adapters for all three
-provider bundles.
-
-Adapter requirements:
-
-- validate size/schema/version before routing or invoking user logic;
-- preserve event, correlation, trace, Twin/device, and partition IDs;
-- distinguish retryable, rejected, and terminal failures;
-- never log payloads, credentials, endpoints, or provider responses;
-- propagate original typed failure without false success;
-- expose bounded publish/delivery/retry/DLQ/replay metrics;
-- preserve idempotency keys across redelivery and bridge forwarding.
-
-Producer code depends on one platform publisher interface. Consumer wrappers
-depend on one platform envelope interface. Provider SDK calls, physical names,
-and trigger shapes remain inside adapters.
-
-Internal helper functions belonging to one logical component must not be
-split into new broker hops. Existing user-function extension slots bind to
-approved consumer components through #113 contracts.
-
-## 9. Multi-Cloud Bridge
-
-Implement the exact Phase 8.8 ownership decision as one registered bridge
-component per cross-provider route class.
-
-The bridge must:
-
-- authenticate through the approved short-lived/provider identity mechanism;
-- validate destination allowlist and TLS;
-- validate and forward the canonical envelope;
-- acknowledge the source only at the approved delivery boundary;
-- enforce retry, backoff, circuit-break, backpressure, DLQ, and redrive;
-- preserve idempotency and explicitly document ordering degradation;
-- propagate trace/correlation IDs;
-- emit secret/payload-free audit evidence;
-- account for source egress, bridge compute, and destination ingress exactly
-  once.
-
-Static shared secrets are forbidden. If the approved trust mechanism cannot be
-implemented using the current credential/permission contracts, the provider
-route remains unsupported and the profile cannot activate.
-
-## 10. Terraform Implementation
-
-Add explicit, reviewed Terraform modules/resources for every selected bundle.
-Terraform remains static HCL.
-
-Requirements:
-
-- one module/resource implementation per catalog entry;
-- direct resource/output references for topics, queues, subscriptions,
-  endpoints, roles, DLQs, archives, and bridge inputs;
-- no duplicated name reconstruction in tfvars or function code;
-- exact tier/capacity/retention/retry/DLQ values from RDS v2;
-- provider-native dependency graph;
-- lifecycle, encryption, logging, and deletion behavior;
-- least-privilege permission capabilities;
-- deterministic outputs consumed by graph bindings;
-- no provider default relied upon when it changes functionality, cost,
-  retention, delivery, or security.
-
-Defaults may remain implicit only when the approved provider contract proves
-they are stable, equivalent to the selected dimension, and covered by drift
-tests. Otherwise the value must be explicit.
-
-## 11. Failure And Observability Contract
-
-Add stable codes:
-
-- `EVENTING_PROFILE_DECISION_INVALID`
-- `EVENTING_BUNDLE_UNSUPPORTED`
-- `EVENTING_CAPABILITY_INCOMPLETE`
-- `EVENTING_PRICING_UNPUBLISHABLE`
-- `EVENTING_ENVELOPE_INVALID`
-- `EVENTING_SCHEMA_UNSUPPORTED`
-- `EVENTING_DELIVERY_RETRY_EXHAUSTED`
-- `EVENTING_DLQ_UNAVAILABLE`
-- `EVENTING_REPLAY_UNAVAILABLE`
-- `EVENTING_ORDERING_UNSUPPORTED`
-- `EVENTING_BRIDGE_TRUST_INVALID`
-- `EVENTING_BRIDGE_DESTINATION_INVALID`
-- `EVENTING_BRIDGE_BACKPRESSURE`
-- `EVENTING_DEPLOYMENT_BINDING_INVALID`
-
-Management and Deployer translate errors through their existing centralized
-boundaries. Errors expose safe profile/component/edge IDs and correlation ID
-only.
-
-Structured operation evidence includes:
-
-- profile/decision/catalog/formula/specification/graph digests;
-- provider bundle and safe component/edge IDs;
-- stage, status, duration, counts, and safe result code;
-- no event payload, source, credential, physical destination, tfvars, or raw
-  provider error.
-
-## 12. Flutter Workflow
-
-Extend the existing Phase 8.7 Architecture and Workload tasks. Do not add a
-second Eventing wizard.
-
-### 12.1 Wide Layout
-
-```text
-+----------------------+------------------------------------------------------+
-| Configuration        | Architecture                                         |
-|                      |                                                      |
-| Architecture       * | Profile                                              |
-|   Select profile   * | ( ) Five-layer baseline                              |
-|   Understand       o | (o) Six-layer Eventing                               |
-| Workload           l |                                                      |
-| User Logic         l | Eventing and messaging                               |
-| Optimize...        l | route | buffer | fan-out | retry | DLQ | replay      |
-| Deployment...      l |                                                      |
-|                      | Ingestion ---> Eventing ---> Processing               |
-|                      |                  |    |                                |
-|                      |                  v    +--> Twin ---> Visualization     |
-|                      |               Storage                                 |
-|                      |                                                      |
-|                      | Functional coverage: Complete                         |
-|                      | Provider bundles: AWS | Azure | GCP | Mixed           |
-+----------------------+------------------------------------------------------+
-| Back                       Draft saved                         Continue       |
-+-----------------------------------------------------------------------------+
-```
-
-Eventing workload task:
-
-```text
-+--------------------------------------------------------------------------+
-| Eventing workload                                                        |
-| Events / month       [ 10,000,000 ]  Average payload [ 16 ] KiB           |
-| Consumers            [ 3          ]  Peak rate       [ 250 ] events/s     |
-| Retention            [ 168        ]h Ordering        [ Per device      v ] |
-| Retry share          [ 0.5        ]% DLQ share       [ 0.05           ]%  |
-| Replay share         [ 1.0        ]% Cross-cloud     [ 5.0            ]%  |
-|                                                                          |
-| Derived monthly deliveries: 30,000,000                    [Details v]     |
-+--------------------------------------------------------------------------+
-```
-
-### 12.2 Compact Layout
-
-```text
-+------------------------------------------+
-| Workload / Eventing                   [v] |
-+------------------------------------------+
-| Events / month                           |
-| [ 10,000,000                          ]  |
-| Payload [ 16 ] KiB   Consumers [ 3 ]     |
-| Peak    [ 250 ]/s    Retention [ 168 ]h  |
-| Ordering [ Per device                 v]  |
-| Retry [0.5]%  DLQ [0.05]%  Replay [1]%   |
-| Cross-cloud delivery [5]%                |
-|                                          |
-| Derived quantities                 [v]   |
-+------------------------------------------+
-| Back                         Continue     |
-+------------------------------------------+
-```
-
-The resolved review reuses `ArchitectureProfileGraph`,
-`ResolvedArchitectureSummary`, evidence disclosures, and deployment review.
-It adds Eventing rows/edges through typed data; graph widgets must not test the
-profile ID.
-
-### 12.3 Widget Tree
-
-```text
-WizardView [MODIFY]
-`-- ConfigurationWorkspaceShell [REUSE]
-    `-- selected task child from WizardView [MODIFY]
-        |-- ArchitectureProfileTask [REUSE/MODIFY second profile]
-        |   `-- ArchitectureProfileGraph [REUSE]
-        |-- WorkloadTasks [MODIFY]
-        |   `-- EventingWorkloadSection [NEW]
-        |       |-- ValidatedNumberInput [REUSE]
-        |       |-- ValidatedDecimalInput [REUSE]
-        |       |-- OrderingScopeSelector [NEW]
-        |       `-- CollapsibleSection [REUSE]
-        |-- OptimizerReviewTask [REUSE/MODIFY typed Eventing rows]
-        `-- ConfigurationReviewTask [REUSE/MODIFY typed Eventing edges]
-```
-
-`OrderingScopeSelector` is new because the current workload controls have no
-closed semantic ordering enum. All other fields must reuse current form and
-evidence primitives.
-
-### 12.4 State And Accessibility
-
-- Wizard BLoC owns profile-dependent field visibility, validation, calculation,
-  result selection, and profile-change invalidation.
-- Riverpod retains runtime/demo/API composition.
-- `ApiService` talks only to Management API.
-- demo/live interfaces remain identical.
-- all controls use theme tokens and Material icons.
-- labels include units and semantic purpose; color is never the only status.
-- wide and compact layouts support keyboard operation and 200% text scale.
-- raw provider meters, tfvars, bridge endpoints, credentials, and event
-  payloads remain hidden.
-
-## 13. Implementation Slices
-
-### Slice A: V2/V4 Contracts
-
-Must implement RDS v2, Manifest v4, new fixtures, byte-identical generated
-copies, compatibility readers, sync gates, and negative cross-version tests.
-
-### Slice B: Profile, Provider, And Catalog Definitions
-
-Must add the approved profile/provider bundles/component/edge definitions and
-prove every reference, capability, permission, package, Terraform, formula,
-and specification binding.
-
-### Slice C: Optimizer
-
-Must add workload intents, pricing sources, formula set, functional gate,
-whole-path calculation, RTA/RDS output, golden scenarios, and fail-closed
-evidence handling.
-
-### Slice D: Management API
-
-Must add workload persistence/validation, v2 specification handling, generic
-Eventing projections, profile activation, errors, audit, migration, and API
-tests without provider-specific columns.
-
-### Slice E: Deployer And Runtime
-
-Must add graph nodes/edges, adapters, packages, bridge, permissions, static HCL,
-typed bindings, preflight, operation evidence, and offline provider tests.
-
-### Slice F: Flutter
-
-Must add the second profile, Eventing workload fields, data-driven graph/review,
-profile invalidation, demo parity, accessibility, and all-platform gates.
-
-### Slice G: Cross-Stack Offline Release Gate
-
-Must prove every currently admissible single-provider path and at least one
-complete whole path assigning Eventing to each of AWS, Azure, and GCP from
-workload through Optimizer, Management, Manifest v4, Deployer graph, package,
-permissions, and Terraform mock plan. Explicitly unsupported single-provider
-paths must remain negative fixtures. The gate must also prove baseline v2 and
-historical v1/v3 compatibility.
-
-## 14. Test Plan
-
-### Contracts
-
-- every required/additional field for RDS v2 and Manifest v4;
-- v1/v2 and v3/v4 compatibility/mismatch matrix;
-- Eventing profile/provider/catalog positive and negative references;
-- decision/catalog digest drift;
-- canonical digest stability.
-
-### Optimizer
-
-- Phase 8.8 small/medium/large scenarios for each provider bundle;
-- every currently admissible single-provider whole path;
-- at least one complete whole path assigning Eventing to each of AWS, Azure,
-  and GCP;
-- explicitly unsupported single-provider paths remain rejected;
-- mandatory capability, ordering, pricing, region, permission, formula, and
-  specification rejection;
-- exact provider chunk/tier/capacity/retention/transfer boundaries;
-- no Eventing field in baseline run;
-- no baseline/Eventing cross-ranking;
-- deterministic tie-break and trace.
-
-### Management
-
-- migration from baseline-only database;
-- profile selection/change preview and Eventing field clearing;
-- Eventing run/spec/resolution atomic persistence;
-- generic assignment/edge API projections;
-- selected-run readiness and invalidation;
-- ownership, redaction, audit, OpenAPI, and demo fixtures;
-- no provider-specific Eventing column or client-authored architecture field.
-
-### Deployer, Security, And Terraform
-
-- every approved/rejected binding;
-- exact envelope behavior across provider adapters;
-- duplicate, retry, DLQ, replay, redrive, ordering, and bridge failure;
-- trust/destination allowlist, TLS, idempotency, and backpressure;
-- package determinism and secret/payload-free evidence;
-- permission contract and Terraform symbol drift;
-- explicit provider tier/capacity/retention values;
-- native Terraform validate/test and offline mock plan for every provider and
-  mixed fixture;
-- no source/target name reconstruction in function code or tfvars.
-
-### Flutter
-
-- strict model parsing and unknown version;
-- BLoC happy/error/stale/invalidation/retry states;
-- profile selection and profile-specific workload fields;
-- wide/compact layout at 720/960/1200 boundaries;
-- 200% text, long labels, keyboard, semantics, light/dark;
-- data-driven graph and evidence;
-- demo/live parity;
-- real Management integration without direct Optimizer/Deployer calls.
-
-Extend `run_frontend_integration_tests()` in `thesis.sh` so the resolved host
-device also runs `integration_test/eventing_profile_workflow_test.dart`. The
-existing architecture profile test remains in the same credential-free real
-Management integration gate.
-
-### Regression
-
-- complete safe Optimizer, Management, Deployer, Flutter suites;
-- five-layer baseline golden cost and graph remain unchanged except intentional
-  RDS v2/Manifest v4 representation for new runs;
-- historical operations remain readable/destroyable from frozen evidence;
-- docs strict build and links.
-
-Safe verification:
-
-```bash
-docker compose up -d 2twin2clouds 3cloud-deployer management-api
-python scripts/phase_08_eventing/validate_decision_package.py --strict
-python scripts/sync_architecture_profile_contracts.py --check
-python scripts/sync_resolved_deployment_contract.py --check
-python scripts/sync_deployment_manifest_contract.py --check
-docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 \
-  python -m pytest tests/ -v
-docker exec -e PYTHONPATH=/app master-thesis-management-api-1 \
-  python -m pytest tests/ -v
-docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
-  python -m pytest tests/ --ignore=tests/e2e -v
-./thesis.sh test deployment-contract
-./thesis.sh test frontend
-./thesis.sh test frontend-integration
-```
-
-Windows runs in the existing GitHub Actions job. No command may refresh paid
-pricing, plan/apply against live provider credentials, deploy, or destroy.
-Before `docker compose up`, record which named services are already running.
-After verification, stop only services that this test invocation started.
-Never use `docker compose down` against a shared developer stack as test
-cleanup.
-
-## 15. Documentation
-
-Update current product/developer docs only after activation:
-
-- profile selection and Eventing workload user guide;
-- architecture profile, provider bundle, catalog, envelope, bridge, and
-  extension procedure;
-- contracts/data-flow diagrams for RDS v2, Manifest v4, Eventing flow, and
-  bridge ownership;
-- Deployer Terraform/permission/troubleshooting references;
-- demo handbook/scenarios;
-- Phase 8 roadmap and #140 with named provider/platform evidence.
-
-Update research evidence with implementation deviations and limitations.
-Keep cost interpretation for Phase 8.10. Do not edit LaTeX.
-
-## 16. Rollout And Rollback
-
-Rollout:
-
-1. ship RDS v2/Manifest v4 readers and profile definitions dark;
-2. run all offline cross-stack gates;
-3. enable new five-layer v2/v4 runs;
-4. verify baseline compatibility;
-5. activate Eventing calculation/deployment server-side;
-6. expose Eventing through the Management profile list;
-7. enable Flutter/demo selection;
-8. monitor stable errors and operation evidence.
-
-Activation is atomic at the repository/server profile lifecycle boundary. Do
-not expose a profile whose provider bundles are only partially implemented.
-
-Rollback retires `six-layer-eventing@1` from new selection and blocks new
-Eventing operations. Existing resolutions and frozen operations remain
-readable/destroyable. It must not fall back to the baseline silently or rewrite
-an Eventing Twin's selected profile.
-
-## 17. Definition Of Done
-
-- [ ] The Phase 8.8 approved decision and exact bundle/bridge refs are enforced.
-- [ ] Every implementation component manifest entry maps one-to-one to the
-      implemented cross-project IDs, files, resources, packages, permissions,
-      ports, bindings, and tests.
-- [ ] `six-layer-eventing@1` is a closed-world, nonlinear, versioned profile.
-- [ ] RDS v2 and Manifest v4 represent generic components and remain
-      cross-project drift-gated.
-- [ ] Historical RDS v1/Manifest v2 and v3 behavior remains read/destroy
-      compatible without enabling new operations.
-- [ ] Eventing workload, pricing, formulas, units, tiers, transfer, and
-      deployment dimensions are exact and traceable.
-- [ ] Functional completeness precedes cost for every provider and mixed path.
-- [ ] Baseline and Eventing candidates never share one optimization ranking.
-- [ ] Management stores generic immutable assignments/edges without new fixed
-      provider/Eventing columns.
-- [ ] Every approved Eventing component, package, permission, output/input,
-      Terraform resource, and cleanup behavior is cataloged.
-- [ ] Producers and user code do not reference consumer or provider resource
-      identities.
-- [ ] Retry, DLQ, replay/redrive, idempotency, ordering, observability, trust,
-      bridge, transfer, and failure semantics are implemented and tested.
-- [ ] Terraform uses explicit resources/outputs and exact selected
-      tier/capacity/retention values.
-- [ ] Flutter offers compact profile-aware workload and read-only review on
-      Web, macOS, Windows, and Linux through Management only.
-- [ ] The real-Management `eventing_profile_workflow_test.dart` proves profile
-      selection, Eventing workload submission, resolved review, invalidation,
-      and safe failure states without mocked HTTP.
-- [ ] Every admissible single-provider path, one complete path per Eventing
-      provider, all explicit unsupported paths, mixed, negative, compatibility,
-      package, permission, Terraform mock-plan, API, demo, UI, and
-      documentation gates pass.
-- [ ] No live provider credential, resource, paid API, apply, destroy, or E2E
-      action occurs.
-- [ ] Product/developer/research docs, roadmap, and #140 are updated.
-- [ ] Two reviews find no unresolved issue.
-- [ ] The structured commit references #140.
+The bridge runs in the source cloud and consumes the source broker or queue.
+It publishes directly to the target broker's supported data API. The target
+domain consumer attaches to its local target broker; no public target Function
+is used as a bridge endpoint. A same-provider edge resolves to a local binding
+with no bridge component, no inter-cloud transfer, and no bridge cost.
+
+All six directed pairs are mandatory:
+
+| Source | AWS target | Azure target | GCP target |
+|---|---|---|---|
+| AWS | Local binding | AWS runtime -> Azure broker API | AWS runtime -> GCP broker API |
+| Azure | Azure runtime -> AWS broker API | Local binding | Azure runtime -> GCP broker API |
+| GCP | GCP runtime -> AWS broker API | GCP runtime -> Azure broker API | Local binding |
+
+Three-provider paths compose only registered directed edges. They do not turn a
+provider into a permanent hub by assumption.
+
+## 7. Shared Contracts And Compatibility
+
+Implementation must add or activate the exact approved artifacts for:
+
+- `six-layer-eventing@1` architecture profile;
+- provider implementation profiles and Event Layer component catalog;
+- Eventing workload/scenario, capability, pricing/unit, formula, envelope,
+  edge, permission, and bridge registries;
+- `ResolvedTwinArchitecture v2`, `ResolvedDeploymentSpecification v2`, and
+  `DeploymentManifest v4` Event Layer assignments, bindings, dimensions, and
+  digests;
+- valid/invalid fixtures for local, every directed pair, three-provider,
+  capacity, missing evidence, and incompatible versions.
+
+New operations use only RTA v2 with RDS v2 and Manifest v4. Historical RTA/RDS
+v1 with their supported v2/v3 manifests remain readable, verifiable, and
+destroyable but cannot be upgraded in place or selected for a new deployment.
+Cross-version combinations fail closed.
+
+## 8. Optimizer
+
+The Optimizer must:
+
+1. validate the selected profile, workload v2, immutable event scenario, fixed
+   region, evidence freshness, and decision digests;
+2. enumerate only provider assignments allowed by the profile;
+3. bind one complete Event Layer bundle per Eventing placement;
+4. add a source-owned bridge for each unequal event edge and no bridge for a
+   local edge;
+5. apply functional and theoretical Small/Medium/Large capacity gates before
+   publishing cost;
+6. own each fixed, usage, tier, request, transfer, retry, DLQ, replay,
+   observability, adapter, and bridge cost exactly once;
+7. rank complete candidates only within `six-layer-eventing@1`;
+8. keep Five-layer v2 runs and evidence separate.
+
+Cost is measured for the thesis comparison. It is not the criterion used to
+select or replace the provider services in Section 4.
+
+## 9. Management API And Persistence
+
+Management persists normalized generic component assignments and immutable
+resolution/run identities. It exposes the existing profile catalog, selection
+preview/confirmation, run resolution, readiness, bootstrap, and deployment
+access surfaces without an Eventing-specific side API.
+
+Strict response DTOs must replace raw nested component/edge dictionaries at
+the Flutter boundary. API errors expose safe profile/component/edge codes and
+correlation IDs, never payloads, credentials, target endpoints, tfvars, or raw
+provider responses.
+
+## 10. Deployer And Terraform
+
+The Deployer graph resolver validates every Event Layer node and edge before
+Terraform. It emits deterministic stages, registered static module bindings,
+typed tfvars, package digests, and redacted graph evidence. Required work:
+
+- provider package/adapters for the three bundles;
+- bridge adapters for every directed pair using one canonical interface;
+- least-privilege producer, consumer, bridge, failure-store, replay, logging,
+  and diagnostic permissions from `thesis-demo-v2`;
+- static Terraform resources and exact output/input bindings;
+- local-edge elimination of bridge resources;
+- retry-safe package/build behavior and teardown ownership;
+- no apply in default verification.
+
+## 11. Flutter Delta
+
+Flutter extends the same Phase 8.1 profile workflow:
+
+- the Six-layer row becomes selectable only when Management reports it active;
+- the logical flow includes the independent Eventing responsibility;
+- the resolved review shows Event Layer services, support components, local or
+  bridge edges, capacity/evidence status, and incremental cost dimensions;
+- workload input still requires the same immutable event scenario and exposes
+  no feature flag or broker settings;
+- guided bootstrap derives provider access from the resolved architecture;
+- Twin Overview retains exactly one L4 and one L5 card and adds no Event Layer
+  administration console.
+
+## 12. Implementation And Commit Sequence
+
+Each boundary must be clean, reviewed, and committed before the next begins:
+
+1. `[AI-0803-EVCT] feat(contracts): activate six-layer eventing contracts`
+   (`40f47548`, with follow-up contract freezes `8f784906` and `2e9375f9`)
+2. `[AI-0803-EVOP] feat(optimizer): price complete eventing candidates`
+   (`13afbf0f`)
+3. `[AI-0803-EVMA] feat(management): persist six-layer resolutions`
+   (`b1ab9ac8`, with catalog binding `e8634e41`)
+4. `[AI-0803-EVDP] feat(deployer): build eventing graph packages`
+   (`97e30488`)
+5. `[AI-0803-EVAW] feat(aws): implement reviewed event layer bundle`
+   (`7cb846fa`)
+6. `[AI-0803-EVAZ] feat(azure): implement reviewed event layer bundle`
+   (`024c8baa`)
+7. `[AI-0803-EVGC] feat(gcp): implement reviewed event layer bundle`
+   (`6b04a6cc`)
+8. `[AI-0803-EVBR] feat(eventing): implement directed bridge adapters`
+   (`83f8c9bc`)
+9. `[AI-0803-EVUI] feat(flutter): expose six-layer profile delta`
+   (`e977982b`, with Demo catalog activation `a661d789`)
+10. `[AI-0803-EVDOC] docs(phase-8): document six-layer implementation`
+11. `[AI-0803-EVRV] fix(phase-8): close six-layer audit findings`
+    (`8677027f` through `e3228922` plus this freeze commit)
+
+Generated contract copies may be included with their owning contract commit;
+unrelated changes must not be swept into these commits.
+
+## 13. Verification
+
+Offline gates must cover:
+
+- schema, semantic registry, reference, digest, and generated-copy drift;
+- all three local bundles, all six directed bridges, and representative
+  three-provider graphs;
+- missing/duplicate/incompatible/unauthorized/cyclic binding failures;
+- canonical envelope, ordering, duplicate, retry exhaustion, DLQ,
+  replay/redrive, destination outage, and acknowledge-after-acceptance;
+- exact Small/Medium/Large capacity math including Kinesis shard headroom,
+  Azure tier selection, and GCP Large fixed worker-pool selection plus Preview
+  availability rejection;
+- fixed/usage/transfer/observability/bridge cost ownership exactly once;
+- same-provider absence of bridge, egress, and bridge cost;
+- package hashes, permission manifests, Terraform format/validate, and no-apply
+  mock plans for every selected bundle/pair;
+- Management ownership, revision, persistence, safe error, export, and
+  historical compatibility;
+- Flutter model/BLoC/widget/demo coverage, real Management API integration on
+  the available desktop host, Web plus host-desktop builds, and retained
+  platform-neutral Windows/Linux host-CI gates;
+- secret, endpoint, provider-identifier, tfvars, and log redaction scans.
+
+No default gate deploys a provider resource or claims measured throughput.
+
+### 13.1 Final Freeze Evidence
+
+The first final review pass reconciled stale current-status documentation,
+profile/snapshot wording, runtime identity propagation, Layer Access evidence,
+and a standalone Management verifier that still expected four Event edges.
+The verifier now requires the exact five-edge Event flow and is part of the
+regular Management persistence gate.
+
+The second pass rechecked the concept, plans, contracts, generated copies,
+Optimizer/Management/Deployer boundaries, provider runtimes, bridge security,
+Flutter workflow, and documentation. It found no unresolved issue. The pinned
+runtime SDK surface was also installed in an ephemeral Python 3.11 container
+and verified for AWS web-identity exchange, Azure Event Hubs and Service Bus,
+and ordered GCP Pub/Sub publication.
+
+Verification remained credential-free and created no provider resources:
+
+- the complete safe repository gate passed in 1,041.4 seconds with 979
+  Optimizer, 1,131 Management, 2,381 Deployer tests (one skipped), and 893
+  Flutter tests, plus analyzer, Web release, macOS debug, strict MkDocs, static
+  checks, and cleanup;
+- after the final verifier changes, the focused deployment-contract gate
+  passed in 127.8 seconds with 35 decision-evidence, 19 implementation-manifest,
+  116 canonical-contract, 6 root-orchestrator, 40 Optimizer, 95 Management,
+  and 156 Deployer/Terraform checks;
+- the standalone persisted-graph verifier observed 8 components, 9 edges,
+  exactly 5 Event bridges, and 32 result items;
+- the final strict MkDocs build passed.
+
+## 14. Definition Of Done
+
+- [x] The exact reviewed Event Layer bundles are implemented; no service was
+      added, removed, or substituted locally.
+- [x] `six-layer-eventing@1` inherits the committed Five-layer v2 digest and
+      changes only the approved Eventing delta.
+- [x] All single-cloud, six directed pair, and representative three-provider
+      candidates pass functional/capacity gates or fail with a typed reason.
+- [x] Source acknowledgement occurs only after durable destination acceptance.
+- [x] Same-provider paths deploy no bridge and own no cross-cloud cost.
+- [x] RTA v2/RDS v2/Manifest v4, persistence, graph, packages, Terraform, permissions,
+      pricing, and UI agree on one immutable resolution digest.
+- [x] Historical contracts remain read/verify/destroy-only and byte-stable.
+- [x] Safe full repository verification passes with real cloud E2E excluded.
+- [x] Two independent implementation reviews reach zero unresolved findings.
+- [x] A final clean commit records only reviewed 8.9B work.
+- [x] Phase 8.10 receives frozen separate Five-layer and Six-layer evidence.

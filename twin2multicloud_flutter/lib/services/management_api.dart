@@ -1,13 +1,16 @@
 import 'dart:typed_data';
 
 import '../core/result.dart';
+import '../models/architecture_profile.dart';
 import '../models/authentication.dart';
 import '../models/user.dart';
 import '../models/calc_params.dart';
 import '../models/cloud_access_inventory.dart';
+import '../models/cloud_bootstrap.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
 import '../models/deployment_operations.dart';
+import '../models/deployment_access.dart';
 import '../models/deployment_readiness.dart';
 import '../models/deployer_config.dart';
 import '../models/optimizer_config.dart';
@@ -16,8 +19,10 @@ import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
 import '../models/provider_capability.dart';
 import '../models/resolved_deployment_specification.dart';
+import '../models/resolved_twin_architecture.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
+import '../models/user_function_extension.dart';
 import '../models/wizard_config_requests.dart';
 
 abstract interface class SessionApi {
@@ -67,6 +72,43 @@ abstract interface class CloudAccessApi {
   Future<void> deleteCloudConnection(String id);
 
   Future<CloudConnectionValidationResult> validateCloudConnection(String id);
+}
+
+abstract interface class CloudBootstrapApi {
+  Future<CloudBootstrapGuide> getCloudBootstrapGuide(
+    CloudProvider provider,
+    CloudBootstrapTarget target,
+  );
+
+  Future<CloudBootstrapSession> createCloudBootstrapSession({
+    required CloudBootstrapGuide guide,
+    required CloudBootstrapEntryPoint entryPoint,
+    required String displayName,
+    String? twinId,
+    required String idempotencyKey,
+  });
+
+  Future<List<CloudBootstrapSession>> listCloudBootstrapSessions({
+    CloudProvider? provider,
+    bool active = true,
+  });
+
+  Future<CloudBootstrapSession> getCloudBootstrapSession(String sessionId);
+
+  Future<CloudBootstrapSession> executeCloudBootstrapSession(
+    String sessionId,
+    CloudBootstrapExecuteRequest request,
+  );
+
+  Future<CloudBootstrapSession> acknowledgeCloudBootstrapRevocation(
+    String sessionId,
+    int expectedRevision,
+  );
+
+  Future<CloudBootstrapSession> cancelCloudBootstrapSession(
+    String sessionId,
+    int expectedRevision,
+  );
 }
 
 abstract interface class TwinApi {
@@ -144,6 +186,33 @@ abstract interface class OptimizationApi {
   Future<OptimizerConfigData?> getOptimizerConfig(String twinId);
 }
 
+abstract interface class ArchitectureApi {
+  Future<List<ArchitectureProfileSummary>> listArchitectureProfiles();
+
+  Future<ArchitectureProfileDetail> getArchitectureProfile(
+    String profileId,
+    String profileVersion,
+  );
+
+  Future<TwinArchitectureSelection> getTwinArchitectureSelection(String twinId);
+
+  Future<ArchitectureProfileChangePreview> previewTwinArchitectureProfileChange(
+    String twinId,
+    ArchitectureProfileChangePreviewRequest request,
+  );
+
+  Future<ArchitectureProfileSelectionResult> selectTwinArchitectureProfile(
+    String twinId,
+    ArchitectureProfileSelectRequest request,
+  );
+
+  Future<ResolvedTwinArchitectureRead> getSelectedResolvedArchitecture(
+    String twinId,
+  );
+
+  Future<ResolvedTwinArchitectureRead> getRunResolvedArchitecture(String runId);
+}
+
 abstract interface class DeploymentConfigurationApi {
   Future<DeployerConfigData?> getDeployerConfig(String twinId);
 
@@ -192,6 +261,35 @@ abstract interface class DeploymentConfigurationApi {
   );
 }
 
+abstract interface class UserFunctionExtensionApi {
+  Future<List<ExtensionSlot>> listExtensionSlots();
+
+  Future<UserFunctionValidationResult> validateUserFunctionArtifact(
+    UserFunctionArtifactUpload upload,
+  );
+
+  Future<UserFunctionArtifact> createUserFunctionArtifact(
+    UserFunctionArtifactUpload upload,
+  );
+
+  Future<List<UserFunctionArtifact>> listUserFunctionArtifacts();
+
+  Future<List<TwinExtensionBinding>> listTwinExtensionBindings(String twinId);
+
+  Future<TwinExtensionBinding> bindTwinExtensionArtifact(
+    String twinId,
+    ExtensionSlot slot,
+    String artifactId, {
+    int? expectedRevision,
+  });
+
+  Future<void> unbindTwinExtensionArtifact(
+    String twinId,
+    ExtensionSlot slot, {
+    int? expectedRevision,
+  });
+}
+
 abstract interface class DeploymentLifecycleApi {
   Future<DeploymentReadinessSnapshot> getDeploymentReadiness(String twinId);
 
@@ -204,6 +302,12 @@ abstract interface class DeploymentLifecycleApi {
   Future<DeploymentStatusSnapshot> getDeploymentStatus(String twinId);
 
   Future<DeploymentOutputsSnapshot> getDeploymentOutputs(String twinId);
+
+  Future<DeploymentAccessSnapshot> getDeploymentAccess(String twinId);
+
+  Future<DeploymentAccessCredential> rotateGcpGrafanaViewerCredential(
+    String twinId,
+  );
 
   Future<DeploymentHistory> getDeploymentHistory(
     String twinId, {
@@ -239,10 +343,13 @@ abstract interface class ManagementApi
         AuthenticationApi,
         UserPreferencesApi,
         CloudAccessApi,
+        CloudBootstrapApi,
         TwinApi,
         PricingApi,
         PlatformCapabilityApi,
         OptimizationApi,
+        ArchitectureApi,
         DeploymentConfigurationApi,
+        UserFunctionExtensionApi,
         DeploymentLifecycleApi,
         VerificationApi {}

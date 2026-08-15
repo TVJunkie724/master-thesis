@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from src.models.optimizer_config import OptimizerConfiguration
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.optimizer_config import OptimizerConfigResponse, OptimizerParamsUpdate
+from src.services.architecture_projection_service import provider_path
 from src.services.optimizer_config_projection import (
-    cheapest_path_dict,
     optimizer_config_to_response,
     to_json,
 )
@@ -51,14 +51,14 @@ class OptimizerConfigurationService:
         return optimizer_config_to_response(config)
 
     def get_cheapest_path(self, twin_id: str, user_id: str) -> dict[str, str | None]:
-        """Return cheapest provider selection for deployment logic."""
+        """Return the fixed-shape compatibility view of selected architecture."""
         twin = self._require_twin(twin_id, user_id)
-        config = twin.optimizer_config
-        if not config or not config.cheapest_l1:
+        path = provider_path(twin)
+        if not path:
             raise EntityNotFoundError(
                 "No optimizer result found. Run calculation first."
             )
-        return cheapest_path_dict(config)
+        return path
 
     def _require_twin(self, twin_id: str, user_id: str):
         twin = self.twin_repository.get_active_for_user(twin_id, user_id)

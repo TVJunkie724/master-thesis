@@ -1,0 +1,949 @@
+{
+  "schema_version": "resolved-twin-architecture.v2",
+  "resolution_status": "offline_contract_fixture",
+  "resolution_id": "70995450-1382-5e10-8e71-95be3f71fb98",
+  "calculation_run_id": "89287aa5-89b4-55dc-88cb-680f2823da48",
+  "architecture_profile_ref": {
+    "id": "six-layer-eventing",
+    "version": "1",
+    "digest": "sha256:0ecbf18fdc54a479c81a81df114fc508983db7da1786836aa1774e03d1665066"
+  },
+  "optimization_bundle_ref": {
+    "optimization_strategy_id": "cost-minimization-v2",
+    "optimization_strategy_version": "2",
+    "calculation_strategy_id": "profile-resolution-v2",
+    "calculation_strategy_version": "2",
+    "formula_set_id": "phase-08-complete-service-bundles",
+    "formula_set_version": "1",
+    "scoring_strategy_id": "profile-local-min-total-cost-v2",
+    "scoring_strategy_version": "2",
+    "compatibility_digest": "sha256:a0c39dcae6c95c2cb25251389c6569a0f5ea4428a0403ccc4cf934541cda06f1"
+  },
+  "provider_profile_refs": [
+    {
+      "id": "provider-profile.aws.six-layer-eventing-v1",
+      "version": "1",
+      "digest": "sha256:eafa87b4c120efa77413ab36fc69c5f981bc394c68581809347891d39971a2b5",
+      "provider": "aws"
+    },
+    {
+      "id": "provider-profile.azure.six-layer-eventing-v1",
+      "version": "1",
+      "digest": "sha256:34c34bc42abd9d57d9cc0cd25b10bdb67f4ce404091c9e590275e52a91128c92",
+      "provider": "azure"
+    }
+  ],
+  "workload_contract_ref": {
+    "id": "five-layer-workload",
+    "version": "2",
+    "digest": "sha256:32fb431fb207e539bc85e6f22ce9bb3d7a9224e18722d41a7cda0339c80b9a95"
+  },
+  "pricing_evidence_refs": [
+    {
+      "id": "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+      "version": "1",
+      "digest": "sha256:acb96faf904bc16d9d00d83fb26372ee2bf35255340ab5afaf6df6e87b8342b7",
+      "provider": "aws",
+      "currency": "USD"
+    },
+    {
+      "id": "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee",
+      "version": "1",
+      "digest": "sha256:9a91dd0c760ab1a4c66f6e8abe2acd5f98d80da560d605c09d509957c1a172ce",
+      "provider": "azure",
+      "currency": "USD"
+    }
+  ],
+  "component_assignments": [
+    {
+      "assignment_id": "assignment.archive-storage",
+      "responsibility_id": "responsibility.storage",
+      "logical_component_id": "component.archive-storage",
+      "provider": "azure",
+      "provider_implementation_profile_ref": {
+        "id": "provider-profile.azure.six-layer-eventing-v1",
+        "version": "1",
+        "digest": "sha256:34c34bc42abd9d57d9cc0cd25b10bdb67f4ce404091c9e590275e52a91128c92"
+      },
+      "deployment_component_id": "deployment.azure.archive-storage.v2",
+      "deployment_component_version": "1",
+      "service_id": "azure.archive-storage.v2",
+      "region": "westeurope",
+      "capability_evidence": [
+        "capability.archive-storage"
+      ],
+      "pricing_model_refs": [
+        "pricing.azure.archive-storage.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "deployment_specification_component_ids": [
+        "azure.blob-archive"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "0.009"
+      },
+      "required": true
+    },
+    {
+      "assignment_id": "assignment.cool-storage",
+      "responsibility_id": "responsibility.storage",
+      "logical_component_id": "component.cool-storage",
+      "provider": "azure",
+      "provider_implementation_profile_ref": {
+        "id": "provider-profile.azure.six-layer-eventing-v1",
+        "version": "1",
+        "digest": "sha256:34c34bc42abd9d57d9cc0cd25b10bdb67f4ce404091c9e590275e52a91128c92"
+      },
+      "deployment_component_id": "deployment.azure.cool-storage.v2",
+      "deployment_component_version": "1",
+      "service_id": "azure.cool-storage.v2",
+      "region": "westeurope",
+      "capability_evidence": [
+        "capability.cool-storage"
+      ],
+      "pricing_model_refs": [
+        "pricing.azure.cool-storage.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "deployment_specification_component_ids": [
+        "azure.blob-cool"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "0.02"
+      },
+      "required": true
+    },
+    {
+      "assignment_id": "assignment.eventing",
+      "responsibility_id": "responsibility.eventing",
+      "logical_component_id": "component.eventing",
+      "provider": "azure",
+      "provider_implementation_profile_ref": {
+        "id": "provider-profile.azure.six-layer-eventing-v1",
+        "version": "1",
+        "digest": "sha256:34c34bc42abd9d57d9cc0cd25b10bdb67f4ce404091c9e590275e52a91128c92"
+      },
+      "deployment_component_id": "deployment.azure.eventing.v1",
+      "deployment_component_version": "1",
+      "service_id": "azure.eventing.v1",
+      "region": "westeurope",
+      "capability_evidence": [
+        "capability.event.envelope",
+        "capability.event.routing",
+        "capability.event.durable-buffer",
+        "capability.event.independent-fanout",
+        "capability.event.at-least-once",
+        "capability.event.retry",
+        "capability.event.dead-letter",
+        "capability.event.replay",
+        "capability.event.trace-correlation",
+        "capability.event.idempotency",
+        "capability.event.per-device-ordering",
+        "capability.event.schema-rejection",
+        "capability.event.observability",
+        "capability.event.cross-cloud-transport",
+        "capability.event.cost-ownership"
+      ],
+      "pricing_model_refs": [
+        "intent.azure.event-hubs-dedicated.cu-hour",
+        "intent.azure.event-hubs.ingress",
+        "intent.azure.event-hubs.tu-hour",
+        "intent.azure.functions.compute",
+        "intent.azure.functions.execution",
+        "intent.azure.monitor.ingestion",
+        "intent.azure.service-bus.base-hour",
+        "intent.azure.service-bus.operation"
+      ],
+      "formula_refs": [
+        "formula.azure.event-hubs-dedicated",
+        "formula.azure.event-hubs-standard",
+        "formula.azure.service-bus-standard",
+        "formula.bridge.compute",
+        "formula.compute.serverless",
+        "formula.observability.decimal-gb"
+      ],
+      "deployment_specification_component_ids": [
+        "azure.event-hubs-standard-small-medium",
+        "azure.service-bus-standard",
+        "azure.functions-flex-event-worker",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace",
+        "azure.functions-flex-event-adapter"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "47.48159112"
+      },
+      "required": true
+    },
+    {
+      "assignment_id": "assignment.hot-storage",
+      "responsibility_id": "responsibility.storage",
+      "logical_component_id": "component.hot-storage",
+      "provider": "aws",
+      "provider_implementation_profile_ref": {
+        "id": "provider-profile.aws.six-layer-eventing-v1",
+        "version": "1",
+        "digest": "sha256:eafa87b4c120efa77413ab36fc69c5f981bc394c68581809347891d39971a2b5"
+      },
+      "deployment_component_id": "deployment.aws.hot-storage.v2",
+      "deployment_component_version": "1",
+      "service_id": "aws.hot-storage.v2",
+      "region": "eu-central-1",
+      "capability_evidence": [
+        "capability.hot-storage"
+      ],
+      "pricing_model_refs": [
+        "pricing.aws.hot-storage.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "deployment_specification_component_ids": [
+        "aws.dynamodb-on-demand-raw",
+        "aws.dynamodb-on-demand-hourly-rollup",
+        "aws.eventbridge-scheduler",
+        "aws.ecs-fargate-storage-mover",
+        "aws.ecr-if-container-selected"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "8.649608"
+      },
+      "required": true
+    },
+    {
+      "assignment_id": "assignment.ingestion",
+      "responsibility_id": "responsibility.ingestion",
+      "logical_component_id": "component.ingestion",
+      "provider": "aws",
+      "provider_implementation_profile_ref": {
+        "id": "provider-profile.aws.six-layer-eventing-v1",
+        "version": "1",
+        "digest": "sha256:eafa87b4c120efa77413ab36fc69c5f981bc394c68581809347891d39971a2b5"
+      },
+      "deployment_component_id": "deployment.aws.ingestion.v2",
+      "deployment_component_version": "1",
+      "service_id": "aws.ingestion.v2",
+      "region": "eu-central-1",
+      "capability_evidence": [
+        "capability.embedded-domain-event-ingress",
+        "capability.ingestion"
+      ],
+      "pricing_model_refs": [
+        "pricing.aws.ingestion.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "deployment_specification_component_ids": [
+        "aws.iot-core",
+        "aws.iot-commands",
+        "aws.sqs-fifo",
+        "aws.lambda-event-adapter",
+        "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "aws.sns-fifo-only-for-reviewed-remote-control-edge",
+        "aws.cloudwatch"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "81.626861138"
+      },
+      "required": true
+    },
+    {
+      "assignment_id": "assignment.processing",
+      "responsibility_id": "responsibility.processing",
+      "logical_component_id": "component.processing",
+      "provider": "aws",
+      "provider_implementation_profile_ref": {
+        "id": "provider-profile.aws.six-layer-eventing-v1",
+        "version": "1",
+        "digest": "sha256:eafa87b4c120efa77413ab36fc69c5f981bc394c68581809347891d39971a2b5"
+      },
+      "deployment_component_id": "deployment.aws.processing.v2",
+      "deployment_component_version": "1",
+      "service_id": "aws.processing.v2",
+      "region": "eu-central-1",
+      "capability_evidence": [
+        "capability.embedded-domain-event-routing",
+        "capability.mandatory-rule-action-feedback",
+        "capability.processing"
+      ],
+      "pricing_model_refs": [
+        "pricing.aws.processing.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "deployment_specification_component_ids": [
+        "aws.lambda",
+        "aws.step-functions-standard"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "4.950759"
+      },
+      "required": true
+    },
+    {
+      "assignment_id": "assignment.twin-state",
+      "responsibility_id": "responsibility.twin-state",
+      "logical_component_id": "component.twin-state",
+      "provider": "azure",
+      "provider_implementation_profile_ref": {
+        "id": "provider-profile.azure.six-layer-eventing-v1",
+        "version": "1",
+        "digest": "sha256:34c34bc42abd9d57d9cc0cd25b10bdb67f4ce404091c9e590275e52a91128c92"
+      },
+      "deployment_component_id": "deployment.azure.twin-state.v2",
+      "deployment_component_version": "1",
+      "service_id": "azure.twin-state.v2",
+      "region": "westeurope",
+      "capability_evidence": [
+        "capability.twin-state"
+      ],
+      "pricing_model_refs": [
+        "pricing.azure.twin-state.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "deployment_specification_component_ids": [
+        "azure.digital-twins",
+        "azure.entra-layer-access-bindings"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "0.92742"
+      },
+      "required": true
+    },
+    {
+      "assignment_id": "assignment.visualization",
+      "responsibility_id": "responsibility.visualization",
+      "logical_component_id": "component.visualization",
+      "provider": "aws",
+      "provider_implementation_profile_ref": {
+        "id": "provider-profile.aws.six-layer-eventing-v1",
+        "version": "1",
+        "digest": "sha256:eafa87b4c120efa77413ab36fc69c5f981bc394c68581809347891d39971a2b5"
+      },
+      "deployment_component_id": "deployment.aws.visualization.v2",
+      "deployment_component_version": "1",
+      "service_id": "aws.visualization.v2",
+      "region": "eu-central-1",
+      "capability_evidence": [
+        "capability.visualization"
+      ],
+      "pricing_model_refs": [
+        "pricing.aws.visualization.v2"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "deployment_specification_component_ids": [
+        "aws.amazon-managed-grafana-12",
+        "aws.lambda-raw-history-reader",
+        "aws.grafana-marcusolsson-json-datasource",
+        "aws.iam-identity-center-layer-access"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "23.0008220015"
+      },
+      "required": true
+    }
+  ],
+  "resolved_edges": [
+    {
+      "resolved_edge_id": "resolved.cool-to-archive-storage",
+      "edge_id": "edge.cool-to-archive-storage",
+      "source_assignment_id": "assignment.cool-storage",
+      "source_port_id": "catalog.azure.port.cool-storage.transition-out",
+      "destination_assignment_id": "assignment.archive-storage",
+      "destination_port_id": "catalog.azure.port.archive-storage.write-in",
+      "edge_implementation_id": "edge-implementation.azure-to-azure.cool-to-archive-storage.v2",
+      "mechanism": "source_owned_transition_runtime",
+      "delivery_semantics": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "transfer_evidence_refs": [
+        "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "0"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "deployment_input_binding_ids": [
+        "binding.input.cool-to-archive-storage"
+      ],
+      "deployment_output_binding_ids": [
+        "binding.output.cool-to-archive-storage"
+      ]
+    },
+    {
+      "resolved_edge_id": "resolved.hot-storage-to-twin-state",
+      "edge_id": "edge.hot-storage-to-twin-state",
+      "source_assignment_id": "assignment.hot-storage",
+      "source_port_id": "catalog.aws.port.hot-storage.twin-projection-out",
+      "destination_assignment_id": "assignment.twin-state",
+      "destination_port_id": "catalog.azure.port.twin-state.projection-in",
+      "edge_implementation_id": "edge-implementation.aws-to-azure.hot-storage-to-twin-state.v2",
+      "mechanism": "cross_provider_adapter",
+      "delivery_semantics": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "transfer_route_class": "cross_provider",
+      "transfer_evidence_refs": [
+        "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+        "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "0"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "deployment_input_binding_ids": [
+        "binding.input.hot-storage-to-twin-state"
+      ],
+      "deployment_output_binding_ids": [
+        "binding.output.hot-storage-to-twin-state"
+      ]
+    },
+    {
+      "resolved_edge_id": "resolved.hot-to-cool-storage",
+      "edge_id": "edge.hot-to-cool-storage",
+      "source_assignment_id": "assignment.hot-storage",
+      "source_port_id": "catalog.aws.port.hot-storage.transition-out",
+      "destination_assignment_id": "assignment.cool-storage",
+      "destination_port_id": "catalog.azure.port.cool-storage.write-in",
+      "edge_implementation_id": "edge-implementation.aws-to-azure.hot-to-cool-storage.v2",
+      "mechanism": "cross_provider_adapter",
+      "delivery_semantics": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "transfer_route_class": "cross_provider",
+      "transfer_evidence_refs": [
+        "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+        "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "0"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "deployment_input_binding_ids": [
+        "binding.input.hot-to-cool-storage"
+      ],
+      "deployment_output_binding_ids": [
+        "binding.output.hot-to-cool-storage"
+      ]
+    },
+    {
+      "resolved_edge_id": "resolved.hot-storage-to-visualization",
+      "edge_id": "edge.hot-storage-to-visualization",
+      "source_assignment_id": "assignment.hot-storage",
+      "source_port_id": "catalog.aws.port.hot-storage.raw-history-out",
+      "destination_assignment_id": "assignment.visualization",
+      "destination_port_id": "catalog.aws.port.visualization.raw-history-in",
+      "edge_implementation_id": "edge-implementation.aws-to-aws.hot-storage-to-visualization.v2",
+      "mechanism": "typed_synchronous_api",
+      "delivery_semantics": {
+        "dead_letter_policy": "not_applicable",
+        "idempotency": "required",
+        "mode": "synchronous",
+        "ordering": "not_required",
+        "replay": "not_supported",
+        "retry_policy": "bounded_backoff",
+        "timeout_policy": "bounded"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "transfer_evidence_refs": [
+        "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "0"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.five-layer-v2",
+        "version": "1"
+      },
+      "deployment_input_binding_ids": [
+        "binding.input.hot-storage-to-visualization"
+      ],
+      "deployment_output_binding_ids": [
+        "binding.output.hot-storage-to-visualization"
+      ]
+    },
+    {
+      "resolved_edge_id": "resolved.ingestion-to-eventing",
+      "edge_id": "edge.ingestion-to-eventing",
+      "source_assignment_id": "assignment.ingestion",
+      "source_port_id": "catalog.aws.port.ingestion.eventing-out",
+      "destination_assignment_id": "assignment.eventing",
+      "destination_port_id": "catalog.azure.port.eventing.ingestion-in",
+      "edge_implementation_id": "edge-implementation.aws-to-azure.ingestion-to-eventing.eventing-v1",
+      "mechanism": "cross_provider_adapter",
+      "delivery_semantics": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "transfer_route_class": "cross_provider",
+      "transfer_evidence_refs": [
+        "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+        "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+      ],
+      "formula_refs": [
+        "formula.phase-08-eventing"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "0"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.eventing",
+        "version": "1"
+      },
+      "deployment_input_binding_ids": [
+        "binding.input.ingestion-to-eventing"
+      ],
+      "deployment_output_binding_ids": [
+        "binding.output.ingestion-to-eventing"
+      ]
+    },
+    {
+      "resolved_edge_id": "resolved.eventing-to-processing",
+      "edge_id": "edge.eventing-to-processing",
+      "source_assignment_id": "assignment.eventing",
+      "source_port_id": "catalog.azure.port.eventing.processing-out",
+      "destination_assignment_id": "assignment.processing",
+      "destination_port_id": "catalog.aws.port.processing.eventing-in",
+      "edge_implementation_id": "edge-implementation.azure-to-aws.eventing-to-processing.eventing-v1",
+      "mechanism": "cross_provider_adapter",
+      "delivery_semantics": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "transfer_route_class": "cross_provider",
+      "transfer_evidence_refs": [
+        "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+        "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+      ],
+      "formula_refs": [
+        "formula.phase-08-eventing"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "0"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.eventing",
+        "version": "1"
+      },
+      "deployment_input_binding_ids": [
+        "binding.input.eventing-to-processing"
+      ],
+      "deployment_output_binding_ids": [
+        "binding.output.eventing-to-processing"
+      ]
+    },
+    {
+      "resolved_edge_id": "resolved.processing-to-eventing",
+      "edge_id": "edge.processing-to-eventing",
+      "source_assignment_id": "assignment.processing",
+      "source_port_id": "catalog.aws.port.processing.eventing-out",
+      "destination_assignment_id": "assignment.eventing",
+      "destination_port_id": "catalog.azure.port.eventing.processing-in",
+      "edge_implementation_id": "edge-implementation.aws-to-azure.processing-to-eventing.eventing-v1",
+      "mechanism": "cross_provider_adapter",
+      "delivery_semantics": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "transfer_route_class": "cross_provider",
+      "transfer_evidence_refs": [
+        "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+        "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+      ],
+      "formula_refs": [
+        "formula.phase-08-eventing"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "0"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.eventing",
+        "version": "1"
+      },
+      "deployment_input_binding_ids": [
+        "binding.input.processing-to-eventing"
+      ],
+      "deployment_output_binding_ids": [
+        "binding.output.processing-to-eventing"
+      ]
+    },
+    {
+      "resolved_edge_id": "resolved.eventing-to-ingestion",
+      "edge_id": "edge.eventing-to-ingestion",
+      "source_assignment_id": "assignment.eventing",
+      "source_port_id": "catalog.azure.port.eventing.ingestion-out",
+      "destination_assignment_id": "assignment.ingestion",
+      "destination_port_id": "catalog.aws.port.ingestion.device-command-in",
+      "edge_implementation_id": "edge-implementation.azure-to-aws.eventing-to-ingestion.eventing-v1",
+      "mechanism": "cross_provider_adapter",
+      "delivery_semantics": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "transfer_route_class": "cross_provider",
+      "transfer_evidence_refs": [
+        "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+        "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+      ],
+      "formula_refs": [
+        "formula.phase-08-eventing"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "0"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.eventing",
+        "version": "1"
+      },
+      "deployment_input_binding_ids": [
+        "binding.input.eventing-to-ingestion"
+      ],
+      "deployment_output_binding_ids": [
+        "binding.output.eventing-to-ingestion"
+      ]
+    },
+    {
+      "resolved_edge_id": "resolved.eventing-to-hot-storage",
+      "edge_id": "edge.eventing-to-hot-storage",
+      "source_assignment_id": "assignment.eventing",
+      "source_port_id": "catalog.azure.port.eventing.hot-storage-out",
+      "destination_assignment_id": "assignment.hot-storage",
+      "destination_port_id": "catalog.aws.port.hot-storage.eventing-in",
+      "edge_implementation_id": "edge-implementation.azure-to-aws.eventing-to-hot-storage.eventing-v1",
+      "mechanism": "cross_provider_adapter",
+      "delivery_semantics": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "transfer_route_class": "cross_provider",
+      "transfer_evidence_refs": [
+        "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+        "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+      ],
+      "formula_refs": [
+        "formula.phase-08-eventing"
+      ],
+      "cost_contribution": {
+        "currency": "USD",
+        "monthly_amount": "0"
+      },
+      "trust_contract_ref": {
+        "id": "trust.workload-identity-federation",
+        "version": "1"
+      },
+      "observability_contract_ref": {
+        "id": "observability.eventing",
+        "version": "1"
+      },
+      "deployment_input_binding_ids": [
+        "binding.input.eventing-to-hot-storage"
+      ],
+      "deployment_output_binding_ids": [
+        "binding.output.eventing-to-hot-storage"
+      ]
+    }
+  ],
+  "extension_bindings": [
+    {
+      "slot_id": "processor.telemetry",
+      "slot_version": "1",
+      "artifact_id": "artifact.user.processor.example",
+      "artifact_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "logical_component_id": "component.processing",
+      "configuration_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "validation_contract_version": "1"
+    }
+  ],
+  "deployment_specification_ref": {
+    "schema_version": "resolved-deployment-specification.v2",
+    "calculation_run_id": "89287aa5-89b4-55dc-88cb-680f2823da48",
+    "digest": "sha256:fad2b115b115cef0f2ab5dbe9598b7c320d760038cce097d8c48d62c78ed2a89"
+  },
+  "cost_summary": {
+    "currency": "USD",
+    "responsibility_totals": [
+      {
+        "item_id": "responsibility.ingestion",
+        "monthly_amount": "81.626861138"
+      },
+      {
+        "item_id": "responsibility.processing",
+        "monthly_amount": "4.950759"
+      },
+      {
+        "item_id": "responsibility.storage",
+        "monthly_amount": "8.678608"
+      },
+      {
+        "item_id": "responsibility.twin-state",
+        "monthly_amount": "0.92742"
+      },
+      {
+        "item_id": "responsibility.visualization",
+        "monthly_amount": "23.0008220015"
+      },
+      {
+        "item_id": "responsibility.eventing",
+        "monthly_amount": "47.48159112"
+      }
+    ],
+    "component_totals": [
+      {
+        "item_id": "component.archive-storage",
+        "monthly_amount": "0.009"
+      },
+      {
+        "item_id": "component.cool-storage",
+        "monthly_amount": "0.02"
+      },
+      {
+        "item_id": "component.eventing",
+        "monthly_amount": "47.48159112"
+      },
+      {
+        "item_id": "component.hot-storage",
+        "monthly_amount": "8.649608"
+      },
+      {
+        "item_id": "component.ingestion",
+        "monthly_amount": "81.626861138"
+      },
+      {
+        "item_id": "component.processing",
+        "monthly_amount": "4.950759"
+      },
+      {
+        "item_id": "component.twin-state",
+        "monthly_amount": "0.92742"
+      },
+      {
+        "item_id": "component.visualization",
+        "monthly_amount": "23.0008220015"
+      }
+    ],
+    "edge_totals": [
+      {
+        "item_id": "edge.cool-to-archive-storage",
+        "monthly_amount": "0"
+      },
+      {
+        "item_id": "edge.eventing-to-hot-storage",
+        "monthly_amount": "0"
+      },
+      {
+        "item_id": "edge.eventing-to-ingestion",
+        "monthly_amount": "0"
+      },
+      {
+        "item_id": "edge.eventing-to-processing",
+        "monthly_amount": "0"
+      },
+      {
+        "item_id": "edge.hot-storage-to-twin-state",
+        "monthly_amount": "0"
+      },
+      {
+        "item_id": "edge.hot-storage-to-visualization",
+        "monthly_amount": "0"
+      },
+      {
+        "item_id": "edge.hot-to-cool-storage",
+        "monthly_amount": "0"
+      },
+      {
+        "item_id": "edge.ingestion-to-eventing",
+        "monthly_amount": "0"
+      },
+      {
+        "item_id": "edge.processing-to-eventing",
+        "monthly_amount": "0"
+      }
+    ],
+    "monthly_total": "166.6660612595"
+  },
+  "functional_completeness": {
+    "status": "complete",
+    "required_capability_ids": [
+      "capability.archive-storage",
+      "capability.cool-storage",
+      "capability.embedded-domain-event-ingress",
+      "capability.embedded-domain-event-routing",
+      "capability.event.at-least-once",
+      "capability.event.cost-ownership",
+      "capability.event.cross-cloud-transport",
+      "capability.event.dead-letter",
+      "capability.event.durable-buffer",
+      "capability.event.envelope",
+      "capability.event.idempotency",
+      "capability.event.independent-fanout",
+      "capability.event.observability",
+      "capability.event.per-device-ordering",
+      "capability.event.replay",
+      "capability.event.retry",
+      "capability.event.routing",
+      "capability.event.schema-rejection",
+      "capability.event.trace-correlation",
+      "capability.hot-storage",
+      "capability.ingestion",
+      "capability.mandatory-rule-action-feedback",
+      "capability.processing",
+      "capability.twin-state",
+      "capability.visualization"
+    ],
+    "provided_capability_ids": [
+      "capability.archive-storage",
+      "capability.cool-storage",
+      "capability.embedded-domain-event-ingress",
+      "capability.embedded-domain-event-routing",
+      "capability.event.at-least-once",
+      "capability.event.cost-ownership",
+      "capability.event.cross-cloud-transport",
+      "capability.event.dead-letter",
+      "capability.event.durable-buffer",
+      "capability.event.envelope",
+      "capability.event.idempotency",
+      "capability.event.independent-fanout",
+      "capability.event.observability",
+      "capability.event.per-device-ordering",
+      "capability.event.replay",
+      "capability.event.retry",
+      "capability.event.routing",
+      "capability.event.schema-rejection",
+      "capability.event.trace-correlation",
+      "capability.hot-storage",
+      "capability.ingestion",
+      "capability.mandatory-rule-action-feedback",
+      "capability.processing",
+      "capability.twin-state",
+      "capability.visualization"
+    ],
+    "provider_extra_capability_ids": [],
+    "missing_capability_ids": [],
+    "validator_version": "2",
+    "validation_digest": "sha256:3e8ccf6f600452e283238bdc88597278d059ed83566d1af805c696aff009e745"
+  },
+  "content_digest": "sha256:45af38287c8ad5747fa6692aa170c26965ba6becb43ca65fafe55c976ab4815a"
+}

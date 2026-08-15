@@ -18,6 +18,9 @@ from src.services.cost_calculation_run_service import (
     validate_persisted_run_deployment_specification,
 )
 from src.services.credential_resolution_service import DeploymentCredentials
+from src.services.architecture_contract_service import (
+    calculate_digest as calculate_architecture_digest,
+)
 from src.services.deployment_service import _build_deployment_manifest
 from src.services.resolved_deployment_specification_service import (
     ResolvedDeploymentSpecificationError,
@@ -360,7 +363,7 @@ def test_sqlite_round_trip_and_manifest_preserve_exact_specification(db_session)
     providers = next(
         path["providers"]
         for path in MATRIX["representative_paths"]
-        if path["id"] == "mixed"
+        if path["id"] == "all-aws"
     )
     result, specification, _ = _build_and_validate(providers)
     user = User(email="deployment-drift@example.test", name="Drift Test")
@@ -409,6 +412,27 @@ def test_sqlite_round_trip_and_manifest_preserve_exact_specification(db_session)
         for provider in MATRIX["providers"]
         if provider in set(providers.values())
     )
+    architecture = json.loads(
+        (
+            Path(__file__).resolve().parents[1]
+            / "src"
+            / "contracts"
+            / "generated"
+            / "deployment-manifest"
+            / "v3"
+            / "fixtures"
+            / "valid"
+            / "all-aws.json"
+        ).read_text(encoding="utf-8")
+    )["resolved_twin_architecture"]
+    architecture["deployment_specification_ref"] = {
+        "schema_version": specification["schema_version"],
+        "calculation_run_id": RUN_ID,
+        "digest": specification["digest"],
+    }
+    architecture["content_digest"] = calculate_architecture_digest(
+        architecture
+    )
     manifest = _build_deployment_manifest(
         stored.twin,
         deployer_providers,
@@ -421,6 +445,7 @@ def test_sqlite_round_trip_and_manifest_preserve_exact_specification(db_session)
             },
         ),
         ["config.json", "config_providers.json"],
+        resolved_architecture=architecture,
         deployment_specification=validated.specification,
     )
 

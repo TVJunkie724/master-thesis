@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,8 +10,10 @@ import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/calc_result.dart';
 import 'package:twin2multicloud_flutter/models/deployer_artifact_validation.dart';
 import 'package:twin2multicloud_flutter/models/provider_capability.dart';
+import 'package:twin2multicloud_flutter/models/user_function_extension.dart';
 
 import '../../fixtures/provider_capability_fixture.dart';
+import '../../fixtures/architecture_wizard_fixture.dart';
 
 void main() {
   final capabilities = PlatformProviderCapabilities.fromJson(
@@ -41,6 +44,24 @@ void main() {
     calcParams: CalcParams.defaultParams(),
     calcResult: result(),
     providerCapabilities: capabilities,
+  );
+  const extensionSlot = ExtensionSlot(
+    slotId: 'processor.telemetry',
+    slotVersion: '1',
+    displayName: 'Telemetry processor',
+    runtimeId: 'python311',
+    configurationFields: [
+      ExtensionConfigurationField(
+        name: 'scale_factor',
+        type: 'number',
+        title: 'Scale factor',
+        required: true,
+        minimum: 0,
+        maximum: 1000,
+      ),
+    ],
+    resourceLimits: {'timeout_seconds': 30, 'memory_mb': 256},
+    permissionCapabilities: ['capability.telemetry.process'],
   );
 
   Widget buildTask(
@@ -89,6 +110,39 @@ void main() {
       find.byKey(const ValueKey('deployment-user-logic-section')),
       findsNothing,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Phase 8 generated config omits retired feature flags', (
+    tester,
+  ) async {
+    final phase8 =
+        architectureReadyWizardState(
+          profileId: 'five-layer-baseline',
+          withExtensionSlot: false,
+        ).copyWith(
+          calcParams: CalcParams.fiveLayerV2(
+            scenario: FiveLayerWorkloadScenario.small,
+          ),
+          calcResult: result(layer2: 'AWS', layer4: 'GCP', layer5: 'GCP'),
+          configIotDevicesValidated: true,
+        );
+
+    await tester.pumpWidget(
+      buildTask(ConfigurationTaskId.dataContracts, wizardState: phase8),
+    );
+
+    expect(find.textContaining('"inputParamsUsed": {}'), findsOneWidget);
+    expect(find.textContaining('No legacy feature flags.'), findsOneWidget);
+    expect(find.text('Event Checking'), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(
+      buildTask(ConfigurationTaskId.userLogic, wizardState: phase8),
+    );
+    await tester.pump();
+
+    expect(find.text('state_machines/aws_step_function.json'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -150,21 +204,21 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('user-logic task exposes unmet device dependency', (
+  testWidgets('user-logic task explains an unavailable reviewed catalog', (
     tester,
   ) async {
     await tester.pumpWidget(buildTask(ConfigurationTaskId.userLogic));
 
     expect(
-      find.text(
-        'Validate config_iot_devices.json first to enable processor function inputs.',
-      ),
+      find.text('No reviewed user-function extension slots are available.'),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('user-logic task composes all dynamic artifacts', (tester) async {
+  testWidgets('user-logic task composes provider-neutral slot and workflow', (
+    tester,
+  ) async {
     final events = <WizardEvent>[];
     final params = CalcParams.fromJson({
       ...CalcParams.defaultParams().toJson(),
@@ -190,6 +244,14 @@ void main() {
         },
       ]),
       processorContents: const {'sensor-1': 'def main(): pass'},
+      extensionSlots: const [extensionSlot],
+      extensionDrafts: {
+        'processor.telemetry': UserFunctionSourceDraft(
+          filename: 'processor.zip',
+          bytes: Uint8List.fromList([1, 2, 3]),
+          configuration: const {'scale_factor': 1},
+        ),
+      },
     );
 
     await tester.pumpWidget(
@@ -200,26 +262,20 @@ void main() {
       ),
     );
 
-    expect(find.text('processors/sensor-1/lambda_function.py'), findsOneWidget);
-    expect(find.text('event-feedback/lambda_function.py'), findsOneWidget);
-    expect(
-      find.text('event_actions/notify-operator/lambda_function.py'),
-      findsOneWidget,
-    );
+    expect(find.text('Telemetry processor'), findsOneWidget);
+    expect(find.text('Slot: processor.telemetry'), findsOneWidget);
+    expect(find.textContaining('Python 3.11'), findsOneWidget);
+    expect(find.text('processors/sensor-1/lambda_function.py'), findsNothing);
+    expect(find.text('event-feedback/lambda_function.py'), findsNothing);
     expect(find.text('state_machines/azure_logic_app.json'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Validate').first);
+    await tester.tap(find.byKey(const ValueKey('extension-validate')));
     await tester.pump();
     expect(
       events.single,
-      isA<WizardArtifactValidationRequested>().having(
-        (event) => event.request,
-        'request',
-        const DeployerArtifactValidationRequest(
-          type: DeployerArtifactType.processor,
-          content: 'def main(): pass',
-          provider: 'AZURE',
-          entityId: 'sensor-1',
-        ),
+      isA<WizardExtensionValidationRequested>().having(
+        (event) => event.slotId,
+        'slotId',
+        'processor.telemetry',
       ),
     );
     expect(tester.takeException(), isNull);

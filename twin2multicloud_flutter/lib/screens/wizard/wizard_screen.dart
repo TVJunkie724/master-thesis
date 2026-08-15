@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../bloc/wizard/wizard.dart';
 import '../../features/configuration_workspace/domain/configuration_journey.dart';
+import '../../features/configuration_workspace/presentation/architecture_profile_task.dart';
 import '../../features/configuration_workspace/presentation/cloud_access_task.dart';
 import '../../features/configuration_workspace/presentation/configuration_alert_stack.dart';
 import '../../features/configuration_workspace/presentation/configuration_navigation_bar.dart';
@@ -57,6 +58,8 @@ class _WizardViewState extends ConsumerState<WizardView> {
   ConfigurationTaskId? _currentTaskId;
   _WorkspaceExitDestination? _pendingExitDestination;
   Timer? _notificationTimer;
+  String? _architectureCatalogContext;
+  int? _extensionCatalogRevision;
 
   @override
   void dispose() {
@@ -73,6 +76,30 @@ class _WizardViewState extends ConsumerState<WizardView> {
           previous.errorMessage != current.errorMessage,
       listener: _handleStateSideEffects,
       builder: (context, state) {
+        final catalogContext = state.twinId ?? 'unpersisted';
+        if (_architectureCatalogContext != catalogContext &&
+            state.status == WizardStatus.ready) {
+          _architectureCatalogContext = catalogContext;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              context.read<WizardBloc>().add(
+                const WizardArchitectureProfilesLoadRequested(),
+              );
+            }
+          });
+        }
+        final architectureRevision = state.architectureSelection?.revision;
+        if (state.architectureWorkflowReady &&
+            _extensionCatalogRevision != architectureRevision) {
+          _extensionCatalogRevision = architectureRevision;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              context.read<WizardBloc>().add(
+                const WizardExtensionCatalogLoadRequested(),
+              );
+            }
+          });
+        }
         final commandInProgress = _commandInProgress(state);
         final appBar = ConfigurationWorkspaceAppBar(
           isDarkMode: ref.watch(themeProvider) == ThemeMode.dark,
@@ -248,6 +275,15 @@ class _WizardViewState extends ConsumerState<WizardView> {
     if (state.isSelectingDeploymentRun) {
       return 'Deployment selection verification in progress';
     }
+    if (!state.architectureWorkflowReady) {
+      return 'Select and load an active architecture profile first';
+    }
+    if (state.architectureInvalidatedWorkloadFieldIds.isNotEmpty) {
+      return 'Review workload fields invalidated by the profile change';
+    }
+    if (!state.architectureExtensionBindingsReady) {
+      return 'Bind and validate the required user logic first';
+    }
     if (state.isPricingHealthLoading) return 'Checking pricing readiness';
     if (state.pricingHealthError != null) {
       return 'Retry pricing readiness before calculating';
@@ -283,6 +319,11 @@ class _WizardViewState extends ConsumerState<WizardView> {
 
   Widget _buildTaskContent(BuildContext context, ConfigurationTaskId taskId) {
     return switch (taskId) {
+      ConfigurationTaskId.selectProfile ||
+      ConfigurationTaskId.understandArchitecture => ArchitectureProfileTask(
+        taskId: taskId,
+        onOpenTask: (target) => _selectTask(context, target),
+      ),
       ConfigurationTaskId.cloudAccess => const CloudAccessTask(),
       ConfigurationTaskId.scenarioAndCurrency ||
       ConfigurationTaskId.deviceTraffic ||
@@ -311,7 +352,9 @@ class _WizardViewState extends ConsumerState<WizardView> {
       state.status == WizardStatus.loading ||
       state.status == WizardStatus.saving ||
       state.isCalculating ||
-      state.isSelectingDeploymentRun;
+      state.isSelectingDeploymentRun ||
+      state.architectureChangePhase == ArchitectureChangePhase.previewing ||
+      state.architectureChangePhase == ArchitectureChangePhase.submitting;
 
   Future<void> _requestExit(
     BuildContext context,
@@ -425,7 +468,6 @@ class _WizardViewState extends ConsumerState<WizardView> {
         context.go('/settings');
       case _WorkspaceExitDestination.logout:
         await ref.read(authProvider.notifier).logout();
-        if (context.mounted) context.go('/login');
     }
   }
 }

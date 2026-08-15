@@ -13,6 +13,7 @@ import io
 import json
 import zipfile
 from datetime import datetime, timezone
+from pathlib import Path
 import pytest
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -27,6 +28,7 @@ from src.models.twin import DigitalTwin, TwinState
 from src.models.twin_config import TwinConfiguration
 from src.models.user import User
 from src.services.deployment_service import (
+    PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS,
     DEPLOYMENT_MANIFEST_FILE,
     REQUIRED_DEPLOYER_CONFIG_FILES,
     build_deployment_package,
@@ -41,6 +43,12 @@ from src.services.deployment_service import (
     _build_credentials_config,
     _build_deployment_manifest,
     _build_optimization_config,
+    _build_optimization_config_from_params,
+    _component_catalog_ref,
+    _architecture_provider_ids,
+    _validate_phase8_deployer_artifacts,
+    _validate_phase8_deployment_regions,
+    _validate_architecture_specification_path,
 )
 from src.services.credential_resolution_service import DeploymentCredentials
 from src.services.errors import (
@@ -56,6 +64,11 @@ from tests.pricing_catalog_test_data import catalog_context
 from tests.resolved_deployment_specification_test_data import (
     build_resolved_deployment_specification,
 )
+from tests.architecture_test_data import calculation_result_and_contracts
+from src.services.architecture_contract_service import (
+    calculate_digest as calculate_architecture_digest,
+)
+from src.services.provider_contract import normalize_provider_id
 
 
 TEST_CALCULATION_RUN_ID = "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01"
@@ -112,10 +125,99 @@ def _deployment_run_contract(twin) -> dict:
 
 def _attach_selected_run(twin) -> None:
     contract = _deployment_run_contract(twin)
+    _, _, architecture = calculation_result_and_contracts("aws")
+    provider_by_logical = {
+        "component.ingestion": normalize_provider_id(twin.optimizer_config.cheapest_l1),
+        "component.processing": normalize_provider_id(
+            twin.optimizer_config.cheapest_l2
+        ),
+        "component.hot-storage": normalize_provider_id(
+            twin.optimizer_config.cheapest_l3_hot
+        ),
+        "component.cool-storage": normalize_provider_id(
+            twin.optimizer_config.cheapest_l3_cool
+        ),
+        "component.archive-storage": normalize_provider_id(
+            twin.optimizer_config.cheapest_l3_archive
+        ),
+        "component.twin-state": normalize_provider_id(
+            twin.optimizer_config.cheapest_l4
+        ),
+        "component.visualization": normalize_provider_id(
+            twin.optimizer_config.cheapest_l5
+        ),
+    }
+    catalog_root = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "contracts"
+        / "generated"
+        / "architecture-profiles"
+        / "definitions"
+    )
+    catalog = json.loads(
+        (
+            catalog_root / "component-catalogs" / "baseline" / "1" / "catalog.json"
+        ).read_text("utf-8")
+    )
+    components = {
+        (item["provider"], item["logical_component_ids"][0]): item
+        for item in catalog["components"]
+        if len(item["logical_component_ids"]) == 1
+    }
+    profile_cache = {}
+    specification_ids = {
+        item["component_id"] for item in contract["specification"]["components"]
+    }
+    for assignment in architecture["component_assignments"]:
+        provider = provider_by_logical[assignment["logical_component_id"]]
+        component = components[(provider, assignment["logical_component_id"])]
+        if provider not in profile_cache:
+            profile_cache[provider] = json.loads(
+                (
+                    catalog_root
+                    / "provider-implementations"
+                    / "five-layer-baseline"
+                    / "1"
+                    / provider
+                    / "1.json"
+                ).read_text("utf-8")
+            )
+        provider_profile = profile_cache[provider]
+        assignment.update(
+            {
+                "provider": provider,
+                "provider_implementation_profile_ref": {
+                    "id": provider_profile["implementation_profile_id"],
+                    "version": provider_profile["implementation_profile_version"],
+                    "digest": provider_profile["content_digest"],
+                },
+                "deployment_component_id": component["deployment_component_id"],
+                "deployment_component_version": component["component_version"],
+                "service_id": component["service_id"],
+                "deployment_specification_component_ids": [
+                    item["component_id"]
+                    for item in component["deployment_specification_bindings"]
+                    if item["component_id"] in specification_ids
+                ],
+            }
+        )
+    architecture["deployment_specification_ref"] = {
+        "schema_version": contract["specification"]["schema_version"],
+        "calculation_run_id": TEST_CALCULATION_RUN_ID,
+        "digest": contract["specification"]["digest"],
+    }
+    architecture["content_digest"] = calculate_architecture_digest(architecture)
+    record = SimpleNamespace(
+        canonical_json=json.dumps(architecture),
+        content_digest=architecture["content_digest"],
+        functional_completeness_status="complete",
+    )
     twin.cost_calculation_runs = [
         SimpleNamespace(
             id=TEST_CALCULATION_RUN_ID,
             status="succeeded",
+            params_json=twin.optimizer_config.params,
             result_summary_json=json.dumps(contract["result"]),
             cheapest_path_json=json.dumps(contract["cheapest_path"]),
             pricing_catalog_context_json=catalog_context().canonical_json(),
@@ -129,6 +231,9 @@ def _attach_selected_run(twin) -> None:
                 contract["specification"]["schema_version"]
             ),
             deployment_compatibility_status="ready",
+            architecture_compatibility_status="ready",
+            resolved_architecture_digest=architecture["content_digest"],
+            resolved_architecture=record,
             selected_for_deployment_at=datetime.now(timezone.utc),
         )
     ]
@@ -144,9 +249,9 @@ def _all_aws_specification() -> dict:
         cheapest_l4="aws",
         cheapest_l5="aws",
     )
-    return _deployment_run_contract(
-        SimpleNamespace(optimizer_config=optimizer_config)
-    )["specification"]
+    return _deployment_run_contract(SimpleNamespace(optimizer_config=optimizer_config))[
+        "specification"
+    ]
 
 
 class _FakeDeployerClient:
@@ -291,6 +396,9 @@ class TestDeployerSseParsing:
                     "operation": "deploy",
                     "success": True,
                     "outputs": {"endpoint": {"value": "ok"}},
+                    "deployment_access_evidence": {
+                        "schema_version": "deployment-access-evidence.v1"
+                    },
                     "operation_id": "op-123",
                 }
             ),
@@ -303,6 +411,9 @@ class TestDeployerSseParsing:
         assert result.operation_id == "op-123"
         assert result.error_code is None
         assert result.outputs == {"endpoint": {"value": "ok"}}
+        assert result.deployment_access_evidence == {
+            "schema_version": "deployment-access-evidence.v1"
+        }
 
     def test_parses_error_terminal_event_with_redaction(self):
         log_message, result = _parse_deployer_sse_data(
@@ -350,10 +461,18 @@ class TestRealDeploymentStreamPersistence:
         twin = _create_stream_twin(db)
         session = LogSession(twin.id, "session-deploy", operation_type="deploy")
         lines = [
+            'data: {"event":"log","operation":"deploy",'
+            '"message":"T2MC_STAGE_COMPLETED:package",'
+            '"operation_id":"op-deploy"}',
+            'data: {"event":"log","operation":"deploy",'
+            '"message":"T2MC_STAGE_COMPLETED:preplan",'
+            '"operation_id":"op-deploy"}',
             'data: {"event":"log","operation":"deploy","message":"terraform init","operation_id":"op-deploy"}',
             "event: complete",
             'data: {"event":"complete","operation":"deploy","success":true,'
-            '"outputs":{"endpoint":{"value":"ok"}},"operation_id":"op-deploy"}',
+            '"outputs":{"endpoint":{"value":"ok"}},'
+            '"deployment_access_evidence":{"schema_version":"deployment-access-evidence.v1"},'
+            '"operation_id":"op-deploy"}',
         ]
         deployer_client = _patch_stream_dependencies(monkeypatch, lines, session)
 
@@ -364,6 +483,7 @@ class TestRealDeploymentStreamPersistence:
             provider="aws",
             operation_token="deploy-token",
             deployer_client=deployer_client,
+            graph_evidence={"graph_digest": "sha256:" + ("1" * 64)},
         )
 
         db.expire_all()
@@ -376,6 +496,10 @@ class TestRealDeploymentStreamPersistence:
         assert deployment.operation_id == "op-deploy"
         assert deployment.error_code is None
         assert deployment.terraform_outputs == {"endpoint": {"value": "ok"}}
+        assert deployment.deployment_access_evidence == {
+            "schema_version": "deployment-access-evidence.v1"
+        }
+        assert deployment.completed_stage == "postapply"
         assert session.buffer[0]["data"] == "terraform init"
         assert complete_event["operation_id"] == "op-deploy"
 
@@ -465,6 +589,7 @@ class TestBuildMainConfig:
             {
                 "hotStorageDurationInMonths": 2,
                 "coolStorageDurationInMonths": 6,
+                "archiveStorageDurationInMonths": 18,
             }
         )
         twin.configuration = Mock()
@@ -476,6 +601,7 @@ class TestBuildMainConfig:
         assert result["mode"] == "production"
         assert result["hot_storage_size_in_days"] == 60
         assert result["cold_storage_size_in_days"] == 180
+        assert result["archive_storage_size_in_days"] == 540
 
     def test_storage_days_from_optimizer_params(self):
         """Should convert months to days from optimizer params."""
@@ -487,6 +613,7 @@ class TestBuildMainConfig:
             {
                 "hotStorageDurationInMonths": 1,
                 "coolStorageDurationInMonths": 3,
+                "archiveStorageDurationInMonths": 12,
             }
         )
         twin.configuration = None
@@ -495,6 +622,7 @@ class TestBuildMainConfig:
 
         assert result["hot_storage_size_in_days"] == 30
         assert result["cold_storage_size_in_days"] == 90
+        assert result["archive_storage_size_in_days"] == 360
 
     def test_storage_days_defaults_when_no_params(self):
         """Should use defaults (30/90) when no optimizer params."""
@@ -508,6 +636,7 @@ class TestBuildMainConfig:
 
         assert result["hot_storage_size_in_days"] == 30
         assert result["cold_storage_size_in_days"] == 90
+        assert result["archive_storage_size_in_days"] == 360
 
     def test_mode_from_debug_mode(self):
         """Should set mode based on debug_mode flag."""
@@ -528,17 +657,22 @@ class TestBuildProvidersConfig:
 
     def test_normalizes_provider_names_to_lowercase(self):
         """Should convert Optimizer provider names to Deployer project ids."""
-        twin = Mock()
-        twin.optimizer_config = Mock()
-        twin.optimizer_config.cheapest_l1 = "AWS"
-        twin.optimizer_config.cheapest_l2 = "AZURE"
-        twin.optimizer_config.cheapest_l3_hot = "GCP"
-        twin.optimizer_config.cheapest_l3_cool = None
-        twin.optimizer_config.cheapest_l3_archive = None
-        twin.optimizer_config.cheapest_l4 = "AZURE"
-        twin.optimizer_config.cheapest_l5 = None
+        architecture = {
+            "component_assignments": [
+                {"logical_component_id": logical, "provider": provider}
+                for logical, provider in (
+                    ("component.ingestion", "AWS"),
+                    ("component.processing", "AZURE"),
+                    ("component.hot-storage", "GCP"),
+                    ("component.cool-storage", "AWS"),
+                    ("component.archive-storage", "AWS"),
+                    ("component.twin-state", "AZURE"),
+                    ("component.visualization", "AZURE"),
+                )
+            ]
+        }
 
-        result = _build_providers_config(twin)
+        result = _build_providers_config(architecture)
 
         assert result["layer_1_provider"] == "aws"
         assert result["layer_2_provider"] == "azure"
@@ -547,46 +681,83 @@ class TestBuildProvidersConfig:
 
     def test_normalizes_google_alias_to_deployer_project_id(self):
         """Should preserve Deployer's google project-file dialect for GCP aliases."""
-        twin = Mock()
-        twin.optimizer_config = Mock()
-        twin.optimizer_config.cheapest_l1 = "Google"
-        twin.optimizer_config.cheapest_l2 = " gcp "
-        twin.optimizer_config.cheapest_l3_hot = None
-        twin.optimizer_config.cheapest_l3_cool = None
-        twin.optimizer_config.cheapest_l3_archive = None
-        twin.optimizer_config.cheapest_l4 = None
-        twin.optimizer_config.cheapest_l5 = None
+        architecture = {
+            "component_assignments": [
+                {"logical_component_id": logical, "provider": "gcp"}
+                for logical in (
+                    "component.ingestion",
+                    "component.processing",
+                    "component.hot-storage",
+                    "component.cool-storage",
+                    "component.archive-storage",
+                    "component.twin-state",
+                    "component.visualization",
+                )
+            ]
+        }
 
-        result = _build_providers_config(twin)
+        result = _build_providers_config(architecture)
 
         assert result["layer_1_provider"] == "google"
         assert result["layer_2_provider"] == "google"
 
-    def test_returns_empty_when_no_optimizer_config(self):
-        """Should return empty dict when no optimizer_config."""
-        twin = Mock()
-        twin.optimizer_config = None
+    def test_rejects_incomplete_architecture(self):
+        with pytest.raises(DeploymentPackageBuildFailed):
+            _build_providers_config(
+                {
+                    "component_assignments": [
+                        {
+                            "logical_component_id": "component.ingestion",
+                            "provider": "aws",
+                        }
+                    ]
+                }
+            )
 
-        result = _build_providers_config(twin)
+    def test_six_layer_adds_independent_event_provider_to_project_config(self):
+        fixture = json.loads(
+            (
+                Path(__file__).resolve().parents[1]
+                / "src/contracts/generated/deployment-manifest/v4/fixtures/valid"
+                / "six-layer-aws-azure-eventing-small.json"
+            ).read_text(encoding="utf-8")
+        )
 
-        assert result == {}
+        providers = _build_providers_config(
+            fixture["resolved_twin_architecture"]
+        )
 
-    def test_handles_none_values_gracefully(self):
-        """Should handle None provider values."""
-        twin = Mock()
-        twin.optimizer_config = Mock()
-        twin.optimizer_config.cheapest_l1 = "AWS"
-        twin.optimizer_config.cheapest_l2 = None
-        twin.optimizer_config.cheapest_l3_hot = None
-        twin.optimizer_config.cheapest_l3_cool = None
-        twin.optimizer_config.cheapest_l3_archive = None
-        twin.optimizer_config.cheapest_l4 = None
-        twin.optimizer_config.cheapest_l5 = None
+        assert providers["event_layer_provider"] == "azure"
 
-        result = _build_providers_config(twin)
+    def test_v2_specification_matches_all_project_provider_owners(self):
+        fixture = json.loads(
+            (
+                Path(__file__).resolve().parents[1]
+                / "src/contracts/generated/deployment-manifest/v4/fixtures/valid"
+                / "six-layer-aws-azure-eventing-small.json"
+            ).read_text(encoding="utf-8")
+        )
+        architecture = fixture["resolved_twin_architecture"]
+        specification = fixture["resolved_deployment_specification"]
+        providers = _build_providers_config(architecture)
 
-        assert result["layer_1_provider"] == "aws"
-        assert result["layer_2_provider"] is None
+        _validate_architecture_specification_path(
+            providers,
+            architecture,
+            specification,
+        )
+
+        providers["event_layer_provider"] = "google"
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            _validate_architecture_specification_path(
+                providers,
+                architecture,
+                specification,
+            )
+
+        assert exc_info.value.errors[0]["message"] == (
+            "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH"
+        )
 
 
 class TestBuildCredentialsConfig:
@@ -714,9 +885,9 @@ class TestBuildProjectZip:
         monkeypatch,
     ):
         twin = self._create_mock_twin()
-        params = json.loads(twin.optimizer_config.params)
+        params = json.loads(twin.cost_calculation_runs[0].params_json)
         params["integrateErrorHandling"] = True
-        twin.optimizer_config.params = json.dumps(params)
+        twin.cost_calculation_runs[0].params_json = json.dumps(params)
         credential_resolution_called = False
 
         def fail_if_called(*_args, **_kwargs):
@@ -746,14 +917,13 @@ class TestBuildProjectZip:
 
         assert exc_info.value.errors[0]["field"] == "cost_calculation_run"
 
-    def test_rejects_provider_projection_drift(self):
+    def test_fixed_provider_projection_cannot_change_executable_package(self):
         twin = self._create_mock_twin()
         twin.optimizer_config.cheapest_l2 = "azure"
 
-        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
-            build_deployment_package(twin, "user-123")
+        package = build_deployment_package(twin, "user-123")
 
-        assert exc_info.value.errors[0]["field"] == "providers"
+        assert package.manifest["providers"]["layer_2_provider"] == "aws"
 
     def test_rejects_selected_run_with_inconsistent_specification_metadata(self):
         twin = self._create_mock_twin()
@@ -806,7 +976,11 @@ class TestBuildProjectZip:
             manifest = json.loads(zf.read(DEPLOYMENT_MANIFEST_FILE))
             manifest_text = json.dumps(manifest)
 
-        assert manifest["manifest_version"] == "2.0"
+        assert manifest["manifest_version"] == "3.0"
+        assert (
+            manifest["resolved_twin_architecture_digest"]
+            == (manifest["resolved_twin_architecture"]["content_digest"])
+        )
         assert manifest["generated_at"].endswith("Z")
         assert manifest["producer"] == "twin2multicloud_backend"
         assert manifest["twin"]["id"] == "twin-123"
@@ -929,10 +1103,8 @@ class TestBuildProjectZip:
             names = zf.namelist()
             assert "iot_device_simulator/payloads.json" in names
 
-    def test_package_is_reconstructed_from_persisted_state_and_cloud_connections(
-        self, db
-    ):
-        """Package materialization should read canonical DB state, not Flutter payload shape."""
+    def test_legacy_selected_run_without_architecture_is_rejected(self, db):
+        """A selected historical run cannot bypass the immutable architecture gate."""
         user = User(email="package-user@example.test")
         db.add(user)
         db.commit()
@@ -1019,10 +1191,6 @@ class TestBuildProjectZip:
                     config_iot_devices_json='[{"id":"device-1"}]',
                     config_events_json="[]",
                     payloads_json='{"device-1":{"temperature":21}}',
-                    processor_contents=json.dumps(
-                        {"device-1": "def handler(event, context): pass"}
-                    ),
-                    processor_requirements=json.dumps({"device-1": "requests==2.32.3"}),
                     scene_config_content="{}",
                 ),
             ]
@@ -1053,9 +1221,7 @@ class TestBuildProjectZip:
                     sort_keys=True,
                     separators=(",", ":"),
                 ),
-                deployment_specification_digest=(
-                    contract["specification"]["digest"]
-                ),
+                deployment_specification_digest=(contract["specification"]["digest"]),
                 deployment_specification_version=(
                     contract["specification"]["schema_version"]
                 ),
@@ -1068,37 +1234,13 @@ class TestBuildProjectZip:
         db.commit()
         db.expire_all()
         persisted_twin = db.get(DigitalTwin, twin.id)
-        result = build_project_zip(persisted_twin, user.id)
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            build_project_zip(persisted_twin, user.id)
 
-        with zipfile.ZipFile(result, "r") as zf:
-            names = set(zf.namelist())
-            credentials = json.loads(zf.read("config_credentials.json"))
-            gcp_credentials = json.loads(zf.read("gcp_credentials.json"))
-            manifest = json.loads(zf.read(DEPLOYMENT_MANIFEST_FILE))
-            manifest_text = json.dumps(manifest)
+        assert exc_info.value.errors[0]["code"] == ("DEPLOYMENT_ARCHITECTURE_MISSING")
 
-        assert "cloud_functions/processors/device-1/main.py" in names
-        assert "cloud_functions/processors/device-1/requirements.txt" in names
-        assert "scene_assets/aws/scene.json" in names
-        assert "iot_device_simulator/payloads.json" in names
-        assert credentials["aws"] == aws_payload
-        assert credentials["gcp"]["gcp_credentials_file"] == "gcp_credentials.json"
-        assert gcp_credentials == service_account
-        assert manifest["twin"]["resource_name"] == "factory-twin"
-        assert manifest["credentials"]["sources"] == {
-            "aws": "cloud_connection",
-            "gcp": "cloud_connection",
-        }
-        assert manifest["package"]["secret_bearing_files"] == [
-            "config_credentials.json",
-            "gcp_credentials.json",
-        ]
-        assert manifest["credentials"]["contains_secret_payloads"] is False
-        assert "cloud-connection-secret" not in manifest_text
-        assert "private_key" not in manifest_text
-
-    def test_package_materialization_fails_closed_on_invalid_function_json(self):
-        """Invalid persisted JSON artifacts must not be silently omitted."""
+    def test_package_materialization_blocks_unvalidated_legacy_function_json(self):
+        """Unvalidated legacy user logic must fail before artifact parsing."""
         twin = self._create_mock_twin()
         twin.optimizer_config.cheapest_l2 = "aws"
         twin.deployer_config.processor_contents = "{not-json"
@@ -1108,22 +1250,50 @@ class TestBuildProjectZip:
 
         assert exc_info.value.errors == [
             {
-                "code": "INVALID_JSON",
-                "field": "deployer_config.processor_contents",
-                "message": "Deployment artifact contains invalid JSON",
+                "code": "EXTENSION_BINDING_UNRESOLVED",
+                "field": "extension_bindings",
+                "message": (
+                    "Legacy unvalidated user logic cannot be selected for a "
+                    "new deployment."
+                ),
             }
         ]
 
     def test_package_materialization_fails_closed_on_invalid_optimizer_params(self):
-        """Invalid optimizer params should fail package creation instead of using defaults."""
+        """Invalid immutable run params fail instead of reading mutable config."""
         twin = self._create_mock_twin()
-        twin.optimizer_config.params = "{not-json"
+        twin.cost_calculation_runs[0].params_json = "{not-json"
 
         with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
             build_deployment_package(twin, "user-123")
 
-        assert exc_info.value.errors[0]["field"] == "optimizer_config.params"
+        assert exc_info.value.errors[0]["field"] == "cost_calculation_run.params_json"
         assert exc_info.value.errors[0]["code"] == "INVALID_JSON"
+
+    def test_package_uses_frozen_run_params_after_optimizer_config_changes(self):
+        """Retry/destroy inputs stay bound to the selected calculation run."""
+        twin = self._create_mock_twin()
+        twin.optimizer_config.params = json.dumps(
+            {
+                "hotStorageDurationInMonths": 9,
+                "coolStorageDurationInMonths": 12,
+                "useEventChecking": False,
+                "needs3DModel": True,
+            }
+        )
+
+        package = build_deployment_package(twin, "user-123")
+        files = {item.path: item.content for item in package.files}
+        main_config = json.loads(files["config.json"])
+        flags = json.loads(files["config_optimization.json"])["result"][
+            "inputParamsUsed"
+        ]
+
+        assert main_config["hot_storage_size_in_days"] == 30
+        assert main_config["cold_storage_size_in_days"] == 90
+        assert main_config["archive_storage_size_in_days"] == 360
+        assert flags["useEventChecking"] is True
+        assert flags["needs3DModel"] is False
 
     def test_package_materialization_fails_when_uploaded_scene_binary_is_missing(
         self,
@@ -1155,6 +1325,8 @@ class TestBuildProjectZip:
         twin = Mock()
         twin.id = "twin-123"
         twin.name = "test-twin"
+        twin.user_id = "user-123"
+        twin.extension_bindings = []
 
         # Deployer config
         twin.deployer_config = Mock()
@@ -1270,6 +1442,57 @@ class TestBuildOptimizationConfig:
 
         assert result == {"result": {"inputParamsUsed": {}}}
 
+    @pytest.mark.parametrize(
+        "profile_ref",
+        [
+            {"id": "five-layer-baseline", "version": "2"},
+            {"id": "six-layer-eventing", "version": "1"},
+        ],
+    )
+    def test_phase8_profiles_emit_no_legacy_feature_flags(self, profile_ref):
+        result = _build_optimization_config_from_params(
+            {
+                "numberOfDevices": 100,
+                "workloadSize": "small",
+            },
+            architecture_profile_ref=profile_ref,
+        )
+
+        assert result == {"result": {"inputParamsUsed": {}}}
+
+    def test_phase8_profile_rejects_even_false_legacy_feature_flag(self):
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            _build_optimization_config_from_params(
+                {"useEventChecking": False},
+                architecture_profile_ref={
+                    "id": "six-layer-eventing",
+                    "version": "1",
+                },
+            )
+
+        assert exc_info.value.errors[0]["code"] == "FORBIDDEN_PROFILE_FIELD"
+
+    def test_phase8_forbidden_fields_match_frozen_profile_contract(self):
+        assert PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS == {
+            "allowGcpSelfHostedL4",
+            "allowGcpSelfHostedL5",
+            "amountOfActiveEditors",
+            "amountOfActiveViewers",
+            "apiCallsPerDashboardRefresh",
+            "average3DModelSizeInMB",
+            "dashboardRefreshesPerHour",
+            "entityCount",
+            "eventTriggerRate",
+            "eventsPerMessage",
+            "integrateErrorHandling",
+            "needs3DModel",
+            "numberOfEventActions",
+            "orchestrationActionsPerMessage",
+            "returnFeedbackToDevice",
+            "triggerNotificationWorkflow",
+            "useEventChecking",
+        }
+
     def test_rejects_legacy_unsupported_error_handling_topology(self):
         oc = Mock()
         oc.params = json.dumps({"integrateErrorHandling": True})
@@ -1287,6 +1510,141 @@ class TestBuildOptimizationConfig:
                 ),
             }
         ]
+
+
+@pytest.mark.parametrize(
+    ("provider", "field", "invalid"),
+    [
+        ("aws", "aws_region", "us-east-1"),
+        ("azure", "azure_region", "northeurope"),
+        ("gcp", "gcp_region", "us-central1"),
+    ],
+)
+def test_phase8_deployment_rejects_regions_outside_priced_contract(
+    provider,
+    field,
+    invalid,
+):
+    architecture = {
+        "architecture_profile_ref": {
+            "id": "six-layer-eventing",
+            "version": "1",
+        }
+    }
+    providers = {
+        "layer_1_provider": "aws",
+        "layer_2_provider": "azure",
+        "layer_3_hot_provider": "google",
+    }
+    credentials = {
+        "aws": {"aws_region": "eu-central-1"},
+        "azure": {
+            "azure_region": "westeurope",
+            "azure_region_iothub": "westeurope",
+        },
+        "gcp": {"gcp_region": "europe-west1"},
+    }
+    credentials[provider][field] = invalid
+
+    with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+        _validate_phase8_deployment_regions(
+            architecture,
+            providers,
+            credentials,
+        )
+
+    assert exc_info.value.errors[0]["code"] == "DEPLOYMENT_REGION_UNSUPPORTED"
+
+
+def test_six_layer_credential_projection_includes_event_only_provider():
+    architecture = {
+        "component_assignments": [
+            {
+                "logical_component_id": "component.ingestion",
+                "provider": "aws",
+            },
+            {
+                "logical_component_id": "component.eventing",
+                "provider": "azure",
+            },
+        ]
+    }
+
+    assert _architecture_provider_ids(architecture) == {"aws", "azure"}
+
+
+def test_phase8_region_guard_includes_event_only_provider():
+    architecture = {
+        "architecture_profile_ref": {
+            "id": "six-layer-eventing",
+            "version": "1",
+        },
+        "component_assignments": [
+            {
+                "logical_component_id": "component.ingestion",
+                "provider": "aws",
+            },
+            {
+                "logical_component_id": "component.eventing",
+                "provider": "azure",
+            },
+        ],
+    }
+
+    with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+        _validate_phase8_deployment_regions(
+            architecture,
+            {"layer_1_provider": "aws"},
+            {
+                "aws": {"aws_region": "eu-central-1"},
+                "azure": {"azure_region": "northeurope"},
+            },
+        )
+
+    assert exc_info.value.errors[0]["field"] == (
+        "config_credentials.azure.azure_region"
+    )
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "processor_contents",
+        "event_action_contents",
+        "event_feedback_content",
+        "hierarchy_content",
+        "state_machine_content",
+        "scene_config_content",
+        "scene_glb_uploaded",
+    ],
+)
+def test_phase8_deployment_rejects_historical_user_logic_and_scenes(field):
+    deployer_config = SimpleNamespace(
+        **{
+            name: False if name == "scene_glb_uploaded" else None
+            for name in (
+                "event_action_contents",
+                "event_action_requirements",
+                "event_feedback_content",
+                "event_feedback_requirements",
+                "hierarchy_content",
+                "processor_contents",
+                "processor_requirements",
+                "scene_config_content",
+                "scene_glb_uploaded",
+                "state_machine_content",
+            )
+        }
+    )
+    setattr(deployer_config, field, True if field == "scene_glb_uploaded" else "old")
+
+    with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+        _validate_phase8_deployer_artifacts(
+            deployer_config,
+            {"id": "five-layer-baseline", "version": "2"},
+        )
+
+    assert exc_info.value.errors[0]["code"] == "FORBIDDEN_PROFILE_FIELD"
 
 
 class TestBuildDeploymentManifest:
@@ -1318,6 +1676,7 @@ class TestBuildDeploymentManifest:
             },
             credentials,
             ["config.json", "config_credentials.json"],
+            resolved_architecture=calculation_result_and_contracts("aws")[2],
             deployment_specification=_all_aws_specification(),
         )
         manifest_text = json.dumps(result)
@@ -1332,3 +1691,97 @@ class TestBuildDeploymentManifest:
         }
         assert "must-not-leak" not in manifest_text
         assert "azure_client_secret" not in manifest_text
+
+    def test_v2_contract_pair_produces_manifest_v4_and_complete_catalog(self):
+        root = (
+            Path(__file__).resolve().parents[1]
+            / "src"
+            / "contracts"
+            / "generated"
+            / "deployment-manifest"
+            / "v4"
+            / "fixtures"
+            / "valid"
+        )
+        fixture = json.loads(
+            (root / "single-cloud-aws-small.json").read_text(encoding="utf-8")
+        )
+        twin = Mock()
+        twin.id = "twin-v2"
+        twin.name = "Five Layer V2"
+        twin.deployer_config = Mock()
+        twin.deployer_config.deployer_digital_twin_name = "five-layer-v2"
+
+        result = _build_deployment_manifest(
+            twin,
+            fixture["providers"],
+            DeploymentCredentials(
+                providers=("aws",),
+                config_credentials={},
+                sources={"aws": "cloud_connection"},
+            ),
+            ["config.json", "config_credentials.json"],
+            resolved_architecture=fixture["resolved_twin_architecture"],
+            deployment_specification=fixture["resolved_deployment_specification"],
+        )
+
+        assert result["manifest_version"] == "4.0"
+        assert (
+            result["compatibility"]["component_catalog_ref"]
+            == fixture["compatibility"]["component_catalog_ref"]
+        )
+
+    def test_six_layer_profile_resolves_its_exact_component_catalog(self):
+        root = (
+            Path(__file__).resolve().parents[1]
+            / "src"
+            / "contracts"
+            / "generated"
+            / "architecture-profiles"
+            / "definitions"
+            / "component-catalogs"
+            / "six-layer-eventing"
+            / "1"
+            / "catalog.json"
+        )
+        catalog = json.loads(root.read_text(encoding="utf-8"))
+
+        assert _component_catalog_ref({"id": "six-layer-eventing", "version": "1"}) == {
+            "id": catalog["catalog_id"],
+            "version": catalog["catalog_version"],
+            "digest": catalog["content_digest"],
+        }
+
+    def test_cross_version_contract_pair_is_rejected(self):
+        _, _, architecture = calculation_result_and_contracts("aws")
+        v2_specification = json.loads(
+            (
+                Path(__file__).resolve().parents[1]
+                / "src"
+                / "contracts"
+                / "generated"
+                / "resolved-deployment-specification"
+                / "v2"
+                / "fixtures"
+                / "valid"
+                / "single-cloud-aws-small.json"
+            ).read_text(encoding="utf-8")
+        )
+
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            _build_deployment_manifest(
+                Mock(),
+                {},
+                DeploymentCredentials(
+                    providers=("aws",),
+                    config_credentials={},
+                    sources={"aws": "cloud_connection"},
+                ),
+                [],
+                resolved_architecture=architecture,
+                deployment_specification=v2_specification,
+            )
+
+        assert exc_info.value.errors[0]["message"] == (
+            "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH"
+        )

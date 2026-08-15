@@ -98,54 +98,61 @@ class _StatusPresentation {
   });
 }
 
-_StatusPresentation _presentation(ResolvedDeploymentReviewState state) =>
-    switch (state) {
-      ResolvedDeploymentReviewState.ready => _StatusPresentation(
-        title: 'Deployment selection ready',
-        description:
-            'This optimizer run is verified and selected for deployment.',
-        icon: Icons.verified_outlined,
-        color: (context) => Theme.of(context).colorScheme.primary,
-      ),
-      ResolvedDeploymentReviewState.selecting => _StatusPresentation(
-        title: 'Verifying deployment selection',
-        description: 'Pricing evidence and account context are being verified.',
-        icon: Icons.sync,
-        color: (context) => Theme.of(context).colorScheme.primary,
-      ),
-      ResolvedDeploymentReviewState.selectionRequired => _StatusPresentation(
-        title: 'Deployment verification required',
-        description:
-            'Verify this resolved architecture before preparing deployment.',
-        icon: Icons.pending_actions_outlined,
-        color: (context) => Theme.of(context).colorScheme.tertiary,
-      ),
-      ResolvedDeploymentReviewState.failed => _StatusPresentation(
-        title: 'Deployment verification needs attention',
-        description:
-            'The calculation is available, but deployment remains blocked.',
-        icon: Icons.error_outline,
-        color: (context) => Theme.of(context).colorScheme.error,
-      ),
-      ResolvedDeploymentReviewState.legacy => _StatusPresentation(
-        title: 'Architecture recalculation required',
-        description:
-            'This saved result predates deployable resource specifications.',
-        icon: Icons.history_outlined,
-        color: (context) => Theme.of(context).colorScheme.tertiary,
-      ),
-      ResolvedDeploymentReviewState.unsupported => _StatusPresentation(
-        title: 'Specification version unsupported',
-        description:
-            'Recalculate with this app version before preparing deployment.',
-        icon: Icons.system_update_alt_outlined,
-        color: (context) => Theme.of(context).colorScheme.error,
-      ),
-      ResolvedDeploymentReviewState.absent => _StatusPresentation(
-        title: 'Deployment selection not available',
-        description:
-            'Calculate an architecture to resolve deployable cloud resources.',
-        icon: Icons.info_outline,
-        color: (context) => Theme.of(context).colorScheme.onSurfaceVariant,
-      ),
-    };
+_StatusPresentation _presentation(
+  ResolvedDeploymentReviewState state,
+) => switch (state) {
+  ResolvedDeploymentReviewState.ready => _StatusPresentation(
+    title: 'Deployment selection ready',
+    description: 'This optimizer run is verified and selected for deployment.',
+    icon: Icons.verified_outlined,
+    color: (context) => Theme.of(context).colorScheme.primary,
+  ),
+  ResolvedDeploymentReviewState.evaluationOnly => _StatusPresentation(
+    title: 'Evaluation only — deployment blocked',
+    description:
+        'The cost and architecture evidence is reviewable, but live capacity gates remain open.',
+    icon: Icons.science_outlined,
+    color: (context) => Theme.of(context).colorScheme.tertiary,
+  ),
+  ResolvedDeploymentReviewState.selecting => _StatusPresentation(
+    title: 'Verifying deployment selection',
+    description: 'Pricing evidence and account context are being verified.',
+    icon: Icons.sync,
+    color: (context) => Theme.of(context).colorScheme.primary,
+  ),
+  ResolvedDeploymentReviewState.selectionRequired => _StatusPresentation(
+    title: 'Deployment verification required',
+    description:
+        'Verify this resolved architecture before preparing deployment.',
+    icon: Icons.pending_actions_outlined,
+    color: (context) => Theme.of(context).colorScheme.tertiary,
+  ),
+  ResolvedDeploymentReviewState.failed => _StatusPresentation(
+    title: 'Deployment verification needs attention',
+    description:
+        'The calculation is available, but deployment remains blocked.',
+    icon: Icons.error_outline,
+    color: (context) => Theme.of(context).colorScheme.error,
+  ),
+  ResolvedDeploymentReviewState.legacy => _StatusPresentation(
+    title: 'Architecture recalculation required',
+    description:
+        'This saved result predates deployable resource specifications.',
+    icon: Icons.history_outlined,
+    color: (context) => Theme.of(context).colorScheme.tertiary,
+  ),
+  ResolvedDeploymentReviewState.unsupported => _StatusPresentation(
+    title: 'Specification version unsupported',
+    description:
+        'Recalculate with this app version before preparing deployment.',
+    icon: Icons.system_update_alt_outlined,
+    color: (context) => Theme.of(context).colorScheme.error,
+  ),
+  ResolvedDeploymentReviewState.absent => _StatusPresentation(
+    title: 'Deployment selection not available',
+    description:
+        'Calculate an architecture to resolve deployable cloud resources.',
+    icon: Icons.info_outline,
+    color: (context) => Theme.of(context).colorScheme.onSurfaceVariant,
+  ),
+};

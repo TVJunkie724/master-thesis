@@ -5,6 +5,8 @@ import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/pricing_health.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
+import '../fixtures/architecture_wizard_fixture.dart';
+
 class MockApiService extends Mock implements ApiService {}
 
 void main() {
@@ -50,8 +52,10 @@ void main() {
       when(
         () => api.getPricingHealth(),
       ).thenAnswer((_) async => _health(gcpCanCalculate: false));
-      final bloc = WizardBloc(api: api)
-        ..add(const WizardPricingHealthLoadRequested());
+      final bloc = WizardBloc(
+        api: api,
+        initialState: architectureReadyWizardState(),
+      )..add(const WizardPricingHealthLoadRequested());
       await bloc.stream.firstWhere((state) => state.pricingHealth != null);
       bloc.add(WizardCalcParamsChanged(CalcParams.defaultParams()));
       await bloc.stream.firstWhere((state) => state.calcParams != null);
@@ -66,11 +70,11 @@ void main() {
   );
 
   test('requires all providers even when available entries are calculable', () {
-    final complete = WizardState(
+    final complete = architectureReadyWizardState().copyWith(
       calcParams: CalcParams.defaultParams(),
       pricingHealth: _health(),
     );
-    final incomplete = WizardState(
+    final incomplete = architectureReadyWizardState().copyWith(
       calcParams: CalcParams.defaultParams(),
       pricingHealth: _health(includeGcp: false),
     );

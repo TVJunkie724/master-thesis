@@ -1,0 +1,110 @@
+{
+  "$schema": "schemas/mandatory-capabilities.schema.json",
+  "schema_version": "mandatory-capabilities.v1",
+  "registry_id": "phase-08-eventing-capabilities@1",
+  "embedded_capabilities": [
+    {
+      "capability_id": "capability.domain.rule-evaluation",
+      "requirement": "evaluate every processed telemetry event against a reviewed non-empty typed rule set"
+    },
+    {
+      "capability_id": "capability.domain.extension-action",
+      "requirement": "invoke one extension action for every rule match"
+    },
+    {
+      "capability_id": "capability.domain.stateful-notification",
+      "requirement": "execute a four-step stateful workflow with one external notification action"
+    },
+    {
+      "capability_id": "capability.domain.device-command-feedback",
+      "requirement": "durably request a device command and correlate one terminal device outcome"
+    },
+    {
+      "capability_id": "capability.domain.typed-outcomes",
+      "requirement": "emit one typed terminal outcome for each extension action, workflow, and command"
+    },
+    {
+      "capability_id": "capability.direct-edge.bounded-retry",
+      "requirement": "bound direct-edge retries and capture terminal failure"
+    },
+    {
+      "capability_id": "capability.security.workload-identity",
+      "requirement": "authenticate workload-to-workload calls without long-lived embedded credentials"
+    },
+    {
+      "capability_id": "capability.device.boundary",
+      "requirement": "provide a managed or explicitly provider-hosted device ingress and command boundary"
+    },
+    {
+      "capability_id": "capability.direct-edge.cross-cloud-transport",
+      "requirement": "for every remote five-layer responsibility edge, use a source-owned durable outbox and acknowledge it only after authenticated destination acceptance"
+    }
+  ],
+  "event_layer_capabilities": [
+    {
+      "capability_id": "capability.event.envelope",
+      "requirement": "validate the canonical versioned event envelope before publish and consume"
+    },
+    {
+      "capability_id": "capability.event.routing",
+      "requirement": "route on bounded event type and metadata"
+    },
+    {
+      "capability_id": "capability.event.durable-buffer",
+      "requirement": "durably buffer until consumer acknowledgement"
+    },
+    {
+      "capability_id": "capability.event.independent-fanout",
+      "requirement": "add named independent consumers without producer changes"
+    },
+    {
+      "capability_id": "capability.event.at-least-once",
+      "requirement": "deliver at least once with stable event and invocation identifiers"
+    },
+    {
+      "capability_id": "capability.event.retry",
+      "requirement": "apply a bounded retry schedule"
+    },
+    {
+      "capability_id": "capability.event.dead-letter",
+      "requirement": "capture the full safe event after terminal delivery failure"
+    },
+    {
+      "capability_id": "capability.event.replay",
+      "requirement": "retain and explicitly replay or redrive events"
+    },
+    {
+      "capability_id": "capability.event.trace-correlation",
+      "requirement": "propagate trace and correlation identifiers"
+    },
+    {
+      "capability_id": "capability.event.idempotency",
+      "requirement": "support consumer deduplication by stable event and invocation identifiers"
+    },
+    {
+      "capability_id": "capability.event.per-device-ordering",
+      "requirement": "preserve order within one device partition and document degradation"
+    },
+    {
+      "capability_id": "capability.event.schema-rejection",
+      "requirement": "reject unsupported event type or schema version to a terminal failure path"
+    },
+    {
+      "capability_id": "capability.event.observability",
+      "requirement": "measure publish, delivery, retry, backlog, dead-letter, replay, and bridge failure"
+    },
+    {
+      "capability_id": "capability.event.cross-cloud-transport",
+      "requirement": "use source-owned durable forwarding with destination acceptance before source acknowledgement"
+    },
+    {
+      "capability_id": "capability.event.cost-ownership",
+      "requirement": "attribute broker, adapter, workflow, retention, observability, and transfer costs exactly once"
+    }
+  ],
+  "admissible_statuses": [
+    "native",
+    "composed",
+    "platform_adapter"
+  ]
+}

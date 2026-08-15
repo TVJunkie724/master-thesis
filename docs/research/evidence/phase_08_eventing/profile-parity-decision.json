@@ -1,0 +1,46 @@
+{
+  "$schema": "schemas/profile-parity-decision.schema.json",
+  "schema_version": "profile-parity-decision.v1",
+  "decision_id": "phase-08-eventing-profile-parity@1",
+  "profiles": [
+    {
+      "profile_id": "five-layer-baseline@1",
+      "role": "immutable historical and paper-compatible reproduction",
+      "mutable": false,
+      "domain_behavior": "preserve reviewed omission of optional event-check, action, workflow, and feedback paths",
+      "eventing_responsibility": "none"
+    },
+    {
+      "profile_id": "five-layer-baseline@2",
+      "role": "functionally complete five-responsibility comparison baseline",
+      "mutable": true,
+      "domain_behavior": "mandatory domain-event-flow@1 embedded in ingestion and processing responsibilities",
+      "eventing_responsibility": "none; direct transport is producer or consumer responsibility"
+    },
+    {
+      "profile_id": "six-layer-eventing@1",
+      "role": "functionally aligned treatment profile",
+      "mutable": true,
+      "domain_behavior": "mandatory domain-event-flow@1",
+      "eventing_responsibility": "independent routing, buffering, fan-out, retry, dead-letter, replay, ordering, observability, and cross-cloud transport"
+    }
+  ],
+  "shared_domain_behavior_ref": "domain-event-flow@1",
+  "comparison_rule": {
+    "functional_parity_profiles": [
+      "five-layer-baseline@2",
+      "six-layer-eventing@1"
+    ],
+    "transport_semantics_may_differ": true,
+    "historical_profile_ranked_with_new_profiles": false
+  },
+  "legacy_flag_policy": {
+    "flags": [
+      "useEventChecking",
+      "triggerNotificationWorkflow",
+      "returnFeedbackToDevice"
+    ],
+    "new_profile_behavior": "reject",
+    "historical_behavior": "read_destroy_only"
+  }
+}

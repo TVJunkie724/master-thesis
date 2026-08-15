@@ -106,7 +106,7 @@ void main() {
     );
 
     blocTest<WizardBloc, WizardState>(
-      'a named twin is proceedable independently of Cloud Connections',
+      'a named twin still requires a persisted active architecture profile',
       build: () => WizardBloc(api: api),
       seed: () => const WizardState(twinName: 'Twin'),
       act: (bloc) => bloc.add(
@@ -122,7 +122,7 @@ void main() {
               'selected aws id',
               'connection-aws',
             )
-            .having((state) => state.canProceedToStep2, 'can proceed', true),
+            .having((state) => state.canProceedToStep2, 'can proceed', false),
       ],
     );
 

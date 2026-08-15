@@ -41,8 +41,12 @@ def _archive(provider: str, project: str) -> DeployerSimulatorArchive:
     )
 
 
-def _prepared(project: str) -> PreparedDeploymentProject:
-    return PreparedDeploymentProject(project, "operation-token")
+def _prepared(project: str, provider: str = "aws") -> PreparedDeploymentProject:
+    return PreparedDeploymentProject(
+        project,
+        "operation-token",
+        provider=provider,
+    )
 
 
 # ============================================================
@@ -114,7 +118,7 @@ def test_download_simulator_aws_success(
 @patch(
     "src.services.deployment_service.prepare_project_for_deployment",
     new_callable=AsyncMock,
-    return_value=_prepared("azure-project"),
+    return_value=_prepared("azure-project", "azure"),
 )
 @patch(
     "src.clients.deployer_client.DeployerClient.download_simulator",
@@ -147,7 +151,7 @@ def test_download_simulator_azure_success(
 @patch(
     "src.services.deployment_service.prepare_project_for_deployment",
     new_callable=AsyncMock,
-    return_value=_prepared("gcp-project"),
+    return_value=_prepared("gcp-project", "gcp"),
 )
 @patch(
     "src.clients.deployer_client.DeployerClient.download_simulator",
@@ -201,8 +205,8 @@ def test_download_simulator_not_deployed(authenticated_client, db_session):
     assert "deployed" in response.json()["detail"].lower()
 
 
-def test_download_simulator_no_optimizer(authenticated_client, db_session):
-    """404 when optimizer config is missing."""
+def test_download_simulator_no_architecture(authenticated_client, db_session):
+    """400 when no deployment-ready architecture is selected."""
     client, headers = authenticated_client
     twin_id = create_test_twin(client, headers, "No Optimizer Twin")
 
@@ -212,12 +216,15 @@ def test_download_simulator_no_optimizer(authenticated_client, db_session):
 
     response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)
 
-    assert response.status_code == 404
-    assert "optimization" in response.json()["detail"].lower()
+    assert response.status_code == 400
+    assert "architecture" in response.json()["detail"].lower()
 
 
-def test_download_simulator_no_l1(authenticated_client, db_session):
-    """404 when L1 provider is not in cheapest_path."""
+def test_download_simulator_fixed_l1_cannot_replace_architecture(
+    authenticated_client,
+    db_session,
+):
+    """A historical L1 projection cannot replace selected architecture."""
     client, headers = authenticated_client
     twin_id = create_test_twin(client, headers, "No L1 Twin")
 
@@ -231,9 +238,8 @@ def test_download_simulator_no_l1(authenticated_client, db_session):
 
     response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)
 
-    assert response.status_code == 404
-    # Error message says optimization not configured (no L1 in result)
-    assert "optimization" in response.json()["detail"].lower()
+    assert response.status_code == 400
+    assert "architecture" in response.json()["detail"].lower()
 
 
 @patch(
@@ -339,7 +345,7 @@ def test_download_simulator_inactive_twin(authenticated_client, db_session):
 
     twin = db_session.query(DigitalTwin).filter_by(id=twin_id).first()
     twin.state = TwinState.DEPLOYED
-    twin.is_active = False
+    twin.state = TwinState.INACTIVE
     db_session.commit()
 
     response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)

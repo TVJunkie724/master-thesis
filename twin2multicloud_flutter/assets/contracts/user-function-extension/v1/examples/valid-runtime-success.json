@@ -1,0 +1,11 @@
+{
+  "schema_version": "user-function-runtime-envelope.v1",
+  "invocation_id": "33333333-3333-4333-8333-333333333333",
+  "correlation_id": "corr-example-1",
+  "slot_id": "processor.telemetry",
+  "status": "success",
+  "payload": {
+    "value": 21.5,
+    "quality": "accepted"
+  }
+}

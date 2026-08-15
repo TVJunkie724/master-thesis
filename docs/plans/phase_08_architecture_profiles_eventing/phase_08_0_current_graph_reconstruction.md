@@ -2,8 +2,8 @@
 title: "Phase 8.0: Current Graph Reconstruction"
 description: "Implementation plan for a code-verified Function-and-Edge Matrix of the currently deployable Twin architecture."
 tags: [architecture, inventory, graph, contracts, evidence, issue-144]
-lastUpdated: "2026-07-19"
-version: "1.0"
+lastUpdated: "2026-07-29"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -12,10 +12,24 @@ version: "1.0"
 - docs/plans/resolved_deployment_specification/README.md
 - 2-twin2clouds, twin2multicloud_backend, 3-cloud-deployer, and twin2multicloud_flutter current source trees
 - docs/research/digital_twin_architecture_and_eventing_layer.md
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+EXTRACTED: 2026-07-29 | VERSION: 1.5
 -->
 
 # Phase 8.0: Current Graph Reconstruction
+
+## Corrective Interpretation Addendum
+
+This phase is an immutable inventory of predecessor behavior. Its
+`finding.l5-reader-binding-divergence`, public cross-cloud Function endpoints,
+and shared-token evidence are intentionally not edited away. They are resolved
+only for the new executable profiles by
+[`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md).
+That successor makes the implemented L3-hot-to-L5 raw-history read explicit,
+couples L3 hot with L5, and places L4 independently through the typed
+L3-hot-to-L4 `twin_projection.v1` event route. It does not claim L4-to-L5 or
+3D/Twin-context visualization. The inventory finding therefore remains
+historical evidence and is not an unresolved finding in the current Phase 8
+target plan.
 
 ## 0. Metadata
 
@@ -96,7 +110,8 @@ docs-site/docs/architecture/current-deployment-graph.md
 ```
 
 `current-graph.json` is the machine-readable audit SSOT.
-`phase_08_current_function_edge_matrix.md` adds audit interpretation,
+[`phase_08_current_function_edge_matrix.md`](../../research/phase_08_current_function_edge_matrix.md)
+adds audit interpretation,
 unresolved evidence, predecessor debt, and Phase 8.1 decision inputs.
 `current-deployment-graph.md` documents implemented behavior only and must not
 contain future-profile claims.
@@ -112,9 +127,10 @@ Prefixes:
 |---|---|---|
 | Responsibility | `responsibility.` | `responsibility.ingestion` |
 | Component | `component.` | `component.l2.processor-wrapper` |
+| Provider implementation | `implementation.` | `implementation.aws.l2.processor-wrapper` |
 | Runtime edge | `edge.runtime.` | `edge.runtime.dispatcher-to-processor-wrapper` |
 | Deployment binding | `edge.binding.` | `edge.binding.processor-wrapper-target` |
-| Terraform resource | `terraform.` | `terraform.aws.lambda.dispatcher` |
+| Terraform object | `terraform.` | `terraform.aws.lambda.dispatcher` |
 | Template/package | `artifact.` | `artifact.aws.dispatcher` |
 | Cost owner | `cost.` | `cost.l1.ingestion` |
 | Trust boundary | `trust.` | `trust.management-to-deployer` |
@@ -142,10 +158,12 @@ Top-level fields:
 | `generated_at` | RFC 3339 | Audit metadata, excluded from content digest |
 | `paper_model_references` | array | Repository-relative paper/provenance references |
 | `responsibilities` | array | Stable logical responsibility records |
-| `components` | array | Logical and provider implementation records |
+| `components` | array | Logical identity plus provider implementation records |
 | `artifacts` | array | Template/package/source records |
-| `terraform_objects` | array | Resource/data/output/module records |
+| `terraform_objects` | array | Resource/data/output/module/variable/local records |
 | `edges` | array | Runtime and deployment binding records |
+| `cost_owners` | array | Explicit modeled resource/request/transfer cost owners |
+| `trust_boundaries` | array | Explicit current trust and authentication boundaries |
 | `fixed_assumptions` | array | Cross-project fixed-slot/name/config assumptions |
 | `unresolved_findings` | array | Explicit evidence gaps |
 | `content_digest` | string | SHA-256 of canonical inventory content excluding audit timestamp/digest |
@@ -197,6 +215,11 @@ Required fields:
 An implementation record must never infer a package or Terraform object from a
 name. Every relationship is an explicit ID reference.
 
+`implementation_id` is globally unique. `component_id` is the stable logical
+identity and may occur in multiple implementation records only when every such
+record has the same responsibility, kind, platform/user ownership boundary,
+and runtime envelope. The semantic checker must reject any disagreement.
+
 ### 6.3 Edge Record
 
 Required fields:
@@ -204,7 +227,8 @@ Required fields:
 | Field | Rule |
 |---|---|
 | `edge_id` | Stable unique ID |
-| `source_component_id` / `destination_component_id` | Existing component IDs |
+| `source_component_id` / `destination_component_id` | Existing logical component IDs |
+| `source_implementation_id` / `destination_implementation_id` | Existing globally unique implementation IDs |
 | `phase` | `deployment` or `runtime` |
 | `edge_kind` | `in_process`, `http`, `provider_trigger`, `schedule`, `storage_lifecycle`, `queue`, `topic`, `workflow`, `terraform_reference`, `environment_binding`, or `package_binding` |
 | `protocol` | Exact current protocol/trigger/reference mechanism |
@@ -228,22 +252,123 @@ Required fields:
 `unknown`, `partial`, and `unresolved` are visible findings, not defaults that
 permit later implementation.
 
-### 6.4 Fixed Assumption Record
+The semantic checker must prove that each implementation reference resolves to
+the declared logical component. Provider-neutral logical relationships that
+have several concrete current realizations use one edge record per evidenced
+implementation pair; an edge must never rely on a non-unique component ID to
+infer its provider path.
+
+### 6.4 Artifact Record
+
+Required fields:
+
+- `artifact_id`;
+- `provider`: `platform`, `aws`, `azure`, or `gcp`;
+- `artifact_kind`: `template`, `static-package`, `user-package`,
+  `wrapper-library`, or `source`;
+- `repository_paths`;
+- `builder_adapter_id`;
+- `runtime_handler`;
+- `included_path_rules` and `excluded_path_rules`;
+- `owning_implementation_ids`;
+- `evidence_status`;
+- `source_references`.
+
+Paths are repository-relative. Artifact records contain no source content,
+generated package bytes, credential paths, runtime state, or physical resource
+identifiers. Every owning implementation reference must resolve exactly.
+
+### 6.5 Terraform Object Record
+
+Required fields:
+
+- `terraform_object_id`;
+- `provider`: `aws`, `azure`, `gcp`, or `platform`;
+- `object_kind`: `resource`, `data`, `output`, `module`, `variable`, or
+  `local`;
+- `terraform_address`;
+- `module_path`;
+- `owning_implementation_ids`;
+- `binding_role`: `resource`, `input`, `output`, `dependency`, or
+  `calculation`;
+- `sensitive`;
+- `evidence_status`;
+- `source_references`.
+
+`terraform_address` is the exact HCL source symbol, not a deployed value.
+Shared variables, locals, and outputs may have several owners only when the
+record declares the same binding role and the checker proves the ownership is
+compatible.
+
+### 6.6 Cost Owner Record
+
+Required fields:
+
+- `cost_owner_id`;
+- `cost_kind`: `service`, `request`, `function`, `workflow`, `trigger`,
+  `storage`, `transfer`, `observability`, or `account`;
+- `responsibility_ids`;
+- `owning_implementation_ids`;
+- `pricing_intent_ids`;
+- `formula_ids`;
+- `transfer_route_ids`;
+- `evidence_status`;
+- `source_references`.
+
+An empty pricing/formula reference is allowed only with `unresolved` evidence
+and a bounded unresolved finding.
+
+### 6.7 Trust Boundary Record
+
+Required fields:
+
+- `trust_boundary_id`;
+- `source_scope` and `destination_scope`;
+- `boundary_kind`: `process`, `service`, `provider`, `cloud-account`,
+  `user-code`, or `management`;
+- `authentication`;
+- `identity_owner`;
+- `credential_owner`;
+- `encryption`;
+- `evidence_status`;
+- `source_references`.
+
+The record describes mechanisms and ownership only. It contains no account,
+credential, endpoint, certificate, or physical resource value.
+
+### 6.8 Fixed Assumption Record
 
 Each assumption must state:
 
-- stable ID;
-- affected project(s);
-- exact field/name/convention;
-- current consumer(s);
-- failure mode;
-- whether an automated drift test exists;
-- Phase 8 owner.
+- `assumption_id`;
+- `affected_projects`;
+- `convention`;
+- `current_consumers`;
+- `failure_mode`;
+- `automated_drift_test`;
+- `phase_8_owner`;
+- `source_references`.
 
 The list must include at least fixed `cheapest_l*` columns, Optimizer slot
 order, `layer_*_provider` config keys, Terraform output suffixes, provider
 template path/handler conventions, user-function paths, and fixed Flutter
 architecture slots.
+
+### 6.9 Unresolved Finding Record
+
+Required fields:
+
+- `finding_id`;
+- `category`;
+- `summary`;
+- `affected_entity_ids`;
+- `missing_evidence`;
+- `risk`;
+- `phase_8_owner`;
+- `source_references`.
+
+Findings contain bounded safe text and references only. They must not be used
+as permissive defaults, and their IDs must appear in the research matrix.
 
 ## 7. Evidence Standard
 
@@ -354,9 +479,11 @@ Mixed-provider scenarios must cover:
 1. validate `current-graph.json` against the schema;
 2. verify canonical serialization and digest;
 3. recompute and compare `audited_source_tree_digest`;
-4. reject duplicate or unresolved referenced IDs;
+4. reject duplicate globally unique IDs, divergent repeated logical component
+   IDs, or unresolved referenced IDs;
 5. load all `STATIC_FUNCTIONS`;
-6. parse all Terraform files and collect resource/data/output addresses;
+6. parse all Terraform files and collect
+   resource/data/output/module/variable/local addresses;
 7. collect package/template directories and handlers through Deployer registry
    APIs rather than path-name guesses;
 8. collect Optimizer slots, baseline edges, and deployment component IDs;
@@ -365,6 +492,15 @@ Mixed-provider scenarios must cover:
 10. fail when an extracted entity lacks a matrix row or a row points to a
    nonexistent source entity;
 11. print only bounded IDs and source paths, never file contents or secrets.
+
+Steps 3 and 5-10 describe the original Phase 8.0 evidence construction and
+applied only until the Phase 8.1 cut. After the corrective immutable-snapshot
+interpretation above, the non-mutating gate authenticates snapshot commit
+`04295b76c2e32e9b2ede84d6c108052f0f242fb6`, the frozen inventory/source
+digests, references, evidence, and diagram IDs. It compares semantic mutation
+tests with that frozen matrix; it does not compare later Five-layer v2 or
+Six-layer v1 source with predecessor rows. Successor source reconciliation is
+owned by the versioned profile/catalog/RDS drift gates.
 
 An allowlist entry must contain an owner, rationale, and expiry phase. Empty
 catch-all allowlists are forbidden.
@@ -407,9 +543,11 @@ Add focused tests for:
 - canonical digest stability and mutation;
 - audited source-tree digest stability and relevant/irrelevant path mutation;
 - complete function registry extraction;
-- HCL resource/data/output extraction;
+- HCL resource/data/output/module/variable/local extraction;
 - package/template inventory;
 - Optimizer slot/edge/component inventory;
+- provider implementation, trust-boundary, and cost-owner referential
+  integrity;
 - stale and missing matrix rows;
 - secret-like key/path rejection;
 - deterministic diagram ID extraction where implemented.
@@ -417,14 +555,19 @@ Add focused tests for:
 Safe verification:
 
 ```bash
-python scripts/check_architecture_inventory.py
-docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
-  python -m pytest tests/unit/architecture_inventory/ -v
-docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 \
+python3 scripts/check_architecture_inventory.py
+docker compose run --rm --no-deps \
+  -v "$PWD:/workspace:ro" \
+  -e PYTHONPATH=/app \
+  -e ARCHITECTURE_INVENTORY_REPO_ROOT=/workspace \
+  3cloud-deployer python -m pytest \
+  /workspace/3-cloud-deployer/tests/unit/architecture_inventory/ \
+  -p no:cacheprovider -v
+docker compose exec -T -e PYTHONPATH=/app 2twin2clouds \
   python -m pytest tests/ -v
-docker exec -e PYTHONPATH=/app master-thesis-management-api-1 \
+docker compose exec -T -e PYTHONPATH=/app management-api \
   python -m pytest tests/ -v
-docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
+docker compose exec -T -e PYTHONPATH=/app 3cloud-deployer \
   python -m pytest tests/ --ignore=tests/e2e -v
 cd twin2multicloud_flutter
 flutter analyze
@@ -459,26 +602,28 @@ false drift.
 
 ## 15. Definition Of Done
 
-- [ ] The JSON Schema and canonical `current-graph.json` are committed.
-- [ ] Every Optimizer slot, baseline edge, transition runtime, and emitted
+- [x] The JSON Schema and canonical `current-graph.json` are committed.
+- [x] Every Optimizer slot, baseline edge, transition runtime, and emitted
       deployment component is represented.
-- [ ] Every Management fixed-field consumer and API/DB projection is listed.
-- [ ] Every Deployer static/user function, package/template, Terraform object,
+- [x] Every Management fixed-field consumer and API/DB projection is listed.
+- [x] Every Deployer static/user function, package/template, Terraform object,
       output, and binding is represented.
-- [ ] Every Flutter fixed-slot and architecture presentation assumption is
+- [x] Every Flutter fixed-slot and architecture presentation assumption is
       represented.
-- [ ] AWS, Azure, GCP, and required mixed-provider paths reconcile across
+- [x] AWS, Azure, GCP, and required mixed-provider paths reconcile across
       projects.
-- [ ] Every edge records semantics, delivery, trust, transfer, cost,
+- [x] Every edge records semantics, delivery, trust, transfer, cost,
       observability, reference mechanism, classification, and evidence status.
-- [ ] Paper, historical L0, five scientific layers, and seven Optimizer slots
+- [x] Every provider implementation, artifact, Terraform object, trust
+      boundary, and cost owner has an explicit, uniquely checkable record.
+- [x] Paper, historical L0, five scientific layers, and seven Optimizer slots
       are clearly distinguished.
-- [ ] The checker detects missing and stale entities without reading secrets.
-- [ ] Research and current-product diagrams are complete and context-correct.
-- [ ] Focused checker tests and all relevant safe project suites pass.
-- [ ] Strict MkDocs succeeds.
-- [ ] No runtime behavior, database data, Terraform state, or cloud resource is
+- [x] The checker detects missing and stale entities without reading secrets.
+- [x] Research and current-product diagrams are complete and context-correct.
+- [x] Focused checker tests and all relevant safe project suites pass.
+- [x] Strict MkDocs succeeds.
+- [x] No runtime behavior, database data, Terraform state, or cloud resource is
       changed.
-- [ ] Two reviews find no unresolved plan/implementation issue.
-- [ ] Roadmap and #144 are updated with named evidence.
-- [ ] The structured commit references #144.
+- [x] Two reviews find no unresolved plan/implementation issue.
+- [x] Roadmap and #144 are updated with named evidence.
+- [x] The structured commit references #144.

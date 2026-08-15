@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/deployer_config.dart';
@@ -186,6 +189,52 @@ void main() {
   });
 
   group('OptimizationResultData', () {
+    test('parses a native v2 run without legacy transfer wrappers', () {
+      final architecture =
+          jsonDecode(
+                File(
+                  'assets/demo/v1/resolved-twin-architecture-v2-small.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      final specification =
+          jsonDecode(
+                File(
+                  'assets/demo/v1/resolved-deployment-specification-v2-small.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      final runId = architecture['calculation_run_id'].toString();
+      final payload = <String, dynamic>{
+        'totalCost': 0.0,
+        'totalCostExact': '0',
+        'currency': 'USD',
+        'resolvedTwinArchitecture': architecture,
+        'resolvedDeploymentSpecification': specification,
+        'pricingCatalogs': _calculationPayload['pricingCatalogs'],
+      };
+
+      final run = OptimizerRunData.fromJson({
+        'id': runId,
+        'twin_id': 'twin-v2',
+        'status': 'succeeded',
+        'result_summary': payload,
+        'total_monthly_cost': 0.0,
+        'currency': 'USD',
+        'deployment_compatibility_status': 'ready',
+        'deployment_specification_digest': specification['digest'],
+        'deployment_specification_version': specification['schema_version'],
+        'resolved_deployment_specification': specification,
+        'selected_for_deployment_at': null,
+        'created_at': '2026-08-11T10:00:00Z',
+        'completed_at': '2026-08-11T10:00:01Z',
+      });
+
+      expect(run.optimization.isNativeFiveLayerV2, isTrue);
+      expect(run.optimization.result.transferPricingContext, isNull);
+      expect(run.deploymentRun.specification, isNotNull);
+    });
+
     test('supports wrapped and direct calculation contracts', () {
       final wrapped = OptimizationResultData.fromApiJson({
         'result': _calculationPayload,

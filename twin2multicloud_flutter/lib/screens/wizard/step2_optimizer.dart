@@ -195,7 +195,11 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
             ),
             _summaryRow(
               'Event processing',
-              params.useEventChecking ? 'Enabled' : 'Not required',
+              state.usesPhase8ComparisonProfile
+                  ? 'Mandatory in the selected profile'
+                  : params.useEventChecking
+                  ? 'Enabled'
+                  : 'Not required',
             ),
             _summaryRow(
               '3D representation',
@@ -249,6 +253,8 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
         CalcForm(
           section: _calcSectionForTask(widget.taskId),
           initialParams: state.calcParams,
+          profileId: state.architectureSelection?.profileRef.id,
+          profileVersion: state.architectureSelection?.profileRef.version,
           onChanged: _onCalcParamsChanged,
           onValidChanged: (isValid) {
             context.read<WizardBloc>().add(WizardCalcFormValidChanged(isValid));

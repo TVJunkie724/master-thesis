@@ -1,0 +1,384 @@
+{
+  "compatible_optimization_bundles": [
+    {
+      "optimization_strategy_id": "cost-minimization-v2",
+      "optimization_strategy_version": "2",
+      "calculation_strategy_id": "profile-resolution-v2",
+      "calculation_strategy_version": "2",
+      "formula_set_id": "phase-08-complete-service-bundles",
+      "formula_set_version": "1",
+      "scoring_strategy_id": "profile-local-min-total-cost-v2",
+      "scoring_strategy_version": "2",
+      "pricing_registry_id": "phase-08-complete-service-pricing",
+      "pricing_registry_versions": [
+        "1"
+      ],
+      "workload_contract_id": "five-layer-workload",
+      "workload_contract_version": "2",
+      "deployment_specification_versions": [
+        "resolved-deployment-specification.v2"
+      ],
+      "compatibility_digest": "sha256:a0c39dcae6c95c2cb25251389c6569a0f5ea4428a0403ccc4cf934541cda06f1"
+    }
+  ],
+  "content_digest": "sha256:f9e0c0fee99a7b05f44967767c3be41f7887005806a585f4aef92025172838a7",
+  "cycle_contracts": [
+    {
+      "compatibility_version": "1",
+      "cycle_id": "cycle.hot-storage.twin-state",
+      "workflow_semantics": "Bounded, explicitly correlated reconciliation between hot storage and Twin state; not enabled by the baseline profile."
+    },
+    {
+      "cycle_id": "cycle.ingestion.processing",
+      "workflow_semantics": "Bounded mandatory device-command request and outcome feedback between L2 processing and L1 ingestion.",
+      "compatibility_version": "1"
+    },
+    {
+      "cycle_id": "cycle.eventing.ingestion.processing",
+      "workflow_semantics": "Bounded telemetry, rule/action, notification, device-command, and terminal-outcome routing through the independent Eventing responsibility.",
+      "compatibility_version": "1"
+    }
+  ],
+  "deployment_specification_compatibility": [
+    {
+      "schema_version": "resolved-deployment-specification.v2",
+      "architecture_profile_ids": [
+        "five-layer-baseline",
+        "six-layer-eventing"
+      ],
+      "architecture_profile_versions": [
+        "1",
+        "2"
+      ]
+    }
+  ],
+  "field_ownership": [
+    {
+      "author": "repository_developer",
+      "contract_kind": "architecture-profile.v2",
+      "field_path": "/",
+      "mutability": "versioned_definition"
+    },
+    {
+      "author": "repository_developer",
+      "contract_kind": "provider-implementation-profile.v2",
+      "field_path": "/",
+      "mutability": "versioned_definition"
+    },
+    {
+      "author": "repository_developer",
+      "contract_kind": "deployment-component-catalog.v2",
+      "field_path": "/",
+      "mutability": "versioned_definition"
+    },
+    {
+      "author": "management_api_input",
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/calculation_run_id",
+      "mutability": "immutable_input"
+    },
+    {
+      "author": "optimizer_derived",
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/architecture_profile_ref",
+      "mutability": "immutable_derived"
+    },
+    {
+      "author": "optimizer_derived",
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/component_assignments",
+      "mutability": "immutable_derived"
+    },
+    {
+      "author": "optimizer_derived",
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/content_digest",
+      "mutability": "immutable_derived"
+    },
+    {
+      "author": "optimizer_derived",
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/cost_summary",
+      "mutability": "immutable_derived"
+    },
+    {
+      "author": "optimizer_derived",
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/deployment_specification_ref",
+      "mutability": "immutable_derived"
+    },
+    {
+      "author": "optimizer_derived",
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/extension_bindings",
+      "mutability": "immutable_derived"
+    },
+    {
+      "author": "optimizer_derived",
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/functional_completeness",
+      "mutability": "immutable_derived"
+    },
+    {
+      "author": "optimizer_derived",
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/optimization_bundle_ref",
+      "mutability": "immutable_derived"
+    },
+    {
+      "author": "optimizer_derived",
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/pricing_evidence_refs",
+      "mutability": "immutable_derived"
+    },
+    {
+      "author": "optimizer_derived",
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/provider_profile_refs",
+      "mutability": "immutable_derived"
+    },
+    {
+      "author": "optimizer_derived",
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/resolution_id",
+      "mutability": "immutable_derived"
+    },
+    {
+      "author": "optimizer_derived",
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/resolved_edges",
+      "mutability": "immutable_derived"
+    },
+    {
+      "author": "optimizer_derived",
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/schema_version",
+      "mutability": "immutable_derived"
+    },
+    {
+      "author": "optimizer_derived",
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/workload_contract_ref",
+      "mutability": "immutable_derived"
+    },
+    {
+      "contract_kind": "resolved-twin-architecture.v2",
+      "field_path": "/resolution_status",
+      "author": "optimizer_derived",
+      "mutability": "immutable_derived"
+    }
+  ],
+  "known_error_codes": [
+    "ARCH_BUNDLE_INCOMPATIBLE",
+    "ARCH_CAPABILITY_INCOMPLETE",
+    "ARCH_COMPONENT_UNAVAILABLE",
+    "ARCH_DEPLOYMENT_SPEC_INCOMPATIBLE",
+    "ARCH_DIGEST_MISMATCH",
+    "ARCH_DUPLICATE_ID",
+    "ARCH_EDGE_UNAVAILABLE",
+    "ARCH_EXTENSION_BINDING_INVALID",
+    "ARCH_GRAPH_CYCLE_FORBIDDEN",
+    "ARCH_REFERENCE_UNRESOLVED",
+    "ARCH_SCHEMA_INVALID",
+    "ARCH_SECRET_FIELD_FORBIDDEN",
+    "ARCH_VERSION_UNSUPPORTED"
+  ],
+  "limits": {
+    "max_array_items": 2048,
+    "max_depth": 32,
+    "max_document_bytes": 2000000,
+    "max_errors": 20
+  },
+  "port_contracts": [
+    {
+      "compatibility_version": "1",
+      "envelope_ref": "contract-envelope",
+      "port_id": "port.archive-storage.write-in",
+      "schema_ref": "storage_transition.v1",
+      "semantics": "Normalized telemetry or storage transition payload."
+    },
+    {
+      "compatibility_version": "1",
+      "envelope_ref": "contract-envelope",
+      "port_id": "port.cool-storage.transition-out",
+      "schema_ref": "storage_transition.v1",
+      "semantics": "Normalized telemetry or storage transition payload."
+    },
+    {
+      "compatibility_version": "1",
+      "envelope_ref": "contract-envelope",
+      "port_id": "port.cool-storage.write-in",
+      "schema_ref": "storage_transition.v1",
+      "semantics": "Normalized telemetry or storage transition payload."
+    },
+    {
+      "compatibility_version": "1",
+      "envelope_ref": "contract-envelope",
+      "port_id": "port.hot-storage.transition-out",
+      "schema_ref": "storage_transition.v1",
+      "semantics": "Normalized telemetry or storage transition payload."
+    },
+    {
+      "port_id": "port.ingestion.device-command-in",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical device-command request consumed by L1.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.ingestion.telemetry-event-out",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical telemetry-received events emitted by L1 for L2.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.ingestion.command-outcome-event-out",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical device-command-outcome events emitted by L1 for L3 hot.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.processing.telemetry-event-in",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical telemetry-received events consumed by L2.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.processing.persistence-event-out",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical processed and terminal-outcome events emitted by L2 for L3 hot.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.processing.device-command-out",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical device-command request emitted by L2 for L1.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.hot-storage.processing-event-in",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical processed and processing-owned outcome events persisted by L3 hot.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.hot-storage.command-outcome-event-in",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical device-command-outcome events persisted directly by L3 hot.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.ingestion.eventing-out",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical telemetry-received and device-command-outcome events emitted by L1 for Eventing.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.processing.eventing-in",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical telemetry, match, and notification events delivered from Eventing to L2 responsibilities.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.processing.eventing-out",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical processed telemetry, match, notification, command, and terminal-outcome events emitted by L2 for Eventing.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.hot-storage.eventing-in",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical processed telemetry and terminal-outcome events delivered from Eventing to L3 hot.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.eventing.ingestion-in",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical telemetry-received and device-command-outcome events accepted from L1.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.eventing.processing-out",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical telemetry, match, and notification events delivered to L2 responsibilities.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.eventing.processing-in",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical processed telemetry, match, notification, command, and terminal-outcome events accepted from L2.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.eventing.hot-storage-out",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical processed and terminal-outcome events delivered from Eventing to L3 hot.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.eventing.ingestion-out",
+      "schema_ref": "canonical-domain-event.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Canonical device-command requests delivered from Eventing to L1.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.hot-storage.twin-projection-out",
+      "schema_ref": "twin_projection.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Typed canonical Twin projection emitted after durable L3 acceptance.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.twin-state.projection-in",
+      "schema_ref": "twin_projection.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Typed canonical Twin projection consumed by L4.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.hot-storage.raw-history-out",
+      "schema_ref": "raw_history_query.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Typed bounded raw or hourly-rollup history response.",
+      "compatibility_version": "1"
+    },
+    {
+      "port_id": "port.visualization.raw-history-in",
+      "schema_ref": "raw_history_query.v1",
+      "envelope_ref": "contract-envelope",
+      "semantics": "Typed bounded raw-history query consumed by L5.",
+      "compatibility_version": "1"
+    }
+  ],
+  "registry_id": "architecture-profile-semantics",
+  "registry_version": "2",
+  "schema_version": "semantic-registry.v2",
+  "supported_providers": [
+    "aws",
+    "azure",
+    "gcp"
+  ],
+  "supported_schema_versions": [
+    "architecture-profile.v2",
+    "deployment-component-catalog.v2",
+    "provider-implementation-profile.v2",
+    "resolved-twin-architecture.v2",
+    "semantic-registry.v2"
+  ]
+}

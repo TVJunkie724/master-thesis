@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from src.api.routes.error_models import ERROR_RESPONSES
@@ -7,8 +7,15 @@ from src.models.user import User
 from src.schemas.cloud_bootstrap import (
     CloudBootstrapImportRequest,
     CloudBootstrapImportResponse,
+    CloudBootstrapExecuteRequest,
+    CloudBootstrapGuideRequest,
+    CloudBootstrapGuideResponse,
     CloudBootstrapPlanRequest,
     CloudBootstrapPlanResponse,
+    CloudBootstrapRevisionRequest,
+    CloudBootstrapSessionCreateRequest,
+    CloudBootstrapSessionListResponse,
+    CloudBootstrapSessionResponse,
 )
 from src.services.cloud_bootstrap_service import CloudBootstrapService
 from src.services.cloud_connection_service import CloudConnectionService
@@ -20,8 +27,208 @@ from src.schemas.credential_security_event import (
 from src.security.rate_limit import CredentialRateClass, credential_rate_limit
 from src.security.request_context import current_request_id
 from src.services.credential_security_audit_service import CredentialSecurityAuditService
+from src.services.guided_cloud_bootstrap_service import GuidedCloudBootstrapService
 
 router = APIRouter(prefix="/cloud-bootstrap", tags=["cloud-bootstrap"])
+
+
+@router.post(
+    "/{provider}/guide",
+    response_model=CloudBootstrapGuideResponse,
+    response_model_exclude_none=True,
+    operation_id="getCloudBootstrapGuide",
+    summary="Build safe provider-specific guided bootstrap instructions",
+    responses={400: ERROR_RESPONSES[400], 401: ERROR_RESPONSES[401], 422: ERROR_RESPONSES[422]},
+)
+async def get_cloud_bootstrap_guide(
+    provider: str,
+    request: CloudBootstrapGuideRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.BOOTSTRAP,
+            CredentialSecurityAction.BOOTSTRAP_GUIDE,
+        )
+    ),
+):
+    result = GuidedCloudBootstrapService(db).guide(provider, request.target)
+    CredentialSecurityAuditService.commit_standalone(
+        db,
+        _audit(current_user, CredentialSecurityAction.BOOTSTRAP_GUIDE, result.provider, 200),
+    )
+    return result
+
+
+@router.post(
+    "/sessions",
+    response_model=CloudBootstrapSessionResponse,
+    response_model_exclude_none=True,
+    operation_id="createCloudBootstrapSession",
+    summary="Create or resume one owner-scoped guided bootstrap session",
+    responses={401: ERROR_RESPONSES[401], 409: ERROR_RESPONSES[409], 422: ERROR_RESPONSES[422]},
+)
+async def create_cloud_bootstrap_session(
+    request: CloudBootstrapSessionCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.BOOTSTRAP,
+            CredentialSecurityAction.BOOTSTRAP_SESSION_CREATE,
+        )
+    ),
+):
+    return GuidedCloudBootstrapService(db).create_session(
+        current_user.id,
+        request,
+        _audit(
+            current_user,
+            CredentialSecurityAction.BOOTSTRAP_SESSION_CREATE,
+            request.provider,
+            200,
+        ),
+    )
+
+
+@router.get(
+    "/sessions",
+    response_model=CloudBootstrapSessionListResponse,
+    response_model_exclude_none=True,
+    operation_id="listCloudBootstrapSessions",
+    summary="List safe owner-scoped bootstrap sessions",
+)
+async def list_cloud_bootstrap_sessions(
+    provider: str | None = Query(default=None),
+    active: bool | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.BOOTSTRAP,
+            CredentialSecurityAction.BOOTSTRAP_GUIDE,
+        )
+    ),
+):
+    return GuidedCloudBootstrapService(db).list_sessions(
+        current_user.id,
+        provider=provider,
+        active=active,
+    )
+
+
+@router.get(
+    "/sessions/{session_id}",
+    response_model=CloudBootstrapSessionResponse,
+    response_model_exclude_none=True,
+    operation_id="getCloudBootstrapSession",
+    summary="Read one safe owner-scoped bootstrap session",
+)
+async def get_cloud_bootstrap_session(
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.BOOTSTRAP,
+            CredentialSecurityAction.BOOTSTRAP_GUIDE,
+        )
+    ),
+):
+    return GuidedCloudBootstrapService(db).get_session(current_user.id, session_id)
+
+
+@router.post(
+    "/sessions/{session_id}/execute",
+    response_model=CloudBootstrapSessionResponse,
+    response_model_exclude_none=True,
+    operation_id="executeCloudBootstrapSession",
+    summary="Execute one synchronous request-scoped bootstrap command",
+    responses={401: ERROR_RESPONSES[401], 409: ERROR_RESPONSES[409], 422: ERROR_RESPONSES[422]},
+)
+async def execute_cloud_bootstrap_session(
+    session_id: str,
+    request: CloudBootstrapExecuteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.BOOTSTRAP,
+            CredentialSecurityAction.BOOTSTRAP_EXECUTE,
+        )
+    ),
+):
+    return GuidedCloudBootstrapService(db).execute(
+        current_user.id,
+        session_id,
+        request,
+        _audit(
+            current_user,
+            CredentialSecurityAction.BOOTSTRAP_EXECUTE,
+            request.credential.provider,
+            200,
+        ),
+    )
+
+
+@router.post(
+    "/sessions/{session_id}/acknowledge-manual-revocation",
+    response_model=CloudBootstrapSessionResponse,
+    response_model_exclude_none=True,
+    operation_id="acknowledgeCloudBootstrapManualRevocation",
+    summary="Record explicit user acknowledgement of provider-side cleanup",
+    responses={401: ERROR_RESPONSES[401], 409: ERROR_RESPONSES[409], 422: ERROR_RESPONSES[422]},
+)
+async def acknowledge_cloud_bootstrap_manual_revocation(
+    session_id: str,
+    request: CloudBootstrapRevisionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.BOOTSTRAP,
+            CredentialSecurityAction.BOOTSTRAP_ACKNOWLEDGE_REVOCATION,
+        )
+    ),
+):
+    return GuidedCloudBootstrapService(db).acknowledge_manual_revocation(
+        current_user.id,
+        session_id,
+        request.expected_revision,
+        _audit(
+            current_user,
+            CredentialSecurityAction.BOOTSTRAP_ACKNOWLEDGE_REVOCATION,
+            None,
+            200,
+        ),
+    )
+
+
+@router.post(
+    "/sessions/{session_id}/cancel",
+    response_model=CloudBootstrapSessionResponse,
+    response_model_exclude_none=True,
+    operation_id="cancelCloudBootstrapSession",
+    summary="Cancel a bootstrap session that has no generated connection",
+    responses={401: ERROR_RESPONSES[401], 409: ERROR_RESPONSES[409], 422: ERROR_RESPONSES[422]},
+)
+async def cancel_cloud_bootstrap_session(
+    session_id: str,
+    request: CloudBootstrapRevisionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.BOOTSTRAP,
+            CredentialSecurityAction.BOOTSTRAP_CANCEL,
+        )
+    ),
+):
+    session = GuidedCloudBootstrapService(db).get_session(current_user.id, session_id)
+    return GuidedCloudBootstrapService(db).cancel(
+        current_user.id,
+        session_id,
+        request.expected_revision,
+        _audit(
+            current_user,
+            CredentialSecurityAction.BOOTSTRAP_CANCEL,
+            session.provider,
+            200,
+        ),
+    )
 
 
 @router.post(
@@ -98,7 +305,7 @@ async def import_cloud_bootstrap_connection(
 def _audit(
     user: User,
     action: CredentialSecurityAction,
-    provider: str,
+    provider: str | None,
     status: int,
 ) -> CredentialSecurityEventDraft:
     return CredentialSecurityEventDraft(

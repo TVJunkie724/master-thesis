@@ -111,6 +111,71 @@ class ThesisEntrypointTests(unittest.TestCase):
             result.stderr,
         )
 
+    def test_frontend_gate_resolves_locked_dependencies_before_formatting(
+        self,
+    ) -> None:
+        script = SCRIPT.read_text(encoding="utf-8")
+        frontend_gate = script.split("run_frontend_tests() {", 1)[1].split(
+            "run_frontend_integration_tests() {", 1
+        )[0]
+
+        dependency_resolution = frontend_gate.index(
+            "flutter pub get --enforce-lockfile"
+        )
+        formatting = frontend_gate.index("dart format --output=none")
+
+        self.assertLess(dependency_resolution, formatting)
+
+    def test_frontend_integration_preserves_preexisting_services(self) -> None:
+        script = SCRIPT.read_text(encoding="utf-8")
+        integration_gate = script.split("run_frontend_integration_tests() {", 1)[
+            1
+        ].split("run_deployment_contract_tests() {", 1)[0]
+
+        self.assertIn(
+            "compose_cmd ps --services --filter status=running",
+            integration_gate,
+        )
+        self.assertIn('started_services+=("$service")', integration_gate)
+        self.assertIn(
+            'compose_cmd up -d "${missing_non_optimizer_services[@]}"',
+            integration_gate,
+        )
+        self.assertIn(
+            "compose_cmd up -d --force-recreate 2twin2clouds",
+            integration_gate,
+        )
+        self.assertIn("optimizer_was_running=1", integration_gate)
+        self.assertNotIn(
+            'compose_cmd up -d "${required_services[@]}"',
+            integration_gate,
+        )
+        self.assertIn(
+            'compose_cmd stop "${started_services[@]}"',
+            integration_gate,
+        )
+        self.assertNotIn("compose_cmd down", integration_gate)
+        self.assertNotIn("compose_cmd restart", integration_gate)
+
+    def test_frontend_integration_quarantines_layer_access_fixtures(self) -> None:
+        script = SCRIPT.read_text(encoding="utf-8")
+        integration_gate = script.split("run_frontend_integration_tests() {", 1)[
+            1
+        ].split("run_deployment_contract_tests() {", 1)[0]
+
+        self.assertIn("ENABLE_TEST_ENDPOINTS=true", integration_gate)
+        self.assertIn(
+            "DATABASE_URL=sqlite:////tmp/layer-access-integration.db",
+            integration_gate,
+        )
+        self.assertIn("--no-deps", integration_gate)
+        self.assertIn(
+            "integration_test/twin_layer_access_flow_test.dart", integration_gate
+        )
+        self.assertIn('docker_cmd stop "$layer_access_container"', integration_gate)
+        self.assertIn("fixture-viewer-", integration_gate)
+        self.assertNotIn("--with-credentials", integration_gate)
+
 
 if __name__ == "__main__":
     unittest.main()

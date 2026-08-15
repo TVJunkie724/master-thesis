@@ -7,8 +7,11 @@ import 'package:twin2multicloud_flutter/services/api_service.dart';
 
 const _providers = {'aws', 'azure', 'gcp'};
 const _serverOwnedOptimizerFields = {
+  'calculationRunId',
   'providerPricingCatalogs',
   'providerPricingContexts',
+  'architectureProfile',
+  'extensionBindings',
 };
 const _forbiddenPayloadKeys = {
   'access_key_id',
@@ -225,7 +228,7 @@ void main() {
               managementProperties.keys.map((key) => key.toString()).toSet(),
             ),
         _serverOwnedOptimizerFields,
-        reason: 'Only documented server-owned pricing fields may differ.',
+        reason: 'Only documented server-owned optimizer fields may differ.',
       );
       for (final field in _serverOwnedOptimizerFields) {
         expect(
@@ -242,6 +245,11 @@ void main() {
       expect(
         optimizerContract['required'],
         contains('providerPricingCatalogs'),
+      );
+      expect(optimizerContract['required'], contains('calculationRunId'));
+      expect(
+        (optimizerProperties['calculationRunId'] as Map)['format'],
+        'uuid',
       );
       expect(
         optimizerContract['required'],

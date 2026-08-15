@@ -80,3 +80,36 @@ def test_plan_accepts_explicit_out_file(tmp_path, monkeypatch):
     assert result == str(explicit_plan)
     assert explicit_plan.parent.exists()
     assert calls[0][-1] == f"-out={explicit_plan}"
+
+
+def test_apply_targets_builds_only_valid_explicit_target_arguments(tmp_path, monkeypatch):
+    terraform_dir = tmp_path / "terraform"
+    terraform_dir.mkdir()
+    runner = TerraformRunner(terraform_dir=str(terraform_dir))
+    calls = []
+    monkeypatch.setattr(
+        runner,
+        "_run_command",
+        lambda args, **kwargs: calls.append((args, kwargs)),
+    )
+
+    runner.apply_targets(
+        str(tmp_path / "vars.json"),
+        (
+            "google_storage_bucket.build",
+            'google_service_account.runtime["build"]',
+        ),
+    )
+
+    assert calls == [
+        (
+            [
+                "apply",
+                "-auto-approve",
+                f"-var-file={tmp_path / 'vars.json'}",
+                "-target=google_storage_bucket.build",
+                '-target=google_service_account.runtime["build"]',
+            ],
+            {"stream_output": True},
+        )
+    ]

@@ -1,0 +1,3070 @@
+{
+  "manifest_version": "4.0",
+  "generated_at": "2026-08-11T00:00:00Z",
+  "producer": "twin2multicloud_backend",
+  "package": {
+    "format": "deployer-project-zip",
+    "files": [
+      "config.json",
+      "config_credentials.json",
+      "config_events.json",
+      "config_iot_devices.json",
+      "config_providers.json"
+    ],
+    "required_files": [
+      "config.json",
+      "config_iot_devices.json",
+      "config_events.json",
+      "config_credentials.json",
+      "config_providers.json"
+    ],
+    "secret_bearing_files": [
+      "config_credentials.json"
+    ]
+  },
+  "twin": {
+    "id": null,
+    "name": "Six-layer AWS Azure Eventing Small",
+    "resource_name": "six-layer-aws-azure-eventing-small"
+  },
+  "providers": {
+    "layer_1_provider": "aws",
+    "layer_2_provider": "aws",
+    "layer_3_hot_provider": "aws",
+    "layer_3_cold_provider": "azure",
+    "layer_3_archive_provider": "azure",
+    "layer_4_provider": "azure",
+    "layer_5_provider": "aws"
+  },
+  "calculation_run_id": "89287aa5-89b4-55dc-88cb-680f2823da48",
+  "resolved_twin_architecture_digest": "sha256:45af38287c8ad5747fa6692aa170c26965ba6becb43ca65fafe55c976ab4815a",
+  "resolved_twin_architecture": {
+    "schema_version": "resolved-twin-architecture.v2",
+    "resolution_status": "offline_contract_fixture",
+    "resolution_id": "70995450-1382-5e10-8e71-95be3f71fb98",
+    "calculation_run_id": "89287aa5-89b4-55dc-88cb-680f2823da48",
+    "architecture_profile_ref": {
+      "id": "six-layer-eventing",
+      "version": "1",
+      "digest": "sha256:0ecbf18fdc54a479c81a81df114fc508983db7da1786836aa1774e03d1665066"
+    },
+    "optimization_bundle_ref": {
+      "optimization_strategy_id": "cost-minimization-v2",
+      "optimization_strategy_version": "2",
+      "calculation_strategy_id": "profile-resolution-v2",
+      "calculation_strategy_version": "2",
+      "formula_set_id": "phase-08-complete-service-bundles",
+      "formula_set_version": "1",
+      "scoring_strategy_id": "profile-local-min-total-cost-v2",
+      "scoring_strategy_version": "2",
+      "compatibility_digest": "sha256:a0c39dcae6c95c2cb25251389c6569a0f5ea4428a0403ccc4cf934541cda06f1"
+    },
+    "provider_profile_refs": [
+      {
+        "id": "provider-profile.aws.six-layer-eventing-v1",
+        "version": "1",
+        "digest": "sha256:eafa87b4c120efa77413ab36fc69c5f981bc394c68581809347891d39971a2b5",
+        "provider": "aws"
+      },
+      {
+        "id": "provider-profile.azure.six-layer-eventing-v1",
+        "version": "1",
+        "digest": "sha256:34c34bc42abd9d57d9cc0cd25b10bdb67f4ce404091c9e590275e52a91128c92",
+        "provider": "azure"
+      }
+    ],
+    "workload_contract_ref": {
+      "id": "five-layer-workload",
+      "version": "2",
+      "digest": "sha256:32fb431fb207e539bc85e6f22ce9bb3d7a9224e18722d41a7cda0339c80b9a95"
+    },
+    "pricing_evidence_refs": [
+      {
+        "id": "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+        "version": "1",
+        "digest": "sha256:acb96faf904bc16d9d00d83fb26372ee2bf35255340ab5afaf6df6e87b8342b7",
+        "provider": "aws",
+        "currency": "USD"
+      },
+      {
+        "id": "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee",
+        "version": "1",
+        "digest": "sha256:9a91dd0c760ab1a4c66f6e8abe2acd5f98d80da560d605c09d509957c1a172ce",
+        "provider": "azure",
+        "currency": "USD"
+      }
+    ],
+    "component_assignments": [
+      {
+        "assignment_id": "assignment.archive-storage",
+        "responsibility_id": "responsibility.storage",
+        "logical_component_id": "component.archive-storage",
+        "provider": "azure",
+        "provider_implementation_profile_ref": {
+          "id": "provider-profile.azure.six-layer-eventing-v1",
+          "version": "1",
+          "digest": "sha256:34c34bc42abd9d57d9cc0cd25b10bdb67f4ce404091c9e590275e52a91128c92"
+        },
+        "deployment_component_id": "deployment.azure.archive-storage.v2",
+        "deployment_component_version": "1",
+        "service_id": "azure.archive-storage.v2",
+        "region": "westeurope",
+        "capability_evidence": [
+          "capability.archive-storage"
+        ],
+        "pricing_model_refs": [
+          "pricing.azure.archive-storage.v2"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "deployment_specification_component_ids": [
+          "azure.blob-archive"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0.009"
+        },
+        "required": true
+      },
+      {
+        "assignment_id": "assignment.cool-storage",
+        "responsibility_id": "responsibility.storage",
+        "logical_component_id": "component.cool-storage",
+        "provider": "azure",
+        "provider_implementation_profile_ref": {
+          "id": "provider-profile.azure.six-layer-eventing-v1",
+          "version": "1",
+          "digest": "sha256:34c34bc42abd9d57d9cc0cd25b10bdb67f4ce404091c9e590275e52a91128c92"
+        },
+        "deployment_component_id": "deployment.azure.cool-storage.v2",
+        "deployment_component_version": "1",
+        "service_id": "azure.cool-storage.v2",
+        "region": "westeurope",
+        "capability_evidence": [
+          "capability.cool-storage"
+        ],
+        "pricing_model_refs": [
+          "pricing.azure.cool-storage.v2"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "deployment_specification_component_ids": [
+          "azure.blob-cool"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0.02"
+        },
+        "required": true
+      },
+      {
+        "assignment_id": "assignment.eventing",
+        "responsibility_id": "responsibility.eventing",
+        "logical_component_id": "component.eventing",
+        "provider": "azure",
+        "provider_implementation_profile_ref": {
+          "id": "provider-profile.azure.six-layer-eventing-v1",
+          "version": "1",
+          "digest": "sha256:34c34bc42abd9d57d9cc0cd25b10bdb67f4ce404091c9e590275e52a91128c92"
+        },
+        "deployment_component_id": "deployment.azure.eventing.v1",
+        "deployment_component_version": "1",
+        "service_id": "azure.eventing.v1",
+        "region": "westeurope",
+        "capability_evidence": [
+          "capability.event.envelope",
+          "capability.event.routing",
+          "capability.event.durable-buffer",
+          "capability.event.independent-fanout",
+          "capability.event.at-least-once",
+          "capability.event.retry",
+          "capability.event.dead-letter",
+          "capability.event.replay",
+          "capability.event.trace-correlation",
+          "capability.event.idempotency",
+          "capability.event.per-device-ordering",
+          "capability.event.schema-rejection",
+          "capability.event.observability",
+          "capability.event.cross-cloud-transport",
+          "capability.event.cost-ownership"
+        ],
+        "pricing_model_refs": [
+          "intent.azure.event-hubs-dedicated.cu-hour",
+          "intent.azure.event-hubs.ingress",
+          "intent.azure.event-hubs.tu-hour",
+          "intent.azure.functions.compute",
+          "intent.azure.functions.execution",
+          "intent.azure.monitor.ingestion",
+          "intent.azure.service-bus.base-hour",
+          "intent.azure.service-bus.operation"
+        ],
+        "formula_refs": [
+          "formula.azure.event-hubs-dedicated",
+          "formula.azure.event-hubs-standard",
+          "formula.azure.service-bus-standard",
+          "formula.bridge.compute",
+          "formula.compute.serverless",
+          "formula.observability.decimal-gb"
+        ],
+        "deployment_specification_component_ids": [
+          "azure.event-hubs-standard-small-medium",
+          "azure.service-bus-standard",
+          "azure.functions-flex-event-worker",
+          "azure.monitor",
+          "azure.log-analytics-shared-workspace",
+          "azure.functions-flex-event-adapter"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "47.48159112"
+        },
+        "required": true
+      },
+      {
+        "assignment_id": "assignment.hot-storage",
+        "responsibility_id": "responsibility.storage",
+        "logical_component_id": "component.hot-storage",
+        "provider": "aws",
+        "provider_implementation_profile_ref": {
+          "id": "provider-profile.aws.six-layer-eventing-v1",
+          "version": "1",
+          "digest": "sha256:eafa87b4c120efa77413ab36fc69c5f981bc394c68581809347891d39971a2b5"
+        },
+        "deployment_component_id": "deployment.aws.hot-storage.v2",
+        "deployment_component_version": "1",
+        "service_id": "aws.hot-storage.v2",
+        "region": "eu-central-1",
+        "capability_evidence": [
+          "capability.hot-storage"
+        ],
+        "pricing_model_refs": [
+          "pricing.aws.hot-storage.v2"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "deployment_specification_component_ids": [
+          "aws.dynamodb-on-demand-raw",
+          "aws.dynamodb-on-demand-hourly-rollup",
+          "aws.eventbridge-scheduler",
+          "aws.ecs-fargate-storage-mover",
+          "aws.ecr-if-container-selected"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "8.649608"
+        },
+        "required": true
+      },
+      {
+        "assignment_id": "assignment.ingestion",
+        "responsibility_id": "responsibility.ingestion",
+        "logical_component_id": "component.ingestion",
+        "provider": "aws",
+        "provider_implementation_profile_ref": {
+          "id": "provider-profile.aws.six-layer-eventing-v1",
+          "version": "1",
+          "digest": "sha256:eafa87b4c120efa77413ab36fc69c5f981bc394c68581809347891d39971a2b5"
+        },
+        "deployment_component_id": "deployment.aws.ingestion.v2",
+        "deployment_component_version": "1",
+        "service_id": "aws.ingestion.v2",
+        "region": "eu-central-1",
+        "capability_evidence": [
+          "capability.embedded-domain-event-ingress",
+          "capability.ingestion"
+        ],
+        "pricing_model_refs": [
+          "pricing.aws.ingestion.v2"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "deployment_specification_component_ids": [
+          "aws.iot-core",
+          "aws.iot-commands",
+          "aws.sqs-fifo",
+          "aws.lambda-event-adapter",
+          "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+          "aws.sns-fifo-only-for-reviewed-remote-control-edge",
+          "aws.cloudwatch"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "81.626861138"
+        },
+        "required": true
+      },
+      {
+        "assignment_id": "assignment.processing",
+        "responsibility_id": "responsibility.processing",
+        "logical_component_id": "component.processing",
+        "provider": "aws",
+        "provider_implementation_profile_ref": {
+          "id": "provider-profile.aws.six-layer-eventing-v1",
+          "version": "1",
+          "digest": "sha256:eafa87b4c120efa77413ab36fc69c5f981bc394c68581809347891d39971a2b5"
+        },
+        "deployment_component_id": "deployment.aws.processing.v2",
+        "deployment_component_version": "1",
+        "service_id": "aws.processing.v2",
+        "region": "eu-central-1",
+        "capability_evidence": [
+          "capability.embedded-domain-event-routing",
+          "capability.mandatory-rule-action-feedback",
+          "capability.processing"
+        ],
+        "pricing_model_refs": [
+          "pricing.aws.processing.v2"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "deployment_specification_component_ids": [
+          "aws.lambda",
+          "aws.step-functions-standard"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "4.950759"
+        },
+        "required": true
+      },
+      {
+        "assignment_id": "assignment.twin-state",
+        "responsibility_id": "responsibility.twin-state",
+        "logical_component_id": "component.twin-state",
+        "provider": "azure",
+        "provider_implementation_profile_ref": {
+          "id": "provider-profile.azure.six-layer-eventing-v1",
+          "version": "1",
+          "digest": "sha256:34c34bc42abd9d57d9cc0cd25b10bdb67f4ce404091c9e590275e52a91128c92"
+        },
+        "deployment_component_id": "deployment.azure.twin-state.v2",
+        "deployment_component_version": "1",
+        "service_id": "azure.twin-state.v2",
+        "region": "westeurope",
+        "capability_evidence": [
+          "capability.twin-state"
+        ],
+        "pricing_model_refs": [
+          "pricing.azure.twin-state.v2"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "deployment_specification_component_ids": [
+          "azure.digital-twins",
+          "azure.entra-layer-access-bindings"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0.92742"
+        },
+        "required": true
+      },
+      {
+        "assignment_id": "assignment.visualization",
+        "responsibility_id": "responsibility.visualization",
+        "logical_component_id": "component.visualization",
+        "provider": "aws",
+        "provider_implementation_profile_ref": {
+          "id": "provider-profile.aws.six-layer-eventing-v1",
+          "version": "1",
+          "digest": "sha256:eafa87b4c120efa77413ab36fc69c5f981bc394c68581809347891d39971a2b5"
+        },
+        "deployment_component_id": "deployment.aws.visualization.v2",
+        "deployment_component_version": "1",
+        "service_id": "aws.visualization.v2",
+        "region": "eu-central-1",
+        "capability_evidence": [
+          "capability.visualization"
+        ],
+        "pricing_model_refs": [
+          "pricing.aws.visualization.v2"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "deployment_specification_component_ids": [
+          "aws.amazon-managed-grafana-12",
+          "aws.lambda-raw-history-reader",
+          "aws.grafana-marcusolsson-json-datasource",
+          "aws.iam-identity-center-layer-access"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "23.0008220015"
+        },
+        "required": true
+      }
+    ],
+    "resolved_edges": [
+      {
+        "resolved_edge_id": "resolved.cool-to-archive-storage",
+        "edge_id": "edge.cool-to-archive-storage",
+        "source_assignment_id": "assignment.cool-storage",
+        "source_port_id": "catalog.azure.port.cool-storage.transition-out",
+        "destination_assignment_id": "assignment.archive-storage",
+        "destination_port_id": "catalog.azure.port.archive-storage.write-in",
+        "edge_implementation_id": "edge-implementation.azure-to-azure.cool-to-archive-storage.v2",
+        "mechanism": "source_owned_transition_runtime",
+        "delivery_semantics": {
+          "dead_letter_policy": "provider_managed",
+          "idempotency": "consumer_deduplicated",
+          "mode": "asynchronous",
+          "ordering": "per_entity",
+          "replay": "bounded",
+          "retry_policy": "provider_managed_bounded",
+          "timeout_policy": "not_applicable"
+        },
+        "transfer_route_class": "same_provider_same_region",
+        "transfer_evidence_refs": [
+          "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.five-layer-v2",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.cool-to-archive-storage"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.cool-to-archive-storage"
+        ]
+      },
+      {
+        "resolved_edge_id": "resolved.hot-storage-to-twin-state",
+        "edge_id": "edge.hot-storage-to-twin-state",
+        "source_assignment_id": "assignment.hot-storage",
+        "source_port_id": "catalog.aws.port.hot-storage.twin-projection-out",
+        "destination_assignment_id": "assignment.twin-state",
+        "destination_port_id": "catalog.azure.port.twin-state.projection-in",
+        "edge_implementation_id": "edge-implementation.aws-to-azure.hot-storage-to-twin-state.v2",
+        "mechanism": "cross_provider_adapter",
+        "delivery_semantics": {
+          "dead_letter_policy": "provider_managed",
+          "idempotency": "consumer_deduplicated",
+          "mode": "asynchronous",
+          "ordering": "per_entity",
+          "replay": "bounded",
+          "retry_policy": "provider_managed_bounded",
+          "timeout_policy": "not_applicable"
+        },
+        "transfer_route_class": "cross_provider",
+        "transfer_evidence_refs": [
+          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+          "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.five-layer-v2",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.hot-storage-to-twin-state"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.hot-storage-to-twin-state"
+        ]
+      },
+      {
+        "resolved_edge_id": "resolved.hot-to-cool-storage",
+        "edge_id": "edge.hot-to-cool-storage",
+        "source_assignment_id": "assignment.hot-storage",
+        "source_port_id": "catalog.aws.port.hot-storage.transition-out",
+        "destination_assignment_id": "assignment.cool-storage",
+        "destination_port_id": "catalog.azure.port.cool-storage.write-in",
+        "edge_implementation_id": "edge-implementation.aws-to-azure.hot-to-cool-storage.v2",
+        "mechanism": "cross_provider_adapter",
+        "delivery_semantics": {
+          "dead_letter_policy": "provider_managed",
+          "idempotency": "consumer_deduplicated",
+          "mode": "asynchronous",
+          "ordering": "per_entity",
+          "replay": "bounded",
+          "retry_policy": "provider_managed_bounded",
+          "timeout_policy": "not_applicable"
+        },
+        "transfer_route_class": "cross_provider",
+        "transfer_evidence_refs": [
+          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+          "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.five-layer-v2",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.hot-to-cool-storage"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.hot-to-cool-storage"
+        ]
+      },
+      {
+        "resolved_edge_id": "resolved.hot-storage-to-visualization",
+        "edge_id": "edge.hot-storage-to-visualization",
+        "source_assignment_id": "assignment.hot-storage",
+        "source_port_id": "catalog.aws.port.hot-storage.raw-history-out",
+        "destination_assignment_id": "assignment.visualization",
+        "destination_port_id": "catalog.aws.port.visualization.raw-history-in",
+        "edge_implementation_id": "edge-implementation.aws-to-aws.hot-storage-to-visualization.v2",
+        "mechanism": "typed_synchronous_api",
+        "delivery_semantics": {
+          "dead_letter_policy": "not_applicable",
+          "idempotency": "required",
+          "mode": "synchronous",
+          "ordering": "not_required",
+          "replay": "not_supported",
+          "retry_policy": "bounded_backoff",
+          "timeout_policy": "bounded"
+        },
+        "transfer_route_class": "same_provider_same_region",
+        "transfer_evidence_refs": [
+          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464"
+        ],
+        "formula_refs": [
+          "formula.phase-08-complete-service-bundles"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.five-layer-v2",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.hot-storage-to-visualization"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.hot-storage-to-visualization"
+        ]
+      },
+      {
+        "resolved_edge_id": "resolved.ingestion-to-eventing",
+        "edge_id": "edge.ingestion-to-eventing",
+        "source_assignment_id": "assignment.ingestion",
+        "source_port_id": "catalog.aws.port.ingestion.eventing-out",
+        "destination_assignment_id": "assignment.eventing",
+        "destination_port_id": "catalog.azure.port.eventing.ingestion-in",
+        "edge_implementation_id": "edge-implementation.aws-to-azure.ingestion-to-eventing.eventing-v1",
+        "mechanism": "cross_provider_adapter",
+        "delivery_semantics": {
+          "dead_letter_policy": "provider_managed",
+          "idempotency": "consumer_deduplicated",
+          "mode": "asynchronous",
+          "ordering": "per_entity",
+          "replay": "bounded",
+          "retry_policy": "provider_managed_bounded",
+          "timeout_policy": "not_applicable"
+        },
+        "transfer_route_class": "cross_provider",
+        "transfer_evidence_refs": [
+          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+          "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+        ],
+        "formula_refs": [
+          "formula.phase-08-eventing"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.eventing",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.ingestion-to-eventing"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.ingestion-to-eventing"
+        ]
+      },
+      {
+        "resolved_edge_id": "resolved.eventing-to-processing",
+        "edge_id": "edge.eventing-to-processing",
+        "source_assignment_id": "assignment.eventing",
+        "source_port_id": "catalog.azure.port.eventing.processing-out",
+        "destination_assignment_id": "assignment.processing",
+        "destination_port_id": "catalog.aws.port.processing.eventing-in",
+        "edge_implementation_id": "edge-implementation.azure-to-aws.eventing-to-processing.eventing-v1",
+        "mechanism": "cross_provider_adapter",
+        "delivery_semantics": {
+          "dead_letter_policy": "provider_managed",
+          "idempotency": "consumer_deduplicated",
+          "mode": "asynchronous",
+          "ordering": "per_entity",
+          "replay": "bounded",
+          "retry_policy": "provider_managed_bounded",
+          "timeout_policy": "not_applicable"
+        },
+        "transfer_route_class": "cross_provider",
+        "transfer_evidence_refs": [
+          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+          "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+        ],
+        "formula_refs": [
+          "formula.phase-08-eventing"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.eventing",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.eventing-to-processing"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.eventing-to-processing"
+        ]
+      },
+      {
+        "resolved_edge_id": "resolved.processing-to-eventing",
+        "edge_id": "edge.processing-to-eventing",
+        "source_assignment_id": "assignment.processing",
+        "source_port_id": "catalog.aws.port.processing.eventing-out",
+        "destination_assignment_id": "assignment.eventing",
+        "destination_port_id": "catalog.azure.port.eventing.processing-in",
+        "edge_implementation_id": "edge-implementation.aws-to-azure.processing-to-eventing.eventing-v1",
+        "mechanism": "cross_provider_adapter",
+        "delivery_semantics": {
+          "dead_letter_policy": "provider_managed",
+          "idempotency": "consumer_deduplicated",
+          "mode": "asynchronous",
+          "ordering": "per_entity",
+          "replay": "bounded",
+          "retry_policy": "provider_managed_bounded",
+          "timeout_policy": "not_applicable"
+        },
+        "transfer_route_class": "cross_provider",
+        "transfer_evidence_refs": [
+          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+          "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+        ],
+        "formula_refs": [
+          "formula.phase-08-eventing"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.eventing",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.processing-to-eventing"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.processing-to-eventing"
+        ]
+      },
+      {
+        "resolved_edge_id": "resolved.eventing-to-ingestion",
+        "edge_id": "edge.eventing-to-ingestion",
+        "source_assignment_id": "assignment.eventing",
+        "source_port_id": "catalog.azure.port.eventing.ingestion-out",
+        "destination_assignment_id": "assignment.ingestion",
+        "destination_port_id": "catalog.aws.port.ingestion.device-command-in",
+        "edge_implementation_id": "edge-implementation.azure-to-aws.eventing-to-ingestion.eventing-v1",
+        "mechanism": "cross_provider_adapter",
+        "delivery_semantics": {
+          "dead_letter_policy": "provider_managed",
+          "idempotency": "consumer_deduplicated",
+          "mode": "asynchronous",
+          "ordering": "per_entity",
+          "replay": "bounded",
+          "retry_policy": "provider_managed_bounded",
+          "timeout_policy": "not_applicable"
+        },
+        "transfer_route_class": "cross_provider",
+        "transfer_evidence_refs": [
+          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+          "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+        ],
+        "formula_refs": [
+          "formula.phase-08-eventing"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.eventing",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.eventing-to-ingestion"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.eventing-to-ingestion"
+        ]
+      },
+      {
+        "resolved_edge_id": "resolved.eventing-to-hot-storage",
+        "edge_id": "edge.eventing-to-hot-storage",
+        "source_assignment_id": "assignment.eventing",
+        "source_port_id": "catalog.azure.port.eventing.hot-storage-out",
+        "destination_assignment_id": "assignment.hot-storage",
+        "destination_port_id": "catalog.aws.port.hot-storage.eventing-in",
+        "edge_implementation_id": "edge-implementation.azure-to-aws.eventing-to-hot-storage.eventing-v1",
+        "mechanism": "cross_provider_adapter",
+        "delivery_semantics": {
+          "dead_letter_policy": "provider_managed",
+          "idempotency": "consumer_deduplicated",
+          "mode": "asynchronous",
+          "ordering": "per_entity",
+          "replay": "bounded",
+          "retry_policy": "provider_managed_bounded",
+          "timeout_policy": "not_applicable"
+        },
+        "transfer_route_class": "cross_provider",
+        "transfer_evidence_refs": [
+          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+          "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+        ],
+        "formula_refs": [
+          "formula.phase-08-eventing"
+        ],
+        "cost_contribution": {
+          "currency": "USD",
+          "monthly_amount": "0"
+        },
+        "trust_contract_ref": {
+          "id": "trust.workload-identity-federation",
+          "version": "1"
+        },
+        "observability_contract_ref": {
+          "id": "observability.eventing",
+          "version": "1"
+        },
+        "deployment_input_binding_ids": [
+          "binding.input.eventing-to-hot-storage"
+        ],
+        "deployment_output_binding_ids": [
+          "binding.output.eventing-to-hot-storage"
+        ]
+      }
+    ],
+    "extension_bindings": [
+      {
+        "slot_id": "processor.telemetry",
+        "slot_version": "1",
+        "artifact_id": "artifact.user.processor.example",
+        "artifact_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "logical_component_id": "component.processing",
+        "configuration_digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "validation_contract_version": "1"
+      }
+    ],
+    "deployment_specification_ref": {
+      "schema_version": "resolved-deployment-specification.v2",
+      "calculation_run_id": "89287aa5-89b4-55dc-88cb-680f2823da48",
+      "digest": "sha256:fad2b115b115cef0f2ab5dbe9598b7c320d760038cce097d8c48d62c78ed2a89"
+    },
+    "cost_summary": {
+      "currency": "USD",
+      "responsibility_totals": [
+        {
+          "item_id": "responsibility.ingestion",
+          "monthly_amount": "81.626861138"
+        },
+        {
+          "item_id": "responsibility.processing",
+          "monthly_amount": "4.950759"
+        },
+        {
+          "item_id": "responsibility.storage",
+          "monthly_amount": "8.678608"
+        },
+        {
+          "item_id": "responsibility.twin-state",
+          "monthly_amount": "0.92742"
+        },
+        {
+          "item_id": "responsibility.visualization",
+          "monthly_amount": "23.0008220015"
+        },
+        {
+          "item_id": "responsibility.eventing",
+          "monthly_amount": "47.48159112"
+        }
+      ],
+      "component_totals": [
+        {
+          "item_id": "component.archive-storage",
+          "monthly_amount": "0.009"
+        },
+        {
+          "item_id": "component.cool-storage",
+          "monthly_amount": "0.02"
+        },
+        {
+          "item_id": "component.eventing",
+          "monthly_amount": "47.48159112"
+        },
+        {
+          "item_id": "component.hot-storage",
+          "monthly_amount": "8.649608"
+        },
+        {
+          "item_id": "component.ingestion",
+          "monthly_amount": "81.626861138"
+        },
+        {
+          "item_id": "component.processing",
+          "monthly_amount": "4.950759"
+        },
+        {
+          "item_id": "component.twin-state",
+          "monthly_amount": "0.92742"
+        },
+        {
+          "item_id": "component.visualization",
+          "monthly_amount": "23.0008220015"
+        }
+      ],
+      "edge_totals": [
+        {
+          "item_id": "edge.cool-to-archive-storage",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "edge.eventing-to-hot-storage",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "edge.eventing-to-ingestion",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "edge.eventing-to-processing",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "edge.hot-storage-to-twin-state",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "edge.hot-storage-to-visualization",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "edge.hot-to-cool-storage",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "edge.ingestion-to-eventing",
+          "monthly_amount": "0"
+        },
+        {
+          "item_id": "edge.processing-to-eventing",
+          "monthly_amount": "0"
+        }
+      ],
+      "monthly_total": "166.6660612595"
+    },
+    "functional_completeness": {
+      "status": "complete",
+      "required_capability_ids": [
+        "capability.archive-storage",
+        "capability.cool-storage",
+        "capability.embedded-domain-event-ingress",
+        "capability.embedded-domain-event-routing",
+        "capability.event.at-least-once",
+        "capability.event.cost-ownership",
+        "capability.event.cross-cloud-transport",
+        "capability.event.dead-letter",
+        "capability.event.durable-buffer",
+        "capability.event.envelope",
+        "capability.event.idempotency",
+        "capability.event.independent-fanout",
+        "capability.event.observability",
+        "capability.event.per-device-ordering",
+        "capability.event.replay",
+        "capability.event.retry",
+        "capability.event.routing",
+        "capability.event.schema-rejection",
+        "capability.event.trace-correlation",
+        "capability.hot-storage",
+        "capability.ingestion",
+        "capability.mandatory-rule-action-feedback",
+        "capability.processing",
+        "capability.twin-state",
+        "capability.visualization"
+      ],
+      "provided_capability_ids": [
+        "capability.archive-storage",
+        "capability.cool-storage",
+        "capability.embedded-domain-event-ingress",
+        "capability.embedded-domain-event-routing",
+        "capability.event.at-least-once",
+        "capability.event.cost-ownership",
+        "capability.event.cross-cloud-transport",
+        "capability.event.dead-letter",
+        "capability.event.durable-buffer",
+        "capability.event.envelope",
+        "capability.event.idempotency",
+        "capability.event.independent-fanout",
+        "capability.event.observability",
+        "capability.event.per-device-ordering",
+        "capability.event.replay",
+        "capability.event.retry",
+        "capability.event.routing",
+        "capability.event.schema-rejection",
+        "capability.event.trace-correlation",
+        "capability.hot-storage",
+        "capability.ingestion",
+        "capability.mandatory-rule-action-feedback",
+        "capability.processing",
+        "capability.twin-state",
+        "capability.visualization"
+      ],
+      "provider_extra_capability_ids": [],
+      "missing_capability_ids": [],
+      "validator_version": "2",
+      "validation_digest": "sha256:3e8ccf6f600452e283238bdc88597278d059ed83566d1af805c696aff009e745"
+    },
+    "content_digest": "sha256:45af38287c8ad5747fa6692aa170c26965ba6becb43ca65fafe55c976ab4815a"
+  },
+  "resolved_deployment_specification_digest": "sha256:fad2b115b115cef0f2ab5dbe9598b7c320d760038cce097d8c48d62c78ed2a89",
+  "resolved_deployment_specification": {
+    "schema_version": "resolved-deployment-specification.v2",
+    "calculation_run_id": "89287aa5-89b4-55dc-88cb-680f2823da48",
+    "architecture_profile_ref": {
+      "id": "six-layer-eventing",
+      "version": "1",
+      "digest": "sha256:0ecbf18fdc54a479c81a81df114fc508983db7da1786836aa1774e03d1665066"
+    },
+    "optimization_context": {
+      "service_decision_ref": {
+        "id": "phase-08-complete-service-bundles",
+        "version": "1",
+        "digest": "sha256:8c422bd768dfbe41587b79907c23b8f2a2b27b00adf83ec7d3bac2373492809f"
+      },
+      "component_catalog_ref": {
+        "id": "six-layer-eventing-component-catalog",
+        "version": "1",
+        "digest": "sha256:e99bde162b10d648941109157910d6e5d4f29916b42b2ca23408715119a06b33"
+      },
+      "workload_ref": {
+        "id": "five-layer-workload",
+        "version": "2",
+        "digest": "sha256:32fb431fb207e539bc85e6f22ce9bb3d7a9224e18722d41a7cda0339c80b9a95"
+      },
+      "eventing_scenario_ref": {
+        "id": "eventing-small-v1",
+        "version": "1",
+        "digest": "sha256:e960cbb799562c1cc6883e867038575eeb38422859f6bac7a9b4b07f2d497833"
+      },
+      "formula_set_ref": {
+        "id": "phase-08-complete-service-bundles",
+        "version": "1",
+        "digest": "sha256:a25799ee9a15a409036222cab676c2c1e9fada0873d53f59ba83d7942a3324ec"
+      },
+      "pricing_evidence_refs": [
+        {
+          "provider": "aws",
+          "digest": "sha256:acb96faf904bc16d9d00d83fb26372ee2bf35255340ab5afaf6df6e87b8342b7"
+        },
+        {
+          "provider": "azure",
+          "digest": "sha256:9a91dd0c760ab1a4c66f6e8abe2acd5f98d80da560d605c09d509957c1a172ce"
+        }
+      ]
+    },
+    "readiness": {
+      "status": "offline_contract_fixture",
+      "blocking_gate_ids": [
+        "gate.live-capacity.aws.dynamodb-partition-distribution",
+        "gate.live-capacity.aws.reader-latency-and-quota",
+        "gate.live-capacity.aws.twinmaker-query-behavior",
+        "gate.live-capacity.azure.cosmos-partition-distribution",
+        "gate.live-capacity.azure.cosmos-request-charge-fixture",
+        "gate.live-capacity.azure.reader-latency-and-quota"
+      ]
+    },
+    "currency": "USD",
+    "fixed_dimensions": {
+      "l4_inspection_sessions_per_month": 12,
+      "l4_reads_per_inspection_session": 20,
+      "visualized_numeric_metrics_per_record": 1,
+      "rollup_bucket_seconds": 3600,
+      "reader_timeout_seconds": 10,
+      "reader_maximum_points": 1000,
+      "gcp_grafana_persistent_disk_gib": 10,
+      "storage_batch_interval_minutes": 5,
+      "storage_task_max_input_mib": 512,
+      "storage_object_max_uncompressed_mib": 64,
+      "storage_transfer_retry_horizon_hours": 24,
+      "storage_source_expiry_grace_hours": 48,
+      "azure_mover_max_device_partitions_per_task": 1000
+    },
+    "component_selections": [
+      {
+        "selection_id": "selection.aws.aws.iot-core",
+        "architecture_assignment_id": "assignment.ingestion",
+        "logical_component_id": "component.ingestion",
+        "implementation_component_id": "aws.iot-core",
+        "implementation_component_digest": "sha256:3830204dcae431e5950ab453f7b547b9d395bb0b4abe5fb1ab0ac486fee51798",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.iot-core.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.iot-core.connected_devices",
+            "classification": "usage",
+            "value": 100,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.iot-core.messages",
+            "classification": "usage",
+            "value": 2160000,
+            "unit": "messages/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.iot-commands",
+        "architecture_assignment_id": "assignment.ingestion",
+        "logical_component_id": "component.ingestion",
+        "implementation_component_id": "aws.iot-commands",
+        "implementation_component_digest": "sha256:e3cf8ac53625522d5fb070deb0a0eb4a1b39fac51773244d14b122771050f70b",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.iot-commands.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.iot-commands.connected_devices",
+            "classification": "usage",
+            "value": 100,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.iot-commands.messages",
+            "classification": "usage",
+            "value": 250,
+            "unit": "messages/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.lambda",
+        "architecture_assignment_id": "assignment.processing",
+        "logical_component_id": "component.processing",
+        "implementation_component_id": "aws.lambda",
+        "implementation_component_digest": "sha256:eec6ce553efa90e04126f935b823e681ae31eab5bccb45070c18a2974b6942d9",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.lambda.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.lambda.requests",
+            "classification": "usage",
+            "value": 2160000,
+            "unit": "requests/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.lambda.gib_seconds",
+            "classification": "usage",
+            "value": "270000.000",
+            "unit": "GiB-s/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.step-functions-standard",
+        "architecture_assignment_id": "assignment.processing",
+        "logical_component_id": "component.processing",
+        "implementation_component_id": "aws.step-functions-standard",
+        "implementation_component_digest": "sha256:c6f8c3c870cda218f7564354d5770cbf99ac2bacce7d93aab77c88a80e0bb2d9",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.step-functions-standard.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.step-functions-standard.requests",
+            "classification": "usage",
+            "value": 2160000,
+            "unit": "requests/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.step-functions-standard.execution_seconds",
+            "classification": "usage",
+            "value": 2160000,
+            "unit": "seconds/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.step-functions-standard.workflow_executions",
+            "classification": "usage",
+            "value": 250,
+            "unit": "executions/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.step-functions-standard.workflow_transitions",
+            "classification": "usage",
+            "value": 750,
+            "unit": "transitions/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.dynamodb-on-demand-raw",
+        "architecture_assignment_id": "assignment.hot-storage",
+        "logical_component_id": "component.hot-storage",
+        "implementation_component_id": "aws.dynamodb-on-demand-raw",
+        "implementation_component_digest": "sha256:f0df5070f0a6eb1939374a660aefcce91a101127a21c1d99b0d4d4105bb30c57",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.dynamodb-on-demand-raw.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.dynamodb-on-demand-raw.read_requests",
+            "classification": "usage",
+            "value": 0,
+            "unit": "requests/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.dynamodb-on-demand-raw.write_requests",
+            "classification": "usage",
+            "value": 4320000,
+            "unit": "requests/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.dynamodb-on-demand-raw.stored_gib_month",
+            "classification": "usage",
+            "value": "0.514984130859",
+            "unit": "GiB-month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.dynamodb-on-demand-hourly-rollup",
+        "architecture_assignment_id": "assignment.hot-storage",
+        "logical_component_id": "component.hot-storage",
+        "implementation_component_id": "aws.dynamodb-on-demand-hourly-rollup",
+        "implementation_component_digest": "sha256:96ce314d581ddd279d82833ea93c68dbeb9dc8494f23f63504910dfe95d5127f",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.dynamodb-on-demand-hourly-rollup.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.dynamodb-on-demand-hourly-rollup.read_requests",
+            "classification": "usage",
+            "value": 2419200,
+            "unit": "requests/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.dynamodb-on-demand-hourly-rollup.write_requests",
+            "classification": "usage",
+            "value": 4320000,
+            "unit": "requests/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.dynamodb-on-demand-hourly-rollup.stored_gib_month",
+            "classification": "usage",
+            "value": "0.0171661376953125",
+            "unit": "GiB-month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.azure.azure.blob-cool",
+        "architecture_assignment_id": "assignment.cool-storage",
+        "logical_component_id": "component.cool-storage",
+        "implementation_component_id": "azure.blob-cool",
+        "implementation_component_digest": "sha256:72fbe21e7c0b97c3b7ecd24673f8f2d6d05df30c0d9e9b60056b620635df13af",
+        "provider": "azure",
+        "region": "westeurope",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.azure.azure.blob-cool.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.blob-cool.stored_gib_month",
+            "classification": "usage",
+            "value": "1.029968261719",
+            "unit": "GiB-month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.azure.azure.blob-archive",
+        "architecture_assignment_id": "assignment.archive-storage",
+        "logical_component_id": "component.archive-storage",
+        "implementation_component_id": "azure.blob-archive",
+        "implementation_component_digest": "sha256:19f80fe193b9f8e2875d04db75ffcb3814030518c328ba4c44e561e8a235ad8a",
+        "provider": "azure",
+        "region": "westeurope",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.azure.azure.blob-archive.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.blob-archive.stored_gib_month",
+            "classification": "usage",
+            "value": "4.634857177734",
+            "unit": "GiB-month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.azure.azure.digital-twins",
+        "architecture_assignment_id": "assignment.twin-state",
+        "logical_component_id": "component.twin-state",
+        "implementation_component_id": "azure.digital-twins",
+        "implementation_component_digest": "sha256:97df946429ae9ff9cdcbc0f7f1f9383c4a1752458a261061cce391164ad77a57",
+        "provider": "azure",
+        "region": "westeurope",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.azure.azure.digital-twins.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.digital-twins.twin_entities",
+            "classification": "usage",
+            "value": 100,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.digital-twins.twin_operations",
+            "classification": "usage",
+            "value": 285360,
+            "unit": "operations/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.amazon-managed-grafana-12",
+        "architecture_assignment_id": "assignment.visualization",
+        "logical_component_id": "component.visualization",
+        "implementation_component_id": "aws.amazon-managed-grafana-12",
+        "implementation_component_digest": "sha256:1084a50173eb665b483c68c7916534d0c69d37ba3caa7ae52cf7fb62b2377d2d",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.amazon-managed-grafana-12.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.amazon-managed-grafana-12.workspace_count",
+            "classification": "usage",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.amazon-managed-grafana-12.editor_seats",
+            "classification": "usage",
+            "value": 2,
+            "unit": "seats/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.amazon-managed-grafana-12.viewer_seats",
+            "classification": "usage",
+            "value": 1,
+            "unit": "seats/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.lambda-raw-history-reader",
+        "architecture_assignment_id": "assignment.visualization",
+        "logical_component_id": "component.visualization",
+        "implementation_component_id": "aws.lambda-raw-history-reader",
+        "implementation_component_digest": "sha256:7632e551beb9fbc103bcbd9ffc753d8dc8cfe12e1b13f1463c11f25be05e6f52",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.lambda-raw-history-reader.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.lambda-raw-history-reader.requests",
+            "classification": "usage",
+            "value": 360,
+            "unit": "requests/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.lambda-raw-history-reader.gib_seconds",
+            "classification": "usage",
+            "value": "45.000",
+            "unit": "GiB-s/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.grafana-marcusolsson-json-datasource",
+        "architecture_assignment_id": "assignment.visualization",
+        "logical_component_id": "component.visualization",
+        "implementation_component_id": "aws.grafana-marcusolsson-json-datasource",
+        "implementation_component_digest": "sha256:20d8e5759673f65fc662d6edd00e426e5917e3dc497f85defe28714a50d401d6",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.grafana-marcusolsson-json-datasource.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.grafana-marcusolsson-json-datasource.workspace_count",
+            "classification": "usage",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.grafana-marcusolsson-json-datasource.editor_seats",
+            "classification": "usage",
+            "value": 2,
+            "unit": "seats/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.grafana-marcusolsson-json-datasource.viewer_seats",
+            "classification": "usage",
+            "value": 1,
+            "unit": "seats/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.azure.azure.event-hubs-standard-small-medium",
+        "architecture_assignment_id": "assignment.eventing",
+        "logical_component_id": "component.eventing",
+        "implementation_component_id": "azure.event-hubs-standard-small-medium",
+        "implementation_component_digest": "sha256:9c761e9c9c81dd5338f7367146894c96f602be6cc9347dc7665236e6e5e265bf",
+        "provider": "azure",
+        "region": "westeurope",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.azure.azure.event-hubs-standard-small-medium.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.event-hubs-standard-small-medium.throughput_unit_hours",
+            "classification": "usage",
+            "value": 730,
+            "unit": "TU-hours/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.event-hubs-standard-small-medium.capacity_unit_hours",
+            "classification": "usage",
+            "value": 0,
+            "unit": "CU-hours/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.azure.azure.service-bus-standard",
+        "architecture_assignment_id": "assignment.eventing",
+        "logical_component_id": "component.eventing",
+        "implementation_component_id": "azure.service-bus-standard",
+        "implementation_component_digest": "sha256:77a498536d0acbeb389bd53e81620ea3e8615eb034a7a49149ba2269dfb03562",
+        "provider": "azure",
+        "region": "westeurope",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.azure.azure.service-bus-standard.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.service-bus-standard.messaging_unit_hours",
+            "classification": "usage",
+            "value": 730,
+            "unit": "MU-hours/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.service-bus-standard.operations",
+            "classification": "usage",
+            "value": 12018,
+            "unit": "operations/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.azure.azure.functions-flex-event-worker",
+        "architecture_assignment_id": "assignment.eventing",
+        "logical_component_id": "component.eventing",
+        "implementation_component_id": "azure.functions-flex-event-worker",
+        "implementation_component_digest": "sha256:bd12df5b937fbb6d2e9a2be2add928ebba1c733e3d33e1e3c62add24b88140b8",
+        "provider": "azure",
+        "region": "westeurope",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.azure.azure.functions-flex-event-worker.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.functions-flex-event-worker.requests",
+            "classification": "usage",
+            "value": 403406,
+            "unit": "requests/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.functions-flex-event-worker.execution_seconds",
+            "classification": "usage",
+            "value": 403406,
+            "unit": "seconds/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.azure.azure.monitor",
+        "architecture_assignment_id": "assignment.eventing",
+        "logical_component_id": "component.eventing",
+        "implementation_component_id": "azure.monitor",
+        "implementation_component_digest": "sha256:f02006dac8de448637f57b0469287c42a11b238acb59226cad1eab28fc47da90",
+        "provider": "azure",
+        "region": "westeurope",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.azure.azure.monitor.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.monitor.log_ingestion_gib",
+            "classification": "usage",
+            "value": "0.005199432373046875",
+            "unit": "GiB/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.monitor.retained_log_gib_month",
+            "classification": "usage",
+            "value": "0.005199432373046875",
+            "unit": "GiB-month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.azure.azure.log-analytics-shared-workspace",
+        "architecture_assignment_id": "assignment.eventing",
+        "logical_component_id": "component.eventing",
+        "implementation_component_id": "azure.log-analytics-shared-workspace",
+        "implementation_component_digest": "sha256:2241615a2bcd75c0262d1a2ee3230c2756c931e0c7048609a4851279b14eeca6",
+        "provider": "azure",
+        "region": "westeurope",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.azure.azure.log-analytics-shared-workspace.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.log-analytics-shared-workspace.log_ingestion_gib",
+            "classification": "usage",
+            "value": "0.005199432373046875",
+            "unit": "GiB/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.log-analytics-shared-workspace.retained_log_gib_month",
+            "classification": "usage",
+            "value": "0.005199432373046875",
+            "unit": "GiB-month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.azure.azure.functions-flex-event-adapter",
+        "architecture_assignment_id": "assignment.eventing",
+        "logical_component_id": "component.eventing",
+        "implementation_component_id": "azure.functions-flex-event-adapter",
+        "implementation_component_digest": "sha256:caddf9bb4c1be63db9354cdfb89a81fca1f92a96a1e66069db71aa521efa2dea",
+        "provider": "azure",
+        "region": "westeurope",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.azure.azure.functions-flex-event-adapter.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.functions-flex-event-adapter.requests",
+            "classification": "usage",
+            "value": 100100,
+            "unit": "requests/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.azure.azure.functions-flex-event-adapter.execution_seconds",
+            "classification": "usage",
+            "value": 100100,
+            "unit": "seconds/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.sqs-fifo",
+        "architecture_assignment_id": "assignment.ingestion",
+        "logical_component_id": "component.ingestion",
+        "implementation_component_id": "aws.sqs-fifo",
+        "implementation_component_digest": "sha256:d85e4aff802be615f989cb734d65366551393cc16874808cbd1a445a6d824a83",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.sqs-fifo.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.sqs-fifo.requests",
+            "classification": "usage",
+            "value": 100100,
+            "unit": "requests/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.lambda-event-adapter",
+        "architecture_assignment_id": "assignment.ingestion",
+        "logical_component_id": "component.ingestion",
+        "implementation_component_id": "aws.lambda-event-adapter",
+        "implementation_component_digest": "sha256:8d1468980b8b63cb61e00ee9d6dd8a9f01ae13172c6e4d5a417254c4371fd5f7",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.lambda-event-adapter.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.lambda-event-adapter.requests",
+            "classification": "usage",
+            "value": 100100,
+            "unit": "requests/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.lambda-event-adapter.gib_seconds",
+            "classification": "usage",
+            "value": "12512.500",
+            "unit": "GiB-s/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "architecture_assignment_id": "assignment.ingestion",
+        "logical_component_id": "component.ingestion",
+        "implementation_component_id": "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "implementation_component_digest": "sha256:df8682f7743d475f40b0741b05afaf611ba2fca8096092f52ee545ee4d73bce5",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.stream_count",
+            "classification": "capacity",
+            "value": 2,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.shards_per_stream",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.shard_hours",
+            "classification": "usage",
+            "value": 1460,
+            "unit": "shard-hours/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.payload_units",
+            "classification": "usage",
+            "value": 100100,
+            "unit": "units/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.sns-fifo-only-for-reviewed-remote-control-edge",
+        "architecture_assignment_id": "assignment.ingestion",
+        "logical_component_id": "component.ingestion",
+        "implementation_component_id": "aws.sns-fifo-only-for-reviewed-remote-control-edge",
+        "implementation_component_digest": "sha256:a63b0dfb5c9db82f8eeea5ef82cd567d206e8e883920d81ba048ab7b2f9f168e",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.sns-fifo-only-for-reviewed-remote-control-edge.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.sns-fifo-only-for-reviewed-remote-control-edge.publishes",
+            "classification": "usage",
+            "value": 100100,
+            "unit": "requests/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.sns-fifo-only-for-reviewed-remote-control-edge.delivery_bytes",
+            "classification": "usage",
+            "value": 1230028800,
+            "unit": "bytes/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.cloudwatch",
+        "architecture_assignment_id": "assignment.ingestion",
+        "logical_component_id": "component.ingestion",
+        "implementation_component_id": "aws.cloudwatch",
+        "implementation_component_digest": "sha256:05972cb9d2e00ab4891d8a21856f4e4ea8732e60cd4e72b357eef67e60d83f37",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.cloudwatch.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.cloudwatch.log_ingestion_gib",
+            "classification": "usage",
+            "value": "0.53884983062744140625",
+            "unit": "GiB/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.cloudwatch.retained_log_gib_month",
+            "classification": "usage",
+            "value": "0.53884983062744140625",
+            "unit": "GiB-month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.iam-identity-center-layer-access",
+        "architecture_assignment_id": "assignment.visualization",
+        "logical_component_id": "component.visualization",
+        "implementation_component_id": "aws.iam-identity-center-layer-access",
+        "implementation_component_digest": "sha256:3babbd828189d0e725763a47bd5b878a0698ae7b748c635b804a5f6fe0820c87",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.iam-identity-center-layer-access.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.azure.azure.entra-layer-access-bindings",
+        "architecture_assignment_id": "assignment.twin-state",
+        "logical_component_id": "component.twin-state",
+        "implementation_component_id": "azure.entra-layer-access-bindings",
+        "implementation_component_digest": "sha256:7ffcc833e480d183f5d8d6646628fbbb2e1d0c2c665b75971dfe67173c67667a",
+        "provider": "azure",
+        "region": "westeurope",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.azure.azure.entra-layer-access-bindings.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.eventbridge-scheduler",
+        "architecture_assignment_id": "assignment.hot-storage",
+        "logical_component_id": "component.hot-storage",
+        "implementation_component_id": "aws.eventbridge-scheduler",
+        "implementation_component_digest": "sha256:2e7efd4f05372746d7440936344019052f3f6343d41924f00db71f3a458740d4",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.eventbridge-scheduler.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.eventbridge-scheduler.scheduled_invocations",
+            "classification": "usage",
+            "value": 8640,
+            "unit": "invocations/month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.ecs-fargate-storage-mover",
+        "architecture_assignment_id": "assignment.hot-storage",
+        "logical_component_id": "component.hot-storage",
+        "implementation_component_id": "aws.ecs-fargate-storage-mover",
+        "implementation_component_digest": "sha256:707ab195b6150644e229e5428ef0b4288fe82780a278eda01180495839188ea6",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.ecs-fargate-storage-mover.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.ecs-fargate-storage-mover.stored_gib_month",
+            "classification": "usage",
+            "value": "0.514984130859",
+            "unit": "GiB-month",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          },
+          {
+            "dimension_id": "dimension.aws.aws.ecs-fargate-storage-mover.task_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      },
+      {
+        "selection_id": "selection.aws.aws.ecr-if-container-selected",
+        "architecture_assignment_id": "assignment.hot-storage",
+        "logical_component_id": "component.hot-storage",
+        "implementation_component_id": "aws.ecr-if-container-selected",
+        "implementation_component_digest": "sha256:7ea6e0b1359b9a63a49fed6ba678cd828f6b178899aba08f532f183b0a2d3179",
+        "provider": "aws",
+        "region": "eu-central-1",
+        "required": true,
+        "dimensions": [
+          {
+            "dimension_id": "dimension.aws.aws.ecr-if-container-selected.resource_count",
+            "classification": "capacity",
+            "value": 1,
+            "unit": "count",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "evidence_reference": "sha256:96c5751c384b930ef0129af52bd459d7b13e74399b2e43d6b8d64731213b813a"
+          }
+        ]
+      }
+    ],
+    "bindings": [
+      {
+        "binding_id": "binding.aws.aws.iot-core.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.iot-core.resource_count",
+        "destination_selection_id": "selection.aws.aws.iot-core",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.iot-core.connected_devices",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.iot-core.connected_devices",
+        "destination_selection_id": "selection.aws.aws.iot-core",
+        "destination_input_id": "input.usage.connected_devices",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.iot-core.messages",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.iot-core.messages",
+        "destination_selection_id": "selection.aws.aws.iot-core",
+        "destination_input_id": "input.usage.messages",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.iot-commands.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.iot-commands.resource_count",
+        "destination_selection_id": "selection.aws.aws.iot-commands",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.iot-commands.connected_devices",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.iot-commands.connected_devices",
+        "destination_selection_id": "selection.aws.aws.iot-commands",
+        "destination_input_id": "input.usage.connected_devices",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.iot-commands.messages",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.iot-commands.messages",
+        "destination_selection_id": "selection.aws.aws.iot-commands",
+        "destination_input_id": "input.usage.messages",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.lambda.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.lambda.resource_count",
+        "destination_selection_id": "selection.aws.aws.lambda",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.lambda.requests",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.lambda.requests",
+        "destination_selection_id": "selection.aws.aws.lambda",
+        "destination_input_id": "input.usage.requests",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.lambda.gib_seconds",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.lambda.gib_seconds",
+        "destination_selection_id": "selection.aws.aws.lambda",
+        "destination_input_id": "input.usage.gib_seconds",
+        "value_type": "string",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-decimal-string.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.step-functions-standard.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.step-functions-standard.resource_count",
+        "destination_selection_id": "selection.aws.aws.step-functions-standard",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.step-functions-standard.requests",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.step-functions-standard.requests",
+        "destination_selection_id": "selection.aws.aws.step-functions-standard",
+        "destination_input_id": "input.usage.requests",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.step-functions-standard.execution_seconds",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.step-functions-standard.execution_seconds",
+        "destination_selection_id": "selection.aws.aws.step-functions-standard",
+        "destination_input_id": "input.usage.execution_seconds",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.step-functions-standard.workflow_executions",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.step-functions-standard.workflow_executions",
+        "destination_selection_id": "selection.aws.aws.step-functions-standard",
+        "destination_input_id": "input.usage.workflow_executions",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.step-functions-standard.workflow_transitions",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.step-functions-standard.workflow_transitions",
+        "destination_selection_id": "selection.aws.aws.step-functions-standard",
+        "destination_input_id": "input.usage.workflow_transitions",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.dynamodb-on-demand-raw.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.dynamodb-on-demand-raw.resource_count",
+        "destination_selection_id": "selection.aws.aws.dynamodb-on-demand-raw",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.dynamodb-on-demand-raw.read_requests",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.dynamodb-on-demand-raw.read_requests",
+        "destination_selection_id": "selection.aws.aws.dynamodb-on-demand-raw",
+        "destination_input_id": "input.usage.read_requests",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.dynamodb-on-demand-raw.write_requests",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.dynamodb-on-demand-raw.write_requests",
+        "destination_selection_id": "selection.aws.aws.dynamodb-on-demand-raw",
+        "destination_input_id": "input.usage.write_requests",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.dynamodb-on-demand-raw.stored_gib_month",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.dynamodb-on-demand-raw.stored_gib_month",
+        "destination_selection_id": "selection.aws.aws.dynamodb-on-demand-raw",
+        "destination_input_id": "input.usage.stored_gib_month",
+        "value_type": "string",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-decimal-string.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.dynamodb-on-demand-hourly-rollup.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.dynamodb-on-demand-hourly-rollup.resource_count",
+        "destination_selection_id": "selection.aws.aws.dynamodb-on-demand-hourly-rollup",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.dynamodb-on-demand-hourly-rollup.read_requests",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.dynamodb-on-demand-hourly-rollup.read_requests",
+        "destination_selection_id": "selection.aws.aws.dynamodb-on-demand-hourly-rollup",
+        "destination_input_id": "input.usage.read_requests",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.dynamodb-on-demand-hourly-rollup.write_requests",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.dynamodb-on-demand-hourly-rollup.write_requests",
+        "destination_selection_id": "selection.aws.aws.dynamodb-on-demand-hourly-rollup",
+        "destination_input_id": "input.usage.write_requests",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.dynamodb-on-demand-hourly-rollup.stored_gib_month",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.dynamodb-on-demand-hourly-rollup.stored_gib_month",
+        "destination_selection_id": "selection.aws.aws.dynamodb-on-demand-hourly-rollup",
+        "destination_input_id": "input.usage.stored_gib_month",
+        "value_type": "string",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-decimal-string.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.blob-cool.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.blob-cool.resource_count",
+        "destination_selection_id": "selection.azure.azure.blob-cool",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.blob-cool.stored_gib_month",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.blob-cool.stored_gib_month",
+        "destination_selection_id": "selection.azure.azure.blob-cool",
+        "destination_input_id": "input.usage.stored_gib_month",
+        "value_type": "string",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-decimal-string.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.blob-archive.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.blob-archive.resource_count",
+        "destination_selection_id": "selection.azure.azure.blob-archive",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.blob-archive.stored_gib_month",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.blob-archive.stored_gib_month",
+        "destination_selection_id": "selection.azure.azure.blob-archive",
+        "destination_input_id": "input.usage.stored_gib_month",
+        "value_type": "string",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-decimal-string.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.digital-twins.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.digital-twins.resource_count",
+        "destination_selection_id": "selection.azure.azure.digital-twins",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.digital-twins.twin_entities",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.digital-twins.twin_entities",
+        "destination_selection_id": "selection.azure.azure.digital-twins",
+        "destination_input_id": "input.usage.twin_entities",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.digital-twins.twin_operations",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.digital-twins.twin_operations",
+        "destination_selection_id": "selection.azure.azure.digital-twins",
+        "destination_input_id": "input.usage.twin_operations",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.amazon-managed-grafana-12.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.amazon-managed-grafana-12.resource_count",
+        "destination_selection_id": "selection.aws.aws.amazon-managed-grafana-12",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.amazon-managed-grafana-12.workspace_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.amazon-managed-grafana-12.workspace_count",
+        "destination_selection_id": "selection.aws.aws.amazon-managed-grafana-12",
+        "destination_input_id": "input.usage.workspace_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.amazon-managed-grafana-12.editor_seats",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.amazon-managed-grafana-12.editor_seats",
+        "destination_selection_id": "selection.aws.aws.amazon-managed-grafana-12",
+        "destination_input_id": "input.usage.editor_seats",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.amazon-managed-grafana-12.viewer_seats",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.amazon-managed-grafana-12.viewer_seats",
+        "destination_selection_id": "selection.aws.aws.amazon-managed-grafana-12",
+        "destination_input_id": "input.usage.viewer_seats",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.lambda-raw-history-reader.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.lambda-raw-history-reader.resource_count",
+        "destination_selection_id": "selection.aws.aws.lambda-raw-history-reader",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.lambda-raw-history-reader.requests",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.lambda-raw-history-reader.requests",
+        "destination_selection_id": "selection.aws.aws.lambda-raw-history-reader",
+        "destination_input_id": "input.usage.requests",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.lambda-raw-history-reader.gib_seconds",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.lambda-raw-history-reader.gib_seconds",
+        "destination_selection_id": "selection.aws.aws.lambda-raw-history-reader",
+        "destination_input_id": "input.usage.gib_seconds",
+        "value_type": "string",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-decimal-string.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.grafana-marcusolsson-json-datasource.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.grafana-marcusolsson-json-datasource.resource_count",
+        "destination_selection_id": "selection.aws.aws.grafana-marcusolsson-json-datasource",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.grafana-marcusolsson-json-datasource.workspace_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.grafana-marcusolsson-json-datasource.workspace_count",
+        "destination_selection_id": "selection.aws.aws.grafana-marcusolsson-json-datasource",
+        "destination_input_id": "input.usage.workspace_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.grafana-marcusolsson-json-datasource.editor_seats",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.grafana-marcusolsson-json-datasource.editor_seats",
+        "destination_selection_id": "selection.aws.aws.grafana-marcusolsson-json-datasource",
+        "destination_input_id": "input.usage.editor_seats",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.grafana-marcusolsson-json-datasource.viewer_seats",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.grafana-marcusolsson-json-datasource.viewer_seats",
+        "destination_selection_id": "selection.aws.aws.grafana-marcusolsson-json-datasource",
+        "destination_input_id": "input.usage.viewer_seats",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.event-hubs-standard-small-medium.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.event-hubs-standard-small-medium.resource_count",
+        "destination_selection_id": "selection.azure.azure.event-hubs-standard-small-medium",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.event-hubs-standard-small-medium.throughput_unit_hours",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.event-hubs-standard-small-medium.throughput_unit_hours",
+        "destination_selection_id": "selection.azure.azure.event-hubs-standard-small-medium",
+        "destination_input_id": "input.usage.throughput_unit_hours",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.event-hubs-standard-small-medium.capacity_unit_hours",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.event-hubs-standard-small-medium.capacity_unit_hours",
+        "destination_selection_id": "selection.azure.azure.event-hubs-standard-small-medium",
+        "destination_input_id": "input.usage.capacity_unit_hours",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.service-bus-standard.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.service-bus-standard.resource_count",
+        "destination_selection_id": "selection.azure.azure.service-bus-standard",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.service-bus-standard.messaging_unit_hours",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.service-bus-standard.messaging_unit_hours",
+        "destination_selection_id": "selection.azure.azure.service-bus-standard",
+        "destination_input_id": "input.usage.messaging_unit_hours",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.service-bus-standard.operations",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.service-bus-standard.operations",
+        "destination_selection_id": "selection.azure.azure.service-bus-standard",
+        "destination_input_id": "input.usage.operations",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.functions-flex-event-worker.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.functions-flex-event-worker.resource_count",
+        "destination_selection_id": "selection.azure.azure.functions-flex-event-worker",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.functions-flex-event-worker.requests",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.functions-flex-event-worker.requests",
+        "destination_selection_id": "selection.azure.azure.functions-flex-event-worker",
+        "destination_input_id": "input.usage.requests",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.functions-flex-event-worker.execution_seconds",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.functions-flex-event-worker.execution_seconds",
+        "destination_selection_id": "selection.azure.azure.functions-flex-event-worker",
+        "destination_input_id": "input.usage.execution_seconds",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.monitor.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.monitor.resource_count",
+        "destination_selection_id": "selection.azure.azure.monitor",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.monitor.log_ingestion_gib",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.monitor.log_ingestion_gib",
+        "destination_selection_id": "selection.azure.azure.monitor",
+        "destination_input_id": "input.usage.log_ingestion_gib",
+        "value_type": "string",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-decimal-string.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.monitor.retained_log_gib_month",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.monitor.retained_log_gib_month",
+        "destination_selection_id": "selection.azure.azure.monitor",
+        "destination_input_id": "input.usage.retained_log_gib_month",
+        "value_type": "string",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-decimal-string.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.log-analytics-shared-workspace.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.log-analytics-shared-workspace.resource_count",
+        "destination_selection_id": "selection.azure.azure.log-analytics-shared-workspace",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.log-analytics-shared-workspace.log_ingestion_gib",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.log-analytics-shared-workspace.log_ingestion_gib",
+        "destination_selection_id": "selection.azure.azure.log-analytics-shared-workspace",
+        "destination_input_id": "input.usage.log_ingestion_gib",
+        "value_type": "string",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-decimal-string.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.log-analytics-shared-workspace.retained_log_gib_month",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.log-analytics-shared-workspace.retained_log_gib_month",
+        "destination_selection_id": "selection.azure.azure.log-analytics-shared-workspace",
+        "destination_input_id": "input.usage.retained_log_gib_month",
+        "value_type": "string",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-decimal-string.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.functions-flex-event-adapter.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.functions-flex-event-adapter.resource_count",
+        "destination_selection_id": "selection.azure.azure.functions-flex-event-adapter",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.functions-flex-event-adapter.requests",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.functions-flex-event-adapter.requests",
+        "destination_selection_id": "selection.azure.azure.functions-flex-event-adapter",
+        "destination_input_id": "input.usage.requests",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.functions-flex-event-adapter.execution_seconds",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.functions-flex-event-adapter.execution_seconds",
+        "destination_selection_id": "selection.azure.azure.functions-flex-event-adapter",
+        "destination_input_id": "input.usage.execution_seconds",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.sqs-fifo.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.sqs-fifo.resource_count",
+        "destination_selection_id": "selection.aws.aws.sqs-fifo",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.sqs-fifo.requests",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.sqs-fifo.requests",
+        "destination_selection_id": "selection.aws.aws.sqs-fifo",
+        "destination_input_id": "input.usage.requests",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.lambda-event-adapter.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.lambda-event-adapter.resource_count",
+        "destination_selection_id": "selection.aws.aws.lambda-event-adapter",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.lambda-event-adapter.requests",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.lambda-event-adapter.requests",
+        "destination_selection_id": "selection.aws.aws.lambda-event-adapter",
+        "destination_input_id": "input.usage.requests",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.lambda-event-adapter.gib_seconds",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.lambda-event-adapter.gib_seconds",
+        "destination_selection_id": "selection.aws.aws.lambda-event-adapter",
+        "destination_input_id": "input.usage.gib_seconds",
+        "value_type": "string",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-decimal-string.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.resource_count",
+        "destination_selection_id": "selection.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.stream_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.stream_count",
+        "destination_selection_id": "selection.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "destination_input_id": "input.capacity.stream_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.shards_per_stream",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.shards_per_stream",
+        "destination_selection_id": "selection.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "destination_input_id": "input.capacity.shards_per_stream",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.shard_hours",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.shard_hours",
+        "destination_selection_id": "selection.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "destination_input_id": "input.usage.shard_hours",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.payload_units",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge.payload_units",
+        "destination_selection_id": "selection.aws.aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "destination_input_id": "input.usage.payload_units",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.sns-fifo-only-for-reviewed-remote-control-edge.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.sns-fifo-only-for-reviewed-remote-control-edge.resource_count",
+        "destination_selection_id": "selection.aws.aws.sns-fifo-only-for-reviewed-remote-control-edge",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.sns-fifo-only-for-reviewed-remote-control-edge.publishes",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.sns-fifo-only-for-reviewed-remote-control-edge.publishes",
+        "destination_selection_id": "selection.aws.aws.sns-fifo-only-for-reviewed-remote-control-edge",
+        "destination_input_id": "input.usage.publishes",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.sns-fifo-only-for-reviewed-remote-control-edge.delivery_bytes",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.sns-fifo-only-for-reviewed-remote-control-edge.delivery_bytes",
+        "destination_selection_id": "selection.aws.aws.sns-fifo-only-for-reviewed-remote-control-edge",
+        "destination_input_id": "input.usage.delivery_bytes",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.cloudwatch.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.cloudwatch.resource_count",
+        "destination_selection_id": "selection.aws.aws.cloudwatch",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.cloudwatch.log_ingestion_gib",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.cloudwatch.log_ingestion_gib",
+        "destination_selection_id": "selection.aws.aws.cloudwatch",
+        "destination_input_id": "input.usage.log_ingestion_gib",
+        "value_type": "string",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-decimal-string.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.cloudwatch.retained_log_gib_month",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.cloudwatch.retained_log_gib_month",
+        "destination_selection_id": "selection.aws.aws.cloudwatch",
+        "destination_input_id": "input.usage.retained_log_gib_month",
+        "value_type": "string",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-decimal-string.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.iam-identity-center-layer-access.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.iam-identity-center-layer-access.resource_count",
+        "destination_selection_id": "selection.aws.aws.iam-identity-center-layer-access",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.azure.azure.entra-layer-access-bindings.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.entra-layer-access-bindings.resource_count",
+        "destination_selection_id": "selection.azure.azure.entra-layer-access-bindings",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.eventbridge-scheduler.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.eventbridge-scheduler.resource_count",
+        "destination_selection_id": "selection.aws.aws.eventbridge-scheduler",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.eventbridge-scheduler.scheduled_invocations",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.eventbridge-scheduler.scheduled_invocations",
+        "destination_selection_id": "selection.aws.aws.eventbridge-scheduler",
+        "destination_input_id": "input.usage.scheduled_invocations",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.ecs-fargate-storage-mover.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.ecs-fargate-storage-mover.resource_count",
+        "destination_selection_id": "selection.aws.aws.ecs-fargate-storage-mover",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.ecs-fargate-storage-mover.stored_gib_month",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.ecs-fargate-storage-mover.stored_gib_month",
+        "destination_selection_id": "selection.aws.aws.ecs-fargate-storage-mover",
+        "destination_input_id": "input.usage.stored_gib_month",
+        "value_type": "string",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-decimal-string.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.ecs-fargate-storage-mover.task_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.ecs-fargate-storage-mover.task_count",
+        "destination_selection_id": "selection.aws.aws.ecs-fargate-storage-mover",
+        "destination_input_id": "input.capacity.task_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      },
+      {
+        "binding_id": "binding.aws.aws.ecr-if-container-selected.resource_count",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.aws.aws.ecr-if-container-selected.resource_count",
+        "destination_selection_id": "selection.aws.aws.ecr-if-container-selected",
+        "destination_input_id": "input.capacity.resource_count",
+        "value_type": "integer",
+        "sensitivity": "internal",
+        "resolution_stage": "preplan",
+        "validator_id": "validator.non-negative-integer.v1",
+        "compatibility_version": "1"
+      }
+    ],
+    "digest": "sha256:fad2b115b115cef0f2ab5dbe9598b7c320d760038cce097d8c48d62c78ed2a89"
+  },
+  "credentials": {
+    "providers": [
+      "aws",
+      "azure"
+    ],
+    "sources": {
+      "aws": "cloud_connection",
+      "azure": "cloud_connection"
+    },
+    "contains_secret_payloads": false
+  },
+  "compatibility": {
+    "component_catalog_ref": {
+      "id": "six-layer-eventing-component-catalog",
+      "version": "1",
+      "digest": "sha256:e99bde162b10d648941109157910d6e5d4f29916b42b2ca23408715119a06b33"
+    },
+    "graph_resolver_version": "resolved-deployment-graph.v1",
+    "package_builder_version": "graph-package-builder.v1",
+    "terraform_input_contract_version": "graph-terraform-inputs.v1"
+  },
+  "extensions": {
+    "binding_index": null,
+    "bindings": []
+  }
+}

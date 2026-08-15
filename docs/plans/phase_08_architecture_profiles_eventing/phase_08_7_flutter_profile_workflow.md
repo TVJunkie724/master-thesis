@@ -2,8 +2,8 @@
 title: "Phase 8.7: Flutter Architecture Profile Workflow"
 description: "Implementation plan for compact profile selection and read-only resolved-architecture review across Web and desktop."
 tags: [architecture, flutter, wizard, bloc, riverpod, accessibility, issue-138]
-lastUpdated: "2026-07-19"
-version: "1.0"
+lastUpdated: "2026-08-03"
+version: "1.9"
 ---
 
 <!-- SOURCES:
@@ -15,7 +15,8 @@ version: "1.0"
 - twin2multicloud_flutter/lib/services/management_api.dart
 - twin2multicloud_flutter/lib/screens/wizard and twin2multicloud_flutter/lib/bloc/wizard
 - User-approved compact task-sidebar workflow and Web/macOS/Windows/Linux support
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+- twin2multicloud_flutter/implementation_plans/2026-08-03_architecture_profile_experiment.md
+EXTRACTED: 2026-08-03 | VERSION: 1.9
 -->
 
 # Phase 8.7: Flutter Architecture Profile Workflow
@@ -27,8 +28,8 @@ EXTRACTED: 2026-07-19 | VERSION: 1.0
 | Issue | [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) |
 | Milestone | Phase 8 - Twin Architecture Profiles & Eventing |
 | Recommended branch | `codex/phase-8-flutter-profile-workflow` |
-| Base branch | `master` |
-| Blocked by | Phase 8.6 / #152 |
+| Branch base | Reviewed `codex/phase-8-profile-foundation` integrating the complete-service decision package with the dark Phase 8.6 compiler; the branch ultimately targets `master` |
+| Blocked by | Phase 8.6 / #152 and the reviewed complete-service decision package required by the integrated branch base |
 | Targets | Web, macOS, Windows, Linux |
 | Backend boundary | Management API only |
 | Live cloud E2E | Forbidden |
@@ -58,14 +59,39 @@ complete optimizer run, and reviews the immutable resolved components and
 bindings. The UI is not an infrastructure editor.
 
 Initially only implemented active profiles are returned. Do not render
-`six-layer-eventing@1` as disabled or "coming soon" before Phase 8.9 makes it
-real.
+`six-layer-eventing@1` as disabled or "coming soon" before its later,
+separately approved implementation makes it real.
+
+### Corrective Activation Boundary
+
+Phase 8.6 remains dark and `five-layer-baseline@1` is historical
+read/verify/destroy only. Therefore Phase 8.7 must fully implement and test the
+typed workflow while accepting that the live Management API can return zero
+active selectable profiles. Contract/widget fixtures may exercise populated
+states, but DemoManagementApi must not advertise a fake active profile.
+`five-layer-baseline@2` is first published by Phase 8.9A. Six-layer follows
+only after the reviewed post-8.9A branch gate in its v2 plan. Provider availability comes from the
+complete-service decision and must
+represent AWS, Azure, provider-hosted GCP, mixed L1/L2/cool/archive
+placements, the provider-local L3-hot/L5 constraint, and the independent L4
+placement precisely. Six-layer controls remain hidden until the later
+server-activated profile version; the client does not show “coming soon”. The
+current widget/data-type implementation authority is
+`twin2multicloud_flutter/implementation_plans/2026-08-03_architecture_profile_experiment.md`.
 
 ### Scope Boundary
 
 | Included | Excluded |
 |---|---|
 | Typed Management API capability/models, Wizard BLoC transitions, compact profile/task workflow, data-driven graph/read-only evidence, server-derived invalidation confirmation, demo parity, accessibility, and Web/macOS/Windows/Linux gates | Direct Optimizer/Deployer access, backend architecture decisions, infrastructure editing, arbitrary graph/layer controls, Eventing UI before activation, mobile targets, and live provider execution |
+
+Post-deployment L4/L5 Layer Access is deliberately not smuggled into this
+configuration issue. Phase 8.7 prepares and reviews the selected L4 and L5
+assignments before deployment. Phase 8.9A later adds the deployed browser
+links, interactive identity/readiness evidence, and GCP Viewer credential
+workflow to the existing Twin Overview under
+[`phase_08_layer_access_handoff.md`](phase_08_layer_access_handoff.md) and the
+dedicated Flutter implementation plan. Both flows use Management API only.
 
 ## 2. Existing Architecture Boundary
 
@@ -304,23 +330,27 @@ automatically.
 
 Workspace width at or above `1200` logical pixels:
 
+The populated wireframes in Sections 7-9 are contract-fixture states used by
+widget tests. Before Phase 8.9A, the real and demo APIs render the required
+no-active-profile state instead.
+
 ```text
 +----------------------+------------------------------------------------------+
 | Configuration        | Architecture                                         |
 |                      |                                                      |
 | Define twin        o | Profile                                              |
 |                      | +-------------------+--------------------------------+ |
-| Architecture       * | | Five-layer       | Five-layer baseline            | |
-|   Select profile   * | | baseline       o | Responsibilities  5            | |
+| Architecture       * | | Five-layer       | Event-enabled five-layer       | |
+|   Select profile   * | | v2             o | Responsibilities  5            | |
 |   Understand       o | |                   | Components        7+           | |
 |                      | |                   | Providers         AWS Azure... | |
 | Workload           l | +-------------------+--------------------------------+ |
 | User Logic         l |                                                      |
-| Optimize...        l | [Overview] [Components]                Active v1     |
+| Optimize...        l | [Overview] [Components]                Active v2     |
 | Deployment...      l |                                                      |
-|                      |  Ingestion --> Processing --> Storage                 |
-|                      |                         |       |                      |
-|                      |                         +--> Twin --> Visualization    |
+|                      |  Ingestion -> Processing -> Storage -> Visualization  |
+|                      |                              |                        |
+|                      |                              +-> Twin                |
 |                      |                                                      |
 |                      | Functional coverage                                  |
 |                      | Required capabilities complete                        |
@@ -345,11 +375,13 @@ Below `960`, reuse `ConfigurationTaskSelector` above the content:
 +------------------------------------------+
 | Architecture / Select profile        [v] |
 +------------------------------------------+
-| Five-layer baseline                (o)   |
-| Active v1                                |
+| Event-enabled five-layer           (o)   |
+| Active v2                                |
 |------------------------------------------|
 | 5 responsibilities | 7+ components      |
-| AWS | Azure | Mixed supported            |
+| AWS | Azure | GCP online bundles         |
+| Mixed L1/L2/cool/archive                  |
+| L3 hot + L5 local | L4 independent       |
 |                                          |
 | [Overview] [Components]                  |
 |                                          |
@@ -357,7 +389,9 @@ Below `960`, reuse `ConfigurationTaskSelector` above the content:
 |    |                                     |
 | Processing                               |
 |    |                                     |
-| Storage ----> Twin ----> Visualization   |
+| Storage ----> Visualization              |
+|    |                                     |
+|    +--------> Twin                       |
 |                                          |
 | Functional coverage                      |
 | Required capabilities complete           |
@@ -379,7 +413,7 @@ The `Compare and select` task shows:
 ```text
 +--------------------------------------------------------------------------+
 | Recommendation                                                           |
-| Five-layer baseline v1 | Mixed providers | USD 42.17 / month             |
+| Event-enabled five-layer v2 | Mixed providers | USD 42.17 / month         |
 | Functional completeness: Complete      Deployment contract: Ready        |
 |                                                                          |
 | Responsibilities                                                         |
@@ -553,15 +587,19 @@ Add versioned fixture assets:
 
 ```text
 twin2multicloud_flutter/assets/demo/v1/
-  architecture-profiles.json
-  architecture-profile-five-layer-baseline.json
-  resolved-twin-architecture-mixed.json
+  architecture-profiles-empty.json
+
+twin2multicloud_flutter/test/fixtures/architecture/
+  architecture-profile-contract-fixture.json
+  resolved-twin-architecture-contract-fixture.json
 ```
 
 `DemoManagementApi` must implement every `ArchitectureApi` method and mutate
 selection/revision/invalidation exactly like the live contract. It may show only
-implemented profiles. Tests must fail if demo/live interface methods or
-contract versions drift.
+implemented profiles; before Phase 8.9A that means the required
+no-active-profile state.
+Populated contract fixtures are test-only. Tests must fail if demo/live
+interface methods or contract versions drift.
 
 ## 16. Implementation Slices
 
@@ -638,9 +676,10 @@ Unhappy:
 Edge:
 
 - idempotent same-profile selection;
-- destructive profile change cancelled/confirmed;
+- destructive profile change cancelled/confirmed with unit-level typed
+  `ArchitectureApi` fixtures until a second implemented profile exists;
 - preview contents match cleared fields, unbound slots, selected run, and
-  readiness categories returned by the real Management API;
+  readiness categories returned by the typed Management API response;
 - compatible CloudConnections and artifacts remain visible after a profile
   change;
 - selected run invalidated;
@@ -669,23 +708,28 @@ Edge:
 - keyboard-only flow;
 - light/dark contrast and focus;
 - single profile;
-- multiple active profiles after Phase 8.9;
+- multiple active profiles after a later Six-layer activation;
 - no graph overlap/blank pixels at supported sizes.
 
 ### Integration
 
 Use the real Docker Management API:
 
-- create/load a Twin with default baseline selection;
-- change/reload selection revision;
-- preview and confirm a destructive profile change using the exact
-  `invalidation_digest`;
-- create a fixture-backed optimizer run and read resolution;
-- select complete run and verify deployment task unlocks;
+- create/load a new Twin and verify the no-active-profile blocking state;
+- load a migrated historical `@1` Twin and verify read-only presentation;
+- reject historical `@1` detail and profile-change targets while the Flutter
+  journey blocks new calculation and deployment from the empty active catalog;
 - cross-user resource access remains hidden;
 - no direct Optimizer/Deployer request occurs.
 
 Unit tests may mock `ArchitectureApi`; integration tests may not mock HTTP.
+The first active-profile selection, complete-run, deployment-unlock, and real
+destructive profile-change integration cases belong to Phase 8.9A. Phase 8.7
+must not expose an inactive or fake profile merely to exercise those paths.
+Direct Management migration/rejection of legacy `@1` optimizer-run creation is
+also activated atomically in 8.9A when `five-layer-baseline@2` becomes active;
+removing the compatibility calculation path earlier would break the existing
+historical API without yet providing its replacement.
 Extend `run_frontend_integration_tests()` in `thesis.sh` so the resolved host
 device runs `integration_test/architecture_profile_workflow_test.dart` after
 the existing Management readiness test. The script remains credential-free.
@@ -726,7 +770,8 @@ Do not put Eventing evaluation conclusions in user docs. Do not edit LaTeX.
 ## 20. Rollout And Rollback
 
 - Feature availability is server-driven by active profile DTOs.
-- Existing Twins receive baseline selection through Phase 8.4 migration.
+- Existing Twins retain historical baseline selection from Phase 8.4
+  migration; new Twins receive no executable default until Phase 8.9A.
 - Existing valid runs use the typed compatibility projection.
 - Legacy unresolvable runs remain readable with a blocking explanation.
 - Rollback disables the profile workflow route and new run creation; it does
@@ -735,29 +780,54 @@ Do not put Eventing evaluation conclusions in user docs. Do not edit LaTeX.
 
 ## 21. Definition Of Done
 
-- [ ] After Twin identity, the workspace presents the five profile-aware phases
+- [x] After Twin identity, the workspace presents the five profile-aware phases
       in the specified order.
-- [ ] Profile selection is compact, revisioned, keyboard accessible, and
+- [x] Profile selection is compact, revisioned, keyboard accessible, and
       Management-API-only.
-- [ ] Only implemented active profiles are visible.
-- [ ] Workload and User Logic fields derive from the selected profile.
-- [ ] Profile change invalidation is explicit and atomic.
-- [ ] The confirmation dialog renders only the server-derived invalidation
+- [x] Only implemented active profiles are visible.
+- [x] Workload and User Logic gates derive from the selected profile; replacing
+      the compatibility workload fields remains explicitly deferred to 8.9A.
+- [x] Profile change invalidation is explicit and atomic.
+- [x] The confirmation dialog renders only the server-derived invalidation
       preview and submits its digest; stale previews require reconfirmation.
-- [ ] Graphs are typed, data-driven, read-only, responsive, nonblank, and free
+- [x] Graphs are typed, data-driven, read-only, responsive, nonblank, and free
       of overlap at all supported breakpoints/text scales.
-- [ ] Resolved assignments, edges, costs, evidence, and deployment dimensions
+- [x] Resolved assignments, edges, costs, evidence, and deployment dimensions
       are progressively reviewable without editable infrastructure fields.
-- [ ] Fixed-slot models/widgets are isolated to tested legacy compatibility.
-- [ ] Riverpod/BLoC/runtime/API ownership remains clean.
-- [ ] Loading, empty, error, stale, incompatible, legacy, and conflict states
+- [x] Fixed-slot models/widgets are isolated to tested legacy compatibility.
+- [x] Riverpod/BLoC/runtime/API ownership remains clean.
+- [x] Loading, empty, error, stale, incompatible, legacy, and conflict states
       are complete.
-- [ ] Demo/live adapters implement identical architecture interfaces.
-- [ ] Model, API, BLoC, journey, widget, visual, accessibility, navigation,
+- [x] Demo/live adapters implement identical architecture interfaces.
+- [x] Model, API, BLoC, journey, widget, visual, accessibility, navigation,
       demo, and real-Management integration tests pass.
-- [ ] Analyzer, full Flutter tests, Web, macOS, Linux, and Windows gates pass.
-- [ ] No direct Optimizer/Deployer, live cloud, Terraform, or paid operation
+- [x] Analyzer, full Flutter tests, Web, and macOS local gates pass; Linux and
+      Windows remain enforced by the existing host CI gates on integration.
+- [x] No direct Optimizer/Deployer, live cloud, Terraform, or paid operation
       occurs.
-- [ ] User/developer/demo docs, roadmap, and #138 are updated.
-- [ ] Two reviews find no unresolved issue.
-- [ ] The structured commit references #138.
+- [x] User/developer/demo docs and roadmap status for #138 are updated.
+- [x] Two reviews find no unresolved issue.
+- [x] The structured commit references #138.
+
+## 22. Local Implementation Evidence
+
+The complete workflow was committed as `a0f6fb7b` on the integrated Phase 8
+foundation. The final 14-stage no-apply repository gate passed in 545.8
+seconds: 885 Optimizer, 1,018 Management, 1,872 Deployer, and 774 Flutter tests
+passed at that checkpoint, with one intentional Deployer skip. The corrective
+review then added two race/cache regressions; the repeated Flutter gate passed
+776 tests, static analysis, Web release, and macOS debug builds.
+
+Credential-free OrbStack integration passed ten Management readiness tests,
+one architecture-profile boundary test, and one user-function extension test.
+The entrypoint stopped only the three services it started; all pre-existing
+Master-Thesis and unrelated WordPress containers remained running unchanged.
+Strict MkDocs, shell syntax, architecture, contract/digest drift, Terraform
+format/mock-plan, dependency, compilation, security, and diff gates passed.
+
+The two implementation-review perspectives closed stale detail rendering,
+concurrent preview submission, stale resolved-cache display, dialog keyboard
+state, exact declared-edge projection, provider access derivation, and the
+finish-gate run/profile match. No unresolved finding remains. No provider API,
+credential overlay, Terraform apply/destroy, deployed Twin E2E, paid resource,
+or LaTeX action was used.

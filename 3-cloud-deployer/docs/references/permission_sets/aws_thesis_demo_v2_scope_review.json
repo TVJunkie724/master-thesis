@@ -1,0 +1,28 @@
+{
+  "provider": "aws",
+  "permission_set_version": "thesis-demo-v2",
+  "review_status": "approved_for_offline_implementation",
+  "reviewed_on": "2026-08-04",
+  "source_manifest": "aws_thesis_demo_v2.json",
+  "scope_classes": {
+    "account_discovery": "Wildcard resource scope is expected for identity and catalog discovery.",
+  "account_identity_enablement": "iam:GetOutboundWebIdentityFederationInfo and iam:EnableOutboundWebIdentityFederation are account-level and are exercised only for a confirmed AWS-to-Azure remote workload-identity route; AWS-to-GCP uses GCP Workload Identity Federation's AWS provider without this enablement.",
+    "create_before_arn": "Create actions remain wildcard-scoped until the created ARN exists.",
+    "deployment_prefix_candidate": "Lifecycle actions target twin2mc-* resources after supervised ARN validation.",
+    "conditioned_pass_role": "iam:PassRole is constrained by iam:PassedToService."
+  },
+  "findings": [],
+  "accepted_gaps": [
+    "The offline manifest is bounded by service/action family and region but is not a formal least-privilege proof.",
+    "AWS outbound identity federation cannot be resource-scoped; preflight must show its account-wide shared enablement before mutation and must not disable it during Twin destroy.",
+    "IAM Identity Center organization-instance setup is an interactive-account prerequisite and cannot be inferred from deployment credentials; built-in-directory user creation is permitted only for the explicit invite_builtin intent.",
+    "Regional CodeBuild plus the finite source bucket are deployment-time image-packaging support. Their one-off build consumption is recorded as deployment evidence and excluded from steady-state monthly Twin ranking; ECR storage remains owned by the selected deployment graph.",
+    "Provider-side Access Analyzer and CloudTrail evidence require an explicitly approved live run."
+  ],
+  "activation_gates": [
+    "manifest digest matches phase-08-complete-service-bundles@1",
+    "IAM Access Analyzer validate-policy succeeds",
+    "all required actions pass the credential self-check",
+    "supervised no-op or deploy/destroy smoke records no missing action"
+  ]
+}

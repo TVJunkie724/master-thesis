@@ -1,0 +1,56 @@
+{
+  "$schema": "schemas/rq-mapping.schema.json",
+  "schema_version": "phase-08-rq-mapping.v1",
+  "package_id": "phase-08-profile-evaluation@1",
+  "research_question_source": {
+    "path": "docs/research/research_questions_and_evaluation_design.md",
+    "digest": "sha256:2286006b8b9036ce30de81fde04fa3a8b95c3b997302b4b9908d337d8149c2ee"
+  },
+  "mappings": [
+    {
+      "rq_id": "RQ1",
+      "claim_boundary": "Versioned profiles resolve into deterministic RTA/RDS evidence and a deployment-preflight graph; live deployment remains unclaimed.",
+      "artifact_paths": [
+        "evaluation-manifest.json",
+        "resolved-architectures/",
+        "verification.json"
+      ]
+    },
+    {
+      "rq_id": "RQ2",
+      "claim_boundary": "Functionally complete curated bundles are admitted before cost; rejected and historically unsupported states remain explicit.",
+      "artifact_paths": [
+        "functional-matrix.json",
+        "architecture-deltas.json",
+        "rejections.json"
+      ]
+    },
+    {
+      "rq_id": "RQ3",
+      "claim_boundary": "Estimated monthly winners are selected within each profile only; no universal cross-profile winner is asserted.",
+      "artifact_paths": [
+        "cost-results/",
+        "architecture-deltas.json",
+        "scenario-manifest.json"
+      ]
+    },
+    {
+      "rq_id": "RQ3.1",
+      "claim_boundary": "Three single-cloud and the bounded multicloud placement sets use identical profile-local workloads and pricing evidence.",
+      "artifact_paths": [
+        "cost-results/",
+        "scenario-manifest.json",
+        "rejections.json"
+      ]
+    },
+    {
+      "rq_id": "RQ3.2",
+      "claim_boundary": "Matched L1-L5 contexts isolate the explicit Event responsibility's functional, topology, and estimated-cost delta.",
+      "artifact_paths": [
+        "functional-matrix.json",
+        "architecture-deltas.json",
+        "cost-results/"
+      ]
+    }
+  ]
+}

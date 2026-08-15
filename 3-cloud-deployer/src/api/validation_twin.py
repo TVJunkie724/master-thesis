@@ -10,6 +10,10 @@ from src.api.dependencies import ProviderEnum
 from src.api.error_handling import internal_server_error, safe_error_detail
 from src.api.error_models import ERROR_RESPONSES
 from src.api.upload_limits import MAX_VALIDATION_UPLOAD_BYTES, read_upload_bounded
+from src.configuration_validation.complete import (
+    PHASE_8_COMPARISON_PROFILES,
+    validate_phase8_user_config_content,
+)
 
 router = APIRouter()
 
@@ -82,9 +86,11 @@ async def validate_hierarchy(
     tags=["Validation"],
     summary="Validate config_user.json for platform user",
     description=(
-        "**Purpose:** Validates config_user.json for L5 platform user provisioning (Grafana admin).\n\n"
-        "**When to call:** To validate platform user configuration before L5 deployment.\n\n"
-        "**Azure requirement:** Email must use verified domain (*.onmicrosoft.com)."
+        "**Purpose:** Validates config_user.json for L4/L5 browser access.\n\n"
+        "**When to call:** To validate the platform identity before deployment.\n\n"
+        "**Phase 8:** Trusted profile and L4/L5 context enables cross-cloud "
+        "identity, Entra principal, AWS intent, and GCP CIDR checks.\n\n"
+        "**Historical Azure:** Email must use a verified *.onmicrosoft.com domain."
     ),
     responses={
         200: {"description": "User config is valid"},
@@ -94,11 +100,18 @@ async def validate_hierarchy(
     }
 )
 async def validate_user_config(
-    provider: ProviderEnum = Query(..., description="L4 provider (aws or azure)"),
-    file: UploadFile = File(..., description="config_user.json file")
+    provider: ProviderEnum = Query(
+        ...,
+        description="Historical provider or selected L5 provider",
+    ),
+    file: UploadFile = File(..., description="config_user.json file"),
+    architecture_profile_id: str | None = Query(default=None),
+    architecture_profile_version: str | None = Query(default=None),
+    layer_4_provider: str | None = Query(default=None),
+    layer_5_provider: str | None = Query(default=None),
 ):
     """
-    Validates config_user.json for platform user provisioning.
+    Validates config_user.json for platform browser access.
     
     **Required format:**
     ```json
@@ -109,10 +122,9 @@ async def validate_user_config(
     }
     ```
     
-    **Validation:**
-    - Email format validation
-    - Azure: requires verified domain (*.onmicrosoft.com)
-    - Empty email allowed (skips user provisioning)
+    Phase 8 requests receive trusted architecture context from Management and
+    validate the requirements of both L4 and L5. Historical requests preserve
+    the previous provider-specific behavior.
     """
     try:
         content = await read_upload_bounded(
@@ -131,6 +143,27 @@ async def validate_user_config(
         
         if not isinstance(user_config, dict):
             raise HTTPException(status_code=400, detail="config_user.json must be a JSON object")
+
+        profile = (architecture_profile_id, architecture_profile_version)
+        if profile in PHASE_8_COMPARISON_PROFILES:
+            try:
+                validate_phase8_user_config_content(
+                    content_str,
+                    l4_provider=_normalized_provider(layer_4_provider),
+                    l5_provider=_normalized_provider(layer_5_provider),
+                    profile=profile,
+                )
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=safe_error_detail(exc),
+                ) from exc
+            return {
+                "message": (
+                    "User configuration is valid for "
+                    f"{architecture_profile_id}@{architecture_profile_version}."
+                )
+            }
         
         admin_email = user_config.get("admin_email", "")
         
@@ -169,6 +202,13 @@ async def validate_user_config(
         raise
     except Exception as exc:
         raise internal_server_error("Validate user configuration", exc) from exc
+
+
+def _normalized_provider(provider: str | None) -> str | None:
+    if not isinstance(provider, str):
+        return None
+    normalized = provider.lower()
+    return "gcp" if normalized == "google" else normalized
 
 # ==========================================
 # 9. L4 Scene Config Validation

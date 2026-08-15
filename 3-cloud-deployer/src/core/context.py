@@ -24,6 +24,8 @@ from pathlib import Path
 if TYPE_CHECKING:
     from .protocols import CloudProvider
     from src.deployment_specification import ValidatedDeploymentManifest
+    from src.architecture_profiles import ResolvedDeploymentGraph
+    from src.deployment_access.runtime_evidence import DeploymentAccessRuntimeEvidence
 
 
 @dataclass
@@ -210,6 +212,15 @@ class DeploymentContext:
     # while legacy projects may still be loaded for diagnostics.
     validated_deployment_manifest: Optional[
         "ValidatedDeploymentManifest"
+    ] = None
+
+    # Deterministic graph compiled from Manifest v3/v4 before package/Terraform work.
+    resolved_deployment_graph: Optional["ResolvedDeploymentGraph"] = None
+
+    # Secret-free runtime proof populated only after every selected L4/L5
+    # resource, access, content, and bounded data gate has completed.
+    deployment_access_runtime_evidence: Optional[
+        "DeploymentAccessRuntimeEvidence"
     ] = None
     
     # Currently active layer (for logging context)

@@ -1,0 +1,2160 @@
+{
+  "$schema": "schemas/source-ledger.schema.json",
+  "schema_version": "source-ledger.v1",
+  "ledger_id": "phase-08-eventing-sources@1",
+  "retrieved_at": "2026-07-20T12:00:00Z",
+  "sources": [
+    {
+      "source_id": "source.aws.kinesis.pricing-api.2026-07-20",
+      "provider": "aws",
+      "service_family": "Amazon Kinesis Data Streams",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonKinesis/current/eu-central-1/index.json",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2026-07-17",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.aws.kinesis.shard-hour",
+          "value": 0.018,
+          "unit": "USD/shard-hour"
+        },
+        {
+          "fact_id": "fact.aws.kinesis.put-payload-unit",
+          "value": 1.75e-08,
+          "unit": "USD/25-KB-unit"
+        },
+        {
+          "fact_id": "fact.aws.kinesis.efo-consumer-shard-hour",
+          "value": 0.018,
+          "unit": "USD/consumer-shard-hour"
+        },
+        {
+          "fact_id": "fact.aws.kinesis.efo-read",
+          "value": 0.0156,
+          "unit": "USD/GB"
+        },
+        {
+          "fact_id": "fact.aws.kinesis.extended-retention-shard-hour",
+          "value": 0.024,
+          "unit": "USD/extended-shard-hour"
+        }
+      ],
+      "content_digest": "sha256:35ae3fab147663566c59ac8f055d4841d58605195b2f7dda429cf94732bcb273",
+      "review_status": "reviewed",
+      "reviewer_note": "Frankfurt provisioned-mode and enhanced-fan-out meters; long-term retention beyond seven days is outside v1."
+    },
+    {
+      "source_id": "source.aws.kinesis.limits.2026-07-20",
+      "provider": "aws",
+      "service_family": "Amazon Kinesis Data Streams",
+      "claim_type": "quota",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.aws.amazon.com/streams/latest/dev/service-sizes-and-limits.html",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "eu-central-1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.aws.kinesis.shard-write",
+          "value": 1,
+          "unit": "MB/s"
+        },
+        {
+          "fact_id": "fact.aws.kinesis.shard-read",
+          "value": 2,
+          "unit": "MB/s"
+        },
+        {
+          "fact_id": "fact.aws.kinesis.efo-consumer-read",
+          "value": 2,
+          "unit": "MB/s/shard"
+        },
+        {
+          "fact_id": "fact.aws.kinesis.registered-consumers",
+          "value": 20,
+          "unit": "consumers/stream"
+        }
+      ],
+      "content_digest": "sha256:3f615fa0f390fb1cf749d306e283c88fa38cd9af22f27d0060d06dfd63d6a124",
+      "review_status": "reviewed",
+      "reviewer_note": "Capacity proof uses provisioned shards and account-quota preflight."
+    },
+    {
+      "source_id": "source.aws.iot-core.pricing-api.2026-07-20",
+      "provider": "aws",
+      "service_family": "AWS IoT Core",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSIoT/current/eu-central-1/index.json",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2026-05-28",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.aws.iot.connection-minute",
+          "value": 9.6e-08,
+          "unit": "USD/minute"
+        },
+        {
+          "fact_id": "fact.aws.iot.message-first-tier",
+          "value": 1.2e-06,
+          "unit": "USD/message"
+        },
+        {
+          "fact_id": "fact.aws.iot.rule-trigger",
+          "value": 1.8e-07,
+          "unit": "USD/trigger"
+        },
+        {
+          "fact_id": "fact.aws.iot.action",
+          "value": 1.8e-07,
+          "unit": "USD/action"
+        }
+      ],
+      "content_digest": "sha256:9ef64c5c477b97f5fbab870a2f3c1833762f56adfbf37244580d053536d96652",
+      "review_status": "reviewed",
+      "reviewer_note": "Raw device ingress uses 5-KB message chunks; rules and actions are independent meters."
+    },
+    {
+      "source_id": "source.aws.iot-core.quotas.2026-07-20",
+      "provider": "aws",
+      "service_family": "AWS IoT Core",
+      "claim_type": "quota",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.aws.amazon.com/general/latest/gr/iot-core.html",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "eu-central-1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.aws.iot.inbound-publishes",
+          "value": 20000,
+          "unit": "publishes/s"
+        },
+        {
+          "fact_id": "fact.aws.iot.rule-evaluations",
+          "value": 20000,
+          "unit": "evaluations/s"
+        },
+        {
+          "fact_id": "fact.aws.iot.max-mqtt-payload",
+          "value": 131072,
+          "unit": "bytes"
+        }
+      ],
+      "content_digest": "sha256:7ee6c738a1299dd8d56354584c1d1f633109bfc84e1de27a9a896f5c2250af98",
+      "review_status": "reviewed",
+      "reviewer_note": "Large raw telemetry peak and payload remain below documented defaults."
+    },
+    {
+      "source_id": "source.aws.iot-commands.pricing-api.2026-07-20",
+      "provider": "aws",
+      "service_family": "AWS IoT Device Management Commands",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/IoTDeviceManagement/current/eu-central-1/index.json",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2026-04-10",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.aws.iot-command.execution",
+          "value": 6.5e-06,
+          "unit": "USD/execution"
+        },
+        {
+          "fact_id": "fact.aws.iot-command.start-quota",
+          "value": 100,
+          "unit": "requests/s"
+        }
+      ],
+      "content_digest": "sha256:94f66cd19d76ef56607a0401aa4631344f0f711f9509598bcf897f69d313bf84",
+      "review_status": "reviewed",
+      "reviewer_note": "Command execution is charged separately from IoT Core messaging."
+    },
+    {
+      "source_id": "source.aws.lambda.pricing-api.2026-07-20",
+      "provider": "aws",
+      "service_family": "AWS Lambda",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSLambda/current/eu-central-1/index.json",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2026-07-17",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.aws.lambda.request",
+          "value": 2e-07,
+          "unit": "USD/request"
+        },
+        {
+          "fact_id": "fact.aws.lambda.x86-gb-second",
+          "value": 1.66667e-05,
+          "unit": "USD/GB-second"
+        },
+        {
+          "fact_id": "fact.aws.lambda.free-requests",
+          "value": 1000000,
+          "unit": "requests/month"
+        },
+        {
+          "fact_id": "fact.aws.lambda.free-compute",
+          "value": 400000,
+          "unit": "GB-seconds/month"
+        }
+      ],
+      "content_digest": "sha256:bed6705987405cd5d99c3fc022f8c91ffab6df6101b03ccdf195d44a21a4fe0b",
+      "review_status": "reviewed",
+      "reviewer_note": "First x86 duration tier is sufficient for the bounded scenarios."
+    },
+    {
+      "source_id": "source.aws.step-functions.pricing-api.2026-07-20",
+      "provider": "aws",
+      "service_family": "AWS Step Functions Standard",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonStates/current/eu-central-1/index.json",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2025-08-28",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.aws.step-functions.transition",
+          "value": 2.5e-05,
+          "unit": "USD/state-transition"
+        },
+        {
+          "fact_id": "fact.aws.step-functions.free-transitions",
+          "value": 4000,
+          "unit": "state-transitions/month"
+        },
+        {
+          "fact_id": "fact.aws.step-functions.express-request",
+          "value": 1e-06,
+          "unit": "USD/request"
+        },
+        {
+          "fact_id": "fact.aws.step-functions.express-gb-second",
+          "value": 1.667e-05,
+          "unit": "USD/GB-second"
+        }
+      ],
+      "content_digest": "sha256:4751c5f5003c34321d173250ef974c414a1ca0d51c01d7948132a24a98b09ee6",
+      "review_status": "reviewed",
+      "reviewer_note": "Standard workflow chosen for durable auditable execution."
+    },
+    {
+      "source_id": "source.aws.eventbridge.pricing-api.2026-07-20",
+      "provider": "aws",
+      "service_family": "Amazon EventBridge",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSEvents/current/eu-central-1/index.json",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2026-05-29",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.aws.eventbridge.custom-event",
+          "value": 1e-06,
+          "unit": "USD/64-KB-chunk"
+        },
+        {
+          "fact_id": "fact.aws.eventbridge.cross-account-invocation",
+          "value": 5e-08,
+          "unit": "USD/64-KB-chunk"
+        }
+      ],
+      "content_digest": "sha256:edfac5e3fd74451ad5844fa07b1d0ff448562375fcc0999acea58a2f72f37d1e",
+      "review_status": "reviewed",
+      "reviewer_note": "Rejected telemetry alternative remains price-visible but is not scenario-ranked."
+    },
+    {
+      "source_id": "source.aws.sns-fifo.pricing-api.2026-07-20",
+      "provider": "aws",
+      "service_family": "Amazon SNS FIFO",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonSNS/current/eu-central-1/index.json",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2026-02-11",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.aws.sns-fifo.publish",
+          "value": 3.6e-07,
+          "unit": "USD/request"
+        },
+        {
+          "fact_id": "fact.aws.sns-fifo.ingress",
+          "value": 0.0204,
+          "unit": "USD/GB"
+        },
+        {
+          "fact_id": "fact.aws.sns-fifo.sqs-delivery",
+          "value": 1.2e-08,
+          "unit": "USD/message"
+        },
+        {
+          "fact_id": "fact.aws.sns-fifo.egress",
+          "value": 0.0012,
+          "unit": "USD/GB"
+        },
+        {
+          "fact_id": "fact.aws.sns-fifo.archive-processing",
+          "value": 0.12,
+          "unit": "USD/GB"
+        },
+        {
+          "fact_id": "fact.aws.sns-fifo.archive-storage",
+          "value": 0.0245,
+          "unit": "USD/GB-month"
+        }
+      ],
+      "content_digest": "sha256:fc778648d94bb1768d33074a872cb2941c919a813f2b8d33fa8ffe6b899255f5",
+      "review_status": "reviewed",
+      "reviewer_note": "Control and outcome channels use FIFO topics and SQS subscriptions."
+    },
+    {
+      "source_id": "source.aws.sqs-fifo.pricing-api.2026-07-20",
+      "provider": "aws",
+      "service_family": "Amazon SQS FIFO",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSQueueService/current/eu-central-1/index.json",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2025-08-28",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.aws.sqs-fifo.request",
+          "value": 5e-07,
+          "unit": "USD/request"
+        },
+        {
+          "fact_id": "fact.aws.sqs.free-requests",
+          "value": 1000000,
+          "unit": "requests/month"
+        }
+      ],
+      "content_digest": "sha256:9370d9c48305b6b0e30e46fba627a70edd4d0e83e23f1d0f26121bd5e40f8745",
+      "review_status": "reviewed",
+      "reviewer_note": "One send, receive, and delete request is modeled per delivered control message."
+    },
+    {
+      "source_id": "source.aws.s3.pricing-api.2026-07-20",
+      "provider": "aws",
+      "service_family": "Amazon S3 Standard",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/eu-central-1/index.json",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2026-07-14",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.aws.s3.standard-put",
+          "value": 5.4e-06,
+          "unit": "USD/request"
+        },
+        {
+          "fact_id": "fact.aws.s3.standard-storage",
+          "value": 0.0245,
+          "unit": "USD/GB-month"
+        }
+      ],
+      "content_digest": "sha256:d3682d03e6d2a559f3aa8665a4b0eee8d673add6d5becd1a5320a397f43b8685",
+      "review_status": "reviewed",
+      "reviewer_note": "Full-record Kinesis terminal failures use S3 Standard as the dead-letter owner."
+    },
+    {
+      "source_id": "source.aws.cloudwatch.pricing-api.2026-07-20",
+      "provider": "aws",
+      "service_family": "Amazon CloudWatch Logs",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonCloudWatch/current/eu-central-1/index.json",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2026-07-16",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.aws.cloudwatch.custom-log-ingestion",
+          "value": 0.63,
+          "unit": "USD/GB"
+        },
+        {
+          "fact_id": "fact.aws.cloudwatch.log-storage",
+          "value": 0.0324,
+          "unit": "USD/GB-month"
+        },
+        {
+          "fact_id": "fact.aws.cloudwatch.free-logs",
+          "value": 5,
+          "unit": "GB/month"
+        }
+      ],
+      "content_digest": "sha256:834c51347433795c2867cbeca987f7715aa9a77ce96b7428cec6ca07a600b71a",
+      "review_status": "reviewed",
+      "reviewer_note": "Standard custom-log ingestion; the global five-GB log free tier is applied once."
+    },
+    {
+      "source_id": "source.aws.data-transfer.reviewed-catalog.2026-07-19",
+      "provider": "aws",
+      "service_family": "AWS Data Transfer Out",
+      "claim_type": "tier",
+      "source_type": "reviewed_repository_catalog",
+      "canonical_url": "https://aws.amazon.com/ec2/pricing/on-demand/#Data_Transfer",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2026-07-01",
+      "region": "eu-central-1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.aws.transfer.free",
+          "value": 100,
+          "unit": "GB/month"
+        },
+        {
+          "fact_id": "fact.aws.transfer.tier-1",
+          "value": 0.09,
+          "unit": "USD/GB through 10240 GB"
+        },
+        {
+          "fact_id": "fact.aws.transfer.tier-2",
+          "value": 0.085,
+          "unit": "USD/GB through 51200 GB"
+        },
+        {
+          "fact_id": "fact.aws.transfer.tier-3",
+          "value": 0.07,
+          "unit": "USD/GB through 153600 GB"
+        },
+        {
+          "fact_id": "fact.aws.transfer.tier-4",
+          "value": 0.05,
+          "unit": "USD/GB beyond 153600 GB"
+        }
+      ],
+      "content_digest": "sha256:a11748f997bc6a5040f2e7b244c4e5105542c073164dcc7605791c5cceb194af",
+      "review_status": "reviewed",
+      "reviewer_note": "Existing reviewed transfer-catalog tiers are reused without emergency fallback."
+    },
+    {
+      "source_id": "source.aws.web-identity.security.2026-07-20",
+      "provider": "aws",
+      "service_family": "AWS STS AssumeRoleWithWebIdentity",
+      "claim_type": "security",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoleWithWebIdentity.html",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.aws.web-identity.short-lived-role",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.web-identity.audience-condition",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:f2d82cc8a66e26caa525f6ebee3a7622320051699b3bc5fd5eade56a9a766f94",
+      "review_status": "reviewed",
+      "reviewer_note": "Destination trust must constrain issuer, audience, and workload subject or issuance assignment."
+    },
+    {
+      "source_id": "source.azure.event-hubs.retail-api.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Event Hubs Standard",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://prices.azure.com/api/retail/prices?currencyCode=USD&$filter=armRegionName%20eq%20%27westeurope%27%20and%20serviceName%20eq%20%27Event%20Hubs%27",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2014-12-01",
+      "region": "westeurope",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.azure.event-hubs.standard-tu",
+          "value": 0.03,
+          "unit": "USD/TU-hour"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.standard-ingress",
+          "value": 0.028,
+          "unit": "USD/million-ingress-events"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.ingress-chunk",
+          "value": 65536,
+          "unit": "bytes"
+        }
+      ],
+      "content_digest": "sha256:a92a44dbfe13221350f6cb3f727665caae53fd333f734f474a7864b2536ecf92",
+      "review_status": "reviewed",
+      "reviewer_note": "Standard includes up to seven-day retention; ingress is rounded in 64-KB units."
+    },
+    {
+      "source_id": "source.azure.event-hubs.quotas.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Event Hubs Standard",
+      "claim_type": "quota",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-quotas",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.event-hubs.tu-ingress",
+          "value": 1,
+          "unit": "MB/s"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.tu-egress",
+          "value": 2,
+          "unit": "MB/s"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.max-tu",
+          "value": 40,
+          "unit": "TU/namespace"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.max-partitions",
+          "value": 32,
+          "unit": "partitions/event-hub"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.consumer-groups",
+          "value": 20,
+          "unit": "consumer-groups/event-hub"
+        }
+      ],
+      "content_digest": "sha256:469b9464f9a74721478d142c58b5ca40992369bfa082a294ed55606e5d063788",
+      "review_status": "reviewed",
+      "reviewer_note": "Standard is selected only for Small and Medium; its 40-TU namespace ceiling excludes one unsharded Large telemetry channel."
+    },
+    {
+      "source_id": "source.azure.event-hubs-dedicated.retail-api.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Event Hubs Dedicated",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://prices.azure.com/api/retail/prices?currencyCode=USD&$filter=armRegionName%20eq%20%27westeurope%27%20and%20serviceName%20eq%20%27Event%20Hubs%27",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2019-06-01",
+      "region": "westeurope",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.azure.event-hubs.dedicated-cu",
+          "value": 6.849,
+          "unit": "USD/CU-hour"
+        }
+      ],
+      "content_digest": "sha256:8abc52513300c7d686adbb6d2971f96fdf796632538bd5b0d2e8cce96be5eabb",
+      "review_status": "reviewed",
+      "reviewer_note": "The West Europe pay-as-you-go Dedicated Capacity Unit meter is selected for Large; no Standard ingress-event meter is added."
+    },
+    {
+      "source_id": "source.azure.event-hubs-dedicated.capacity.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Event Hubs Dedicated",
+      "claim_type": "quota",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-dedicated-overview",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.event-hubs.dedicated-conservative-ingress",
+          "value": 100,
+          "unit": "MB/s/CU"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.dedicated-conservative-egress",
+          "value": 200,
+          "unit": "MB/s/CU"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.dedicated-self-service-max-cu",
+          "value": 10,
+          "unit": "CU/cluster"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.dedicated-max-event",
+          "value": 20,
+          "unit": "MB/publication"
+        }
+      ],
+      "content_digest": "sha256:92b538df1cc5198cf32a62ee0480658dc81af989524712ce3748f50ed778b96c",
+      "review_status": "reviewed",
+      "reviewer_note": "Capacity uses the lower published 100-MB/s ingress bound and a conservative 200-MB/s egress bound from the documented two-receiver benchmark; Phase 8.9 still requires a load test."
+    },
+    {
+      "source_id": "source.azure.event-grid.retail-api.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Event Grid Standard",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://prices.azure.com/api/retail/prices?currencyCode=USD&$filter=armRegionName%20eq%20%27westeurope%27%20and%20serviceName%20eq%20%27Event%20Grid%27",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2023-09-01",
+      "region": "westeurope",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.azure.event-grid.standard-tu",
+          "value": 0.04,
+          "unit": "USD/TU-hour"
+        },
+        {
+          "fact_id": "fact.azure.event-grid.event-operation",
+          "value": 0.6,
+          "unit": "USD/million-operations"
+        },
+        {
+          "fact_id": "fact.azure.event-grid.free-event-operations",
+          "value": 1000000,
+          "unit": "operations/month"
+        }
+      ],
+      "content_digest": "sha256:a55ecb992873f496db88d8769603997da60d2abe8d5e5474ae7a3959f7a7cd20",
+      "review_status": "reviewed",
+      "reviewer_note": "Rejected telemetry alternative remains price-visible but is not scenario-ranked."
+    },
+    {
+      "source_id": "source.azure.service-bus.retail-api.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Service Bus Standard",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://prices.azure.com/api/retail/prices?currencyCode=USD&$filter=armRegionName%20eq%20%27westeurope%27%20and%20serviceName%20eq%20%27Service%20Bus%27",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2018-05-01",
+      "region": "westeurope",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.azure.service-bus.standard-hour",
+          "value": 0.013441,
+          "unit": "USD/hour"
+        },
+        {
+          "fact_id": "fact.azure.service-bus.free-operations",
+          "value": 13000000,
+          "unit": "operations/month"
+        },
+        {
+          "fact_id": "fact.azure.service-bus.operation-tier-1",
+          "value": 0.8,
+          "unit": "USD/million operations after 13 million"
+        }
+      ],
+      "content_digest": "sha256:613e2f8470affdbd7a53216031e1d0388b1cbbc6935a36f4fb2ed7136b139fc9",
+      "review_status": "reviewed",
+      "reviewer_note": "Hourly base meter is used; the alternative monthly base meter is not double-counted."
+    },
+    {
+      "source_id": "source.azure.functions-flex.retail-api.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Functions Flex Consumption",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://prices.azure.com/api/retail/prices?currencyCode=USD&$filter=armRegionName%20eq%20%27westeurope%27%20and%20serviceName%20eq%20%27Functions%27",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2025-06-01",
+      "region": "westeurope",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.azure.functions-flex.execution",
+          "value": 4e-07,
+          "unit": "USD/execution"
+        },
+        {
+          "fact_id": "fact.azure.functions-flex.free-executions",
+          "value": 250000,
+          "unit": "executions/month"
+        },
+        {
+          "fact_id": "fact.azure.functions-flex.compute",
+          "value": 2.6e-05,
+          "unit": "USD/GB-second"
+        },
+        {
+          "fact_id": "fact.azure.functions-flex.free-compute",
+          "value": 100000,
+          "unit": "GB-seconds/month"
+        },
+        {
+          "fact_id": "fact.azure.functions-flex.selected-memory",
+          "value": 2,
+          "unit": "GiB"
+        }
+      ],
+      "content_digest": "sha256:7985ef125119ca271f453965970cfcf8f5623893ef439ef9fcb659180572a2f9",
+      "review_status": "reviewed",
+      "reviewer_note": "Retail API quantities are normalized from units of ten executions; selected instances use 2 GiB."
+    },
+    {
+      "source_id": "source.azure.functions-flex.billing.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Functions Flex Consumption",
+      "claim_type": "unit",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/azure-functions/flex-consumption-plan",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.functions-flex.minimum-billable-duration",
+          "value": 1000,
+          "unit": "ms/execution"
+        },
+        {
+          "fact_id": "fact.azure.functions-flex.duration-block",
+          "value": 100,
+          "unit": "ms"
+        }
+      ],
+      "content_digest": "sha256:375c650d7851e7844edc60a835ca272788ec7ca0f27aa2f9a7971d6cb0c15b6b",
+      "review_status": "reviewed",
+      "reviewer_note": "On-demand Flex executions are billed for at least one second and then in 100-ms increments."
+    },
+    {
+      "source_id": "source.azure.logic-apps.retail-api.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Logic Apps Consumption",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://prices.azure.com/api/retail/prices?currencyCode=USD&$filter=armRegionName%20eq%20%27westeurope%27%20and%20serviceName%20eq%20%27Logic%20Apps%27",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2021-06-01",
+      "region": "westeurope",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.azure.logic-apps.builtin-action",
+          "value": 2.5e-05,
+          "unit": "USD/action"
+        },
+        {
+          "fact_id": "fact.azure.logic-apps.free-builtin-actions",
+          "value": 4000,
+          "unit": "actions/month"
+        },
+        {
+          "fact_id": "fact.azure.logic-apps.standard-connector",
+          "value": 0.000125,
+          "unit": "USD/call"
+        }
+      ],
+      "content_digest": "sha256:9ad02a74b2a2c1d4bf869e0375f23aa05790e72d6415d021d0ca532c05cbe2a1",
+      "review_status": "reviewed",
+      "reviewer_note": "The shared workflow contains three built-in actions and one standard connector notification call."
+    },
+    {
+      "source_id": "source.azure.iot-hub.retail-api.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure IoT Hub",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://prices.azure.com/api/retail/prices?currencyCode=USD&$filter=armRegionName%20eq%20%27westeurope%27%20and%20serviceName%20eq%20%27IoT%20Hub%27",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2018-04-02",
+      "region": "westeurope",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.azure.iot-hub.s1-unit",
+          "value": 25,
+          "unit": "USD/month"
+        },
+        {
+          "fact_id": "fact.azure.iot-hub.s2-unit",
+          "value": 250,
+          "unit": "USD/month"
+        },
+        {
+          "fact_id": "fact.azure.iot-hub.s3-unit",
+          "value": 2500,
+          "unit": "USD/month"
+        }
+      ],
+      "content_digest": "sha256:35cc21ae95a7dfe84b19159aa288e03c7d7812ad82a700f237c532b01eb195bd",
+      "review_status": "reviewed",
+      "reviewer_note": "Scenario allocation is S1 x1, S2 x3, and S3 x1."
+    },
+    {
+      "source_id": "source.azure.iot-hub.quotas.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure IoT Hub",
+      "claim_type": "quota",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/iot-hub/iot-hub-scaling",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.iot-hub.s1-send-rate",
+          "value": 100,
+          "unit": "messages/s/unit"
+        },
+        {
+          "fact_id": "fact.azure.iot-hub.s2-send-rate",
+          "value": 120,
+          "unit": "messages/s/unit"
+        },
+        {
+          "fact_id": "fact.azure.iot-hub.s3-send-rate",
+          "value": 6000,
+          "unit": "messages/s/unit"
+        },
+        {
+          "fact_id": "fact.azure.iot-hub.s3-c2d-rate",
+          "value": 83.33,
+          "unit": "messages/s/unit"
+        }
+      ],
+      "content_digest": "sha256:9f3b5ab32765431435095f4c74a11459bc0f61ced82770a61532d62cc9f9cfec",
+      "review_status": "reviewed",
+      "reviewer_note": "Cloud-to-device queues are selected instead of non-durable direct methods."
+    },
+    {
+      "source_id": "source.azure.monitor.retail-api.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Monitor Log Analytics",
+      "claim_type": "price",
+      "source_type": "dynamic_provider_api",
+      "canonical_url": "https://prices.azure.com/api/retail/prices?currencyCode=USD&$filter=armRegionName%20eq%20%27westeurope%27%20and%20serviceName%20eq%20%27Log%20Analytics%27",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2018-02-01",
+      "region": "westeurope",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.azure.monitor.analytics-ingestion",
+          "value": 2.99,
+          "unit": "USD/GB"
+        },
+        {
+          "fact_id": "fact.azure.monitor.free-ingestion",
+          "value": 5,
+          "unit": "GB/month"
+        },
+        {
+          "fact_id": "fact.azure.monitor.included-retention",
+          "value": 31,
+          "unit": "days"
+        }
+      ],
+      "content_digest": "sha256:84e23d854e4ab56f64492dbd31c00ae746fb1d491c8b96292570f435433af5ea",
+      "review_status": "reviewed",
+      "reviewer_note": "Pay-as-you-go Analytics Logs; the requested 30-day retention is included."
+    },
+    {
+      "source_id": "source.azure.data-transfer.reviewed-catalog.2026-07-19",
+      "provider": "azure",
+      "service_family": "Azure Bandwidth",
+      "claim_type": "tier",
+      "source_type": "reviewed_repository_catalog",
+      "canonical_url": "https://azure.microsoft.com/en-us/pricing/details/bandwidth/",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2026-07-01",
+      "region": "westeurope",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.azure.transfer.free",
+          "value": 100,
+          "unit": "GB/month"
+        },
+        {
+          "fact_id": "fact.azure.transfer.tier-1",
+          "value": 0.087,
+          "unit": "USD/GB through 10335 GB"
+        },
+        {
+          "fact_id": "fact.azure.transfer.tier-2",
+          "value": 0.083,
+          "unit": "USD/GB through 51295 GB"
+        },
+        {
+          "fact_id": "fact.azure.transfer.tier-3",
+          "value": 0.07,
+          "unit": "USD/GB through 153695 GB"
+        },
+        {
+          "fact_id": "fact.azure.transfer.tier-4",
+          "value": 0.05,
+          "unit": "USD/GB beyond 153695 GB"
+        }
+      ],
+      "content_digest": "sha256:75b742c0e7a07140728e65ccc2e906875a9555c10cd0f08ffaf7955816066c04",
+      "review_status": "reviewed",
+      "reviewer_note": "Existing reviewed Europe internet-egress tiers are reused."
+    },
+    {
+      "source_id": "source.azure.workload-identity-federation.security.2026-07-20",
+      "provider": "azure",
+      "service_family": "Microsoft Entra workload identity federation",
+      "claim_type": "security",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.federation.external-token-exchange",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.azure.federation.subject-match",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:4d8a40493e41c6c19ac5d99c3eab6ed732d14d7868ec1028df0cc41c62d08052",
+      "review_status": "reviewed",
+      "reviewer_note": "Federated identity credential constrains issuer, subject, and audience."
+    },
+    {
+      "source_id": "source.gcp.pubsub.pricing.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud Pub/Sub",
+      "claim_type": "price",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/pubsub/pricing",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "global",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.pubsub.throughput",
+          "value": 0.0390625,
+          "unit": "USD/GiB"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub.free-throughput",
+          "value": 10,
+          "unit": "GiB/month"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub.topic-retention",
+          "value": 0.27,
+          "unit": "USD/GiB-month"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub.minimum-message",
+          "value": 1000,
+          "unit": "bytes/request"
+        }
+      ],
+      "content_digest": "sha256:7ec48293b5014aab9eb1ec936042361216281ed7b73190c5367b8f172e5c0ce1",
+      "review_status": "reviewed",
+      "reviewer_note": "Throughput includes publishing and every subscriber delivery; topic retention is shared by subscriptions."
+    },
+    {
+      "source_id": "source.gcp.pubsub.quotas.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud Pub/Sub",
+      "claim_type": "quota",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/pubsub/quotas",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.pubsub.publisher-large-region",
+          "value": 4000,
+          "unit": "MB/s"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub.streaming-pull-large-region",
+          "value": 4000,
+          "unit": "MB/s"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub.push-region",
+          "value": 440,
+          "unit": "MB/s"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub.streaming-pull-stream",
+          "value": 10,
+          "unit": "MB/s"
+        }
+      ],
+      "content_digest": "sha256:e4825ea9b9efa7f7d6dcb2395f61d7c0aac5c9041176d667d9bbcf8903adb5d0",
+      "review_status": "reviewed",
+      "reviewer_note": "Large uses six subscription worker pools with 21 streams each; push is rejected for Large delivery."
+    },
+    {
+      "source_id": "source.gcp.cloud-run.pricing.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud Run services and worker pools",
+      "claim_type": "price",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/run/pricing",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.cloud-run.request-cpu",
+          "value": 2.4e-05,
+          "unit": "USD/vCPU-second"
+        },
+        {
+          "fact_id": "fact.gcp.cloud-run.request-memory",
+          "value": 2.5e-06,
+          "unit": "USD/GiB-second"
+        },
+        {
+          "fact_id": "fact.gcp.cloud-run.request",
+          "value": 4e-07,
+          "unit": "USD/request"
+        },
+        {
+          "fact_id": "fact.gcp.cloud-run.free-requests",
+          "value": 2000000,
+          "unit": "requests/month"
+        },
+        {
+          "fact_id": "fact.gcp.cloud-run.free-request-cpu",
+          "value": 180000,
+          "unit": "vCPU-seconds/month"
+        },
+        {
+          "fact_id": "fact.gcp.cloud-run.free-request-memory",
+          "value": 360000,
+          "unit": "GiB-seconds/month"
+        },
+        {
+          "fact_id": "fact.gcp.cloud-run.worker-cpu",
+          "value": 1.1244e-05,
+          "unit": "USD/vCPU-second"
+        },
+        {
+          "fact_id": "fact.gcp.cloud-run.worker-memory",
+          "value": 1.235e-06,
+          "unit": "USD/GiB-second"
+        },
+        {
+          "fact_id": "fact.gcp.cloud-run.free-worker-cpu",
+          "value": 384204,
+          "unit": "vCPU-seconds/month"
+        },
+        {
+          "fact_id": "fact.gcp.cloud-run.free-worker-memory",
+          "value": 728744,
+          "unit": "GiB-seconds/month"
+        }
+      ],
+      "content_digest": "sha256:6e3bf5c0a636c15aff65603ecf930fcd3981d4d2ec26df34d53b2900f6ddbf2b",
+      "review_status": "reviewed",
+      "reviewer_note": "Request-based adapters use the documented 0.167-vCPU/256-MiB function shape; worker pools use 1 vCPU/512 MiB and are billed for their full lifetime after the shared free tier."
+    },
+    {
+      "source_id": "source.gcp.workflows.pricing.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud Workflows",
+      "claim_type": "price",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/workflows/pricing",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "global",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.workflows.internal-step",
+          "value": 1e-05,
+          "unit": "USD/step"
+        },
+        {
+          "fact_id": "fact.gcp.workflows.free-internal-steps",
+          "value": 5000,
+          "unit": "steps/month"
+        },
+        {
+          "fact_id": "fact.gcp.workflows.external-step",
+          "value": 2.5e-05,
+          "unit": "USD/step"
+        },
+        {
+          "fact_id": "fact.gcp.workflows.free-external-steps",
+          "value": 2000,
+          "unit": "steps/month"
+        },
+        {
+          "fact_id": "fact.gcp.workflows.billing-block",
+          "value": 1000,
+          "unit": "steps"
+        }
+      ],
+      "content_digest": "sha256:2f9294e16edc8c2ad36e5f379c6142040323a40332ec4a14468e3fbf8002a306",
+      "review_status": "reviewed",
+      "reviewer_note": "Three internal and one external step are billed in separate 1,000-step increments."
+    },
+    {
+      "source_id": "source.gcp.gke.pricing.2026-07-20",
+      "provider": "gcp",
+      "service_family": "GKE Standard",
+      "claim_type": "price",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/kubernetes-engine/pricing",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.gke.cluster",
+          "value": 0.1,
+          "unit": "USD/cluster-hour"
+        }
+      ],
+      "content_digest": "sha256:6b3de849bd408c8df089e77e98bf0efd24899c3b546435da98fe345b930677c6",
+      "review_status": "reviewed",
+      "reviewer_note": "Regional Standard-cluster management fee; the zonal free-tier credit is intentionally not applied."
+    },
+    {
+      "source_id": "source.gcp.compute-e2.pricing.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Compute Engine E2",
+      "claim_type": "price",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/products/compute/pricing/general-purpose",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.compute.e2-standard-8",
+          "value": 0.26804568,
+          "unit": "USD/node-hour"
+        }
+      ],
+      "content_digest": "sha256:7d8b194ffd2388ec6723213cf2e8d65b7aade5eef4ee0917b07da2cb8e0287b6",
+      "review_status": "reviewed",
+      "reviewer_note": "On-demand e2-standard-8 node price in europe-west1; the scenario-specific node count is an allocation, not a provider price fact."
+    },
+    {
+      "source_id": "source.gcp.pd-balanced.pricing.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Compute Engine Persistent Disk",
+      "claim_type": "price",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/compute/disks-image-pricing",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.pd-balanced",
+          "value": 0.000136986,
+          "unit": "USD/GiB-hour"
+        }
+      ],
+      "content_digest": "sha256:8345dd2d18edda221a3d1a9a32b615334055bd86be06632b0fd16d2d5cb0f413",
+      "review_status": "reviewed",
+      "reviewer_note": "Balanced Persistent Disk capacity price; 100 GiB per node is a scenario allocation, not a provider price fact."
+    },
+    {
+      "source_id": "source.gcp.network.pricing.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud Network Load Balancing",
+      "claim_type": "price",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/vpc/network-pricing",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.network.forwarding-rule",
+          "value": 0.025,
+          "unit": "USD/hour"
+        },
+        {
+          "fact_id": "fact.gcp.network.lb-data-processing",
+          "value": 0.008,
+          "unit": "USD/GiB"
+        }
+      ],
+      "content_digest": "sha256:147001c9758cbab21ec8c33bac427b5746bf19cfe631d017bf30e0630c39d60b",
+      "review_status": "reviewed",
+      "reviewer_note": "One external passthrough network load-balancer forwarding rule is modeled for the command boundary."
+    },
+    {
+      "source_id": "source.gcp.logging.pricing.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud Logging",
+      "claim_type": "price",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/logging/pricing",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "global",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.logging.ingestion",
+          "value": 0.5,
+          "unit": "USD/GiB"
+        },
+        {
+          "fact_id": "fact.gcp.logging.free-ingestion",
+          "value": 50,
+          "unit": "GiB/project/month"
+        },
+        {
+          "fact_id": "fact.gcp.logging.included-retention",
+          "value": 30,
+          "unit": "days"
+        }
+      ],
+      "content_digest": "sha256:fac253e9ae84985642755361d3e50aa71d976f75c5e6e74af083700a1f34fdfc",
+      "review_status": "reviewed",
+      "reviewer_note": "The fixed 30-day retention is included in log-bucket ingestion."
+    },
+    {
+      "source_id": "source.gcp.data-transfer.reviewed-catalog.2026-07-19",
+      "provider": "gcp",
+      "service_family": "Google Cloud Internet Data Transfer",
+      "claim_type": "tier",
+      "source_type": "reviewed_repository_catalog",
+      "canonical_url": "https://cloud.google.com/vpc/network-pricing#internet_egress",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2026-07-01",
+      "region": "europe-west1",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.transfer.free",
+          "value": 1,
+          "unit": "GiB/month"
+        },
+        {
+          "fact_id": "fact.gcp.transfer.tier-1",
+          "value": 0.12,
+          "unit": "USD/GiB through 1024 GiB"
+        },
+        {
+          "fact_id": "fact.gcp.transfer.tier-2",
+          "value": 0.11,
+          "unit": "USD/GiB through 10240 GiB"
+        },
+        {
+          "fact_id": "fact.gcp.transfer.tier-3",
+          "value": 0.085,
+          "unit": "USD/GiB beyond 10240 GiB"
+        }
+      ],
+      "content_digest": "sha256:adec6b86d0fcf395e9be08febef9df3d392617eb5d7a3ea64f559b8bdc305f59",
+      "review_status": "reviewed",
+      "reviewer_note": "Existing reviewed premium-tier Europe internet-egress schedule is reused."
+    },
+    {
+      "source_id": "source.gcp.mqtt-architecture.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud connected-device architecture",
+      "claim_type": "limitation",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/architecture/connected-devices/iot-core-migration",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "global",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.iot-core.retired",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.mqtt.requires-standalone-broker",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:87083eef183facb446ac8ca3ec813bcb2041fcc04be9e7ba16207114f26efe6f",
+      "review_status": "reviewed",
+      "reviewer_note": "GCP has no managed MQTT replacement; the hosted broker must remain explicit."
+    },
+    {
+      "source_id": "source.gcp.mqtt-broker-architecture.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud standalone MQTT broker architecture",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.cloud.google.com/architecture/connected-devices/mqtt-broker-architecture",
+      "retrieved_at": "2026-07-20T18:00:00Z",
+      "effective_at": "not_published",
+      "region": "global",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.mqtt.bidirectional-device-boundary",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.mqtt.routes-ingress-and-commands",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.mqtt.backend-pubsub-integration",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:ad4cee64623c2079eaf839c302bed78e3b69e30aad687076d8fabf2df7d28249",
+      "review_status": "reviewed",
+      "reviewer_note": "Google's reference architecture routes incoming telemetry and outgoing commands through a standalone MQTT broker and connects backend workloads through Pub/Sub or another integration."
+    },
+    {
+      "source_id": "source.gcp.emqx-oss-eol.2026-07-20",
+      "provider": "gcp",
+      "service_family": "EMQX Open Source 5.8",
+      "claim_type": "limitation",
+      "source_type": "official_vendor_documentation",
+      "canonical_url": "https://www.emqx.com/en/news/a-notice-on-the-emqx-5-8-open-source-version",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "2026-02-01",
+      "region": "not_applicable",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.emqx-oss.end-of-life",
+          "value": "2026-02",
+          "unit": "year-month"
+        },
+        {
+          "fact_id": "fact.gcp.emqx-oss.security-updates-after-eol",
+          "value": false,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:7ae46ab94b943f67f0da1f6e13c5807ea1350351689156a4f0b7eb902521c7a4",
+      "review_status": "reviewed",
+      "reviewer_note": "The previously selected 5.8.8 image is EOL at the research cut-off and is rejected."
+    },
+    {
+      "source_id": "source.gcp.emqx-enterprise-license.2026-07-20",
+      "provider": "gcp",
+      "service_family": "EMQX Enterprise 6",
+      "claim_type": "price",
+      "source_type": "official_vendor_documentation",
+      "canonical_url": "https://www.emqx.com/en/pricing",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.emqx-enterprise.cluster-license-required",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.emqx-enterprise.public-list-price",
+          "value": false,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.emqx-enterprise.pricing-basis",
+          "value": "custom annual subscription quote",
+          "unit": "text"
+        }
+      ],
+      "content_digest": "sha256:da14d4f2073763a54bc96fc6d9d7ed3c3730b32d213777fb658ad89d2ee6db8d",
+      "review_status": "reviewed",
+      "reviewer_note": "A clustered supported EMQX deployment cannot produce a reproducible public software-price input."
+    },
+    {
+      "source_id": "source.gcp.bifromq.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Apache BifroMQ 4.0.0-incubating on GKE",
+      "claim_type": "capability",
+      "source_type": "official_vendor_documentation",
+      "canonical_url": "https://github.com/apache/bifromq/releases/tag/v4.0.0-incubating",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.bifromq.version",
+          "value": "4.0.0-incubating",
+          "unit": "semantic-version"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.image-digest",
+          "value": "sha256:14856495892e3b84d25092a90de3c2fc149a3482afd283abb95fdff18effd924",
+          "unit": "OCI-digest"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.apache-license",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.distributed-cluster",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.mutual-tls-and-auth-plugin",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.persistent-million-connection-memory",
+          "value": 18,
+          "unit": "GB"
+        }
+      ],
+      "content_digest": "sha256:8404c4849def4f71cf4e45a4cae8914e83137df2fcd55092297de4f95f1a54c7",
+      "review_status": "reviewed",
+      "reviewer_note": "Apache-2.0 avoids software-license cost, but ASF incubation remains an explicit PoC-only operational-maturity risk; Pub/Sub stays the durable command owner."
+    },
+    {
+      "source_id": "source.gcp.workload-identity-federation.security.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud Workload Identity Federation",
+      "claim_type": "security",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/iam/docs/workload-identity-federation",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.federation.external-subject",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.federation.attribute-condition",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:c1402dec9d1dd9c5aa900a4485eda51d254bee811389cf5db50fadaab556403d",
+      "review_status": "reviewed",
+      "reviewer_note": "Provider and service-account bindings must constrain mapped workload attributes."
+    },
+    {
+      "source_id": "source.aws.outbound-identity-federation.2026-07-20",
+      "provider": "aws",
+      "service_family": "AWS STS GetWebIdentityToken outbound identity federation",
+      "claim_type": "security",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.aws.amazon.com/STS/latest/APIReference/API_GetWebIdentityToken.html",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.aws.outbound-identity.get-web-identity-token",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.outbound-identity.oidc-discovery",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.outbound-identity.audience-bound",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.outbound-identity.account-enable-required",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.outbound-identity.regional-sts-required",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:bbb96ec5b62beff4b9b64fe52d6943a48082491df8aa4e97bc8a572fcd0cda45",
+      "review_status": "reviewed",
+      "reviewer_note": "AWS uses STS GetWebIdentityToken for Azure's generic OIDC exchange. Outbound federation must be enabled for the account, the global STS endpoint is forbidden, and exact principal/audience claims remain deployment-bound."
+    },
+    {
+      "source_id": "source.aws.lambda-kinesis-trigger.2026-07-20",
+      "provider": "aws",
+      "service_family": "AWS Lambda Kinesis event-source mapping",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.aws.amazon.com/lambda/latest/dg/services-kinesis-parameters.html",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "eu-central-1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.aws.lambda-kinesis.max-batch-size",
+          "value": 10000,
+          "unit": "records/invocation"
+        },
+        {
+          "fact_id": "fact.aws.lambda-kinesis.partial-batch-failure",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.lambda-kinesis.bounded-retry-config",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:06eaf0b1fc44e718ccba869d22c0dea683c2895bf05b2229a1edad6c34d0f8b7",
+      "review_status": "reviewed",
+      "reviewer_note": "The selected bridge deliberately configures ten records, partial batch responses, and five retries even though higher provider maxima exist."
+    },
+    {
+      "source_id": "source.aws.lambda-sqs-fifo-trigger.2026-07-20",
+      "provider": "aws",
+      "service_family": "AWS Lambda SQS FIFO event-source mapping",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-configure.html",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "eu-central-1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.aws.lambda-sqs-fifo.max-batch-size",
+          "value": 10,
+          "unit": "messages/invocation"
+        },
+        {
+          "fact_id": "fact.aws.lambda-sqs-fifo.same-region-trigger",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:6f49c8c733734a83fe9852389cc01a5bcf3ca8c21a0f9c65bff601d0b2fb25b0",
+      "review_status": "reviewed",
+      "reviewer_note": "A bridge-owned SQS FIFO subscription is the control-channel trigger; the Lambda is not invoked by a remote public endpoint."
+    },
+    {
+      "source_id": "source.aws.kinesis-put-record.2026-07-20",
+      "provider": "aws",
+      "service_family": "Amazon Kinesis Data Streams PutRecord",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.aws.amazon.com/kinesis/latest/APIReference/API_PutRecord.html",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "eu-central-1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.aws.kinesis-put-record.partition-key",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.kinesis-put-record.sequence-for-ordering",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.kinesis-put-record.durable-success-sequence",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:84345f6ca1314e16cbb75606eb45ef00ae697f746fa5531979b418e2f622d258",
+      "review_status": "reviewed",
+      "reviewer_note": "Ordered telemetry landing uses serial PutRecord calls per device key; PutRecords is deliberately excluded because partial failure can reorder records."
+    },
+    {
+      "source_id": "source.aws.sns-fifo-ordering.2026-07-20",
+      "provider": "aws",
+      "service_family": "Amazon SNS FIFO",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.aws.amazon.com/sns/latest/dg/fifo-topic-message-ordering.html",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "eu-central-1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.aws.sns-fifo.message-group-order",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.sns-fifo.deduplication-id",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:55d976301625372d19e74615d14eea3439c897ca9558586e8d53d3d7f71f6347",
+      "review_status": "reviewed",
+      "reviewer_note": "Control landing maps device_id to MessageGroupId and event_id to MessageDeduplicationId; consumer idempotency remains mandatory beyond the broker window."
+    },
+    {
+      "source_id": "source.azure.functions-event-hubs-trigger.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Functions Event Hubs trigger",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-event-hubs",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.functions-event-hubs.batch-trigger",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.azure.functions-event-hubs.max-event-batch-config",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.azure.functions-event-hubs.checkpoint-per-batch-config",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:ec830cf24830c4813cba69205a6a9818a2dba3d5dae3dd697ee8cb6909402b8c",
+      "review_status": "reviewed",
+      "reviewer_note": "The selected bridge sets maxEventBatchSize to ten and only lets the trigger checkpoint after destination acceptance."
+    },
+    {
+      "source_id": "source.azure.functions-service-bus-trigger.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Functions Service Bus trigger",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-service-bus-trigger",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.functions-service-bus.batch-trigger",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.azure.functions-service-bus.sessions",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.azure.functions-service-bus.manual-settlement",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:166730ddc36983958c4e96c60a3bb45c0d0b7e48d14c2252c7b438b2fd2773e3",
+      "review_status": "reviewed",
+      "reviewer_note": "Control forwarding uses a session-enabled batched trigger, AutoCompleteMessages=false, and completes only accepted destination messages."
+    },
+    {
+      "source_id": "source.azure.event-hubs-data-sender.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Event Hubs Microsoft Entra authorization",
+      "claim_type": "security",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/event-hubs/authenticate-application",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.event-hubs.data-sender-role",
+          "value": "Azure Event Hubs Data Sender",
+          "unit": "RBAC-role"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.oauth-data-plane",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:0a53f4e0a1af02811b7fac4176ea51478e3fca462f64f3b84ade76c7a6cb7136",
+      "review_status": "reviewed",
+      "reviewer_note": "The destination role is scoped to the exact landing Event Hub; shared access keys and connection strings are disabled."
+    },
+    {
+      "source_id": "source.azure.event-hubs-partitioning.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Event Hubs partitioning",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-features",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.event-hubs.partition-key-ordering",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.azure.event-hubs.consumer-groups-independent",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:d188ea48adfa9087e62b2e8e91b3a792aa84b47acbb1e7688daf38a4a3f6cbb2",
+      "review_status": "reviewed",
+      "reviewer_note": "The bridge uses device_id as the partition key and never mixes device keys in a destination batch."
+    },
+    {
+      "source_id": "source.azure.service-bus-data-sender.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Service Bus Microsoft Entra authorization",
+      "claim_type": "security",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/service-bus-messaging/disable-local-authentication",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.service-bus.data-sender-role",
+          "value": "Azure Service Bus Data Sender",
+          "unit": "RBAC-role"
+        },
+        {
+          "fact_id": "fact.azure.service-bus.local-auth-disabled",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:6eb7ae1d90e3b604cad0f7d2d761066cb3ae1c503ac530290caab23b8ea5c921",
+      "review_status": "reviewed",
+      "reviewer_note": "The destination role is scoped to the exact control topic or queue and no SAS connection string is emitted."
+    },
+    {
+      "source_id": "source.azure.service-bus-sessions.2026-07-20",
+      "provider": "azure",
+      "service_family": "Azure Service Bus sessions",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://learn.microsoft.com/en-us/azure/service-bus-messaging/message-sessions",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "westeurope",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.azure.service-bus.session-fifo",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.azure.service-bus.session-id",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:c7a40490c81934e0d47d7d98d937c26ff539e702cad06216173e0e89a9b1e06c",
+      "review_status": "reviewed",
+      "reviewer_note": "Control landing maps device_id to SessionId and preserves order only within that session."
+    },
+    {
+      "source_id": "source.gcp.pubsub-push-delivery.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud Pub/Sub push subscriptions",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/pubsub/docs/push",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.pubsub-push.one-message-per-request",
+          "value": 1,
+          "unit": "message/request"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub-push.success-acks-message",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub-push.authenticated-jwt",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:bb54c7ca7373ba698377179753e41e8a8488286a08c828a48bacfdb13b0ecb31",
+      "review_status": "reviewed",
+      "reviewer_note": "Small/Medium and Large control paths return success only after destination durable acceptance; a non-success response causes redelivery."
+    },
+    {
+      "source_id": "source.gcp.pubsub-streaming-pull.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud Pub/Sub StreamingPull",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/pubsub/docs/pull",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.pubsub-streaming-pull.open-stream",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub-streaming-pull.explicit-ack",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:ece05e90549a3c452923e8e05d3b2fd13f0c551cf3c24ed6ec3a477a8645ce30",
+      "review_status": "reviewed",
+      "reviewer_note": "Large telemetry workers hold StreamingPull connections and acknowledge each source message only after destination acceptance."
+    },
+    {
+      "source_id": "source.gcp.cloud-run-worker-pools.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud Run worker pools",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/run/docs/overview/what-is-cloud-run",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.cloud-run-worker.always-on-pull",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.cloud-run-worker.no-public-url",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.cloud-run-worker.pubsub-pull-use-case",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:5cc817e9dc4e9e2bf5d52c2716c0fabd41848f83eec4a7d33df64a28cae9294a",
+      "review_status": "reviewed",
+      "reviewer_note": "Large telemetry uses manually dimensioned worker pools; unlike a Cloud Run service, the worker has no load-balanced endpoint."
+    },
+    {
+      "source_id": "source.gcp.pubsub-ordered-publisher.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud Pub/Sub publisher",
+      "claim_type": "capability",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/pubsub/docs/publisher",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.pubsub-publisher.ordering-key",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub-publisher.locational-endpoint",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub-publisher.resume-after-error",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:55a18079df7e926896537babd298e21a89c4e28b88a36fe3df12f9eb4a6b3816",
+      "review_status": "reviewed",
+      "reviewer_note": "Destination publishing enables ordering, uses europe-west1 endpoints, and keeps one active publisher sequence per device key."
+    },
+    {
+      "source_id": "source.gcp.pubsub.authentication.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud PubSub authentication",
+      "claim_type": "security",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://cloud.google.com/pubsub/docs/authentication",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "europe-west1",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.pubsub.external-workload-identity-federation",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.pubsub.api-keys-unsupported",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:c7fc6aff569ef5898acd6e445f65c6e426e6ce3e62a9d84ef5b6523c60fc2993",
+      "review_status": "reviewed",
+      "reviewer_note": "External bridges authenticate through Workload Identity Federation and receive only topic-scoped publisher authorization."
+    },
+    {
+      "source_id": "source.aws.sts-get-caller-identity.2026-07-20",
+      "provider": "aws",
+      "service_family": "AWS STS GetCallerIdentity",
+      "claim_type": "security",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.aws.amazon.com/STS/latest/APIReference/API_GetCallerIdentity.html",
+      "retrieved_at": "2026-07-20T12:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.aws.sts-get-caller-identity.signed-request",
+          "value": true,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.aws.sts-get-caller-identity.role-arn-response",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:9289286042ce076b2f4c2ff08316fe1aa6b2742a735046179d05698e41e9c543",
+      "review_status": "reviewed",
+      "reviewer_note": "The AWS-to-GCP path gives GCP Workload Identity Federation a signed GetCallerIdentity request whose response identifies the temporary AWS role."
+    },
+    {
+      "source_id": "source.gcp.device-pubsub-architecture.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Google Cloud direct device-to-Pub/Sub architecture",
+      "claim_type": "limitation",
+      "source_type": "official_static_documentation",
+      "canonical_url": "https://docs.cloud.google.com/architecture/connected-devices/device-pubsub-architecture",
+      "retrieved_at": "2026-07-20T18:00:00Z",
+      "effective_at": "not_published",
+      "region": "global",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.direct-pubsub.typical-gateways-upper",
+          "value": 100,
+          "unit": "order-of-magnitude devices"
+        },
+        {
+          "fact_id": "fact.gcp.direct-pubsub.requires-api-or-sdk",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:217ab7c0414c25c331cc80e7c88ec2ecf9eb8044e0bffb052ddddf62e9eb23ef",
+      "review_status": "reviewed",
+      "reviewer_note": "The direct Pub/Sub pattern is for tens to hundreds of gateways and is not selected for the 100,000-device Large boundary."
+    },
+    {
+      "source_id": "source.gcp.bifromq-data-integration.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Apache BifroMQ 4.0 data integration",
+      "claim_type": "capability",
+      "source_type": "official_vendor_documentation",
+      "canonical_url": "https://bifromq.apache.org/docs/user_guide/integration/intro/",
+      "retrieved_at": "2026-07-20T18:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.bifromq.integration-built-in",
+          "value": false,
+          "unit": "boolean"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.integration-pattern",
+          "value": "external MQTT clients with shared subscriptions",
+          "unit": "text"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.default-connection-bandwidth",
+          "value": 512,
+          "unit": "kb/s"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.connection-bandwidth-adjustable",
+          "value": true,
+          "unit": "boolean"
+        }
+      ],
+      "content_digest": "sha256:07adc7df11e8aac77a38929b685b04f2807a5caa467fc18e709a6bddb6cad724",
+      "review_status": "reviewed",
+      "reviewer_note": "The selected bundle therefore includes an explicit MQTT-to-Pub/Sub integration adapter; it is not hidden broker functionality."
+    },
+    {
+      "source_id": "source.gcp.bifromq-ordered-shared.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Apache BifroMQ 4.0 ordered shared subscriptions",
+      "claim_type": "capability",
+      "source_type": "official_vendor_documentation",
+      "canonical_url": "https://bifromq.apache.org/docs/user_guide/basic/shared_sub/",
+      "retrieved_at": "2026-07-20T18:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.bifromq.ordered-shared-prefix",
+          "value": "$oshare",
+          "unit": "MQTT topic prefix"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.ordered-shared-binding",
+          "value": "same client connection and topic to same subscriber",
+          "unit": "text"
+        }
+      ],
+      "content_digest": "sha256:22b8fd0c8f72c38133e6d206ec1db096a07868673b55c49cdf9883d7b172eb76",
+      "review_status": "reviewed",
+      "reviewer_note": "Ordered shared subscriptions preserve the required per-device publication order while distributing load across adapter clients."
+    },
+    {
+      "source_id": "source.gcp.bifromq-benchmark.2026-07-20",
+      "provider": "gcp",
+      "service_family": "Apache BifroMQ 3.0 cluster benchmark",
+      "claim_type": "quota",
+      "source_type": "official_vendor_documentation",
+      "canonical_url": "https://bifromq.apache.org/docs/3.0.x/test_report/report/",
+      "retrieved_at": "2026-07-20T18:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "not_applicable",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.bifromq.benchmark-node-cores",
+          "value": 32,
+          "unit": "vCPU-equivalent cores"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.benchmark-node-memory",
+          "value": 128,
+          "unit": "GB"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.benchmark-cluster-nodes",
+          "value": 3,
+          "unit": "nodes"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.benchmark-payload",
+          "value": 256,
+          "unit": "bytes"
+        },
+        {
+          "fact_id": "fact.gcp.bifromq.persistence-replicas-ha",
+          "value": 3,
+          "unit": "replicas"
+        }
+      ],
+      "content_digest": "sha256:92f02ab086d740a059ccd3f2d9f9c585721651e25c3c98c8863a6e7c608e204a",
+      "review_status": "reviewed",
+      "reviewer_note": "The Large allocation matches the published aggregate CPU and memory with 12 e2-standard-8 broker nodes, but the payload and software version differ; live 64-KiB testing remains mandatory."
+    },
+    {
+      "source_id": "source.gcp.emqx-cloud-dedicated-flex.2026-07-20",
+      "provider": "gcp",
+      "service_family": "EMQX Cloud Dedicated Flex",
+      "claim_type": "price",
+      "source_type": "official_vendor_documentation",
+      "canonical_url": "https://docs.emqx.com/en/cloud/latest/price/pricing.html",
+      "retrieved_at": "2026-07-20T18:00:00Z",
+      "effective_at": "not_published",
+      "region": "not_applicable",
+      "currency": "USD",
+      "facts": [
+        {
+          "fact_id": "fact.gcp.emqx-cloud.public-session-tier-max",
+          "value": 10000,
+          "unit": "sessions"
+        },
+        {
+          "fact_id": "fact.gcp.emqx-cloud.above-tier-price",
+          "value": "contact sales",
+          "unit": "text"
+        }
+      ],
+      "content_digest": "sha256:86ca2dcc88afe172da7b774272c1330ae117b507d2442d1e8cb90e1ad89f25f8",
+      "review_status": "reviewed",
+      "reviewer_note": "Managed EMQX remains a valid functional alternative, but not a reproducibly priced Large optimizer input."
+    }
+  ]
+}

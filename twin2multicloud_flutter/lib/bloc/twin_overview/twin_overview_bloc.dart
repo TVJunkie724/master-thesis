@@ -6,6 +6,8 @@ import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/app_logger.dart';
 import '../../core/result.dart';
+import '../../models/cloud_connection.dart';
+import '../../models/deployment_access.dart';
 import '../../models/deployment_operations.dart';
 import '../../models/deployer_config.dart';
 import '../../models/optimizer_config.dart';
@@ -31,6 +33,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   final Duration _reconnectDelay;
   final DateTime Function() _clock;
   final AppLogger _logger;
+  int _overviewRequestGeneration = 0;
+  int _twinContextGeneration = 0;
+  int _layerAccessRequestGeneration = 0;
 
   static const _maxReconnectAttempts = 3;
 
@@ -49,6 +54,11 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     on<TwinOverviewLoad>(_onLoad);
     on<TwinOverviewRefresh>(_onRefresh);
     on<TwinOverviewRunDeploymentPreflight>(_onRunDeploymentPreflight);
+    on<TwinOverviewRetryLayerAccess>(_onRetryLayerAccess);
+    on<TwinOverviewRotateGcpGrafanaViewerCredential>(
+      _onRotateGcpGrafanaViewerCredential,
+    );
+    on<TwinOverviewAccessCredentialConsumed>(_onLayerAccessCredentialConsumed);
     on<TwinOverviewDeploy>(_onDeploy);
     on<TwinOverviewDestroy>(_onDestroy);
     on<TwinOverviewDelete>(_onDelete);
@@ -75,6 +85,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     TwinOverviewLoad event,
     Emitter<TwinOverviewState> emit,
   ) async {
+    final requestGeneration = ++_overviewRequestGeneration;
+    _twinContextGeneration += 1;
+    _layerAccessRequestGeneration += 1;
     _currentTwinId = event.twinId;
     emit(const TwinOverviewLoading());
 
@@ -92,15 +105,21 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       // Fetch outputs for deployed twins (page refresh persistence)
       DeploymentOutputsSnapshot? deploymentOutputs;
       String? outputsError;
+      var layerAccess = const LayerAccessViewState();
       if (twinState == 'deployed') {
-        try {
-          final outputsResponse = await _api.getDeploymentOutputs(event.twinId);
-          deploymentOutputs = outputsResponse;
-        } catch (e) {
-          // Not silent - surface error to user
-          outputsError =
-              'Failed to load outputs: ${ApiErrorHandler.extractMessage(e)}';
+        final presentation = await _loadDeployedPresentation(
+          event.twinId,
+          outputsFailurePrefix: 'Failed to load outputs',
+        );
+        deploymentOutputs = presentation.outputs;
+        outputsError = presentation.outputsError;
+        layerAccess = presentation.layerAccess;
+        if (presentation.accessGeneration != _layerAccessRequestGeneration) {
+          return;
         }
+      }
+      if (!_isCurrentOverviewRequest(event.twinId, requestGeneration)) {
+        return;
       }
 
       var loadedState = _buildLoadedState(
@@ -113,6 +132,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         deploymentOutputs: deploymentOutputs,
         outputsError: outputsError,
         deploymentReadiness: deploymentReadiness,
+        layerAccess: layerAccess,
       );
       final activeSession = deploymentStatus.activeSession;
       if (activeSession != null &&
@@ -135,6 +155,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         await _catchUpAndSubscribe(emit, reconnecting: true);
       }
     } catch (e) {
+      if (!_isCurrentOverviewRequest(event.twinId, requestGeneration)) {
+        return;
+      }
       _logger.warning(AppLogEvent.twinOverviewLoadFailed);
       emit(
         TwinOverviewError(
@@ -149,40 +172,55 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     Emitter<TwinOverviewState> emit,
   ) async {
     final currentState = state;
-    if (_currentTwinId != null) {
+    final twinId = _currentTwinId;
+    if (twinId != null) {
+      final requestGeneration = ++_overviewRequestGeneration;
       try {
         // Load fresh data from API
-        final twin = await _api.getTwin(_currentTwinId!);
-        final deploymentStatus = await _api.getDeploymentStatus(
-          _currentTwinId!,
-        );
-        final optimizerConfig = await _api.getOptimizerConfig(_currentTwinId!);
-        final deployerConfig = await _api.getDeployerConfig(_currentTwinId!);
+        final twin = await _api.getTwin(twinId);
+        final deploymentStatus = await _api.getDeploymentStatus(twinId);
+        final optimizerConfig = await _api.getOptimizerConfig(twinId);
+        final deployerConfig = await _api.getDeployerConfig(twinId);
 
         final twinState = deploymentStatus.state.apiValue;
         final deploymentReadiness = await _loadCachedReadiness(
-          _currentTwinId!,
+          twinId,
           previous: currentState is TwinOverviewLoaded
               ? currentState.deploymentReadiness
               : null,
         );
         DeploymentOutputsSnapshot? deploymentOutputs;
         String? outputsError;
+        var layerAccess = currentState is TwinOverviewLoaded
+            ? currentState.layerAccess
+            : const LayerAccessViewState();
         if (twinState == 'deployed') {
-          try {
-            final outputs = await _api.getDeploymentOutputs(_currentTwinId!);
-            deploymentOutputs = outputs;
-          } catch (error) {
-            deploymentOutputs = currentState is TwinOverviewLoaded
+          final presentation = await _loadDeployedPresentation(
+            twinId,
+            previousOutputs: currentState is TwinOverviewLoaded
                 ? currentState.deploymentOutputs
-                : null;
-            outputsError =
-                'Failed to refresh outputs: ${ApiErrorHandler.extractMessage(error)}';
+                : null,
+            previousAccess: currentState is TwinOverviewLoaded
+                ? currentState.layerAccess
+                : null,
+            outputsFailurePrefix: 'Failed to refresh outputs',
+          );
+          deploymentOutputs = presentation.outputs;
+          outputsError = presentation.outputsError;
+          layerAccess = presentation.layerAccess;
+          if (presentation.accessGeneration != _layerAccessRequestGeneration) {
+            return;
           }
         } else if (twinState == 'deploying') {
           deploymentOutputs = currentState is TwinOverviewLoaded
               ? currentState.deploymentOutputs
               : null;
+          layerAccess = const LayerAccessViewState();
+        } else {
+          layerAccess = const LayerAccessViewState();
+        }
+        if (!_isCurrentOverviewRequest(twinId, requestGeneration)) {
+          return;
         }
         var deploymentOperation = currentState is TwinOverviewLoaded
             ? currentState.deploymentOperation
@@ -203,7 +241,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
           _cancelSseSubscription();
         }
         final freshState = _buildLoadedState(
-          twinId: _currentTwinId!,
+          twinId: twinId,
           twin: twin,
           twinState: twinState,
           lastError: deploymentStatus.lastError,
@@ -213,6 +251,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
           outputsError: outputsError,
           deploymentReadiness: deploymentReadiness,
           deploymentOperation: deploymentOperation,
+          layerAccess: layerAccess,
         );
 
         emit(
@@ -245,7 +284,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
           }
         }
       } catch (e) {
-        if (currentState is TwinOverviewLoaded) {
+        if (currentState is TwinOverviewLoaded &&
+            _isCurrentOverviewRequest(twinId, requestGeneration)) {
           emit(
             currentState.copyWith(
               errorMessage:
@@ -272,6 +312,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       );
       return;
     }
+    _twinContextGeneration += 1;
+    _layerAccessRequestGeneration += 1;
     final trace = _cancelTraceForLifecycleChange(currentState.trace);
     final simulator = _clearSimulatorForLifecycleChange(
       currentState.simulatorDownload,
@@ -291,6 +333,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         trace: trace,
         simulatorDownload: simulator,
         clearDeploymentOutputs: true,
+        layerAccess: const LayerAccessViewState(),
         clearOutputsError: true,
         clearLastError: true,
         clearSuccess: true,
@@ -397,6 +440,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   ) async {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
+    _twinContextGeneration += 1;
+    _layerAccessRequestGeneration += 1;
     final trace = _cancelTraceForLifecycleChange(currentState.trace);
     final simulator = _clearSimulatorForLifecycleChange(
       currentState.simulatorDownload,
@@ -415,6 +460,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         canDelete: perms['canDelete'],
         trace: trace,
         simulatorDownload: simulator,
+        layerAccess: const LayerAccessViewState(),
         clearSuccess: true,
         clearError: true,
         clearInfo: true,
@@ -562,6 +608,13 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
               }),
         clearDeploymentOutputs: !hasCurrentOutputs,
         clearOutputsError: true,
+        layerAccess: isDestroy
+            ? const LayerAccessViewState()
+            : (event.success
+                  ? const LayerAccessViewState(
+                      phase: LayerAccessViewPhase.loading,
+                    )
+                  : currentState.layerAccess),
       ),
     );
 
@@ -1402,6 +1455,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     DeploymentOutputsSnapshot? deploymentOutputs,
     String? outputsError,
     required DeploymentReadinessViewState deploymentReadiness,
+    LayerAccessViewState layerAccess = const LayerAccessViewState(),
     DeploymentOperationViewState deploymentOperation =
         const DeploymentOperationViewState(),
   }) {
@@ -1417,6 +1471,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       canEdit: perms['canEdit']!,
       canDelete: perms['canDelete']!,
       deploymentReadiness: deploymentReadiness,
+      layerAccess: layerAccess,
       deploymentOperation: deploymentOperation,
       lastError: lastError,
       lastDeploymentLogs: twin.lastDeploymentLogs,
@@ -1426,6 +1481,249 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       deploymentOutputs: deploymentOutputs,
       outputsError: outputsError,
     );
+  }
+
+  Future<
+    ({
+      DeploymentOutputsSnapshot? outputs,
+      String? outputsError,
+      LayerAccessViewState layerAccess,
+      int accessGeneration,
+    })
+  >
+  _loadDeployedPresentation(
+    String twinId, {
+    DeploymentOutputsSnapshot? previousOutputs,
+    LayerAccessViewState? previousAccess,
+    required String outputsFailurePrefix,
+  }) async {
+    final accessGeneration = ++_layerAccessRequestGeneration;
+    var outputs = previousOutputs;
+    String? outputsError;
+    var layerAccess =
+        previousAccess?.copyWith(
+          phase: LayerAccessViewPhase.loading,
+          clearError: true,
+        ) ??
+        const LayerAccessViewState(phase: LayerAccessViewPhase.loading);
+
+    await Future.wait<void>([
+      () async {
+        try {
+          outputs = await _api.getDeploymentOutputs(twinId);
+        } catch (error) {
+          outputsError =
+              '$outputsFailurePrefix: ${ApiErrorHandler.extractMessage(error)}';
+        }
+      }(),
+      () async {
+        try {
+          final snapshot = await _api.getDeploymentAccess(twinId);
+          final phase =
+              snapshot.availability == DeploymentAccessAvailability.available
+              ? LayerAccessViewPhase.ready
+              : LayerAccessViewPhase.unsupported;
+          layerAccess = previousAccess == null
+              ? LayerAccessViewState.fromSnapshot(snapshot)
+              : previousAccess.copyWith(
+                  phase: phase,
+                  snapshot: snapshot,
+                  clearError: true,
+                );
+        } catch (error) {
+          layerAccess = (previousAccess ?? const LayerAccessViewState()).copyWith(
+            phase: LayerAccessViewPhase.failed,
+            errorMessage:
+                'Layer access unavailable: ${ApiErrorHandler.extractMessage(error)}',
+          );
+        }
+      }(),
+    ]);
+
+    return (
+      outputs: outputs,
+      outputsError: outputsError,
+      layerAccess: layerAccess,
+      accessGeneration: accessGeneration,
+    );
+  }
+
+  Future<void> _onRetryLayerAccess(
+    TwinOverviewRetryLayerAccess event,
+    Emitter<TwinOverviewState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded ||
+        currentState.twinState != 'deployed' ||
+        currentState.layerAccess.phase == LayerAccessViewPhase.loading) {
+      return;
+    }
+    final twinId = currentState.twinId;
+    final contextGeneration = _twinContextGeneration;
+    final accessGeneration = ++_layerAccessRequestGeneration;
+    emit(
+      currentState.copyWith(
+        layerAccess: currentState.layerAccess.copyWith(
+          phase: LayerAccessViewPhase.loading,
+          clearError: true,
+          clearRotationError: true,
+        ),
+      ),
+    );
+    try {
+      final snapshot = await _api.getDeploymentAccess(twinId);
+      final activeState = state;
+      if (!_isCurrentLayerAccessRequest(
+        activeState,
+        twinId,
+        contextGeneration,
+        accessGeneration,
+      )) {
+        return;
+      }
+      emit(
+        (activeState as TwinOverviewLoaded).copyWith(
+          layerAccess: activeState.layerAccess.copyWith(
+            phase:
+                snapshot.availability == DeploymentAccessAvailability.available
+                ? LayerAccessViewPhase.ready
+                : LayerAccessViewPhase.unsupported,
+            snapshot: snapshot,
+            clearError: true,
+          ),
+        ),
+      );
+    } catch (error) {
+      final activeState = state;
+      if (!_isCurrentLayerAccessRequest(
+        activeState,
+        twinId,
+        contextGeneration,
+        accessGeneration,
+      )) {
+        return;
+      }
+      emit(
+        (activeState as TwinOverviewLoaded).copyWith(
+          layerAccess: activeState.layerAccess.copyWith(
+            phase: LayerAccessViewPhase.failed,
+            errorMessage:
+                'Layer access unavailable: ${ApiErrorHandler.extractMessage(error)}',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _onRotateGcpGrafanaViewerCredential(
+    TwinOverviewRotateGcpGrafanaViewerCredential event,
+    Emitter<TwinOverviewState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded ||
+        currentState.twinState != 'deployed' ||
+        currentState.layerAccess.rotatingViewerCredential ||
+        currentState.layerAccess.pendingCredential != null) {
+      return;
+    }
+    final l5 = currentState.layerAccess.snapshot?.surfaceFor(
+      DeploymentLayer.l5,
+    );
+    if (!currentState.layerAccess.hasAvailableSurfaces ||
+        l5?.provider != CloudProvider.gcp ||
+        l5?.auth.credentialAction != DeploymentAccessCredentialAction.rotate) {
+      return;
+    }
+
+    final twinId = currentState.twinId;
+    final contextGeneration = _twinContextGeneration;
+    emit(
+      currentState.copyWith(
+        layerAccess: currentState.layerAccess.copyWith(
+          rotatingViewerCredential: true,
+          clearRotationError: true,
+          clearPendingCredential: true,
+        ),
+      ),
+    );
+    try {
+      final credential = await _api.rotateGcpGrafanaViewerCredential(twinId);
+      final activeState = state;
+      if (activeState is! TwinOverviewLoaded ||
+          activeState.twinId != twinId ||
+          activeState.twinState != 'deployed' ||
+          contextGeneration != _twinContextGeneration ||
+          !activeState.layerAccess.rotatingViewerCredential) {
+        return;
+      }
+      emit(
+        activeState.copyWith(
+          layerAccess: activeState.layerAccess.copyWith(
+            rotatingViewerCredential: false,
+            credentialRequestToken:
+                activeState.layerAccess.credentialRequestToken + 1,
+            pendingCredential: credential,
+            clearRotationError: true,
+          ),
+        ),
+      );
+    } catch (error) {
+      final activeState = state;
+      if (activeState is! TwinOverviewLoaded ||
+          activeState.twinId != twinId ||
+          contextGeneration != _twinContextGeneration ||
+          !activeState.layerAccess.rotatingViewerCredential) {
+        return;
+      }
+      emit(
+        activeState.copyWith(
+          layerAccess: activeState.layerAccess.copyWith(
+            rotatingViewerCredential: false,
+            rotationError:
+                'Viewer credential rotation failed: ${ApiErrorHandler.extractMessage(error)}',
+          ),
+        ),
+      );
+    }
+  }
+
+  void _onLayerAccessCredentialConsumed(
+    TwinOverviewAccessCredentialConsumed event,
+    Emitter<TwinOverviewState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded ||
+        currentState.layerAccess.pendingCredential == null ||
+        event.requestToken != currentState.layerAccess.credentialRequestToken) {
+      return;
+    }
+    emit(
+      currentState.copyWith(
+        layerAccess: currentState.layerAccess.copyWith(
+          clearPendingCredential: true,
+        ),
+      ),
+    );
+  }
+
+  bool _isCurrentOverviewRequest(String twinId, int generation) {
+    return !isClosed &&
+        _currentTwinId == twinId &&
+        generation == _overviewRequestGeneration;
+  }
+
+  bool _isCurrentLayerAccessRequest(
+    TwinOverviewState candidate,
+    String twinId,
+    int contextGeneration,
+    int accessGeneration,
+  ) {
+    return !isClosed &&
+        candidate is TwinOverviewLoaded &&
+        candidate.twinId == twinId &&
+        candidate.twinState == 'deployed' &&
+        contextGeneration == _twinContextGeneration &&
+        accessGeneration == _layerAccessRequestGeneration;
   }
 
   Future<DeploymentReadinessViewState> _loadCachedReadiness(

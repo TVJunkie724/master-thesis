@@ -1,0 +1,371 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/contracts/deployment-manifest/v3/schema.json",
+  "title": "DeploymentManifest v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "generated_at",
+    "producer",
+    "package",
+    "twin",
+    "providers",
+    "calculation_run_id",
+    "resolved_twin_architecture_digest",
+    "resolved_twin_architecture",
+    "resolved_deployment_specification_digest",
+    "resolved_deployment_specification",
+    "credentials",
+    "compatibility"
+  ],
+  "properties": {
+    "manifest_version": {
+      "const": "3.0"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "producer": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "package": {
+      "$ref": "#/$defs/package"
+    },
+    "twin": {
+      "$ref": "#/$defs/twin"
+    },
+    "providers": {
+      "$ref": "#/$defs/providers"
+    },
+    "calculation_run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "resolved_twin_architecture_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "resolved_twin_architecture": {
+      "$ref": "#/$defs/resolved_twin_architecture"
+    },
+    "resolved_deployment_specification_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "resolved_deployment_specification": {
+      "$ref": "#/$defs/resolved_deployment_specification"
+    },
+    "credentials": {
+      "$ref": "#/$defs/credentials"
+    },
+    "compatibility": {
+      "$ref": "#/$defs/compatibility"
+    },
+    "extensions": {
+      "$ref": "#/$defs/extensions"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "stable_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "files",
+        "required_files",
+        "secret_bearing_files"
+      ],
+      "properties": {
+        "format": {
+          "const": "deployer-project-zip"
+        },
+        "files": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "required_files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "secret_bearing_files": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    "twin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "resource_name"
+      ],
+      "properties": {
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "resource_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "providers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer_1_provider",
+        "layer_2_provider",
+        "layer_3_hot_provider",
+        "layer_3_cold_provider",
+        "layer_3_archive_provider",
+        "layer_4_provider",
+        "layer_5_provider"
+      ],
+      "properties": {
+        "layer_1_provider": {
+          "$ref": "#/$defs/provider"
+        },
+        "layer_2_provider": {
+          "$ref": "#/$defs/provider"
+        },
+        "layer_3_hot_provider": {
+          "$ref": "#/$defs/provider"
+        },
+        "layer_3_cold_provider": {
+          "$ref": "#/$defs/provider"
+        },
+        "layer_3_archive_provider": {
+          "$ref": "#/$defs/provider"
+        },
+        "layer_4_provider": {
+          "$ref": "#/$defs/provider"
+        },
+        "layer_5_provider": {
+          "$ref": "#/$defs/provider"
+        }
+      }
+    },
+    "provider": {
+      "enum": [
+        "aws",
+        "azure",
+        "gcp",
+        "google"
+      ]
+    },
+    "resolved_twin_architecture": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "calculation_run_id",
+        "architecture_profile_ref",
+        "component_assignments",
+        "resolved_edges",
+        "deployment_specification_ref",
+        "content_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "resolved-twin-architecture.v1"
+        },
+        "calculation_run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "architecture_profile_ref": {
+          "$ref": "#/$defs/versioned_digest_ref"
+        },
+        "component_assignments": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "resolved_edges": {
+          "type": "array",
+          "maxItems": 128
+        },
+        "deployment_specification_ref": {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "calculation_run_id",
+            "digest"
+          ]
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "resolved_deployment_specification": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "calculation_run_id",
+        "components",
+        "digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "resolved-deployment-specification.v1"
+        },
+        "calculation_run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "credentials": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "providers",
+        "sources",
+        "contains_secret_payloads"
+      ],
+      "properties": {
+        "providers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/provider"
+          }
+        },
+        "sources": {
+          "type": "object",
+          "maxProperties": 3,
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "contains_secret_payloads": {
+          "const": false
+        }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component_catalog_ref",
+        "graph_resolver_version",
+        "package_builder_version",
+        "terraform_input_contract_version"
+      ],
+      "properties": {
+        "component_catalog_ref": {
+          "$ref": "#/$defs/versioned_digest_ref"
+        },
+        "graph_resolver_version": {
+          "const": "resolved-deployment-graph.v1"
+        },
+        "package_builder_version": {
+          "const": "graph-package-builder.v1"
+        },
+        "terraform_input_contract_version": {
+          "const": "graph-terraform-inputs.v1"
+        }
+      }
+    },
+    "versioned_digest_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_index",
+        "bindings"
+      ],
+      "properties": {
+        "binding_index": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "bindings": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

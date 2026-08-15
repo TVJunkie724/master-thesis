@@ -83,13 +83,20 @@ async def test_validate_optimizer_config_maps_request_error_to_unavailable():
 
 
 @pytest.mark.asyncio
-async def test_calculate_puts_exact_endpoint_and_payload():
+async def test_calculate_puts_exact_endpoint_payload_and_correlation(
+    monkeypatch,
+):
     seen = {}
+    monkeypatch.setattr(
+        "src.clients.optimizer_client.current_request_id",
+        lambda: "management-request-123",
+    )
 
     async def handler(request: httpx.Request) -> httpx.Response:
         seen["method"] = request.method
         seen["url"] = str(request.url)
         seen["payload"] = request.read().decode()
+        seen["request_id"] = request.headers["X-Request-ID"]
         return httpx.Response(200, json={"result": {"totalCost": 1.23}})
 
     client = OptimizerClient(
@@ -103,6 +110,35 @@ async def test_calculate_puts_exact_endpoint_and_payload():
     assert seen["method"] == "PUT"
     assert seen["url"] == "http://optimizer.test/calculate"
     assert seen["payload"] == '{"numberOfDevices":10}'
+    assert seen["request_id"] == "management-request-123"
+
+
+@pytest.mark.asyncio
+async def test_calculate_maps_known_architecture_error_to_bounded_code():
+    client = OptimizerClient(
+        base_url="http://optimizer.test",
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                409,
+                json={
+                    "detail": {
+                        "error_code": "ARCH_NO_ADMISSIBLE_CANDIDATE",
+                        "message": "unsafe upstream detail",
+                    }
+                },
+            )
+        ),
+    )
+
+    with pytest.raises(ExternalServiceError) as exc_info:
+        await client.calculate({"numberOfDevices": 10})
+
+    assert exc_info.value.upstream_status_code == 409
+    assert exc_info.value.error_code == "ARCH_NO_ADMISSIBLE_CANDIDATE"
+    assert exc_info.value.public_detail == (
+        "Optimizer rejected architecture profile resolution."
+    )
+    assert "unsafe upstream detail" not in exc_info.value.message
 
 
 @pytest.mark.asyncio

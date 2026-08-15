@@ -1,0 +1,591 @@
+{
+  "$schema": "schemas/bridge-decision.schema.json",
+  "schema_version": "bridge-decision.v1",
+  "decision_id": "phase-08-cross-cloud-bridge@1",
+  "status": "selected_documented_live_pending",
+  "profile_ownership": [
+    {
+      "profile_id": "five-layer-baseline@1",
+      "bridge_presence": "none",
+      "owner": "immutable_historical_profile"
+    },
+    {
+      "profile_id": "five-layer-baseline@2",
+      "bridge_presence": "remote_responsibility_edges_only",
+      "owner": "producing_five_layer_responsibility"
+    },
+    {
+      "profile_id": "six-layer-eventing@1",
+      "bridge_presence": "remote_event_routes_only",
+      "owner": "eventing_responsibility"
+    }
+  ],
+  "logical_shape": {
+    "component_id": "component.cross-cloud-bridge-forwarder",
+    "flow": [
+      "producer_accepts_into_source_durable_outbox",
+      "source_runtime_receives_from_local_broker",
+      "source_runtime_validates_canonical_envelope_and_route",
+      "source_runtime_obtains_short_lived_destination_credential",
+      "source_runtime_publishes_to_destination_broker_data_plane",
+      "source_runtime_waits_for_destination_durable_acceptance",
+      "source_runtime_acknowledges_source_message"
+    ],
+    "architecture_boundary": "source_owned_forwarder_to_destination_broker_data_plane",
+    "forbidden_boundaries": [
+      "public_function_to_function_invocation",
+      "public_ingestion_glue_endpoint",
+      "shared_secret_or_long_lived_cloud_key",
+      "destination_owned_pull_from_source"
+    ],
+    "destination_consumer_runtime_is_outside_bridge": true
+  },
+  "security_contract": {
+    "transport_encryption": "TLS_1_2_or_newer_through_official_provider_SDKs_for_identity_exchange_and_destination_publish",
+    "endpoint_validation": "resolve_the_region_pinned_provider_data_plane_endpoint_from_the_official_SDK; require_normal_certificate_and_hostname_validation; reject_redirects_custom_endpoint_overrides_and_unknown_DNS_suffixes",
+    "provider_trigger_ingress": {
+      "aws": "provider_managed_Lambda_event_source_mapping_has_no_public_bridge_URL",
+      "azure": "provider_managed_Functions_trigger_has_no_public_bridge_URL",
+      "gcp_small_medium": "IAM_authenticated_PubSub_push_URL_is_provider_internal_trigger_ingress_not_the_cross_cloud_destination_boundary",
+      "gcp_large": "StreamingPull_worker_pool_has_no_load_balanced_URL; control_uses_the_same_IAM_authenticated_push_boundary"
+    },
+    "credential_storage": "memory_only; never_environment_file_database_log_DLQ_or_envelope",
+    "credential_cache_lifetime": "discard_at_token_expiry_minus_300_seconds_or_after_3600_seconds_whichever_occurs_first; refresh_before_publish_when_less_than_300_seconds_remain",
+    "trust_constraints": [
+      "exact_issuer",
+      "exact_bridge_only_audience",
+      "exact_subject_or_single_workload_token_issuance_assignment",
+      "exact_source_environment",
+      "exact_destination_resource"
+    ],
+    "destination_authorization": "publish_only_permission_on_the_exact_destination_stream_topic_or_entity; no_management_plane_permission"
+  },
+  "envelope_contract": {
+    "contract_id": "canonical-domain-event.v1",
+    "encoding": "utf-8-json",
+    "max_serialized_event_bytes": 98304,
+    "current_scenario_max_serialized_event_bytes": 66560,
+    "required_fields": [
+      {"name": "schema_version", "type": "semantic_contract_version", "max_length": 32},
+      {"name": "event_id", "type": "uuid", "max_length": 36},
+      {"name": "event_type", "type": "closed_channel_id", "max_length": 128},
+      {"name": "deployment_id", "type": "bounded_identifier", "max_length": 256},
+      {"name": "source_id", "type": "bounded_identifier", "max_length": 128},
+      {"name": "source_sequence", "type": "bounded_identifier", "max_length": 256},
+      {"name": "occurred_at", "type": "rfc3339_utc", "max_length": 35},
+      {"name": "correlation_id", "type": "uuid", "max_length": 36},
+      {"name": "causation_id", "type": "uuid", "max_length": 36},
+      {"name": "producer", "type": "closed_component_id", "max_length": 128},
+      {"name": "payload", "type": "schema_bound_object", "max_length": 94208}
+    ],
+    "optional_fields": [],
+    "routing_fields": [
+      "event_type",
+      "schema_version",
+      "producer",
+      "source_id"
+    ],
+    "event_type_registry": {
+      "core_flow_contract_ref": "domain-event-flow@1#channels",
+      "core_event_types": [
+        "telemetry.received.v1",
+        "telemetry.processed.v1",
+        "event.matched.v1",
+        "notification.requested.v1",
+        "device.command.requested.v1",
+        "extension.action.outcome.v1",
+        "notification.workflow.outcome.v1",
+        "device.command.outcome.v1"
+      ],
+      "profile_extension_contract_ref": "twin_projection.v1",
+      "profile_extension_event_types": [
+        "twin.state.upserted",
+        "twin.model.upserted",
+        "twin.relationship.upserted",
+        "twin.relationship.deleted"
+      ],
+      "closed_union_rule": "only_core_and_profile_extension_event_types_are_allowed",
+      "cost_scope_rule": "phase_8_8_scenario_costs_cover_core_event_types_only; projection_workload_and_route_costs_are_owned_by_phase_08_complete_service_bundles"
+    },
+    "forbidden_fields": [
+      "cloud_credentials",
+      "provider_resource_ids",
+      "deployment_urls",
+      "terraform_names",
+      "raw_exception",
+      "arbitrary_http_headers"
+    ],
+    "unknown_event_type_or_schema": "terminal_schema_rejection_to_source_bridge_dlq",
+    "consumer_idempotency_key": ["event_id"]
+  },
+  "delivery_contract": {
+    "delivery_guarantee": "at_least_once",
+    "ordering_scope": "per_source_id_and_source_sequence",
+    "producer_ack_boundary": "source_durable_outbox_acceptance",
+    "bridge_ack_boundary": "destination_broker_durable_acceptance",
+    "consumer_ack_boundary": "idempotent_domain_effect_and_outcome_or_checkpoint",
+    "source_invocation_batching": {
+      "aws": "up_to_10_records_from_one_channel_trigger",
+      "azure": "up_to_10_records_from_one_channel_trigger",
+      "gcp_small_medium": "one_pubsub_push_message_per_request",
+      "gcp_large_telemetry": "streaming_pull_with_per_message_ack",
+      "gcp_large_control": "one_pubsub_push_message_per_request"
+    },
+    "concurrency_rule": "records_for_one_source_id_are_published_serially_by_source_sequence; different_source_ids_may_progress_in_parallel",
+    "destination_batch_rule": "never_mix_channels_or_source_ids; maximum_10_events_and_983040_serialized_bytes; AWS_telemetry_uses_single_PutRecord",
+    "destination_acceptance_signals": [
+      {
+        "provider": "aws",
+        "telemetry": "PutRecord returns ShardId and SequenceNumber",
+        "control": "SNS FIFO Publish returns MessageId and SequenceNumber"
+      },
+      {
+        "provider": "azure",
+        "telemetry": "EventHubProducerClient send completes without error",
+        "control": "ServiceBusSenderClient send completes without error"
+      },
+      {
+        "provider": "gcp",
+        "telemetry": "PubSub publish future returns message_id",
+        "control": "PubSub publish future returns message_id"
+      }
+    ]
+  },
+  "validation_and_error_contract": {
+    "validation_order": [
+      "serialized_size_and_UTF8_JSON",
+      "required_and_forbidden_fields",
+      "closed_event_type_and_schema_version",
+      "field_bounds_and_source_id_is_the_portable_ordering_key",
+      "route_exists_and_source_destination_match",
+      "obtain_or_refresh_destination_credential",
+      "publish_and_validate_destination_acceptance"
+    ],
+    "retryable_failures": [
+      "network_timeout_or_connection_reset",
+      "destination_rate_limit_or_throttle",
+      "destination_5xx_or_transient_provider_error",
+      "identity_exchange_429_or_5xx"
+    ],
+    "terminal_message_failures": [
+      "oversized_or_invalid_UTF8_JSON",
+      "missing_or_forbidden_field",
+      "unknown_event_type_or_schema_version",
+      "invalid_partition_or_identifier_contract"
+    ],
+    "route_blocking_failures": [
+      "TLS_certificate_hostname_or_endpoint_suffix_mismatch",
+      "unknown_or_mismatched_route",
+      "identity_exchange_4xx_claim_rejection",
+      "destination_401_or_403_permission_failure"
+    ],
+    "route_blocking_behavior": "open_circuit_and_retry_without_ack_within_the_same_six_attempt_provider_budget; on_current_attempt_6_write_the_safe_source_bridge_failure_record_and_ack_only_after_its_acceptance; retain_the_provider_native_terminal_destination_as_fallback; require_operator_correction_and_explicit_redrive",
+    "terminal_message_behavior": "write_safe_source_bridge_DLQ_record_and_ack_or_checkpoint_only_after_DLQ_acceptance",
+    "retry_exhaustion_behavior": "write_safe_source_bridge_DLQ_record_on_current_attempt_6_for_transient_or_route_blocking_failure_and_ack_or_checkpoint_only_after_DLQ_acceptance; provider_native_terminal_destination_remains_the_fallback_when_the_trigger_does_not_expose_the_current_attempt_or_intercepts_delivery",
+    "destination_acceptance_requirement": "provider_data_plane_success_identifier_or_successful_send_completion_from_destination_acceptance_signals",
+    "maximum_delivery_attempts": 6
+  },
+  "failure_contract": {
+    "maximum_delivery_attempts": 6,
+    "terminal_attempt": 6,
+    "provider_retry_realizations": [
+      {
+        "provider": "aws",
+        "telemetry": "Lambda Kinesis MaximumRetryAttempts=5, BisectBatchOnFunctionError=true, ReportBatchItemFailures, and S3 full-record on-failure fallback because Kinesis records do not expose the current invocation attempt to the function",
+        "control": "SQS FIFO maxReceiveCount=6 with ApproximateReceiveCount passed to the application-safe failure writer on attempt 6 and the native SQS DLQ retained as fallback"
+      },
+      {
+        "provider": "azure",
+        "telemetry": "Functions exponential retry, maxRetryCount=5, minimumInterval=1s, maximumInterval=32s, with the application-safe failure Event Hub written on current attempt 6 before checkpoint",
+        "control": "Service Bus MaxDeliveryCount=6 with delivery_count interpreted as prior failed deliveries, application-safe failure queue on current attempt 6, and the native Service Bus DLQ retained as fallback"
+      },
+      {
+        "provider": "gcp",
+        "telemetry": "PubSub dead-letter maxDeliveryAttempts=6, minimumBackoff=1s, maximumBackoff=32s, with the application-safe failure topic used when deliveryAttempt 6 is visible and the provider dead-letter topic retained as fallback",
+        "control": "PubSub dead-letter maxDeliveryAttempts=6, minimumBackoff=1s, maximumBackoff=32s, with the application-safe failure topic used when deliveryAttempt 6 is visible and the provider dead-letter topic retained as fallback"
+      }
+    ],
+    "backpressure": {
+      "rule": "stop_or_nack_source_progress_before_in_memory_overflow; never_drop",
+      "max_in_memory_events_per_runtime": 1000,
+      "circuit_breaker": "open_route_after_5_consecutive_destination_failures_for_30_seconds",
+      "ordered_key_behavior": "a_failed_device_key_pauses_its_provider_ordering_unit; unrelated_partitions_continue; keys_sharing_an_AWS_or_Azure_partition_may_also_pause"
+    },
+    "dead_letter_record": {
+      "owner": "source_bridge",
+      "retention": "scenario_retention_hours",
+      "required_metadata": [
+        "full_safe_canonical_envelope",
+        "source_provider",
+        "destination_provider",
+        "route_id",
+        "attempt_count",
+        "first_failure_at",
+        "terminal_failure_at",
+        "bounded_failure_code"
+      ],
+      "forbidden_metadata": [
+        "credentials",
+        "raw_exception",
+        "provider_resource_ids",
+        "arbitrary_headers"
+      ]
+    },
+    "redrive": {
+      "event_id": "preserve",
+      "source_ordering_identity": "preserve_source_id_and_source_sequence",
+      "replay_id": "new_uuid_in_payload",
+      "replay_marker": "payload_replay_id_required",
+      "audit_outcome": "required",
+      "ordering_degradation_outcome": "required_when_later_same_key_events_were_released"
+    }
+  },
+  "observability_and_lifecycle_contract": {
+    "allowed_log_fields": [
+      "bounded_event_id",
+      "bounded_correlation_id",
+      "event_type",
+      "schema_version",
+      "source_provider",
+      "destination_provider",
+      "route_id",
+      "attempt_count",
+      "bounded_failure_code",
+      "latency_milliseconds",
+      "occurred_at"
+    ],
+    "forbidden_log_fields": [
+      "payload",
+      "device_id",
+      "twin_id",
+      "source_id",
+      "credentials_or_tokens",
+      "provider_resource_ids",
+      "deployment_URLs",
+      "raw_exceptions",
+      "arbitrary_headers"
+    ],
+    "metric_names": [
+      "bridge_source_lag",
+      "bridge_publish_attempts",
+      "bridge_publish_accepted",
+      "bridge_retries",
+      "bridge_dlq_writes",
+      "bridge_route_blocked",
+      "bridge_circuit_open",
+      "bridge_end_to_end_latency",
+      "bridge_ordering_degraded"
+    ],
+    "metric_dimensions": [
+      "source_provider",
+      "destination_provider",
+      "route_id",
+      "channel_id",
+      "scenario_id"
+    ],
+    "forbidden_metric_dimensions": [
+      "event_id",
+      "correlation_id",
+      "source_id",
+      "device_id",
+      "twin_id",
+      "credential_subject"
+    ],
+    "audit_events": [
+      "route_configuration_activated",
+      "identity_claim_set_live_verified",
+      "route_blocked_or_unblocked",
+      "terminal_message_rejected",
+      "DLQ_redrive_started_and_completed",
+      "ordering_degradation_recorded"
+    ],
+    "retention": {
+      "source_outbox_and_bridge_DLQ": "scenario_retention_hours",
+      "operational_logs_and_audit": "30_days",
+      "in_memory_envelope": "discard_immediately_after_source_ack_or_terminal_DLQ_acceptance",
+      "credential": "discard_at_credential_cache_lifetime_boundary_and_runtime_shutdown"
+    },
+    "deletion_rule": "provider_retention_or_explicit_cleanup_deletes_messages_logs_audit_and_DLQ_records; redrive_never_extends_retention_silently"
+  },
+  "provider_source_runtimes": [
+    {
+      "provider": "aws",
+      "scenario_scope": "small_medium_large",
+      "telemetry_source": "Kinesis Data Streams",
+      "telemetry_runtime": "AWS Lambda Kinesis event-source mapping",
+      "telemetry_batch": 10,
+      "control_source": "SNS FIFO archive plus bridge-owned SQS FIFO subscription",
+      "control_runtime": "AWS Lambda SQS FIFO event-source mapping",
+      "control_batch": 10,
+      "source_ack": "Kinesis ParallelizationFactor=1 plus partial batch checkpoint, or SQS delete, only after destination acceptance",
+      "source_dlq": "Amazon S3 full-record failure destination for telemetry; SQS FIFO DLQ for control",
+      "source_refs": [
+        "source.aws.lambda-kinesis-trigger.2026-07-20",
+        "source.aws.lambda-sqs-fifo-trigger.2026-07-20",
+        "source.aws.sns-fifo-ordering.2026-07-20"
+      ]
+    },
+    {
+      "provider": "azure",
+      "scenario_scope": "small_medium_large",
+      "telemetry_source": "Event Hubs Standard for Small/Medium; Event Hubs Dedicated for Large",
+      "telemetry_runtime": "Azure Functions Flex Consumption Event Hubs trigger",
+      "telemetry_batch": 10,
+      "control_source": "Service Bus Standard session-enabled bridge subscription",
+      "control_runtime": "Azure Functions Flex Consumption Service Bus trigger",
+      "control_batch": 10,
+      "source_ack": "Event Hubs checkpoint after successful invocation; Service Bus manual complete after destination acceptance",
+      "source_dlq": "explicit dead-letter Event Hub for telemetry; native Service Bus DLQ for control",
+      "source_refs": [
+        "source.azure.functions-event-hubs-trigger.2026-07-20",
+        "source.azure.functions-service-bus-trigger.2026-07-20",
+        "source.azure.event-hubs-dedicated.capacity.2026-07-20"
+      ]
+    },
+    {
+      "provider": "gcp",
+      "scenario_scope": "small_medium",
+      "telemetry_source": "PubSub ordered subscription",
+      "telemetry_runtime": "authenticated PubSub push to Cloud Run service",
+      "telemetry_batch": 1,
+      "control_source": "PubSub ordered subscription",
+      "control_runtime": "authenticated PubSub push to Cloud Run service",
+      "control_batch": 1,
+      "source_ack": "HTTP success only after destination acceptance",
+      "source_dlq": "PubSub dead-letter topic",
+      "source_refs": [
+        "source.gcp.pubsub-push-delivery.2026-07-20"
+      ]
+    },
+    {
+      "provider": "gcp",
+      "scenario_scope": "large",
+      "telemetry_source": "PubSub ordered pull subscription",
+      "telemetry_runtime": "Cloud Run worker pool with StreamingPull",
+      "telemetry_batch": 1,
+      "control_source": "PubSub ordered push subscription",
+      "control_runtime": "authenticated PubSub push to Cloud Run service",
+      "control_batch": 1,
+      "source_ack": "per-message StreamingPull ack or HTTP success only after destination acceptance",
+      "source_dlq": "PubSub dead-letter topic",
+      "worker_dimension": "21 one-stream 1-vCPU 512-MiB instances per telemetry channel",
+      "source_refs": [
+        "source.gcp.pubsub-streaming-pull.2026-07-20",
+        "source.gcp.cloud-run-worker-pools.2026-07-20",
+        "source.gcp.pubsub.quotas.2026-07-20"
+      ]
+    }
+  ],
+  "destination_landings": [
+    {
+      "provider": "aws",
+      "telemetry_service": "Amazon Kinesis Data Streams",
+      "telemetry_api": "PutRecord",
+      "telemetry_ordering": "PartitionKey=source_id; serial per key; SequenceNumberForOrdering chains consecutive same-key records inside one invocation; source ordering and acknowledgement prevent overlap across invocations",
+      "control_service": "Amazon SNS FIFO with SQS FIFO subscriptions",
+      "control_api": "Publish",
+      "control_ordering": "MessageGroupId=source_id; MessageDeduplicationId=event_id plus payload.replay_id_or_live so source retries deduplicate but an explicit redrive is not suppressed",
+      "authorization": "AssumeRoleWithWebIdentity role scoped to kinesis:PutRecord or sns:Publish on exact destination resources",
+      "source_refs": [
+        "source.aws.kinesis-put-record.2026-07-20",
+        "source.aws.sns-fifo-ordering.2026-07-20",
+        "source.aws.web-identity.security.2026-07-20"
+      ]
+    },
+    {
+      "provider": "azure",
+      "telemetry_service": "Event Hubs Standard for Small/Medium; Event Hubs Dedicated for Large",
+      "telemetry_api": "EventHubProducerClient send",
+      "telemetry_ordering": "partitionKey=source_id; destination batches contain one key only",
+      "control_service": "Service Bus Standard",
+      "control_api": "ServiceBusSenderClient send",
+      "control_ordering": "SessionId=source_id; MessageId=event_id plus payload.replay_id_or_live so duplicate detection does not suppress an explicit redrive",
+      "authorization": "Entra token with Azure Event Hubs Data Sender or Azure Service Bus Data Sender scoped to exact entity; local auth disabled",
+      "source_refs": [
+        "source.azure.event-hubs-data-sender.2026-07-20",
+        "source.azure.event-hubs-partitioning.2026-07-20",
+        "source.azure.service-bus-data-sender.2026-07-20",
+        "source.azure.service-bus-sessions.2026-07-20"
+      ]
+    },
+    {
+      "provider": "gcp",
+      "telemetry_service": "Google Cloud PubSub",
+      "telemetry_api": "Publisher client publish",
+      "telemetry_ordering": "ordering_key=source_id; europe-west1 locational endpoint; one active sequence per key; resume the ordering key after a publish error before retry",
+      "control_service": "Google Cloud PubSub",
+      "control_api": "Publisher client publish",
+      "control_ordering": "ordering_key=source_id; europe-west1 locational endpoint; one active sequence per key; resume the ordering key after a publish error before retry",
+      "authorization": "Workload Identity Federation service account with roles/pubsub.publisher on exact landing topics",
+      "source_refs": [
+        "source.gcp.pubsub-ordered-publisher.2026-07-20",
+        "source.gcp.pubsub.authentication.2026-07-20",
+        "source.gcp.workload-identity-federation.security.2026-07-20"
+      ]
+    }
+  ],
+  "directed_identity_paths": [
+    {
+      "source_provider": "aws",
+      "destination_provider": "azure",
+      "source_assertion": "AWS regional STS GetWebIdentityToken JWT with AzureADTokenExchange audience after account-level outbound federation enablement",
+      "exchange": "Microsoft Entra federated identity credential trusts the AWS account OIDC issuer and exact subject",
+      "destination_credential": "short-lived Entra access token",
+      "status": "capability_admissible_live_pending",
+      "source_refs": [
+        "source.aws.outbound-identity-federation.2026-07-20",
+        "source.azure.workload-identity-federation.security.2026-07-20"
+      ]
+    },
+    {
+      "source_provider": "aws",
+      "destination_provider": "gcp",
+      "source_assertion": "AWS role credentials sign the GCP Workload Identity Federation AWS-provider subject token",
+      "exchange": "GCP Security Token Service validates AWS GetCallerIdentity and mapped role attributes",
+      "destination_credential": "short-lived service-account access token",
+      "status": "capability_admissible_live_pending",
+      "source_refs": [
+        "source.aws.sts-get-caller-identity.2026-07-20",
+        "source.gcp.workload-identity-federation.security.2026-07-20"
+      ]
+    },
+    {
+      "source_provider": "azure",
+      "destination_provider": "aws",
+      "source_assertion": "user-assigned managed identity obtains an Entra OIDC token for the bridge-only AWS audience",
+      "exchange": "AWS IAM OIDC provider validates tenant issuer, audience, and managed-identity subject through AssumeRoleWithWebIdentity",
+      "destination_credential": "short-lived AWS role credentials",
+      "status": "capability_admissible_live_pending",
+      "source_refs": [
+        "source.azure.workload-identity-federation.security.2026-07-20",
+        "source.aws.web-identity.security.2026-07-20"
+      ]
+    },
+    {
+      "source_provider": "azure",
+      "destination_provider": "gcp",
+      "source_assertion": "user-assigned managed identity obtains an Entra OIDC token for the GCP provider audience",
+      "exchange": "GCP Workload Identity Federation OIDC provider validates tenant issuer, audience, subject, and mapped identity",
+      "destination_credential": "short-lived service-account access token",
+      "status": "capability_admissible_live_pending",
+      "source_refs": [
+        "source.azure.workload-identity-federation.security.2026-07-20",
+        "source.gcp.workload-identity-federation.security.2026-07-20"
+      ]
+    },
+    {
+      "source_provider": "gcp",
+      "destination_provider": "aws",
+      "source_assertion": "GCP service account obtains a Google-signed OIDC ID token for the bridge-only AWS audience",
+      "exchange": "AWS IAM Google OIDC provider validates audience and service-account subject through AssumeRoleWithWebIdentity",
+      "destination_credential": "short-lived AWS role credentials",
+      "status": "capability_admissible_live_pending",
+      "source_refs": [
+        "source.gcp.workload-identity-federation.security.2026-07-20",
+        "source.aws.web-identity.security.2026-07-20"
+      ]
+    },
+    {
+      "source_provider": "gcp",
+      "destination_provider": "azure",
+      "source_assertion": "GCP service account obtains a Google-signed OIDC ID token with AzureADTokenExchange audience",
+      "exchange": "Microsoft Entra federated identity credential trusts accounts.google.com and the exact service-account subject",
+      "destination_credential": "short-lived Entra access token",
+      "status": "capability_admissible_live_pending",
+      "source_refs": [
+        "source.gcp.workload-identity-federation.security.2026-07-20",
+        "source.azure.workload-identity-federation.security.2026-07-20"
+      ]
+    }
+  ],
+  "topology_contracts": {
+    "single_cloud": {
+      "bridge_instances": 0,
+      "cross_cloud_egress_bytes": 0,
+      "rule": "all event paths remain on the selected local provider bundle"
+    },
+    "directed_pair": {
+      "routes": "one source-owned bridge route per remote channel copy",
+      "fixture": "one copy of all eight core event-domain channels; profile-extension projection variants are excluded from this standalone fixture",
+      "destination_fanout": "local_after_landing"
+    },
+    "three_provider": {
+      "topology": "eventing_hub_and_spoke",
+      "component_placement": {
+        "component.device-ingress": "ingress_provider",
+        "component.telemetry-processor": "processing_provider",
+        "component.historical-persistence": "processing_provider",
+        "component.twin-state-update": "processing_provider",
+        "component.rule-evaluator": "processing_provider",
+        "component.action-dispatcher": "processing_provider",
+        "component.notification-workflow": "processing_provider",
+        "component.device-command-adapter": "ingress_provider"
+      },
+      "routes": [
+        "ingress_to_eventing:telemetry.received.v1,device.command.outcome.v1",
+        "processing_to_eventing:telemetry.processed.v1,event.matched.v1,notification.requested.v1,device.command.requested.v1,extension.action.outcome.v1,notification.workflow.outcome.v1",
+        "eventing_to_processing:telemetry.received.v1,telemetry.processed.v1,event.matched.v1,notification.requested.v1,extension.action.outcome.v1,notification.workflow.outcome.v1,device.command.outcome.v1",
+        "eventing_to_ingress:device.command.requested.v1"
+      ],
+      "mesh_forbidden": true
+    }
+  },
+  "cost_ownership": {
+    "source_owns": [
+      "durable_outbox_or_bridge_subscription",
+      "bridge_runtime",
+      "retry_and_dead_letter",
+      "bridge_observability",
+      "identity_exchange",
+      "internet_egress"
+    ],
+    "destination_owns": [
+      "landing_broker_capacity",
+      "landing_publish_meter",
+      "local_fanout_after_landing"
+    ],
+    "inbound_transfer_cost": "zero_or_provider_included",
+    "double_count_rule": "a_remote_event_layer_delivery_adapter_is_replaced_by_the_bridge_forwarder",
+    "compute_estimation_rule": "AWS_and_Azure_cost_one_billed_invocation_per_attempt_as_a_conservative_bound_while_trigger_batch_max_remains_10; GCP_push_costs_one_request_per_attempt; GCP_Large_telemetry_costs_fixed_dimensioned_workers",
+    "selection_rule": "functional_admissibility_and_capacity_precede_cost; cost_is_a_visible_result"
+  },
+  "verification_gates": [
+    "schema_validate_bridge_decision",
+    "unit_test_source_ack_requires_destination_acceptance",
+    "unit_test_per_device_order_under_partial_failure",
+    "unit_test_duplicate_redelivery_is_idempotent",
+    "unit_test_terminal_schema_rejection_and_safe_dlq",
+    "unit_test_single_cloud_has_zero_bridge",
+    "live_test_all_six_directed_identity_exchanges",
+    "live_test_all_six_destination_data_plane_publishes",
+    "capture_and_review_issuer_audience_subject_and_expiry_claims",
+    "preflight_aws_outbound_federation_enabled_and_regional_sts_endpoint",
+    "load_test_aws_large_lambda_kinesis_bridge",
+    "load_test_azure_large_dedicated_and_functions_bridge",
+    "load_test_gcp_large_streaming_pull_worker_bridge",
+    "failure_test_destination_outage_backpressure_dlq_and_redrive",
+    "secret_scan_generated_plan_state_logs_and_evidence"
+  ],
+  "source_refs": [
+    "source.aws.outbound-identity-federation.2026-07-20",
+    "source.aws.sts-get-caller-identity.2026-07-20",
+    "source.aws.lambda-kinesis-trigger.2026-07-20",
+    "source.aws.lambda-sqs-fifo-trigger.2026-07-20",
+    "source.aws.kinesis-put-record.2026-07-20",
+    "source.aws.sns-fifo-ordering.2026-07-20",
+    "source.aws.web-identity.security.2026-07-20",
+    "source.azure.functions-event-hubs-trigger.2026-07-20",
+    "source.azure.functions-service-bus-trigger.2026-07-20",
+    "source.azure.event-hubs-data-sender.2026-07-20",
+    "source.azure.event-hubs-partitioning.2026-07-20",
+    "source.azure.service-bus-data-sender.2026-07-20",
+    "source.azure.service-bus-sessions.2026-07-20",
+    "source.azure.workload-identity-federation.security.2026-07-20",
+    "source.gcp.pubsub-push-delivery.2026-07-20",
+    "source.gcp.pubsub-streaming-pull.2026-07-20",
+    "source.gcp.cloud-run-worker-pools.2026-07-20",
+    "source.gcp.pubsub-ordered-publisher.2026-07-20",
+    "source.gcp.pubsub.authentication.2026-07-20",
+    "source.gcp.workload-identity-federation.security.2026-07-20"
+  ]
+}

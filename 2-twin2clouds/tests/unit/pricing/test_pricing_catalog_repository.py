@@ -83,8 +83,7 @@ def _reference(
 
 def _write_baselines(root: Path) -> PricingCatalogBaselineManifest:
     references = {
-        provider: _reference(provider)
-        for provider in ("aws", "azure", "gcp")
+        provider: _reference(provider) for provider in ("aws", "azure", "gcp")
     }
     manifest = PricingCatalogBaselineManifest(catalogs=references)
     root.mkdir(parents=True)
@@ -195,8 +194,7 @@ def test_reference_rejects_identity_mismatch():
 
 def test_context_requires_exact_provider_map_and_matching_keys():
     references = {
-        provider: _reference(provider)
-        for provider in ("aws", "azure", "gcp")
+        provider: _reference(provider) for provider in ("aws", "azure", "gcp")
     }
     context = PricingCatalogContext(catalogs=references)
     assert set(context.catalogs) == {"aws", "azure", "gcp"}
@@ -281,15 +279,21 @@ def test_initialization_migrates_only_tracked_baseline_and_old_pointers(
 
     assert migrated == replacement
     for provider, reference in replacement.catalogs.items():
-        assert repository.resolve_baseline(
-            provider,
-            require_fresh=False,
-        ).reference == reference
-        assert repository.resolve_published(
-            provider,
-            reference.pricing_region,
-            require_fresh=False,
-        ).reference == reference
+        assert (
+            repository.resolve_baseline(
+                provider,
+                require_fresh=False,
+            ).reference
+            == reference
+        )
+        assert (
+            repository.resolve_published(
+                provider,
+                reference.pricing_region,
+                require_fresh=False,
+            ).reference
+            == reference
+        )
 
 
 def test_baseline_migration_preserves_newer_published_pointer(repository):
@@ -312,11 +316,14 @@ def test_baseline_migration_preserves_newer_published_pointer(repository):
 
     repository.initialize_from_baseline()
 
-    assert repository.resolve_published(
-        "azure",
-        "westeurope",
-        require_fresh=False,
-    ).reference == newer.reference
+    assert (
+        repository.resolve_published(
+            "azure",
+            "westeurope",
+            require_fresh=False,
+        ).reference
+        == newer.reference
+    )
 
 
 def test_baseline_migration_rejects_untracked_runtime_manifest(repository):
@@ -539,16 +546,22 @@ def test_provider_regions_are_isolated(repository):
     repository.publish(west.reference)
     repository.publish(central.reference)
 
-    assert repository.resolve_published(
-        "gcp",
-        "europe-west1",
-        require_fresh=False,
-    ).pricing["service"]["price"] == 0.2
-    assert repository.resolve_published(
-        "gcp",
-        "us-central1",
-        require_fresh=False,
-    ).pricing["service"]["price"] == 0.4
+    assert (
+        repository.resolve_published(
+            "gcp",
+            "europe-west1",
+            require_fresh=False,
+        ).pricing["service"]["price"]
+        == 0.2
+    )
+    assert (
+        repository.resolve_published(
+            "gcp",
+            "us-central1",
+            require_fresh=False,
+        ).pricing["service"]["price"]
+        == 0.4
+    )
 
 
 def test_same_region_guard_rejects_duplicate_but_other_region_is_independent(
@@ -612,12 +625,7 @@ def test_readiness_rejects_drifted_runtime_manifest(repository):
 
 def test_readiness_rejects_tampered_active_pointer(repository):
     manifest = repository.initialize_from_baseline()
-    target = (
-        repository.runtime_root
-        / "azure"
-        / "westeurope"
-        / "published.json"
-    )
+    target = repository.runtime_root / "azure" / "westeurope" / "published.json"
     payload = manifest.catalogs["azure"].model_dump(mode="json")
     payload["pricing_region"] = "northeurope"
     target.write_text(json.dumps(payload), encoding="utf-8")
@@ -681,10 +689,12 @@ def test_default_repository_uses_configured_roots(monkeypatch, tmp_path):
     runtime_root = tmp_path / "runtime"
     monkeypatch.setenv("PRICING_CATALOG_BASELINE_ROOT", str(baseline_root))
     monkeypatch.setenv("PRICING_CATALOG_STORE_ROOT", str(runtime_root))
+    monkeypatch.setenv("PRICING_CATALOG_MAX_AGE_DAYS", "36500")
     get_pricing_catalog_repository.cache_clear()
     try:
         repository = get_pricing_catalog_repository()
         assert repository.runtime_root == runtime_root
+        assert repository.max_age == timedelta(days=36500)
         repository.verify_readiness()
     finally:
         get_pricing_catalog_repository.cache_clear()

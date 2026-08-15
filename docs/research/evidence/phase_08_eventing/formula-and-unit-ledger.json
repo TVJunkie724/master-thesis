@@ -1,0 +1,572 @@
+{
+  "$schema": "schemas/formula-and-unit-ledger.schema.json",
+  "schema_version": "formula-and-unit-ledger.v1",
+  "ledger_id": "phase-08-formulas@1",
+  "constants": {
+    "hours_per_month": 730,
+    "bytes_per_decimal_gb": 1000000000,
+    "bytes_per_gib": 1073741824,
+    "seconds_per_month": 2628000
+  },
+  "unit_conversions": [
+    {
+      "conversion_id": "conversion.bytes-to-decimal-gb",
+      "from_unit": "bytes",
+      "to_unit": "GB",
+      "expression": "bytes / 1000000000"
+    },
+    {
+      "conversion_id": "conversion.bytes-to-gib",
+      "from_unit": "bytes",
+      "to_unit": "GiB",
+      "expression": "bytes / 1073741824"
+    }
+  ],
+  "normalization_rules": [
+    {
+      "normalization_rule_id": "normalization.direct",
+      "inputs": [
+        "provider_quantity",
+        "provider_unit_price"
+      ],
+      "expression": "normalized_quantity=provider_quantity; normalized_unit_price=provider_unit_price",
+      "rounding": "preserve the provider quantity and unit exactly"
+    },
+    {
+      "normalization_rule_id": "normalization.730-hours",
+      "inputs": [
+        "whole_allocations",
+        "hours_per_month"
+      ],
+      "expression": "normalized_quantity=whole_allocations*730",
+      "rounding": "round allocations up before multiplying by 730 hours"
+    },
+    {
+      "normalization_rule_id": "normalization.scenario-capacity-allocation",
+      "inputs": [
+        "documented_capacity",
+        "required_peak_with_headroom"
+      ],
+      "expression": "normalized_quantity=minimum whole provider allocation whose documented capacity is at least required_peak_with_headroom",
+      "rounding": "ceiling to provider allocation boundary"
+    },
+    {
+      "normalization_rule_id": "normalization.ceil-per-event-5120-bytes",
+      "inputs": [
+        "event_count",
+        "serialized_bytes_per_event"
+      ],
+      "expression": "normalized_quantity=event_count*ceil(serialized_bytes_per_event/5120)",
+      "rounding": "ceiling independently for every event"
+    },
+    {
+      "normalization_rule_id": "normalization.ceil-per-event-65536-bytes",
+      "inputs": [
+        "event_count",
+        "serialized_bytes_per_event"
+      ],
+      "expression": "normalized_quantity=event_count*ceil(serialized_bytes_per_event/65536)",
+      "rounding": "ceiling independently for every event"
+    },
+    {
+      "normalization_rule_id": "normalization.ceil-per-message-65536-bytes",
+      "inputs": [
+        "message_count",
+        "serialized_bytes_per_message"
+      ],
+      "expression": "normalized_quantity=message_count*ceil(serialized_bytes_per_message/65536)",
+      "rounding": "ceiling independently for every message"
+    },
+    {
+      "normalization_rule_id": "normalization.ceil-per-record-25600-bytes",
+      "inputs": [
+        "record_count",
+        "serialized_bytes_per_record"
+      ],
+      "expression": "normalized_quantity=record_count*ceil(serialized_bytes_per_record/25600)",
+      "rounding": "ceiling independently for every record"
+    },
+    {
+      "normalization_rule_id": "normalization.named-consumers-times-shards",
+      "inputs": [
+        "registered_consumer_count",
+        "allocated_shards",
+        "hours_per_month"
+      ],
+      "expression": "normalized_quantity=registered_consumer_count*allocated_shards*730",
+      "rounding": "whole consumers and whole shards"
+    },
+    {
+      "normalization_rule_id": "normalization.retention-over-24h",
+      "inputs": [
+        "allocated_shards",
+        "retention_hours",
+        "hours_per_month"
+      ],
+      "expression": "normalized_quantity=allocated_shards*730 if retention_hours>24 else 0",
+      "rounding": "whole shards; no partial extended-retention hour in the fixed monthly model"
+    },
+    {
+      "normalization_rule_id": "normalization.provider-duration-and-memory",
+      "inputs": [
+        "invocations",
+        "duration_ms",
+        "allocated_gib"
+      ],
+      "expression": "normalized_quantity=invocations*provider_rounded_duration_seconds*allocated_gib",
+      "rounding": "apply the provider duration block before multiplying"
+    },
+    {
+      "normalization_rule_id": "normalization.provider-duration-and-2gib",
+      "inputs": [
+        "invocations",
+        "duration_ms"
+      ],
+      "expression": "normalized_quantity=invocations*max(1,ceil(duration_ms/100)*0.1)*2",
+      "rounding": "minimum 1-second Azure Flex execution, then 100-ms blocks, multiplied by 2 GiB",
+      "source_ids": [
+        "source.azure.functions-flex.billing.2026-07-20"
+      ]
+    },
+    {
+      "normalization_rule_id": "normalization.divide-price-by-10",
+      "inputs": [
+        "provider_price_per_ten"
+      ],
+      "expression": "normalized_unit_price=provider_price_per_ten/10",
+      "rounding": "retain decimal precision from the reviewed meter"
+    },
+    {
+      "normalization_rule_id": "normalization.divide-price-by-million",
+      "inputs": [
+        "provider_price_per_million"
+      ],
+      "expression": "normalized_unit_price=provider_price_per_million/1000000",
+      "rounding": "retain decimal precision from the reviewed meter"
+    },
+    {
+      "normalization_rule_id": "normalization.three-internal-actions",
+      "inputs": [
+        "workflow_executions"
+      ],
+      "expression": "normalized_quantity=workflow_executions*3",
+      "rounding": "whole workflow actions"
+    },
+    {
+      "normalization_rule_id": "normalization.one-external-action",
+      "inputs": [
+        "workflow_executions"
+      ],
+      "expression": "normalized_quantity=workflow_executions",
+      "rounding": "whole workflow actions"
+    },
+    {
+      "normalization_rule_id": "normalization.ceil-1000-step-block",
+      "inputs": [
+        "steps_after_free_quota"
+      ],
+      "expression": "normalized_quantity=ceil(max(0,steps_after_free_quota)/1000)*1000",
+      "rounding": "ceiling to the next 1000-step billing block"
+    },
+    {
+      "normalization_rule_id": "normalization.0.167-vcpu-and-100ms",
+      "inputs": [
+        "requests",
+        "duration_ms"
+      ],
+      "expression": "normalized_quantity=requests*ceil(duration_ms/100)*0.1*0.167",
+      "rounding": "100-ms duration blocks at 0.167 vCPU"
+    },
+    {
+      "normalization_rule_id": "normalization.256mib-and-100ms",
+      "inputs": [
+        "requests",
+        "duration_ms"
+      ],
+      "expression": "normalized_quantity=requests*ceil(duration_ms/100)*0.1*0.25",
+      "rounding": "100-ms duration blocks at 0.25 GiB"
+    },
+    {
+      "normalization_rule_id": "normalization.continuous-instance-seconds",
+      "inputs": [
+        "whole_instances",
+        "seconds_per_month",
+        "allocated_resource"
+      ],
+      "expression": "normalized_quantity=whole_instances*2628000*allocated_resource",
+      "rounding": "whole continuously provisioned instances"
+    },
+    {
+      "normalization_rule_id": "normalization.whole-nodes-730-hours",
+      "inputs": [
+        "node_count",
+        "hours_per_month"
+      ],
+      "expression": "normalized_quantity=node_count*hours_per_month",
+      "rounding": "round the scenario node count up to whole nodes before multiplying by 730 hours"
+    },
+    {
+      "normalization_rule_id": "normalization.disk-gib-per-node-hours",
+      "inputs": [
+        "node_count",
+        "disk_gib_per_node",
+        "hours_per_month"
+      ],
+      "expression": "normalized_quantity=node_count*disk_gib_per_node*hours_per_month",
+      "rounding": "whole nodes and whole provisioned GiB per node before multiplying by 730 hours"
+    },
+    {
+      "normalization_rule_id": "normalization.one-rule-730-hours",
+      "inputs": [
+        "forwarding_rule_count",
+        "hours_per_month"
+      ],
+      "expression": "normalized_quantity=1*730",
+      "rounding": "one whole forwarding rule for 730 hours"
+    }
+  ],
+  "formulas": [
+    {
+      "formula_id": "formula.domain.canonical-event-bytes",
+      "inputs": [
+        "payload_bytes",
+        "envelope_overhead_bytes"
+      ],
+      "expression": "payload_bytes + envelope_overhead_bytes",
+      "output_unit": "bytes/event",
+      "rounding": "exact integer addition",
+      "notes": "Provider protocol and replication overhead are excluded."
+    },
+    {
+      "formula_id": "formula.domain.channel-quantities",
+      "inputs": [
+        "events_per_month",
+        "processed_consumer_count",
+        "rule_match_share",
+        "workflow_share",
+        "command_share",
+        "outcomes_per_invocation"
+      ],
+      "expression": "received=N; processed=N; received_delivery=N; processed_delivery=N*consumers; matches=N*match_share; workflows=matches*workflow_share; commands=matches*command_share; outcomes=matches+workflows+commands",
+      "output_unit": "events/month",
+      "rounding": "each derived event count must be integral; reject otherwise",
+      "notes": "The Large processed consumer count is five; Small and Medium use three."
+    },
+    {
+      "formula_id": "formula.domain.retry-dlq-replay",
+      "inputs": [
+        "channel_publish_counts",
+        "channel_consumer_delivery_counts",
+        "retry_share",
+        "dead_letter_share",
+        "replay_share"
+      ],
+      "expression": "for each channel and consumer: retries=ceil(deliveries*retry_share), dead_letters=ceil(deliveries*dead_letter_share); for each channel: replay_publishes=ceil(publishes*replay_share), then replay_deliveries=replay_publishes*named_consumer_count",
+      "output_unit": "operations/month",
+      "rounding": "ceiling independently per channel-consumer delivery or channel publication",
+      "notes": "The synthetic shares are applied once and do not recursively retry retries; replay preserves the channel fan-out."
+    },
+    {
+      "formula_id": "formula.domain.observability-bytes",
+      "inputs": [
+        "telemetry_publications",
+        "telemetry_sample_share",
+        "control_outcome_records",
+        "retry_records",
+        "dead_letter_records",
+        "replay_records",
+        "record_bytes"
+      ],
+      "expression": "(ceil(telemetry_publications*telemetry_sample_share)+control_outcome_records+retry_records+dead_letter_records+replay_records)*record_bytes",
+      "output_unit": "bytes/month",
+      "rounding": "sampled record count is ceiling; bytes are exact",
+      "notes": "Bridge terminal failures are zero in the base case and remain a sensitivity."
+    },
+    {
+      "formula_id": "formula.retention.average-storage",
+      "inputs": [
+        "published_bytes_per_month",
+        "retention_hours",
+        "hours_per_month"
+      ],
+      "expression": "published_bytes_per_month * retention_hours / hours_per_month",
+      "output_unit": "byte-month",
+      "rounding": "no intermediate rounding",
+      "notes": "Steady-state uniform publication is a synthetic assumption."
+    },
+    {
+      "formula_id": "formula.compute.serverless",
+      "inputs": [
+        "invocations",
+        "duration_ms",
+        "provider_allocated_gib",
+        "free_requests",
+        "request_price",
+        "free_gb_seconds",
+        "gb_second_price"
+      ],
+      "expression": "max(0,invocations-free_requests)*request_price + max(0,invocations*duration_ms/1000*provider_allocated_gib-free_gb_seconds)*gb_second_price",
+      "output_unit": "USD/month",
+      "rounding": "provider duration minimums are applied before multiplication",
+      "notes": "Free tiers are applied once per provider bundle result, not once per component."
+    },
+    {
+      "formula_id": "formula.workflow.four-step",
+      "inputs": [
+        "workflow_executions",
+        "internal_steps",
+        "external_steps",
+        "free_steps",
+        "step_price",
+        "billing_block"
+      ],
+      "expression": "ceil(max(0,workflow_executions*steps-free_steps)/billing_block)*billing_block*step_price",
+      "output_unit": "USD/month",
+      "rounding": "provider billing block; AWS and Azure use block 1, GCP uses block 1000",
+      "notes": "Internal and external step schedules are calculated independently."
+    },
+    {
+      "formula_id": "formula.aws.iot-core",
+      "inputs": [
+        "connections",
+        "connection_minutes",
+        "raw_payload_bytes",
+        "events",
+        "command_events"
+      ],
+      "expression": "connections*minutes*connection_price + events*ceil(raw_payload_bytes/5120)*message_price + events*(rule_price+action_price) + command_events*message_price",
+      "output_unit": "USD/month",
+      "rounding": "IoT messages round up to 5-KB chunks",
+      "notes": "The command-execution meter is calculated separately."
+    },
+    {
+      "formula_id": "formula.aws.kinesis-provisioned",
+      "inputs": [
+        "shards",
+        "consumer_shards",
+        "put_payload_units",
+        "efo_read_gb",
+        "retention_hours"
+      ],
+      "expression": "shards*730*shard_hour_price + consumer_shards*730*consumer_shard_hour_price + put_payload_units*put_unit_price + efo_read_gb*read_price + extended_retention_shard_hours*extended_price",
+      "output_unit": "USD/month",
+      "rounding": "25-KB PUT units per record; shard allocations are immutable scenario dimensions",
+      "notes": "Extended retention is charged only when retention exceeds 24 hours."
+    },
+    {
+      "formula_id": "formula.aws.sns-sqs-fifo",
+      "inputs": [
+        "control_publishes",
+        "control_deliveries",
+        "control_bytes",
+        "retention_hours",
+        "replay_share"
+      ],
+      "expression": "SNS publish requests and bytes + SNS-to-SQS deliveries and bytes + SQS send/receive/delete requests + archive processing and steady-state archive storage",
+      "output_unit": "USD/month",
+      "rounding": "64-KB FIFO request chunks and progressive SQS free tier",
+      "notes": "One SQS queue exists per named control consumer."
+    },
+    {
+      "formula_id": "formula.aws.s3-dlq",
+      "inputs": [
+        "dead_letter_events",
+        "dead_letter_bytes",
+        "retention_hours",
+        "put_price",
+        "storage_price"
+      ],
+      "expression": "dead_letter_events*put_price + dead_letter_bytes/1000000000*retention_hours/730*storage_price",
+      "output_unit": "USD/month",
+      "rounding": "one PUT per terminal full-record failure",
+      "notes": "Only terminal telemetry failures use this S3 owner; control failures use SQS DLQs."
+    },
+    {
+      "formula_id": "formula.observability.decimal-gb",
+      "inputs": [
+        "log_bytes",
+        "free_gb",
+        "ingestion_price",
+        "storage_price",
+        "retention_days"
+      ],
+      "expression": "max(0,log_bytes/1000000000-free_gb)*ingestion_price + retained_log_gb_month*storage_price",
+      "output_unit": "USD/month",
+      "rounding": "no intermediate rounding",
+      "notes": "Used by AWS and Azure; provider-included retention is respected."
+    },
+    {
+      "formula_id": "formula.azure.iot-hub-fixed",
+      "inputs": [
+        "scenario_id",
+        "tier_units",
+        "monthly_unit_price"
+      ],
+      "expression": "tier_units*monthly_unit_price",
+      "output_unit": "USD/month",
+      "rounding": "whole provider units",
+      "notes": "Small=S1x1, Medium=S2x3, Large=S3x1."
+    },
+    {
+      "formula_id": "formula.azure.event-hubs-standard",
+      "inputs": [
+        "namespaces",
+        "throughput_units_per_namespace",
+        "ingress_events_64kb"
+      ],
+      "expression": "namespaces*throughput_units_per_namespace*730*tu_hour_price + ingress_events_64kb/1000000*ingress_price_per_million",
+      "output_unit": "USD/month",
+      "rounding": "each event rounds to 64-KB ingress units",
+      "notes": "Seven-day retention is included in Standard; this formula is used only for Small and Medium."
+    },
+    {
+      "formula_id": "formula.azure.event-hubs-dedicated",
+      "inputs": [
+        "peak_ingress_bytes_per_second",
+        "peak_egress_bytes_per_second",
+        "headroom",
+        "conservative_ingress_mb_per_second_per_cu",
+        "conservative_egress_mb_per_second_per_cu"
+      ],
+      "expression": "max(ceil(peak_ingress_bytes_per_second*headroom/100000000),ceil(peak_egress_bytes_per_second*headroom/200000000))*730*cu_hour_price",
+      "output_unit": "USD/month",
+      "rounding": "whole capacity units at the conservative published throughput bounds",
+      "notes": "Large only; the selected 6-CU Event-Layer allocation is within the ten-CU self-service range and must be load-tested in Phase 8.9."
+    },
+    {
+      "formula_id": "formula.azure.service-bus-standard",
+      "inputs": [
+        "hours",
+        "operations",
+        "free_operations",
+        "tier_schedule"
+      ],
+      "expression": "730*base_hour_price + progressive(max(0,operations-free_operations),tier_schedule)",
+      "output_unit": "USD/month",
+      "rounding": "million-operation billing tiers",
+      "notes": "The hourly and monthly base meters are alternatives; only hourly is used."
+    },
+    {
+      "formula_id": "formula.gcp.pubsub",
+      "inputs": [
+        "publish_bytes",
+        "delivery_bytes",
+        "retry_bytes",
+        "replay_bytes",
+        "free_gib",
+        "retained_byte_month"
+      ],
+      "expression": "max(0,total_throughput_bytes/1073741824-free_gib)*throughput_price + retained_byte_month/1073741824*storage_price",
+      "output_unit": "USD/month",
+      "rounding": "minimum 1000 bytes per request before aggregation",
+      "notes": "The free throughput quota is applied once per billing-account scenario result."
+    },
+    {
+      "formula_id": "formula.gcp.cloud-run-request",
+      "inputs": [
+        "requests",
+        "duration_seconds",
+        "allocated_vcpu",
+        "allocated_gib",
+        "free_requests",
+        "free_vcpu_seconds",
+        "free_gib_seconds",
+        "cpu_price",
+        "memory_price"
+      ],
+      "expression": "max(0,requests-free_requests)*request_price + max(0,requests*duration_seconds*allocated_vcpu-free_vcpu_seconds)*cpu_price + max(0,requests*duration_seconds*allocated_gib-free_gib_seconds)*memory_price",
+      "output_unit": "USD/month",
+      "rounding": "billable time rounds to 100 ms",
+      "notes": "Service request, CPU, and memory free tiers are applied once per provider bundle result."
+    },
+    {
+      "formula_id": "formula.gcp.cloud-run-worker-pool",
+      "inputs": [
+        "instances",
+        "seconds_per_month",
+        "allocated_vcpu",
+        "allocated_gib",
+        "free_vcpu_seconds",
+        "free_gib_seconds",
+        "cpu_price",
+        "memory_price"
+      ],
+      "expression": "max(0,instances*seconds_per_month*allocated_vcpu-free_vcpu_seconds)*cpu_price + max(0,instances*seconds_per_month*allocated_gib-free_gib_seconds)*memory_price",
+      "output_unit": "USD/month",
+      "rounding": "whole manually configured instances",
+      "notes": "Only the Large Event-Layer bundle uses 126 continuously billed worker-pool instances."
+    },
+    {
+      "formula_id": "formula.gcp.bifromq-gke",
+      "inputs": [
+        "cluster_hours",
+        "cluster_hour_price",
+        "broker_node_count",
+        "integration_node_count",
+        "node_hour_price",
+        "disk_gib_per_node",
+        "disk_gib_hour_price",
+        "forwarding_rule_hours",
+        "forwarding_rule_hour_price",
+        "device_telemetry_data_gib",
+        "command_data_gib",
+        "lb_processing_gib_price"
+      ],
+      "expression": "cluster_hours*cluster_hour_price + (broker_node_count+integration_node_count)*cluster_hours*node_hour_price + (broker_node_count+integration_node_count)*disk_gib_per_node*cluster_hours*disk_gib_hour_price + forwarding_rule_hours*forwarding_rule_hour_price + (device_telemetry_data_gib+command_data_gib)*lb_processing_gib_price",
+      "output_unit": "USD/month",
+      "rounding": "whole nodes, disks, and forwarding rules",
+      "notes": "BifroMQ is the full bidirectional device boundary. Large uses 12 broker and four integration-worker e2-standard-8 nodes; software price is zero and operational labor is qualitative."
+    },
+    {
+      "formula_id": "formula.observability.binary-gib",
+      "inputs": [
+        "log_bytes",
+        "free_gib",
+        "ingestion_price",
+        "retention_days"
+      ],
+      "expression": "max(0,log_bytes/1073741824-free_gib)*ingestion_price",
+      "output_unit": "USD/month",
+      "rounding": "no intermediate rounding",
+      "notes": "Google Cloud Logging includes 30-day retention."
+    },
+    {
+      "formula_id": "formula.bridge.compute",
+      "inputs": [
+        "channel_event_attempts",
+        "source_provider",
+        "scenario_id",
+        "max_batch_events",
+        "duration_ms",
+        "source_provider_allocation"
+      ],
+      "expression": "AWS/Azure conservative billing bound: one serverless invocation per delivery attempt while the configured trigger may batch up to 10 records; GCP Small/Medium: one Pub/Sub push request per attempt; GCP Large telemetry: 21 one-stream worker instances per telemetry channel plus request-based control forwarding",
+      "output_unit": "USD/month",
+      "rounding": "source invocations never batch across channels; provider duration and allocation rounding",
+      "notes": "The AWS/Azure cost bound deliberately does not assume full trigger batches, because sparse control channels may not fill them. A source invocation may contain different device keys, but the adapter serializes destination calls per key and never mixes keys in a destination batch. Source is acknowledged only after destination durable acceptance."
+    },
+    {
+      "formula_id": "formula.transfer.progressive-egress",
+      "inputs": [
+        "canonical_bytes",
+        "provider_unit",
+        "free_quantity",
+        "tier_schedule"
+      ],
+      "expression": "progressive(max(0,canonical_bytes/provider_unit-free_quantity),tier_schedule)",
+      "output_unit": "USD/month",
+      "rounding": "no intermediate rounding",
+      "notes": "AWS and Azure use decimal GB; GCP uses GiB."
+    },
+    {
+      "formula_id": "formula.rejected.price-visible-only",
+      "inputs": [
+        "provider_pricing_dimensions"
+      ],
+      "expression": "record dimensions and evidence without producing a selected-bundle scenario total",
+      "output_unit": "not_applicable",
+      "rounding": "not_applicable",
+      "notes": "Functional rejection occurs before cost ranking."
+    }
+  ]
+}

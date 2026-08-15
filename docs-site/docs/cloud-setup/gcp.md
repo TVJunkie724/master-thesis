@@ -28,11 +28,28 @@ CloudConnection import explicitly does not support it.
 
 Google Cloud pricing discovery may require project/catalog context and can be slower
 than the other providers. Refresh is therefore provider-specific and asynchronous.
-Project creation, service enablement, IAM, Cloud Functions, Firestore/Storage, and
+Project creation, service enablement, IAM, GKE/Cloud Run for the active Phase 8 profiles
+(Cloud Functions only for retained historical paths), Firestore/Storage, and
 deployment execution require broader but still reviewed permissions.
 
 ## Verification Status
 
-Schema validation, permission inventory, preflight adapters, pricing fixtures, and GCP
-tier tests are implemented. GCP L4/L5 equivalence and selected cross-cloud functions
-remain limited. Final policy completeness requires supervised project-level evidence.
+Schema validation, permission inventory, preflight adapters, pricing fixtures,
+GCP tier tests, and the closed-world shared GCP L1-L5 packages are
+implemented offline. Final policy, quota, browser-access, and capacity
+completeness still require supervised project-level evidence and therefore
+block deployment selection.
+
+Both active profiles use BifroMQ on GKE as the MQTT/command device
+boundary while retaining Pub/Sub as the durable cloud backbone, Firestore
+Native Standard edition with timestamp shards as L3 hot history, a typed Cloud
+Run reader, a bounded Cloud Run Twin API, and Grafana on GKE as L5. When GCP
+owns both L3 and L4, their separate collections and identities share the one
+deployment Firestore database; the database-wide IAM boundary is a documented
+PoC limitation. The historical Pub/Sub-direct simulator and retired
+`google.cloud.iot_v1` feedback template do not prove this target. BigQuery,
+Spanner Graph, and a dedicated Grafana node pool are not part of it.
+
+Six-layer v1 additionally uses its registered Pub/Sub and Cloud Run Eventing
+bundle; a Cloud Run Worker Pool is selected only by the frozen Large scenario.
+This Eventing delta does not replace BifroMQ or change the shared L1-L5 bundle.

@@ -26,7 +26,7 @@
 # ==============================================================================
 
 resource "azurerm_cosmosdb_account" "main" {
-  count               = var.layer_3_hot_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_3_hot_provider == "azure" ? 1 : 0
   name                = local.azure_cosmos_account_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -59,7 +59,7 @@ resource "azurerm_cosmosdb_account" "main" {
 # ==============================================================================
 
 resource "azurerm_cosmosdb_sql_database" "main" {
-  count               = var.layer_3_hot_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_3_hot_provider == "azure" ? 1 : 0
   name                = local.azure_cosmos_db_name
   resource_group_name = azurerm_resource_group.main[0].name
   account_name        = azurerm_cosmosdb_account.main[0].name
@@ -70,7 +70,7 @@ resource "azurerm_cosmosdb_sql_database" "main" {
 # ==============================================================================
 
 resource "azurerm_cosmosdb_sql_container" "hot" {
-  count               = var.layer_3_hot_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_3_hot_provider == "azure" ? 1 : 0
   name                = local.azure_cosmos_container_name
   resource_group_name = azurerm_resource_group.main[0].name
   account_name        = azurerm_cosmosdb_account.main[0].name
@@ -94,14 +94,14 @@ resource "azurerm_cosmosdb_sql_container" "hot" {
 # ==============================================================================
 
 resource "azurerm_storage_container" "cold" {
-  count                 = var.layer_3_cold_provider == "azure" ? 1 : 0
+  count                 = local.azure_v1_enabled && var.layer_3_cold_provider == "azure" ? 1 : 0
   name                  = local.storage_tier_cold
   storage_account_id    = azurerm_storage_account.main[0].id
   container_access_type = "private"
 }
 
 resource "azurerm_storage_container" "archive" {
-  count                 = var.layer_3_archive_provider == "azure" ? 1 : 0
+  count                 = local.azure_v1_enabled && var.layer_3_archive_provider == "azure" ? 1 : 0
   name                  = local.storage_tier_archive
   storage_account_id    = azurerm_storage_account.main[0].id
   container_access_type = "private"
@@ -112,7 +112,7 @@ resource "azurerm_storage_container" "archive" {
 # ==============================================================================
 
 resource "azurerm_service_plan" "l3" {
-  count               = var.layer_3_hot_provider == "azure" || var.layer_3_cold_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && (var.layer_3_hot_provider == "azure" || var.layer_3_cold_provider == "azure") ? 1 : 0
   name                = local.azure_l3_plan_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -127,7 +127,7 @@ resource "azurerm_service_plan" "l3" {
 # ==============================================================================
 
 resource "azurerm_linux_function_app" "l3" {
-  count               = var.layer_3_hot_provider == "azure" || var.layer_3_cold_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && (var.layer_3_hot_provider == "azure" || var.layer_3_cold_provider == "azure") ? 1 : 0
   name                = local.azure_l3_functions_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -239,7 +239,7 @@ resource "azurerm_linux_function_app" "l3" {
 # ==============================================================================
 
 resource "azurerm_cosmosdb_sql_role_assignment" "identity_cosmos" {
-  count               = var.layer_3_hot_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_3_hot_provider == "azure" ? 1 : 0
   resource_group_name = azurerm_resource_group.main[0].name
   account_name        = azurerm_cosmosdb_account.main[0].name
   role_definition_id  = "${azurerm_cosmosdb_account.main[0].id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002" # Built-in Data Contributor

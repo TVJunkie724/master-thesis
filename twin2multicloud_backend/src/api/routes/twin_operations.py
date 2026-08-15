@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -31,6 +30,10 @@ from src.schemas.management_contracts import (
     RedeployReadinessResponse,
 )
 from src.schemas.deployment_logs import DeploymentLogPageResponse
+from src.schemas.deployment_access import (
+    DeploymentAccessCredential,
+    DeploymentAccessSnapshot,
+)
 from src.schemas.deployment_operations import (
     DeploymentHistoryResponse,
     DeploymentOutputsResponse,
@@ -41,6 +44,7 @@ from src.schemas.deployment_readiness import (
     DeploymentReadinessResponse,
 )
 from src.services.deployment_log_read_service import DeploymentLogReadService
+from src.services.deployment_access_service import DeploymentAccessService
 from src.services.deployment_orchestrator import DeploymentOrchestrator
 from src.services.deployment_readiness_service import DeploymentReadinessService
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
@@ -55,7 +59,7 @@ from src.services.twin_export_service import TwinExportService
 
 logger = logging.getLogger(__name__)
 
-TEST_MODE = os.getenv("ENABLE_TEST_ENDPOINTS", "false").lower() == "true"
+TEST_MODE = settings.ENABLE_TEST_ENDPOINTS
 
 router = APIRouter(prefix="/twins", tags=["twins"])
 
@@ -95,6 +99,31 @@ def _deployment_readiness_service(db: Session) -> DeploymentReadinessService:
     )
 
 
+def _deployment_access_service(db: Session) -> DeploymentAccessService:
+    """Build the owner-scoped Layer Access read service."""
+    from src.repositories.deployment_repository import DeploymentRepository
+
+    if TEST_MODE:
+        from src.services.test_layer_access_service import (
+            TestLayerAccessDeployerClient,
+            prepare_test_layer_access_rotation,
+        )
+
+        return DeploymentAccessService(
+            twin_repository=TwinRepository(db),
+            deployment_repository=DeploymentRepository(db),
+            db=db,
+            deployer_client=TestLayerAccessDeployerClient(),
+            project_preparer=prepare_test_layer_access_rotation,
+        )
+
+    return DeploymentAccessService(
+        twin_repository=TwinRepository(db),
+        deployment_repository=DeploymentRepository(db),
+        db=db,
+    )
+
+
 def _raise_service_http_error(exc: Exception) -> None:
     """Map typed service errors to the existing route-level HTTP contract."""
     if isinstance(exc, EntityNotFoundError):
@@ -108,6 +137,63 @@ def _raise_service_http_error(exc: Exception) -> None:
             status_code=exc.status_code, detail=exc.public_detail
         ) from exc
     raise exc
+
+
+@router.get(
+    "/{twin_id}/deployment-access",
+    response_model=DeploymentAccessSnapshot,
+    operation_id="getTwinDeploymentAccess",
+    summary="Get secret-free L4 and L5 access surfaces",
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        409: {"description": "Twin is not actively deployed or profile is unsupported"},
+    },
+)
+async def get_deployment_access(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return _deployment_access_service(db).get_access(
+            twin_id,
+            current_user.id,
+        )
+    except (EntityNotFoundError, ValidationError, ConflictError) as exc:
+        _raise_service_http_error(exc)
+
+
+@router.post(
+    "/{twin_id}/deployment-access/l5/credentials:rotate",
+    response_model=DeploymentAccessCredential,
+    operation_id="rotateTwinGcpGrafanaViewerCredential",
+    summary="Rotate and reveal the GCP Grafana Viewer credential once",
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        409: {"description": "Rotation is unavailable or already in progress"},
+        502: {"description": "Provider rotation failed safely"},
+        503: {"description": "Deployer API unavailable"},
+    },
+)
+async def rotate_deployment_access_credential(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return await _deployment_access_service(db).rotate_gcp_grafana_viewer(
+            twin_id,
+            current_user.id,
+        )
+    except (
+        EntityNotFoundError,
+        ValidationError,
+        ConflictError,
+        DownstreamServiceError,
+    ) as exc:
+        _raise_service_http_error(exc)
 
 
 @router.get(

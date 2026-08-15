@@ -1,0 +1,318 @@
+{
+  "$schema": "./schemas/package-artifact.schema.json",
+  "schema_version": "1.0.0",
+  "package_id": "phase-08-complete-service-bundles@1",
+  "artifact_id": "common-functional-contract",
+  "profile_targets": [
+    "five-layer-baseline@2",
+    "six-layer-eventing@1"
+  ],
+  "historical_profile": {
+    "profile_ref": "five-layer-baseline@1",
+    "mode": "read_verify_destroy_only",
+    "byte_digest": "sha256:af472446363f85fcd85cb1b0c0646f86e6f9193c50604514c5e2c1ed033f3b21"
+  },
+  "mandatory_capabilities": [
+    "authenticated_bidirectional_device_communication",
+    "telemetry_ingestion_and_processing",
+    "mandatory_rule_action_notification_command_and_outcome_behavior",
+    "hot_cool_and_archive_persistence",
+    "semantic_twin_current_state_and_one_hop_relationships",
+    "bounded_raw_and_hourly_rollup_visualization",
+    "typed_l3_hot_to_l4_twin_projection",
+    "typed_domain_event_order_retry_failure_and_replay",
+    "same_cloud_and_six_directed_cross_cloud_routes",
+    "deterministic_deployment_observability_cleanup_and_cost_ownership",
+    "usable_l4_and_l5_browser_surfaces",
+    "theoretical_small_medium_large_capacity_evidence"
+  ],
+  "profile_invariants": {
+    "events_are_mandatory": true,
+    "event_feature_flags_allowed": false,
+    "l3_hot_provider_equals_l5_provider": true,
+    "l4_provider_is_independent": true,
+    "l4_to_l5_edge_allowed": false,
+    "visualized_numeric_metrics_per_record": 1,
+    "raw_history_max_hours": 24,
+    "aggregate_history_max_days": 30,
+    "rollup_bucket_seconds": 3600,
+    "reader_timeout_seconds": 10,
+    "reader_maximum_points": 1000,
+    "storage_batch_interval_minutes": 5,
+    "storage_transfer_retry_horizon_hours": 24,
+    "storage_source_expiry_grace_hours": 48
+  },
+  "contract_definitions": {
+    "raw_history_query.v1": {
+      "transport": {
+        "method": "GET",
+        "path": "/raw-history/v1",
+        "authentication": "deployment_scoped_read_credential",
+        "provider_placement": "l3_hot_l5_provider_only"
+      },
+      "request": {
+        "required_fields": ["device_id", "metric", "from", "to"],
+        "optional_fields": ["bucket_seconds", "limit", "cursor"],
+        "additional_fields_allowed": false,
+        "rules": {
+          "from_to": "rfc3339_utc_and_from_before_to",
+          "bucket_seconds": [0, 3600],
+          "raw_range_max_hours": 24,
+          "aggregate_range_max_days": 30,
+          "limit_min": 1,
+          "limit_max": 1000,
+          "limit_default": 1000,
+          "cursor_max_bytes": 16384,
+          "cursor_max_age_minutes": 15
+        }
+      },
+      "response": {
+        "fields": [
+          "schema_version",
+          "device_id",
+          "metric",
+          "points",
+          "next_cursor",
+          "truncated",
+          "correlation_id"
+        ],
+        "additional_fields_allowed": false,
+        "raw_point_fields": ["stored_at", "event_time", "value"],
+        "aggregate_point_fields": ["bucket_start", "min", "max", "avg", "count"],
+        "maximum_points": 1000,
+        "timeout_seconds": 10,
+        "numeric_values": "finite_json_numbers_only",
+        "integer_maximum": 9007199254740991
+      },
+      "cursor": {
+        "encoding": "base64url_canonical_json",
+        "integrity": "hmac_sha256",
+        "bound_fields": [
+          "profile",
+          "deployment",
+          "provider",
+          "query_parameter_digest",
+          "expiry",
+          "provider_continuation_state"
+        ]
+      }
+    },
+    "twin_projection.v1": {
+      "envelope": "canonical-domain-event.v1",
+      "emission_rule": "explicit_projection_candidate_after_durable_l3_acceptance_or_management_mutation",
+      "not_per_telemetry_message": true,
+      "variants": {
+        "twin.state.upserted": [
+          "twin_id",
+          "source_id",
+          "source_sequence",
+          "observed_at",
+          "state_patch"
+        ],
+        "twin.model.upserted": ["model_id", "model_version", "model_document"],
+        "twin.relationship.upserted": [
+          "relationship_id",
+          "from_twin_id",
+          "to_twin_id",
+          "type"
+        ],
+        "twin.relationship.deleted": [
+          "relationship_id",
+          "from_twin_id",
+          "to_twin_id",
+          "type"
+        ]
+      },
+      "additional_variants_allowed": false,
+      "delivery": {
+        "same_provider": "local_broker_or_trigger_binding",
+        "cross_cloud": "source_owned_short_lived_identity_bridge_to_destination_broker_data_plane",
+        "ordering": "per_source",
+        "idempotency_key": "event_id",
+        "failure_retry_replay": "canonical_domain_event_rules"
+      },
+      "forbidden_payloads": ["raw_history_query", "storage_object_payload"]
+    },
+    "storage_transition.v1": {
+      "owner": "source_l3_storage_bundle",
+      "execution": "finite_scheduled_batch_job",
+      "transitions": ["hot_to_cool", "cool_to_archive"],
+      "manifest_fields": [
+        "deployment_id",
+        "transition",
+        "batch_id",
+        "source_provider",
+        "destination_provider",
+        "object_count",
+        "payload_bytes",
+        "started_at",
+        "completed_at",
+        "status"
+      ],
+      "same_provider": "provider_local_data_plane_no_bridge_no_cross_cloud_egress",
+      "cross_cloud": "source_owned_scheduled_job_writes_destination_storage_data_plane",
+      "event_payload_contains_object_bytes": false,
+      "permanent_worker_or_cdc_allowed": false,
+      "retry_horizon_hours": 24,
+      "source_expiry_grace_hours": 48
+    },
+    "canonical-domain-event.v1": {
+      "envelope_fields": [
+        "schema_version",
+        "event_id",
+        "event_type",
+        "deployment_id",
+        "source_id",
+        "source_sequence",
+        "occurred_at",
+        "correlation_id",
+        "causation_id",
+        "producer",
+        "payload"
+      ],
+      "additional_envelope_fields_allowed": false,
+      "ordering": "per_source_sequence",
+      "idempotency_key": "event_id",
+      "cross_cloud_identity": "short_lived_workload_identity_only",
+      "anonymous_or_static_shared_bridge_credentials_allowed": false,
+      "normative_evidence": "docs/research/evidence/phase_08_eventing/bridge-decision.json"
+    }
+  },
+  "logical_edges": [
+    {
+      "edge_id": "ingestion-to-processing-domain-events",
+      "contract": "canonical-domain-event.v1",
+      "channels": [
+        "telemetry.received.v1"
+      ],
+      "placement": "local_or_cross_cloud",
+      "owner_five_layer": "l1_source_owned_embedded_forwarder",
+      "owner_six_layer": "eventing_responsibility"
+    },
+    {
+      "edge_id": "ingestion-to-hot-storage-domain-events",
+      "contract": "canonical-domain-event.v1",
+      "channels": [
+        "device.command.outcome.v1"
+      ],
+      "placement": "local_or_cross_cloud",
+      "owner_five_layer": "l1_source_owned_embedded_forwarder",
+      "owner_six_layer": "eventing_responsibility"
+    },
+    {
+      "edge_id": "processing-to-ingestion-domain-events",
+      "contract": "canonical-domain-event.v1",
+      "channels": [
+        "device.command.requested.v1"
+      ],
+      "placement": "local_or_cross_cloud",
+      "owner_five_layer": "l2_source_owned_embedded_forwarder",
+      "owner_six_layer": "eventing_responsibility"
+    },
+    {
+      "edge_id": "processing-to-hot-storage-domain-events",
+      "contract": "canonical-domain-event.v1",
+      "channels": [
+        "telemetry.processed.v1",
+        "extension.action.outcome.v1",
+        "notification.workflow.outcome.v1"
+      ],
+      "placement": "local_or_cross_cloud",
+      "owner_five_layer": "l2_source_owned_embedded_forwarder",
+      "owner_six_layer": "eventing_responsibility"
+    },
+    {
+      "edge_id": "l3-hot-to-l5-raw-history",
+      "contract": "raw_history_query.v1",
+      "placement": "provider_local",
+      "owner": "l3_hot_l5_bundle"
+    },
+    {
+      "edge_id": "l3-hot-to-l4-twin-projection",
+      "contract": "twin_projection.v1",
+      "placement": "local_or_cross_cloud",
+      "owner_five_layer": "producer_and_consumer_responsibilities",
+      "owner_six_layer": "eventing_responsibility"
+    },
+    {
+      "edge_id": "l3-hot-to-l3-cool-storage",
+      "contract": "storage_transition.v1",
+      "placement": "local_or_cross_cloud",
+      "owner_five_layer": "l3_hot_source_bundle",
+      "owner_six_layer": "l3_hot_source_bundle"
+    },
+    {
+      "edge_id": "l3-cool-to-l3-archive-storage",
+      "contract": "storage_transition.v1",
+      "placement": "local_or_cross_cloud",
+      "owner_five_layer": "l3_cool_source_bundle",
+      "owner_six_layer": "l3_cool_source_bundle"
+    }
+  ],
+  "event_classes": [
+    {
+      "event_class": "device_traffic",
+      "five_layer_owner": "l1",
+      "six_layer_owner": "l1"
+    },
+    {
+      "event_class": "raw_telemetry_backbone",
+      "five_layer_owner": "l1_l2",
+      "six_layer_owner": "l1_l2"
+    },
+    {
+      "event_class": "canonical_domain_events",
+      "five_layer_owner": "embedded_producer_consumer",
+      "six_layer_owner": "eventing"
+    },
+    {
+      "event_class": "storage_schedule_manifest",
+      "five_layer_owner": "l3",
+      "six_layer_owner": "l3"
+    },
+    {
+      "event_class": "twin_materialization",
+      "five_layer_owner": "l4",
+      "six_layer_owner": "l4"
+    },
+    {
+      "event_class": "provider_observability",
+      "five_layer_owner": "component_owner",
+      "six_layer_owner": "component_owner"
+    },
+    {
+      "event_class": "management_sse",
+      "five_layer_owner": "application_control_plane",
+      "six_layer_owner": "application_control_plane"
+    }
+  ],
+  "forbidden_new_profile_fields": [
+    "useEventChecking",
+    "triggerNotificationWorkflow",
+    "returnFeedbackToDevice",
+    "allowGcpSelfHostedL4",
+    "allowGcpSelfHostedL5",
+    "entityCount",
+    "needs3DModel",
+    "average3DModelSizeInMB",
+    "amountOfActiveEditors",
+    "amountOfActiveViewers",
+    "dashboardRefreshesPerHour",
+    "apiCallsPerDashboardRefresh",
+    "integrateErrorHandling",
+    "orchestrationActionsPerMessage",
+    "eventsPerMessage",
+    "numberOfEventActions",
+    "eventTriggerRate"
+  ],
+  "explicit_non_goals": [
+    "arbitrary_topology_editor",
+    "l4_to_l5_or_3d_visualization",
+    "enterprise_ha",
+    "private_cross_cloud_networking",
+    "permanent_storage_cdc_pipeline",
+    "automatic_live_cloud_execution",
+    "production_readiness_claim",
+    "cost_optimized_service_family_selection"
+  ]
+}

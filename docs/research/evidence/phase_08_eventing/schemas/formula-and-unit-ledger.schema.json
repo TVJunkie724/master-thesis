@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/schemas/phase-08-eventing/formula-and-unit-ledger.schema.json",
+  "title": "Phase 8 formula and unit ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "ledger_id",
+    "constants",
+    "unit_conversions",
+    "normalization_rules",
+    "formulas"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": "formula-and-unit-ledger.v1"},
+    "ledger_id": {"const": "phase-08-formulas@1"},
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hours_per_month", "bytes_per_decimal_gb", "bytes_per_gib", "seconds_per_month"],
+      "properties": {
+        "hours_per_month": {"const": 730},
+        "bytes_per_decimal_gb": {"const": 1000000000},
+        "bytes_per_gib": {"const": 1073741824},
+        "seconds_per_month": {"const": 2628000}
+      }
+    },
+    "unit_conversions": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["conversion_id", "from_unit", "to_unit", "expression"],
+        "properties": {
+          "conversion_id": {"type": "string", "pattern": "^conversion\\."},
+          "from_unit": {"type": "string"},
+          "to_unit": {"type": "string"},
+          "expression": {"type": "string"}
+        }
+      }
+    },
+    "normalization_rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["normalization_rule_id", "inputs", "expression", "rounding"],
+        "properties": {
+          "normalization_rule_id": {"type": "string", "pattern": "^normalization\\."},
+          "inputs": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": true
+          },
+          "expression": {"type": "string", "minLength": 1},
+          "rounding": {"type": "string", "minLength": 1},
+          "source_ids": {
+            "type": "array",
+            "items": {"type": "string", "pattern": "^source\\."},
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "formulas": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["formula_id", "inputs", "expression", "output_unit", "rounding", "notes"],
+        "properties": {
+          "formula_id": {"type": "string", "pattern": "^formula\\."},
+          "inputs": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "expression": {"type": "string", "minLength": 1},
+          "output_unit": {"type": "string", "minLength": 1},
+          "rounding": {"type": "string", "minLength": 1},
+          "notes": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

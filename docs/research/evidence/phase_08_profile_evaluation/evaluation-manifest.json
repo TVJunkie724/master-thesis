@@ -1,0 +1,396 @@
+{
+  "$schema": "schemas/evaluation-manifest.schema.json",
+  "schema_version": "phase-08-profile-evaluation-manifest.v1",
+  "package_id": "phase-08-profile-evaluation@1",
+  "implementation_freeze_commit": "473a53ace895bab62459f57f3d0fe2d05e1e19ee",
+  "profiles": [
+    {
+      "id": "five-layer-baseline",
+      "version": "1",
+      "role": "historical"
+    },
+    {
+      "id": "five-layer-baseline",
+      "version": "2",
+      "role": "control"
+    },
+    {
+      "id": "six-layer-eventing",
+      "version": "1",
+      "role": "treatment"
+    }
+  ],
+  "frozen_inputs": [
+    {
+      "category": "access",
+      "path": "contracts/deployment-access",
+      "kind": "tree",
+      "digest": "sha256:b8078a450e5d053a98974fa35cdcf269e54b5d475543a11d0b73be737a073b63",
+      "file_count": 11
+    },
+    {
+      "category": "architecture",
+      "path": "contracts/architecture-inventory/v1/five-layer-baseline-v1-decision.json",
+      "kind": "file",
+      "digest": "sha256:af472446363f85fcd85cb1b0c0646f86e6f9193c50604514c5e2c1ed033f3b21",
+      "file_count": 1
+    },
+    {
+      "category": "architecture",
+      "path": "contracts/architecture-profiles/definitions/five-layer-v2-manifest.json",
+      "kind": "file",
+      "digest": "sha256:626bc6512bc8effdcbcfd9f0c796c468b0e3b6796b3a0f8dfc3ec6bd792cd7ea",
+      "file_count": 1
+    },
+    {
+      "category": "architecture",
+      "path": "contracts/architecture-profiles/definitions/profiles/five-layer-baseline/1/profile.json",
+      "kind": "file",
+      "digest": "sha256:448bb0208a871ddacac3b0e72d9d77906f0035d861de62287293766c17e56e7d",
+      "file_count": 1
+    },
+    {
+      "category": "architecture",
+      "path": "contracts/architecture-profiles/definitions/profiles/five-layer-baseline/2/profile.json",
+      "kind": "file",
+      "digest": "sha256:a4fdd04324b14c5cc8929f51cabef44c859e7c0b0497d3f7de67e5590d6c2106",
+      "file_count": 1
+    },
+    {
+      "category": "architecture",
+      "path": "contracts/architecture-profiles/definitions/profiles/six-layer-eventing/1/profile.json",
+      "kind": "file",
+      "digest": "sha256:993cc4d1e7a859fe60ac742248266add1139b512af6d3f34e120fe88dfc61f4b",
+      "file_count": 1
+    },
+    {
+      "category": "architecture",
+      "path": "contracts/architecture-profiles/definitions/six-layer-eventing-v1-manifest.json",
+      "kind": "file",
+      "digest": "sha256:8bb124bcdf5cdf891dd1a3b9e80ce24eaf76a6ecf514053031a1e310ca5cafea",
+      "file_count": 1
+    },
+    {
+      "category": "bootstrap",
+      "path": "contracts/cloud-bootstrap",
+      "kind": "tree",
+      "digest": "sha256:96cb26f48ccd3e16be8b6b56040be3b08c8ca15622684bf3f769abaa50b0a9f7",
+      "file_count": 8
+    },
+    {
+      "category": "component",
+      "path": "contracts/architecture-profiles/definitions/component-catalogs",
+      "kind": "tree",
+      "digest": "sha256:3999180b2d3afd2c5fb811c5cc30a71ec14ec860ecc9c687bb2f0a726284fe43",
+      "file_count": 3
+    },
+    {
+      "category": "evaluation",
+      "path": "docs/research/evidence/phase_08_profile_evaluation/schemas",
+      "kind": "tree",
+      "digest": "sha256:5d48527017cfc6750f8536d32f1b40646522616fbe4ab27ec3d3fdcb1529f955",
+      "file_count": 11
+    },
+    {
+      "category": "evaluation",
+      "path": "scripts/phase_08_profile_evaluation",
+      "kind": "tree",
+      "digest": "sha256:89fd4101f81db5d2a31c8ee3897ca905edae66768e963b098ae076f397d4baca",
+      "file_count": 9
+    },
+    {
+      "category": "formula",
+      "path": "contracts/resolved-deployment-specification/v2/component-capacity-registry.json",
+      "kind": "file",
+      "digest": "sha256:c350b53542d888ac5dbebf80837e8a7ae2894b8901097cd02ad7a327409ba1e1",
+      "file_count": 1
+    },
+    {
+      "category": "formula",
+      "path": "docs/research/evidence/phase_08_eventing/formula-and-unit-ledger.json",
+      "kind": "file",
+      "digest": "sha256:535c86b9806e1c168017938523a7082206d7e918a970aab9001e7286d74fc0d1",
+      "file_count": 1
+    },
+    {
+      "category": "formula",
+      "path": "docs/research/evidence/phase_08_service_bundles/pricing-ownership-matrix.json",
+      "kind": "file",
+      "digest": "sha256:a25799ee9a15a409036222cab676c2c1e9fada0873d53f59ba83d7942a3324ec",
+      "file_count": 1
+    },
+    {
+      "category": "functional",
+      "path": "docs/research/evidence/phase_08_eventing/mandatory-capabilities.json",
+      "kind": "file",
+      "digest": "sha256:0086a701300d3d092e5e1b9d062c54f14465990e1e25213ae8da811f12b10c85",
+      "file_count": 1
+    },
+    {
+      "category": "functional",
+      "path": "docs/research/evidence/phase_08_service_bundles/complete-provider-bundles.json",
+      "kind": "file",
+      "digest": "sha256:3ad5e2db348609896645cc15abf16cf316b53d9a4b64ed61ddd659f236752dfb",
+      "file_count": 1
+    },
+    {
+      "category": "implementation",
+      "path": "2-twin2clouds/backend/architecture_profiles",
+      "kind": "tree",
+      "digest": "sha256:268d74eeff941dff55e9dcd73d0aff01fda1281603940e4c76a0ee9a0addc461",
+      "file_count": 19
+    },
+    {
+      "category": "implementation",
+      "path": "2-twin2clouds/backend/calculation_v2",
+      "kind": "tree",
+      "digest": "sha256:5b3dd0a80011da9e814879328435f1ff769df208a9bf64e83e2ac4978aa3dfe5",
+      "file_count": 47
+    },
+    {
+      "category": "implementation",
+      "path": "2-twin2clouds/backend/deployment_specification",
+      "kind": "tree",
+      "digest": "sha256:16796eeb06d4b2c7262f088918ca1d775cc96b9026f68faaf11b80744f3a934a",
+      "file_count": 3
+    },
+    {
+      "category": "package",
+      "path": "3-cloud-deployer/src/providers",
+      "kind": "tree",
+      "digest": "sha256:3bbc2ef32b98c9b81adf9f7f4ff9baef2636f406b67e1cf9bc55d6a39c86e275",
+      "file_count": 208
+    },
+    {
+      "category": "permission",
+      "path": "3-cloud-deployer/docs/references/permission_sets",
+      "kind": "tree",
+      "digest": "sha256:a8cfc74bd056f3710165ad00fbb851fbf2228db0b013a16c555c8116c5181ce4",
+      "file_count": 17
+    },
+    {
+      "category": "pricing",
+      "path": "2-twin2clouds/json/pricing.json",
+      "kind": "file",
+      "digest": "sha256:9466ca47acb927a2bb9ad3bb16a162c6a25ca0693153ccaebeea72b69a509e0f",
+      "file_count": 1
+    },
+    {
+      "category": "pricing",
+      "path": "2-twin2clouds/json/pricing_catalog_baselines/aws/eu-central-1/snapshots/pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464.json",
+      "kind": "file",
+      "digest": "sha256:792e55e9b1008ac6e2b18dee302c320fbaa5a41d7451ed0300cf2f5a21709a09",
+      "file_count": 1
+    },
+    {
+      "category": "pricing",
+      "path": "2-twin2clouds/json/pricing_catalog_baselines/azure/westeurope/snapshots/pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee.json",
+      "kind": "file",
+      "digest": "sha256:6aadcb285f754cb506707db8eec98ec9cbdb3c7ad500dd64561e29c098f5a547",
+      "file_count": 1
+    },
+    {
+      "category": "pricing",
+      "path": "2-twin2clouds/json/pricing_catalog_baselines/baseline.json",
+      "kind": "file",
+      "digest": "sha256:3ad420121d99e5cdfb91145db20b260938a00b9e743e0885826fe61fe9787290",
+      "file_count": 1
+    },
+    {
+      "category": "pricing",
+      "path": "2-twin2clouds/json/pricing_catalog_baselines/gcp/europe-west1/snapshots/pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018.json",
+      "kind": "file",
+      "digest": "sha256:3bcbd10bbd9d2640b1cecbf3f851a042e691fa5c5ca4035d6ada3dfbad5815cd",
+      "file_count": 1
+    },
+    {
+      "category": "provider",
+      "path": "contracts/architecture-profiles/definitions/provider-implementations",
+      "kind": "tree",
+      "digest": "sha256:147991d86df3d20bb4d24401a0f5e90aba76d90d2271e0fef354d450b17ed62a",
+      "file_count": 9
+    },
+    {
+      "category": "scenario",
+      "path": "2-twin2clouds/example_input.json",
+      "kind": "file",
+      "digest": "sha256:5a9cf8612ebba6d9be08665f0426dd459663394c8ea370e8f456151f4ec68a90",
+      "file_count": 1
+    },
+    {
+      "category": "scenario",
+      "path": "docs/research/evidence/phase_08_eventing/scenario-inputs.json",
+      "kind": "file",
+      "digest": "sha256:a49ce526ff03881b944a217913de4b4e10a28d8c27989f0ad9445043a2574506",
+      "file_count": 1
+    },
+    {
+      "category": "source",
+      "path": "docs/research/evidence/phase_08_eventing/source-ledger.json",
+      "kind": "file",
+      "digest": "sha256:c64311e931f32213b366a2bdbe0d85da59972a94b666b39bb60ae5e2c0c7b0ee",
+      "file_count": 1
+    },
+    {
+      "category": "source",
+      "path": "docs/research/evidence/phase_08_service_bundles/source-ledger.json",
+      "kind": "file",
+      "digest": "sha256:f62f5b78545f752a0254b5fedbde9ce852ccaa8148ef86b85588f2e3462b9163",
+      "file_count": 1
+    },
+    {
+      "category": "terraform",
+      "path": "3-cloud-deployer/src/terraform",
+      "kind": "tree",
+      "digest": "sha256:91a3bed9dc78b5097192bf3edab0c9c303090e4a7818b742dab51ceeccea5b1c",
+      "file_count": 64
+    },
+    {
+      "category": "workload",
+      "path": "contracts/five-layer-workload/v2",
+      "kind": "tree",
+      "digest": "sha256:1d944db81a9d2e8a730801c5f16d2744e9041bd7a9b06d2d3f1245e43c84d6cc",
+      "file_count": 10
+    }
+  ],
+  "environment": {
+    "host_platform": "darwin-arm64",
+    "container_platform": "linux-arm64",
+    "python_version": "3.11",
+    "container_images": [
+      {
+        "service": "optimizer",
+        "digest": "sha256:e4f426838bf3b882ad0d35cfd7dc00c2407a002bef571246fd5f0200e2474d3e"
+      },
+      {
+        "service": "management-api",
+        "digest": "sha256:c59139f41649ba2dedc0677d3bb97f1398ec6e21df4244ee434e0434cb33cba3"
+      },
+      {
+        "service": "deployer",
+        "digest": "sha256:dabd2b72bf6fa747bd06619f4b3cdd840d8ad3c76056db8ea62e485410ac5c3c"
+      },
+      {
+        "service": "docs",
+        "digest": "sha256:e5e4df65053c975205a106de376fd8c2ebcb574f29a16eaee61d8521b6e34558"
+      }
+    ],
+    "generator": {
+      "id": "phase-08-profile-evaluation-generator",
+      "version": "1.0.0",
+      "command": "python scripts/phase_08_profile_evaluation/generate.py",
+      "container_command": "docker --context orbstack compose run --rm --no-deps -v $PWD:/workspace -w /workspace 2twin2clouds python scripts/phase_08_profile_evaluation/generate.py"
+    }
+  },
+  "evaluation_policy": {
+    "mode": "offline_deterministic_no_apply",
+    "functional_before_cost": true,
+    "profile_local_ranking_only": true,
+    "publish_total_for_rejected_candidate": false,
+    "live_cloud_claims": false,
+    "latex_modified": false
+  },
+  "output_artifacts": [
+    {
+      "path": "README.md",
+      "digest": "sha256:7bcaec3602c10d18c1b81f0eb6f7178fb67c2b18d277cbf76757df7dc2f201ad"
+    },
+    {
+      "path": "architecture-deltas.json",
+      "digest": "sha256:6e30301718450a66df79767336406d1e0629e3cf83f1e928c9245e166f110cfc"
+    },
+    {
+      "path": "cost-results/five-layer-v1-historical.json",
+      "digest": "sha256:cd7c5018918dbcd7c39480d3f7300cd0ed7836339c6cbc15e02736883d668310"
+    },
+    {
+      "path": "cost-results/five-layer-v2-large.json",
+      "digest": "sha256:880931461a312545299e0f53c144e3d0060f559ec6ed5d1da6ddc4732508b09a"
+    },
+    {
+      "path": "cost-results/five-layer-v2-medium.json",
+      "digest": "sha256:c56aace64ea60b4850851644c81e83b20460c9454ceb55c6384569c8a33a5fd0"
+    },
+    {
+      "path": "cost-results/five-layer-v2-small.json",
+      "digest": "sha256:d5e5c1cfdb2b3f92c3f7138207d3eeb5eb15e399d4fb582c42221b25f4a8d081"
+    },
+    {
+      "path": "cost-results/six-layer-v1-large.json",
+      "digest": "sha256:bf7e8c260d76e6816739ae5bdbaa012394ce851e388fcff6867b2c1c73a4749d"
+    },
+    {
+      "path": "cost-results/six-layer-v1-medium.json",
+      "digest": "sha256:ccec1e1d8ee33ccf41dc526b7f70fffee04e2ff0bd10c89d0a515734b5c9230a"
+    },
+    {
+      "path": "cost-results/six-layer-v1-small.json",
+      "digest": "sha256:9b3ff1a74ea5b1367289bfed324e8a64ae321560a2e3a9edd96293f537ff3103"
+    },
+    {
+      "path": "cost-summary.md",
+      "digest": "sha256:ca137c907c47d5ad1f27780d4ef3130a77da9c4646a6545eee5115e370de3af1"
+    },
+    {
+      "path": "functional-matrix.json",
+      "digest": "sha256:2132eea042064858f32bad656de3aeb5af4c6941b10b78f195d1541b0fe5237e"
+    },
+    {
+      "path": "limitations.json",
+      "digest": "sha256:8aacc7b447279619c2d0ddfbb9ac8776bcb80982a61fe1e63ad1370ad6da3a15"
+    },
+    {
+      "path": "rejections.json",
+      "digest": "sha256:05803c8fa6618069915ca7e6632b798ec0e73380d7033735daf797642828556f"
+    },
+    {
+      "path": "resolved-architectures/five-layer-baseline-1-historical-base-v1-all-gcp-unsupported.json",
+      "digest": "sha256:4d71a5762570318b956a46c13f63b2cf47da0d9844fafd2d864a1d17b25f0234"
+    },
+    {
+      "path": "resolved-architectures/five-layer-baseline-1-historical-base-v1.json",
+      "digest": "sha256:400d912691b257c8ba5c2085f13ec5708bc846bfdb3fe9cc5ea15bfedcf1803d"
+    },
+    {
+      "path": "resolved-architectures/five-layer-baseline-1-historical-edge-heavy-v1-all-gcp-unsupported.json",
+      "digest": "sha256:545ed8ada16ed4e5264a4ea430ef9d2bf665ed3d1e3ce1806a8551e33e74dbd4"
+    },
+    {
+      "path": "resolved-architectures/five-layer-baseline-1-historical-edge-heavy-v1.json",
+      "digest": "sha256:dc9ea1e23fbba96ec2700c7d7e374cad8f30e46c400c41f04ac3081291624d21"
+    },
+    {
+      "path": "resolved-architectures/five-layer-baseline-2-large.json",
+      "digest": "sha256:9486905af17a271dca8321c51b416c9d69f1136817a3e2fc666418f5833e07b7"
+    },
+    {
+      "path": "resolved-architectures/five-layer-baseline-2-medium.json",
+      "digest": "sha256:24e8633a76dc9d169d689c547c2d235f4cc06162cd54f09cedeafab180651401"
+    },
+    {
+      "path": "resolved-architectures/five-layer-baseline-2-small.json",
+      "digest": "sha256:5ba40ff012c1d69e79f58645de9a6b6a84fa3546b89026eb1b88fad06a37fc24"
+    },
+    {
+      "path": "resolved-architectures/six-layer-eventing-1-large.json",
+      "digest": "sha256:7c223ec9c4399dc9cd930ed945d1448d5cf3885ab5c32339e6f039347401cc7d"
+    },
+    {
+      "path": "resolved-architectures/six-layer-eventing-1-medium.json",
+      "digest": "sha256:197e07c6ca57dc8e0f3538b634c00d0ad3d3acf8c13013419266137940c06396"
+    },
+    {
+      "path": "resolved-architectures/six-layer-eventing-1-small.json",
+      "digest": "sha256:3b598237e6e6299b825c007f71324607d28903a069ae6b809cf2e9eef4a04f11"
+    },
+    {
+      "path": "rq-mapping.json",
+      "digest": "sha256:9d5355d5e680e182095f5e661598b91a74def0a909c9effb6e90755564ffed41"
+    },
+    {
+      "path": "scenario-manifest.json",
+      "digest": "sha256:4b7037b917f1e352556c026477db9130c742591a9754a5e97e26da969a536c40"
+    }
+  ],
+  "result_set_digest": "sha256:f651a975a08e2abdcc4833f994deb18a16afc7edba73aba20bd9b385bd17918f"
+}

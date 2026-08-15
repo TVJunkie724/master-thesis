@@ -17,7 +17,7 @@
 
 locals {
   # L0 is deployed when this cloud receives data from another cloud
-  l0_aws_enabled = local.aws_enabled && (
+  l0_aws_enabled = local.aws_enabled && !local.five_layer_v2_enabled && (
     # Ingestion: L1 is on another cloud, L2 is on AWS
     (var.layer_1_provider != "aws" && var.layer_2_provider == "aws") ||
     # Hot Writer: L2 is on another cloud, L3 hot is on AWS
@@ -31,11 +31,11 @@ locals {
   )
 
   # Individual glue function conditions
-  l0_ingestion_enabled      = var.layer_1_provider != "aws" && var.layer_2_provider == "aws"
-  l0_hot_writer_enabled     = var.layer_2_provider != "aws" && var.layer_3_hot_provider == "aws"
-  l0_hot_reader_enabled     = var.layer_3_hot_provider == "aws" && var.layer_4_provider != "aws"
-  l0_cold_writer_enabled    = var.layer_3_hot_provider != "aws" && var.layer_3_cold_provider == "aws"
-  l0_archive_writer_enabled = var.layer_3_cold_provider != "aws" && var.layer_3_archive_provider == "aws"
+  l0_ingestion_enabled      = !local.five_layer_v2_enabled && var.layer_1_provider != "aws" && var.layer_2_provider == "aws"
+  l0_hot_writer_enabled     = !local.five_layer_v2_enabled && var.layer_2_provider != "aws" && var.layer_3_hot_provider == "aws"
+  l0_hot_reader_enabled     = !local.five_layer_v2_enabled && var.layer_3_hot_provider == "aws" && var.layer_4_provider != "aws"
+  l0_cold_writer_enabled    = !local.five_layer_v2_enabled && var.layer_3_hot_provider != "aws" && var.layer_3_cold_provider == "aws"
+  l0_archive_writer_enabled = !local.five_layer_v2_enabled && var.layer_3_cold_provider != "aws" && var.layer_3_archive_provider == "aws"
 
   # Pre-built Lambda packages directory (built by Python before terraform apply)
   lambda_build_dir = "${var.project_path}/.build/aws"

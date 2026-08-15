@@ -6,6 +6,8 @@ import 'package:twin2multicloud_flutter/features/configuration_workspace/present
 import 'package:twin2multicloud_flutter/features/configuration_workspace/presentation/configuration_task_sidebar.dart';
 import 'package:twin2multicloud_flutter/features/configuration_workspace/presentation/configuration_workspace_shell.dart';
 
+import '../../fixtures/architecture_wizard_fixture.dart';
+
 void main() {
   testWidgets('uses the task sidebar on wide layouts', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 800));
@@ -16,7 +18,8 @@ void main() {
     expect(find.byType(ConfigurationTaskSidebar), findsOneWidget);
     expect(find.byType(ConfigurationTaskSelector), findsNothing);
     expect(find.text('Define twin'), findsOneWidget);
-    expect(find.text('Describe workload'), findsOneWidget);
+    expect(find.text('Architecture'), findsOneWidget);
+    expect(find.text('Workload'), findsOneWidget);
     expect(find.text('Identity and mode'), findsOneWidget);
     expect(find.text('Device traffic'), findsNothing);
   });
@@ -43,7 +46,7 @@ void main() {
       _app(_journey(named: true), onSelected: (value) => selected = value),
     );
 
-    await tester.tap(find.text('Describe workload'));
+    await tester.tap(find.text('Architecture'));
     await tester.pump();
     expect(selected, isNull);
 
@@ -52,7 +55,7 @@ void main() {
     await tester.pumpWidget(
       _app(
         _journey(
-          named: true,
+          architectureReady: true,
           requestedTaskId: ConfigurationTaskId.deviceTraffic,
         ),
         onSelected: (value) => selected = value,
@@ -78,11 +81,14 @@ Widget _app(
 
 ConfigurationJourney _journey({
   bool named = false,
+  bool architectureReady = false,
   ConfigurationTaskId? requestedTaskId,
 }) => ConfigurationJourney.fromWizardState(
-  WizardState(
-    status: WizardStatus.ready,
-    twinName: named ? 'Factory twin' : null,
-  ),
+  architectureReady
+      ? architectureReadyWizardState()
+      : WizardState(
+          status: WizardStatus.ready,
+          twinName: named ? 'Factory twin' : null,
+        ),
   requestedTaskId: requestedTaskId,
 );

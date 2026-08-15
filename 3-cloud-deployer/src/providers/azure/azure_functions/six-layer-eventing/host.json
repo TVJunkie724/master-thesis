@@ -1,0 +1,22 @@
+{
+  "version": "2.0",
+  "extensions": {
+    "eventHubs": {
+      "maxEventBatchSize": 10,
+      "minEventBatchSize": 1,
+      "batchCheckpointFrequency": 1,
+      "prefetchCount": 30
+    },
+    "serviceBus": {
+      "maxConcurrentSessions": 1,
+      "maxConcurrentCallsPerSession": 1,
+      "autoCompleteMessages": true
+    }
+  },
+  "logging": {
+    "logLevel": {
+      "default": "Warning",
+      "Function": "Information"
+    }
+  }
+}

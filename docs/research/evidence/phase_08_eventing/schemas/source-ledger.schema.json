@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/schemas/phase-08-eventing/source-ledger.schema.json",
+  "title": "Phase 8 eventing source ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "ledger_id",
+    "retrieved_at",
+    "sources"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": "source-ledger.v1"},
+    "ledger_id": {"const": "phase-08-eventing-sources@1"},
+    "retrieved_at": {"type": "string", "format": "date-time"},
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/source"}
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "provider",
+        "service_family",
+        "claim_type",
+        "source_type",
+        "canonical_url",
+        "retrieved_at",
+        "effective_at",
+        "region",
+        "currency",
+        "facts",
+        "content_digest",
+        "review_status",
+        "reviewer_note"
+      ],
+      "properties": {
+        "source_id": {"type": "string", "pattern": "^source\\."},
+        "provider": {"enum": ["aws", "azure", "gcp"]},
+        "service_family": {"type": "string", "minLength": 1},
+        "claim_type": {
+          "enum": [
+            "capability",
+            "limitation",
+            "quota",
+            "price",
+            "unit",
+            "tier",
+            "region",
+            "security"
+          ]
+        },
+        "source_type": {
+          "enum": [
+            "dynamic_provider_api",
+            "official_static_documentation",
+            "reviewed_repository_catalog",
+            "official_vendor_documentation"
+          ]
+        },
+        "canonical_url": {"type": "string", "format": "uri"},
+        "retrieved_at": {"type": "string", "format": "date-time"},
+        "effective_at": {
+          "oneOf": [
+            {"type": "string", "format": "date"},
+            {"const": "not_published"}
+          ]
+        },
+        "region": {"type": "string", "minLength": 1},
+        "currency": {"enum": ["USD", "not_applicable"]},
+        "facts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["fact_id", "value", "unit"],
+            "properties": {
+              "fact_id": {"type": "string", "pattern": "^fact\\."},
+              "value": {
+                "oneOf": [
+                  {"type": "string"},
+                  {"type": "number"},
+                  {"type": "boolean"}
+                ]
+              },
+              "unit": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "content_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "review_status": {"enum": ["reviewed", "superseded", "unverified"]},
+        "reviewer_note": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from src.clients.optimizer_client import OptimizerClient
+from src.config import settings
 from src.services.aws_twinmaker_pricing_context_service import (
     AwsTwinMakerPricingContextService,
     optimizer_aws_l4_selection_matches_context,
@@ -34,10 +35,16 @@ class OptimizerCalculationService:
         optimizer_client: OptimizerClient | None = None,
         aws_twinmaker_contexts: AwsTwinMakerPricingContextService,
         pricing_catalog_contexts: PricingCatalogContextService,
+        architecture_resolution_enabled: bool | None = None,
     ):
         self.optimizer_client = optimizer_client or OptimizerClient()
         self.aws_twinmaker_contexts = aws_twinmaker_contexts
         self.pricing_catalog_contexts = pricing_catalog_contexts
+        self.architecture_resolution_enabled = (
+            settings.ARCHITECTURE_PROFILE_RESOLUTION_ENABLED
+            if architecture_resolution_enabled is None
+            else architecture_resolution_enabled
+        )
 
     async def calculate(
         self,
@@ -45,6 +52,12 @@ class OptimizerCalculationService:
         user_id: str,
     ) -> dict[str, Any]:
         """Return the full Optimizer calculation response for the given params."""
+        if self.architecture_resolution_enabled:
+            raise DownstreamServiceError(
+                409,
+                "Architecture-aware calculations require a Twin-owned "
+                "optimizer run.",
+            )
         try:
             catalog_context = await self.pricing_catalog_contexts.resolve_for_user(
                 user_id

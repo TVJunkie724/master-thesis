@@ -6,8 +6,11 @@ This research note records a source-based assessment of the Digital Twin
 decomposition used by Twin2MultiCloud. It is input for the later thesis
 synthesis and the architecture audit in GitHub issue
 [#112](https://github.com/TVJunkie724/master-thesis/issues/112), not a decision
-to replace the implemented architecture. It is deliberately not part of the
-published user and developer documentation.
+to replace the implemented architecture by itself. The note began as
+pre-decision research; its final sections now record the separately reviewed
+Phase 8.8 decision, the Phase 8.9 offline activation, and the Phase 8.10
+evaluation boundary. It is deliberately not part of the published user and
+developer documentation.
 
 The related implementation hardening for user-provided function logic,
 provider packaging, and infrastructure-owned bindings is tracked in GitHub
@@ -904,19 +907,28 @@ The agreed target is a closed-world model: runtime users select one of a small
 set of reviewed architecture profiles, while developers can extend the catalog
 through versioned code and data contracts.
 
-The thesis implementation should initially expose exactly two profiles:
+The thesis implementation uses three versioned profile roles, of which the two
+new profiles form the fair Event-Layer comparison:
 
 ```text
 five-layer-baseline@1
-  original paper-compatible functional boundaries
+  immutable historical/paper-compatible evidence
+
+five-layer-baseline@2
+  five responsibilities with mandatory embedded
+  rule evaluation, event actions, notification workflows,
+  and device-command feedback
 
 six-layer-eventing@1
-  baseline responsibilities plus explicit Eventing and Messaging
+  the same domain-event behavior plus explicit Eventing and Messaging
 ```
 
-The second name is intentionally `six-layer-eventing@1`. Eventing is modeled as
-an additional logical responsibility even though its edges are not a linear
-sixth step after L5.
+The six-layer name is intentional. Eventing is modeled as an additional
+logical responsibility even though its edges are not a linear sixth step after
+L5. The scientific comparison is embedded event behavior in
+`five-layer-baseline@2` versus independently owned messaging behavior in
+`six-layer-eventing@1`; `five-layer-baseline@1` remains a separate historical
+reproduction.
 
 The user does not:
 
@@ -940,7 +952,7 @@ cost, and deployment validation before it becomes selectable.
 | `ArchitectureProfile` | Logical Digital Twin responsibilities, required capabilities, approved edges, edge semantics, extension slots, and profile version | Shared architecture contract |
 | `ProviderImplementationProfile` | Curated AWS, Azure, or GCP service bundle that realizes one or more logical responsibilities, including constraints, pricing formulas, and internal resources | Optimizer and Deployer contract |
 | `DeploymentComponentCatalog` | Concrete Terraform modules, provider adapters, function templates, runtime wrappers, permissions, artifacts, and output bindings | Deployer-internal implementation catalog |
-| `ResolvedTwinArchitecture` | Immutable deployment decision for one Twin: profile version, provider assignments, selected implementation bundles, component instances, and logical-to-physical bindings | Management API and deployment manifest |
+| `ResolvedTwinArchitecture` | Immutable deployment decision for one Twin: profile version, provider assignments, selected implementation bundles, component instances, and logical-to-physical bindings | Optimizer produces; Management API validates/persists; DeploymentManifest and Deployer consume |
 
 Function templates and other currently hard-coded runtime artifacts therefore
 remain explicit. They move behind registered deployment components rather than
@@ -966,7 +978,10 @@ workload and functional requirements
 Optimizer selects admissible provider implementations
                   |
                   v
-Management API creates ResolvedTwinArchitecture
+Optimizer creates ResolvedTwinArchitecture
+                  |
+                  v
+Management API validates and persists resolution
                   |
                   v
 Deployer resolves component graph and runtime bindings
@@ -993,13 +1008,14 @@ string conventions for function names, URLs, ARNs, topics, or storage
 resources. A centralized naming policy may still produce physical resource
 names, but domain code and user code must not reconstruct those names.
 
-Some runtime values only exist after infrastructure provisioning. Those values
-must use an explicit staged deployment contract:
-
-1. provision identities, infrastructure resources, and stable endpoints;
-2. collect typed provider outputs;
-3. build or configure runtime artifacts from validated bindings; and
-4. record the final binding evidence and artifact hashes.
+Some runtime values only exist during or after infrastructure provisioning.
+The baseline must express them through direct Terraform references and
+catalog-declared outputs inside one reviewed root-module dependency graph.
+Packages and all statically resolvable bindings are validated before Terraform;
+post-apply collects only allowlisted runtime outputs and records evidence. A
+separate apply/configuration stage is permitted only when a later reviewed
+component contract proves that Terraform cannot represent the dependency. No
+such extra stage is part of `five-layer-baseline@1` by default.
 
 This does not make Terraform or cloud providers infallible. Quotas, eventual
 consistency, IAM propagation, regional incompatibility, provider drift, and
@@ -1065,8 +1081,9 @@ function editor:
 - the user supplies domain logic through a versioned extension slot with typed
   input and output contracts;
 - non-secret configuration is typed and validated;
-- secrets are injected through references and are never embedded in source,
-  manifests, logs, or Terraform variables;
+- user-managed secret values and secret references are rejected in v1;
+  provider-managed user-function secrets require the separate #153 contract
+  before any write-only reference surface can exist;
 - runtime, dependency, artifact, timeout, network, retry, and resource policies
   are explicit; and
 - packaging is deterministic and must not rewrite user source to insert
@@ -1120,10 +1137,22 @@ the five functional contracts, observable behavior, workload assumptions, and
 all resulting resource costs remain explicit.
 
 Any eventing infrastructure used only as a fixed internal support resource of
-the five-layer baseline is part of that provider implementation and is not an
-independently optimized layer. `six-layer-eventing@1` is a separate experiment
-because it makes Eventing and Messaging an explicit functional, deployable, and
-costed responsibility.
+`five-layer-baseline@2` is part of L1/L2 provider implementation and is not an
+independently optimized layer. Its rule evaluator, extension action,
+notification workflow, and device-command adapter are mandatory; a typed rule
+match determines invocation volume. The legacy booleans
+`useEventChecking`, `triggerNotificationWorkflow`, and
+`returnFeedbackToDevice` remain historical `five-layer-baseline@1` inputs only.
+When an L1/L2 responsibility edge crosses providers, the producing
+responsibility conditionally owns the reviewed durable source outbox and bridge
+forwarder. A same-provider placement has no bridge. This cross-cloud mechanism
+does not turn the support resource into an independently assignable sixth
+responsibility.
+
+`six-layer-eventing@1` is a separate experiment because it retains the same
+domain behavior while making routing, buffering, fan-out, retry/DLQ, replay,
+ordering, observability, and cross-cloud transport an explicit functional,
+deployable, and costed responsibility.
 
 ### Stage 1: Paper-Compatible Layer Cost Optimization
 
@@ -1218,7 +1247,8 @@ failure domains, the architecture representation must also become richer.
   boundaries, or merely historical module boundaries?
 - What is the minimum functional completeness contract for every compared
   provider implementation?
-- Which deployed services span several layers or exist only as cross-cloud glue?
+- Which deployed services span several layers or exist only as explicit
+  cross-cloud transition adapters?
 - Does each provider-layer result describe a genuinely deployable equivalent?
 - Which provider-native integrations remove resources or transfer edges?
 - Which existing and proposed connections from `LE` to L1-L5 are mandatory for
@@ -1237,15 +1267,124 @@ failure domains, the architecture representation must also become richer.
 
 ## Current Research State
 
-No current implementation contract is changed by this review.
+The initial research review did not change an implementation contract. The
+subsequent Phase 8.0-8.8 work has now separated three exact profile roles:
 
-The five-layer model remains necessary as the current paper-compatible baseline.
-A nonlinear `LE` Eventing and Messaging Layer is now a serious bounded research
-candidate, not an approved implementation contract. The existing system must be
-stabilized first. Stabilization preserves the five functional and cost
-boundaries but does not pre-approve the inherited direct-call topology; that
-decision requires the Function-and-Edge Matrix and explicit baseline edge
-contracts. The capability matrix, scenario cost matrix, architecture audit, and
-multi-cloud bridge design will then determine the Eventing contract and one
-curated implementation profile per provider. General topology optimization
+- `five-layer-baseline@1` remains immutable historical/paper-compatible
+  evidence and retains its reviewed legacy event-check/feedback support and
+  omission decisions exactly as frozen;
+- `five-layer-baseline@2` is the approved fair-comparison control with
+  mandatory embedded rule evaluation, extension action, notification
+  workflow, and device-command feedback; and
+- `six-layer-eventing@1` provides the same domain-event behavior while adding
+  an independent nonlinear Eventing responsibility.
+
+Phase 8.8 approved `phase-08-eventing-decision@1` as an offline evidence
+package and exact non-executable Phase 8.9 blueprint. It selects one embedded
+bundle and one Event-Layer bundle for each of AWS, Azure, and GCP, covers all
+three single-cloud event-domain cases, all six directed provider pairs,
+admissible three-provider placements, and Small/Medium/Large scenarios, and
+records cost as an evaluation result rather than a service-bundle selection
+criterion. These Phase 8.8 totals do not claim a complete whole-Twin cost.
+
+The cross-cloud boundary is no longer unspecified glue. A source-owned durable
+outbox triggers a source-provider forwarder runtime; that runtime validates the
+canonical envelope and route, obtains a short-lived destination credential,
+publishes through the destination broker's data-plane SDK, and acknowledges
+the source only after durable destination acceptance. Public
+function-to-function calls, a public ingestion endpoint, destination-owned
+pull, and static cloud keys are forbidden. The six route classes carry
+profile-specific bindings: embedded L1/L2 outboxes for
+`five-layer-baseline@2`, and independently owned Event-Layer brokers for
+`six-layer-eventing@1`.
+
+GCP uses one complete bidirectional provider-hosted boundary rather than a
+split telemetry/command design: Apache BifroMQ `4.0.0-incubating` on GKE
+terminates MQTT in both directions, a persistent QoS 1 ordered-shared adapter
+publishes accepted telemetry to Pub/Sub, and Pub/Sub remains the durable cloud
+backbone for commands and correlated outcomes. Reconnect ordering degradation,
+the selected image's 64-KiB capacity, and node/failure behavior remain explicit
+live-readiness gates.
+
+Phase 8.9 has since implemented and frozen the offline Five-layer v2 and
+Six-layer v1 profiles after the complete-service, Deployer, Flutter, and
+cross-stack gates. This is deliberately not a claim that Eventing is
+live-verified. All six directed workload-identity exchanges, the theoretical
+Large allocations, the GCP hosted BifroMQ device boundary, and interactive
+provider sign-in remain supervised-live gates. General topology optimization
 remains a separate future research direction.
+
+Phase 8.10 evaluates the frozen profiles with functional and theoretical-
+capacity gates before cost. Its method, bounded interpretation, and evidence
+index are documented in
+[`phase_08_profile_evaluation_method_and_results.md`](phase_08_profile_evaluation_method_and_results.md).
+
+The thesis does not need to catalogue every potentially relevant provider
+service. It evaluates one bounded, justified composition per provider.
+Alternative services remain visible as rejected or theory-only candidates
+without becoming executable Optimizer or Deployer choices.
+
+## Complete-Service Closure
+
+The subsequent whole-profile review separates three boundary classes that the
+Eventing decision alone cannot close:
+
+1. canonical asynchronous domain events use the approved source-owned broker
+   bridge;
+2. hot/cool/archive data movement uses finite source-owned scheduled jobs and
+   direct destination object-store APIs;
+3. Five-layer v2 visualization uses a provider-local synchronous
+   L3-hot-to-L5 raw-history read, while selected state/model/relationship
+   changes reach an independently placed L4 through `twin_projection.v1`.
+
+The selected complete bundles are AWS DynamoDB plus Amazon Managed Grafana
+with IoT TwinMaker independently placeable, Azure Cosmos DB plus Azure Managed
+Grafana with Azure Digital Twins independently placeable, and a
+provider-hosted GCP bundle using Firestore Native Standard edition, a typed
+Cloud Run reader, and Grafana OSS on GKE plus an independently placeable Cloud
+Run Twin API. The PoC creates one named Firestore database per deployment and
+keeps L3/L4 collections, indexes, code paths, identities, and cost attribution
+logically separate. Because server-library IAM is database-wide, this accepts
+a weaker isolation boundary than two databases; the tradeoff is reported
+rather than hidden. GCP therefore becomes a complete single-cloud
+implementation target for the new profiles without changing the historical
+all-GCP rejection in `five-layer-baseline@1`.
+
+The functional closure also includes post-deployment inspection. Every one of
+the nine L3/L4/L5 placements provides one authenticated L4 semantic Twin
+surface and one L5 raw/rollup Grafana surface. AWS uses TwinMaker console and
+Managed Grafana, Azure uses ADT Explorer and Managed Grafana, and GCP adds a
+bounded IAP-protected Cloud Run Twin Explorer beside Grafana OSS. Interactive
+browser identities are preflighted independently from deployment credentials;
+generic Terraform outputs are not a credential or access contract. Exact
+feasibility and residual limitations are recorded in
+[`phase_08_layer_access_handoff.md`](../plans/phase_08_architecture_profiles_eventing/phase_08_layer_access_handoff.md).
+
+L4-to-L5 Twin context, 3D scenes, and the ADX migration are outside
+Five-layer v2. Six-layer v1 was subsequently activated only after the
+Five-layer L1-L5 evidence was frozen.
+
+The comparison fixes AWS to `eu-central-1`, Azure to `westeurope`, and GCP to
+`europe-west1`; region selection is outside these profile versions. The new
+workload also treats hot, cool, and archive durations as cumulative data-age
+boundaries and prices non-overlapping residence intervals. This corrects the
+new-profile experiment without rewriting historical `@1` results.
+
+`provider(L3_hot) == provider(L5)` is the only visualization placement
+constraint. L4 remains independently placeable, yielding three single-cloud
+and six `L3-hot == L5 != L4` placements. This keeps the raw datasource local
+while retaining every directed local or cross-cloud Twin-projection path and
+all admissible L1/L2/cool/archive placements.
+
+The PoC does not deploy storage-specific CDC/outbox/broker/permanent-worker
+pipelines, Cosmos beside ADX, Spanner Graph, or a dedicated GCP Grafana node
+pool without a failing capacity test that justifies them.
+
+The workload model distinguishes Twin entities, selected semantic
+materialization rates, aggregate workspace dashboard queries, and monthly
+Grafana seats. Five-layer v2 has no scene/3D workload fields. Raw telemetry is
+retained in the provider hot store; versioned semantic state/graph
+materialization prevents managed Twin graph APIs from becoming an accidental
+per-message ingestion bottleneck. Full details and current primary sources are
+in
+[`phase_08_service_bundle_evaluation.md`](phase_08_service_bundle_evaluation.md).

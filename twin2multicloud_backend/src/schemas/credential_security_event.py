@@ -14,6 +14,11 @@ class CredentialSecurityAction(StrEnum):
     CONNECTION_PREFLIGHT = "cloud_connection.preflight"
     BOOTSTRAP_PLAN = "cloud_bootstrap.plan"
     BOOTSTRAP_IMPORT = "cloud_bootstrap.import"
+    BOOTSTRAP_GUIDE = "cloud_bootstrap.guide"
+    BOOTSTRAP_SESSION_CREATE = "cloud_bootstrap.session_create"
+    BOOTSTRAP_EXECUTE = "cloud_bootstrap.execute"
+    BOOTSTRAP_ACKNOWLEDGE_REVOCATION = "cloud_bootstrap.acknowledge_revocation"
+    BOOTSTRAP_CANCEL = "cloud_bootstrap.cancel"
     INLINE_VALIDATE = "credentials.validate_inline"
     STORED_VALIDATE = "credentials.validate_stored"
 

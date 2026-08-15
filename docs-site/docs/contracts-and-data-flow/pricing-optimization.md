@@ -49,6 +49,46 @@ flowchart TD
 The emergency fallback path is diagnostic. It is not a publishable pricing source and
 must not silently enter cost calculation.
 
+### Phase 8 profile offline publication
+
+The active Five-layer v2 and Six-layer v1 evaluation paths consume the same three immutable,
+content-addressed provider snapshots published from
+`five_layer_v2_rate_card_sources.v2.json`. The publisher validates exact
+provider/region/source/rate keys, official source hosts, observation time,
+non-negative rates, and one shared pinned USD-to-EUR conversion before it
+updates the canonical baseline. It also archives the predecessor baseline so
+historical calculations keep a resolvable evidence chain.
+
+These cards intentionally cover only the frozen Small, Medium, and Large thesis
+workloads. Azure IoT Hub therefore uses exact prices for those three message
+volumes instead of a linearized tier approximation. Azure Large Cosmos DB uses
+the rounded 108,000-RU/s maximum of the storage floor and documented operation
+estimates for offline cost comparison; this is not measured request-charge
+evidence. The RDS keeps
+the Cosmos request-charge and autoscale-capacity gates, and Management rejects
+deployment selection until supervised evidence satisfies them.
+
+Six-layer v1 keeps every L1-L5 price from that shared base and adds only the
+registered Eventing bundle, direct/bridge transfer, and destination-ingress
+dimensions from `six-layer-eventing-v1-cost-registry.json`. Its S/M/L Eventing
+scenario is paired with the same immutable core preset, so profile comparison
+does not silently change functional workload.
+
+The Phase 8.10 package evaluates each active profile locally and then produces
+27 matched-context deltas for the three sizes and nine admissible L3/L5-to-L4
+placements. It also covers all six directed Event-provider pairs. The generated
+summary must not be read as one cross-profile optimizer race: profile-local
+winners answer different bounded architecture questions, while only the
+matched inherited L1-L5 rows isolate the explicit Eventing treatment.
+
+Rollup storage and rollup operations are different quantities. Storage holds
+at most one rollup item per device, metric, and hour (720 points across the
+30-day hot window). Every accepted telemetry record still performs one raw
+create, one rollup read, and one rollup update in the documented native
+transaction. The offline ledger therefore bills operation counts per accepted
+record and uses the bounded device-by-hour count only for stored rollup items
+and their eventual deletion.
+
 ## Calculation And Path Selection
 
 ```mermaid
@@ -76,7 +116,8 @@ flowchart TD
     subgraph Outputs["Validated outputs"]
         direction LR
         Result["cost-result.v1<br/>and traces"]
-        Specification["Resolved deployment<br/>specification v1"]
+        Specification["Resolved deployment<br/>specification v1 or v2"]
+        Architecture["Resolved Twin architecture<br/>v1 or native v2"]
         Management["Management validation<br/>and atomic persistence"]
         Flutter["Read-only Flutter review"]
     end
@@ -88,8 +129,10 @@ flowchart TD
     ProviderContracts --> Calculators
     Scoring --> Result
     Scoring --> Specification
+    Scoring -->|"active profile resolver"| Architecture
     Result --> Management
     Specification --> Management --> Flutter
+    Architecture -->|"default-on; explicit false rollback"| Management
 ```
 
 Provider-native billing quantities are not forced into one raw input unit. Contracts
@@ -143,7 +186,15 @@ and cross-provider calculation tests must change together.
 The Optimizer owns registry definitions and immutable catalogs. The Management API
 owns durable owner-scoped refresh history, review decisions, calculation runs, result
 items, exact catalog references, paths, traces, and resolved deployment
-specifications. Flutter cannot author or overwrite these artifacts.
+specifications. It also owns the selected architecture-profile reference and
+immutable resolved-architecture persistence. Phase 8.5 implements architecture
+emission, trusted Management enrichment, shared-contract validation, and
+atomic result/specification/architecture persistence. The active
+`five-layer-baseline@2` path is default-on; explicit `false` is a fail-closed
+rollback. The public Management calculation schema cannot author the profile
+or extension references. Offline v2 evidence remains unselectable for
+deployment while any supervised live-capacity gate is listed. Flutter cannot
+author or overwrite these artifacts.
 
 See [Optimizer](../components/optimizer.md) and
 [Pricing Review](../user-guide/pricing-review.md) for operational detail.

@@ -1,0 +1,706 @@
+{
+  "$id": "https://twin2multicloud.invalid/contracts/architecture-inventory/v1/baseline-decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "id": {
+      "maxLength": 240,
+      "minLength": 3,
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)+$",
+      "type": "string"
+    },
+    "nonEmptyString": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "nullableId": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/id"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reference": {
+      "maxLength": 500,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][^\\n\\r]*$",
+      "type": "string"
+    },
+    "stringArray": {
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      },
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "compatibility_rules": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "compatibility_id": {
+            "$ref": "#/$defs/id"
+          },
+          "owner_phase": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "rule": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "required": [
+          "compatibility_id",
+          "owner_phase",
+          "rule"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "component_decisions": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "retain",
+              "internalize",
+              "replace",
+              "remove"
+            ]
+          },
+          "behavior_after": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "behavior_before": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "boundary_rationale": {
+            "additionalProperties": false,
+            "properties": {
+              "failure_isolation": {
+                "type": "boolean"
+              },
+              "independent_consumer": {
+                "type": "boolean"
+              },
+              "lifecycle": {
+                "type": "boolean"
+              },
+              "ownership": {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              "scaling": {
+                "type": "boolean"
+              },
+              "summary": {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              "trust": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "failure_isolation",
+              "independent_consumer",
+              "lifecycle",
+              "ownership",
+              "scaling",
+              "summary",
+              "trust"
+            ],
+            "type": "object"
+          },
+          "cost_formula_effect": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "cost_proof": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "current_implementation_id": {
+            "$ref": "#/$defs/id"
+          },
+          "current_logical_component_id": {
+            "$ref": "#/$defs/id"
+          },
+          "decision_evidence": {
+            "items": {
+              "$ref": "#/$defs/reference"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "functional_proof": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "implementation_owner_phase": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "migration_compatibility_effect": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "package_terraform_effect": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "provider_applicability": {
+            "items": {
+              "enum": [
+                "aws",
+                "azure",
+                "gcp",
+                "platform"
+              ]
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "source_evidence": {
+            "items": {
+              "$ref": "#/$defs/reference"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "target_implementation_id": {
+            "$ref": "#/$defs/nullableId"
+          },
+          "target_logical_component_id": {
+            "$ref": "#/$defs/nullableId"
+          },
+          "target_responsibility_id": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "required": [
+          "action",
+          "behavior_after",
+          "behavior_before",
+          "boundary_rationale",
+          "cost_formula_effect",
+          "cost_proof",
+          "current_implementation_id",
+          "current_logical_component_id",
+          "decision_evidence",
+          "functional_proof",
+          "implementation_owner_phase",
+          "migration_compatibility_effect",
+          "package_terraform_effect",
+          "provider_applicability",
+          "source_evidence",
+          "target_implementation_id",
+          "target_logical_component_id",
+          "target_responsibility_id"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "content_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "cost_ownership_rules": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "current_cost_owner_id": {
+            "$ref": "#/$defs/id"
+          },
+          "evidence_references": {
+            "items": {
+              "$ref": "#/$defs/reference"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "formula_effect": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "pricing_intent_ids": {
+            "items": {
+              "$ref": "#/$defs/id"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "target_cost_owner_id": {
+            "$ref": "#/$defs/id"
+          },
+          "target_responsibility_ids": {
+            "items": {
+              "$ref": "#/$defs/id"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "target_scope": {
+            "enum": [
+              "scientific_responsibility",
+              "edge",
+              "platform",
+              "extension"
+            ]
+          }
+        },
+        "required": [
+          "current_cost_owner_id",
+          "evidence_references",
+          "formula_effect",
+          "pricing_intent_ids",
+          "target_cost_owner_id",
+          "target_responsibility_ids",
+          "target_scope"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "edge_decisions": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "authentication": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "compatibility_fixture_ids": {
+            "items": {
+              "$ref": "#/$defs/id"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "correlation_observability": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "cost_owner_ids": {
+            "items": {
+              "$ref": "#/$defs/id"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "cost_proof": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "current_edge_id": {
+            "$ref": "#/$defs/id"
+          },
+          "dead_letter_behavior": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "delivery_semantics": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "destination_target_implementation_id": {
+            "$ref": "#/$defs/nullableId"
+          },
+          "destination_target_logical_component_id": {
+            "$ref": "#/$defs/nullableId"
+          },
+          "functional_proof": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "idempotency_behavior": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "implementation_owner_phase": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "invocation_semantics": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "mechanism": {
+            "enum": [
+              "in_process_port",
+              "typed_synchronous_api",
+              "provider_native_trigger",
+              "provider_workflow",
+              "storage_lifecycle",
+              "source_owned_transition_runtime",
+              "cross_provider_adapter",
+              "remove"
+            ]
+          },
+          "ordering_behavior": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "payload_envelope": {
+            "additionalProperties": false,
+            "properties": {
+              "schema_id": {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              "version": {
+                "$ref": "#/$defs/nonEmptyString"
+              }
+            },
+            "required": [
+              "schema_id",
+              "version"
+            ],
+            "type": "object"
+          },
+          "rationale": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "rejected_alternatives": {
+            "items": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "resource_binding_source": {
+            "enum": [
+              "declared_component_output",
+              "platform_binding",
+              "profile_constant",
+              "none"
+            ]
+          },
+          "retry_behavior": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "source_target_implementation_id": {
+            "$ref": "#/$defs/nullableId"
+          },
+          "source_target_logical_component_id": {
+            "$ref": "#/$defs/nullableId"
+          },
+          "target_edge_id": {
+            "$ref": "#/$defs/nullableId"
+          },
+          "timeout_behavior": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "transfer_route_id": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trust_boundary_id": {
+            "$ref": "#/$defs/id"
+          },
+          "verification_fixture_ids": {
+            "items": {
+              "$ref": "#/$defs/id"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "authentication",
+          "compatibility_fixture_ids",
+          "correlation_observability",
+          "cost_owner_ids",
+          "cost_proof",
+          "current_edge_id",
+          "dead_letter_behavior",
+          "delivery_semantics",
+          "destination_target_implementation_id",
+          "destination_target_logical_component_id",
+          "functional_proof",
+          "idempotency_behavior",
+          "implementation_owner_phase",
+          "invocation_semantics",
+          "mechanism",
+          "ordering_behavior",
+          "payload_envelope",
+          "rationale",
+          "rejected_alternatives",
+          "resource_binding_source",
+          "retry_behavior",
+          "source_target_implementation_id",
+          "source_target_logical_component_id",
+          "target_edge_id",
+          "timeout_behavior",
+          "transfer_route_id",
+          "trust_boundary_id",
+          "verification_fixture_ids"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "functional_completeness_rules": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "capability_id": {
+            "$ref": "#/$defs/id"
+          },
+          "evidence": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "required": {
+            "const": true
+          }
+        },
+        "required": [
+          "capability_id",
+          "evidence",
+          "required"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "optimization_slots": {
+      "items": {
+        "enum": [
+          "l1_ingestion",
+          "l2_processing",
+          "l3_hot_storage",
+          "l3_cool_storage",
+          "l3_archive_storage",
+          "l4_twin_state",
+          "l5_visualization"
+        ]
+      },
+      "maxItems": 7,
+      "minItems": 7,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "profile_id": {
+      "const": "five-layer-baseline"
+    },
+    "profile_version": {
+      "const": "1"
+    },
+    "provider_admissibility": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_id": {
+            "$ref": "#/$defs/id"
+          },
+          "deployment_support_status": {
+            "enum": [
+              "complete",
+              "incomplete",
+              "unsupported"
+            ]
+          },
+          "formula_evidence_complete": {
+            "type": "boolean"
+          },
+          "evidence_support_status": {
+            "enum": [
+              "complete",
+              "incomplete"
+            ]
+          },
+          "implementation_component_bundle": {
+            "items": {
+              "$ref": "#/$defs/id"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "known_extra_functionality": {
+            "$ref": "#/$defs/stringArray"
+          },
+          "mandatory_capabilities": {
+            "items": {
+              "$ref": "#/$defs/id"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "missing_functionality": {
+            "$ref": "#/$defs/stringArray"
+          },
+          "pricing_evidence_complete": {
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "supported",
+              "blocked_until_target_implementation",
+              "unsupported"
+            ]
+          },
+          "unsupported_error_code": {
+            "maxLength": 100,
+            "pattern": "^[A-Z][A-Z0-9_]+$",
+            "type": "string"
+          },
+          "unsupported_reason": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "deployment_support_status",
+          "evidence_support_status",
+          "formula_evidence_complete",
+          "implementation_component_bundle",
+          "known_extra_functionality",
+          "mandatory_capabilities",
+          "missing_functionality",
+          "pricing_evidence_complete",
+          "status",
+          "unsupported_error_code",
+          "unsupported_reason"
+        ],
+        "type": "object"
+      },
+      "minItems": 4,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "required_responsibilities": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "paper_layer": {
+            "enum": [
+              "L1",
+              "L2",
+              "L3",
+              "L4",
+              "L5"
+            ]
+          },
+          "purpose": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "responsibility_id": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "required": [
+          "paper_layer",
+          "purpose",
+          "responsibility_id"
+        ],
+        "type": "object"
+      },
+      "maxItems": 5,
+      "minItems": 5,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "required_scenarios": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "reason_code": {
+            "maxLength": 100,
+            "pattern": "^[A-Z][A-Z0-9_]+$",
+            "type": "string"
+          },
+          "required_edge_ids": {
+            "items": {
+              "$ref": "#/$defs/id"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "scenario_id": {
+            "$ref": "#/$defs/id"
+          },
+          "status": {
+            "enum": [
+              "supported",
+              "blocked_until_target_implementation",
+              "blocked_by_issue",
+              "unsupported"
+            ]
+          }
+        },
+        "required": [
+          "reason_code",
+          "required_edge_ids",
+          "scenario_id",
+          "status"
+        ],
+        "type": "object"
+      },
+      "minItems": 6,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "residual_limitations": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "limitation_id": {
+            "$ref": "#/$defs/id"
+          },
+          "owner_phase": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "statement": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "required": [
+          "limitation_id",
+          "owner_phase",
+          "statement"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "schema_version": {
+      "const": "five-layer-baseline-decision.v1"
+    },
+    "source_inventory_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "compatibility_rules",
+    "component_decisions",
+    "content_digest",
+    "cost_ownership_rules",
+    "edge_decisions",
+    "functional_completeness_rules",
+    "optimization_slots",
+    "profile_id",
+    "profile_version",
+    "provider_admissibility",
+    "required_responsibilities",
+    "required_scenarios",
+    "residual_limitations",
+    "schema_version",
+    "source_inventory_digest"
+  ],
+  "title": "Five-layer baseline target decision v1",
+  "type": "object"
+}

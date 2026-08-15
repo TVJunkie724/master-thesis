@@ -6,8 +6,10 @@ Integration tests for the new calculation engine.
 """
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from types import SimpleNamespace
 
+import copy
 import json
 import pytest
 
@@ -779,6 +781,325 @@ class TestEngineIntegration:
         ]
         assert diagnostics["winningScore"] >= diagnostics["winningLayerCost"]
         assert len(result["transferPricingContext"]["routes"]) == 6
+
+    def test_architecture_profile_filters_incomplete_paths_before_scoring(
+        self,
+        sample_params,
+        sample_pricing,
+    ):
+        from backend.calculation_v2.engine import calculate_cheapest_costs
+        from tests.unit.architecture_profiles.test_candidate_resolution import (
+            _context,
+            _registry,
+        )
+
+        result = calculate_cheapest_costs(
+            sample_params,
+            sample_pricing,
+            pricing_catalog_context=pricing_catalog_context_for(
+                sample_pricing
+            ),
+            architecture_context=_context(_registry()),
+        )
+
+        resolution = result["architectureResolutionDiagnostics"]
+        assert resolution["enumeratedCandidateCount"] == 128
+        assert resolution["admissibleCandidateCount"] == 3
+        assert resolution["rejectedCandidateCount"] == 125
+        assert resolution["rejectedByErrorCode"] == {
+            "ARCH_EDGE_IMPLEMENTATION_MISSING": 125
+        }
+        assert len(resolution["representativeCandidateIds"]) == 25
+        assert result["optimizationDiagnostics"]["enumeratedPathCount"] == 972
+        assert result["optimizationDiagnostics"]["evaluatedPathCount"] == 3
+        assert result["optimizationDiagnostics"]["rejectedPathCount"] == 969
+        assert resolution["winningCandidateId"] in {
+            "aws|aws|aws|aws|aws|aws|aws",
+            "aws|azure|azure|azure|azure|azure|azure",
+            "azure|azure|azure|azure|azure|azure|azure",
+        }
+        architecture = result["resolvedTwinArchitecture"]
+        assert architecture["calculation_run_id"] == sample_params[
+            "calculationRunId"
+        ]
+        assert architecture["architecture_profile_ref"]["id"] == (
+            "five-layer-baseline"
+        )
+        assert architecture["functional_completeness"]["status"] == "complete"
+        assert architecture["content_digest"].startswith("sha256:")
+        assert result["totalCostExact"] == architecture["cost_summary"][
+            "monthly_total"
+        ]
+        selected_by_component = {
+            item["logical_component_id"]: item["provider"]
+            for item in architecture["component_assignments"]
+        }
+        assert selected_by_component == {
+            "component.ingestion": result["calculationResult"]["L1"].lower(),
+            "component.processing": result["calculationResult"]["L2"].lower(),
+            "component.hot-storage": result["calculationResult"]["L3"][
+                "Hot"
+            ].lower(),
+            "component.cool-storage": result["calculationResult"]["L3"][
+                "Cool"
+            ].lower(),
+            "component.archive-storage": result["calculationResult"]["L3"][
+                "Archive"
+            ].lower(),
+            "component.twin-state": result["calculationResult"]["L4"].lower(),
+            "component.visualization": result["calculationResult"]["L5"].lower(),
+        }
+        deployment_component_ids = {
+            item["component_id"]
+            for item in result["resolvedDeploymentSpecification"]["components"]
+        }
+        assert all(
+            set(item["deployment_specification_component_ids"])
+            <= deployment_component_ids
+            for item in architecture["component_assignments"]
+        )
+        replay = calculate_cheapest_costs(
+            sample_params,
+            sample_pricing,
+            pricing_catalog_context=pricing_catalog_context_for(
+                sample_pricing
+            ),
+            architecture_context=_context(_registry()),
+        )
+        assert replay["resolvedTwinArchitecture"] == architecture
+
+    def test_architecture_resolution_preserves_exact_eur_costs(
+        self,
+        sample_params,
+        sample_pricing,
+    ):
+        from backend.calculation_v2.engine import calculate_cheapest_costs
+        from tests.unit.architecture_profiles.test_candidate_resolution import (
+            _context,
+            _registry,
+        )
+
+        catalog_context = pricing_catalog_context_for(sample_pricing)
+        usd = calculate_cheapest_costs(
+            sample_params,
+            sample_pricing,
+            pricing_catalog_context=catalog_context,
+            architecture_context=_context(_registry()),
+        )
+        sample_params["currency"] = "EUR"
+        eur = calculate_cheapest_costs(
+            sample_params,
+            sample_pricing,
+            pricing_catalog_context=catalog_context,
+            architecture_context=_context(_registry()),
+        )
+
+        usd_total = Decimal(usd["totalCostExact"])
+        eur_total = Decimal(eur["totalCostExact"])
+        rate = Decimal(str(eur["currencyConversion"]["rate"]))
+        assert eur["resolvedTwinArchitecture"]["cost_summary"][
+            "currency"
+        ] == "EUR"
+        assert eur_total == usd_total * rate
+        assert eur["resolvedDeploymentSpecification"] == usd[
+            "resolvedDeploymentSpecification"
+        ]
+
+    def test_architecture_golden_scenarios_match_legacy_exactly(
+        self,
+        sample_params,
+        sample_pricing,
+    ):
+        from backend.calculation_v2.engine import calculate_cheapest_costs
+        from tests.unit.architecture_profiles.test_candidate_resolution import (
+            _context,
+            _registry,
+        )
+
+        def scale_price_fields(node, factor):
+            for key, value in node.items():
+                if isinstance(value, dict):
+                    scale_price_fields(value, factor)
+                elif (
+                    isinstance(value, (int, float))
+                    and not isinstance(value, bool)
+                    and "price" in key.lower()
+                ):
+                    node[key] = value * factor
+
+        def without_observation_age(value):
+            if isinstance(value, dict):
+                return {
+                    key: without_observation_age(item)
+                    for key, item in value.items()
+                    if key != "observationAgeSeconds"
+                }
+            if isinstance(value, list):
+                return [without_observation_age(item) for item in value]
+            return value
+
+        scenarios = (
+            ("all-azure", "azure|azure|azure|azure|azure|azure|azure"),
+            ("all-aws", "aws|aws|aws|aws|aws|aws|aws"),
+            ("mixed", "aws|azure|azure|azure|azure|azure|azure"),
+            ("edge-heavy", "azure|azure|azure|azure|azure|azure|azure"),
+        )
+        for scenario, expected_winner in scenarios:
+            params = copy.deepcopy(sample_params)
+            pricing = copy.deepcopy(sample_pricing)
+            scale_price_fields(pricing["gcp"], 1_000_000)
+            if scenario == "all-aws":
+                scale_price_fields(pricing["azure"], 1_000_000)
+            else:
+                scale_price_fields(pricing["aws"]["iotTwinMaker"], 1_000_000)
+                scale_price_fields(
+                    pricing["aws"]["awsManagedGrafana"],
+                    1_000_000,
+                )
+                scale_price_fields(pricing["aws"]["stepFunctions"], 100)
+            if scenario == "mixed":
+                pricing["aws"]["iotCore"][
+                    "pricePerDeviceAndMonth"
+                ] = 0
+            if scenario == "edge-heavy":
+                params.update(
+                    numberOfDevices=10_000,
+                    averageSizeOfMessageInKb=256.0,
+                    deviceSendingIntervalInMinutes=1.0,
+                )
+
+            catalog_context = pricing_catalog_context_for(pricing)
+            legacy = calculate_cheapest_costs(
+                params,
+                pricing,
+                pricing_catalog_context=catalog_context,
+            )
+            resolved = calculate_cheapest_costs(
+                params,
+                pricing,
+                pricing_catalog_context=catalog_context,
+                architecture_context=_context(_registry()),
+            )
+
+            assert legacy["optimizationDiagnostics"][
+                "winningCandidateId"
+            ] == expected_winner
+            assert resolved["architectureResolutionDiagnostics"][
+                "winningCandidateId"
+            ] == expected_winner
+            for key in (
+                "awsCosts",
+                "azureCosts",
+                "gcpCosts",
+                "calculationResult",
+                "cheapestPath",
+                "transferPricingContext",
+                "transitionRuntimeContext",
+                "resolvedDeploymentSpecification",
+                "intentTrace",
+                "resultTrace",
+                "totalCostExact",
+            ):
+                assert without_observation_age(legacy[key]) == (
+                    without_observation_age(resolved[key])
+                ), f"{scenario}: {key}"
+            assert resolved["resolvedTwinArchitecture"]["cost_summary"][
+                "monthly_total"
+            ] == legacy["totalCostExact"]
+            assert resolved["gcpCosts"]["L4"]["supported"] is False
+            assert resolved["gcpCosts"]["L4"]["unsupportedReason"]
+            assert resolved["gcpCosts"]["L5"]["supported"] is False
+            assert resolved["gcpCosts"]["L5"]["unsupportedReason"]
+
+    def test_architecture_total_must_match_exact_winning_path(
+        self,
+        sample_params,
+        sample_pricing,
+        monkeypatch,
+    ):
+        from backend.architecture_profiles.diagnostics import (
+            ArchitectureResolutionError,
+        )
+        from backend.architecture_profiles.resolution_builder import (
+            ResolvedTwinArchitectureBuilder,
+        )
+        from backend.calculation_v2.engine import calculate_cheapest_costs
+        from tests.unit.architecture_profiles.test_candidate_resolution import (
+            _context,
+            _registry,
+        )
+
+        original = ResolvedTwinArchitectureBuilder.build
+
+        def tampered_build(builder, *, winner, context):
+            resolution = original(
+                builder,
+                winner=winner,
+                context=context,
+            )
+            resolution["cost_summary"]["monthly_total"] = "0"
+            return resolution
+
+        monkeypatch.setattr(
+            ResolvedTwinArchitectureBuilder,
+            "build",
+            tampered_build,
+        )
+
+        with pytest.raises(ArchitectureResolutionError) as raised:
+            calculate_cheapest_costs(
+                sample_params,
+                sample_pricing,
+                pricing_catalog_context=pricing_catalog_context_for(
+                    sample_pricing
+                ),
+                architecture_context=_context(_registry()),
+            )
+
+        assert raised.value.code == "ARCH_RESOLUTION_BUILD_FAILED"
+
+    def test_no_admissible_architecture_retains_bounded_diagnostics(
+        self,
+        sample_params,
+        sample_pricing,
+    ):
+        from backend.architecture_profiles.diagnostics import (
+            ArchitectureResolutionError,
+        )
+        from backend.calculation_v2.engine import calculate_cheapest_costs
+        from tests.unit.architecture_profiles.test_candidate_resolution import (
+            _catalog_context_with_mutation,
+            _context,
+            _registry,
+        )
+
+        def remove_edge_formulas(catalog):
+            for edge in catalog["edge_implementations"]:
+                if edge["logical_edge_ids"]:
+                    edge["formula_refs"] = []
+
+        context = _catalog_context_with_mutation(
+            _context(_registry()),
+            remove_edge_formulas,
+        )
+
+        with pytest.raises(ArchitectureResolutionError) as raised:
+            calculate_cheapest_costs(
+                sample_params,
+                sample_pricing,
+                pricing_catalog_context=pricing_catalog_context_for(
+                    sample_pricing
+                ),
+                architecture_context=context,
+            )
+
+        assert raised.value.code == "ARCH_NO_ADMISSIBLE_CANDIDATE"
+        diagnostics = raised.value.safe_diagnostics()
+        assert diagnostics["enumeratedCandidateCount"] == 128
+        assert diagnostics["admissibleCandidateCount"] == 0
+        assert diagnostics["rejectedCandidateCount"] == 128
+        assert sum(diagnostics["rejectedByErrorCode"].values()) == 128
+        assert len(diagnostics["representativeCandidateIds"]) == 25
 
     def test_scoring_strategy_does_not_receive_provider_pricing_payload(
         self,

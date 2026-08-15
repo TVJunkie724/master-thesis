@@ -1,0 +1,26 @@
+{
+  "provider": "azure",
+  "permission_set_version": "thesis-demo-v2",
+  "review_status": "approved_for_offline_implementation",
+  "reviewed_on": "2026-08-03",
+  "source_manifest": "azure_thesis_demo_v2.json",
+  "scope_classes": {
+    "subscription_setup": "Role assignment and provider discovery remain subscription-scoped.",
+    "resource_group_candidate": "Selected service lifecycle actions target the deployment resource group after provider validation.",
+    "data_plane": "Cosmos, Blob, and Digital Twins data actions are separate from ARM management actions.",
+    "entra_external": "Microsoft Graph/Entra application operations are bootstrap or preflight responsibilities, not ARM custom-role actions."
+  },
+  "findings": [],
+  "accepted_gaps": [
+    "Service-family wildcards are explicit PoC inputs and not a formal least-privilege proof.",
+    "The subscription/resource-group split and Graph grants need supervised provider validation.",
+    "Regional ACR Tasks are deployment-time image-packaging support. Their one-off build consumption is recorded as deployment evidence and excluded from steady-state monthly Twin ranking; ACR storage remains owned by the selected deployment graph.",
+    "No billing, tenant creation, or subscription creation authority is retained."
+  ],
+  "activation_gates": [
+    "manifest digest matches phase-08-complete-service-bundles@1",
+    "current provider operations contain every frozen action pattern",
+    "required resource providers are registered or a typed manual prerequisite is returned",
+    "supervised deploy/destroy smoke records no missing action"
+  ]
+}

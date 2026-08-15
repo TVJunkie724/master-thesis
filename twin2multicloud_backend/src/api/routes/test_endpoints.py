@@ -8,7 +8,6 @@ creating cloud resources. They are gated by ENABLE_TEST_ENDPOINTS=true.
 Consolidated from twins.py to keep production code clean and test code separate.
 """
 
-import os
 import json
 import logging
 import secrets
@@ -21,19 +20,24 @@ from sqlalchemy.orm import Session
 from src.models.database import get_db
 from src.models.twin import DigitalTwin
 from src.models.user import User
+from src.config import settings
 from src.api.dependencies import get_current_user
 from src.api.routes.error_models import ERROR_RESPONSES
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_orchestrator import DeploymentOrchestrator
 from src.services.service_errors import ConflictError, EntityNotFoundError, ValidationError
 from src.services.test_deployment_service import TestDeploymentService
+from src.services.test_layer_access_service import (
+    seed_layer_access_fixtures,
+    test_rotation_count,
+)
 from src.services.twin_lifecycle_service import TwinLifecycleService
 
 router = APIRouter(prefix="/twins", tags=["twins-test"])
 logger = logging.getLogger(__name__)
 
 # Gate all test endpoints behind env var
-TEST_ENDPOINTS_ENABLED = os.getenv("ENABLE_TEST_ENDPOINTS", "false").lower() == "true"
+TEST_ENDPOINTS_ENABLED = settings.ENABLE_TEST_ENDPOINTS
 
 
 def _require_test_endpoints():
@@ -61,6 +65,52 @@ def _raise_service_http_error(exc: Exception) -> None:
     if isinstance(exc, ConflictError):
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     raise exc
+
+
+# =============================================================================
+# Layer Access integration fixtures
+# =============================================================================
+
+@router.post(
+    "/test-fixtures/layer-access",
+    operation_id="testSeedLayerAccessFixtures",
+    summary="[TEST] Seed the credential-free Layer Access placement matrix",
+)
+async def seed_layer_access_test_fixtures(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create deterministic local records; never contact a cloud provider."""
+    _require_test_endpoints()
+    return seed_layer_access_fixtures(db, owner=current_user)
+
+
+@router.get(
+    "/{twin_id}/test-fixtures/layer-access-rotation",
+    operation_id="testReadLayerAccessRotationState",
+    summary="[TEST] Read non-secret Layer Access rotation observations",
+)
+async def read_layer_access_test_rotation_state(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Expose only mutation count and persisted fingerprint metadata."""
+    _require_test_endpoints()
+    twin = TwinRepository(db).get_active_for_user(twin_id, current_user.id)
+    if twin is None:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    from src.repositories.deployment_repository import DeploymentRepository
+
+    deployment = DeploymentRepository(db).latest_successful_deploy(twin.id)
+    if deployment is None:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    return {
+        "schema_version": "layer-access-test-rotation-state.v1",
+        "provider_mutation_count": test_rotation_count(twin.id),
+        "credential_fingerprint": deployment.layer_access_credential_fingerprint,
+        "rotated_at": deployment.layer_access_credential_rotated_at,
+    }
 
 
 # =============================================================================

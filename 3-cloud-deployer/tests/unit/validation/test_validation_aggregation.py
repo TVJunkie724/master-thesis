@@ -5,6 +5,9 @@ Tests the run_all_checks_aggregated() function which collects all validation
 errors instead of failing on the first one.
 """
 import json
+
+from pathlib import Path
+
 import pytest
 from src.validation.core import (
     run_all_checks_aggregated,
@@ -47,6 +50,53 @@ class MockAccessor:
         return ""
 
 
+def _phase8_aws_project(*, extra_files: dict[str, str] | None = None) -> MockAccessor:
+    providers = {
+        "layer_1_provider": "aws",
+        "layer_2_provider": "aws",
+        "layer_3_hot_provider": "aws",
+        "layer_3_cold_provider": "aws",
+        "layer_3_archive_provider": "aws",
+        "layer_4_provider": "aws",
+        "layer_5_provider": "aws",
+    }
+    files = {
+        "config.json": json.dumps(
+            {
+                "digital_twin_name": "phase8-twin",
+                "hot_storage_size_in_days": 7,
+                "cold_storage_size_in_days": 30,
+                "mode": "private",
+            }
+        ),
+        "config_iot_devices.json": '[{"id":"device-1","properties":["temperature"]}]',
+        "config_events.json": (
+            '[{"condition":"temperature > DOUBLE(30)",'
+            '"action":{"type":"lambda","functionName":"alert"}}]'
+        ),
+        "config_credentials.json": json.dumps(
+            {
+                "aws": {
+                    "aws_access_key_id": "test",
+                    "aws_secret_access_key": "test",
+                    "aws_region": "eu-central-1",
+                }
+            }
+        ),
+        "config_providers.json": json.dumps(providers),
+        "config_user.json": json.dumps(
+            {
+                "admin_email": "researcher@example.com",
+                "admin_first_name": "Thesis",
+                "admin_last_name": "Researcher",
+                "aws_layer_access_principal_intent": "existing",
+            }
+        ),
+    }
+    files.update(extra_files or {})
+    return MockAccessor(files)
+
+
 # ==========================================
 # Happy Path Tests
 # ==========================================
@@ -74,6 +124,29 @@ class TestAggregationHappyPaths:
         assert isinstance(result, ValidationResult)
         assert isinstance(result.errors, list)
         assert isinstance(result.warnings, list)
+
+    def test_phase8_project_uses_profile_owned_runtime_artifacts(self):
+        result = run_all_checks_aggregated(
+            _phase8_aws_project(),
+            ValidationContext(
+                architecture_profile=("five-layer-baseline", "2")
+            ),
+        )
+
+        assert result.is_valid, result.errors
+
+    def test_phase8_project_rejects_historical_hierarchy_artifact(self):
+        result = run_all_checks_aggregated(
+            _phase8_aws_project(
+                extra_files={"twin_hierarchy/aws_hierarchy.json": "[]"}
+            ),
+            ValidationContext(
+                architecture_profile=("six-layer-eventing", "1")
+            ),
+        )
+
+        assert not result.is_valid
+        assert any("historical processor" in error for error in result.errors)
 
 
 class TestDeploymentManifestValidation:
@@ -113,6 +186,31 @@ class TestDeploymentManifestValidation:
         ctx.all_files = accessor.list_files()
 
         check_deployment_manifest(accessor, ctx)
+
+    def test_manifest_exposes_phase8_profile_to_directory_validation(
+        self,
+        monkeypatch,
+    ):
+        fixture = json.loads(
+            (
+                Path(__file__).resolve().parents[3]
+                / "src/contracts/generated/deployment-manifest/v4/fixtures/valid"
+                / "single-cloud-aws-small.json"
+            ).read_text(encoding="utf-8")
+        )
+        accessor = MockAccessor(self._base_project_files(fixture))
+        ctx = ValidationContext(
+            all_files=accessor.list_files(),
+            prov_config=fixture["providers"],
+        )
+        monkeypatch.setattr(
+            "src.validation.core.validate_deployment_manifest",
+            lambda manifest, providers: None,
+        )
+
+        check_deployment_manifest(accessor, ctx)
+
+        assert ctx.architecture_profile == ("five-layer-baseline", "2")
 
     def test_manifest_rejects_file_list_mismatch(self):
         manifest = self._valid_manifest(package_files=[

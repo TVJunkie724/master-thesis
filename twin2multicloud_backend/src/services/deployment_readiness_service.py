@@ -13,7 +13,9 @@ from typing import Any, cast
 from sqlalchemy.orm import Session
 
 from src.models.cloud_connection import CloudConnection
-from src.repositories.deployment_preflight_repository import DeploymentPreflightRepository
+from src.repositories.deployment_preflight_repository import (
+    DeploymentPreflightRepository,
+)
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.deployment_readiness import (
     CloudProvider,
@@ -82,8 +84,7 @@ class DeploymentReadinessService:
         twin = self._require_twin(twin_id, user_id)
         required, issues = self._requirements(twin)
         providers = [
-            self._cached_provider(twin, user_id, provider)
-            for provider in required
+            self._cached_provider(twin, user_id, provider) for provider in required
         ]
         return DeploymentReadinessResponse(
             twin_id=twin.id,
@@ -454,8 +455,7 @@ class DeploymentReadinessService:
         cache_age = self._clock() - cache.checked_at
         return bool(
             cache.cloud_connection_id == connection.id
-            and cache.connection_payload_fingerprint
-            == connection.payload_fingerprint
+            and cache.connection_payload_fingerprint == connection.payload_fingerprint
             and cache.supplied_permission_set_version
             == connection.permission_set_version
             and cache.expected_permission_set_version == expected_version
@@ -553,10 +553,10 @@ class DeploymentReadinessService:
             checks=[check],
         )
 
-    def _requirements(self, twin) -> tuple[list[CloudProvider], list[DeploymentReadinessCheck]]:
-        raw = CredentialResolutionService.required_providers_from_optimizer(
-            getattr(twin, "optimizer_config", None),
-        )
+    def _requirements(
+        self, twin
+    ) -> tuple[list[CloudProvider], list[DeploymentReadinessCheck]]:
+        raw = CredentialResolutionService.required_providers_for_compatibility(twin)
         required = [
             cast(CloudProvider, provider)
             for provider in sorted(raw)
@@ -586,8 +586,11 @@ class DeploymentReadinessService:
         providers: list[ProviderDeploymentReadiness],
         issues: list[DeploymentReadinessCheck],
     ) -> bool:
-        return bool(required) and not issues and len(providers) == len(required) and all(
-            provider.ready for provider in providers
+        return (
+            bool(required)
+            and not issues
+            and len(providers) == len(required)
+            and all(provider.ready for provider in providers)
         )
 
     @staticmethod
@@ -607,5 +610,7 @@ class DeploymentReadinessService:
     def _aggregate_checked_at(
         providers: list[ProviderDeploymentReadiness],
     ) -> datetime | None:
-        timestamps = [provider.checked_at for provider in providers if provider.checked_at]
+        timestamps = [
+            provider.checked_at for provider in providers if provider.checked_at
+        ]
         return min(timestamps) if timestamps else None

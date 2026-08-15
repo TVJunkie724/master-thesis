@@ -18,6 +18,7 @@ import rest_api
 from src.api import deployment
 from src.api.dependencies import validate_provider
 from src.api.operation_context import operation_project_path as real_operation_project_path
+from src.core.observability import OperationContext
 from src.deployment_specification.errors import DeploymentSpecificationError
 
 
@@ -64,6 +65,48 @@ def test_deployment_endpoint_requires_operation_package_header():
     assert response.status_code == 422
 
 
+def test_gcp_viewer_rotation_returns_only_one_time_credential_contract():
+    context = MagicMock(name="rotation_context")
+    result = {
+        "schema_version": "deployment-access-credential.v1",
+        "layer": "l5",
+        "provider": "gcp",
+        "username": "researcher@example.invalid",
+        "password": "fixture-rotation-password",
+        "issued_at": "2026-07-31T12:00:00Z",
+    }
+    with (
+        patch.object(
+            deployment,
+            "_prepare_deployment_context",
+            return_value=(MagicMock(), context),
+        ),
+        patch.object(
+            deployment,
+            "load_terraform_outputs",
+            return_value={"gcp_grafana_rotation_secret": {}},
+        ),
+        patch.object(
+            deployment,
+            "rotate_gcp_grafana_viewer",
+            return_value=result,
+        ) as rotate,
+    ):
+        response = asyncio.run(
+            deployment.rotate_deployment_access_credential(
+                OPERATION_TOKEN,
+                project_name="test_api_project",
+            )
+        )
+
+    assert response.model_dump(mode="json") == result
+    assert "fixture-rotation-password" not in repr(response)
+    rotate.assert_called_once_with(
+        context,
+        {"gcp_grafana_rotation_secret": {}},
+    )
+
+
 def test_deployment_endpoint_rejects_invalid_operation_package(monkeypatch):
     monkeypatch.setattr(
         deployment,
@@ -87,6 +130,61 @@ def _project_storage_for(project_path: str | Path):
     storage = MagicMock(name="project_storage")
     storage.context.return_value.project_path = Path(project_path)
     return storage
+
+
+def test_prepare_context_rejects_historical_manifest_for_new_deploy():
+    context = MagicMock(name="historical_deployment_context")
+    context.resolved_deployment_graph = None
+    operation_context = OperationContext.create(
+        operation="deploy",
+        project_name="test_api_project",
+        provider="aws",
+    )
+
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_provider", return_value="aws"),
+        patch.object(deployment, "validate_project_directory"),
+        patch.object(deployment, "create_context", return_value=context),
+        pytest.raises(
+            ValueError,
+            match="new deployment operations require DeploymentManifest v3 or v4",
+        ),
+    ):
+        deployment._prepare_deployment_context(
+            "test_api_project",
+            "aws",
+            "deploy",
+            operation_context,
+            Path("/projects/test_api_project"),
+        )
+
+
+def test_prepare_context_allows_historical_manifest_for_destroy():
+    context = MagicMock(name="historical_deployment_context")
+    context.resolved_deployment_graph = None
+    operation_context = OperationContext.create(
+        operation="destroy",
+        project_name="test_api_project",
+        provider="aws",
+    )
+
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_provider", return_value="aws"),
+        patch.object(deployment, "validate_project_directory"),
+        patch.object(deployment, "create_context", return_value=context),
+    ):
+        request, prepared_context = deployment._prepare_deployment_context(
+            "test_api_project",
+            "aws",
+            "destroy",
+            operation_context,
+            Path("/projects/test_api_project"),
+        )
+
+    assert request.provider == "aws"
+    assert prepared_context is context
 
 
 def test_deploy_route_invokes_canonical_facade_with_hard_response_shape():

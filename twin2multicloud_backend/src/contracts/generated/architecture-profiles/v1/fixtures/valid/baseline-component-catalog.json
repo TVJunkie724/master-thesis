@@ -1,0 +1,3101 @@
+{
+  "catalog_id": "baseline-component-catalog",
+  "catalog_version": "1",
+  "compatibility": {
+    "architecture_profile_schema_versions": [
+      "architecture-profile.v1"
+    ],
+    "deployer_runtime_versions": [
+      "1"
+    ],
+    "deployment_specification_versions": [
+      "resolved-deployment-specification.v1"
+    ],
+    "provider_profile_schema_versions": [
+      "provider-implementation-profile.v1"
+    ],
+    "resolver_versions": [
+      "1"
+    ]
+  },
+  "components": [
+    {
+      "cleanup_contract_ref": {
+        "id": "cleanup.baseline",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "component_kind": "storage_service",
+      "component_version": "1",
+      "configuration_schema_ref": {
+        "id": "configuration.aws.archive-storage",
+        "version": "1"
+      },
+      "decision_implementation_ids": [
+        "implementation.fixture.aws.archive-storage"
+      ],
+      "deployment_component_id": "deployment.aws.archive-storage",
+      "deployment_specification_bindings": [
+        {
+          "component_id": "l3_archive.aws.s3",
+          "slot_id": "l3_archive_storage",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        }
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "extension_slot_refs": [],
+      "formula_refs": [
+        "formula.archive-storage"
+      ],
+      "input_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.aws.port.archive-storage.write-in",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "storage-transition-record.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "logical_component_ids": [
+        "component.archive-storage"
+      ],
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "output_ports": [],
+      "package_artifact_ref": {
+        "id": "artifact.platform.aws.baseline",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.aws.archive-storage"
+      ],
+      "provider": "aws",
+      "required_permission_capabilities": [
+        "permission.aws.archive-storage"
+      ],
+      "runtime_contract": {
+        "memory_mb_max": 4096,
+        "memory_mb_min": 128,
+        "package_layout_id": "package-layout.platform-v1",
+        "platform_handler_adapter_id": "handler-adapter.aws.baseline",
+        "provider_runtime_id": "runtime.aws.managed",
+        "timeout_seconds_max": 300,
+        "timeout_seconds_min": 1,
+        "trigger_adapter_id": "trigger-adapter.aws.baseline",
+        "user_override_allowed": false
+      },
+      "service_id": "aws.archive-storage",
+      "service_ids": [
+        "aws.archive-storage"
+      ],
+      "terraform_binding": {
+        "allowed_input_variable_ids": [
+          "input.aws.archive-storage.selection"
+        ],
+        "dependency_keys": [],
+        "input_bindings": [
+          {
+            "input_id": "input.aws.archive-storage.selection",
+            "sensitive": false,
+            "terraform_variable": "aws_archive_storage_selection"
+          }
+        ],
+        "module_addresses": [],
+        "outputs": [
+          {
+            "output_id": "output.aws.archive-storage.binding",
+            "sensitive": false,
+            "terraform_output": "aws_archive_storage_binding"
+          }
+        ],
+        "resource_addresses": [
+          "aws_archive_storage.component"
+        ]
+      }
+    },
+    {
+      "cleanup_contract_ref": {
+        "id": "cleanup.baseline",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "component_kind": "storage_service",
+      "component_version": "1",
+      "configuration_schema_ref": {
+        "id": "configuration.aws.cool-storage",
+        "version": "1"
+      },
+      "decision_implementation_ids": [
+        "implementation.fixture.aws.cool-storage"
+      ],
+      "deployment_component_id": "deployment.aws.cool-storage",
+      "deployment_specification_bindings": [
+        {
+          "component_id": "l3_cool.aws.s3",
+          "slot_id": "l3_cool_storage",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        }
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "extension_slot_refs": [],
+      "formula_refs": [
+        "formula.cool-storage"
+      ],
+      "input_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.aws.port.cool-storage.write-in",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "storage-transition-record.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "logical_component_ids": [
+        "component.cool-storage"
+      ],
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "output_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.aws.port.cool-storage.transition-out",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "storage-transition-record.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "package_artifact_ref": {
+        "id": "artifact.platform.aws.baseline",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.aws.cool-storage"
+      ],
+      "provider": "aws",
+      "required_permission_capabilities": [
+        "permission.aws.cool-storage"
+      ],
+      "runtime_contract": {
+        "memory_mb_max": 4096,
+        "memory_mb_min": 128,
+        "package_layout_id": "package-layout.platform-v1",
+        "platform_handler_adapter_id": "handler-adapter.aws.baseline",
+        "provider_runtime_id": "runtime.aws.managed",
+        "timeout_seconds_max": 300,
+        "timeout_seconds_min": 1,
+        "trigger_adapter_id": "trigger-adapter.aws.baseline",
+        "user_override_allowed": false
+      },
+      "service_id": "aws.cool-storage",
+      "service_ids": [
+        "aws.cool-storage"
+      ],
+      "terraform_binding": {
+        "allowed_input_variable_ids": [
+          "input.aws.cool-storage.selection"
+        ],
+        "dependency_keys": [],
+        "input_bindings": [
+          {
+            "input_id": "input.aws.cool-storage.selection",
+            "sensitive": false,
+            "terraform_variable": "aws_cool_storage_selection"
+          }
+        ],
+        "module_addresses": [],
+        "outputs": [
+          {
+            "output_id": "output.aws.cool-storage.binding",
+            "sensitive": false,
+            "terraform_output": "aws_cool_storage_binding"
+          }
+        ],
+        "resource_addresses": [
+          "aws_cool_storage.component"
+        ]
+      }
+    },
+    {
+      "cleanup_contract_ref": {
+        "id": "cleanup.baseline",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "component_kind": "storage_service",
+      "component_version": "1",
+      "configuration_schema_ref": {
+        "id": "configuration.aws.hot-storage",
+        "version": "1"
+      },
+      "decision_implementation_ids": [
+        "implementation.fixture.aws.hot-storage"
+      ],
+      "deployment_component_id": "deployment.aws.hot-storage",
+      "deployment_specification_bindings": [
+        {
+          "component_id": "l3_hot.aws.dynamodb",
+          "slot_id": "l3_hot_storage",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        },
+        {
+          "component_id": "l3_hot.aws.reader_lambdas",
+          "slot_id": "l3_hot_storage",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        }
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "extension_slot_refs": [],
+      "formula_refs": [
+        "formula.hot-storage"
+      ],
+      "input_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.aws.port.hot-storage.write-in",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "telemetry-envelope.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "logical_component_ids": [
+        "component.hot-storage"
+      ],
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "output_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.aws.port.hot-storage.transition-out",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "storage-transition-record.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        },
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.aws.port.hot-storage.twin-update-out",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "telemetry-to-twin-state.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "package_artifact_ref": {
+        "id": "artifact.platform.aws.baseline",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.aws.hot-storage"
+      ],
+      "provider": "aws",
+      "required_permission_capabilities": [
+        "permission.aws.hot-storage"
+      ],
+      "runtime_contract": {
+        "memory_mb_max": 4096,
+        "memory_mb_min": 128,
+        "package_layout_id": "package-layout.platform-v1",
+        "platform_handler_adapter_id": "handler-adapter.aws.baseline",
+        "provider_runtime_id": "runtime.aws.managed",
+        "timeout_seconds_max": 300,
+        "timeout_seconds_min": 1,
+        "trigger_adapter_id": "trigger-adapter.aws.baseline",
+        "user_override_allowed": false
+      },
+      "service_id": "aws.hot-storage",
+      "service_ids": [
+        "aws.hot-storage"
+      ],
+      "terraform_binding": {
+        "allowed_input_variable_ids": [
+          "input.aws.hot-storage.selection"
+        ],
+        "dependency_keys": [],
+        "input_bindings": [
+          {
+            "input_id": "input.aws.hot-storage.selection",
+            "sensitive": false,
+            "terraform_variable": "aws_hot_storage_selection"
+          }
+        ],
+        "module_addresses": [],
+        "outputs": [
+          {
+            "output_id": "output.aws.hot-storage.binding",
+            "sensitive": false,
+            "terraform_output": "aws_hot_storage_binding"
+          }
+        ],
+        "resource_addresses": [
+          "aws_hot_storage.component"
+        ]
+      }
+    },
+    {
+      "cleanup_contract_ref": {
+        "id": "cleanup.baseline",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "component_kind": "managed_service",
+      "component_version": "1",
+      "configuration_schema_ref": {
+        "id": "configuration.aws.ingestion",
+        "version": "1"
+      },
+      "decision_implementation_ids": [
+        "implementation.fixture.aws.ingestion"
+      ],
+      "deployment_component_id": "deployment.aws.ingestion",
+      "deployment_specification_bindings": [
+        {
+          "component_id": "l1.aws.dispatcher_lambda",
+          "slot_id": "l1_ingestion",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        },
+        {
+          "component_id": "l1.aws.iot_core",
+          "slot_id": "l1_ingestion",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        }
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "extension_slot_refs": [],
+      "formula_refs": [
+        "formula.ingestion"
+      ],
+      "input_ports": [],
+      "logical_component_ids": [
+        "component.ingestion"
+      ],
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "output_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.aws.port.ingestion.telemetry-out",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "telemetry-envelope.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "package_artifact_ref": {
+        "id": "artifact.platform.aws.baseline",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.aws.ingestion"
+      ],
+      "provider": "aws",
+      "required_permission_capabilities": [
+        "permission.aws.ingestion"
+      ],
+      "runtime_contract": {
+        "memory_mb_max": 4096,
+        "memory_mb_min": 128,
+        "package_layout_id": "package-layout.platform-v1",
+        "platform_handler_adapter_id": "handler-adapter.aws.baseline",
+        "provider_runtime_id": "runtime.aws.managed",
+        "timeout_seconds_max": 300,
+        "timeout_seconds_min": 1,
+        "trigger_adapter_id": "trigger-adapter.aws.baseline",
+        "user_override_allowed": false
+      },
+      "service_id": "aws.ingestion",
+      "service_ids": [
+        "aws.ingestion"
+      ],
+      "terraform_binding": {
+        "allowed_input_variable_ids": [
+          "input.aws.ingestion.selection"
+        ],
+        "dependency_keys": [],
+        "input_bindings": [
+          {
+            "input_id": "input.aws.ingestion.selection",
+            "sensitive": false,
+            "terraform_variable": "aws_ingestion_selection"
+          }
+        ],
+        "module_addresses": [],
+        "outputs": [
+          {
+            "output_id": "output.aws.ingestion.binding",
+            "sensitive": false,
+            "terraform_output": "aws_ingestion_binding"
+          }
+        ],
+        "resource_addresses": [
+          "aws_ingestion.component"
+        ]
+      }
+    },
+    {
+      "cleanup_contract_ref": {
+        "id": "cleanup.baseline",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "component_kind": "managed_service",
+      "component_version": "1",
+      "configuration_schema_ref": {
+        "id": "configuration.aws.processing",
+        "version": "1"
+      },
+      "decision_implementation_ids": [
+        "implementation.fixture.aws.processing"
+      ],
+      "deployment_component_id": "deployment.aws.processing",
+      "deployment_specification_bindings": [
+        {
+          "component_id": "l2.aws.eventbridge",
+          "slot_id": "l2_processing",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        },
+        {
+          "component_id": "l2.aws.processing_lambdas",
+          "slot_id": "l2_processing",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        },
+        {
+          "component_id": "l2.aws.step_functions",
+          "slot_id": "l2_processing",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        }
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "extension_slot_refs": [
+        {
+          "id": "processor.telemetry",
+          "version": "1"
+        }
+      ],
+      "formula_refs": [
+        "formula.processing"
+      ],
+      "input_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.aws.port.processing.telemetry-in",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "telemetry-envelope.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "logical_component_ids": [
+        "component.processing"
+      ],
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "output_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.aws.port.processing.telemetry-out",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "telemetry-envelope.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "package_artifact_ref": {
+        "id": "artifact.platform.aws.baseline",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.aws.processing"
+      ],
+      "provider": "aws",
+      "required_permission_capabilities": [
+        "permission.aws.processing"
+      ],
+      "runtime_contract": {
+        "memory_mb_max": 4096,
+        "memory_mb_min": 128,
+        "package_layout_id": "package-layout.platform-v1",
+        "platform_handler_adapter_id": "handler-adapter.aws.baseline",
+        "provider_runtime_id": "runtime.aws.managed",
+        "timeout_seconds_max": 300,
+        "timeout_seconds_min": 1,
+        "trigger_adapter_id": "trigger-adapter.aws.baseline",
+        "user_override_allowed": false
+      },
+      "service_id": "aws.processing",
+      "service_ids": [
+        "aws.processing"
+      ],
+      "terraform_binding": {
+        "allowed_input_variable_ids": [
+          "input.aws.processing.selection"
+        ],
+        "dependency_keys": [],
+        "input_bindings": [
+          {
+            "input_id": "input.aws.processing.selection",
+            "sensitive": false,
+            "terraform_variable": "aws_processing_selection"
+          }
+        ],
+        "module_addresses": [],
+        "outputs": [
+          {
+            "output_id": "output.aws.processing.binding",
+            "sensitive": false,
+            "terraform_output": "aws_processing_binding"
+          }
+        ],
+        "resource_addresses": [
+          "aws_processing.component"
+        ]
+      }
+    },
+    {
+      "cleanup_contract_ref": {
+        "id": "cleanup.baseline",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "component_kind": "twin_service",
+      "component_version": "1",
+      "configuration_schema_ref": {
+        "id": "configuration.aws.twin-state",
+        "version": "1"
+      },
+      "decision_implementation_ids": [
+        "implementation.fixture.aws.twin-state"
+      ],
+      "deployment_component_id": "deployment.aws.twin-state",
+      "deployment_specification_bindings": [
+        {
+          "component_id": "l4.aws.connector_lambda",
+          "slot_id": "l4_twin_state",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        },
+        {
+          "component_id": "l4.aws.twinmaker",
+          "slot_id": "l4_twin_state",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        }
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "extension_slot_refs": [],
+      "formula_refs": [
+        "formula.twin-state"
+      ],
+      "input_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.aws.port.twin-state.update-in",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "telemetry-to-twin-state.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "logical_component_ids": [
+        "component.twin-state"
+      ],
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "output_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.aws.port.twin-state.query-out",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "twin-query-result.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "package_artifact_ref": {
+        "id": "artifact.platform.aws.baseline",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.aws.twin-state"
+      ],
+      "provider": "aws",
+      "required_permission_capabilities": [
+        "permission.aws.twin-state"
+      ],
+      "runtime_contract": {
+        "memory_mb_max": 4096,
+        "memory_mb_min": 128,
+        "package_layout_id": "package-layout.platform-v1",
+        "platform_handler_adapter_id": "handler-adapter.aws.baseline",
+        "provider_runtime_id": "runtime.aws.managed",
+        "timeout_seconds_max": 300,
+        "timeout_seconds_min": 1,
+        "trigger_adapter_id": "trigger-adapter.aws.baseline",
+        "user_override_allowed": false
+      },
+      "service_id": "aws.twin-state",
+      "service_ids": [
+        "aws.twin-state"
+      ],
+      "terraform_binding": {
+        "allowed_input_variable_ids": [
+          "input.aws.twin-state.selection"
+        ],
+        "dependency_keys": [],
+        "input_bindings": [
+          {
+            "input_id": "input.aws.twin-state.selection",
+            "sensitive": false,
+            "terraform_variable": "aws_twin_state_selection"
+          }
+        ],
+        "module_addresses": [],
+        "outputs": [
+          {
+            "output_id": "output.aws.twin-state.binding",
+            "sensitive": false,
+            "terraform_output": "aws_twin_state_binding"
+          }
+        ],
+        "resource_addresses": [
+          "aws_twin_state.component"
+        ]
+      }
+    },
+    {
+      "cleanup_contract_ref": {
+        "id": "cleanup.baseline",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "component_kind": "visualization_service",
+      "component_version": "1",
+      "configuration_schema_ref": {
+        "id": "configuration.aws.visualization",
+        "version": "1"
+      },
+      "decision_implementation_ids": [
+        "implementation.fixture.aws.visualization"
+      ],
+      "deployment_component_id": "deployment.aws.visualization",
+      "deployment_specification_bindings": [
+        {
+          "component_id": "l5.aws.managed_grafana",
+          "slot_id": "l5_visualization",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        }
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "extension_slot_refs": [],
+      "formula_refs": [
+        "formula.visualization"
+      ],
+      "input_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.aws.port.visualization.query-in",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "twin-query-result.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "logical_component_ids": [
+        "component.visualization"
+      ],
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "output_ports": [],
+      "package_artifact_ref": {
+        "id": "artifact.platform.aws.baseline",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.aws.visualization"
+      ],
+      "provider": "aws",
+      "required_permission_capabilities": [
+        "permission.aws.visualization"
+      ],
+      "runtime_contract": {
+        "memory_mb_max": 4096,
+        "memory_mb_min": 128,
+        "package_layout_id": "package-layout.platform-v1",
+        "platform_handler_adapter_id": "handler-adapter.aws.baseline",
+        "provider_runtime_id": "runtime.aws.managed",
+        "timeout_seconds_max": 300,
+        "timeout_seconds_min": 1,
+        "trigger_adapter_id": "trigger-adapter.aws.baseline",
+        "user_override_allowed": false
+      },
+      "service_id": "aws.visualization",
+      "service_ids": [
+        "aws.visualization"
+      ],
+      "terraform_binding": {
+        "allowed_input_variable_ids": [
+          "input.aws.visualization.selection"
+        ],
+        "dependency_keys": [],
+        "input_bindings": [
+          {
+            "input_id": "input.aws.visualization.selection",
+            "sensitive": false,
+            "terraform_variable": "aws_visualization_selection"
+          }
+        ],
+        "module_addresses": [],
+        "outputs": [
+          {
+            "output_id": "output.aws.visualization.binding",
+            "sensitive": false,
+            "terraform_output": "aws_visualization_binding"
+          }
+        ],
+        "resource_addresses": [
+          "aws_visualization.component"
+        ]
+      }
+    },
+    {
+      "cleanup_contract_ref": {
+        "id": "cleanup.baseline",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "component_kind": "storage_service",
+      "component_version": "1",
+      "configuration_schema_ref": {
+        "id": "configuration.azure.archive-storage",
+        "version": "1"
+      },
+      "decision_implementation_ids": [
+        "implementation.fixture.azure.archive-storage"
+      ],
+      "deployment_component_id": "deployment.azure.archive-storage",
+      "deployment_specification_bindings": [
+        {
+          "component_id": "l3_archive.azure.blob_storage",
+          "slot_id": "l3_archive_storage",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        }
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "extension_slot_refs": [],
+      "formula_refs": [
+        "formula.archive-storage"
+      ],
+      "input_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.azure.port.archive-storage.write-in",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "storage-transition-record.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "logical_component_ids": [
+        "component.archive-storage"
+      ],
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "output_ports": [],
+      "package_artifact_ref": {
+        "id": "artifact.platform.azure.baseline",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.azure.archive-storage"
+      ],
+      "provider": "azure",
+      "required_permission_capabilities": [
+        "permission.azure.archive-storage"
+      ],
+      "runtime_contract": {
+        "memory_mb_max": 4096,
+        "memory_mb_min": 128,
+        "package_layout_id": "package-layout.platform-v1",
+        "platform_handler_adapter_id": "handler-adapter.azure.baseline",
+        "provider_runtime_id": "runtime.azure.managed",
+        "timeout_seconds_max": 300,
+        "timeout_seconds_min": 1,
+        "trigger_adapter_id": "trigger-adapter.azure.baseline",
+        "user_override_allowed": false
+      },
+      "service_id": "azure.archive-storage",
+      "service_ids": [
+        "azure.archive-storage"
+      ],
+      "terraform_binding": {
+        "allowed_input_variable_ids": [
+          "input.azure.archive-storage.selection"
+        ],
+        "dependency_keys": [],
+        "input_bindings": [
+          {
+            "input_id": "input.azure.archive-storage.selection",
+            "sensitive": false,
+            "terraform_variable": "azure_archive_storage_selection"
+          }
+        ],
+        "module_addresses": [],
+        "outputs": [
+          {
+            "output_id": "output.azure.archive-storage.binding",
+            "sensitive": false,
+            "terraform_output": "azure_archive_storage_binding"
+          }
+        ],
+        "resource_addresses": [
+          "azurerm_archive_storage.component"
+        ]
+      }
+    },
+    {
+      "cleanup_contract_ref": {
+        "id": "cleanup.baseline",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "component_kind": "storage_service",
+      "component_version": "1",
+      "configuration_schema_ref": {
+        "id": "configuration.azure.cool-storage",
+        "version": "1"
+      },
+      "decision_implementation_ids": [
+        "implementation.fixture.azure.cool-storage"
+      ],
+      "deployment_component_id": "deployment.azure.cool-storage",
+      "deployment_specification_bindings": [
+        {
+          "component_id": "l3_cool.azure.blob_storage",
+          "slot_id": "l3_cool_storage",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        }
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "extension_slot_refs": [],
+      "formula_refs": [
+        "formula.cool-storage"
+      ],
+      "input_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.azure.port.cool-storage.write-in",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "storage-transition-record.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "logical_component_ids": [
+        "component.cool-storage"
+      ],
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "output_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.azure.port.cool-storage.transition-out",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "storage-transition-record.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "package_artifact_ref": {
+        "id": "artifact.platform.azure.baseline",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.azure.cool-storage"
+      ],
+      "provider": "azure",
+      "required_permission_capabilities": [
+        "permission.azure.cool-storage"
+      ],
+      "runtime_contract": {
+        "memory_mb_max": 4096,
+        "memory_mb_min": 128,
+        "package_layout_id": "package-layout.platform-v1",
+        "platform_handler_adapter_id": "handler-adapter.azure.baseline",
+        "provider_runtime_id": "runtime.azure.managed",
+        "timeout_seconds_max": 300,
+        "timeout_seconds_min": 1,
+        "trigger_adapter_id": "trigger-adapter.azure.baseline",
+        "user_override_allowed": false
+      },
+      "service_id": "azure.cool-storage",
+      "service_ids": [
+        "azure.cool-storage"
+      ],
+      "terraform_binding": {
+        "allowed_input_variable_ids": [
+          "input.azure.cool-storage.selection"
+        ],
+        "dependency_keys": [],
+        "input_bindings": [
+          {
+            "input_id": "input.azure.cool-storage.selection",
+            "sensitive": false,
+            "terraform_variable": "azure_cool_storage_selection"
+          }
+        ],
+        "module_addresses": [],
+        "outputs": [
+          {
+            "output_id": "output.azure.cool-storage.binding",
+            "sensitive": false,
+            "terraform_output": "azure_cool_storage_binding"
+          }
+        ],
+        "resource_addresses": [
+          "azurerm_cool_storage.component"
+        ]
+      }
+    },
+    {
+      "cleanup_contract_ref": {
+        "id": "cleanup.baseline",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "component_kind": "storage_service",
+      "component_version": "1",
+      "configuration_schema_ref": {
+        "id": "configuration.azure.hot-storage",
+        "version": "1"
+      },
+      "decision_implementation_ids": [
+        "implementation.fixture.azure.hot-storage"
+      ],
+      "deployment_component_id": "deployment.azure.hot-storage",
+      "deployment_specification_bindings": [
+        {
+          "component_id": "l3_hot.azure.cosmos_db",
+          "slot_id": "l3_hot_storage",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        },
+        {
+          "component_id": "l3_hot.azure.function_plan",
+          "slot_id": "l3_hot_storage",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        }
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "extension_slot_refs": [],
+      "formula_refs": [
+        "formula.hot-storage"
+      ],
+      "input_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.azure.port.hot-storage.write-in",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "telemetry-envelope.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "logical_component_ids": [
+        "component.hot-storage"
+      ],
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "output_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.azure.port.hot-storage.transition-out",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "storage-transition-record.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        },
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.azure.port.hot-storage.twin-update-out",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "telemetry-to-twin-state.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "package_artifact_ref": {
+        "id": "artifact.platform.azure.baseline",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.azure.hot-storage"
+      ],
+      "provider": "azure",
+      "required_permission_capabilities": [
+        "permission.azure.hot-storage"
+      ],
+      "runtime_contract": {
+        "memory_mb_max": 4096,
+        "memory_mb_min": 128,
+        "package_layout_id": "package-layout.platform-v1",
+        "platform_handler_adapter_id": "handler-adapter.azure.baseline",
+        "provider_runtime_id": "runtime.azure.managed",
+        "timeout_seconds_max": 300,
+        "timeout_seconds_min": 1,
+        "trigger_adapter_id": "trigger-adapter.azure.baseline",
+        "user_override_allowed": false
+      },
+      "service_id": "azure.hot-storage",
+      "service_ids": [
+        "azure.hot-storage"
+      ],
+      "terraform_binding": {
+        "allowed_input_variable_ids": [
+          "input.azure.hot-storage.selection"
+        ],
+        "dependency_keys": [],
+        "input_bindings": [
+          {
+            "input_id": "input.azure.hot-storage.selection",
+            "sensitive": false,
+            "terraform_variable": "azure_hot_storage_selection"
+          }
+        ],
+        "module_addresses": [],
+        "outputs": [
+          {
+            "output_id": "output.azure.hot-storage.binding",
+            "sensitive": false,
+            "terraform_output": "azure_hot_storage_binding"
+          }
+        ],
+        "resource_addresses": [
+          "azurerm_hot_storage.component"
+        ]
+      }
+    },
+    {
+      "cleanup_contract_ref": {
+        "id": "cleanup.baseline",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "component_kind": "managed_service",
+      "component_version": "1",
+      "configuration_schema_ref": {
+        "id": "configuration.azure.ingestion",
+        "version": "1"
+      },
+      "decision_implementation_ids": [
+        "implementation.fixture.azure.ingestion"
+      ],
+      "deployment_component_id": "deployment.azure.ingestion",
+      "deployment_specification_bindings": [
+        {
+          "component_id": "l1.azure.event_grid",
+          "slot_id": "l1_ingestion",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        },
+        {
+          "component_id": "l1.azure.function_plan",
+          "slot_id": "l1_ingestion",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        },
+        {
+          "component_id": "l1.azure.iot_hub",
+          "slot_id": "l1_ingestion",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        }
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "extension_slot_refs": [],
+      "formula_refs": [
+        "formula.ingestion"
+      ],
+      "input_ports": [],
+      "logical_component_ids": [
+        "component.ingestion"
+      ],
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "output_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.azure.port.ingestion.telemetry-out",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "telemetry-envelope.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "package_artifact_ref": {
+        "id": "artifact.platform.azure.baseline",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.azure.ingestion"
+      ],
+      "provider": "azure",
+      "required_permission_capabilities": [
+        "permission.azure.ingestion"
+      ],
+      "runtime_contract": {
+        "memory_mb_max": 4096,
+        "memory_mb_min": 128,
+        "package_layout_id": "package-layout.platform-v1",
+        "platform_handler_adapter_id": "handler-adapter.azure.baseline",
+        "provider_runtime_id": "runtime.azure.managed",
+        "timeout_seconds_max": 300,
+        "timeout_seconds_min": 1,
+        "trigger_adapter_id": "trigger-adapter.azure.baseline",
+        "user_override_allowed": false
+      },
+      "service_id": "azure.ingestion",
+      "service_ids": [
+        "azure.ingestion"
+      ],
+      "terraform_binding": {
+        "allowed_input_variable_ids": [
+          "input.azure.ingestion.selection"
+        ],
+        "dependency_keys": [],
+        "input_bindings": [
+          {
+            "input_id": "input.azure.ingestion.selection",
+            "sensitive": false,
+            "terraform_variable": "azure_ingestion_selection"
+          }
+        ],
+        "module_addresses": [],
+        "outputs": [
+          {
+            "output_id": "output.azure.ingestion.binding",
+            "sensitive": false,
+            "terraform_output": "azure_ingestion_binding"
+          }
+        ],
+        "resource_addresses": [
+          "azurerm_ingestion.component"
+        ]
+      }
+    },
+    {
+      "cleanup_contract_ref": {
+        "id": "cleanup.baseline",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "component_kind": "managed_service",
+      "component_version": "1",
+      "configuration_schema_ref": {
+        "id": "configuration.azure.processing",
+        "version": "1"
+      },
+      "decision_implementation_ids": [
+        "implementation.fixture.azure.processing"
+      ],
+      "deployment_component_id": "deployment.azure.processing",
+      "deployment_specification_bindings": [
+        {
+          "component_id": "l2.azure.event_grid",
+          "slot_id": "l2_processing",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        },
+        {
+          "component_id": "l2.azure.function_plan",
+          "slot_id": "l2_processing",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        },
+        {
+          "component_id": "l2.azure.logic_apps",
+          "slot_id": "l2_processing",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        }
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "extension_slot_refs": [
+        {
+          "id": "processor.telemetry",
+          "version": "1"
+        }
+      ],
+      "formula_refs": [
+        "formula.processing"
+      ],
+      "input_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.azure.port.processing.telemetry-in",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "telemetry-envelope.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "logical_component_ids": [
+        "component.processing"
+      ],
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "output_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.azure.port.processing.telemetry-out",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "telemetry-envelope.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "package_artifact_ref": {
+        "id": "artifact.platform.azure.baseline",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.azure.processing"
+      ],
+      "provider": "azure",
+      "required_permission_capabilities": [
+        "permission.azure.processing"
+      ],
+      "runtime_contract": {
+        "memory_mb_max": 4096,
+        "memory_mb_min": 128,
+        "package_layout_id": "package-layout.platform-v1",
+        "platform_handler_adapter_id": "handler-adapter.azure.baseline",
+        "provider_runtime_id": "runtime.azure.managed",
+        "timeout_seconds_max": 300,
+        "timeout_seconds_min": 1,
+        "trigger_adapter_id": "trigger-adapter.azure.baseline",
+        "user_override_allowed": false
+      },
+      "service_id": "azure.processing",
+      "service_ids": [
+        "azure.processing"
+      ],
+      "terraform_binding": {
+        "allowed_input_variable_ids": [
+          "input.azure.processing.selection"
+        ],
+        "dependency_keys": [],
+        "input_bindings": [
+          {
+            "input_id": "input.azure.processing.selection",
+            "sensitive": false,
+            "terraform_variable": "azure_processing_selection"
+          }
+        ],
+        "module_addresses": [],
+        "outputs": [
+          {
+            "output_id": "output.azure.processing.binding",
+            "sensitive": false,
+            "terraform_output": "azure_processing_binding"
+          }
+        ],
+        "resource_addresses": [
+          "azurerm_processing.component"
+        ]
+      }
+    },
+    {
+      "cleanup_contract_ref": {
+        "id": "cleanup.baseline",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "component_kind": "twin_service",
+      "component_version": "1",
+      "configuration_schema_ref": {
+        "id": "configuration.azure.twin-state",
+        "version": "1"
+      },
+      "decision_implementation_ids": [
+        "implementation.fixture.azure.twin-state"
+      ],
+      "deployment_component_id": "deployment.azure.twin-state",
+      "deployment_specification_bindings": [
+        {
+          "component_id": "l4.azure.digital_twins",
+          "slot_id": "l4_twin_state",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        },
+        {
+          "component_id": "l4.azure.pusher_function",
+          "slot_id": "l4_twin_state",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        }
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "extension_slot_refs": [],
+      "formula_refs": [
+        "formula.twin-state"
+      ],
+      "input_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.azure.port.twin-state.update-in",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "telemetry-to-twin-state.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "logical_component_ids": [
+        "component.twin-state"
+      ],
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "output_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.azure.port.twin-state.query-out",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "twin-query-result.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "package_artifact_ref": {
+        "id": "artifact.platform.azure.baseline",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.azure.twin-state"
+      ],
+      "provider": "azure",
+      "required_permission_capabilities": [
+        "permission.azure.twin-state"
+      ],
+      "runtime_contract": {
+        "memory_mb_max": 4096,
+        "memory_mb_min": 128,
+        "package_layout_id": "package-layout.platform-v1",
+        "platform_handler_adapter_id": "handler-adapter.azure.baseline",
+        "provider_runtime_id": "runtime.azure.managed",
+        "timeout_seconds_max": 300,
+        "timeout_seconds_min": 1,
+        "trigger_adapter_id": "trigger-adapter.azure.baseline",
+        "user_override_allowed": false
+      },
+      "service_id": "azure.twin-state",
+      "service_ids": [
+        "azure.twin-state"
+      ],
+      "terraform_binding": {
+        "allowed_input_variable_ids": [
+          "input.azure.twin-state.selection"
+        ],
+        "dependency_keys": [],
+        "input_bindings": [
+          {
+            "input_id": "input.azure.twin-state.selection",
+            "sensitive": false,
+            "terraform_variable": "azure_twin_state_selection"
+          }
+        ],
+        "module_addresses": [],
+        "outputs": [
+          {
+            "output_id": "output.azure.twin-state.binding",
+            "sensitive": false,
+            "terraform_output": "azure_twin_state_binding"
+          }
+        ],
+        "resource_addresses": [
+          "azurerm_twin_state.component"
+        ]
+      }
+    },
+    {
+      "cleanup_contract_ref": {
+        "id": "cleanup.baseline",
+        "version": "1"
+      },
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "component_kind": "visualization_service",
+      "component_version": "1",
+      "configuration_schema_ref": {
+        "id": "configuration.azure.visualization",
+        "version": "1"
+      },
+      "decision_implementation_ids": [
+        "implementation.fixture.azure.visualization"
+      ],
+      "deployment_component_id": "deployment.azure.visualization",
+      "deployment_specification_bindings": [
+        {
+          "component_id": "l5.azure.managed_grafana",
+          "slot_id": "l5_visualization",
+          "specification_schema_version": "resolved-deployment-specification.v1"
+        }
+      ],
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "extension_slot_refs": [],
+      "formula_refs": [
+        "formula.visualization"
+      ],
+      "input_ports": [
+        {
+          "cardinality": "many",
+          "compatibility_version": "1",
+          "envelope_ref": {
+            "id": "contract-envelope",
+            "version": "1"
+          },
+          "port_id": "catalog.azure.port.visualization.query-in",
+          "producer_consumer_phase": "runtime",
+          "resolution_stage": "deployer_output",
+          "schema_ref": {
+            "id": "twin-query-result.v1",
+            "version": "1"
+          },
+          "sensitivity": "internal",
+          "value_type": "json_document"
+        }
+      ],
+      "logical_component_ids": [
+        "component.visualization"
+      ],
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "output_ports": [],
+      "package_artifact_ref": {
+        "id": "artifact.platform.azure.baseline",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.azure.visualization"
+      ],
+      "provider": "azure",
+      "required_permission_capabilities": [
+        "permission.azure.visualization"
+      ],
+      "runtime_contract": {
+        "memory_mb_max": 4096,
+        "memory_mb_min": 128,
+        "package_layout_id": "package-layout.platform-v1",
+        "platform_handler_adapter_id": "handler-adapter.azure.baseline",
+        "provider_runtime_id": "runtime.azure.managed",
+        "timeout_seconds_max": 300,
+        "timeout_seconds_min": 1,
+        "trigger_adapter_id": "trigger-adapter.azure.baseline",
+        "user_override_allowed": false
+      },
+      "service_id": "azure.visualization",
+      "service_ids": [
+        "azure.visualization"
+      ],
+      "terraform_binding": {
+        "allowed_input_variable_ids": [
+          "input.azure.visualization.selection"
+        ],
+        "dependency_keys": [],
+        "input_bindings": [
+          {
+            "input_id": "input.azure.visualization.selection",
+            "sensitive": false,
+            "terraform_variable": "azure_visualization_selection"
+          }
+        ],
+        "module_addresses": [],
+        "outputs": [
+          {
+            "output_id": "output.azure.visualization.binding",
+            "sensitive": false,
+            "terraform_output": "azure_visualization_binding"
+          }
+        ],
+        "resource_addresses": [
+          "azurerm_visualization.component"
+        ]
+      }
+    }
+  ],
+  "content_digest": "sha256:be7ffb2609dcd6b785beab2a8f63d7395ba6b4a5b267fe4e0196ce498f62135a",
+  "edge_implementations": [
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.baseline",
+            "version": "1"
+          },
+          {
+            "id": "provider-profile.azure.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.fixture.aws-to-azure.ingestion-to-processing"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_ids": [
+        "deployment.azure.processing"
+      ],
+      "destination_input_port_id": "catalog.azure.port.processing.telemetry-in",
+      "edge_implementation_id": "edge-implementation.aws-to-azure.ingestion-to-processing",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "formula.transfer"
+      ],
+      "glue_component_ids": [],
+      "logical_edge_ids": [
+        "edge.ingestion-to-processing"
+      ],
+      "mechanism": "cross_provider_adapter",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "telemetry-envelope.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.cross-provider.transfer"
+      ],
+      "provider": "aws",
+      "required_permission_capabilities": [
+        "permission.cross-provider.adapter"
+      ],
+      "source_component_ids": [
+        "deployment.aws.ingestion"
+      ],
+      "source_output_port_id": "catalog.aws.port.ingestion.telemetry-out",
+      "terraform_binding": {
+        "dependency_keys": [
+          "dependency.cross-provider.adapter"
+        ],
+        "destination_input_id": "input.azure.processing.selection",
+        "source_output_id": "output.aws.ingestion.binding"
+      },
+      "transfer_route_class": "cross_provider",
+      "trust_contract_ref": {
+        "id": "trust.cross-provider",
+        "version": "1"
+      }
+    },
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.fixture.aws.cool-to-archive-storage"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_ids": [
+        "deployment.aws.archive-storage"
+      ],
+      "destination_input_port_id": "catalog.aws.port.archive-storage.write-in",
+      "edge_implementation_id": "edge-implementation.aws.cool-to-archive-storage",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "formula.transfer"
+      ],
+      "glue_component_ids": [],
+      "logical_edge_ids": [
+        "edge.cool-to-archive-storage"
+      ],
+      "mechanism": "source_owned_transition_runtime",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "storage-transition-record.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.aws.transfer"
+      ],
+      "provider": "aws",
+      "required_permission_capabilities": [
+        "permission.aws.edge-runtime"
+      ],
+      "source_component_ids": [
+        "deployment.aws.cool-storage"
+      ],
+      "source_output_port_id": "catalog.aws.port.cool-storage.transition-out",
+      "terraform_binding": {
+        "dependency_keys": [],
+        "destination_input_id": "input.aws.archive-storage.selection",
+        "source_output_id": "output.aws.cool-storage.binding"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "trust_contract_ref": {
+        "id": "trust.baseline",
+        "version": "1"
+      }
+    },
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.fixture.aws.hot-storage-to-twin-state"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_ids": [
+        "deployment.aws.twin-state"
+      ],
+      "destination_input_port_id": "catalog.aws.port.twin-state.update-in",
+      "edge_implementation_id": "edge-implementation.aws.hot-storage-to-twin-state",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "formula.transfer"
+      ],
+      "glue_component_ids": [],
+      "logical_edge_ids": [
+        "edge.hot-storage-to-twin-state"
+      ],
+      "mechanism": "provider_native_trigger",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "telemetry-to-twin-state.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.aws.transfer"
+      ],
+      "provider": "aws",
+      "required_permission_capabilities": [
+        "permission.aws.edge-runtime"
+      ],
+      "source_component_ids": [
+        "deployment.aws.hot-storage"
+      ],
+      "source_output_port_id": "catalog.aws.port.hot-storage.twin-update-out",
+      "terraform_binding": {
+        "dependency_keys": [],
+        "destination_input_id": "input.aws.twin-state.selection",
+        "source_output_id": "output.aws.hot-storage.binding"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "trust_contract_ref": {
+        "id": "trust.baseline",
+        "version": "1"
+      }
+    },
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.fixture.aws.hot-to-cool-storage"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_ids": [
+        "deployment.aws.cool-storage"
+      ],
+      "destination_input_port_id": "catalog.aws.port.cool-storage.write-in",
+      "edge_implementation_id": "edge-implementation.aws.hot-to-cool-storage",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "formula.transfer"
+      ],
+      "glue_component_ids": [],
+      "logical_edge_ids": [
+        "edge.hot-to-cool-storage"
+      ],
+      "mechanism": "source_owned_transition_runtime",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "storage-transition-record.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.aws.transfer"
+      ],
+      "provider": "aws",
+      "required_permission_capabilities": [
+        "permission.aws.edge-runtime"
+      ],
+      "source_component_ids": [
+        "deployment.aws.hot-storage"
+      ],
+      "source_output_port_id": "catalog.aws.port.hot-storage.transition-out",
+      "terraform_binding": {
+        "dependency_keys": [],
+        "destination_input_id": "input.aws.cool-storage.selection",
+        "source_output_id": "output.aws.hot-storage.binding"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "trust_contract_ref": {
+        "id": "trust.baseline",
+        "version": "1"
+      }
+    },
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.fixture.aws.ingestion-to-processing"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_ids": [
+        "deployment.aws.processing"
+      ],
+      "destination_input_port_id": "catalog.aws.port.processing.telemetry-in",
+      "edge_implementation_id": "edge-implementation.aws.ingestion-to-processing",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "formula.transfer"
+      ],
+      "glue_component_ids": [],
+      "logical_edge_ids": [
+        "edge.ingestion-to-processing"
+      ],
+      "mechanism": "provider_native_trigger",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "telemetry-envelope.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.aws.transfer"
+      ],
+      "provider": "aws",
+      "required_permission_capabilities": [
+        "permission.aws.edge-runtime"
+      ],
+      "source_component_ids": [
+        "deployment.aws.ingestion"
+      ],
+      "source_output_port_id": "catalog.aws.port.ingestion.telemetry-out",
+      "terraform_binding": {
+        "dependency_keys": [],
+        "destination_input_id": "input.aws.processing.selection",
+        "source_output_id": "output.aws.ingestion.binding"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "trust_contract_ref": {
+        "id": "trust.baseline",
+        "version": "1"
+      }
+    },
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.fixture.aws.processing-to-hot-storage"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_ids": [
+        "deployment.aws.hot-storage"
+      ],
+      "destination_input_port_id": "catalog.aws.port.hot-storage.write-in",
+      "edge_implementation_id": "edge-implementation.aws.processing-to-hot-storage",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "formula.transfer"
+      ],
+      "glue_component_ids": [],
+      "logical_edge_ids": [
+        "edge.processing-to-hot-storage"
+      ],
+      "mechanism": "provider_native_trigger",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "telemetry-envelope.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.aws.transfer"
+      ],
+      "provider": "aws",
+      "required_permission_capabilities": [
+        "permission.aws.edge-runtime"
+      ],
+      "source_component_ids": [
+        "deployment.aws.processing"
+      ],
+      "source_output_port_id": "catalog.aws.port.processing.telemetry-out",
+      "terraform_binding": {
+        "dependency_keys": [],
+        "destination_input_id": "input.aws.hot-storage.selection",
+        "source_output_id": "output.aws.processing.binding"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "trust_contract_ref": {
+        "id": "trust.baseline",
+        "version": "1"
+      }
+    },
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.aws.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.fixture.aws.twin-state-to-visualization"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "not_applicable",
+        "idempotency": "required",
+        "mode": "synchronous",
+        "ordering": "not_required",
+        "replay": "not_supported",
+        "retry_policy": "bounded_backoff",
+        "timeout_policy": "bounded"
+      },
+      "destination_component_ids": [
+        "deployment.aws.visualization"
+      ],
+      "destination_input_port_id": "catalog.aws.port.visualization.query-in",
+      "edge_implementation_id": "edge-implementation.aws.twin-state-to-visualization",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "formula.transfer"
+      ],
+      "glue_component_ids": [],
+      "logical_edge_ids": [
+        "edge.twin-state-to-visualization"
+      ],
+      "mechanism": "typed_synchronous_api",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "twin-query-result.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.aws.transfer"
+      ],
+      "provider": "aws",
+      "required_permission_capabilities": [
+        "permission.aws.edge-runtime"
+      ],
+      "source_component_ids": [
+        "deployment.aws.twin-state"
+      ],
+      "source_output_port_id": "catalog.aws.port.twin-state.query-out",
+      "terraform_binding": {
+        "dependency_keys": [],
+        "destination_input_id": "input.aws.visualization.selection",
+        "source_output_id": "output.aws.twin-state.binding"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "trust_contract_ref": {
+        "id": "trust.baseline",
+        "version": "1"
+      }
+    },
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.fixture.azure.cool-to-archive-storage"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_ids": [
+        "deployment.azure.archive-storage"
+      ],
+      "destination_input_port_id": "catalog.azure.port.archive-storage.write-in",
+      "edge_implementation_id": "edge-implementation.azure.cool-to-archive-storage",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "formula.transfer"
+      ],
+      "glue_component_ids": [],
+      "logical_edge_ids": [
+        "edge.cool-to-archive-storage"
+      ],
+      "mechanism": "source_owned_transition_runtime",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "storage-transition-record.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.azure.transfer"
+      ],
+      "provider": "azure",
+      "required_permission_capabilities": [
+        "permission.azure.edge-runtime"
+      ],
+      "source_component_ids": [
+        "deployment.azure.cool-storage"
+      ],
+      "source_output_port_id": "catalog.azure.port.cool-storage.transition-out",
+      "terraform_binding": {
+        "dependency_keys": [],
+        "destination_input_id": "input.azure.archive-storage.selection",
+        "source_output_id": "output.azure.cool-storage.binding"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "trust_contract_ref": {
+        "id": "trust.baseline",
+        "version": "1"
+      }
+    },
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.fixture.azure.hot-storage-to-twin-state"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_ids": [
+        "deployment.azure.twin-state"
+      ],
+      "destination_input_port_id": "catalog.azure.port.twin-state.update-in",
+      "edge_implementation_id": "edge-implementation.azure.hot-storage-to-twin-state",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "formula.transfer"
+      ],
+      "glue_component_ids": [],
+      "logical_edge_ids": [
+        "edge.hot-storage-to-twin-state"
+      ],
+      "mechanism": "provider_native_trigger",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "telemetry-to-twin-state.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.azure.transfer"
+      ],
+      "provider": "azure",
+      "required_permission_capabilities": [
+        "permission.azure.edge-runtime"
+      ],
+      "source_component_ids": [
+        "deployment.azure.hot-storage"
+      ],
+      "source_output_port_id": "catalog.azure.port.hot-storage.twin-update-out",
+      "terraform_binding": {
+        "dependency_keys": [],
+        "destination_input_id": "input.azure.twin-state.selection",
+        "source_output_id": "output.azure.hot-storage.binding"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "trust_contract_ref": {
+        "id": "trust.baseline",
+        "version": "1"
+      }
+    },
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.fixture.azure.hot-to-cool-storage"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_ids": [
+        "deployment.azure.cool-storage"
+      ],
+      "destination_input_port_id": "catalog.azure.port.cool-storage.write-in",
+      "edge_implementation_id": "edge-implementation.azure.hot-to-cool-storage",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "formula.transfer"
+      ],
+      "glue_component_ids": [],
+      "logical_edge_ids": [
+        "edge.hot-to-cool-storage"
+      ],
+      "mechanism": "source_owned_transition_runtime",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "storage-transition-record.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.azure.transfer"
+      ],
+      "provider": "azure",
+      "required_permission_capabilities": [
+        "permission.azure.edge-runtime"
+      ],
+      "source_component_ids": [
+        "deployment.azure.hot-storage"
+      ],
+      "source_output_port_id": "catalog.azure.port.hot-storage.transition-out",
+      "terraform_binding": {
+        "dependency_keys": [],
+        "destination_input_id": "input.azure.cool-storage.selection",
+        "source_output_id": "output.azure.hot-storage.binding"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "trust_contract_ref": {
+        "id": "trust.baseline",
+        "version": "1"
+      }
+    },
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.fixture.azure.ingestion-to-processing"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_ids": [
+        "deployment.azure.processing"
+      ],
+      "destination_input_port_id": "catalog.azure.port.processing.telemetry-in",
+      "edge_implementation_id": "edge-implementation.azure.ingestion-to-processing",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "formula.transfer"
+      ],
+      "glue_component_ids": [],
+      "logical_edge_ids": [
+        "edge.ingestion-to-processing"
+      ],
+      "mechanism": "provider_native_trigger",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "telemetry-envelope.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.azure.transfer"
+      ],
+      "provider": "azure",
+      "required_permission_capabilities": [
+        "permission.azure.edge-runtime"
+      ],
+      "source_component_ids": [
+        "deployment.azure.ingestion"
+      ],
+      "source_output_port_id": "catalog.azure.port.ingestion.telemetry-out",
+      "terraform_binding": {
+        "dependency_keys": [],
+        "destination_input_id": "input.azure.processing.selection",
+        "source_output_id": "output.azure.ingestion.binding"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "trust_contract_ref": {
+        "id": "trust.baseline",
+        "version": "1"
+      }
+    },
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.fixture.azure.processing-to-hot-storage"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "provider_managed",
+        "idempotency": "consumer_deduplicated",
+        "mode": "asynchronous",
+        "ordering": "per_entity",
+        "replay": "bounded",
+        "retry_policy": "provider_managed_bounded",
+        "timeout_policy": "not_applicable"
+      },
+      "destination_component_ids": [
+        "deployment.azure.hot-storage"
+      ],
+      "destination_input_port_id": "catalog.azure.port.hot-storage.write-in",
+      "edge_implementation_id": "edge-implementation.azure.processing-to-hot-storage",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "formula.transfer"
+      ],
+      "glue_component_ids": [],
+      "logical_edge_ids": [
+        "edge.processing-to-hot-storage"
+      ],
+      "mechanism": "provider_native_trigger",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "telemetry-envelope.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.azure.transfer"
+      ],
+      "provider": "azure",
+      "required_permission_capabilities": [
+        "permission.azure.edge-runtime"
+      ],
+      "source_component_ids": [
+        "deployment.azure.processing"
+      ],
+      "source_output_port_id": "catalog.azure.port.processing.telemetry-out",
+      "terraform_binding": {
+        "dependency_keys": [],
+        "destination_input_id": "input.azure.hot-storage.selection",
+        "source_output_id": "output.azure.processing.binding"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "trust_contract_ref": {
+        "id": "trust.baseline",
+        "version": "1"
+      }
+    },
+    {
+      "compatibility": {
+        "architecture_profile_versions": [
+          {
+            "id": "five-layer-baseline",
+            "version": "1"
+          }
+        ],
+        "deployment_specification_versions": [
+          "resolved-deployment-specification.v1"
+        ],
+        "provider_profile_versions": [
+          {
+            "id": "provider-profile.azure.baseline",
+            "version": "1"
+          }
+        ]
+      },
+      "decision_edge_ids": [
+        "target.edge.fixture.azure.twin-state-to-visualization"
+      ],
+      "delivery_requirements": {
+        "dead_letter_policy": "not_applicable",
+        "idempotency": "required",
+        "mode": "synchronous",
+        "ordering": "not_required",
+        "replay": "not_supported",
+        "retry_policy": "bounded_backoff",
+        "timeout_policy": "bounded"
+      },
+      "destination_component_ids": [
+        "deployment.azure.visualization"
+      ],
+      "destination_input_port_id": "catalog.azure.port.visualization.query-in",
+      "edge_implementation_id": "edge-implementation.azure.twin-state-to-visualization",
+      "edge_implementation_version": "1",
+      "error_contract_ref": {
+        "id": "architecture-runtime-errors",
+        "version": "1"
+      },
+      "formula_refs": [
+        "formula.transfer"
+      ],
+      "glue_component_ids": [],
+      "logical_edge_ids": [
+        "edge.twin-state-to-visualization"
+      ],
+      "mechanism": "typed_synchronous_api",
+      "observability_contract_ref": {
+        "id": "observability.baseline",
+        "version": "1"
+      },
+      "payload_contract_ref": {
+        "id": "twin-query-result.v1",
+        "version": "1"
+      },
+      "pricing_model_refs": [
+        "pricing.azure.transfer"
+      ],
+      "provider": "azure",
+      "required_permission_capabilities": [
+        "permission.azure.edge-runtime"
+      ],
+      "source_component_ids": [
+        "deployment.azure.twin-state"
+      ],
+      "source_output_port_id": "catalog.azure.port.twin-state.query-out",
+      "terraform_binding": {
+        "dependency_keys": [],
+        "destination_input_id": "input.azure.visualization.selection",
+        "source_output_id": "output.azure.twin-state.binding"
+      },
+      "transfer_route_class": "same_provider_same_region",
+      "trust_contract_ref": {
+        "id": "trust.baseline",
+        "version": "1"
+      }
+    }
+  ],
+  "lifecycle_status": "active",
+  "package_artifacts": [
+    {
+      "artifact_id": "artifact.platform.aws.baseline",
+      "artifact_version": "1",
+      "builder_adapter_id": "builder.aws.baseline",
+      "compatibility": {
+        "builder_versions": [
+          "1"
+        ],
+        "component_versions": [
+          "1"
+        ]
+      },
+      "decision_implementation_ids": [],
+      "dependency_artifact_refs": [],
+      "digest_policy": "sha256.canonical-source.v1",
+      "excluded_paths": [
+        "**/__pycache__/**"
+      ],
+      "included_paths": [
+        "**/*.py"
+      ],
+      "platform_handler": "handler.aws.platform",
+      "repository_source_path": "3-cloud-deployer/src",
+      "source_digest": "sha256:40622633b1770d42f6e01f43a2e0afae8d6d26a5eb8b75c43453c44b23b68bad",
+      "supported_runtimes": [
+        "runtime.aws.managed"
+      ],
+      "user_source_policy": "platform_only"
+    },
+    {
+      "artifact_id": "artifact.platform.azure.baseline",
+      "artifact_version": "1",
+      "builder_adapter_id": "builder.azure.baseline",
+      "compatibility": {
+        "builder_versions": [
+          "1"
+        ],
+        "component_versions": [
+          "1"
+        ]
+      },
+      "decision_implementation_ids": [],
+      "dependency_artifact_refs": [],
+      "digest_policy": "sha256.canonical-source.v1",
+      "excluded_paths": [
+        "**/__pycache__/**"
+      ],
+      "included_paths": [
+        "**/*.py"
+      ],
+      "platform_handler": "handler.azure.platform",
+      "repository_source_path": "3-cloud-deployer/src",
+      "source_digest": "sha256:0022ede20de796126f4cfb4cf97bb1f94cb8496296ebf910bf149f965c200b95",
+      "supported_runtimes": [
+        "runtime.azure.managed"
+      ],
+      "user_source_policy": "platform_only"
+    }
+  ],
+  "schema_version": "deployment-component-catalog.v1"
+}

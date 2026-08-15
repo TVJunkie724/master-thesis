@@ -188,6 +188,49 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
             ),
         ),
         Stage(
+            "Phase 8 decision evidence",
+            _compose_run(
+                project,
+                "3cloud-deployer",
+                "sh",
+                "-lc",
+                (
+                    "python scripts/phase_08_eventing/calculate_scenarios.py --check "
+                    "&& python scripts/phase_08_eventing/validate_decision_package.py "
+                    "&& python -m unittest discover "
+                    "-s scripts/phase_08_eventing/tests -p 'test_*.py' "
+                    "&& python scripts/phase_08_service_bundles/calculate_capacity.py "
+                    "&& python scripts/phase_08_service_bundles/generate_manifests.py "
+                    "&& python scripts/phase_08_service_bundles/freeze_decision.py "
+                    "&& python scripts/phase_08_service_bundles/validate_decision_package.py "
+                    "&& python scripts/phase_08_service_bundles/verify_sources.py "
+                    "&& python -m unittest discover "
+                    "-s scripts/phase_08_service_bundles/tests -p 'test_*.py'"
+                ),
+                root_mount=True,
+            ),
+        ),
+        Stage(
+            "Phase 8 profile evaluation evidence",
+            _compose_run(
+                project,
+                "2twin2clouds",
+                "sh",
+                "-lc",
+                (
+                    "python scripts/phase_08_profile_evaluation/validate.py "
+                    "&& python -m pytest -q -p no:cacheprovider "
+                    "scripts/phase_08_profile_evaluation/tests "
+                    "&& ruff check scripts/phase_08_profile_evaluation "
+                    "&& ruff format --check scripts/phase_08_profile_evaluation"
+                ),
+                root_mount=True,
+                environment=(
+                    "RUFF_CACHE_DIR=/tmp/phase-8-profile-evaluation-ruff-cache",
+                ),
+            ),
+        ),
+        Stage(
             "Canonical contract and root tests",
             _compose_run(
                 project,
@@ -196,10 +239,27 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                 "-lc",
                 (
                     "python scripts/sync_resolved_deployment_contract.py --check "
+                    "&& python scripts/sync_architecture_profile_contracts.py --check "
+                    "&& python scripts/sync_deployment_manifest_contract.py --check "
+                    "&& python scripts/sync_user_function_extension_contracts.py --check "
+                    "&& python scripts/sync_cloud_bootstrap_contracts.py --check "
+                    "&& python scripts/sync_deployment_access_contracts.py --check "
+                    "&& python scripts/sync_five_layer_workload_contract.py --check "
+                    "&& python scripts/sync_five_layer_v2_contracts.py --check "
+                    "&& python scripts/sync_six_layer_eventing_contracts.py --check "
                     "&& python -m unittest "
                     "scripts.tests.test_resolved_deployment_contract_sync "
+                    "scripts.tests.test_architecture_profile_contract_sync "
+                    "scripts.tests.test_user_function_extension_contract_sync "
+                    "scripts.tests.test_cloud_bootstrap_contract_sync "
+                    "scripts.tests.test_deployment_access_contract_sync "
+                    "scripts.tests.test_five_layer_workload_contract "
+                    "scripts.tests.test_five_layer_v2_contracts "
+                    "scripts.tests.test_six_layer_eventing_contracts "
                     "scripts.tests.test_verify_resolved_deployment_drift "
-                    "scripts.tests.test_thesis_entrypoint"
+                    "scripts.tests.test_thesis_entrypoint "
+                    "&& python -m pytest -q -p no:cacheprovider "
+                    "scripts/tests/test_deployment_manifest_contract_sync.py"
                 ),
                 root_mount=True,
             ),
@@ -209,15 +269,19 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
             _compose_run(
                 project,
                 "2twin2clouds",
-                "python",
-                "-m",
-                "pytest",
-                "-q",
-                "tests/unit/calculation_v2/test_deployment_drift_matrix.py",
-                "tests/unit/test_resolved_deployment_contract.py",
-                environment=(
-                    "PRICING_CATALOG_STORE_ROOT=/tmp/pricing-catalogs",
+                "sh",
+                "-lc",
+                (
+                    "cd /app "
+                    "&& python /workspace/scripts/"
+                    "generate_deployment_manifest_fixtures.py --check "
+                    "&& python -m pytest -q "
+                    "tests/unit/calculation_v2/"
+                    "test_deployment_drift_matrix.py "
+                    "tests/unit/test_resolved_deployment_contract.py"
                 ),
+                root_mount=True,
+                environment=("PRICING_CATALOG_STORE_ROOT=/tmp/pricing-catalogs",),
             ),
         ),
         Stage(
@@ -225,13 +289,19 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
             _compose_run(
                 project,
                 "management-api",
-                "python",
-                "-m",
-                "pytest",
-                "-q",
-                "tests/test_deployment_drift_matrix.py",
-                "tests/test_resolved_deployment_contract.py",
-                "tests/test_resolved_deployment_specification_service.py",
+                "sh",
+                "-lc",
+                (
+                    "cd /app "
+                    "&& python -m pytest -q "
+                    "tests/test_deployment_drift_matrix.py "
+                    "tests/test_resolved_deployment_contract.py "
+                    "tests/test_resolved_deployment_specification_service.py "
+                    "tests/test_user_function_extension_contract.py "
+                    "&& cd /workspace "
+                    "&& python scripts/verify_six_layer_management_boundary.py"
+                ),
+                root_mount=True,
                 environment=(
                     "APP_ENV=test",
                     "DEBUG=false",
@@ -255,9 +325,17 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                     "&& python -m pytest -q "
                     "tests/unit/deployment_specification/"
                     "test_deployment_drift_matrix.py "
+                    "tests/unit/architecture_profiles/"
+                    "test_graph_resolver.py "
+                    "tests/unit/terraform/"
+                    "test_graph_compatibility_projection.py "
+                    "tests/unit/test_operation_packages.py "
+                    "tests/unit/terraform/test_build_all_packages.py "
                     "tests/unit/terraform/test_deployment_target_bindings.py "
                     "tests/unit/terraform/test_native_mock_plans.py "
-                    "tests/unit/test_resolved_deployment_contract.py"
+                    "tests/unit/terraform/test_tfvars_generator.py "
+                    "tests/unit/test_resolved_deployment_contract.py "
+                    "tests/unit/test_user_function_extensions.py"
                 ),
                 environment=(
                     "DEPLOYER_RUNTIME_STATE_ROOT=/tmp/deployment-contract-state",
@@ -282,6 +360,18 @@ def full_stages(project: str) -> tuple[Stage, ...]:
             ),
         ),
         Stage(
+            "Evaluation runtime image provenance",
+            (
+                "python3",
+                str(
+                    ROOT
+                    / "scripts/phase_08_profile_evaluation/verify_runtime_images.py"
+                ),
+                "--project",
+                project,
+            ),
+        ),
+        Stage(
             "Optimizer full quality gate",
             _compose_run(
                 project,
@@ -295,9 +385,7 @@ def full_stages(project: str) -> tuple[Stage, ...]:
                     "&& python -m compileall -q api backend rest_api.py "
                     "&& python -m pip check"
                 ),
-                environment=(
-                    "PRICING_CATALOG_STORE_ROOT=/tmp/pricing-catalogs",
-                ),
+                environment=("PRICING_CATALOG_STORE_ROOT=/tmp/pricing-catalogs",),
             ),
         ),
         Stage(
@@ -321,6 +409,7 @@ def full_stages(project: str) -> tuple[Stage, ...]:
                     "UPLOAD_DIR=/tmp/deployment-contract-full-uploads",
                     "SEED_DATA=false",
                     "ENABLE_TEST_ENDPOINTS=false",
+                    "PIP_CACHE_DIR=/tmp/management-pip-cache",
                 ),
                 user=_host_user_spec(),
             ),
@@ -330,8 +419,12 @@ def full_stages(project: str) -> tuple[Stage, ...]:
             _compose_run(
                 project,
                 "3cloud-deployer",
-                "./run_tests.sh",
+                "sh",
+                "-lc",
+                "cd /app && ./run_tests.sh",
+                root_mount=True,
                 environment=(
+                    "ARCHITECTURE_INVENTORY_REPO_ROOT=/workspace",
                     "DEPLOYER_RUNTIME_STATE_ROOT=/tmp/deployment-contract-state",
                 ),
             ),
@@ -405,8 +498,7 @@ def run_stages(
         elapsed = time.monotonic() - stage_started
         if result.returncode != 0:
             print(
-                f"FAILED: {stage.name} after {elapsed:.1f}s\n"
-                f"Command: {rendered}",
+                f"FAILED: {stage.name} after {elapsed:.1f}s\nCommand: {rendered}",
                 file=sys.stderr,
                 flush=True,
             )

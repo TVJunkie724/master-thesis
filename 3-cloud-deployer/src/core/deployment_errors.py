@@ -87,6 +87,11 @@ def client_error_payload(
 
 def _client_message(error: Exception, code: DeploymentErrorCode) -> str:
     if code == DeploymentErrorCode.validation_error:
+        if isinstance(error, DeploymentSpecificationError):
+            return (
+                f"Validation failed: {error.code} [{error.field}]: "
+                f"{error.message}"
+            )
         return f"Validation failed: {error}"
     if code == DeploymentErrorCode.terraform_error:
         return "Terraform operation failed. Check server logs for redacted diagnostics."

@@ -59,9 +59,13 @@ class _Summary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final params = state.calcParams;
-    final providers = state.layerProviders.entries
-        .map((entry) => '${entry.key}: ${entry.value}')
-        .join(' · ');
+    final providers = state.hasActiveArchitectureProfile
+        ? state.requiredDeploymentProviders
+              .map((provider) => provider.label)
+              .join(' · ')
+        : state.layerProviders.entries
+              .map((entry) => '${entry.key}: ${entry.value}')
+              .join(' · ');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -94,6 +98,9 @@ class _Summary extends StatelessWidget {
         _SummarySection(
           title: 'Architecture',
           rows: {
+            'Profile': state.architectureSelection == null
+                ? 'Not selected'
+                : '${state.architectureSelection!.profileRef.id}@${state.architectureSelection!.profileRef.version}',
             'Provider path': providers.isEmpty ? 'Not calculated' : providers,
             'Monthly estimate': state.calcResult == null
                 ? 'Not calculated'
@@ -108,6 +115,16 @@ class _Summary extends StatelessWidget {
           ),
           onRecalculateArchitecture: () =>
               onOpenTask(ConfigurationTaskId.calculateAlternatives),
+          architecturePhase: state.resolvedArchitecturePhase,
+          resolvedArchitecture: state.resolvedArchitecture,
+          resolvedArchitectureError: state.resolvedArchitectureError,
+          onRetryResolvedArchitecture: state.deploymentRun == null
+              ? null
+              : () => context.read<WizardBloc>().add(
+                  WizardResolvedArchitectureRetried(
+                    runId: state.deploymentRun!.id,
+                  ),
+                ),
         ),
         _SummarySection(
           title: 'Deployment readiness',
@@ -144,11 +161,16 @@ class _SummarySection extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(width: 180, child: Text(row.key)),
+                SizedBox(
+                  width: AppSpacing.configurationSummaryLabelWidth,
+                  child: Text(row.key),
+                ),
                 Expanded(
                   child: Text(
                     row.value,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],

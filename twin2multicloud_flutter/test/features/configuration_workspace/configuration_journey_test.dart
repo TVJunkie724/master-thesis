@@ -1,12 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
+import 'package:twin2multicloud_flutter/config/step3_examples.dart';
 import 'package:twin2multicloud_flutter/features/configuration_workspace/domain/configuration_journey.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/calc_result.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/pricing_health.dart';
+import 'package:twin2multicloud_flutter/models/user_function_extension.dart';
 
 import '../../fixtures/typed_api_fixtures.dart';
+import '../../fixtures/architecture_wizard_fixture.dart';
 
 void main() {
   group('ConfigurationJourney', () {
@@ -34,31 +37,51 @@ void main() {
         ConfigurationTaskStatus.blocked,
       );
       expect(
+        journey.task(ConfigurationTaskId.selectProfile).blockingReason,
+        'Save the Twin draft first',
+      );
+      expect(
         journey.task(ConfigurationTaskId.cloudAccess).blockingReason,
         'Calculate an architecture first',
       );
     });
 
-    test('moves a named draft to workload description without credentials', () {
+    test('keeps a named but unpersisted draft at Twin identity', () {
       final journey = ConfigurationJourney.fromWizardState(
         const WizardState(status: WizardStatus.ready, twinName: 'Factory twin'),
       );
 
+      expect(journey.recommendedTaskId, ConfigurationTaskId.defineTwin);
       expect(
-        journey.recommendedTaskId,
-        ConfigurationTaskId.scenarioAndCurrency,
+        journey.task(ConfigurationTaskId.selectProfile).status,
+        ConfigurationTaskStatus.blocked,
+      );
+    });
+
+    test('surfaces the truthful empty catalog after the draft is saved', () {
+      final journey = ConfigurationJourney.fromWizardState(
+        const WizardState(
+          status: WizardStatus.ready,
+          twinId: 'twin-1',
+          twinName: 'Factory twin',
+          architectureCatalogPhase: ArchitectureCatalogPhase.empty,
+        ),
+      );
+
+      expect(journey.recommendedTaskId, ConfigurationTaskId.selectProfile);
+      expect(
+        journey.task(ConfigurationTaskId.selectProfile).status,
+        ConfigurationTaskStatus.current,
       );
       expect(
         journey.task(ConfigurationTaskId.deviceTraffic).status,
-        ConfigurationTaskStatus.available,
+        ConfigurationTaskStatus.blocked,
       );
     });
 
     test('surfaces pricing attention before architecture calculation', () {
       final journey = ConfigurationJourney.fromWizardState(
-        WizardState(
-          status: WizardStatus.ready,
-          twinName: 'Factory twin',
+        architectureReadyWizardState().copyWith(
           calcParams: CalcParams.defaultParams(),
           pricingHealthError: 'Unavailable',
         ),
@@ -73,14 +96,16 @@ void main() {
 
     test('requires access only for providers in selected architecture', () {
       final journey = ConfigurationJourney.fromWizardState(
-        WizardState(
-          status: WizardStatus.ready,
-          twinName: 'Factory twin',
+        architectureReadyWizardState().copyWith(
           calcParams: CalcParams.defaultParams(),
           pricingHealth: _healthyPricing(),
           calcResult: _result(const ['L1_AWS', 'L2_AWS', 'L4_AZURE']),
           deploymentRun: TypedApiFixtures.deploymentRun(
             selectedForDeploymentAt: TypedApiFixtures.timestamp,
+          ),
+          resolvedArchitecturePhase: ResolvedArchitecturePhase.ready,
+          resolvedArchitecture: resolvedArchitectureFixture(
+            provider: CloudProvider.aws,
           ),
         ),
       );
@@ -105,10 +130,7 @@ void main() {
       'preserves an available requested task instead of forcing linearity',
       () {
         final journey = ConfigurationJourney.fromWizardState(
-          const WizardState(
-            status: WizardStatus.ready,
-            twinName: 'Factory twin',
-          ),
+          architectureReadyWizardState(),
           requestedTaskId: ConfigurationTaskId.retention,
         );
 
@@ -118,9 +140,7 @@ void main() {
     );
 
     test('finish readiness includes access, artifacts and invalidation', () {
-      final ready = WizardState(
-        status: WizardStatus.ready,
-        twinName: 'Factory twin',
+      final ready = architectureReadyWizardState().copyWith(
         calcParams: CalcParams.defaultParams(),
         calcResult: _result(const [
           'L1_GCP',
@@ -141,6 +161,10 @@ void main() {
         deploymentRun: TypedApiFixtures.deploymentRun(
           selectedForDeploymentAt: TypedApiFixtures.timestamp,
         ),
+        resolvedArchitecturePhase: ResolvedArchitecturePhase.ready,
+        resolvedArchitecture: resolvedArchitectureFixture(
+          provider: CloudProvider.gcp,
+        ),
       );
 
       expect(ready.isConfigurationReadyForFinish, isTrue);
@@ -154,13 +178,113 @@ void main() {
             .isConfigurationReadyForFinish,
         isFalse,
       );
+
+      final extensionBase =
+          architectureReadyWizardState(withExtensionSlot: true).copyWith(
+            calcParams: ready.calcParams,
+            calcResult: ready.calcResult,
+            selectedCloudConnectionIds: ready.selectedCloudConnectionIds,
+            deployerDigitalTwinName: ready.deployerDigitalTwinName,
+            configEventsJson: ready.configEventsJson,
+            configIotDevicesJson: ready.configIotDevicesJson,
+            configJsonValidated: true,
+            configEventsValidated: true,
+            configIotDevicesValidated: true,
+            payloadsJson: ready.payloadsJson,
+            payloadsValidated: true,
+            deploymentRun: ready.deploymentRun,
+            resolvedArchitecturePhase: ready.resolvedArchitecturePhase,
+            resolvedArchitecture: ready.resolvedArchitecture,
+          );
+      final extensionRequired = extensionBase.copyWith(
+        extensionSlots: const [_extensionSlot],
+      );
+      expect(extensionRequired.isConfigurationReadyForFinish, isFalse);
+      expect(
+        ConfigurationJourney.fromWizardState(
+          extensionRequired,
+        ).task(ConfigurationTaskId.userLogic).status,
+        ConfigurationTaskStatus.current,
+      );
+
+      final binding = TwinExtensionBinding(
+        bindingId: '10000000-0000-4000-8000-000000000001',
+        twinId: 'twin-1',
+        slotId: _extensionSlot.slotId,
+        slotVersion: _extensionSlot.slotVersion,
+        artifactId: '20000000-0000-4000-8000-000000000001',
+        artifactDigest:
+            'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        bindingDigest:
+            'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        active: true,
+        revision: 1,
+        createdAt: DateTime.utc(2026, 7, 19),
+        unboundAt: null,
+      );
+      final bound = extensionRequired.copyWith(
+        extensionBindings: [binding],
+        extensionPhases: const {
+          'processor.telemetry': UserFunctionWorkflowPhase.bound,
+        },
+      );
+      expect(bound.isConfigurationReadyForFinish, isTrue);
+      expect(
+        ConfigurationJourney.fromWizardState(
+          bound,
+        ).task(ConfigurationTaskId.userLogic).status,
+        ConfigurationTaskStatus.complete,
+      );
+    });
+
+    test('Phase 8 readiness does not require retired event artifacts', () {
+      final ready =
+          architectureReadyWizardState(
+            profileId: 'five-layer-baseline',
+            withExtensionSlot: false,
+          ).copyWith(
+            calcParams: CalcParams.fiveLayerV2(
+              scenario: FiveLayerWorkloadScenario.small,
+            ),
+            calcResult: _result(const [
+              'L1_GCP',
+              'L2_GCP',
+              'L3_hot_GCP',
+              'L4_GCP',
+              'L5_GCP',
+            ]),
+            selectedCloudConnectionIds: const {CloudProvider.gcp: 'gcp-deploy'},
+            deployerDigitalTwinName: 'Factory twin',
+            configEventsJson: '[{"rule_id":"temperature-high"}]',
+            configIotDevicesJson: '[{"id":"sensor-1"}]',
+            configJsonValidated: true,
+            configEventsValidated: true,
+            configIotDevicesValidated: true,
+            payloadsJson: '{}',
+            payloadsValidated: true,
+            userConfigContent: Step3Examples.userConfig,
+            userConfigValidated: true,
+            deploymentRun: TypedApiFixtures.deploymentRun(
+              selectedForDeploymentAt: TypedApiFixtures.timestamp,
+            ),
+            resolvedArchitecturePhase: ResolvedArchitecturePhase.ready,
+            resolvedArchitecture: resolvedArchitectureFixture(
+              provider: CloudProvider.gcp,
+              profileId: 'five-layer-baseline',
+            ),
+          );
+
+      expect(ready.usesPhase8ComparisonProfile, isTrue);
+      expect(ready.deployerRequirements.deviceIds, isEmpty);
+      expect(ready.deployerRequirements.eventActionNames, isEmpty);
+      expect(ready.shouldShowFeedbackFunction, isFalse);
+      expect(ready.shouldShowStateMachine, isFalse);
+      expect(ready.isConfigurationReadyForFinish, isTrue);
     });
 
     test('blocks deployment tasks until the latest run is selected', () {
       final journey = ConfigurationJourney.fromWizardState(
-        WizardState(
-          status: WizardStatus.ready,
-          twinName: 'Factory twin',
+        architectureReadyWizardState().copyWith(
           calcParams: CalcParams.defaultParams(),
           pricingHealth: _healthyPricing(),
           calcResult: _result(const ['L1_AWS']),
@@ -187,6 +311,16 @@ void main() {
     });
   });
 }
+
+const _extensionSlot = ExtensionSlot(
+  slotId: 'processor.telemetry',
+  slotVersion: '1',
+  displayName: 'Telemetry processor',
+  runtimeId: 'python311',
+  configurationFields: [],
+  resourceLimits: {'timeout_seconds': 30, 'memory_mb': 256},
+  permissionCapabilities: ['capability.telemetry.process'],
+);
 
 PricingHealthResponse _healthyPricing() => PricingHealthResponse.fromJson({
   'schema_version': PricingHealthResponse.supportedSchemaVersion,

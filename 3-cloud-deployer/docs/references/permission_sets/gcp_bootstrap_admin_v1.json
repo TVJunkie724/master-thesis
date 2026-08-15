@@ -1,0 +1,47 @@
+{
+  "schema_version": "bootstrap-authority-pack.v1",
+  "contract_id": "bootstrap.gcp.admin-v1",
+  "provider": "gcp",
+  "status": "frozen_offline_contract",
+  "validation_level": "offline_pre_e2e",
+  "requires_supervised_live_validation": true,
+  "target_modes": ["existing_project", "organization"],
+  "scope_summary": "One existing project or one bootstrap project plus declared organization/folder and billing account; creates a prefixed deployment service account, custom role binding, and one user-managed key.",
+  "permission_groups": [
+    {
+      "id": "project_validation",
+      "scope": "Existing or bootstrap project",
+      "permissions": ["resourcemanager.projects.get", "resourcemanager.projects.getIamPolicy"]
+    },
+    {
+      "id": "generated_identity",
+      "scope": "Generated twin2mc-* service account in the selected project",
+      "permissions": ["iam.serviceAccounts.create", "iam.serviceAccounts.delete", "iam.serviceAccounts.get", "iam.serviceAccountKeys.create", "iam.serviceAccountKeys.delete", "iam.serviceAccountKeys.list"]
+    },
+    {
+      "id": "deployment_role",
+      "scope": "Selected project custom role and project IAM policy",
+      "permissions": ["iam.roles.create", "iam.roles.delete", "iam.roles.get", "iam.roles.update", "resourcemanager.projects.setIamPolicy"]
+    },
+    {
+      "id": "organization_path",
+      "scope": "Only when mode=organization: declared organization/folder and billing account",
+      "permissions": ["resourcemanager.organizations.getIamPolicy", "resourcemanager.organizations.setIamPolicy", "resourcemanager.folders.getIamPolicy", "resourcemanager.folders.setIamPolicy", "billing.accounts.get", "billing.accounts.getIamPolicy", "billing.accounts.setIamPolicy"]
+    }
+  ],
+  "credential_cleanup": [
+    "Delete only the submitted service-account key after proving its service-account owner.",
+    "Never delete or alter an existing_user_owned service-account key.",
+    "Return manual_revocation_required when key creation policy or delete authority prevents safe cleanup."
+  ],
+  "limitations": [
+    "Organization policy can forbid user-managed service-account key creation; the bootstrap must fail closed and must not weaken that policy.",
+    "Organization mode needs separate organization/folder, billing, and bootstrap-project authority; a project Owner role is insufficient.",
+    "The permission names and scope bindings require a separately approved testable-permissions and live validation."
+  ],
+  "sources": [
+    "https://cloud.google.com/iam/docs/roles-permissions/iam",
+    "https://cloud.google.com/iam/docs/keys-create-delete",
+    "https://cloud.google.com/billing/docs/how-to/billing-access"
+  ]
+}

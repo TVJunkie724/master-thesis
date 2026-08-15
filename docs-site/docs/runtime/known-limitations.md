@@ -24,6 +24,10 @@ conclusions.
 - migration, encryption, redaction, rate-limit, audit, and transport tests;
 - deterministic offline demo plus Web, macOS, Windows, and Linux build gates;
 - local credential-free Compose integration.
+- a digest-pinned Phase 8.10 offline profile-evaluation package covering the
+  historical v1 reconstruction, Five-layer v2 and Six-layer v1 S/M/L spaces,
+  all active single-cloud cases, nine L3/L5-to-L4 placements, all six directed
+  Event-provider pairs, and byte-identical regeneration.
 
 Cross-platform support means that the same Flutter source compiles for Web and
 all three desktop operating systems on native CI runners. It does not include
@@ -43,11 +47,13 @@ development auth is deliberately not a production substitute.
 
 ### Credential Operations
 
-Versioned provider bootstrap scripts and encrypted import are implemented. Fully
-automated in-app administrator bootstrap is not implemented: the app provides a
-secret-free Management API plan/import workflow while provider administration stays
-in the external CLI session. Flutter does not currently expose that workflow.
-Encryption-key rotation requires explicit re-encryption tooling.
+The shared in-app guide/session lifecycle, request-only credential boundary,
+generated encrypted deployment connection, disposal states, and deterministic
+AWS/Azure/GCP adapters are implemented. Those adapters are an offline
+simulation and create no provider identity or resource; production adapters
+remain disabled and fail closed. Versioned scripts plus encrypted import remain
+the supervised live-provider path. Encryption-key rotation requires explicit
+re-encryption tooling.
 
 ### Provider Permissions
 
@@ -135,11 +141,66 @@ references likewise do not claim to be exact runtime selected catalog rows.
 
 ### Provider Parity
 
-AWS, Azure, and GCP do not expose equivalent managed Digital Twin and visualization
-services. The executable capability contract marks GCP L4/L5 unsupported and planned;
-those rows cannot enter scoring or deployment. AWS/Azure L4/L5 are contract-tested but
-still await final supervised live-cloud E2E evidence. Cross-cloud glue behavior remains
-partly planned. See [Provider Capabilities](../architecture/provider-capabilities.md).
+AWS, Azure, and GCP do not expose equivalent managed Digital Twin and
+visualization services. The profile-neutral capability contract therefore
+keeps generic GCP L4/L5 unsupported. Both active Phase 8 profiles close that
+bounded PoC path through the same separately registered provider-hosted
+composition: BifroMQ/GKE plus Pub/Sub, Firestore Native Standard edition, a
+typed Cloud Run reader, a bounded Cloud Run Twin API/Explorer, and Grafana on
+GKE. When GCP owns L3 and L4, they share one deployment database with separate
+collections and identities rather than claiming strict collection-level IAM.
+
+All shared L1-L5 and Six-layer Eventing provider bundles and cross-cloud
+adapters are contract-tested offline, but browser access, provider policy,
+quota, and live capacity remain supervised gates. They cannot be presented as
+deployment-ready. See
+[Provider Capabilities](../architecture/provider-capabilities.md).
+
+The evaluation is deliberately not cost-optimized as a service-selection
+exercise: the reviewed functionally complete PoC bundles are fixed first so
+their estimated cost differences remain visible. It does not establish managed
+service equivalence, production fitness, invoice accuracy, measured throughput,
+live identity exchange, or successful L4/L5 browser access.
+Firestore L3 uses scenario-derived timestamp shards; Firestore L4 is
+deliberately limited to point and one-hop relationship queries. Arbitrary graph
+algorithms are not supported. The current Pub/Sub acquisition path and retired
+`google.cloud.iot_v1` feedback template do not provide this target today.
+
+The successor target keeps L3 hot and L5 provider-local while allowing L4 to
+use any provider. It exposes one raw-history visualization read and carries
+selected state/model/relationship changes from L3 to L4 through a typed
+projection event. L4-to-L5 Twin context, 3D scenes, cross-provider raw
+visualization, historical Twin graph analysis, Spanner Graph, ADX migration,
+dedicated Grafana node pools, and storage-specific CDC/outbox/broker pipelines
+remain outside Five-layer v2 unless a later versioned requirement justifies
+them.
+
+Azure retains Cosmos DB for L3 hot. Small and Medium select serverless; Large
+is admissible only after calculated autoscale RU/s, hot-storage minimum,
+20-GB-per-device logical-partition, and partitioned-mover proofs pass. ADX
+would provide stronger native time-series analytics and Managed Grafana
+integration, but selecting it would change a second experimental variable.
+Cosmos reader latency and autoscale behavior remain `live_capacity_pending`.
+
+The GCP Infinity datasource similarly requires a pre-live-readiness
+`Save & test` plus bounded raw and hourly-rollup queries through the typed
+Cloud Run reader. The offline target remains `live_capacity_pending`. The
+reader has access only to the named L3 Firestore database; the Grafana pod
+receives no Firestore role or service-account JSON key.
+
+AWS and Azure currently use the Grafana JSON API datasource only as a
+time-bounded PoC dependency. Grafana has deprecated it and ends support on
+2027-02-01. The planned implementation therefore freezes and rechecks the
+managed-provider catalog/support evidence and rejects the affected bundle on
+absence, incompatibility, or support expiry; it does not silently change
+storage or datasource technology.
+
+GCP Grafana uses a TLS `LoadBalancer` Service restricted to configured source
+CIDRs, generated access credentials, and a deployment-generated certificate
+whose fingerprint is returned as evidence. It deliberately does not add public
+DNS, a public-CA certificate, or IAP. Browser trust of the recorded certificate
+and CIDR reachability remain supervised PoC gates. No custom unsigned
+Twin/scene plugin is selected.
 
 ### Simulator And Live Data Flow
 

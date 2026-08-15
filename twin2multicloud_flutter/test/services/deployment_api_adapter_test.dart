@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/core/result.dart';
+import 'package:twin2multicloud_flutter/models/deployment_access.dart';
 import 'package:twin2multicloud_flutter/models/deployment_operations.dart';
 import 'package:twin2multicloud_flutter/models/deployment_readiness.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
@@ -41,6 +42,18 @@ void main() {
           'source_deployment': null,
           'redacted': true,
         }),
+        '/twins/twin-1/deployment-access' => jsonResponse(
+          deploymentAccessResponse(),
+        ),
+        '/twins/twin-1/deployment-access/l5/credentials:rotate' =>
+          jsonResponse({
+            'schema_version': 'deployment-access-credential.v1',
+            'layer': 'l5',
+            'provider': 'gcp',
+            'username': 'viewer@example.invalid',
+            'password': 'one-time-secret',
+            'issued_at': '2026-07-14T08:31:00Z',
+          }),
         '/twins/twin-1/deployments' => jsonResponse({
           'schema_version': 'deployment-history.v1',
           'deployments': <Object>[],
@@ -85,6 +98,16 @@ void main() {
       'endpoint': 'https://example.test',
     });
     expect(
+      (await api.getDeploymentAccess(
+        'twin-1',
+      )).surfaceFor(DeploymentLayer.l5)?.provider.name,
+      'gcp',
+    );
+    expect(
+      (await api.rotateGcpGrafanaViewerCredential('twin-1')).password,
+      'one-time-secret',
+    );
+    expect(
       (await api.getDeploymentHistory('twin-1', limit: 7)).deployments,
       isEmpty,
     );
@@ -106,6 +129,8 @@ void main() {
       'POST /twins/twin-1/destroy',
       'GET /twins/twin-1/deployment-status',
       'GET /twins/twin-1/outputs',
+      'GET /twins/twin-1/deployment-access',
+      'POST /twins/twin-1/deployment-access/l5/credentials:rotate',
       'GET /twins/twin-1/deployments',
       'GET /twins/twin-1/logs',
       'POST /twins/twin-1/log-trace/start',
@@ -132,6 +157,133 @@ void main() {
       ),
     );
   });
+
+  test('deployment access encodes the opaque twin path segment', () async {
+    String? path;
+    final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+    dio.httpClientAdapter = CallbackAdapter((options) {
+      path = options.path;
+      final response = deploymentAccessResponse();
+      response['twin_id'] = 'twin/with space';
+      return jsonResponse(response);
+    });
+
+    final snapshot = await ApiService(
+      dio: dio,
+    ).getDeploymentAccess('twin/with space');
+
+    expect(path, '/twins/twin%2Fwith%20space/deployment-access');
+    expect(snapshot.twinId, 'twin/with space');
+  });
+
+  test(
+    'deployment access rejects malformed responses before BLoC use',
+    () async {
+      final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+      dio.httpClientAdapter = CallbackAdapter(
+        (_) => jsonResponse({
+          ...deploymentAccessResponse(),
+          'schema_version': 'deployment-access.v2',
+        }),
+      );
+
+      await expectLater(
+        ApiService(dio: dio).getDeploymentAccess('twin-1'),
+        throwsA(
+          isA<AppException>().having(
+            (error) => error.code,
+            'code',
+            'DEPLOYMENT_ACCESS_CONTRACT_INVALID',
+          ),
+        ),
+      );
+    },
+  );
+
+  test('deployment access preserves safe 403 and 404 error mapping', () async {
+    for (final statusCode in [403, 404]) {
+      final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+      dio.httpClientAdapter = CallbackAdapter(
+        (_) => jsonResponse({
+          'detail': statusCode == 404 ? 'Twin not found' : 'Forbidden',
+        }, statusCode: statusCode),
+      );
+
+      try {
+        await ApiService(dio: dio).getDeploymentAccess('twin-1');
+        fail('Expected HTTP $statusCode to fail.');
+      } on DioException catch (error) {
+        final safe = AppException.fromDioError(error);
+        expect(safe.code, 'HTTP_$statusCode');
+        expect(
+          safe.message,
+          statusCode == 404 ? 'Twin not found' : 'Forbidden',
+        );
+      }
+    }
+  });
+
+  test('credential rotation performs one request on a 503 failure', () async {
+    var requestCount = 0;
+    final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+    dio.httpClientAdapter = CallbackAdapter((_) {
+      requestCount += 1;
+      return jsonResponse({
+        'detail': 'Rotation temporarily unavailable',
+      }, statusCode: 503);
+    });
+
+    try {
+      await ApiService(dio: dio).rotateGcpGrafanaViewerCredential('twin-1');
+      fail('Expected rotation to fail.');
+    } on DioException catch (error) {
+      expect(AppException.fromDioError(error).code, 'HTTP_503');
+    }
+    expect(requestCount, 1);
+  });
+
+  test(
+    'credential response keeps the one-time password out of diagnostics',
+    () async {
+      const password = 'one-time-secret-must-not-log';
+      final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+      dio.httpClientAdapter = CallbackAdapter(
+        (_) => jsonResponse({
+          'schema_version': 'deployment-access-credential.v1',
+          'layer': 'l5',
+          'provider': 'gcp',
+          'username': 'viewer@example.invalid',
+          'password': password,
+          'issued_at': '2026-07-14T08:31:00Z',
+        }),
+      );
+
+      final credential = await ApiService(
+        dio: dio,
+      ).rotateGcpGrafanaViewerCredential('twin-1');
+
+      expect(credential.password, password);
+      expect(credential.toString(), isNot(contains(password)));
+    },
+  );
+
+  test(
+    'historical access is represented by the typed unsupported state',
+    () async {
+      final response = deploymentAccessResponse()
+        ..['availability'] = 'unsupported'
+        ..['reason_code'] = 'unsupported_historical_profile'
+        ..['surfaces'] = <Object>[];
+      final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+      dio.httpClientAdapter = CallbackAdapter((_) => jsonResponse(response));
+
+      final snapshot = await ApiService(dio: dio).getDeploymentAccess('twin-1');
+
+      expect(snapshot.availability, DeploymentAccessAvailability.unsupported);
+      expect(snapshot.reasonCode, 'unsupported_historical_profile');
+      expect(snapshot.surfaces, isEmpty);
+    },
+  );
 
   test('deployment adapter rejects invalid pagination before I/O', () async {
     var requestCount = 0;
@@ -238,10 +390,10 @@ class CallbackAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-ResponseBody jsonResponse(Map<String, dynamic> body) {
+ResponseBody jsonResponse(Map<String, dynamic> body, {int statusCode = 200}) {
   return ResponseBody.fromString(
     jsonEncode(body),
-    200,
+    statusCode,
     headers: {
       Headers.contentTypeHeader: ['application/json'],
     },
@@ -291,3 +443,56 @@ Map<String, dynamic> readinessResponse(String schemaVersion) {
     'issues': <Object>[],
   };
 }
+
+Map<String, dynamic> deploymentAccessResponse() => {
+  'schema_version': 'deployment-access.v1',
+  'twin_id': 'twin-1',
+  'deployment_id': 'deployment-1',
+  'generated_at': '2026-07-14T08:30:00Z',
+  'availability': 'available',
+  'reason_code': null,
+  'surfaces': [
+    {
+      'layer': 'l4',
+      'provider': 'azure',
+      'service_id': 'azure_digital_twins',
+      'display_name': 'Azure Digital Twins Explorer',
+      'url': 'https://l4.example.invalid/',
+      'auth': {
+        'mode': 'azure_entra',
+        'principal_label': 'researcher@example.invalid',
+        'credential_action': 'none',
+      },
+      'readiness': {
+        'resource': 'ready',
+        'access_binding': 'ready',
+        'content': 'pending',
+        'data_probe': 'pending',
+        'browser_sign_in': 'unverified',
+      },
+      'capabilities': ['browse'],
+      'limitations': <String>[],
+    },
+    {
+      'layer': 'l5',
+      'provider': 'gcp',
+      'service_id': 'gcp_grafana_oss',
+      'display_name': 'Grafana OSS',
+      'url': 'https://l5.example.invalid/',
+      'auth': {
+        'mode': 'generated_viewer',
+        'principal_label': 'viewer@example.invalid',
+        'credential_action': 'rotate',
+      },
+      'readiness': {
+        'resource': 'ready',
+        'access_binding': 'ready',
+        'content': 'pending',
+        'data_probe': 'pending',
+        'browser_sign_in': 'unverified',
+      },
+      'capabilities': ['dashboard'],
+      'limitations': <String>[],
+    },
+  ],
+};

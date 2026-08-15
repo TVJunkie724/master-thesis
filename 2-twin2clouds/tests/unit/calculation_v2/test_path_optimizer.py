@@ -171,6 +171,47 @@ def test_transition_runtime_cost_is_added_to_candidate_score_exactly_once():
     ] == [1.5, 1.5]
 
 
+def test_architecture_gate_filters_candidates_before_path_cost_evaluation():
+    pricing = _pricing()
+    runtime_calls = []
+
+    def track_runtime(provider, edge_id, monthly_invocations, invocation_basis):
+        runtime_calls.append((provider, edge_id))
+        return _transition_runtime(
+            provider,
+            edge_id,
+            monthly_invocations,
+            invocation_basis,
+        )
+
+    evaluation_set = evaluate_complete_paths(
+        layer_options=_options(
+            l1=(("AWS", 0.0), ("Azure", 0.0)),
+        ),
+        derived=_derived(telemetry_bytes=Decimal(0)),
+        pricing=pricing,
+        pricing_catalog_context=pricing_catalog_context_for(pricing),
+        pricing_registry=load_pricing_registry(),
+        glue_cost_resolver=lambda _provider, _invocations: Decimal(0),
+        transition_runtime_resolver=track_runtime,
+        admissible_candidate_ids=frozenset(
+            {"aws|aws|aws|aws|aws|aws|aws"}
+        ),
+    )
+
+    assert [item.candidate_id for item in evaluation_set.evaluations] == [
+        "aws|aws|aws|aws|aws|aws|aws"
+    ]
+    assert evaluation_set.enumerated_path_count == 2
+    assert evaluation_set.rejected_by_error_code == (
+        ("ARCH_FUNCTIONAL_INCOMPLETE", 1),
+    )
+    assert runtime_calls == [
+        (Provider.AWS, "l3_hot_to_l3_cool"),
+        (Provider.AWS, "l3_cool_to_l3_archive"),
+    ]
+
+
 def test_source_provider_free_allowance_is_consumed_once_across_edges():
     evaluation_set = _evaluate(
         _options(

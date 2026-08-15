@@ -2,8 +2,8 @@
 title: "Phase 8.3: Provider Profiles And Deployment Component Catalog"
 description: "Implementation plan for explicit AWS, Azure, and GCP baseline implementations and a deterministic deployment component catalog."
 tags: [architecture, provider-profiles, component-catalog, deployer, optimizer, issue-150]
-lastUpdated: "2026-07-19"
-version: "1.0"
+lastUpdated: "2026-07-29"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.0"
 - GitHub issue #113 user-function extension prerequisite
 - Current provider capability, package registry, Terraform, permission, and resolved-deployment-specification matrices
 - 2-twin2clouds and 3-cloud-deployer provider implementations
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+EXTRACTED: 2026-07-29 | VERSION: 1.4
 -->
 
 # Phase 8.3: Provider Profiles And Deployment Component Catalog
@@ -33,6 +33,19 @@ EXTRACTED: 2026-07-19 | VERSION: 1.0
 The issue may not start until #113 is complete. The baseline contains approved
 user logic, so omitting its extension slots is not a valid way around the
 blocker. Partial extension-slot metadata is forbidden.
+
+## Corrective Catalog Addendum
+
+The completed baseline catalog is dark historical `@1` evidence. Its active
+lifecycle labels mean schema/catalog availability, not permission to create a
+new deployment. The catalog does not prove the current public
+Function/shared-token boundaries or the uncontracted direct L3-to-Grafana
+binding admissible. Phase 8.9 must register new versioned AWS, Azure, and
+provider-hosted GCP components plus typed L3-hot-to-L5 raw-visualization and
+L3-hot-to-L4 Twin-projection edges from the immutable complete-service
+decision package; it must not
+mutate this catalog or reuse its unsupported claims as current service
+evaluation.
 
 ## 1. Outcome
 
@@ -87,6 +100,7 @@ contracts/architecture-profiles/definitions/
       all-aws.json
       all-azure.json
       mixed-providers.json
+      user-processor.json
     unsupported/
       all-gcp.json
 ```
@@ -203,7 +217,7 @@ For every retained Phase 8.1 edge/provider combination, register:
 - trust/auth capability;
 - transfer route class and formula/evidence refs;
 - operation correlation and log/metric contract;
-- required glue/adapter component IDs;
+- required transition-adapter/bridge component IDs;
 - source/destination provider constraints.
 
 An edge implementation must not contain a formatted resource name, URL,
@@ -432,7 +446,9 @@ Update:
 ## 15. Rollout And Rollback
 
 Catalogs are loaded in validation/read-only mode. Existing calculation and
-deployment paths remain authoritative until Phases 8.5 and 8.6 activate them.
+deployment paths remain predecessor behavior while Phase 8.5 and Phase 8.6
+stay dark. Phase 8.9A registers and activates separate complete new-profile
+catalog entries; it does not promote this historical catalog.
 
 Rollback disables catalog loading and removes generated copies/read services.
 Root definitions remain reviewable evidence. No database or cloud rollback is
@@ -440,25 +456,48 @@ required.
 
 ## 16. Definition Of Done
 
-- [ ] `five-layer-baseline@1` matches the approved Phase 8.1 decision exactly.
-- [ ] AWS, Azure, and GCP provider implementation profiles are complete or
+- [x] `five-layer-baseline@1` matches the approved Phase 8.1 decision exactly.
+- [x] AWS, Azure, and GCP provider implementation profiles are complete or
       explicitly unsupported per responsibility.
-- [ ] Every retained component has one explicit package, Terraform, runtime,
+- [x] Every retained component has one explicit package, Terraform, runtime,
       port, permission, pricing/formula, deployment, error, observability,
       cleanup, and compatibility contract.
-- [ ] Every retained edge has explicit input/output, mechanism, delivery,
+- [x] Every retained edge has explicit input/output, mechanism, delivery,
       trust, transfer, cost, and observability mappings.
-- [ ] Every Terraform source symbol and package handler/path is parser-verified.
-- [ ] No package relies on source rewriting or hidden resource-name
+- [x] Every Terraform source symbol and package handler/path is parser-verified.
+- [x] No package relies on source rewriting or hidden resource-name
       construction.
-- [ ] #113 extension slots are fully bound or no extension slot is published.
-- [ ] Account/usage dimensions cannot become Terraform selections.
-- [ ] All-AWS, all-Azure, supported mixed, and unsupported fixtures have
-      deterministic completeness results.
-- [ ] Registry copies and digests are byte-identical across services.
-- [ ] Focused and full safe project suites plus deployment drift pass.
-- [ ] No existing runtime path is activated or changed.
-- [ ] No credential file, runtime state, or cloud resource is accessed.
-- [ ] Product/developer docs, roadmap, and #150 are updated.
-- [ ] Two reviews find no unresolved issue.
-- [ ] The structured commit references #150.
+- [x] #113 extension slots are fully bound or no extension slot is published.
+- [x] Account/usage dimensions cannot become Terraform selections.
+- [x] All-AWS, all-Azure, Phase 8.1-status mixed, completed user-processor,
+      and unsupported fixtures have deterministic completeness results;
+      Phase 8.3 must not relabel the mixed candidate as supported before the
+      Phase 8.6 L4-to-L5 compiler exists.
+- [x] Registry copies and digests are byte-identical across services.
+- [x] Focused and full safe project suites plus deployment drift pass.
+- [x] No existing runtime path is activated or changed.
+- [x] No credential file, runtime state, or cloud resource is accessed.
+- [x] Product/developer docs, roadmap, and #150 are updated.
+- [x] Two reviews find no unresolved issue.
+- [x] The structured commit references #150.
+
+## 17. Completion Evidence
+
+- Catalog report: 22 deployment bundles, 33 edge implementations, 43
+  content-addressed artifacts, 51 parser-verified Terraform resources, all 42
+  deployment-dimension components, all 51 Phase 8.3/#113 component decisions,
+  and all 33 Phase 8.3 edge decisions exactly once.
+- Profile proof: five responsibilities, seven logical components, six logical
+  edges, seven optimization slots, twelve functional-completeness rules, and
+  `processor.telemetry@1`, all pinned to the reviewed Phase 8.1/#113 sources.
+- Focused proof: 49 root tests plus 488 schema subtests, Optimizer 4, Deployer
+  4, and Management 2 tests; all linters passed.
+- Full proof: `./thesis.sh test deployment-contract` passed all 13 stages in
+  601.3 seconds: Optimizer 847, Management 948, Deployer 1849 with one expected
+  skip, Flutter 730, Web release, macOS debug, strict documentation, security,
+  compilation, dependency, drift, and cleanup gates.
+- Review proof: two post-verification audits found no unresolved finding and
+  no active route, persistence migration, Terraform runtime, Flutter runtime,
+  credential, live cloud, or Eventing-layer activation.
+- Issue evidence:
+  [#150 comment](https://github.com/TVJunkie724/master-thesis/issues/150#issuecomment-5017197780).

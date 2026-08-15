@@ -96,6 +96,8 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             [
                 "Compose model",
                 "Verification images",
+                "Phase 8 decision evidence",
+                "Phase 8 profile evaluation evidence",
                 "Canonical contract and root tests",
                 "Optimizer formula-to-selection drift",
                 "Management persistence-to-manifest drift",
@@ -106,9 +108,94 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "tests/unit/calculation_v2/test_deployment_drift_matrix.py",
             rendered,
         )
+        self.assertIn(
+            "scripts/sync_architecture_profile_contracts.py --check",
+            rendered,
+        )
+        self.assertIn(
+            "scripts.tests.test_architecture_profile_contract_sync",
+            rendered,
+        )
+        self.assertIn(
+            "-p no:cacheprovider scripts/tests/test_deployment_manifest_contract_sync.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/sync_user_function_extension_contracts.py --check",
+            rendered,
+        )
+        self.assertIn(
+            "scripts.tests.test_user_function_extension_contract_sync",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/sync_deployment_access_contracts.py --check",
+            rendered,
+        )
+        self.assertIn(
+            "scripts.tests.test_deployment_access_contract_sync",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_eventing/validate_decision_package.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_eventing/calculate_scenarios.py --check",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_service_bundles/validate_decision_package.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_service_bundles/freeze_decision.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_profile_evaluation/validate.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_profile_evaluation/tests",
+            rendered,
+        )
+        self.assertIn(
+            "ruff format --check scripts/phase_08_profile_evaluation",
+            rendered,
+        )
+        self.assertIn("-p no:cacheprovider", rendered)
+        self.assertIn(
+            "RUFF_CACHE_DIR=/tmp/phase-8-profile-evaluation-ruff-cache",
+            rendered,
+        )
         self.assertIn("tests/test_deployment_drift_matrix.py", rendered)
         self.assertIn(
+            "tests/unit/terraform/test_build_all_packages.py",
+            rendered,
+        )
+        self.assertIn(
+            "tests/unit/terraform/test_graph_compatibility_projection.py",
+            rendered,
+        )
+        self.assertIn(
+            "tests/unit/terraform/test_tfvars_generator.py",
+            rendered,
+        )
+        self.assertIn(
+            "tests/test_user_function_extension_contract.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/verify_six_layer_management_boundary.py",
+            rendered,
+        )
+        self.assertIn(
             "tests/unit/terraform/test_native_mock_plans.py",
+            rendered,
+        )
+        self.assertIn(
+            "tests/unit/test_user_function_extensions.py",
             rendered,
         )
         self.assertNotIn("flutter build", rendered)
@@ -144,6 +231,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             names,
             [
                 "Documentation image",
+                "Evaluation runtime image provenance",
                 "Optimizer full quality gate",
                 "Management API full quality gate",
                 "Deployer full quality gate",
@@ -155,6 +243,17 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         self.assertIn("--ignore=tests/e2e", rendered)
         self.assertIn("thesis.sh test frontend", rendered)
         self.assertIn("mkdocs build --strict", rendered)
+        self.assertIn("verify_runtime_images.py --project contract-test", rendered)
+        self.assertIn("PIP_CACHE_DIR=/tmp/management-pip-cache", rendered)
+        deployer = next(
+            stage for stage in stages if stage.name == "Deployer full quality gate"
+        )
+        self.assertIn(f"{verification.ROOT}:/workspace:ro", deployer.command)
+        self.assertIn(
+            "ARCHITECTURE_INVENTORY_REPO_ROOT=/workspace",
+            deployer.command,
+        )
+        self.assertIn("cd /app && ./run_tests.sh", deployer.command)
         self.assertNotIn("terraform apply", rendered)
 
     @patch.object(verification.subprocess, "run")

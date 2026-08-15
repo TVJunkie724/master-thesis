@@ -98,7 +98,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   break;
                 case 'logout':
                   await ref.read(authProvider.notifier).logout();
-                  if (context.mounted) context.go('/login');
                   break;
               }
             },

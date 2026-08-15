@@ -1,6 +1,6 @@
 # Configuration Workspace
 
-The workspace replaces one long three-page form with five phases and smaller tasks.
+The workspace replaces one long three-page form with six focused phases and smaller tasks.
 The sidebar provides orientation, completion/attention status, and direct access to
 navigable tasks; blocked tasks explain their prerequisite.
 
@@ -9,10 +9,11 @@ navigable tasks; blocked tasks explain their prerequisite.
 | Phase | Tasks |
 |---|---|
 | Define twin | identity and mode |
-| Describe workload | scenario/currency, device traffic, processing, retention, twin capabilities |
-| Choose architecture | pricing readiness, calculate alternatives, review recommendation |
-| Prepare deployment | cloud access, data contracts, user logic, twin assets |
-| Review configuration | summary, readiness findings, validation/preflight |
+| Architecture | select profile, understand architecture |
+| Workload | scenario/currency, device traffic, processing, retention, twin capabilities |
+| User Logic | bind profile-required user logic |
+| Optimize and review | pricing readiness, calculate alternatives, compare and select |
+| Deployment review | cloud access, data contracts, twin assets, summary, readiness findings, validation/preflight |
 
 The conceptual phases replace the old UX, but typed backend contracts retain legacy
 step projections internally where needed for compatibility.
@@ -21,7 +22,8 @@ step projections internally where needed for compatibility.
 
 ```text
 twin identity
-   -> complete workload
+   -> active profile selected and its logical flow visited
+      -> complete workload and required user logic
       -> pricing ready enough to calculate
          -> calculation result / verified deployment selection
             -> required provider cloud access
@@ -32,6 +34,42 @@ twin identity
 Users may revisit completed tasks. A material configuration edit can invalidate a
 calculation, readiness result, or `configured` state. The workspace shows the next
 recommended task rather than pretending downstream results remain current.
+
+The active profile list is owned by Management. Its current runtime catalog
+contains Five-layer v2 and Six-layer v1; historical Five-layer v1 Twins remain
+readable but are not selectable for new work. The earlier Phase 8.7 empty
+catalog was an activation seam, not a disabled or “coming soon” UI. A profile
+change first shows the exact server-calculated workload, user-logic, run, and
+readiness invalidations and requires explicit confirmation.
+
+## First Real-Provider Lifecycle
+
+No cloud preparation is required before creating a draft Twin or calculating
+an offline architecture. Real deployment access follows this exact current PoC
+boundary:
+
+1. Outside the app, create or select the provider account/subscription/project,
+   enable billing where required, and obtain temporary owner/admin bootstrap
+   authority.
+2. Start the UI and create/configure/calculate the Twin without that authority.
+3. Resolve the selected providers in **Prepare deployment -> Cloud access**.
+   The in-app deterministic adapters are offline only. For a real provider,
+   request the reviewed manual bootstrap plan, authenticate through the
+   provider CLI, inspect the dry run, and apply it explicitly.
+4. Import and validate only the generated bounded `thesis-demo-v2`
+   CloudConnection. Bind it to the Twin; the initial owner/admin credential is
+   neither imported nor retained by the app.
+5. Revoke or delete the temporary owner/admin authority and complete any
+   provider-side manual cleanup before acknowledging it in the workflow.
+6. Run Twin deployment preflight. Complete only the exact account-level,
+   billing, quota, policy, AWS Identity Center, or GCP OAuth prerequisite the
+   preflight reports, then recheck through the bounded connection.
+7. Deploy only in a separately approved supervised run. After successful live
+   verification, Twin Overview can expose the generated L4 semantic-Twin and
+   L5 Grafana links with their provider-owned access instructions.
+
+The repository's offline evaluation and default tests stop before steps 3-7
+perform any provider mutation. They do not produce live links or credentials.
 
 ## Calculation And Evidence
 

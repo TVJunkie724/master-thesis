@@ -7,7 +7,8 @@ import '../core/result.dart';
 
 typedef DemoClock = DateTime Function();
 
-class DemoApiException implements UserFacingException {
+class DemoApiException implements CodedUserFacingException {
+  @override
   final String code;
   @override
   final String message;
@@ -46,29 +47,30 @@ class DemoFixtureStore {
   };
 
   final Map<String, dynamic> _root;
-  final Map<String, dynamic>? _deploymentSpecificationTemplate;
+  final Map<String, Map<String, dynamic>> _architectureContracts;
   final DemoClock clock;
   int _sequence;
 
   DemoFixtureStore._(
     this._root,
-    this._deploymentSpecificationTemplate,
+    this._architectureContracts,
     this.clock,
     this._sequence,
   );
 
   factory DemoFixtureStore.fromJson(
     Map<String, dynamic> fixture, {
-    Map<String, dynamic>? deploymentSpecificationTemplate,
+    Map<String, Map<String, dynamic>> architectureContracts = const {},
     DemoClock? clock,
   }) {
     final copy = _copyMap(fixture);
     _validate(copy);
     return DemoFixtureStore._(
       copy,
-      deploymentSpecificationTemplate == null
-          ? null
-          : _copyMap(deploymentSpecificationTemplate),
+      {
+        for (final entry in architectureContracts.entries)
+          entry.key: _copyMap(entry.value),
+      },
       clock ?? () => DateTime.now().toUtc(),
       _initialSequence(copy),
     );
@@ -82,12 +84,40 @@ class DemoFixtureStore {
     final source = bundle ?? rootBundle;
     final path = 'assets/demo/v1/${scenario.name}.json';
     final raw = await source.loadString(path, cache: false);
-    final specificationRaw = await source.loadString(
-      'assets/demo/v1/resolved-deployment-specification-mixed.json',
-      cache: false,
-    );
     final decoded = jsonDecode(raw);
-    final specificationDecoded = jsonDecode(specificationRaw);
+    const contractAssets = {
+      'profile': 'architecture-profile-five-layer-v2.json',
+      'provider.aws': 'provider-profile-five-layer-v2-aws.json',
+      'provider.azure': 'provider-profile-five-layer-v2-azure.json',
+      'provider.gcp': 'provider-profile-five-layer-v2-gcp.json',
+      'rds.small': 'resolved-deployment-specification-v2-small.json',
+      'rds.medium': 'resolved-deployment-specification-v2-medium.json',
+      'rds.large': 'resolved-deployment-specification-v2-large.json',
+      'rta.small': 'resolved-twin-architecture-v2-small.json',
+      'rta.medium': 'resolved-twin-architecture-v2-medium.json',
+      'rta.large': 'resolved-twin-architecture-v2-large.json',
+      'profile.six': 'architecture-profile-six-layer-v1.json',
+      'provider.six.aws': 'provider-profile-six-layer-v1-aws.json',
+      'provider.six.azure': 'provider-profile-six-layer-v1-azure.json',
+      'provider.six.gcp': 'provider-profile-six-layer-v1-gcp.json',
+    };
+    final architectureContracts = <String, Map<String, dynamic>>{};
+    for (final entry in contractAssets.entries) {
+      final contractRaw = await source.loadString(
+        'assets/demo/v1/${entry.value}',
+        cache: false,
+      );
+      final decodedContract = jsonDecode(contractRaw);
+      if (decodedContract is! Map) {
+        throw DemoApiException(
+          'DEMO_FIVE_LAYER_V2_CONTRACT_INVALID',
+          'Demo contract "${entry.value}" must be a JSON object.',
+        );
+      }
+      architectureContracts[entry.key] = Map<String, dynamic>.from(
+        decodedContract,
+      );
+    }
     if (decoded is! Map) {
       throw const DemoApiException(
         'DEMO_FIXTURE_ROOT_INVALID',
@@ -102,17 +132,9 @@ class DemoFixtureStore {
             '"${fixture['scenario']}" instead of "${scenario.name}".',
       );
     }
-    if (specificationDecoded is! Map) {
-      throw const DemoApiException(
-        'DEMO_DEPLOYMENT_SPECIFICATION_INVALID',
-        'Demo deployment specification fixture must be a JSON object.',
-      );
-    }
     return DemoFixtureStore.fromJson(
       fixture,
-      deploymentSpecificationTemplate: Map<String, dynamic>.from(
-        specificationDecoded,
-      ),
+      architectureContracts: architectureContracts,
       clock: clock,
     );
   }
@@ -128,15 +150,58 @@ class DemoFixtureStore {
 
   Map<String, dynamic> get pricingHealth => _copyMap(_map('pricing_health'));
 
-  Map<String, dynamic> deploymentSpecificationTemplate() {
-    final template = _deploymentSpecificationTemplate;
-    if (template == null) {
-      throw const DemoApiException(
-        'DEMO_DEPLOYMENT_SPECIFICATION_MISSING',
-        'The canonical demo deployment specification is unavailable.',
+  Map<String, dynamic> fiveLayerV2Profile() => _fiveLayerV2Contract('profile');
+
+  Map<String, dynamic> architectureProfile(
+    String profileId,
+    String profileVersion,
+  ) => switch ((profileId, profileVersion)) {
+    ('five-layer-baseline', '2') => _fiveLayerV2Contract('profile'),
+    ('six-layer-eventing', '1') => _fiveLayerV2Contract('profile.six'),
+    _ => throw DemoApiException(
+      'ARCH_PROFILE_NOT_ACTIVE',
+      'Architecture profile "$profileId@$profileVersion" is not active.',
+    ),
+  };
+
+  List<Map<String, dynamic>> fiveLayerV2ProviderProfiles() => [
+    for (final provider in const ['aws', 'azure', 'gcp'])
+      _fiveLayerV2Contract('provider.$provider'),
+  ];
+
+  List<Map<String, dynamic>> architectureProviderProfiles(
+    String profileId,
+    String profileVersion,
+  ) {
+    final prefix = switch ((profileId, profileVersion)) {
+      ('five-layer-baseline', '2') => 'provider',
+      ('six-layer-eventing', '1') => 'provider.six',
+      _ => throw DemoApiException(
+        'ARCH_PROFILE_NOT_ACTIVE',
+        'Architecture profile "$profileId@$profileVersion" is not active.',
+      ),
+    };
+    return [
+      for (final provider in const ['aws', 'azure', 'gcp'])
+        _fiveLayerV2Contract('$prefix.$provider'),
+    ];
+  }
+
+  Map<String, dynamic> fiveLayerV2DeploymentSpecification(String scenario) =>
+      _fiveLayerV2Contract('rds.$scenario');
+
+  Map<String, dynamic> fiveLayerV2ResolvedArchitecture(String scenario) =>
+      _fiveLayerV2Contract('rta.$scenario');
+
+  Map<String, dynamic> _fiveLayerV2Contract(String key) {
+    final contract = _architectureContracts[key];
+    if (contract == null) {
+      throw DemoApiException(
+        'DEMO_FIVE_LAYER_V2_CONTRACT_MISSING',
+        'The canonical Five-layer v2 demo contract "$key" is unavailable.',
       );
     }
-    return _copyMap(template);
+    return _copyMap(contract);
   }
 
   Map<String, dynamic> twin(String twinId) {

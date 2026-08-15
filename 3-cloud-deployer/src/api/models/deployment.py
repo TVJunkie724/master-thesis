@@ -5,10 +5,12 @@ These models define the public deploy/destroy boundary. Route handlers should
 return these contracts rather than assembling ad hoc dictionaries or JSON.
 """
 
+from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from src.deployment_access import validate_deployment_access_evidence
 from src.api.deployment_trace import (
     DeploymentErrorCategory,
     classify_deployment_error,
@@ -50,6 +52,21 @@ class DeploymentResult(BaseModel):
     provider: str
     operation_id: str
     terraform_outputs: dict[str, Any] = Field(default_factory=dict)
+    deployment_access_evidence: dict[str, Any] | None = None
+
+    @field_validator("terraform_outputs")
+    @classmethod
+    def sanitize_outputs(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return sanitize_terraform_outputs(value) or {}
+
+    @field_validator("deployment_access_evidence")
+    @classmethod
+    def validate_access_evidence(
+        cls, value: dict[str, Any] | None
+    ) -> dict[str, Any] | None:
+        if value is not None:
+            validate_deployment_access_evidence(value)
+        return value
 
 
 class DestroyResult(BaseModel):
@@ -63,6 +80,17 @@ class DestroyResult(BaseModel):
     operation_id: str
 
 
+class DeploymentAccessCredentialResult(BaseModel):
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+    schema_version: str = Field(pattern="^deployment-access-credential\\.v1$")
+    layer: str = Field(pattern="^l5$")
+    provider: str = Field(pattern="^gcp$")
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=1, repr=False)
+    issued_at: datetime
+
+
 class DeploymentStreamEvent(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
@@ -71,10 +99,20 @@ class DeploymentStreamEvent(BaseModel):
     success: bool | None = None
     message: str | None = None
     outputs: dict[str, Any] | None = None
+    deployment_access_evidence: dict[str, Any] | None = None
     error: str | None = None
     error_code: str | None = None
     operation_id: str | None = None
     error_category: DeploymentErrorCategory | None = None
+
+    @field_validator("deployment_access_evidence")
+    @classmethod
+    def validate_access_evidence(
+        cls, value: dict[str, Any] | None
+    ) -> dict[str, Any] | None:
+        if value is not None:
+            validate_deployment_access_evidence(value)
+        return value
 
     @classmethod
     def log(
@@ -95,6 +133,7 @@ class DeploymentStreamEvent(BaseModel):
         cls,
         operation: DeploymentOperation,
         outputs: dict[str, Any] | None = None,
+        deployment_access_evidence: dict[str, Any] | None = None,
         operation_id: str | None = None,
     ) -> "DeploymentStreamEvent":
         return cls(
@@ -102,6 +141,7 @@ class DeploymentStreamEvent(BaseModel):
             operation=operation,
             success=True,
             outputs=sanitize_terraform_outputs(outputs),
+            deployment_access_evidence=deployment_access_evidence,
             operation_id=operation_id,
         )
 

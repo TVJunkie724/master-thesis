@@ -7,9 +7,10 @@ their rationale, the evidence required to answer them, and the relationship
 between the implementation and the thesis evaluation.
 
 The question set was accepted as the working direction during the architecture
-discussion on 2026-07-17. It is not yet final thesis prose. The wording must be
-reviewed once more when the implementation scope and evaluation scenarios are
-frozen, before it replaces the commented scaffold in
+discussion on 2026-07-17. The implementation scope and bounded evaluation
+scenarios are now frozen, and Phase 8.10 evidence maps to the questions. It is
+not yet final thesis prose: supervisor review and the deliberate LaTeX
+synthesis still precede replacement of the commented scaffold in
 `twin2multicloud-latex/chapters/introduction.tex`.
 
 This note is deliberately separate from the published user and developer
@@ -22,6 +23,7 @@ Related research material:
 - [Digital Twin Architecture And Eventing Layer](digital_twin_architecture_and_eventing_layer.md)
 - [Pricing Evidence Dataflow](pricing_evidence_dataflow.md)
 - [Cloud Pricing Industry Context](cloud_pricing_industry_context.md)
+- [Phase 8 Architecture-Profile Evaluation Method And Results](phase_08_profile_evaluation_method_and_results.md)
 
 ## Core Thesis Focus
 
@@ -190,6 +192,17 @@ explicit reason     validation
 The gate must be deterministic and explainable. Cost cannot compensate for a
 missing mandatory capability.
 
+Phase 8.5 operationalizes this method for the five-layer profile through a
+profile-bounded strategy registry and a pre-ranking completeness gate. In the
+canonical supported AWS/Azure contract fixture, the resolver enumerates all
+128 closed seven-slot assignments deterministically, admits only the three
+assignments whose component and edge mappings are complete, and excludes the
+remaining 125 before path-cost evaluation with stable reason codes. The same
+winner produces the compatibility path, deployment specification, exact cost,
+and immutable resolved architecture. This is offline method evidence: the
+repository provider profiles remain runtime-unsupported until the independent
+Deployer graph gate in Phase 8.6.
+
 #### Required Evidence
 
 - Versioned functional contracts.
@@ -244,7 +257,8 @@ models, transfer costs, and deployment support are taken into account.
   architecture profile.
 - Calculate the federated provider allocation within the same architecture
   profile.
-- Include cross-cloud transfer and required glue costs.
+- Include cross-cloud transfer and required source-owned transition-adapter or
+  bridge costs.
 - Preserve intent, selected pricing evidence, normalization, formula, tier, and
   result traces.
 - Compare estimated monthly totals and the provider allocation per
@@ -260,7 +274,7 @@ models, transfer costs, and deployment support are taken into account.
 - Complete formula and unit contracts.
 - Single-provider cost totals.
 - Multi-cloud cost total and selected path.
-- Transfer and glue cost attribution.
+- Transfer and transition-adapter/bridge cost attribution.
 - Traceable service-level and layer-level cost contributions.
 - Sensitivity discussion for price, workload, tier, and profile assumptions.
 
@@ -353,13 +367,28 @@ curated provider profiles. It calculates comparable eventing costs and makes
 visible where a provider gains or loses cost because its service bundle
 provides more or less functionality.
 
+The fixed workload must be rich enough to prove both capacity and cost. Event
+rate and raw telemetry payload alone are insufficient. The Eventing evidence
+therefore also freezes canonical-envelope overhead, payload sizes for match,
+notification, device-command, and terminal-outcome events, workflow actions per
+execution, extension-action and terminal-outcome cardinality, concurrent device
+connections, and bounded duration/memory/batch assumptions for every newly
+costed adapter. The workflow contract separates three internal orchestration
+steps from one externally visible notification step so that provider connector
+meters are not hidden. It also freezes a 1% telemetry observability sample,
+complete capture of control/outcome/failure records, a 1-KiB safe log record,
+and 30-day retention. Canonical serialized bytes, rather than raw telemetry
+bytes, drive provider message chunks and cross-cloud transfer. Network protocol
+overhead remains an explicit sensitivity limitation instead of an invented
+constant.
+
 #### Executable Scope
 
 - One curated, functionally admissible eventing profile per provider.
 - Explicit Eventing workload and cost contract.
 - Explicit eventing nodes and edges in the architecture profile.
-- Complete ownership of eventing, transfer, glue, and function costs with no
-  double counting.
+- Complete ownership of eventing, transfer, source-owned transition-adapter or
+  cross-cloud-bridge, and function costs with no double counting.
 - Separate evaluation of the five-layer baseline and the Eventing-extended
   profile.
 
@@ -378,7 +407,8 @@ RQ3.2 should identify:
 
 - which functional debt the explicit Eventing responsibility resolves;
 - how the deployed resource graph changes;
-- which costs move from functions or glue into event services;
+- which costs move from direct functions or transition adapters into event
+  services;
 - whether provider rankings change;
 - which additional functionality is gained; and
 - whether the comparison remains valid under the shared functional contract.
@@ -392,15 +422,21 @@ four separate primary research questions.
 |---|---|---|
 | 1. Functional total matrix | Capability coverage and admissible provider profiles, evaluated separately for each architecture profile | RQ2 |
 | 2. Single-provider total cost | AWS, Azure, and GCP baselines under identical inputs within one profile | RQ3.1 |
-| 3. Eventing deep dive | Functional and scenario cost matrices that define and validate `six-layer-eventing@1` | RQ3.2 |
+| 3. Eventing deep dive | Shared domain-event scenarios that compare embedded `five-layer-baseline@2` with `six-layer-eventing@1` | RQ3.2 |
 | 4. Overall optimization | Best admissible allocation within each profile, followed by an explicit functional, topology, and cost delta between profiles | RQ3 |
 
-The evaluation contains two separate experiment paths:
+The evaluation contains one historical reproduction and two separate,
+functionally aligned experiment paths:
 
 ```text
 five-layer-baseline@1
   |
+  +--> immutable historical/paper-compatible reproduction
+
+five-layer-baseline@2
+  |
   +--> functional-completeness gate
+  +--> mandatory embedded rule/action/workflow/command behavior
   |          |
   |          v
   |     single-cloud baselines
@@ -410,7 +446,8 @@ five-layer-baseline@1
   |
 six-layer-eventing@1
   |
-  +--> functional-completeness gate and Eventing matrices
+  +--> the same rule/action/workflow/command behavior
+  +--> functional-completeness gate and Event-Layer matrices
              |
              v
         single-cloud baselines
@@ -418,7 +455,7 @@ six-layer-eventing@1
              v
         multi-cloud optimum
 
-the two independently evaluated profiles
+the two new independently evaluated profiles
              |
              v
 functional delta + topology delta + estimated cost delta
@@ -427,20 +464,23 @@ functional delta + topology delta + estimated cost delta
 interpretation and threats to validity
 ```
 
-The five-layer result reproduces and extends the original Twin2Clouds result
-space. The Eventing-extended result is a second experiment with its own
-functional contract and admissible candidates.
+The v1 five-layer result reproduces the original Twin2Clouds result space. The
+v2 five-layer result is the fair counterfactual: it contains the domain-event
+features embedded in L1/L2. The six-layer result contains the same domain
+behavior and adds an independently owned Eventing and Messaging
+responsibility.
 
 The optimizer must not choose one global winner from a candidate pool that
 mixes both profiles. Such a ranking would be valid only if both profiles were
 shown to satisfy the same mandatory scenario contract despite their structural
 differences. The default thesis interpretation instead reports:
 
-- the best single-cloud and multi-cloud result for `five-layer-baseline@1`;
+- the historical reproduction for `five-layer-baseline@1`;
+- the best single-cloud and multi-cloud result for `five-layer-baseline@2`;
 - the best single-cloud and multi-cloud result for
   `six-layer-eventing@1`; and
-- the additional functionality, topology change, and estimated cost delta
-  introduced by `LE`.
+- the additional transport/failure semantics, topology change, and estimated
+  cost delta introduced by `LE` under the same domain-event workload.
 
 ## Evaluation Constructs
 
@@ -450,7 +490,7 @@ differences. The default thesis interpretation instead reports:
 | Functional completeness | Mandatory capability checks for the selected architecture profile |
 | Provider implementation | Curated service or service-bundle profile for one provider |
 | Cost | Estimated monthly monetary cost in a declared currency |
-| Transfer | Explicit cross-provider data volume, egress price, and required receiving/glue execution |
+| Transfer | Explicit cross-provider data volume, egress price, source-owned forwarder execution, and destination broker landing |
 | Architecture | Versioned profile with responsibilities, implementation slots, and relevant edges |
 | Evidence | Provider pricing row, official static source, reviewed decision, normalization, and formula trace |
 | Deployability | Agreement between Optimizer and Deployer capability contracts plus successful manifest validation |
@@ -466,7 +506,8 @@ A scenario result is thesis-evaluable only when:
 4. Every required pricing field has admissible evidence.
 5. Units, tiers, free allowances, minimums, and formulas are validated.
 6. Emergency fallbacks are absent from publishable calculation results.
-7. Transfer and glue costs are attributed exactly once.
+7. Transfer, source-owned forwarder, and destination broker landing costs are
+   attributed exactly once.
 8. The Optimizer and Deployer agree on provider-layer availability.
 9. The deployment manifest is valid for the selected architecture.
 10. The complete intent-to-result trace is inspectable.
@@ -491,30 +532,60 @@ The current refactoring introduced strong extension points for:
 - deployment manifests and provider capability contracts; and
 - result traceability.
 
-However, the current layer set remains encoded explicitly across the Optimizer,
-Deployer, Management API, database projection, and Flutter models. Adding a new
-service inside an existing responsibility is a bounded extension. Adding `LE`
-as a new architectural responsibility is still a cross-project contract
-change.
+The repository now has a bounded architecture-profile contract and active
+Optimizer, Management, Deployer, and Flutter paths for Five-layer v2 and
+Six-layer v1. Adding a new service inside an existing responsibility remains a
+bounded extension; the completed `LE` activation demonstrates that adding an
+architectural responsibility is a reviewed cross-project change rather than a
+UI-authored topology edit.
 
-Before implementing `LE`, the system should introduce a bounded, versioned
-architecture-profile contract:
+The closed-world contract separates:
 
 ```text
 five-layer-baseline@1
   responsibilities: L1, L2, L3-hot, L3-cool, L3-archive, L4, L5
-  edges: baseline data flows
+  edges: historical baseline data flows
+  role: immutable paper-compatible reproduction
+
+five-layer-baseline@2
+  responsibilities: L1, L2, L3-hot, L3-cool, L3-archive, L4, L5
+  edges: baseline data flows plus mandatory embedded
+         rule/action/workflow/device-command behavior
+  role: fair Event-Layer counterfactual
 
 six-layer-eventing@1
   responsibilities: baseline responsibilities plus LE
-  edges: explicit eventing and messaging flows
+  edges: the same domain-event behavior plus explicit Event-Layer
+         routing, buffering, fan-out, retry/DLQ, replay, and bridge flows
 ```
 
-This contract should make the two approved profiles data-driven and iterable.
+This contract keeps the approved historical baseline reproducible and makes
+both active comparison profiles data-driven and iterable. Phase 8.8 approved
+their shared behavior, exact provider bundles, cross-cloud bridge, and
+implementation blueprint; Phase 8.9 then passed the inherited Phase 8.6
+compiler, Phase 8.7 UI, complete-service, and activation gates. Both new
+profiles are runtime-selectable for offline calculation, while supervised
+live-capacity gates remain fail-closed.
 It must not become a general architecture editor or arbitrary topology engine.
 Each profile owns its admissibility gate, candidate set, and optimization run.
 Cross-profile evaluation compares reported deltas; it does not silently merge
 different functional scopes into one ranking.
+
+Phase 8.10 now records that bounded evaluation in a deterministic evidence
+package. Its method and interpretation are documented in
+[`phase_08_profile_evaluation_method_and_results.md`](phase_08_profile_evaluation_method_and_results.md);
+the generated package is the authority for exact totals and digests.
+
+Both new profiles freeze the same European region set (`eu-central-1`,
+`westeurope`, `europe-west1`) and interpret `H`, `C`, and `A` as cumulative
+data-age boundaries with `1 <= H < C < A`. Their storage cost intervals are
+therefore `H`, `C-H`, and `A-C`; the historical `@1` formula remains part of
+the separate reproduction rather than being rewritten.
+
+`useEventChecking`, `triggerNotificationWorkflow`, and
+`returnFeedbackToDevice` remain historical input fields only. The two new
+profiles always contain the corresponding components; typed rule/action
+declarations determine whether a particular event invokes them.
 
 ## Contribution Mapping
 
@@ -557,7 +628,8 @@ different functional scopes into one ranking.
 ### Internal Validity
 
 - Formula, unit, tier, or free-allowance errors may alter rankings.
-- Cross-cloud transfer or glue costs may be omitted or double counted.
+- Cross-cloud transfer, source-owned forwarder, or destination landing costs
+  may be omitted or double counted.
 - Pricing evidence may drift between providers or collection times.
 - Unsupported deployment paths may appear economically attractive unless
   capability gates are enforced.
@@ -577,6 +649,40 @@ different functional scopes into one ranking.
 - Eventing benefits include functionality and operability, not only monetary
   cost.
 
+## Complete-Service Evaluation Rule
+
+The functional-total matrix now contains three complete-provider targets for
+the new profiles: native/composed AWS, native/composed Azure, and
+provider-hosted GCP. A provider-hosted bundle is admissible only when software
+version/license, compute, identity, persistence, networking, operations,
+capacity, deployment, cleanup, and cost ownership are explicit. Absence of a
+single managed product is not itself a functional rejection.
+
+Two scenario families remain distinct. Five-layer v2 froze its standalone
+evidence first; the separately approved Six-layer implementation pairs the
+same scenario snapshots by size for the final bounded comparison:
+
+- Core Twin scenarios determine device telemetry, storage retention, Twin and
+  semantic update bounds, and aggregate raw-history dashboard queries;
+- Eventing scenarios determine canonical event volume, payload, fan-out,
+  delivery, ordering, retry, replay, bridge, and concurrent-device bounds.
+
+Runtime requests select one immutable `eventingScenarioId`; Management resolves
+and digest-checks the canonical Phase 8.8 object. Five-layer v2 persists the
+selected scenario ID and workload digest. A fair comparison reuses those exact
+values rather than recalculating the baseline. Inline custom Eventing
+values require a later contract version and are not mislabeled as frozen v1
+evidence.
+
+The Eventing bridge and storage-transition job are separate evaluated
+components. Three provider-local L3-hot/L5 raw-visualization bundles combine
+with three independent L4 providers, yielding three single-cloud and six
+`L3-hot == L5 != L4` placements. Every `L3-hot != L5` assignment remains an
+explicit negative candidate. The L5 contract measures only bounded raw-
+history reads from L3 hot; selected state/model/relationship changes reach L4
+through `twin_projection.v1`. L4-to-L5 Twin context and 3D scenes are outside
+Five-layer v2 and require a later versioned capability decision.
+
 ## Scope Decisions
 
 ### In Scope
@@ -587,7 +693,7 @@ different functional scopes into one ranking.
 - Monetary cost as the only enabled optimization objective.
 - Functionally gated provider profiles.
 - Provider-specific pricing models, formulas, tiers, and evidence.
-- Transfer and glue costs.
+- Transfer and source-owned transition-adapter/cross-cloud-bridge costs.
 - Reproducible deployment contracts and later live-cloud validation.
 
 ### Out Of Scope
@@ -608,11 +714,13 @@ different functional scopes into one ranking.
 Before these questions become final thesis text:
 
 - [ ] Complete the systematic literature search and citation chaining.
-- [ ] Freeze the implemented architecture profiles.
-- [ ] Finalize mandatory capabilities and provider profile mappings.
-- [ ] Finalize formulas, pricing evidence, tiers, transfer ownership, and
+- [x] Freeze the implemented architecture profiles.
+- [x] Finalize mandatory capabilities and provider profile mappings.
+- [x] Finalize formulas, pricing evidence, tiers, transfer ownership, and
       publishability gates.
-- [ ] Define the final workload scenarios and sensitivity variables.
+- [x] Define the bounded Small/Medium/Large evaluation scenarios.
+- [x] Generate and reproduce the deterministic Phase 8.10 offline evidence.
+- [ ] Define any additional sensitivity variables beyond the frozen evaluation.
 - [ ] Align chapter structure and contribution wording with the approved RQs.
 - [ ] Review the RQs with the thesis supervisor.
 - [ ] Replace the outdated commented RQs in `introduction.tex`.

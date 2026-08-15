@@ -625,6 +625,23 @@ Before the final Related Work chapter is written:
 6. Export approved references into the thesis bibliography with stable citation
    keys.
 
+## Complete-Service Composition Boundary
+
+The final Phase 8 design applies the functional-total method to managed and
+provider-hosted implementations uniformly. AWS and Azure use managed Digital
+Twin/Grafana compositions; GCP uses a reviewed provider-hosted Twin and
+visualization composition because no single managed product supplies the same
+contract. The comparison includes the hosted bundle's software, compute,
+identity, operations, capacity, and cost rather than treating a product-name
+gap as either zero cost or automatic incompatibility.
+
+This strengthens the distinction from catalogue-style service comparison:
+provider services are compared as complete deployable compositions, while
+cross-cloud event bridges, finite storage jobs, provider-local L3-hot
+raw-history reads, and L3-hot-to-L4 Twin projections remain separate cost and
+failure boundaries. L4-to-L5/3D visualization is deliberately outside
+Five-layer v2 and requires a later capability version.
+
 ## Citation-Ready Source List
 
 - Gritsch, P., Pierer, D., Berardinelli, L., Felderer, M., and Ristov, S.

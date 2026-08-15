@@ -8,7 +8,19 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from src.providers.terraform.package_builder import build_all_packages
+from src.providers.terraform.package_builder import (
+    build_all_packages,
+    build_aws_v2_graph_app,
+)
+from src.providers.terraform.package_builders.aws_v2 import (
+    build_aws_six_layer_domain_app,
+)
+from src.providers.terraform.package_builders.aws_eventing import (
+    build_aws_eventing_app,
+)
+from src.providers.terraform.package_builders.azure_v2 import (
+    build_azure_v2_graph_apps,
+)
 
 
 TERRAFORM_SOURCE = Path(__file__).resolve().parents[3] / "src" / "terraform"
@@ -137,6 +149,13 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
     )
     build_all_packages(terraform_dir, project_path, all_aws)
     build_all_packages(terraform_dir, project_path, gcp_storage)
+    build_aws_v2_graph_app(project_path)
+    build_aws_six_layer_domain_app(project_path)
+    build_aws_eventing_app(project_path)
+    build_azure_v2_graph_apps(
+        project_path,
+        ("five-layer-v2", "six-layer-domain", "six-layer-eventing"),
+    )
 
     _run_terraform(
         terraform_dir,
@@ -157,6 +176,53 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
         plugin_cache=plugin_cache,
     )
 
-    assert "3 passed, 0 failed" in result.stdout
+    assert "Success! 20 passed, 0 failed." in result.stdout
     assert not list(tmp_path.rglob("*.tfstate"))
     assert not list(tmp_path.rglob("*.tfplan"))
+
+
+def test_gcp_v2_workflow_reports_one_terminal_outcome_to_domain_consumer():
+    terraform_source = (TERRAFORM_SOURCE / "gcp_five_layer_v2.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'schema_version   = "workflow-outcome.v1"' in terraform_source
+    assert '{ outcome_status = "SUCCEEDED" }' in terraform_source
+    assert '{ outcome_status = "FAILED" }' in terraform_source
+    assert (
+        'google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["domain"].uri'
+        in terraform_source
+    )
+
+
+def test_aws_v2_storage_mover_uses_only_digest_input_and_exact_task_dimension():
+    terraform_source = (TERRAFORM_SOURCE / "aws_five_layer_v2.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert "image     = var.aws_v2_storage_mover_image" in terraform_source
+    assert (
+        '"dimension.aws.aws.ecs-fargate-storage-mover.task_count"' in terraform_source
+    )
+    assert ":storage-mover-v1" not in terraform_source
+
+
+def test_azure_v2_storage_mover_uses_digest_and_explicit_exact_task_jobs():
+    terraform_source = (TERRAFORM_SOURCE / "azure_five_layer_v2.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert "image  = var.azure_v2_storage_mover_image" in terraform_source
+    assert (
+        '"dimension.azure.azure.container-apps-scheduled-storage-job.task_count"'
+        in terraform_source
+    )
+    assert (
+        'resource "azurerm_container_app_job" '
+        '"azure_azure_container_apps_scheduled_storage_job"'
+        in terraform_source
+    )
+    assert "for_each                     = local.azure_v2_storage_schedule_tasks" in terraform_source
+    assert "parallelism              = 1" in terraform_source
+    assert "contains([1, 4, 30], local.azure_v2_storage_task_count)" in terraform_source
+    assert ":latest" not in terraform_source

@@ -1,9 +1,9 @@
 ---
 title: "Phase 8.1: Harden And Freeze five-layer-baseline@1"
-description: "Implementation plan for the explicit, executable, paper-compatible five-layer baseline decision contract."
+description: "Decision plan for the explicit, paper-compatible five-layer baseline retained as immutable historical evidence."
 tags: [architecture, baseline, five-layer, decisions, thesis, issue-139]
-lastUpdated: "2026-07-19"
-version: "1.0"
+lastUpdated: "2026-07-29"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.0"
 - docs/research/research_questions_and_evaluation_design.md
 - docs/plans/resolved_deployment_specification/README.md
 - EDTConf CloudDT paper and predecessor implementation provenance retained in the repository
-EXTRACTED: 2026-07-19 | VERSION: 1.0
+EXTRACTED: 2026-07-29 | VERSION: 1.5
 -->
 
 # Phase 8.1: Harden And Freeze `five-layer-baseline@1`
@@ -27,6 +27,7 @@ EXTRACTED: 2026-07-19 | VERSION: 1.0
 | Recommended branch | `codex/phase-8-five-layer-baseline` |
 | Base branch | `master` |
 | Blocked by | Phase 8.0 / #144 |
+| Decision status | Complete, reviewed, and immutable |
 | Produces | Normative input for Phases 8.2-8.7 |
 | Runtime behavior change | No; target decisions are implemented in later phases |
 | Live cloud E2E | Forbidden |
@@ -34,18 +35,29 @@ EXTRACTED: 2026-07-19 | VERSION: 1.0
 Every edge and component from the approved Phase 8.0 inventory must receive a
 decision. Partial decision coverage is a blocking failure.
 
+## Corrective Lifecycle Addendum
+
+This completed decision remains immutable provenance for
+`five-layer-baseline@1`. Following the approved Phase 8.8 parity decision and
+the complete-service closure, `@1` is historical read/verify/destroy evidence
+only. Its graph and digests are not modified, but it is not activated for new
+calculation or deployment. Complete service, identity, capacity, and executable
+runtime decisions for new operations belong to `five-layer-baseline@2` under
+[`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md).
+
 ## 1. Outcome
 
-Freeze one explicit, executable target definition for
+Freeze one explicit target definition for
 `five-layer-baseline@1`. It preserves the five paper-compatible functional and
 cost responsibilities while rejecting the assumption that every inherited
 function, direct call, name convention, or provider mapping is scientifically
 required.
 
 This phase decides the target graph and its invariants. It does not add the
-shared profile classes or modify runtime wiring. Phases 8.2-8.7 implement the
-approved decision through common contracts, provider catalogs, persistence,
-optimization, deployment resolution, and Flutter.
+shared profile classes or modify runtime wiring. Phases 8.2-8.7 materialize its
+historical compatibility mapping and the reusable dark contracts, catalogs,
+persistence, optimization, deployment-resolution, and Flutter foundations;
+they do not reactivate `@1`.
 
 ### Scope Boundary
 
@@ -162,7 +174,7 @@ Top-level required fields:
 | `source_inventory_digest` | Exact Phase 8.0 content digest |
 | `required_responsibilities` | Exactly the five IDs in Section 3 |
 | `optimization_slots` | Exactly the seven current deployment slots |
-| `component_decisions` | One decision for every in-scope current component |
+| `component_decisions` | One decision for every in-scope current implementation record, grouped by logical component |
 | `edge_decisions` | One decision for every in-scope current edge |
 | `provider_admissibility` | Explicit AWS/Azure/GCP and mixed constraints |
 | `functional_completeness_rules` | Machine-readable required capabilities |
@@ -173,7 +185,10 @@ Top-level required fields:
 
 ### 6.1 Component Decision
 
-Each current component must be assigned exactly one action:
+Each current provider/platform implementation record must be assigned exactly
+one action. Decisions sharing a logical component ID may differ by provider
+only when the provider-specific evidence and target mapping justify the
+difference:
 
 - `retain`: independent deployable component remains;
 - `internalize`: behavior moves behind another retained component boundary;
@@ -184,7 +199,8 @@ Each current component must be assigned exactly one action:
 
 Required fields:
 
-- current and target component IDs;
+- current implementation ID and logical component ID;
+- target logical component and target implementation IDs where applicable;
 - action;
 - target responsibility;
 - provider applicability;
@@ -216,7 +232,7 @@ Required fields:
 
 - current and target edge IDs;
 - mechanism;
-- source/destination target component IDs;
+- source/destination target logical component and implementation IDs;
 - payload/envelope and schema version;
 - invocation and delivery semantics;
 - timeout/retry/dead-letter/idempotency/ordering behavior;
@@ -292,7 +308,8 @@ Extend the architecture inventory checker to:
 
 - validate the decision schema;
 - verify exact source inventory digest;
-- require one component decision per in-scope component;
+- require one component decision per in-scope implementation record and reject
+  inconsistent unqualified logical-component decisions;
 - require one edge decision per in-scope edge;
 - reject target IDs not declared by a decision;
 - reject missing implementation-owner phases;
@@ -390,24 +407,53 @@ same Phase 8.0 inventory or a newer verified inventory.
 
 ## 14. Definition Of Done
 
-- [ ] The Phase 8.0 inventory digest is current and verified.
-- [ ] Exactly five scientific responsibilities and seven optimization slots
+- [x] The Phase 8.0 inventory digest is current and verified.
+- [x] Exactly five scientific responsibilities and seven optimization slots
       are defined without conflating them.
-- [ ] All six baseline flow/cost relationships remain explicit.
-- [ ] Every current component has one retain/internalize/replace/remove
+- [x] All six baseline flow/cost relationships remain explicit.
+- [x] Every current component has one retain/internalize/replace/remove
       decision.
-- [ ] Every current edge has one explicit target mechanism and binding source.
-- [ ] No historical direct call is retained solely because it exists.
-- [ ] No required behavior or cost disappears without proof.
-- [ ] AWS, Azure, GCP, and mixed-provider admissibility is explicit and
+- [x] Every current edge has one explicit target mechanism and binding source.
+- [x] No historical direct call is retained solely because it exists.
+- [x] No required behavior or cost disappears without proof.
+- [x] AWS, Azure, GCP, and mixed-provider admissibility is explicit and
       fail-closed.
-- [ ] Unsupported scenarios remain visible with stable reasons.
-- [ ] Eventing behavior and cost are excluded from the baseline profile.
-- [ ] Compatibility with the resolved deployment specification is explicit.
-- [ ] Machine checks and negative fixtures enforce full decision coverage.
-- [ ] Research and current/target product documentation remain separated.
-- [ ] Safe deployment-contract and strict documentation gates pass.
-- [ ] No runtime behavior or cloud resource changes.
-- [ ] Two reviews find no unresolved issue.
-- [ ] Roadmap and #139 are updated with named evidence.
-- [ ] The structured commit references #139.
+- [x] Unsupported scenarios remain visible with stable reasons.
+- [x] An independent Eventing responsibility, broker, and event-service cost
+      are excluded from the historical baseline profile; its explicitly
+      supported or unsupported legacy event-check/feedback states remain
+      recorded rather than silently generalized.
+- [x] Compatibility with the resolved deployment specification is explicit.
+- [x] Machine checks and negative fixtures enforce full decision coverage.
+- [x] Research and current/target product documentation remain separated.
+- [x] Safe deployment-contract and strict documentation gates pass.
+- [x] No runtime behavior or cloud resource changes.
+- [x] Two reviews find no unresolved issue.
+- [x] Roadmap and #139 are updated with named evidence.
+- [x] The structured commit references #139.
+
+## 15. Completion Evidence
+
+- Commit `7ba914bf` freezes the original complete decision and references #139:
+  114/114 component decisions, 90/90 edge decisions, five scientific
+  responsibilities, seven optimization slots, and six baseline flow/cost
+  relationships.
+- GitHub issue #139 records the component/edge mechanism counts, positive and
+  unsupported provider scenarios, original full-gate results, limitations,
+  review outcome, and closure.
+- Later contract and reader phases only refreshed audited-source and canonical
+  digests. The currently verified inventory content digest is
+  `sha256:c8812f94523bd84e3c8e2cd05eb75f4fa696f4ef2c92b99933102b2fea1aade3`;
+  the reconciled baseline-decision digest is
+  `sha256:1227f56f13f9e3eb60387fec8c66c5b77e338ad81b7674f29bd137265f3c5642`.
+  The 114 component and 90 edge decisions remain semantically unchanged.
+- The current serial `./thesis.sh test deployment-contract` gate passes all 13
+  stages, including architecture inventory, baseline decision, full service,
+  Flutter, strict documentation, and repository checks.
+- `five-layer-baseline@1` is historical evidence. Its semantics must not be
+  edited to obtain functional parity with Eventing; that role belongs to
+  `five-layer-baseline@2`. The v2 successor adds mandatory embedded domain
+  events, an explicit provider-local L3-hot-to-L5 raw-history edge, and an
+  independently placed L4 reached through `twin_projection.v1`. It does not
+  claim L4-to-L5 or 3D/Twin-context visualization; those are v2 decisions and
+  do not change the immutable `@1` L4-to-L5 target evidence.

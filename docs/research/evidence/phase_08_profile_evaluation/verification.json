@@ -1,0 +1,178 @@
+{
+  "$schema": "schemas/verification.schema.json",
+  "schema_version": "phase-08-profile-evaluation-verification.v1",
+  "package_id": "phase-08-profile-evaluation@1",
+  "evidence_timestamp": "2026-08-14",
+  "artifact_digests": [
+    {
+      "path": "README.md",
+      "digest": "sha256:7bcaec3602c10d18c1b81f0eb6f7178fb67c2b18d277cbf76757df7dc2f201ad"
+    },
+    {
+      "path": "architecture-deltas.json",
+      "digest": "sha256:6e30301718450a66df79767336406d1e0629e3cf83f1e928c9245e166f110cfc"
+    },
+    {
+      "path": "cost-results/five-layer-v1-historical.json",
+      "digest": "sha256:cd7c5018918dbcd7c39480d3f7300cd0ed7836339c6cbc15e02736883d668310"
+    },
+    {
+      "path": "cost-results/five-layer-v2-large.json",
+      "digest": "sha256:880931461a312545299e0f53c144e3d0060f559ec6ed5d1da6ddc4732508b09a"
+    },
+    {
+      "path": "cost-results/five-layer-v2-medium.json",
+      "digest": "sha256:c56aace64ea60b4850851644c81e83b20460c9454ceb55c6384569c8a33a5fd0"
+    },
+    {
+      "path": "cost-results/five-layer-v2-small.json",
+      "digest": "sha256:d5e5c1cfdb2b3f92c3f7138207d3eeb5eb15e399d4fb582c42221b25f4a8d081"
+    },
+    {
+      "path": "cost-results/six-layer-v1-large.json",
+      "digest": "sha256:bf7e8c260d76e6816739ae5bdbaa012394ce851e388fcff6867b2c1c73a4749d"
+    },
+    {
+      "path": "cost-results/six-layer-v1-medium.json",
+      "digest": "sha256:ccec1e1d8ee33ccf41dc526b7f70fffee04e2ff0bd10c89d0a515734b5c9230a"
+    },
+    {
+      "path": "cost-results/six-layer-v1-small.json",
+      "digest": "sha256:9b3ff1a74ea5b1367289bfed324e8a64ae321560a2e3a9edd96293f537ff3103"
+    },
+    {
+      "path": "cost-summary.md",
+      "digest": "sha256:ca137c907c47d5ad1f27780d4ef3130a77da9c4646a6545eee5115e370de3af1"
+    },
+    {
+      "path": "evaluation-manifest.json",
+      "digest": "sha256:51226a691c2cfcbc0cea077be171c4e843879aba1c0692db30abbac7cefa7dbd"
+    },
+    {
+      "path": "functional-matrix.json",
+      "digest": "sha256:2132eea042064858f32bad656de3aeb5af4c6941b10b78f195d1541b0fe5237e"
+    },
+    {
+      "path": "limitations.json",
+      "digest": "sha256:8aacc7b447279619c2d0ddfbb9ac8776bcb80982a61fe1e63ad1370ad6da3a15"
+    },
+    {
+      "path": "rejections.json",
+      "digest": "sha256:05803c8fa6618069915ca7e6632b798ec0e73380d7033735daf797642828556f"
+    },
+    {
+      "path": "resolved-architectures/five-layer-baseline-1-historical-base-v1-all-gcp-unsupported.json",
+      "digest": "sha256:4d71a5762570318b956a46c13f63b2cf47da0d9844fafd2d864a1d17b25f0234"
+    },
+    {
+      "path": "resolved-architectures/five-layer-baseline-1-historical-base-v1.json",
+      "digest": "sha256:400d912691b257c8ba5c2085f13ec5708bc846bfdb3fe9cc5ea15bfedcf1803d"
+    },
+    {
+      "path": "resolved-architectures/five-layer-baseline-1-historical-edge-heavy-v1-all-gcp-unsupported.json",
+      "digest": "sha256:545ed8ada16ed4e5264a4ea430ef9d2bf665ed3d1e3ce1806a8551e33e74dbd4"
+    },
+    {
+      "path": "resolved-architectures/five-layer-baseline-1-historical-edge-heavy-v1.json",
+      "digest": "sha256:dc9ea1e23fbba96ec2700c7d7e374cad8f30e46c400c41f04ac3081291624d21"
+    },
+    {
+      "path": "resolved-architectures/five-layer-baseline-2-large.json",
+      "digest": "sha256:9486905af17a271dca8321c51b416c9d69f1136817a3e2fc666418f5833e07b7"
+    },
+    {
+      "path": "resolved-architectures/five-layer-baseline-2-medium.json",
+      "digest": "sha256:24e8633a76dc9d169d689c547c2d235f4cc06162cd54f09cedeafab180651401"
+    },
+    {
+      "path": "resolved-architectures/five-layer-baseline-2-small.json",
+      "digest": "sha256:5ba40ff012c1d69e79f58645de9a6b6a84fa3546b89026eb1b88fad06a37fc24"
+    },
+    {
+      "path": "resolved-architectures/six-layer-eventing-1-large.json",
+      "digest": "sha256:7c223ec9c4399dc9cd930ed945d1448d5cf3885ab5c32339e6f039347401cc7d"
+    },
+    {
+      "path": "resolved-architectures/six-layer-eventing-1-medium.json",
+      "digest": "sha256:197e07c6ca57dc8e0f3538b634c00d0ad3d3acf8c13013419266137940c06396"
+    },
+    {
+      "path": "resolved-architectures/six-layer-eventing-1-small.json",
+      "digest": "sha256:3b598237e6e6299b825c007f71324607d28903a069ae6b809cf2e9eef4a04f11"
+    },
+    {
+      "path": "rq-mapping.json",
+      "digest": "sha256:9d5355d5e680e182095f5e661598b91a74def0a909c9effb6e90755564ffed41"
+    },
+    {
+      "path": "scenario-manifest.json",
+      "digest": "sha256:4b7037b917f1e352556c026477db9130c742591a9754a5e97e26da969a536c40"
+    }
+  ],
+  "artifact_set_digest": "sha256:4717f66a0a3d584ca26fe5d23935b45ff645fc55898f5a22271b38fa43937887",
+  "commands": [
+    {
+      "command_id": "generator",
+      "command": "docker --context orbstack compose run --rm --no-deps -v $PWD:/workspace -w /workspace 2twin2clouds python scripts/phase_08_profile_evaluation/generate.py",
+      "status": "passed",
+      "exit_status": 0,
+      "test_count": 0,
+      "scope": "offline generation only"
+    },
+    {
+      "command_id": "schema-and-semantic-validation",
+      "command": "python scripts/phase_08_profile_evaluation/validate.py",
+      "status": "passed",
+      "exit_status": 0,
+      "test_count": 1,
+      "scope": "schema, digest, coverage, exact-once, no-total, and secret/path checks"
+    },
+    {
+      "command_id": "evaluation-unit-and-mutation-tests",
+      "command": "python -m pytest scripts/phase_08_profile_evaluation/tests -q",
+      "status": "passed",
+      "exit_status": 0,
+      "test_count": 14,
+      "scope": "schema strictness, mutation rejection, cost recomputation, scenario digest, pair coverage, and comparison boundaries"
+    },
+    {
+      "command_id": "evaluation-format-and-lint",
+      "command": "ruff check scripts/phase_08_profile_evaluation && ruff format --check scripts/phase_08_profile_evaluation",
+      "status": "passed",
+      "exit_status": 0,
+      "test_count": 0,
+      "scope": "evaluation Python source quality"
+    },
+    {
+      "command_id": "two-clean-regenerations",
+      "command": "python scripts/phase_08_profile_evaluation/verify_reproducibility.py",
+      "status": "passed",
+      "exit_status": 0,
+      "test_count": 2,
+      "scope": "byte-identical JSON and Markdown regeneration"
+    },
+    {
+      "command_id": "generation-worktree-drift",
+      "command": "python scripts/phase_08_profile_evaluation/generate.py && git diff --exit-code -- docs/research/evidence/phase_08_profile_evaluation",
+      "status": "passed",
+      "exit_status": 0,
+      "test_count": 1,
+      "scope": "default-output regeneration leaves no unstaged evidence drift"
+    },
+    {
+      "command_id": "phase-8.10-safe-full-gate",
+      "command": "python scripts/verify_resolved_deployment_drift.py",
+      "status": "passed",
+      "exit_status": 0,
+      "test_count": 5887,
+      "scope": "Phase 8 decision/evaluation, contract and drift tests; Optimizer 979, Management 1131, Deployer 2381 (one skipped), Flutter 893 plus architecture gate; builds, security, docs, static checks, and cleanup"
+    }
+  ],
+  "cloud_activity": {
+    "provider_credentials_used": false,
+    "terraform_apply_or_destroy": false,
+    "provider_resource_created": false,
+    "browser_sign_in": false,
+    "paid_operation": false
+  }
+}

@@ -20,15 +20,27 @@ For the issue-numbered refactoring index, see [Refactoring Roadmap](refactoring-
 
 ## Current Workstreams
 
-The latest Optimizer architecture slice is
-[#68 Standardize optimizer LayerResult and layer calculator contracts](https://github.com/TVJunkie724/master-thesis/issues/68).
-It establishes one validated result model, one calculator/capability boundary,
-fail-closed unsupported-provider selection, and a complete provider-layer test
-matrix. Phase 6 continues with provider capability modeling, traceability, and
-expanded service/tier coverage. Phase 8 is planned, but starts only after the
-remaining current-system hardening and manual UI audit. Credential, deployment,
-UI, and external authentication work remains independently tracked in its
-GitHub milestone rather than inferred from one global "current phase" label.
+Phase 8 is active. The source-backed current deployment graph in #144, the
+complete `five-layer-baseline@1` target decision in #139, the four drift-gated
+architecture-profile contracts in #149, the deterministic user-function
+prerequisite #113, the exact provider/component catalog in #150, Management
+persistence in #142, Optimizer profile resolution in #151, and the
+dark Manifest v3 Deployer graph compiler in #152 are locally implemented and
+reviewed. The Phase 8.8 offline decision package also
+freezes the event-enabled five-layer control, the six-layer treatment, six
+provider bundles, the exact source-owned cross-cloud bridge, and its
+Small/Medium/Large evidence without claiming runtime or live-cloud support.
+Phase 8.7's compact Flutter profile workflow is implemented and zero-finding
+reviewed locally; the runtime and demo catalogs now expose active Five-layer
+v2 and Six-layer v1 definitions. Guided cloud bootstrap
+is implemented and zero-finding reviewed for the deterministic offline PoC;
+production provider adapters remain disabled. Five-layer v2 and Six-layer v1
+are active for offline selection/evaluation with deployment blocked by
+explicit supervised live-capacity gates. The final 8.9B audit precedes the
+Phase 8.10 evaluation package. Credential,
+remaining Optimizer coverage, manual UI audit, and external authentication work
+remain independently tracked in their GitHub milestones rather than inferred
+from one global "current phase" label.
 
 ## Backlog Rule
 

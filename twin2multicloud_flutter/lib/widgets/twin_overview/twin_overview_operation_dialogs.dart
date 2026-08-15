@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../theme/spacing.dart';
 
@@ -186,6 +187,183 @@ class SimulatorDownloadConfirmationDialog extends StatefulWidget {
   @override
   State<SimulatorDownloadConfirmationDialog> createState() =>
       _SimulatorDownloadConfirmationDialogState();
+}
+
+class RotateGcpGrafanaViewerConfirmationDialog extends StatelessWidget {
+  const RotateGcpGrafanaViewerConfirmationDialog({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.key_outlined),
+          SizedBox(width: AppSpacing.sm),
+          Expanded(child: Text('Create a new Viewer password?')),
+        ],
+      ),
+      content: const SizedBox(
+        width: AppSpacing.dialogContentMaxWidth,
+        child: Text(
+          'The current GCP Grafana Viewer password becomes invalid. The new '
+          'password is shown once after rotation.',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          key: const Key('confirm-gcp-viewer-rotation'),
+          autofocus: true,
+          onPressed: () => Navigator.of(context).pop(true),
+          icon: const Icon(Icons.key_outlined),
+          label: const Text('Create password'),
+        ),
+      ],
+    );
+  }
+}
+
+class GcpGrafanaCredentialRevealDialog extends StatefulWidget {
+  final String username;
+  final String password;
+
+  const GcpGrafanaCredentialRevealDialog({
+    super.key,
+    required this.username,
+    required this.password,
+  });
+
+  @override
+  State<GcpGrafanaCredentialRevealDialog> createState() =>
+      _GcpGrafanaCredentialRevealDialogState();
+}
+
+class _GcpGrafanaCredentialRevealDialogState
+    extends State<GcpGrafanaCredentialRevealDialog> {
+  late final TextEditingController _passwordController;
+  bool _showPassword = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _passwordController = TextEditingController(text: widget.password);
+  }
+
+  @override
+  void dispose() {
+    _passwordController.clear();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _copy(String value, String label) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$label copied by explicit user action.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.key_outlined),
+          SizedBox(width: AppSpacing.sm),
+          Expanded(child: Text('GCP Grafana Viewer credential')),
+        ],
+      ),
+      content: SizedBox(
+        width: AppSpacing.dialogContentMaxWidth,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This password is shown once. Store it securely. Creating '
+              'another password invalidates this one.',
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text('Username', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              children: [
+                Expanded(child: SelectableText(widget.username)),
+                const SizedBox(width: AppSpacing.sm),
+                TextButton.icon(
+                  key: const Key('copy-gcp-viewer-username'),
+                  autofocus: true,
+                  onPressed: () => _copy(widget.username, 'Username'),
+                  icon: const Icon(Icons.copy_outlined),
+                  label: const Text('Copy username'),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text('Password', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: AppSpacing.xs),
+            TextField(
+              key: const Key('gcp-viewer-password'),
+              controller: _passwordController,
+              readOnly: true,
+              obscureText: !_showPassword,
+              enableSuggestions: false,
+              autocorrect: false,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                Semantics(
+                  label: _showPassword ? 'Hide password' : 'Show password',
+                  button: true,
+                  child: TextButton.icon(
+                    key: const Key('toggle-gcp-viewer-password'),
+                    onPressed: () =>
+                        setState(() => _showPassword = !_showPassword),
+                    icon: Icon(
+                      _showPassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                    label: Text(_showPassword ? 'Hide' : 'Show'),
+                  ),
+                ),
+                TextButton.icon(
+                  key: const Key('copy-gcp-viewer-password'),
+                  onPressed: () => _copy(widget.password, 'Password'),
+                  icon: const Icon(Icons.copy_outlined),
+                  label: const Text('Copy password'),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Copying is deliberate and may retain the value in the '
+              'operating system clipboard or clipboard history. The app '
+              'never copies credentials automatically.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        FilledButton(
+          key: const Key('close-gcp-viewer-credential'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
 }
 
 class _SimulatorDownloadConfirmationDialogState

@@ -18,6 +18,7 @@ class CloudAccountsPanel extends StatelessWidget {
   final ValueChanged<CloudAccessEntry> onValidate;
   final ValueChanged<CloudAccessEntry> onSetDefault;
   final ValueChanged<CloudAccessEntry> onDelete;
+  final ValueChanged<CloudProvider>? onSetupDeployment;
 
   const CloudAccountsPanel({
     super.key,
@@ -31,6 +32,7 @@ class CloudAccountsPanel extends StatelessWidget {
     required this.onValidate,
     required this.onSetDefault,
     required this.onDelete,
+    this.onSetupDeployment,
   });
 
   @override
@@ -115,6 +117,9 @@ class CloudAccountsPanel extends StatelessWidget {
                           onValidate: onValidate,
                           onSetDefault: onSetDefault,
                           onDelete: (entry) => _confirmDelete(context, entry),
+                          onSetupDeployment: onSetupDeployment == null
+                              ? null
+                              : () => onSetupDeployment!(provider),
                         ),
                       );
                     })
@@ -181,6 +186,7 @@ class _ProviderAccessCard extends StatelessWidget {
   final ValueChanged<CloudAccessEntry> onValidate;
   final ValueChanged<CloudAccessEntry> onSetDefault;
   final ValueChanged<CloudAccessEntry> onDelete;
+  final VoidCallback? onSetupDeployment;
 
   const _ProviderAccessCard({
     required this.provider,
@@ -191,6 +197,7 @@ class _ProviderAccessCard extends StatelessWidget {
     required this.onValidate,
     required this.onSetDefault,
     required this.onDelete,
+    required this.onSetupDeployment,
   });
 
   @override
@@ -224,13 +231,13 @@ class _ProviderAccessCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
-                PopupMenuButton<CloudConnectionPurpose>(
-                  enabled: !isCreating,
-                  tooltip: 'Add ${provider.label} access',
-                  icon: const Icon(Icons.add),
-                  onSelected: onCreate,
-                  itemBuilder: (context) => [
-                    if (provider != CloudProvider.azure)
+                if (provider != CloudProvider.azure)
+                  PopupMenuButton<CloudConnectionPurpose>(
+                    enabled: !isCreating,
+                    tooltip: 'Add ${provider.label} pricing access',
+                    icon: const Icon(Icons.add),
+                    onSelected: onCreate,
+                    itemBuilder: (context) => [
                       const PopupMenuItem(
                         value: CloudConnectionPurpose.pricing,
                         child: ListTile(
@@ -238,15 +245,8 @@ class _ProviderAccessCard extends StatelessWidget {
                           title: Text('Pricing access'),
                         ),
                       ),
-                    const PopupMenuItem(
-                      value: CloudConnectionPurpose.deployment,
-                      child: ListTile(
-                        leading: Icon(Icons.rocket_launch_outlined),
-                        title: Text('Deployment access'),
-                      ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
               ],
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -270,7 +270,36 @@ class _ProviderAccessCard extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
+            const SizedBox(height: AppSpacing.md),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: isCreating ? null : onSetupDeployment,
+                icon: const Icon(Icons.auto_awesome_outlined),
+                label: const Text('Set up deployment access'),
+              ),
+            ),
             const Divider(height: AppSpacing.lg),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: Text(
+                'Advanced: import existing access',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: isCreating
+                        ? null
+                        : () => onCreate(CloudConnectionPurpose.deployment),
+                    icon: const Icon(Icons.key_outlined),
+                    label: const Text('Enter bounded deployment credential'),
+                  ),
+                ),
+              ],
+            ),
             ExpansionTile(
               tilePadding: EdgeInsets.zero,
               childrenPadding: EdgeInsets.zero,

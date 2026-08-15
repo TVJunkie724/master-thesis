@@ -37,11 +37,11 @@ locals {
   )
 
   # GCP-specific layer checks
-  gcp_l1_enabled         = var.layer_1_provider == "google"
-  gcp_l2_enabled         = var.layer_2_provider == "google"
-  gcp_l3_hot_enabled     = var.layer_3_hot_provider == "google"
-  gcp_l3_cold_enabled    = var.layer_3_cold_provider == "google"
-  gcp_l3_archive_enabled = var.layer_3_archive_provider == "google"
+  gcp_l1_enabled         = var.layer_1_provider == "google" && !local.five_layer_v2_enabled
+  gcp_l2_enabled         = var.layer_2_provider == "google" && !local.five_layer_v2_enabled
+  gcp_l3_hot_enabled     = var.layer_3_hot_provider == "google" && !local.five_layer_v2_enabled
+  gcp_l3_cold_enabled    = var.layer_3_cold_provider == "google" && !local.five_layer_v2_enabled
+  gcp_l3_archive_enabled = var.layer_3_archive_provider == "google" && !local.five_layer_v2_enabled
 
   # Multi-cloud detection for GCP
   gcp_needs_ingestion      = local.gcp_l2_enabled && var.layer_1_provider != "google"
@@ -128,7 +128,7 @@ locals {
 # Fail before provider execution if an active GCP component is missing its
 # immutable optimizer-owned deployment selection.
 resource "terraform_data" "gcp_deployment_specification_guard" {
-  count = local.deploy_gcp ? 1 : 0
+  count = local.deploy_gcp && !local.five_layer_v2_enabled ? 1 : 0
 
   input = {
     l1_function_memory_mb               = var.gcp_l1_function_memory_mb
@@ -256,7 +256,7 @@ resource "google_project_service" "pubsub" {
 }
 
 resource "google_project_service" "cloudfunctions" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.five_layer_v2_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "cloudfunctions.googleapis.com"
 
@@ -292,7 +292,7 @@ resource "google_project_service" "storage" {
 }
 
 resource "google_project_service" "eventarc" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.five_layer_v2_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "eventarc.googleapis.com"
 
@@ -332,7 +332,7 @@ resource "google_project_service" "iam" {
 # ==============================================================================
 
 resource "google_service_account" "functions" {
-  count        = local.deploy_gcp ? 1 : 0
+  count        = local.deploy_gcp && !local.five_layer_v2_enabled ? 1 : 0
   project      = local.gcp_project_id
   account_id   = local.gcp_functions_sa_id
   display_name = local.gcp_functions_sa_display
@@ -345,7 +345,7 @@ resource "google_service_account" "functions" {
 # ==============================================================================
 
 resource "google_project_iam_custom_role" "functions_role" {
-  count       = local.deploy_gcp ? 1 : 0
+  count       = local.deploy_gcp && !local.five_layer_v2_enabled ? 1 : 0
   project     = local.gcp_project_id
   role_id     = "${replace(var.digital_twin_name, "-", "_")}_functions_role_${local.deployment_suffix}"
   title       = local.gcp_functions_role_title
@@ -385,7 +385,7 @@ resource "google_project_iam_custom_role" "functions_role" {
 
 # Bind custom role to service account
 resource "google_project_iam_member" "functions_custom_role" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.five_layer_v2_enabled ? 1 : 0
   project = local.gcp_project_id
   role    = google_project_iam_custom_role.functions_role[0].id
   member  = "serviceAccount:${google_service_account.functions[0].email}"
@@ -396,7 +396,7 @@ resource "google_project_iam_member" "functions_custom_role" {
 # ==============================================================================
 
 resource "google_storage_bucket" "function_source" {
-  count         = local.deploy_gcp ? 1 : 0
+  count         = local.deploy_gcp && !local.five_layer_v2_enabled ? 1 : 0
   project       = local.gcp_project_id
   name          = local.gcp_function_source_bucket
   location      = var.gcp_region

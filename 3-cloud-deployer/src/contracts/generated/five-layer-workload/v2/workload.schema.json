@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/contracts/five-layer-workload/v2/workload.schema.json",
+  "title": "Five-layer Workload v2",
+  "description": "Editable core workload plus one immutable mandatory Eventing scenario reference. Retired feature flags and provider implementation switches are forbidden.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "numberOfDevices",
+    "deviceSendingIntervalInMinutes",
+    "averageSizeOfMessageInKb",
+    "numberOfDeviceTypes",
+    "hotStorageDurationInMonths",
+    "coolStorageDurationInMonths",
+    "archiveStorageDurationInMonths",
+    "twinEntityCount",
+    "aggregateDashboardRefreshesPerHour",
+    "apiCallsPerAggregateDashboardRefresh",
+    "dashboardActiveHoursPerDay",
+    "monthlyEditorSeats",
+    "monthlyViewerSeats",
+    "twinStateMaterializationsPerSecond",
+    "twinGraphUpdatesPerSecond",
+    "eventingScenarioId",
+    "currency"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "five-layer-workload.v2"
+    },
+    "numberOfDevices": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "deviceSendingIntervalInMinutes": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "averageSizeOfMessageInKb": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 64
+    },
+    "numberOfDeviceTypes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "hotStorageDurationInMonths": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "coolStorageDurationInMonths": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "archiveStorageDurationInMonths": {
+      "type": "integer",
+      "minimum": 6
+    },
+    "twinEntityCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "aggregateDashboardRefreshesPerHour": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "apiCallsPerAggregateDashboardRefresh": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "dashboardActiveHoursPerDay": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 24
+    },
+    "monthlyEditorSeats": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "monthlyViewerSeats": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "twinStateMaterializationsPerSecond": {
+      "type": "number",
+      "minimum": 0
+    },
+    "twinGraphUpdatesPerSecond": {
+      "type": "number",
+      "minimum": 0
+    },
+    "eventingScenarioId": {
+      "enum": [
+        "eventing-small-v1",
+        "eventing-medium-v1",
+        "eventing-large-v1"
+      ]
+    },
+    "currency": {
+      "enum": [
+        "USD",
+        "EUR"
+      ]
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "limitations.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["$schema", "schema_version", "package_id", "limitations", "live_claims"],
+  "properties": {
+    "$schema": {"const": "schemas/limitations.schema.json"}, "schema_version": {"const": "phase-08-limitations.v1"},
+    "package_id": {"const": "phase-08-profile-evaluation@1"},
+    "limitations": {
+      "type": "array", "minItems": 10,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["limitation_id", "validity_class", "statement", "status"],
+        "properties": {"limitation_id": {"type": "string", "pattern": "^[a-z][a-z0-9.-]+$"}, "validity_class": {"enum": ["construct", "internal", "external", "conclusion", "security", "scope"]}, "statement": {"type": "string", "minLength": 1}, "status": {"const": "accepted_poc_boundary"}}
+      }
+    },
+    "live_claims": {
+      "type": "object", "additionalProperties": false, "required": ["measured_throughput", "successful_provider_deployment", "verified_provider_identity_exchange", "verified_l4_l5_browser_access"],
+      "properties": {"measured_throughput": {"const": false}, "successful_provider_deployment": {"const": false}, "verified_provider_identity_exchange": {"const": false}, "verified_l4_l5_browser_access": {"const": false}}
+    }
+  }
+}

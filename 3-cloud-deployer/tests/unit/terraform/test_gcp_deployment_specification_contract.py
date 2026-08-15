@@ -22,15 +22,18 @@ def test_every_gcp_function_runtime_profile_is_specification_owned():
     }
     for filename, (prefix, expected_count) in expected_bindings.items():
         source = _source(filename)
-        assert source.count(
-            f"available_memory      = \"${{var.{prefix}_memory_mb}}M\""
-        ) == expected_count
-        assert source.count(
-            f"min_instance_count    = var.{prefix}_min_instances"
-        ) == expected_count
-        assert source.count(
-            f"max_instance_count    = var.{prefix}_max_instances"
-        ) == expected_count
+        assert (
+            source.count(f'available_memory      = "${{var.{prefix}_memory_mb}}M"')
+            == expected_count
+        )
+        assert (
+            source.count(f"min_instance_count    = var.{prefix}_min_instances")
+            == expected_count
+        )
+        assert (
+            source.count(f"max_instance_count    = var.{prefix}_max_instances")
+            == expected_count
+        )
 
     compute = _source("gcp_compute.tf")
     for suffix in ("memory_mb", "min_instances", "max_instances"):
@@ -46,8 +49,7 @@ def test_every_gcp_function_runtime_profile_is_specification_owned():
             assert f"var.{prefix}_{suffix}" in storage
 
     all_gcp_source = "\n".join(
-        _source(path.name)
-        for path in sorted(TERRAFORM_ROOT.glob("gcp_*.tf"))
+        _source(path.name) for path in sorted(TERRAFORM_ROOT.glob("gcp_*.tf"))
     )
     assert 'available_memory      = "256M"' not in all_gcp_source
     assert 'available_memory      = "512M"' not in all_gcp_source
@@ -143,24 +145,23 @@ def test_gcp_variables_fail_closed_to_contract_values():
     }
     for variable, allowed_value in expected.items():
         marker = f'variable "{variable}" {{'
-        block = source[source.index(marker):]
-        block = block[:block.index("} }") + 3]
+        block = source[source.index(marker) :]
+        block = block[: block.index("} }") + 3]
         assert "default = null" in block
         assert f"var.{variable} == null" in block
         assert f"var.{variable} == {allowed_value}" in block
 
 
-def test_gcp_guard_rejects_unsupported_l4_and_l5():
+def test_legacy_gcp_guard_rejects_unprofiled_l4_and_l5_only():
     source = _normalized_source("gcp_setup.tf")
+    assert "count = local.deploy_gcp && !local.five_layer_v2_enabled ? 1 : 0" in source
     assert 'condition = var.layer_4_provider != "google"' in source
     assert 'condition = var.layer_5_provider != "google"' in source
     assert (
-        "GCP L4 is unsupported by the canonical Deployer capability contract."
-        in source
+        "GCP L4 is unsupported by the canonical Deployer capability contract." in source
     )
     assert (
-        "GCP L5 is unsupported by the canonical Deployer capability contract."
-        in source
+        "GCP L5 is unsupported by the canonical Deployer capability contract." in source
     )
 
 

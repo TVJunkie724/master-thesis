@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any, Protocol
 
 from backend.optimization.metrics import MetricResult
@@ -12,6 +13,8 @@ class OptimizationCandidate:
     candidate_id: str
     metrics: dict[str, MetricResult]
     dimensions: dict[str, str] = field(default_factory=dict)
+    canonical_tie_break_key: tuple[str, ...] = ()
+    exact_metric_values: dict[str, Decimal] = field(default_factory=dict)
 
     def metric_value(self, metric_id: str) -> float:
         try:
@@ -20,6 +23,17 @@ class OptimizationCandidate:
             raise ValueError(
                 f"Candidate {self.candidate_id!r} has no metric {metric_id!r}"
             ) from exc
+
+    def exact_metric_value(self, metric_id: str) -> Decimal:
+        value = self.exact_metric_values.get(metric_id)
+        if value is None:
+            value = Decimal(str(self.metric_value(metric_id)))
+        if not value.is_finite():
+            raise ValueError(
+                f"Candidate {self.candidate_id!r} has a non-finite "
+                f"metric {metric_id!r}"
+            )
+        return value
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -60,8 +74,9 @@ class CostOnlyScoringStrategy:
         return sorted(
             candidates,
             key=lambda candidate: (
-                candidate.metric_value(self.primary_metric_id),
-                candidate.candidate_id,
+                candidate.exact_metric_value(self.primary_metric_id),
+                candidate.canonical_tie_break_key
+                or (candidate.candidate_id,),
             ),
         )
 

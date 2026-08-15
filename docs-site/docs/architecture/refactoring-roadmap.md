@@ -34,7 +34,7 @@ when work becomes actionable, then reference the issue here.
 | Phase 5 | Backend Orchestrator Disentanglement | Done | Thin HTTP routes with repositories, services, clients, orchestrators, and a typed deployment lifecycle |
 | Phase 6 | Brain Contracts & Pricing Reliability | Active | Layer contracts complete; capability and expanded provider pricing coverage remain |
 | Phase 7 | Flutter Wizard & Twin Views | Done | Core architecture, configuration workspace, typed boundaries, demo, and all-desktop delivery gates completed |
-| Phase 8 | Twin Architecture Profiles & Eventing | Planned | Freeze the hardened five-layer baseline, introduce closed-world architecture profiles, and evaluate one bounded Eventing extension |
+| Phase 8 | Twin Architecture Profiles & Eventing | Complete offline | Five-layer v2, Six-layer v1, deterministic Phase 8.10 evidence, current documentation, safe full gates, credential-free integration proof, and both final reviews are zero-finding frozen; live deployment remains separately gated |
 | Later | Platform Extensions | Backlog | Non-blocking provider and operational extensions |
 
 ## Completed Refactorings
@@ -109,7 +109,7 @@ when work becomes actionable, then reference the issue here.
 | [#11](https://github.com/TVJunkie724/master-thesis/issues/11) | Done | ProjectStorage abstraction for Deployer project data |
 | [#12](https://github.com/TVJunkie724/master-thesis/issues/12) | Done | Legacy global state replaced by explicit deployment context |
 | [#13](https://github.com/TVJunkie724/master-thesis/issues/13) | Done | Config loading unified through deployment context |
-| [#153 Design provider-managed secrets for user-function extensions](https://github.com/TVJunkie724/master-thesis/issues/153) | Planned hardening; blocked by #113 | Provider-managed secret-store and runtime-identity capability without plaintext or `CloudConnection` reuse |
+| [#153 Design provider-managed secrets for user-function extensions](https://github.com/TVJunkie724/master-thesis/issues/153) | Planned separate hardening | Provider-managed secret-store and runtime-identity capability without plaintext or `CloudConnection` reuse |
 | [#14](https://github.com/TVJunkie724/master-thesis/issues/14) | Open | Reduce monolithic Deployer modules |
 | [#16](https://github.com/TVJunkie724/master-thesis/issues/16) | Open | Optimize L0 glue conditional deployment |
 | [#20](https://github.com/TVJunkie724/master-thesis/issues/20) | Open | Observability variables through config/API/UI |
@@ -191,18 +191,21 @@ when work becomes actionable, then reference the issue here.
 | Issue | Status | Notes |
 |-------|--------|-------|
 | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) | Planned epic | Closed-world architecture-profile program. Reviewed mini-roadmap: `docs/plans/phase_08_architecture_profiles_eventing/README.md`; agent handoff: `docs/plans/phase_08_architecture_profiles_eventing/HANDOFF.md` |
-| [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) | Planned prerequisite | Deterministic Python 3.11 extension boundary with typed non-secret configuration. Provider-managed user-function secrets are intentionally separate hardening work |
-| [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144) | Planned, first | Code-verified current Function-and-Edge Matrix; no runtime behavior change |
-| [#139 Harden and freeze the five-layer-baseline@1 architecture profile](https://github.com/TVJunkie724/master-thesis/issues/139) | Planned | Explicit executable `five-layer-baseline@1` decision contract |
-| [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) | Planned | Shared `ArchitectureProfile`, provider, component-catalog, and resolved-architecture contracts |
-| [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | Planned | Registered AWS/Azure/GCP baseline implementations and deterministic deployer ownership |
-| [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | Planned | Normalized profile selection, immutable resolved architecture, migration, and server-derived invalidation preview |
-| [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | Planned | Functional-completeness gate before profile-local cost ranking |
-| [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Planned | Deterministic component/binding graph before package and Terraform side effects |
-| [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Planned | Compact Management-API-only profile workflow for Web, macOS, Windows, and Linux |
-| [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | Planned decision gate | Source-backed capability, pricing, scenario, envelope, and multi-cloud bridge decision |
-| [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Blocked by decision gate | Executable `six-layer-eventing@1` through the same generic contracts |
-| [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Planned | RQ-mapped reproducibility package and complete current-system documentation |
+| [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) | Implemented, local review complete | Deterministic Python 3.11 extension boundary with typed non-secret configuration, immutable artifacts/bindings, equivalent provider adapters, and fail-closed package evidence. Provider-managed secrets remain separate |
+| [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144) | Implemented, review complete | Code-verified current graph: 114 implementations, 64 artifacts, 661 parsed Terraform objects, 90 edges, and one explicit predecessor finding (`finding.l5-reader-binding-divergence`); no runtime behavior change. Evidence: [current Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/blob/master/docs/research/phase_08_current_function_edge_matrix.md) |
+| [#139 Harden and freeze the five-layer-baseline@1 architecture profile](https://github.com/TVJunkie724/master-thesis/issues/139) | Implemented, review complete | Target decision covers all 114 current implementations and all 90 current edges, preserves five scientific responsibilities and seven costed slots, excludes a general Eventing layer, and replaces the unsafe L3-to-Grafana shortcut with a typed L4-to-L5 target. Evidence: [Five-Layer Baseline Target](five-layer-baseline.md) |
+| [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) | Implemented, review complete | Four Draft 2020-12 contracts, semantic registry, canonical fixtures/digests, byte-identical service copies, stable cross-service errors, and dark readers. Evidence: [Architecture Profile Contracts](../contracts-and-data-flow/architecture-profiles.md) |
+| [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | Implemented locally, review complete | Dark/read-only AWS/Azure/GCP profiles; 22 reviewed deployment bundles covering all 42 deployment-dimension components, 33 decision-traced edges, 43 deterministic artifacts, 51 parser-verified Terraform resources, explicit unsupported states, and #113 slot binding |
+| [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | Implemented locally, review complete | Migration 022, revisioned profile selection/invalidation, immutable canonical resolution plus component/edge projections, owner-scoped read APIs, audit evidence, and fixed-field transition inventory |
+| [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | Implemented locally, review complete | Default-off functional-completeness gate, profile-local ranking, immutable resolution, and Management admission boundary |
+| [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Implemented locally, review complete | Dark Manifest v3 compiler with deterministic component/binding graph, package preflight, typed Terraform projection, and frozen operation evidence before side effects |
+| [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Implemented locally; review complete | Strict Management-API-only catalog/selection/resolution workflow, active Five-layer v2 and Six-layer v1 plus historical state, revisioned invalidation, responsive typed graph, and generic resolved review for Web and desktop |
+| [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | Approved offline decision | Source-backed six-bundle capability/pricing package, exact bridge, all single/pair/three-provider scenarios, S/M/L calculations, implementation blueprint, and two zero-finding reviews; live identity/capacity gates remain |
+| Complete-service closure / Five-layer v2 plan | Approved immutable offline decision | PoC-focused L1-L5 bundles with Cosmos DB and Firestore retained for Azure/GCP L3 hot, provider-local L3-hot/L5, independent L4, three local plus six split online placements, raw visualization, Twin projection, finite storage jobs, workload v2, and complete-service evidence. L4-to-L5/3D, ADX/BigQuery migration, Spanner Graph, default dedicated Grafana nodes, and storage-specific CDC/outbox pipelines are not selected |
+| Guided cloud bootstrap / [#154](https://github.com/TVJunkie724/master-thesis/issues/154) | Implemented offline; zero-finding review | Strict guides/sessions, request-only bootstrap authority, deterministic AWS/Azure/GCP lifecycle adapters, generated `thesis-demo-v2` deployment CloudConnections, Deployer admission, shared Settings/Prepare deployment UI, and secret-persistence scans. Production adapters remain disabled |
+| `five-layer-baseline@2` implementation | Active offline; activation gate locally complete | Mandatory embedded domain events, three complete single-cloud targets, six `L3-hot == L5 != L4` targets, admissible mixed L1/L2/cool/archive paths, strict RTA/RDS v2 evidence, and deployment blocking for unresolved supervised live-capacity gates |
+| [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Implemented locally; zero-finding audit frozen | Uses the committed Five-layer v2 L1-L5 contract as its immutable base; adds the Event Layer, source-owned bridge, provider runtime/IAM, Management/Optimizer/Deployer/Flutter integration, and local no-cloud verification |
+| [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Complete offline | Digest-pinned historical-v1/Five-v2/Six-v1 package, strict schemas, required placement/pair coverage, profile-local costs, matched-context deltas, RQ mapping, limitations, mutation tests, byte-identical regeneration, current docs, safe gates, integration proof, and two final zero-finding reviews are frozen locally |
 
 ### Later: Platform Extensions
 
@@ -226,21 +229,26 @@ when work becomes actionable, then reference the issue here.
 
 ## Next Recommended Sequence
 
-1. Reconcile the remaining service/tier scope in
+1. Preserve the validated Phase 8.10 evidence from the frozen offline
+   `five-layer-baseline@2` and `six-layer-eventing@1` contracts, keeping every
+   unresolved supervised live-capacity gate fail-closed.
+2. Continue the remaining Phase 6 service/tier and fetcher work in
    [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
-   [#32](https://github.com/TVJunkie724/master-thesis/issues/32).
-2. Build pricing freshness and manual override UX only after these Optimizer
-   contracts are stable (#33 and #34).
-3. Complete the remaining functional issues, then run the user-led visual audit in
-   [#111](https://github.com/TVJunkie724/master-thesis/issues/111).
-4. Start Phase 8 with the code-verifiable graph reconstruction in
-   [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144).
-   Complete the user-function boundary in
-   [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113)
-   before Phase 8.3 finalizes extension-slot catalog bindings.
-5. Follow the reviewed
+   [#32](https://github.com/TVJunkie724/master-thesis/issues/32) as separate
+   backlog work. Any covered source change must make the Phase 8.0 inventory
+   drift gate fail and requires a reconciled Phase 8.1 decision digest.
+3. Keep the #113 user-function execution contract, Phase 8.3 slot mappings,
+   Phase 8.4 persistence contract, Phase 8.5 immutable resolution output, and
+   Phase 8.6 graph compiler, reviewed Phase 8.7 UI, and guided-bootstrap
+   boundary stable after the completed profile audit and Phase 8.10 evaluation.
+4. Follow the reviewed
    `docs/plans/phase_08_architecture_profiles_eventing/README.md` order without
    skipping its baseline, contract, migration, functional-completeness,
    deployment-graph, Flutter, or Eventing decision gates.
-6. Keep live-cloud E2E and finalization deferred until both the manual UI audit
-   and architecture-profile work are complete.
+5. Build pricing freshness and manual override UX only after their Optimizer
+   contracts are stable (#33 and #34).
+6. Complete the remaining functional issues, then run the user-led visual audit
+   in [#111](https://github.com/TVJunkie724/master-thesis/issues/111).
+7. Use the frozen credential-free Phase 8.10 evidence for later thesis
+   synthesis; keep live-cloud E2E separate until the manual UI audit and
+   explicitly supervised provider checks are complete.

@@ -14,6 +14,9 @@ The Optimizer owns:
 - pricing-source and normalization contracts,
 - monthly cost calculation,
 - complete-path cost optimization across layers L1-L5,
+- profile-bounded candidate construction and functional-completeness admission,
+- deterministic, profile-versioned `ResolvedTwinArchitecture v1/v2`
+  construction,
 - bounded intent-to-result traceability,
 - pricing readiness and credential preflight contracts.
 
@@ -28,7 +31,9 @@ Management API
        -> provider fetchers
        -> normalized pricing snapshots
        -> calculation strategy + formulas
+       -> architecture profile strategy + completeness gate
        -> cost result + trace evidence
+       -> resolved deployment specification + resolved architecture
 ```
 
 The canonical layer model is:
@@ -41,9 +46,15 @@ The canonical layer model is:
 | L4 | Twin management |
 | L5 | Visualization |
 
-GCP self-hosted L4/L5 implementations are not available in the Deployer and
-therefore fail closed in calculation requests. They are never represented as
-zero-cost deployable alternatives.
+The historical `five-layer-baseline@1` has no complete GCP L4/L5 realization
+and therefore remains read-only. The active `five-layer-baseline@2` instead
+uses the reviewed provider-hosted GCP Twin API and Grafana-on-GKE bundle; any
+missing capability or supervised capacity evidence still fails closed and is
+never represented as a zero-cost deployable alternative.
+The separately active `six-layer-eventing@1` inherits that exact L1-L5 base and
+adds an independently placed Eventing component. The Optimizer ranks candidates
+inside one profile only; it never chooses a universal winner across Five- and
+Six-layer scopes.
 
 ## Start
 
@@ -131,6 +142,53 @@ source-provider billing pool, and passes those totals to the active scoring
 strategy. Unsupported routes and capabilities fail closed rather than entering
 selection as zero-cost alternatives.
 
+### Architecture-Profile Resolution
+
+Phase 8.5 adds a closed strategy registry under
+`backend/architecture_profiles/`. When
+`ARCHITECTURE_PROFILE_RESOLUTION_ENABLED=true`, `PUT /calculate` additionally
+requires the exact Management-owned `architectureProfile` reference and the
+complete immutable `extensionBindings` set. The Optimizer:
+
+1. resolves only the exact repository profile digest;
+2. constructs the bounded provider/component candidates;
+3. rejects incomplete components, capabilities, ports, edges, regions,
+   pricing/formula evidence, deployment mappings, or extension coverage before
+   cost ranking;
+4. ranks only admissible complete paths with exact decimal totals and a
+   canonical tie-break key;
+5. emits one contract-validated resolved architecture linked to the matching
+   deployment specification: RTA v1/RDS v1 for historical profile v1 evidence,
+   or RTA v2/RDS v2 for the active profile v2 calculation path.
+
+The gate defaults to `true` for the reviewed `five-layer-baseline@2` path. An
+explicit `false` remains the fail-closed operational rollback; it rejects
+architecture fields and never falls back to a legacy result. The activated
+provider definitions are contract-complete for offline calculation, while each
+unresolved supervised capacity gate remains embedded in RDS v2 and prevents
+deployment selection. Activation therefore does not claim a live-cloud E2E.
+
+Five-layer v2 calculation reads immutable repository-published provider rate
+cards. `scripts/publish_five_layer_v2_rate_cards.py` validates the source
+manifest, publishes content-addressed AWS/Azure/GCP snapshots, archives the
+predecessor baseline, and supports the pinned USD and EUR calculation
+currencies. The rate cards are bounded to the frozen thesis Small, Medium, and
+Large workloads; they are reproducible pricing evidence, not a general cloud
+price catalogue. Azure Large uses a 108,000-RU/s offline comparison proxy: the
+rounded maximum of the storage floor and the documented 10-RU write / 1-RU
+read operation estimates for the frozen workload. Its supervised request-charge
+and capacity gates remain mandatory before deployment, so the proxy cannot be
+mistaken for measured capacity.
+
+Hot-storage ownership follows the PoC data path exactly: each accepted
+telemetry message creates one raw record and updates its hourly rollup in the
+same provider-native transaction. Stored rollup documents remain bounded to
+one per device/metric/hour, but billed reads and transactional writes count
+actual operations rather than distinct documents. The combined
+Cosmos/Firestore components own both operation streams; the two DynamoDB
+tables keep raw and rollup meters separate. L4 bounded-twin operations remain
+independent of both.
+
 Azure IoT Hub sizing returns the selected F1/S1/S2/S3 SKU and unit capacity
 rather than only a cost. Physical workload messages are normalized to the
 provider billing blocks first: 0.5 KB for F1 and 4 KB for paid Standard tiers.
@@ -138,11 +196,27 @@ The result keeps physical messages, billable messages, included messages per
 unit, SKU, and capacity together under `details.tierSelection`, making the
 formula and deployable selection directly auditable.
 
+## Frozen Phase 8 Evaluation
+
+The repository-level generator under
+`scripts/phase_08_profile_evaluation/` invokes the production profile
+strategies against the pinned S/M/L workloads and immutable regional rate
+cards. It covers 729 Five-layer v2 and 2,187 Six-layer v1 candidates per size,
+three single-cloud placements, all nine L3/L5-to-L4 placements, all six
+directed Event-provider pairs, and representative three-provider graphs.
+
+Results, rejected/no-total cases, matched-context deltas, limitations, RQ
+mapping, and RTA/RDS evidence are versioned under
+`docs/research/evidence/phase_08_profile_evaluation/`. The package reports
+profile-local winners and keeps independent Event Layer cost separate; it is
+offline estimation evidence, not a provider invoice or live-capacity result.
+
 ## Repository Layout
 
 | Path | Purpose |
 |---|---|
 | `api/` | FastAPI transport adapters |
+| `backend/architecture_profiles/` | Closed profile registry, candidate/completeness strategy, diagnostics, and resolution builder |
 | `backend/calculation_v2/` | Calculation engine, formulas, layer contracts, traceability |
 | `backend/optimization/` | Metrics, profiles, scoring, and extension points |
 | `backend/fetch_data/` | Provider pricing adapters and refresh orchestration |

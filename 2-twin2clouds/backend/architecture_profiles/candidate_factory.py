@@ -1,0 +1,439 @@
+"""Closed component-option construction for the five-layer baseline."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from decimal import Decimal
+from itertools import product
+from typing import Any, Mapping
+
+from .diagnostics import ArchitectureResolutionError
+from .strategy import ArchitectureResolutionContext
+
+
+BASELINE_LAYER_COMPONENTS: tuple[tuple[str, str, str], ...] = (
+    ("L1", "l1_ingestion", "component.ingestion"),
+    ("L2", "l2_processing", "component.processing"),
+    ("L3_hot", "l3_hot_storage", "component.hot-storage"),
+    ("L3_cool", "l3_cool_storage", "component.cool-storage"),
+    ("L3_archive", "l3_archive_storage", "component.archive-storage"),
+    ("L4", "l4_twin_state", "component.twin-state"),
+    ("L5", "l5_visualization", "component.visualization"),
+)
+SIX_LAYER_COMPONENTS = (
+    *BASELINE_LAYER_COMPONENTS,
+    ("Eventing", "eventing", "component.eventing"),
+)
+_PROVIDER_ORDER = ("aws", "azure", "gcp")
+_PROVIDER_LABELS = {
+    "AWS": "aws",
+    "Azure": "azure",
+    "GCP": "gcp",
+}
+_INCOMPATIBILITY_PRIORITY = (
+    "ARCH_FORMULA_MISSING",
+    "ARCH_PRICING_EVIDENCE_MISSING",
+    "ARCH_DEPLOYMENT_MAPPING_MISSING",
+    "ARCH_FUNCTIONAL_INCOMPLETE",
+    "ARCH_COMPONENT_CANDIDATE_MISSING",
+    "ARCH_PROVIDER_IMPLEMENTATION_MISSING",
+)
+
+
+@dataclass(frozen=True)
+class ComponentOption:
+    layer_key: str
+    slot_id: str
+    logical_component_id: str
+    responsibility_id: str
+    provider: str
+    region: str
+    provider_profile: Mapping[str, Any]
+    provider_mapping: Mapping[str, Any]
+    catalog_component: Mapping[str, Any]
+    cost: Decimal
+
+    @property
+    def deployment_component_id(self) -> str:
+        return str(self.catalog_component["deployment_component_id"])
+
+    @property
+    def canonical_assignment_key(self) -> tuple[str, str, str]:
+        return (
+            self.logical_component_id,
+            self.provider,
+            self.deployment_component_id,
+        )
+
+
+@dataclass(frozen=True)
+class ArchitectureCandidate:
+    candidate_id: str
+    components: tuple[ComponentOption, ...]
+
+    @property
+    def canonical_assignment_key(
+        self,
+    ) -> tuple[tuple[str, str, str], ...]:
+        return tuple(
+            sorted(
+                option.canonical_assignment_key
+                for option in self.components
+            )
+        )
+
+    def component(self, logical_component_id: str) -> ComponentOption:
+        for option in self.components:
+            if option.logical_component_id == logical_component_id:
+                return option
+        raise KeyError(logical_component_id)
+
+
+def enumerate_component_candidates(
+    context: ArchitectureResolutionContext,
+) -> tuple[ArchitectureCandidate, ...]:
+    """Enumerate deterministic component-complete provider assignments."""
+
+    if context.layer_options is None or context.provider_regions is None:
+        raise RuntimeError(
+            "Architecture execution inputs must be bound before enumeration"
+        )
+    profile_ref = (
+        context.profile_ref.profile_id,
+        context.profile_ref.profile_version,
+    )
+    layer_components = (
+        SIX_LAYER_COMPONENTS
+        if profile_ref == ("six-layer-eventing", "1")
+        else BASELINE_LAYER_COMPONENTS
+    )
+    expected_slots = tuple(slot_id for _, slot_id, _ in layer_components)
+    if tuple(context.profile["optimization_slot_ids"]) != expected_slots:
+        raise ArchitectureResolutionError(
+            "ARCH_PROFILE_BUNDLE_INCOMPATIBLE",
+            "optimization_slot_ids",
+            "Profile optimization slots differ from the baseline adapter",
+        )
+    expected_layers = {
+        layer_key for layer_key, _, _ in layer_components
+    }
+    if set(context.layer_options) != expected_layers:
+        raise ArchitectureResolutionError(
+            "ARCH_WORKLOAD_INCOMPATIBLE",
+            "layerOptions",
+            "Calculation results do not cover the baseline optimization slots",
+        )
+
+    profile_components = {
+        str(item["component_id"]): item
+        for item in context.profile["components"]
+    }
+    profile_slots = {
+        str(item["slot_id"]): item
+        for item in context.profile["extension_slots"]
+    }
+    catalog_components = {
+        str(item["deployment_component_id"]): item
+        for item in context.catalog["components"]
+    }
+    option_matrix: list[tuple[ComponentOption, ...]] = []
+    for layer_key, slot_id, logical_component_id in layer_components:
+        logical = profile_components.get(logical_component_id)
+        if logical is None:
+            raise ArchitectureResolutionError(
+                "ARCH_COMPONENT_CANDIDATE_MISSING",
+                logical_component_id,
+                "Baseline logical component is missing from the profile",
+            )
+        costs = {
+            _provider_key(label): cost
+            for label, cost in context.layer_options[layer_key]
+        }
+        options = []
+        incompatibilities = []
+        for provider in _PROVIDER_ORDER:
+            option, incompatibility = _build_component_option(
+                context=context,
+                layer_key=layer_key,
+                slot_id=slot_id,
+                logical=logical,
+                provider=provider,
+                cost=costs.get(provider),
+                catalog_components=catalog_components,
+                profile_slots=profile_slots,
+            )
+            if option is not None:
+                options.append(option)
+            elif incompatibility is not None:
+                incompatibilities.append(incompatibility)
+        if not options:
+            code = _highest_priority_incompatibility(incompatibilities)
+            raise ArchitectureResolutionError(
+                code,
+                logical_component_id,
+                "No supported provider has a complete component option",
+            )
+        option_matrix.append(tuple(options))
+
+    candidates = []
+    for selected in product(*option_matrix):
+        if (
+            profile_ref
+            in {
+                ("five-layer-baseline", "2"),
+                ("six-layer-eventing", "1"),
+            }
+            and next(
+                option.provider
+                for option in selected
+                if option.layer_key == "L3_hot"
+            )
+            != next(
+                option.provider
+                for option in selected
+                if option.layer_key == "L5"
+            )
+        ):
+            continue
+        candidate_id = "|".join(option.provider for option in selected)
+        candidates.append(
+            ArchitectureCandidate(
+                candidate_id=candidate_id,
+                components=tuple(selected),
+            )
+        )
+    return tuple(candidates)
+
+
+def _build_component_option(
+    *,
+    context: ArchitectureResolutionContext,
+    layer_key: str,
+    slot_id: str,
+    logical: Mapping[str, Any],
+    provider: str,
+    cost: Decimal | None,
+    catalog_components: Mapping[str, Mapping[str, Any]],
+    profile_slots: Mapping[str, Mapping[str, Any]],
+) -> tuple[ComponentOption | None, str | None]:
+    profile = context.provider_profiles.get(provider)
+    region = context.provider_regions.get(provider) if context.provider_regions else None
+    if (
+        cost is None
+        or profile is None
+        or (
+            context.resolution_status == "publishable"
+            and profile["lifecycle_status"] != "active"
+        )
+        or profile["supported"] is not True
+        or not isinstance(region, str)
+    ):
+        return None, "ARCH_PROVIDER_IMPLEMENTATION_MISSING"
+    mapping = next(
+        (
+            item
+            for item in profile["component_mappings"]
+            if item["component_id"] == logical["component_id"]
+        ),
+        None,
+    )
+    if mapping is None:
+        return None, "ARCH_COMPONENT_CANDIDATE_MISSING"
+    if not _provider_profile_is_compatible(
+        context=context,
+        provider_profile=profile,
+    ):
+        return None, "ARCH_PROVIDER_IMPLEMENTATION_MISSING"
+    required_capabilities = set(logical["required_capability_ids"])
+    if not required_capabilities.issubset(
+        set(mapping["provided_capability_ids"])
+    ):
+        return None, "ARCH_FUNCTIONAL_INCOMPLETE"
+    expected_region_id = f"region.{provider}.{region}"
+    if expected_region_id not in mapping["supported_region_ids"]:
+        return None, "ARCH_PROVIDER_IMPLEMENTATION_MISSING"
+    candidates = tuple(mapping["deployment_component_candidates"])
+    if len(candidates) != 1:
+        return None, "ARCH_COMPONENT_CANDIDATE_MISSING"
+    component = catalog_components.get(candidates[0])
+    incompatibility = _component_incompatibility(
+        component=component,
+        provider=provider,
+        logical_component_id=str(logical["component_id"]),
+        slot_id=slot_id,
+        mapping=mapping,
+        required_extension_slots={
+            (
+                extension_slot_id,
+                str(profile_slots[extension_slot_id]["slot_version"]),
+            )
+            for extension_slot_id in logical["extension_slot_ids"]
+            if extension_slot_id in profile_slots
+        },
+        architecture_profile_ref=(
+            context.profile_ref.profile_id,
+            context.profile_ref.profile_version,
+        ),
+        provider_profile_ref=(
+            str(profile["implementation_profile_id"]),
+            str(profile["implementation_profile_version"]),
+        ),
+    )
+    if incompatibility is not None:
+        return None, incompatibility
+    return (
+        ComponentOption(
+            layer_key=layer_key,
+            slot_id=slot_id,
+            logical_component_id=str(logical["component_id"]),
+            responsibility_id=str(logical["responsibility_id"]),
+            provider=provider,
+            region=region,
+            provider_profile=profile,
+            provider_mapping=mapping,
+            catalog_component=component,
+            cost=cost,
+        ),
+        None,
+    )
+
+
+def _component_incompatibility(
+    *,
+    component: Mapping[str, Any] | None,
+    provider: str,
+    logical_component_id: str,
+    slot_id: str,
+    mapping: Mapping[str, Any],
+    required_extension_slots: set[tuple[str, str]],
+    architecture_profile_ref: tuple[str, str],
+    provider_profile_ref: tuple[str, str],
+) -> str | None:
+    if (
+        component is None
+        or component["provider"] != provider
+        or logical_component_id not in component["logical_component_ids"]
+    ):
+        return "ARCH_COMPONENT_CANDIDATE_MISSING"
+    if (
+        not mapping["formula_refs"]
+        or not component["formula_refs"]
+        or not set(mapping["formula_refs"]).issubset(
+            set(component["formula_refs"])
+        )
+    ):
+        return "ARCH_FORMULA_MISSING"
+    if (
+        not mapping["service_model_refs"]
+        or not component["pricing_model_refs"]
+    ):
+        return "ARCH_PRICING_EVIDENCE_MISSING"
+    if not component["service_id"]:
+        return "ARCH_COMPONENT_CANDIDATE_MISSING"
+    if (
+        not component["required_permission_capabilities"]
+        or not component["package_artifact_ref"]
+    ):
+        return "ARCH_DEPLOYMENT_MAPPING_MISSING"
+    catalog_bindings = {
+        binding["component_id"]
+        for binding in component["deployment_specification_bindings"]
+        if binding["slot_id"] in {slot_id, "transition_runtime"}
+        and binding["specification_schema_version"]
+        == _deployment_specification_version(architecture_profile_ref)
+    }
+    mapped_bindings = set(mapping["deployment_specification_component_ids"])
+    if not mapped_bindings or not mapped_bindings.issubset(catalog_bindings):
+        return "ARCH_DEPLOYMENT_MAPPING_MISSING"
+    catalog_extension_slots = {
+        (str(reference["id"]), str(reference["version"]))
+        for reference in component["extension_slot_refs"]
+    }
+    if not required_extension_slots.issubset(catalog_extension_slots):
+        return "ARCH_COMPONENT_CANDIDATE_MISSING"
+    compatibility = component["compatibility"]
+    if (
+        architecture_profile_ref
+        not in {
+            (str(item["id"]), str(item["version"]))
+            for item in compatibility["architecture_profile_versions"]
+        }
+        or provider_profile_ref
+        not in {
+            (str(item["id"]), str(item["version"]))
+            for item in compatibility["provider_profile_versions"]
+        }
+        or _deployment_specification_version(architecture_profile_ref)
+        not in compatibility["deployment_specification_versions"]
+    ):
+        return "ARCH_COMPONENT_CANDIDATE_MISSING"
+    return None
+
+
+def _provider_profile_is_compatible(
+    *,
+    context: ArchitectureResolutionContext,
+    provider_profile: Mapping[str, Any],
+) -> bool:
+    compatibility = provider_profile["compatibility"]
+    return (
+        (
+            str(context.catalog["catalog_id"]),
+            str(context.catalog["catalog_version"]),
+        )
+        in {
+            (str(item["id"]), str(item["version"]))
+            for item in compatibility["compatible_catalog_versions"]
+        }
+        and _deployment_specification_version(
+            (
+                context.profile_ref.profile_id,
+                context.profile_ref.profile_version,
+            )
+        )
+        in compatibility["compatible_deployment_specification_versions"]
+        and _resolver_version(context)
+        in compatibility["compatible_resolver_versions"]
+        and _resolver_version(context)
+        in compatibility["compatible_runtime_versions"]
+    )
+
+
+def _deployment_specification_version(profile_ref: tuple[str, str]) -> str:
+    return (
+        "resolved-deployment-specification.v2"
+        if profile_ref == ("six-layer-eventing", "1")
+        else f"resolved-deployment-specification.v{profile_ref[1]}"
+    )
+
+
+def _resolver_version(context: ArchitectureResolutionContext) -> str:
+    return (
+        "2"
+        if (
+            context.profile_ref.profile_id,
+            context.profile_ref.profile_version,
+        )
+        == ("six-layer-eventing", "1")
+        else context.profile_ref.profile_version
+    )
+
+
+def _provider_key(label: str) -> str:
+    try:
+        return _PROVIDER_LABELS[label]
+    except KeyError as exc:
+        raise ArchitectureResolutionError(
+            "ARCH_PROVIDER_IMPLEMENTATION_MISSING",
+            "layerOptions",
+            "Calculation result contains an unknown provider label",
+        ) from exc
+
+
+def _highest_priority_incompatibility(codes: list[str]) -> str:
+    if not codes:
+        return "ARCH_COMPONENT_CANDIDATE_MISSING"
+    return min(
+        codes,
+        key=lambda code: _INCOMPATIBILITY_PRIORITY.index(code),
+    )

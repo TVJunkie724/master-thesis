@@ -1,0 +1,55 @@
+{
+  "schema_version": "cloud-bootstrap-guide.v1",
+  "guide_digest": "sha256:b5c0e19d69147c875d84def25f7f93254b64d0f7f37768ec69a8909ada630d73",
+  "provider": "aws",
+  "execution_mode": "deterministic_fake",
+  "target": {
+    "provider": "aws",
+    "account_id": "123456789012",
+    "region": "eu-central-1"
+  },
+  "bootstrap_authority_pack": {
+    "id": "bootstrap.aws.admin-v1",
+    "version": "1",
+    "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "scope_summary": "One selected AWS account.",
+    "limitations": ["Offline validation only."],
+    "artifact_url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction_identity-management.html"
+  },
+  "generated_deployment_pack": {
+    "id": "aws.thesis-demo-v2",
+    "version": "thesis-demo-v2",
+    "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "scope_summary": "One selected AWS account.",
+    "limitations": ["Requires supervised live validation."],
+    "artifact_url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html"
+  },
+  "credential_fields": [
+    {
+      "id": "access_key_id",
+      "label": "Access key ID",
+      "input_type": "identifier",
+      "required": true,
+      "redaction_rule": "identifier"
+    },
+    {
+      "id": "secret_access_key",
+      "label": "Secret access key",
+      "input_type": "secret",
+      "required": true,
+      "redaction_rule": "secret"
+    }
+  ],
+  "credential_origins": ["dedicated_disposable", "existing_user_owned"],
+  "preparation_steps": [
+    {
+      "id": "prepare_principal",
+      "title": "Create temporary authority",
+      "description": "Use a non-root principal that matches the displayed authority pack.",
+      "expected_outcome": "One temporary access key and the selected account ID are available.",
+      "official_url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html"
+    }
+  ],
+  "known_blockers": [],
+  "legacy_fallback_available": true
+}

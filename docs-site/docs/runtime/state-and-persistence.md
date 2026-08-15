@@ -25,8 +25,9 @@
 
 SQLite holds application truth: users, twins, configurations, file versions,
 CloudConnections, calculation runs/results, pricing refresh/review records, deployment
-preflight/history/logs, and credential security events. Startup creates missing tables
-and applies explicit idempotent migrations to existing databases.
+preflight/history/logs, architecture selections/resolutions, and security audit
+events. Startup creates missing tables and applies explicit idempotent
+migrations to existing databases.
 
 Calculation runs and optimizer projections persist only
 `provider-pricing-catalog-context.v1`: one exact immutable reference for AWS,
@@ -40,10 +41,21 @@ Modern successful calculation runs also persist one immutable
 selection timestamp. The Management API permits at most one selected run per twin.
 Creating a newer run does not transfer the older selection. Flutter and deployment
 readiness therefore use the newest run for review, while the Deployer receives only
-the explicitly selected compatible run through `DeploymentManifest v2`.
+the explicitly selected compatible run through the profile-matched manifest:
+v3 with RTA/RDS v1 for historical Five-layer v1, or v4 with RTA/RDS v2 for
+active Five-layer v2 and Six-layer v1. Manifest v2 remains read-only historical
+compatibility.
 Flutter snapshots workload inputs, the result projection, and deployment run as one
 unit. Input changes invalidate that unit; discard restores the complete saved unit,
 so the UI cannot combine values from different calculations.
+
+Migration `022_resolved_twin_architecture` adds one revisioned
+`five-layer-baseline@1` selection per existing Twin, immutable canonical
+resolved-architecture rows, query projections for components and edges, and
+append-only architecture audit evidence. It is idempotent and transactional.
+It reconstructs a historical resolution only from a fully valid embedded
+contract with matching run/profile/specification/extension/cost evidence;
+every other run is explicitly `legacy_not_resolvable` and deselected.
 
 Deleting the database deletes durable application history and encrypted credentials.
 Deleting the encryption key without first re-encrypting CloudConnections makes those

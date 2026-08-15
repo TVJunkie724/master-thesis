@@ -34,6 +34,91 @@ NON_HTTP_RUNTIMES = {
         "timer_trigger",
     ),
 }
+EXPECTED_NON_HTTP_TRIGGERS = {
+    (directory, function_name, trigger)
+    for directory, (function_name, trigger) in NON_HTTP_RUNTIMES.items()
+} | {
+    (
+        "five-layer-v2",
+        "remote_telemetry_consumer",
+        "event_hub_message_trigger",
+    ),
+    (
+        "five-layer-v2",
+        "domain_event_consumer",
+        "service_bus_queue_trigger",
+    ),
+    (
+        "five-layer-v2",
+        "iot_telemetry_adapter",
+        "event_hub_message_trigger",
+    ),
+    (
+        "five-layer-v2",
+        "cross_cloud_telemetry_bridge",
+        "event_hub_message_trigger",
+    ),
+    (
+        "five-layer-v2",
+        "cross_cloud_control_bridge",
+        "service_bus_queue_trigger",
+    ),
+    (
+        "six-layer-domain",
+        "remote_telemetry_consumer",
+        "event_hub_message_trigger",
+    ),
+    (
+        "six-layer-domain",
+        "domain_event_consumer",
+        "service_bus_queue_trigger",
+    ),
+    (
+        "six-layer-domain",
+        "iot_telemetry_adapter",
+        "event_hub_message_trigger",
+    ),
+    (
+        "six-layer-domain",
+        "cross_cloud_telemetry_bridge",
+        "event_hub_message_trigger",
+    ),
+    (
+        "six-layer-domain",
+        "cross_cloud_control_bridge",
+        "service_bus_queue_trigger",
+    ),
+    (
+        "six-layer-domain",
+        "cross_cloud_event_received_bridge",
+        "event_hub_message_trigger",
+    ),
+    (
+        "six-layer-domain",
+        "cross_cloud_event_processed_bridge",
+        "event_hub_message_trigger",
+    ),
+    (
+        "six-layer-domain",
+        "cross_cloud_event_control_bridge",
+        "service_bus_topic_trigger",
+    ),
+    (
+        "six-layer-eventing",
+        "telemetry_processor",
+        "event_hub_message_trigger",
+    ),
+    (
+        "six-layer-eventing",
+        "processed_consumer",
+        "event_hub_message_trigger",
+    ),
+    (
+        "six-layer-eventing",
+        "control_router",
+        "service_bus_topic_trigger",
+    ),
+}
 FORBIDDEN_LOG_NAMES = {
     "blob_name",
     "cutoff",
@@ -314,11 +399,7 @@ def test_non_http_trigger_inventory_is_closed_and_source_safe():
                         )
                     )
 
-    expected = {
-        (directory, function_name, trigger)
-        for directory, (function_name, trigger) in NON_HTTP_RUNTIMES.items()
-    }
-    assert discovered == expected
+    assert discovered == EXPECTED_NON_HTTP_TRIGGERS
 
     for directory in NON_HTTP_RUNTIMES:
         path = AZURE_FUNCTIONS_ROOT / directory / "function_app.py"

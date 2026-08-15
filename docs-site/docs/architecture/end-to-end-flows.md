@@ -17,10 +17,11 @@ User input
        formula set + provider contracts
        scoring strategy: minimum cost
   -> typed result + trace metadata + identical catalog context
-  -> exact ResolvedDeploymentSpecification v1
+  -> exact profile-matched ResolvedDeploymentSpecification v1/v2
        selected components, deployable dimensions, assumptions, evidence, digest
   -> Management schema/registry/run/path/catalog/digest validation
-  -> atomic calculation run/items/result/path/specification persistence
+  -> matching ResolvedTwinArchitecture v1/v2
+  -> atomic calculation run/items/result/path/specification/architecture persistence
   -> read-only Flutter review
 ```
 
@@ -61,20 +62,25 @@ pricing evidence.
 ## Credential Bootstrap And Use
 
 ```text
-Management bootstrap plan (no admin secret)
-  -> versioned provider script and dry-run command
-  -> operator authenticates in provider CLI outside the app
-  -> explicit script apply creates scoped deployment identity
-  -> ignored local CloudConnection JSON
-  -> authenticated import encrypts and persists CloudConnection
+Flutter requests provider guide and creates safe owner-scoped session
+  -> user reviews provider preparation and both permission packs
+  -> one synchronous execute request carries the temporary credential
+  -> deterministic offline provider lifecycle creates synthetic scoped material
+  -> Management releases request material and encrypts CloudConnection
+  -> UI shows ready or exact cleanup/recheck action
   -> validate/preflight by purpose
   -> bind deployment connection to twin
 ```
 
-Bootstrap/admin credentials never cross the application boundary. The current scripts
-produce deployment credentials only. AWS and GCP pricing credentials are imported
-separately as user-level defaults; Azure pricing uses a public API. Deployment
-credentials can be bound to individual twins.
+Guided bootstrap/admin credentials cross exactly one sensitive application
+request boundary; they never enter durable session state, logs, retry payloads,
+responses, or Flutter BLoC state. Production provider adapters remain disabled,
+so this path is an offline PoC lifecycle and makes no cloud-mutation claim. The
+versioned script and secure import remain the supervised live fallback, where
+administrator credentials stay in the provider CLI. Both produce deployment
+credentials only. AWS and GCP pricing credentials are imported separately as
+user-level defaults; Azure pricing uses a public API. Deployment credentials
+can be bound to individual twins.
 
 ## Deployment
 

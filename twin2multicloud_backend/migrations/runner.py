@@ -54,6 +54,30 @@ MIGRATIONS: tuple[Migration, ...] = (
         "020_resolved_deployment_specification",
         "migrations.add_resolved_deployment_specification",
     ),
+    Migration(
+        "021_user_function_extension_contract",
+        "migrations.add_user_function_extension_contract",
+    ),
+    Migration(
+        "022_resolved_twin_architecture",
+        "migrations.add_resolved_twin_architecture",
+    ),
+    Migration(
+        "023_deployment_graph_evidence",
+        "migrations.add_deployment_graph_evidence",
+    ),
+    Migration(
+        "024_cloud_bootstrap_sessions",
+        "migrations.add_cloud_bootstrap_sessions",
+    ),
+    Migration(
+        "025_resolved_architecture_v2",
+        "migrations.allow_resolved_architecture_v2",
+    ),
+    Migration(
+        "026_deployment_access",
+        "migrations.add_deployment_access",
+    ),
 )
 
 

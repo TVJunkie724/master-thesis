@@ -1,0 +1,374 @@
+{
+  "architecture_profile_ref": {
+    "digest": "sha256:dcac9d4c519c7624b74ba6f9e5b878b17553c828b6d6d8583754c34c6a2e4807",
+    "id": "five-layer-baseline",
+    "version": "1"
+  },
+  "capability_claims": {
+    "evidence_refs": [
+      "evidence.azure.phase-8-1-baseline-decision"
+    ],
+    "extra_capability_ids": [],
+    "missing_capability_ids": [],
+    "provided_capability_ids": [
+      "capability.archive-storage",
+      "capability.cool-storage",
+      "capability.hot-storage",
+      "capability.ingestion",
+      "capability.processing",
+      "capability.twin-state",
+      "capability.visualization"
+    ],
+    "required_capability_ids": [
+      "capability.archive-storage",
+      "capability.cool-storage",
+      "capability.hot-storage",
+      "capability.ingestion",
+      "capability.processing",
+      "capability.twin-state",
+      "capability.visualization"
+    ]
+  },
+  "compatibility": {
+    "compatible_catalog_versions": [
+      {
+        "id": "baseline-component-catalog",
+        "version": "1"
+      }
+    ],
+    "compatible_deployment_specification_versions": [
+      "resolved-deployment-specification.v1"
+    ],
+    "compatible_resolver_versions": [
+      "1"
+    ],
+    "compatible_runtime_versions": [
+      "1"
+    ]
+  },
+  "component_mappings": [
+    {
+      "component_id": "component.archive-storage",
+      "deployment_component_candidates": [
+        "deployment.azure.archive-storage"
+      ],
+      "deployment_specification_component_ids": [
+        "l3_archive.azure.blob_storage",
+        "transition.l3_cool_to_l3_archive.azure.runtime"
+      ],
+      "deployment_specification_slot_ids": [
+        "l3_archive_storage"
+      ],
+      "formula_refs": [
+        "duration_compute_cost",
+        "storage_capacity_cost"
+      ],
+      "provided_capability_ids": [
+        "capability.archive-storage"
+      ],
+      "required_capability_ids": [
+        "capability.archive-storage"
+      ],
+      "service_model_refs": [
+        "cost_model_v1"
+      ],
+      "supported_region_ids": [
+        "region.azure.westeurope"
+      ]
+    },
+    {
+      "component_id": "component.cool-storage",
+      "deployment_component_candidates": [
+        "deployment.azure.cool-storage"
+      ],
+      "deployment_specification_component_ids": [
+        "l3_cool.azure.blob_storage",
+        "transition.l3_hot_to_l3_cool.azure.runtime"
+      ],
+      "deployment_specification_slot_ids": [
+        "l3_cool_storage"
+      ],
+      "formula_refs": [
+        "duration_compute_cost",
+        "storage_capacity_cost"
+      ],
+      "provided_capability_ids": [
+        "capability.cool-storage"
+      ],
+      "required_capability_ids": [
+        "capability.cool-storage"
+      ],
+      "service_model_refs": [
+        "cost_model_v1"
+      ],
+      "supported_region_ids": [
+        "region.azure.westeurope"
+      ]
+    },
+    {
+      "component_id": "component.hot-storage",
+      "deployment_component_candidates": [
+        "deployment.azure.hot-storage"
+      ],
+      "deployment_specification_component_ids": [
+        "l3_hot.azure.cosmos_db",
+        "l3_hot.azure.function_plan"
+      ],
+      "deployment_specification_slot_ids": [
+        "l3_hot_storage"
+      ],
+      "formula_refs": [
+        "request_unit_cost",
+        "storage_capacity_cost"
+      ],
+      "provided_capability_ids": [
+        "capability.hot-storage"
+      ],
+      "required_capability_ids": [
+        "capability.hot-storage"
+      ],
+      "service_model_refs": [
+        "cost_model_v1"
+      ],
+      "supported_region_ids": [
+        "region.azure.westeurope"
+      ]
+    },
+    {
+      "component_id": "component.ingestion",
+      "deployment_component_candidates": [
+        "deployment.azure.ingestion"
+      ],
+      "deployment_specification_component_ids": [
+        "l1.azure.event_grid",
+        "l1.azure.function_plan",
+        "l1.azure.iot_hub"
+      ],
+      "deployment_specification_slot_ids": [
+        "l1_ingestion"
+      ],
+      "formula_refs": [
+        "duration_compute_cost",
+        "tiered_unit_cost"
+      ],
+      "provided_capability_ids": [
+        "capability.ingestion"
+      ],
+      "required_capability_ids": [
+        "capability.ingestion"
+      ],
+      "service_model_refs": [
+        "cost_model_v1"
+      ],
+      "supported_region_ids": [
+        "region.azure.westeurope"
+      ]
+    },
+    {
+      "component_id": "component.processing",
+      "deployment_component_candidates": [
+        "deployment.azure.processing"
+      ],
+      "deployment_specification_component_ids": [
+        "l2.azure.event_grid",
+        "l2.azure.function_plan",
+        "l2.azure.logic_apps"
+      ],
+      "deployment_specification_slot_ids": [
+        "l2_processing"
+      ],
+      "formula_refs": [
+        "duration_compute_cost",
+        "tiered_unit_cost"
+      ],
+      "provided_capability_ids": [
+        "capability.processing"
+      ],
+      "required_capability_ids": [
+        "capability.processing"
+      ],
+      "service_model_refs": [
+        "cost_model_v1"
+      ],
+      "supported_region_ids": [
+        "region.azure.westeurope"
+      ]
+    },
+    {
+      "component_id": "component.twin-state",
+      "deployment_component_candidates": [
+        "deployment.azure.twin-state"
+      ],
+      "deployment_specification_component_ids": [
+        "l4.azure.digital_twins",
+        "l4.azure.pusher_function"
+      ],
+      "deployment_specification_slot_ids": [
+        "l4_twin_state"
+      ],
+      "formula_refs": [
+        "query_unit_cost",
+        "tiered_unit_cost"
+      ],
+      "provided_capability_ids": [
+        "capability.twin-state"
+      ],
+      "required_capability_ids": [
+        "capability.twin-state"
+      ],
+      "service_model_refs": [
+        "cost_model_v1"
+      ],
+      "supported_region_ids": [
+        "region.azure.westeurope"
+      ]
+    },
+    {
+      "component_id": "component.visualization",
+      "deployment_component_candidates": [
+        "deployment.azure.visualization"
+      ],
+      "deployment_specification_component_ids": [
+        "l5.azure.managed_grafana"
+      ],
+      "deployment_specification_slot_ids": [
+        "l5_visualization"
+      ],
+      "formula_refs": [
+        "user_seat_cost"
+      ],
+      "provided_capability_ids": [
+        "capability.visualization"
+      ],
+      "required_capability_ids": [
+        "capability.visualization"
+      ],
+      "service_model_refs": [
+        "cost_model_v1"
+      ],
+      "supported_region_ids": [
+        "region.azure.westeurope"
+      ]
+    }
+  ],
+  "content_digest": "sha256:043ddd3030dc14df58f6dd4ac1614ff518f10fc7917e52565739c601f585c2c7",
+  "edge_mappings": [
+    {
+      "catalog_input_port_id": "catalog.azure.port.archive-storage.write-in",
+      "catalog_output_port_id": "catalog.azure.port.cool-storage.transition-out",
+      "cost_owner_ids": [
+        "cost.cool-to-archive-storage"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.archive-storage"
+      ],
+      "edge_id": "edge.cool-to-archive-storage",
+      "edge_implementation_id": "edge-implementation.azure.l3-cool-to-l3-archive",
+      "mechanism": "source_owned_transition_runtime",
+      "source_deployment_component_ids": [
+        "deployment.azure.cool-storage"
+      ],
+      "transfer_route_class": "same_provider_same_region"
+    },
+    {
+      "catalog_input_port_id": "catalog.azure.port.twin-state.update-in",
+      "catalog_output_port_id": "catalog.azure.port.hot-storage.twin-update-out",
+      "cost_owner_ids": [
+        "cost.hot-storage-to-twin-state"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.twin-state"
+      ],
+      "edge_id": "edge.hot-storage-to-twin-state",
+      "edge_implementation_id": "edge-implementation.azure.l3-hot-to-l4",
+      "mechanism": "provider_native_trigger",
+      "source_deployment_component_ids": [
+        "deployment.azure.hot-storage"
+      ],
+      "transfer_route_class": "same_provider_same_region"
+    },
+    {
+      "catalog_input_port_id": "catalog.azure.port.cool-storage.write-in",
+      "catalog_output_port_id": "catalog.azure.port.hot-storage.transition-out",
+      "cost_owner_ids": [
+        "cost.hot-to-cool-storage"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.cool-storage"
+      ],
+      "edge_id": "edge.hot-to-cool-storage",
+      "edge_implementation_id": "edge-implementation.azure.l3-hot-to-l3-cool",
+      "mechanism": "source_owned_transition_runtime",
+      "source_deployment_component_ids": [
+        "deployment.azure.hot-storage"
+      ],
+      "transfer_route_class": "same_provider_same_region"
+    },
+    {
+      "catalog_input_port_id": "catalog.azure.port.processing.telemetry-in",
+      "catalog_output_port_id": "catalog.azure.port.ingestion.telemetry-out",
+      "cost_owner_ids": [
+        "cost.ingestion-to-processing"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.processing"
+      ],
+      "edge_id": "edge.ingestion-to-processing",
+      "edge_implementation_id": "edge-implementation.azure.l1-to-l2",
+      "mechanism": "provider_native_trigger",
+      "source_deployment_component_ids": [
+        "deployment.azure.ingestion"
+      ],
+      "transfer_route_class": "same_provider_same_region"
+    },
+    {
+      "catalog_input_port_id": "catalog.azure.port.hot-storage.write-in",
+      "catalog_output_port_id": "catalog.azure.port.processing.telemetry-out",
+      "cost_owner_ids": [
+        "cost.processing-to-hot-storage"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.hot-storage"
+      ],
+      "edge_id": "edge.processing-to-hot-storage",
+      "edge_implementation_id": "edge-implementation.azure.l2-to-l3-hot",
+      "mechanism": "provider_native_trigger",
+      "source_deployment_component_ids": [
+        "deployment.azure.processing"
+      ],
+      "transfer_route_class": "same_provider_same_region"
+    },
+    {
+      "catalog_input_port_id": "catalog.azure.port.visualization.query-in",
+      "catalog_output_port_id": "catalog.azure.port.twin-state.query-out",
+      "cost_owner_ids": [
+        "cost.twin-state-to-visualization"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.visualization"
+      ],
+      "edge_id": "edge.twin-state-to-visualization",
+      "edge_implementation_id": "edge-implementation.azure.l4-to-l5",
+      "mechanism": "typed_synchronous_api",
+      "source_deployment_component_ids": [
+        "deployment.azure.twin-state"
+      ],
+      "transfer_route_class": "same_provider_same_region"
+    }
+  ],
+  "implementation_profile_id": "provider-profile.azure.five-layer-baseline",
+  "implementation_profile_version": "1",
+  "lifecycle_status": "active",
+  "permission_set_ref": {
+    "id": "permission-set.azure.thesis-demo-v1",
+    "version": "1"
+  },
+  "provider": "azure",
+  "region_policy_ref": {
+    "id": "region-policy.azure.baseline",
+    "version": "1"
+  },
+  "schema_version": "provider-implementation-profile.v1",
+  "supported": true,
+  "unsupported_reasons": []
+}

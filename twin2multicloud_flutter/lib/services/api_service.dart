@@ -2,11 +2,14 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import '../core/result.dart';
+import '../models/architecture_profile.dart';
 import '../models/calc_params.dart';
 import '../models/authentication.dart';
 import '../models/cloud_access_inventory.dart';
+import '../models/cloud_bootstrap.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
+import '../models/deployment_access.dart';
 import '../models/deployment_operations.dart';
 import '../models/deployment_readiness.dart';
 import '../models/deployer_config.dart';
@@ -16,8 +19,10 @@ import '../models/pricing_health.dart';
 import '../models/pricing_refresh_run.dart';
 import '../models/provider_capability.dart';
 import '../models/resolved_deployment_specification.dart';
+import '../models/resolved_twin_architecture.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
+import '../models/user_function_extension.dart';
 import '../models/user.dart';
 import '../models/wizard_config_requests.dart';
 import '../utils/api_error_handler.dart';
@@ -62,6 +67,16 @@ String? _normalizeToken(String? value) {
     throw ArgumentError('Authentication token must be non-empty and opaque.');
   }
   return value;
+}
+
+String _managementPathSegment(String value, String label) {
+  if (value.isEmpty || RegExp(r'[\x00-\x1F\x7F]').hasMatch(value)) {
+    throw AppException(
+      '$label must be a non-empty opaque identifier.',
+      code: 'DEPLOYMENT_REQUEST_INVALID',
+    );
+  }
+  return Uri.encodeComponent(value);
 }
 
 class ApiService implements ManagementApi {
@@ -188,6 +203,141 @@ class ApiService implements ManagementApi {
   }
 
   @override
+  Future<CloudBootstrapGuide> getCloudBootstrapGuide(
+    CloudProvider provider,
+    CloudBootstrapTarget target,
+  ) async {
+    if (provider != target.provider) {
+      throw ArgumentError('Bootstrap provider and target must match.');
+    }
+    final response = await _dio.post(
+      '/cloud-bootstrap/${provider.apiValue}/guide',
+      data: {'target': target.toJson()},
+    );
+    return CloudBootstrapGuide.fromJson(
+      _contractMap(response.data, 'cloud bootstrap guide'),
+    );
+  }
+
+  @override
+  Future<CloudBootstrapSession> createCloudBootstrapSession({
+    required CloudBootstrapGuide guide,
+    required CloudBootstrapEntryPoint entryPoint,
+    required String displayName,
+    String? twinId,
+    required String idempotencyKey,
+  }) async {
+    final response = await _dio.post(
+      '/cloud-bootstrap/sessions',
+      data: {
+        'provider': guide.provider.apiValue,
+        'target': guide.target.toJson(),
+        'entry_point': entryPoint.apiValue,
+        if (twinId != null) 'twin_id': twinId,
+        'display_name': displayName,
+        'guide_digest': guide.guideDigest,
+        'bootstrap_authority_pack_digest': guide.bootstrapAuthorityPack.digest,
+        'generated_deployment_pack_digest':
+            guide.generatedDeploymentPack.digest,
+        'idempotency_key': idempotencyKey,
+      },
+    );
+    return CloudBootstrapSession.fromJson(
+      _contractMap(response.data, 'cloud bootstrap session'),
+    );
+  }
+
+  @override
+  Future<List<CloudBootstrapSession>> listCloudBootstrapSessions({
+    CloudProvider? provider,
+    bool active = true,
+  }) async {
+    final response = await _dio.get(
+      '/cloud-bootstrap/sessions',
+      queryParameters: {
+        if (provider != null) 'provider': provider.apiValue,
+        'active': active,
+      },
+    );
+    final body = _contractMap(response.data, 'cloud bootstrap sessions');
+    _requireContractFields(body, const {'items'}, 'cloud bootstrap sessions');
+    final items = body['items'];
+    if (items is! List || items.any((item) => item is! Map)) {
+      throw const FormatException(
+        'Invalid API contract: cloud bootstrap sessions must be an array.',
+      );
+    }
+    return List.unmodifiable(
+      items.map(
+        (item) => CloudBootstrapSession.fromJson(
+          Map<String, dynamic>.from(item as Map),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<CloudBootstrapSession> getCloudBootstrapSession(
+    String sessionId,
+  ) async {
+    final response = await _dio.get('/cloud-bootstrap/sessions/$sessionId');
+    return CloudBootstrapSession.fromJson(
+      _contractMap(response.data, 'cloud bootstrap session'),
+    );
+  }
+
+  @override
+  Future<CloudBootstrapSession> executeCloudBootstrapSession(
+    String sessionId,
+    CloudBootstrapExecuteRequest request,
+  ) async {
+    final body = request.takeJson();
+    try {
+      final response = await _dio.post(
+        '/cloud-bootstrap/sessions/$sessionId/execute',
+        data: body,
+        options: Options(extra: const {'sensitiveRequestBody': true}),
+      );
+      return CloudBootstrapSession.fromJson(
+        _contractMap(response.data, 'cloud bootstrap session'),
+      );
+    } finally {
+      final credential = body['credential'];
+      if (credential is Map) credential.clear();
+      body.clear();
+      request.dispose();
+    }
+  }
+
+  @override
+  Future<CloudBootstrapSession> acknowledgeCloudBootstrapRevocation(
+    String sessionId,
+    int expectedRevision,
+  ) async {
+    final response = await _dio.post(
+      '/cloud-bootstrap/sessions/$sessionId/acknowledge-manual-revocation',
+      data: {'expected_revision': expectedRevision},
+    );
+    return CloudBootstrapSession.fromJson(
+      _contractMap(response.data, 'cloud bootstrap session'),
+    );
+  }
+
+  @override
+  Future<CloudBootstrapSession> cancelCloudBootstrapSession(
+    String sessionId,
+    int expectedRevision,
+  ) async {
+    final response = await _dio.post(
+      '/cloud-bootstrap/sessions/$sessionId/cancel',
+      data: {'expected_revision': expectedRevision},
+    );
+    return CloudBootstrapSession.fromJson(
+      _contractMap(response.data, 'cloud bootstrap session'),
+    );
+  }
+
+  @override
   Future<CloudConnection> createCloudConnection(
     CloudConnectionCreateRequest request,
   ) async {
@@ -244,12 +394,169 @@ class ApiService implements ManagementApi {
   }
 
   @override
+  Future<List<ExtensionSlot>> listExtensionSlots() async {
+    final response = await _dio.get('/architecture/extension-slots');
+    final body = _contractMap(response.data, 'extension slots');
+    _requireContractFields(body, const {
+      'schema_version',
+      'slots',
+    }, 'extension slots');
+    if (body['schema_version'] != 'user-function-extension-slot-list.v1') {
+      throw const FormatException(
+        'Unsupported extension-slot list schema version.',
+      );
+    }
+    final slots = body['slots'];
+    if (slots is! List) {
+      throw const FormatException(
+        'Invalid API contract: extension slots must be an array.',
+      );
+    }
+    return List.unmodifiable(
+      slots.indexed.map(
+        (entry) => ExtensionSlot.fromJson(
+          _contractMap(entry.$2, 'extension slots[${entry.$1}]'),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<UserFunctionValidationResult> validateUserFunctionArtifact(
+    UserFunctionArtifactUpload upload,
+  ) async {
+    final response = await _dio.post(
+      '/user-function-artifacts/validate',
+      data: _extensionMultipart(upload),
+      options: Options(contentType: 'multipart/form-data'),
+    );
+    return UserFunctionValidationResult.fromJson(
+      _contractMap(response.data, 'user-function validation'),
+    );
+  }
+
+  @override
+  Future<UserFunctionArtifact> createUserFunctionArtifact(
+    UserFunctionArtifactUpload upload,
+  ) async {
+    final response = await _dio.post(
+      '/user-function-artifacts',
+      data: _extensionMultipart(upload),
+      options: Options(contentType: 'multipart/form-data'),
+    );
+    return UserFunctionArtifact.fromJson(
+      _contractMap(response.data, 'user-function artifact'),
+    );
+  }
+
+  @override
+  Future<List<UserFunctionArtifact>> listUserFunctionArtifacts() async {
+    final response = await _dio.get('/user-function-artifacts');
+    final body = _contractMap(response.data, 'user-function artifacts');
+    _requireContractFields(body, const {
+      'schema_version',
+      'items',
+      'total',
+      'limit',
+      'offset',
+    }, 'user-function artifacts');
+    if (body['schema_version'] != 'user-function-artifact-list.v1') {
+      throw const FormatException(
+        'Unsupported user-function artifact list schema version.',
+      );
+    }
+    final items = body['items'];
+    if (items is! List) {
+      throw const FormatException(
+        'Invalid API contract: user-function artifacts must be an array.',
+      );
+    }
+    return List.unmodifiable(
+      items.indexed.map(
+        (entry) => UserFunctionArtifact.fromJson(
+          _contractMap(entry.$2, 'user-function artifacts[${entry.$1}]'),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<List<TwinExtensionBinding>> listTwinExtensionBindings(
+    String twinId,
+  ) async {
+    final response = await _dio.get('/twins/$twinId/extension-bindings');
+    final body = _contractMap(response.data, 'extension bindings');
+    _requireContractFields(body, const {
+      'schema_version',
+      'items',
+    }, 'extension bindings');
+    if (body['schema_version'] != 'twin-extension-binding-list.v1') {
+      throw const FormatException(
+        'Unsupported extension-binding list schema version.',
+      );
+    }
+    final items = body['items'];
+    if (items is! List) {
+      throw const FormatException(
+        'Invalid API contract: extension bindings must be an array.',
+      );
+    }
+    return List.unmodifiable(
+      items.indexed.map(
+        (entry) => TwinExtensionBinding.fromJson(
+          _contractMap(entry.$2, 'extension bindings[${entry.$1}]'),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<TwinExtensionBinding> bindTwinExtensionArtifact(
+    String twinId,
+    ExtensionSlot slot,
+    String artifactId, {
+    int? expectedRevision,
+  }) async {
+    final response = await _dio.put(
+      '/twins/$twinId/extension-bindings/${slot.slotId}',
+      data: {
+        'artifact_id': artifactId,
+        'slot_version': slot.slotVersion,
+        if (expectedRevision != null) 'expected_revision': expectedRevision,
+      },
+    );
+    return TwinExtensionBinding.fromJson(
+      _contractMap(response.data, 'extension binding'),
+    );
+  }
+
+  @override
+  Future<void> unbindTwinExtensionArtifact(
+    String twinId,
+    ExtensionSlot slot, {
+    int? expectedRevision,
+  }) async {
+    await _dio.delete(
+      '/twins/$twinId/extension-bindings/${slot.slotId}',
+      queryParameters: {
+        'slot_version': slot.slotVersion,
+        if (expectedRevision != null) 'expected_revision': expectedRevision,
+      },
+    );
+  }
+
+  @override
   Future<List<Twin>> getTwins() async {
     final response = await _dio.get('/twins/');
     final data = response.data;
     if (data is! List) {
       throw const FormatException(
         'Invalid API contract: twins response must be an array.',
+      );
+    }
+    if (data.length > 32) {
+      throw const FormatException(
+        'Invalid API contract: architecture profile catalog is too large.',
       );
     }
     return List<Twin>.unmodifiable(
@@ -411,6 +718,147 @@ class ApiService implements ManagementApi {
   Future<Map<String, dynamic>> getRegionsStatus() async {
     final response = await _dio.get('/optimizer/regions-status');
     return response.data;
+  }
+
+  @override
+  Future<List<ArchitectureProfileSummary>> listArchitectureProfiles() async {
+    final response = await _dio.get('/architecture-profiles');
+    final data = response.data;
+    if (data is! List) {
+      throw const FormatException(
+        'Invalid API contract: architecture profiles must be an array.',
+      );
+    }
+    final profiles = data.indexed
+        .map(
+          (entry) => ArchitectureProfileSummary.fromJson(
+            _contractMap(entry.$2, 'architecture profiles[${entry.$1}]'),
+          ),
+        )
+        .toList(growable: false);
+    final identities = profiles
+        .map((item) => '${item.profileId}@${item.profileVersion}')
+        .toSet();
+    if (identities.length != profiles.length) {
+      throw const FormatException(
+        'Invalid API contract: architecture profile versions must be unique.',
+      );
+    }
+    return List.unmodifiable(profiles);
+  }
+
+  @override
+  Future<ArchitectureProfileDetail> getArchitectureProfile(
+    String profileId,
+    String profileVersion,
+  ) async {
+    final response = await _dio.get(
+      '/architecture-profiles/$profileId/versions/$profileVersion',
+    );
+    final detail = ArchitectureProfileDetail.fromJson(
+      _contractMap(response.data, 'architecture profile detail'),
+    );
+    if (detail.summary.profileId != profileId ||
+        detail.summary.profileVersion != profileVersion) {
+      throw const FormatException(
+        'Invalid API contract: architecture profile identity differs.',
+      );
+    }
+    return detail;
+  }
+
+  @override
+  Future<TwinArchitectureSelection> getTwinArchitectureSelection(
+    String twinId,
+  ) async {
+    final response = await _dio.get('/twins/$twinId/architecture-profile');
+    final selection = TwinArchitectureSelection.fromJson(
+      _contractMap(response.data, 'Twin architecture selection'),
+    );
+    if (selection.twinId != twinId) {
+      throw const FormatException(
+        'Invalid API contract: architecture selection Twin differs.',
+      );
+    }
+    return selection;
+  }
+
+  @override
+  Future<ArchitectureProfileChangePreview> previewTwinArchitectureProfileChange(
+    String twinId,
+    ArchitectureProfileChangePreviewRequest request,
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/architecture-profile/change-preview',
+      data: request.toJson(),
+    );
+    final preview = ArchitectureProfileChangePreview.fromJson(
+      _contractMap(response.data, 'architecture profile change preview'),
+    );
+    if (preview.target.id != request.profileId ||
+        preview.target.version != request.profileVersion ||
+        preview.expectedRevision != request.expectedRevision) {
+      throw const FormatException(
+        'Invalid API contract: architecture change preview context differs.',
+      );
+    }
+    return preview;
+  }
+
+  @override
+  Future<ArchitectureProfileSelectionResult> selectTwinArchitectureProfile(
+    String twinId,
+    ArchitectureProfileSelectRequest request,
+  ) async {
+    final response = await _dio.put(
+      '/twins/$twinId/architecture-profile',
+      data: request.toJson(),
+    );
+    final result = ArchitectureProfileSelectionResult.fromJson(
+      _contractMap(response.data, 'architecture profile selection result'),
+    );
+    if (result.selection.twinId != twinId ||
+        result.selection.profileRef.id != request.profileId ||
+        result.selection.profileRef.version != request.profileVersion) {
+      throw const FormatException(
+        'Invalid API contract: architecture selection result context differs.',
+      );
+    }
+    return result;
+  }
+
+  @override
+  Future<ResolvedTwinArchitectureRead> getSelectedResolvedArchitecture(
+    String twinId,
+  ) async {
+    final response = await _dio.get('/twins/$twinId/resolved-architecture');
+    final resolved = ResolvedTwinArchitectureRead.fromJson(
+      _contractMap(response.data, 'selected resolved architecture'),
+    );
+    if (resolved.twinId != twinId) {
+      throw const FormatException(
+        'Invalid API contract: resolved architecture Twin differs.',
+      );
+    }
+    return resolved;
+  }
+
+  @override
+  Future<ResolvedTwinArchitectureRead> getRunResolvedArchitecture(
+    String runId,
+  ) async {
+    final response = await _dio.get(
+      '/optimizer-runs/$runId/resolved-architecture',
+    );
+    final resolved = ResolvedTwinArchitectureRead.fromJson(
+      _contractMap(response.data, 'run resolved architecture'),
+    );
+    if (resolved.calculationRunId != runId) {
+      throw const FormatException(
+        'Invalid API contract: resolved architecture run differs.',
+      );
+    }
+    return resolved;
   }
 
   /// Run, validate, and persist one optimizer calculation through Management.
@@ -769,6 +1217,27 @@ class ApiService implements ManagementApi {
   }
 
   @override
+  Future<DeploymentAccessSnapshot> getDeploymentAccess(String twinId) async {
+    final twinPath = _managementPathSegment(twinId, 'Twin ID');
+    final response = await _dio.get('/twins/$twinPath/deployment-access');
+    return DeploymentAccessSnapshot.fromJson(
+      _responseMap(response.data),
+      expectedTwinId: twinId,
+    );
+  }
+
+  @override
+  Future<DeploymentAccessCredential> rotateGcpGrafanaViewerCredential(
+    String twinId,
+  ) async {
+    final twinPath = _managementPathSegment(twinId, 'Twin ID');
+    final response = await _dio.post(
+      '/twins/$twinPath/deployment-access/l5/credentials:rotate',
+    );
+    return DeploymentAccessCredential.fromJson(_responseMap(response.data));
+  }
+
+  @override
   Future<DeploymentHistory> getDeploymentHistory(
     String twinId, {
     int limit = 10,
@@ -933,11 +1402,37 @@ Map<String, dynamic> _responseMap(Object? value) {
   return Map<String, dynamic>.from(value);
 }
 
+FormData _extensionMultipart(UserFunctionArtifactUpload upload) {
+  return FormData.fromMap({
+    'metadata': MultipartFile.fromBytes(
+      upload.metadataBytes,
+      filename: 'metadata.json',
+    ),
+    'source_archive': MultipartFile.fromBytes(
+      upload.draft.bytes,
+      filename: upload.draft.filename,
+    ),
+  });
+}
+
 Map<String, dynamic> _contractMap(Object? value, String field) {
   if (value is! Map) {
     throw FormatException('Invalid API contract: $field must be an object.');
   }
   return Map<String, dynamic>.from(value);
+}
+
+void _requireContractFields(
+  Map<String, dynamic> value,
+  Set<String> expected,
+  String contract,
+) {
+  if (value.keys.toSet().difference(expected).isNotEmpty ||
+      expected.difference(value.keys.toSet()).isNotEmpty) {
+    throw FormatException(
+      'Invalid API contract: $contract fields do not match v1.',
+    );
+  }
 }
 
 String _attachmentFilename(String? contentDisposition) {

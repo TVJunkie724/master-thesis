@@ -60,6 +60,7 @@ dependencies:
   url_launcher: ^6.3.2
   web: ^1.1.1
   collection: ^1.19.0
+  archive: ^4.0.7
   
   # HTTP streaming for controlled Server-Sent Events
   http: ^1.6.0
@@ -117,6 +118,8 @@ flutter:
     - assets/images/logo_original.png
     - assets/images/logo_transparent_attempt.png
     - assets/demo/v1/
+    - assets/contracts/user-function-extension/
+    - assets/contracts/five-layer-workload/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

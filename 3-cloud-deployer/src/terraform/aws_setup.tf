@@ -28,7 +28,8 @@ locals {
     var.layer_3_cold_provider == "aws" ||
     var.layer_3_archive_provider == "aws" ||
     var.layer_4_provider == "aws" ||
-    var.layer_5_provider == "aws"
+    var.layer_5_provider == "aws" ||
+    var.event_layer_provider == "aws"
   )
 
   # ===========================================================================
@@ -111,7 +112,7 @@ locals {
 # Fail before provider execution if an active AWS component is missing its
 # immutable optimizer-owned deployment selection.
 resource "terraform_data" "aws_deployment_specification_guard" {
-  count = local.aws_enabled ? 1 : 0
+  count = local.aws_enabled && !local.five_layer_v2_enabled ? 1 : 0
 
   input = {
     l1_lambda_memory_mb                 = var.aws_l1_lambda_memory_mb
@@ -174,7 +175,7 @@ resource "terraform_data" "aws_deployment_specification_guard" {
 # ==============================================================================
 
 resource "aws_resourcegroups_group" "main" {
-  count = local.aws_enabled ? 1 : 0
+  count = local.aws_enabled && !local.five_layer_v2_enabled ? 1 : 0
   name  = "${var.digital_twin_name}-rg"
 
   resource_query {

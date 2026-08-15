@@ -64,6 +64,22 @@ the sidebar exposes smaller tasks so large forms are not presented as one uninte
 page. Provider pricing moved out of the optimizer step and into a dashboard-level
 review workspace because pricing readiness is account-level, not twin configuration.
 
+`WizardBloc` also owns the architecture-profile state machine. It loads only
+active Management catalog entries, keeps historical selections read-only,
+guards late detail/resolution responses with request generations, applies only
+server-returned invalidations, and requires a fresh confirmation after revision
+or digest conflicts. Opening **Understand architecture** acknowledges the
+loaded profile before workload and user-logic tasks unlock. Generic resolved
+review widgets render assignments, supporting resources, tiering, local or
+cross-cloud edges, costs, and pinned digests without importing fixed L1-L5
+presentation models.
+
+The logical profile flow has two read-only projections: responsibilities and
+components. At 720 logical pixels and above it uses a bounded Sugiyama canvas
+with zoom/reset controls; below 720 it uses a labeled vertical projection that
+shows only edges declared by the typed profile. No graph widget derives or
+edits provider topology.
+
 ## Runtime Adapters
 
 `AppRuntimeConfig` accepts only `development`, `production`, or `demo`.

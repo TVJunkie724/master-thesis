@@ -1,0 +1,1622 @@
+{
+  "$schema": "schemas/provider-capability-matrix.schema.json",
+  "schema_version": "provider-capability-matrix.v1",
+  "matrix_id": "phase-08-provider-capabilities@1",
+  "capability_registry_ref": "phase-08-eventing-capabilities@1",
+  "bundle_selections": [
+    {
+      "bundle_id": "bundle.aws.embedded@1",
+      "provider": "aws",
+      "profile_scope": "embedded",
+      "members": [
+        "AWS IoT Core",
+        "AWS Lambda",
+        "AWS Step Functions Standard",
+        "AWS IoT Commands",
+        "Amazon SQS FIFO",
+        "Amazon CloudWatch",
+        "Amazon Kinesis Data Streams",
+        "Amazon SNS FIFO"
+      ],
+      "decision": "selected",
+      "implementation_status": "planned_phase_8_9"
+    },
+    {
+      "bundle_id": "bundle.azure.embedded@1",
+      "provider": "azure",
+      "profile_scope": "embedded",
+      "members": [
+        "Azure IoT Hub",
+        "Azure Functions Flex Consumption",
+        "Azure Logic Apps Consumption",
+        "Azure Service Bus Standard",
+        "Azure Monitor",
+        "Azure Event Hubs Standard (Small/Medium)",
+        "Azure Event Hubs Dedicated (Large)"
+      ],
+      "decision": "selected",
+      "implementation_status": "planned_phase_8_9"
+    },
+    {
+      "bundle_id": "bundle.gcp.embedded@1",
+      "provider": "gcp",
+      "profile_scope": "embedded",
+      "members": [
+        "Google Cloud Pub/Sub",
+        "Google Cloud Run",
+        "Google Cloud Workflows",
+        "GKE Standard",
+        "Apache BifroMQ 4.0.0-incubating",
+        "Google Cloud Load Balancing",
+        "Google Cloud Logging"
+      ],
+      "decision": "selected",
+      "implementation_status": "planned_phase_8_9"
+    },
+    {
+      "bundle_id": "bundle.aws.event-layer@1",
+      "provider": "aws",
+      "profile_scope": "event_layer",
+      "members": [
+        "Amazon Kinesis Data Streams",
+        "Amazon SNS FIFO",
+        "Amazon SQS FIFO",
+        "Amazon S3",
+        "AWS Lambda",
+        "Amazon CloudWatch"
+      ],
+      "decision": "selected",
+      "implementation_status": "planned_phase_8_9"
+    },
+    {
+      "bundle_id": "bundle.azure.event-layer@1",
+      "provider": "azure",
+      "profile_scope": "event_layer",
+      "members": [
+        "Azure Event Hubs Standard (Small/Medium)",
+        "Azure Event Hubs Dedicated (Large)",
+        "Azure Service Bus Standard",
+        "Azure Functions Flex Consumption",
+        "Azure Monitor"
+      ],
+      "decision": "selected",
+      "implementation_status": "planned_phase_8_9"
+    },
+    {
+      "bundle_id": "bundle.gcp.event-layer@1",
+      "provider": "gcp",
+      "profile_scope": "event_layer",
+      "members": [
+        "Google Cloud Pub/Sub",
+        "Google Cloud Run services",
+        "Google Cloud Run worker pools",
+        "Google Cloud Logging"
+      ],
+      "decision": "selected",
+      "implementation_status": "planned_phase_8_9"
+    }
+  ],
+  "capability_rows": [
+    {
+      "capability_id": "capability.domain.rule-evaluation",
+      "profile_scope": "embedded",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "native",
+          "responsible_members": [
+            "AWS Lambda"
+          ],
+          "source_ids": [
+            "source.aws.lambda.pricing-api.2026-07-20"
+          ],
+          "limitation": "Regional concurrency must be preflighted.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "native",
+          "responsible_members": [
+            "Azure Functions Flex Consumption"
+          ],
+          "source_ids": [
+            "source.azure.functions-flex.retail-api.2026-07-20"
+          ],
+          "limitation": "Regional subscription memory must be preflighted.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "native",
+          "responsible_members": [
+            "Google Cloud Run"
+          ],
+          "source_ids": [
+            "source.gcp.cloud-run.pricing.2026-07-20"
+          ],
+          "limitation": "The 0.167-vCPU/256-MiB request-based function shape requires concurrency one.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.domain.extension-action",
+      "profile_scope": "embedded",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "native",
+          "responsible_members": [
+            "AWS Lambda"
+          ],
+          "source_ids": [
+            "source.aws.lambda.pricing-api.2026-07-20"
+          ],
+          "limitation": "User extension remains bounded by the reviewed extension contract.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "native",
+          "responsible_members": [
+            "Azure Functions Flex Consumption"
+          ],
+          "source_ids": [
+            "source.azure.functions-flex.retail-api.2026-07-20"
+          ],
+          "limitation": "User extension remains bounded by the reviewed extension contract.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "native",
+          "responsible_members": [
+            "Google Cloud Run"
+          ],
+          "source_ids": [
+            "source.gcp.cloud-run.pricing.2026-07-20"
+          ],
+          "limitation": "User extension remains bounded by the reviewed extension contract.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.domain.stateful-notification",
+      "profile_scope": "embedded",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "native",
+          "responsible_members": [
+            "AWS Step Functions Standard"
+          ],
+          "source_ids": [
+            "source.aws.step-functions.pricing-api.2026-07-20"
+          ],
+          "limitation": "One external notification integration is still an application-owned destination.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "native",
+          "responsible_members": [
+            "Azure Logic Apps Consumption"
+          ],
+          "source_ids": [
+            "source.azure.logic-apps.retail-api.2026-07-20"
+          ],
+          "limitation": "One Standard Connector call is billed separately.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "native",
+          "responsible_members": [
+            "Google Cloud Workflows"
+          ],
+          "source_ids": [
+            "source.gcp.workflows.pricing.2026-07-20"
+          ],
+          "limitation": "External notification steps use the external-step meter.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.domain.device-command-feedback",
+      "profile_scope": "embedded",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "native",
+          "responsible_members": [
+            "AWS IoT Commands"
+          ],
+          "source_ids": [
+            "source.aws.iot-commands.pricing-api.2026-07-20"
+          ],
+          "limitation": "IoT messaging is charged in addition to command execution.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "native",
+          "responsible_members": [
+            "Azure IoT Hub"
+          ],
+          "source_ids": [
+            "source.azure.iot-hub.quotas.2026-07-20"
+          ],
+          "limitation": "Cloud-to-device queue TTL and device acknowledgement must be explicit.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "Google Cloud Pub/Sub",
+            "Apache BifroMQ 4.0.0-incubating",
+            "GKE Standard"
+          ],
+          "source_ids": [
+            "source.gcp.mqtt-broker-architecture.2026-07-20",
+            "source.gcp.bifromq.2026-07-20",
+            "source.gcp.bifromq-data-integration.2026-07-20"
+          ],
+          "limitation": "Commands traverse Pub/Sub to BifroMQ and device outcomes return through BifroMQ to Pub/Sub; Pub/Sub, not the MQTT session, owns durable command acknowledgement until the correlated terminal outcome.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.domain.typed-outcomes",
+      "profile_scope": "embedded",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "composed",
+          "responsible_members": [
+            "AWS Lambda",
+            "AWS Step Functions Standard",
+            "AWS IoT Commands"
+          ],
+          "source_ids": [
+            "source.aws.lambda.pricing-api.2026-07-20",
+            "source.aws.iot-commands.pricing-api.2026-07-20"
+          ],
+          "limitation": "Outcome schema and correlation are platform contracts.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "composed",
+          "responsible_members": [
+            "Azure Functions Flex Consumption",
+            "Azure Logic Apps Consumption",
+            "Azure IoT Hub"
+          ],
+          "source_ids": [
+            "source.azure.functions-flex.retail-api.2026-07-20",
+            "source.azure.logic-apps.retail-api.2026-07-20"
+          ],
+          "limitation": "Outcome schema and correlation are platform contracts.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "composed",
+          "responsible_members": [
+            "Google Cloud Run",
+            "Google Cloud Workflows",
+            "Google Cloud Pub/Sub"
+          ],
+          "source_ids": [
+            "source.gcp.cloud-run.pricing.2026-07-20",
+            "source.gcp.workflows.pricing.2026-07-20"
+          ],
+          "limitation": "Outcome schema and correlation are platform contracts.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.direct-edge.bounded-retry",
+      "profile_scope": "embedded",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "composed",
+          "responsible_members": [
+            "AWS Lambda",
+            "Amazon CloudWatch"
+          ],
+          "source_ids": [
+            "source.aws.lambda.pricing-api.2026-07-20",
+            "source.aws.cloudwatch.pricing-api.2026-07-20"
+          ],
+          "limitation": "Direct edges do not claim general replay.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "composed",
+          "responsible_members": [
+            "Azure Functions Flex Consumption",
+            "Azure Monitor"
+          ],
+          "source_ids": [
+            "source.azure.functions-flex.retail-api.2026-07-20",
+            "source.azure.monitor.retail-api.2026-07-20"
+          ],
+          "limitation": "Direct edges do not claim general replay.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "composed",
+          "responsible_members": [
+            "Google Cloud Run",
+            "Google Cloud Logging"
+          ],
+          "source_ids": [
+            "source.gcp.cloud-run.pricing.2026-07-20",
+            "source.gcp.logging.pricing.2026-07-20"
+          ],
+          "limitation": "Direct edges do not claim general replay.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.security.workload-identity",
+      "profile_scope": "embedded",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "native",
+          "responsible_members": [
+            "AWS IAM"
+          ],
+          "source_ids": [
+            "source.aws.web-identity.security.2026-07-20"
+          ],
+          "limitation": "Trust conditions remain deployment inputs.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "native",
+          "responsible_members": [
+            "Microsoft Entra workload identity"
+          ],
+          "source_ids": [
+            "source.azure.workload-identity-federation.security.2026-07-20"
+          ],
+          "limitation": "Trust conditions remain deployment inputs.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "native",
+          "responsible_members": [
+            "Google Cloud IAM"
+          ],
+          "source_ids": [
+            "source.gcp.workload-identity-federation.security.2026-07-20"
+          ],
+          "limitation": "Trust conditions remain deployment inputs.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.device.boundary",
+      "profile_scope": "embedded",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "native",
+          "responsible_members": [
+            "AWS IoT Core",
+            "AWS IoT Commands"
+          ],
+          "source_ids": [
+            "source.aws.iot-core.quotas.2026-07-20",
+            "source.aws.iot-commands.pricing-api.2026-07-20"
+          ],
+          "limitation": "Account quotas require preflight.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "native",
+          "responsible_members": [
+            "Azure IoT Hub"
+          ],
+          "source_ids": [
+            "source.azure.iot-hub.quotas.2026-07-20"
+          ],
+          "limitation": "Tier and unit count are immutable scenario dimensions.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "Apache BifroMQ 4.0.0-incubating",
+            "GKE Standard",
+            "Google Cloud Pub/Sub"
+          ],
+          "source_ids": [
+            "source.gcp.mqtt-broker-architecture.2026-07-20",
+            "source.gcp.bifromq.2026-07-20",
+            "source.gcp.bifromq-data-integration.2026-07-20",
+            "source.gcp.bifromq-ordered-shared.2026-07-20"
+          ],
+          "limitation": "BifroMQ is the full bidirectional device boundary; a platform-owned ordered MQTT adapter forwards telemetry to Pub/Sub and Pub/Sub remains the durable cloud backbone. Ordered shared binding is scoped to one client connection and topic, so a reconnect is an explicit ordering-degradation boundary. Apache incubation and live throughput remain explicit PoC gates.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.direct-edge.cross-cloud-transport",
+      "profile_scope": "embedded",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "Amazon Kinesis Data Streams",
+            "Amazon SNS FIFO",
+            "AWS Lambda event-source bridge",
+            "AWS STS outbound identity"
+          ],
+          "source_ids": [
+            "source.aws.lambda-kinesis-trigger.2026-07-20",
+            "source.aws.lambda-sqs-fifo-trigger.2026-07-20",
+            "source.aws.outbound-identity-federation.2026-07-20",
+            "source.aws.web-identity.security.2026-07-20"
+          ],
+          "limitation": "This support is deployed only for remote five-layer responsibility edges; every directed trust and destination acknowledgement is a live activation gate.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "Azure Event Hubs Standard or Dedicated",
+            "Azure Service Bus Standard",
+            "Azure Functions bridge",
+            "Microsoft Entra workload identity"
+          ],
+          "source_ids": [
+            "source.azure.functions-event-hubs-trigger.2026-07-20",
+            "source.azure.functions-service-bus-trigger.2026-07-20",
+            "source.azure.workload-identity-federation.security.2026-07-20"
+          ],
+          "limitation": "This support is deployed only for remote five-layer responsibility edges; every directed trust and destination acknowledgement is a live activation gate.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "Google Cloud Pub/Sub",
+            "Cloud Run service or worker-pool bridge",
+            "Workload Identity Federation"
+          ],
+          "source_ids": [
+            "source.gcp.pubsub-push-delivery.2026-07-20",
+            "source.gcp.pubsub-streaming-pull.2026-07-20",
+            "source.gcp.cloud-run-worker-pools.2026-07-20",
+            "source.gcp.workload-identity-federation.security.2026-07-20"
+          ],
+          "limitation": "This support is deployed only for remote five-layer responsibility edges; every directed trust and destination acknowledgement is a live activation gate.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.event.envelope",
+      "profile_scope": "event_layer",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "AWS Lambda"
+          ],
+          "source_ids": [
+            "source.aws.lambda.pricing-api.2026-07-20"
+          ],
+          "limitation": "Validation is adapter-owned.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "Azure Functions Flex Consumption"
+          ],
+          "source_ids": [
+            "source.azure.functions-flex.retail-api.2026-07-20"
+          ],
+          "limitation": "Validation is adapter-owned.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "Google Cloud Run"
+          ],
+          "source_ids": [
+            "source.gcp.cloud-run.pricing.2026-07-20"
+          ],
+          "limitation": "Validation is adapter-owned.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.event.routing",
+      "profile_scope": "event_layer",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "composed",
+          "responsible_members": [
+            "Amazon Kinesis Data Streams",
+            "Amazon SNS FIFO"
+          ],
+          "source_ids": [
+            "source.aws.kinesis.limits.2026-07-20",
+            "source.aws.sns-fifo.pricing-api.2026-07-20"
+          ],
+          "limitation": "Telemetry and control use different transports.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "composed",
+          "responsible_members": [
+            "Azure Event Hubs Standard (Small/Medium)",
+            "Azure Event Hubs Dedicated (Large)",
+            "Azure Service Bus Standard"
+          ],
+          "source_ids": [
+            "source.azure.event-hubs.quotas.2026-07-20",
+            "source.azure.event-hubs-dedicated.capacity.2026-07-20",
+            "source.azure.service-bus.retail-api.2026-07-20"
+          ],
+          "limitation": "Telemetry and control use different transports; the telemetry tier is scenario-specific.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "native",
+          "responsible_members": [
+            "Google Cloud Pub/Sub"
+          ],
+          "source_ids": [
+            "source.gcp.pubsub.pricing.2026-07-20"
+          ],
+          "limitation": "Topic/subscription filters remain bounded deployment configuration.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.event.durable-buffer",
+      "profile_scope": "event_layer",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "composed",
+          "responsible_members": [
+            "Amazon Kinesis Data Streams",
+            "Amazon SQS FIFO"
+          ],
+          "source_ids": [
+            "source.aws.kinesis.limits.2026-07-20",
+            "source.aws.sqs-fifo.pricing-api.2026-07-20"
+          ],
+          "limitation": "Retention modes differ by channel class.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "composed",
+          "responsible_members": [
+            "Azure Event Hubs Standard (Small/Medium)",
+            "Azure Event Hubs Dedicated (Large)",
+            "Azure Service Bus Standard"
+          ],
+          "source_ids": [
+            "source.azure.event-hubs.quotas.2026-07-20",
+            "source.azure.event-hubs-dedicated.capacity.2026-07-20",
+            "source.azure.service-bus.retail-api.2026-07-20"
+          ],
+          "limitation": "Retention modes differ by channel class and Event Hubs tier.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "native",
+          "responsible_members": [
+            "Google Cloud Pub/Sub"
+          ],
+          "source_ids": [
+            "source.gcp.pubsub.pricing.2026-07-20"
+          ],
+          "limitation": "Topic retention is explicitly enabled for replay.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.event.independent-fanout",
+      "profile_scope": "event_layer",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "native",
+          "responsible_members": [
+            "Kinesis enhanced fan-out",
+            "Amazon SNS FIFO"
+          ],
+          "source_ids": [
+            "source.aws.kinesis.pricing-api.2026-07-20",
+            "source.aws.sns-fifo.pricing-api.2026-07-20"
+          ],
+          "limitation": "One registered EFO consumer per named telemetry consumer.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "native",
+          "responsible_members": [
+            "Event Hubs consumer groups",
+            "Service Bus subscriptions"
+          ],
+          "source_ids": [
+            "source.azure.event-hubs.quotas.2026-07-20",
+            "source.azure.event-hubs-dedicated.capacity.2026-07-20",
+            "source.azure.service-bus.retail-api.2026-07-20"
+          ],
+          "limitation": "Consumer-group count is bounded by the selected scenario tier.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "native",
+          "responsible_members": [
+            "Pub/Sub subscriptions"
+          ],
+          "source_ids": [
+            "source.gcp.pubsub.pricing.2026-07-20"
+          ],
+          "limitation": "Every delivery byte is billed.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.event.at-least-once",
+      "profile_scope": "event_layer",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "composed",
+          "responsible_members": [
+            "Amazon Kinesis Data Streams",
+            "Amazon SQS FIFO",
+            "AWS Lambda"
+          ],
+          "source_ids": [
+            "source.aws.kinesis.limits.2026-07-20",
+            "source.aws.sqs-fifo.pricing-api.2026-07-20"
+          ],
+          "limitation": "Consumers must be idempotent.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "composed",
+          "responsible_members": [
+            "Azure Event Hubs Standard/Dedicated",
+            "Azure Service Bus Standard",
+            "Azure Functions Flex Consumption"
+          ],
+          "source_ids": [
+            "source.azure.event-hubs.quotas.2026-07-20",
+            "source.azure.event-hubs-dedicated.capacity.2026-07-20",
+            "source.azure.service-bus.retail-api.2026-07-20"
+          ],
+          "limitation": "Consumers must be idempotent.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "native",
+          "responsible_members": [
+            "Google Cloud Pub/Sub"
+          ],
+          "source_ids": [
+            "source.gcp.pubsub.pricing.2026-07-20"
+          ],
+          "limitation": "Consumers must be idempotent.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.event.retry",
+      "profile_scope": "event_layer",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "composed",
+          "responsible_members": [
+            "AWS Lambda event-source mapping",
+            "Amazon SQS FIFO"
+          ],
+          "source_ids": [
+            "source.aws.lambda.pricing-api.2026-07-20",
+            "source.aws.sqs-fifo.pricing-api.2026-07-20"
+          ],
+          "limitation": "Retry attempts are bounded in adapter configuration.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "composed",
+          "responsible_members": [
+            "Azure Functions retry policy",
+            "Azure Service Bus Standard"
+          ],
+          "source_ids": [
+            "source.azure.functions-flex.retail-api.2026-07-20",
+            "source.azure.service-bus.retail-api.2026-07-20"
+          ],
+          "limitation": "Retry attempts are bounded in adapter configuration.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "native",
+          "responsible_members": [
+            "Pub/Sub retry policy"
+          ],
+          "source_ids": [
+            "source.gcp.pubsub.pricing.2026-07-20"
+          ],
+          "limitation": "Retry attempts are bounded by dead-letter policy.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.event.dead-letter",
+      "profile_scope": "event_layer",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "composed",
+          "responsible_members": [
+            "Amazon S3 failure destination",
+            "Amazon SQS DLQ"
+          ],
+          "source_ids": [
+            "source.aws.lambda.pricing-api.2026-07-20",
+            "source.aws.sqs-fifo.pricing-api.2026-07-20"
+          ],
+          "limitation": "S3 failure payload cost remains a later shared-storage intent.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "composed",
+          "responsible_members": [
+            "dead-letter Event Hub",
+            "Service Bus DLQ"
+          ],
+          "source_ids": [
+            "source.azure.event-hubs.quotas.2026-07-20",
+            "source.azure.event-hubs-dedicated.capacity.2026-07-20",
+            "source.azure.service-bus.retail-api.2026-07-20"
+          ],
+          "limitation": "Telemetry dead-lettering requires an explicit adapter target in the selected tier.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "native",
+          "responsible_members": [
+            "Pub/Sub dead-letter topic"
+          ],
+          "source_ids": [
+            "source.gcp.pubsub.pricing.2026-07-20"
+          ],
+          "limitation": "Dead-letter forwarding is an additional publish and delivery.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.event.replay",
+      "profile_scope": "event_layer",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "composed",
+          "responsible_members": [
+            "Kinesis retention",
+            "SNS FIFO archive"
+          ],
+          "source_ids": [
+            "source.aws.kinesis.pricing-api.2026-07-20",
+            "source.aws.sns-fifo.pricing-api.2026-07-20"
+          ],
+          "limitation": "Telemetry and control replay mechanisms differ.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "composed",
+          "responsible_members": [
+            "Event Hubs checkpoint replay",
+            "Service Bus redrive adapter"
+          ],
+          "source_ids": [
+            "source.azure.event-hubs.quotas.2026-07-20",
+            "source.azure.event-hubs-dedicated.capacity.2026-07-20",
+            "source.azure.service-bus.retail-api.2026-07-20"
+          ],
+          "limitation": "Service Bus redrive is adapter-owned.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "native",
+          "responsible_members": [
+            "Pub/Sub topic retention",
+            "Pub/Sub Seek"
+          ],
+          "source_ids": [
+            "source.gcp.pubsub.pricing.2026-07-20"
+          ],
+          "limitation": "Replay requires retained topic data or a snapshot.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.event.trace-correlation",
+      "profile_scope": "event_layer",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "AWS Lambda",
+            "Amazon CloudWatch"
+          ],
+          "source_ids": [
+            "source.aws.lambda.pricing-api.2026-07-20",
+            "source.aws.cloudwatch.pricing-api.2026-07-20"
+          ],
+          "limitation": "Canonical safe fields are adapter-owned.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "Azure Functions Flex Consumption",
+            "Azure Monitor"
+          ],
+          "source_ids": [
+            "source.azure.functions-flex.retail-api.2026-07-20",
+            "source.azure.monitor.retail-api.2026-07-20"
+          ],
+          "limitation": "Canonical safe fields are adapter-owned.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "Google Cloud Run",
+            "Google Cloud Logging"
+          ],
+          "source_ids": [
+            "source.gcp.cloud-run.pricing.2026-07-20",
+            "source.gcp.logging.pricing.2026-07-20"
+          ],
+          "limitation": "Canonical safe fields are adapter-owned.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.event.idempotency",
+      "profile_scope": "event_layer",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "AWS Lambda"
+          ],
+          "source_ids": [
+            "source.aws.lambda.pricing-api.2026-07-20"
+          ],
+          "limitation": "Stable IDs do not imply provider exactly-once delivery.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "Azure Functions Flex Consumption"
+          ],
+          "source_ids": [
+            "source.azure.functions-flex.retail-api.2026-07-20"
+          ],
+          "limitation": "Stable IDs do not imply provider exactly-once delivery.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "Google Cloud Run"
+          ],
+          "source_ids": [
+            "source.gcp.cloud-run.pricing.2026-07-20"
+          ],
+          "limitation": "Stable IDs do not imply provider exactly-once delivery.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.event.per-device-ordering",
+      "profile_scope": "event_layer",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "composed",
+          "responsible_members": [
+            "Kinesis partition key",
+            "SNS FIFO message group",
+            "SQS FIFO message group"
+          ],
+          "source_ids": [
+            "source.aws.kinesis.limits.2026-07-20",
+            "source.aws.sns-fifo.pricing-api.2026-07-20"
+          ],
+          "limitation": "Ordering is only per device and pauses on a blocked key.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "composed",
+          "responsible_members": [
+            "Event Hubs partition key",
+            "Service Bus session"
+          ],
+          "source_ids": [
+            "source.azure.event-hubs.quotas.2026-07-20",
+            "source.azure.event-hubs-dedicated.capacity.2026-07-20",
+            "source.azure.service-bus.retail-api.2026-07-20"
+          ],
+          "limitation": "Ordering is only per device and depends on one active session receiver.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "native",
+          "responsible_members": [
+            "Pub/Sub ordering key"
+          ],
+          "source_ids": [
+            "source.gcp.pubsub.pricing.2026-07-20"
+          ],
+          "limitation": "Ordering is only per key and can delay a key after delivery failure.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.event.schema-rejection",
+      "profile_scope": "event_layer",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "AWS Lambda"
+          ],
+          "source_ids": [
+            "source.aws.lambda.pricing-api.2026-07-20"
+          ],
+          "limitation": "Unsupported schema handling is platform code.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "Azure Functions Flex Consumption"
+          ],
+          "source_ids": [
+            "source.azure.functions-flex.retail-api.2026-07-20"
+          ],
+          "limitation": "Unsupported schema handling is platform code.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "Google Cloud Run"
+          ],
+          "source_ids": [
+            "source.gcp.cloud-run.pricing.2026-07-20"
+          ],
+          "limitation": "Unsupported schema handling is platform code.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.event.observability",
+      "profile_scope": "event_layer",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "composed",
+          "responsible_members": [
+            "Amazon CloudWatch",
+            "Kinesis metrics",
+            "SQS metrics"
+          ],
+          "source_ids": [
+            "source.aws.cloudwatch.pricing-api.2026-07-20"
+          ],
+          "limitation": "Telemetry logs use the fixed one-percent sample.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "composed",
+          "responsible_members": [
+            "Azure Monitor",
+            "Event Hubs metrics",
+            "Service Bus metrics"
+          ],
+          "source_ids": [
+            "source.azure.monitor.retail-api.2026-07-20"
+          ],
+          "limitation": "Telemetry logs use the fixed one-percent sample.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "composed",
+          "responsible_members": [
+            "Google Cloud Logging",
+            "Pub/Sub metrics"
+          ],
+          "source_ids": [
+            "source.gcp.logging.pricing.2026-07-20"
+          ],
+          "limitation": "Telemetry logs use the fixed one-percent sample.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.event.cross-cloud-transport",
+      "profile_scope": "event_layer",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "AWS Lambda event-source bridge",
+            "AWS STS outbound identity"
+          ],
+          "source_ids": [
+            "source.aws.lambda-kinesis-trigger.2026-07-20",
+            "source.aws.lambda-sqs-fifo-trigger.2026-07-20",
+            "source.aws.outbound-identity-federation.2026-07-20",
+            "source.aws.web-identity.security.2026-07-20"
+          ],
+          "limitation": "Every directed trust and destination data-plane acknowledgement is live-tested later.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "Azure Functions bridge",
+            "Microsoft Entra workload identity"
+          ],
+          "source_ids": [
+            "source.azure.functions-event-hubs-trigger.2026-07-20",
+            "source.azure.functions-service-bus-trigger.2026-07-20",
+            "source.azure.workload-identity-federation.security.2026-07-20"
+          ],
+          "limitation": "Every directed trust and destination data-plane acknowledgement is live-tested later.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "platform_adapter",
+          "responsible_members": [
+            "Cloud Run service or worker-pool bridge",
+            "Workload Identity Federation"
+          ],
+          "source_ids": [
+            "source.gcp.pubsub-push-delivery.2026-07-20",
+            "source.gcp.pubsub-streaming-pull.2026-07-20",
+            "source.gcp.cloud-run-worker-pools.2026-07-20",
+            "source.gcp.workload-identity-federation.security.2026-07-20"
+          ],
+          "limitation": "Every directed trust and destination data-plane acknowledgement is live-tested later.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    },
+    {
+      "capability_id": "capability.event.cost-ownership",
+      "profile_scope": "event_layer",
+      "cells": [
+        {
+          "provider": "aws",
+          "status": "composed",
+          "responsible_members": [
+            "pricing intents and source-owned bridge"
+          ],
+          "source_ids": [
+            "source.aws.kinesis.pricing-api.2026-07-20",
+            "source.aws.data-transfer.reviewed-catalog.2026-07-19"
+          ],
+          "limitation": "Shared free tiers are scenario-local estimates.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "azure",
+          "status": "composed",
+          "responsible_members": [
+            "pricing intents and source-owned bridge"
+          ],
+          "source_ids": [
+            "source.azure.event-hubs.retail-api.2026-07-20",
+            "source.azure.event-hubs-dedicated.retail-api.2026-07-20",
+            "source.azure.data-transfer.reviewed-catalog.2026-07-19"
+          ],
+          "limitation": "Shared free tiers are scenario-local estimates.",
+          "implementation_status": "planned_phase_8_9"
+        },
+        {
+          "provider": "gcp",
+          "status": "composed",
+          "responsible_members": [
+            "pricing intents and source-owned bridge"
+          ],
+          "source_ids": [
+            "source.gcp.pubsub.pricing.2026-07-20",
+            "source.gcp.data-transfer.reviewed-catalog.2026-07-19"
+          ],
+          "limitation": "Shared free tiers are scenario-local estimates.",
+          "implementation_status": "planned_phase_8_9"
+        }
+      ]
+    }
+  ],
+  "capacity_allocations": [
+    {
+      "provider": "aws",
+      "scenario_id": "eventing-small-v1",
+      "dimensions": [
+        "Kinesis 1+1 shards",
+        "one enhanced-fan-out consumer per named consumer",
+        "AWS IoT Core raw ingress"
+      ],
+      "headroom_result": "pass",
+      "source_ids": [
+        "source.aws.kinesis.limits.2026-07-20",
+        "source.aws.iot-core.quotas.2026-07-20"
+      ]
+    },
+    {
+      "provider": "aws",
+      "scenario_id": "eventing-medium-v1",
+      "dimensions": [
+        "Kinesis 6+6 shards",
+        "one enhanced-fan-out consumer per named consumer",
+        "AWS IoT Core raw ingress"
+      ],
+      "headroom_result": "pass",
+      "source_ids": [
+        "source.aws.kinesis.limits.2026-07-20",
+        "source.aws.iot-core.quotas.2026-07-20"
+      ]
+    },
+    {
+      "provider": "aws",
+      "scenario_id": "eventing-large-v1",
+      "dimensions": [
+        "Kinesis 200+200 shards",
+        "five processed-stream EFO consumers",
+        "125 concurrent 50-ms rule evaluations"
+      ],
+      "headroom_result": "pass",
+      "source_ids": [
+        "source.aws.kinesis.limits.2026-07-20",
+        "source.aws.iot-core.quotas.2026-07-20"
+      ]
+    },
+    {
+      "provider": "azure",
+      "scenario_id": "eventing-small-v1",
+      "dimensions": [
+        "one Event Hubs namespace at 1 TU",
+        "4 partitions/event hub",
+        "IoT Hub S1 x1"
+      ],
+      "headroom_result": "pass",
+      "source_ids": [
+        "source.azure.event-hubs.quotas.2026-07-20",
+        "source.azure.iot-hub.quotas.2026-07-20"
+      ]
+    },
+    {
+      "provider": "azure",
+      "scenario_id": "eventing-medium-v1",
+      "dimensions": [
+        "one Event Hubs namespace at 11 TU",
+        "16 partitions/event hub",
+        "IoT Hub S2 x3"
+      ],
+      "headroom_result": "pass",
+      "source_ids": [
+        "source.azure.event-hubs.quotas.2026-07-20",
+        "source.azure.iot-hub.quotas.2026-07-20"
+      ]
+    },
+    {
+      "provider": "azure",
+      "scenario_id": "eventing-large-v1",
+      "dimensions": [
+        "one Event Hubs Dedicated cluster at 6 CU",
+        "200 partitions/event hub",
+        "IoT Hub S3 x1",
+        "partition-parallel Functions consumers",
+        "Phase 8.9 load-test gate required"
+      ],
+      "headroom_result": "pass",
+      "source_ids": [
+        "source.azure.event-hubs-dedicated.capacity.2026-07-20",
+        "source.azure.iot-hub.quotas.2026-07-20"
+      ]
+    },
+    {
+      "provider": "gcp",
+      "scenario_id": "eventing-small-v1",
+      "dimensions": [
+        "Pub/Sub durable cloud backbone",
+        "three e2-standard-8 BifroMQ/GKE broker nodes",
+        "3 ordered shared-subscription integration clients",
+        "QoS 1 persistent integration sessions with three inbox replicas",
+        "BifroMQ handles both telemetry ingress and device commands"
+      ],
+      "headroom_result": "pass",
+      "source_ids": [
+        "source.gcp.pubsub.quotas.2026-07-20",
+        "source.gcp.mqtt-broker-architecture.2026-07-20",
+        "source.gcp.bifromq-benchmark.2026-07-20",
+        "source.gcp.bifromq-data-integration.2026-07-20",
+        "source.gcp.bifromq-ordered-shared.2026-07-20"
+      ]
+    },
+    {
+      "provider": "gcp",
+      "scenario_id": "eventing-medium-v1",
+      "dimensions": [
+        "Pub/Sub durable cloud backbone",
+        "three e2-standard-8 BifroMQ/GKE broker nodes",
+        "6 ordered shared-subscription integration clients",
+        "QoS 1 persistent integration sessions with three inbox replicas",
+        "BifroMQ handles both telemetry ingress and device commands"
+      ],
+      "headroom_result": "pass",
+      "source_ids": [
+        "source.gcp.pubsub.quotas.2026-07-20",
+        "source.gcp.mqtt-broker-architecture.2026-07-20",
+        "source.gcp.bifromq-benchmark.2026-07-20",
+        "source.gcp.bifromq-data-integration.2026-07-20",
+        "source.gcp.bifromq-ordered-shared.2026-07-20"
+      ]
+    },
+    {
+      "provider": "gcp",
+      "scenario_id": "eventing-large-v1",
+      "dimensions": [
+        "six Pub/Sub subscriptions",
+        "21 one-stream worker-pool instances per subscription",
+        "126 total 1-vCPU 512-MiB event-delivery worker instances",
+        "12 e2-standard-8 BifroMQ/GKE broker nodes",
+        "4 e2-standard-8 MQTT-to-Pub/Sub integration-worker nodes",
+        "30 integration pods with 10 ordered shared clients each",
+        "300 configured 1-MiB/s integration clients provide 300 MiB/s against a 199.68-MB/s telemetry egress requirement with headroom",
+        "QoS 1 persistent integration sessions with three inbox replicas",
+        "Phase 8.9 payload-size throughput and failure load-test gate required"
+      ],
+      "headroom_result": "pass",
+      "source_ids": [
+        "source.gcp.pubsub.quotas.2026-07-20",
+        "source.gcp.cloud-run.pricing.2026-07-20",
+        "source.gcp.mqtt-broker-architecture.2026-07-20",
+        "source.gcp.bifromq-benchmark.2026-07-20",
+        "source.gcp.bifromq-data-integration.2026-07-20",
+        "source.gcp.bifromq-ordered-shared.2026-07-20"
+      ]
+    }
+  ],
+  "single_cloud_cases": [
+    {
+      "provider": "aws",
+      "event_scope_status": "capability_admissible_live_pending",
+      "whole_profile_status": "profile_target_not_implemented",
+      "reason": "The complete local event-domain flow is capability-admissible without a bridge; the whole Twin profile remains unimplemented."
+    },
+    {
+      "provider": "azure",
+      "event_scope_status": "capability_admissible_live_pending",
+      "whole_profile_status": "profile_target_not_implemented",
+      "reason": "The complete local event-domain flow is capability-admissible without a bridge; the whole Twin profile remains unimplemented."
+    },
+    {
+      "provider": "gcp",
+      "event_scope_status": "capability_admissible_live_pending",
+      "whole_profile_status": "unsupported_missing_l4_l5",
+      "reason": "The complete local event-domain flow is capability-admissible without a bridge, including the bidirectional BifroMQ boundary; the whole Twin remains unsupported because approved GCP L4/L5 implementations are missing."
+    }
+  ],
+  "directed_pair_cases": [
+    {
+      "source_provider": "aws",
+      "destination_provider": "azure",
+      "status": "capability_admissible_live_pending",
+      "trust_pattern": "After account-level outbound federation enablement, regional AWS STS GetWebIdentityToken emits an audience-bound AWS OIDC JWT; an Entra federated identity credential validates the account issuer and exact workload subject before Azure broker data-plane access. The global STS endpoint is forbidden.",
+      "source_ids": [
+        "source.aws.outbound-identity-federation.2026-07-20",
+        "source.azure.workload-identity-federation.security.2026-07-20"
+      ]
+    },
+    {
+      "source_provider": "aws",
+      "destination_provider": "gcp",
+      "status": "capability_admissible_live_pending",
+      "trust_pattern": "The GCP Workload Identity Federation AWS provider validates an AWS-signed GetCallerIdentity subject token and mapped role attributes before service-account impersonation.",
+      "source_ids": [
+        "source.aws.sts-get-caller-identity.2026-07-20",
+        "source.gcp.workload-identity-federation.security.2026-07-20"
+      ]
+    },
+    {
+      "source_provider": "azure",
+      "destination_provider": "aws",
+      "status": "capability_admissible_live_pending",
+      "trust_pattern": "A bridge-only Entra app role gates token issuance; AWS validates the tenant issuer and dedicated audience before AssumeRoleWithWebIdentity.",
+      "source_ids": [
+        "source.azure.workload-identity-federation.security.2026-07-20",
+        "source.aws.web-identity.security.2026-07-20"
+      ]
+    },
+    {
+      "source_provider": "azure",
+      "destination_provider": "gcp",
+      "status": "capability_admissible_live_pending",
+      "trust_pattern": "Managed-identity assertion is attribute-constrained by a GCP workload identity provider.",
+      "source_ids": [
+        "source.azure.workload-identity-federation.security.2026-07-20",
+        "source.gcp.workload-identity-federation.security.2026-07-20"
+      ]
+    },
+    {
+      "source_provider": "gcp",
+      "destination_provider": "aws",
+      "status": "capability_admissible_live_pending",
+      "trust_pattern": "GCP service-account identity token uses an exact audience and AWS web-identity trust conditions.",
+      "source_ids": [
+        "source.gcp.workload-identity-federation.security.2026-07-20",
+        "source.aws.web-identity.security.2026-07-20"
+      ]
+    },
+    {
+      "source_provider": "gcp",
+      "destination_provider": "azure",
+      "status": "capability_admissible_live_pending",
+      "trust_pattern": "GCP workload assertion matches an exact Entra federated identity credential issuer, subject, and audience.",
+      "source_ids": [
+        "source.gcp.workload-identity-federation.security.2026-07-20",
+        "source.azure.workload-identity-federation.security.2026-07-20"
+      ]
+    }
+  ],
+  "three_provider_cases": [
+    {
+      "ingress_provider": "aws",
+      "eventing_provider": "azure",
+      "processing_provider": "gcp",
+      "status": "capability_admissible_live_pending",
+      "topology": "hub_and_spoke"
+    },
+    {
+      "ingress_provider": "aws",
+      "eventing_provider": "gcp",
+      "processing_provider": "azure",
+      "status": "capability_admissible_live_pending",
+      "topology": "hub_and_spoke"
+    },
+    {
+      "ingress_provider": "azure",
+      "eventing_provider": "aws",
+      "processing_provider": "gcp",
+      "status": "capability_admissible_live_pending",
+      "topology": "hub_and_spoke"
+    },
+    {
+      "ingress_provider": "azure",
+      "eventing_provider": "gcp",
+      "processing_provider": "aws",
+      "status": "capability_admissible_live_pending",
+      "topology": "hub_and_spoke"
+    },
+    {
+      "ingress_provider": "gcp",
+      "eventing_provider": "aws",
+      "processing_provider": "azure",
+      "status": "capability_admissible_live_pending",
+      "topology": "hub_and_spoke"
+    },
+    {
+      "ingress_provider": "gcp",
+      "eventing_provider": "azure",
+      "processing_provider": "aws",
+      "status": "capability_admissible_live_pending",
+      "topology": "hub_and_spoke"
+    }
+  ],
+  "rejected_alternatives": [
+    {
+      "alternative_id": "alternative.aws.eventbridge-telemetry",
+      "provider": "aws",
+      "service": "Amazon EventBridge",
+      "scope": "high-throughput telemetry log",
+      "reason": "Not selected as the ordered replayable 332.8-MB/s telemetry plane; Kinesis has the required explicit shard and EFO capacity model.",
+      "source_ids": [
+        "source.aws.kinesis.limits.2026-07-20"
+      ]
+    },
+    {
+      "alternative_id": "alternative.aws.step-functions-express",
+      "provider": "aws",
+      "service": "AWS Step Functions Express",
+      "scope": "notification workflow",
+      "reason": "Standard supplies durable auditable exactly-once workflow execution at the low required start rate.",
+      "source_ids": [
+        "source.aws.step-functions.pricing-api.2026-07-20"
+      ]
+    },
+    {
+      "alternative_id": "alternative.azure.event-grid-basic-telemetry",
+      "provider": "azure",
+      "service": "Azure Event Grid Basic",
+      "scope": "high-throughput telemetry ingress",
+      "reason": "Event Hubs Standard for Small/Medium and Dedicated for Large provide the selected stream retention, replay, partition, and consumer-group semantics.",
+      "source_ids": [
+        "source.azure.event-hubs.quotas.2026-07-20",
+        "source.azure.event-hubs-dedicated.capacity.2026-07-20"
+      ]
+    },
+    {
+      "alternative_id": "alternative.azure.event-hubs-standard-sharded-large",
+      "provider": "azure",
+      "service": "Azure Event Hubs Standard",
+      "scope": "Large telemetry log",
+      "reason": "Cross-namespace application sharding is theoretically admissible but rejected for the selected PoC bundle because it adds a custom device-to-namespace routing contract solely to retain the cheaper tier.",
+      "source_ids": [
+        "source.azure.event-hubs.quotas.2026-07-20"
+      ]
+    },
+    {
+      "alternative_id": "alternative.azure.iot-direct-method",
+      "provider": "azure",
+      "service": "Azure IoT Hub Direct Methods",
+      "scope": "device command",
+      "reason": "Cloud-to-device messages persist in a per-device queue and support device acknowledgement.",
+      "source_ids": [
+        "source.azure.iot-hub.quotas.2026-07-20"
+      ]
+    },
+    {
+      "alternative_id": "alternative.gcp.pubsub-push-large",
+      "provider": "gcp",
+      "service": "Google Cloud Pub/Sub push delivery",
+      "scope": "Large telemetry fan-out",
+      "reason": "The documented regional push quota is below the 998.4-MB/s delivery requirement; StreamingPull worker pools are selected.",
+      "source_ids": [
+        "source.gcp.pubsub.quotas.2026-07-20"
+      ]
+    },
+    {
+      "alternative_id": "alternative.gcp.cloud-iot-core",
+      "provider": "gcp",
+      "service": "Google Cloud IoT Core",
+      "scope": "device boundary",
+      "reason": "The managed service is retired and cannot be represented as executable support.",
+      "source_ids": [
+        "source.gcp.mqtt-architecture.2026-07-20"
+      ]
+    },
+    {
+      "alternative_id": "alternative.gcp.direct-device-pubsub",
+      "provider": "gcp",
+      "service": "Google Cloud Pub/Sub direct device or gateway connection",
+      "scope": "100,000-device bidirectional boundary",
+      "reason": "Google documents the direct pattern for controlled devices or tens to hundreds of gateways that implement the Pub/Sub API or SDK. It does not close the required heterogeneous MQTT telemetry-and-command boundary at Large.",
+      "source_ids": [
+        "source.gcp.device-pubsub-architecture.2026-07-20",
+        "source.gcp.mqtt-broker-architecture.2026-07-20"
+      ]
+    },
+    {
+      "alternative_id": "alternative.gcp.emqx-oss-eol",
+      "provider": "gcp",
+      "service": "EMQX Open Source 5.8.8",
+      "scope": "hosted MQTT boundary",
+      "reason": "The version reached end of life in February 2026 and cannot satisfy the security-maintenance gate.",
+      "source_ids": [
+        "source.gcp.emqx-oss-eol.2026-07-20"
+      ]
+    },
+    {
+      "alternative_id": "alternative.gcp.emqx-enterprise-custom-price",
+      "provider": "gcp",
+      "service": "EMQX Enterprise 6 clustered deployment",
+      "scope": "hosted MQTT boundary",
+      "reason": "The supported clustered edition requires a commercial license with quote-based pricing and cannot satisfy reproducible public cost evidence.",
+      "source_ids": [
+        "source.gcp.emqx-enterprise-license.2026-07-20"
+      ]
+    },
+    {
+      "alternative_id": "alternative.gcp.bifromq-durable-owner",
+      "provider": "gcp",
+      "service": "BifroMQ broker-session state",
+      "scope": "end-to-end command durability",
+      "reason": "Pub/Sub remains the durable owner until a correlated device outcome; broker state is only the MQTT delivery boundary.",
+      "source_ids": [
+        "source.gcp.bifromq.2026-07-20"
+      ]
+    },
+    {
+      "alternative_id": "alternative.gcp.emqx-cloud-dedicated-flex",
+      "provider": "gcp",
+      "service": "EMQX Cloud Dedicated Flex",
+      "scope": "managed MQTT boundary",
+      "reason": "Functionally admissible and available on GCP, but the public self-service price matrix ends at 10,000 sessions; the 100,000-session Large scenario requires a sales quote and therefore cannot supply reproducible optimizer evidence.",
+      "source_ids": [
+        "source.gcp.emqx-cloud-dedicated-flex.2026-07-20"
+      ]
+    }
+  ]
+}

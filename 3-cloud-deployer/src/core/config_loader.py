@@ -38,6 +38,10 @@ from src.deployment_specification import (
     ValidatedDeploymentManifest,
     validate_deployment_manifest,
 )
+from src.architecture_profiles import (
+    ResolvedDeploymentGraph,
+    resolve_deployment_graph,
+)
 
 # Constants matching src/constants.py
 CONFIG_FILE = "config.json"
@@ -74,6 +78,7 @@ class ProjectConfigBundle:
     credentials: Dict[str, dict]
     deployment_manifest: Dict[str, Any]
     validated_deployment_manifest: ValidatedDeploymentManifest | None
+    resolved_deployment_graph: ResolvedDeploymentGraph | None
 
 
 class ProjectConfigLoader:
@@ -93,18 +98,25 @@ class ProjectConfigLoader:
         """Load config, credentials, and manifest from an already resolved path."""
         config = load_project_config(project_path)
         deployment_manifest = load_deployment_manifest(project_path)
+        validated_manifest = (
+            validate_deployment_manifest(
+                deployment_manifest,
+                config.providers,
+            )
+            if deployment_manifest
+            else None
+        )
         return ProjectConfigBundle(
             project_name=project_name,
             project_path=project_path,
             config=config,
             credentials=load_credentials(project_path),
             deployment_manifest=deployment_manifest,
-            validated_deployment_manifest=(
-                validate_deployment_manifest(
-                    deployment_manifest,
-                    config.providers,
-                )
-                if deployment_manifest
+            validated_deployment_manifest=validated_manifest,
+            resolved_deployment_graph=(
+                resolve_deployment_graph(validated_manifest)
+                if validated_manifest is not None
+                and validated_manifest.manifest_version in {"3.0", "4.0"}
                 else None
             ),
         )
@@ -144,6 +156,7 @@ class ProjectConfigLoader:
             credentials=bundle.credentials,
             deployment_manifest=bundle.deployment_manifest,
             validated_deployment_manifest=bundle.validated_deployment_manifest,
+            resolved_deployment_graph=bundle.resolved_deployment_graph,
         )
         context.validate_manifest_identity()
         return context

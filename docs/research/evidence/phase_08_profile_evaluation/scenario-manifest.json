@@ -1,0 +1,312 @@
+{
+  "$schema": "schemas/scenario-manifest.schema.json",
+  "schema_version": "phase-08-profile-scenarios.v1",
+  "package_id": "phase-08-profile-evaluation@1",
+  "regions": {
+    "aws": "eu-central-1",
+    "azure": "westeurope",
+    "gcp": "europe-west1"
+  },
+  "currency": {
+    "code": "USD",
+    "conversion_policy": "usd_identity_no_conversion"
+  },
+  "observation_policy": {
+    "evaluation_cutoff": "2026-08-14",
+    "pricing_observation_timestamp": "2026-08-11T10:12:00Z",
+    "generation_timestamp_policy": "no_runtime_timestamp_in_generated_artifacts"
+  },
+  "pricing_snapshots": [
+    {
+      "provider": "aws",
+      "region": "eu-central-1",
+      "snapshot_id": "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+      "digest": "sha256:acb96faf904bc16d9d00d83fb26372ee2bf35255340ab5afaf6df6e87b8342b7",
+      "fetched_at": "2026-08-11T10:12:00Z",
+      "source": "reviewed_baseline",
+      "review_status": "reviewed"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "snapshot_id": "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee",
+      "digest": "sha256:9a91dd0c760ab1a4c66f6e8abe2acd5f98d80da560d605c09d509957c1a172ce",
+      "fetched_at": "2026-08-11T10:12:00Z",
+      "source": "reviewed_baseline",
+      "review_status": "reviewed"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "snapshot_id": "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018",
+      "digest": "sha256:27f7082bd221f2f356067efe7891dddd9ed2ea97eece82b133f32c848d10e378",
+      "fetched_at": "2026-08-11T10:12:00Z",
+      "source": "reviewed_baseline",
+      "review_status": "reviewed"
+    }
+  ],
+  "paired_scenarios": [
+    {
+      "scenario_id": "profile-evaluation-small-v1",
+      "size": "small",
+      "core_workload": {
+        "schemaVersion": "five-layer-workload.v2",
+        "numberOfDevices": 100,
+        "deviceSendingIntervalInMinutes": 2.0,
+        "averageSizeOfMessageInKb": 0.25,
+        "numberOfDeviceTypes": 1,
+        "hotStorageDurationInMonths": 1,
+        "coolStorageDurationInMonths": 3,
+        "archiveStorageDurationInMonths": 12,
+        "twinEntityCount": 100,
+        "aggregateDashboardRefreshesPerHour": 12,
+        "apiCallsPerAggregateDashboardRefresh": 1,
+        "dashboardActiveHoursPerDay": 1,
+        "monthlyEditorSeats": 2,
+        "monthlyViewerSeats": 1,
+        "twinStateMaterializationsPerSecond": 0.1,
+        "twinGraphUpdatesPerSecond": 0.01,
+        "eventingScenarioId": "eventing-small-v1",
+        "currency": "USD"
+      },
+      "core_source": {
+        "path": "contracts/five-layer-workload/v2/fixtures/valid/core-small.json",
+        "digest": "sha256:5660400bd2331f08e691fe79e379e9811b6d418a85f36b07d4b81a32099efcbe"
+      },
+      "eventing_workload": {
+        "scenario_id": "eventing-small-v1",
+        "events_per_month": 100000,
+        "publish_requests_per_month": 100000,
+        "average_event_payload_bytes": 4096,
+        "mandatory_processed_consumers": [
+          "consumer.historical-persistence",
+          "consumer.twin-state-update",
+          "consumer.rule-evaluator"
+        ],
+        "extra_processed_consumers": [],
+        "retry_share": 0.001,
+        "dead_letter_share": 0.0001,
+        "replay_share": 0,
+        "retention_hours": 24,
+        "ordering_scope": "per_device",
+        "required_delivery_semantics": "at_least_once",
+        "max_delivery_latency_seconds": 30,
+        "peak_events_per_second": 10,
+        "active_partition_keys": 100,
+        "concurrent_device_connections": 100,
+        "rule_match_share": 0.01,
+        "workflow_start_share_of_matches": 0.25,
+        "device_command_share_of_matches": 0.25,
+        "bounded_synthetic_scenario": true
+      },
+      "eventing_source": {
+        "path": "contracts/five-layer-workload/v2/eventing-scenario-catalog.json",
+        "digest": "sha256:e960cbb799562c1cc6883e867038575eeb38422859f6bac7a9b4b07f2d497833"
+      },
+      "paired_workload_digest": "sha256:39d257249a4b88d9b2ed31211e6fc22d86bf7a8f0664e96552ed9f22d9398980"
+    },
+    {
+      "scenario_id": "profile-evaluation-medium-v1",
+      "size": "medium",
+      "core_workload": {
+        "schemaVersion": "five-layer-workload.v2",
+        "numberOfDevices": 4000,
+        "deviceSendingIntervalInMinutes": 0.5,
+        "averageSizeOfMessageInKb": 0.5,
+        "numberOfDeviceTypes": 1,
+        "hotStorageDurationInMonths": 1,
+        "coolStorageDurationInMonths": 3,
+        "archiveStorageDurationInMonths": 12,
+        "twinEntityCount": 4000,
+        "aggregateDashboardRefreshesPerHour": 60,
+        "apiCallsPerAggregateDashboardRefresh": 10,
+        "dashboardActiveHoursPerDay": 4,
+        "monthlyEditorSeats": 25,
+        "monthlyViewerSeats": 10,
+        "twinStateMaterializationsPerSecond": 2.5,
+        "twinGraphUpdatesPerSecond": 0.1,
+        "eventingScenarioId": "eventing-medium-v1",
+        "currency": "USD"
+      },
+      "core_source": {
+        "path": "contracts/five-layer-workload/v2/fixtures/valid/core-medium.json",
+        "digest": "sha256:57ca8de378a077b051f55371e73eb5f07ecd1cd6d36ba38dbfb564b61f187532"
+      },
+      "eventing_workload": {
+        "scenario_id": "eventing-medium-v1",
+        "events_per_month": 10000000,
+        "publish_requests_per_month": 10000000,
+        "average_event_payload_bytes": 16384,
+        "mandatory_processed_consumers": [
+          "consumer.historical-persistence",
+          "consumer.twin-state-update",
+          "consumer.rule-evaluator"
+        ],
+        "extra_processed_consumers": [],
+        "retry_share": 0.005,
+        "dead_letter_share": 0.0005,
+        "replay_share": 0.01,
+        "retention_hours": 168,
+        "ordering_scope": "per_device",
+        "required_delivery_semantics": "at_least_once",
+        "max_delivery_latency_seconds": 10,
+        "peak_events_per_second": 250,
+        "active_partition_keys": 10000,
+        "concurrent_device_connections": 10000,
+        "rule_match_share": 0.01,
+        "workflow_start_share_of_matches": 0.25,
+        "device_command_share_of_matches": 0.25,
+        "bounded_synthetic_scenario": true
+      },
+      "eventing_source": {
+        "path": "contracts/five-layer-workload/v2/eventing-scenario-catalog.json",
+        "digest": "sha256:5450099e4ee0c0498125bc88a860fa1990acec817d3ce68bb7138e140745acee"
+      },
+      "paired_workload_digest": "sha256:64437e068a12f92ccc4896fb4461ae4e167071843f3cee7a3c30bae81081753b"
+    },
+    {
+      "scenario_id": "profile-evaluation-large-v1",
+      "size": "large",
+      "core_workload": {
+        "schemaVersion": "five-layer-workload.v2",
+        "numberOfDevices": 30000,
+        "deviceSendingIntervalInMinutes": 0.1,
+        "averageSizeOfMessageInKb": 0.8,
+        "numberOfDeviceTypes": 1,
+        "hotStorageDurationInMonths": 1,
+        "coolStorageDurationInMonths": 3,
+        "archiveStorageDurationInMonths": 12,
+        "twinEntityCount": 30000,
+        "aggregateDashboardRefreshesPerHour": 120,
+        "apiCallsPerAggregateDashboardRefresh": 100,
+        "dashboardActiveHoursPerDay": 8,
+        "monthlyEditorSeats": 100,
+        "monthlyViewerSeats": 300,
+        "twinStateMaterializationsPerSecond": 50,
+        "twinGraphUpdatesPerSecond": 1,
+        "eventingScenarioId": "eventing-large-v1",
+        "currency": "USD"
+      },
+      "core_source": {
+        "path": "contracts/five-layer-workload/v2/fixtures/valid/core-large.json",
+        "digest": "sha256:ceab182efb3383696a915df9e31cc15b756ad976e8460ca5b2225aa7367d42b8"
+      },
+      "eventing_workload": {
+        "scenario_id": "eventing-large-v1",
+        "events_per_month": 100000000,
+        "publish_requests_per_month": 100000000,
+        "average_event_payload_bytes": 65536,
+        "mandatory_processed_consumers": [
+          "consumer.historical-persistence",
+          "consumer.twin-state-update",
+          "consumer.rule-evaluator"
+        ],
+        "extra_processed_consumers": [
+          "consumer.audit",
+          "consumer.realtime-visualization"
+        ],
+        "retry_share": 0.01,
+        "dead_letter_share": 0.001,
+        "replay_share": 0.02,
+        "retention_hours": 168,
+        "ordering_scope": "per_device",
+        "required_delivery_semantics": "at_least_once",
+        "max_delivery_latency_seconds": 5,
+        "peak_events_per_second": 2500,
+        "active_partition_keys": 100000,
+        "concurrent_device_connections": 100000,
+        "rule_match_share": 0.01,
+        "workflow_start_share_of_matches": 0.25,
+        "device_command_share_of_matches": 0.25,
+        "bounded_synthetic_scenario": true
+      },
+      "eventing_source": {
+        "path": "contracts/five-layer-workload/v2/eventing-scenario-catalog.json",
+        "digest": "sha256:6fffe6fdf45afc95f5d602dc0128479d3d73ad0af0308e8746a8cdb503691702"
+      },
+      "paired_workload_digest": "sha256:5c05b408e3363499cdc92efdc105a5536e9f928aa6f111571137366e6e315f9c"
+    }
+  ],
+  "historical_scenarios": [
+    {
+      "scenario_id": "historical-base-v1",
+      "source": {
+        "path": "2-twin2clouds/example_input.json",
+        "digest": "sha256:5a9cf8612ebba6d9be08665f0426dd459663394c8ea370e8f456151f4ec68a90"
+      },
+      "overrides": {
+        "entityCount": 100
+      },
+      "workload": {
+        "numberOfDevices": 100,
+        "deviceSendingIntervalInMinutes": 2.0,
+        "averageSizeOfMessageInKb": 0.25,
+        "hotStorageDurationInMonths": 1,
+        "coolStorageDurationInMonths": 3,
+        "archiveStorageDurationInMonths": 12,
+        "needs3DModel": false,
+        "entityCount": 100,
+        "amountOfActiveEditors": 2,
+        "amountOfActiveViewers": 10,
+        "dashboardRefreshesPerHour": 4,
+        "dashboardActiveHoursPerDay": 8,
+        "currency": "USD",
+        "useEventChecking": true,
+        "triggerNotificationWorkflow": true,
+        "returnFeedbackToDevice": false,
+        "integrateErrorHandling": false,
+        "orchestrationActionsPerMessage": 3,
+        "eventsPerMessage": 1,
+        "apiCallsPerDashboardRefresh": 1,
+        "average3DModelSizeInMB": 100
+      },
+      "workload_digest": "sha256:63b2f8d54468bed485c6280cdde7d7837b4429477a6039e7d90923075f68142d",
+      "comparison_scope": "historical_reconstruction_only"
+    },
+    {
+      "scenario_id": "historical-edge-heavy-v1",
+      "source": {
+        "path": "2-twin2clouds/example_input.json",
+        "digest": "sha256:5a9cf8612ebba6d9be08665f0426dd459663394c8ea370e8f456151f4ec68a90"
+      },
+      "overrides": {
+        "numberOfDevices": 10000,
+        "averageSizeOfMessageInKb": 256.0,
+        "deviceSendingIntervalInMinutes": 1.0,
+        "entityCount": 10000
+      },
+      "workload": {
+        "numberOfDevices": 10000,
+        "deviceSendingIntervalInMinutes": 1.0,
+        "averageSizeOfMessageInKb": 256.0,
+        "hotStorageDurationInMonths": 1,
+        "coolStorageDurationInMonths": 3,
+        "archiveStorageDurationInMonths": 12,
+        "needs3DModel": false,
+        "entityCount": 10000,
+        "amountOfActiveEditors": 2,
+        "amountOfActiveViewers": 10,
+        "dashboardRefreshesPerHour": 4,
+        "dashboardActiveHoursPerDay": 8,
+        "currency": "USD",
+        "useEventChecking": true,
+        "triggerNotificationWorkflow": true,
+        "returnFeedbackToDevice": false,
+        "integrateErrorHandling": false,
+        "orchestrationActionsPerMessage": 3,
+        "eventsPerMessage": 1,
+        "apiCallsPerDashboardRefresh": 1,
+        "average3DModelSizeInMB": 100
+      },
+      "workload_digest": "sha256:39a0f0938c71f07f59fd91e534e23acee73348bbbf7d62bf3b409f3b09050cb0",
+      "comparison_scope": "historical_reconstruction_only"
+    }
+  ],
+  "coverage": {
+    "sizes": 3,
+    "single_cloud_placements_per_profile_and_size": 3,
+    "five_layer_online_placements_per_size": 9,
+    "directed_event_provider_pairs_per_size": 6,
+    "representative_three_provider_placements_per_size": 1
+  }
+}

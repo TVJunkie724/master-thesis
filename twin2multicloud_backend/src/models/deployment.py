@@ -24,8 +24,19 @@ class Deployment(Base):
     started_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
     terraform_outputs = Column(JSON, nullable=True)
+    deployment_access_evidence = Column(JSON, nullable=True)
+    layer_access_credential_rotated_at = Column(DateTime, nullable=True)
+    layer_access_credential_fingerprint = Column(String(64), nullable=True)
     error_code = Column(String, nullable=True)
     error_message = Column(Text, nullable=True)
+    architecture_digest = Column(String(71), nullable=True)
+    graph_digest = Column(String(71), nullable=True)
+    profile_id = Column(String(128), nullable=True)
+    profile_version = Column(String(32), nullable=True)
+    catalog_id = Column(String(128), nullable=True)
+    catalog_version = Column(String(32), nullable=True)
+    completed_stage = Column(String(32), nullable=True)
+    graph_validation = Column(JSON, nullable=True)
     logs = Column(Text, nullable=True)  # Legacy, kept for compatibility
     
     # Relationships

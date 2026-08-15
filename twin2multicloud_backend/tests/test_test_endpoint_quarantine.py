@@ -17,6 +17,11 @@ def test_test_endpoints_are_not_registered_by_default(authenticated_client):
     assert "/twins/{twin_id}/test-destroy" not in route_paths
     assert "/twins/{twin_id}/test-log-trace/start" not in route_paths
     assert "/twins/{twin_id}/simulator/test-download" not in route_paths
+    assert "/twins/test-fixtures/layer-access" not in route_paths
+    assert (
+        "/twins/{twin_id}/test-fixtures/layer-access-rotation"
+        not in route_paths
+    )
 
     response = client.post("/twins/not-a-real-twin/test-deploy", headers=headers)
     assert response.status_code == 404

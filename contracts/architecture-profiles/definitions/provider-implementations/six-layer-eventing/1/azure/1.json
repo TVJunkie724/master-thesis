@@ -1,0 +1,581 @@
+{
+  "schema_version": "provider-implementation-profile.v2",
+  "implementation_profile_id": "provider-profile.azure.six-layer-eventing-v1",
+  "implementation_profile_version": "1",
+  "architecture_profile_ref": {
+    "id": "six-layer-eventing",
+    "version": "1",
+    "digest": "sha256:0ecbf18fdc54a479c81a81df114fc508983db7da1786836aa1774e03d1665066"
+  },
+  "provider": "azure",
+  "lifecycle_status": "active",
+  "region_policy_ref": {
+    "id": "region-policy.azure.five-layer-v2",
+    "version": "1"
+  },
+  "permission_set_ref": {
+    "id": "permission-set.azure.thesis-demo-v2",
+    "version": "1"
+  },
+  "supported": true,
+  "component_mappings": [
+    {
+      "component_id": "component.archive-storage",
+      "deployment_component_candidates": [
+        "deployment.azure.archive-storage.v2"
+      ],
+      "required_capability_ids": [
+        "capability.archive-storage"
+      ],
+      "provided_capability_ids": [
+        "capability.archive-storage"
+      ],
+      "service_model_refs": [
+        "service-model.azure.azure.blob-archive",
+        "service-model.azure.azure.monitor",
+        "service-model.azure.azure.log-analytics-shared-workspace"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "supported_region_ids": [
+        "region.azure.westeurope"
+      ],
+      "deployment_specification_component_ids": [
+        "azure.blob-archive",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace"
+      ],
+      "deployment_specification_slot_ids": [
+        "l3_archive_storage"
+      ]
+    },
+    {
+      "component_id": "component.cool-storage",
+      "deployment_component_candidates": [
+        "deployment.azure.cool-storage.v2"
+      ],
+      "required_capability_ids": [
+        "capability.cool-storage"
+      ],
+      "provided_capability_ids": [
+        "capability.cool-storage"
+      ],
+      "service_model_refs": [
+        "service-model.azure.azure.blob-cool",
+        "service-model.azure.azure.container-apps-scheduled-storage-job",
+        "service-model.azure.azure.acr-basic-if-container-selected",
+        "service-model.azure.azure.monitor",
+        "service-model.azure.azure.log-analytics-shared-workspace"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "supported_region_ids": [
+        "region.azure.westeurope"
+      ],
+      "deployment_specification_component_ids": [
+        "azure.blob-cool",
+        "azure.container-apps-scheduled-storage-job",
+        "azure.acr-basic-if-container-selected",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace"
+      ],
+      "deployment_specification_slot_ids": [
+        "l3_cool_storage"
+      ]
+    },
+    {
+      "component_id": "component.hot-storage",
+      "deployment_component_candidates": [
+        "deployment.azure.hot-storage.v2"
+      ],
+      "required_capability_ids": [
+        "capability.hot-storage"
+      ],
+      "provided_capability_ids": [
+        "capability.hot-storage"
+      ],
+      "service_model_refs": [
+        "service-model.azure.azure.cosmos-db-nosql-raw-and-rollup",
+        "service-model.azure.azure.service-bus-standard",
+        "service-model.azure.azure.functions-flex-event-adapter",
+        "service-model.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+        "service-model.azure.azure.container-apps-scheduled-storage-job",
+        "service-model.azure.azure.acr-basic-if-container-selected",
+        "service-model.azure.azure.monitor",
+        "service-model.azure.azure.log-analytics-shared-workspace"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "supported_region_ids": [
+        "region.azure.westeurope"
+      ],
+      "deployment_specification_component_ids": [
+        "azure.cosmos-db-nosql-raw-and-rollup",
+        "azure.service-bus-standard",
+        "azure.functions-flex-event-adapter",
+        "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+        "azure.container-apps-scheduled-storage-job",
+        "azure.acr-basic-if-container-selected",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace"
+      ],
+      "deployment_specification_slot_ids": [
+        "l3_hot_storage"
+      ]
+    },
+    {
+      "component_id": "component.ingestion",
+      "deployment_component_candidates": [
+        "deployment.azure.ingestion.v2"
+      ],
+      "required_capability_ids": [
+        "capability.ingestion",
+        "capability.embedded-domain-event-ingress"
+      ],
+      "provided_capability_ids": [
+        "capability.embedded-domain-event-ingress",
+        "capability.ingestion"
+      ],
+      "service_model_refs": [
+        "service-model.azure.azure.iot-hub",
+        "service-model.azure.azure.service-bus-standard",
+        "service-model.azure.azure.functions-flex-event-adapter",
+        "service-model.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+        "service-model.azure.azure.monitor",
+        "service-model.azure.azure.log-analytics-shared-workspace"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "supported_region_ids": [
+        "region.azure.westeurope"
+      ],
+      "deployment_specification_component_ids": [
+        "azure.iot-hub",
+        "azure.service-bus-standard",
+        "azure.functions-flex-event-adapter",
+        "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace"
+      ],
+      "deployment_specification_slot_ids": [
+        "l1_ingestion"
+      ]
+    },
+    {
+      "component_id": "component.processing",
+      "deployment_component_candidates": [
+        "deployment.azure.processing.v2"
+      ],
+      "required_capability_ids": [
+        "capability.processing",
+        "capability.embedded-domain-event-routing",
+        "capability.mandatory-rule-action-feedback"
+      ],
+      "provided_capability_ids": [
+        "capability.embedded-domain-event-routing",
+        "capability.mandatory-rule-action-feedback",
+        "capability.processing"
+      ],
+      "service_model_refs": [
+        "service-model.azure.azure.functions-flex-consumption",
+        "service-model.azure.azure.logic-apps-consumption",
+        "service-model.azure.azure.service-bus-standard",
+        "service-model.azure.azure.functions-flex-event-adapter",
+        "service-model.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+        "service-model.azure.azure.monitor",
+        "service-model.azure.azure.log-analytics-shared-workspace"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "supported_region_ids": [
+        "region.azure.westeurope"
+      ],
+      "deployment_specification_component_ids": [
+        "azure.functions-flex-consumption",
+        "azure.logic-apps-consumption",
+        "azure.service-bus-standard",
+        "azure.functions-flex-event-adapter",
+        "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace"
+      ],
+      "deployment_specification_slot_ids": [
+        "l2_processing"
+      ]
+    },
+    {
+      "component_id": "component.twin-state",
+      "deployment_component_candidates": [
+        "deployment.azure.twin-state.v2"
+      ],
+      "required_capability_ids": [
+        "capability.twin-state"
+      ],
+      "provided_capability_ids": [
+        "capability.twin-state"
+      ],
+      "service_model_refs": [
+        "service-model.azure.azure.digital-twins",
+        "service-model.azure.azure.service-bus-standard",
+        "service-model.azure.azure.functions-flex-event-adapter",
+        "service-model.azure.azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+        "service-model.azure.azure.monitor",
+        "service-model.azure.azure.log-analytics-shared-workspace",
+        "service-model.azure.azure.entra-layer-access-bindings"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "supported_region_ids": [
+        "region.azure.westeurope"
+      ],
+      "deployment_specification_component_ids": [
+        "azure.digital-twins",
+        "azure.service-bus-standard",
+        "azure.functions-flex-event-adapter",
+        "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace",
+        "azure.entra-layer-access-bindings"
+      ],
+      "deployment_specification_slot_ids": [
+        "l4_twin_state"
+      ]
+    },
+    {
+      "component_id": "component.visualization",
+      "deployment_component_candidates": [
+        "deployment.azure.visualization.v2"
+      ],
+      "required_capability_ids": [
+        "capability.visualization"
+      ],
+      "provided_capability_ids": [
+        "capability.visualization"
+      ],
+      "service_model_refs": [
+        "service-model.azure.azure.managed-grafana-12-standard",
+        "service-model.azure.azure.functions-flex-raw-history-reader",
+        "service-model.azure.azure.grafana-marcusolsson-json-datasource",
+        "service-model.azure.azure.monitor",
+        "service-model.azure.azure.log-analytics-shared-workspace",
+        "service-model.azure.azure.entra-layer-access-bindings"
+      ],
+      "formula_refs": [
+        "formula.phase-08-complete-service-bundles"
+      ],
+      "supported_region_ids": [
+        "region.azure.westeurope"
+      ],
+      "deployment_specification_component_ids": [
+        "azure.managed-grafana-12-standard",
+        "azure.functions-flex-raw-history-reader",
+        "azure.grafana-marcusolsson-json-datasource",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace",
+        "azure.entra-layer-access-bindings"
+      ],
+      "deployment_specification_slot_ids": [
+        "l5_visualization"
+      ]
+    },
+    {
+      "component_id": "component.eventing",
+      "deployment_component_candidates": [
+        "deployment.azure.eventing.v1"
+      ],
+      "required_capability_ids": [
+        "capability.event.envelope",
+        "capability.event.routing",
+        "capability.event.durable-buffer",
+        "capability.event.independent-fanout",
+        "capability.event.at-least-once",
+        "capability.event.retry",
+        "capability.event.dead-letter",
+        "capability.event.replay",
+        "capability.event.trace-correlation",
+        "capability.event.idempotency",
+        "capability.event.per-device-ordering",
+        "capability.event.schema-rejection",
+        "capability.event.observability",
+        "capability.event.cross-cloud-transport",
+        "capability.event.cost-ownership"
+      ],
+      "provided_capability_ids": [
+        "capability.event.envelope",
+        "capability.event.routing",
+        "capability.event.durable-buffer",
+        "capability.event.independent-fanout",
+        "capability.event.at-least-once",
+        "capability.event.retry",
+        "capability.event.dead-letter",
+        "capability.event.replay",
+        "capability.event.trace-correlation",
+        "capability.event.idempotency",
+        "capability.event.per-device-ordering",
+        "capability.event.schema-rejection",
+        "capability.event.observability",
+        "capability.event.cross-cloud-transport",
+        "capability.event.cost-ownership"
+      ],
+      "service_model_refs": [
+        "service-model.azure.azure.event_hubs_dedicated",
+        "service-model.azure.azure.event_hubs_standard",
+        "service-model.azure.azure.functions_flex_consumption",
+        "service-model.azure.azure.monitor",
+        "service-model.azure.azure.service_bus_standard"
+      ],
+      "formula_refs": [
+        "formula.azure.event-hubs-dedicated",
+        "formula.azure.event-hubs-standard",
+        "formula.azure.service-bus-standard",
+        "formula.bridge.compute",
+        "formula.compute.serverless",
+        "formula.observability.decimal-gb"
+      ],
+      "supported_region_ids": [
+        "region.azure.westeurope"
+      ],
+      "deployment_specification_component_ids": [
+        "azure.event-hubs-standard-small-medium",
+        "azure.event-hubs-dedicated-large",
+        "azure.service-bus-standard",
+        "azure.functions-flex-event-worker",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace",
+        "azure.functions-flex-event-adapter"
+      ],
+      "deployment_specification_slot_ids": [
+        "eventing"
+      ]
+    }
+  ],
+  "edge_mappings": [
+    {
+      "edge_id": "edge.cool-to-archive-storage",
+      "edge_implementation_id": "edge-implementation.azure-to-azure.cool-to-archive-storage.v2",
+      "source_deployment_component_ids": [
+        "deployment.azure.cool-storage.v2"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.archive-storage.v2"
+      ],
+      "mechanism": "source_owned_transition_runtime",
+      "catalog_input_port_id": "catalog.azure.port.archive-storage.write-in",
+      "catalog_output_port_id": "catalog.azure.port.cool-storage.transition-out",
+      "transfer_route_class": "same_provider_same_region",
+      "cost_owner_ids": [
+        "cost.cool-to-archive-storage"
+      ]
+    },
+    {
+      "edge_id": "edge.hot-storage-to-twin-state",
+      "edge_implementation_id": "edge-implementation.azure-to-azure.hot-storage-to-twin-state.v2",
+      "source_deployment_component_ids": [
+        "deployment.azure.hot-storage.v2"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.twin-state.v2"
+      ],
+      "mechanism": "provider_native_trigger",
+      "catalog_input_port_id": "catalog.azure.port.twin-state.projection-in",
+      "catalog_output_port_id": "catalog.azure.port.hot-storage.twin-projection-out",
+      "transfer_route_class": "same_provider_same_region",
+      "cost_owner_ids": [
+        "cost.hot-storage-to-twin-state"
+      ]
+    },
+    {
+      "edge_id": "edge.hot-to-cool-storage",
+      "edge_implementation_id": "edge-implementation.azure-to-azure.hot-to-cool-storage.v2",
+      "source_deployment_component_ids": [
+        "deployment.azure.hot-storage.v2"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.cool-storage.v2"
+      ],
+      "mechanism": "source_owned_transition_runtime",
+      "catalog_input_port_id": "catalog.azure.port.cool-storage.write-in",
+      "catalog_output_port_id": "catalog.azure.port.hot-storage.transition-out",
+      "transfer_route_class": "same_provider_same_region",
+      "cost_owner_ids": [
+        "cost.hot-to-cool-storage"
+      ]
+    },
+    {
+      "edge_id": "edge.hot-storage-to-visualization",
+      "edge_implementation_id": "edge-implementation.azure-to-azure.hot-storage-to-visualization.v2",
+      "source_deployment_component_ids": [
+        "deployment.azure.hot-storage.v2"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.visualization.v2"
+      ],
+      "mechanism": "typed_synchronous_api",
+      "catalog_input_port_id": "catalog.azure.port.visualization.raw-history-in",
+      "catalog_output_port_id": "catalog.azure.port.hot-storage.raw-history-out",
+      "transfer_route_class": "same_provider_same_region",
+      "cost_owner_ids": [
+        "cost.hot-storage-to-visualization"
+      ]
+    },
+    {
+      "edge_id": "edge.ingestion-to-eventing",
+      "edge_implementation_id": "edge-implementation.azure-to-azure.ingestion-to-eventing.eventing-v1",
+      "source_deployment_component_ids": [
+        "deployment.azure.ingestion.v2"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.eventing.v1"
+      ],
+      "mechanism": "provider_native_trigger",
+      "catalog_input_port_id": "catalog.azure.port.eventing.ingestion-in",
+      "catalog_output_port_id": "catalog.azure.port.ingestion.eventing-out",
+      "transfer_route_class": "same_provider_same_region",
+      "cost_owner_ids": [
+        "cost.ingestion-to-eventing"
+      ]
+    },
+    {
+      "edge_id": "edge.eventing-to-processing",
+      "edge_implementation_id": "edge-implementation.azure-to-azure.eventing-to-processing.eventing-v1",
+      "source_deployment_component_ids": [
+        "deployment.azure.eventing.v1"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.processing.v2"
+      ],
+      "mechanism": "provider_native_trigger",
+      "catalog_input_port_id": "catalog.azure.port.processing.eventing-in",
+      "catalog_output_port_id": "catalog.azure.port.eventing.processing-out",
+      "transfer_route_class": "same_provider_same_region",
+      "cost_owner_ids": [
+        "cost.eventing-to-processing"
+      ]
+    },
+    {
+      "edge_id": "edge.processing-to-eventing",
+      "edge_implementation_id": "edge-implementation.azure-to-azure.processing-to-eventing.eventing-v1",
+      "source_deployment_component_ids": [
+        "deployment.azure.processing.v2"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.eventing.v1"
+      ],
+      "mechanism": "provider_native_trigger",
+      "catalog_input_port_id": "catalog.azure.port.eventing.processing-in",
+      "catalog_output_port_id": "catalog.azure.port.processing.eventing-out",
+      "transfer_route_class": "same_provider_same_region",
+      "cost_owner_ids": [
+        "cost.processing-to-eventing"
+      ]
+    },
+    {
+      "edge_id": "edge.eventing-to-ingestion",
+      "edge_implementation_id": "edge-implementation.azure-to-azure.eventing-to-ingestion.eventing-v1",
+      "source_deployment_component_ids": [
+        "deployment.azure.eventing.v1"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.ingestion.v2"
+      ],
+      "mechanism": "provider_native_trigger",
+      "catalog_input_port_id": "catalog.azure.port.ingestion.device-command-in",
+      "catalog_output_port_id": "catalog.azure.port.eventing.ingestion-out",
+      "transfer_route_class": "same_provider_same_region",
+      "cost_owner_ids": [
+        "cost.eventing-to-ingestion"
+      ]
+    },
+    {
+      "edge_id": "edge.eventing-to-hot-storage",
+      "edge_implementation_id": "edge-implementation.azure-to-azure.eventing-to-hot-storage.eventing-v1",
+      "source_deployment_component_ids": [
+        "deployment.azure.eventing.v1"
+      ],
+      "destination_deployment_component_ids": [
+        "deployment.azure.hot-storage.v2"
+      ],
+      "mechanism": "provider_native_trigger",
+      "catalog_input_port_id": "catalog.azure.port.hot-storage.eventing-in",
+      "catalog_output_port_id": "catalog.azure.port.eventing.hot-storage-out",
+      "transfer_route_class": "same_provider_same_region",
+      "cost_owner_ids": [
+        "cost.eventing-to-hot-storage"
+      ]
+    }
+  ],
+  "capability_claims": {
+    "required_capability_ids": [
+      "capability.archive-storage",
+      "capability.cool-storage",
+      "capability.embedded-domain-event-ingress",
+      "capability.embedded-domain-event-routing",
+      "capability.hot-storage",
+      "capability.ingestion",
+      "capability.mandatory-rule-action-feedback",
+      "capability.processing",
+      "capability.twin-state",
+      "capability.visualization"
+    ],
+    "provided_capability_ids": [
+      "capability.archive-storage",
+      "capability.cool-storage",
+      "capability.eight-costed-optimization-slots",
+      "capability.embedded-domain-event-ingress",
+      "capability.embedded-domain-event-routing",
+      "capability.event.at-least-once",
+      "capability.event.cost-ownership",
+      "capability.event.cross-cloud-transport",
+      "capability.event.dead-letter",
+      "capability.event.durable-buffer",
+      "capability.event.envelope",
+      "capability.event.idempotency",
+      "capability.event.independent-fanout",
+      "capability.event.observability",
+      "capability.event.per-device-ordering",
+      "capability.event.replay",
+      "capability.event.retry",
+      "capability.event.routing",
+      "capability.event.schema-rejection",
+      "capability.event.trace-correlation",
+      "capability.hot-storage",
+      "capability.independent-eventing-responsibility",
+      "capability.ingestion",
+      "capability.mandatory-rule-action-feedback",
+      "capability.processing",
+      "capability.six-scientific-responsibilities",
+      "capability.twin-state",
+      "capability.visualization"
+    ],
+    "extra_capability_ids": [],
+    "missing_capability_ids": [],
+    "evidence_refs": [
+      "evidence.phase-08-complete-service-bundles.azure"
+    ]
+  },
+  "unsupported_reasons": [],
+  "compatibility": {
+    "compatible_catalog_versions": [
+      {
+        "id": "six-layer-eventing-component-catalog",
+        "version": "1"
+      }
+    ],
+    "compatible_resolver_versions": [
+      "2"
+    ],
+    "compatible_runtime_versions": [
+      "2"
+    ],
+    "compatible_deployment_specification_versions": [
+      "resolved-deployment-specification.v2"
+    ]
+  },
+  "content_digest": "sha256:34c34bc42abd9d57d9cc0cd25b10bdb67f4ce404091c9e590275e52a91128c92"
+}

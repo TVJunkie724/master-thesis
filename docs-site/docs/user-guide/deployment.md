@@ -25,11 +25,26 @@ return to status/history instead of starting a duplicate.
 Inspect:
 
 - final twin and operation status;
+- the typed Layer Access section with one independent L4 semantic-Twin surface
+  and one L5 raw/rollup Grafana surface;
 - structured Terraform outputs (with sensitive values redacted);
 - provider/resource verification results;
 - operation log history;
 - data-flow verification phases where supported;
 - simulator controls only after required provider material exists.
+
+Layer Access is available from persisted `five-layer-baseline@2` or
+`six-layer-eventing@1` deployment evidence. Historical Five-layer v1 returns an
+explicit unsupported state, and destroyed Twins expose no active links. Open
+requires the provider resource and interactive binding to be ready; content
+and data-probe status are shown independently so one degraded layer never
+disables the other or Destroy.
+
+AWS access uses Identity Center, Azure uses Entra ID, and GCP L4 uses IAP. GCP
+Grafana alone offers an explicit Viewer-password rotation. Its one-time value
+is not part of Terraform outputs, is not persisted by Flutter, and is discarded
+when the reveal dialog closes. Provider-console sign-in is not proven by the
+credential-free local gate and remains a supervised live check.
 
 ## Failure And Retry
 
@@ -41,3 +56,13 @@ and explicit confirmation.
 Mock deployment endpoints are development-only and require the test-route capability.
 They exercise UI state/log handling without contacting providers, but they are not
 live-cloud evidence.
+
+The Layer Access integration uses the same quarantine: a temporary local
+Management API and SQLite database exercise all nine L4/L5 provider pairs for
+both active profiles, owner isolation, redaction, destroy, and rotation
+concurrency without starting Optimizer, Deployer, Terraform, or a provider API.
+
+The Phase 8.10 evaluation likewise stops at deterministic RTA/RDS and
+deployment-preflight evidence. Its resolved architecture files, estimated
+costs, and generated Markdown are not proof that deployment ran and cannot be
+used as live Layer Access credentials or URLs.
