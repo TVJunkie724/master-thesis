@@ -43,6 +43,10 @@ OVERLAY_ENV_KEYS = (
     "THESIS_CLOUD_CREDENTIAL_OVERLAY",
     "WITH_CREDENTIALS",
 )
+SETUP_GATE_ENV_KEYS = (
+    "TWIN2MC_SETUP_GATE_ENABLED",
+    "TWIN2MC_SETUP_GATE_CONFIRMATION",
+)
 
 
 class VerificationConfigurationError(RuntimeError):
@@ -72,6 +76,11 @@ def validate_safety(environment: Mapping[str, str]) -> None:
             raise VerificationConfigurationError(
                 f"{key} enables a credential overlay and is forbidden."
             )
+    for key in SETUP_GATE_ENV_KEYS:
+        if environment.get(key, "").strip():
+            raise VerificationConfigurationError(
+                f"{key} is forbidden for the credential-free deployment contract gate."
+            )
 
     compose_files = environment.get("COMPOSE_FILE", "")
     if "compose.cloud.local" in compose_files:
@@ -91,6 +100,7 @@ def sanitized_environment(
         key: value
         for key, value in environment.items()
         if key not in CREDENTIAL_ENV_KEYS
+        and key not in SETUP_GATE_ENV_KEYS
         and not key.startswith(CREDENTIAL_ENV_PREFIXES)
     }
     sanitized.update(
@@ -257,6 +267,7 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                     "scripts.tests.test_five_layer_v2_contracts "
                     "scripts.tests.test_six_layer_eventing_contracts "
                     "scripts.tests.test_verify_resolved_deployment_drift "
+                    "scripts.tests.test_setup_only_live_gate "
                     "scripts.tests.test_thesis_entrypoint "
                     "&& python -m pytest -q -p no:cacheprovider "
                     "scripts/tests/test_deployment_manifest_contract_sync.py"

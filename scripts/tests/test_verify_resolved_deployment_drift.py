@@ -33,6 +33,8 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "scripts/sync_five_layer_workload_contract.py",
             "scripts/sync_six_layer_eventing_contracts.py",
             "scripts/sync_user_function_extension_contracts.py",
+            "scripts/setup_only_live_gate.py",
+            "scripts/tests/test_setup_only_live_gate.py",
             "scripts/verify_six_layer_management_boundary.py",
         )
 
@@ -51,13 +53,13 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             {"THESIS_CLOUD_CREDENTIAL_OVERLAY": "yes"},
             {"WITH_CREDENTIALS": "on"},
             {"COMPOSE_FILE": "compose.yaml:compose.cloud.local.yaml"},
+            {"TWIN2MC_SETUP_GATE_ENABLED": "1"},
+            {"TWIN2MC_SETUP_GATE_CONFIRMATION": "twin2mc-e2e-test:aws:identity_only"},
         )
 
         for environment in unsafe_environments:
             with self.subTest(environment=environment):
-                with self.assertRaises(
-                    verification.VerificationConfigurationError
-                ):
+                with self.assertRaises(verification.VerificationConfigurationError):
                     verification.validate_safety(environment)
 
     def test_sanitized_environment_removes_provider_credentials(self) -> None:
@@ -70,6 +72,8 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "/tmp/not-used.json",
             "TF_VAR_cloud_secret": "not-used",
             "RUN_E2E_TESTS": "false",
+            "TWIN2MC_SETUP_GATE_ENABLED": "1",
+            "TWIN2MC_SETUP_GATE_CONFIRMATION": "not-used",
         }
         runtime_secrets = Path("/tmp/runtime-secrets")
 
@@ -91,6 +95,8 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         self.assertNotIn("GCP_SERVICE_ACCOUNT_JSON", result)
         self.assertNotIn("GOOGLE_APPLICATION_CREDENTIALS", result)
         self.assertNotIn("TF_VAR_cloud_secret", result)
+        self.assertNotIn("TWIN2MC_SETUP_GATE_ENABLED", result)
+        self.assertNotIn("TWIN2MC_SETUP_GATE_CONFIRMATION", result)
 
     def test_ephemeral_runtime_secrets_are_private_and_valid(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_root:
@@ -102,12 +108,12 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
                 stat.S_IMODE(directory.stat().st_mode),
                 0o700,
             )
-            jwt_secret = (directory / "JWT_SECRET_KEY").read_text(
-                encoding="utf-8"
-            ).strip()
-            encryption_key = (directory / "ENCRYPTION_KEY").read_text(
-                encoding="utf-8"
-            ).strip()
+            jwt_secret = (
+                (directory / "JWT_SECRET_KEY").read_text(encoding="utf-8").strip()
+            )
+            encryption_key = (
+                (directory / "ENCRYPTION_KEY").read_text(encoding="utf-8").strip()
+            )
             self.assertGreaterEqual(len(jwt_secret), 64)
             self.assertEqual(len(encryption_key), 44)
             self.assertNotEqual(jwt_secret, encryption_key)
@@ -156,6 +162,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "scripts.tests.test_user_function_extension_contract_sync",
             rendered,
         )
+        self.assertIn("scripts.tests.test_setup_only_live_gate", rendered)
         self.assertIn(
             "scripts/sync_deployment_access_contracts.py --check",
             rendered,
@@ -240,8 +247,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         management_commands = [
             stage.command
             for stage in stages
-            if "management-api" in stage.command
-            and stage.name != "Verification images"
+            if "management-api" in stage.command and stage.name != "Verification images"
         ]
 
         self.assertEqual(len(management_commands), 2)
