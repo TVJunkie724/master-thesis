@@ -34,7 +34,9 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "scripts/sync_six_layer_eventing_contracts.py",
             "scripts/sync_user_function_extension_contracts.py",
             "scripts/setup_only_live_gate.py",
+            "scripts/materialize_deployment_policy.py",
             "scripts/tests/test_setup_only_live_gate.py",
+            "scripts/tests/test_materialize_deployment_policy.py",
             "scripts/verify_six_layer_management_boundary.py",
         )
 
@@ -163,6 +165,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             rendered,
         )
         self.assertIn("scripts.tests.test_setup_only_live_gate", rendered)
+        self.assertIn("scripts.tests.test_materialize_deployment_policy", rendered)
         self.assertIn(
             "scripts/sync_deployment_access_contracts.py --check",
             rendered,

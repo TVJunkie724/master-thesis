@@ -251,6 +251,11 @@ disposable G3 test identity.
   and command-guard tests.
 - Make the runner refuse execution unless one provider and one mode are
   explicit; never add it to default CI.
+- Materialize the frozen provider-neutral deployment inputs into deterministic
+  provider-native AWS policy, Azure custom-role, and GCP custom-role request
+  documents. Verify exact action preservation, provider scope, AWS policy
+  size, mandatory conditions, ownership naming, and absence of secret fields
+  without contacting a provider.
 
 ### Slice B — Reviewed Live Provider Adapters
 
@@ -260,6 +265,8 @@ disposable G3 test identity.
   `disabled` and test default `deterministic_fake`.
 - Implement AWS, Azure, and GCP adapters against the pinned authority and
   deployment-pack digests.
+- Admit only the provider-native document emitted by the offline materializer;
+  adapters must not maintain a second hand-written policy inventory.
 - Keep provider calls in Management; Flutter remains a typed client only.
 - Validate the generated credential before persisting its encrypted
   CloudConnection.

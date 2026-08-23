@@ -668,6 +668,16 @@ production adapter fails closed and therefore makes no live-provider claim.
 The implementation and review evidence is recorded in
 [`guided_cloud_access_bootstrap.md`](../../../twin2multicloud_flutter/docs/configuration_workspace/implementation/guided_cloud_access_bootstrap.md).
 
+The optional setup-only live gate additionally uses
+`scripts/materialize_deployment_policy.py` as the single offline translation
+from the frozen provider-neutral deployment packs to provider-native request
+documents. The materializer preserves the exact inventories and target scopes,
+enforces AWS's managed-policy size limit and required conditions, and contains
+no provider client or credential input. AWS output remains a role policy, as
+declared by the frozen v2 pack; it must not be attached to the currently
+implemented IAM-user CloudConnection path until the recorded identity-form
+contract finding is resolved.
+
 ## 13. Verification Matrix
 
 | Boundary | Required offline evidence |
