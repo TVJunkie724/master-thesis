@@ -776,7 +776,8 @@ Do not put Eventing evaluation conclusions in user docs. Do not edit LaTeX.
 - Legacy unresolvable runs remain readable with a blocking explanation.
 - Rollback disables the profile workflow route and new run creation; it does
   not silently restore direct fixed-field deployment.
-- Manual visual audit #111 remains a later user-led gate.
+- Manual visual audit #111 later passed under Frontend Delta Phase 10 without
+  cloud mutation.
 
 ## 21. Definition Of Done
 

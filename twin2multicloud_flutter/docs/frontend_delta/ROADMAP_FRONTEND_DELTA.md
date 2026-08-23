@@ -3,7 +3,7 @@ title: "Frontend Delta Roadmap"
 description: "Cross-pillar roadmap for aligning Flutter with the credential, pricing, deployment, and configuration refactors."
 tags: [flutter, roadmap, credentials, pricing, deployment, wizard]
 lastUpdated: "2026-08-23"
-version: "2.1"
+version: "2.2"
 ---
 
 <!-- SOURCES:
@@ -137,7 +137,7 @@ Flutter App
 | 8 | Done offline; v2 activation/live sign-in pending | [PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md](phases/PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md) + [operations plan](../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md) + [Layer Access plan](../../implementation_plans/2026-07-31_twin_layer_access_handoff.md) | Twin Overview | Existing operation contracts plus implemented [FR-001](../feature-requests/FR_001_DEPLOYMENT_LAYER_ACCESS_READ_MODEL.md) |
 | 9 | Done | [PHASE_09_CROSS_CUTTING_QUALITY_GATE.md](phases/PHASE_09_CROSS_CUTTING_QUALITY_GATE.md) | Cross-cutting | All delivered contracts; residual issues tracked |
 | 9.1 | Local gates complete; platform CI pending | [Immutable Region-Scoped Pricing Catalogs](../../../2-twin2clouds/implementation_plans/2026-07-17_immutable_region_pricing_catalogs.md) | Pricing Review, calculation evidence, Twin Overview | Strict immutable references replace full pricing exports; compact evidence, honest legacy state, Web/macOS builds, and live local integration are verified |
-| 10 | Next | [Post-Phase-8 Flutter Finalization](concepts/CONCEPT_POST_PHASE_08_FINALIZATION.md) | Complete manual visual and interaction audit | No new Management API contract; deterministic demo/local data only |
+| 10 | Done | [PHASE_10_FINAL_MANUAL_VISUAL_AUDIT.md](phases/PHASE_10_FINAL_MANUAL_VISUAL_AUDIT.md) | Complete manual visual, interaction, accessibility, and release audit | No new Management API contract; deterministic demo/local data only |
 
 ## Execution Order
 
@@ -188,8 +188,9 @@ are now active for offline calculation; Phase 8.10 generates research evidence
 without adding frontend behavior. Provider-console browser sign-in remains a
 separate supervised-live boundary.
 
-The remaining frontend phase is the human audit defined in
-[Post-Phase-8 Flutter Finalization](concepts/CONCEPT_POST_PHASE_08_FINALIZATION.md).
-General region-catalog administration, arbitrary provider-binding overrides,
-product-grade runtime monitoring, and a second centralized error bus are not
-prerequisites for that audit and are outside the approved Thesis PoC boundary.
+The final human audit is complete in
+[Phase 10](phases/PHASE_10_FINAL_MANUAL_VISUAL_AUDIT.md). General
+region-catalog administration, arbitrary provider-binding overrides,
+product-grade runtime monitoring, and a second centralized error bus remain
+outside the approved Thesis PoC boundary. Any live-provider evidence remains a
+separate supervised activity under #107.

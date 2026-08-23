@@ -385,10 +385,10 @@ verification evidence before implementation continues.
 - widget tests cover light/dark and constrained widths where UI changes.
 
 The user explicitly deferred final application E2E until after the manual visual UI
-audit and the Twin architecture audit. Therefore this slice must run unit, widget,
-analyzer, build, backend contract-integration, and Compose smoke gates, but must not
-add or execute `flutter test integration_test/`. The later E2E issue must exercise the
-real Management API; it may not replace it with a mocked HTTP adapter.
+audit and the Twin architecture audit. Those offline gates are now complete, but this
+slice still must not add or execute live-provider E2E. The later supervised issue
+#107 must exercise the real Management API; it may not replace it with a mocked HTTP
+adapter.
 
 ### Repository Gates
 

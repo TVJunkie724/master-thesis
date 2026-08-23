@@ -642,8 +642,8 @@ Never run:
 - any operation that can create cloud resources or costs.
 
 The final supervised E2E protocol is prepared in Phase 8.10 but remains
-unexecuted until the user explicitly decides to run it after the manual visual
-UI audit.
+unexecuted. The manual visual UI audit has passed; any live-provider run still
+requires the separate explicit decision and safety boundary owned by #107.
 
 ## Security And Quality Rules
 

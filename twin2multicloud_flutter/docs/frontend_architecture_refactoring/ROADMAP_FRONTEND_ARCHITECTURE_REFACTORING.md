@@ -118,7 +118,7 @@ facades for Management API use cases; they do not call Optimizer or Deployer.
 | 3 | Completed | [PHASE_03_TYPED_FEATURE_MODELS.md](phases/PHASE_03_TYPED_FEATURE_MODELS.md) | Typed DTO/read models replace raw maps at stable twin, configuration, optimizer, pricing-export, and deployer feature boundaries (#72). |
 | 4 | Completed | [PHASE_04_WIZARD_DECOMPOSITION.md](phases/PHASE_04_WIZARD_DECOMPOSITION.md) | #38 splits handler, request-builder, service, and presentation responsibilities while preserving one public workflow BLoC. |
 | 5 | Completed | [PHASE_05_TWIN_OVERVIEW_DECOMPOSITION.md](phases/PHASE_05_TWIN_OVERVIEW_DECOMPOSITION.md) | #73 separates typed operations, readiness, logs, outputs, simulator/trace state, and presentation. |
-| 6 | Completed for PoC | [PHASE_06_PRESENTATION_AND_DESIGN_SYSTEM_CLEANUP.md](phases/PHASE_06_PRESENTATION_AND_DESIGN_SYSTEM_CLEANUP.md) | #38, #73, and #108 establish focused presentation widgets and shared architecture/design checks; the final human visual review belongs to #111. |
+| 6 | Completed for PoC | [PHASE_06_PRESENTATION_AND_DESIGN_SYSTEM_CLEANUP.md](phases/PHASE_06_PRESENTATION_AND_DESIGN_SYSTEM_CLEANUP.md) | #38, #73, and #108 establish focused presentation widgets and shared architecture/design checks; the final human visual review under #111 passed in Frontend Delta Phase 10. |
 | 7 | Completed | [PHASE_07_ARCHITECTURE_QUALITY_GATE.md](phases/PHASE_07_ARCHITECTURE_QUALITY_GATE.md) | #108 and #109 enforce architecture, tests, demo behavior, and Web/all-desktop build gates. |
 
 ## Execution Order

@@ -3,7 +3,7 @@ title: "Implementation Plan: Final Manual Flutter Visual Audit"
 description: "Complete credential-free visual, interaction, accessibility, architecture, and release-gate audit for issue #111."
 tags: [flutter, audit, accessibility, responsive, thesis]
 lastUpdated: "2026-08-23"
-version: "1.1"
+version: "1.2"
 status: "approved"
 ---
 
@@ -11,6 +11,8 @@ status: "approved"
 
 **Approval:** Genehmigt by the user on 2026-08-23 after the mandatory
 Architect/Builder plan review reached zero unresolved gaps.
+The v1.2 baseline-token clarification was re-reviewed under the same approved
+PoC boundary and introduced no product scope or unresolved plan gap.
 
 ## 0. Git Branch
 
@@ -287,10 +289,19 @@ No new token is planned. The audit checks current use of:
 - `lib/theme/spacing.dart` shared spacing tokens;
 - Material icons already present in the project.
 
-Any production UI color, spacing, or text style that bypasses the current
-shared theme/token boundary is an audit finding unless an approved component
-plan documents the exact framework-required exception. The audit must not
-weaken this rule merely because the value predates Phase 8.
+Any new or modified production UI color, spacing, or text style introduced by
+an audit remediation must use the current shared theme/token boundary unless
+the finding-specific change documents an exact framework-required exception.
+The visual audit also treats an existing value as a finding when it causes an
+observable contrast, consistency, responsive, or accessibility defect.
+
+The already approved PoC baseline contains historical component-specific
+Material palette values and exact editor/terminal geometry. Their mere
+syntactic presence is not a new visual-audit finding: a mechanical whole-app
+token rewrite would be a separate refactor without a user-facing audit target.
+This clarification was added after the baseline scan and re-reviewed against
+the Thesis PoC boundary. It does not permit new one-off values, and it does not
+excuse any observed visual or accessibility defect.
 
 ## 8. Interactions And Animations
 
