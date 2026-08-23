@@ -106,9 +106,11 @@ foreground-automation limitation, not an application defect.
 | AUDT-02 | Major | Reusable code/log viewer exposed no semantic name for read-only content and retained local geometry/color literals | Named read-only semantics in `lib/widgets/code_viewer_dialog.dart:227`; tokens in `lib/theme/colors.dart:41` and `lib/theme/spacing.dart:162`; widget regression in `test/widgets/code_viewer_dialog_test.dart:30` | `85f5c39b` |
 | AUDT-03 | Major | L4/L5 detail expanders lost independent button roles in the Web semantics tree | Explicit semantic containers and expansion action in `lib/widgets/twin_overview/layer_access_panel.dart:168` and `:404`; semantic action assertions in `test/widgets/twin_overview/layer_access_panel_test.dart:211` | `85f5c39b`, `e45e7240` |
 | AUDT-04 | Minor | The plan required both 150 % and 200 % dense-surface evidence, but only the 200 % endpoint was automated | Parameterized both scales in `test/widgets/cloud_connections/cloud_bootstrap_flow_test.dart:190`, `test/widgets/results/resolved_architecture_review_test.dart:131`, and `test/widgets/twin_overview/layer_access_panel_test.dart:144` | `3d992066` |
+| AUDT-05 | Minor | Independent audit review found that the changed code viewer still created its base typography with a direct `TextStyle` | `lib/widgets/code_viewer_dialog.dart:241` now derives from `ThemeData.textTheme` and only applies the monospace/token overrides; analyzer and focused widget test pass | `c1a36d4c` |
+| AUDT-06 | Minor | Canonical docs still described #111 as next work and the report grouped overlays too broadly for a complete inventory | `docs-site/docs/architecture/refactoring-roadmap.md:189`, the finalization concept, and the explicit overlay/action matrix at this document's line 53 now agree on completion | `c1a36d4c` |
 
-After these fixes, the complete eleven-phase audit was repeated. It produced no
-additional finding.
+After these fixes, the complete eleven-phase audit was repeated again. It
+produced no additional finding.
 
 ## Exact Automated Evidence
 
@@ -142,7 +144,7 @@ tracked workflow for the branch.
 
 ## Final Verdict
 
-All eleven audit phases pass. All four findings are resolved with regression
+All eleven audit phases pass. All six findings are resolved with regression
 evidence. No Critical, Major, Minor, or unrecorded finding remains.
 
 **APPROVED FOR HANDOFF**
