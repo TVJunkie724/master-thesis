@@ -117,6 +117,15 @@ void main() {
       final guide = await api.getCloudBootstrapGuide(CloudProvider.aws, target);
       expect(guide.bootstrapAuthorityPack.id, 'bootstrap.aws.admin-v2');
       expect(guide.bootstrapAuthorityPack.version, '2');
+      final gcpGuide = await api.getCloudBootstrapGuide(
+        CloudProvider.gcp,
+        CloudBootstrapTarget.gcpExistingProject(
+          projectId: 'twin2mc-demo-project',
+          region: 'europe-west1',
+        ),
+      );
+      expect(gcpGuide.bootstrapAuthorityPack.id, 'bootstrap.gcp.admin-v2');
+      expect(gcpGuide.bootstrapAuthorityPack.version, '2');
       final draft = await api.createCloudBootstrapSession(
         guide: guide,
         entryPoint: CloudBootstrapEntryPoint.settings,

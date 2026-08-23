@@ -220,6 +220,16 @@ class SetupGateManifestTests(unittest.TestCase):
         self.assertIn("managed_policy", RESOURCE_KINDS["aws"])
         self.assertNotIn("inline_policy", RESOURCE_KINDS["aws"])
 
+    def test_gcp_manifest_uses_prerequisite_aware_v2_authority_pack(self) -> None:
+        reference = manifest("gcp").document["bootstrap_authority_pack"]
+
+        self.assertEqual(reference["id"], "bootstrap.gcp.admin-v2")
+        self.assertEqual(reference["version"], "2")
+        self.assertIn("serviceusage.services.get", ALLOWED_IDENTITY_OPERATIONS["gcp"])
+        self.assertNotIn(
+            "serviceusage.services.enable", ALLOWED_IDENTITY_OPERATIONS["gcp"]
+        )
+
 
 class CleanupLedgerTests(unittest.TestCase):
     def setUp(self) -> None:

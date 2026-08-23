@@ -3371,10 +3371,7 @@ class DemoManagementApi implements ManagementApi {
     required bool authority,
     required bool detailed,
   }) {
-    final authorityVersion = switch (provider) {
-      CloudProvider.aws || CloudProvider.azure => '2',
-      CloudProvider.gcp => '1',
-    };
+    const authorityVersion = '2';
     final version = authority ? authorityVersion : 'thesis-demo-v2';
     return {
       'id': authority

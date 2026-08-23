@@ -42,7 +42,7 @@ MAX_LEDGER_BYTES = 256 * 1024
 BOOTSTRAP_PACK_PATHS = {
     "aws": PERMISSION_SET_ROOT / "aws_bootstrap_admin_v2.json",
     "azure": PERMISSION_SET_ROOT / "azure_bootstrap_admin_v2.json",
-    "gcp": PERMISSION_SET_ROOT / "gcp_bootstrap_admin_v1.json",
+    "gcp": PERMISSION_SET_ROOT / "gcp_bootstrap_admin_v2.json",
 }
 DEPLOYMENT_PACK_PATHS = {
     provider: PERMISSION_SET_ROOT / f"{provider}_thesis_demo_v2.json"
@@ -107,7 +107,9 @@ ALLOWED_IDENTITY_OPERATIONS = {
             "resourcemanager.projects.get",
             "resourcemanager.projects.get_iam_policy",
             "resourcemanager.projects.set_iam_policy",
+            "serviceusage.services.get",
             "iam.roles.get",
+            "iam.roles.list",
             "iam.roles.create",
             "iam.roles.update",
             "iam.roles.delete",
@@ -174,7 +176,9 @@ OPERATION_PERMISSIONS = {
         "resourcemanager.projects.set_iam_policy": (
             "resourcemanager.projects.setIamPolicy"
         ),
+        "serviceusage.services.get": "serviceusage.services.get",
         "iam.roles.get": "iam.roles.get",
+        "iam.roles.list": "iam.roles.list",
         "iam.roles.create": "iam.roles.create",
         "iam.roles.update": "iam.roles.update",
         "iam.roles.delete": "iam.roles.delete",

@@ -146,7 +146,7 @@ def test_guides_are_strict_safe_and_reference_v2_for_every_provider(auth_client)
         expected_authority = {
             "aws": ("bootstrap.aws.admin-v2", "2"),
             "azure": ("bootstrap.azure.admin-v2", "2"),
-            "gcp": ("bootstrap.gcp.admin-v1", "1"),
+            "gcp": ("bootstrap.gcp.admin-v2", "2"),
         }[provider]
         assert guide["bootstrap_authority_pack"]["id"] == expected_authority[0]
         assert guide["bootstrap_authority_pack"]["version"] == expected_authority[1]

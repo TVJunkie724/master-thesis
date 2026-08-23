@@ -90,6 +90,12 @@ an identity-only runner rather than relabel the existing deployment E2E tests.
   normal application disposal contract.
 - GCP existing-project and organization/project-creation paths cannot share
   one initial result. Only the existing-project path is admitted first.
+- The historical `bootstrap.gcp.admin-v1` pack could not verify the mandatory
+  IAM API prerequisite or distinguish a missing custom role from a deleted
+  role tombstone. Active guided bootstrap now pins `bootstrap.gcp.admin-v2`,
+  adding only `serviceusage.services.get` and `iam.roles.list`; API enablement
+  remains forbidden. Cleanup treats `deleted=true` as the correct immediate
+  result because GCP keeps a custom role soft-deleted for seven days.
 
 ## 3. Gate Sequence
 
@@ -100,7 +106,7 @@ an identity-only runner rather than relabel the existing deployment E2E tests.
 | G2 Authority smoke | AWS/Azure/GCP | None | None | Submitted bootstrap credential resolves to the exact selected account, tenant/subscription, or project and satisfies the bootstrap authority pack |
 | G3 Identity-only apply | One provider at a time | IAM/directory identity, policy/role, one generated credential | None | A unique `twin2mc-e2e-*` deployment identity is created idempotently from the v2 pack |
 | G4 Non-admin validation | One provider at a time | None | None | Generated credential authenticates, matches the selected scope, and passes normalized provider/deployer preflight |
-| G5 Identity cleanup | One provider at a time | Delete only gate-owned key, binding/policy, role where owned, and identity | None | Provider lookup proves absence; test CloudConnection and local secret material are removed |
+| G5 Identity cleanup | One provider at a time | Delete only gate-owned key, binding/policy, role where owned, and identity | None | Provider lookup proves absence or the documented inactive/deleted terminal state; test CloudConnection and local secret material are removed |
 | G6 Terraform plan-only | One provider at a time | Provider reads and local plan artifacts only | None | The bounded credential can produce the chosen Small single-cloud plan; no `apply` |
 | G7 Paid deployment smoke | One provider at a time | Small single-cloud architecture | Yes | Explicitly approved deploy, health/evidence, destroy, and leak check |
 | G8 Multi-cloud matrix | Two or three providers | Approved architecture resources | Yes | Only admitted after the corresponding providers pass G2-G7 separately |
@@ -153,14 +159,18 @@ Allowed:
 
 - resolve and compare the exact project;
 - create/reconcile one prefixed service account;
+- verify that the IAM API is already enabled without enabling it;
 - create/reuse the reviewed v2 project custom role and binding;
 - create exactly one user-managed test key when organization policy permits;
 - authenticate the generated service account and run read-only preflight;
 - remove the key, binding, owned custom role, and service account.
 
-The gate must not enable workload APIs and must not weaken an organization
-policy that forbids user-managed keys. A key-policy block is a truthful gate
-result, not permission to change the policy.
+The gate must not enable the IAM API or workload APIs and must not weaken an
+organization policy that forbids user-managed keys. A missing IAM API or
+key-policy block is a truthful gate result, not permission to change the
+project or policy. GCP role cleanup succeeds when the binding is absent and the
+exact owned role reports `deleted=true`; its run ID is not reused during the
+seven-day recovery window.
 
 ## 5. Required Test Cases
 
@@ -183,8 +193,9 @@ Every provider must pass the following cases before G6:
     without deleting pre-existing identities.
 11. Cleanup deletes only resources bearing the gate run ID and recorded
     provider identifiers.
-12. Provider lookup after cleanup returns not found; local test
-    CloudConnection and temporary secret files are absent.
+12. Provider lookup after cleanup returns not found or the provider's explicit
+    inactive/deleted terminal state (GCP custom role: `deleted=true`); local
+    test CloudConnection and temporary secret files are absent.
 
 ## 6. Credential And Evidence Rules
 
@@ -287,7 +298,8 @@ disposable G3 test identity.
 - [ ] Admin/bootstrap secrets never persist or appear in evidence.
 - [ ] Generated non-admin credentials authenticate and pass normalized preflight.
 - [ ] Idempotency and every tested partial-failure boundary avoid duplicate keys/identities.
-- [ ] Cleanup proves provider and local absence after every disposable run.
+- [ ] Cleanup proves provider and local absence or the provider's documented
+  inactive/deleted terminal state after every disposable run.
 - [ ] GCP existing-project and organization paths are reported separately.
 - [ ] No Terraform apply or paid architecture resource occurs before explicit G7 admission.
 

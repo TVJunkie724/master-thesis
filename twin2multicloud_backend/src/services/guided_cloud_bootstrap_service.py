@@ -140,7 +140,7 @@ PROVIDER_GUIDANCE: dict[str, dict[str, Any]] = {
             (
                 "create_temporary_service_account",
                 "Create temporary bootstrap service account",
-                "Bind bootstrap.gcp.admin-v1 and create one JSON key only when organization policy permits it.",
+                "Bind bootstrap.gcp.admin-v2 and create one JSON key only when organization policy permits it.",
                 "One service-account JSON document is downloaded and no key policy was weakened.",
                 "https://cloud.google.com/iam/docs/keys-create-delete",
             ),
@@ -660,7 +660,7 @@ class GuidedCloudBootstrapService:
             repository_name = {
                 "aws": "aws_bootstrap_admin_v2.json",
                 "azure": "azure_bootstrap_admin_v2.json",
-                "gcp": "gcp_bootstrap_admin_v1.json",
+                "gcp": "gcp_bootstrap_admin_v2.json",
             }[provider]
             scope = document["scope_summary"]
             limitations = document["limitations"]
