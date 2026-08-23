@@ -65,6 +65,21 @@ an identity-only runner rather than relabel the existing deployment E2E tests.
   the old pack: active guided bootstrap now pins `bootstrap.azure.admin-v2`,
   which adds the exact role-definition write/delete boundary. Broad
   `Contributor` plus `User Access Administrator` fallback remains forbidden.
+- The historical `bootstrap.aws.admin-v1` pack attempted to attach the
+  `thesis-demo-v2` actions as an IAM-user inline policy. Even a compact action
+  document exceeds AWS's 2,048-character aggregate user-inline-policy quota.
+  This is resolved without rewriting v1: active guided bootstrap now pins
+  `bootstrap.aws.admin-v2`, which creates one gate-owned customer-managed
+  policy, attaches it only to the generated user, and includes the exact
+  version/detach/delete cleanup boundary. Its rendered document must stay
+  below the 6,144-character managed-policy limit.
+- The active AWS `thesis-demo-v2` descriptor says "generated deployment role",
+  while the implemented CloudConnection and Terraform provider boundary use a
+  generated IAM-user access key and do not yet support assume-role deployment
+  connections. This wording cannot be silently changed in a frozen pack. A
+  follow-up decision must either publish a corrected deployment-pack version
+  for the IAM-user path or implement and validate role assumption end to end;
+  AWS live identity execution remains blocked until that choice is closed.
 - The existing guided session has no provider-identity deletion lifecycle.
   Deleting a local CloudConnection alone is not cleanup, so the disposable
   live runner needs its own provider cleanup ledger and operation.
@@ -101,10 +116,11 @@ Allowed:
 
 - `sts:GetCallerIdentity` and exact account comparison;
 - create/reconcile one prefixed IAM deployment user;
-- attach only the frozen `thesis-demo-v2` inline policy;
+- create and attach only the frozen `thesis-demo-v2` customer-managed policy;
 - create exactly one test access key;
 - authenticate the generated key and run read-only preflight;
-- delete the exact access key, inline policy, and test user.
+- detach and delete the exact access key, gate-owned managed policy versions,
+  managed policy, and test user.
 
 Forbidden in this gate: Organizations, Identity Center activation, IoT,
 Lambda, Step Functions, DynamoDB, S3, Kinesis, SNS, SQS, TwinMaker, Grafana,
@@ -227,8 +243,8 @@ disposable G3 test identity.
 
 ### Slice B — Reviewed Live Provider Adapters
 
-- Resolve and republish the Azure bootstrap-authority/custom-role boundary
-  before provider code is enabled.
+- Resolve and republish the AWS managed-policy and Azure custom-role bootstrap
+  authority boundaries before provider code is enabled.
 - Add a `supervised_live` adapter mode while retaining production default
   `disabled` and test default `deterministic_fake`.
 - Implement AWS, Azure, and GCP adapters against the pinned authority and

@@ -19,7 +19,7 @@ PERMISSION_SET_ROOT = (
     REPO_ROOT / "3-cloud-deployer" / "docs" / "references" / "permission_sets"
 )
 AUTHORITY_PACK_SOURCES = {
-    "v1/authority-packs/aws.json": PERMISSION_SET_ROOT / "aws_bootstrap_admin_v1.json",
+    "v1/authority-packs/aws.json": PERMISSION_SET_ROOT / "aws_bootstrap_admin_v2.json",
     "v1/authority-packs/azure.json": PERMISSION_SET_ROOT
     / "azure_bootstrap_admin_v2.json",
     "v1/authority-packs/gcp.json": PERMISSION_SET_ROOT / "gcp_bootstrap_admin_v1.json",

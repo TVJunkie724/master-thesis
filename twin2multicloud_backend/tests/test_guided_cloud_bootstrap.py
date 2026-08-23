@@ -144,7 +144,7 @@ def test_guides_are_strict_safe_and_reference_v2_for_every_provider(auth_client)
         assert guide["execution_mode"] == "deterministic_fake"
         assert guide["generated_deployment_pack"]["version"] == "thesis-demo-v2"
         expected_authority = {
-            "aws": ("bootstrap.aws.admin-v1", "1"),
+            "aws": ("bootstrap.aws.admin-v2", "2"),
             "azure": ("bootstrap.azure.admin-v2", "2"),
             "gcp": ("bootstrap.gcp.admin-v1", "1"),
         }[provider]

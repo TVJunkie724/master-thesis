@@ -3,7 +3,7 @@ title: "Phase 8 Guided Cloud Bootstrap And Manual Prerequisites"
 description: "Binding cross-service plan for turning request-scoped bootstrap authority into reusable bounded CloudConnections while exposing the few unavoidable provider actions."
 tags: [phase-8, credentials, bootstrap, cloud-connections, identity, preflight, security]
 lastUpdated: "2026-08-24"
-version: "1.4"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -20,7 +20,7 @@ version: "1.4"
 - twin2multicloud_flutter/docs/configuration_workspace/CONCEPT_CONFIGURATION_WORKSPACE.md
 - twin2multicloud_flutter/docs/frontend_delta/phases/PHASE_02_PROFILE_CLOUD_ACCESS.md
 - AWS IAM Identity Center, Microsoft Azure RBAC, and Google Cloud IAM/IAP primary documentation linked in section 15
-EXTRACTED: 2026-08-24 | VERSION: 1.4
+EXTRACTED: 2026-08-24 | VERSION: 1.5
 -->
 
 # Phase 8 Guided Cloud Bootstrap And Manual Prerequisites
@@ -117,7 +117,7 @@ perform their setup calls. Guided bootstrap now publishes a distinct reviewed,
 machine-checkable permission pack for that initial authority:
 
 ```text
-bootstrap.aws.admin-v1
+bootstrap.aws.admin-v2
 bootstrap.azure.admin-v2
 bootstrap.gcp.admin-v1
 ```
@@ -126,14 +126,21 @@ Their canonical planned locations are:
 
 | Contract ID | Repository artifact |
 |---|---|
-| `bootstrap.aws.admin-v1` | `3-cloud-deployer/docs/references/permission_sets/aws_bootstrap_admin_v1.json` |
+| `bootstrap.aws.admin-v2` | `3-cloud-deployer/docs/references/permission_sets/aws_bootstrap_admin_v2.json` |
 | `bootstrap.azure.admin-v2` | `3-cloud-deployer/docs/references/permission_sets/azure_bootstrap_admin_v2.json` |
 | `bootstrap.gcp.admin-v1` | `3-cloud-deployer/docs/references/permission_sets/gcp_bootstrap_admin_v1.json` |
 
-Azure v2 supersedes the historical `bootstrap.azure.admin-v1` pack without
-rewriting it. The v2 pack adds the exact role-definition write/delete boundary
-required to create and clean up the generated `thesis-demo-v2` custom role;
-it does not permit a fallback to broad `Contributor` plus
+AWS v2 supersedes the historical `bootstrap.aws.admin-v1` pack without
+rewriting it. The v1 inline-policy path cannot hold the Phase 8 permission
+inventory because AWS limits all inline policies on one IAM user to 2,048
+characters. The v2 pack instead creates, attaches, versions, detaches, and
+deletes one gate-owned customer-managed policy; its rendered document must
+remain below AWS's 6,144-character customer-managed-policy limit.
+
+Azure v2 likewise supersedes the historical `bootstrap.azure.admin-v1` pack
+without rewriting it. The v2 pack adds the exact role-definition write/delete
+boundary required to create and clean up the generated `thesis-demo-v2` custom
+role; it does not permit a fallback to broad `Contributor` plus
 `User Access Administrator` assignments.
 
 Each artifact covers only generated-identity creation/reconciliation,
@@ -167,7 +174,7 @@ The following authority must exist before the platform can bootstrap itself:
 
 | Provider | User-owned preparation | Values supplied to the guided flow |
 |---|---|---|
-| AWS | Existing billable AWS account; dedicated temporary IAM principal or assumed-role session that passes `bootstrap.aws.admin-v1` | account ID, region, access key ID, secret access key, optional session token, and required provider-issued expiry when a session token is used |
+| AWS | Existing billable AWS account; dedicated temporary IAM principal or assumed-role session that passes `bootstrap.aws.admin-v2` | account ID, region, access key ID, secret access key, optional session token, and required provider-issued expiry when a session token is used |
 | Azure | Existing active Entra tenant and subscription; dedicated bootstrap app/service principal that passes `bootstrap.azure.admin-v2` across the required directory and subscription RBAC scopes | tenant ID, subscription ID, client ID, client secret, region, and safe credential key ID when automatic disposable-secret removal is requested |
 | GCP existing-project path | Existing billable project; dedicated bootstrap service account that passes `bootstrap.gcp.admin-v1` at project scope | project ID, region, service-account JSON credential |
 | GCP organization path | Existing organization, billing account, and bootstrap/admin project; dedicated bootstrap service account that passes the organization-path variant of `bootstrap.gcp.admin-v1` | bootstrap project ID, billing account ID, organization/folder target, region, service-account JSON credential |
@@ -411,7 +418,7 @@ The initial provider behavior is explicit:
 
 | Provider credential submitted as `dedicated_disposable` | Automatic final action | Fallback |
 |---|---|---|
-| AWS IAM-user access key | Delete the exact submitted access-key ID when it belongs to the declared bootstrap principal and `bootstrap.aws.admin-v1` permits the call | Show IAM key ID and official delete-key steps |
+| AWS IAM-user access key | Delete the exact submitted access-key ID when it belongs to the declared bootstrap principal and `bootstrap.aws.admin-v2` permits the call | Show IAM key ID and official delete-key steps |
 | AWS STS session | Record the provider-issued expiration as `expires_at_provider`; do not claim deletion or early revocation | Show principal/session identifier and exact expiry; no cleanup acknowledgement is required |
 | Azure service-principal client secret | Remove the exact submitted credential/key ID only when the bootstrap app and Graph authority permit it | Show tenant, application ID, safe credential ID, and official credential-removal steps |
 | GCP service-account key | Delete the exact submitted key ID when it belongs to the declared service account and `bootstrap.gcp.admin-v1` permits it | Show service-account email/key ID and official delete-key steps |
@@ -611,8 +618,9 @@ deployment permissions.
 
 The offline implementation was delivered in independently reviewed commits:
 
-1. **Contracts and fixtures:** create and review all three
-   `bootstrap.<provider>.admin-v1` authority artifacts; add bootstrap
+1. **Contracts and fixtures:** create and review the original three
+   `bootstrap.<provider>.admin-v1` authority artifacts and the versioned AWS
+   and Azure v2 corrections; add bootstrap
    guide/session schemas, stable finding codes, both permission-pack
    references, provider matrices, compatibility fixtures, and redaction tests.
 2. **Management lifecycle:** request-only secret boundary, session ownership,

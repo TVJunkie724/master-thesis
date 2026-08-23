@@ -89,7 +89,7 @@ PROVIDER_GUIDANCE: dict[str, dict[str, Any]] = {
             (
                 "create_temporary_authority",
                 "Create temporary bootstrap authority",
-                "Create a dedicated temporary IAM credential or obtain a short STS session that matches bootstrap.aws.admin-v1.",
+                "Create a dedicated temporary IAM credential or obtain a short STS session that matches bootstrap.aws.admin-v2.",
                 "The access key material is copied once and any STS expiry is recorded.",
                 "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html",
             ),
@@ -658,7 +658,7 @@ class GuidedCloudBootstrapService:
             pack_id = document["contract_id"]
             version = pack_id.rsplit("-v", maxsplit=1)[-1]
             repository_name = {
-                "aws": "aws_bootstrap_admin_v1.json",
+                "aws": "aws_bootstrap_admin_v2.json",
                 "azure": "azure_bootstrap_admin_v2.json",
                 "gcp": "gcp_bootstrap_admin_v1.json",
             }[provider]

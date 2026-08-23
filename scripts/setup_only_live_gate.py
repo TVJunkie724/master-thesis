@@ -40,7 +40,7 @@ REGION_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{1,31}$")
 MAX_LEDGER_BYTES = 256 * 1024
 
 BOOTSTRAP_PACK_PATHS = {
-    "aws": PERMISSION_SET_ROOT / "aws_bootstrap_admin_v1.json",
+    "aws": PERMISSION_SET_ROOT / "aws_bootstrap_admin_v2.json",
     "azure": PERMISSION_SET_ROOT / "azure_bootstrap_admin_v2.json",
     "gcp": PERMISSION_SET_ROOT / "gcp_bootstrap_admin_v1.json",
 }
@@ -64,10 +64,19 @@ ALLOWED_IDENTITY_OPERATIONS = {
             "iam.delete_user",
             "iam.tag_user",
             "iam.untag_user",
-            "iam.put_user_policy",
-            "iam.get_user_policy",
-            "iam.delete_user_policy",
-            "iam.list_user_policies",
+            "iam.create_policy",
+            "iam.delete_policy",
+            "iam.get_policy",
+            "iam.get_policy_version",
+            "iam.list_policy_versions",
+            "iam.create_policy_version",
+            "iam.delete_policy_version",
+            "iam.attach_user_policy",
+            "iam.detach_user_policy",
+            "iam.list_attached_user_policies",
+            "iam.list_entities_for_policy",
+            "iam.tag_policy",
+            "iam.untag_policy",
             "iam.create_access_key",
             "iam.delete_access_key",
             "iam.get_access_key_last_used",
@@ -120,10 +129,19 @@ OPERATION_PERMISSIONS = {
         "iam.delete_user": "iam:DeleteUser",
         "iam.tag_user": "iam:TagUser",
         "iam.untag_user": "iam:UntagUser",
-        "iam.put_user_policy": "iam:PutUserPolicy",
-        "iam.get_user_policy": "iam:GetUserPolicy",
-        "iam.delete_user_policy": "iam:DeleteUserPolicy",
-        "iam.list_user_policies": "iam:ListUserPolicies",
+        "iam.create_policy": "iam:CreatePolicy",
+        "iam.delete_policy": "iam:DeletePolicy",
+        "iam.get_policy": "iam:GetPolicy",
+        "iam.get_policy_version": "iam:GetPolicyVersion",
+        "iam.list_policy_versions": "iam:ListPolicyVersions",
+        "iam.create_policy_version": "iam:CreatePolicyVersion",
+        "iam.delete_policy_version": "iam:DeletePolicyVersion",
+        "iam.attach_user_policy": "iam:AttachUserPolicy",
+        "iam.detach_user_policy": "iam:DetachUserPolicy",
+        "iam.list_attached_user_policies": "iam:ListAttachedUserPolicies",
+        "iam.list_entities_for_policy": "iam:ListEntitiesForPolicy",
+        "iam.tag_policy": "iam:TagPolicy",
+        "iam.untag_policy": "iam:UntagPolicy",
         "iam.create_access_key": "iam:CreateAccessKey",
         "iam.delete_access_key": "iam:DeleteAccessKey",
         "iam.get_access_key_last_used": "iam:GetAccessKeyLastUsed",
@@ -170,7 +188,7 @@ OPERATION_PERMISSIONS = {
 }
 
 RESOURCE_KINDS = {
-    "aws": frozenset({"iam_user", "inline_policy", "access_key"}),
+    "aws": frozenset({"iam_user", "managed_policy", "access_key"}),
     "azure": frozenset(
         {
             "application",

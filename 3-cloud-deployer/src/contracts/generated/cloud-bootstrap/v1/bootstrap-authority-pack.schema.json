@@ -23,6 +23,7 @@
     "contract_id": {
       "enum": [
         "bootstrap.aws.admin-v1",
+        "bootstrap.aws.admin-v2",
         "bootstrap.azure.admin-v1",
         "bootstrap.azure.admin-v2",
         "bootstrap.gcp.admin-v1"
@@ -82,7 +83,9 @@
       "if": {"properties": {"provider": {"const": "aws"}}},
       "then": {
         "properties": {
-          "contract_id": {"const": "bootstrap.aws.admin-v1"},
+          "contract_id": {
+            "enum": ["bootstrap.aws.admin-v1", "bootstrap.aws.admin-v2"]
+          },
           "target_modes": {"const": ["account"]}
         }
       }

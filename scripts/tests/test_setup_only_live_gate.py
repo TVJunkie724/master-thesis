@@ -13,6 +13,7 @@ import unittest
 from scripts.setup_only_live_gate import (
     ALLOWED_IDENTITY_OPERATIONS,
     CleanupLedgerStore,
+    RESOURCE_KINDS,
     SetupGateError,
     add_owned_resource,
     attach_cloud_connection,
@@ -210,6 +211,14 @@ class SetupGateManifestTests(unittest.TestCase):
 
         self.assertEqual(reference["id"], "bootstrap.azure.admin-v2")
         self.assertEqual(reference["version"], "2")
+
+    def test_aws_manifest_uses_managed_policy_v2_authority_pack(self) -> None:
+        reference = manifest("aws").document["bootstrap_authority_pack"]
+
+        self.assertEqual(reference["id"], "bootstrap.aws.admin-v2")
+        self.assertEqual(reference["version"], "2")
+        self.assertIn("managed_policy", RESOURCE_KINDS["aws"])
+        self.assertNotIn("inline_policy", RESOURCE_KINDS["aws"])
 
 
 class CleanupLedgerTests(unittest.TestCase):

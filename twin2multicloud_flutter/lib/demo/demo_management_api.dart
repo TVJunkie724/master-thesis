@@ -3371,10 +3371,14 @@ class DemoManagementApi implements ManagementApi {
     required bool authority,
     required bool detailed,
   }) {
-    final version = authority ? '1' : 'thesis-demo-v2';
+    final authorityVersion = switch (provider) {
+      CloudProvider.aws || CloudProvider.azure => '2',
+      CloudProvider.gcp => '1',
+    };
+    final version = authority ? authorityVersion : 'thesis-demo-v2';
     return {
       'id': authority
-          ? 'bootstrap.${provider.apiValue}.admin-v1'
+          ? 'bootstrap.${provider.apiValue}.admin-v$authorityVersion'
           : '${provider.apiValue}.thesis-demo-v2',
       'version': version,
       'digest': _demoBootstrapDigest('${provider.apiValue}-$version'),

@@ -115,6 +115,8 @@ void main() {
         region: 'eu-central-1',
       );
       final guide = await api.getCloudBootstrapGuide(CloudProvider.aws, target);
+      expect(guide.bootstrapAuthorityPack.id, 'bootstrap.aws.admin-v2');
+      expect(guide.bootstrapAuthorityPack.version, '2');
       final draft = await api.createCloudBootstrapSession(
         guide: guide,
         entryPoint: CloudBootstrapEntryPoint.settings,
@@ -215,6 +217,11 @@ void main() {
           CloudProvider.azure,
           azureTarget,
         );
+        expect(
+          azureGuide.bootstrapAuthorityPack.id,
+          'bootstrap.azure.admin-v2',
+        );
+        expect(azureGuide.bootstrapAuthorityPack.version, '2');
         final azureDraft = await api.createCloudBootstrapSession(
           guide: azureGuide,
           entryPoint: CloudBootstrapEntryPoint.settings,

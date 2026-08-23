@@ -26,7 +26,7 @@ def test_bootstrap_authority_packs_are_strict_and_cover_all_providers():
     Draft202012Validator.check_schema(schema)
     validator = Draft202012Validator(schema, format_checker=FormatChecker())
     packs = [
-        _load(PACK_DIR / "aws_bootstrap_admin_v1.json"),
+        _load(PACK_DIR / "aws_bootstrap_admin_v2.json"),
         _load(PACK_DIR / "azure_bootstrap_admin_v2.json"),
         _load(PACK_DIR / "gcp_bootstrap_admin_v1.json"),
     ]
@@ -36,7 +36,7 @@ def test_bootstrap_authority_packs_are_strict_and_cover_all_providers():
 
     assert {pack["provider"] for pack in packs} == {"aws", "azure", "gcp"}
     assert {pack["contract_id"] for pack in packs} == {
-        "bootstrap.aws.admin-v1",
+        "bootstrap.aws.admin-v2",
         "bootstrap.azure.admin-v2",
         "bootstrap.gcp.admin-v1",
     }
