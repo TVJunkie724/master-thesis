@@ -401,52 +401,59 @@ class _AccessDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     return FocusTraversalOrder(
       order: NumericFocusOrder(surface.layer == DeploymentLayer.l4 ? 2 : 5),
-      child: ExpansionTile(
-        key: Key('layer-access-details-${surface.layer.name}'),
-        internalAddSemanticForOnTap: true,
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: EdgeInsets.zero,
-        initiallyExpanded: initiallyExpanded,
-        title: Text(
-          surface.layer == DeploymentLayer.l4
-              ? 'Authentication details'
-              : 'Access details',
-        ),
-        children: [
-          _DetailRow(
-            label: 'Authentication',
-            value: _authLabel(surface.auth.mode),
+      child: Semantics(
+        container: true,
+        explicitChildNodes: true,
+        child: ExpansionTile(
+          key: Key('layer-access-details-${surface.layer.name}'),
+          internalAddSemanticForOnTap: true,
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: EdgeInsets.zero,
+          initiallyExpanded: initiallyExpanded,
+          title: Text(
+            surface.layer == DeploymentLayer.l4
+                ? 'Authentication details'
+                : 'Access details',
           ),
-          _DetailRow(label: 'Resource', value: surface.readiness.resource.name),
-          _DetailRow(
-            label: 'Access binding',
-            value: surface.readiness.accessBinding.name,
-          ),
-          _DetailRow(label: 'Content', value: surface.readiness.content.name),
-          _DetailRow(
-            label: 'Data probe',
-            value: surface.readiness.dataProbe.name,
-          ),
-          _DetailRow(
-            label: 'Browser sign-in',
-            value: surface.readiness.browserSignIn.name,
-          ),
-          if (surface.limitations.isNotEmpty) ...[
-            const Divider(),
-            for (final limitation in surface.limitations)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.info_outline, size: AppSpacing.iconSm),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(child: Text(limitation)),
-                  ],
+          children: [
+            _DetailRow(
+              label: 'Authentication',
+              value: _authLabel(surface.auth.mode),
+            ),
+            _DetailRow(
+              label: 'Resource',
+              value: surface.readiness.resource.name,
+            ),
+            _DetailRow(
+              label: 'Access binding',
+              value: surface.readiness.accessBinding.name,
+            ),
+            _DetailRow(label: 'Content', value: surface.readiness.content.name),
+            _DetailRow(
+              label: 'Data probe',
+              value: surface.readiness.dataProbe.name,
+            ),
+            _DetailRow(
+              label: 'Browser sign-in',
+              value: surface.readiness.browserSignIn.name,
+            ),
+            if (surface.limitations.isNotEmpty) ...[
+              const Divider(),
+              for (final limitation in surface.limitations)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.info_outline, size: AppSpacing.iconSm),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(child: Text(limitation)),
+                    ],
+                  ),
                 ),
-              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
