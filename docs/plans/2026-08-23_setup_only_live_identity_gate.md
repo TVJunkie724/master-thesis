@@ -1,7 +1,7 @@
 # Setup-Only Live Identity Gate Before Paid Cloud E2E
 
 **Date:** 2026-08-23  
-**Status:** Planned  
+**Status:** In progress (offline gate core implemented)
 **Parent issue:** [#107](https://github.com/TVJunkie724/master-thesis/issues/107)  
 **Scope:** AWS, Azure, and GCP guided bootstrap, bounded deployment identities,
 credential preflight, and cleanup only
@@ -60,12 +60,11 @@ an identity-only runner rather than relabel the existing deployment E2E tests.
   only `disabled` and `deterministic_fake`; a live mode needs a synchronized
   contract revision across canonical schemas, generated copies, Management,
   Flutter, and fixtures.
-- `bootstrap.azure.admin-v1` currently permits reading role definitions and
-  writing/deleting assignments, but not creating or deleting the v2 custom
-  role definition. Before implementation, the contract must either add the
-  exact role-definition operations or declare the reviewed role definition an
-  explicit pre-existing manual prerequisite. The adapter must not fall back to
-  broad `Contributor` plus `User Access Administrator` silently.
+- The historical `bootstrap.azure.admin-v1` pack did not permit creating or
+  deleting the v2 custom role definition. This is resolved without mutating
+  the old pack: active guided bootstrap now pins `bootstrap.azure.admin-v2`,
+  which adds the exact role-definition write/delete boundary. Broad
+  `Contributor` plus `User Access Administrator` fallback remains forbidden.
 - The existing guided session has no provider-identity deletion lifecycle.
   Deleting a local CloudConnection alone is not cleanup, so the disposable
   live runner needs its own provider cleanup ledger and operation.

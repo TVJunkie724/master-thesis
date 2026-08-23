@@ -143,9 +143,13 @@ def test_guides_are_strict_safe_and_reference_v2_for_every_provider(auth_client)
         assert guide["schema_version"] == "cloud-bootstrap-guide.v1"
         assert guide["execution_mode"] == "deterministic_fake"
         assert guide["generated_deployment_pack"]["version"] == "thesis-demo-v2"
-        assert guide["bootstrap_authority_pack"]["id"] == (
-            f"bootstrap.{provider}.admin-v1"
-        )
+        expected_authority = {
+            "aws": ("bootstrap.aws.admin-v1", "1"),
+            "azure": ("bootstrap.azure.admin-v2", "2"),
+            "gcp": ("bootstrap.gcp.admin-v1", "1"),
+        }[provider]
+        assert guide["bootstrap_authority_pack"]["id"] == expected_authority[0]
+        assert guide["bootstrap_authority_pack"]["version"] == expected_authority[1]
         assert guide["legacy_fallback_available"] is True
         assert "submitted-" not in serialized
         assert '"private_key":' not in serialized
@@ -185,12 +189,12 @@ def test_twin_prepare_admits_only_a_provider_in_the_selected_resolution(
             "twin_id": test_twin.id,
             "display_name": "Twin-scoped AWS deployment access",
             "guide_digest": aws_guide["guide_digest"],
-            "bootstrap_authority_pack_digest": aws_guide[
-                "bootstrap_authority_pack"
-            ]["digest"],
-            "generated_deployment_pack_digest": aws_guide[
-                "generated_deployment_pack"
-            ]["digest"],
+            "bootstrap_authority_pack_digest": aws_guide["bootstrap_authority_pack"][
+                "digest"
+            ],
+            "generated_deployment_pack_digest": aws_guide["generated_deployment_pack"][
+                "digest"
+            ],
             "idempotency_key": "create-twin-prepare-aws-0001",
         },
     )
@@ -209,12 +213,12 @@ def test_twin_prepare_admits_only_a_provider_in_the_selected_resolution(
             "twin_id": test_twin.id,
             "display_name": "Out-of-resolution GCP deployment access",
             "guide_digest": gcp_guide["guide_digest"],
-            "bootstrap_authority_pack_digest": gcp_guide[
-                "bootstrap_authority_pack"
-            ]["digest"],
-            "generated_deployment_pack_digest": gcp_guide[
-                "generated_deployment_pack"
-            ]["digest"],
+            "bootstrap_authority_pack_digest": gcp_guide["bootstrap_authority_pack"][
+                "digest"
+            ],
+            "generated_deployment_pack_digest": gcp_guide["generated_deployment_pack"][
+                "digest"
+            ],
             "idempotency_key": "create-twin-prepare-gcp-0001",
         },
     )
@@ -388,7 +392,9 @@ def test_gcp_organization_path_preserves_declared_reusable_scope(auth_client):
     assert scope["billing_account_id"] == "ABCDEF-123456-ABCDEF"
 
 
-def test_existing_user_owned_credential_is_released_but_not_claimed_revoked(auth_client):
+def test_existing_user_owned_credential_is_released_but_not_claimed_revoked(
+    auth_client,
+):
     session = _session(auth_client, "azure", key="create-azure-existing-01")
     ready = _execute(
         auth_client,
@@ -438,7 +444,9 @@ def test_manual_revocation_requires_exact_revision_and_acknowledgement(auth_clie
     assert pending["safe_credential_identifier"] == "manual-key-123"
     assert pending["command_permissions"] == ["acknowledge_manual_revocation"]
     assert pending["finding"]["code"] == "BOOTSTRAP_MANUAL_REVOCATION_REQUIRED"
-    assert pending["finding"]["remediation_url"].startswith("https://learn.microsoft.com/")
+    assert pending["finding"]["remediation_url"].startswith(
+        "https://learn.microsoft.com/"
+    )
     stale = auth_client.post(
         f"/cloud-bootstrap/sessions/{pending['id']}/acknowledge-manual-revocation",
         json={"expected_revision": pending["revision"] - 1},

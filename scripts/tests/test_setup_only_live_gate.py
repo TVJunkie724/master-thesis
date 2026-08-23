@@ -200,16 +200,16 @@ class SetupGateManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(SetupGateError, "outside"):
             require_allowed_operation(manifest(), "s3.create_bucket")
 
-    def test_authority_pack_coverage_exposes_only_current_azure_gap(self) -> None:
-        self.assertEqual(authority_pack_gaps("aws"), ())
-        self.assertEqual(authority_pack_gaps("gcp"), ())
-        self.assertEqual(
-            authority_pack_gaps("azure"),
-            (
-                "Microsoft.Authorization/roleDefinitions/delete",
-                "Microsoft.Authorization/roleDefinitions/write",
-            ),
-        )
+    def test_active_authority_packs_cover_identity_only_operations(self) -> None:
+        for provider in ("aws", "azure", "gcp"):
+            with self.subTest(provider=provider):
+                self.assertEqual(authority_pack_gaps(provider), ())
+
+    def test_azure_manifest_uses_versioned_v2_authority_pack(self) -> None:
+        reference = manifest("azure").document["bootstrap_authority_pack"]
+
+        self.assertEqual(reference["id"], "bootstrap.azure.admin-v2")
+        self.assertEqual(reference["version"], "2")
 
 
 class CleanupLedgerTests(unittest.TestCase):

@@ -2,8 +2,8 @@
 title: "Phase 8 Guided Cloud Bootstrap And Manual Prerequisites"
 description: "Binding cross-service plan for turning request-scoped bootstrap authority into reusable bounded CloudConnections while exposing the few unavoidable provider actions."
 tags: [phase-8, credentials, bootstrap, cloud-connections, identity, preflight, security]
-lastUpdated: "2026-08-05"
-version: "1.3"
+lastUpdated: "2026-08-24"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -20,7 +20,7 @@ version: "1.3"
 - twin2multicloud_flutter/docs/configuration_workspace/CONCEPT_CONFIGURATION_WORKSPACE.md
 - twin2multicloud_flutter/docs/frontend_delta/phases/PHASE_02_PROFILE_CLOUD_ACCESS.md
 - AWS IAM Identity Center, Microsoft Azure RBAC, and Google Cloud IAM/IAP primary documentation linked in section 15
-EXTRACTED: 2026-08-05 | VERSION: 1.3
+EXTRACTED: 2026-08-24 | VERSION: 1.4
 -->
 
 # Phase 8 Guided Cloud Bootstrap And Manual Prerequisites
@@ -118,7 +118,7 @@ machine-checkable permission pack for that initial authority:
 
 ```text
 bootstrap.aws.admin-v1
-bootstrap.azure.admin-v1
+bootstrap.azure.admin-v2
 bootstrap.gcp.admin-v1
 ```
 
@@ -127,8 +127,14 @@ Their canonical planned locations are:
 | Contract ID | Repository artifact |
 |---|---|
 | `bootstrap.aws.admin-v1` | `3-cloud-deployer/docs/references/permission_sets/aws_bootstrap_admin_v1.json` |
-| `bootstrap.azure.admin-v1` | `3-cloud-deployer/docs/references/permission_sets/azure_bootstrap_admin_v1.json` |
+| `bootstrap.azure.admin-v2` | `3-cloud-deployer/docs/references/permission_sets/azure_bootstrap_admin_v2.json` |
 | `bootstrap.gcp.admin-v1` | `3-cloud-deployer/docs/references/permission_sets/gcp_bootstrap_admin_v1.json` |
+
+Azure v2 supersedes the historical `bootstrap.azure.admin-v1` pack without
+rewriting it. The v2 pack adds the exact role-definition write/delete boundary
+required to create and clean up the generated `thesis-demo-v2` custom role;
+it does not permit a fallback to broad `Contributor` plus
+`User Access Administrator` assignments.
 
 Each artifact covers only generated-identity creation/reconciliation,
 assignment of the guide-selected deployment pack, validation, cleanup, and the
@@ -162,7 +168,7 @@ The following authority must exist before the platform can bootstrap itself:
 | Provider | User-owned preparation | Values supplied to the guided flow |
 |---|---|---|
 | AWS | Existing billable AWS account; dedicated temporary IAM principal or assumed-role session that passes `bootstrap.aws.admin-v1` | account ID, region, access key ID, secret access key, optional session token, and required provider-issued expiry when a session token is used |
-| Azure | Existing active Entra tenant and subscription; dedicated bootstrap app/service principal that passes `bootstrap.azure.admin-v1` across the required directory and subscription RBAC scopes | tenant ID, subscription ID, client ID, client secret, region, and safe credential key ID when automatic disposable-secret removal is requested |
+| Azure | Existing active Entra tenant and subscription; dedicated bootstrap app/service principal that passes `bootstrap.azure.admin-v2` across the required directory and subscription RBAC scopes | tenant ID, subscription ID, client ID, client secret, region, and safe credential key ID when automatic disposable-secret removal is requested |
 | GCP existing-project path | Existing billable project; dedicated bootstrap service account that passes `bootstrap.gcp.admin-v1` at project scope | project ID, region, service-account JSON credential |
 | GCP organization path | Existing organization, billing account, and bootstrap/admin project; dedicated bootstrap service account that passes the organization-path variant of `bootstrap.gcp.admin-v1` | bootstrap project ID, billing account ID, organization/folder target, region, service-account JSON credential |
 

@@ -27,7 +27,7 @@ def test_bootstrap_authority_packs_are_strict_and_cover_all_providers():
     validator = Draft202012Validator(schema, format_checker=FormatChecker())
     packs = [
         _load(PACK_DIR / "aws_bootstrap_admin_v1.json"),
-        _load(PACK_DIR / "azure_bootstrap_admin_v1.json"),
+        _load(PACK_DIR / "azure_bootstrap_admin_v2.json"),
         _load(PACK_DIR / "gcp_bootstrap_admin_v1.json"),
     ]
 
@@ -37,7 +37,7 @@ def test_bootstrap_authority_packs_are_strict_and_cover_all_providers():
     assert {pack["provider"] for pack in packs} == {"aws", "azure", "gcp"}
     assert {pack["contract_id"] for pack in packs} == {
         "bootstrap.aws.admin-v1",
-        "bootstrap.azure.admin-v1",
+        "bootstrap.azure.admin-v2",
         "bootstrap.gcp.admin-v1",
     }
 
@@ -51,7 +51,7 @@ def test_bootstrap_authority_packs_contain_no_secret_material_or_wildcards():
         "private_key",
         "service_account_json",
     }
-    for path in PACK_DIR.glob("*_bootstrap_admin_v1.json"):
+    for path in PACK_DIR.glob("*_bootstrap_admin_v*.json"):
         payload = _load(path)
         serialized = json.dumps(payload, sort_keys=True).lower()
         assert not forbidden_keys.intersection(payload)

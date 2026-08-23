@@ -40,8 +40,9 @@ REGION_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{1,31}$")
 MAX_LEDGER_BYTES = 256 * 1024
 
 BOOTSTRAP_PACK_PATHS = {
-    provider: PERMISSION_SET_ROOT / f"{provider}_bootstrap_admin_v1.json"
-    for provider in PROVIDERS
+    "aws": PERMISSION_SET_ROOT / "aws_bootstrap_admin_v1.json",
+    "azure": PERMISSION_SET_ROOT / "azure_bootstrap_admin_v2.json",
+    "gcp": PERMISSION_SET_ROOT / "gcp_bootstrap_admin_v1.json",
 }
 DEPLOYMENT_PACK_PATHS = {
     provider: PERMISSION_SET_ROOT / f"{provider}_thesis_demo_v2.json"
@@ -662,7 +663,9 @@ def _pack_reference(provider: str, *, authority: bool) -> dict[str, str]:
     document = _load_json(path)
     if authority:
         pack_id = document.get("contract_id")
-        version = "1"
+        version = (
+            pack_id.rsplit("-v", maxsplit=1)[-1] if isinstance(pack_id, str) else None
+        )
     else:
         pack_id = f"{provider}.{document.get('permission_set_version')}"
         version = document.get("permission_set_version")

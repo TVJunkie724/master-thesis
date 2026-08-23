@@ -56,7 +56,9 @@ from src.services.cloud_bootstrap_adapters import (
 )
 from src.services.cloud_bootstrap_errors import CloudBootstrapDomainError
 from src.services.cloud_connection_service import CloudConnectionService
-from src.services.credential_security_audit_service import CredentialSecurityAuditService
+from src.services.credential_security_audit_service import (
+    CredentialSecurityAuditService,
+)
 from src.services.provider_contract import normalize_provider_id
 
 
@@ -111,7 +113,7 @@ PROVIDER_GUIDANCE: dict[str, dict[str, Any]] = {
             (
                 "create_temporary_application",
                 "Create temporary bootstrap application",
-                "Create a dedicated bootstrap application/service principal with bootstrap.azure.admin-v1 directory and subscription authority.",
+                "Create a dedicated bootstrap application/service principal with bootstrap.azure.admin-v2 directory and subscription authority.",
                 "Client ID, one short-lived secret, and its safe key ID are available.",
                 "https://learn.microsoft.com/en-us/entra/identity-platform/howto-create-service-principal-portal",
             ),
@@ -119,7 +121,13 @@ PROVIDER_GUIDANCE: dict[str, dict[str, Any]] = {
     },
     "gcp": {
         "credential_fields": [
-            ("service_account_json", "Service-account JSON", "json", True, "private_key_document"),
+            (
+                "service_account_json",
+                "Service-account JSON",
+                "json",
+                True,
+                "private_key_document",
+            ),
         ],
         "steps": [
             (
@@ -146,7 +154,9 @@ def _canonical_json(value: Any) -> str:
 
 
 def _digest(value: Any) -> str:
-    return f"sha256:{hashlib.sha256(_canonical_json(value).encode('utf-8')).hexdigest()}"
+    return (
+        f"sha256:{hashlib.sha256(_canonical_json(value).encode('utf-8')).hexdigest()}"
+    )
 
 
 class GuidedCloudBootstrapService:
@@ -221,9 +231,7 @@ class GuidedCloudBootstrapService:
             "known_blockers": blockers,
             "legacy_fallback_available": True,
         }
-        guide_digest = _digest(
-            json.loads(_canonical_json(self._jsonable(payload)))
-        )
+        guide_digest = _digest(json.loads(_canonical_json(self._jsonable(payload))))
         return CloudBootstrapGuideResponse(
             guide_digest=guide_digest,
             **payload,
@@ -242,12 +250,18 @@ class GuidedCloudBootstrapService:
         target_data = request.target.model_dump(mode="json", exclude_none=True)
         target_digest = _digest(self._scope_target_data(request.target))
         request_digest = _digest(request.model_dump(mode="json"))
-        existing = self._repo.get_by_create_idempotency(user_id, request.idempotency_key)
+        existing = self._repo.get_by_create_idempotency(
+            user_id, request.idempotency_key
+        )
         if existing is not None:
             if existing.create_request_digest != request_digest:
-                raise self._conflict("The session idempotency key was reused for another request.")
+                raise self._conflict(
+                    "The session idempotency key was reused for another request."
+                )
             return self.to_response(existing)
-        active = self._repo.get_active_for_scope(user_id, request.provider, target_digest)
+        active = self._repo.get_active_for_scope(
+            user_id, request.provider, target_digest
+        )
         if active is not None:
             if active.target_json != _canonical_json(target_data):
                 raise self._conflict(
@@ -285,10 +299,14 @@ class GuidedCloudBootstrapService:
             self._db.commit()
         except IntegrityError as exc:
             self._db.rollback()
-            active = self._repo.get_active_for_scope(user_id, request.provider, target_digest)
+            active = self._repo.get_active_for_scope(
+                user_id, request.provider, target_digest
+            )
             if active is not None:
                 return self.to_response(active)
-            raise self._conflict("Another bootstrap session was created concurrently.") from exc
+            raise self._conflict(
+                "Another bootstrap session was created concurrently."
+            ) from exc
         self._db.refresh(session)
         return self.to_response(session)
 
@@ -319,7 +337,9 @@ class GuidedCloudBootstrapService:
             ]
         )
 
-    def get_session(self, user_id: str, session_id: str) -> CloudBootstrapSessionResponse:
+    def get_session(
+        self, user_id: str, session_id: str
+    ) -> CloudBootstrapSessionResponse:
         self._reconcile_stale_leases(user_id)
         return self.to_response(self._owned_session(user_id, session_id))
 
@@ -337,7 +357,9 @@ class GuidedCloudBootstrapService:
             CloudBootstrapState.DRAFT.value,
             CloudBootstrapState.CREDENTIAL_REENTRY_REQUIRED.value,
         }:
-            raise self._conflict("The bootstrap session cannot accept another credential.")
+            raise self._conflict(
+                "The bootstrap session cannot accept another credential."
+            )
         self._require_revision(session, request.expected_revision)
         if request.credential.provider != session.provider:
             raise CloudBootstrapDomainError(
@@ -356,7 +378,9 @@ class GuidedCloudBootstrapService:
             self._db.commit()
         except StaleDataError as exc:
             self._db.rollback()
-            raise self._conflict("The bootstrap session changed before execution started.") from exc
+            raise self._conflict(
+                "The bootstrap session changed before execution started."
+            ) from exc
         self._db.refresh(session)
 
         target = self._parse_target(session.target_json)
@@ -452,7 +476,9 @@ class GuidedCloudBootstrapService:
         session = self._owned_session(user_id, session_id)
         self._require_revision(session, expected_revision)
         if session.state != CloudBootstrapState.MANUAL_REVOCATION_REQUIRED.value:
-            raise self._conflict("This session has no manual revocation to acknowledge.")
+            raise self._conflict(
+                "This session has no manual revocation to acknowledge."
+            )
         session.disposal_status = CloudBootstrapDisposalStatus.REVOKED.value
         session.state = CloudBootstrapState.READY.value
         session.finding_json = None
@@ -494,11 +520,15 @@ class GuidedCloudBootstrapService:
         self._db.refresh(session)
         return self.to_response(session)
 
-    def to_response(self, session: CloudBootstrapSession) -> CloudBootstrapSessionResponse:
+    def to_response(
+        self, session: CloudBootstrapSession
+    ) -> CloudBootstrapSessionResponse:
         target = self._parse_target(session.target_json)
         finding = None
         if session.finding_json:
-            finding = CloudBootstrapFinding.model_validate(json.loads(session.finding_json))
+            finding = CloudBootstrapFinding.model_validate(
+                json.loads(session.finding_json)
+            )
         connection = None
         if session.connection is not None:
             connection = CloudBootstrapConnectionSummary(
@@ -560,13 +590,19 @@ class GuidedCloudBootstrapService:
                 "The bootstrap guide changed; reload it before continuing.",
                 http_status=409,
             )
-        if request.bootstrap_authority_pack_digest != guide.bootstrap_authority_pack.digest:
+        if (
+            request.bootstrap_authority_pack_digest
+            != guide.bootstrap_authority_pack.digest
+        ):
             raise CloudBootstrapDomainError(
                 "BOOTSTRAP_AUTHORITY_PACK_MISMATCH",
                 "The bootstrap authority pack changed; reload the guide.",
                 http_status=409,
             )
-        if request.generated_deployment_pack_digest != guide.generated_deployment_pack.digest:
+        if (
+            request.generated_deployment_pack_digest
+            != guide.generated_deployment_pack.digest
+        ):
             raise CloudBootstrapDomainError(
                 "BOOTSTRAP_GENERATED_DEPLOYMENT_PACK_MISMATCH",
                 "The generated deployment pack changed; reload the guide.",
@@ -620,8 +656,12 @@ class GuidedCloudBootstrapService:
         digest = _digest(document)
         if authority:
             pack_id = document["contract_id"]
-            version = "1"
-            repository_name = f"{provider}_bootstrap_admin_v1.json"
+            version = pack_id.rsplit("-v", maxsplit=1)[-1]
+            repository_name = {
+                "aws": "aws_bootstrap_admin_v1.json",
+                "azure": "azure_bootstrap_admin_v2.json",
+                "gcp": "gcp_bootstrap_admin_v1.json",
+            }[provider]
             scope = document["scope_summary"]
             limitations = document["limitations"]
         else:
@@ -660,7 +700,9 @@ class GuidedCloudBootstrapService:
     ) -> CloudBootstrapSessionResponse:
         del cause
         session.state = CloudBootstrapState.CREDENTIAL_REENTRY_REQUIRED.value
-        session.disposal_status = CloudBootstrapDisposalStatus.RELEASED_AFTER_FAILURE.value
+        session.disposal_status = (
+            CloudBootstrapDisposalStatus.RELEASED_AFTER_FAILURE.value
+        )
         session.lease_started_at = None
         session.finding_json = _canonical_json(
             CloudBootstrapFinding(
@@ -839,7 +881,10 @@ class GuidedCloudBootstrapService:
     @staticmethod
     def _command_permissions(session: CloudBootstrapSession) -> list[str]:
         state = CloudBootstrapState(session.state)
-        if state in {CloudBootstrapState.DRAFT, CloudBootstrapState.CREDENTIAL_REENTRY_REQUIRED}:
+        if state in {
+            CloudBootstrapState.DRAFT,
+            CloudBootstrapState.CREDENTIAL_REENTRY_REQUIRED,
+        }:
             return ["execute", "cancel"]
         if state in {
             CloudBootstrapState.BOOTSTRAP_RUNNING,
@@ -862,7 +907,10 @@ class GuidedCloudBootstrapService:
         if hasattr(value, "model_dump"):
             return value.model_dump(mode="json", exclude_none=True)
         if isinstance(value, dict):
-            return {key: GuidedCloudBootstrapService._jsonable(item) for key, item in value.items()}
+            return {
+                key: GuidedCloudBootstrapService._jsonable(item)
+                for key, item in value.items()
+            }
         if isinstance(value, (list, tuple)):
             return [GuidedCloudBootstrapService._jsonable(item) for item in value]
         return value

@@ -1,12 +1,12 @@
 {
   "schema_version": "bootstrap-authority-pack.v1",
-  "contract_id": "bootstrap.azure.admin-v1",
+  "contract_id": "bootstrap.azure.admin-v2",
   "provider": "azure",
   "status": "frozen_offline_contract",
   "validation_level": "offline_pre_e2e",
   "requires_supervised_live_validation": true,
   "target_modes": ["subscription"],
-  "scope_summary": "One Entra tenant and selected Azure subscription; creates or reconciles one prefixed application/service principal, one client secret, and the reviewed thesis-demo-v2 subscription assignment.",
+  "scope_summary": "One Entra tenant and selected Azure subscription; creates or reconciles one prefixed application/service principal, one client secret, the reviewed thesis-demo-v2 custom role definition, and its subscription assignment.",
   "permission_groups": [
     {
       "id": "directory_identity",
@@ -17,6 +17,11 @@
       "id": "subscription_validation",
       "scope": "Selected Azure subscription",
       "permissions": ["Microsoft.Resources/subscriptions/read", "Microsoft.Authorization/roleDefinitions/read"]
+    },
+    {
+      "id": "deployment_role_definition",
+      "scope": "The selected subscription as the sole assignable scope of the generated thesis-demo-v2 custom role",
+      "permissions": ["Microsoft.Authorization/roleDefinitions/write", "Microsoft.Authorization/roleDefinitions/delete"]
     },
     {
       "id": "deployment_assignment",
@@ -32,11 +37,14 @@
   "limitations": [
     "Azure subscription Owner alone does not prove Entra application authority.",
     "Application.ReadWrite.All is directory-wide and therefore a documented PoC bootstrap boundary, not formal least privilege.",
-    "The exact custom-role and Graph behavior requires a separately approved live tenant/subscription validation."
+    "Role-definition write/delete is privileged at the selected subscription; adapter ownership checks and a deterministic twin2mc-e2e-* role ID are mandatory before update or cleanup.",
+    "The exact custom-role, Graph, assignment, and cleanup behavior requires the separately approved setup-only live identity gate."
   ],
   "sources": [
-    "https://learn.microsoft.com/en-us/graph/api/resources/applications-api-overview?view=graph-rest-1.0",
-    "https://learn.microsoft.com/en-us/graph/api/serviceprincipal-removepassword?view=graph-rest-1.0",
-    "https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-steps"
+    "https://learn.microsoft.com/en-us/azure/role-based-access-control/custom-roles",
+    "https://learn.microsoft.com/en-us/azure/role-based-access-control/role-definitions",
+    "https://learn.microsoft.com/en-us/graph/api/application-post-applications?view=graph-rest-1.0",
+    "https://learn.microsoft.com/en-us/graph/api/application-addpassword?view=graph-rest-1.0",
+    "https://learn.microsoft.com/en-us/graph/api/serviceprincipal-post-serviceprincipals?view=graph-rest-1.0"
   ]
 }
