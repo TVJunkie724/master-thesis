@@ -187,47 +187,48 @@ void main() {
     }
   });
 
-  for (final width in [640.0, 799.0, 800.0, 1439.0, 1440.0]) {
-    testWidgets('guide remains reachable at ${width.toInt()}px and 200%', (
-      tester,
-    ) async {
-      await tester.binding.setSurfaceSize(Size(width, 900));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      final api = _FakeBootstrapApi();
-      final bloc = CloudBootstrapBloc(
-        api: api,
-        provider: CloudProvider.aws,
-        entryPoint: CloudBootstrapEntryPoint.settings,
-      )..add(CloudBootstrapOpened(initialTarget: api.guide.target));
-      addTearDown(bloc.close);
-      await tester.pumpWidget(
-        MaterialApp(
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: const TextScaler.linear(2)),
-            child: child!,
-          ),
-          home: Scaffold(
-            body: BlocProvider.value(
-              value: bloc,
-              child: CloudBootstrapFlow(
-                provider: CloudProvider.aws,
-                entryPoint: CloudBootstrapEntryPoint.settings,
-                onConnectionReady: (_) {},
-                onClosed: () {},
+  for (final textScale in [1.5, 2.0]) {
+    for (final width in [640.0, 799.0, 800.0, 1439.0, 1440.0]) {
+      testWidgets('guide remains reachable at ${width.toInt()}px and '
+          '${(textScale * 100).toInt()}%', (tester) async {
+        await tester.binding.setSurfaceSize(Size(width, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final api = _FakeBootstrapApi();
+        final bloc = CloudBootstrapBloc(
+          api: api,
+          provider: CloudProvider.aws,
+          entryPoint: CloudBootstrapEntryPoint.settings,
+        )..add(CloudBootstrapOpened(initialTarget: api.guide.target));
+        addTearDown(bloc.close);
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(textScale)),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: BlocProvider.value(
+                value: bloc,
+                child: CloudBootstrapFlow(
+                  provider: CloudProvider.aws,
+                  entryPoint: CloudBootstrapEntryPoint.settings,
+                  onConnectionReady: (_) {},
+                  onClosed: () {},
+                ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('I completed these steps'), findsOneWidget);
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
-      expect(tester.takeException(), isNull, reason: 'width=$width');
-    });
+        expect(find.text('I completed these steps'), findsOneWidget);
+        expect(find.byType(LinearProgressIndicator), findsOneWidget);
+        expect(tester.takeException(), isNull, reason: 'width=$width');
+      });
+    }
   }
 }
 

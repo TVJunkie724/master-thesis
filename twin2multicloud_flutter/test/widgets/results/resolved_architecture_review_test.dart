@@ -128,35 +128,43 @@ void main() {
     expect(find.byIcon(Icons.cloud_sync), findsOneWidget);
   });
 
-  testWidgets('resolved review wraps at the compact graph boundary', (
-    tester,
-  ) async {
-    for (final width in [640.0, 719.0, 720.0, 1200.0]) {
-      tester.view.physicalSize = Size(width, 1800);
-      tester.view.devicePixelRatio = 1;
-      await tester.pumpWidget(_app(resolved, textScale: 2));
-      await tester.pump();
-      expect(find.byType(LogicalResolvedFlow), findsOneWidget);
-      if (width < 720) {
-        expect(find.byTooltip('Zoom in resolved architecture'), findsNothing);
+  for (final textScale in [1.5, 2.0]) {
+    testWidgets('resolved review wraps at the compact graph boundary at '
+        '${(textScale * 100).toInt()}%', (tester) async {
+      for (final width in [640.0, 719.0, 720.0, 1200.0]) {
+        tester.view.physicalSize = Size(width, 1800);
+        tester.view.devicePixelRatio = 1;
+        await tester.pumpWidget(_app(resolved, textScale: textScale));
+        await tester.pump();
+        expect(find.byType(LogicalResolvedFlow), findsOneWidget);
+        if (width < 720) {
+          expect(find.byTooltip('Zoom in resolved architecture'), findsNothing);
+          expect(
+            find.bySemanticsLabel(
+              'component.ingestion connects to component.processing, '
+              'edge.ingestion-to-processing, cross-cloud bridge, '
+              'cross_provider_adapter, asynchronous, per_entity',
+            ),
+            findsOneWidget,
+          );
+        } else {
+          expect(
+            find.byTooltip('Zoom in resolved architecture'),
+            findsOneWidget,
+          );
+        }
         expect(
-          find.bySemanticsLabel(
-            'component.ingestion connects to component.processing, '
-            'edge.ingestion-to-processing, cross-cloud bridge, '
-            'cross_provider_adapter, asynchronous, per_entity',
-          ),
-          findsOneWidget,
+          tester.takeException(),
+          isNull,
+          reason: 'overflow at $width and ${textScale}x',
         );
-      } else {
-        expect(find.byTooltip('Zoom in resolved architecture'), findsOneWidget);
       }
-      expect(tester.takeException(), isNull, reason: 'overflow at $width');
-    }
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
     });
-  });
+  }
 
   testWidgets('single-cloud resolution exposes only provider-local edges', (
     tester,

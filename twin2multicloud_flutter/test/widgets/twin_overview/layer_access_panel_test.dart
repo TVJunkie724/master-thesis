@@ -141,21 +141,24 @@ void main() {
     expect(wideL5.left, greaterThan(wideL4.right));
   });
 
-  testWidgets('640 px at 200 percent text scale has no overflow', (
-    tester,
-  ) async {
-    await _pumpHost(
-      tester,
-      state: _state(l5: CloudProvider.gcp),
-      width: 640,
-      textScale: 2,
-    );
-    await tester.pumpAndSettle();
+  for (final textScale in [1.5, 2.0]) {
+    testWidgets(
+      '640 px at ${(textScale * 100).toInt()} percent text scale has no overflow',
+      (tester) async {
+        await _pumpHost(
+          tester,
+          state: _state(l5: CloudProvider.gcp),
+          width: 640,
+          textScale: textScale,
+        );
+        await tester.pumpAndSettle();
 
-    expect(tester.takeException(), isNull);
-    expect(find.byKey(const Key('layer-access-card-l4')), findsOneWidget);
-    expect(find.byKey(const Key('rotate-gcp-viewer')), findsOneWidget);
-  });
+        expect(tester.takeException(), isNull);
+        expect(find.byKey(const Key('layer-access-card-l4')), findsOneWidget);
+        expect(find.byKey(const Key('rotate-gcp-viewer')), findsOneWidget);
+      },
+    );
+  }
 
   for (final brightness in Brightness.values) {
     testWidgets('${brightness.name} semantics name layer/provider/status', (
