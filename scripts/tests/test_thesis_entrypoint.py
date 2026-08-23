@@ -176,6 +176,24 @@ class ThesisEntrypointTests(unittest.TestCase):
         self.assertIn("fixture-viewer-", integration_gate)
         self.assertNotIn("--with-credentials", integration_gate)
 
+    def test_setup_smoke_is_isolated_and_credential_free(self) -> None:
+        script = SCRIPT.read_text(encoding="utf-8")
+        setup_gate = script.split("run_setup_smoke_tests() {", 1)[1].split(
+            "run_deployment_contract_tests() {", 1
+        )[0]
+
+        self.assertIn("CLOUD_BOOTSTRAP_ADAPTER_MODE=deterministic_fake", setup_gate)
+        self.assertIn("CREDENTIAL_RATE_LIMIT_ENABLED=false", setup_gate)
+        self.assertIn("DATABASE_URL=sqlite:////tmp/setup-smoke.db", setup_gate)
+        self.assertIn("--no-deps", setup_gate)
+        self.assertIn(
+            "integration_test/guided_cloud_bootstrap_flow_test.dart", setup_gate
+        )
+        self.assertIn('docker_cmd stop "$container"', setup_gate)
+        self.assertIn("phase8-submitted-bootstrap-secret-never-persist", setup_gate)
+        self.assertNotIn("compose.cloud.local.yaml", setup_gate)
+        self.assertNotIn("terraform", setup_gate.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -678,6 +678,13 @@ declared by the frozen v2 pack; it must not be attached to the currently
 implemented IAM-user CloudConnection path until the recorded identity-form
 contract finding is resolved.
 
+The credential-free local integration boundary is available as
+`./thesis.sh test setup-smoke`. It runs the actual shared Flutter bootstrap UI
+against a short-lived Management API and database in deterministic-fake mode,
+checks all three provider client flows plus AWS UI submission, and removes the
+isolated runtime after log/database secret-sentinel scans. It is G1 evidence,
+not evidence of provider authority or live identity creation.
+
 ## 13. Verification Matrix
 
 | Boundary | Required offline evidence |

@@ -1,7 +1,7 @@
 # Setup-Only Live Identity Gate Before Paid Cloud E2E
 
 **Date:** 2026-08-23  
-**Status:** In progress (offline gate core implemented)
+**Status:** In progress (G0 and isolated credential-free G1 implemented; G2+ not run)
 **Parent issue:** [#107](https://github.com/TVJunkie724/master-thesis/issues/107)  
 **Scope:** AWS, Azure, and GCP guided bootstrap, bounded deployment identities,
 credential preflight, and cleanup only
@@ -113,6 +113,21 @@ an identity-only runner rather than relabel the existing deployment E2E tests.
 
 G0 and G1 remain normal automatic gates. G2-G8 remain opt-in. G3 is the
 earliest gate allowed to mutate a provider.
+
+The isolated G1 command is:
+
+```bash
+./thesis.sh test setup-smoke
+```
+
+It starts one short-lived Management API with an ephemeral SQLite database,
+forces `deterministic_fake`, mounts no cloud-credential overlay, drives the
+shared Flutter bootstrap UI through the real API client, covers all three
+provider client paths, and scans API logs and persistence for the submitted
+secret sentinel before removing the container. Credential/auth rate limiting
+is disabled only inside this isolated functional smoke so repeated flow cases
+remain deterministic; the normal runtime and dedicated backend tests retain
+rate-limit coverage.
 
 ## 4. Provider Identity-Only Scope
 
@@ -244,6 +259,8 @@ disposable G3 test identity.
 
 ### Slice A — Gate Contract And Offline Harness
 
+Implemented and credential-free as of 2026-08-24.
+
 - Add an explicit live-gate manifest with provider, expected scope,
   permission-pack digests, unique run ID, `plan_only`/`identity_only` mode, and
   mandatory cleanup policy.
@@ -258,6 +275,9 @@ disposable G3 test identity.
   without contacting a provider.
 
 ### Slice B — Reviewed Live Provider Adapters
+
+Not enabled. Provider-native policy materialization is implemented offline;
+provider calls and `supervised_live` mode remain pending.
 
 - Resolve and republish the AWS managed-policy and Azure custom-role bootstrap
   authority boundaries before provider code is enabled.

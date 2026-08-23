@@ -1,12 +1,16 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:twin2multicloud_flutter/bloc/cloud_bootstrap/cloud_bootstrap.dart';
 import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/models/cloud_bootstrap.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
+import 'package:twin2multicloud_flutter/widgets/cloud_connections/cloud_bootstrap_flow.dart';
 
 const _submittedSecretSentinel =
     'phase8-submitted-bootstrap-secret-never-persist';
@@ -31,6 +35,65 @@ final _raw = Dio(
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets('drives the real AWS bootstrap API through the shared UI flow', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(640, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final run = DateTime.now().microsecondsSinceEpoch;
+    final target = _target(CloudProvider.aws, run);
+    CloudBootstrapConnectionSummary? completed;
+    final bloc = CloudBootstrapBloc(
+      api: _api,
+      provider: CloudProvider.aws,
+      entryPoint: CloudBootstrapEntryPoint.settings,
+    )..add(CloudBootstrapOpened(initialTarget: target));
+    addTearDown(bloc.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BlocProvider.value(
+            value: bloc,
+            child: CloudBootstrapFlow(
+              provider: CloudProvider.aws,
+              entryPoint: CloudBootstrapEntryPoint.settings,
+              onConnectionReady: (connection) => completed = connection,
+              onClosed: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Thesis simulation — no cloud resources are created'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('I completed these steps'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Access key ID'),
+      'AKIAIOSFODNN7EXAMPLE',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Secret access key'),
+      _submittedSecretSentinel,
+    );
+    await tester.ensureVisible(find.text('Create bounded access'));
+    await tester.tap(find.text('Create bounded access'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bounded deployment access created'), findsOneWidget);
+    expect(find.textContaining(_submittedSecretSentinel), findsNothing);
+    await tester.tap(find.text('Use bounded access'));
+    await tester.pump();
+    expect(completed?.provider, CloudProvider.aws);
+    expect(completed?.permissionSetVersion, 'thesis-demo-v2');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'executes all provider paths offline and persists only bounded access',
     (tester) async {
@@ -46,6 +109,11 @@ void main() {
         );
         expect(guide.provider, provider);
         expect(guide.target, target);
+        expect(
+          guide.bootstrapAuthorityPack.id,
+          'bootstrap.${provider.apiValue}.admin-v2',
+        );
+        expect(guide.bootstrapAuthorityPack.version, '2');
         expect(guide.generatedDeploymentPack.version, 'thesis-demo-v2');
         expect(guide.knownBlockers, isEmpty);
 

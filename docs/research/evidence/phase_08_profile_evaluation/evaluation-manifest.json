@@ -74,7 +74,7 @@
       "category": "bootstrap",
       "path": "contracts/cloud-bootstrap",
       "kind": "tree",
-      "digest": "sha256:96cb26f48ccd3e16be8b6b56040be3b08c8ca15622684bf3f769abaa50b0a9f7",
+      "digest": "sha256:76aeff53a3be6b8dacf1d3d7c5b79e068031e91175f62b05c19dd5d459238eb8",
       "file_count": 8
     },
     {
@@ -165,8 +165,8 @@
       "category": "permission",
       "path": "3-cloud-deployer/docs/references/permission_sets",
       "kind": "tree",
-      "digest": "sha256:a8cfc74bd056f3710165ad00fbb851fbf2228db0b013a16c555c8116c5181ce4",
-      "file_count": 17
+      "digest": "sha256:c9ccaac3b1253d923792f979c53623708af5aded2cedaf0a15d93795684a1c40",
+      "file_count": 20
     },
     {
       "category": "pricing",
