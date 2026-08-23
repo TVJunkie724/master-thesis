@@ -6,10 +6,13 @@ credential value. Provider secrets exist only in the synchronous execute
 request model owned by the Management API and are never valid response or
 fixture fields.
 
-The contract covers three artifacts:
+The contract covers four artifacts:
 
 - `bootstrap-authority-pack.v1`: reviewed provider authority required to
   create and validate the bounded deployment identity;
+- `deployment-identity-binding.v1`: an explicit executable identity/auth
+  assignment layered over an immutable deployment permission inventory when
+  the historical inventory alone is ambiguous;
 - `cloud-bootstrap-guide.v1`: safe provider preparation and input metadata;
 - `cloud-bootstrap-session.v1`: owner-scoped durable lifecycle state.
 

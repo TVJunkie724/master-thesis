@@ -1,5 +1,15 @@
 # Implementation Plan: Guided Cloud Access Bootstrap
 
+## 0.1 Contract Revision (2026-08-24)
+
+The implementation retains the plan's UI and lifecycle but now resolves the
+provider-authority review findings with active
+`bootstrap.aws.admin-v2`, `bootstrap.azure.admin-v2`, and
+`bootstrap.gcp.admin-v2` packs. AWS also pins
+`aws.thesis-demo-v2.iam-user-v1`, which binds the frozen deployment permission
+inventory to the actually implemented IAM-user/access-key identity. Historical
+v1 packs remain available only as versioned evidence and compatibility input.
+
 ## 0. Git Branch
 
 - **Branch name:** `codex/phase-8-guided-bootstrap`
@@ -78,7 +88,7 @@ Authority:
 | Before continuing                                                         |
 | 1. Sign in as a non-root administrator.                                  |
 | 2. Create a dedicated temporary principal or short STS session.          |
-| 3. Apply bootstrap.aws.admin-v1.                                         |
+| 3. Apply bootstrap.aws.admin-v2.                                         |
 |                                                                           |
 | [Open provider instructions]  [I completed these steps]                   |
 |---------------------------------------------------------------------------|

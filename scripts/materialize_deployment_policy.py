@@ -9,6 +9,7 @@ contacts a provider endpoint.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -18,6 +19,14 @@ from uuid import UUID, uuid5
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PACK_ROOT = REPO_ROOT / "3-cloud-deployer" / "docs" / "references" / "permission_sets"
+AWS_IDENTITY_BINDING_PATH = (
+    REPO_ROOT
+    / "contracts"
+    / "cloud-bootstrap"
+    / "v1"
+    / "deployment-identity-bindings"
+    / "aws.json"
+)
 PERMISSION_SET_VERSION = "thesis-demo-v2"
 AWS_MANAGED_POLICY_CHARACTER_LIMIT = 6_144
 AWS_ACCOUNT_PATTERN = re.compile(r"^[0-9]{12}$")
@@ -47,6 +56,37 @@ def _load_pack(provider: str) -> dict[str, Any]:
     return document
 
 
+def _document_digest(document: dict[str, Any]) -> str:
+    payload = json.dumps(
+        document,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
+def _load_aws_identity_binding(pack: dict[str, Any]) -> dict[str, Any]:
+    binding = json.loads(AWS_IDENTITY_BINDING_PATH.read_text(encoding="utf-8"))
+    if (
+        binding.get("binding_id") != "aws.thesis-demo-v2.iam-user-v1"
+        or binding.get("provider") != "aws"
+        or binding.get("permission_set_version") != PERMISSION_SET_VERSION
+        or binding.get("base_pack_digest") != _document_digest(pack)
+        or binding.get("identity_kind") != "iam_user"
+        or binding.get("connection_auth_type") != "access_key"
+        or binding.get("policy_attachment_kind") != "customer_managed_policy"
+        or not isinstance(binding.get("self_check_permissions"), list)
+        or not binding["self_check_permissions"]
+        or len(binding["self_check_permissions"])
+        != len(set(binding["self_check_permissions"]))
+    ):
+        raise PolicyMaterializationError(
+            "AWS deployment identity binding does not match the frozen v2 pack."
+        )
+    return binding
+
+
 def _require_run_id(run_id: str) -> None:
     if not RUN_ID_PATTERN.fullmatch(run_id):
         raise PolicyMaterializationError(
@@ -65,18 +105,16 @@ def _unique_strings(values: Any, field: str) -> list[str]:
     return values
 
 
-def materialize_aws_role_policy(*, account_id: str, run_id: str) -> dict[str, Any]:
-    """Render the role policy described by the frozen AWS v2 pack.
-
-    The pack explicitly assigns v2 to a deployment role. This function does
-    not reinterpret it as an IAM-user policy; the supervised adapter remains
-    blocked until the separate role-vs-user contract decision is resolved.
-    """
+def materialize_aws_deployment_bundle(
+    *, account_id: str, run_id: str
+) -> dict[str, Any]:
+    """Render the explicit IAM-user binding for the frozen AWS v2 inventory."""
 
     if not AWS_ACCOUNT_PATTERN.fullmatch(account_id):
         raise PolicyMaterializationError("AWS account ID must contain 12 digits.")
     _require_run_id(run_id)
     pack = _load_pack("aws")
+    binding = _load_aws_identity_binding(pack)
     inputs = pack.get("policy_inputs")
     if not isinstance(inputs, list) or not inputs:
         raise PolicyMaterializationError("AWS policy_inputs are missing.")
@@ -158,13 +196,56 @@ def materialize_aws_role_policy(*, account_id: str, run_id: str) -> dict[str, An
                 }
             )
 
+    self_check_actions = _unique_strings(
+        binding["self_check_permissions"], "AWS IAM-user self-check permissions"
+    )
+    overlap = seen_actions.intersection(self_check_actions)
+    if overlap:
+        raise PolicyMaterializationError(
+            "AWS IAM-user self-check permissions duplicate base-pack actions: "
+            f"{sorted(overlap)}"
+        )
+    statements.append(
+        {
+            "Sid": "IdentitySelfInspection",
+            "Effect": "Allow",
+            "Action": self_check_actions,
+            "Resource": "*",
+        }
+    )
+
     policy = {"Version": "2012-10-17", "Statement": statements}
     size = aws_policy_character_count(policy)
     if size > AWS_MANAGED_POLICY_CHARACTER_LIMIT:
         raise PolicyMaterializationError(
             "AWS v2 policy exceeds the 6,144-character managed-policy limit."
         )
-    return policy
+    user_name = f"{run_id}-deployer"
+    policy_name = f"{run_id}-deployment"
+    policy_arn = f"arn:aws:iam::{account_id}:policy/{policy_name}"
+    return {
+        "schema_version": "aws-deployment-identity-bundle.v1",
+        "provider": "aws",
+        "account_id": account_id,
+        "permission_set_version": PERMISSION_SET_VERSION,
+        "identity_binding_id": binding["binding_id"],
+        "identity": {
+            "kind": binding["identity_kind"],
+            "user_name": user_name,
+            "auth_type": binding["connection_auth_type"],
+        },
+        "managed_policy": {
+            "name": policy_name,
+            "arn": policy_arn,
+            "document": policy,
+            "character_count": size,
+        },
+        "attachment": {
+            "kind": binding["policy_attachment_kind"],
+            "user_name": user_name,
+            "policy_arn": policy_arn,
+        },
+    }
 
 
 def aws_policy_character_count(policy: dict[str, Any]) -> int:
@@ -253,7 +334,7 @@ def main() -> int:
     if args.provider == "aws":
         if args.subscription_id or args.project_id or not args.account_id:
             parser.error("AWS requires only --account-id.")
-        document = materialize_aws_role_policy(
+        document = materialize_aws_deployment_bundle(
             account_id=args.account_id, run_id=args.run_id
         )
     elif args.provider == "azure":

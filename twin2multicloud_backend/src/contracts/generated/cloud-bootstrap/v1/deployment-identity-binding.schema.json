@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/contracts/cloud-bootstrap/v1/deployment-identity-binding.schema.json",
+  "title": "Guided bootstrap deployment identity binding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "binding_id",
+    "provider",
+    "permission_set_version",
+    "base_pack_digest",
+    "identity_kind",
+    "connection_auth_type",
+    "policy_attachment_kind",
+    "self_check_permissions",
+    "scope_summary",
+    "rationale",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "deployment-identity-binding.v1"
+    },
+    "binding_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9.-]+$"
+    },
+    "provider": {
+      "enum": ["aws", "azure", "gcp"]
+    },
+    "permission_set_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "base_pack_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "identity_kind": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$"
+    },
+    "connection_auth_type": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$"
+    },
+    "policy_attachment_kind": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$"
+    },
+    "self_check_permissions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9-]+:[A-Za-z0-9*]+$"
+      }
+    },
+    "scope_summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

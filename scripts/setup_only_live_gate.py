@@ -48,6 +48,14 @@ DEPLOYMENT_PACK_PATHS = {
     provider: PERMISSION_SET_ROOT / f"{provider}_thesis_demo_v2.json"
     for provider in PROVIDERS
 }
+AWS_DEPLOYMENT_BINDING_PATH = (
+    REPO_ROOT
+    / "contracts"
+    / "cloud-bootstrap"
+    / "v1"
+    / "deployment-identity-bindings"
+    / "aws.json"
+)
 
 TARGET_KEYS = {
     "aws": frozenset({"provider", "account_id", "region"}),
@@ -691,6 +699,29 @@ def _pack_reference(provider: str, *, authority: bool) -> dict[str, str]:
     else:
         pack_id = f"{provider}.{document.get('permission_set_version')}"
         version = document.get("permission_set_version")
+        if provider == "aws":
+            base_digest = _document_digest(document)
+            binding = _load_json(AWS_DEPLOYMENT_BINDING_PATH)
+            if (
+                binding.get("provider") != provider
+                or binding.get("permission_set_version") != version
+                or binding.get("base_pack_digest") != base_digest
+                or binding.get("identity_kind") != "iam_user"
+                or binding.get("connection_auth_type") != "access_key"
+                or binding.get("policy_attachment_kind") != "customer_managed_policy"
+                or not isinstance(binding.get("self_check_permissions"), list)
+                or not binding["self_check_permissions"]
+                or len(binding["self_check_permissions"])
+                != len(set(binding["self_check_permissions"]))
+            ):
+                raise SetupGateError(
+                    "AWS deployment identity binding does not match the active pack."
+                )
+            pack_id = binding.get("binding_id")
+            document = {
+                "permission_set": document,
+                "identity_binding": binding,
+            }
     if not isinstance(pack_id, str) or not isinstance(version, str):
         raise SetupGateError("Permission-pack identity is malformed.")
     return {"id": pack_id, "version": version, "digest": _document_digest(document)}

@@ -71,6 +71,11 @@ class SetupGateManifestTests(unittest.TestCase):
             self.assertEqual(
                 item.document["deployment_pack"]["version"], "thesis-demo-v2"
             )
+            if provider == "aws":
+                self.assertEqual(
+                    item.document["deployment_pack"]["id"],
+                    "aws.thesis-demo-v2.iam-user-v1",
+                )
             self.assertRegex(
                 item.document["bootstrap_authority_pack"]["digest"],
                 r"^sha256:[a-f0-9]{64}$",

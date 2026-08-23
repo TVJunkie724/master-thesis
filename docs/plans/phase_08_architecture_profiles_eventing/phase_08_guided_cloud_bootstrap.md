@@ -3,7 +3,7 @@ title: "Phase 8 Guided Cloud Bootstrap And Manual Prerequisites"
 description: "Binding cross-service plan for turning request-scoped bootstrap authority into reusable bounded CloudConnections while exposing the few unavoidable provider actions."
 tags: [phase-8, credentials, bootstrap, cloud-connections, identity, preflight, security]
 lastUpdated: "2026-08-24"
-version: "1.6"
+version: "1.7"
 ---
 
 <!-- SOURCES:
@@ -20,7 +20,7 @@ version: "1.6"
 - twin2multicloud_flutter/docs/configuration_workspace/CONCEPT_CONFIGURATION_WORKSPACE.md
 - twin2multicloud_flutter/docs/frontend_delta/phases/PHASE_02_PROFILE_CLOUD_ACCESS.md
 - AWS IAM Identity Center, Microsoft Azure RBAC, and Google Cloud IAM/IAP primary documentation linked in section 15
-EXTRACTED: 2026-08-24 | VERSION: 1.6
+EXTRACTED: 2026-08-24 | VERSION: 1.7
 -->
 
 # Phase 8 Guided Cloud Bootstrap And Manual Prerequisites
@@ -136,6 +136,16 @@ inventory because AWS limits all inline policies on one IAM user to 2,048
 characters. The v2 pack instead creates, attaches, versions, detaches, and
 deletes one gate-owned customer-managed policy; its rendered document must
 remain below AWS's 6,144-character customer-managed-policy limit.
+
+The frozen `aws_thesis_demo_v2.json` permission inventory historically names
+a deployment role, but the approved PoC credential path above is an IAM user
+with one access key. The implementation does not rewrite that historical
+artifact. Instead, `aws.thesis-demo-v2.iam-user-v1` is a separate, versioned
+identity binding that pins the exact base-pack digest, IAM-user identity kind,
+`access_key` CloudConnection auth type, customer-managed-policy attachment, and
+the IAM-user self-inspection actions used by the Deployer preflight. Guide and
+setup-gate digests cover both documents. STS AssumeRole is therefore not
+implied by the active PoC contract.
 
 Azure v2 likewise supersedes the historical `bootstrap.azure.admin-v1` pack
 without rewriting it. The v2 pack adds the exact role-definition write/delete
@@ -374,7 +384,7 @@ The guide contract contains:
 | `schema_version` | Exact `cloud-bootstrap-guide.v1` discriminator |
 | `execution_mode` | Truthful `disabled` or offline `deterministic_fake`; the UI labels the offline PoC mode and never presents it as cloud creation. A real provider adapter requires a separate implementation/live-gate revision. |
 | `provider`, `target`, `region` | Safe provider context echoed from the request |
-| `bootstrap_authority_pack` | Stable `bootstrap.<provider>.admin-v1` ID, digest, scope summary, directory/organization/billing/key-policy limitations, and an opaque downloadable provider artifact; Flutter never edits it |
+| `bootstrap_authority_pack` | Stable active `bootstrap.<provider>.admin-v2` ID, digest, scope summary, directory/organization/billing/key-policy limitations, and an opaque downloadable provider artifact; historical v1 artifacts remain versioned evidence and Flutter never edits either generation |
 | `generated_deployment_pack` | Management-selected active ID/version/digest, scope summary, and known-gap references; Five-layer v2 requires `thesis-demo-v2` |
 | `credential_fields` | Ordered provider-specific field IDs, safe labels, input type, required flag, and redaction rule; never values |
 | `credential_origins` | `dedicated_disposable` and `existing_user_owned` with exact consequences |
@@ -625,11 +635,12 @@ deployment permissions.
 
 The offline implementation was delivered in independently reviewed commits:
 
-1. **Contracts and fixtures:** create and review the original three
-   `bootstrap.<provider>.admin-v1` authority artifacts and the versioned AWS
-   and Azure v2 corrections; add bootstrap
-   guide/session schemas, stable finding codes, both permission-pack
-   references, provider matrices, compatibility fixtures, and redaction tests.
+1. **Contracts and fixtures:** retain the original three
+   `bootstrap.<provider>.admin-v1` authority artifacts as historical evidence;
+   publish the active AWS, Azure, and GCP v2 corrections plus the AWS
+   deployment-identity binding; add bootstrap guide/session schemas, stable
+   finding codes, both permission-pack references, provider matrices,
+   compatibility fixtures, and redaction tests.
 2. **Management lifecycle:** request-only secret boundary, session ownership,
    idempotency, generated CloudConnection persistence, execute/cancel/manual-
    revocation acknowledgement, audit events, and disposal status. Keep the
@@ -673,10 +684,10 @@ The optional setup-only live gate additionally uses
 from the frozen provider-neutral deployment packs to provider-native request
 documents. The materializer preserves the exact inventories and target scopes,
 enforces AWS's managed-policy size limit and required conditions, and contains
-no provider client or credential input. AWS output remains a role policy, as
-declared by the frozen v2 pack; it must not be attached to the currently
-implemented IAM-user CloudConnection path until the recorded identity-form
-contract finding is resolved.
+no provider client or credential input. AWS output is now a complete safe
+bundle for the pinned IAM-user binding: generated user name, managed-policy
+name/ARN and document, plus the exact user-policy attachment. It contains no
+access-key value and still makes no live-provider claim.
 
 The credential-free local integration boundary is available as
 `./thesis.sh test setup-smoke`. It runs the actual shared Flutter bootstrap UI

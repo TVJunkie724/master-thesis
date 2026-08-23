@@ -2,8 +2,8 @@
 title: "Phase 9: Guided Cloud Access Bootstrap"
 description: "Plan the shared Settings and configuration-workspace delivery of request-scoped provider bootstrap and resumable manual prerequisites."
 tags: [flutter, configuration-workspace, settings, credentials, bootstrap]
-lastUpdated: "2026-08-05"
-version: "1.2"
+lastUpdated: "2026-08-24"
+version: "1.3"
 ---
 
 <!-- SOURCES:
@@ -11,7 +11,7 @@ version: "1.2"
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
 - twin2multicloud_flutter/docs/feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
-EXTRACTED: 2026-08-05 | VERSION: 1.2
+EXTRACTED: 2026-08-24 | VERSION: 1.3
 -->
 
 # Phase 9: Guided Cloud Access Bootstrap
@@ -54,7 +54,9 @@ secret.
   implemented with strict fixtures.
 - The reviewed Phase 8 decision package has published immutable provider
   `thesis-demo-v2` deployment-pack IDs/digests; Flutter only presents the
-  Management-selected pack.
+  Management-selected pack. AWS additionally publishes the versioned
+  `aws.thesis-demo-v2.iam-user-v1` binding for the implemented IAM-user and
+  access-key path.
 - The Management API owns bootstrap sessions, owner isolation, request-only
   secret handling, idempotency, and generated CloudConnection persistence.
 - AWS, Azure, and GCP provider adapters return stable safe findings and

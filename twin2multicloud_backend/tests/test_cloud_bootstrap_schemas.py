@@ -89,7 +89,7 @@ def test_safe_session_response_rejects_secret_fields():
             "digest": "sha256:" + ("b" * 64),
         },
         "generated_deployment_pack": {
-            "id": "aws.thesis-demo-v2",
+            "id": "aws.thesis-demo-v2.iam-user-v1",
             "version": "thesis-demo-v2",
             "digest": "sha256:" + ("c" * 64),
         },

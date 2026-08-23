@@ -2,8 +2,8 @@
 title: "FR-002 Guided Cloud Access Bootstrap Contract"
 description: "Management API and provider-adapter contract required for request-scoped bootstrap authority, generated CloudConnections, and resumable manual prerequisites."
 tags: [flutter, feature-request, management-api, deployer, credentials, bootstrap]
-lastUpdated: "2026-08-05"
-version: "1.3"
+lastUpdated: "2026-08-24"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.3"
 - docs/plans/2026-05-21_provider_bootstrap_preflight_plan.md
 - Current Management API OpenAPI contract on 2026-07-31
 - GitHub issue #154
-EXTRACTED: 2026-08-05 | VERSION: 1.3
+EXTRACTED: 2026-08-24 | VERSION: 1.4
 -->
 
 # FR-002 Guided Cloud Access Bootstrap Contract
@@ -45,9 +45,10 @@ or relabel the script flow.
 
 1. Add versioned `cloud-bootstrap-guide.v1` provider guidance with safe setup
    steps, official links, required fields, new
-   `bootstrap.<provider>.admin-v1` authority-pack identity/digest, Management-
+   `bootstrap.<provider>.admin-v2` authority-pack identity/digest, Management-
    selected generated-deployment-pack identity/digest (`thesis-demo-v2` for
-   Five-layer v2), known scope gaps, credential-origin options, and disposal
+   Five-layer v2), the AWS `aws.thesis-demo-v2.iam-user-v1` identity binding
+   where applicable, known scope gaps, credential-origin options, and disposal
    behavior through a safe-context
    `POST /cloud-bootstrap/{provider}/guide` request.
 2. Add owner-scoped `cloud-bootstrap-session.v1` and the following Management

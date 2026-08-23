@@ -1,0 +1,28 @@
+{
+  "schema_version": "deployment-identity-binding.v1",
+  "binding_id": "aws.thesis-demo-v2.iam-user-v1",
+  "provider": "aws",
+  "permission_set_version": "thesis-demo-v2",
+  "base_pack_digest": "sha256:ae5053d7c86dd6ecb7fbc45f1b519fc4cc8a57fcf4fce342d336684e0d6b6389",
+  "identity_kind": "iam_user",
+  "connection_auth_type": "access_key",
+  "policy_attachment_kind": "customer_managed_policy",
+  "self_check_permissions": [
+    "iam:ListUserPolicies",
+    "iam:GetUserPolicy",
+    "iam:ListAttachedUserPolicies",
+    "iam:GetPolicy",
+    "iam:GetPolicyVersion",
+    "iam:ListGroupsForUser",
+    "iam:ListGroupPolicies",
+    "iam:GetGroupPolicy",
+    "iam:ListAttachedGroupPolicies"
+  ],
+  "scope_summary": "One generated twin2mc-* IAM deployment user in the selected AWS account, one attached customer-managed thesis-demo-v2 policy, and one access key; request-scoped bootstrap authority is not retained.",
+  "rationale": "The Phase 8 PoC already persists AWS deployment CloudConnections as access-key credentials and configures the Terraform AWS provider with those credentials. This explicit binding corrects the executable identity assignment without mutating the frozen thesis-demo-v2 permission inventory.",
+  "limitations": [
+    "The binding is specific to the PoC IAM-user path and does not claim STS AssumeRole support.",
+    "The binding adds only the IAM-user self-inspection actions required by the existing Deployer preflight; the customer-managed policy document must remain below the AWS 6,144-character quota and requires supervised IAM Access Analyzer validation before live use.",
+    "Static access keys remain a bounded PoC trade-off; workload roles created inside the deployed architecture are separate identities."
+  ]
+}

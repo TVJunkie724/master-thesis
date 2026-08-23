@@ -654,6 +654,7 @@ class GuidedCloudBootstrapService:
         path = CONTRACT_ROOT / category / f"{provider}.json"
         document = json.loads(path.read_text(encoding="utf-8"))
         digest = _digest(document)
+        artifact_path: str
         if authority:
             pack_id = document["contract_id"]
             version = pack_id.rsplit("-v", maxsplit=1)[-1]
@@ -664,12 +665,49 @@ class GuidedCloudBootstrapService:
             }[provider]
             scope = document["scope_summary"]
             limitations = document["limitations"]
+            artifact_path = (
+                f"3-cloud-deployer/docs/references/permission_sets/{repository_name}"
+            )
         else:
             version = document["permission_set_version"]
             pack_id = f"{provider}.{version}"
             repository_name = f"{provider}_thesis_demo_v2.json"
             scope = document["assignment"]
             limitations = document["known_gaps"]
+            artifact_path = (
+                f"3-cloud-deployer/docs/references/permission_sets/{repository_name}"
+            )
+            if provider == "aws":
+                binding_path = (
+                    CONTRACT_ROOT / "deployment-identity-bindings" / "aws.json"
+                )
+                binding = json.loads(binding_path.read_text(encoding="utf-8"))
+                if (
+                    binding.get("provider") != "aws"
+                    or binding.get("permission_set_version") != version
+                    or binding.get("base_pack_digest") != digest
+                    or binding.get("identity_kind") != "iam_user"
+                    or binding.get("connection_auth_type") != "access_key"
+                    or binding.get("policy_attachment_kind")
+                    != "customer_managed_policy"
+                    or not isinstance(binding.get("self_check_permissions"), list)
+                    or not binding["self_check_permissions"]
+                    or len(binding["self_check_permissions"])
+                    != len(set(binding["self_check_permissions"]))
+                ):
+                    raise CloudBootstrapDomainError(
+                        "BOOTSTRAP_AUTHORITY_PACK_MISMATCH",
+                        "The AWS deployment identity binding does not match the active permission pack.",
+                    )
+                digest = _digest(
+                    {"permission_set": document, "identity_binding": binding}
+                )
+                pack_id = binding["binding_id"]
+                scope = binding["scope_summary"]
+                limitations = [*binding["limitations"], *limitations]
+                artifact_path = (
+                    "contracts/cloud-bootstrap/v1/deployment-identity-bindings/aws.json"
+                )
         fields: dict[str, Any] = {
             "id": pack_id,
             "version": version,
@@ -682,8 +720,7 @@ class GuidedCloudBootstrapService:
                     "limitations": limitations,
                     "artifact_url": (
                         "https://github.com/TVJunkie724/master-thesis/blob/master/"
-                        "3-cloud-deployer/docs/references/permission_sets/"
-                        f"{repository_name}"
+                        f"{artifact_path}"
                     ),
                 }
             )

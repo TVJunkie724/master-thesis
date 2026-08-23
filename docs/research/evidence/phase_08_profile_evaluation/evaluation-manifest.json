@@ -74,8 +74,8 @@
       "category": "bootstrap",
       "path": "contracts/cloud-bootstrap",
       "kind": "tree",
-      "digest": "sha256:76aeff53a3be6b8dacf1d3d7c5b79e068031e91175f62b05c19dd5d459238eb8",
-      "file_count": 8
+      "digest": "sha256:3a991449f4dfd9a4c1cca9add16915a5d8038ad45e485de36917c26ee8f62c9a",
+      "file_count": 10
     },
     {
       "category": "component",

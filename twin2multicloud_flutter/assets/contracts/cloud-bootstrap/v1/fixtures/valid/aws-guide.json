@@ -1,6 +1,6 @@
 {
   "schema_version": "cloud-bootstrap-guide.v1",
-  "guide_digest": "sha256:b5c0e19d69147c875d84def25f7f93254b64d0f7f37768ec69a8909ada630d73",
+  "guide_digest": "sha256:d9ca4fa9ffea514e505de3724e2699451ca3d70fccd92055dede8f309520599f",
   "provider": "aws",
   "execution_mode": "deterministic_fake",
   "target": {
@@ -9,18 +9,18 @@
     "region": "eu-central-1"
   },
   "bootstrap_authority_pack": {
-    "id": "bootstrap.aws.admin-v1",
-    "version": "1",
+    "id": "bootstrap.aws.admin-v2",
+    "version": "2",
     "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "scope_summary": "One selected AWS account.",
     "limitations": ["Offline validation only."],
     "artifact_url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction_identity-management.html"
   },
   "generated_deployment_pack": {
-    "id": "aws.thesis-demo-v2",
+    "id": "aws.thesis-demo-v2.iam-user-v1",
     "version": "thesis-demo-v2",
     "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-    "scope_summary": "One selected AWS account.",
+    "scope_summary": "One generated IAM deployment user in the selected AWS account.",
     "limitations": ["Requires supervised live validation."],
     "artifact_url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html"
   },

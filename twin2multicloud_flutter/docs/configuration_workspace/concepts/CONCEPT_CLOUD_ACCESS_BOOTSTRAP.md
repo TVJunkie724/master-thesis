@@ -2,8 +2,8 @@
 title: "Concept: Guided Cloud Access Bootstrap"
 description: "User-facing concept for creating reusable deployment CloudConnections from request-scoped provider authority and resuming exact manual prerequisites."
 tags: [flutter, configuration-workspace, settings, credentials, bootstrap, cloud-access]
-lastUpdated: "2026-08-11"
-version: "1.2"
+lastUpdated: "2026-08-24"
+version: "1.3"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.2"
 - docs/plans/2026-04-26_runtime_credentials_deployment_state_hardening.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
 - User-approved manual-step and credential-lifecycle decisions from 2026-07-31
-EXTRACTED: 2026-08-11 | VERSION: 1.2
+EXTRACTED: 2026-08-24 | VERSION: 1.3
 -->
 
 # Concept: Guided Cloud Access Bootstrap
@@ -106,9 +106,11 @@ guided setup; it does not force an existing connection through bootstrap.
 The default view explains four facts before accepting a secret:
 
 1. which provider account/project/subscription and region will be affected;
-2. which new `bootstrap.<provider>.admin-v1` authority pack the submitted
+2. which active `bootstrap.<provider>.admin-v2` authority pack the submitted
    credential must pass, and which Management-selected deployment pack will be
-   assigned (`thesis-demo-v2` for Five-layer v2);
+   assigned (`thesis-demo-v2` for Five-layer v2); AWS additionally presents
+   the versioned `aws.thesis-demo-v2.iam-user-v1` binding that makes the PoC's
+   IAM-user/access-key deployment identity explicit;
 3. that the submitted secret is request-scoped and never rehydrated; and
 4. whether Twin2MultiCloud will attempt to revoke a dedicated disposable
    credential or leave an existing user-owned credential untouched.

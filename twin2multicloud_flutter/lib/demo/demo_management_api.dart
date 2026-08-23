@@ -3376,6 +3376,8 @@ class DemoManagementApi implements ManagementApi {
     return {
       'id': authority
           ? 'bootstrap.${provider.apiValue}.admin-v$authorityVersion'
+          : provider == CloudProvider.aws
+          ? 'aws.thesis-demo-v2.iam-user-v1'
           : '${provider.apiValue}.thesis-demo-v2',
       'version': version,
       'digest': _demoBootstrapDigest('${provider.apiValue}-$version'),

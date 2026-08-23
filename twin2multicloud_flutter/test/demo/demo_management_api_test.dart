@@ -117,6 +117,10 @@ void main() {
       final guide = await api.getCloudBootstrapGuide(CloudProvider.aws, target);
       expect(guide.bootstrapAuthorityPack.id, 'bootstrap.aws.admin-v2');
       expect(guide.bootstrapAuthorityPack.version, '2');
+      expect(
+        guide.generatedDeploymentPack.id,
+        'aws.thesis-demo-v2.iam-user-v1',
+      );
       final gcpGuide = await api.getCloudBootstrapGuide(
         CloudProvider.gcp,
         CloudBootstrapTarget.gcpExistingProject(

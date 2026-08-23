@@ -73,6 +73,11 @@ void main() {
     );
     await tester.tap(find.text('I completed these steps'));
     await tester.pumpAndSettle();
+    expect(
+      bloc.state.phase,
+      CloudBootstrapPhase.authority,
+      reason: bloc.state.safeError,
+    );
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Access key ID'),
       'AKIAIOSFODNN7EXAMPLE',
@@ -115,6 +120,12 @@ void main() {
         );
         expect(guide.bootstrapAuthorityPack.version, '2');
         expect(guide.generatedDeploymentPack.version, 'thesis-demo-v2');
+        if (provider == CloudProvider.aws) {
+          expect(
+            guide.generatedDeploymentPack.id,
+            'aws.thesis-demo-v2.iam-user-v1',
+          );
+        }
         expect(guide.knownBlockers, isEmpty);
 
         final createKey = _key('create', provider, run);

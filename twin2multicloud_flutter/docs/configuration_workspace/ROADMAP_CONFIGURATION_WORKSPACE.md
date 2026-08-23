@@ -2,8 +2,8 @@
 title: "Configuration Workspace Roadmap"
 description: "Incremental migration from the legacy three-step wizard to the dependency-aware configuration workspace."
 tags: [flutter, roadmap, configuration, wizard]
-lastUpdated: "2026-08-14"
-version: "2.0"
+lastUpdated: "2026-08-24"
+version: "2.1"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "2.0"
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
 - twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
-EXTRACTED: 2026-08-14 | VERSION: 2.0
+EXTRACTED: 2026-08-24 | VERSION: 2.1
 -->
 
 # Configuration Workspace Roadmap
@@ -42,7 +42,7 @@ adds focused tests, receives two code reviews, and is committed independently.
 | 7 | Done | Quality and migration gate | Legacy navigation and visible step terminology are removed; analyzer, 380 tests, web release build, and macOS release build pass. |
 | 8 | Done | Immutable deployment selection review | Whole-run Management API selection, latest-run hydration, atomic invalidation/restore, fail-closed navigation, read-only primary/supporting resource summary, collapsed technical evidence, isolated demo parity, 706 tests, analyzer, architecture, Web/macOS, backend-contract, and docs gates pass. |
 | 8.1 | Done offline; Phase 8.10 evidence generated | [Architecture profile experiment](phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md), staged across Phase 8.7 UI infrastructure and the 8.9A/8.9B runtime activations | [Implementation](implementation/architecture_profile_experiment.md) exposes Five-layer v2 and Six-layer v1 through one Management-owned workflow; the latest Flutter gate passes 893 tests, Web/macOS builds, credential-free real-Management integration for both profiles, and two final review passes with zero unresolved findings. Phase 8.10 generates separate deterministic research evidence; supervised live-capacity evidence remains deliberately open. |
-| 9 | Done offline | [Guided cloud access bootstrap](phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) shared by Prepare deployment and Settings | [Implementation record](implementation/guided_cloud_access_bootstrap.md): strict guides/sessions, write-only request credentials, deterministic AWS/Azure/GCP adapters, generated bounded CloudConnections, truthful disposal/revocation, 806 Flutter tests, real local-stack integration, and secret-persistence scans pass. Live provider adapters remain fail-closed. |
+| 9 | Done offline | [Guided cloud access bootstrap](phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) shared by Prepare deployment and Settings | [Implementation record](implementation/guided_cloud_access_bootstrap.md): strict guides/sessions, active v2 bootstrap authority, explicit AWS IAM-user identity binding, write-only request credentials, deterministic AWS/Azure/GCP adapters, generated bounded CloudConnections, truthful disposal/revocation, 806 Flutter tests, real local-stack integration, and secret-persistence scans pass. Live provider adapters remain fail-closed. |
 
 ## Cross-Phase Definition Of Done
 

@@ -1,5 +1,6 @@
 """Static guardrails for provider bootstrap permission artifacts."""
 
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -329,6 +330,36 @@ def test_active_v2_permission_manifests_are_frozen_and_scope_reviewed():
         assert review["permission_set_version"] == ACTIVE_PERMISSION_SET_VERSION
         assert review["review_status"] == "approved_for_offline_implementation"
         assert review["findings"] == []
+
+
+def test_active_aws_identity_binding_covers_iam_user_self_check_permissions():
+    artifact = json.loads(
+        (PERMISSION_SET_DIR / "aws_thesis_demo_v2.json").read_text()
+    )
+    binding = json.loads(
+        (
+            ROOT
+            / "src/contracts/generated/cloud-bootstrap/v1/"
+            "deployment-identity-bindings/aws.json"
+        ).read_text()
+    )
+    canonical = json.dumps(
+        artifact,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+    assert binding["binding_id"] == "aws.thesis-demo-v2.iam-user-v1"
+    assert binding["identity_kind"] == "iam_user"
+    assert binding["connection_auth_type"] == "access_key"
+    assert binding["policy_attachment_kind"] == "customer_managed_policy"
+    assert binding["base_pack_digest"] == (
+        f"sha256:{hashlib.sha256(canonical).hexdigest()}"
+    )
+    assert set(binding["self_check_permissions"]) == set(
+        SELF_CHECK_PERMISSIONS["user"]
+    )
 
 
 def test_aws_v2_can_activate_outbound_identity_for_remote_azure_routes():

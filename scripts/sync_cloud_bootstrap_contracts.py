@@ -77,12 +77,24 @@ def _tree_digest(documents: dict[str, bytes]) -> str:
     return f"sha256:{hasher.hexdigest()}"
 
 
+def _document_digest(document: dict) -> str:
+    payload = json.dumps(
+        document,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
 def validate_source() -> str:
     required = {
         "README.md",
         "v1/bootstrap-authority-pack.schema.json",
+        "v1/deployment-identity-binding.schema.json",
         "v1/cloud-bootstrap-guide.schema.json",
         "v1/cloud-bootstrap-session.schema.json",
+        "v1/deployment-identity-bindings/aws.json",
         "v1/fixtures/valid/aws-guide.json",
         "v1/fixtures/valid/aws-ready-session.json",
         "v1/fixtures/invalid/guide-secret-value.json",
@@ -120,6 +132,30 @@ def validate_source() -> str:
             or document.get("permission_set_version") != "thesis-demo-v2"
         ):
             raise ValueError(f"Deployment pack mismatch: {path.relative_to(REPO_ROOT)}")
+        if provider == "aws":
+            binding_path = (
+                SOURCE_ROOT / "v1" / "deployment-identity-bindings" / "aws.json"
+            )
+            binding = json.loads(binding_path.read_text(encoding="utf-8"))
+            Draft202012Validator(
+                schemas["deployment-identity-binding.schema.json"]
+            ).validate(binding)
+            if (
+                binding["provider"] != provider
+                or binding["permission_set_version"]
+                != document["permission_set_version"]
+                or binding["base_pack_digest"] != _document_digest(document)
+                or binding["identity_kind"] != "iam_user"
+                or binding["connection_auth_type"] != "access_key"
+                or binding["policy_attachment_kind"] != "customer_managed_policy"
+                or not binding["self_check_permissions"]
+                or len(binding["self_check_permissions"])
+                != len(set(binding["self_check_permissions"]))
+            ):
+                raise ValueError(
+                    "AWS deployment identity binding does not match the frozen "
+                    "deployment pack or implemented CloudConnection path"
+                )
     guide_schema = json.loads(
         (SOURCE_ROOT / "v1" / "cloud-bootstrap-guide.schema.json").read_text(
             encoding="utf-8"
@@ -162,6 +198,32 @@ def validate_source() -> str:
                 raise ValueError(
                     "Valid guide fixture digest does not match its content"
                 )
+    guide_fixture = json.loads(
+        (SOURCE_ROOT / "v1" / "fixtures" / "valid" / "aws-guide.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    session_fixture = json.loads(
+        (
+            SOURCE_ROOT / "v1" / "fixtures" / "valid" / "aws-ready-session.json"
+        ).read_text(encoding="utf-8")
+    )
+    if (
+        session_fixture.get("guide_digest") != guide_fixture.get("guide_digest")
+        or session_fixture.get("bootstrap_authority_pack")
+        != {
+            key: guide_fixture["bootstrap_authority_pack"][key]
+            for key in ("id", "version", "digest")
+        }
+        or session_fixture.get("generated_deployment_pack")
+        != {
+            key: guide_fixture["generated_deployment_pack"][key]
+            for key in ("id", "version", "digest")
+        }
+    ):
+        raise ValueError(
+            "Valid AWS guide and ready-session fixtures do not pin one contract"
+        )
     invalid = {
         "guide-secret-value.json": Draft202012Validator(guide_schema),
         "session-secret-value.json": Draft202012Validator(session_schema),

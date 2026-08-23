@@ -73,13 +73,15 @@ an identity-only runner rather than relabel the existing deployment E2E tests.
   policy, attaches it only to the generated user, and includes the exact
   version/detach/delete cleanup boundary. Its rendered document must stay
   below the 6,144-character managed-policy limit.
-- The active AWS `thesis-demo-v2` descriptor says "generated deployment role",
+- The frozen AWS `thesis-demo-v2` descriptor says "generated deployment role",
   while the implemented CloudConnection and Terraform provider boundary use a
-  generated IAM-user access key and do not yet support assume-role deployment
-  connections. This wording cannot be silently changed in a frozen pack. A
-  follow-up decision must either publish a corrected deployment-pack version
-  for the IAM-user path or implement and validate role assumption end to end;
-  AWS live identity execution remains blocked until that choice is closed.
+  generated IAM-user access key. This is resolved without rewriting the frozen
+  permission inventory: active guided setup additionally pins the versioned
+  `aws.thesis-demo-v2.iam-user-v1` identity binding. The composite digest binds
+  that IAM-user/access-key/customer-managed-policy assignment to the exact v2
+  permission-pack digest and adds the IAM-user self-inspection actions used by
+  the Deployer preflight. AssumeRole remains explicit future work rather than
+  an unimplemented claim of the PoC.
 - The existing guided session has no provider-identity deletion lifecycle.
   Deleting a local CloudConnection alone is not cleanup, so the disposable
   live runner needs its own provider cleanup ledger and operation.
@@ -96,6 +98,14 @@ an identity-only runner rather than relabel the existing deployment E2E tests.
   adding only `serviceusage.services.get` and `iam.roles.list`; API enablement
   remains forbidden. Cleanup treats `deleted=true` as the correct immediate
   result because GCP keeps a custom role soft-deleted for seven days.
+- The current Deployer credential checkers still compare effective provider
+  permissions with their historical generic service matrices rather than the
+  selected immutable `thesis-demo-v2` inputs. Those matrices intentionally do
+  not equal the new Five-layer v2/Six-layer v1 bundles. G4 is therefore blocked
+  until validation selects the exact versioned provider pack and reports its
+  coverage without silently broadening that pack. The AWS identity binding
+  separately supplies the IAM-user metadata reads needed to inspect the
+  attached managed policy; those reads are not workload permissions.
 
 ## 3. Gate Sequence
 
@@ -277,10 +287,12 @@ Implemented and credential-free as of 2026-08-24.
 ### Slice B — Reviewed Live Provider Adapters
 
 Not enabled. Provider-native policy materialization is implemented offline;
-provider calls and `supervised_live` mode remain pending.
+version-aware Deployer permission validation against the exact selected v2
+pack must land before any provider adapter is admitted. Provider calls and
+`supervised_live` mode remain pending.
 
-- Resolve and republish the AWS managed-policy and Azure custom-role bootstrap
-  authority boundaries before provider code is enabled.
+- Keep the resolved AWS IAM-user binding and the AWS/Azure/GCP v2 bootstrap
+  authority boundaries pinned before provider code is enabled.
 - Add a `supervised_live` adapter mode while retaining production default
   `disabled` and test default `deterministic_fake`.
 - Implement AWS, Azure, and GCP adapters against the pinned authority and
