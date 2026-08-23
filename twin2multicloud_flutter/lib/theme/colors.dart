@@ -37,6 +37,9 @@ abstract class AppColors {
   /// Loading overlay opacity for disabled operational cards
   static const double loadingOverlayAlpha = 0.72;
 
+  /// Neutral background for read-only code and log artifacts.
+  static const Color codeViewerBackground = Color(0xFF2A2A2A);
+
   // ============================================================
   // Utility Methods
   // ============================================================

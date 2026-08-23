@@ -28,6 +28,7 @@ class LayerAccessPanel extends StatelessWidget {
             constraints.maxWidth < AppSpacing.twinOverviewCompactBreakpoint;
         return Semantics(
           container: true,
+          explicitChildNodes: true,
           label: 'Layer access. ${aggregate.label}',
           child: Card(
             elevation: AppSpacing.cardElevationLow,
@@ -167,6 +168,7 @@ class LayerAccessCard extends StatelessWidget {
     return Semantics(
       key: Key('layer-access-card-${surface.layer.name}'),
       container: true,
+      explicitChildNodes: true,
       label:
           '$purpose. ${surface.provider.label}. ${surface.displayName}. ${status.label}.',
       child: Card(
@@ -401,6 +403,7 @@ class _AccessDetails extends StatelessWidget {
       order: NumericFocusOrder(surface.layer == DeploymentLayer.l4 ? 2 : 5),
       child: ExpansionTile(
         key: Key('layer-access-details-${surface.layer.name}'),
+        internalAddSemanticForOnTap: true,
         tilePadding: EdgeInsets.zero,
         childrenPadding: EdgeInsets.zero,
         initiallyExpanded: initiallyExpanded,

@@ -15,6 +15,8 @@ import 'package:highlight/languages/yaml.dart' as hl_yaml;
 import 'package:file_picker/file_picker.dart';
 import 'package:file_saver/file_saver.dart';
 
+import '../theme/colors.dart';
+import '../theme/spacing.dart';
 import '../utils/file_writer.dart';
 
 /// Result of a download operation
@@ -212,27 +214,35 @@ class _CodeViewerDialogState extends State<_CodeViewerDialog> {
         ],
       ),
       content: Container(
-        width: 700,
-        height: 500,
+        width: AppSpacing.codeViewerWidth,
+        height: AppSpacing.codeViewerHeight,
         decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2A),
-          borderRadius: BorderRadius.circular(8),
+          color: AppColors.codeViewerBackground,
+          borderRadius: BorderRadius.circular(AppSpacing.borderRadiusSm),
         ),
         clipBehavior: Clip.antiAlias,
         child: SingleChildScrollView(
           child: CodeTheme(
             data: CodeThemeData(styles: monokaiSublimeTheme),
-            child: CodeField(
-              controller: _controller,
-              minLines: 1,
-              maxLines: null,
-              wrap: true,
-              gutterStyle: const GutterStyle(
-                showLineNumbers: true,
-                showErrors: false,
-                showFoldingHandles: false,
+            child: Semantics(
+              label: '${widget.title} content',
+              textField: true,
+              readOnly: true,
+              child: CodeField(
+                controller: _controller,
+                minLines: 1,
+                maxLines: null,
+                wrap: true,
+                gutterStyle: const GutterStyle(
+                  showLineNumbers: true,
+                  showErrors: false,
+                  showFoldingHandles: false,
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: AppSpacing.codeViewerFontSize,
+                ),
               ),
-              textStyle: const TextStyle(fontFamily: 'monospace', fontSize: 13),
             ),
           ),
         ),

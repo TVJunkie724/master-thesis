@@ -310,16 +310,13 @@ class _AuthProviderBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isGoogle = provider == 'google';
-    final color = isGoogle ? AppColors.azure : Theme.of(context).primaryColor;
-    final icon = isGoogle ? Icons.g_mobiledata : Icons.school;
-    final label = isGoogle ? 'Google Account' : 'UIBK Account';
+    final presentation = _presentation(context, provider);
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: color.withAlpha(30),
+        color: presentation.color.withAlpha(30),
         borderRadius: BorderRadius.circular(AppSpacing.borderRadiusLg),
-        border: Border.all(color: color.withAlpha(100)),
+        border: Border.all(color: presentation.color.withAlpha(100)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
@@ -329,12 +326,16 @@ class _AuthProviderBadge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: AppSpacing.iconMd, color: color),
+            Icon(
+              presentation.icon,
+              size: AppSpacing.iconMd,
+              color: presentation.color,
+            ),
             const SizedBox(width: AppSpacing.sm),
             Text(
-              'Logged in with $label',
+              presentation.label,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: color,
+                color: presentation.color,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -343,6 +344,51 @@ class _AuthProviderBadge extends StatelessWidget {
       ),
     );
   }
+
+  _AuthProviderPresentation _presentation(
+    BuildContext context,
+    String provider,
+  ) {
+    return switch (provider.toLowerCase()) {
+      'google' => const _AuthProviderPresentation(
+        icon: Icons.g_mobiledata,
+        label: 'Signed in with Google Account',
+        color: AppColors.azure,
+      ),
+      'uibk' => _AuthProviderPresentation(
+        icon: Icons.school,
+        label: 'Signed in with UIBK Account',
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      'demo' => _AuthProviderPresentation(
+        icon: Icons.science_outlined,
+        label: 'Demo identity',
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      'development' => _AuthProviderPresentation(
+        icon: Icons.terminal,
+        label: 'Development identity',
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      _ => _AuthProviderPresentation(
+        icon: Icons.account_circle_outlined,
+        label: 'Signed in identity',
+        color: Theme.of(context).colorScheme.primary,
+      ),
+    };
+  }
+}
+
+class _AuthProviderPresentation {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _AuthProviderPresentation({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
 }
 
 class _LoginAccountsSection extends StatelessWidget {

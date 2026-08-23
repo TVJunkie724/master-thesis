@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsAction;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -202,6 +204,20 @@ void main() {
         reason: 'Expected focus within $key.',
       );
     }
+  });
+
+  testWidgets('details remain independent semantic controls', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await _pumpHost(tester, state: _state());
+
+    for (final label in const ['Authentication details', 'Access details']) {
+      final finder = find.bySemanticsLabel(label);
+      expect(finder, findsOneWidget);
+      final node = tester.getSemantics(finder);
+      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      expect(node.label, label);
+    }
+    semantics.dispose();
   });
 }
 

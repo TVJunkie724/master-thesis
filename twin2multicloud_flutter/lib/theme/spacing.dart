@@ -158,6 +158,15 @@ abstract class AppSpacing {
   /// Maximum width for confirmation-dialog content.
   static const double dialogContentMaxWidth = 480;
 
+  /// Preferred read-only code viewer width before dialog constraints apply.
+  static const double codeViewerWidth = 700;
+
+  /// Preferred read-only code viewer height before dialog constraints apply.
+  static const double codeViewerHeight = 500;
+
+  /// Readable monospace size for code and deployment-log artifacts.
+  static const double codeViewerFontSize = 13;
+
   /// Stable two-line status area in compact operational actions.
   static const double utilityStatusHeight = 40;
 
