@@ -2,8 +2,8 @@
 title: "Phase 6: Presentation And Design System Cleanup"
 description: "Move business logic out of large screens/widgets and align reusable presentation with the existing theme and spacing tokens."
 tags: [flutter, presentation, design-system, refactoring]
-lastUpdated: "2026-06-18"
-version: "1.0"
+lastUpdated: "2026-08-23"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -17,6 +17,9 @@ EXTRACTED: 2026-06-18 | VERSION: 1.0
 -->
 
 # Phase 6: Presentation And Design System Cleanup
+
+**Status:** Completed for the PoC through #38, #73, and #108. The remaining
+whole-application visual inspection is owned by #111, not by another refactor.
 
 ## Summary
 

@@ -30,7 +30,7 @@ when work becomes actionable, then reference the issue here.
 | Phase 1 | Deployer Canonical Path | Mostly done | One productive Deployer provider/Terraform path |
 | Phase 2 | Deployer Contract Hardening | Mostly done | Typed deploy/destroy/SSE/error contracts |
 | Phase 3 | Repository Hygiene & Docs Site | Active | Separate docs, templates, runtime artifacts, and historical material |
-| Phase 4 | Runtime Credentials & Deployment State | Active | Credential SSOT, bootstrap, explicit deployment package/context, operation state |
+| Phase 4 | Runtime Credentials & Deployment State | Complete for offline PoC | Credential SSOT, guided bootstrap, explicit one-shot deployment package/context, and operation state; live identity proof stays separately gated |
 | Phase 5 | Backend Orchestrator Disentanglement | Done | Thin HTTP routes with repositories, services, clients, orchestrators, and a typed deployment lifecycle |
 | Phase 6 | Brain Contracts & Pricing Reliability | Active | Layer contracts complete; capability and expanded provider pricing coverage remain |
 | Phase 7 | Flutter Wizard & Twin Views | Done | Core architecture, configuration workspace, typed boundaries, demo, and all-desktop delivery gates completed |
@@ -57,6 +57,8 @@ when work becomes actionable, then reference the issue here.
 | [#30](https://github.com/TVJunkie724/master-thesis/issues/30) | Done | Multi-cloud walkthrough, troubleshooting, references, and project documentation completed |
 | [#70](https://github.com/TVJunkie724/master-thesis/issues/70) | Done | Federated Optimizer/Deployer provider capability contracts, fail-closed Management API aggregation, and Flutter enforcement completed |
 | [#100](https://github.com/TVJunkie724/master-thesis/issues/100) | Done | Compact and field-level intent-to-result pricing traceability across Optimizer, persisted Management API runs, and collapsed Flutter diagnostics |
+| [#6](https://github.com/TVJunkie724/master-thesis/issues/6) | Done offline | CloudConnections are the only normal application credential SSOT; Flutter and guided bootstrap are complete, while the explicit local secret overlay remains optional diagnostic compatibility |
+| [#118](https://github.com/TVJunkie724/master-thesis/issues/118) | Done offline | Immutable resolved service selections propagate from cost calculation through Terraform plan evidence and read-only Flutter review; #107 alone owns live application |
 
 ## Active And Planned Refactoring Issues
 
@@ -99,7 +101,7 @@ when work becomes actionable, then reference the issue here.
 
 | Issue | Status | Notes |
 |-------|--------|-------|
-| [#6](https://github.com/TVJunkie724/master-thesis/issues/6) | Active | CloudConnection credential SSOT and Compose split. Runtime fallback removal is complete (#78), and purpose-aware pricing/deployment credentials, transactional pricing defaults, purpose-specific validation, and secret-free inventory options are implemented. Bootstrap output splitting and profile management remain. Plans: [`docs/plans/2026-05-19_credential_ssot_compose_split.md`](https://github.com/TVJunkie724/master-thesis/blob/master/docs/plans/2026-05-19_credential_ssot_compose_split.md), `docs/plans/provider_access_pricing_review/` |
+| [#6](https://github.com/TVJunkie724/master-thesis/issues/6) | Done offline | CloudConnection credential SSOT, purpose-aware Flutter management, guided bootstrap, fallback removal, and private one-shot operation packages are complete. The explicit `.secrets/local/` overlay is optional component-diagnostic compatibility, not a normal application source. Plans: [`docs/plans/2026-05-19_credential_ssot_compose_split.md`](https://github.com/TVJunkie724/master-thesis/blob/master/docs/plans/2026-05-19_credential_ssot_compose_split.md), `docs/plans/provider_access_pricing_review/` |
 | [#7](https://github.com/TVJunkie724/master-thesis/issues/7) | Done | Provider bootstrap and permission preflight checks. Slices 1-4 add static dry-run-first bootstrap artifacts, the Management API plan/import contract, normalized CloudConnection/Deployer preflight results, and offline provider permission artifact guardrails. Plan: [`docs/plans/2026-05-21_provider_bootstrap_preflight_plan.md`](https://github.com/TVJunkie724/master-thesis/blob/master/docs/plans/2026-05-21_provider_bootstrap_preflight_plan.md) |
 | [#79](https://github.com/TVJunkie724/master-thesis/issues/79) | Active | Stage 2 for provider credentials: `thesis-demo-v1` is implemented as the active versioned permission-set contract across bootstrap output, Deployer preflight, Management API CloudConnections, and docs. AWS, Azure, and GCP pre-E2E hardening now include provider-specific scope reviews and checker/artifact drift gates; final least-privilege still requires supervised provider validation. The permission-checker implementations remain a planned follow-up review/refactor target before final E2E sign-off. Plan: [`docs/plans/2026-06-04_permission_set_version_contract.md`](https://github.com/TVJunkie724/master-thesis/blob/master/docs/plans/2026-06-04_permission_set_version_contract.md) |
 | [#8](https://github.com/TVJunkie724/master-thesis/issues/8) | Done | Production HTTPS/trusted-proxy boundary, distributed per-user credential rate limits, request correlation, and append-only secret-free audit evidence. Plan: `twin2multicloud_backend/implementation_plans/2026-07-16_production_credential_security_controls.md` |
@@ -147,7 +149,7 @@ when work becomes actionable, then reference the issue here.
 | [#115](https://github.com/TVJunkie724/master-thesis/issues/115) | Implemented locally; platform CI pending | Separate public TwinMaker Price List evidence from owner-scoped account plan observations; gate Basic, pending changes, and unallocated bundles before AWS L4 selection |
 | [#119](https://github.com/TVJunkie724/master-thesis/issues/119) | Local implementation and gates complete; platform CI pending | Immutable provider-region catalogs now drive exact owner-safe calculation, persistence, deployment selection, health, review, and reference-only Flutter diagnostics. Full pricing blobs and client-authored pricing evidence are outside the live contract. Reviewed plan: `2-twin2clouds/implementation_plans/2026-07-17_immutable_region_pricing_catalogs.md` |
 | [#116](https://github.com/TVJunkie724/master-thesis/issues/116) | Done | Exact routes, regions, network tiers, provider units, aggregate transfer pools, six baseline edges, global path scoring, trusted Management validation, atomic durable run persistence, server-owned deployment-path projection, and collapsed typed Flutter evidence are implemented. Plans: `2-twin2clouds/implementation_plans/2026-07-18_route_aware_transfer_pricing.md` and `twin2multicloud_flutter/implementation_plans/2026-07-18_durable_optimizer_runs_and_transfer_evidence.md` |
-| [#118](https://github.com/TVJunkie724/master-thesis/issues/118) | Baseline complete; final E2E deferred | Versioned resolved service deployment specifications now propagate from the selected cost model through Management persistence and DeploymentManifest into typed Terraform resources. The parent stays open only for the deliberately deferred real-provider/final-application E2E decision. Mini-roadmap and reviewed plans: `docs/plans/resolved_deployment_specification/` |
+| [#118](https://github.com/TVJunkie724/master-thesis/issues/118) | Done offline | Versioned resolved service deployment specifications propagate from the selected cost model through Management persistence and DeploymentManifest into typed Terraform resources. Live application is separately owned by #107. Mini-roadmap and reviewed plans: `docs/plans/resolved_deployment_specification/` |
 | [#127](https://github.com/TVJunkie724/master-thesis/issues/127) | Done | Canonical v1 schema, deployment-dimension registry, full provider/slot matrix, golden fixtures, and byte-identical service copies |
 | [#129](https://github.com/TVJunkie724/master-thesis/issues/129) | Done | Emit exact resolved deployment selections from the Optimizer winner, including formula-bound runtime values, archive classes, and Azure IoT Hub SKU/capacity with provider billing-block normalization |
 | [#130](https://github.com/TVJunkie724/master-thesis/issues/130) | Done | Validate, persist, freeze, and bind the specification to DeploymentManifest v2 in the Management API |
@@ -164,8 +166,8 @@ when work becomes actionable, then reference the issue here.
 | [#117](https://github.com/TVJunkie724/master-thesis/issues/117) | Done | Removed the unreachable Azure ADT Updater path; Azure L4 now has one package-, Terraform-, runtime-, security-, and documentation-tested Persister-to-ADT-Pusher topology |
 | [#32](https://github.com/TVJunkie724/master-thesis/issues/32) | Open | Refresh pricing schema and provider fetchers; includes a dedicated review/refactor of pricing-fetcher correctness, provider parsing, failure propagation, and tests |
 | [#110](https://github.com/TVJunkie724/master-thesis/issues/110) | Done | Azure Cosmos/Blob storage and bandwidth tier sources now use exact reviewed catalog evidence, collision-safe candidate identity, fail-closed publication, and a publishable live baseline |
-| [#33](https://github.com/TVJunkie724/master-thesis/issues/33) | Open | Pricing and region freshness in UI |
-| [#34](https://github.com/TVJunkie724/master-thesis/issues/34) | Open | Manual provider override with cost warnings |
+| [#33](https://github.com/TVJunkie724/master-thesis/issues/33) | Done for PoC | Pricing freshness, refresh progress/errors, last-known-good evidence, and review are visible. A general long-running region-catalog administration UI is outside the experiment boundary. |
+| [#34](https://github.com/TVJunkie724/master-thesis/issues/34) | Closed, not selected | Flutter reviews complete optimizer candidates but cannot mutate provider bindings and invalidate functional completeness, transfer pricing, resolved specifications, or deployment evidence. |
 | [#42](https://github.com/TVJunkie724/master-thesis/issues/42) | Open | Validate theoretical cost formulas against real deployed data |
 | [#43](https://github.com/TVJunkie724/master-thesis/issues/43) | Open | Real-time cost and billing tracking |
 | [#50](https://github.com/TVJunkie724/master-thesis/issues/50) | Open | Optimizer strategy encapsulation |
@@ -177,34 +179,34 @@ when work becomes actionable, then reference the issue here.
 |-------|--------|-------|
 | [#76](https://github.com/TVJunkie724/master-thesis/issues/76) | Done | Typed wizard configuration contract foundation |
 | [#38](https://github.com/TVJunkie724/master-thesis/issues/38) | Done | Flutter wizard and large UI decomposition completed |
-| [#40](https://github.com/TVJunkie724/master-thesis/issues/40) | Open | Twin operations dashboard |
-| [#41](https://github.com/TVJunkie724/master-thesis/issues/41) | Open | Centralized error notification and UI alerts |
+| [#40](https://github.com/TVJunkie724/master-thesis/issues/40) | Done for PoC | Dashboard and Twin Overview provide lifecycle status, readiness, deploy/destroy, logs, outputs, simulator/trace diagnostics, resolved configuration, and L4/L5 access. |
+| [#41](https://github.com/TVJunkie724/master-thesis/issues/41) | Closed, not selected | Existing typed validation/operation errors, correlation, redaction, persisted logs, and SSE recovery cover the PoC; Twin domain events are not a centralized enterprise error bus. |
 | [#71](https://github.com/TVJunkie724/master-thesis/issues/71) | Done | Frontend state-management boundaries and dev auth |
 | [#72](https://github.com/TVJunkie724/master-thesis/issues/72) | Done | Typed Flutter API responses and contained raw-payload exceptions |
 | [#73](https://github.com/TVJunkie724/master-thesis/issues/73) | Done | Twin Overview split into typed operation and presentation slices |
 | [#108](https://github.com/TVJunkie724/master-thesis/issues/108) | Done | Frontend cross-cutting quality and thesis evidence gate |
 | [#109 Establish Web and all-desktop Flutter support gates](https://github.com/TVJunkie724/master-thesis/issues/109) | Done | One application contract and native build evidence for Web, macOS, Windows, and Linux |
-| [#111 Run final manual visual audit of the Flutter application](https://github.com/TVJunkie724/master-thesis/issues/111) | Planned | User-led visual and interaction audit after functional issue work, before final E2E |
+| [#111 Run final manual visual audit of the Flutter application](https://github.com/TVJunkie724/master-thesis/issues/111) | Next | Credential-free whole-application visual and interaction audit before any supervised live E2E |
 
 ### Phase 8: Twin Architecture Profiles & Eventing
 
 | Issue | Status | Notes |
 |-------|--------|-------|
-| [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) | Planned epic | Closed-world architecture-profile program. Reviewed mini-roadmap: `docs/plans/phase_08_architecture_profiles_eventing/README.md`; agent handoff: `docs/plans/phase_08_architecture_profiles_eventing/HANDOFF.md` |
-| [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) | Implemented, local review complete | Deterministic Python 3.11 extension boundary with typed non-secret configuration, immutable artifacts/bindings, equivalent provider adapters, and fail-closed package evidence. Provider-managed secrets remain separate |
+| [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) | Done offline | Closed-world architecture-profile program. Reviewed mini-roadmap: `docs/plans/phase_08_architecture_profiles_eventing/README.md`; agent handoff: `docs/plans/phase_08_architecture_profiles_eventing/HANDOFF.md` |
+| [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) | Done offline | Deterministic Python 3.11 extension boundary with typed non-secret configuration, immutable artifacts/bindings, equivalent provider adapters, and fail-closed package evidence. Provider-managed secrets remain separate |
 | [#144 Inventory the current Twin deployment graph and Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/issues/144) | Implemented, review complete | Code-verified current graph: 114 implementations, 64 artifacts, 661 parsed Terraform objects, 90 edges, and one explicit predecessor finding (`finding.l5-reader-binding-divergence`); no runtime behavior change. Evidence: [current Function-and-Edge Matrix](https://github.com/TVJunkie724/master-thesis/blob/master/docs/research/phase_08_current_function_edge_matrix.md) |
 | [#139 Harden and freeze the five-layer-baseline@1 architecture profile](https://github.com/TVJunkie724/master-thesis/issues/139) | Implemented, review complete | Target decision covers all 114 current implementations and all 90 current edges, preserves five scientific responsibilities and seven costed slots, excludes a general Eventing layer, and replaces the unsafe L3-to-Grafana shortcut with a typed L4-to-L5 target. Evidence: [Five-Layer Baseline Target](five-layer-baseline.md) |
 | [#149 Define versioned architecture profile contracts](https://github.com/TVJunkie724/master-thesis/issues/149) | Implemented, review complete | Four Draft 2020-12 contracts, semantic registry, canonical fixtures/digests, byte-identical service copies, stable cross-service errors, and dark readers. Evidence: [Architecture Profile Contracts](../contracts-and-data-flow/architecture-profiles.md) |
-| [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | Implemented locally, review complete | Dark/read-only AWS/Azure/GCP profiles; 22 reviewed deployment bundles covering all 42 deployment-dimension components, 33 decision-traced edges, 43 deterministic artifacts, 51 parser-verified Terraform resources, explicit unsupported states, and #113 slot binding |
-| [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | Implemented locally, review complete | Migration 022, revisioned profile selection/invalidation, immutable canonical resolution plus component/edge projections, owner-scoped read APIs, audit evidence, and fixed-field transition inventory |
-| [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | Implemented locally, review complete | Default-off functional-completeness gate, profile-local ranking, immutable resolution, and Management admission boundary |
-| [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Implemented locally, review complete | Dark Manifest v3 compiler with deterministic component/binding graph, package preflight, typed Terraform projection, and frozen operation evidence before side effects |
-| [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Implemented locally; review complete | Strict Management-API-only catalog/selection/resolution workflow, active Five-layer v2 and Six-layer v1 plus historical state, revisioned invalidation, responsive typed graph, and generic resolved review for Web and desktop |
+| [#150 Register provider implementation profiles and deployment component catalog](https://github.com/TVJunkie724/master-thesis/issues/150) | Done offline | AWS/Azure/GCP profiles and reviewed deployment bundles cover all selected deployment dimensions, decision-traced edges, deterministic artifacts, parser-verified Terraform resources, unsupported states, and #113 slot binding. |
+| [#142 Persist resolved Twin architectures and migrate fixed layer assignments](https://github.com/TVJunkie724/master-thesis/issues/142) | Done offline | Migration 022, revisioned profile selection/invalidation, immutable canonical resolution plus component/edge projections, owner-scoped read APIs, audit evidence, and fixed-field transition inventory. |
+| [#151 Resolve architecture profiles in the Optimizer with functional completeness](https://github.com/TVJunkie724/master-thesis/issues/151) | Done offline | Functional-completeness gate, profile-local ranking, immutable resolution, and Management admission boundary. |
+| [#152 Build the Deployer graph resolver and staged binding preflight](https://github.com/TVJunkie724/master-thesis/issues/152) | Done offline | Manifest v3 compiler with deterministic component/binding graph, package preflight, typed Terraform projection, and frozen operation evidence before side effects. |
+| [#138 Implement the Flutter architecture profile workflow](https://github.com/TVJunkie724/master-thesis/issues/138) | Done offline | Strict Management-API-only catalog/selection/resolution workflow, active Five-layer v2 and Six-layer v1 plus historical state, revisioned invalidation, responsive typed graph, and generic resolved review for Web and desktop. |
 | [#146 Complete the Eventing functional and cost decision gate](https://github.com/TVJunkie724/master-thesis/issues/146) | Approved offline decision | Source-backed six-bundle capability/pricing package, exact bridge, all single/pair/three-provider scenarios, S/M/L calculations, implementation blueprint, and two zero-finding reviews; live identity/capacity gates remain |
 | Complete-service closure / Five-layer v2 plan | Approved immutable offline decision | PoC-focused L1-L5 bundles with Cosmos DB and Firestore retained for Azure/GCP L3 hot, provider-local L3-hot/L5, independent L4, three local plus six split online placements, raw visualization, Twin projection, finite storage jobs, workload v2, and complete-service evidence. L4-to-L5/3D, ADX/BigQuery migration, Spanner Graph, default dedicated Grafana nodes, and storage-specific CDC/outbox pipelines are not selected |
 | Guided cloud bootstrap / [#154](https://github.com/TVJunkie724/master-thesis/issues/154) | Implemented offline; zero-finding review | Strict guides/sessions, request-only bootstrap authority, deterministic AWS/Azure/GCP lifecycle adapters, generated `thesis-demo-v2` deployment CloudConnections, Deployer admission, shared Settings/Prepare deployment UI, and secret-persistence scans. Production adapters remain disabled |
-| `five-layer-baseline@2` implementation | Active offline; activation gate locally complete | Mandatory embedded domain events, three complete single-cloud targets, six `L3-hot == L5 != L4` targets, admissible mixed L1/L2/cool/archive paths, strict RTA/RDS v2 evidence, and deployment blocking for unresolved supervised live-capacity gates |
-| [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Implemented locally; zero-finding audit frozen | Uses the committed Five-layer v2 L1-L5 contract as its immutable base; adds the Event Layer, source-owned bridge, provider runtime/IAM, Management/Optimizer/Deployer/Flutter integration, and local no-cloud verification |
+| `five-layer-baseline@2` implementation | Done offline | Mandatory embedded domain events, three complete single-cloud targets, six `L3-hot == L5 != L4` targets, admissible mixed L1/L2/cool/archive paths, strict RTA/RDS v2 evidence, and deployment blocking for unresolved supervised live-capacity gates. |
+| [#140 Implement six-layer-eventing@1 across the platform](https://github.com/TVJunkie724/master-thesis/issues/140) | Done offline | Uses the committed Five-layer v2 L1-L5 contract as its immutable base; adds the Event Layer, source-owned bridge, provider runtime/IAM, Management/Optimizer/Deployer/Flutter integration, and local no-cloud verification. |
 | [#148 Produce Phase 8 evaluation evidence and final documentation](https://github.com/TVJunkie724/master-thesis/issues/148) | Complete offline | Digest-pinned historical-v1/Five-v2/Six-v1 package, strict schemas, required placement/pair coverage, profile-local costs, matched-context deltas, RQ mapping, limitations, mutation tests, byte-identical regeneration, current docs, safe gates, integration proof, and two final zero-finding reviews are frozen locally |
 
 ### Later: Platform Extensions
@@ -229,26 +231,16 @@ when work becomes actionable, then reference the issue here.
 
 ## Next Recommended Sequence
 
-1. Preserve the validated Phase 8.10 evidence from the frozen offline
-   `five-layer-baseline@2` and `six-layer-eventing@1` contracts, keeping every
-   unresolved supervised live-capacity gate fail-closed.
-2. Continue the remaining Phase 6 service/tier and fetcher work in
-   [#31](https://github.com/TVJunkie724/master-thesis/issues/31) and
-   [#32](https://github.com/TVJunkie724/master-thesis/issues/32) as separate
-   backlog work. Any covered source change must make the Phase 8.0 inventory
-   drift gate fail and requires a reconciled Phase 8.1 decision digest.
-3. Keep the #113 user-function execution contract, Phase 8.3 slot mappings,
-   Phase 8.4 persistence contract, Phase 8.5 immutable resolution output, and
-   Phase 8.6 graph compiler, reviewed Phase 8.7 UI, and guided-bootstrap
-   boundary stable after the completed profile audit and Phase 8.10 evaluation.
-4. Follow the reviewed
-   `docs/plans/phase_08_architecture_profiles_eventing/README.md` order without
-   skipping its baseline, contract, migration, functional-completeness,
-   deployment-graph, Flutter, or Eventing decision gates.
-5. Build pricing freshness and manual override UX only after their Optimizer
-   contracts are stable (#33 and #34).
-6. Complete the remaining functional issues, then run the user-led visual audit
-   in [#111](https://github.com/TVJunkie724/master-thesis/issues/111).
-7. Use the frozen credential-free Phase 8.10 evidence for later thesis
-   synthesis; keep live-cloud E2E separate until the manual UI audit and
-   explicitly supervised provider checks are complete.
+1. Preserve the validated Phase 8.10 evidence and closed-world Five-layer v2
+   and Six-layer v1 contracts. Any covered source change must trip the Phase 8
+   drift gates and receive a reconciled decision digest.
+2. Keep provider pricing/service extensions in #31 and #32 separate from
+   frontend finalization; they do not silently change the frozen experiment.
+3. Run the credential-free whole-application manual visual and interaction
+   audit in [#111](https://github.com/TVJunkie724/master-thesis/issues/111),
+   fixing or recording every finding.
+4. After the audit, decide explicitly whether to run the cost-capped,
+   supervised live-provider E2E owned by #107. Do not infer that authority from
+   offline completion.
+5. Use the frozen Phase 8.10 package, final UI audit, explicit limitations, and
+   any separately approved live evidence for thesis synthesis.

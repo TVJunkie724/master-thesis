@@ -2,8 +2,8 @@
 title: "Phase 2: API Repository Split"
 description: "Split the current broad ApiService into a Management API client plus focused feature repositories."
 tags: [flutter, api, repository, refactoring]
-lastUpdated: "2026-06-18"
-version: "1.0"
+lastUpdated: "2026-08-23"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -17,6 +17,14 @@ EXTRACTED: 2026-06-18 | VERSION: 1.0
 -->
 
 # Phase 2: API Repository Split
+
+**Status:** Superseded by the narrower `ManagementApi` port boundary.
+
+The implementation review retained `ManagementApi` as the testable application
+port and `ApiService` as its production HTTP adapter. Riverpod composes that
+port and feature BLoCs own use-case state. Adding one pass-through repository
+per feature would not improve the Thesis PoC, so the class-level target below
+is preserved as historical rationale rather than pending mandatory work.
 
 ## Summary
 

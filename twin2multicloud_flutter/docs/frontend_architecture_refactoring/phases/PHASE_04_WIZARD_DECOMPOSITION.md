@@ -2,8 +2,8 @@
 title: "Phase 4: Wizard Decomposition"
 description: "Split Wizard orchestration into smaller feature flows after repository and typed model boundaries exist."
 tags: [flutter, wizard, bloc, refactoring]
-lastUpdated: "2026-06-18"
-version: "1.0"
+lastUpdated: "2026-08-23"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -18,6 +18,9 @@ EXTRACTED: 2026-06-18 | VERSION: 1.0
 -->
 
 # Phase 4: Wizard Decomposition
+
+**Status:** Completed through #38 using one public workflow BLoC with focused
+same-library handlers, typed builders/services, and presentation components.
 
 ## Summary
 

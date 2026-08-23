@@ -2,8 +2,8 @@
 title: "Phase 3: Typed Feature Models"
 description: "Introduce typed UI-facing models for Management API contracts and limit raw maps to explicit unstructured payload containers."
 tags: [flutter, dto, contracts, refactoring]
-lastUpdated: "2026-06-18"
-version: "1.0"
+lastUpdated: "2026-08-23"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -17,6 +17,8 @@ EXTRACTED: 2026-06-18 | VERSION: 1.0
 -->
 
 # Phase 3: Typed Feature Models
+
+**Status:** Completed through #72 and the later Phase 8 contracts.
 
 ## Summary
 

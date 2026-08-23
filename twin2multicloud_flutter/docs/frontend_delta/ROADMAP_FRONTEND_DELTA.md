@@ -2,8 +2,8 @@
 title: "Frontend Delta Roadmap"
 description: "Cross-pillar roadmap for aligning Flutter with the credential, pricing, deployment, and configuration refactors."
 tags: [flutter, roadmap, credentials, pricing, deployment, wizard]
-lastUpdated: "2026-08-14"
-version: "2.0"
+lastUpdated: "2026-08-23"
+version: "2.1"
 ---
 
 <!-- SOURCES:
@@ -17,6 +17,7 @@ version: "2.0"
 - docs/plans/provider_access_pricing_review/phase_07_optimizer_step2_cleanup.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
+- twin2multicloud_flutter/docs/frontend_delta/concepts/CONCEPT_POST_PHASE_08_FINALIZATION.md
 - twin2multicloud_flutter/lib/screens/dashboard_screen.dart
 - twin2multicloud_flutter/lib/screens/settings_screen.dart
 - twin2multicloud_flutter/lib/screens/wizard/step2_optimizer.dart
@@ -24,7 +25,7 @@ version: "2.0"
 - twin2multicloud_flutter/lib/screens/twin_overview/twin_overview_screen.dart
 - twin2multicloud_flutter/lib/models/wizard_config_requests.dart
 - twin2multicloud_flutter/docs/frontend_architecture_refactoring/ROADMAP_FRONTEND_ARCHITECTURE_REFACTORING.md
-EXTRACTED: 2026-08-14 | VERSION: 2.0
+EXTRACTED: 2026-08-23 | VERSION: 2.1
 -->
 
 # Frontend Delta Roadmap
@@ -136,6 +137,7 @@ Flutter App
 | 8 | Done offline; v2 activation/live sign-in pending | [PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md](phases/PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md) + [operations plan](../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md) + [Layer Access plan](../../implementation_plans/2026-07-31_twin_layer_access_handoff.md) | Twin Overview | Existing operation contracts plus implemented [FR-001](../feature-requests/FR_001_DEPLOYMENT_LAYER_ACCESS_READ_MODEL.md) |
 | 9 | Done | [PHASE_09_CROSS_CUTTING_QUALITY_GATE.md](phases/PHASE_09_CROSS_CUTTING_QUALITY_GATE.md) | Cross-cutting | All delivered contracts; residual issues tracked |
 | 9.1 | Local gates complete; platform CI pending | [Immutable Region-Scoped Pricing Catalogs](../../../2-twin2clouds/implementation_plans/2026-07-17_immutable_region_pricing_catalogs.md) | Pricing Review, calculation evidence, Twin Overview | Strict immutable references replace full pricing exports; compact evidence, honest legacy state, Web/macOS builds, and live local integration are verified |
+| 10 | Next | [Post-Phase-8 Flutter Finalization](concepts/CONCEPT_POST_PHASE_08_FINALIZATION.md) | Complete manual visual and interaction audit | No new Management API contract; deterministic demo/local data only |
 
 ## Execution Order
 
@@ -161,6 +163,9 @@ The order is intentional:
 11. Replace client-authored full pricing artifacts with compact, immutable,
     Management-owned catalog references after the backend catalog boundary is
     implemented.
+12. Reconcile superseded backlog ideas with the closed-world architecture, then
+    run the complete manual visual and interaction audit under #111 without
+    cloud mutations.
 
 ## Current Boundary
 
@@ -172,8 +177,8 @@ replaces the legacy full pricing-export contract with strict immutable catalog
 references. Flutter never supplies trusted pricing evidence and no longer
 exposes provider-wide pricing JSON artifacts. Production authentication code is
 implemented; live UIBK activation remains externally gated by federation
-registration and configuration. Final deployment lifecycle integration (#39)
-remains separately tracked. The explicit dev-auth runtime boundary from #71 is
+registration and configuration. Deployment lifecycle integration is complete
+through #39 and #73. The explicit dev-auth runtime boundary from #71 is
 complete. New product work still requires a dedicated implementation plan
 before Flutter code changes.
 
@@ -182,3 +187,9 @@ Management API for every L4/L5 provider pair. Five-layer v2 and Six-layer v1
 are now active for offline calculation; Phase 8.10 generates research evidence
 without adding frontend behavior. Provider-console browser sign-in remains a
 separate supervised-live boundary.
+
+The remaining frontend phase is the human audit defined in
+[Post-Phase-8 Flutter Finalization](concepts/CONCEPT_POST_PHASE_08_FINALIZATION.md).
+General region-catalog administration, arbitrary provider-binding overrides,
+product-grade runtime monitoring, and a second centralized error bus are not
+prerequisites for that audit and are outside the approved Thesis PoC boundary.

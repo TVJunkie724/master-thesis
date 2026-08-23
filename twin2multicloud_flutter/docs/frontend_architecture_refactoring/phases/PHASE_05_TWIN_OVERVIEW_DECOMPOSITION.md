@@ -2,8 +2,8 @@
 title: "Phase 5: Twin Overview Decomposition"
 description: "Separate Twin Overview read models, deployment operations, logs, outputs, and simulator diagnostics into testable feature boundaries."
 tags: [flutter, twin-overview, deployment, logs, refactoring]
-lastUpdated: "2026-06-18"
-version: "1.0"
+lastUpdated: "2026-08-23"
+version: "1.1"
 ---
 
 <!-- SOURCES:
@@ -18,6 +18,9 @@ EXTRACTED: 2026-06-18 | VERSION: 1.0
 -->
 
 # Phase 5: Twin Overview Decomposition
+
+**Status:** Completed through #73, including typed operations, readiness,
+cursor-safe logs, outputs, simulator/trace state, and focused presentation.
 
 ## Summary
 
