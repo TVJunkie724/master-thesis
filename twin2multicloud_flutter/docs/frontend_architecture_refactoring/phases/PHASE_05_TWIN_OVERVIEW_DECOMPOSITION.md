@@ -38,7 +38,7 @@ overview cleanup.
 
 ## Prerequisites
 
-- Phase 2 deployment repository exists.
+- The superseding Phase 2 `ManagementApi` deployment port is implemented.
 - Phase 3 deployment models exist.
 - Backend core deployment operation read contracts are available.
 

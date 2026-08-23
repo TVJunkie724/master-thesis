@@ -35,7 +35,7 @@ areas, such as sanitized Terraform outputs or provider evidence details.
 
 ## Prerequisites
 
-- Phase 2 repository boundaries are approved or implemented.
+- The Phase 2 `ManagementApi` port boundary is approved and implemented.
 - Management API responses include schema versions where the backend supports
   versioned read models.
 

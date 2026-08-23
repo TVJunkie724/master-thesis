@@ -128,8 +128,9 @@ No unresolved Critical, Major, or Minor finding remains in this phase.
   production OAuth/SAML remains tracked separately by #10.
 - Remaining non-critical dynamic-map reduction remains tracked by
   [`#72`](https://github.com/TVJunkie724/master-thesis/issues/72).
-- Final deployment lifecycle integration remains tracked by
-  [`#39`](https://github.com/TVJunkie724/master-thesis/issues/39).
+- Final deployment lifecycle integration was completed through
+  [`#39`](https://github.com/TVJunkie724/master-thesis/issues/39) and
+  [`#73`](https://github.com/TVJunkie724/master-thesis/issues/73).
 
 ## Safe Commands
 

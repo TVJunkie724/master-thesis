@@ -37,7 +37,7 @@ configuration can evolve without one BLoC owning the whole platform workflow.
 
 ## Prerequisites
 
-- Phase 2 repository split is implemented.
+- The superseding Phase 2 `ManagementApi` port boundary is implemented.
 - Phase 3 typed wizard and pricing/deployer models are available.
 
 ## Deliverables
