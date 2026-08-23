@@ -17,7 +17,7 @@ status: "approved"
 [2026-08-23_final_manual_visual_audit.md](../../../implementation_plans/2026-08-23_final_manual_visual_audit.md)  
 **Session:** `AI-0823-AUDT`  
 **Branch:** `codex/post-phase8-finalization-concept`  
-**Issue:** #111
+**Issue:** #111 — closed as completed on 2026-08-23
 
 The full re-audit found no unresolved or unrecorded visual, interaction,
 accessibility, architecture, integration, or release-gate finding. The final
@@ -86,7 +86,7 @@ foreground-automation limitation, not an application defect.
 
 | Phase | Result | Evidence |
 |---:|---|---|
-| 1. Plan Integrity | Verified | Approved twelve-section plan v1.2 exists; the baseline-token clarification preserves the PoC boundary and forbids new bypasses |
+| 1. Plan Integrity | Verified | Completed twelve-section plan v1.3 exists; the baseline-token clarification preserves the PoC boundary and forbids new bypasses |
 | 2. Structure | Compliant | Finding changes are limited to existing screen/widget/theme locations plus focused tests and this report; file naming and placement remain conventional |
 | 3. Widget Tree | Matches plan | No feature widget was added; the planned route tree and reused Dashboard, Settings, Pricing Review, Configuration Workspace, and Twin Overview compositions remain intact |
 | 4. Visual & Layout | Matches clarified plan | Web/macOS walkthroughs show the planned hierarchy, readable themes, bounded evidence, and no observed contrast or layout defect; finding-specific code-viewer values now use shared tokens |
