@@ -25,7 +25,7 @@ version: "2.2"
 - twin2multicloud_flutter/lib/screens/twin_overview/twin_overview_screen.dart
 - twin2multicloud_flutter/lib/models/wizard_config_requests.dart
 - twin2multicloud_flutter/docs/frontend_architecture_refactoring/ROADMAP_FRONTEND_ARCHITECTURE_REFACTORING.md
-EXTRACTED: 2026-08-23 | VERSION: 2.1
+EXTRACTED: 2026-08-23 | VERSION: 2.2
 -->
 
 # Frontend Delta Roadmap

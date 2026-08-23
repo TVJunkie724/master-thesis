@@ -50,6 +50,17 @@ live-provider E2E.
 | `/twins/:id/overview` | Configured/deployed/degraded states, readiness, deploy/destroy confirmation, logs, outputs, testing utilities, resolved configuration, L4/L5 access, GCP Viewer rotation/reveal | Pass; access actions and detail expanders have independent semantics |
 | Global overlays | App/profile menus, dialog cancellation, one-time reveal, code/log viewer, transient feedback, external-link handoff | Pass; no blank route, leaked secret, or post-dispose navigation observed |
 
+The overlay/action inventory was checked explicitly:
+
+| Owner | Reachable overlays and platform handoffs |
+|---|---|
+| Dashboard | Profile/logout menu; Twin delete confirmation; view/edit route actions |
+| Settings | Profile menu; CloudConnection create, validate, set-default, and delete flows; guided bootstrap target, guide, simulated/manual-prerequisite, and failure states; provider documentation links |
+| Pricing Review | Provider selector; refresh/account confirmation; run summary; candidate, trace, and evidence expanders |
+| Configuration Workspace | Compact task selector; profile-change invalidation confirmation; Save/Discard/Cancel exit handling; logical-graph zoom; JSON/code viewer; ZIP, JSON, GLB, and function-package file pickers |
+| Twin Overview | Deploy, destroy, and delete confirmations; log/trace panels; Terraform output and code viewers; simulator consent/save; GCP Viewer rotation and one-time reveal; L4/L5 external launcher |
+| Application shell | Theme action; authenticated/demo profile actions; route/back-forward transitions; transient safe errors |
+
 No committed screenshots are required to reproduce this matrix. Use
 `./thesis.sh demo --scenario <showcase|empty|degraded> --device chrome` and the
 route/viewport coordinates above. Temporary audit captures were kept outside
@@ -93,8 +104,8 @@ foreground-automation limitation, not an application defect.
 |---|---|---|---|---|
 | AUDT-01 | Major | Settings labelled every non-Google demo/development identity as UIBK | Closed provider-to-label mapping in `lib/screens/settings_screen.dart:350`; exact demo assertion in `test/screens/settings_screen_test.dart:89` | `85f5c39b` |
 | AUDT-02 | Major | Reusable code/log viewer exposed no semantic name for read-only content and retained local geometry/color literals | Named read-only semantics in `lib/widgets/code_viewer_dialog.dart:227`; tokens in `lib/theme/colors.dart:41` and `lib/theme/spacing.dart:162`; widget regression in `test/widgets/code_viewer_dialog_test.dart:30` | `85f5c39b` |
-| AUDT-03 | Major | L4/L5 detail expanders lost independent button roles in the Web semantics tree | Explicit semantic containers and expansion action in `lib/widgets/twin_overview/layer_access_panel.dart:168` and `:404`; semantic action assertions in `test/widgets/twin_overview/layer_access_panel_test.dart` | `85f5c39b`, `e45e7240` |
-| AUDT-04 | Minor | The plan required both 150 % and 200 % dense-surface evidence, but only the 200 % endpoint was automated | Parameterized both scales for Settings bootstrap, resolved review, and Layer Access in the three focused widget suites | `3d992066` |
+| AUDT-03 | Major | L4/L5 detail expanders lost independent button roles in the Web semantics tree | Explicit semantic containers and expansion action in `lib/widgets/twin_overview/layer_access_panel.dart:168` and `:404`; semantic action assertions in `test/widgets/twin_overview/layer_access_panel_test.dart:211` | `85f5c39b`, `e45e7240` |
+| AUDT-04 | Minor | The plan required both 150 % and 200 % dense-surface evidence, but only the 200 % endpoint was automated | Parameterized both scales in `test/widgets/cloud_connections/cloud_bootstrap_flow_test.dart:190`, `test/widgets/results/resolved_architecture_review_test.dart:131`, and `test/widgets/twin_overview/layer_access_panel_test.dart:144` | `3d992066` |
 
 After these fixes, the complete eleven-phase audit was repeated. It produced no
 additional finding.

@@ -186,7 +186,7 @@ when work becomes actionable, then reference the issue here.
 | [#73](https://github.com/TVJunkie724/master-thesis/issues/73) | Done | Twin Overview split into typed operation and presentation slices |
 | [#108](https://github.com/TVJunkie724/master-thesis/issues/108) | Done | Frontend cross-cutting quality and thesis evidence gate |
 | [#109 Establish Web and all-desktop Flutter support gates](https://github.com/TVJunkie724/master-thesis/issues/109) | Done | One application contract and native build evidence for Web, macOS, Windows, and Linux |
-| [#111 Run final manual visual audit of the Flutter application](https://github.com/TVJunkie724/master-thesis/issues/111) | Next | Credential-free whole-application visual and interaction audit before any supervised live E2E |
+| [#111 Run final manual visual audit of the Flutter application](https://github.com/TVJunkie724/master-thesis/issues/111) | Done | Credential-free whole-application visual, interaction, accessibility, and release audit passed before any supervised live E2E |
 
 ### Phase 8: Twin Architecture Profiles & Eventing
 
@@ -236,9 +236,9 @@ when work becomes actionable, then reference the issue here.
    drift gates and receive a reconciled decision digest.
 2. Keep provider pricing/service extensions in #31 and #32 separate from
    frontend finalization; they do not silently change the frozen experiment.
-3. Run the credential-free whole-application manual visual and interaction
-   audit in [#111](https://github.com/TVJunkie724/master-thesis/issues/111),
-   fixing or recording every finding.
+3. Preserve the completed credential-free whole-application audit evidence
+   from [#111](https://github.com/TVJunkie724/master-thesis/issues/111); future
+   UI changes must re-run the relevant quality gates.
 4. After the audit, decide explicitly whether to run the cost-capped,
    supervised live-provider E2E owned by #107. Do not infer that authority from
    offline completion.

@@ -238,7 +238,7 @@ class _CodeViewerDialogState extends State<_CodeViewerDialog> {
                   showErrors: false,
                   showFoldingHandles: false,
                 ),
-                textStyle: const TextStyle(
+                textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontFamily: 'monospace',
                   fontSize: AppSpacing.codeViewerFontSize,
                 ),
