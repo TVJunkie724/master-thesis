@@ -189,9 +189,12 @@ logs and SQLite persistence.
 The SDK-independent supervised adapter transaction is implemented separately
 from runtime activation. It materializes the exact provider plan, includes the
 fixed GCP API baseline, rejects mismatched generated connections, and carries a
-typed secret-free rollback receipt for compensating cleanup. Concrete provider
-SDK drivers and the Management persistence-failure cleanup handoff remain
-pending, so the live guide must remain blocked.
+typed secret-free rollback receipt for compensating cleanup. Management now
+commits the validated generated connection before finalizing disposable
+bootstrap authority, rolls the provider identity back on local persistence
+failure, and retains the valid connection with manual-revocation state when
+only finalization fails. Concrete provider SDK drivers remain pending, so the
+live guide must remain blocked.
 
 Five-layer v2 subsequently reached and passed its local activation boundary on
 `codex/phase-8-9a-layer-access`. Commits `e6ceb41d` and `8974b869` add the typed

@@ -12,7 +12,17 @@ from src.models.cloud_connection import CloudConnection
 from src.models.user import User
 from src.repositories.architecture_repository import ArchitectureRepository
 from src.schemas.cloud_bootstrap import CloudBootstrapApiBaseline
+from src.schemas.cloud_bootstrap import CloudBootstrapDisposalStatus
+from src.schemas.cloud_connection import CloudConnectionCreate
+from src.schemas.twin_config import AWSCredentials
+from src.services.cloud_bootstrap_adapters import (
+    CloudBootstrapAdapterError,
+    CloudBootstrapAdapterResult,
+    CloudBootstrapFinalizationResult,
+    CloudBootstrapRollbackReceipt,
+)
 from src.services.cloud_bootstrap_errors import CloudBootstrapDomainError
+from src.services.cloud_connection_service import CloudConnectionService
 from src.services.guided_cloud_bootstrap_service import GuidedCloudBootstrapService
 
 
@@ -618,9 +628,7 @@ def test_unconfigured_supervised_live_mode_is_visible_and_fails_closed(
         guide = _guide(auth_client, "aws")
         _validator("cloud-bootstrap-guide.schema.json").validate(guide)
         assert guide["execution_mode"] == "supervised_live"
-        assert [finding["blocking"] for finding in guide["known_blockers"]] == [
-            True
-        ]
+        assert [finding["blocking"] for finding in guide["known_blockers"]] == [True]
         session = _session(auth_client, "aws", key="create-aws-live-unconfigured-001")
         failed = _execute(
             auth_client,
@@ -635,6 +643,224 @@ def test_unconfigured_supervised_live_mode_is_visible_and_fails_closed(
     assert failed["disposal_status"] == "released_after_failure"
     assert failed["finding"]["code"] == "BOOTSTRAP_IDENTITY_CREATION_FAILED"
     assert "connection" not in failed
+    assert db.query(CloudConnection).count() == 0
+
+
+class _TwoPhaseAWSAdapter:
+    def __init__(
+        self,
+        *,
+        rollback_fails: bool = False,
+        finalization_fails: bool = False,
+    ):
+        self.rollback_fails = rollback_fails
+        self.finalization_fails = finalization_fails
+        self.execute_calls = 0
+        self.rollback_calls = 0
+        self.finalize_calls = 0
+
+    def supports_provider(self, provider):
+        return provider == "aws"
+
+    def execute(
+        self,
+        *,
+        session_id,
+        display_name,
+        target,
+        credential_origin,
+        credential,
+    ):
+        del credential_origin, credential
+        self.execute_calls += 1
+        run_id = f"twin2mc-e2e-{session_id.replace('-', '')[:12]}"
+        return CloudBootstrapAdapterResult(
+            connection=CloudConnectionCreate(
+                provider="aws",
+                display_name=display_name,
+                auth_type="access_key",
+                permission_set_version="thesis-demo-v2",
+                cloud_scope={
+                    "account_id": target.account_id,
+                    "region": target.region,
+                    "bootstrap_mode": "supervised_live",
+                },
+                aws=AWSCredentials(
+                    access_key_id="AKIAGENERATED0000001",
+                    secret_access_key="generated-deployment-secret",
+                    region=target.region,
+                ),
+            ),
+            safe_credential_identifier="bootstrap-key-id",
+            disposal_status=(CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED),
+            rollback_receipt=CloudBootstrapRollbackReceipt(
+                provider="aws",
+                run_id=run_id,
+                resource_ids=(("user_name", f"{run_id}-deployer"),),
+            ),
+            bootstrap_finalization_required=True,
+        )
+
+    def rollback(self, *, result, target, credential):
+        del result, target, credential
+        self.rollback_calls += 1
+        if self.rollback_fails:
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                "safe cleanup failure",
+            )
+
+    def finalize_bootstrap(
+        self,
+        *,
+        result,
+        target,
+        credential_origin,
+        credential,
+    ):
+        del result, target, credential_origin, credential
+        self.finalize_calls += 1
+        if self.finalization_fails:
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                "safe finalization failure",
+            )
+        return CloudBootstrapFinalizationResult(
+            disposal_status=CloudBootstrapDisposalStatus.REVOKED,
+        )
+
+
+def test_supervised_adapter_persists_before_bootstrap_finalization(
+    auth_client,
+    monkeypatch,
+):
+    adapter = _TwoPhaseAWSAdapter()
+    monkeypatch.setattr(settings, "CLOUD_BOOTSTRAP_ADAPTER_MODE", "supervised_live")
+    monkeypatch.setattr(
+        GuidedCloudBootstrapService,
+        "_adapter_for_mode",
+        staticmethod(lambda _mode: adapter),
+    )
+
+    azure_guide = _guide(auth_client, "azure")
+    assert azure_guide["known_blockers"][0]["blocking"] is True
+    guide = _guide(auth_client, "aws")
+    assert guide["known_blockers"] == []
+    session = _session(auth_client, "aws", key="create-aws-two-phase-001")
+    completed = _execute(
+        auth_client,
+        session,
+        "aws",
+        key="execute-aws-two-phase-001",
+    )
+
+    assert completed["state"] == "ready"
+    assert completed["disposal_status"] == "revoked"
+    assert completed["connection"]["validation_status"] == "valid"
+    assert adapter.execute_calls == 1
+    assert adapter.finalize_calls == 1
+    assert adapter.rollback_calls == 0
+
+
+def test_supervised_persistence_failure_rolls_back_before_credential_release(
+    auth_client,
+    db,
+    monkeypatch,
+):
+    adapter = _TwoPhaseAWSAdapter()
+    monkeypatch.setattr(settings, "CLOUD_BOOTSTRAP_ADAPTER_MODE", "supervised_live")
+    monkeypatch.setattr(
+        GuidedCloudBootstrapService,
+        "_adapter_for_mode",
+        staticmethod(lambda _mode: adapter),
+    )
+    monkeypatch.setattr(
+        CloudConnectionService,
+        "stage_deployment_connection",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ValueError("simulated local persistence failure")
+        ),
+    )
+
+    session = _session(auth_client, "aws", key="create-aws-rollback-001")
+    failed = _execute(
+        auth_client,
+        session,
+        "aws",
+        key="execute-aws-rollback-001",
+    )
+
+    assert failed["state"] == "credential_reentry_required"
+    assert failed["finding"]["code"] == "BOOTSTRAP_CONNECTION_VALIDATION_FAILED"
+    assert adapter.execute_calls == 1
+    assert adapter.rollback_calls == 1
+    assert adapter.finalize_calls == 0
+    assert db.query(CloudConnection).count() == 0
+
+
+def test_supervised_finalization_failure_keeps_valid_connection_and_manual_cleanup(
+    auth_client,
+    monkeypatch,
+):
+    adapter = _TwoPhaseAWSAdapter(finalization_fails=True)
+    monkeypatch.setattr(settings, "CLOUD_BOOTSTRAP_ADAPTER_MODE", "supervised_live")
+    monkeypatch.setattr(
+        GuidedCloudBootstrapService,
+        "_adapter_for_mode",
+        staticmethod(lambda _mode: adapter),
+    )
+
+    session = _session(auth_client, "aws", key="create-aws-finalize-fail-001")
+    result = _execute(
+        auth_client,
+        session,
+        "aws",
+        key="execute-aws-finalize-fail-001",
+    )
+
+    assert result["state"] == "manual_revocation_required"
+    assert result["disposal_status"] == "manual_revocation_required"
+    assert result["connection"]["validation_status"] == "valid"
+    assert result["finding"]["code"] == "BOOTSTRAP_MANUAL_REVOCATION_REQUIRED"
+    assert adapter.execute_calls == 1
+    assert adapter.finalize_calls == 1
+    assert adapter.rollback_calls == 0
+
+
+def test_supervised_rollback_failure_is_terminal_and_names_safe_setup_run(
+    auth_client,
+    db,
+    monkeypatch,
+):
+    adapter = _TwoPhaseAWSAdapter(rollback_fails=True)
+    monkeypatch.setattr(settings, "CLOUD_BOOTSTRAP_ADAPTER_MODE", "supervised_live")
+    monkeypatch.setattr(
+        GuidedCloudBootstrapService,
+        "_adapter_for_mode",
+        staticmethod(lambda _mode: adapter),
+    )
+    monkeypatch.setattr(
+        CloudConnectionService,
+        "stage_deployment_connection",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ValueError("simulated local persistence failure")
+        ),
+    )
+
+    session = _session(auth_client, "aws", key="create-aws-rollback-fail-001")
+    failed = _execute(
+        auth_client,
+        session,
+        "aws",
+        key="execute-aws-rollback-fail-001",
+    )
+
+    assert failed["state"] == "failed"
+    assert failed["command_permissions"] == ["start_new"]
+    assert failed["finding"]["code"] == "BOOTSTRAP_CLEANUP_FAILED"
+    assert "twin2mc-e2e-" in failed["finding"]["message"]
+    assert "generated-deployment-secret" not in json.dumps(failed)
+    assert adapter.rollback_calls == 1
     assert db.query(CloudConnection).count() == 0
 
 

@@ -24,6 +24,7 @@ from src.schemas.cloud_bootstrap import (
     AWSBootstrapTarget,
     AzureBootstrapCredential,
     AzureBootstrapTarget,
+    CloudBootstrapCredential,
     CloudBootstrapConnectionSummary,
     CloudBootstrapApiBaseline,
     CloudBootstrapCredentialOrigin,
@@ -51,7 +52,9 @@ from src.schemas.credential_security_event import (
     CredentialSecurityOutcome,
 )
 from src.services.cloud_bootstrap_adapters import (
+    CloudBootstrapAdapter,
     CloudBootstrapAdapterError,
+    CloudBootstrapAdapterResult,
     DeterministicFakeCloudBootstrapAdapter,
     DisabledCloudBootstrapAdapter,
     UnconfiguredSupervisedLiveCloudBootstrapAdapter,
@@ -169,11 +172,18 @@ def _digest(value: Any) -> str:
 
 
 class GuidedCloudBootstrapService:
-    def __init__(self, db: Session):
+    def __init__(
+        self,
+        db: Session,
+        *,
+        adapter: CloudBootstrapAdapter | None = None,
+    ):
         self._db = db
         self._repo = CloudBootstrapRepository(db)
         self._connections = CloudConnectionService(db)
-        self._adapter = self._adapter_for_mode(settings.CLOUD_BOOTSTRAP_ADAPTER_MODE)
+        self._adapter = adapter or self._adapter_for_mode(
+            settings.CLOUD_BOOTSTRAP_ADAPTER_MODE
+        )
 
     @staticmethod
     def _adapter_for_mode(mode: str):
@@ -215,7 +225,10 @@ class GuidedCloudBootstrapService:
                     action="Use the advanced manual bootstrap fallback or enable a reviewed adapter.",
                 )
             )
-        elif settings.CLOUD_BOOTSTRAP_ADAPTER_MODE == "supervised_live":
+        elif (
+            settings.CLOUD_BOOTSTRAP_ADAPTER_MODE == "supervised_live"
+            and not self._adapter.supports_provider(normalized)
+        ):
             blockers.append(
                 CloudBootstrapFinding(
                     code="BOOTSTRAP_IDENTITY_CREATION_FAILED",
@@ -453,15 +466,105 @@ class GuidedCloudBootstrapService:
             session.lease_started_at = None
             session.finding_json = (
                 _canonical_json(self._manual_revocation_finding(session.provider))
-                if result.disposal_status
+                if not result.bootstrap_finalization_required
+                and result.disposal_status
                 == CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED
                 else None
             )
-            session.state = (
-                CloudBootstrapState.MANUAL_REVOCATION_REQUIRED.value
-                if result.disposal_status
+            if result.bootstrap_finalization_required:
+                session.state = CloudBootstrapState.GENERATED_CONNECTION_READY.value
+            elif (
+                result.disposal_status
                 == CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED
-                else CloudBootstrapState.READY.value
+            ):
+                session.state = CloudBootstrapState.MANUAL_REVOCATION_REQUIRED.value
+            else:
+                session.state = CloudBootstrapState.READY.value
+            session.revision += 1
+            session.updated_at = datetime.now(timezone.utc)
+            if not result.bootstrap_finalization_required:
+                CredentialSecurityAuditService.append(
+                    self._db,
+                    audit.model_copy(update={"resource_id": session.id}),
+                )
+            self._db.commit()
+        except StaleDataError:
+            self._db.rollback()
+            cleanup_error = self._rollback_generated_connection(
+                result,
+                target,
+                request.credential,
+            )
+            current = self._owned_session(user_id, session_id)
+            if (
+                current.state == CloudBootstrapState.CANCELLED.value
+                and cleanup_error is None
+            ):
+                return self.to_response(current)
+            return self._record_execute_failure(
+                current,
+                cleanup_error
+                or CloudBootstrapAdapterError(
+                    "BOOTSTRAP_SESSION_CONFLICT",
+                    "The bootstrap session changed while the command was running.",
+                ),
+                audit,
+            )
+        except (SQLAlchemyError, ValueError) as exc:
+            self._db.rollback()
+            cleanup_error = self._rollback_generated_connection(
+                result,
+                target,
+                request.credential,
+            )
+            session = self._owned_session(user_id, session_id)
+            return self._record_execute_failure(
+                session,
+                cleanup_error
+                or CloudBootstrapAdapterError(
+                    "BOOTSTRAP_CONNECTION_VALIDATION_FAILED",
+                    "The generated deployment connection could not be validated and persisted.",
+                ),
+                audit,
+                cause=exc,
+            )
+        if result.bootstrap_finalization_required:
+            return self._finalize_bootstrap_authority(
+                user_id,
+                session_id,
+                result,
+                target,
+                request,
+                audit,
+            )
+        return self.to_response(self._owned_session(user_id, session_id))
+
+    def _finalize_bootstrap_authority(
+        self,
+        user_id: str,
+        session_id: str,
+        result: CloudBootstrapAdapterResult,
+        target: CloudBootstrapTarget,
+        request: CloudBootstrapExecuteRequest,
+        audit: CredentialSecurityEventDraft,
+    ) -> CloudBootstrapSessionResponse:
+        session = self._owned_session(user_id, session_id)
+        session.state = CloudBootstrapState.DISPOSAL_RUNNING.value
+        session.lease_started_at = datetime.now(timezone.utc)
+        session.revision += 1
+        session.updated_at = datetime.now(timezone.utc)
+        try:
+            self._db.commit()
+        except SQLAlchemyError:
+            self._db.rollback()
+            session = self._owned_session(user_id, session_id)
+            session.state = CloudBootstrapState.MANUAL_REVOCATION_REQUIRED.value
+            session.disposal_status = (
+                CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED.value
+            )
+            session.lease_started_at = None
+            session.finding_json = _canonical_json(
+                self._manual_revocation_finding(session.provider)
             )
             session.revision += 1
             session.updated_at = datetime.now(timezone.utc)
@@ -470,32 +573,48 @@ class GuidedCloudBootstrapService:
                 audit.model_copy(update={"resource_id": session.id}),
             )
             self._db.commit()
-        except StaleDataError:
-            self._db.rollback()
-            current = self._owned_session(user_id, session_id)
-            if current.state == CloudBootstrapState.CANCELLED.value:
-                return self.to_response(current)
-            return self._record_execute_failure(
-                current,
-                CloudBootstrapAdapterError(
-                    "BOOTSTRAP_SESSION_CONFLICT",
-                    "The bootstrap session changed while the command was running.",
-                ),
-                audit,
+            self._db.refresh(session)
+            return self.to_response(session)
+
+        try:
+            finalization = self._adapter.finalize_bootstrap(
+                result=result,
+                target=target,
+                credential_origin=request.credential_origin,
+                credential=request.credential,
             )
-        except (SQLAlchemyError, ValueError) as exc:
-            self._db.rollback()
-            session = self._owned_session(user_id, session_id)
-            return self._record_execute_failure(
-                session,
-                CloudBootstrapAdapterError(
-                    "BOOTSTRAP_CONNECTION_VALIDATION_FAILED",
-                    "The generated deployment connection could not be validated and persisted.",
-                ),
-                audit,
-                cause=exc,
+        except CloudBootstrapAdapterError:
+            finalization = None
+
+        session = self._owned_session(user_id, session_id)
+        session.lease_started_at = None
+        session.revision += 1
+        session.updated_at = datetime.now(timezone.utc)
+        if (
+            finalization is None
+            or finalization.disposal_status
+            == CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED
+        ):
+            session.disposal_status = (
+                CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED.value
             )
-        return self.to_response(self._owned_session(user_id, session_id))
+            session.credential_expires_at = None
+            session.state = CloudBootstrapState.MANUAL_REVOCATION_REQUIRED.value
+            session.finding_json = _canonical_json(
+                self._manual_revocation_finding(session.provider)
+            )
+        else:
+            session.disposal_status = finalization.disposal_status.value
+            session.credential_expires_at = finalization.credential_expires_at
+            session.state = CloudBootstrapState.READY.value
+            session.finding_json = None
+        CredentialSecurityAuditService.append(
+            self._db,
+            audit.model_copy(update={"resource_id": session.id}),
+        )
+        self._db.commit()
+        self._db.refresh(session)
+        return self.to_response(session)
 
     def acknowledge_manual_revocation(
         self,
@@ -836,7 +955,12 @@ class GuidedCloudBootstrapService:
         cause: Exception | None = None,
     ) -> CloudBootstrapSessionResponse:
         del cause
-        session.state = CloudBootstrapState.CREDENTIAL_REENTRY_REQUIRED.value
+        cleanup_failed = error.code == "BOOTSTRAP_CLEANUP_FAILED"
+        session.state = (
+            CloudBootstrapState.FAILED.value
+            if cleanup_failed
+            else CloudBootstrapState.CREDENTIAL_REENTRY_REQUIRED.value
+        )
         session.disposal_status = (
             CloudBootstrapDisposalStatus.RELEASED_AFTER_FAILURE.value
         )
@@ -847,7 +971,11 @@ class GuidedCloudBootstrapService:
                 title="Bootstrap could not complete",
                 message=error.message,
                 blocking=True,
-                action="Review the safe finding and explicitly re-enter the credential.",
+                action=(
+                    "Remove the gate-owned provider resources identified by the setup run before starting a new session."
+                    if cleanup_failed
+                    else "Review the safe finding and explicitly re-enter the credential."
+                ),
             ).model_dump(mode="json")
         )
         session.revision += 1
@@ -865,6 +993,27 @@ class GuidedCloudBootstrapService:
         self._db.commit()
         self._db.refresh(session)
         return self.to_response(session)
+
+    def _rollback_generated_connection(
+        self,
+        result: CloudBootstrapAdapterResult,
+        target: CloudBootstrapTarget,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapAdapterError | None:
+        try:
+            self._adapter.rollback(
+                result=result,
+                target=target,
+                credential=credential,
+            )
+        except CloudBootstrapAdapterError:
+            receipt = result.rollback_receipt
+            run_id = receipt.run_id if receipt is not None else "unknown"
+            return CloudBootstrapAdapterError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                f"Generated provider access for setup run {run_id} requires manual cleanup.",
+            )
+        return None
 
     def _reconcile_stale_leases(self, user_id: str) -> None:
         cutoff = datetime.now(timezone.utc) - timedelta(

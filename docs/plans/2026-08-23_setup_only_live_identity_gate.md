@@ -317,7 +317,13 @@ and its fail-closed UI/Management boundary are implemented. An SDK-independent
 adapter orchestrator now derives an ownership-bounded run ID, dispatches one
 provider at a time, admits only a validated `thesis-demo-v2` CloudConnection,
 and requires a typed secret-free rollback receipt. It compensates a generated
-credential that fails this boundary before returning it. Provider-native
+credential that fails this boundary before returning it. Management now uses
+the existing `generated_connection_ready` and `disposal_running` states as a
+two-phase boundary: the validated generated connection is encrypted and
+committed first; a local persistence failure invokes provider rollback while
+bootstrap authority is still usable; only then is disposable bootstrap
+authority finalized. A finalization failure preserves the valid connection and
+becomes explicit manual revocation. Provider-native
 policy materialization is now one shared, provider-SDK-free Management module
 backed only by synchronized generated contracts; the repository CLI reuses
 that module. Version-aware Deployer
@@ -327,10 +333,9 @@ combines the immutable workload inventory with the separately pinned
 implementations and live G2-G5 evidence remain pending. GCP API
 ownership is resolved offline; G6/G7 wait for that live setup evidence.
 
-The concrete SDK drivers, generated-credential provider validation, and the
-compensating cleanup handoff for a later local persistence failure are still
-pending. Until all three exist, the runtime factory intentionally selects the
-unconfigured adapter and the guide stays blocking.
+The concrete SDK drivers and their generated-credential provider validation
+are still pending. Until both exist for a provider, the runtime factory
+intentionally selects the unconfigured adapter and the guide stays blocking.
 
 - Keep the resolved AWS IAM-user binding, AWS/Azure v2 bootstrap boundaries,
   and separate exact GCP v3 plus API-baseline digests pinned before provider
@@ -342,7 +347,11 @@ unconfigured adapter and the guide stays blocking.
   deployment-pack digests.
 - [x] Add the shared SDK-independent adapter transaction, exact target/result
   validation, and secret-free provider rollback receipt; keep concrete SDK
-  drivers and Management persistence compensation pending.
+  drivers pending.
+- [x] Persist and validate the generated connection before bootstrap-authority
+  finalization; compensate local persistence failure while authority remains
+  available, and retain a valid connection with manual-revocation state if only
+  authority finalization fails.
 - [x] Make the provider-native documents importable by Management from the
   synchronized generated contracts; the CLI and future adapters share this
   implementation and must not maintain a second hand-written policy inventory.

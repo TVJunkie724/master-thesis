@@ -19,6 +19,7 @@ from src.schemas.twin_config import AWSCredentials, AzureCredentials, GCPCredent
 from src.services.cloud_bootstrap_adapters import (
     CloudBootstrapAdapterError,
     CloudBootstrapAdapterResult,
+    CloudBootstrapFinalizationResult,
     CloudBootstrapRollbackReceipt,
     SupervisedLiveBootstrapPlan,
     SupervisedLiveCloudBootstrapAdapter,
@@ -30,6 +31,7 @@ class RecordingDriver:
         self.invalid_result = invalid_result
         self.plans: list[SupervisedLiveBootstrapPlan] = []
         self.rollback_receipts: list[CloudBootstrapRollbackReceipt] = []
+        self.finalization_receipts: list[CloudBootstrapRollbackReceipt] = []
 
     def provision(
         self,
@@ -40,7 +42,7 @@ class RecordingDriver:
         credential_origin,
         credential,
     ):
-        del credential_origin, credential
+        del credential
         self.plans.append(plan)
         connection = _connection(plan.provider, display_name, target)
         if self.invalid_result:
@@ -48,14 +50,29 @@ class RecordingDriver:
         return CloudBootstrapAdapterResult(
             connection=connection,
             safe_credential_identifier=f"{plan.provider}-bootstrap-key",
-            disposal_status=CloudBootstrapDisposalStatus.REVOKED,
+            disposal_status=(
+                CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED
+                if credential_origin
+                == CloudBootstrapCredentialOrigin.DEDICATED_DISPOSABLE
+                else CloudBootstrapDisposalStatus.NOT_RETAINED_USER_MANAGED
+            ),
             generated_credential_validated=True,
             rollback_receipt=_receipt(plan),
+            bootstrap_finalization_required=(
+                credential_origin == CloudBootstrapCredentialOrigin.DEDICATED_DISPOSABLE
+            ),
         )
 
     def rollback(self, *, receipt, target, credential):
         del target, credential
         self.rollback_receipts.append(receipt)
+
+    def finalize_bootstrap(self, *, receipt, target, credential):
+        del target, credential
+        self.finalization_receipts.append(receipt)
+        return CloudBootstrapFinalizationResult(
+            disposal_status=CloudBootstrapDisposalStatus.REVOKED,
+        )
 
 
 @pytest.mark.parametrize("provider", ["aws", "azure", "gcp"])
@@ -76,6 +93,7 @@ def test_supervised_adapter_uses_exact_materialized_plan_without_provider_io(pro
     assert result.connection.permission_set_version == "thesis-demo-v2"
     assert result.connection.cloud_scope["bootstrap_mode"] == "supervised_live"
     assert result.generated_credential_validated is True
+    assert result.bootstrap_finalization_required is True
     assert len(driver.plans) == 1
     plan = driver.plans[0]
     assert plan.provider == provider
@@ -86,6 +104,15 @@ def test_supervised_adapter_uses_exact_materialized_plan_without_provider_io(pro
         assert len(plan.gcp_api_baseline()["services"]) == 19
     else:
         assert plan.gcp_api_baseline() is None
+
+    finalization = adapter.finalize_bootstrap(
+        result=result,
+        target=target,
+        credential_origin=CloudBootstrapCredentialOrigin.DEDICATED_DISPOSABLE,
+        credential=credential,
+    )
+    assert finalization.disposal_status == CloudBootstrapDisposalStatus.REVOKED
+    assert driver.finalization_receipts == [result.rollback_receipt]
 
 
 def test_invalid_generated_connection_is_compensated_before_failure():

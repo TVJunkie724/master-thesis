@@ -110,9 +110,18 @@ class CloudBootstrapAdapterResult:
     credential_expires_at: datetime | None = None
     generated_credential_validated: bool = True
     rollback_receipt: CloudBootstrapRollbackReceipt | None = None
+    bootstrap_finalization_required: bool = False
+
+
+@dataclass(frozen=True)
+class CloudBootstrapFinalizationResult:
+    disposal_status: CloudBootstrapDisposalStatus
+    credential_expires_at: datetime | None = None
 
 
 class CloudBootstrapAdapter(Protocol):
+    def supports_provider(self, provider: CloudProvider) -> bool: ...
+
     def execute(
         self,
         *,
@@ -131,8 +140,23 @@ class CloudBootstrapAdapter(Protocol):
         credential: CloudBootstrapCredential,
     ) -> None: ...
 
+    def finalize_bootstrap(
+        self,
+        *,
+        result: CloudBootstrapAdapterResult,
+        target: CloudBootstrapTarget,
+        credential_origin: CloudBootstrapCredentialOrigin,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapFinalizationResult: ...
+
 
 class SupervisedLiveProviderDriver(Protocol):
+    """Provider boundary that self-compensates partial provision failures.
+
+    ``provision`` must leave disposable bootstrap authority usable. Management
+    invokes ``finalize_bootstrap`` only after the generated connection commits.
+    """
+
     def provision(
         self,
         *,
@@ -151,8 +175,20 @@ class SupervisedLiveProviderDriver(Protocol):
         credential: CloudBootstrapCredential,
     ) -> None: ...
 
+    def finalize_bootstrap(
+        self,
+        *,
+        receipt: CloudBootstrapRollbackReceipt,
+        target: CloudBootstrapTarget,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapFinalizationResult: ...
+
 
 class DisabledCloudBootstrapAdapter:
+    def supports_provider(self, provider: CloudProvider) -> bool:
+        del provider
+        return False
+
     def execute(
         self,
         *,
@@ -177,9 +213,27 @@ class DisabledCloudBootstrapAdapter:
     ) -> None:
         del result, target, credential
 
+    def finalize_bootstrap(
+        self,
+        *,
+        result: CloudBootstrapAdapterResult,
+        target: CloudBootstrapTarget,
+        credential_origin: CloudBootstrapCredentialOrigin,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapFinalizationResult:
+        del result, target, credential_origin, credential
+        raise CloudBootstrapAdapterError(
+            "BOOTSTRAP_IDENTITY_CREATION_FAILED",
+            "Live provider bootstrap is disabled in this runtime.",
+        )
+
 
 class UnconfiguredSupervisedLiveCloudBootstrapAdapter:
     """Fail closed until reviewed provider implementations are wired in."""
+
+    def supports_provider(self, provider: CloudProvider) -> bool:
+        del provider
+        return False
 
     def execute(
         self,
@@ -205,12 +259,29 @@ class UnconfiguredSupervisedLiveCloudBootstrapAdapter:
     ) -> None:
         del result, target, credential
 
+    def finalize_bootstrap(
+        self,
+        *,
+        result: CloudBootstrapAdapterResult,
+        target: CloudBootstrapTarget,
+        credential_origin: CloudBootstrapCredentialOrigin,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapFinalizationResult:
+        del result, target, credential_origin, credential
+        raise CloudBootstrapAdapterError(
+            "BOOTSTRAP_IDENTITY_CREATION_FAILED",
+            "Supervised live bootstrap has no reviewed provider adapter configured.",
+        )
+
 
 class SupervisedLiveCloudBootstrapAdapter:
     """SDK-independent setup-only orchestration over reviewed provider drivers."""
 
     def __init__(self, drivers: Mapping[CloudProvider, SupervisedLiveProviderDriver]):
         self._drivers = dict(drivers)
+
+    def supports_provider(self, provider: CloudProvider) -> bool:
+        return provider in self._drivers
 
     def execute(
         self,
@@ -252,7 +323,13 @@ class SupervisedLiveCloudBootstrapAdapter:
             ) from exc
 
         try:
-            self._validate_result(result, plan, display_name, target)
+            self._validate_result(
+                result,
+                plan,
+                display_name,
+                target,
+                credential_origin,
+            )
         except CloudBootstrapAdapterError as validation_error:
             try:
                 self.rollback(result=result, target=target, credential=credential)
@@ -260,6 +337,59 @@ class SupervisedLiveCloudBootstrapAdapter:
                 raise cleanup_error from validation_error
             raise
         return result
+
+    def finalize_bootstrap(
+        self,
+        *,
+        result: CloudBootstrapAdapterResult,
+        target: CloudBootstrapTarget,
+        credential_origin: CloudBootstrapCredentialOrigin,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapFinalizationResult:
+        if not result.bootstrap_finalization_required:
+            return CloudBootstrapFinalizationResult(
+                disposal_status=result.disposal_status,
+                credential_expires_at=result.credential_expires_at,
+            )
+        receipt = result.rollback_receipt
+        if (
+            receipt is None
+            or credential_origin != CloudBootstrapCredentialOrigin.DEDICATED_DISPOSABLE
+        ):
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                "The temporary bootstrap authority requires manual provider cleanup.",
+            )
+        driver = self._drivers.get(receipt.provider)
+        if driver is None:
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                "The temporary bootstrap authority requires manual cleanup because its adapter is unavailable.",
+            )
+        try:
+            finalization = driver.finalize_bootstrap(
+                receipt=receipt,
+                target=target,
+                credential=credential,
+            )
+        except Exception as exc:
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                "The temporary bootstrap authority could not be revoked automatically; manual cleanup is required.",
+            ) from exc
+        if finalization.disposal_status not in {
+            CloudBootstrapDisposalStatus.REVOKED,
+            CloudBootstrapDisposalStatus.EXPIRES_AT_PROVIDER,
+            CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED,
+        } or (
+            finalization.disposal_status
+            == CloudBootstrapDisposalStatus.EXPIRES_AT_PROVIDER
+        ) != (finalization.credential_expires_at is not None):
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                "The temporary bootstrap authority returned an invalid disposal result.",
+            )
+        return finalization
 
     def rollback(
         self,
@@ -376,6 +506,7 @@ class SupervisedLiveCloudBootstrapAdapter:
         plan: SupervisedLiveBootstrapPlan,
         display_name: str,
         target: CloudBootstrapTarget,
+        credential_origin: CloudBootstrapCredentialOrigin,
     ) -> None:
         expected_auth = {
             "aws": "access_key",
@@ -399,6 +530,24 @@ class SupervisedLiveCloudBootstrapAdapter:
         else:
             expected_scope = target.model_dump(mode="json", exclude_none=True)
         expected_scope["bootstrap_mode"] = "supervised_live"
+        expected_finalization = (
+            credential_origin == CloudBootstrapCredentialOrigin.DEDICATED_DISPOSABLE
+            and result.disposal_status
+            == CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED
+        )
+        existing_owned = (
+            credential_origin == CloudBootstrapCredentialOrigin.EXISTING_USER_OWNED
+            and result.disposal_status
+            == CloudBootstrapDisposalStatus.NOT_RETAINED_USER_MANAGED
+            and not result.bootstrap_finalization_required
+        )
+        expiring = (
+            credential_origin == CloudBootstrapCredentialOrigin.DEDICATED_DISPOSABLE
+            and result.disposal_status
+            == CloudBootstrapDisposalStatus.EXPIRES_AT_PROVIDER
+            and result.credential_expires_at is not None
+            and not result.bootstrap_finalization_required
+        )
         if (
             connection.provider != plan.provider
             or connection.purpose != "deployment"
@@ -408,11 +557,16 @@ class SupervisedLiveCloudBootstrapAdapter:
             or scope != expected_scope
             or not result.generated_credential_validated
             or not result.safe_credential_identifier.strip()
+            or len(result.safe_credential_identifier) > 256
+            or "\n" in result.safe_credential_identifier
+            or "\r" in result.safe_credential_identifier
             or receipt is None
             or receipt.provider != plan.provider
             or receipt.run_id != plan.run_id
             or result.disposal_status
             == CloudBootstrapDisposalStatus.RELEASED_AFTER_FAILURE
+            or not (existing_owned or expiring or expected_finalization)
+            or result.bootstrap_finalization_required != expected_finalization
         ):
             raise CloudBootstrapAdapterError(
                 "BOOTSTRAP_CONNECTION_VALIDATION_FAILED",
@@ -422,6 +576,9 @@ class SupervisedLiveCloudBootstrapAdapter:
 
 class DeterministicFakeCloudBootstrapAdapter:
     """No-cloud adapter with real lifecycle semantics for thesis verification."""
+
+    def supports_provider(self, provider: CloudProvider) -> bool:
+        return provider in {"aws", "azure", "gcp"}
 
     def execute(
         self,
@@ -457,6 +614,20 @@ class DeterministicFakeCloudBootstrapAdapter:
         credential: CloudBootstrapCredential,
     ) -> None:
         del result, target, credential
+
+    def finalize_bootstrap(
+        self,
+        *,
+        result: CloudBootstrapAdapterResult,
+        target: CloudBootstrapTarget,
+        credential_origin: CloudBootstrapCredentialOrigin,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapFinalizationResult:
+        del target, credential_origin, credential
+        return CloudBootstrapFinalizationResult(
+            disposal_status=result.disposal_status,
+            credential_expires_at=result.credential_expires_at,
+        )
 
     def _aws(
         self,
