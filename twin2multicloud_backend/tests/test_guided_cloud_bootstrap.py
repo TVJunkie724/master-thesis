@@ -660,6 +660,20 @@ def test_supervised_aws_requires_exact_provider_opt_in(auth_client, monkeypatch)
     assert gcp_guide["known_blockers"][0]["blocking"] is True
 
 
+def test_supervised_azure_requires_exact_provider_opt_in(auth_client, monkeypatch):
+    monkeypatch.setattr(settings, "CLOUD_BOOTSTRAP_ADAPTER_MODE", "supervised_live")
+    monkeypatch.setattr(settings, "CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS", "azure")
+
+    aws_guide = _guide(auth_client, "aws")
+    azure_guide = _guide(auth_client, "azure")
+    gcp_guide = _guide(auth_client, "gcp")
+
+    assert azure_guide["execution_mode"] == "supervised_live"
+    assert azure_guide["known_blockers"] == []
+    assert aws_guide["known_blockers"][0]["blocking"] is True
+    assert gcp_guide["known_blockers"][0]["blocking"] is True
+
+
 class _TwoPhaseAWSAdapter:
     def __init__(
         self,

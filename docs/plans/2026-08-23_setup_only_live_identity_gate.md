@@ -2,8 +2,8 @@
 
 **Date:** 2026-08-23  
 **Status:** In progress (G0, isolated credential-free G1, version-aware G4
-validator logic, and the AWS provider driver implemented offline; G2-G5 not
-run for any provider)
+validator logic, and the AWS/Azure provider drivers implemented offline; G2-G5
+not run for any provider)
 **Parent issue:** [#107](https://github.com/TVJunkie724/master-thesis/issues/107)  
 **Scope:** AWS, Azure, and GCP guided bootstrap, bounded deployment identities,
 credential preflight, the fixed GCP Phase 8 API baseline, and cleanup only
@@ -37,12 +37,12 @@ live test rather than an offline smoke.
 ## 2. Current Baseline And Gap
 
 The repository proves the complete lifecycle with the `deterministic_fake`
-Management adapter and now implements the AWS SDK path against injected,
-stateful offline fakes. The production default remains `disabled`.
-`supervised_live` additionally requires the explicit
-`CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS=aws` allowlist before AWS is selectable;
-an empty allowlist, Azure, and GCP remain visibly blocked. No real provider
-credential or cloud identity was used to produce this evidence.
+Management adapter and now implements AWS SDK plus Azure OAuth/Graph/ARM paths
+against injected, stateful offline fakes. The production default remains
+`disabled`. `supervised_live` additionally requires the explicit
+`CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS=aws`, `azure`, or `aws,azure` allowlist;
+an empty allowlist and GCP remain visibly blocked. No real provider credential
+or cloud identity was used to produce this evidence.
 
 The manual scripts under `bootstrap/<provider>/` are useful historical
 fallbacks, but they are not sufficient as the new live gate:
@@ -341,14 +341,21 @@ document, rejects inline/group authority, validates the frozen selected
 region, and performs ownership-bounded compensation/finalization.
 Its boto3 clients are lazy and credential-explicit, and stateful fake tests
 cover retry, validation failure, and unowned user/policy name collisions. The
-driver is selectable only through the two-part mode/provider opt-in. Azure and
-GCP implementations and live G2-G5 evidence remain pending. GCP API ownership
-is resolved offline; G6/G7 wait for live setup evidence.
+driver is selectable only through the two-part mode/provider opt-in. The Azure
+driver uses explicit client-credential OAuth, Microsoft Graph, and ARM REST
+calls without environment credential discovery. It reconciles one exactly
+tagged application/service principal, a deterministic subscription custom role
+and assignment, and one 24-hour generated application secret. The generated
+principal must prove the exact role document, sole subscription assignment,
+tenant/subscription, and frozen region. Cleanup refuses foreign credentials,
+certificates, assignments, applications, or principals. GCP implementation and
+all live G2-G5 evidence remain pending. GCP API ownership is resolved offline;
+G6/G7 wait for live setup evidence.
 
-The Azure and GCP SDK drivers and their generated-credential provider
-validation are still pending. Until the corresponding driver exists and is
-explicitly allowlisted, the guide for that provider stays blocking. AWS's
-offline driver is not live proof: IAM Access Analyzer plus supervised G2-G5
+The GCP SDK driver and its generated-credential provider validation are still
+pending. Until that driver exists and is explicitly allowlisted, the GCP guide
+stays blocking. The AWS/Azure offline drivers are not live proof: AWS IAM
+Access Analyzer, Azure provider-operation validation, and supervised G2-G5
 remain required before G6.
 
 - Keep the resolved AWS IAM-user binding, AWS/Azure v2 bootstrap boundaries,
@@ -359,7 +366,9 @@ remain required before G6.
   blocked until its reviewed adapter is explicitly enabled.
 - [x] Implement the AWS adapter against the pinned authority and
   deployment-pack digests, with exact opt-in and offline fake-provider tests.
-- Implement Azure and GCP adapters against the pinned authority and
+- [x] Implement the Azure adapter against the pinned authority and
+  deployment-pack digests, with exact opt-in and offline fake-provider tests.
+- Implement the GCP adapter against the pinned authority, API-baseline, and
   deployment-pack digests.
 - [x] Add the shared SDK-independent adapter transaction, exact target/result
   validation, and secret-free provider rollback receipt; keep providers

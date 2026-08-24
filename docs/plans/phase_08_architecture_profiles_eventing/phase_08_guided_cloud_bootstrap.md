@@ -676,8 +676,9 @@ boundary, generated `thesis-demo-v2` deployment CloudConnections, Deployer
 admission, both Flutter entry points, deterministic provider adapters, manual
 cleanup acknowledgement, and compatibility fallback are implemented. The
 production default fails closed and therefore makes no live-provider claim.
-The AWS SDK driver is available only when both `supervised_live` and the exact
-AWS provider allowlist are configured; Azure and GCP remain blocked.
+The AWS SDK and Azure OAuth/Graph/ARM drivers are available only when both
+`supervised_live` and the exact provider allowlist are configured; GCP remains
+blocked.
 
 The implementation and review evidence is recorded in
 [`guided_cloud_access_bootstrap.md`](../../../twin2multicloud_flutter/docs/configuration_workspace/implementation/guided_cloud_access_bootstrap.md).
@@ -710,9 +711,13 @@ The AWS driver uses the same materialized bundle, validates the generated key
 through STS, the exact managed-policy document, absence of inline/group
 authority, and frozen regional discovery, and
 performs ownership-bounded rollback/finalization. Its stateful fake-provider
-tests include retry, validation failure, and unowned name collisions. Azure and
-GCP drivers remain pending. G2-G5 live proof remains pending for all providers,
-so G6/G7 stay blocked.
+tests include retry, validation failure, and unowned name collisions. The Azure
+driver uses the same materialized custom-role bundle, one exactly tagged
+application/service principal, one deterministic subscription assignment, and
+one 24-hour generated client secret. It validates the exact role, sole
+assignment, tenant/subscription, and frozen region and refuses foreign Graph
+credentials or ARM assignments during cleanup. GCP remains pending. G2-G5 live
+proof remains pending for all providers, so G6/G7 stay blocked.
 
 The credential-free local integration boundary is available as
 `./thesis.sh test setup-smoke`. It runs the actual shared Flutter bootstrap UI

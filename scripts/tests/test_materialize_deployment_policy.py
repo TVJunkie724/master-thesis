@@ -112,6 +112,7 @@ class PolicyMaterializationTests(unittest.TestCase):
         second = materialize_azure_custom_role(
             subscription_id=SUBSCRIPTION_ID, run_id=RUN_ID
         )
+        self.assertEqual(first["region"], "westeurope")
         permission = first["properties"]["permissions"][0]
 
         self.assertEqual(first, second)

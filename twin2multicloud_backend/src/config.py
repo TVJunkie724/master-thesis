@@ -149,7 +149,7 @@ class Settings(BaseSettings):
             raise ValueError("SEED_DATA is only allowed in development or test")
         providers = self.cloud_bootstrap_supervised_providers
         if len(providers) != len(set(providers)) or not set(providers).issubset(
-            {"aws"}
+            {"aws", "azure"}
         ):
             raise ValueError(
                 "CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS contains an unsupported or duplicate provider"

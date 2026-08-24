@@ -61,6 +61,7 @@ from src.services.cloud_bootstrap_adapters import (
     UnconfiguredSupervisedLiveCloudBootstrapAdapter,
 )
 from src.services.aws_cloud_bootstrap_driver import AWSCloudBootstrapDriver
+from src.services.azure_cloud_bootstrap_driver import AzureCloudBootstrapDriver
 from src.services.cloud_bootstrap_errors import CloudBootstrapDomainError
 from src.services.cloud_connection_service import CloudConnectionService
 from src.services.credential_security_audit_service import (
@@ -195,6 +196,8 @@ class GuidedCloudBootstrapService:
             drivers = {}
             if "aws" in settings.cloud_bootstrap_supervised_providers:
                 drivers["aws"] = AWSCloudBootstrapDriver()
+            if "azure" in settings.cloud_bootstrap_supervised_providers:
+                drivers["azure"] = AzureCloudBootstrapDriver()
             return (
                 SupervisedLiveCloudBootstrapAdapter(drivers)
                 if drivers

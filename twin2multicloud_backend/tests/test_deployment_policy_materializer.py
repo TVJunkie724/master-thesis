@@ -34,6 +34,7 @@ def test_management_materializes_all_provider_documents_from_generated_contracts
         AWS_MANAGED_POLICY_CHARACTER_LIMIT
     )
     assert azure["permission_set_version"] == "thesis-demo-v2"
+    assert azure["region"] == "westeurope"
     assert azure["scope"] == ("/subscriptions/22222222-2222-4222-8222-222222222222")
     assert gcp["parent"] == "projects/twin2mc-test-project"
     assert gcp["roleId"] == "twin2mc_e2e_a1b2c3d4"

@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-24"
-version: "4.21"
+version: "4.22"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.21"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-24 | VERSION: 4.21
+EXTRACTED: 2026-08-24 | VERSION: 4.22
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -28,14 +28,14 @@ EXTRACTED: 2026-08-24 | VERSION: 4.21
 |---|---|
 | Repository | `TVJunkie724/master-thesis` |
 | Integration branch | `master` |
-| Reviewed implementation base | `f496413f` on `codex/setup-only-live-identity-gate` before the offline AWS SDK-driver slice |
+| Reviewed implementation base | `6bc7ec27` on `codex/setup-only-live-identity-gate` before the offline Azure REST-driver slice |
 | Active implementation branch | `codex/setup-only-live-identity-gate` |
 | Locally completed implementation | Phase 8.0 / #144 through Phase 8.10 / #148, prerequisite #113, guided bootstrap / #154, complete Five-layer v2 / 8.9A, Six-layer / 8.9B, and GCP admin-v3 ownership of the fixed existing-project API baseline; prescribed credential-free reviews and gates are zero-finding, while supervised provider evidence remains deliberately absent |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
 | Implementation status | Five-layer v2 and Six-layer v1 are active locally across contracts, Optimizer, Management, Deployer/Terraform, provider runtimes, and Flutter. The Six-layer implementation inherits the pinned Five-layer graph and adds only the reviewed Eventing delta. Deployment remains blocked by explicit supervised live-capacity gates. |
-| Next action | Complete and offline-review the Azure and GCP existing-project adapters. AWS is implemented behind an exact opt-in but still requires supervised G2-G5 and IAM Access Analyzer evidence before any G6 plan; no provider contact is authorized in this branch. |
+| Next action | Complete and offline-review the GCP existing-project adapter. AWS and Azure are implemented behind exact provider opt-ins but still require their supervised G2-G5 evidence before any G6 plan; no provider contact is authorized in this branch. |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -175,9 +175,10 @@ owner-scoped safe sessions, request-only credential handling, deterministic
 AWS/Azure/GCP adapter behavior, encrypted generated `thesis-demo-v2`
 CloudConnections, Deployer admission, and one shared Flutter flow from Settings
 and Prepare deployment. Canonical schemas, OpenAPI, Management, and Flutter now
-share the explicit `supervised_live` vocabulary. The AWS SDK driver is wired
-behind the additional exact `CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS=aws` opt-in;
-an empty allowlist and the unfinished Azure/GCP providers remain blocking. The
+share the explicit `supervised_live` vocabulary. The AWS SDK and Azure REST
+drivers are wired behind the additional exact
+`CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS` opt-in; an empty allowlist and the
+unfinished GCP provider remain blocking. The
 provider-native policy materializer is now a shared SDK-free
 Management module over synchronized generated contracts; the repository CLI
 uses the same implementation, so future adapters cannot own a parallel
@@ -199,8 +200,12 @@ only the exact run-tagged IAM user and managed policy, validates the generated
 key, policy document, absence of inline/group authority, and frozen region
 without workload calls, compensates partial failure, and deletes a
 dedicated submitted static key only after proving its owner. Unowned-name
-collision tests prove it does not delete foreign resources. Azure and GCP
-drivers remain pending; AWS itself has no live G2-G5 or Access Analyzer proof.
+collision tests prove it does not delete foreign resources. The Azure driver
+uses credential-explicit OAuth plus Graph/ARM REST, one tagged app/SP, the
+materialized deterministic custom role/assignment, and a 24-hour secret. It
+validates the exact role, sole subscription assignment, tenant, subscription,
+and region and refuses foreign Graph credentials or ARM assignments during
+cleanup. GCP remains pending; AWS/Azure have no live G2-G5 proof.
 
 Five-layer v2 subsequently reached and passed its local activation boundary on
 `codex/phase-8-9a-layer-access`. Commits `e6ceb41d` and `8974b869` add the typed

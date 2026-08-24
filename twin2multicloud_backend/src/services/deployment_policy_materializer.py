@@ -302,11 +302,24 @@ def materialize_azure_custom_role(
             "Azure self-check permissions duplicate base-pack actions: "
             f"{sorted(overlap)}"
         )
+    region_conditions = [
+        condition.get("value")
+        for condition in pack.get("conditions", [])
+        if isinstance(condition, dict) and condition.get("condition") == "region"
+    ]
+    if (
+        not isinstance(pack.get("region"), str)
+        or region_conditions != [pack["region"]]
+    ):
+        raise PolicyMaterializationError(
+            "Azure deployment region does not match its resolver invariant."
+        )
     scope = f"/subscriptions/{subscription}"
     role_id = str(uuid5(AZURE_ROLE_NAMESPACE, f"{subscription}:{run_id}"))
     return {
         "schema_version": "azure-deployment-identity-bundle.v1",
         "provider": "azure",
+        "region": pack["region"],
         "permission_set_version": PERMISSION_SET_VERSION,
         "identity_binding_id": binding["binding_id"],
         "role_definition_id": role_id,
