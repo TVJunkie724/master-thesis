@@ -18,15 +18,15 @@
     "container_images": [
       {
         "service": "optimizer",
-        "digest": "sha256:e4f426838bf3b882ad0d35cfd7dc00c2407a002bef571246fd5f0200e2474d3e"
+        "digest": "sha256:9e501de37225f0bbd2dfddb5633f5058e189c8e3a062949053809a0bbcde2034"
       },
       {
         "service": "management-api",
-        "digest": "sha256:c59139f41649ba2dedc0677d3bb97f1398ec6e21df4244ee434e0434cb33cba3"
+        "digest": "sha256:6acd3e85bbefdf390f121c989591a04f5c37217f6f3ce43b634ed6c62acf07df"
       },
       {
         "service": "deployer",
-        "digest": "sha256:dabd2b72bf6fa747bd06619f4b3cdd840d8ad3c76056db8ea62e485410ac5c3c"
+        "digest": "sha256:71bf1a1e57bd709e5f246ff973df762c5246dd22210a431e0c67abce14f9a3f8"
       },
       {
         "service": "docs",
