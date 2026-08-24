@@ -23,7 +23,9 @@
     "schema_version": {"const": "cloud-bootstrap-guide.v1"},
     "guide_digest": {"$ref": "#/$defs/digest"},
     "provider": {"enum": ["aws", "azure", "gcp"]},
-    "execution_mode": {"enum": ["disabled", "deterministic_fake"]},
+    "execution_mode": {
+      "enum": ["disabled", "deterministic_fake", "supervised_live"]
+    },
     "target": {"$ref": "#/$defs/target"},
     "bootstrap_authority_pack": {"$ref": "#/$defs/packReference"},
     "generated_deployment_pack": {"$ref": "#/$defs/packReference"},
@@ -215,9 +217,10 @@
     "finding": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["code", "title", "message", "blocking", "action"],
+      "required": ["code", "severity", "title", "message", "blocking", "action"],
       "properties": {
         "code": {"type": "string", "pattern": "^[A-Z0-9_]+$"},
+        "severity": {"enum": ["info", "warning", "error"]},
         "title": {"type": "string", "minLength": 1},
         "message": {"type": "string", "minLength": 1},
         "blocking": {"type": "boolean"},

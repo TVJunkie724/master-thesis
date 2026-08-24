@@ -229,7 +229,7 @@ class CloudBootstrapGuideResponse(BaseModel):
     schema_version: Literal["cloud-bootstrap-guide.v1"] = "cloud-bootstrap-guide.v1"
     guide_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     provider: CloudProvider
-    execution_mode: Literal["disabled", "deterministic_fake"]
+    execution_mode: Literal["disabled", "deterministic_fake", "supervised_live"]
     target: CloudBootstrapTarget
     bootstrap_authority_pack: CloudBootstrapGuidePackReference
     generated_deployment_pack: CloudBootstrapGuidePackReference

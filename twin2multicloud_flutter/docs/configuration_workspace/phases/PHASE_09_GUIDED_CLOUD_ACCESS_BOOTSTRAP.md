@@ -3,7 +3,7 @@ title: "Phase 9: Guided Cloud Access Bootstrap"
 description: "Plan the shared Settings and configuration-workspace delivery of request-scoped provider bootstrap and resumable manual prerequisites."
 tags: [flutter, configuration-workspace, settings, credentials, bootstrap]
 lastUpdated: "2026-08-24"
-version: "1.4"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -23,8 +23,9 @@ shared Settings/Prepare deployment flow, strict models, one-use credential
 request, safe resume/recheck/cancel behavior, manual-revocation
 acknowledgement, demo parity, and real local Management API integration are
 complete. `deterministic_fake` creates no provider resources; production
-remains `disabled` until a separately reviewed live adapter and supervised
-cloud gate exist. See the
+remains `disabled`. The synchronized `supervised_live` mode is present but
+cannot advance past its blocking guide until separately reviewed provider
+adapters replace the fail-closed placeholder. See the
 [implementation record](../implementation/guided_cloud_access_bootstrap.md).
 
 ## Summary
@@ -64,7 +65,8 @@ secret.
 - GCP existing-project setup pins `bootstrap.gcp.admin-v3` and the fixed
   19-service Phase 8 API baseline; organization/project creation fails closed.
 - Deterministic AWS, Azure, and GCP offline adapters return stable safe
-  findings and disposal states; live provider adapters remain disabled.
+  findings and disposal states. The synchronized `supervised_live` mode is
+  fail-closed and live provider adapters remain unconfigured.
 - Existing manual `/cloud-bootstrap/{provider}/plan` and
   `/cloud-bootstrap/import` endpoints remain compatible but are not invoked by
   Flutter.

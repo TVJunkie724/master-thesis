@@ -608,6 +608,36 @@ def test_disabled_adapter_fails_closed_without_persisting_connection(auth_client
     assert db.query(CloudConnection).count() == 0
 
 
+def test_unconfigured_supervised_live_mode_is_visible_and_fails_closed(
+    auth_client,
+    db,
+):
+    original = settings.CLOUD_BOOTSTRAP_ADAPTER_MODE
+    settings.CLOUD_BOOTSTRAP_ADAPTER_MODE = "supervised_live"
+    try:
+        guide = _guide(auth_client, "aws")
+        _validator("cloud-bootstrap-guide.schema.json").validate(guide)
+        assert guide["execution_mode"] == "supervised_live"
+        assert [finding["blocking"] for finding in guide["known_blockers"]] == [
+            True
+        ]
+        session = _session(auth_client, "aws", key="create-aws-live-unconfigured-001")
+        failed = _execute(
+            auth_client,
+            session,
+            "aws",
+            key="execute-aws-live-unconfigured-001",
+        )
+    finally:
+        settings.CLOUD_BOOTSTRAP_ADAPTER_MODE = original
+
+    assert failed["state"] == "credential_reentry_required"
+    assert failed["disposal_status"] == "released_after_failure"
+    assert failed["finding"]["code"] == "BOOTSTRAP_IDENTITY_CREATION_FAILED"
+    assert "connection" not in failed
+    assert db.query(CloudConnection).count() == 0
+
+
 def test_stale_running_lease_requires_explicit_credential_reentry(auth_client, db):
     created = _session(auth_client, "aws", key="create-aws-stale-lease-01")
     stored = db.query(CloudBootstrapSession).filter_by(id=created["id"]).one()

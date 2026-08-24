@@ -37,8 +37,10 @@ live test rather than an offline smoke.
 
 The repository currently proves the complete lifecycle only with the
 `deterministic_fake` Management adapter. The production default is
-`disabled`; a real provider credential cannot currently cause the guided UI to
-create a provider identity.
+`disabled`. The synchronized `supervised_live` mode is now recognized by the
+canonical schema, Management, OpenAPI, and Flutter, but remains visibly blocked
+by an unconfigured fail-closed adapter; a real provider credential cannot yet
+cause the guided UI to create a provider identity.
 
 The manual scripts under `bootstrap/<provider>/` are useful historical
 fallbacks, but they are not sufficient as the new live gate:
@@ -61,10 +63,11 @@ a setup-only runner rather than relabel the existing deployment E2E tests.
 
 ### 2.1 Contract Findings To Resolve Before Live Execution
 
-- `CloudBootstrapGuide.execution_mode` and Management settings currently allow
-  only `disabled` and `deterministic_fake`; a live mode needs a synchronized
-  contract revision across canonical schemas, generated copies, Management,
-  Flutter, and fixtures.
+- `CloudBootstrapGuide.execution_mode` and Management settings now share the
+  exact `disabled`, `deterministic_fake`, and `supervised_live` vocabulary
+  across canonical schemas, generated copies, OpenAPI, Management, and
+  Flutter. Until a reviewed provider adapter is wired in, `supervised_live`
+  emits a blocking finding and cannot advance past the guide.
 - The historical `bootstrap.azure.admin-v1` pack did not permit creating or
   deleting the v2 custom role definition. This is resolved without mutating
   the old pack: active guided bootstrap now pins `bootstrap.azure.admin-v2`,
@@ -309,18 +312,21 @@ Implemented and credential-free as of 2026-08-24.
 
 ### Slice B — Reviewed Live Provider Adapters
 
-Not enabled. Provider-native policy materialization and version-aware Deployer
+Partially implemented, not enabled. The synchronized `supervised_live` mode
+and its fail-closed UI/Management boundary are implemented. Provider-native
+policy materialization and version-aware Deployer
 permission selection are implemented offline. The Azure materializer now
 combines the immutable workload inventory with the separately pinned
 `azure.thesis-demo-v2.service-principal-v1` self-inspection reads. Provider
-calls, `supervised_live` mode, and live G2-G5 evidence remain pending. GCP API
+implementations and live G2-G5 evidence remain pending. GCP API
 ownership is resolved offline; G6/G7 wait for that live setup evidence.
 
 - Keep the resolved AWS IAM-user binding, AWS/Azure v2 bootstrap boundaries,
   and separate exact GCP v3 plus API-baseline digests pinned before provider
   code is enabled.
-- Add a `supervised_live` adapter mode while retaining production default
-  `disabled` and test default `deterministic_fake`.
+- [x] Add a synchronized `supervised_live` mode while retaining production
+  default `disabled` and test default `deterministic_fake`; keep it blocked
+  until the reviewed provider adapters below replace the fail-closed boundary.
 - Implement AWS, Azure, and GCP adapters against the pinned authority and
   deployment-pack digests.
 - Admit only the provider-native document emitted by the offline materializer;

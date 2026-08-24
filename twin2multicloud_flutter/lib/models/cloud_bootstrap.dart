@@ -15,11 +15,13 @@ enum CloudBootstrapEntryPoint {
 
 enum CloudBootstrapExecutionMode {
   disabled,
-  deterministicFake;
+  deterministicFake,
+  supervisedLive;
 
   static CloudBootstrapExecutionMode parse(String value) => switch (value) {
     'disabled' => CloudBootstrapExecutionMode.disabled,
     'deterministic_fake' => CloudBootstrapExecutionMode.deterministicFake,
+    'supervised_live' => CloudBootstrapExecutionMode.supervisedLive,
     _ => throw const FormatException(
       'Invalid API contract: unsupported bootstrap execution mode.',
     ),
@@ -29,6 +31,8 @@ enum CloudBootstrapExecutionMode {
     CloudBootstrapExecutionMode.disabled => 'Disabled',
     CloudBootstrapExecutionMode.deterministicFake =>
       'Thesis simulation — no cloud resources are created',
+    CloudBootstrapExecutionMode.supervisedLive =>
+      'Supervised setup — creates bounded cloud access',
   };
 }
 

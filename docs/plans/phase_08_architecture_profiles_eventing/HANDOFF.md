@@ -170,14 +170,16 @@ generated connection. Draft creation and calculation remain credential-free. The
 binding contract is
 [`phase_08_guided_cloud_bootstrap.md`](phase_08_guided_cloud_bootstrap.md).
 
-The guided-bootstrap PoC boundary is complete on
-`codex/phase-8-guided-bootstrap`. It provides strict synchronized contracts,
+The guided-bootstrap offline PoC boundary provides strict synchronized contracts,
 owner-scoped safe sessions, request-only credential handling, deterministic
 AWS/Azure/GCP adapter behavior, encrypted generated `thesis-demo-v2`
 CloudConnections, Deployer admission, and one shared Flutter flow from Settings
-and Prepare deployment. Production remains fail-closed: no live provider
-adapter is enabled, no cloud identity was created, and the existing reviewed
-manual script/import path remains the supervised provider path. The isolated
+and Prepare deployment. Canonical schemas, OpenAPI, Management, and Flutter now
+share the explicit `supervised_live` vocabulary, but that mode reports a
+blocking finding and refuses execution until reviewed provider adapters are
+wired in. Production remains fail-closed: no live provider adapter is enabled,
+no cloud identity was created, and the existing reviewed manual script/import
+path remains the supervised provider path. The isolated
 OrbStack gate proved that the submitted sentinel was absent from Management
 logs and SQLite persistence.
 

@@ -1667,6 +1667,64 @@
         "title": "CloudAccessProviderInventory",
         "type": "object"
       },
+      "CloudBootstrapApiBaseline": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_url": {
+            "pattern": "^https://",
+            "title": "Artifact Url",
+            "type": "string"
+          },
+          "digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "id": {
+            "const": "gcp.phase8-api-baseline.v1",
+            "title": "Id",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "mutation_summary": {
+            "minLength": 1,
+            "title": "Mutation Summary",
+            "type": "string"
+          },
+          "retain_enabled": {
+            "const": true,
+            "default": true,
+            "title": "Retain Enabled",
+            "type": "boolean"
+          },
+          "services": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Services",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "digest",
+          "services",
+          "mutation_summary",
+          "limitations",
+          "artifact_url"
+        ],
+        "title": "CloudBootstrapApiBaseline",
+        "type": "object"
+      },
       "CloudBootstrapConnectionSummary": {
         "additionalProperties": false,
         "properties": {
@@ -1974,6 +2032,16 @@
       "CloudBootstrapGuideResponse": {
         "additionalProperties": false,
         "properties": {
+          "api_baseline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CloudBootstrapApiBaseline"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "bootstrap_authority_pack": {
             "$ref": "#/components/schemas/CloudBootstrapGuidePackReference"
           },
@@ -2007,7 +2075,8 @@
           "execution_mode": {
             "enum": [
               "disabled",
-              "deterministic_fake"
+              "deterministic_fake",
+              "supervised_live"
             ],
             "title": "Execution Mode",
             "type": "string"
@@ -2080,6 +2149,7 @@
           "target",
           "bootstrap_authority_pack",
           "generated_deployment_pack",
+          "api_baseline",
           "credential_fields",
           "preparation_steps",
           "known_blockers"
@@ -3984,6 +4054,29 @@
           "created_at"
         ],
         "title": "CostCalculationRunSummaryResponse",
+        "type": "object"
+      },
+      "CostContribution": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "enum": [
+              "USD",
+              "EUR"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "monthly_amount": {
+            "title": "Monthly Amount",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "monthly_amount"
+        ],
+        "title": "CostContribution",
         "type": "object"
       },
       "CredentialSecurityAction": {
@@ -6075,7 +6168,7 @@
       },
       "FiveLayerV2OptimizerCalculationParams": {
         "additionalProperties": false,
-        "description": "Closed S/M/L workload accepted only with ``five-layer-baseline@2``.",
+        "description": "Closed S/M/L workload shared by both active Phase 8 comparison profiles.",
         "properties": {
           "aggregateDashboardRefreshesPerHour": {
             "minimum": 0.0,
@@ -6203,6 +6296,63 @@
           "eventingScenarioId"
         ],
         "title": "FiveLayerV2OptimizerCalculationParams",
+        "type": "object"
+      },
+      "FunctionalCompletenessResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "missing_capability_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Capability Ids",
+            "type": "array"
+          },
+          "provided_capability_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Provided Capability Ids",
+            "type": "array"
+          },
+          "provider_extra_capability_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Provider Extra Capability Ids",
+            "type": "array"
+          },
+          "required_capability_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Required Capability Ids",
+            "type": "array"
+          },
+          "status": {
+            "const": "complete",
+            "title": "Status",
+            "type": "string"
+          },
+          "validation_digest": {
+            "title": "Validation Digest",
+            "type": "string"
+          },
+          "validator_version": {
+            "title": "Validator Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "required_capability_ids",
+          "provided_capability_ids",
+          "provider_extra_capability_ids",
+          "missing_capability_ids",
+          "validator_version",
+          "validation_digest"
+        ],
+        "title": "FunctionalCompletenessResponse",
         "type": "object"
       },
       "GCPBootstrapCredential": {
@@ -6699,6 +6849,60 @@
           "sse_url"
         ],
         "title": "OperationSessionResponse",
+        "type": "object"
+      },
+      "OptimizationBundleReference": {
+        "additionalProperties": false,
+        "properties": {
+          "calculation_strategy_id": {
+            "title": "Calculation Strategy Id",
+            "type": "string"
+          },
+          "calculation_strategy_version": {
+            "title": "Calculation Strategy Version",
+            "type": "string"
+          },
+          "compatibility_digest": {
+            "title": "Compatibility Digest",
+            "type": "string"
+          },
+          "formula_set_id": {
+            "title": "Formula Set Id",
+            "type": "string"
+          },
+          "formula_set_version": {
+            "title": "Formula Set Version",
+            "type": "string"
+          },
+          "optimization_strategy_id": {
+            "title": "Optimization Strategy Id",
+            "type": "string"
+          },
+          "optimization_strategy_version": {
+            "title": "Optimization Strategy Version",
+            "type": "string"
+          },
+          "scoring_strategy_id": {
+            "title": "Scoring Strategy Id",
+            "type": "string"
+          },
+          "scoring_strategy_version": {
+            "title": "Scoring Strategy Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "optimization_strategy_id",
+          "optimization_strategy_version",
+          "calculation_strategy_id",
+          "calculation_strategy_version",
+          "formula_set_id",
+          "formula_set_version",
+          "scoring_strategy_id",
+          "scoring_strategy_version",
+          "compatibility_digest"
+        ],
+        "title": "OptimizationBundleReference",
         "type": "object"
       },
       "OptimizerCalculationParams": {
@@ -7761,6 +7965,49 @@
           "field_trace_available"
         ],
         "title": "PricingEvidenceDetailResponse",
+        "type": "object"
+      },
+      "PricingEvidenceReference": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "enum": [
+              "USD",
+              "EUR"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "digest",
+          "provider",
+          "currency"
+        ],
+        "title": "PricingEvidenceReference",
         "type": "object"
       },
       "PricingHealthResponse": {
@@ -9017,6 +9264,40 @@
         "title": "ProviderPricingReviewState",
         "type": "object"
       },
+      "ProviderProfileReference": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "digest",
+          "provider"
+        ],
+        "title": "ProviderProfileReference",
+        "type": "object"
+      },
       "RedeployReadinessResponse": {
         "description": "Redeployment cooldown status.",
         "properties": {
@@ -9034,6 +9315,119 @@
           "remaining_seconds"
         ],
         "title": "RedeployReadinessResponse",
+        "type": "object"
+      },
+      "ResolvedArchitectureEdgeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cost_contribution": {
+            "$ref": "#/components/schemas/CostContribution"
+          },
+          "delivery_semantics": {
+            "$ref": "#/components/schemas/ResolvedEdgeDeliverySemantics"
+          },
+          "deployment_input_binding_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Deployment Input Binding Ids",
+            "type": "array"
+          },
+          "deployment_output_binding_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Deployment Output Binding Ids",
+            "type": "array"
+          },
+          "destination_assignment_id": {
+            "title": "Destination Assignment Id",
+            "type": "string"
+          },
+          "destination_port_id": {
+            "title": "Destination Port Id",
+            "type": "string"
+          },
+          "edge_id": {
+            "title": "Edge Id",
+            "type": "string"
+          },
+          "edge_implementation_id": {
+            "title": "Edge Implementation Id",
+            "type": "string"
+          },
+          "formula_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Formula Refs",
+            "type": "array"
+          },
+          "mechanism": {
+            "enum": [
+              "provider_native_trigger",
+              "source_owned_transition_runtime",
+              "typed_synchronous_api",
+              "cross_provider_adapter"
+            ],
+            "title": "Mechanism",
+            "type": "string"
+          },
+          "observability_contract_ref": {
+            "$ref": "#/components/schemas/VersionedArchitectureReference"
+          },
+          "resolved_edge_id": {
+            "title": "Resolved Edge Id",
+            "type": "string"
+          },
+          "source_assignment_id": {
+            "title": "Source Assignment Id",
+            "type": "string"
+          },
+          "source_port_id": {
+            "title": "Source Port Id",
+            "type": "string"
+          },
+          "transfer_evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Transfer Evidence Refs",
+            "type": "array"
+          },
+          "transfer_route_class": {
+            "enum": [
+              "same_provider_same_region",
+              "same_provider_cross_region",
+              "cross_provider"
+            ],
+            "title": "Transfer Route Class",
+            "type": "string"
+          },
+          "trust_contract_ref": {
+            "$ref": "#/components/schemas/VersionedArchitectureReference"
+          }
+        },
+        "required": [
+          "resolved_edge_id",
+          "edge_id",
+          "source_assignment_id",
+          "source_port_id",
+          "destination_assignment_id",
+          "destination_port_id",
+          "edge_implementation_id",
+          "mechanism",
+          "delivery_semantics",
+          "transfer_route_class",
+          "transfer_evidence_refs",
+          "formula_refs",
+          "cost_contribution",
+          "trust_contract_ref",
+          "observability_contract_ref",
+          "deployment_input_binding_ids",
+          "deployment_output_binding_ids"
+        ],
+        "title": "ResolvedArchitectureEdgeResponse",
         "type": "object"
       },
       "ResolvedArchitectureReadResponse": {
@@ -9104,6 +9498,172 @@
           "architecture"
         ],
         "title": "ResolvedArchitectureReadResponse",
+        "type": "object"
+      },
+      "ResolvedComponentAssignment": {
+        "additionalProperties": false,
+        "properties": {
+          "assignment_id": {
+            "title": "Assignment Id",
+            "type": "string"
+          },
+          "capability_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capability Evidence",
+            "type": "array"
+          },
+          "cost_contribution": {
+            "$ref": "#/components/schemas/CostContribution"
+          },
+          "deployment_component_id": {
+            "title": "Deployment Component Id",
+            "type": "string"
+          },
+          "deployment_component_version": {
+            "title": "Deployment Component Version",
+            "type": "string"
+          },
+          "deployment_specification_component_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Deployment Specification Component Ids",
+            "type": "array"
+          },
+          "formula_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Formula Refs",
+            "type": "array"
+          },
+          "logical_component_id": {
+            "title": "Logical Component Id",
+            "type": "string"
+          },
+          "pricing_model_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Pricing Model Refs",
+            "type": "array"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_implementation_profile_ref": {
+            "$ref": "#/components/schemas/PinnedArchitectureReference"
+          },
+          "region": {
+            "title": "Region",
+            "type": "string"
+          },
+          "required": {
+            "const": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "responsibility_id": {
+            "title": "Responsibility Id",
+            "type": "string"
+          },
+          "service_id": {
+            "title": "Service Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assignment_id",
+          "responsibility_id",
+          "logical_component_id",
+          "provider",
+          "provider_implementation_profile_ref",
+          "deployment_component_id",
+          "deployment_component_version",
+          "service_id",
+          "region",
+          "capability_evidence",
+          "pricing_model_refs",
+          "formula_refs",
+          "deployment_specification_component_ids",
+          "cost_contribution",
+          "required"
+        ],
+        "title": "ResolvedComponentAssignment",
+        "type": "object"
+      },
+      "ResolvedCostItem": {
+        "additionalProperties": false,
+        "properties": {
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "monthly_amount": {
+            "title": "Monthly Amount",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "monthly_amount"
+        ],
+        "title": "ResolvedCostItem",
+        "type": "object"
+      },
+      "ResolvedCostSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "component_totals": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedCostItem"
+            },
+            "title": "Component Totals",
+            "type": "array"
+          },
+          "currency": {
+            "enum": [
+              "USD",
+              "EUR"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "edge_totals": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedCostItem"
+            },
+            "title": "Edge Totals",
+            "type": "array"
+          },
+          "monthly_total": {
+            "title": "Monthly Total",
+            "type": "string"
+          },
+          "responsibility_totals": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedCostItem"
+            },
+            "title": "Responsibility Totals",
+            "type": "array"
+          }
+        },
+        "required": [
+          "currency",
+          "responsibility_totals",
+          "component_totals",
+          "edge_totals",
+          "monthly_total"
+        ],
+        "title": "ResolvedCostSummary",
         "type": "object"
       },
       "ResolvedDeploymentArchitectureProfile": {
@@ -9814,6 +10374,31 @@
         "title": "ResolvedDeploymentSpecification",
         "type": "object"
       },
+      "ResolvedDeploymentSpecificationReference": {
+        "additionalProperties": false,
+        "properties": {
+          "calculation_run_id": {
+            "title": "Calculation Run Id",
+            "type": "string"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "resolved-deployment-specification.v2",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "calculation_run_id",
+          "digest"
+        ],
+        "title": "ResolvedDeploymentSpecificationReference",
+        "type": "object"
+      },
       "ResolvedDeploymentSpecificationV2": {
         "additionalProperties": false,
         "properties": {
@@ -9883,6 +10468,127 @@
           "digest"
         ],
         "title": "ResolvedDeploymentSpecificationV2",
+        "type": "object"
+      },
+      "ResolvedEdgeDeliverySemantics": {
+        "additionalProperties": false,
+        "properties": {
+          "dead_letter_policy": {
+            "enum": [
+              "required",
+              "provider_managed",
+              "not_applicable"
+            ],
+            "title": "Dead Letter Policy",
+            "type": "string"
+          },
+          "idempotency": {
+            "enum": [
+              "required",
+              "consumer_deduplicated",
+              "not_required"
+            ],
+            "title": "Idempotency",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "synchronous",
+              "asynchronous"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "ordering": {
+            "enum": [
+              "per_entity",
+              "best_effort",
+              "not_required"
+            ],
+            "title": "Ordering",
+            "type": "string"
+          },
+          "replay": {
+            "enum": [
+              "required",
+              "bounded",
+              "not_supported"
+            ],
+            "title": "Replay",
+            "type": "string"
+          },
+          "retry_policy": {
+            "enum": [
+              "bounded_backoff",
+              "provider_managed_bounded",
+              "none"
+            ],
+            "title": "Retry Policy",
+            "type": "string"
+          },
+          "timeout_policy": {
+            "enum": [
+              "bounded",
+              "not_applicable"
+            ],
+            "title": "Timeout Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "timeout_policy",
+          "retry_policy",
+          "dead_letter_policy",
+          "idempotency",
+          "ordering",
+          "replay"
+        ],
+        "title": "ResolvedEdgeDeliverySemantics",
+        "type": "object"
+      },
+      "ResolvedExtensionBinding": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_digest": {
+            "title": "Artifact Digest",
+            "type": "string"
+          },
+          "artifact_id": {
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "configuration_digest": {
+            "title": "Configuration Digest",
+            "type": "string"
+          },
+          "logical_component_id": {
+            "title": "Logical Component Id",
+            "type": "string"
+          },
+          "slot_id": {
+            "title": "Slot Id",
+            "type": "string"
+          },
+          "slot_version": {
+            "title": "Slot Version",
+            "type": "string"
+          },
+          "validation_contract_version": {
+            "title": "Validation Contract Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slot_id",
+          "slot_version",
+          "artifact_id",
+          "artifact_digest",
+          "logical_component_id",
+          "configuration_digest",
+          "validation_contract_version"
+        ],
+        "title": "ResolvedExtensionBinding",
         "type": "object"
       },
       "ResolvedTwinArchitectureContract": {
@@ -9995,7 +10701,7 @@
       },
       "ResolvedTwinArchitectureContractV2": {
         "additionalProperties": false,
-        "description": "Typed top-level v2 resolution; nested data stays contract-owned.",
+        "description": "Strict public v2 resolution including typed component and edge data.",
         "properties": {
           "architecture_profile_ref": {
             "$ref": "#/components/schemas/PinnedArchitectureReference"
@@ -10006,8 +10712,7 @@
           },
           "component_assignments": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/ResolvedComponentAssignment"
             },
             "title": "Component Assignments",
             "type": "array"
@@ -10017,45 +10722,34 @@
             "type": "string"
           },
           "cost_summary": {
-            "additionalProperties": true,
-            "title": "Cost Summary",
-            "type": "object"
+            "$ref": "#/components/schemas/ResolvedCostSummary"
           },
           "deployment_specification_ref": {
-            "additionalProperties": true,
-            "title": "Deployment Specification Ref",
-            "type": "object"
+            "$ref": "#/components/schemas/ResolvedDeploymentSpecificationReference"
           },
           "extension_bindings": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/ResolvedExtensionBinding"
             },
             "title": "Extension Bindings",
             "type": "array"
           },
           "functional_completeness": {
-            "additionalProperties": true,
-            "title": "Functional Completeness",
-            "type": "object"
+            "$ref": "#/components/schemas/FunctionalCompletenessResponse"
           },
           "optimization_bundle_ref": {
-            "additionalProperties": true,
-            "title": "Optimization Bundle Ref",
-            "type": "object"
+            "$ref": "#/components/schemas/OptimizationBundleReference"
           },
           "pricing_evidence_refs": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/PricingEvidenceReference"
             },
             "title": "Pricing Evidence Refs",
             "type": "array"
           },
           "provider_profile_refs": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/ProviderProfileReference"
             },
             "title": "Provider Profile Refs",
             "type": "array"
@@ -10074,8 +10768,7 @@
           },
           "resolved_edges": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/ResolvedArchitectureEdgeResponse"
             },
             "title": "Resolved Edges",
             "type": "array"
@@ -11124,6 +11817,25 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VersionedArchitectureReference": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version"
+        ],
+        "title": "VersionedArchitectureReference",
         "type": "object"
       }
     }

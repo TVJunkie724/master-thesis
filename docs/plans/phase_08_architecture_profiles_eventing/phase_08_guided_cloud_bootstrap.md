@@ -382,7 +382,7 @@ The guide contract contains:
 | Field | Required meaning |
 |---|---|
 | `schema_version` | Exact `cloud-bootstrap-guide.v1` discriminator |
-| `execution_mode` | Truthful `disabled` or offline `deterministic_fake`; the UI labels the offline PoC mode and never presents it as cloud creation. A real provider adapter requires a separate implementation/live-gate revision. |
+| `execution_mode` | Exact `disabled`, offline `deterministic_fake`, or `supervised_live`. The UI labels simulation and live setup differently. `supervised_live` remains blocked while its provider adapter is unconfigured; provider mutation still requires the separate reviewed setup-only gate. |
 | `provider`, `target`, `region` | Safe provider context echoed from the request |
 | `bootstrap_authority_pack` | Stable active AWS/Azure admin-v2 or GCP admin-v3 ID, digest, scope summary, directory/organization/billing/key-policy limitations, and an opaque downloadable provider artifact; historical artifacts remain versioned evidence and Flutter never edits them |
 | `generated_deployment_pack` | Management-selected active ID/version/digest, scope summary, and known-gap references; Five-layer v2 requires `thesis-demo-v2` |

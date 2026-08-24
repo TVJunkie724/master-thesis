@@ -63,6 +63,25 @@ class DisabledCloudBootstrapAdapter:
         )
 
 
+class UnconfiguredSupervisedLiveCloudBootstrapAdapter:
+    """Fail closed until reviewed provider implementations are wired in."""
+
+    def execute(
+        self,
+        *,
+        session_id: str,
+        display_name: str,
+        target: CloudBootstrapTarget,
+        credential_origin: CloudBootstrapCredentialOrigin,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapAdapterResult:
+        del session_id, display_name, target, credential_origin, credential
+        raise CloudBootstrapAdapterError(
+            "BOOTSTRAP_IDENTITY_CREATION_FAILED",
+            "Supervised live bootstrap has no reviewed provider adapter configured.",
+        )
+
+
 class DeterministicFakeCloudBootstrapAdapter:
     """No-cloud adapter with real lifecycle semantics for thesis verification."""
 

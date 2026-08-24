@@ -54,6 +54,7 @@ from src.services.cloud_bootstrap_adapters import (
     CloudBootstrapAdapterError,
     DeterministicFakeCloudBootstrapAdapter,
     DisabledCloudBootstrapAdapter,
+    UnconfiguredSupervisedLiveCloudBootstrapAdapter,
 )
 from src.services.cloud_bootstrap_errors import CloudBootstrapDomainError
 from src.services.cloud_connection_service import CloudConnectionService
@@ -172,11 +173,15 @@ class GuidedCloudBootstrapService:
         self._db = db
         self._repo = CloudBootstrapRepository(db)
         self._connections = CloudConnectionService(db)
-        self._adapter = (
-            DeterministicFakeCloudBootstrapAdapter()
-            if settings.CLOUD_BOOTSTRAP_ADAPTER_MODE == "deterministic_fake"
-            else DisabledCloudBootstrapAdapter()
-        )
+        self._adapter = self._adapter_for_mode(settings.CLOUD_BOOTSTRAP_ADAPTER_MODE)
+
+    @staticmethod
+    def _adapter_for_mode(mode: str):
+        if mode == "deterministic_fake":
+            return DeterministicFakeCloudBootstrapAdapter()
+        if mode == "supervised_live":
+            return UnconfiguredSupervisedLiveCloudBootstrapAdapter()
+        return DisabledCloudBootstrapAdapter()
 
     def guide(
         self,
@@ -208,6 +213,16 @@ class GuidedCloudBootstrapService:
                     message="This runtime exposes the reviewed guide but has no live provider adapter enabled.",
                     blocking=True,
                     action="Use the advanced manual bootstrap fallback or enable a reviewed adapter.",
+                )
+            )
+        elif settings.CLOUD_BOOTSTRAP_ADAPTER_MODE == "supervised_live":
+            blockers.append(
+                CloudBootstrapFinding(
+                    code="BOOTSTRAP_IDENTITY_CREATION_FAILED",
+                    title="Supervised provider adapter is not configured",
+                    message="The live execution contract is recognized, but this build has no reviewed AWS, Azure, or GCP adapter wired in.",
+                    blocking=True,
+                    action="Keep using the offline simulation until a reviewed provider adapter is installed.",
                 )
             )
         payload = {

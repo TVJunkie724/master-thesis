@@ -86,6 +86,62 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('supervised live flow remains blocked without reviewed adapter', (
+    tester,
+  ) async {
+    final liveGuide = _fixture('aws-guide.json')
+      ..['execution_mode'] = 'supervised_live'
+      ..['known_blockers'] = [
+        {
+          'code': 'BOOTSTRAP_IDENTITY_CREATION_FAILED',
+          'title': 'Supervised provider adapter is not configured',
+          'message': 'This build has no reviewed provider adapter wired in.',
+          'blocking': true,
+          'action': 'Use the offline simulation.',
+          'remediation_url': null,
+        },
+      ];
+    final api = _FakeBootstrapApi(guideJson: liveGuide);
+    final bloc = CloudBootstrapBloc(
+      api: api,
+      provider: CloudProvider.aws,
+      entryPoint: CloudBootstrapEntryPoint.settings,
+    )..add(CloudBootstrapOpened(initialTarget: api.guide.target));
+    addTearDown(bloc.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BlocProvider.value(
+            value: bloc,
+            child: CloudBootstrapFlow(
+              provider: CloudProvider.aws,
+              entryPoint: CloudBootstrapEntryPoint.settings,
+              onConnectionReady: (_) {},
+              onClosed: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Supervised setup — creates bounded cloud access'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'I completed these steps'),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(api.executeCalls, 0);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('AWS target rejects an invalid STS expiry before guide I/O', (
     tester,
   ) async {
@@ -295,16 +351,19 @@ void main() {
 final class _FakeBootstrapApi implements CloudBootstrapApi {
   final List<CloudBootstrapSession> sessions;
   final CloudProvider provider;
+  final Map<String, dynamic>? guideJson;
 
   _FakeBootstrapApi({
     this.sessions = const [],
     this.provider = CloudProvider.aws,
+    this.guideJson,
   });
 
   late final CloudBootstrapGuide guide = CloudBootstrapGuide.fromJson(
-    provider == CloudProvider.gcp
-        ? _gcpGuideFixture()
-        : _fixture('aws-guide.json'),
+    guideJson ??
+        (provider == CloudProvider.gcp
+            ? _gcpGuideFixture()
+            : _fixture('aws-guide.json')),
   );
   late final CloudBootstrapSession ready = CloudBootstrapSession.fromJson(
     _fixture('aws-ready-session.json'),

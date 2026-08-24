@@ -146,8 +146,10 @@ class _CloudBootstrapFlowState extends State<CloudBootstrapFlow> {
       if (state.phase == CloudBootstrapPhase.guide)
         FilledButton(
           onPressed:
-              state.guide?.executionMode ==
-                  CloudBootstrapExecutionMode.deterministicFake
+              state.guide != null &&
+                  state.guide!.executionMode !=
+                      CloudBootstrapExecutionMode.disabled &&
+                  !state.guide!.knownBlockers.any((item) => item.blocking)
               ? () => bloc.add(
                   CloudBootstrapSessionStarted(
                     'twin2mc-${widget.provider.apiValue}-deployer',
@@ -425,13 +427,19 @@ class _BootstrapGuideStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final disabled =
         guide.executionMode == CloudBootstrapExecutionMode.disabled;
+    final blocked = guide.knownBlockers.any((item) => item.blocking);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _BootstrapMessage(
-          icon: disabled ? Icons.block : Icons.science_outlined,
+          icon: disabled || blocked
+              ? Icons.block
+              : guide.executionMode ==
+                    CloudBootstrapExecutionMode.supervisedLive
+              ? Icons.cloud_sync_outlined
+              : Icons.science_outlined,
           message: guide.executionMode.label,
-          isError: disabled,
+          isError: disabled || blocked,
         ),
         const SizedBox(height: AppSpacing.md),
         Text(

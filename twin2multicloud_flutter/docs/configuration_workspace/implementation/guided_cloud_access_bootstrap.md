@@ -3,7 +3,7 @@ title: "Guided Cloud Access Bootstrap Implementation"
 description: "Implemented offline PoC boundary for request-only bootstrap authority, bounded deployment CloudConnections, and the shared Flutter flow."
 tags: [flutter, bootstrap, cloud-connections, security, phase-8]
 lastUpdated: "2026-08-24"
-version: "1.3"
+version: "1.4"
 ---
 
 # Guided Cloud Access Bootstrap Implementation
@@ -37,7 +37,7 @@ by Deployer self-inspection.
 |---|---|
 | Contracts | Synchronized strict `cloud-bootstrap-guide.v1` and `cloud-bootstrap-session.v1` schemas, fixtures, active provider authority packs, deployment-pack references, the GCP API baseline, and the AWS/Azure deployment-identity bindings |
 | Management | Owner-scoped safe sessions, scope uniqueness, optimistic revision, create/execute idempotency, stale-lease reconciliation, cancel, recheck, manual-revocation acknowledgement, audit events, and encrypted generated CloudConnection persistence |
-| Adapters | Deterministic no-cloud AWS, Azure, and GCP lifecycle adapters; production default is disabled |
+| Adapters | Deterministic no-cloud AWS, Azure, and GCP lifecycle adapters; production default is disabled. The synchronized `supervised_live` mode is represented explicitly but remains blocked by an unconfigured fail-closed adapter. |
 | Deployer | Generated `thesis-demo-v2` connections select the exact synchronized provider pack; AWS/Azure identity bindings cover checker metadata reads. GCP checks all 19 baseline services and fails closed when one is absent; active v2 Terraform never enables project services. Live provider evidence is not claimed. |
 | Flutter | Strict response models, one-use request object, route-scoped BLoC, shared dialog composition, provider target/guide/authority/result steps, resume/recheck/cancel/start-new, explicit manual cleanup, and GCP existing-project/API-baseline disclosure |
 | Entry points | Settings refreshes Cloud Accounts; Prepare deployment reloads and selects the returned connection for the active Twin draft |
@@ -69,8 +69,11 @@ managed-runtime memory-zeroization claim.
 `deterministic_fake` is an offline simulation. It exercises the complete
 lifecycle and persists synthetic generated deployment credentials, but creates
 no provider identity or cloud resource. Production uses `disabled` and fails
-closed. A real AWS, Azure, or GCP adapter and any supervised live-cloud evidence
-require separate authorization and review. The version-aware Deployer checker
+closed. Canonical contracts, Management, OpenAPI, and Flutter also recognize
+`supervised_live`; this mode currently returns a blocking guide finding and its
+adapter refuses execution until reviewed provider implementations are wired
+in. Any supervised live-cloud evidence requires separate authorization and
+review. The version-aware Deployer checker
 path is implemented and tested offline, but G2-G5 have not contacted any
 provider. The versioned manual scripts remain the current supervised provider
 path. GCP API ownership is resolved offline: bootstrap v3 enables the fixed

@@ -116,6 +116,7 @@ class Settings(BaseSettings):
     CLOUD_BOOTSTRAP_ADAPTER_MODE: Literal[
         "disabled",
         "deterministic_fake",
+        "supervised_live",
     ] = "disabled"
     CLOUD_BOOTSTRAP_LEASE_TIMEOUT_SECONDS: int = Field(default=300, ge=30, le=3600)
 

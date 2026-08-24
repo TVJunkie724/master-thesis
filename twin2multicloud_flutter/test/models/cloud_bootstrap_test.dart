@@ -32,6 +32,20 @@ void main() {
     expect(session.commandPermissions, isEmpty);
   });
 
+  test('parses the supervised live execution-mode contract', () {
+    final liveGuide = fixture('aws-guide.json')
+      ..['execution_mode'] = 'supervised_live';
+
+    expect(
+      CloudBootstrapGuide.fromJson(liveGuide).executionMode,
+      CloudBootstrapExecutionMode.supervisedLive,
+    );
+    expect(
+      CloudBootstrapExecutionMode.supervisedLive.label,
+      'Supervised setup — creates bounded cloud access',
+    );
+  });
+
   test('parses a strict GCP Phase 8 API baseline', () {
     final guideJson = _gcpGuideFixture();
     final guide = CloudBootstrapGuide.fromJson(guideJson);
