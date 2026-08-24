@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-24"
-version: "4.26"
+version: "4.27"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.26"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-24 | VERSION: 4.26
+EXTRACTED: 2026-08-24 | VERSION: 4.27
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -28,14 +28,14 @@ EXTRACTED: 2026-08-24 | VERSION: 4.26
 |---|---|
 | Repository | `TVJunkie724/master-thesis` |
 | Integration branch | `master` |
-| Reviewed implementation base | `47b1d6d6` on `codex/setup-only-live-identity-gate`; all offline provider drivers, cleanup-proving credential-free G1 smoke, resumable setup-session receipt lifecycle, and two-step runner are committed and pushed |
+| Reviewed implementation base | `a938e068` on `codex/setup-only-live-identity-gate`; all offline provider drivers, cleanup-proving credential-free G1 smoke, resumable setup-session receipt lifecycle, manual-finalization recovery, two-step runner plus optional credential-free acknowledgement, and synchronized evaluation freezes are committed and pushed |
 | Active implementation branch | `codex/setup-only-live-identity-gate` |
 | Locally completed implementation | Phase 8.0 / #144 through Phase 8.10 / #148, prerequisite #113, guided bootstrap / #154, complete Five-layer v2 / 8.9A, Six-layer / 8.9B, and GCP admin-v3 ownership of the fixed existing-project API baseline; prescribed credential-free reviews and gates are zero-finding, while supervised provider evidence remains deliberately absent |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
 | Implementation status | Five-layer v2 and Six-layer v1 are active locally across contracts, Optimizer, Management, Deployer/Terraform, provider runtimes, and Flutter. The Six-layer implementation inherits the pinned Five-layer graph and adds only the reviewed Eventing delta. Deployment remains blocked by explicit supervised live-capacity gates. |
-| Next action | Run the complete credential-free Phase 8/backend/root/docs gates and audit the committed Slice C implementation to zero findings. Only after that freeze may one explicitly selected provider enter supervised G2-G5; no provider contact is authorized by this handoff. |
+| Next action | Offline Slice C is zero-finding. The next optional step is an explicitly authorized, separately selected single-provider G2-G5 setup-only run; this handoff does not authorize provider contact, G6 workload deployment, or paid E2E. |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -218,14 +218,32 @@ against the exact project, sole role binding, project-testable permission
 subset, and complete API baseline. Submitted-key deletion additionally
 requires an exact private/X.509-public-key match; cleanup deliberately leaves
 the APIs enabled and is idempotent after its terminal account/role cleanup so
-a local cleanup retry cannot strand the runner. Commit `47b1d6d6` adds the
+a local cleanup retry cannot strand the runner. AWS cleanup is likewise
+not-found tolerant; Azure now accepts only absence or the exact remaining
+run-owned assignment/credential, making partial and completed retries
+idempotent without accepting foreign access. Commit `47b1d6d6` adds the
 flagged internal `setup_only_validation` session, secret-free persisted
 receipt, exact confirmation header, provider-first/local-second/bootstrap-last
 cleanup transaction, truthful manual-recovery states, and the two-step
 `scripts/setup_only_runner.py`. Its private manifest/ledger records preflight
 pass/fail/error and retains only safe identifiers; plan-only never reads
-credentials or invokes execute/preflight/cleanup. All three drivers and this
-runner remain offline evidence and have no live G2-G5 proof.
+credentials or invokes execute/preflight/cleanup. Commit `aae03163` persists
+the two non-secret cleanup-progress facts needed to admit an exact-confirmed,
+credential-free `acknowledge` only after provider-generated access and the
+local CloudConnection are both proven absent. Commits `94c0d04e` and
+`a938e068` synchronize the evaluation input tree and locally built runtime
+image provenance. All three drivers and this runner remain offline evidence
+and have no live G2-G5 proof.
+
+The final Slice C offline rerun passed the 16-stage deployment-contract gate:
+Optimizer 979, Management 1,201, Deployer 2,395 with one expected skip, and
+Flutter 915 tests; Ruff/static analysis, Bandit, compilation, dependency
+checks, Web release and macOS debug builds, strict MkDocs, contract drift,
+Terraform mock/format checks, isolated-resource cleanup, and byte-identical
+evaluation regeneration also passed. The separate credential-free setup smoke
+passed all four Flutter/real-Management deterministic-fake scenarios. No cloud
+credential was submitted, no provider endpoint was contacted, and no cloud
+resource or paid operation was created.
 
 Five-layer v2 subsequently reached and passed its local activation boundary on
 `codex/phase-8-9a-layer-access`. Commits `e6ceb41d` and `8974b869` add the typed
