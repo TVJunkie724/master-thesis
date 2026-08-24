@@ -170,11 +170,14 @@ The isolated G1 command is:
 It starts one short-lived Management API with an ephemeral SQLite database,
 forces `deterministic_fake`, mounts no cloud-credential overlay, drives the
 shared Flutter bootstrap UI through the real API client, covers all three
-provider client paths, and scans API logs and persistence for the submitted
+provider client paths, deletes every generated test CloudConnection through
+the real Management API, proves the isolated database contains zero remaining
+CloudConnection rows, and scans API logs and persistence for the submitted
 secret sentinel before removing the container. Credential/auth rate limiting
 is disabled only inside this isolated functional smoke so repeated flow cases
 remain deterministic; the normal runtime and dedicated backend tests retain
-rate-limit coverage.
+rate-limit coverage. This proves local G1 cleanup only; it does not claim
+provider-identity deletion.
 
 ## 4. Provider Identity-Only Scope
 

@@ -191,6 +191,8 @@ class ThesisEntrypointTests(unittest.TestCase):
         )
         self.assertIn('docker_cmd stop "$container"', setup_gate)
         self.assertIn("phase8-submitted-bootstrap-secret-never-persist", setup_gate)
+        self.assertIn("SELECT COUNT(*) FROM cloud_connections", setup_gate)
+        self.assertIn("remaining_connections", setup_gate)
         self.assertNotIn("compose.cloud.local.yaml", setup_gate)
         self.assertNotIn("terraform", setup_gate.lower())
 

@@ -96,6 +96,15 @@ void main() {
     await tester.pump();
     expect(completed?.provider, CloudProvider.aws);
     expect(completed?.permissionSetVersion, 'thesis-demo-v2');
+    await _api.deleteCloudConnection(completed!.id);
+    expect(
+      await _api.listCloudConnections(),
+      isNot(
+        contains(
+          predicate<CloudConnection>((item) => item.id == completed!.id),
+        ),
+      ),
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -215,6 +224,17 @@ void main() {
           isNot(contains(_submittedSecretSentinel)),
         );
       }
+      for (final session in readySessions) {
+        await _api.deleteCloudConnection(session.connection!.id);
+      }
+      final afterCleanup = await _api.listCloudConnections();
+      expect(
+        afterCleanup.where(
+          (item) =>
+              readySessions.any((session) => session.connection!.id == item.id),
+        ),
+        isEmpty,
+      );
     },
   );
 
@@ -266,6 +286,17 @@ void main() {
         ),
       );
       expect(ready.state, CloudBootstrapSessionState.ready);
+      await _api.deleteCloudConnection(ready.connection!.id);
+      expect(
+        await _api.listCloudConnections(),
+        isNot(
+          contains(
+            predicate<CloudConnection>(
+              (item) => item.id == ready.connection!.id,
+            ),
+          ),
+        ),
+      );
 
       final rawSecret = '$_submittedSecretSentinel-malformed';
       try {

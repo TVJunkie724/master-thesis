@@ -698,6 +698,11 @@ run_setup_smoke_tests() {
       "grep -aFq '$bootstrap_sentinel' /tmp/setup-smoke.db /tmp/setup-smoke.db-wal /tmp/setup-smoke.db-shm 2>/dev/null"; then
       fail "Guided bootstrap submitted secret was found in setup-smoke persistence."
     fi
+    local remaining_connections
+    remaining_connections="$(docker_cmd exec "$container" python -c \
+      "import sqlite3; connection = sqlite3.connect('/tmp/setup-smoke.db'); print(connection.execute('SELECT COUNT(*) FROM cloud_connections').fetchone()[0])")"
+    [ "$remaining_connections" = "0" ] ||
+      fail "Setup smoke left $remaining_connections generated CloudConnection row(s) behind."
   )
   smoke_status=$?
   set -e
