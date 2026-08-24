@@ -313,7 +313,11 @@ Implemented and credential-free as of 2026-08-24.
 ### Slice B — Reviewed Live Provider Adapters
 
 Partially implemented, not enabled. The synchronized `supervised_live` mode
-and its fail-closed UI/Management boundary are implemented. Provider-native
+and its fail-closed UI/Management boundary are implemented. An SDK-independent
+adapter orchestrator now derives an ownership-bounded run ID, dispatches one
+provider at a time, admits only a validated `thesis-demo-v2` CloudConnection,
+and requires a typed secret-free rollback receipt. It compensates a generated
+credential that fails this boundary before returning it. Provider-native
 policy materialization is now one shared, provider-SDK-free Management module
 backed only by synchronized generated contracts; the repository CLI reuses
 that module. Version-aware Deployer
@@ -323,6 +327,11 @@ combines the immutable workload inventory with the separately pinned
 implementations and live G2-G5 evidence remain pending. GCP API
 ownership is resolved offline; G6/G7 wait for that live setup evidence.
 
+The concrete SDK drivers, generated-credential provider validation, and the
+compensating cleanup handoff for a later local persistence failure are still
+pending. Until all three exist, the runtime factory intentionally selects the
+unconfigured adapter and the guide stays blocking.
+
 - Keep the resolved AWS IAM-user binding, AWS/Azure v2 bootstrap boundaries,
   and separate exact GCP v3 plus API-baseline digests pinned before provider
   code is enabled.
@@ -331,6 +340,9 @@ ownership is resolved offline; G6/G7 wait for that live setup evidence.
   until the reviewed provider adapters below replace the fail-closed boundary.
 - Implement AWS, Azure, and GCP adapters against the pinned authority and
   deployment-pack digests.
+- [x] Add the shared SDK-independent adapter transaction, exact target/result
+  validation, and secret-free provider rollback receipt; keep concrete SDK
+  drivers and Management persistence compensation pending.
 - [x] Make the provider-native documents importable by Management from the
   synchronized generated contracts; the CLI and future adapters share this
   implementation and must not maintain a second hand-written policy inventory.

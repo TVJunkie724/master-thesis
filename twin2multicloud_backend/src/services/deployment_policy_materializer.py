@@ -353,6 +353,35 @@ def materialize_gcp_custom_role(*, project_id: str, run_id: str) -> dict[str, An
     }
 
 
+def load_gcp_phase8_api_baseline() -> dict[str, Any]:
+    """Return the exact existing-project API baseline admitted by bootstrap v3."""
+
+    document = json.loads(
+        (CONTRACT_ROOT / "gcp-phase8-api-baseline.json").read_text(encoding="utf-8")
+    )
+    services = document.get("services")
+    prerequisites = document.get("bootstrap_prerequisite_services")
+    if (
+        document.get("schema_version") != "gcp-phase8-api-baseline.v1"
+        or document.get("baseline_id") != "gcp.phase8-api-baseline.v1"
+        or document.get("provider") != "gcp"
+        or document.get("status") != "frozen_offline_contract"
+        or document.get("target_mode") != "existing_project"
+        or document.get("owner") != "bootstrap.gcp.admin-v3"
+        or document.get("retain_enabled") is not True
+        or not isinstance(services, list)
+        or services != sorted(services)
+        or len(services) != 19
+        or len(services) != len(set(services))
+        or not isinstance(prerequisites, list)
+        or not set(prerequisites).issubset(services)
+    ):
+        raise PolicyMaterializationError(
+            "GCP Phase 8 API baseline is not the frozen existing-project contract."
+        )
+    return document
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--provider", choices=("aws", "azure", "gcp"), required=True)

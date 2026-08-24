@@ -14,6 +14,7 @@ from src.services.deployment_policy_materializer import (  # noqa: E402,F401
     AWS_MANAGED_POLICY_CHARACTER_LIMIT,
     PolicyMaterializationError,
     aws_policy_character_count,
+    load_gcp_phase8_api_baseline,
     main,
     materialize_aws_deployment_bundle,
     materialize_azure_custom_role,

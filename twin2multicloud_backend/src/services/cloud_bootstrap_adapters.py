@@ -7,6 +7,7 @@ from datetime import datetime
 import hashlib
 import json
 import secrets
+from typing import Mapping, Protocol, cast
 import uuid
 
 from src.schemas.cloud_bootstrap import (
@@ -22,11 +23,31 @@ from src.schemas.cloud_bootstrap import (
     GCPExistingProjectBootstrapTarget,
     GCPOrganizationBootstrapTarget,
 )
-from src.schemas.cloud_connection import CloudConnectionCreate
+from src.schemas.cloud_connection import CloudConnectionCreate, CloudProvider
 from src.schemas.twin_config import AWSCredentials, AzureCredentials, GCPCredentials
+from src.services.deployment_policy_materializer import (
+    PolicyMaterializationError,
+    load_gcp_phase8_api_baseline,
+    materialize_aws_deployment_bundle,
+    materialize_azure_custom_role,
+    materialize_gcp_custom_role,
+)
 
 
 GCP_OAUTH_ENDPOINT = "https://oauth2.googleapis.com/token"
+ROLLBACK_RESOURCE_KEYS = {
+    "aws": frozenset({"access_key_id", "policy_arn", "user_name"}),
+    "azure": frozenset(
+        {
+            "application_object_id",
+            "credential_key_id",
+            "role_assignment_id",
+            "role_definition_id",
+            "service_principal_object_id",
+        }
+    ),
+    "gcp": frozenset({"key_id", "role_name", "service_account_email"}),
+}
 
 
 class CloudBootstrapAdapterError(RuntimeError):
@@ -39,11 +60,96 @@ class CloudBootstrapAdapterError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class CloudBootstrapRollbackReceipt:
+    """Secret-free provider resource identifiers needed for compensating cleanup."""
+
+    provider: CloudProvider
+    run_id: str
+    resource_ids: tuple[tuple[str, str], ...]
+
+    def __post_init__(self) -> None:
+        identifiers = dict(self.resource_ids)
+        if (
+            not self.run_id.startswith("twin2mc-e2e-")
+            or not identifiers
+            or len(identifiers) != len(self.resource_ids)
+            or not set(identifiers).issubset(ROLLBACK_RESOURCE_KEYS[self.provider])
+            or any(
+                not value or len(value) > 512 or "\n" in value or "\r" in value
+                for value in identifiers.values()
+            )
+        ):
+            raise ValueError("Invalid secret-free bootstrap rollback receipt.")
+
+
+@dataclass(frozen=True)
+class SupervisedLiveBootstrapPlan:
+    """Immutable, secret-free provider input for one setup-only transaction."""
+
+    provider: CloudProvider
+    run_id: str
+    deployment_document_json: str
+    gcp_api_baseline_json: str | None = None
+
+    def deployment_document(self) -> dict:
+        return json.loads(self.deployment_document_json)
+
+    def gcp_api_baseline(self) -> dict | None:
+        return (
+            json.loads(self.gcp_api_baseline_json)
+            if self.gcp_api_baseline_json is not None
+            else None
+        )
+
+
+@dataclass(frozen=True)
 class CloudBootstrapAdapterResult:
     connection: CloudConnectionCreate
     safe_credential_identifier: str
     disposal_status: CloudBootstrapDisposalStatus
     credential_expires_at: datetime | None = None
+    generated_credential_validated: bool = True
+    rollback_receipt: CloudBootstrapRollbackReceipt | None = None
+
+
+class CloudBootstrapAdapter(Protocol):
+    def execute(
+        self,
+        *,
+        session_id: str,
+        display_name: str,
+        target: CloudBootstrapTarget,
+        credential_origin: CloudBootstrapCredentialOrigin,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapAdapterResult: ...
+
+    def rollback(
+        self,
+        *,
+        result: CloudBootstrapAdapterResult,
+        target: CloudBootstrapTarget,
+        credential: CloudBootstrapCredential,
+    ) -> None: ...
+
+
+class SupervisedLiveProviderDriver(Protocol):
+    def provision(
+        self,
+        *,
+        plan: SupervisedLiveBootstrapPlan,
+        display_name: str,
+        target: CloudBootstrapTarget,
+        credential_origin: CloudBootstrapCredentialOrigin,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapAdapterResult: ...
+
+    def rollback(
+        self,
+        *,
+        receipt: CloudBootstrapRollbackReceipt,
+        target: CloudBootstrapTarget,
+        credential: CloudBootstrapCredential,
+    ) -> None: ...
 
 
 class DisabledCloudBootstrapAdapter:
@@ -61,6 +167,15 @@ class DisabledCloudBootstrapAdapter:
             "BOOTSTRAP_IDENTITY_CREATION_FAILED",
             "Live provider bootstrap is disabled in this runtime.",
         )
+
+    def rollback(
+        self,
+        *,
+        result: CloudBootstrapAdapterResult,
+        target: CloudBootstrapTarget,
+        credential: CloudBootstrapCredential,
+    ) -> None:
+        del result, target, credential
 
 
 class UnconfiguredSupervisedLiveCloudBootstrapAdapter:
@@ -81,6 +196,229 @@ class UnconfiguredSupervisedLiveCloudBootstrapAdapter:
             "Supervised live bootstrap has no reviewed provider adapter configured.",
         )
 
+    def rollback(
+        self,
+        *,
+        result: CloudBootstrapAdapterResult,
+        target: CloudBootstrapTarget,
+        credential: CloudBootstrapCredential,
+    ) -> None:
+        del result, target, credential
+
+
+class SupervisedLiveCloudBootstrapAdapter:
+    """SDK-independent setup-only orchestration over reviewed provider drivers."""
+
+    def __init__(self, drivers: Mapping[CloudProvider, SupervisedLiveProviderDriver]):
+        self._drivers = dict(drivers)
+
+    def execute(
+        self,
+        *,
+        session_id: str,
+        display_name: str,
+        target: CloudBootstrapTarget,
+        credential_origin: CloudBootstrapCredentialOrigin,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapAdapterResult:
+        self._validate_input_shape(target, credential)
+        provider = cast(CloudProvider, target.provider)
+        driver = self._drivers.get(provider)
+        if driver is None:
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_IDENTITY_CREATION_FAILED",
+                "The selected provider has no reviewed supervised adapter configured.",
+            )
+        try:
+            plan = self._plan(session_id, target)
+            result = driver.provision(
+                plan=plan,
+                display_name=display_name,
+                target=target,
+                credential_origin=credential_origin,
+                credential=credential,
+            )
+        except CloudBootstrapAdapterError:
+            raise
+        except (PolicyMaterializationError, ValueError) as exc:
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_AUTHORITY_PACK_MISMATCH",
+                "The reviewed provider policy could not be materialized safely.",
+            ) from exc
+        except Exception as exc:
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_IDENTITY_CREATION_FAILED",
+                "The supervised provider transaction failed without exposing provider details.",
+            ) from exc
+
+        try:
+            self._validate_result(result, plan, display_name, target)
+        except CloudBootstrapAdapterError as validation_error:
+            try:
+                self.rollback(result=result, target=target, credential=credential)
+            except CloudBootstrapAdapterError as cleanup_error:
+                raise cleanup_error from validation_error
+            raise
+        return result
+
+    def rollback(
+        self,
+        *,
+        result: CloudBootstrapAdapterResult,
+        target: CloudBootstrapTarget,
+        credential: CloudBootstrapCredential,
+    ) -> None:
+        receipt = result.rollback_receipt
+        if receipt is None:
+            return
+        if (
+            target.provider != receipt.provider
+            or credential.provider != receipt.provider
+        ):
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                "Generated provider access requires manual cleanup because its rollback scope is inconsistent.",
+            )
+        driver = self._drivers.get(receipt.provider)
+        if driver is None:
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                "Generated provider access requires manual cleanup because its adapter is unavailable.",
+            )
+        try:
+            driver.rollback(
+                receipt=receipt,
+                target=target,
+                credential=credential,
+            )
+        except Exception as exc:
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                "Generated provider access could not be cleaned up automatically; manual cleanup is required.",
+            ) from exc
+
+    @staticmethod
+    def _plan(
+        session_id: str,
+        target: CloudBootstrapTarget,
+    ) -> SupervisedLiveBootstrapPlan:
+        run_id = (
+            f"twin2mc-e2e-{hashlib.sha256(session_id.encode('utf-8')).hexdigest()[:12]}"
+        )
+        baseline = None
+        if isinstance(target, AWSBootstrapTarget):
+            provider: CloudProvider = "aws"
+            document = materialize_aws_deployment_bundle(
+                account_id=target.account_id,
+                run_id=run_id,
+            )
+        elif isinstance(target, AzureBootstrapTarget):
+            provider = "azure"
+            document = materialize_azure_custom_role(
+                subscription_id=target.subscription_id,
+                run_id=run_id,
+            )
+        elif isinstance(target, GCPExistingProjectBootstrapTarget):
+            provider = "gcp"
+            document = materialize_gcp_custom_role(
+                project_id=target.project_id,
+                run_id=run_id,
+            )
+            baseline = load_gcp_phase8_api_baseline()
+        else:
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_SCOPE_UNSUPPORTED",
+                "Supervised GCP setup supports an existing project only.",
+            )
+        return SupervisedLiveBootstrapPlan(
+            provider=provider,
+            run_id=run_id,
+            deployment_document_json=json.dumps(
+                document,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            gcp_api_baseline_json=(
+                json.dumps(baseline, sort_keys=True, separators=(",", ":"))
+                if baseline is not None
+                else None
+            ),
+        )
+
+    @staticmethod
+    def _validate_input_shape(
+        target: CloudBootstrapTarget,
+        credential: CloudBootstrapCredential,
+    ) -> None:
+        valid = (
+            (
+                isinstance(target, AWSBootstrapTarget)
+                and isinstance(credential, AWSBootstrapCredential)
+            )
+            or (
+                isinstance(target, AzureBootstrapTarget)
+                and isinstance(credential, AzureBootstrapCredential)
+            )
+            or (
+                isinstance(target, GCPExistingProjectBootstrapTarget)
+                and isinstance(credential, GCPBootstrapCredential)
+            )
+        )
+        if not valid or target.provider != credential.provider:
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CREDENTIAL_INVALID",
+                "The provider credential does not match the selected supervised target.",
+            )
+
+    @staticmethod
+    def _validate_result(
+        result: CloudBootstrapAdapterResult,
+        plan: SupervisedLiveBootstrapPlan,
+        display_name: str,
+        target: CloudBootstrapTarget,
+    ) -> None:
+        expected_auth = {
+            "aws": "access_key",
+            "azure": "service_principal",
+            "gcp": "service_account_key",
+        }[plan.provider]
+        connection = result.connection
+        receipt = result.rollback_receipt
+        scope = connection.cloud_scope
+        if isinstance(target, AWSBootstrapTarget):
+            expected_scope = {
+                "account_id": target.account_id,
+                "region": target.region,
+            }
+        elif isinstance(target, AzureBootstrapTarget):
+            expected_scope = {
+                "tenant_id": target.tenant_id,
+                "subscription_id": target.subscription_id,
+                "region": target.region,
+            }
+        else:
+            expected_scope = target.model_dump(mode="json", exclude_none=True)
+        expected_scope["bootstrap_mode"] = "supervised_live"
+        if (
+            connection.provider != plan.provider
+            or connection.purpose != "deployment"
+            or connection.display_name != display_name
+            or connection.auth_type != expected_auth
+            or connection.permission_set_version != "thesis-demo-v2"
+            or scope != expected_scope
+            or not result.generated_credential_validated
+            or not result.safe_credential_identifier.strip()
+            or receipt is None
+            or receipt.provider != plan.provider
+            or receipt.run_id != plan.run_id
+            or result.disposal_status
+            == CloudBootstrapDisposalStatus.RELEASED_AFTER_FAILURE
+        ):
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CONNECTION_VALIDATION_FAILED",
+                "The generated deployment credential did not satisfy the reviewed connection boundary.",
+            )
+
 
 class DeterministicFakeCloudBootstrapAdapter:
     """No-cloud adapter with real lifecycle semantics for thesis verification."""
@@ -100,10 +438,25 @@ class DeterministicFakeCloudBootstrapAdapter:
                 "The submitted credential provider does not match the target.",
             )
         if target.provider == "aws":
-            return self._aws(session_id, display_name, target, credential_origin, credential)
+            return self._aws(
+                session_id, display_name, target, credential_origin, credential
+            )
         if target.provider == "azure":
-            return self._azure(session_id, display_name, target, credential_origin, credential)
-        return self._gcp(session_id, display_name, target, credential_origin, credential)
+            return self._azure(
+                session_id, display_name, target, credential_origin, credential
+            )
+        return self._gcp(
+            session_id, display_name, target, credential_origin, credential
+        )
+
+    def rollback(
+        self,
+        *,
+        result: CloudBootstrapAdapterResult,
+        target: CloudBootstrapTarget,
+        credential: CloudBootstrapCredential,
+    ) -> None:
+        del result, target, credential
 
     def _aws(
         self,
@@ -149,7 +502,9 @@ class DeterministicFakeCloudBootstrapAdapter:
         disposal, expiry = self._disposal(
             origin,
             manual="MANUAL" in access_key_id.upper(),
-            expiry=target.session_expires_at if credential.session_token is not None else None,
+            expiry=target.session_expires_at
+            if credential.session_token is not None
+            else None,
         )
         return CloudBootstrapAdapterResult(
             connection=connection,
@@ -199,7 +554,10 @@ class DeterministicFakeCloudBootstrapAdapter:
                 region=target.region,
             ),
         )
-        safe_id = target.bootstrap_credential_key_id or credential.client_id.get_secret_value()
+        safe_id = (
+            target.bootstrap_credential_key_id
+            or credential.client_id.get_secret_value()
+        )
         disposal, expiry = self._disposal(
             origin,
             manual=(

@@ -4,6 +4,7 @@ import json
 
 from src.services.deployment_policy_materializer import (
     AWS_MANAGED_POLICY_CHARACTER_LIMIT,
+    load_gcp_phase8_api_baseline,
     materialize_aws_deployment_bundle,
     materialize_azure_custom_role,
     materialize_gcp_custom_role,
@@ -32,11 +33,14 @@ def test_management_materializes_all_provider_documents_from_generated_contracts
         AWS_MANAGED_POLICY_CHARACTER_LIMIT
     )
     assert azure["permission_set_version"] == "thesis-demo-v2"
-    assert azure["scope"] == (
-        "/subscriptions/22222222-2222-4222-8222-222222222222"
-    )
+    assert azure["scope"] == ("/subscriptions/22222222-2222-4222-8222-222222222222")
     assert gcp["parent"] == "projects/twin2mc-test-project"
     assert gcp["roleId"] == "twin2mc_e2e_a1b2c3d4"
+    baseline = load_gcp_phase8_api_baseline()
+    assert baseline["owner"] == "bootstrap.gcp.admin-v3"
+    assert baseline["target_mode"] == "existing_project"
+    assert baseline["retain_enabled"] is True
+    assert len(baseline["services"]) == 19
 
     serialized = json.dumps([aws, azure, gcp], sort_keys=True).lower()
     for forbidden in (
