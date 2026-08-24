@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-24"
-version: "4.25"
+version: "4.26"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.25"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-24 | VERSION: 4.25
+EXTRACTED: 2026-08-24 | VERSION: 4.26
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -28,14 +28,14 @@ EXTRACTED: 2026-08-24 | VERSION: 4.25
 |---|---|
 | Repository | `TVJunkie724/master-thesis` |
 | Integration branch | `master` |
-| Reviewed implementation base | `31b10c2a` on `codex/setup-only-live-identity-gate`; all offline provider drivers and the cleanup-proving credential-free G1 smoke are committed and pushed |
+| Reviewed implementation base | `47b1d6d6` on `codex/setup-only-live-identity-gate`; all offline provider drivers, cleanup-proving credential-free G1 smoke, resumable setup-session receipt lifecycle, and two-step runner are committed and pushed |
 | Active implementation branch | `codex/setup-only-live-identity-gate` |
 | Locally completed implementation | Phase 8.0 / #144 through Phase 8.10 / #148, prerequisite #113, guided bootstrap / #154, complete Five-layer v2 / 8.9A, Six-layer / 8.9B, and GCP admin-v3 ownership of the fixed existing-project API baseline; prescribed credential-free reviews and gates are zero-finding, while supervised provider evidence remains deliberately absent |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
 | Implementation status | Five-layer v2 and Six-layer v1 are active locally across contracts, Optimizer, Management, Deployer/Terraform, provider runtimes, and Flutter. The Six-layer implementation inherits the pinned Five-layer graph and adds only the reviewed Eventing delta. Deployment remains blocked by explicit supervised live-capacity gates. |
-| Next action | Implement the frozen Slice C setup-session receipt lifecycle and two-step runner, then review it against the credential-free G1 smoke before any supervised G2-G5 execution. AWS, Azure, and GCP remain behind exact provider opt-ins; no provider contact is authorized in this branch. |
+| Next action | Run the complete credential-free Phase 8/backend/root/docs gates and audit the committed Slice C implementation to zero findings. Only after that freeze may one explicitly selected provider enter supervised G2-G5; no provider contact is authorized by this handoff. |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -159,7 +159,10 @@ must not manually construct a bounded deployment CloudConnection before Phase 8
 can deploy. When the resolved provider scope has no compatible connection, the
 Management API receives one request-scoped bootstrap credential, creates and
 validates the bounded deployment identity, persists only that CloudConnection,
-and stops retaining the bootstrap secret after the request. The current
+and stops retaining the bootstrap secret after the request. The separate
+setup-only thesis runner instead keeps submitted authority only in process
+memory through mandatory generated-identity cleanup and bootstrap-authority
+finalization; neither mode persists it. The current
 `thesis-demo-v1` permission packs remain bounded PoC baselines with documented
 scope gaps, not a formal least-privilege proof. Disposable credential
 revocation and mere application-side release are separate states. The
@@ -177,8 +180,10 @@ CloudConnections, Deployer admission, and one shared Flutter flow from Settings
 and Prepare deployment. Canonical schemas, OpenAPI, Management, and Flutter now
 share the explicit `supervised_live` vocabulary. The AWS SDK and Azure REST
 drivers are wired behind the additional exact
-`CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS` opt-in; an empty allowlist and the
-unfinished GCP provider remain blocking. The
+`CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS` opt-in; an empty allowlist remains
+blocking. The independently allowlisted GCP existing-project driver is now
+implemented offline, while organization/project-creation mode remains out of
+scope. The
 provider-native policy materializer is now a shared SDK-free
 Management module over synchronized generated contracts; the repository CLI
 uses the same implementation, so future adapters cannot own a parallel
@@ -212,8 +217,15 @@ role binding, and user-managed JSON key. Its generated credential is checked
 against the exact project, sole role binding, project-testable permission
 subset, and complete API baseline. Submitted-key deletion additionally
 requires an exact private/X.509-public-key match; cleanup deliberately leaves
-the APIs enabled. All three drivers remain offline evidence and have no live
-G2-G5 proof.
+the APIs enabled and is idempotent after its terminal account/role cleanup so
+a local cleanup retry cannot strand the runner. Commit `47b1d6d6` adds the
+flagged internal `setup_only_validation` session, secret-free persisted
+receipt, exact confirmation header, provider-first/local-second/bootstrap-last
+cleanup transaction, truthful manual-recovery states, and the two-step
+`scripts/setup_only_runner.py`. Its private manifest/ledger records preflight
+pass/fail/error and retains only safe identifiers; plan-only never reads
+credentials or invokes execute/preflight/cleanup. All three drivers and this
+runner remain offline evidence and have no live G2-G5 proof.
 
 Five-layer v2 subsequently reached and passed its local activation boundary on
 `codex/phase-8-9a-layer-access`. Commits `e6ceb41d` and `8974b869` add the typed

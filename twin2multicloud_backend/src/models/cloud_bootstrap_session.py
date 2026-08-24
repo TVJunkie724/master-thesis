@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import uuid
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -125,6 +126,8 @@ class CloudBootstrapSession(Base):
     safe_credential_identifier = Column(String(160), nullable=True)
     finding_json = Column(Text, nullable=True)
     provider_cleanup_receipt_json = Column(Text, nullable=True)
+    setup_generated_access_clean = Column(Boolean, nullable=False, default=False)
+    setup_local_connection_clean = Column(Boolean, nullable=False, default=False)
     connection_id = Column(
         String,
         ForeignKey("cloud_connections.id", ondelete="SET NULL"),

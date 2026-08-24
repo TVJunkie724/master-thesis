@@ -1117,6 +1117,8 @@ def test_setup_only_cleanup_failure_keeps_encrypted_connection_and_safe_receipt(
     assert stored.state == "manual_revocation_required"
     assert stored.connection_id is not None
     assert stored.provider_cleanup_receipt_json is not None
+    assert stored.setup_generated_access_clean is False
+    assert stored.setup_local_connection_clean is False
     assert "submitted-aws-bootstrap-secret" not in stored.provider_cleanup_receipt_json
     assert db.query(CloudConnection).count() == 1
 
@@ -1194,6 +1196,8 @@ def test_setup_only_finalization_failure_keeps_receipt_after_connection_cleanup(
     assert stored.state == "manual_revocation_required"
     assert stored.connection_id is None
     assert stored.provider_cleanup_receipt_json is not None
+    assert stored.setup_generated_access_clean is True
+    assert stored.setup_local_connection_clean is True
     assert db.query(CloudConnection).count() == 0
     receipt = auth_client.get(
         f"/cloud-bootstrap/sessions/{session['id']}/setup-gate-receipt",
@@ -1201,25 +1205,29 @@ def test_setup_only_finalization_failure_keeps_receipt_after_connection_cleanup(
     ).json()
     assert receipt["connection_id"] is None
 
-    recovered_adapter = DeterministicFakeCloudBootstrapAdapter()
-    monkeypatch.setattr(
-        GuidedCloudBootstrapService,
-        "_adapter_for_mode",
-        staticmethod(lambda _mode: recovered_adapter),
-    )
     current = auth_client.get(
         f"/cloud-bootstrap/sessions/{session['id']}"
     ).json()
+    assert current["command_permissions"] == ["acknowledge_manual_revocation"]
+
+    missing_confirmation = auth_client.post(
+        f"/cloud-bootstrap/sessions/{session['id']}/acknowledge-manual-revocation",
+        json={"expected_revision": current["revision"]},
+    )
+    assert missing_confirmation.status_code == 409
+    wrong_confirmation = auth_client.post(
+        f"/cloud-bootstrap/sessions/{session['id']}/acknowledge-manual-revocation",
+        headers={"X-Twin2MC-Setup-Confirmation": f"{confirmation}-wrong"},
+        json={"expected_revision": current["revision"]},
+    )
+    assert wrong_confirmation.status_code == 409
     recovered = auth_client.post(
-        f"/cloud-bootstrap/sessions/{session['id']}/setup-gate-cleanup",
+        f"/cloud-bootstrap/sessions/{session['id']}/acknowledge-manual-revocation",
         headers={"X-Twin2MC-Setup-Confirmation": confirmation},
-        json={
-            "expected_revision": current["revision"],
-            "credential": _credential("aws"),
-        },
+        json={"expected_revision": current["revision"]},
     )
     assert recovered.status_code == 200, recovered.text
-    assert recovered.json()["cleanup_complete"] is True
+    assert recovered.json()["state"] == "cancelled"
     db.expire_all()
     stored = db.query(CloudBootstrapSession).filter_by(id=session["id"]).one()
     assert stored.state == "cancelled"

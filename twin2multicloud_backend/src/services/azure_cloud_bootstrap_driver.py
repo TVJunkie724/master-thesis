@@ -934,9 +934,9 @@ class AzureCloudBootstrapDriver:
             if (
                 not isinstance(values, list)
                 or any(not isinstance(item, dict) for item in values)
-                or len(values) != (1 if allowed_assignment_id else 0)
                 or assignments.get("nextLink")
                 or assignments.get("@odata.nextLink")
+                or len(values) > (1 if allowed_assignment_id else 0)
                 or {
                     str(item.get("id", "")).lower()
                     for item in values
@@ -1001,20 +1001,21 @@ class AzureCloudBootstrapDriver:
                 if isinstance(item, dict)
                 and item.get("displayName") == f"{receipt.run_id}-deployment"
             }
-            if credential_key_id not in owned_keys:
+            if owned_keys and owned_keys != {credential_key_id}:
                 raise CloudBootstrapAdapterError(
                     "BOOTSTRAP_CLEANUP_FAILED",
                     "The generated Azure credential is outside the setup-run boundary.",
                 )
-            self._graph_json(
-                transport,
-                tokens.graph,
-                "POST",
-                f"/applications/{application_id}/removePassword",
-                expected={204},
-                body={"keyId": credential_key_id},
-                allow_empty=True,
-            )
+            if owned_keys:
+                self._graph_json(
+                    transport,
+                    tokens.graph,
+                    "POST",
+                    f"/applications/{application_id}/removePassword",
+                    expected={204},
+                    body={"keyId": credential_key_id},
+                    allow_empty=True,
+                )
         if principal_id:
             principal = self._graph_optional(
                 transport,

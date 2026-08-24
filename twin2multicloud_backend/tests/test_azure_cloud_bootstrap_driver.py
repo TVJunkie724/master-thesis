@@ -365,6 +365,36 @@ def test_azure_driver_reconciles_retry_and_rolls_back_only_gate_resources():
     assert environment.bootstrap_key_present is True
 
 
+def test_azure_completed_cleanup_is_idempotent_for_runner_recovery():
+    environment = FakeAzureEnvironment()
+    adapter = _adapter(environment)
+    target, credential = _input(environment)
+    result = adapter.execute(
+        session_id="azure-idempotent-cleanup",
+        display_name="Azure deployment access",
+        target=target,
+        credential_origin=CloudBootstrapCredentialOrigin.EXISTING_USER_OWNED,
+        credential=credential,
+    )
+    assert result.rollback_receipt is not None
+
+    adapter.cleanup_generated_access(
+        receipt=result.rollback_receipt,
+        target=target,
+        credential=credential,
+    )
+    adapter.cleanup_generated_access(
+        receipt=result.rollback_receipt,
+        target=target,
+        credential=credential,
+    )
+
+    assert environment.application is None
+    assert environment.service_principal is None
+    assert environment.role is None
+    assert environment.assignment is None
+
+
 def test_azure_disposable_secret_without_key_id_remains_manual_revocation():
     environment = FakeAzureEnvironment()
     adapter = _adapter(environment)

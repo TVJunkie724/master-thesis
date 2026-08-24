@@ -82,6 +82,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "027_cloud_bootstrap_setup_gate",
         "migrations.add_cloud_bootstrap_setup_gate",
     ),
+    Migration(
+        "028_cloud_bootstrap_cleanup_progress",
+        "migrations.add_cloud_bootstrap_cleanup_progress",
+    ),
 )
 
 

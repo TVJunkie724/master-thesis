@@ -290,6 +290,10 @@ async def cleanup_cloud_bootstrap_setup_session(
 async def acknowledge_cloud_bootstrap_manual_revocation(
     session_id: str,
     request: CloudBootstrapRevisionRequest,
+    setup_confirmation: str | None = Header(
+        default=None,
+        alias="X-Twin2MC-Setup-Confirmation",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(
         credential_rate_limit(
@@ -308,6 +312,7 @@ async def acknowledge_cloud_bootstrap_manual_revocation(
             None,
             200,
         ),
+        setup_confirmation,
     )
 
 

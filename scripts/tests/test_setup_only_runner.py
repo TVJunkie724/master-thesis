@@ -17,6 +17,7 @@ from scripts.setup_only_live_gate import (
 from scripts.setup_only_runner import (
     _read_stdin_credential,
     _run_id,
+    acknowledge_manual_bootstrap_revocation,
     execute,
     prepare,
 )
@@ -61,6 +62,7 @@ class FakeManagementClient:
         preflight_ready: bool = True,
         preflight_raises: bool = False,
         cleanup_complete: bool = True,
+        manual_finalization: bool = False,
         execution_mode: str = "supervised_live",
     ):
         self.provider = provider
@@ -68,6 +70,7 @@ class FakeManagementClient:
         self.preflight_ready = preflight_ready
         self.preflight_raises = preflight_raises
         self.cleanup_complete = cleanup_complete
+        self.manual_finalization = manual_finalization
         self.execution_mode = execution_mode
         self.calls: list[str] = []
         self.session = self._session("draft", revision=1, connection=None)
@@ -147,6 +150,12 @@ class FakeManagementClient:
             assert "submitted-bootstrap-secret" in json.dumps(payload)
             if self.cleanup_complete:
                 self.session = self._session("cancelled", revision=4, connection=None)
+            elif self.manual_finalization:
+                self.session = self._session(
+                    "manual_revocation_required",
+                    revision=4,
+                    connection=None,
+                )
             else:
                 self.session = self._session(
                     "manual_revocation_required",
@@ -158,14 +167,23 @@ class FakeManagementClient:
                 "session_id": SESSION_ID,
                 "provider": self.provider,
                 "run_id": _run_id(SESSION_ID),
-                "generated_access_clean": self.cleanup_complete,
-                "local_connection_clean": self.cleanup_complete,
+                "generated_access_clean": (
+                    self.cleanup_complete or self.manual_finalization
+                ),
+                "local_connection_clean": (
+                    self.cleanup_complete or self.manual_finalization
+                ),
                 "bootstrap_authority_disposal_status": (
                     "revoked" if self.cleanup_complete else "manual_revocation_required"
                 ),
                 "cleanup_complete": self.cleanup_complete,
                 "manual_action_required": not self.cleanup_complete,
             }
+        if route.endswith("/acknowledge-manual-revocation"):
+            assert confirmation == f"{_run_id(SESSION_ID)}:{self.provider}:setup_only"
+            assert payload == {"expected_revision": 4}
+            self.session = self._session("cancelled", revision=5, connection=None)
+            return 200, dict(self.session)
         if method == "GET" and route == "/cloud-connections/connection-test-001":
             return 404, {"detail": "not found"}
         if method == "GET" and route == f"/cloud-bootstrap/sessions/{SESSION_ID}":
@@ -298,6 +316,49 @@ def test_cleanup_failure_remains_resumable_and_blocks_clean_claim(tmp_path):
     ledger = CleanupLedgerStore(ledger_path).load(manifest=manifest)
     assert ledger.state == "cleanup_required"
     assert ledger.document["cloud_connection_id"] == "connection-test-001"
+
+
+def test_manual_bootstrap_revocation_acknowledgement_needs_no_credential(tmp_path):
+    client = FakeManagementClient(
+        "aws",
+        cleanup_complete=False,
+        manual_finalization=True,
+    )
+    manifest_path = tmp_path / "manifest.json"
+    ledger_path = tmp_path / "private" / "ledger.json"
+    manifest = prepare(
+        client=client,
+        provider="aws",
+        mode="setup_only",
+        target=TARGETS["aws"],
+        manifest_path=manifest_path,
+        ledger_path=ledger_path,
+    )
+    confirmation = f"{manifest.run_id}:aws:setup_only"
+    with pytest.raises(SetupGateError, match="remains incomplete"):
+        execute(
+            client=client,
+            manifest_path=manifest_path,
+            ledger_path=ledger_path,
+            confirmation=confirmation,
+            credential_origin="dedicated_disposable",
+            credential={
+                "provider": "aws",
+                "secret": "submitted-bootstrap-secret",
+            },
+            admission_environment={"TWIN2MC_SETUP_GATE_ENABLED": "1"},
+        )
+
+    ledger = acknowledge_manual_bootstrap_revocation(
+        client=client,
+        manifest_path=manifest_path,
+        ledger_path=ledger_path,
+        confirmation=confirmation,
+        admission_environment={"TWIN2MC_SETUP_GATE_ENABLED": "1"},
+    )
+
+    assert ledger.is_clean
+    assert any(call.endswith("/acknowledge-manual-revocation") for call in client.calls)
 
 
 def test_plan_only_cancels_session_and_never_calls_execute_or_preflight(tmp_path):

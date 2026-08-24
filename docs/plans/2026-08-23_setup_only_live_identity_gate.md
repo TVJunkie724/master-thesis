@@ -101,9 +101,11 @@ than relabeling any existing deployment E2E test.
   existing project. Its digest is bound to the unchanged v2 permission pack;
   project creation, billing mutation, API enablement, and role administration
   are excluded from the retained identity.
-- The existing guided session has no provider-identity deletion lifecycle.
-  Deleting a local CloudConnection alone is not cleanup, so the disposable
-  live runner needs its own provider cleanup ledger and operation.
+- The former guided session had no provider-identity deletion lifecycle.
+  This is resolved without changing the normal persistent flow: the internal
+  setup-only session persists a secret-free provider receipt, and its runner
+  must delete provider identity before local CloudConnection and bootstrap
+  authority cleanup.
 - Immediate disposal of a submitted bootstrap credential is correct for a
   persistent production connection but conflicts with a disposable
   create/verify/delete test. The test runner therefore keeps bootstrap
@@ -503,6 +505,21 @@ credential_source_command | python3 scripts/setup_only_runner.py execute \
   --credential-origin dedicated_disposable
 ```
 
+If generated provider access and the local test connection are already proven
+clean but disposable bootstrap authority requires manual provider-side
+revocation, perform that provider step and reconcile the retained receipt
+without resubmitting credentials:
+
+```bash
+python3 scripts/setup_only_runner.py acknowledge \
+  --manifest .evidence/aws-setup/manifest.json \
+  --ledger .evidence/aws-setup/private/ledger.json \
+  --confirm twin2mc-e2e-xxxxxxxxxxxx:aws:setup_only
+```
+
+Management accepts this acknowledgement only for the exact confirmed run and
+only after its durable progress markers prove both earlier cleanup stages.
+
 `plan_only` still creates and immediately cancels a credential-free Management
 session so its run ID is deterministic, then records a clean ledger with
 `preflight_status=not_run`. Setup execution records `passed`, `failed`, or
@@ -526,8 +543,10 @@ non-zero after cleanup while retaining truthful, secret-free evidence.
 
 ## 9. Acceptance Criteria
 
-- [ ] Default tests and CI remain credential-free and cannot select a live adapter.
-- [ ] AWS, Azure, and GCP setup-only gates are independently selectable.
+- [x] Default tests and CI remain credential-free and cannot select the
+  setup-only live gate.
+- [x] AWS, Azure, and GCP setup-only gates are independently selectable behind
+  exact provider opt-ins.
 - [ ] A live gate cannot create workload resources and cannot mutate any GCP
   service outside the fixed API-baseline allowlist.
 - [ ] Generated identities use the exact frozen `thesis-demo-v2` pack digest.

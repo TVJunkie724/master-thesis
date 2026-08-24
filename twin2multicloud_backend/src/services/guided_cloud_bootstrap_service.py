@@ -512,6 +512,8 @@ class GuidedCloudBootstrapService:
                 session.provider_cleanup_receipt_json = self._receipt_json(
                     result.rollback_receipt
                 )
+                session.setup_generated_access_clean = False
+                session.setup_local_connection_clean = False
             session.lease_started_at = None
             session.finding_json = (
                 _canonical_json(self._manual_revocation_finding(session.provider))
@@ -755,6 +757,8 @@ class GuidedCloudBootstrapService:
         session.credential_expires_at = finalization.credential_expires_at
         session.finding_json = None
         session.provider_cleanup_receipt_json = None
+        session.setup_generated_access_clean = True
+        session.setup_local_connection_clean = True
         session.revision += 1
         session.updated_at = datetime.now(timezone.utc)
         CredentialSecurityAuditService.append(
@@ -856,13 +860,39 @@ class GuidedCloudBootstrapService:
         session_id: str,
         expected_revision: int,
         audit: CredentialSecurityEventDraft,
+        setup_confirmation: str | None = None,
     ) -> CloudBootstrapSessionResponse:
         session = self._owned_session(user_id, session_id)
         self._require_revision(session, expected_revision)
         if self._is_setup_only(session):
-            raise self._conflict(
-                "Setup-only cleanup cannot be acknowledged through the persistent connection workflow."
+            self._require_setup_confirmation(session, setup_confirmation)
+            if session.state != CloudBootstrapState.MANUAL_REVOCATION_REQUIRED.value:
+                raise self._conflict(
+                    "This setup-only session has no manual revocation to acknowledge."
+                )
+            if not (
+                session.provider_cleanup_receipt_json
+                and session.connection_id is None
+                and session.setup_generated_access_clean
+                and session.setup_local_connection_clean
+            ):
+                raise self._conflict(
+                    "Provider-generated access and the local connection must be clean before manual bootstrap revocation can be acknowledged."
+                )
+            session.disposal_status = CloudBootstrapDisposalStatus.REVOKED.value
+            session.credential_expires_at = None
+            session.state = CloudBootstrapState.CANCELLED.value
+            session.finding_json = None
+            session.provider_cleanup_receipt_json = None
+            session.revision += 1
+            session.updated_at = datetime.now(timezone.utc)
+            CredentialSecurityAuditService.append(
+                self._db,
+                audit.model_copy(update={"resource_id": session.id}),
             )
+            self._db.commit()
+            self._db.refresh(session)
+            return self.to_response(session)
         if session.state != CloudBootstrapState.MANUAL_REVOCATION_REQUIRED.value:
             raise self._conflict(
                 "This session has no manual revocation to acknowledge."
@@ -1365,6 +1395,8 @@ class GuidedCloudBootstrapService:
         session.finding_json = _canonical_json(
             self._setup_cleanup_finding(session.provider)
         )
+        session.setup_generated_access_clean = generated_access_clean
+        session.setup_local_connection_clean = local_connection_clean
         session.revision += 1
         session.updated_at = datetime.now(timezone.utc)
         CredentialSecurityAuditService.append(
@@ -1586,7 +1618,15 @@ class GuidedCloudBootstrapService:
         }:
             return ["recheck"] if setup_only else ["recheck", "cancel"]
         if state == CloudBootstrapState.MANUAL_REVOCATION_REQUIRED:
-            return ["recheck"] if setup_only else ["acknowledge_manual_revocation"]
+            if setup_only:
+                return (
+                    ["acknowledge_manual_revocation"]
+                    if session.setup_generated_access_clean
+                    and session.setup_local_connection_clean
+                    and session.connection_id is None
+                    else ["recheck"]
+                )
+            return ["acknowledge_manual_revocation"]
         if state in {
             CloudBootstrapState.FAILED,
             CloudBootstrapState.CANCELLED,

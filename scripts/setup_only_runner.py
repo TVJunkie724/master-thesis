@@ -322,7 +322,9 @@ def execute(
     """Execute, preflight, and mandatorily clean one setup-only transaction."""
 
     manifest = read_manifest(manifest_path)
-    environment = dict(os.environ if admission_environment is None else admission_environment)
+    environment = dict(
+        os.environ if admission_environment is None else admission_environment
+    )
     environment["TWIN2MC_SETUP_GATE_CONFIRMATION"] = confirmation
     require_setup_only_admission(manifest, environment=environment)
     if credential_origin not in {"dedicated_disposable", "existing_user_owned"}:
@@ -464,6 +466,91 @@ def execute(
         raise SetupGateError("Generated identity preflight failed safely; mandatory cleanup succeeded.")
     if ledger.document["preflight_status"] == "failed" or preflight_ready is False:
         raise SetupGateError("Generated identity preflight failed; mandatory cleanup succeeded.")
+    return ledger
+
+
+def acknowledge_manual_bootstrap_revocation(
+    *,
+    client: ManagementClient,
+    manifest_path: Path,
+    ledger_path: Path,
+    confirmation: str,
+    admission_environment: Mapping[str, str] | None = None,
+) -> CleanupLedger:
+    """Close a setup run after an operator manually revoked bootstrap authority."""
+
+    manifest = read_manifest(manifest_path)
+    environment = dict(
+        os.environ if admission_environment is None else admission_environment
+    )
+    environment["TWIN2MC_SETUP_GATE_CONFIRMATION"] = confirmation
+    require_setup_only_admission(manifest, environment=environment)
+    store = CleanupLedgerStore(ledger_path)
+    ledger = store.load(manifest=manifest)
+    if ledger.is_clean:
+        raise SetupGateError("This setup-only ledger is already clean.")
+    if ledger.state not in {"cleanup_required", "cleanup_running"}:
+        raise SetupGateError(
+            "Manual bootstrap revocation can only reconcile an incomplete cleanup."
+        )
+
+    session = _find_session(client, manifest)
+    if session.get("state") == "cancelled":
+        return _reconcile_terminal_cleanup(client, store, ledger, session)
+    if (
+        session.get("state") != "manual_revocation_required"
+        or session.get("connection") is not None
+    ):
+        raise SetupGateError(
+            "Management has not proven provider-generated and local access clean."
+        )
+
+    if ledger.state == "cleanup_required":
+        ledger = transition_ledger(ledger, "cleanup_running")
+        store.save(ledger)
+    try:
+        _, terminal = client.request(
+            "POST",
+            f"/cloud-bootstrap/sessions/{_safe_session_id(session)}/"
+            "acknowledge-manual-revocation",
+            confirmation=confirmation,
+            payload={"expected_revision": _revision(session)},
+        )
+        if (
+            terminal is None
+            or terminal.get("state") != "cancelled"
+            or terminal.get("connection") is not None
+        ):
+            raise SetupGateError(
+                "Manual bootstrap revocation did not reach a clean terminal session."
+            )
+        connection_id = ledger.document["cloud_connection_id"]
+        if not isinstance(connection_id, str):
+            raise SetupGateError("Cleanup ledger has no local connection evidence.")
+        status, _ = client.request(
+            "GET",
+            f"/cloud-connections/{connection_id}",
+            expected_statuses=(404,),
+        )
+        if status != 404:
+            raise SetupGateError(
+                "Local test CloudConnection still exists after manual reconciliation."
+            )
+    except SetupGateError:
+        ledger = transition_ledger(ledger, "cleanup_required")
+        store.save(ledger)
+        raise
+
+    ledger = transition_ledger(ledger, "clean")
+    store.save(ledger)
+    if ledger.document["preflight_status"] == "failed":
+        raise SetupGateError(
+            "Generated identity preflight failed; mandatory cleanup succeeded."
+        )
+    if ledger.document["preflight_status"] == "error":
+        raise SetupGateError(
+            "Generated identity preflight failed safely; mandatory cleanup succeeded."
+        )
     return ledger
 
 
@@ -748,6 +835,10 @@ def _parser() -> argparse.ArgumentParser:
         choices=("dedicated_disposable", "existing_user_owned"),
         required=True,
     )
+    acknowledge_parser = subparsers.add_parser("acknowledge")
+    acknowledge_parser.add_argument("--manifest", type=Path, required=True)
+    acknowledge_parser.add_argument("--ledger", type=Path, required=True)
+    acknowledge_parser.add_argument("--confirm", required=True)
     return parser
 
 
@@ -774,7 +865,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "setup-only-runner: confirmation "
                     f"{manifest.run_id}:{manifest.provider}:setup_only"
                 )
-        else:
+        elif args.command == "execute":
             credential = _read_stdin_credential(sys.stdin)
             try:
                 ledger = execute(
@@ -789,6 +880,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 credential.clear()
             print(
                 "setup-only-runner: complete "
+                f"(provider={ledger.document['provider']}, state={ledger.state})"
+            )
+        else:
+            ledger = acknowledge_manual_bootstrap_revocation(
+                client=client,
+                manifest_path=args.manifest,
+                ledger_path=args.ledger,
+                confirmation=args.confirm,
+            )
+            print(
+                "setup-only-runner: manual cleanup reconciled "
                 f"(provider={ledger.document['provider']}, state={ledger.state})"
             )
     except SetupGateError as exc:

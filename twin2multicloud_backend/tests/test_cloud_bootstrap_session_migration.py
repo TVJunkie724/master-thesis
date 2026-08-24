@@ -4,6 +4,9 @@ import sqlite3
 
 from migrations.add_cloud_bootstrap_sessions import migrate
 from migrations.add_cloud_bootstrap_setup_gate import migrate as migrate_setup_gate
+from migrations.add_cloud_bootstrap_cleanup_progress import (
+    migrate as migrate_cleanup_progress,
+)
 
 
 def _baseline(path) -> None:
@@ -89,3 +92,30 @@ def test_setup_gate_migration_adds_only_secret_free_lifecycle_fields(tmp_path):
 
     assert columns["execution_kind"][4] == "'persistent_connection'"
     assert columns["provider_cleanup_receipt_json"][2] == "TEXT"
+
+
+def test_cleanup_progress_migration_adds_idempotent_boolean_markers(tmp_path):
+    path = tmp_path / "bootstrap-cleanup-progress.db"
+    _baseline(path)
+    url = f"sqlite:///{path}"
+    migrate(url)
+    migrate_setup_gate(url)
+
+    assert migrate_cleanup_progress(url) == [
+        "added: cloud_bootstrap_sessions.setup_generated_access_clean",
+        "added: cloud_bootstrap_sessions.setup_local_connection_clean",
+    ]
+    assert migrate_cleanup_progress(url) == []
+
+    with sqlite3.connect(path) as connection:
+        columns = {
+            row[1]: row
+            for row in connection.execute(
+                "PRAGMA table_info(cloud_bootstrap_sessions)"
+            )
+        }
+
+    assert columns["setup_generated_access_clean"][3] == 1
+    assert columns["setup_generated_access_clean"][4] == "0"
+    assert columns["setup_local_connection_clean"][3] == 1
+    assert columns["setup_local_connection_clean"][4] == "0"

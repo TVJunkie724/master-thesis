@@ -454,13 +454,17 @@ PoC records the confirmation and safe key ID; it does not claim cryptographic
 proof when the generated CloudConnection cannot inspect that bootstrap
 credential.
 
-The implementation minimizes secret copies and drops every application-held
-reference after the execute request. Python and provider SDKs do not guarantee
-cryptographic zeroization of immutable strings or managed-runtime memory, so
-the UI and thesis must claim **non-persistence and no deliberate retention**,
-not proven memory erasure. Request bodies are excluded from access logs,
-traces, metrics, audit payloads, exception serialization, retry queues, crash
-dumps under application control, and temporary files.
+The normal persistent implementation minimizes secret copies and drops every
+application-held reference after the execute request. The separately admitted
+setup-only runner retains the submitted authority only in its process until
+generated-identity and bootstrap-authority cleanup finish; Management still
+does not persist it. Python and provider SDKs do not guarantee cryptographic
+zeroization of immutable strings or managed-runtime memory, so the UI and
+thesis must claim **non-persistence and no deliberate retention beyond the
+bounded setup transaction**, not proven memory erasure. Request bodies are
+excluded from access logs, traces, metrics, audit payloads, exception
+serialization, retry queues, crash dumps under application control, and
+temporary files.
 
 ## 7. Generated CloudConnection
 
@@ -746,7 +750,10 @@ encrypted generated test connection and a secret-free provider rollback
 receipt until cleanup succeeds. The runner retains submitted bootstrap
 authority only in process memory so provider identity deletion happens before
 the local connection is removed and disposable bootstrap authority is
-finalized. The setup flag defaults false, exact run/provider confirmation is
+finalized. If only that final revocation needs manual provider action, the
+credential-free `acknowledge` command can close the retained receipt only after
+Management has durably proven the first two cleanup stages. The setup flag
+defaults false, exact run/provider confirmation is
 required, CI activation is rejected, and no provider run has yet been made.
 
 ## 13. Verification Matrix
