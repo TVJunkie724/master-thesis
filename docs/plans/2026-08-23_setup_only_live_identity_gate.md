@@ -408,12 +408,65 @@ before G6.
 
 ### Slice C — Setup-Only Live Runner And Cleanup
 
+The setup runner is a separate thesis-test mode, not another production UI
+workflow. The normal guided-bootstrap behavior remains unchanged: a persistent
+CloudConnection finalizes disposable bootstrap authority immediately after the
+generated connection commits. A setup-only validation session instead uses the
+following bounded transaction:
+
+```text
+prepare (no provider contact)
+  -> guide + setup-only session
+  -> derive the deterministic twin2mc-e2e-* run ID
+  -> write manifest + planned secret-free ledger
+
+execute (explicitly admitted, one provider)
+  -> read bootstrap credential JSON from stdin, never argv/env/file
+  -> create and validate the bounded deployment identity
+  -> persist the encrypted test CloudConnection
+  -> persist only the driver's secret-free rollback receipt on the session
+  -> return with bootstrap authority still request-owned by the runner
+
+verify and clean (same runner process)
+  -> call CloudConnection preflight through Management
+  -> clean the generated provider identity from the stored receipt
+  -> delete the local test CloudConnection
+  -> finalize a dedicated bootstrap key, or leave existing_user_owned authority untouched
+  -> prove provider terminal state and zero local connection/secret residue
+```
+
+The session request gains an internal `setup_only_validation` execution kind;
+`persistent_connection` remains the default used by Flutter. Setup-only mode is
+accepted only when the Management setup-gate flag is enabled and the runner
+presents the exact `<run-id>:<provider>:setup_only` confirmation. Its rollback
+receipt contains only provider resource identifiers, is never returned by the
+normal session API, and is cleared after successful cleanup. A runner or
+Management crash therefore leaves both the external ledger prefix and the
+owner-scoped session receipt available for explicit recovery without retaining
+the bootstrap secret.
+
+Cleanup order is deliberate: generated provider identity first, local
+CloudConnection second, disposable bootstrap authority last. If provider
+identity cleanup fails, the encrypted generated connection and receipt remain
+available and the session becomes `manual_revocation_required`; it must not
+claim local or provider cleanup. If only final bootstrap-key disposal fails,
+the generated identity and local connection remain cleaned while the session
+truthfully requests manual revocation of the safe submitted key identifier.
+Preflight failure still triggers cleanup and is recorded as a failed setup gate,
+not as permission to retain test resources.
+
 - Drive guide -> session -> execute -> CloudConnection -> preflight through the
   real Management API.
 - Capture the provider mutation ledger outside normal API/log output.
 - Provide provider-specific cleanup and post-cleanup absence checks.
 - Add a `--plan-only` dry run and a separate unmistakable live confirmation;
   neither may accept secrets on the command line.
+
+The CLI is two-step. `prepare` performs only Management guide/session calls and
+writes the manifest/ledger. `execute` requires the exact confirmation and reads
+one provider credential document from stdin. Plan-only never accepts credential
+input, never enables the supervised adapter, and never calls execute, preflight,
+or cleanup endpoints.
 
 ### Slice D — Supervised Provider Execution
 
