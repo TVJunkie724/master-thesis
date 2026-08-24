@@ -36,6 +36,7 @@ htmlcov/
 # Credentials (NEVER commit)
 # -----------------------------------------------------------------------------
 .secrets/
+.evidence/
 config_credentials.json
 google_*.json
 google-*.json

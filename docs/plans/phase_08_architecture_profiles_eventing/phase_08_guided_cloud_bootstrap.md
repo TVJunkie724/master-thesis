@@ -736,6 +736,19 @@ checks all three provider client flows plus AWS UI submission, and removes the
 isolated runtime after log/database secret-sentinel scans. It is G1 evidence,
 not evidence of provider authority or live identity creation.
 
+The supervised thesis path is implemented separately in
+`scripts/setup_only_runner.py`; Flutter and the normal persistent session stay
+unchanged. `prepare` creates only a guide/session plus secret-free manifest and
+ledger. `execute` reads one provider credential document from stdin, calls the
+real Management execute and CloudConnection-preflight APIs, and invokes the
+mandatory setup cleanup before returning. Management retains only the
+encrypted generated test connection and a secret-free provider rollback
+receipt until cleanup succeeds. The runner retains submitted bootstrap
+authority only in process memory so provider identity deletion happens before
+the local connection is removed and disposable bootstrap authority is
+finalized. The setup flag defaults false, exact run/provider confirmation is
+required, CI activation is rejected, and no provider run has yet been made.
+
 ## 13. Verification Matrix
 
 | Boundary | Required offline evidence |
@@ -773,10 +786,12 @@ real bootstrap credentials or reach a live provider.
 - In the offline PoC adapter, a user can exercise creation of a validated
   bounded deployment CloudConnection without manually constructing it. A live
   provider result remains subject to the optional supervised gate.
-- The bootstrap secret is never deliberately retained after its execute request
-  and never enters durable application state, storage, packages, logs, traces,
-  metrics, retry payloads, or error payloads; no cryptographic memory-
-  zeroization claim is made.
+- In the normal persistent workflow, the bootstrap secret is not retained after
+  its execute request. In the separate setup-only runner it remains only in
+  request-process memory until mandatory identity cleanup and bootstrap-
+  authority finalization finish. It never enters durable application state,
+  storage, packages, logs, traces, metrics, retry payloads, or error payloads;
+  no cryptographic memory-zeroization claim is made.
 - The UI distinguishes application release from provider-side revocation and
   never makes a false revocation claim.
 - Every unavoidable manual provider action is typed and linked. Manual

@@ -729,6 +729,28 @@ def test_cleanup_refuses_role_binding_contaminated_by_external_member():
     assert environment.generated_key is not None
 
 
+def test_completed_cleanup_is_idempotent_for_runner_recovery():
+    environment = FakeGCPEnvironment()
+    adapter = _adapter(environment)
+    result = adapter.execute(
+        session_id="session-gcp-idempotent-cleanup",
+        display_name="GCP deployment access",
+        target=_target(),
+        credential_origin=CloudBootstrapCredentialOrigin.EXISTING_USER_OWNED,
+        credential=_credential(),
+    )
+
+    adapter.rollback(result=result, target=_target(), credential=_credential())
+    operations_after_first_cleanup = list(environment.operations)
+    adapter.rollback(result=result, target=_target(), credential=_credential())
+
+    assert environment.service_account is None
+    assert environment.generated_key is None
+    assert environment.role["deleted"] is True
+    assert environment.policy["bindings"] == []
+    assert environment.operations == operations_after_first_cleanup
+
+
 def test_receipt_cannot_cross_project_scope():
     environment = FakeGCPEnvironment()
     driver = GCPCloudBootstrapDriver(

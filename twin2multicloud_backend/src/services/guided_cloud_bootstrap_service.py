@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
+import secrets
 from typing import Any, cast
 import uuid
 
@@ -30,6 +31,7 @@ from src.schemas.cloud_bootstrap import (
     CloudBootstrapCredentialOrigin,
     CloudBootstrapDisposalStatus,
     CloudBootstrapEntryPoint,
+    CloudBootstrapExecutionKind,
     CloudBootstrapExecuteRequest,
     CloudBootstrapFinding,
     CloudBootstrapGuidePackReference,
@@ -39,6 +41,9 @@ from src.schemas.cloud_bootstrap import (
     CloudBootstrapSessionCreateRequest,
     CloudBootstrapSessionListResponse,
     CloudBootstrapSessionResponse,
+    CloudBootstrapSetupCleanupRequest,
+    CloudBootstrapSetupCleanupResponse,
+    CloudBootstrapSetupReceiptResponse,
     CloudBootstrapState,
     CloudBootstrapTarget,
     GCPBootstrapCredential,
@@ -55,10 +60,12 @@ from src.services.cloud_bootstrap_adapters import (
     CloudBootstrapAdapter,
     CloudBootstrapAdapterError,
     CloudBootstrapAdapterResult,
+    CloudBootstrapRollbackReceipt,
     DeterministicFakeCloudBootstrapAdapter,
     DisabledCloudBootstrapAdapter,
     SupervisedLiveCloudBootstrapAdapter,
     UnconfiguredSupervisedLiveCloudBootstrapAdapter,
+    bootstrap_run_id,
 )
 from src.services.aws_cloud_bootstrap_driver import AWSCloudBootstrapDriver
 from src.services.azure_cloud_bootstrap_driver import AzureCloudBootstrapDriver
@@ -306,6 +313,16 @@ class GuidedCloudBootstrapService:
         guide = self.guide(request.provider, request.target)
         self._validate_guide_references(request, guide)
         self._validate_entry_point(user_id, request)
+        if (
+            request.execution_kind
+            == CloudBootstrapExecutionKind.SETUP_ONLY_VALIDATION
+            and not settings.CLOUD_BOOTSTRAP_SETUP_GATE_ENABLED
+        ):
+            raise CloudBootstrapDomainError(
+                "BOOTSTRAP_SETUP_GATE_DISABLED",
+                "The thesis-only setup validation gate is disabled in this runtime.",
+                http_status=409,
+            )
         target_data = request.target.model_dump(mode="json", exclude_none=True)
         target_digest = _digest(self._scope_target_data(request.target))
         request_digest = _digest(request.model_dump(mode="json"))
@@ -322,9 +339,12 @@ class GuidedCloudBootstrapService:
             user_id, request.provider, target_digest
         )
         if active is not None:
-            if active.target_json != _canonical_json(target_data):
+            if (
+                active.target_json != _canonical_json(target_data)
+                or active.execution_kind != request.execution_kind.value
+            ):
                 raise self._conflict(
-                    "An active session already owns this provider scope with different credential context."
+                    "An active session already owns this provider scope with a different execution contract."
                 )
             return self.to_response(active)
 
@@ -335,6 +355,7 @@ class GuidedCloudBootstrapService:
             target_scope_digest=target_digest,
             target_json=_canonical_json(target_data),
             entry_point=request.entry_point.value,
+            execution_kind=request.execution_kind.value,
             twin_id=request.twin_id,
             display_name=request.display_name,
             revision=1,
@@ -408,8 +429,13 @@ class GuidedCloudBootstrapService:
         session_id: str,
         request: CloudBootstrapExecuteRequest,
         audit: CredentialSecurityEventDraft,
+        *,
+        setup_confirmation: str | None = None,
     ) -> CloudBootstrapSessionResponse:
         session = self._owned_session(user_id, session_id)
+        setup_only = self._is_setup_only(session)
+        if setup_only:
+            self._require_setup_confirmation(session, setup_confirmation)
         if session.execute_idempotency_key == request.idempotency_key:
             return self.to_response(session)
         if session.state not in {
@@ -478,6 +504,14 @@ class GuidedCloudBootstrapService:
             session.disposal_status = result.disposal_status.value
             session.credential_expires_at = result.credential_expires_at
             session.safe_credential_identifier = result.safe_credential_identifier
+            if setup_only:
+                if result.rollback_receipt is None:
+                    raise ValueError(
+                        "Setup-only validation requires a provider cleanup receipt"
+                    )
+                session.provider_cleanup_receipt_json = self._receipt_json(
+                    result.rollback_receipt
+                )
             session.lease_started_at = None
             session.finding_json = (
                 _canonical_json(self._manual_revocation_finding(session.provider))
@@ -486,7 +520,7 @@ class GuidedCloudBootstrapService:
                 == CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED
                 else None
             )
-            if result.bootstrap_finalization_required:
+            if setup_only or result.bootstrap_finalization_required:
                 session.state = CloudBootstrapState.GENERATED_CONNECTION_READY.value
             elif (
                 result.disposal_status
@@ -497,7 +531,7 @@ class GuidedCloudBootstrapService:
                 session.state = CloudBootstrapState.READY.value
             session.revision += 1
             session.updated_at = datetime.now(timezone.utc)
-            if not result.bootstrap_finalization_required:
+            if setup_only or not result.bootstrap_finalization_required:
                 CredentialSecurityAuditService.append(
                     self._db,
                     audit.model_copy(update={"resource_id": session.id}),
@@ -543,6 +577,8 @@ class GuidedCloudBootstrapService:
                 audit,
                 cause=exc,
             )
+        if setup_only:
+            return self.to_response(self._owned_session(user_id, session_id))
         if result.bootstrap_finalization_required:
             return self._finalize_bootstrap_authority(
                 user_id,
@@ -553,6 +589,189 @@ class GuidedCloudBootstrapService:
                 audit,
             )
         return self.to_response(self._owned_session(user_id, session_id))
+
+    def get_setup_receipt(
+        self,
+        user_id: str,
+        session_id: str,
+        confirmation: str | None,
+    ) -> CloudBootstrapSetupReceiptResponse:
+        session = self._owned_session(user_id, session_id)
+        self._require_setup_confirmation(session, confirmation)
+        receipt = self._stored_receipt(session)
+        if receipt is None:
+            raise self._conflict(
+                "The setup-only session has no resumable provider cleanup receipt."
+            )
+        return CloudBootstrapSetupReceiptResponse(
+            session_id=session.id,
+            provider=receipt.provider,
+            run_id=receipt.run_id,
+            resource_ids=dict(receipt.resource_ids),
+            connection_id=session.connection_id,
+        )
+
+    def cleanup_setup_session(
+        self,
+        user_id: str,
+        session_id: str,
+        request: CloudBootstrapSetupCleanupRequest,
+        confirmation: str | None,
+        audit: CredentialSecurityEventDraft,
+    ) -> CloudBootstrapSetupCleanupResponse:
+        session = self._owned_session(user_id, session_id)
+        self._require_setup_confirmation(session, confirmation)
+        self._require_revision(session, request.expected_revision)
+        if request.credential.provider != session.provider:
+            raise CloudBootstrapDomainError(
+                "BOOTSTRAP_CREDENTIAL_INVALID",
+                "The cleanup credential provider does not match the setup session.",
+            )
+        if session.state not in {
+            CloudBootstrapState.GENERATED_CONNECTION_READY.value,
+            CloudBootstrapState.MANUAL_REVOCATION_REQUIRED.value,
+        }:
+            raise self._conflict(
+                "The setup-only session is not awaiting mandatory cleanup."
+            )
+        receipt = self._stored_receipt(session)
+        if receipt is None or session.credential_origin is None:
+            raise self._conflict(
+                "The setup-only cleanup receipt is missing; manual reconciliation is required."
+            )
+        target = self._parse_target(session.target_json)
+        session.state = CloudBootstrapState.DISPOSAL_RUNNING.value
+        session.lease_started_at = datetime.now(timezone.utc)
+        session.revision += 1
+        session.updated_at = datetime.now(timezone.utc)
+        self._db.commit()
+
+        try:
+            self._adapter.cleanup_generated_access(
+                receipt=receipt,
+                target=target,
+                credential=request.credential,
+            )
+        except CloudBootstrapAdapterError:
+            return self._record_setup_cleanup_failure(
+                session_id,
+                receipt,
+                audit,
+                generated_access_clean=False,
+                local_connection_clean=False,
+            )
+
+        session = self._owned_session(user_id, session_id)
+        local_connection_clean = session.connection_id is None
+        if session.connection_id is not None:
+            connection = self._connections.get_connection(
+                session.connection_id, user_id
+            )
+            if connection is None:
+                session.connection_id = None
+                local_connection_clean = True
+            elif self._connections.count_twin_bindings(connection.id) > 0:
+                return self._record_setup_cleanup_failure(
+                    session_id,
+                    receipt,
+                    audit,
+                    generated_access_clean=True,
+                    local_connection_clean=False,
+                )
+            else:
+                try:
+                    CredentialSecurityAuditService.append(
+                        self._db,
+                        audit.model_copy(
+                            update={
+                                "action": CredentialSecurityAction.CONNECTION_DELETE,
+                                "resource_type": "cloud_connection",
+                                "resource_id": connection.id,
+                                "purpose": "deployment",
+                            }
+                        ),
+                    )
+                    session.connection_id = None
+                    self._db.delete(connection)
+                    self._db.commit()
+                    local_connection_clean = True
+                except SQLAlchemyError:
+                    self._db.rollback()
+                    return self._record_setup_cleanup_failure(
+                        session_id,
+                        receipt,
+                        audit,
+                        generated_access_clean=True,
+                        local_connection_clean=False,
+                    )
+
+        origin = CloudBootstrapCredentialOrigin(session.credential_origin)
+        try:
+            finalization = self._adapter.finalize_bootstrap_receipt(
+                receipt=receipt,
+                target=target,
+                credential_origin=origin,
+                credential=request.credential,
+            )
+        except CloudBootstrapAdapterError:
+            return self._record_setup_cleanup_failure(
+                session_id,
+                receipt,
+                audit,
+                generated_access_clean=True,
+                local_connection_clean=local_connection_clean,
+            )
+
+        acceptable_disposal = (
+            {
+                CloudBootstrapDisposalStatus.NOT_RETAINED_USER_MANAGED,
+            }
+            if origin == CloudBootstrapCredentialOrigin.EXISTING_USER_OWNED
+            else {
+                CloudBootstrapDisposalStatus.REVOKED,
+                CloudBootstrapDisposalStatus.EXPIRES_AT_PROVIDER,
+            }
+        )
+        if (
+            finalization.disposal_status not in acceptable_disposal
+            or (
+                finalization.disposal_status
+                == CloudBootstrapDisposalStatus.EXPIRES_AT_PROVIDER
+            )
+            != (finalization.credential_expires_at is not None)
+        ):
+            return self._record_setup_cleanup_failure(
+                session_id,
+                receipt,
+                audit,
+                generated_access_clean=True,
+                local_connection_clean=local_connection_clean,
+            )
+
+        session = self._owned_session(user_id, session_id)
+        session.state = CloudBootstrapState.CANCELLED.value
+        session.lease_started_at = None
+        session.disposal_status = finalization.disposal_status.value
+        session.credential_expires_at = finalization.credential_expires_at
+        session.finding_json = None
+        session.provider_cleanup_receipt_json = None
+        session.revision += 1
+        session.updated_at = datetime.now(timezone.utc)
+        CredentialSecurityAuditService.append(
+            self._db,
+            audit.model_copy(update={"resource_id": session.id}),
+        )
+        self._db.commit()
+        return CloudBootstrapSetupCleanupResponse(
+            session_id=session.id,
+            provider=receipt.provider,
+            run_id=receipt.run_id,
+            generated_access_clean=True,
+            local_connection_clean=True,
+            bootstrap_authority_disposal_status=finalization.disposal_status,
+            cleanup_complete=True,
+            manual_action_required=False,
+        )
 
     def _finalize_bootstrap_authority(
         self,
@@ -640,6 +859,10 @@ class GuidedCloudBootstrapService:
     ) -> CloudBootstrapSessionResponse:
         session = self._owned_session(user_id, session_id)
         self._require_revision(session, expected_revision)
+        if self._is_setup_only(session):
+            raise self._conflict(
+                "Setup-only cleanup cannot be acknowledged through the persistent connection workflow."
+            )
         if session.state != CloudBootstrapState.MANUAL_REVOCATION_REQUIRED.value:
             raise self._conflict(
                 "This session has no manual revocation to acknowledge."
@@ -665,6 +888,10 @@ class GuidedCloudBootstrapService:
         audit: CredentialSecurityEventDraft,
     ) -> CloudBootstrapSessionResponse:
         session = self._owned_session(user_id, session_id)
+        if self._is_setup_only(session) and session.provider_cleanup_receipt_json:
+            raise self._conflict(
+                "A setup-only session with provider cleanup evidence cannot be cancelled."
+            )
         if session.connection_id is not None:
             return self.to_response(session)
         self._require_revision(session, expected_revision)
@@ -1049,7 +1276,15 @@ class GuidedCloudBootstrapService:
         if not stale:
             return
         for session in stale:
-            if session.connection_id is None:
+            if self._is_setup_only(session) and session.provider_cleanup_receipt_json:
+                session.state = CloudBootstrapState.MANUAL_REVOCATION_REQUIRED.value
+                session.disposal_status = (
+                    CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED.value
+                )
+                session.finding_json = _canonical_json(
+                    self._setup_cleanup_finding(session.provider)
+                )
+            elif session.connection_id is None:
                 session.state = CloudBootstrapState.CREDENTIAL_REENTRY_REQUIRED.value
                 session.disposal_status = (
                     CloudBootstrapDisposalStatus.RELEASED_AFTER_FAILURE.value
@@ -1107,6 +1342,131 @@ class GuidedCloudBootstrapService:
                 ),
             )
         self._db.commit()
+
+    def _record_setup_cleanup_failure(
+        self,
+        session_id: str,
+        receipt: CloudBootstrapRollbackReceipt,
+        audit: CredentialSecurityEventDraft,
+        *,
+        generated_access_clean: bool,
+        local_connection_clean: bool,
+    ) -> CloudBootstrapSetupCleanupResponse:
+        session = (
+            self._db.query(CloudBootstrapSession)
+            .filter(CloudBootstrapSession.id == session_id)
+            .one()
+        )
+        session.state = CloudBootstrapState.MANUAL_REVOCATION_REQUIRED.value
+        session.disposal_status = (
+            CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED.value
+        )
+        session.lease_started_at = None
+        session.finding_json = _canonical_json(
+            self._setup_cleanup_finding(session.provider)
+        )
+        session.revision += 1
+        session.updated_at = datetime.now(timezone.utc)
+        CredentialSecurityAuditService.append(
+            self._db,
+            audit.model_copy(
+                update={
+                    "outcome": CredentialSecurityOutcome.REJECTED,
+                    "resource_id": session.id,
+                    "http_status": 409,
+                }
+            ),
+        )
+        self._db.commit()
+        return CloudBootstrapSetupCleanupResponse(
+            session_id=session.id,
+            provider=receipt.provider,
+            run_id=receipt.run_id,
+            generated_access_clean=generated_access_clean,
+            local_connection_clean=local_connection_clean,
+            bootstrap_authority_disposal_status=(
+                CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED
+            ),
+            cleanup_complete=False,
+            manual_action_required=True,
+        )
+
+    @staticmethod
+    def _receipt_json(receipt: CloudBootstrapRollbackReceipt) -> str:
+        return _canonical_json(
+            {
+                "provider": receipt.provider,
+                "run_id": receipt.run_id,
+                "resource_ids": [list(item) for item in receipt.resource_ids],
+            }
+        )
+
+    @staticmethod
+    def _stored_receipt(
+        session: CloudBootstrapSession,
+    ) -> CloudBootstrapRollbackReceipt | None:
+        if not session.provider_cleanup_receipt_json:
+            return None
+        try:
+            document = json.loads(session.provider_cleanup_receipt_json)
+            if set(document) != {"provider", "run_id", "resource_ids"}:
+                raise ValueError("Unexpected receipt fields")
+            resource_ids = tuple(
+                (str(item[0]), str(item[1]))
+                for item in document["resource_ids"]
+                if isinstance(item, list) and len(item) == 2
+            )
+            if len(resource_ids) != len(document["resource_ids"]):
+                raise ValueError("Invalid receipt resource identifier")
+            receipt = CloudBootstrapRollbackReceipt(
+                provider=cast(CloudProvider, document["provider"]),
+                run_id=str(document["run_id"]),
+                resource_ids=resource_ids,
+            )
+            if (
+                receipt.provider != session.provider
+                or receipt.run_id != bootstrap_run_id(session.id)
+            ):
+                raise ValueError("Receipt scope does not match setup session")
+            return receipt
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise CloudBootstrapDomainError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                "The stored setup-only cleanup receipt is invalid; manual reconciliation is required.",
+                http_status=409,
+            ) from exc
+
+    @staticmethod
+    def _is_setup_only(session: CloudBootstrapSession) -> bool:
+        return (
+            session.execution_kind
+            == CloudBootstrapExecutionKind.SETUP_ONLY_VALIDATION.value
+        )
+
+    def _require_setup_confirmation(
+        self,
+        session: CloudBootstrapSession,
+        confirmation: str | None,
+    ) -> None:
+        if not self._is_setup_only(session):
+            raise self._conflict("This session is not a setup-only validation session.")
+        if not settings.CLOUD_BOOTSTRAP_SETUP_GATE_ENABLED:
+            raise CloudBootstrapDomainError(
+                "BOOTSTRAP_SETUP_GATE_DISABLED",
+                "The thesis-only setup validation gate is disabled in this runtime.",
+                http_status=409,
+            )
+        expected = self._setup_confirmation(session)
+        if confirmation is None or not secrets.compare_digest(confirmation, expected):
+            raise CloudBootstrapDomainError(
+                "BOOTSTRAP_SETUP_CONFIRMATION_INVALID",
+                "The setup-only confirmation does not match this provider transaction.",
+                http_status=409,
+            )
+
+    @staticmethod
+    def _setup_confirmation(session: CloudBootstrapSession) -> str:
+        return f"{bootstrap_run_id(session.id)}:{session.provider}:setup_only"
 
     def _owned_session(self, user_id: str, session_id: str) -> CloudBootstrapSession:
         session = self._repo.get_for_owner(session_id, user_id)
@@ -1191,8 +1551,29 @@ class GuidedCloudBootstrapService:
         ).model_dump(mode="json", exclude_none=True)
 
     @staticmethod
+    def _setup_cleanup_finding(provider: str) -> dict[str, Any]:
+        return CloudBootstrapFinding(
+            code="BOOTSTRAP_CLEANUP_FAILED",
+            title="Setup-only cleanup requires reconciliation",
+            message=(
+                "The setup-only transaction did not complete mandatory cleanup. "
+                "Keep the encrypted test connection and secret-free receipt until cleanup is retried or completed manually."
+            ),
+            blocking=True,
+            action=(
+                "Retry supervised cleanup with the same bootstrap authority, then verify provider resources before removing local evidence."
+            ),
+            remediation_url={
+                "aws": "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_remove.html",
+                "azure": "https://learn.microsoft.com/en-us/entra/identity-platform/howto-remove-app",
+                "gcp": "https://cloud.google.com/iam/docs/service-accounts-delete-undelete",
+            }[provider],
+        ).model_dump(mode="json", exclude_none=True)
+
+    @staticmethod
     def _command_permissions(session: CloudBootstrapSession) -> list[str]:
         state = CloudBootstrapState(session.state)
+        setup_only = GuidedCloudBootstrapService._is_setup_only(session)
         if state in {
             CloudBootstrapState.DRAFT,
             CloudBootstrapState.CREDENTIAL_REENTRY_REQUIRED,
@@ -1203,9 +1584,9 @@ class GuidedCloudBootstrapService:
             CloudBootstrapState.GENERATED_CONNECTION_READY,
             CloudBootstrapState.DISPOSAL_RUNNING,
         }:
-            return ["recheck", "cancel"]
+            return ["recheck"] if setup_only else ["recheck", "cancel"]
         if state == CloudBootstrapState.MANUAL_REVOCATION_REQUIRED:
-            return ["acknowledge_manual_revocation"]
+            return ["recheck"] if setup_only else ["acknowledge_manual_revocation"]
         if state in {
             CloudBootstrapState.FAILED,
             CloudBootstrapState.CANCELLED,

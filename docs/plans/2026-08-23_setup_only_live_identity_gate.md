@@ -1,9 +1,10 @@
 # Setup-Only Live Gate Before Paid Cloud E2E
 
 **Date:** 2026-08-23  
-**Status:** In progress (G0, isolated credential-free G1, version-aware G4
-validator logic, and AWS/Azure plus the GCP existing-project provider drivers
-implemented offline; G2-G5 not run for any provider)
+**Status:** In progress (G0, isolated credential-free G1, the separately
+guarded two-step runner, version-aware G4 validator logic, and AWS/Azure plus
+the GCP existing-project provider drivers implemented offline; G2-G5 not run
+for any provider)
 **Parent issue:** [#107](https://github.com/TVJunkie724/master-thesis/issues/107)  
 **Scope:** AWS, Azure, and GCP guided bootstrap, bounded deployment identities,
 credential preflight, the fixed GCP Phase 8 API baseline, and cleanup only
@@ -61,9 +62,9 @@ fallbacks, but they are not sufficient as the new live gate:
 - generated secret JSON can be written to stdout unless an output file is
   selected.
 
-The provider adapters are now implemented offline. The remaining implementation
-slice must add the separately guarded setup-only runner rather than relabel the
-existing deployment E2E tests.
+The provider adapters and separately guarded setup-only runner are now
+implemented offline. The remaining work is supervised G2-G5 evidence rather
+than relabeling any existing deployment E2E test.
 
 ### 2.1 Contract Findings To Resolve Before Live Execution
 
@@ -455,11 +456,11 @@ truthfully requests manual revocation of the safe submitted key identifier.
 Preflight failure still triggers cleanup and is recorded as a failed setup gate,
 not as permission to retain test resources.
 
-- Drive guide -> session -> execute -> CloudConnection -> preflight through the
+- [x] Drive guide -> session -> execute -> CloudConnection -> preflight through the
   real Management API.
-- Capture the provider mutation ledger outside normal API/log output.
-- Provide provider-specific cleanup and post-cleanup absence checks.
-- Add a `--plan-only` dry run and a separate unmistakable live confirmation;
+- [x] Capture the provider mutation ledger outside normal API/log output.
+- [x] Provide provider-specific cleanup and post-cleanup absence checks.
+- [x] Add a `--plan-only` dry run and a separate unmistakable live confirmation;
   neither may accept secrets on the command line.
 
 The CLI is two-step. `prepare` performs only Management guide/session calls and
@@ -467,6 +468,46 @@ writes the manifest/ledger. `execute` requires the exact confirmation and reads
 one provider credential document from stdin. Plan-only never accepts credential
 input, never enables the supervised adapter, and never calls execute, preflight,
 or cleanup endpoints.
+
+The implemented entry point is `scripts/setup_only_runner.py`. Management must
+be started explicitly with the setup gate and exactly one reviewed supervised
+provider enabled. The runner itself never changes those settings and never
+imports a provider SDK. Its Management bearer token is read from
+`TWIN2MC_MANAGEMENT_BEARER_TOKEN`; provider bootstrap credentials are accepted
+only as the single JSON document piped to `execute` on stdin.
+
+An AWS example (identifiers are illustrative; this block is documentation and
+has not been executed against a provider):
+
+```bash
+export CLOUD_BOOTSTRAP_ADAPTER_MODE=supervised_live
+export CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS=aws
+export CLOUD_BOOTSTRAP_SETUP_GATE_ENABLED=true
+./thesis.sh up --no-flutter
+
+export TWIN2MC_MANAGEMENT_BEARER_TOKEN=dev-token
+python3 scripts/setup_only_runner.py prepare \
+  --provider aws --mode setup_only --region eu-central-1 \
+  --account-id 123456789012 \
+  --manifest .evidence/aws-setup/manifest.json \
+  --ledger .evidence/aws-setup/private/ledger.json
+
+export TWIN2MC_SETUP_GATE_ENABLED=1
+# Copy the exact non-secret confirmation printed in the manifest/run evidence.
+# The credential JSON is piped from an operator-controlled source; no credential
+# filename or secret value is a command argument or environment variable.
+credential_source_command | python3 scripts/setup_only_runner.py execute \
+  --manifest .evidence/aws-setup/manifest.json \
+  --ledger .evidence/aws-setup/private/ledger.json \
+  --confirm twin2mc-e2e-xxxxxxxxxxxx:aws:setup_only \
+  --credential-origin dedicated_disposable
+```
+
+`plan_only` still creates and immediately cancels a credential-free Management
+session so its run ID is deterministic, then records a clean ledger with
+`preflight_status=not_run`. Setup execution records `passed`, `failed`, or
+`error` before mandatory cleanup. A failed/error preflight therefore exits
+non-zero after cleanup while retaining truthful, secret-free evidence.
 
 ### Slice D — Supervised Provider Execution
 

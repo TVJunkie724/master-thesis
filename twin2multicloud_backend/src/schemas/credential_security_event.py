@@ -19,6 +19,7 @@ class CredentialSecurityAction(StrEnum):
     BOOTSTRAP_EXECUTE = "cloud_bootstrap.execute"
     BOOTSTRAP_ACKNOWLEDGE_REVOCATION = "cloud_bootstrap.acknowledge_revocation"
     BOOTSTRAP_CANCEL = "cloud_bootstrap.cancel"
+    BOOTSTRAP_SETUP_CLEANUP = "cloud_bootstrap.setup_cleanup"
     INLINE_VALIDATE = "credentials.validate_inline"
     STORED_VALIDATE = "credentials.validate_stored"
 

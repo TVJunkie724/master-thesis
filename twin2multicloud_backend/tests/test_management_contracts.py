@@ -54,6 +54,14 @@ def test_management_json_contracts_have_response_models():
             "post",
         ): "#/components/schemas/CloudBootstrapSessionResponse",
         (
+            "/cloud-bootstrap/sessions/{session_id}/setup-gate-receipt",
+            "get",
+        ): "#/components/schemas/CloudBootstrapSetupReceiptResponse",
+        (
+            "/cloud-bootstrap/sessions/{session_id}/setup-gate-cleanup",
+            "post",
+        ): "#/components/schemas/CloudBootstrapSetupCleanupResponse",
+        (
             "/cloud-bootstrap/sessions/{session_id}/acknowledge-manual-revocation",
             "post",
         ): "#/components/schemas/CloudBootstrapSessionResponse",

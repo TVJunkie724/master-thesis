@@ -50,6 +50,12 @@ ROLLBACK_RESOURCE_KEYS = {
 }
 
 
+def bootstrap_run_id(session_id: str) -> str:
+    """Return the one deterministic setup-run identifier for a session."""
+
+    return f"twin2mc-e2e-{hashlib.sha256(session_id.encode('utf-8')).hexdigest()[:12]}"
+
+
 class CloudBootstrapAdapterError(RuntimeError):
     """Safe provider-adapter failure without raw provider payloads."""
 
@@ -149,6 +155,23 @@ class CloudBootstrapAdapter(Protocol):
         credential: CloudBootstrapCredential,
     ) -> CloudBootstrapFinalizationResult: ...
 
+    def cleanup_generated_access(
+        self,
+        *,
+        receipt: CloudBootstrapRollbackReceipt,
+        target: CloudBootstrapTarget,
+        credential: CloudBootstrapCredential,
+    ) -> None: ...
+
+    def finalize_bootstrap_receipt(
+        self,
+        *,
+        receipt: CloudBootstrapRollbackReceipt,
+        target: CloudBootstrapTarget,
+        credential_origin: CloudBootstrapCredentialOrigin,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapFinalizationResult: ...
+
 
 class SupervisedLiveProviderDriver(Protocol):
     """Provider boundary that self-compensates partial provision failures.
@@ -227,6 +250,33 @@ class DisabledCloudBootstrapAdapter:
             "Live provider bootstrap is disabled in this runtime.",
         )
 
+    def cleanup_generated_access(
+        self,
+        *,
+        receipt: CloudBootstrapRollbackReceipt,
+        target: CloudBootstrapTarget,
+        credential: CloudBootstrapCredential,
+    ) -> None:
+        del receipt, target, credential
+        raise CloudBootstrapAdapterError(
+            "BOOTSTRAP_CLEANUP_FAILED",
+            "Generated provider access requires manual cleanup because live bootstrap is disabled.",
+        )
+
+    def finalize_bootstrap_receipt(
+        self,
+        *,
+        receipt: CloudBootstrapRollbackReceipt,
+        target: CloudBootstrapTarget,
+        credential_origin: CloudBootstrapCredentialOrigin,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapFinalizationResult:
+        del receipt, target, credential_origin, credential
+        raise CloudBootstrapAdapterError(
+            "BOOTSTRAP_CLEANUP_FAILED",
+            "The temporary bootstrap authority requires manual provider cleanup because live bootstrap is disabled.",
+        )
+
 
 class UnconfiguredSupervisedLiveCloudBootstrapAdapter:
     """Fail closed until reviewed provider implementations are wired in."""
@@ -271,6 +321,33 @@ class UnconfiguredSupervisedLiveCloudBootstrapAdapter:
         raise CloudBootstrapAdapterError(
             "BOOTSTRAP_IDENTITY_CREATION_FAILED",
             "Supervised live bootstrap has no reviewed provider adapter configured.",
+        )
+
+    def cleanup_generated_access(
+        self,
+        *,
+        receipt: CloudBootstrapRollbackReceipt,
+        target: CloudBootstrapTarget,
+        credential: CloudBootstrapCredential,
+    ) -> None:
+        del receipt, target, credential
+        raise CloudBootstrapAdapterError(
+            "BOOTSTRAP_CLEANUP_FAILED",
+            "Generated provider access requires manual cleanup because its adapter is unavailable.",
+        )
+
+    def finalize_bootstrap_receipt(
+        self,
+        *,
+        receipt: CloudBootstrapRollbackReceipt,
+        target: CloudBootstrapTarget,
+        credential_origin: CloudBootstrapCredentialOrigin,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapFinalizationResult:
+        del receipt, target, credential_origin, credential
+        raise CloudBootstrapAdapterError(
+            "BOOTSTRAP_CLEANUP_FAILED",
+            "The temporary bootstrap authority requires manual provider cleanup because its adapter is unavailable.",
         )
 
 
@@ -352,13 +429,41 @@ class SupervisedLiveCloudBootstrapAdapter:
                 credential_expires_at=result.credential_expires_at,
             )
         receipt = result.rollback_receipt
-        if (
-            receipt is None
-            or credential_origin != CloudBootstrapCredentialOrigin.DEDICATED_DISPOSABLE
-        ):
+        if receipt is None:
             raise CloudBootstrapAdapterError(
                 "BOOTSTRAP_CLEANUP_FAILED",
                 "The temporary bootstrap authority requires manual provider cleanup.",
+            )
+        return self.finalize_bootstrap_receipt(
+            receipt=receipt,
+            target=target,
+            credential_origin=credential_origin,
+            credential=credential,
+        )
+
+    def finalize_bootstrap_receipt(
+        self,
+        *,
+        receipt: CloudBootstrapRollbackReceipt,
+        target: CloudBootstrapTarget,
+        credential_origin: CloudBootstrapCredentialOrigin,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapFinalizationResult:
+        if credential_origin == CloudBootstrapCredentialOrigin.EXISTING_USER_OWNED:
+            return CloudBootstrapFinalizationResult(
+                disposal_status=(
+                    CloudBootstrapDisposalStatus.NOT_RETAINED_USER_MANAGED
+                ),
+            )
+        if credential_origin != CloudBootstrapCredentialOrigin.DEDICATED_DISPOSABLE:
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                "The bootstrap credential origin cannot be finalized safely.",
+            )
+        if target.provider != receipt.provider or credential.provider != receipt.provider:
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                "The temporary bootstrap authority requires manual cleanup because its scope is inconsistent.",
             )
         driver = self._drivers.get(receipt.provider)
         if driver is None:
@@ -401,6 +506,19 @@ class SupervisedLiveCloudBootstrapAdapter:
         receipt = result.rollback_receipt
         if receipt is None:
             return
+        self.cleanup_generated_access(
+            receipt=receipt,
+            target=target,
+            credential=credential,
+        )
+
+    def cleanup_generated_access(
+        self,
+        *,
+        receipt: CloudBootstrapRollbackReceipt,
+        target: CloudBootstrapTarget,
+        credential: CloudBootstrapCredential,
+    ) -> None:
         if (
             target.provider != receipt.provider
             or credential.provider != receipt.provider
@@ -432,9 +550,7 @@ class SupervisedLiveCloudBootstrapAdapter:
         session_id: str,
         target: CloudBootstrapTarget,
     ) -> SupervisedLiveBootstrapPlan:
-        run_id = (
-            f"twin2mc-e2e-{hashlib.sha256(session_id.encode('utf-8')).hexdigest()[:12]}"
-        )
+        run_id = bootstrap_run_id(session_id)
         baseline = None
         if isinstance(target, AWSBootstrapTarget):
             provider: CloudProvider = "aws"
@@ -629,6 +745,41 @@ class DeterministicFakeCloudBootstrapAdapter:
             credential_expires_at=result.credential_expires_at,
         )
 
+    def cleanup_generated_access(
+        self,
+        *,
+        receipt: CloudBootstrapRollbackReceipt,
+        target: CloudBootstrapTarget,
+        credential: CloudBootstrapCredential,
+    ) -> None:
+        if target.provider != receipt.provider or credential.provider != receipt.provider:
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                "The offline cleanup receipt does not match its provider scope.",
+            )
+
+    def finalize_bootstrap_receipt(
+        self,
+        *,
+        receipt: CloudBootstrapRollbackReceipt,
+        target: CloudBootstrapTarget,
+        credential_origin: CloudBootstrapCredentialOrigin,
+        credential: CloudBootstrapCredential,
+    ) -> CloudBootstrapFinalizationResult:
+        if target.provider != receipt.provider or credential.provider != receipt.provider:
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                "The offline bootstrap receipt does not match its provider scope.",
+            )
+        return CloudBootstrapFinalizationResult(
+            disposal_status=(
+                CloudBootstrapDisposalStatus.NOT_RETAINED_USER_MANAGED
+                if credential_origin
+                == CloudBootstrapCredentialOrigin.EXISTING_USER_OWNED
+                else CloudBootstrapDisposalStatus.REVOKED
+            )
+        )
+
     def _aws(
         self,
         session_id: str,
@@ -682,6 +833,11 @@ class DeterministicFakeCloudBootstrapAdapter:
             safe_credential_identifier=access_key_id,
             disposal_status=disposal,
             credential_expires_at=expiry,
+            rollback_receipt=CloudBootstrapRollbackReceipt(
+                provider="aws",
+                run_id=bootstrap_run_id(session_id),
+                resource_ids=(("user_name", f"{bootstrap_run_id(session_id)}-deployer"),),
+            ),
         )
 
     def _azure(
@@ -741,6 +897,11 @@ class DeterministicFakeCloudBootstrapAdapter:
             safe_credential_identifier=safe_id,
             disposal_status=disposal,
             credential_expires_at=expiry,
+            rollback_receipt=CloudBootstrapRollbackReceipt(
+                provider="azure",
+                run_id=bootstrap_run_id(session_id),
+                resource_ids=(("application_object_id", generated_client_id),),
+            ),
         )
 
     def _gcp(
@@ -807,6 +968,11 @@ class DeterministicFakeCloudBootstrapAdapter:
             safe_credential_identifier=key_id,
             disposal_status=disposal,
             credential_expires_at=expiry,
+            rollback_receipt=CloudBootstrapRollbackReceipt(
+                provider="gcp",
+                run_id=bootstrap_run_id(session_id),
+                resource_ids=(("service_account_email", email),),
+            ),
         )
 
     @staticmethod

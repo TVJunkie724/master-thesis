@@ -271,7 +271,8 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                     "scripts.tests.test_materialize_deployment_policy "
                     "scripts.tests.test_thesis_entrypoint "
                     "&& python -m pytest -q -p no:cacheprovider "
-                    "scripts/tests/test_deployment_manifest_contract_sync.py"
+                    "scripts/tests/test_deployment_manifest_contract_sync.py "
+                    "scripts/tests/test_setup_only_runner.py"
                 ),
                 root_mount=True,
             ),

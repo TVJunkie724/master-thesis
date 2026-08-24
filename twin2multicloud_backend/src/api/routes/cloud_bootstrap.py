@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -17,6 +17,9 @@ from src.schemas.cloud_bootstrap import (
     CloudBootstrapSessionCreateRequest,
     CloudBootstrapSessionListResponse,
     CloudBootstrapSessionResponse,
+    CloudBootstrapSetupCleanupRequest,
+    CloudBootstrapSetupCleanupResponse,
+    CloudBootstrapSetupReceiptResponse,
 )
 from src.services.cloud_bootstrap_service import CloudBootstrapService
 from src.services.cloud_connection_service import CloudConnectionService
@@ -172,6 +175,10 @@ async def get_cloud_bootstrap_session(
 async def execute_cloud_bootstrap_session(
     session_id: str,
     request: CloudBootstrapExecuteRequest,
+    setup_confirmation: str | None = Header(
+        default=None,
+        alias="X-Twin2MC-Setup-Confirmation",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(
         credential_rate_limit(
@@ -188,6 +195,81 @@ async def execute_cloud_bootstrap_session(
             current_user,
             CredentialSecurityAction.BOOTSTRAP_EXECUTE,
             request.credential.provider,
+            200,
+        ),
+        setup_confirmation=setup_confirmation,
+    )
+
+
+@router.get(
+    "/sessions/{session_id}/setup-gate-receipt",
+    response_model=CloudBootstrapSetupReceiptResponse,
+    operation_id="getCloudBootstrapSetupReceipt",
+    summary="Read the secret-free receipt for a setup-only validation session",
+    responses={
+        401: ERROR_RESPONSES[401],
+        409: ERROR_RESPONSES[409],
+    },
+)
+async def get_cloud_bootstrap_setup_receipt(
+    session_id: str,
+    setup_confirmation: str | None = Header(
+        default=None,
+        alias="X-Twin2MC-Setup-Confirmation",
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.BOOTSTRAP,
+            CredentialSecurityAction.BOOTSTRAP_GUIDE,
+        )
+    ),
+):
+    return GuidedCloudBootstrapService(db).get_setup_receipt(
+        current_user.id,
+        session_id,
+        setup_confirmation,
+    )
+
+
+@router.post(
+    "/sessions/{session_id}/setup-gate-cleanup",
+    response_model=CloudBootstrapSetupCleanupResponse,
+    operation_id="cleanupCloudBootstrapSetupSession",
+    summary="Clean provider and local access created by setup-only validation",
+    responses={
+        401: ERROR_RESPONSES[401],
+        409: ERROR_RESPONSES[409],
+        422: ERROR_RESPONSES[422],
+    },
+)
+async def cleanup_cloud_bootstrap_setup_session(
+    session_id: str,
+    request: CloudBootstrapSetupCleanupRequest,
+    setup_confirmation: str | None = Header(
+        default=None,
+        alias="X-Twin2MC-Setup-Confirmation",
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.BOOTSTRAP,
+            CredentialSecurityAction.BOOTSTRAP_SETUP_CLEANUP,
+        )
+    ),
+):
+    session = GuidedCloudBootstrapService(db).get_session(
+        current_user.id, session_id
+    )
+    return GuidedCloudBootstrapService(db).cleanup_setup_session(
+        current_user.id,
+        session_id,
+        request,
+        setup_confirmation,
+        _audit(
+            current_user,
+            CredentialSecurityAction.BOOTSTRAP_SETUP_CLEANUP,
+            session.provider,
             200,
         ),
     )

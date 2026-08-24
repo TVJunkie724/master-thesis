@@ -70,6 +70,11 @@ class CloudBootstrapEntryPoint(StrEnum):
     TWIN_PREPARE = "twin_prepare"
 
 
+class CloudBootstrapExecutionKind(StrEnum):
+    PERSISTENT_CONNECTION = "persistent_connection"
+    SETUP_ONLY_VALIDATION = "setup_only_validation"
+
+
 class CloudBootstrapState(StrEnum):
     DRAFT = "draft"
     BOOTSTRAP_RUNNING = "bootstrap_running"
@@ -264,6 +269,9 @@ class CloudBootstrapSessionCreateRequest(BaseModel):
     provider: CloudProvider
     target: CloudBootstrapTarget
     entry_point: CloudBootstrapEntryPoint
+    execution_kind: CloudBootstrapExecutionKind = (
+        CloudBootstrapExecutionKind.PERSISTENT_CONNECTION
+    )
     twin_id: str | None = None
     display_name: str = Field(min_length=1, max_length=120)
     guide_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
@@ -345,6 +353,89 @@ class CloudBootstrapRevisionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     expected_revision: int = Field(ge=1)
+
+
+class CloudBootstrapSetupCleanupRequest(BaseModel):
+    """Re-enter bootstrap authority only for mandatory setup-only cleanup."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = Field(ge=1)
+    credential: CloudBootstrapCredential
+
+
+class CloudBootstrapSetupReceiptResponse(BaseModel):
+    """Secret-free provider receipt exposed only by the setup gate."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["cloud-bootstrap-setup-receipt.v1"] = (
+        "cloud-bootstrap-setup-receipt.v1"
+    )
+    session_id: str
+    provider: CloudProvider
+    run_id: str = Field(pattern=r"^twin2mc-e2e-[a-f0-9]{12}$")
+    resource_ids: dict[str, str] = Field(min_length=1, max_length=5)
+    connection_id: str | None
+
+    @model_validator(mode="after")
+    def validate_resource_identifiers(self):
+        allowed = {
+            "aws": {"access_key_id", "policy_arn", "user_name"},
+            "azure": {
+                "application_object_id",
+                "credential_key_id",
+                "role_assignment_id",
+                "role_definition_id",
+                "service_principal_object_id",
+            },
+            "gcp": {"key_id", "role_name", "service_account_email"},
+        }[self.provider]
+        if not set(self.resource_ids).issubset(allowed) or any(
+            not value
+            or len(value) > 512
+            or any(ord(character) < 32 or ord(character) == 127 for character in value)
+            for value in self.resource_ids.values()
+        ):
+            raise ValueError("Setup receipt contains an unsafe provider identifier")
+        return self
+
+
+class CloudBootstrapSetupCleanupResponse(BaseModel):
+    """Safe terminal or resumable result of one setup-only cleanup attempt."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["cloud-bootstrap-setup-cleanup.v1"] = (
+        "cloud-bootstrap-setup-cleanup.v1"
+    )
+    session_id: str
+    provider: CloudProvider
+    run_id: str = Field(pattern=r"^twin2mc-e2e-[a-f0-9]{12}$")
+    generated_access_clean: bool
+    local_connection_clean: bool
+    bootstrap_authority_disposal_status: CloudBootstrapDisposalStatus
+    cleanup_complete: bool
+    manual_action_required: bool
+
+    @model_validator(mode="after")
+    def validate_cleanup_claim(self):
+        if self.cleanup_complete:
+            if (
+                not self.generated_access_clean
+                or not self.local_connection_clean
+                or self.manual_action_required
+                or self.bootstrap_authority_disposal_status
+                == CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED
+            ):
+                raise ValueError("A complete setup cleanup must be fully terminal")
+        elif (
+            not self.manual_action_required
+            or self.bootstrap_authority_disposal_status
+            != CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED
+        ):
+            raise ValueError("An incomplete setup cleanup must require manual action")
+        return self
 
 
 class CloudBootstrapConnectionSummary(BaseModel):

@@ -29,7 +29,7 @@ PERMISSION_SET_ROOT = (
     REPO_ROOT / "3-cloud-deployer" / "docs" / "references" / "permission_sets"
 )
 SCHEMA_VERSION = "setup-only-live-gate.v2"
-LEDGER_SCHEMA_VERSION = "setup-only-live-gate-ledger.v1"
+LEDGER_SCHEMA_VERSION = "setup-only-live-gate-ledger.v2"
 PERMISSION_SET_VERSION = "thesis-demo-v2"
 PROVIDERS = ("aws", "azure", "gcp")
 MODES = ("plan_only", "setup_only")
@@ -278,6 +278,7 @@ LEDGER_KEYS = frozenset(
         "current_state",
         "resources",
         "cloud_connection_id",
+        "preflight_status",
         "updated_at",
     }
 )
@@ -440,6 +441,7 @@ def new_cleanup_ledger(manifest: SetupGateManifest) -> CleanupLedger:
         "current_state": "planned",
         "resources": [],
         "cloud_connection_id": None,
+        "preflight_status": "not_run",
         "updated_at": _utc_now(),
     }
     return validate_cleanup_ledger(document, manifest=manifest)
@@ -481,6 +483,8 @@ def validate_cleanup_ledger(
     connection_id = payload["cloud_connection_id"]
     if connection_id is not None:
         _safe_identifier(connection_id, "cloud_connection_id")
+    if payload["preflight_status"] not in {"not_run", "passed", "failed", "error"}:
+        raise SetupGateError("Cleanup ledger preflight status is invalid.")
     _parse_timestamp(payload["updated_at"], "updated_at")
     _reject_secret_shaped_keys(payload)
     return CleanupLedger(document=payload)
@@ -532,6 +536,25 @@ def attach_cloud_connection(ledger: CleanupLedger, connection_id: str) -> Cleanu
     _safe_identifier(connection_id, "cloud_connection_id")
     document = dict(ledger.document)
     document["cloud_connection_id"] = connection_id
+    document["updated_at"] = _utc_now()
+    return validate_cleanup_ledger(document)
+
+
+def record_preflight_status(
+    ledger: CleanupLedger,
+    status: str,
+) -> CleanupLedger:
+    if ledger.state != "connection_persisted":
+        raise SetupGateError(
+            "Preflight status can be recorded only for a persisted test connection."
+        )
+    if status not in {"passed", "failed", "error"}:
+        raise SetupGateError("Preflight status must be passed, failed, or error.")
+    current = ledger.document["preflight_status"]
+    if current != "not_run" and current != status:
+        raise SetupGateError("Cleanup ledger already records another preflight result.")
+    document = dict(ledger.document)
+    document["preflight_status"] = status
     document["updated_at"] = _utc_now()
     return validate_cleanup_ledger(document)
 
@@ -683,18 +706,118 @@ class CleanupLedgerStore:
 
 def write_manifest(path: Path, manifest: SetupGateManifest) -> None:
     target = path.expanduser().absolute()
-    if _path_exists(target):
-        raise SetupGateError("Manifest output already exists.")
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(
-        json.dumps(manifest.document, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    parent_metadata = target.parent.lstat()
+    if (
+        stat.S_ISLNK(parent_metadata.st_mode)
+        or not stat.S_ISDIR(parent_metadata.st_mode)
+        or stat.S_IMODE(parent_metadata.st_mode) & 0o022
+        or (
+            hasattr(os, "getuid")
+            and parent_metadata.st_uid != os.getuid()
+        )
+    ):
+        raise SetupGateError(
+            "Manifest parent must be an owner-controlled directory not writable by other users."
+        )
+    payload = (
+        json.dumps(manifest.document, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = -1
+    created = False
+    succeeded = False
+    try:
+        descriptor = os.open(target, flags, 0o600)
+        created = True
+        offset = 0
+        while offset < len(payload):
+            written = os.write(descriptor, payload[offset:])
+            if written <= 0:
+                raise OSError("Manifest write made no progress")
+            offset += written
+        os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor = -1
+        os.chmod(target, 0o600, follow_symlinks=False)
+        directory_descriptor = os.open(target.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_descriptor)
+        finally:
+            os.close(directory_descriptor)
+        succeeded = True
+    except FileExistsError as exc:
+        raise SetupGateError("Manifest output already exists.") from exc
+    except OSError as exc:
+        raise SetupGateError("Manifest could not be persisted safely.") from exc
+    finally:
+        if descriptor >= 0:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        if created and not succeeded:
+            target.unlink(missing_ok=True)
 
 
 def read_manifest(path: Path) -> SetupGateManifest:
+    target = path.expanduser().absolute()
     try:
-        document = json.loads(path.read_text(encoding="utf-8"))
+        metadata = target.lstat()
+        parent_metadata = target.parent.lstat()
+        if (
+            stat.S_ISLNK(metadata.st_mode)
+            or not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or stat.S_IMODE(metadata.st_mode) & 0o077
+        ):
+            raise SetupGateError(
+                "Manifest must be one private, non-linked regular file."
+            )
+        if (
+            stat.S_ISLNK(parent_metadata.st_mode)
+            or not stat.S_ISDIR(parent_metadata.st_mode)
+            or stat.S_IMODE(parent_metadata.st_mode) & 0o022
+        ):
+            raise SetupGateError(
+                "Manifest parent must be a real directory not writable by other users."
+            )
+        if hasattr(os, "getuid") and (
+            metadata.st_uid != os.getuid()
+            or parent_metadata.st_uid != os.getuid()
+        ):
+            raise SetupGateError("Manifest and parent must be owned by this user.")
+        if metadata.st_size > MAX_LEDGER_BYTES:
+            raise SetupGateError("Manifest is unexpectedly large.")
+        flags = os.O_RDONLY
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        descriptor = os.open(target, flags)
+        try:
+            opened = os.fstat(descriptor)
+            if (opened.st_dev, opened.st_ino) != (metadata.st_dev, metadata.st_ino):
+                raise SetupGateError("Manifest changed while it was opened.")
+            chunks: list[bytes] = []
+            total = 0
+            while total <= MAX_LEDGER_BYTES:
+                chunk = os.read(
+                    descriptor,
+                    min(8192, MAX_LEDGER_BYTES + 1 - total),
+                )
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                total += len(chunk)
+            payload = b"".join(chunks)
+        finally:
+            os.close(descriptor)
+        if len(payload) > MAX_LEDGER_BYTES:
+            raise SetupGateError("Manifest is unexpectedly large.")
+        document = json.loads(payload.decode("utf-8"))
+    except SetupGateError:
+        raise
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise SetupGateError("Manifest is not readable UTF-8 JSON.") from exc
     if not isinstance(document, dict):

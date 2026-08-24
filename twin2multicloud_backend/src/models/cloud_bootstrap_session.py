@@ -60,6 +60,10 @@ class CloudBootstrapSession(Base):
             name="ck_cloud_bootstrap_entry_point",
         ),
         CheckConstraint(
+            "execution_kind IN ('persistent_connection', 'setup_only_validation')",
+            name="ck_cloud_bootstrap_execution_kind",
+        ),
+        CheckConstraint(
             "state IN ("
             "'draft', 'bootstrap_running', 'generated_connection_ready', "
             "'disposal_running', 'manual_revocation_required', "
@@ -94,6 +98,9 @@ class CloudBootstrapSession(Base):
     target_scope_digest = Column(String(71), nullable=False)
     target_json = Column(Text, nullable=False)
     entry_point = Column(String(32), nullable=False)
+    execution_kind = Column(
+        String(32), nullable=False, default="persistent_connection"
+    )
     twin_id = Column(
         String,
         ForeignKey("digital_twins.id", ondelete="SET NULL"),
@@ -117,6 +124,7 @@ class CloudBootstrapSession(Base):
     credential_expires_at = Column(DateTime(timezone=True), nullable=True)
     safe_credential_identifier = Column(String(160), nullable=True)
     finding_json = Column(Text, nullable=True)
+    provider_cleanup_receipt_json = Column(Text, nullable=True)
     connection_id = Column(
         String,
         ForeignKey("cloud_connections.id", ondelete="SET NULL"),

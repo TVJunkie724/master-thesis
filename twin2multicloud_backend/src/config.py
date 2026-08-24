@@ -1,6 +1,7 @@
 import base64
 import binascii
 import ipaddress
+import os
 import re
 from enum import StrEnum
 from pathlib import Path
@@ -120,6 +121,9 @@ class Settings(BaseSettings):
     ] = "disabled"
     CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS: str = ""
     CLOUD_BOOTSTRAP_LEASE_TIMEOUT_SECONDS: int = Field(default=300, ge=30, le=3600)
+    # Thesis-only setup validation. This is independent from provider adapter
+    # selection and defaults closed in every environment.
+    CLOUD_BOOTSTRAP_SETUP_GATE_ENABLED: bool = False
 
     # GLB File Storage (for scene.glb uploads)
     UPLOAD_DIR: str = "./uploads"
@@ -158,6 +162,10 @@ class Settings(BaseSettings):
             raise ValueError(
                 "CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS requires supervised_live mode"
             )
+        if self.CLOUD_BOOTSTRAP_SETUP_GATE_ENABLED and os.getenv(
+            "CI", ""
+        ).strip().lower() in {"1", "true", "yes"}:
+            raise ValueError("CLOUD_BOOTSTRAP_SETUP_GATE_ENABLED is forbidden in CI")
         if self.DEV_AUTH_ENABLED and not self.DEV_AUTH_TOKEN:
             raise ValueError("DEV_AUTH_TOKEN is required when DEV_AUTH_ENABLED is true")
 

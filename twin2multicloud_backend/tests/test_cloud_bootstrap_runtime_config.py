@@ -57,3 +57,10 @@ def test_provider_allowlist_cannot_be_ignored_by_an_offline_mode():
             CLOUD_BOOTSTRAP_ADAPTER_MODE="deterministic_fake",
             CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS="aws",
         )
+
+
+def test_setup_gate_defaults_closed_and_cannot_be_enabled_in_ci(monkeypatch):
+    assert _settings().CLOUD_BOOTSTRAP_SETUP_GATE_ENABLED is False
+    monkeypatch.setenv("CI", "true")
+    with pytest.raises(ValidationError, match="forbidden in CI"):
+        _settings(CLOUD_BOOTSTRAP_SETUP_GATE_ENABLED=True)

@@ -20,6 +20,8 @@ from src.services.cloud_bootstrap_adapters import (
     CloudBootstrapAdapterResult,
     CloudBootstrapFinalizationResult,
     CloudBootstrapRollbackReceipt,
+    DeterministicFakeCloudBootstrapAdapter,
+    bootstrap_run_id,
 )
 from src.services.cloud_bootstrap_errors import CloudBootstrapDomainError
 from src.services.cloud_connection_service import CloudConnectionService
@@ -100,25 +102,34 @@ def _guide(client, provider: str) -> dict:
     return response.json()
 
 
-def _session(client, provider: str, *, key: str) -> dict:
+def _session(
+    client,
+    provider: str,
+    *,
+    key: str,
+    execution_kind: str | None = None,
+) -> dict:
     guide = _guide(client, provider)
+    payload = {
+        "provider": provider,
+        "target": guide["target"],
+        "entry_point": "settings",
+        "twin_id": None,
+        "display_name": f"{provider.upper()} deployment access",
+        "guide_digest": guide["guide_digest"],
+        "bootstrap_authority_pack_digest": guide["bootstrap_authority_pack"][
+            "digest"
+        ],
+        "generated_deployment_pack_digest": guide["generated_deployment_pack"][
+            "digest"
+        ],
+        "idempotency_key": key,
+    }
+    if execution_kind is not None:
+        payload["execution_kind"] = execution_kind
     response = client.post(
         "/cloud-bootstrap/sessions",
-        json={
-            "provider": provider,
-            "target": guide["target"],
-            "entry_point": "settings",
-            "twin_id": None,
-            "display_name": f"{provider.upper()} deployment access",
-            "guide_digest": guide["guide_digest"],
-            "bootstrap_authority_pack_digest": guide["bootstrap_authority_pack"][
-                "digest"
-            ],
-            "generated_deployment_pack_digest": guide["generated_deployment_pack"][
-                "digest"
-            ],
-            "idempotency_key": key,
-        },
+        json=payload,
     )
     assert response.status_code == 200, response.text
     return response.json()
@@ -968,3 +979,248 @@ def test_execute_openapi_marks_every_secret_value_write_only(auth_client):
         properties = schemas[schema_name]["properties"]
         for field in fields:
             assert properties[field]["writeOnly"] is True
+
+
+@pytest.mark.parametrize("provider", ["aws", "azure", "gcp"])
+def test_setup_only_session_requires_exact_confirmation_and_cleans_everything(
+    auth_client,
+    db,
+    monkeypatch,
+    provider,
+):
+    monkeypatch.setattr(settings, "CLOUD_BOOTSTRAP_SETUP_GATE_ENABLED", True)
+    session = _session(
+        auth_client,
+        provider,
+        key=f"create-{provider}-setup-only-001",
+        execution_kind="setup_only_validation",
+    )
+    run_id = bootstrap_run_id(session["id"])
+    confirmation = f"{run_id}:{provider}:setup_only"
+    execute_payload = {
+        "expected_revision": session["revision"],
+        "idempotency_key": f"execute-{provider}-setup-only-001",
+        "credential_origin": "dedicated_disposable",
+        "credential": _credential(provider),
+    }
+
+    rejected = auth_client.post(
+        f"/cloud-bootstrap/sessions/{session['id']}/execute",
+        json=execute_payload,
+    )
+    assert rejected.status_code == 409
+
+    executed = auth_client.post(
+        f"/cloud-bootstrap/sessions/{session['id']}/execute",
+        json=execute_payload,
+        headers={"X-Twin2MC-Setup-Confirmation": confirmation},
+    )
+    assert executed.status_code == 200, executed.text
+    pending = executed.json()
+    assert pending["state"] == "generated_connection_ready"
+    assert pending["command_permissions"] == ["recheck"]
+    assert "execution_kind" not in pending
+    assert "provider_cleanup_receipt" not in json.dumps(pending)
+    assert db.query(CloudConnection).count() == 1
+
+    receipt_response = auth_client.get(
+        f"/cloud-bootstrap/sessions/{session['id']}/setup-gate-receipt",
+        headers={"X-Twin2MC-Setup-Confirmation": confirmation},
+    )
+    assert receipt_response.status_code == 200, receipt_response.text
+    receipt = receipt_response.json()
+    assert receipt["run_id"] == run_id
+    assert receipt["provider"] == provider
+    assert receipt["connection_id"] == pending["connection"]["id"]
+    assert receipt["resource_ids"]
+    assert "secret" not in json.dumps(receipt).lower()
+
+    cleanup = auth_client.post(
+        f"/cloud-bootstrap/sessions/{session['id']}/setup-gate-cleanup",
+        headers={"X-Twin2MC-Setup-Confirmation": confirmation},
+        json={
+            "expected_revision": pending["revision"],
+            "credential": _credential(provider),
+        },
+    )
+    assert cleanup.status_code == 200, cleanup.text
+    assert cleanup.json() == {
+        "schema_version": "cloud-bootstrap-setup-cleanup.v1",
+        "session_id": session["id"],
+        "provider": provider,
+        "run_id": run_id,
+        "generated_access_clean": True,
+        "local_connection_clean": True,
+        "bootstrap_authority_disposal_status": "revoked",
+        "cleanup_complete": True,
+        "manual_action_required": False,
+    }
+    db.expire_all()
+    stored = db.query(CloudBootstrapSession).filter_by(id=session["id"]).one()
+    assert stored.state == "cancelled"
+    assert stored.connection_id is None
+    assert stored.provider_cleanup_receipt_json is None
+    assert db.query(CloudConnection).count() == 0
+
+
+def test_setup_only_cleanup_failure_keeps_encrypted_connection_and_safe_receipt(
+    auth_client,
+    db,
+    monkeypatch,
+):
+    class CleanupFailsAdapter(DeterministicFakeCloudBootstrapAdapter):
+        def cleanup_generated_access(self, *, receipt, target, credential):
+            del receipt, target, credential
+            raise CloudBootstrapAdapterError(
+                "BOOTSTRAP_CLEANUP_FAILED",
+                "safe simulated cleanup failure",
+            )
+
+    adapter = CleanupFailsAdapter()
+    monkeypatch.setattr(settings, "CLOUD_BOOTSTRAP_SETUP_GATE_ENABLED", True)
+    monkeypatch.setattr(
+        GuidedCloudBootstrapService,
+        "_adapter_for_mode",
+        staticmethod(lambda _mode: adapter),
+    )
+    session = _session(
+        auth_client,
+        "aws",
+        key="create-aws-setup-cleanup-fail-001",
+        execution_kind="setup_only_validation",
+    )
+    confirmation = f"{bootstrap_run_id(session['id'])}:aws:setup_only"
+    executed = auth_client.post(
+        f"/cloud-bootstrap/sessions/{session['id']}/execute",
+        headers={"X-Twin2MC-Setup-Confirmation": confirmation},
+        json={
+            "expected_revision": session["revision"],
+            "idempotency_key": "execute-aws-setup-cleanup-fail-001",
+            "credential_origin": "dedicated_disposable",
+            "credential": _credential("aws"),
+        },
+    ).json()
+
+    cleanup = auth_client.post(
+        f"/cloud-bootstrap/sessions/{session['id']}/setup-gate-cleanup",
+        headers={"X-Twin2MC-Setup-Confirmation": confirmation},
+        json={
+            "expected_revision": executed["revision"],
+            "credential": _credential("aws"),
+        },
+    )
+    assert cleanup.status_code == 200, cleanup.text
+    assert cleanup.json()["cleanup_complete"] is False
+    assert cleanup.json()["manual_action_required"] is True
+    db.expire_all()
+    stored = db.query(CloudBootstrapSession).filter_by(id=session["id"]).one()
+    assert stored.state == "manual_revocation_required"
+    assert stored.connection_id is not None
+    assert stored.provider_cleanup_receipt_json is not None
+    assert "submitted-aws-bootstrap-secret" not in stored.provider_cleanup_receipt_json
+    assert db.query(CloudConnection).count() == 1
+
+    current = auth_client.get(
+        f"/cloud-bootstrap/sessions/{session['id']}"
+    ).json()
+    assert current["command_permissions"] == ["recheck"]
+    for endpoint in ("acknowledge-manual-revocation", "cancel"):
+        response = auth_client.post(
+            f"/cloud-bootstrap/sessions/{session['id']}/{endpoint}",
+            json={"expected_revision": current["revision"]},
+        )
+        assert response.status_code == 409
+
+
+def test_setup_only_finalization_failure_keeps_receipt_after_connection_cleanup(
+    auth_client,
+    db,
+    monkeypatch,
+):
+    class FinalizationNeedsManualAdapter(DeterministicFakeCloudBootstrapAdapter):
+        def finalize_bootstrap_receipt(
+            self,
+            *,
+            receipt,
+            target,
+            credential_origin,
+            credential,
+        ):
+            del receipt, target, credential_origin, credential
+            return CloudBootstrapFinalizationResult(
+                disposal_status=(
+                    CloudBootstrapDisposalStatus.MANUAL_REVOCATION_REQUIRED
+                )
+            )
+
+    adapter = FinalizationNeedsManualAdapter()
+    monkeypatch.setattr(settings, "CLOUD_BOOTSTRAP_SETUP_GATE_ENABLED", True)
+    monkeypatch.setattr(
+        GuidedCloudBootstrapService,
+        "_adapter_for_mode",
+        staticmethod(lambda _mode: adapter),
+    )
+    session = _session(
+        auth_client,
+        "aws",
+        key="create-aws-setup-finalize-fail-001",
+        execution_kind="setup_only_validation",
+    )
+    confirmation = f"{bootstrap_run_id(session['id'])}:aws:setup_only"
+    executed = auth_client.post(
+        f"/cloud-bootstrap/sessions/{session['id']}/execute",
+        headers={"X-Twin2MC-Setup-Confirmation": confirmation},
+        json={
+            "expected_revision": session["revision"],
+            "idempotency_key": "execute-aws-setup-finalize-fail-001",
+            "credential_origin": "dedicated_disposable",
+            "credential": _credential("aws"),
+        },
+    ).json()
+    first_cleanup = auth_client.post(
+        f"/cloud-bootstrap/sessions/{session['id']}/setup-gate-cleanup",
+        headers={"X-Twin2MC-Setup-Confirmation": confirmation},
+        json={
+            "expected_revision": executed["revision"],
+            "credential": _credential("aws"),
+        },
+    )
+    assert first_cleanup.status_code == 200, first_cleanup.text
+    assert first_cleanup.json()["generated_access_clean"] is True
+    assert first_cleanup.json()["local_connection_clean"] is True
+    assert first_cleanup.json()["cleanup_complete"] is False
+    db.expire_all()
+    stored = db.query(CloudBootstrapSession).filter_by(id=session["id"]).one()
+    assert stored.state == "manual_revocation_required"
+    assert stored.connection_id is None
+    assert stored.provider_cleanup_receipt_json is not None
+    assert db.query(CloudConnection).count() == 0
+    receipt = auth_client.get(
+        f"/cloud-bootstrap/sessions/{session['id']}/setup-gate-receipt",
+        headers={"X-Twin2MC-Setup-Confirmation": confirmation},
+    ).json()
+    assert receipt["connection_id"] is None
+
+    recovered_adapter = DeterministicFakeCloudBootstrapAdapter()
+    monkeypatch.setattr(
+        GuidedCloudBootstrapService,
+        "_adapter_for_mode",
+        staticmethod(lambda _mode: recovered_adapter),
+    )
+    current = auth_client.get(
+        f"/cloud-bootstrap/sessions/{session['id']}"
+    ).json()
+    recovered = auth_client.post(
+        f"/cloud-bootstrap/sessions/{session['id']}/setup-gate-cleanup",
+        headers={"X-Twin2MC-Setup-Confirmation": confirmation},
+        json={
+            "expected_revision": current["revision"],
+            "credential": _credential("aws"),
+        },
+    )
+    assert recovered.status_code == 200, recovered.text
+    assert recovered.json()["cleanup_complete"] is True
+    db.expire_all()
+    stored = db.query(CloudBootstrapSession).filter_by(id=session["id"]).one()
+    assert stored.state == "cancelled"
+    assert stored.provider_cleanup_receipt_json is None

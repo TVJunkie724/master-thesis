@@ -78,6 +78,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "026_deployment_access",
         "migrations.add_deployment_access",
     ),
+    Migration(
+        "027_cloud_bootstrap_setup_gate",
+        "migrations.add_cloud_bootstrap_setup_gate",
+    ),
 )
 
 

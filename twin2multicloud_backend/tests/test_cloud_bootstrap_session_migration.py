@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 
 from migrations.add_cloud_bootstrap_sessions import migrate
+from migrations.add_cloud_bootstrap_setup_gate import migrate as migrate_setup_gate
 
 
 def _baseline(path) -> None:
@@ -64,3 +65,27 @@ def test_cloud_bootstrap_session_migration_is_idempotent_and_secret_free(tmp_pat
     }.intersection(columns)
     assert "uq_cloud_bootstrap_active_scope" in indexes
     assert "ix_cloud_bootstrap_owner_provider" in indexes
+
+
+def test_setup_gate_migration_adds_only_secret_free_lifecycle_fields(tmp_path):
+    path = tmp_path / "bootstrap-setup-gate.db"
+    _baseline(path)
+    url = f"sqlite:///{path}"
+    migrate(url)
+
+    assert migrate_setup_gate(url) == [
+        "added: cloud_bootstrap_sessions.execution_kind",
+        "added: cloud_bootstrap_sessions.provider_cleanup_receipt_json",
+    ]
+    assert migrate_setup_gate(url) == []
+
+    with sqlite3.connect(path) as connection:
+        columns = {
+            row[1]: row
+            for row in connection.execute(
+                "PRAGMA table_info(cloud_bootstrap_sessions)"
+            )
+        }
+
+    assert columns["execution_kind"][4] == "'persistent_connection'"
+    assert columns["provider_cleanup_receipt_json"][2] == "TEXT"

@@ -20,11 +20,14 @@ from scripts.setup_only_live_gate import (
     authority_pack_gaps,
     create_manifest,
     new_cleanup_ledger,
+    read_manifest,
+    record_preflight_status,
     require_allowed_operation,
     require_setup_only_admission,
     transition_ledger,
     validate_cleanup_ledger,
     validate_manifest,
+    write_manifest,
 )
 
 
@@ -308,6 +311,7 @@ class CleanupLedgerTests(unittest.TestCase):
         ledger = transition_ledger(ledger, "credential_created")
         ledger = attach_cloud_connection(ledger, "connection-test-1")
         ledger = transition_ledger(ledger, "connection_persisted")
+        ledger = record_preflight_status(ledger, "passed")
         ledger = transition_ledger(ledger, "preflight_passed")
         ledger = transition_ledger(ledger, "cleanup_required")
         ledger = transition_ledger(ledger, "cleanup_running")
@@ -316,6 +320,7 @@ class CleanupLedgerTests(unittest.TestCase):
 
         loaded = self.store.load(manifest=self.manifest)
         self.assertTrue(loaded.is_clean)
+        self.assertEqual(loaded.document["preflight_status"], "passed")
         self.store.require_no_stale_ledger()
 
     def test_stale_and_partial_failure_ledgers_block_next_run(self) -> None:
@@ -385,6 +390,25 @@ class CleanupLedgerTests(unittest.TestCase):
             public_store.create(new_cleanup_ledger(self.manifest))
 
         self.assertEqual(stat.S_IMODE(public_parent.stat().st_mode), 0o755)
+
+
+class ManifestFileSafetyTests(unittest.TestCase):
+    def test_manifest_round_trip_is_private_and_rejects_links(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "manifest.json"
+            item = manifest()
+            write_manifest(path, item)
+
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+            self.assertEqual(read_manifest(path).digest, item.digest)
+
+            path.unlink()
+            external = root / "external.json"
+            write_manifest(external, item)
+            path.symlink_to(external)
+            with self.assertRaisesRegex(SetupGateError, "non-linked"):
+                read_manifest(path)
 
 
 if __name__ == "__main__":

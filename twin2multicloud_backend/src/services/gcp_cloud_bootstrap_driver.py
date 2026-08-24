@@ -1003,9 +1003,11 @@ class GCPCloudBootstrapDriver:
         runtime: _GCPPlan,
     ) -> None:
         identifiers = dict(receipt.resource_ids)
-        self._validate_cleanup_ownership(transport, runtime, identifiers)
+        account_exists, role_active, binding_exists = (
+            self._validate_cleanup_ownership(transport, runtime, identifiers)
+        )
         key_id = identifiers.get("key_id")
-        if key_id:
+        if key_id and account_exists:
             expected_name = self._key_name(
                 runtime.project_id,
                 runtime.service_account_email,
@@ -1023,11 +1025,11 @@ class GCPCloudBootstrapDriver:
                 )
             self._delete(transport, f"{IAM_ROOT}/{expected_name}")
 
-        if identifiers.get("role_name"):
+        if identifiers.get("role_name") and binding_exists:
             self._remove_project_binding(transport, runtime)
-        if identifiers.get("service_account_email"):
+        if identifiers.get("service_account_email") and account_exists:
             self._delete(transport, self._account_url(runtime))
-        if identifiers.get("role_name"):
+        if identifiers.get("role_name") and role_active:
             response = transport.request("DELETE", f"{IAM_ROOT}/{runtime.role_name}")
             if response.status_code not in {200, 204, 404}:
                 self._document(response, expected=(200, 204, 404))
@@ -1049,61 +1051,70 @@ class GCPCloudBootstrapDriver:
         transport: GCPTransport,
         runtime: _GCPPlan,
         identifiers: dict[str, str],
-    ) -> None:
+    ) -> tuple[bool, bool, bool]:
+        account_exists = False
         if identifiers.get("service_account_email"):
-            account = GCPCloudBootstrapDriver._json_request(
-                transport,
-                "GET",
-                GCPCloudBootstrapDriver._account_url(runtime),
+            response = transport.request(
+                "GET", GCPCloudBootstrapDriver._account_url(runtime)
             )
-            if (
-                account.get("email") != runtime.service_account_email
-                or account.get("displayName") != f"Twin2MultiCloud {runtime.run_id}"
-                or account.get("description") != MANAGED_DESCRIPTION
-            ):
-                raise CloudBootstrapAdapterError(
-                    "BOOTSTRAP_CLEANUP_FAILED",
-                    "GCP service-account ownership could not be proven for cleanup.",
+            if response.status_code != 404:
+                account = GCPCloudBootstrapDriver._document(
+                    response, expected=(200,)
                 )
-            keys = GCPCloudBootstrapDriver._list_user_keys(
-                transport,
-                runtime.project_id,
-                runtime.service_account_email,
-            )
-            expected_key_id = identifiers.get("key_id")
-            expected_keys = (
-                {
-                    GCPCloudBootstrapDriver._key_name(
-                        runtime.project_id,
-                        runtime.service_account_email,
-                        expected_key_id,
+                if (
+                    account.get("email") != runtime.service_account_email
+                    or account.get("displayName")
+                    != f"Twin2MultiCloud {runtime.run_id}"
+                    or account.get("description") != MANAGED_DESCRIPTION
+                ):
+                    raise CloudBootstrapAdapterError(
+                        "BOOTSTRAP_CLEANUP_FAILED",
+                        "GCP service-account ownership could not be proven for cleanup.",
                     )
-                }
-                if expected_key_id is not None
-                else set()
-            )
-            if {key["name"] for key in keys} != expected_keys:
-                raise CloudBootstrapAdapterError(
-                    "BOOTSTRAP_CLEANUP_FAILED",
-                    "The GCP service-account key inventory does not match the setup-run receipt.",
+                account_exists = True
+                keys = GCPCloudBootstrapDriver._list_user_keys(
+                    transport,
+                    runtime.project_id,
+                    runtime.service_account_email,
                 )
+                expected_key_id = identifiers.get("key_id")
+                expected_keys = (
+                    {
+                        GCPCloudBootstrapDriver._key_name(
+                            runtime.project_id,
+                            runtime.service_account_email,
+                            expected_key_id,
+                        )
+                    }
+                    if expected_key_id is not None
+                    else set()
+                )
+                if {key["name"] for key in keys} != expected_keys:
+                    raise CloudBootstrapAdapterError(
+                        "BOOTSTRAP_CLEANUP_FAILED",
+                        "The GCP service-account key inventory does not match the setup-run receipt.",
+                    )
+
+        role_active = False
+        binding_exists = False
         if identifiers.get("role_name"):
-            role = GCPCloudBootstrapDriver._json_request(
-                transport,
+            response = transport.request(
                 "GET",
                 f"{IAM_ROOT}/{runtime.role_name}",
                 params={"view": "FULL"},
             )
-            if (
-                role.get("name") != runtime.role_name
-                or role.get("title") != f"Twin2MultiCloud {runtime.run_id}"
-                or role.get("description") != ROLE_DESCRIPTION
-                or role.get("deleted") is True
-            ):
-                raise CloudBootstrapAdapterError(
-                    "BOOTSTRAP_CLEANUP_FAILED",
-                    "GCP custom-role ownership could not be proven for cleanup.",
-                )
+            if response.status_code != 404:
+                role = GCPCloudBootstrapDriver._document(response, expected=(200,))
+                if (
+                    role.get("name") != runtime.role_name
+                    or role.get("title") != f"Twin2MultiCloud {runtime.run_id}"
+                    or role.get("description") != ROLE_DESCRIPTION
+                ):
+                    raise CloudBootstrapAdapterError(
+                        "BOOTSTRAP_CLEANUP_FAILED",
+                        "GCP custom-role ownership could not be proven for cleanup.",
+                    )
+                role_active = role.get("deleted") is not True
             policy = GCPCloudBootstrapDriver._get_project_policy(transport, runtime)
             member = f"serviceAccount:{runtime.service_account_email}"
             matching = [
@@ -1120,6 +1131,8 @@ class GCPCloudBootstrapDriver:
                     "BOOTSTRAP_CLEANUP_FAILED",
                     "The GCP deployment-role binding is not exclusively owned by the setup run.",
                 )
+            binding_exists = bool(matching)
+        return account_exists, role_active, binding_exists
 
     @staticmethod
     def _remove_project_binding(transport: GCPTransport, runtime: _GCPPlan) -> None:
