@@ -3,7 +3,7 @@ title: "Phase 8 Architecture Profiles And Eventing Handoff"
 description: "Operational handoff for implementing the reviewed Phase 8 architecture-profile and Eventing roadmap without reinterpreting its scope."
 tags: [architecture, eventing, handoff, roadmap, contracts, thesis]
 lastUpdated: "2026-08-24"
-version: "4.23"
+version: "4.24"
 ---
 
 <!-- SOURCES:
@@ -17,7 +17,7 @@ version: "4.23"
   architecture-profile contracts, and the #113 user-function prerequisite
 - GitHub Phase 8 issue and native dependency graph
 - GitHub issues #154 and #155 plus user implementation authorization on 2026-08-03
-EXTRACTED: 2026-08-24 | VERSION: 4.23
+EXTRACTED: 2026-08-24 | VERSION: 4.24
 -->
 
 # Phase 8 Architecture Profiles And Eventing Handoff
@@ -28,14 +28,14 @@ EXTRACTED: 2026-08-24 | VERSION: 4.23
 |---|---|
 | Repository | `TVJunkie724/master-thesis` |
 | Integration branch | `master` |
-| Reviewed implementation base | `a822ca62` on `codex/setup-only-live-identity-gate` before the offline GCP existing-project driver slice |
+| Reviewed implementation base | `3b1e3051` on `codex/setup-only-live-identity-gate`; offline AWS, Azure, and GCP existing-project drivers are committed and pushed |
 | Active implementation branch | `codex/setup-only-live-identity-gate` |
 | Locally completed implementation | Phase 8.0 / #144 through Phase 8.10 / #148, prerequisite #113, guided bootstrap / #154, complete Five-layer v2 / 8.9A, Six-layer / 8.9B, and GCP admin-v3 ownership of the fixed existing-project API baseline; prescribed credential-free reviews and gates are zero-finding, while supervised provider evidence remains deliberately absent |
 | Parent issue | [#112 Audit and redesign the Digital Twin reference architecture beyond the bachelor baseline](https://github.com/TVJunkie724/master-thesis/issues/112) |
 | Completed prerequisite | [#113 Define and harden the user-function extension and packaging contract](https://github.com/TVJunkie724/master-thesis/issues/113) |
 | Plan index | [`README.md`](README.md) |
 | Implementation status | Five-layer v2 and Six-layer v1 are active locally across contracts, Optimizer, Management, Deployer/Terraform, provider runtimes, and Flutter. The Six-layer implementation inherits the pinned Five-layer graph and adds only the reviewed Eventing delta. Deployment remains blocked by explicit supervised live-capacity gates. |
-| Next action | Complete the full offline review of the GCP existing-project adapter and setup-only gate. AWS, Azure, and GCP are implemented behind exact provider opt-ins but still require separately authorized supervised G2-G5 evidence before any G6 plan; no provider contact is authorized in this branch. |
+| Next action | Implement and review Slice C's separately guarded setup-only runner and cleanup ledger integration, beginning with credential-free/local smoke coverage. AWS, Azure, and GCP remain behind exact provider opt-ins and still require separately authorized supervised G2-G5 evidence before any G6 plan; no provider contact is authorized in this branch. |
 | Live cloud E2E | Deliberately deferred; never run without explicit user approval |
 | LaTeX | Do not modify without separate user approval |
 
@@ -656,6 +656,13 @@ Repository entry points include:
 ./thesis.sh test frontend-integration
 docker compose --profile docs run --rm docs mkdocs build --strict
 ```
+
+The GCP driver review at `3b1e3051` passed 29 root contract/gate tests plus 3
+subtests, 57 focused Management tests, 24 focused Flutter tests, the complete
+1,191-test Management suite, Ruff, Bandit, synchronized-contract verification,
+strict MkDocs, and a fresh production-image dependency/import check. All
+provider behavior in that evidence used injected local fakes; no cloud endpoint
+or real credential was used.
 
 Each phase plan lists narrower commands and fixtures. Before running Docker
 commands, resolve current Compose service names yourself. Do not ask the user
