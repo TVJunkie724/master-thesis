@@ -314,7 +314,9 @@ Implemented and credential-free as of 2026-08-24.
 
 Partially implemented, not enabled. The synchronized `supervised_live` mode
 and its fail-closed UI/Management boundary are implemented. Provider-native
-policy materialization and version-aware Deployer
+policy materialization is now one shared, provider-SDK-free Management module
+backed only by synchronized generated contracts; the repository CLI reuses
+that module. Version-aware Deployer
 permission selection are implemented offline. The Azure materializer now
 combines the immutable workload inventory with the separately pinned
 `azure.thesis-demo-v2.service-principal-v1` self-inspection reads. Provider
@@ -329,8 +331,9 @@ ownership is resolved offline; G6/G7 wait for that live setup evidence.
   until the reviewed provider adapters below replace the fail-closed boundary.
 - Implement AWS, Azure, and GCP adapters against the pinned authority and
   deployment-pack digests.
-- Admit only the provider-native document emitted by the offline materializer;
-  adapters must not maintain a second hand-written policy inventory.
+- [x] Make the provider-native documents importable by Management from the
+  synchronized generated contracts; the CLI and future adapters share this
+  implementation and must not maintain a second hand-written policy inventory.
 - Keep provider calls in Management; Flutter remains a typed client only.
 - Validate the generated credential before persisting its encrypted
   CloudConnection.

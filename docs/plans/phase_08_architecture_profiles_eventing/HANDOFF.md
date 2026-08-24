@@ -177,7 +177,10 @@ CloudConnections, Deployer admission, and one shared Flutter flow from Settings
 and Prepare deployment. Canonical schemas, OpenAPI, Management, and Flutter now
 share the explicit `supervised_live` vocabulary, but that mode reports a
 blocking finding and refuses execution until reviewed provider adapters are
-wired in. Production remains fail-closed: no live provider adapter is enabled,
+wired in. The provider-native policy materializer is now a shared SDK-free
+Management module over synchronized generated contracts; the repository CLI
+uses the same implementation, so future adapters cannot own a parallel
+permission inventory. Production remains fail-closed: no live provider adapter is enabled,
 no cloud identity was created, and the existing reviewed manual script/import
 path remains the supervised provider path. The isolated
 OrbStack gate proved that the submitted sentinel was absent from Management
