@@ -3,7 +3,7 @@ title: "FR-002 Guided Cloud Access Bootstrap Contract"
 description: "Management API and provider-adapter contract required for request-scoped bootstrap authority, generated CloudConnections, and resumable manual prerequisites."
 tags: [flutter, feature-request, management-api, deployer, credentials, bootstrap]
 lastUpdated: "2026-08-24"
-version: "1.4"
+version: "1.5"
 ---
 
 <!-- SOURCES:
@@ -13,7 +13,7 @@ version: "1.4"
 - docs/plans/2026-05-21_provider_bootstrap_preflight_plan.md
 - Current Management API OpenAPI contract on 2026-07-31
 - GitHub issue #154
-EXTRACTED: 2026-08-24 | VERSION: 1.4
+EXTRACTED: 2026-08-24 | VERSION: 1.5
 -->
 
 # FR-002 Guided Cloud Access Bootstrap Contract
@@ -45,11 +45,12 @@ or relabel the script flow.
 
 1. Add versioned `cloud-bootstrap-guide.v1` provider guidance with safe setup
    steps, official links, required fields, new
-   `bootstrap.<provider>.admin-v2` authority-pack identity/digest, Management-
+   AWS/Azure admin-v2 or GCP admin-v3 authority-pack identity/digest, Management-
    selected generated-deployment-pack identity/digest (`thesis-demo-v2` for
    Five-layer v2), the AWS `aws.thesis-demo-v2.iam-user-v1` identity binding
    and Azure `azure.thesis-demo-v2.service-principal-v1` identity binding where
-   applicable, known scope gaps, credential-origin options, and disposal
+   applicable, the provider-conditional digest-pinned GCP Phase 8 API baseline,
+   known scope gaps, credential-origin options, and disposal
    behavior through a safe-context
    `POST /cloud-bootstrap/{provider}/guide` request.
 2. Add owner-scoped `cloud-bootstrap-session.v1` and the following Management
@@ -68,8 +69,10 @@ or relabel the script flow.
    only in the synchronous `execute` request; exclude its body from logs,
    traces, metrics, audits, retries, temporary files, crash dumps under
    application control, and durable state.
-4. Create and guard the three new provider bootstrap-authority artifacts before
-   session execution; create, validate, encrypt, and persist only a bounded
+4. Create and guard the provider bootstrap-authority artifacts before session
+   execution; bind GCP admin-v3 to the fixed existing-project API baseline and
+   fail organization/project-creation mode closed; create, validate, encrypt,
+   and persist only a bounded
    `purpose=deployment` CloudConnection; return its safe summary when ready.
 5. Support `dedicated_disposable` and `existing_user_owned` origins with exact
    disposal states: `revoked`, `expires_at_provider`, `manual_revocation_required`,

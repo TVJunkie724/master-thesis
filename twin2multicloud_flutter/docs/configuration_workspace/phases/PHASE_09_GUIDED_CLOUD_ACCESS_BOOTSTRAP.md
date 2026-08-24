@@ -3,7 +3,7 @@ title: "Phase 9: Guided Cloud Access Bootstrap"
 description: "Plan the shared Settings and configuration-workspace delivery of request-scoped provider bootstrap and resumable manual prerequisites."
 tags: [flutter, configuration-workspace, settings, credentials, bootstrap]
 lastUpdated: "2026-08-24"
-version: "1.3"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -11,7 +11,7 @@ version: "1.3"
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
 - twin2multicloud_flutter/docs/feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
-EXTRACTED: 2026-08-24 | VERSION: 1.3
+EXTRACTED: 2026-08-24 | VERSION: 1.4
 -->
 
 # Phase 9: Guided Cloud Access Bootstrap
@@ -39,7 +39,7 @@ secret.
 
 | In scope | Out of scope |
 |---|---|
-| Provider guide, scope, bootstrap-authority pack, and generated deployment-pack presentation | Hardcoded mutable provider setup instructions |
+| Provider guide, scope, bootstrap-authority pack, generated deployment-pack presentation, and GCP API-baseline disclosure | Hardcoded mutable provider setup instructions |
 | Write-only bootstrap credential submission | Persisting, editing, or redisplaying submitted secrets |
 | Credential-origin and disposal/revocation outcome | Automatically deleting existing administrator credentials |
 | Generated CloudConnection selection/binding | Displaying generated deployment credential payloads |
@@ -61,8 +61,10 @@ secret.
   service-principal/client-secret path and its Deployer metadata reads.
 - The Management API owns bootstrap sessions, owner isolation, request-only
   secret handling, idempotency, and generated CloudConnection persistence.
-- AWS, Azure, and GCP provider adapters return stable safe findings and
-  disposal states.
+- GCP existing-project setup pins `bootstrap.gcp.admin-v3` and the fixed
+  19-service Phase 8 API baseline; organization/project creation fails closed.
+- Deterministic AWS, Azure, and GCP offline adapters return stable safe
+  findings and disposal states; live provider adapters remain disabled.
 - Existing manual `/cloud-bootstrap/{provider}/plan` and
   `/cloud-bootstrap/import` endpoints remain compatible but are not invoked by
   Flutter.
@@ -73,8 +75,8 @@ secret.
 ## Deliverables
 
 - Shared conceptual flow for both entry points without duplicated state.
-- Provider guide and both permission-pack presentations from the Management
-  API.
+- Provider guide, both permission-pack presentations, and the provider-
+  conditional GCP API-baseline summary from the Management API.
 - Provider-specific write-only credential input and credential-origin choice.
 - Explicit confirmation before the secret-bearing bootstrap request.
 - Running, generated-connection, credential-reentry, revocation-required,
@@ -105,6 +107,8 @@ secret.
   entry-point completion behavior.
 - Existing deployment connections and the advanced manual import path continue
   to work without migration.
+- GCP shows the fixed API mutation and retention boundary before credential
+  submission and offers no organization/project-creation form.
 - The configuration workspace stays credential-free before the selected
   architecture establishes provider requirements.
 - Loading, unavailable-guide, invalid-input, running, blocked, failed,

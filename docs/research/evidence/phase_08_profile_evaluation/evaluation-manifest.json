@@ -74,8 +74,8 @@
       "category": "bootstrap",
       "path": "contracts/cloud-bootstrap",
       "kind": "tree",
-      "digest": "sha256:e36bd80aae0d747267f579c7684d84642a56febad3f6256d1eef865a7f3049bd",
-      "file_count": 11
+      "digest": "sha256:143befbba807fc5d3a4870fda02d5cc87b96293c871f88965069981974c3a4dc",
+      "file_count": 13
     },
     {
       "category": "component",
@@ -165,8 +165,8 @@
       "category": "permission",
       "path": "3-cloud-deployer/docs/references/permission_sets",
       "kind": "tree",
-      "digest": "sha256:c9ccaac3b1253d923792f979c53623708af5aded2cedaf0a15d93795684a1c40",
-      "file_count": 20
+      "digest": "sha256:e8c20f5c90c82956fb07f3d9b5f93a3a3626a6c6067618c468fe7eee68a3a6e3",
+      "file_count": 21
     },
     {
       "category": "pricing",
@@ -242,7 +242,7 @@
       "category": "terraform",
       "path": "3-cloud-deployer/src/terraform",
       "kind": "tree",
-      "digest": "sha256:f9e0fe768b6f8f77a2afaf5b56066a45da3d5fdf3fe908131441f2345732844c",
+      "digest": "sha256:72e4e0458f02f8ffb8fe0bd98f4cfc284c652b7de66c5385192e06a66770a556",
       "file_count": 45
     },
     {

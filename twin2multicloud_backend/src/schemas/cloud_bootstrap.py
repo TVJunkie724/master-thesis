@@ -1,10 +1,15 @@
 from datetime import datetime
 from enum import StrEnum
+import re
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
-from src.schemas.cloud_connection import CloudConnectionCreate, CloudConnectionResponse, CloudProvider
+from src.schemas.cloud_connection import (
+    CloudConnectionCreate,
+    CloudConnectionResponse,
+    CloudProvider,
+)
 
 
 BootstrapProvider = CloudProvider
@@ -50,7 +55,9 @@ class CloudBootstrapImportRequest(BaseModel):
     @model_validator(mode="after")
     def validate_generated_connection(self):
         if self.connection.auth_type in {"assume_role", "workload_identity"}:
-            raise ValueError(f"{self.connection.auth_type} bootstrap import is not supported yet")
+            raise ValueError(
+                f"{self.connection.auth_type} bootstrap import is not supported yet"
+            )
         return self
 
 
@@ -157,6 +164,33 @@ class CloudBootstrapGuidePackReference(CloudBootstrapPackReference):
     artifact_url: str = Field(pattern=r"^https://")
 
 
+class CloudBootstrapApiBaseline(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: Literal["gcp.phase8-api-baseline.v1"]
+    digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    services: list[str] = Field(min_length=1, max_length=20)
+    retain_enabled: Literal[True] = True
+    mutation_summary: str = Field(min_length=1)
+    limitations: list[str] = Field(min_length=1)
+    artifact_url: str = Field(pattern=r"^https://")
+
+    @model_validator(mode="after")
+    def validate_services(self):
+        if self.services != sorted(set(self.services)) or any(
+            re.fullmatch(r"[a-z0-9-]+\.googleapis\.com", service) is None
+            for service in self.services
+        ):
+            raise ValueError(
+                "services must be sorted, unique, and use googleapis.com names"
+            )
+        if len(self.limitations) != len(set(self.limitations)) or any(
+            not limitation.strip() for limitation in self.limitations
+        ):
+            raise ValueError("limitations must be non-empty and unique")
+        return self
+
+
 class CloudBootstrapCredentialField(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -199,6 +233,7 @@ class CloudBootstrapGuideResponse(BaseModel):
     target: CloudBootstrapTarget
     bootstrap_authority_pack: CloudBootstrapGuidePackReference
     generated_deployment_pack: CloudBootstrapGuidePackReference
+    api_baseline: CloudBootstrapApiBaseline | None
     credential_fields: list[CloudBootstrapCredentialField]
     credential_origins: tuple[
         Literal["dedicated_disposable"],
@@ -212,6 +247,14 @@ class CloudBootstrapGuideResponse(BaseModel):
     def validate_provider_target(self):
         if self.provider != self.target.provider:
             raise ValueError("provider must match target.provider")
+        if self.provider == "gcp" and self.api_baseline is None:
+            raise ValueError("GCP guide requires api_baseline")
+        if self.provider == "gcp" and isinstance(
+            self.target, GCPOrganizationBootstrapTarget
+        ):
+            raise ValueError("GCP guide supports existing_project only")
+        if self.provider != "gcp" and self.api_baseline is not None:
+            raise ValueError("Only GCP guide may expose api_baseline")
         return self
 
 
@@ -232,9 +275,15 @@ class CloudBootstrapSessionCreateRequest(BaseModel):
     def validate_scope(self):
         if self.provider != self.target.provider:
             raise ValueError("provider must match target.provider")
-        if self.entry_point == CloudBootstrapEntryPoint.SETTINGS and self.twin_id is not None:
+        if (
+            self.entry_point == CloudBootstrapEntryPoint.SETTINGS
+            and self.twin_id is not None
+        ):
             raise ValueError("settings entry point forbids twin_id")
-        if self.entry_point == CloudBootstrapEntryPoint.TWIN_PREPARE and not self.twin_id:
+        if (
+            self.entry_point == CloudBootstrapEntryPoint.TWIN_PREPARE
+            and not self.twin_id
+        ):
             raise ValueError("twin_prepare entry point requires twin_id")
         return self
 
@@ -245,7 +294,9 @@ class AWSBootstrapCredential(BaseModel):
     provider: Literal["aws"] = "aws"
     access_key_id: SecretStr = Field(min_length=16, max_length=128)
     secret_access_key: SecretStr = Field(min_length=16, max_length=256)
-    session_token: SecretStr | None = Field(default=None, min_length=16, max_length=4096)
+    session_token: SecretStr | None = Field(
+        default=None, min_length=16, max_length=4096
+    )
 
 
 class AzureBootstrapCredential(BaseModel):
@@ -345,9 +396,15 @@ class CloudBootstrapSessionResponse(BaseModel):
     def validate_provider_target(self):
         if self.provider != self.target.provider:
             raise ValueError("provider must match target.provider")
-        if self.entry_point == CloudBootstrapEntryPoint.SETTINGS and self.twin_id is not None:
+        if (
+            self.entry_point == CloudBootstrapEntryPoint.SETTINGS
+            and self.twin_id is not None
+        ):
             raise ValueError("settings entry point forbids twin_id")
-        if self.entry_point == CloudBootstrapEntryPoint.TWIN_PREPARE and not self.twin_id:
+        if (
+            self.entry_point == CloudBootstrapEntryPoint.TWIN_PREPARE
+            and not self.twin_id
+        ):
             raise ValueError("twin_prepare entry point requires twin_id")
         return self
 

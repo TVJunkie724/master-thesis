@@ -1,6 +1,6 @@
 {
   "schema_version": "cloud-bootstrap-guide.v1",
-  "guide_digest": "sha256:d9ca4fa9ffea514e505de3724e2699451ca3d70fccd92055dede8f309520599f",
+  "guide_digest": "sha256:e03e99c0d8b0cc1e12e0a4806d7e3336687a84c00fab8e6a4fa477ace72a7366",
   "provider": "aws",
   "execution_mode": "deterministic_fake",
   "target": {
@@ -24,6 +24,7 @@
     "limitations": ["Requires supervised live validation."],
     "artifact_url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html"
   },
+  "api_baseline": null,
   "credential_fields": [
     {
       "id": "access_key_id",

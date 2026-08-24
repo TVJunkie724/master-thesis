@@ -56,7 +56,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             {"WITH_CREDENTIALS": "on"},
             {"COMPOSE_FILE": "compose.yaml:compose.cloud.local.yaml"},
             {"TWIN2MC_SETUP_GATE_ENABLED": "1"},
-            {"TWIN2MC_SETUP_GATE_CONFIRMATION": "twin2mc-e2e-test:aws:identity_only"},
+            {"TWIN2MC_SETUP_GATE_CONFIRMATION": "twin2mc-e2e-test:aws:setup_only"},
         )
 
         for environment in unsafe_environments:

@@ -317,6 +317,78 @@ class CloudBootstrapPackReference extends Equatable {
   ];
 }
 
+class CloudBootstrapApiBaseline extends Equatable {
+  final String id;
+  final String digest;
+  final List<String> services;
+  final bool retainEnabled;
+  final String mutationSummary;
+  final List<String> limitations;
+  final Uri artifactUrl;
+
+  const CloudBootstrapApiBaseline({
+    required this.id,
+    required this.digest,
+    required this.services,
+    required this.retainEnabled,
+    required this.mutationSummary,
+    required this.limitations,
+    required this.artifactUrl,
+  });
+
+  factory CloudBootstrapApiBaseline.fromJson(Map<String, dynamic> json) {
+    _expectExactKeys(json, const {
+      'id',
+      'digest',
+      'services',
+      'retain_enabled',
+      'mutation_summary',
+      'limitations',
+      'artifact_url',
+    }, 'GCP API baseline');
+    final services = _stringList(json, 'services');
+    final limitations = _stringList(json, 'limitations');
+    final unique = services.toSet();
+    if (json['id'] != 'gcp.phase8-api-baseline.v1' ||
+        services.isEmpty ||
+        services.length > 20 ||
+        unique.length != services.length ||
+        services.join('\n') != (services.toList()..sort()).join('\n') ||
+        services.any(
+          (service) =>
+              !RegExp(r'^[a-z0-9-]+\.googleapis\.com$').hasMatch(service),
+        ) ||
+        limitations.isEmpty ||
+        limitations.length != limitations.toSet().length ||
+        limitations.any((limitation) => limitation.trim().isEmpty) ||
+        json['retain_enabled'] != true) {
+      throw const FormatException(
+        'Invalid API contract: GCP API baseline is malformed.',
+      );
+    }
+    return CloudBootstrapApiBaseline(
+      id: JsonContract.requiredString(json, 'id'),
+      digest: _digest(JsonContract.requiredString(json, 'digest')),
+      services: List.unmodifiable(services),
+      retainEnabled: true,
+      mutationSummary: JsonContract.requiredString(json, 'mutation_summary'),
+      limitations: List.unmodifiable(limitations),
+      artifactUrl: _httpsUri(JsonContract.requiredString(json, 'artifact_url')),
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    id,
+    digest,
+    services,
+    retainEnabled,
+    mutationSummary,
+    limitations,
+    artifactUrl,
+  ];
+}
+
 class CloudBootstrapCredentialField extends Equatable {
   final String id;
   final String label;
@@ -473,6 +545,7 @@ class CloudBootstrapGuide extends Equatable {
   final CloudBootstrapTarget target;
   final CloudBootstrapPackReference bootstrapAuthorityPack;
   final CloudBootstrapPackReference generatedDeploymentPack;
+  final CloudBootstrapApiBaseline? apiBaseline;
   final List<CloudBootstrapCredentialField> credentialFields;
   final List<CloudBootstrapCredentialOrigin> credentialOrigins;
   final List<CloudBootstrapInstruction> preparationSteps;
@@ -485,6 +558,7 @@ class CloudBootstrapGuide extends Equatable {
     required this.target,
     required this.bootstrapAuthorityPack,
     required this.generatedDeploymentPack,
+    required this.apiBaseline,
     required this.credentialFields,
     required this.credentialOrigins,
     required this.preparationSteps,
@@ -501,6 +575,7 @@ class CloudBootstrapGuide extends Equatable {
       'target',
       'bootstrap_authority_pack',
       'generated_deployment_pack',
+      'api_baseline',
       'credential_fields',
       'credential_origins',
       'preparation_steps',
@@ -520,6 +595,12 @@ class CloudBootstrapGuide extends Equatable {
     if (target.provider != provider) {
       throw const FormatException(
         'Invalid API contract: bootstrap guide provider mismatch.',
+      );
+    }
+    if (provider == CloudProvider.gcp &&
+        target.values['mode'] != 'existing_project') {
+      throw const FormatException(
+        'Invalid API contract: GCP guide supports existing project only.',
       );
     }
     final fields = _objectList(
@@ -544,6 +625,22 @@ class CloudBootstrapGuide extends Equatable {
         'Invalid API contract: duplicate bootstrap findings.',
       );
     }
+    final rawApiBaseline = json['api_baseline'];
+    if (rawApiBaseline != null && rawApiBaseline is! Map) {
+      throw const FormatException(
+        'Invalid API contract: api_baseline must be an object or null.',
+      );
+    }
+    final apiBaseline = rawApiBaseline == null
+        ? null
+        : CloudBootstrapApiBaseline.fromJson(
+            Map<String, dynamic>.from(rawApiBaseline as Map),
+          );
+    if ((provider == CloudProvider.gcp) != (apiBaseline != null)) {
+      throw const FormatException(
+        'Invalid API contract: GCP API baseline provider mismatch.',
+      );
+    }
     return CloudBootstrapGuide(
       guideDigest: _digest(JsonContract.requiredString(json, 'guide_digest')),
       provider: provider,
@@ -559,6 +656,7 @@ class CloudBootstrapGuide extends Equatable {
         JsonContract.requiredObject(json, 'generated_deployment_pack'),
         detailed: true,
       ),
+      apiBaseline: apiBaseline,
       credentialFields: List.unmodifiable(fields),
       credentialOrigins: List.unmodifiable(origins),
       preparationSteps: List.unmodifiable(
@@ -579,6 +677,7 @@ class CloudBootstrapGuide extends Equatable {
     target,
     bootstrapAuthorityPack,
     generatedDeploymentPack,
+    apiBaseline,
     credentialFields,
     credentialOrigins,
     preparationSteps,

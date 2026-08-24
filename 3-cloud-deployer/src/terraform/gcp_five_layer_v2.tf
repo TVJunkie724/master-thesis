@@ -272,15 +272,6 @@ locals {
   )
 }
 
-resource "google_project_service" "gcp_v2_required" {
-  for_each = local.gcp_v2_required_apis
-  project  = local.gcp_project_id
-  service  = each.value
-
-  disable_on_destroy = false
-  depends_on         = [google_project_service.cloudresourcemanager]
-}
-
 resource "terraform_data" "gcp_v2_foundation_guard" {
   count = local.gcp_v2_any_enabled ? 1 : 0
 
@@ -416,7 +407,6 @@ resource "google_artifact_registry_repository" "gcp_gcp_artifact_registry_if_con
   }
 
   depends_on = [
-    google_project_service.gcp_v2_required,
     terraform_data.gcp_v2_foundation_guard,
   ]
 }
@@ -439,7 +429,7 @@ resource "google_storage_bucket" "gcp_v2_cloud_build_sources" {
     action { type = "Delete" }
   }
 
-  depends_on = [google_project_service.gcp_v2_required]
+  depends_on = [terraform_data.gcp_v2_foundation_guard]
 }
 
 # L1 owns the shared Standard cluster when BifroMQ is selected. The default
@@ -491,7 +481,7 @@ resource "google_container_cluster" "gcp_apache_bifromq_4_0_0_incubating_on_gke_
     }
   }
 
-  depends_on = [google_project_service.gcp_v2_required]
+  depends_on = [terraform_data.gcp_v2_foundation_guard]
 }
 
 resource "google_container_node_pool" "gcp_apache_bifromq_4_0_0_incubating_on_gke_standard" {
@@ -616,7 +606,7 @@ resource "google_container_cluster" "gcp_grafana_oss_12_on_gke" {
     }
   }
 
-  depends_on = [google_project_service.gcp_v2_required]
+  depends_on = [terraform_data.gcp_v2_foundation_guard]
 }
 
 data "google_client_config" "gcp_v2_kubernetes" {
@@ -1294,7 +1284,7 @@ resource "google_compute_disk" "gcp_gcp_persistent_disk_rwo" {
   size    = local.gcp_v2_grafana_disk_gib
   labels  = local.gcp_v2_labels
 
-  depends_on = [google_project_service.gcp_v2_required]
+  depends_on = [terraform_data.gcp_v2_foundation_guard]
 }
 
 resource "google_compute_address" "gcp_gcp_grafana_tls_load_balancer" {
@@ -1307,7 +1297,7 @@ resource "google_compute_address" "gcp_gcp_grafana_tls_load_balancer" {
   network_tier = "PREMIUM"
   labels       = local.gcp_v2_labels
 
-  depends_on = [google_project_service.gcp_v2_required]
+  depends_on = [terraform_data.gcp_v2_foundation_guard]
 }
 
 resource "tls_private_key" "gcp_v2_grafana" {
@@ -1768,7 +1758,7 @@ resource "google_cloud_run_v2_service_iam_member" "gcp_gcp_cloud_run_iap_twin_ex
   role     = "roles/run.invoker"
   member   = "serviceAccount:service-${data.google_project.gcp_v2_current[0].number}@gcp-sa-iap.iam.gserviceaccount.com"
 
-  depends_on = [google_project_service.gcp_v2_required]
+  depends_on = [terraform_data.gcp_v2_foundation_guard]
 }
 
 resource "google_iap_web_cloud_run_service_iam_member" "gcp_gcp_cloud_run_iap_twin_explorer" {
@@ -2060,7 +2050,7 @@ resource "google_firestore_database" "gcp_gcp_firestore_native_standard_raw_and_
   delete_protection_state     = "DELETE_PROTECTION_DISABLED"
   deletion_policy             = "DELETE"
 
-  depends_on = [google_project_service.gcp_v2_required]
+  depends_on = [terraform_data.gcp_v2_foundation_guard]
 }
 
 resource "google_firestore_field" "gcp_gcp_firestore_native_standard_raw_and_rollup" {
@@ -2231,7 +2221,7 @@ resource "google_storage_bucket" "gcp_gcp_cloud_storage_nearline" {
     }
   }
 
-  depends_on = [google_project_service.gcp_v2_required]
+  depends_on = [terraform_data.gcp_v2_foundation_guard]
 }
 
 # GCP creates a dedicated Archive bucket only when a remote cool-tier mover
@@ -2258,7 +2248,7 @@ resource "google_storage_bucket" "gcp_gcp_cloud_storage_archive" {
     }
   }
 
-  depends_on = [google_project_service.gcp_v2_required]
+  depends_on = [terraform_data.gcp_v2_foundation_guard]
 }
 
 # The mover needs reads plus post-copy deletes. The predefined data role is
@@ -2469,7 +2459,7 @@ resource "google_workflows_workflow" "gcp_gcp_workflows" {
   depends_on = [
     google_cloud_run_v2_service_iam_member.gcp_v2_action_sink_invoker,
     google_cloud_run_v2_service_iam_member.gcp_v2_workflow_callback_invoker,
-    google_project_service.gcp_v2_required,
+    terraform_data.gcp_v2_foundation_guard,
   ]
 }
 

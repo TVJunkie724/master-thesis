@@ -621,11 +621,10 @@ run "five_layer_v2_azure_source_federates_to_gcp_for_both_channels" {
       length(google_service_account.gcp_v2_bridge_target_from_azure) == 1 &&
       length(google_service_account_iam_member.gcp_v2_bridge_from_azure) == 1 &&
       toset(keys(google_pubsub_topic_iam_member.gcp_v2_bridge_from_azure)) == toset(["remote_telemetry", "remote_control"]) &&
-      contains(keys(google_project_service.gcp_v2_required), "sts.googleapis.com") &&
-      contains(keys(google_project_service.gcp_v2_required), "iamcredentials.googleapis.com") &&
+      length(terraform_data.gcp_v2_foundation_guard) == 1 &&
       length(aws_iam_openid_connect_provider.azure_v2_bridge) == 0
     )
-    error_message = "Azure-to-GCP must create one claim-restricted WIF target, exact Pub/Sub publisher rights for both channels, and no AWS trust."
+    error_message = "Azure-to-GCP must create one claim-restricted WIF target, exact Pub/Sub publisher rights for both channels, a prevalidated GCP foundation guard, and no AWS trust."
   }
 }
 
@@ -683,20 +682,21 @@ run "five_layer_v2_single_cloud_gcp_activates_only_v2_foundation" {
   }
 
   assert {
-    condition = toset(keys(google_project_service.gcp_v2_required)) == toset([
-      "artifactregistry.googleapis.com",
-      "cloudbuild.googleapis.com",
-      "cloudscheduler.googleapis.com",
-      "compute.googleapis.com",
-      "container.googleapis.com",
-      "firestore.googleapis.com",
-      "iap.googleapis.com",
-      "logging.googleapis.com",
-      "monitoring.googleapis.com",
-      "storage.googleapis.com",
-      "workflows.googleapis.com",
-    ])
-    error_message = "Single-cloud GCP v2 must enable exactly its reviewed platform API foundation."
+    condition = (
+      length(terraform_data.gcp_v2_foundation_guard) == 1 &&
+      terraform_data.gcp_v2_foundation_guard[0].input.api_count == 11 &&
+      length(google_project_service.cloudresourcemanager) == 0 &&
+      length(google_project_service.pubsub) == 0 &&
+      length(google_project_service.cloudfunctions) == 0 &&
+      length(google_project_service.run) == 0 &&
+      length(google_project_service.firestore) == 0 &&
+      length(google_project_service.storage) == 0 &&
+      length(google_project_service.eventarc) == 0 &&
+      length(google_project_service.cloudbuild) == 0 &&
+      length(google_project_service.cloudscheduler) == 0 &&
+      length(google_project_service.iam) == 0
+    )
+    error_message = "Single-cloud GCP v2 must consume a prevalidated API foundation without enabling project services in Terraform."
   }
 
 

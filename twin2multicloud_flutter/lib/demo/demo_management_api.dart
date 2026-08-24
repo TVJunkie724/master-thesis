@@ -33,6 +33,27 @@ import 'demo_fixture_store.dart';
 
 class DemoManagementApi implements ManagementApi {
   static const double _fiveLayerV2EurPerUsd = 0.865948;
+  static const List<String> _gcpPhase8ApiServices = [
+    'artifactregistry.googleapis.com',
+    'cloudbilling.googleapis.com',
+    'cloudbuild.googleapis.com',
+    'cloudresourcemanager.googleapis.com',
+    'cloudscheduler.googleapis.com',
+    'compute.googleapis.com',
+    'container.googleapis.com',
+    'firestore.googleapis.com',
+    'iam.googleapis.com',
+    'iamcredentials.googleapis.com',
+    'iap.googleapis.com',
+    'logging.googleapis.com',
+    'monitoring.googleapis.com',
+    'pubsub.googleapis.com',
+    'run.googleapis.com',
+    'serviceusage.googleapis.com',
+    'storage.googleapis.com',
+    'sts.googleapis.com',
+    'workflows.googleapis.com',
+  ];
 
   final DemoFixtureStore store;
   final Duration latency;
@@ -523,6 +544,13 @@ class DemoManagementApi implements ManagementApi {
       throw const DemoApiException(
         'BOOTSTRAP_TARGET_INVALID',
         'Bootstrap provider and target must match.',
+      );
+    }
+    if (provider == CloudProvider.gcp &&
+        target.values['mode'] == 'organization') {
+      throw const DemoApiException(
+        'BOOTSTRAP_SCOPE_UNSUPPORTED',
+        'The active GCP bootstrap v3 gate supports an existing project only.',
       );
     }
     return CloudBootstrapGuide.fromJson(_demoBootstrapGuide(provider, target));
@@ -3311,6 +3339,21 @@ class DemoManagementApi implements ManagementApi {
         authority: true,
         detailed: true,
       ),
+      'api_baseline': provider == CloudProvider.gcp
+          ? {
+              'id': 'gcp.phase8-api-baseline.v1',
+              'digest': _demoBootstrapDigest('gcp-phase8-api-baseline-v1'),
+              'services': _gcpPhase8ApiServices,
+              'retain_enabled': true,
+              'mutation_summary':
+                  'Demo mode models the reviewed enable-only API baseline and creates no provider resource.',
+              'limitations': [
+                'Existing-project PoC path only.',
+                'Demo mode performs no API enablement.',
+              ],
+              'artifact_url': 'https://example.com/gcp/api-baseline',
+            }
+          : null,
       'generated_deployment_pack': _demoBootstrapPack(
         provider,
         authority: false,
@@ -3371,7 +3414,7 @@ class DemoManagementApi implements ManagementApi {
     required bool authority,
     required bool detailed,
   }) {
-    const authorityVersion = '2';
+    final authorityVersion = provider == CloudProvider.gcp ? '3' : '2';
     final version = authority ? authorityVersion : 'thesis-demo-v2';
     return {
       'id': authority

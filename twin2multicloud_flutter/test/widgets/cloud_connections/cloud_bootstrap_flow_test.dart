@@ -132,6 +132,66 @@ void main() {
     expect(api.guideCalls, 0);
   });
 
+  testWidgets(
+    'GCP flow is existing-project-only and exposes the API baseline',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(640, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final api = _FakeBootstrapApi(provider: CloudProvider.gcp);
+      final bloc = CloudBootstrapBloc(
+        api: api,
+        provider: CloudProvider.gcp,
+        entryPoint: CloudBootstrapEntryPoint.settings,
+      )..add(const CloudBootstrapOpened());
+      addTearDown(bloc.close);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: BlocProvider.value(
+              value: bloc,
+              child: CloudBootstrapFlow(
+                provider: CloudProvider.gcp,
+                entryPoint: CloudBootstrapEntryPoint.settings,
+                onConnectionReady: (_) {},
+                onClosed: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('one existing billing-enabled project'),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(TextFormField, 'Organization ID'),
+        findsNothing,
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Project ID'),
+        'twin2mc-test-project',
+      );
+      await tester.tap(find.text('Load provider guide'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Phase 8 API setup'), findsOneWidget);
+      expect(
+        find.text('19 reviewed APIs · enabled once and retained'),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(find.text('Phase 8 API setup'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Phase 8 API setup'));
+      await tester.pumpAndSettle();
+      expect(find.text('• serviceusage.googleapis.com'), findsOneWidget);
+      expect(find.text('Open reviewed API baseline'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('credential re-entry shows the safe finding and empty fields', (
     tester,
   ) async {
@@ -234,11 +294,17 @@ void main() {
 
 final class _FakeBootstrapApi implements CloudBootstrapApi {
   final List<CloudBootstrapSession> sessions;
+  final CloudProvider provider;
 
-  _FakeBootstrapApi({this.sessions = const []});
+  _FakeBootstrapApi({
+    this.sessions = const [],
+    this.provider = CloudProvider.aws,
+  });
 
   late final CloudBootstrapGuide guide = CloudBootstrapGuide.fromJson(
-    _fixture('aws-guide.json'),
+    provider == CloudProvider.gcp
+        ? _gcpGuideFixture()
+        : _fixture('aws-guide.json'),
   );
   late final CloudBootstrapSession ready = CloudBootstrapSession.fromJson(
     _fixture('aws-ready-session.json'),
@@ -314,6 +380,45 @@ Map<String, dynamic> _draftFixture() => _fixture('aws-ready-session.json')
   ..remove('finding')
   ..remove('connection')
   ..['command_permissions'] = ['execute', 'cancel'];
+
+Map<String, dynamic> _gcpGuideFixture() {
+  final baseline = Map<String, dynamic>.from(
+    jsonDecode(
+          File(
+            'assets/contracts/cloud-bootstrap/v1/gcp-phase8-api-baseline.json',
+          ).readAsStringSync(),
+        )
+        as Map,
+  );
+  final guide = _fixture('aws-guide.json');
+  guide['provider'] = 'gcp';
+  guide['target'] = {
+    'provider': 'gcp',
+    'mode': 'existing_project',
+    'project_id': 'twin2mc-test-project',
+    'region': 'europe-west1',
+  };
+  guide['bootstrap_authority_pack'] = {
+    ...Map<String, dynamic>.from(guide['bootstrap_authority_pack'] as Map),
+    'id': 'bootstrap.gcp.admin-v3',
+    'version': '3',
+  };
+  guide['generated_deployment_pack'] = {
+    ...Map<String, dynamic>.from(guide['generated_deployment_pack'] as Map),
+    'id': 'gcp.thesis-demo-v2',
+  };
+  guide['api_baseline'] = {
+    'id': baseline['baseline_id'],
+    'digest': 'sha256:${List.filled(64, '0').join()}',
+    'services': baseline['services'],
+    'retain_enabled': baseline['retain_enabled'],
+    'mutation_summary': baseline['mutation_summary'],
+    'limitations': baseline['limitations'],
+    'artifact_url':
+        'https://github.com/TVJunkie724/master-thesis/blob/master/contracts/cloud-bootstrap/v1/gcp-phase8-api-baseline.json',
+  };
+  return guide;
+}
 
 Map<String, dynamic> _fixture(String name) => Map<String, dynamic>.from(
   jsonDecode(

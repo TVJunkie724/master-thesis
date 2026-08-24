@@ -1,17 +1,17 @@
-# Setup-Only Live Identity Gate Before Paid Cloud E2E
+# Setup-Only Live Gate Before Paid Cloud E2E
 
 **Date:** 2026-08-23  
 **Status:** In progress (G0, isolated credential-free G1, and version-aware
 G4 validator logic implemented offline; G2-G5 not run)
 **Parent issue:** [#107](https://github.com/TVJunkie724/master-thesis/issues/107)  
 **Scope:** AWS, Azure, and GCP guided bootstrap, bounded deployment identities,
-credential preflight, and cleanup only
+credential preflight, the fixed GCP Phase 8 API baseline, and cleanup only
 
 ## 1. Decision
 
 Twin2MultiCloud must not move directly from offline tests to a paid
 deploy/apply E2E. The first supervised provider validation is a separate
-**setup-only live identity gate**:
+**setup-only live gate**:
 
 ```text
 credential-free offline smoke
@@ -26,10 +26,12 @@ credential-free offline smoke
 ```
 
 The gate performs real IAM/directory mutations, so it is still opt-in and
-supervised. It must not create IoT, compute, storage, broker, twin,
-visualization, Kubernetes, or monitoring resources. Identity services normally
-do not create the workload charges that the later architecture E2E creates,
-but this is a security-sensitive live test rather than an offline smoke.
+supervised. On GCP it additionally batch-enables the separately pinned 19-API
+Phase 8 baseline in an existing project and retains those APIs after identity
+cleanup. It must not create IoT, compute, storage, broker, twin, visualization,
+Kubernetes, or monitoring resources. This setup does not create the billable
+workloads of the later architecture E2E, but it remains a security-sensitive
+live test rather than an offline smoke.
 
 ## 2. Current Baseline And Gap
 
@@ -46,14 +48,16 @@ fallbacks, but they are not sufficient as the new live gate:
 - they have no complete create/verify/cleanup test transaction;
 - the Azure script assigns broad `Contributor` and
   `User Access Administrator` roles instead of the reviewed v2 role contract;
-- the GCP script enables workload APIs, which exceeds an identity-only gate;
+- the historical GCP script enables an unversioned API set without pinning it
+  to the reviewed Phase 8 baseline or recording it independently from identity
+  cleanup;
 - they do not exercise the guided Management API, encrypted CloudConnection,
   Flutter resume state, or request-only bootstrap-secret boundary;
 - generated secret JSON can be written to stdout unless an output file is
   selected.
 
 The next implementation slice must therefore add a reviewed live adapter and
-an identity-only runner rather than relabel the existing deployment E2E tests.
+a setup-only runner rather than relabel the existing deployment E2E tests.
 
 ### 2.1 Contract Findings To Resolve Before Live Execution
 
@@ -93,33 +97,30 @@ an identity-only runner rather than relabel the existing deployment E2E tests.
   normal application disposal contract.
 - GCP existing-project and organization/project-creation paths cannot share
   one initial result. Only the existing-project path is admitted first.
-- The historical `bootstrap.gcp.admin-v1` pack could not verify the mandatory
-  IAM API prerequisite or distinguish a missing custom role from a deleted
-  role tombstone. Active guided bootstrap now pins `bootstrap.gcp.admin-v2`,
-  adding only `serviceusage.services.get` and `iam.roles.list`; API enablement
-  remains forbidden. Cleanup treats `deleted=true` as the correct immediate
-  result because GCP keeps a custom role soft-deleted for seven days.
+- The historical GCP v1/v2 packs remain evidence, but the active existing-
+  project path now pins `bootstrap.gcp.admin-v3`. It retains the v2 inspection
+  and role-reconciliation permissions and adds only
+  `serviceusage.services.enable` plus `serviceusage.operations.get` for the
+  fixed 19-service `gcp.phase8-api-baseline.v1`. The setup manifest digest
+  binds both artifacts. Cleanup treats `deleted=true` as the correct immediate
+  custom-role result and intentionally leaves the shared API baseline enabled.
 - The Deployer credential checkers now select the exact synchronized
   `thesis-demo-v2` inputs whenever the CloudConnection carries that version;
   missing and historical versions retain the legacy matrices only for
   compatibility and fail the normalized version gate. AWS and Azure use
   separate versioned identity bindings for the metadata reads required by
   their implemented IAM-user and service-principal self-inspection paths.
-  GCP tests three v2 permissions that Cloud Resource Manager can safely
-  evaluate at `projects/{id}` and exercises `serviceusage.services.get`
-  directly against the already-enabled IAM API; it reports every remaining
-  permission explicitly as deferred instead of producing false project-scope
-  failures.
+  GCP tests the project-safe v2 permissions directly and checks every service
+  in the frozen API baseline through Service Usage; any missing service is a
+  blocking preflight result rather than a deferred Terraform mutation.
   This is offline implementation evidence, not live G4 provider evidence.
-- A separate GCP G6/G7 blocker remains explicit: Five-/Six-layer Terraform
-  declares `google_project_service` resources, while `thesis-demo-v2`
-  deliberately omits `serviceusage.services.enable`. Before plan/apply
-  admission, API ownership follows the approved
+- The former GCP API-ownership inconsistency is resolved offline according to
+  the approved
   [`GCP Phase 8 API Enablement Ownership`](2026-08-24_gcp_phase8_api_ownership.md)
-  plan: a short-lived `bootstrap.gcp.admin-v3` enables a fixed reviewed Phase 8
-  superset for an existing project, the generated v2 identity verifies it, and
-  active v2 Terraform no longer owns service enablement. This is not yet
-  implemented and the gate must not silently enable APIs meanwhile.
+  plan: bootstrap v3 owns the fixed existing-project superset, the generated
+  v2 identity verifies it, and active v2 Terraform contains no API-enablement
+  resources. G6/G7 remain blocked on supervised G2-G5 provider evidence, not
+  on unresolved local ownership.
 
 ## 3. Gate Sequence
 
@@ -128,7 +129,7 @@ an identity-only runner rather than relabel the existing deployment E2E tests.
 | G0 Static/offline | None | None | None | Contract digests, permission inventories, redaction, schema, and cleanup logic pass |
 | G1 Local full-stack smoke | None | Local ephemeral DB/containers only | None | UI -> Management -> deterministic adapter -> encrypted test CloudConnection passes |
 | G2 Authority smoke | AWS/Azure/GCP | None | None | Submitted bootstrap credential resolves to the exact selected account, tenant/subscription, or project and satisfies the bootstrap authority pack |
-| G3 Identity-only apply | One provider at a time | IAM/directory identity, policy/role, one generated credential | None | A unique `twin2mc-e2e-*` deployment identity is created idempotently from the v2 pack |
+| G3 Setup-only apply | One provider at a time | IAM/directory identity, policy/role, one generated credential; GCP also enables the pinned public-service baseline | None | A unique `twin2mc-e2e-*` deployment identity is created idempotently from the v2 pack and GCP API state matches the reviewed baseline |
 | G4 Non-admin validation | One provider at a time | None | None | Generated credential authenticates, matches the selected scope, and passes normalized provider/deployer preflight |
 | G5 Identity cleanup | One provider at a time | Delete only gate-owned key, binding/policy, role where owned, and identity | None | Provider lookup proves absence or the documented inactive/deleted terminal state; test CloudConnection and local secret material are removed |
 | G6 Terraform plan-only | One provider at a time | Provider reads and local plan artifacts only | None | The bounded credential can produce the chosen Small single-cloud plan; no `apply` |
@@ -201,18 +202,21 @@ Allowed:
 
 - resolve and compare the exact project;
 - create/reconcile one prefixed service account;
-- verify that the IAM API is already enabled without enabling it;
+- verify the three bootstrap-prerequisite APIs and idempotently enable the
+  exact 19-service Phase 8 baseline through Service Usage;
 - create/reuse the reviewed v2 project custom role and binding;
 - create exactly one user-managed test key when organization policy permits;
 - authenticate the generated service account and run read-only preflight;
 - remove the key, binding, owned custom role, and service account.
 
-The gate must not enable the IAM API or workload APIs and must not weaken an
-organization policy that forbids user-managed keys. A missing IAM API or
-key-policy block is a truthful gate result, not permission to change the
-project or policy. GCP role cleanup succeeds when the binding is absent and the
-exact owned role reports `deleted=true`; its run ID is not reused during the
-seven-day recovery window.
+The gate must not enable anything outside the pinned baseline and must not
+weaken an organization policy that forbids user-managed keys. A missing
+bootstrap-prerequisite API or key-policy block is a truthful gate result, not
+permission to change the project or policy. GCP role cleanup succeeds when the
+binding is absent and the exact owned role reports `deleted=true`; its run ID
+is not reused during the seven-day recovery window. Public-service enablement
+creates no Twin workload and is retained because disabling shared project APIs
+during identity cleanup would be destructive.
 
 ## 5. Required Test Cases
 
@@ -291,7 +295,7 @@ disposable G3 test identity.
 Implemented and credential-free as of 2026-08-24.
 
 - Add an explicit live-gate manifest with provider, expected scope,
-  permission-pack digests, unique run ID, `plan_only`/`identity_only` mode, and
+  permission-pack digests, unique run ID, `plan_only`/`setup_only` mode, and
   mandatory cleanup policy.
 - Add offline schema, redaction, prefix-ownership, stale-ledger, partial-failure,
   and command-guard tests.
@@ -309,11 +313,12 @@ Not enabled. Provider-native policy materialization and version-aware Deployer
 permission selection are implemented offline. The Azure materializer now
 combines the immutable workload inventory with the separately pinned
 `azure.thesis-demo-v2.service-principal-v1` self-inspection reads. Provider
-calls, `supervised_live` mode, and live G2-G5 evidence remain pending; GCP
-architecture-specific API ownership must be resolved before G6/G7.
+calls, `supervised_live` mode, and live G2-G5 evidence remain pending. GCP API
+ownership is resolved offline; G6/G7 wait for that live setup evidence.
 
-- Keep the resolved AWS IAM-user binding and the AWS/Azure/GCP v2 bootstrap
-  authority boundaries pinned before provider code is enabled.
+- Keep the resolved AWS IAM-user binding, AWS/Azure v2 bootstrap boundaries,
+  and separate exact GCP v3 plus API-baseline digests pinned before provider
+  code is enabled.
 - Add a `supervised_live` adapter mode while retaining production default
   `disabled` and test default `deterministic_fake`.
 - Implement AWS, Azure, and GCP adapters against the pinned authority and
@@ -353,14 +358,16 @@ architecture-specific API ownership must be resolved before G6/G7.
 
 - [ ] Default tests and CI remain credential-free and cannot select a live adapter.
 - [ ] AWS, Azure, and GCP setup-only gates are independently selectable.
-- [ ] A live gate cannot create any service outside the identity-only allowlist.
+- [ ] A live gate cannot create workload resources and cannot mutate any GCP
+  service outside the fixed API-baseline allowlist.
 - [ ] Generated identities use the exact frozen `thesis-demo-v2` pack digest.
 - [ ] Admin/bootstrap secrets never persist or appear in evidence.
 - [ ] Generated non-admin credentials authenticate and pass normalized preflight.
 - [ ] Idempotency and every tested partial-failure boundary avoid duplicate keys/identities.
 - [ ] Cleanup proves provider and local absence or the provider's documented
   inactive/deleted terminal state after every disposable run.
-- [ ] GCP existing-project and organization paths are reported separately.
+- [ ] GCP existing-project is the only admitted live path; organization/project
+  creation fails closed and is reported as future work.
 - [ ] No Terraform apply or paid architecture resource occurs before explicit G7 admission.
 
 ## 10. Commands That Remain Forbidden By Default

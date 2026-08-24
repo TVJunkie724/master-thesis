@@ -1,9 +1,19 @@
 """Source-level drift gates for GCP deployment specification bindings."""
 
+import json
 from pathlib import Path
+import re
 
 
 TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
+CONTRACT_ROOT = (
+    Path(__file__).resolve().parents[3]
+    / "src"
+    / "contracts"
+    / "generated"
+    / "cloud-bootstrap"
+    / "v1"
+)
 
 
 def _source(filename: str) -> str:
@@ -12,6 +22,43 @@ def _source(filename: str) -> str:
 
 def _normalized_source(filename: str) -> str:
     return " ".join(_source(filename).split())
+
+
+def test_phase8_v2_consumes_the_bootstrap_owned_api_baseline_without_enabling_apis():
+    baseline = json.loads(
+        (CONTRACT_ROOT / "gcp-phase8-api-baseline.json").read_text(encoding="utf-8")
+    )
+    services = baseline["services"]
+    assert baseline["owner"] == "bootstrap.gcp.admin-v3"
+    assert baseline["target_mode"] == "existing_project"
+    assert len(services) == 19
+    assert services == sorted(set(services))
+
+    v2_source = _source("gcp_five_layer_v2.tf")
+    v2_inventory = set(re.findall(r'"([a-z0-9-]+\.googleapis\.com)"', v2_source))
+    bootstrap_only_and_shared = {
+        "cloudbilling.googleapis.com",
+        "cloudresourcemanager.googleapis.com",
+        "iam.googleapis.com",
+        "pubsub.googleapis.com",
+        "run.googleapis.com",
+        "serviceusage.googleapis.com",
+    }
+    assert v2_inventory | bootstrap_only_and_shared == set(services)
+
+    all_terraform = "\n".join(
+        path.read_text(encoding="utf-8") for path in sorted(TERRAFORM_ROOT.glob("*.tf"))
+    )
+    assert 'resource "google_project_service" "gcp_v2_required"' not in all_terraform
+    assert "google_project_service.gcp_v2_required" not in all_terraform
+
+    setup = _normalized_source("gcp_setup.tf")
+    inactive_for_v2 = "count = local.deploy_gcp && !local.five_layer_v2_enabled ? 1 : 0"
+    for resource in ("cloudresourcemanager", "pubsub", "run", "cloudbuild", "iam"):
+        marker = f'resource "google_project_service" "{resource}" {{'
+        block = setup[setup.index(marker) :]
+        block = block[: block.index("}") + 1]
+        assert inactive_for_v2 in block
 
 
 def test_every_gcp_function_runtime_profile_is_specification_owned():

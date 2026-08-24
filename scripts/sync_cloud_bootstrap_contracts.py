@@ -22,7 +22,7 @@ AUTHORITY_PACK_SOURCES = {
     "v1/authority-packs/aws.json": PERMISSION_SET_ROOT / "aws_bootstrap_admin_v2.json",
     "v1/authority-packs/azure.json": PERMISSION_SET_ROOT
     / "azure_bootstrap_admin_v2.json",
-    "v1/authority-packs/gcp.json": PERMISSION_SET_ROOT / "gcp_bootstrap_admin_v2.json",
+    "v1/authority-packs/gcp.json": PERMISSION_SET_ROOT / "gcp_bootstrap_admin_v3.json",
 }
 DEPLOYMENT_PACK_SOURCES = {
     f"v1/deployment-packs/{provider}.json": PERMISSION_SET_ROOT
@@ -30,10 +30,7 @@ DEPLOYMENT_PACK_SOURCES = {
     for provider in ("aws", "azure", "gcp")
 }
 DEPLOYMENT_IDENTITY_BINDINGS = {
-    provider: SOURCE_ROOT
-    / "v1"
-    / "deployment-identity-bindings"
-    / f"{provider}.json"
+    provider: SOURCE_ROOT / "v1" / "deployment-identity-bindings" / f"{provider}.json"
     for provider in ("aws", "azure")
 }
 TARGETS = (
@@ -98,6 +95,8 @@ def validate_source() -> str:
     required = {
         "README.md",
         "v1/bootstrap-authority-pack.schema.json",
+        "v1/gcp-phase8-api-baseline.schema.json",
+        "v1/gcp-phase8-api-baseline.json",
         "v1/deployment-identity-binding.schema.json",
         "v1/cloud-bootstrap-guide.schema.json",
         "v1/cloud-bootstrap-session.schema.json",
@@ -131,6 +130,40 @@ def validate_source() -> str:
             raise ValueError(
                 f"Authority pack provider mismatch: {path.relative_to(REPO_ROOT)}"
             )
+    gcp_api_baseline = json.loads(
+        (SOURCE_ROOT / "v1" / "gcp-phase8-api-baseline.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    Draft202012Validator(schemas["gcp-phase8-api-baseline.schema.json"]).validate(
+        gcp_api_baseline
+    )
+    if gcp_api_baseline["services"] != sorted(gcp_api_baseline["services"]) or not set(
+        gcp_api_baseline["bootstrap_prerequisite_services"]
+    ).issubset(gcp_api_baseline["services"]):
+        raise ValueError("GCP Phase 8 API baseline must be sorted and complete")
+    gcp_authority = json.loads(
+        AUTHORITY_PACK_SOURCES["v1/authority-packs/gcp.json"].read_text(
+            encoding="utf-8"
+        )
+    )
+    gcp_permissions = {
+        permission
+        for group in gcp_authority["permission_groups"]
+        for permission in group["permissions"]
+    }
+    if (
+        gcp_api_baseline["owner"] != gcp_authority["contract_id"]
+        or gcp_authority["target_modes"] != ["existing_project"]
+        or not {
+            "serviceusage.services.get",
+            "serviceusage.services.enable",
+            "serviceusage.operations.get",
+        }.issubset(gcp_permissions)
+    ):
+        raise ValueError(
+            "GCP Phase 8 API baseline is not owned by the active bootstrap pack"
+        )
     for provider, path in zip(
         ("aws", "azure", "gcp"), DEPLOYMENT_PACK_SOURCES.values(), strict=True
     ):

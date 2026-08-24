@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from src.api.routes.error_models import ERROR_RESPONSES
@@ -26,7 +27,9 @@ from src.schemas.credential_security_event import (
 )
 from src.security.rate_limit import CredentialRateClass, credential_rate_limit
 from src.security.request_context import current_request_id
-from src.services.credential_security_audit_service import CredentialSecurityAuditService
+from src.services.credential_security_audit_service import (
+    CredentialSecurityAuditService,
+)
 from src.services.guided_cloud_bootstrap_service import GuidedCloudBootstrapService
 
 router = APIRouter(prefix="/cloud-bootstrap", tags=["cloud-bootstrap"])
@@ -38,7 +41,11 @@ router = APIRouter(prefix="/cloud-bootstrap", tags=["cloud-bootstrap"])
     response_model_exclude_none=True,
     operation_id="getCloudBootstrapGuide",
     summary="Build safe provider-specific guided bootstrap instructions",
-    responses={400: ERROR_RESPONSES[400], 401: ERROR_RESPONSES[401], 422: ERROR_RESPONSES[422]},
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        422: ERROR_RESPONSES[422],
+    },
 )
 async def get_cloud_bootstrap_guide(
     provider: str,
@@ -54,9 +61,21 @@ async def get_cloud_bootstrap_guide(
     result = GuidedCloudBootstrapService(db).guide(provider, request.target)
     CredentialSecurityAuditService.commit_standalone(
         db,
-        _audit(current_user, CredentialSecurityAction.BOOTSTRAP_GUIDE, result.provider, 200),
+        _audit(
+            current_user, CredentialSecurityAction.BOOTSTRAP_GUIDE, result.provider, 200
+        ),
     )
-    return result
+    payload = result.model_dump(mode="json", exclude_none=True)
+    # The strict cross-client guide contract keeps this provider-conditional
+    # field explicit: null for AWS/Azure and an object for GCP. Returning a
+    # Response bypasses FastAPI's route-wide exclude_none pass, which would
+    # otherwise silently remove the required null marker.
+    payload["api_baseline"] = (
+        result.api_baseline.model_dump(mode="json")
+        if result.api_baseline is not None
+        else None
+    )
+    return JSONResponse(content=payload)
 
 
 @router.post(
@@ -65,7 +84,11 @@ async def get_cloud_bootstrap_guide(
     response_model_exclude_none=True,
     operation_id="createCloudBootstrapSession",
     summary="Create or resume one owner-scoped guided bootstrap session",
-    responses={401: ERROR_RESPONSES[401], 409: ERROR_RESPONSES[409], 422: ERROR_RESPONSES[422]},
+    responses={
+        401: ERROR_RESPONSES[401],
+        409: ERROR_RESPONSES[409],
+        422: ERROR_RESPONSES[422],
+    },
 )
 async def create_cloud_bootstrap_session(
     request: CloudBootstrapSessionCreateRequest,
@@ -140,7 +163,11 @@ async def get_cloud_bootstrap_session(
     response_model_exclude_none=True,
     operation_id="executeCloudBootstrapSession",
     summary="Execute one synchronous request-scoped bootstrap command",
-    responses={401: ERROR_RESPONSES[401], 409: ERROR_RESPONSES[409], 422: ERROR_RESPONSES[422]},
+    responses={
+        401: ERROR_RESPONSES[401],
+        409: ERROR_RESPONSES[409],
+        422: ERROR_RESPONSES[422],
+    },
 )
 async def execute_cloud_bootstrap_session(
     session_id: str,
@@ -172,7 +199,11 @@ async def execute_cloud_bootstrap_session(
     response_model_exclude_none=True,
     operation_id="acknowledgeCloudBootstrapManualRevocation",
     summary="Record explicit user acknowledgement of provider-side cleanup",
-    responses={401: ERROR_RESPONSES[401], 409: ERROR_RESPONSES[409], 422: ERROR_RESPONSES[422]},
+    responses={
+        401: ERROR_RESPONSES[401],
+        409: ERROR_RESPONSES[409],
+        422: ERROR_RESPONSES[422],
+    },
 )
 async def acknowledge_cloud_bootstrap_manual_revocation(
     session_id: str,
@@ -204,7 +235,11 @@ async def acknowledge_cloud_bootstrap_manual_revocation(
     response_model_exclude_none=True,
     operation_id="cancelCloudBootstrapSession",
     summary="Cancel a bootstrap session that has no generated connection",
-    responses={401: ERROR_RESPONSES[401], 409: ERROR_RESPONSES[409], 422: ERROR_RESPONSES[422]},
+    responses={
+        401: ERROR_RESPONSES[401],
+        409: ERROR_RESPONSES[409],
+        422: ERROR_RESPONSES[422],
+    },
 )
 async def cancel_cloud_bootstrap_session(
     session_id: str,
@@ -257,7 +292,12 @@ async def create_cloud_bootstrap_plan(
         result = CloudBootstrapService().build_plan(provider, request)
         CredentialSecurityAuditService.commit_standalone(
             db,
-            _audit(current_user, CredentialSecurityAction.BOOTSTRAP_PLAN, result.provider, 200),
+            _audit(
+                current_user,
+                CredentialSecurityAction.BOOTSTRAP_PLAN,
+                result.provider,
+                200,
+            ),
         )
         return result
     except ValueError as exc:

@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import re
 from typing import Literal
 
 ProviderName = Literal["aws", "azure", "gcp"]
@@ -19,6 +20,9 @@ DEPLOYMENT_PACK_ROOT = (
     / "cloud-bootstrap"
     / "v1"
     / "deployment-packs"
+)
+GCP_PHASE8_API_BASELINE_PATH = (
+    DEPLOYMENT_PACK_ROOT.parent / "gcp-phase8-api-baseline.json"
 )
 
 
@@ -58,9 +62,7 @@ def active_deployment_permission_pack(provider: ProviderName) -> dict:
         or document.get("permission_set_version") != ACTIVE_PERMISSION_SET_VERSION
         or document.get("status") != "frozen_offline_contract"
     ):
-        raise ValueError(
-            f"Active {provider} deployment permission pack is malformed"
-        )
+        raise ValueError(f"Active {provider} deployment permission pack is malformed")
     return deepcopy(document)
 
 
@@ -77,6 +79,48 @@ def deployment_permission_pack_for_version(
     if supplied_version != ACTIVE_PERMISSION_SET_VERSION:
         return None
     return active_deployment_permission_pack(provider)
+
+
+def active_gcp_phase8_api_baseline() -> dict:
+    """Load the synchronized fixed API baseline for active GCP profiles."""
+
+    try:
+        document = json.loads(GCP_PHASE8_API_BASELINE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("Active GCP Phase 8 API baseline is unavailable") from exc
+    if not isinstance(document, dict):
+        raise ValueError("Active GCP Phase 8 API baseline is malformed")
+    services = document.get("services")
+    prerequisites = document.get("bootstrap_prerequisite_services")
+    if (
+        document.get("schema_version") != "gcp-phase8-api-baseline.v1"
+        or document.get("baseline_id") != "gcp.phase8-api-baseline.v1"
+        or document.get("provider") != "gcp"
+        or document.get("status") != "frozen_offline_contract"
+        or document.get("profiles")
+        != ["five-layer-baseline@2", "six-layer-eventing@1"]
+        or document.get("owner") != "bootstrap.gcp.admin-v3"
+        or document.get("target_mode") != "existing_project"
+        or document.get("region") != "europe-west1"
+        or not isinstance(services, list)
+        or any(not isinstance(service, str) for service in services)
+        or services != sorted(set(services))
+        or not 1 <= len(services) <= 20
+        or any(
+            re.fullmatch(r"[a-z0-9-]+\.googleapis\.com", service) is None
+            for service in services
+        )
+        or not isinstance(prerequisites, list)
+        or prerequisites
+        != [
+            "cloudresourcemanager.googleapis.com",
+            "iam.googleapis.com",
+            "serviceusage.googleapis.com",
+        ]
+        or document.get("retain_enabled") is not True
+    ):
+        raise ValueError("Active GCP Phase 8 API baseline is malformed")
+    return deepcopy(document)
 
 
 def compare_permission_set_version(

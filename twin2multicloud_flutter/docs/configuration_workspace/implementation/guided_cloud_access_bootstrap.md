@@ -3,7 +3,7 @@ title: "Guided Cloud Access Bootstrap Implementation"
 description: "Implemented offline PoC boundary for request-only bootstrap authority, bounded deployment CloudConnections, and the shared Flutter flow."
 tags: [flutter, bootstrap, cloud-connections, security, phase-8]
 lastUpdated: "2026-08-24"
-version: "1.2"
+version: "1.3"
 ---
 
 # Guided Cloud Access Bootstrap Implementation
@@ -21,8 +21,10 @@ The safe result is a validated, encrypted, user-owned
 `purpose=deployment` CloudConnection with `thesis-demo-v2`. The implementation
 distinguishes provider revocation, provider expiry, manual revocation,
 application release after failure, and an existing credential that remains
-user-managed. The active guide pins the three `bootstrap.<provider>.admin-v2`
-authority packs. AWS also pins `aws.thesis-demo-v2.iam-user-v1`, so its
+user-managed. The active guide pins AWS/Azure admin-v2 and GCP admin-v3
+authority packs. GCP v3 also pins and displays the fixed 19-service Phase 8
+API baseline for one existing project; organization/project creation fails
+closed. AWS also pins `aws.thesis-demo-v2.iam-user-v1`, so its
 IAM-user/access-key identity and customer-managed-policy attachment are part of
 the reviewed contract rather than inferred from the permission inventory.
 Azure similarly pins `azure.thesis-demo-v2.service-principal-v1` for its
@@ -33,11 +35,11 @@ by Deployer self-inspection.
 
 | Area | Implementation |
 |---|---|
-| Contracts | Synchronized strict `cloud-bootstrap-guide.v1` and `cloud-bootstrap-session.v1` schemas, fixtures, active v2 provider authority packs, deployment-pack references, and the AWS/Azure deployment-identity bindings |
+| Contracts | Synchronized strict `cloud-bootstrap-guide.v1` and `cloud-bootstrap-session.v1` schemas, fixtures, active provider authority packs, deployment-pack references, the GCP API baseline, and the AWS/Azure deployment-identity bindings |
 | Management | Owner-scoped safe sessions, scope uniqueness, optimistic revision, create/execute idempotency, stale-lease reconciliation, cancel, recheck, manual-revocation acknowledgement, audit events, and encrypted generated CloudConnection persistence |
 | Adapters | Deterministic no-cloud AWS, Azure, and GCP lifecycle adapters; production default is disabled |
-| Deployer | Generated `thesis-demo-v2` connections select the exact synchronized provider pack; AWS/Azure identity bindings cover checker metadata reads. GCP checks the IAM API without mutation and reports non-project-testable coverage explicitly. Live provider evidence is not claimed. |
-| Flutter | Strict response models, one-use request object, route-scoped BLoC, shared dialog composition, provider target/guide/authority/result steps, resume/recheck/cancel/start-new, and explicit manual cleanup |
+| Deployer | Generated `thesis-demo-v2` connections select the exact synchronized provider pack; AWS/Azure identity bindings cover checker metadata reads. GCP checks all 19 baseline services and fails closed when one is absent; active v2 Terraform never enables project services. Live provider evidence is not claimed. |
+| Flutter | Strict response models, one-use request object, route-scoped BLoC, shared dialog composition, provider target/guide/authority/result steps, resume/recheck/cancel/start-new, explicit manual cleanup, and GCP existing-project/API-baseline disclosure |
 | Entry points | Settings refreshes Cloud Accounts; Prepare deployment reloads and selects the returned connection for the active Twin draft |
 | Compatibility | Existing manual plan/script/import endpoints and advanced raw deployment-connection import remain available |
 
@@ -71,7 +73,9 @@ closed. A real AWS, Azure, or GCP adapter and any supervised live-cloud evidence
 require separate authorization and review. The version-aware Deployer checker
 path is implemented and tested offline, but G2-G5 have not contacted any
 provider. The versioned manual scripts remain the current supervised provider
-path. GCP workload-API enablement ownership remains unresolved and blocks G6/G7.
+path. GCP API ownership is resolved offline: bootstrap v3 enables the fixed
+baseline, generated v2 access verifies it, and Terraform does not mutate it.
+G6/G7 remain blocked because G2-G5 supervised provider evidence is absent.
 
 ## Verification
 
@@ -89,6 +93,11 @@ The completed branch passed:
   contracts, 885 Optimizer tests, 1,038 Management tests, 1,875 passed plus one
   intentionally skipped Deployer test, 806 Flutter tests, MkDocs strict, static
   checks, and isolated cleanup.
+
+The 2026-08-24 API-ownership revision additionally passed synchronized
+contract/setup-gate tests, focused Deployer permission/Terraform and Management
+guide tests, Flutter analysis plus model/demo/widget tests, and the
+credential-free deployment-contract gate. It did not run a provider adapter.
 
 No cloud credential, live provider operation, deployment, paid resource, or
 LaTeX source was used or changed.

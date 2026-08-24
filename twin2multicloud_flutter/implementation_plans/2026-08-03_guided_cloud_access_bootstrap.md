@@ -5,7 +5,9 @@
 The implementation retains the plan's UI and lifecycle but now resolves the
 provider-authority review findings with active
 `bootstrap.aws.admin-v2`, `bootstrap.azure.admin-v2`, and
-`bootstrap.gcp.admin-v2` packs. AWS also pins
+`bootstrap.gcp.admin-v3` packs. GCP v3 owns and displays the digest-pinned
+19-service Phase 8 API baseline for an existing billing-enabled project;
+organization/project creation fails closed. AWS also pins
 `aws.thesis-demo-v2.iam-user-v1`, which binds the frozen deployment permission
 inventory to the actually implemented IAM-user/access-key identity. Historical
 v1 packs remain available only as versioned evidence and compatibility input.
@@ -109,8 +111,10 @@ Authority:
 ```
 
 Provider forms render only the strict fields declared by the guide: Azure uses
-tenant/subscription/client/secret; GCP uses organization-or-project target and
-a write-only bootstrap service-account JSON. No browser password is requested.
+tenant/subscription/client/secret; GCP v3 uses an existing project target and
+a write-only bootstrap service-account JSON. Its guide shows the reviewed API
+baseline, retained-state policy, and artifact link before secret entry. No
+browser password is requested.
 
 ### Result and external/manual follow-up
 

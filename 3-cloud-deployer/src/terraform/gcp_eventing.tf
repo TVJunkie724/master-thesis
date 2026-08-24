@@ -466,7 +466,7 @@ resource "google_logging_project_bucket_config" "eventing" {
   retention_days = var.gcp_event_log_retention_days
   description    = "Bounded Six-layer Event Layer evidence logs"
 
-  depends_on = [google_project_service.gcp_v2_required["logging.googleapis.com"]]
+  depends_on = [terraform_data.gcp_v2_foundation_guard[0]]
 }
 
 resource "google_logging_project_sink" "eventing" {

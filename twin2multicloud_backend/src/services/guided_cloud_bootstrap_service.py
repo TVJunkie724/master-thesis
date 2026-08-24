@@ -25,6 +25,7 @@ from src.schemas.cloud_bootstrap import (
     AzureBootstrapCredential,
     AzureBootstrapTarget,
     CloudBootstrapConnectionSummary,
+    CloudBootstrapApiBaseline,
     CloudBootstrapCredentialOrigin,
     CloudBootstrapDisposalStatus,
     CloudBootstrapEntryPoint,
@@ -133,14 +134,21 @@ PROVIDER_GUIDANCE: dict[str, dict[str, Any]] = {
             (
                 "select_gcp_scope",
                 "Select the GCP scope",
-                "Confirm the billing-enabled project or the bootstrap project, organization/folder, and billing account shown above.",
-                "Every displayed ID and the target region are known.",
+                "Confirm the existing billing-enabled project shown above; the first supervised PoC gate does not admit organization/project-creation mode.",
+                "The existing project ID and target region are known.",
                 "https://cloud.google.com/resource-manager/docs/cloud-platform-resource-hierarchy",
+            ),
+            (
+                "enable_bootstrap_prerequisites",
+                "Enable bootstrap prerequisite APIs",
+                "Ensure Service Usage, IAM, and Cloud Resource Manager are available before creating the temporary bootstrap identity.",
+                "The three prerequisite APIs are enabled; no Twin workload has been created.",
+                "https://docs.cloud.google.com/service-usage/docs/enable-disable",
             ),
             (
                 "create_temporary_service_account",
                 "Create temporary bootstrap service account",
-                "Bind bootstrap.gcp.admin-v2 and create one JSON key only when organization policy permits it.",
+                "Bind bootstrap.gcp.admin-v3 and create one JSON key only when organization policy permits it.",
                 "One service-account JSON document is downloaded and no key policy was weakened.",
                 "https://cloud.google.com/iam/docs/keys-create-delete",
             ),
@@ -181,8 +189,15 @@ class GuidedCloudBootstrapService:
                 "BOOTSTRAP_AUTHORITY_PACK_MISMATCH",
                 "The provider path does not match the requested target.",
             )
+        if normalized == "gcp" and isinstance(target, GCPOrganizationBootstrapTarget):
+            raise CloudBootstrapDomainError(
+                "BOOTSTRAP_SCOPE_UNSUPPORTED",
+                "The active GCP bootstrap v3 gate supports an existing project only; organization/project-creation mode requires a separate reviewed ownership contract.",
+                http_status=409,
+            )
         authority = self._pack_reference(normalized, authority=True, detailed=True)
         deployment = self._pack_reference(normalized, authority=False, detailed=True)
+        api_baseline = self._api_baseline_reference(normalized)
         guidance = PROVIDER_GUIDANCE[normalized]
         blockers: list[CloudBootstrapFinding] = []
         if settings.CLOUD_BOOTSTRAP_ADAPTER_MODE == "disabled":
@@ -202,6 +217,7 @@ class GuidedCloudBootstrapService:
             "target": target,
             "bootstrap_authority_pack": authority,
             "generated_deployment_pack": deployment,
+            "api_baseline": api_baseline,
             "credential_fields": [
                 {
                     "id": field_id,
@@ -661,7 +677,7 @@ class GuidedCloudBootstrapService:
             repository_name = {
                 "aws": "aws_bootstrap_admin_v2.json",
                 "azure": "azure_bootstrap_admin_v2.json",
-                "gcp": "gcp_bootstrap_admin_v2.json",
+                "gcp": "gcp_bootstrap_admin_v3.json",
             }[provider]
             scope = document["scope_summary"]
             limitations = document["limitations"]
@@ -679,9 +695,7 @@ class GuidedCloudBootstrapService:
             )
             if provider in {"aws", "azure"}:
                 binding_path = (
-                    CONTRACT_ROOT
-                    / "deployment-identity-bindings"
-                    / f"{provider}.json"
+                    CONTRACT_ROOT / "deployment-identity-bindings" / f"{provider}.json"
                 )
                 binding = json.loads(binding_path.read_text(encoding="utf-8"))
                 if (
@@ -742,6 +756,61 @@ class GuidedCloudBootstrapService:
             )
             return CloudBootstrapGuidePackReference(**fields)
         return CloudBootstrapPackReference(**fields)
+
+    @staticmethod
+    def _api_baseline_reference(
+        provider: CloudProvider,
+    ) -> CloudBootstrapApiBaseline | None:
+        if provider != "gcp":
+            return None
+        path = CONTRACT_ROOT / "gcp-phase8-api-baseline.json"
+        document = json.loads(path.read_text(encoding="utf-8"))
+        services = document.get("services") if isinstance(document, dict) else None
+        prerequisites = (
+            document.get("bootstrap_prerequisite_services")
+            if isinstance(document, dict)
+            else None
+        )
+        if (
+            not isinstance(document, dict)
+            or document.get("schema_version") != "gcp-phase8-api-baseline.v1"
+            or document.get("baseline_id") != "gcp.phase8-api-baseline.v1"
+            or document.get("provider") != "gcp"
+            or document.get("status") != "frozen_offline_contract"
+            or document.get("profiles")
+            != ["five-layer-baseline@2", "six-layer-eventing@1"]
+            or document.get("owner") != "bootstrap.gcp.admin-v3"
+            or document.get("target_mode") != "existing_project"
+            or document.get("region") != "europe-west1"
+            or not isinstance(services, list)
+            or not 1 <= len(services) <= 20
+            or any(not isinstance(service, str) for service in services)
+            or services != sorted(set(services))
+            or not isinstance(prerequisites, list)
+            or prerequisites
+            != [
+                "cloudresourcemanager.googleapis.com",
+                "iam.googleapis.com",
+                "serviceusage.googleapis.com",
+            ]
+            or document.get("retain_enabled") is not True
+        ):
+            raise CloudBootstrapDomainError(
+                "BOOTSTRAP_AUTHORITY_PACK_MISMATCH",
+                "The GCP API baseline does not match the active bootstrap boundary.",
+            )
+        return CloudBootstrapApiBaseline(
+            id=document["baseline_id"],
+            digest=_digest(document),
+            services=document["services"],
+            retain_enabled=document["retain_enabled"],
+            mutation_summary=document["mutation_summary"],
+            limitations=document["limitations"],
+            artifact_url=(
+                "https://github.com/TVJunkie724/master-thesis/blob/master/"
+                "contracts/cloud-bootstrap/v1/gcp-phase8-api-baseline.json"
+            ),
+        )
 
     def _record_execute_failure(
         self,

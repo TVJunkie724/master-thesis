@@ -19,9 +19,13 @@ class ProviderPreflightCheck(BaseModel):
     code: str = Field(..., description="Machine-readable result code")
     message: str = Field(..., description="Secret-safe human-readable result")
     action: str = Field(..., description="Actionable next step")
-    permissions: list[str] = Field(default_factory=list, description="Missing provider permissions/actions")
+    permissions: list[str] = Field(
+        default_factory=list, description="Missing provider permissions/actions"
+    )
     apis: list[str] = Field(default_factory=list, description="Missing provider APIs")
-    details: dict[str, Any] = Field(default_factory=dict, description="Secret-safe structured detail")
+    details: dict[str, Any] = Field(
+        default_factory=dict, description="Secret-safe structured detail"
+    )
 
 
 class ProviderPreflightResponse(BaseModel):
@@ -69,7 +73,9 @@ def build_provider_preflight(
     if not version_comparison.matches:
         checks.insert(0, _permission_set_check(version_comparison))
 
-    ready = bool(checks) and all(check.status in {"passed", "warning", "skipped"} for check in checks)
+    ready = bool(checks) and all(
+        check.status in {"passed", "warning", "skipped"} for check in checks
+    )
     return ProviderPreflightResponse(
         provider=provider,
         expected_permission_set_version=version_comparison.expected_version,
@@ -93,39 +99,52 @@ def _aws_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
     checks: list[ProviderPreflightCheck] = []
 
     if status == "valid":
-        return [_passed("credentials", "AWS_READY", result.get("message") or "AWS credentials are ready.")]
+        return [
+            _passed(
+                "credentials",
+                "AWS_READY",
+                result.get("message") or "AWS credentials are ready.",
+            )
+        ]
 
     checks.extend(_region_checks(result.get("region_validation"), "aws_region"))
 
     account_status = _safe_dict(result.get("account_status"))
     if account_status.get("status") == "suspended":
-        checks.append(_failed(
-            "account_status",
-            "ACCOUNT_NOT_ACTIVE",
-            result.get("message") or "AWS account is not active.",
-            "Reactivate the AWS account or choose another account before deployment.",
-            details={"state": account_status.get("state")},
-        ))
+        checks.append(
+            _failed(
+                "account_status",
+                "ACCOUNT_NOT_ACTIVE",
+                result.get("message") or "AWS account is not active.",
+                "Reactivate the AWS account or choose another account before deployment.",
+                details={"state": account_status.get("state")},
+            )
+        )
 
     missing_check = result.get("missing_check_permission")
     if missing_check:
-        checks.append(_failed(
-            "self_check_permissions",
-            "SELF_CHECK_PERMISSION_MISSING",
-            result.get("message") or "AWS credentials cannot inspect their own policies.",
-            "Grant the listed self-check permission or use the bootstrap policy, then rerun preflight.",
-            permissions=[str(missing_check)],
-        ))
+        checks.append(
+            _failed(
+                "self_check_permissions",
+                "SELF_CHECK_PERMISSION_MISSING",
+                result.get("message")
+                or "AWS credentials cannot inspect their own policies.",
+                "Grant the listed self-check permission or use the bootstrap policy, then rerun preflight.",
+                permissions=[str(missing_check)],
+            )
+        )
 
     missing_permissions = _aws_missing_permissions(result)
     if missing_permissions:
-        checks.append(_failed(
-            "deployment_permissions",
-            "MISSING_PERMISSIONS",
-            result.get("message") or "AWS deployment permissions are missing.",
-            "Grant the listed AWS permissions to the deployment identity, then rerun preflight.",
-            permissions=missing_permissions,
-        ))
+        checks.append(
+            _failed(
+                "deployment_permissions",
+                "MISSING_PERMISSIONS",
+                result.get("message") or "AWS deployment permissions are missing.",
+                "Grant the listed AWS permissions to the deployment identity, then rerun preflight.",
+                permissions=missing_permissions,
+            )
+        )
 
     if not checks:
         checks.append(_generic_failure(result, "aws"))
@@ -140,52 +159,78 @@ def _azure_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
 
     expiration = _safe_dict(result.get("sp_credential_expiration"))
     if expiration.get("status") == "expired":
-        checks.append(_failed(
-            "credential_expiration",
-            "CREDENTIAL_EXPIRED",
-            expiration.get("message") or result.get("message") or "Azure client secret is expired.",
-            "Rotate the Azure client secret and update the CloudConnection.",
-        ))
+        checks.append(
+            _failed(
+                "credential_expiration",
+                "CREDENTIAL_EXPIRED",
+                expiration.get("message")
+                or result.get("message")
+                or "Azure client secret is expired.",
+                "Rotate the Azure client secret and update the CloudConnection.",
+            )
+        )
     elif expiration.get("status") == "expiring_soon":
-        checks.append(ProviderPreflightCheck(
-            name="credential_expiration",
-            status="warning",
-            code="CREDENTIAL_EXPIRING_SOON",
-            message=expiration.get("message") or "Azure client secret expires soon.",
-            action="Rotate the Azure client secret soon to avoid deployment interruption.",
-            details={"days_until_expiration": expiration.get("days_until_expiration")},
-        ))
+        checks.append(
+            ProviderPreflightCheck(
+                name="credential_expiration",
+                status="warning",
+                code="CREDENTIAL_EXPIRING_SOON",
+                message=expiration.get("message")
+                or "Azure client secret expires soon.",
+                action="Rotate the Azure client secret soon to avoid deployment interruption.",
+                details={
+                    "days_until_expiration": expiration.get("days_until_expiration")
+                },
+            )
+        )
 
     if status == "valid":
-        checks.insert(0, _passed("credentials", "AZURE_READY", result.get("message") or "Azure credentials are ready."))
+        checks.insert(
+            0,
+            _passed(
+                "credentials",
+                "AZURE_READY",
+                result.get("message") or "Azure credentials are ready.",
+            ),
+        )
         return checks
 
     message = str(result.get("message") or "")
     if "subscription" in message.lower() and "enabled" in message.lower():
-        checks.append(_failed(
-            "subscription_state",
-            "SUBSCRIPTION_NOT_ENABLED",
-            message,
-            "Enable the Azure subscription or choose another subscription before deployment.",
-        ))
+        checks.append(
+            _failed(
+                "subscription_state",
+                "SUBSCRIPTION_NOT_ENABLED",
+                message,
+                "Enable the Azure subscription or choose another subscription before deployment.",
+            )
+        )
 
-    if status == "check_failed" or result.get("can_list_roles") is False and "role assignments" in message.lower():
-        checks.append(_failed(
-            "role_assignment_check",
-            "ROLE_ASSIGNMENT_CHECK_UNAVAILABLE",
-            message or "Azure role assignments cannot be inspected.",
-            "Grant Reader or equivalent role-assignment read access at subscription scope, then rerun preflight.",
-        ))
+    if (
+        status == "check_failed"
+        or result.get("can_list_roles") is False
+        and "role assignments" in message.lower()
+    ):
+        checks.append(
+            _failed(
+                "role_assignment_check",
+                "ROLE_ASSIGNMENT_CHECK_UNAVAILABLE",
+                message or "Azure role assignments cannot be inspected.",
+                "Grant Reader or equivalent role-assignment read access at subscription scope, then rerun preflight.",
+            )
+        )
 
     missing_actions = _azure_missing_actions(result)
     if missing_actions:
-        checks.append(_failed(
-            "deployment_permissions",
-            "MISSING_PERMISSIONS",
-            message or "Azure deployment permissions are missing.",
-            "Grant the listed Azure actions via the custom deployer role or required built-in roles.",
-            permissions=missing_actions,
-        ))
+        checks.append(
+            _failed(
+                "deployment_permissions",
+                "MISSING_PERMISSIONS",
+                message or "Azure deployment permissions are missing.",
+                "Grant the listed Azure actions via the custom deployer role or required built-in roles.",
+                permissions=missing_actions,
+            )
+        )
 
     if not checks:
         checks.append(_generic_failure(result, "azure"))
@@ -197,108 +242,149 @@ def _gcp_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
     checks: list[ProviderPreflightCheck] = []
 
     if status == "valid":
-        checks.append(_passed("credentials", "GCP_READY", result.get("message") or "GCP credentials are ready."))
-        checks.extend(
-            _gcp_deferred_api_checks(_safe_dict(result.get("api_status")))
+        checks.append(
+            _passed(
+                "credentials",
+                "GCP_READY",
+                result.get("message") or "GCP credentials are ready.",
+            )
         )
-        checks.extend(_gcp_deferred_permission_checks(_safe_dict(result.get("permission_status"))))
+        checks.extend(
+            _gcp_deferred_permission_checks(_safe_dict(result.get("permission_status")))
+        )
         return checks
 
     checks.extend(_region_checks(result.get("region_validation"), "gcp_region"))
 
     project_access = _safe_dict(result.get("project_access"))
     if project_access.get("status") == "access_denied":
-        checks.append(_failed(
-            "project_access",
-            "PROJECT_ACCESS_DENIED",
-            result.get("message") or project_access.get("error") or "GCP project access denied.",
-            "Grant project access to the service account or choose the correct project.",
-        ))
+        checks.append(
+            _failed(
+                "project_access",
+                "PROJECT_ACCESS_DENIED",
+                result.get("message")
+                or project_access.get("error")
+                or "GCP project access denied.",
+                "Grant project access to the service account or choose the correct project.",
+            )
+        )
     elif project_access.get("status") == "not_found":
-        checks.append(_failed(
-            "project_access",
-            "PROJECT_NOT_FOUND",
-            result.get("message") or project_access.get("error") or "GCP project not found.",
-            "Verify the GCP project ID and service account project scope.",
-        ))
-    elif project_access.get("status") == "accessible" and project_access.get("state") not in {None, "ACTIVE"}:
-        checks.append(_failed(
-            "project_state",
-            "PROJECT_NOT_ACTIVE",
-            result.get("message") or f"GCP project is {project_access.get('state')}.",
-            "Use an ACTIVE GCP project before deployment.",
-            details={"state": project_access.get("state")},
-        ))
+        checks.append(
+            _failed(
+                "project_access",
+                "PROJECT_NOT_FOUND",
+                result.get("message")
+                or project_access.get("error")
+                or "GCP project not found.",
+                "Verify the GCP project ID and service account project scope.",
+            )
+        )
+    elif project_access.get("status") == "accessible" and project_access.get(
+        "state"
+    ) not in {None, "ACTIVE"}:
+        checks.append(
+            _failed(
+                "project_state",
+                "PROJECT_NOT_ACTIVE",
+                result.get("message")
+                or f"GCP project is {project_access.get('state')}.",
+                "Use an ACTIVE GCP project before deployment.",
+                details={"state": project_access.get("state")},
+            )
+        )
 
     billing_status = _safe_dict(result.get("billing_status"))
-    if billing_status.get("status") == "checked" and billing_status.get("billing_enabled") is False:
-        checks.append(_failed(
-            "billing",
-            "BILLING_NOT_ENABLED",
-            result.get("message") or "GCP billing is not enabled.",
-            "Enable billing for the GCP project, then rerun preflight.",
-        ))
+    if (
+        billing_status.get("status") == "checked"
+        and billing_status.get("billing_enabled") is False
+    ):
+        checks.append(
+            _failed(
+                "billing",
+                "BILLING_NOT_ENABLED",
+                result.get("message") or "GCP billing is not enabled.",
+                "Enable billing for the GCP project, then rerun preflight.",
+            )
+        )
 
     api_status = _safe_dict(result.get("api_status"))
-    checks.extend(_gcp_deferred_api_checks(api_status))
     missing_apis = _gcp_missing_apis(api_status)
     if missing_apis:
-        checks.append(_failed(
-            "enabled_apis",
-            "MISSING_APIS",
-            result.get("message") or "Required GCP APIs are not enabled.",
-            "Enable the listed GCP APIs, then rerun preflight.",
-            apis=missing_apis,
-        ))
+        checks.append(
+            _failed(
+                "enabled_apis",
+                "MISSING_APIS",
+                result.get("message") or "Required GCP APIs are not enabled.",
+                "Enable the listed GCP APIs, then rerun preflight.",
+                apis=missing_apis,
+            )
+        )
 
     permission_status = _safe_dict(result.get("permission_status"))
     missing_permissions = _gcp_missing_permissions(permission_status)
     if missing_permissions:
-        checks.append(_failed(
-            "deployment_permissions",
-            "MISSING_PERMISSIONS",
-            result.get("message") or "Required GCP IAM permissions are missing.",
-            "Grant the listed GCP permissions to the deployment service account, then rerun preflight.",
-            permissions=missing_permissions,
-            details={"resource": permission_status.get("resource")},
-        ))
+        checks.append(
+            _failed(
+                "deployment_permissions",
+                "MISSING_PERMISSIONS",
+                result.get("message") or "Required GCP IAM permissions are missing.",
+                "Grant the listed GCP permissions to the deployment service account, then rerun preflight.",
+                permissions=missing_permissions,
+                details={"resource": permission_status.get("resource")},
+            )
+        )
     elif permission_status.get("status") == "check_failed":
-        checks.append(_failed(
-            "deployment_permissions",
-            "PERMISSION_CHECK_FAILED",
-            result.get("message") or permission_status.get("error") or "GCP IAM permission check failed.",
-            "Verify the service account can run testIamPermissions on the target project, then rerun preflight.",
-            details={"resource": permission_status.get("resource")},
-        ))
+        checks.append(
+            _failed(
+                "deployment_permissions",
+                "PERMISSION_CHECK_FAILED",
+                result.get("message")
+                or permission_status.get("error")
+                or "GCP IAM permission check failed.",
+                "Verify the service account can run testIamPermissions on the target project, then rerun preflight.",
+                details={"resource": permission_status.get("resource")},
+            )
+        )
     else:
         checks.extend(_gcp_deferred_permission_checks(permission_status))
 
     if status == "sdk_missing":
-        checks.append(_failed(
-            "service_dependencies",
-            "SDK_MISSING",
-            result.get("message") or "GCP SDK dependency is missing in the Deployer runtime.",
-            "Install the missing Deployer dependency or rebuild the Deployer image.",
-        ))
+        checks.append(
+            _failed(
+                "service_dependencies",
+                "SDK_MISSING",
+                result.get("message")
+                or "GCP SDK dependency is missing in the Deployer runtime.",
+                "Install the missing Deployer dependency or rebuild the Deployer image.",
+            )
+        )
 
     if not checks:
         checks.append(_generic_failure(result, "gcp"))
     return checks
 
 
-def _region_checks(region_validation: Any, default_name: str) -> list[ProviderPreflightCheck]:
+def _region_checks(
+    region_validation: Any, default_name: str
+) -> list[ProviderPreflightCheck]:
     validation = _safe_dict(region_validation)
     checks = []
     for name, result in validation.items() or [(default_name, validation)]:
         result_dict = _safe_dict(result)
-        if result_dict and result_dict.get("valid") is False and not result_dict.get("skipped"):
-            checks.append(_failed(
-                name,
-                "REGION_NOT_SUPPORTED",
-                result_dict.get("error") or f"Region check failed for {name}.",
-                "Choose a supported region for this provider and deployment layer.",
-                details={"region": result_dict.get("region")},
-            ))
+        if (
+            result_dict
+            and result_dict.get("valid") is False
+            and not result_dict.get("skipped")
+        ):
+            checks.append(
+                _failed(
+                    name,
+                    "REGION_NOT_SUPPORTED",
+                    result_dict.get("error") or f"Region check failed for {name}.",
+                    "Choose a supported region for this provider and deployment layer.",
+                    details={"region": result_dict.get("region")},
+                )
+            )
     return checks
 
 
@@ -338,7 +424,9 @@ def _gcp_missing_permissions(permission_status: dict[str, Any]) -> list[str]:
     return sorted(missing)
 
 
-def _gcp_deferred_permission_checks(permission_status: dict[str, Any]) -> list[ProviderPreflightCheck]:
+def _gcp_deferred_permission_checks(
+    permission_status: dict[str, Any],
+) -> list[ProviderPreflightCheck]:
     deferred_permissions = [
         str(permission)
         for permission in permission_status.get("deferred_permissions", []) or []
@@ -346,45 +434,24 @@ def _gcp_deferred_permission_checks(permission_status: dict[str, Any]) -> list[P
     if not deferred_permissions:
         return []
 
-    return [ProviderPreflightCheck(
-        name="resource_scoped_permissions",
-        status="warning",
-        code="RESOURCE_SCOPED_PERMISSIONS_DEFERRED",
-        message=(
-            "Some GCP permissions are resource- or provider-operation-specific "
-            "and cannot be hard-failed by project-level testIamPermissions."
-        ),
-        action=(
-            "Keep these permissions in the bootstrap role and validate them during "
-            "provider-specific deployment smoke tests."
-        ),
-        permissions=sorted(deferred_permissions),
-        details={
-            "resource": permission_status.get("resource"),
-            "reason": permission_status.get("deferred_reason"),
-        },
-    )]
-
-
-def _gcp_deferred_api_checks(
-    api_status: dict[str, Any],
-) -> list[ProviderPreflightCheck]:
-    if api_status.get("status") != "deferred_to_twin_preflight":
-        return []
-    reason = str(
-        api_status.get("reason")
-        or "The exact API set depends on the selected resolved architecture."
-    )
     return [
         ProviderPreflightCheck(
-            name="architecture_api_readiness",
+            name="resource_scoped_permissions",
             status="warning",
-            code="ARCHITECTURE_API_CHECK_DEFERRED",
-            message=reason,
-            action=(
-                "Bind the CloudConnection to the selected Twin and run the "
-                "architecture-specific deployment preflight before deploy."
+            code="RESOURCE_SCOPED_PERMISSIONS_DEFERRED",
+            message=(
+                "Some GCP permissions are resource- or provider-operation-specific "
+                "and cannot be hard-failed by project-level testIamPermissions."
             ),
+            action=(
+                "Keep these permissions in the bootstrap role and validate them during "
+                "provider-specific deployment smoke tests."
+            ),
+            permissions=sorted(deferred_permissions),
+            details={
+                "resource": permission_status.get("resource"),
+                "reason": permission_status.get("deferred_reason"),
+            },
         )
     ]
 
@@ -466,7 +533,9 @@ def _collect_sensitive_values(value: Any, parent_key: str = "") -> set[str]:
     if isinstance(value, dict):
         for key, item in value.items():
             key_text = str(key)
-            if isinstance(item, str) and (_is_sensitive_key(key_text) or _is_sensitive_key(parent_key)):
+            if isinstance(item, str) and (
+                _is_sensitive_key(key_text) or _is_sensitive_key(parent_key)
+            ):
                 _add_sensitive_value(item, values)
                 values.update(_collect_json_sensitive_values(item))
             values.update(_collect_sensitive_values(item, key_text))
@@ -489,7 +558,10 @@ def _collect_json_sensitive_values(raw: str) -> set[str]:
 
 def _redact_value(value: Any, sensitive_values: set[str], parent_key: str = "") -> Any:
     if isinstance(value, dict):
-        return {key: _redact_value(item, sensitive_values, str(key)) for key, item in value.items()}
+        return {
+            key: _redact_value(item, sensitive_values, str(key))
+            for key, item in value.items()
+        }
     if isinstance(value, list):
         return [_redact_value(item, sensitive_values, parent_key) for item in value]
     if isinstance(value, str):

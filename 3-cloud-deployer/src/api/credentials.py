@@ -8,15 +8,25 @@ Categories:
 - "Permissions - Upload": Verify credentials from request body
 - "Permissions - Project": Debug/local-cloud only. Verify credentials from project config files
 """
+
 import os
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import Optional
 
-from src.api.credentials_checker import check_aws_credentials, check_aws_credentials_from_config
-from src.api.azure_credentials_checker import check_azure_credentials, check_azure_credentials_from_config
-from src.api.gcp_credentials_checker import check_gcp_credentials, check_gcp_credentials_from_config
+from src.api.credentials_checker import (
+    check_aws_credentials,
+    check_aws_credentials_from_config,
+)
+from src.api.azure_credentials_checker import (
+    check_azure_credentials,
+    check_azure_credentials_from_config,
+)
+from src.api.gcp_credentials_checker import (
+    check_gcp_credentials,
+    check_gcp_credentials_from_config,
+)
 from src.api.error_models import ERROR_RESPONSES
 from src.api.preflight import ProviderPreflightResponse, build_provider_preflight
 
@@ -43,6 +53,7 @@ def _require_local_credential_file_checks_enabled() -> None:
 
 class AWSCredentialsRequest(BaseModel):
     """Request body for AWS credential validation."""
+
     aws_access_key_id: str = Field(..., description="AWS Access Key ID")
     aws_secret_access_key: str = Field(..., description="AWS Secret Access Key")
     aws_region: str = Field(..., description="AWS Region (e.g., 'eu-central-1')")
@@ -52,23 +63,34 @@ class AWSCredentialsRequest(BaseModel):
     )
     aws_sso_region: Optional[str] = Field(
         None,
-        description="AWS Region where IAM Identity Center (SSO) is enabled, if different from aws_region"
+        description="AWS Region where IAM Identity Center (SSO) is enabled, if different from aws_region",
     )
     aws_session_token: Optional[str] = Field(
-        None, 
-        description="Optional AWS Session Token for temporary credentials (from STS)"
+        None,
+        description="Optional AWS Session Token for temporary credentials (from STS)",
     )
 
 
 class AzureCredentialsRequest(BaseModel):
     """Request body for Azure credential validation."""
+
     azure_subscription_id: str = Field(..., description="Azure Subscription ID")
     azure_tenant_id: str = Field(..., description="Azure AD Tenant ID")
-    azure_client_id: str = Field(..., description="Service Principal Client/Application ID")
+    azure_client_id: str = Field(
+        ..., description="Service Principal Client/Application ID"
+    )
     azure_client_secret: str = Field(..., description="Service Principal Client Secret")
-    azure_region: str = Field(..., description="Azure Region for general resources (e.g., 'italynorth')")
-    azure_region_iothub: str = Field(..., description="Azure Region for IoT Hub (e.g., 'westeurope'), may differ from azure_region")
-    azure_region_digital_twin: str = Field(..., description="Azure Region for Digital Twins (e.g., 'westeurope'), must be in ADT supported list")
+    azure_region: str = Field(
+        ..., description="Azure Region for general resources (e.g., 'italynorth')"
+    )
+    azure_region_iothub: str = Field(
+        ...,
+        description="Azure Region for IoT Hub (e.g., 'westeurope'), may differ from azure_region",
+    )
+    azure_region_digital_twin: str = Field(
+        ...,
+        description="Azure Region for Digital Twins (e.g., 'westeurope'), must be in ADT supported list",
+    )
     permission_set_version: Optional[str] = Field(
         None,
         description="Versioned deployment permission-set baseline assigned to this credential.",
@@ -77,10 +99,18 @@ class AzureCredentialsRequest(BaseModel):
 
 class GCPCredentialsRequest(BaseModel):
     """Request body for GCP credential validation."""
+
     # Dual-mode: either project_id (private account) OR billing_account (org account) required
-    gcp_project_id: Optional[str] = Field(None, description="GCP Project ID for existing project (private accounts)")
-    gcp_billing_account: Optional[str] = Field(None, description="GCP Billing Account ID for auto-project creation (org accounts)")
-    gcp_credentials_file: str = Field(..., description="Path to Service Account JSON key file")
+    gcp_project_id: Optional[str] = Field(
+        None, description="GCP Project ID for existing project (private accounts)"
+    )
+    gcp_billing_account: Optional[str] = Field(
+        None,
+        description="GCP Billing Account ID for auto-project creation (org accounts)",
+    )
+    gcp_credentials_file: str = Field(
+        ..., description="Path to Service Account JSON key file"
+    )
     gcp_region: str = Field(..., description="GCP Region (e.g., 'europe-west1')")
     permission_set_version: Optional[str] = Field(
         None,
@@ -90,34 +120,77 @@ class GCPCredentialsRequest(BaseModel):
 
 class CredentialsCheckResponse(BaseModel):
     """Response schema for credential validation."""
-    status: str = Field(..., description="Result status: 'valid', 'partial', 'invalid', 'check_failed', or 'error'")
+
+    status: str = Field(
+        ...,
+        description="Result status: 'valid', 'partial', 'invalid', 'check_failed', or 'error'",
+    )
     message: str = Field(..., description="Human-readable result message")
-    caller_identity: Optional[dict] = Field(None, description="AWS caller identity if credentials are valid")
-    can_list_policies: bool = Field(..., description="Whether the credentials can list their own policies")
-    missing_check_permission: Optional[str] = Field(None, description="Permission missing to perform the check (if can_list_policies is False)")
-    by_layer: dict = Field(..., description="Permission results organized by deployment layer (layer_1 through layer_5)")
-    by_service: dict = Field(..., description="Permission results organized by AWS service with layer references")
-    summary: dict = Field(..., description="Summary with total_required, valid, and missing counts")
+    caller_identity: Optional[dict] = Field(
+        None, description="AWS caller identity if credentials are valid"
+    )
+    can_list_policies: bool = Field(
+        ..., description="Whether the credentials can list their own policies"
+    )
+    missing_check_permission: Optional[str] = Field(
+        None,
+        description="Permission missing to perform the check (if can_list_policies is False)",
+    )
+    by_layer: dict = Field(
+        ...,
+        description="Permission results organized by deployment layer (layer_1 through layer_5)",
+    )
+    by_service: dict = Field(
+        ...,
+        description="Permission results organized by AWS service with layer references",
+    )
+    summary: dict = Field(
+        ..., description="Summary with total_required, valid, and missing counts"
+    )
 
 
 class AzureCredentialsCheckResponse(BaseModel):
     """Response schema for Azure credential validation."""
-    status: str = Field(..., description="Result status: 'valid', 'partial', 'invalid', 'check_failed', or 'error'")
+
+    status: str = Field(
+        ...,
+        description="Result status: 'valid', 'partial', 'invalid', 'check_failed', or 'error'",
+    )
     message: str = Field(..., description="Human-readable result message")
-    caller_identity: Optional[dict] = Field(None, description="Azure subscription/principal info")
-    can_list_roles: bool = Field(..., description="Whether the credentials can list role assignments")
-    by_layer: dict = Field(..., description="Permission results organized by deployment layer")
-    summary: dict = Field(..., description="Summary with total_layers, valid_layers, partial_layers, invalid_layers counts")
-    recommended_roles: Optional[dict] = Field(None, description="Recommended roles: custom (preferred) and builtin alternatives")
+    caller_identity: Optional[dict] = Field(
+        None, description="Azure subscription/principal info"
+    )
+    can_list_roles: bool = Field(
+        ..., description="Whether the credentials can list role assignments"
+    )
+    by_layer: dict = Field(
+        ..., description="Permission results organized by deployment layer"
+    )
+    summary: dict = Field(
+        ...,
+        description="Summary with total_layers, valid_layers, partial_layers, invalid_layers counts",
+    )
+    recommended_roles: Optional[dict] = Field(
+        None,
+        description="Recommended roles: custom (preferred) and builtin alternatives",
+    )
 
 
 class GCPCredentialsCheckResponse(BaseModel):
     """Response schema for GCP credential validation."""
-    status: str = Field(..., description="Result status: 'valid', 'partial', 'invalid', 'sdk_missing', or 'error'")
+
+    status: str = Field(
+        ...,
+        description="Result status: 'valid', 'partial', 'invalid', 'sdk_missing', or 'error'",
+    )
     message: str = Field(..., description="Human-readable result message")
-    caller_identity: Optional[dict] = Field(None, description="GCP service account info")
+    caller_identity: Optional[dict] = Field(
+        None, description="GCP service account info"
+    )
     project_access: Optional[dict] = Field(None, description="Project access status")
-    api_status: Optional[dict] = Field(None, description="API enablement status by layer")
+    api_status: Optional[dict] = Field(
+        None, description="API enablement status by layer"
+    )
     required_roles: list = Field(..., description="List of required IAM roles")
 
 
@@ -139,19 +212,19 @@ class GCPCredentialsCheckResponse(BaseModel):
         200: {"description": "Credential validation completed (check status field)"},
         422: ERROR_RESPONSES[422],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def check_aws_from_body(request: AWSCredentialsRequest):
     """
     Validate AWS credentials from request body against all required permissions.
-    
+
     Checks permissions for all 5 deployment layers:
     - **Layer 1**: IoT Core, Lambda (Dispatcher)
     - **Layer 2**: Lambda (Processor), Step Functions
-    - **Layer 3**: DynamoDB, S3, EventBridge  
+    - **Layer 3**: DynamoDB, S3, EventBridge
     - **Layer 4**: IoT TwinMaker
     - **Layer 5**: Amazon Managed Grafana
-    
+
     Returns a categorized list of valid and missing permissions.
     """
     return check_aws_credentials(request.model_dump())
@@ -172,7 +245,7 @@ async def check_aws_from_body(request: AWSCredentialsRequest):
         200: {"description": "Preflight completed (check ready/status fields)"},
         422: ERROR_RESPONSES[422],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def preflight_aws_from_body(request: AWSCredentialsRequest):
     payload = request.model_dump()
@@ -199,20 +272,19 @@ async def preflight_aws_from_body(request: AWSCredentialsRequest):
         403: ERROR_RESPONSES[403],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def check_aws_from_config(
     project: Optional[str] = Query(
-        None, 
-        description="Project name to load credentials from."
-    )
+        None, description="Project name to load credentials from."
+    ),
 ):
     """
     Validate AWS credentials from project's config_credentials.json.
-    
+
     Reads the AWS credentials from the specified project's configuration file
     and validates them against all required permissions.
-    
+
     A project is required because credential checks are request-scoped.
     """
     _require_local_credential_file_checks_enabled()
@@ -237,12 +309,12 @@ async def check_aws_from_config(
         200: {"description": "Credential validation completed (check status field)"},
         422: ERROR_RESPONSES[422],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def check_azure_from_body(request: AzureCredentialsRequest):
     """
     Validate Azure Service Principal credentials from request body.
-    
+
     Checks RBAC role assignments for all deployment layers:
     - **Setup**: Resource Groups, Managed Identity, Storage
     - **Layer 0**: App Service Plan, Function Apps
@@ -251,7 +323,7 @@ async def check_azure_from_body(request: AzureCredentialsRequest):
     - **Layer 3**: Cosmos DB, Blob Storage
     - **Layer 4**: Azure Digital Twins
     - **Layer 5**: Azure Managed Grafana
-    
+
     Returns status and missing roles by layer.
     """
     return check_azure_credentials(request.model_dump())
@@ -272,7 +344,7 @@ async def check_azure_from_body(request: AzureCredentialsRequest):
         200: {"description": "Preflight completed (check ready/status fields)"},
         422: ERROR_RESPONSES[422],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def preflight_azure_from_body(request: AzureCredentialsRequest):
     payload = request.model_dump()
@@ -299,20 +371,19 @@ async def preflight_azure_from_body(request: AzureCredentialsRequest):
         403: ERROR_RESPONSES[403],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def check_azure_from_config(
     project: Optional[str] = Query(
-        None, 
-        description="Project name to load credentials from."
-    )
+        None, description="Project name to load credentials from."
+    ),
 ):
     """
     Validate Azure credentials from project's config_credentials.json.
-    
+
     Reads the Azure credentials from the specified project's configuration file
     and validates them against required RBAC role assignments.
-    
+
     A project is required because credential checks are request-scoped.
     """
     _require_local_credential_file_checks_enabled()
@@ -331,22 +402,22 @@ async def check_azure_from_config(
     description=(
         "**Purpose:** Verifies GCP Service Account credentials against the selected versioned permission pack.\n\n"
         "**When to call:** During wizard to validate user-provided GCP credentials.\n\n"
-        "**Checks:** Project access, billing, region, project-testable IAM permissions, and explicit deferred architecture checks."
+        "**Checks:** Project access, billing, region, the fixed Phase 8 API baseline, project-testable IAM permissions, and explicit deferred resource/provider-operation checks."
     ),
     responses={
         200: {"description": "Credential validation completed (check status field)"},
         422: ERROR_RESPONSES[422],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def check_gcp_from_body(request: GCPCredentialsRequest):
     """
     Validate GCP Service Account credentials from request body.
-    
+
     The active Phase 8 pack covers Five-layer v2 and Six-layer v1, including
     the PoC's custom GCP L4/L5 implementations. Permissions that cannot be
-    evaluated safely on the project resource remain explicit warnings for the
-    resolved-architecture preflight rather than false negatives.
+    evaluated safely on the project resource remain explicit warnings rather
+    than false negatives; the fixed Phase 8 API superset is checked directly.
     """
     return check_gcp_credentials(request.model_dump())
 
@@ -366,7 +437,7 @@ async def check_gcp_from_body(request: GCPCredentialsRequest):
         200: {"description": "Preflight completed (check ready/status fields)"},
         422: ERROR_RESPONSES[422],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def preflight_gcp_from_body(request: GCPCredentialsRequest):
     payload = request.model_dump()
@@ -393,20 +464,19 @@ async def preflight_gcp_from_body(request: GCPCredentialsRequest):
         403: ERROR_RESPONSES[403],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
-    }
+    },
 )
 async def check_gcp_from_config(
     project: Optional[str] = Query(
-        None, 
-        description="Project name to load credentials from."
-    )
+        None, description="Project name to load credentials from."
+    ),
 ):
     """
     Validate GCP credentials from project's config_credentials.json.
-    
+
     Reads the GCP credentials from the specified project's configuration file
     and validates them against required permissions.
-    
+
     A project is required because credential checks are request-scoped.
     """
     _require_local_credential_file_checks_enabled()

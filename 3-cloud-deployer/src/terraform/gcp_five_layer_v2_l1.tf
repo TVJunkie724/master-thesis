@@ -55,7 +55,7 @@ resource "google_compute_address" "gcp_v2_mqtt" {
   network_tier = "PREMIUM"
   labels       = local.gcp_v2_labels
 
-  depends_on = [google_project_service.gcp_v2_required]
+  depends_on = [terraform_data.gcp_v2_foundation_guard]
 }
 
 resource "tls_private_key" "gcp_v2_mqtt" {

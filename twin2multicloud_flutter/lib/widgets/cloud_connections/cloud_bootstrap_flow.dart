@@ -266,7 +266,6 @@ class _BootstrapTargetForm extends StatefulWidget {
 class _BootstrapTargetFormState extends State<_BootstrapTargetForm> {
   final _formKey = GlobalKey<FormState>();
   final _values = <String, TextEditingController>{};
-  String _gcpMode = 'existing_project';
 
   @override
   void initState() {
@@ -283,20 +282,12 @@ class _BootstrapTargetFormState extends State<_BootstrapTargetForm> {
         'region': 'westeurope',
         'bootstrap_credential_key_id': '',
       },
-      CloudProvider.gcp => {
-        'project_id': '',
-        'bootstrap_project_id': '',
-        'organization_id': '',
-        'folder_id': '',
-        'billing_account_id': '',
-        'region': 'europe-west1',
-      },
+      CloudProvider.gcp => {'project_id': '', 'region': 'europe-west1'},
     };
     for (final entry in defaults.entries) {
       final initial = widget.initialTarget?.values[entry.key]?.toString();
       _values[entry.key] = TextEditingController(text: initial ?? entry.value);
     }
-    _gcpMode = widget.initialTarget?.values['mode']?.toString() ?? _gcpMode;
   }
 
   @override
@@ -322,24 +313,10 @@ class _BootstrapTargetFormState extends State<_BootstrapTargetForm> {
           ),
           const SizedBox(height: AppSpacing.md),
           if (widget.provider == CloudProvider.gcp) ...[
-            DropdownButtonFormField<String>(
-              initialValue: _gcpMode,
-              decoration: const InputDecoration(
-                labelText: 'GCP target mode',
-                border: OutlineInputBorder(),
-              ),
-              items: const [
-                DropdownMenuItem(
-                  value: 'existing_project',
-                  child: Text('Existing project'),
-                ),
-                DropdownMenuItem(
-                  value: 'organization',
-                  child: Text('Organization and billing account'),
-                ),
-              ],
-              onChanged: (value) =>
-                  setState(() => _gcpMode = value ?? 'existing_project'),
+            const _BootstrapMessage(
+              icon: Icons.account_tree_outlined,
+              message:
+                  'GCP setup currently supports one existing billing-enabled project. Organization/project creation remains outside the first supervised PoC gate.',
             ),
             const SizedBox(height: AppSpacing.md),
           ],
@@ -367,21 +344,11 @@ class _BootstrapTargetFormState extends State<_BootstrapTargetForm> {
                     return 'Enter a future ISO-8601 expiry.';
                   }
                 }
-                if ({'project_id', 'bootstrap_project_id'}.contains(field.$1) &&
+                if (field.$1 == 'project_id' &&
                     !RegExp(
                       r'^[a-z][a-z0-9-]{4,28}[a-z0-9]$',
                     ).hasMatch(normalized)) {
                   return 'Enter a valid GCP project ID.';
-                }
-                if ({'organization_id', 'folder_id'}.contains(field.$1) &&
-                    !RegExp(r'^\d+$').hasMatch(normalized)) {
-                  return 'Enter digits only.';
-                }
-                if (field.$1 == 'billing_account_id' &&
-                    !RegExp(
-                      r'^[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}$',
-                    ).hasMatch(normalized)) {
-                  return 'Enter a billing account like ABCDEF-123456-ABCDEF.';
                 }
                 return null;
               },
@@ -413,19 +380,10 @@ class _BootstrapTargetFormState extends State<_BootstrapTargetForm> {
         false,
       ),
     ],
-    CloudProvider.gcp =>
-      _gcpMode == 'organization'
-          ? const [
-              ('bootstrap_project_id', 'Bootstrap project ID', true),
-              ('organization_id', 'Organization ID', true),
-              ('folder_id', 'Folder ID', false),
-              ('billing_account_id', 'Billing account ID', true),
-              ('region', 'Region', true),
-            ]
-          : const [
-              ('project_id', 'Project ID', true),
-              ('region', 'Region', true),
-            ],
+    CloudProvider.gcp => const [
+      ('project_id', 'Project ID', true),
+      ('region', 'Region', true),
+    ],
   };
 
   void _submit() {
@@ -446,20 +404,10 @@ class _BootstrapTargetFormState extends State<_BootstrapTargetForm> {
           region: value('region'),
           bootstrapCredentialKeyId: value('bootstrap_credential_key_id'),
         ),
-        CloudProvider.gcp when _gcpMode == 'existing_project' =>
-          CloudBootstrapTarget.gcpExistingProject(
-            projectId: value('project_id'),
-            region: value('region'),
-          ),
-        CloudProvider.gcp => CloudBootstrapTarget.fromJson({
-          'provider': 'gcp',
-          'mode': 'organization',
-          'bootstrap_project_id': value('bootstrap_project_id'),
-          'organization_id': value('organization_id'),
-          if (value('folder_id').isNotEmpty) 'folder_id': value('folder_id'),
-          'billing_account_id': value('billing_account_id'),
-          'region': value('region'),
-        }),
+        CloudProvider.gcp => CloudBootstrapTarget.gcpExistingProject(
+          projectId: value('project_id'),
+          region: value('region'),
+        ),
       };
       widget.onSubmitted(target);
     } on ArgumentError {
@@ -530,6 +478,10 @@ class _BootstrapGuideStep extends StatelessWidget {
           title: 'Generated deployment access',
           pack: guide.generatedDeploymentPack,
         ),
+        if (guide.apiBaseline case final baseline?) ...[
+          const SizedBox(height: AppSpacing.sm),
+          _BootstrapApiBaselineSummary(baseline: baseline),
+        ],
         if (guide.knownBlockers.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.md),
           Text(
@@ -544,6 +496,49 @@ class _BootstrapGuideStep extends StatelessWidget {
             ),
         ],
       ],
+    );
+  }
+}
+
+class _BootstrapApiBaselineSummary extends StatelessWidget {
+  final CloudBootstrapApiBaseline baseline;
+
+  const _BootstrapApiBaselineSummary({required this.baseline});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ExpansionTile(
+        key: const ValueKey('gcp-phase8-api-baseline'),
+        leading: const Icon(Icons.api_outlined),
+        title: const Text('Phase 8 API setup'),
+        subtitle: Text(
+          '${baseline.services.length} reviewed APIs · enabled once and retained',
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          0,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(baseline.mutationSummary),
+          const SizedBox(height: AppSpacing.sm),
+          for (final service in baseline.services) Text('• $service'),
+          const SizedBox(height: AppSpacing.sm),
+          for (final limitation in baseline.limitations)
+            Text('Limit: $limitation'),
+          TextButton.icon(
+            onPressed: () => launchUrl(
+              baseline.artifactUrl,
+              mode: LaunchMode.externalApplication,
+            ),
+            icon: const Icon(Icons.open_in_new),
+            label: const Text('Open reviewed API baseline'),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline contract and safety boundary for the setup-only live identity gate.
+"""Offline contract and safety boundary for the setup-only live gate.
 
 This module deliberately contains no cloud SDK imports and cannot execute a
 provider operation. Future supervised adapters must pass through these
@@ -28,11 +28,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PERMISSION_SET_ROOT = (
     REPO_ROOT / "3-cloud-deployer" / "docs" / "references" / "permission_sets"
 )
-SCHEMA_VERSION = "setup-only-live-gate.v1"
+SCHEMA_VERSION = "setup-only-live-gate.v2"
 LEDGER_SCHEMA_VERSION = "setup-only-live-gate-ledger.v1"
 PERMISSION_SET_VERSION = "thesis-demo-v2"
 PROVIDERS = ("aws", "azure", "gcp")
-MODES = ("plan_only", "identity_only")
+MODES = ("plan_only", "setup_only")
 RUN_ID_PATTERN = re.compile(r"^twin2mc-e2e-[a-z0-9][a-z0-9-]{6,15}$")
 AWS_ACCOUNT_PATTERN = re.compile(r"^[0-9]{12}$")
 GCP_PROJECT_PATTERN = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
@@ -42,7 +42,7 @@ MAX_LEDGER_BYTES = 256 * 1024
 BOOTSTRAP_PACK_PATHS = {
     "aws": PERMISSION_SET_ROOT / "aws_bootstrap_admin_v2.json",
     "azure": PERMISSION_SET_ROOT / "azure_bootstrap_admin_v2.json",
-    "gcp": PERMISSION_SET_ROOT / "gcp_bootstrap_admin_v2.json",
+    "gcp": PERMISSION_SET_ROOT / "gcp_bootstrap_admin_v3.json",
 }
 DEPLOYMENT_PACK_PATHS = {
     provider: PERMISSION_SET_ROOT / f"{provider}_thesis_demo_v2.json"
@@ -57,6 +57,9 @@ DEPLOYMENT_BINDING_PATHS = {
     / f"{provider}.json"
     for provider in ("aws", "azure")
 }
+GCP_API_BASELINE_PATH = (
+    REPO_ROOT / "contracts" / "cloud-bootstrap" / "v1" / "gcp-phase8-api-baseline.json"
+)
 
 TARGET_KEYS = {
     "aws": frozenset({"provider", "account_id", "region"}),
@@ -64,7 +67,7 @@ TARGET_KEYS = {
     "gcp": frozenset({"provider", "mode", "project_id", "region"}),
 }
 
-ALLOWED_IDENTITY_OPERATIONS = {
+ALLOWED_SETUP_OPERATIONS = {
     "aws": frozenset(
         {
             "sts.get_caller_identity",
@@ -117,6 +120,8 @@ ALLOWED_IDENTITY_OPERATIONS = {
             "resourcemanager.projects.get_iam_policy",
             "resourcemanager.projects.set_iam_policy",
             "serviceusage.services.get",
+            "serviceusage.services.batch_enable",
+            "serviceusage.operations.get",
             "iam.roles.get",
             "iam.roles.list",
             "iam.roles.create",
@@ -186,6 +191,8 @@ OPERATION_PERMISSIONS = {
             "resourcemanager.projects.setIamPolicy"
         ),
         "serviceusage.services.get": "serviceusage.services.get",
+        "serviceusage.services.batch_enable": "serviceusage.services.enable",
+        "serviceusage.operations.get": "serviceusage.operations.get",
         "iam.roles.get": "iam.roles.get",
         "iam.roles.list": "iam.roles.list",
         "iam.roles.create": "iam.roles.create",
@@ -248,12 +255,14 @@ MANIFEST_KEYS = frozenset(
         "target",
         "bootstrap_authority_pack",
         "deployment_pack",
+        "api_baseline",
         "cleanup_policy",
         "resource_prefix",
         "created_at",
     }
 )
 PACK_REFERENCE_KEYS = frozenset({"id", "version", "digest"})
+API_BASELINE_REFERENCE_KEYS = frozenset({"id", "digest", "services", "retain_enabled"})
 LEDGER_KEYS = frozenset(
     {
         "schema_version",
@@ -334,6 +343,7 @@ def create_manifest(
         "target": normalized_target,
         "bootstrap_authority_pack": _pack_reference(provider, authority=True),
         "deployment_pack": _pack_reference(provider, authority=False),
+        "api_baseline": _api_baseline_reference(provider),
         "cleanup_policy": "mandatory",
         "resource_prefix": f"{run_id}-",
         "created_at": timestamp.astimezone(timezone.utc)
@@ -351,7 +361,7 @@ def validate_manifest(document: Mapping[str, Any]) -> SetupGateManifest:
     provider = _provider(payload["provider"])
     mode = payload["mode"]
     if mode not in MODES:
-        raise SetupGateError("Manifest mode must be plan_only or identity_only.")
+        raise SetupGateError("Manifest mode must be plan_only or setup_only.")
     run_id = payload["run_id"]
     _validate_run_id(run_id)
     if payload["cleanup_policy"] != "mandatory":
@@ -363,6 +373,7 @@ def validate_manifest(document: Mapping[str, Any]) -> SetupGateManifest:
         provider, payload["bootstrap_authority_pack"], authority=True
     )
     _validate_pack_reference(provider, payload["deployment_pack"], authority=False)
+    _validate_api_baseline_reference(provider, payload["api_baseline"])
     _parse_timestamp(payload["created_at"], "created_at")
     _reject_secret_shaped_keys(payload)
     return SetupGateManifest(document=payload)
@@ -380,19 +391,19 @@ def authority_pack_gaps(provider: str) -> tuple[str, ...]:
     return tuple(sorted(required - granted))
 
 
-def require_identity_only_admission(
+def require_setup_only_admission(
     manifest: SetupGateManifest,
     *,
     environment: Mapping[str, str] | None = None,
 ) -> None:
-    if manifest.mode != "identity_only":
-        raise SetupGateError("Provider operations require an identity_only manifest.")
+    if manifest.mode != "setup_only":
+        raise SetupGateError("Provider operations require a setup_only manifest.")
     env = os.environ if environment is None else environment
     if env.get("CI", "").strip().lower() in {"1", "true", "yes"}:
         raise SetupGateError("The setup-only live gate is forbidden in CI.")
     if env.get("TWIN2MC_SETUP_GATE_ENABLED") != "1":
         raise SetupGateError("The setup-only live gate is not explicitly enabled.")
-    expected = f"{manifest.run_id}:{manifest.provider}:identity_only"
+    expected = f"{manifest.run_id}:{manifest.provider}:setup_only"
     if env.get("TWIN2MC_SETUP_GATE_CONFIRMATION") != expected:
         raise SetupGateError(
             "The setup-only live confirmation does not match the manifest."
@@ -400,17 +411,17 @@ def require_identity_only_admission(
     gaps = authority_pack_gaps(manifest.provider)
     if gaps:
         raise SetupGateError(
-            "The bootstrap authority pack does not admit every identity-only operation: "
+            "The bootstrap authority pack does not admit every setup-only operation: "
             + ", ".join(gaps)
         )
 
 
 def require_allowed_operation(manifest: SetupGateManifest, operation: str) -> None:
-    if manifest.mode != "identity_only":
+    if manifest.mode != "setup_only":
         raise SetupGateError("A plan-only manifest cannot execute provider operations.")
-    if operation not in ALLOWED_IDENTITY_OPERATIONS[manifest.provider]:
+    if operation not in ALLOWED_SETUP_OPERATIONS[manifest.provider]:
         raise SetupGateError(
-            f"Provider operation is outside the {manifest.provider} identity-only allowlist."
+            f"Provider operation is outside the {manifest.provider} setup-only allowlist."
         )
 
 
@@ -743,12 +754,69 @@ def _pack_reference(provider: str, *, authority: bool) -> dict[str, str]:
     return {"id": pack_id, "version": version, "digest": _document_digest(document)}
 
 
+def _api_baseline_reference(provider: str) -> dict[str, Any] | None:
+    if provider != "gcp":
+        return None
+    document = _load_json(GCP_API_BASELINE_PATH)
+    services = document.get("services")
+    prerequisites = document.get("bootstrap_prerequisite_services")
+    if (
+        document.get("schema_version") != "gcp-phase8-api-baseline.v1"
+        or document.get("baseline_id") != "gcp.phase8-api-baseline.v1"
+        or document.get("provider") != "gcp"
+        or document.get("status") != "frozen_offline_contract"
+        or document.get("profiles")
+        != ["five-layer-baseline@2", "six-layer-eventing@1"]
+        or document.get("owner") != "bootstrap.gcp.admin-v3"
+        or document.get("target_mode") != "existing_project"
+        or document.get("region") != "europe-west1"
+        or not isinstance(services, list)
+        or not 1 <= len(services) <= 20
+        or any(not isinstance(service, str) for service in services)
+        or services != sorted(set(services))
+        or any(
+            re.fullmatch(r"[a-z0-9-]+\.googleapis\.com", service) is None
+            for service in services
+        )
+        or not isinstance(prerequisites, list)
+        or prerequisites
+        != [
+            "cloudresourcemanager.googleapis.com",
+            "iam.googleapis.com",
+            "serviceusage.googleapis.com",
+        ]
+        or document.get("retain_enabled") is not True
+    ):
+        raise SetupGateError(
+            "GCP Phase 8 API baseline does not match the bootstrap authority pack."
+        )
+    return {
+        "id": document["baseline_id"],
+        "digest": _document_digest(document),
+        "services": list(services),
+        "retain_enabled": True,
+    }
+
+
 def _validate_pack_reference(provider: str, reference: Any, *, authority: bool) -> None:
     if not isinstance(reference, dict):
         raise SetupGateError("Permission-pack reference must be an object.")
     _exact_keys(reference, PACK_REFERENCE_KEYS, "permission-pack reference")
     if reference != _pack_reference(provider, authority=authority):
         raise SetupGateError("Permission-pack reference or digest is stale.")
+
+
+def _validate_api_baseline_reference(provider: str, reference: Any) -> None:
+    expected = _api_baseline_reference(provider)
+    if reference is None:
+        if expected is not None:
+            raise SetupGateError("GCP setup manifest requires an API baseline.")
+        return
+    if not isinstance(reference, dict):
+        raise SetupGateError("API-baseline reference must be an object or null.")
+    _exact_keys(reference, API_BASELINE_REFERENCE_KEYS, "API-baseline reference")
+    if reference != expected:
+        raise SetupGateError("API-baseline reference or digest is stale.")
 
 
 def _validate_target(provider: str, target: Any) -> None:

@@ -21,6 +21,7 @@ void main() {
     );
 
     expect(guide.executionMode, CloudBootstrapExecutionMode.deterministicFake);
+    expect(guide.apiBaseline, isNull);
     expect(guide.target.summary, '123456789012 / eu-central-1');
     expect(guide.credentialFields.map((item) => item.id), [
       'access_key_id',
@@ -29,6 +30,59 @@ void main() {
     expect(session.state, CloudBootstrapSessionState.ready);
     expect(session.connection?.permissionSetVersion, 'thesis-demo-v2');
     expect(session.commandPermissions, isEmpty);
+  });
+
+  test('parses a strict GCP Phase 8 API baseline', () {
+    final guideJson = _gcpGuideFixture();
+    final guide = CloudBootstrapGuide.fromJson(guideJson);
+
+    expect(guide.bootstrapAuthorityPack.id, 'bootstrap.gcp.admin-v3');
+    expect(guide.apiBaseline?.id, 'gcp.phase8-api-baseline.v1');
+    expect(guide.apiBaseline?.services, hasLength(19));
+    expect(guide.apiBaseline?.retainEnabled, isTrue);
+
+    final unsorted = _gcpGuideFixture();
+    final baseline = unsorted['api_baseline'] as Map<String, dynamic>;
+    baseline['services'] = List<String>.from(baseline['services'] as List)
+      ..setAll(0, [
+        'cloudbilling.googleapis.com',
+        'artifactregistry.googleapis.com',
+      ]);
+    expect(() => CloudBootstrapGuide.fromJson(unsorted), throwsFormatException);
+
+    final emptyLimitations = _gcpGuideFixture();
+    (emptyLimitations['api_baseline'] as Map<String, dynamic>)['limitations'] =
+        <String>[];
+    expect(
+      () => CloudBootstrapGuide.fromJson(emptyLimitations),
+      throwsFormatException,
+    );
+
+    final invalidService = _gcpGuideFixture();
+    final invalidBaseline =
+        invalidService['api_baseline'] as Map<String, dynamic>;
+    invalidBaseline['services'] = [
+      ...List<String>.from(invalidBaseline['services'] as List).skip(1),
+      'not-a-google-api.example.com',
+    ]..sort();
+    expect(
+      () => CloudBootstrapGuide.fromJson(invalidService),
+      throwsFormatException,
+    );
+
+    final organizationTarget = _gcpGuideFixture();
+    organizationTarget['target'] = {
+      'provider': 'gcp',
+      'mode': 'organization',
+      'bootstrap_project_id': 'thesis-admin-project',
+      'organization_id': '123456789',
+      'billing_account_id': 'ABCDEF-123456-ABCDEF',
+      'region': 'europe-west1',
+    };
+    expect(
+      () => CloudBootstrapGuide.fromJson(organizationTarget),
+      throwsFormatException,
+    );
   });
 
   test(
@@ -190,4 +244,70 @@ void main() {
       throwsArgumentError,
     );
   });
+}
+
+Map<String, dynamic> _gcpGuideFixture() {
+  final baseline = Map<String, dynamic>.from(
+    jsonDecode(
+          File(
+            'assets/contracts/cloud-bootstrap/v1/gcp-phase8-api-baseline.json',
+          ).readAsStringSync(),
+        )
+        as Map,
+  );
+  final guide = fixtureForGcp();
+  guide['api_baseline'] = {
+    'id': baseline['baseline_id'],
+    'digest': 'sha256:${List.filled(64, 'a').join()}',
+    'services': baseline['services'],
+    'retain_enabled': baseline['retain_enabled'],
+    'mutation_summary': baseline['mutation_summary'],
+    'limitations': baseline['limitations'],
+    'artifact_url': 'https://example.com/gcp/api-baseline',
+  };
+  return guide;
+}
+
+Map<String, dynamic> fixtureForGcp() {
+  final guide = Map<String, dynamic>.from(
+    jsonDecode(
+          File(
+            'assets/contracts/cloud-bootstrap/v1/fixtures/valid/aws-guide.json',
+          ).readAsStringSync(),
+        )
+        as Map,
+  );
+  guide['provider'] = 'gcp';
+  guide['target'] = {
+    'provider': 'gcp',
+    'mode': 'existing_project',
+    'project_id': 'thesis-project',
+    'region': 'europe-west1',
+  };
+  guide['bootstrap_authority_pack'] = {
+    'id': 'bootstrap.gcp.admin-v3',
+    'version': '3',
+    'digest': 'sha256:${List.filled(64, 'b').join()}',
+    'scope_summary': 'One existing project.',
+    'limitations': ['Existing-project PoC path only.'],
+    'artifact_url': 'https://example.com/gcp/authority',
+  };
+  guide['generated_deployment_pack'] = {
+    'id': 'gcp.thesis-demo-v2',
+    'version': 'thesis-demo-v2',
+    'digest': 'sha256:${List.filled(64, 'c').join()}',
+    'scope_summary': 'One generated deployment service account.',
+    'limitations': ['Offline validation only.'],
+    'artifact_url': 'https://example.com/gcp/deployment',
+  };
+  guide['credential_fields'] = [
+    {
+      'id': 'service_account_json',
+      'label': 'Service-account JSON',
+      'input_type': 'json',
+      'required': true,
+      'redaction_rule': 'private_key_document',
+    },
+  ];
+  return guide;
 }

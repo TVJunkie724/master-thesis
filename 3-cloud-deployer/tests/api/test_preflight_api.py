@@ -135,7 +135,12 @@ def test_azure_preflight_keeps_expiring_secret_as_warning(mock_check):
             "days_until_expiration": 10,
         },
         "by_layer": {},
-        "summary": {"total_layers": 1, "valid_layers": 1, "partial_layers": 0, "invalid_layers": 0},
+        "summary": {
+            "total_layers": 1,
+            "valid_layers": 1,
+            "partial_layers": 0,
+            "invalid_layers": 0,
+        },
     }
 
     response = client.post("/permissions/preflight/azure", json=AZURE_PAYLOAD)
@@ -143,7 +148,10 @@ def test_azure_preflight_keeps_expiring_secret_as_warning(mock_check):
     assert response.status_code == 200
     data = response.json()
     assert data["ready"] is True
-    assert [check["code"] for check in data["checks"]] == ["AZURE_READY", "CREDENTIAL_EXPIRING_SOON"]
+    assert [check["code"] for check in data["checks"]] == [
+        "AZURE_READY",
+        "CREDENTIAL_EXPIRING_SOON",
+    ]
     assert data["checks"][1]["status"] == "warning"
 
 
@@ -158,7 +166,12 @@ def test_azure_preflight_maps_missing_actions(mock_check):
                 "missing_actions": ["Microsoft.Authorization/roleAssignments/write"],
             }
         },
-        "summary": {"total_layers": 1, "valid_layers": 0, "partial_layers": 1, "invalid_layers": 0},
+        "summary": {
+            "total_layers": 1,
+            "valid_layers": 0,
+            "partial_layers": 1,
+            "invalid_layers": 0,
+        },
     }
 
     response = client.post("/permissions/preflight/azure", json=AZURE_PAYLOAD)
@@ -167,7 +180,9 @@ def test_azure_preflight_maps_missing_actions(mock_check):
     data = response.json()
     assert data["ready"] is False
     assert data["checks"][0]["code"] == "MISSING_PERMISSIONS"
-    assert data["checks"][0]["permissions"] == ["Microsoft.Authorization/roleAssignments/write"]
+    assert data["checks"][0]["permissions"] == [
+        "Microsoft.Authorization/roleAssignments/write"
+    ]
 
 
 @patch("src.api.credentials.check_gcp_credentials")
@@ -256,26 +271,21 @@ def test_gcp_preflight_warns_for_deferred_resource_scoped_permissions(mock_check
 
 
 @patch("src.api.credentials.check_gcp_credentials")
-def test_gcp_preflight_warns_when_exact_api_set_needs_twin_resolution(mock_check):
+def test_gcp_preflight_fails_when_fixed_api_baseline_is_incomplete(mock_check):
     mock_check.return_value = {
-        "status": "valid",
-        "message": "All project-testable thesis-demo-v2 permissions are present.",
+        "status": "invalid",
+        "message": "The fixed Phase 8 API baseline is incomplete.",
         "api_status": {
-            "status": "deferred_to_twin_preflight",
-            "by_layer": {},
-            "reason": "The exact API set depends on the selected Twin.",
-        },
-        "permission_status": {
             "status": "checked",
-            "resource": "projects/test-project",
-            "deferred_permissions": [],
             "by_layer": {
-                "thesis_demo_v2": {
-                    "status": "valid",
-                    "missing": [],
+                "phase8_api_baseline": {
+                    "status": "invalid",
+                    "present_apis": [],
+                    "missing_apis": ["container.googleapis.com"],
                 }
             },
         },
+        "permission_status": None,
         "required_roles": [],
     }
 
@@ -283,12 +293,9 @@ def test_gcp_preflight_warns_when_exact_api_set_needs_twin_resolution(mock_check
 
     assert response.status_code == 200
     data = response.json()
-    assert data["ready"] is True
-    assert [check["code"] for check in data["checks"]] == [
-        "GCP_READY",
-        "ARCHITECTURE_API_CHECK_DEFERRED",
-    ]
-    assert data["checks"][1]["status"] == "warning"
+    assert data["ready"] is False
+    assert data["checks"][0]["code"] == "MISSING_APIS"
+    assert data["checks"][0]["apis"] == ["container.googleapis.com"]
 
 
 @patch("src.api.credentials.check_gcp_credentials")

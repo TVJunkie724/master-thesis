@@ -12,6 +12,7 @@
     "target",
     "bootstrap_authority_pack",
     "generated_deployment_pack",
+    "api_baseline",
     "credential_fields",
     "credential_origins",
     "preparation_steps",
@@ -26,6 +27,12 @@
     "target": {"$ref": "#/$defs/target"},
     "bootstrap_authority_pack": {"$ref": "#/$defs/packReference"},
     "generated_deployment_pack": {"$ref": "#/$defs/packReference"},
+    "api_baseline": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/apiBaseline"}
+      ]
+    },
     "credential_fields": {
       "type": "array",
       "minItems": 1,
@@ -59,15 +66,35 @@
   "allOf": [
     {
       "if": {"properties": {"provider": {"const": "aws"}}},
-      "then": {"properties": {"target": {"properties": {"provider": {"const": "aws"}}}}}
+      "then": {
+        "properties": {
+          "target": {"properties": {"provider": {"const": "aws"}}},
+          "api_baseline": {"type": "null"}
+        }
+      }
     },
     {
       "if": {"properties": {"provider": {"const": "azure"}}},
-      "then": {"properties": {"target": {"properties": {"provider": {"const": "azure"}}}}}
+      "then": {
+        "properties": {
+          "target": {"properties": {"provider": {"const": "azure"}}},
+          "api_baseline": {"type": "null"}
+        }
+      }
     },
     {
       "if": {"properties": {"provider": {"const": "gcp"}}},
-      "then": {"properties": {"target": {"properties": {"provider": {"const": "gcp"}}}}}
+      "then": {
+        "properties": {
+          "target": {
+            "properties": {
+              "provider": {"const": "gcp"},
+              "mode": {"const": "existing_project"}
+            }
+          },
+          "api_baseline": {"$ref": "#/$defs/apiBaseline"}
+        }
+      }
     }
   ],
   "$defs": {
@@ -134,6 +161,42 @@
         "digest": {"$ref": "#/$defs/digest"},
         "scope_summary": {"type": "string", "minLength": 1},
         "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "artifact_url": {"type": "string", "format": "uri", "pattern": "^https://"}
+      }
+    },
+    "apiBaseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "digest",
+        "services",
+        "retain_enabled",
+        "mutation_summary",
+        "limitations",
+        "artifact_url"
+      ],
+      "properties": {
+        "id": {"const": "gcp.phase8-api-baseline.v1"},
+        "digest": {"$ref": "#/$defs/digest"},
+        "services": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+\\.googleapis\\.com$"
+          }
+        },
+        "retain_enabled": {"const": true},
+        "mutation_summary": {"type": "string", "minLength": 1},
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
         "artifact_url": {"type": "string", "format": "uri", "pattern": "^https://"}
       }
     },

@@ -28,7 +28,7 @@ def test_bootstrap_authority_packs_are_strict_and_cover_all_providers():
     packs = [
         _load(PACK_DIR / "aws_bootstrap_admin_v2.json"),
         _load(PACK_DIR / "azure_bootstrap_admin_v2.json"),
-        _load(PACK_DIR / "gcp_bootstrap_admin_v2.json"),
+        _load(PACK_DIR / "gcp_bootstrap_admin_v3.json"),
     ]
 
     for pack in packs:
@@ -38,8 +38,23 @@ def test_bootstrap_authority_packs_are_strict_and_cover_all_providers():
     assert {pack["contract_id"] for pack in packs} == {
         "bootstrap.aws.admin-v2",
         "bootstrap.azure.admin-v2",
-        "bootstrap.gcp.admin-v2",
+        "bootstrap.gcp.admin-v3",
     }
+
+
+def test_gcp_v3_owns_only_existing_project_api_enablement():
+    pack = _load(PACK_DIR / "gcp_bootstrap_admin_v3.json")
+    permissions = {
+        permission
+        for group in pack["permission_groups"]
+        for permission in group["permissions"]
+    }
+
+    assert pack["target_modes"] == ["existing_project"]
+    assert "serviceusage.services.enable" in permissions
+    assert "serviceusage.operations.get" in permissions
+    assert "resourcemanager.projects.create" not in permissions
+    assert "billing.resourceAssociations.create" not in permissions
 
 
 def test_bootstrap_authority_packs_contain_no_secret_material_or_wildcards():

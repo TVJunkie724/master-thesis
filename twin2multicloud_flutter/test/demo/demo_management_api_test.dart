@@ -128,8 +128,10 @@ void main() {
           region: 'europe-west1',
         ),
       );
-      expect(gcpGuide.bootstrapAuthorityPack.id, 'bootstrap.gcp.admin-v2');
-      expect(gcpGuide.bootstrapAuthorityPack.version, '2');
+      expect(gcpGuide.bootstrapAuthorityPack.id, 'bootstrap.gcp.admin-v3');
+      expect(gcpGuide.bootstrapAuthorityPack.version, '3');
+      expect(gcpGuide.apiBaseline?.services, hasLength(19));
+      expect(gcpGuide.apiBaseline?.retainEnabled, isTrue);
       final azureGuide = await api.getCloudBootstrapGuide(
         CloudProvider.azure,
         CloudBootstrapTarget.azure(

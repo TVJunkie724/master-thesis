@@ -116,15 +116,26 @@ void main() {
         expect(guide.target, target);
         expect(
           guide.bootstrapAuthorityPack.id,
-          'bootstrap.${provider.apiValue}.admin-v2',
+          provider == CloudProvider.gcp
+              ? 'bootstrap.gcp.admin-v3'
+              : 'bootstrap.${provider.apiValue}.admin-v2',
         );
-        expect(guide.bootstrapAuthorityPack.version, '2');
+        expect(
+          guide.bootstrapAuthorityPack.version,
+          provider == CloudProvider.gcp ? '3' : '2',
+        );
         expect(guide.generatedDeploymentPack.version, 'thesis-demo-v2');
         if (provider == CloudProvider.aws) {
           expect(
             guide.generatedDeploymentPack.id,
             'aws.thesis-demo-v2.iam-user-v1',
           );
+        }
+        if (provider == CloudProvider.gcp) {
+          expect(guide.apiBaseline?.services, hasLength(19));
+          expect(guide.apiBaseline?.retainEnabled, isTrue);
+        } else {
+          expect(guide.apiBaseline, isNull);
         }
         expect(guide.knownBlockers, isEmpty);
 

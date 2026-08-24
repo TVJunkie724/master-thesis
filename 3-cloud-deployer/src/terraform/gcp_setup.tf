@@ -239,7 +239,7 @@ resource "google_project" "main" {
 
 # Cloud Resource Manager API is required to enable other APIs
 resource "google_project_service" "cloudresourcemanager" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.five_layer_v2_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "cloudresourcemanager.googleapis.com"
 
@@ -247,7 +247,7 @@ resource "google_project_service" "cloudresourcemanager" {
 }
 
 resource "google_project_service" "pubsub" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.five_layer_v2_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "pubsub.googleapis.com"
 
@@ -265,7 +265,7 @@ resource "google_project_service" "cloudfunctions" {
 }
 
 resource "google_project_service" "run" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.five_layer_v2_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "run.googleapis.com"
 
@@ -301,7 +301,7 @@ resource "google_project_service" "eventarc" {
 }
 
 resource "google_project_service" "cloudbuild" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.five_layer_v2_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "cloudbuild.googleapis.com"
 
@@ -319,7 +319,7 @@ resource "google_project_service" "cloudscheduler" {
 }
 
 resource "google_project_service" "iam" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.five_layer_v2_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "iam.googleapis.com"
 

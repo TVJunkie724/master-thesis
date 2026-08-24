@@ -1,7 +1,7 @@
 # GCP Phase 8 API Enablement Ownership
 
 **Date:** 2026-08-24  
-**Status:** Approved implementation plan; offline implementation pending  
+**Status:** Offline implementation complete; supervised G2-G5 validation pending
 **Profiles:** `five-layer-baseline@2`, `six-layer-eventing@1`  
 **Live scope:** existing-project path only; no provider call is authorized by this plan
 
@@ -24,8 +24,9 @@ API enablement belongs to the short-lived GCP bootstrap authority, not to the
 retained deployment identity and not to Terraform.
 
 - Publish `bootstrap.gcp.admin-v3` for the existing-project PoC path. It adds
-  only `serviceusage.services.enable` to the prior identity-bootstrap
-  authority.
+  only `serviceusage.services.enable` and `serviceusage.operations.get` to the
+  prior identity-bootstrap authority so the bounded enable operation can be
+  started and awaited.
 - The bootstrap enables one reviewed fixed superset of the public APIs used by
   every supported GCP placement of both Phase 8 profiles. The PoC deliberately
   prefers a deterministic superset over placement-specific cost optimization.
@@ -142,5 +143,31 @@ Twin workload is deployed during setup.
 
 - [Google Cloud: Enable and disable services](https://docs.cloud.google.com/service-usage/docs/enable-disable)
 - [Google Cloud: `services.enable` authorization](https://docs.cloud.google.com/service-usage/docs/reference/rest/v1/services/enable)
+- [Google Cloud: poll a Service Usage operation](https://docs.cloud.google.com/service-usage/docs/reference/rest/v1/operations/get)
 - [Google Cloud: Service Usage access control](https://docs.cloud.google.com/service-usage/docs/access-control)
 - [Terraform Google provider: `google_project_service`](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/google_project_service)
+
+## 8. Offline Implementation Record
+
+- `contracts/cloud-bootstrap/v1/gcp-phase8-api-baseline.json` is the canonical
+  synchronized 19-service baseline; its schema and sync gate enforce owner,
+  existing-project scope, sorting, prerequisite inclusion, and the 20-service
+  ceiling.
+- `gcp_bootstrap_admin_v3.json` is active while v1/v2 remain historical.
+  Setup manifests pin the authority and API-baseline digests separately.
+- Management guides expose `api_baseline` explicitly (`null` for AWS/Azure),
+  reject GCP organization mode with `BOOTSTRAP_SCOPE_UNSUPPORTED`, and keep all
+  real adapters disabled.
+- The Deployer checks every service with `serviceusage.services.get`, rejects
+  active-v2 billing-account/project-creation mode, and fails preflight on a
+  missing API.
+- Active v2 Terraform contains no dynamic or shared
+  `google_project_service` instance; historical v1 behavior is retained.
+- Flutter and demo mode show the exact baseline, mutation/retention wording,
+  limitation list, and reviewed artifact link in an existing-project-only
+  flow.
+
+Credential-free contract, Deployer, Management, Flutter, native mock-plan, and
+strict documentation gates are the admissible evidence for this record. It
+does not claim that v3 permissions, API operation polling, identity creation,
+or cleanup have succeeded against a live GCP project.

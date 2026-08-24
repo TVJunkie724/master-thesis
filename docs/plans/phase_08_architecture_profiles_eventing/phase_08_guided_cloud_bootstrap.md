@@ -67,7 +67,7 @@ Twin draft and workload
 | In scope | Out of scope |
 |---|---|
 | Guided AWS, Azure, and GCP deployment-access bootstrap | Creating an AWS account, Azure tenant/subscription, or commercial billing relationship |
-| Existing-project and reviewed organization/billing-account GCP paths | Persisting provider-wide Owner credentials |
+| Existing billing-enabled GCP project path | GCP organization/project creation or billing mutation |
 | Request-only bootstrap secret handling | Automatic provider-console or browser-login automation |
 | Reusable bounded PoC CloudConnections | Treating deployment credentials as human browser passwords |
 | Typed pause, remediation, and resume behavior | Silently creating human Azure, Google, or externally managed AWS users |
@@ -119,7 +119,7 @@ machine-checkable permission pack for that initial authority:
 ```text
 bootstrap.aws.admin-v2
 bootstrap.azure.admin-v2
-bootstrap.gcp.admin-v2
+bootstrap.gcp.admin-v3
 ```
 
 Their canonical planned locations are:
@@ -128,7 +128,7 @@ Their canonical planned locations are:
 |---|---|
 | `bootstrap.aws.admin-v2` | `3-cloud-deployer/docs/references/permission_sets/aws_bootstrap_admin_v2.json` |
 | `bootstrap.azure.admin-v2` | `3-cloud-deployer/docs/references/permission_sets/azure_bootstrap_admin_v2.json` |
-| `bootstrap.gcp.admin-v2` | `3-cloud-deployer/docs/references/permission_sets/gcp_bootstrap_admin_v2.json` |
+| `bootstrap.gcp.admin-v3` | `3-cloud-deployer/docs/references/permission_sets/gcp_bootstrap_admin_v3.json` |
 
 AWS v2 supersedes the historical `bootstrap.aws.admin-v1` pack without
 rewriting it. The v1 inline-policy path cannot hold the Phase 8 permission
@@ -153,12 +153,12 @@ boundary required to create and clean up the generated `thesis-demo-v2` custom
 role; it does not permit a fallback to broad `Contributor` plus
 `User Access Administrator` assignments.
 
-GCP v2 supersedes the historical `bootstrap.gcp.admin-v1` pack without
-rewriting it. It adds read-only IAM API readiness verification and custom-role
-listing so the adapter can distinguish an absent role from Google's
-seven-day soft-deleted state. It does not add API-enable authority: the IAM API
-must already be enabled, and a key-creation organization-policy block remains
-a manual prerequisite rather than something the PoC weakens.
+GCP v3 supersedes the historical v1/v2 packs without rewriting them. It keeps
+read-only readiness verification and custom-role listing, and adds the bounded
+Service Usage enable/poll operations for the fixed 19-service Phase 8
+baseline. Service Usage, IAM, and Cloud Resource Manager must already be
+available; a key-creation organization-policy block remains a manual
+prerequisite rather than something the PoC weakens.
 
 Each artifact covers only generated-identity creation/reconciliation,
 assignment of the guide-selected deployment pack, validation, cleanup, and the
@@ -193,8 +193,8 @@ The following authority must exist before the platform can bootstrap itself:
 |---|---|---|
 | AWS | Existing billable AWS account; dedicated temporary IAM principal or assumed-role session that passes `bootstrap.aws.admin-v2` | account ID, region, access key ID, secret access key, optional session token, and required provider-issued expiry when a session token is used |
 | Azure | Existing active Entra tenant and subscription; dedicated bootstrap app/service principal that passes `bootstrap.azure.admin-v2` across the required directory and subscription RBAC scopes | tenant ID, subscription ID, client ID, client secret, region, and safe credential key ID when automatic disposable-secret removal is requested |
-| GCP existing-project path | Existing billable project with the IAM API enabled; dedicated bootstrap service account that passes `bootstrap.gcp.admin-v2` at project scope | project ID, region, service-account JSON credential |
-| GCP organization path | Existing organization, billing account, bootstrap/admin project with the IAM API enabled, and dedicated bootstrap service account that passes the organization-path variant of `bootstrap.gcp.admin-v2` | bootstrap project ID, billing account ID, organization/folder target, region, service-account JSON credential |
+| GCP existing-project path | Existing billing-enabled project where Service Usage, IAM, and Cloud Resource Manager are available; dedicated bootstrap service account that passes `bootstrap.gcp.admin-v3` at project scope | project ID, region, service-account JSON credential |
+| GCP organization path | Not admitted by the first supervised PoC gate; project creation and organization/folder/billing mutation require a separate reviewed ownership contract | no active input form; the API returns `BOOTSTRAP_SCOPE_UNSUPPORTED` |
 
 Provider guides must recommend a dedicated temporary credential. AWS root
 access keys are forbidden. GCP JSON keys are an explicit PoC compatibility
@@ -208,8 +208,8 @@ steps. “Use admin credentials” is not sufficient:
 |---|---|
 | AWS | Sign in as a non-root administrator; select the target account; create a dedicated temporary IAM principal or obtain a short STS session; attach the versioned bootstrap pack; create/copy the access key material once; record account ID and region. |
 | Azure | Sign in to the correct tenant; select the subscription; create a dedicated bootstrap app/service principal; assign the versioned bootstrap authority at the displayed subscription or resource-group scope; create a short-lived client secret; record tenant, subscription, and client IDs. Azure subscription `Owner` alone does not prove permission to create Entra applications, so the guide validates both directory and Azure RBAC authority. |
-| GCP existing project | Select an existing billing-enabled project; create a dedicated bootstrap service account; bind the displayed bootstrap roles/custom permissions; create and download one JSON key only if organization policy permits; record project and region. |
-| GCP organization path | Select an existing bootstrap/admin project; confirm organization/folder and billing-account authority; create the dedicated bootstrap service account there; bind the displayed organization, folder, billing, and project-creation authority; create one JSON key only if policy permits; record every displayed ID. The future Twin project is still created only by the explicit deployment, not by bootstrap. |
+| GCP existing project | Select an existing billing-enabled project; confirm Service Usage, IAM, and Cloud Resource Manager are available; create a dedicated bootstrap service account; bind `bootstrap.gcp.admin-v3`; create and download one JSON key only if organization policy permits; record project and region. Bootstrap then enables the displayed fixed Phase 8 API baseline before creating the bounded identity. |
+| GCP organization path | No steps are offered in the active PoC. Use an existing project or treat organization/project creation as separately scoped future work. |
 
 An existing general administrator credential is accepted only through the
 explicit `existing_user_owned` choice and only if validation proves every
@@ -362,7 +362,7 @@ Guide/session target objects are strict and mutually exclusive:
 | AWS | `account_id`, `region`; optional `session_expires_at` becomes required only when execute includes a session token |
 | Azure | `tenant_id`, `subscription_id`, `region`; optional safe `bootstrap_credential_key_id` for automatic disposable-secret removal. The first PoC implementation is subscription-scoped because the Deployer creates its resource group. |
 | GCP `existing_project` | exact `mode`, `project_id`, `region` |
-| GCP `organization` | exact `mode`, `bootstrap_project_id`, `organization_id`, optional `folder_id`, `billing_account_id`, `region` |
+| GCP `organization` | Reserved compatibility request shape only; Management returns `BOOTSTRAP_SCOPE_UNSUPPORTED` before guide/session creation or mutation |
 
 `entry_point=settings` forbids `twin_id`; `entry_point=twin_prepare` requires an
 owner-visible Twin draft ID whose resolved architecture includes the provider.
@@ -384,8 +384,9 @@ The guide contract contains:
 | `schema_version` | Exact `cloud-bootstrap-guide.v1` discriminator |
 | `execution_mode` | Truthful `disabled` or offline `deterministic_fake`; the UI labels the offline PoC mode and never presents it as cloud creation. A real provider adapter requires a separate implementation/live-gate revision. |
 | `provider`, `target`, `region` | Safe provider context echoed from the request |
-| `bootstrap_authority_pack` | Stable active `bootstrap.<provider>.admin-v2` ID, digest, scope summary, directory/organization/billing/key-policy limitations, and an opaque downloadable provider artifact; historical v1 artifacts remain versioned evidence and Flutter never edits either generation |
+| `bootstrap_authority_pack` | Stable active AWS/Azure admin-v2 or GCP admin-v3 ID, digest, scope summary, directory/organization/billing/key-policy limitations, and an opaque downloadable provider artifact; historical artifacts remain versioned evidence and Flutter never edits them |
 | `generated_deployment_pack` | Management-selected active ID/version/digest, scope summary, and known-gap references; Five-layer v2 requires `thesis-demo-v2` |
+| `api_baseline` | `null` for AWS/Azure; for GCP, the exact digest-pinned 19-service Phase 8 superset, retained-state policy, mutation summary, limitations, and reviewed artifact link |
 | `credential_fields` | Ordered provider-specific field IDs, safe labels, input type, required flag, and redaction rule; never values |
 | `credential_origins` | `dedicated_disposable` and `existing_user_owned` with exact consequences |
 | `preparation_steps` | Ordered manual steps, expected outcome, and allowlisted official HTTPS URL |
@@ -438,7 +439,7 @@ The initial provider behavior is explicit:
 | AWS IAM-user access key | Delete the exact submitted access-key ID when it belongs to the declared bootstrap principal and `bootstrap.aws.admin-v2` permits the call | Show IAM key ID and official delete-key steps |
 | AWS STS session | Record the provider-issued expiration as `expires_at_provider`; do not claim deletion or early revocation | Show principal/session identifier and exact expiry; no cleanup acknowledgement is required |
 | Azure service-principal client secret | Remove the exact submitted credential/key ID only when the bootstrap app and Graph authority permit it | Show tenant, application ID, safe credential ID, and official credential-removal steps |
-| GCP service-account key | Delete the exact submitted key ID when it belongs to the declared service account and `bootstrap.gcp.admin-v2` permits it | Show service-account email/key ID and official delete-key steps |
+| GCP service-account key | Delete the exact submitted key ID when it belongs to the declared service account and `bootstrap.gcp.admin-v3` permits it; leave the shared API baseline enabled | Show service-account email/key ID and official delete-key steps |
 
 The execute request must derive and validate the safe credential/key identifier
 before provider mutation. If a provider credential format does not expose a
@@ -472,12 +473,12 @@ second credential model:
 | AWS | IAM user in the selected account with the guide-selected reviewed AWS deployment pack and one managed access key |
 | Azure | Service principal in the selected tenant with the reviewed subscription-scope PoC assignments and one client secret |
 | GCP existing project | Service account in the selected project with the reviewed custom role and one user-managed key |
-| GCP organization path | Service account in the existing bootstrap/admin project with the reviewed organization/folder, billing, and project-creation authority; this remains broader and reusable because the Twin project does not exist until explicit deploy |
+| GCP organization path | No generated identity in the active PoC; the request fails closed before a guide or mutation |
 
 This identity is bounded by the guide-selected reviewed PoC permission
 artifacts and target
 scope. It is not described as formally least-privileged, especially for Azure
-role-assignment authority and GCP organization-account project creation.
+role-assignment authority and the temporary GCP API-enable boundary.
 
 The Management API must:
 
@@ -494,8 +495,8 @@ The Management API must:
    version changes.
 
 A compatible CloudConnection is reusable by later Twins in the same declared
-scope. GCP organization-path reuse is explicitly account/bootstrap-project
-scoped rather than future-project scoped.
+scope. The active GCP scope is exactly one existing project; organization-path
+reuse is not claimed by this PoC.
 Creating a new Twin does not request bootstrap authority again unless the
 connection is missing, revoked, incompatible, or explicitly replaced.
 An existing `thesis-demo-v1` connection remains valid for deployments that
@@ -696,16 +697,14 @@ Azure now likewise pins
 the frozen v2 workload inventory plus only the subscription, location, and
 role-definition reads used by the existing service-principal preflight. The
 Deployer selects the synchronized v2 provider packs by
-`permission_set_version`; GCP reports non-project-testable permissions and the
-resolved architecture API set as deferred warnings. No provider result is
-claimed until the supervised gate runs. GCP Terraform API enablement versus
-the deliberately omitted `serviceusage.services.enable` permission is resolved
-by the approved
+`permission_set_version`; GCP checks the fixed Service Usage baseline and
+fails preflight when any required API is absent. No provider result is claimed
+until the supervised gate runs. GCP Terraform API ownership is resolved by the approved
 [`GCP Phase 8 API Enablement Ownership`](../2026-08-24_gcp_phase8_api_ownership.md)
-plan: a short-lived v3 bootstrap authority owns a fixed existing-project API
-superset, while the retained v2 deployment identity only verifies it. The
-offline implementation and G2-G5 live proof remain pending, so G6/G7 stay
-blocked.
+plan and implementation: the short-lived v3 bootstrap owns a fixed existing-
+project API superset, the retained v2 deployment identity only verifies it,
+and active v2 Terraform no longer creates `google_project_service` resources.
+G2-G5 live proof remains pending, so G6/G7 stay blocked.
 
 The credential-free local integration boundary is available as
 `./thesis.sh test setup-smoke`. It runs the actual shared Flutter bootstrap UI

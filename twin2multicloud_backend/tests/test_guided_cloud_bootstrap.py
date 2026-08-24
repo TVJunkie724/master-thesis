@@ -5,11 +5,13 @@ import json
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
+import pytest
 from src.config import settings
 from src.models.cloud_bootstrap_session import CloudBootstrapSession
 from src.models.cloud_connection import CloudConnection
 from src.models.user import User
 from src.repositories.architecture_repository import ArchitectureRepository
+from src.schemas.cloud_bootstrap import CloudBootstrapApiBaseline
 from src.services.cloud_bootstrap_errors import CloudBootstrapDomainError
 from src.services.guided_cloud_bootstrap_service import GuidedCloudBootstrapService
 
@@ -162,10 +164,18 @@ def test_guides_are_strict_safe_and_reference_v2_for_every_provider(auth_client)
         expected_authority = {
             "aws": ("bootstrap.aws.admin-v2", "2"),
             "azure": ("bootstrap.azure.admin-v2", "2"),
-            "gcp": ("bootstrap.gcp.admin-v2", "2"),
+            "gcp": ("bootstrap.gcp.admin-v3", "3"),
         }[provider]
         assert guide["bootstrap_authority_pack"]["id"] == expected_authority[0]
         assert guide["bootstrap_authority_pack"]["version"] == expected_authority[1]
+        if provider == "gcp":
+            baseline = guide["api_baseline"]
+            assert baseline["id"] == "gcp.phase8-api-baseline.v1"
+            assert len(baseline["services"]) == 19
+            assert baseline["services"] == sorted(baseline["services"])
+            assert baseline["retain_enabled"] is True
+        else:
+            assert guide["api_baseline"] is None
         assert guide["legacy_fallback_available"] is True
         assert "submitted-" not in serialized
         assert '"private_key":' not in serialized
@@ -173,6 +183,26 @@ def test_guides_are_strict_safe_and_reference_v2_for_every_provider(auth_client)
             step["official_url"].startswith("https://")
             for step in guide["preparation_steps"]
         )
+
+
+def test_gcp_api_baseline_model_rejects_schema_drift():
+    baseline = {
+        "id": "gcp.phase8-api-baseline.v1",
+        "digest": "sha256:" + ("a" * 64),
+        "services": ["not-a-google-api.example.com"],
+        "retain_enabled": True,
+        "mutation_summary": "Enable the fixed baseline.",
+        "limitations": ["Existing project only."],
+        "artifact_url": "https://example.com/gcp/api-baseline",
+    }
+
+    with pytest.raises(ValueError, match="services must be sorted"):
+        CloudBootstrapApiBaseline.model_validate(baseline)
+
+    baseline["services"] = ["serviceusage.googleapis.com"]
+    baseline["limitations"] = []
+    with pytest.raises(ValueError):
+        CloudBootstrapApiBaseline.model_validate(baseline)
 
 
 def test_twin_prepare_admits_only_a_provider_in_the_selected_resolution(
@@ -357,7 +387,7 @@ def test_execute_is_idempotent_and_does_not_create_a_second_connection(auth_clie
     assert db.query(CloudConnection).count() == 1
 
 
-def test_gcp_organization_path_preserves_declared_reusable_scope(auth_client):
+def test_gcp_organization_path_fails_closed_before_v3_guide(auth_client):
     target = {
         "provider": "gcp",
         "mode": "organization",
@@ -367,45 +397,13 @@ def test_gcp_organization_path_preserves_declared_reusable_scope(auth_client):
         "billing_account_id": "ABCDEF-123456-ABCDEF",
         "region": "europe-west1",
     }
-    guide = auth_client.post(
+    response = auth_client.post(
         "/cloud-bootstrap/gcp/guide",
         json={"target": target},
-    ).json()
-    created = auth_client.post(
-        "/cloud-bootstrap/sessions",
-        json={
-            "provider": "gcp",
-            "target": target,
-            "entry_point": "settings",
-            "display_name": "GCP organization access",
-            "guide_digest": guide["guide_digest"],
-            "bootstrap_authority_pack_digest": guide["bootstrap_authority_pack"][
-                "digest"
-            ],
-            "generated_deployment_pack_digest": guide["generated_deployment_pack"][
-                "digest"
-            ],
-            "idempotency_key": "create-gcp-organization-001",
-        },
-    ).json()
-    credential = _credential("gcp")
-    credential["project_id"] = "thesis-admin-project"
-    response = auth_client.post(
-        f"/cloud-bootstrap/sessions/{created['id']}/execute",
-        json={
-            "expected_revision": created["revision"],
-            "idempotency_key": "execute-gcp-organization-001",
-            "credential_origin": "dedicated_disposable",
-            "credential": credential,
-        },
     )
 
-    assert response.status_code == 200
-    scope = response.json()["connection"]["cloud_scope"]
-    assert scope["mode"] == "organization"
-    assert scope["bootstrap_project_id"] == "thesis-admin-project"
-    assert scope["organization_id"] == "123456789"
-    assert scope["billing_account_id"] == "ABCDEF-123456-ABCDEF"
+    assert response.status_code == 409
+    assert response.json()["error_code"] == "BOOTSTRAP_SCOPE_UNSUPPORTED"
 
 
 def test_existing_user_owned_credential_is_released_but_not_claimed_revoked(

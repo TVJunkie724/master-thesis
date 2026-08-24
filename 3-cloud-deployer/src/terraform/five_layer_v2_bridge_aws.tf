@@ -522,7 +522,7 @@ resource "google_iam_workload_identity_pool" "gcp_v2_bridge_from_aws" {
   display_name              = "AWS event bridge"
   description               = "Five-layer v2 source-owned AWS event bridge"
 
-  depends_on = [google_project_service.gcp_v2_required]
+  depends_on = [terraform_data.gcp_v2_foundation_guard]
 }
 
 resource "google_iam_workload_identity_pool_provider" "gcp_v2_bridge_from_aws" {
@@ -541,7 +541,7 @@ resource "google_iam_workload_identity_pool_provider" "gcp_v2_bridge_from_aws" {
     account_id = data.aws_caller_identity.current[0].account_id
   }
 
-  depends_on = [google_project_service.gcp_v2_required]
+  depends_on = [terraform_data.gcp_v2_foundation_guard]
 }
 
 resource "google_service_account_iam_member" "gcp_v2_bridge_from_aws" {

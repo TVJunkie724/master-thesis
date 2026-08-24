@@ -3,7 +3,7 @@ title: "Concept: Guided Cloud Access Bootstrap"
 description: "User-facing concept for creating reusable deployment CloudConnections from request-scoped provider authority and resuming exact manual prerequisites."
 tags: [flutter, configuration-workspace, settings, credentials, bootstrap, cloud-access]
 lastUpdated: "2026-08-24"
-version: "1.3"
+version: "1.4"
 ---
 
 <!-- SOURCES:
@@ -12,7 +12,7 @@ version: "1.3"
 - docs/plans/2026-04-26_runtime_credentials_deployment_state_hardening.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
 - User-approved manual-step and credential-lifecycle decisions from 2026-07-31
-EXTRACTED: 2026-08-24 | VERSION: 1.3
+EXTRACTED: 2026-08-24 | VERSION: 1.4
 -->
 
 # Concept: Guided Cloud Access Bootstrap
@@ -39,6 +39,8 @@ implemented and verified with deterministic offline adapters. Production
 provider adapters remain fail-closed. The repository's existing manual
 `plan -> local bootstrap script -> import` contract remains the supervised
 compatibility path; Flutter never executes the local script or a provider CLI.
+Those scripts do not constitute GCP admin-v3/API-baseline evidence; supervised
+G2-G5 implementation and validation remain pending for every provider.
 
 ## Motivation
 
@@ -106,20 +108,23 @@ guided setup; it does not force an existing connection through bootstrap.
 The default view explains four facts before accepting a secret:
 
 1. which provider account/project/subscription and region will be affected;
-2. which active `bootstrap.<provider>.admin-v2` authority pack the submitted
+2. which active AWS/Azure admin-v2 or GCP admin-v3 authority pack the submitted
    credential must pass, and which Management-selected deployment pack will be
    assigned (`thesis-demo-v2` for Five-layer v2); AWS additionally presents
    the versioned `aws.thesis-demo-v2.iam-user-v1` binding that makes the PoC's
    IAM-user/access-key deployment identity explicit, while Azure presents
    `azure.thesis-demo-v2.service-principal-v1` for its
-   service-principal/client-secret and Deployer self-inspection boundary;
+   service-principal/client-secret and Deployer self-inspection boundary; GCP
+   additionally presents the exact 19-service API-baseline digest, retained-
+   state policy, and reviewed artifact before submission;
 3. that the submitted secret is request-scoped and never rehydrated; and
 4. whether Twin2MultiCloud will attempt to revoke a dedicated disposable
    credential or leave an existing user-owned credential untouched.
 
 Provider preparation guidance contains only safe instructions, required
-fields, both permission-pack identities/digests, and official links from the typed
-Management API guide. Flutter does not hardcode mutable provider procedures.
+fields, both permission-pack identities/digests, the provider-conditional GCP
+API-baseline identity/digest, and official links from the typed Management API
+guide. Flutter does not hardcode mutable provider procedures.
 
 ## Provider Inputs
 
@@ -127,8 +132,8 @@ Management API guide. Flutter does not hardcode mutable provider procedures.
 |---|---|---|---|
 | AWS | access key ID, secret access key, optional session token | account ID, region, and provider-issued expiry when a session token is used | Identity Center display label/email and existing/invite-built-in intent |
 | Azure | tenant ID, subscription ID, client ID, client secret | region and safe credential key ID when automatic disposable-secret removal is requested; initial PoC scope is the subscription | existing Entra UPN/object ID |
-| GCP existing-project path | service-account JSON | existing project ID and region | existing Google user/group; source CIDR when GCP L5 is selected |
-| GCP organization path | service-account JSON | existing bootstrap/admin project, organization/folder target, billing account, and region | existing Google user/group; source CIDR when GCP L5 is selected |
+| GCP existing-project path | service-account JSON for `bootstrap.gcp.admin-v3` | existing billing-enabled project ID and region; Service Usage, IAM, and Cloud Resource Manager available | existing Google user/group; source CIDR when GCP L5 is selected |
+| GCP organization path | Not accepted by the active PoC | Fails closed before guide or mutation; separate future ownership contract required | Not applicable |
 
 Secret form controls clear as soon as submission begins. The service retains
 the value only long enough to serialize the in-flight execute request; no BLoC

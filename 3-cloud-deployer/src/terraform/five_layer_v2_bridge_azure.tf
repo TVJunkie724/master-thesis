@@ -284,7 +284,7 @@ resource "google_iam_workload_identity_pool" "gcp_v2_bridge_from_azure" {
   display_name              = "Azure event bridge"
   description               = "Five-layer v2 source-owned Azure event bridge"
 
-  depends_on = [google_project_service.gcp_v2_required]
+  depends_on = [terraform_data.gcp_v2_foundation_guard]
 }
 
 resource "google_iam_workload_identity_pool_provider" "gcp_v2_bridge_from_azure" {
@@ -306,7 +306,7 @@ resource "google_iam_workload_identity_pool_provider" "gcp_v2_bridge_from_azure"
 
   depends_on = [
     azuread_app_role_assignment.azure_v2_bridge_source,
-    google_project_service.gcp_v2_required,
+    terraform_data.gcp_v2_foundation_guard,
   ]
 }
 

@@ -1,4 +1,4 @@
-"""Offline regression tests for the setup-only live identity gate boundary."""
+"""Offline regression tests for the setup-only live gate boundary."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 from scripts.setup_only_live_gate import (
-    ALLOWED_IDENTITY_OPERATIONS,
+    ALLOWED_SETUP_OPERATIONS,
     CleanupLedgerStore,
     RESOURCE_KINDS,
     SetupGateError,
@@ -21,7 +21,7 @@ from scripts.setup_only_live_gate import (
     create_manifest,
     new_cleanup_ledger,
     require_allowed_operation,
-    require_identity_only_admission,
+    require_setup_only_admission,
     transition_ledger,
     validate_cleanup_ledger,
     validate_manifest,
@@ -34,7 +34,7 @@ AZURE_TENANT_ID = "11111111-1111-4111-8111-111111111111"
 AZURE_SUBSCRIPTION_ID = "22222222-2222-4222-8222-222222222222"
 
 
-def manifest(provider: str = "aws", mode: str = "identity_only"):
+def manifest(provider: str = "aws", mode: str = "setup_only"):
     targets = {
         "aws": {
             "provider": "aws",
@@ -81,6 +81,18 @@ class SetupGateManifestTests(unittest.TestCase):
                     item.document["deployment_pack"]["id"],
                     "azure.thesis-demo-v2.service-principal-v1",
                 )
+            if provider == "gcp":
+                self.assertEqual(
+                    item.document["bootstrap_authority_pack"]["id"],
+                    "bootstrap.gcp.admin-v3",
+                )
+                self.assertEqual(
+                    item.document["api_baseline"]["id"],
+                    "gcp.phase8-api-baseline.v1",
+                )
+                self.assertEqual(len(item.document["api_baseline"]["services"]), 19)
+            else:
+                self.assertIsNone(item.document["api_baseline"])
             self.assertRegex(
                 item.document["bootstrap_authority_pack"]["digest"],
                 r"^sha256:[a-f0-9]{64}$",
@@ -102,6 +114,11 @@ class SetupGateManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(SetupGateError, "stale"):
             validate_manifest(document)
 
+        document = json.loads(json.dumps(manifest("gcp").document))
+        document["api_baseline"]["digest"] = "sha256:" + ("0" * 64)
+        with self.assertRaisesRegex(SetupGateError, "stale"):
+            validate_manifest(document)
+
     def test_wrong_provider_scope_and_gcp_organization_path_fail_closed(self) -> None:
         document = json.loads(json.dumps(manifest().document))
         document["target"]["provider"] = "gcp"
@@ -112,7 +129,7 @@ class SetupGateManifestTests(unittest.TestCase):
             create_manifest(
                 run_id=RUN_ID,
                 provider="gcp",
-                mode="identity_only",
+                mode="setup_only",
                 target={
                     "provider": "gcp",
                     "mode": "organization",
@@ -165,15 +182,15 @@ class SetupGateManifestTests(unittest.TestCase):
         item = manifest(mode="plan_only")
         with self.assertRaisesRegex(SetupGateError, "plan-only"):
             require_allowed_operation(item, "sts.get_caller_identity")
-        with self.assertRaisesRegex(SetupGateError, "identity_only"):
-            require_identity_only_admission(item, environment={})
+        with self.assertRaisesRegex(SetupGateError, "setup_only"):
+            require_setup_only_admission(item, environment={})
 
     def test_live_admission_requires_two_exact_guards_and_forbids_ci(self) -> None:
         item = manifest()
         with self.assertRaisesRegex(SetupGateError, "not explicitly enabled"):
-            require_identity_only_admission(item, environment={})
+            require_setup_only_admission(item, environment={})
         with self.assertRaisesRegex(SetupGateError, "does not match"):
-            require_identity_only_admission(
+            require_setup_only_admission(
                 item,
                 environment={
                     "TWIN2MC_SETUP_GATE_ENABLED": "1",
@@ -181,19 +198,19 @@ class SetupGateManifestTests(unittest.TestCase):
                 },
             )
         with self.assertRaisesRegex(SetupGateError, "forbidden in CI"):
-            require_identity_only_admission(
+            require_setup_only_admission(
                 item,
                 environment={
                     "CI": "true",
                     "TWIN2MC_SETUP_GATE_ENABLED": "1",
-                    "TWIN2MC_SETUP_GATE_CONFIRMATION": (f"{RUN_ID}:aws:identity_only"),
+                    "TWIN2MC_SETUP_GATE_CONFIRMATION": (f"{RUN_ID}:aws:setup_only"),
                 },
             )
 
     def test_operation_allowlists_contain_no_workload_services(self) -> None:
         serialized = " ".join(
             operation
-            for operations in ALLOWED_IDENTITY_OPERATIONS.values()
+            for operations in ALLOWED_SETUP_OPERATIONS.values()
             for operation in operations
         )
         for forbidden in (
@@ -211,7 +228,7 @@ class SetupGateManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(SetupGateError, "outside"):
             require_allowed_operation(manifest(), "s3.create_bucket")
 
-    def test_active_authority_packs_cover_identity_only_operations(self) -> None:
+    def test_active_authority_packs_cover_setup_only_operations(self) -> None:
         for provider in ("aws", "azure", "gcp"):
             with self.subTest(provider=provider):
                 self.assertEqual(authority_pack_gaps(provider), ())
@@ -233,18 +250,21 @@ class SetupGateManifestTests(unittest.TestCase):
     def test_azure_manifest_pins_service_principal_identity_binding(self) -> None:
         reference = manifest("azure").document["deployment_pack"]
 
-        self.assertEqual(
-            reference["id"], "azure.thesis-demo-v2.service-principal-v1"
-        )
+        self.assertEqual(reference["id"], "azure.thesis-demo-v2.service-principal-v1")
 
-    def test_gcp_manifest_uses_prerequisite_aware_v2_authority_pack(self) -> None:
+    def test_gcp_manifest_uses_api_enablement_v3_authority_pack(self) -> None:
         reference = manifest("gcp").document["bootstrap_authority_pack"]
 
-        self.assertEqual(reference["id"], "bootstrap.gcp.admin-v2")
-        self.assertEqual(reference["version"], "2")
-        self.assertIn("serviceusage.services.get", ALLOWED_IDENTITY_OPERATIONS["gcp"])
+        self.assertEqual(reference["id"], "bootstrap.gcp.admin-v3")
+        self.assertEqual(reference["version"], "3")
+        self.assertIn("serviceusage.services.get", ALLOWED_SETUP_OPERATIONS["gcp"])
+        self.assertIn(
+            "serviceusage.services.batch_enable",
+            ALLOWED_SETUP_OPERATIONS["gcp"],
+        )
+        self.assertIn("serviceusage.operations.get", ALLOWED_SETUP_OPERATIONS["gcp"])
         self.assertNotIn(
-            "serviceusage.services.enable", ALLOWED_IDENTITY_OPERATIONS["gcp"]
+            "serviceusage.services.disable", ALLOWED_SETUP_OPERATIONS["gcp"]
         )
 
 

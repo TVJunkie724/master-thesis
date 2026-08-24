@@ -70,6 +70,12 @@ adapters and create no cloud resource. Production adapters remain disabled and
 fail closed; the versioned external provider scripts plus secure import remain
 the supervised live-provider path.
 
+For the active GCP PoC boundary, the guide accepts one existing billing-enabled
+project only, presents `bootstrap.gcp.admin-v3` and the separate fixed
+19-service Phase 8 API baseline, and rejects organization/project creation.
+This is offline contract and UI evidence; no GCP API has been enabled by the
+application or its tests.
+
 ## Post-Deployment Layer Access
 
 For deployed `five-layer-baseline@2` or `six-layer-eventing@1` evidence, Twin
