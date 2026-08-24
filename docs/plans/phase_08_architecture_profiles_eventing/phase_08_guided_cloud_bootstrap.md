@@ -699,8 +699,13 @@ Deployer selects the synchronized v2 provider packs by
 `permission_set_version`; GCP reports non-project-testable permissions and the
 resolved architecture API set as deferred warnings. No provider result is
 claimed until the supervised gate runs. GCP Terraform API enablement versus
-the deliberately omitted `serviceusage.services.enable` permission remains a
-blocking G6/G7 design decision, not an implicit permission expansion.
+the deliberately omitted `serviceusage.services.enable` permission is resolved
+by the approved
+[`GCP Phase 8 API Enablement Ownership`](../2026-08-24_gcp_phase8_api_ownership.md)
+plan: a short-lived v3 bootstrap authority owns a fixed existing-project API
+superset, while the retained v2 deployment identity only verifies it. The
+offline implementation and G2-G5 live proof remain pending, so G6/G7 stay
+blocked.
 
 The credential-free local integration boundary is available as
 `./thesis.sh test setup-smoke`. It runs the actual shared Flutter bootstrap UI

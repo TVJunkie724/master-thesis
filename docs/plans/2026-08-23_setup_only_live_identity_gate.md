@@ -114,10 +114,12 @@ an identity-only runner rather than relabel the existing deployment E2E tests.
 - A separate GCP G6/G7 blocker remains explicit: Five-/Six-layer Terraform
   declares `google_project_service` resources, while `thesis-demo-v2`
   deliberately omits `serviceusage.services.enable`. Before plan/apply
-  admission, the architecture must choose and implement one reviewed owner:
-  pre-enable the exact resolved API set outside Terraform, or publish a new
-  versioned deployment boundary. The setup-only gate must not silently enable
-  workload APIs or mutate the frozen v2 pack.
+  admission, API ownership follows the approved
+  [`GCP Phase 8 API Enablement Ownership`](2026-08-24_gcp_phase8_api_ownership.md)
+  plan: a short-lived `bootstrap.gcp.admin-v3` enables a fixed reviewed Phase 8
+  superset for an existing project, the generated v2 identity verifies it, and
+  active v2 Terraform no longer owns service enablement. This is not yet
+  implemented and the gate must not silently enable APIs meanwhile.
 
 ## 3. Gate Sequence
 
