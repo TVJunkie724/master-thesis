@@ -464,7 +464,7 @@ Map<String, dynamic> _gcpGuideFixture() {
   };
   guide['generated_deployment_pack'] = {
     ...Map<String, dynamic>.from(guide['generated_deployment_pack'] as Map),
-    'id': 'gcp.thesis-demo-v2',
+    'id': 'gcp.thesis-demo-v2.service-account-v1',
   };
   guide['api_baseline'] = {
     'id': baseline['baseline_id'],

@@ -62,6 +62,7 @@ from src.services.cloud_bootstrap_adapters import (
 )
 from src.services.aws_cloud_bootstrap_driver import AWSCloudBootstrapDriver
 from src.services.azure_cloud_bootstrap_driver import AzureCloudBootstrapDriver
+from src.services.gcp_cloud_bootstrap_driver import GCPCloudBootstrapDriver
 from src.services.cloud_bootstrap_errors import CloudBootstrapDomainError
 from src.services.cloud_connection_service import CloudConnectionService
 from src.services.credential_security_audit_service import (
@@ -198,6 +199,8 @@ class GuidedCloudBootstrapService:
                 drivers["aws"] = AWSCloudBootstrapDriver()
             if "azure" in settings.cloud_bootstrap_supervised_providers:
                 drivers["azure"] = AzureCloudBootstrapDriver()
+            if "gcp" in settings.cloud_bootstrap_supervised_providers:
+                drivers["gcp"] = GCPCloudBootstrapDriver()
             return (
                 SupervisedLiveCloudBootstrapAdapter(drivers)
                 if drivers
@@ -839,7 +842,7 @@ class GuidedCloudBootstrapService:
             artifact_path = (
                 f"3-cloud-deployer/docs/references/permission_sets/{repository_name}"
             )
-            if provider in {"aws", "azure"}:
+            if provider in {"aws", "azure", "gcp"}:
                 binding_path = (
                     CONTRACT_ROOT / "deployment-identity-bindings" / f"{provider}.json"
                 )
@@ -852,6 +855,12 @@ class GuidedCloudBootstrapService:
                     or not binding["self_check_permissions"]
                     or len(binding["self_check_permissions"])
                     != len(set(binding["self_check_permissions"]))
+                    or (
+                        provider == "gcp"
+                        and not set(binding["self_check_permissions"]).issubset(
+                            document.get("custom_role_inputs", [])
+                        )
+                    )
                 ):
                     raise CloudBootstrapDomainError(
                         "BOOTSTRAP_AUTHORITY_PACK_MISMATCH",
@@ -863,6 +872,11 @@ class GuidedCloudBootstrapService:
                         "service_principal",
                         "client_secret",
                         "custom_role_assignment",
+                    ),
+                    "gcp": (
+                        "service_account",
+                        "service_account_key",
+                        "project_custom_role_binding",
                     ),
                 }[provider]
                 if (

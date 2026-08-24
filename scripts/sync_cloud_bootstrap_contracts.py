@@ -31,7 +31,7 @@ DEPLOYMENT_PACK_SOURCES = {
 }
 DEPLOYMENT_IDENTITY_BINDINGS = {
     provider: SOURCE_ROOT / "v1" / "deployment-identity-bindings" / f"{provider}.json"
-    for provider in ("aws", "azure")
+    for provider in ("aws", "azure", "gcp")
 }
 TARGETS = (
     REPO_ROOT
@@ -102,6 +102,7 @@ def validate_source() -> str:
         "v1/cloud-bootstrap-session.schema.json",
         "v1/deployment-identity-bindings/aws.json",
         "v1/deployment-identity-bindings/azure.json",
+        "v1/deployment-identity-bindings/gcp.json",
         "v1/fixtures/valid/aws-guide.json",
         "v1/fixtures/valid/aws-ready-session.json",
         "v1/fixtures/invalid/guide-secret-value.json",
@@ -187,6 +188,12 @@ def validate_source() -> str:
                 or not binding["self_check_permissions"]
                 or len(binding["self_check_permissions"])
                 != len(set(binding["self_check_permissions"]))
+                or (
+                    provider == "gcp"
+                    and not set(binding["self_check_permissions"]).issubset(
+                        document.get("custom_role_inputs", [])
+                    )
+                )
             ):
                 raise ValueError(
                     f"{provider.upper()} deployment identity binding does not "
@@ -199,6 +206,11 @@ def validate_source() -> str:
                     "service_principal",
                     "client_secret",
                     "custom_role_assignment",
+                ),
+                "gcp": (
+                    "service_account",
+                    "service_account_key",
+                    "project_custom_role_binding",
                 ),
             }[provider]
             if (

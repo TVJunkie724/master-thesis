@@ -307,7 +307,7 @@ Map<String, dynamic> fixtureForGcp() {
     'artifact_url': 'https://example.com/gcp/authority',
   };
   guide['generated_deployment_pack'] = {
-    'id': 'gcp.thesis-demo-v2',
+    'id': 'gcp.thesis-demo-v2.service-account-v1',
     'version': 'thesis-demo-v2',
     'digest': 'sha256:${List.filled(64, 'c').join()}',
     'scope_summary': 'One generated deployment service account.',

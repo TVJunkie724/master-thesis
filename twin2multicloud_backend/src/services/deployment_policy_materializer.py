@@ -81,6 +81,12 @@ def _load_identity_binding(provider: str, pack: dict[str, Any]) -> dict[str, Any
             "client_secret",
             "custom_role_assignment",
         ),
+        "gcp": (
+            "gcp.thesis-demo-v2.service-account-v1",
+            "service_account",
+            "service_account_key",
+            "project_custom_role_binding",
+        ),
     }.get(provider)
     if (
         expected is None
@@ -348,9 +354,18 @@ def materialize_gcp_custom_role(*, project_id: str, run_id: str) -> dict[str, An
         raise PolicyMaterializationError("GCP project ID has an invalid shape.")
     _require_run_id(run_id)
     pack = _load_pack("gcp")
+    binding = _load_identity_binding("gcp", pack)
     permissions = _unique_strings(
         pack.get("custom_role_inputs"), "GCP custom_role_inputs"
     )
+    self_checks = _unique_strings(
+        binding.get("self_check_permissions"),
+        "GCP identity-binding self_check_permissions",
+    )
+    if not set(self_checks).issubset(permissions):
+        raise PolicyMaterializationError(
+            "GCP identity-binding self checks must be present in the custom role."
+        )
     if any("*" in permission for permission in permissions):
         raise PolicyMaterializationError(
             "GCP custom-role permissions must not contain wildcards."
@@ -359,6 +374,16 @@ def materialize_gcp_custom_role(*, project_id: str, run_id: str) -> dict[str, An
     if not GCP_ROLE_ID_PATTERN.fullmatch(role_id):
         raise PolicyMaterializationError("Derived GCP role ID has an invalid shape.")
     return {
+        "schema_version": "gcp-deployment-identity-bundle.v1",
+        "provider": "gcp",
+        "project_id": project_id,
+        "region": pack["region"],
+        "permission_set_version": PERMISSION_SET_VERSION,
+        "identity_binding_id": binding["binding_id"],
+        "identity": {
+            "account_id": run_id,
+            "email": f"{run_id}@{project_id}.iam.gserviceaccount.com",
+        },
         "parent": f"projects/{project_id}",
         "roleId": role_id,
         "role": {

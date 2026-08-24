@@ -29,16 +29,20 @@ def test_supervised_providers_can_be_enabled_independently_or_together():
         CLOUD_BOOTSTRAP_ADAPTER_MODE="supervised_live",
         CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS="azure",
     )
-    both = _settings(
+    all_providers = _settings(
         CLOUD_BOOTSTRAP_ADAPTER_MODE="supervised_live",
-        CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS="aws,azure",
+        CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS="aws,azure,gcp",
     )
 
     assert azure.cloud_bootstrap_supervised_providers == ("azure",)
-    assert both.cloud_bootstrap_supervised_providers == ("aws", "azure")
+    assert all_providers.cloud_bootstrap_supervised_providers == (
+        "aws",
+        "azure",
+        "gcp",
+    )
 
 
-@pytest.mark.parametrize("providers", ["gcp", "aws,aws", "azure,azure"])
+@pytest.mark.parametrize("providers", ["oracle", "aws,aws", "azure,azure", "gcp,gcp"])
 def test_unimplemented_or_duplicate_supervised_provider_fails_startup(providers):
     with pytest.raises(ValidationError, match="SUPERVISED_PROVIDERS"):
         _settings(

@@ -158,7 +158,7 @@ def test_guides_are_strict_safe_and_reference_v2_for_every_provider(auth_client)
         expected_deployment_pack = {
             "aws": "aws.thesis-demo-v2.iam-user-v1",
             "azure": "azure.thesis-demo-v2.service-principal-v1",
-            "gcp": "gcp.thesis-demo-v2",
+            "gcp": "gcp.thesis-demo-v2.service-account-v1",
         }[provider]
         assert guide["generated_deployment_pack"]["id"] == expected_deployment_pack
         if provider == "aws":
@@ -169,6 +169,11 @@ def test_guides_are_strict_safe_and_reference_v2_for_every_provider(auth_client)
         if provider == "azure":
             assert (
                 "service principal"
+                in guide["generated_deployment_pack"]["scope_summary"]
+            )
+        if provider == "gcp":
+            assert (
+                "service account"
                 in guide["generated_deployment_pack"]["scope_summary"]
             )
         expected_authority = {
@@ -672,6 +677,20 @@ def test_supervised_azure_requires_exact_provider_opt_in(auth_client, monkeypatc
     assert azure_guide["known_blockers"] == []
     assert aws_guide["known_blockers"][0]["blocking"] is True
     assert gcp_guide["known_blockers"][0]["blocking"] is True
+
+
+def test_supervised_gcp_requires_exact_provider_opt_in(auth_client, monkeypatch):
+    monkeypatch.setattr(settings, "CLOUD_BOOTSTRAP_ADAPTER_MODE", "supervised_live")
+    monkeypatch.setattr(settings, "CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS", "gcp")
+
+    aws_guide = _guide(auth_client, "aws")
+    azure_guide = _guide(auth_client, "azure")
+    gcp_guide = _guide(auth_client, "gcp")
+
+    assert gcp_guide["execution_mode"] == "supervised_live"
+    assert gcp_guide["known_blockers"] == []
+    assert aws_guide["known_blockers"][0]["blocking"] is True
+    assert azure_guide["known_blockers"][0]["blocking"] is True
 
 
 class _TwoPhaseAWSAdapter:

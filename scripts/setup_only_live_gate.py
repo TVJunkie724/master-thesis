@@ -55,7 +55,7 @@ DEPLOYMENT_BINDING_PATHS = {
     / "v1"
     / "deployment-identity-bindings"
     / f"{provider}.json"
-    for provider in ("aws", "azure")
+    for provider in ("aws", "azure", "gcp")
 }
 GCP_API_BASELINE_PATH = (
     REPO_ROOT / "contracts" / "cloud-bootstrap" / "v1" / "gcp-phase8-api-baseline.json"
@@ -119,18 +119,19 @@ ALLOWED_SETUP_OPERATIONS = {
             "resourcemanager.projects.get",
             "resourcemanager.projects.get_iam_policy",
             "resourcemanager.projects.set_iam_policy",
+            "resourcemanager.projects.test_iam_permissions",
+            "cloudbilling.projects.get_billing_info",
             "serviceusage.services.get",
             "serviceusage.services.batch_enable",
             "serviceusage.operations.get",
             "iam.roles.get",
-            "iam.roles.list",
             "iam.roles.create",
-            "iam.roles.update",
             "iam.roles.delete",
             "iam.service_accounts.get",
             "iam.service_accounts.create",
             "iam.service_accounts.delete",
             "iam.service_account_keys.list",
+            "iam.service_account_keys.get",
             "iam.service_account_keys.create",
             "iam.service_account_keys.delete",
         }
@@ -190,18 +191,21 @@ OPERATION_PERMISSIONS = {
         "resourcemanager.projects.set_iam_policy": (
             "resourcemanager.projects.setIamPolicy"
         ),
+        "resourcemanager.projects.test_iam_permissions": (
+            "resourcemanager.projects.get"
+        ),
+        "cloudbilling.projects.get_billing_info": "resourcemanager.projects.get",
         "serviceusage.services.get": "serviceusage.services.get",
         "serviceusage.services.batch_enable": "serviceusage.services.enable",
         "serviceusage.operations.get": "serviceusage.operations.get",
         "iam.roles.get": "iam.roles.get",
-        "iam.roles.list": "iam.roles.list",
         "iam.roles.create": "iam.roles.create",
-        "iam.roles.update": "iam.roles.update",
         "iam.roles.delete": "iam.roles.delete",
         "iam.service_accounts.get": "iam.serviceAccounts.get",
         "iam.service_accounts.create": "iam.serviceAccounts.create",
         "iam.service_accounts.delete": "iam.serviceAccounts.delete",
         "iam.service_account_keys.list": "iam.serviceAccountKeys.list",
+        "iam.service_account_keys.get": "iam.serviceAccountKeys.get",
         "iam.service_account_keys.create": "iam.serviceAccountKeys.create",
         "iam.service_account_keys.delete": "iam.serviceAccountKeys.delete",
     },
@@ -722,6 +726,12 @@ def _pack_reference(provider: str, *, authority: bool) -> dict[str, str]:
                 or not binding["self_check_permissions"]
                 or len(binding["self_check_permissions"])
                 != len(set(binding["self_check_permissions"]))
+                or (
+                    provider == "gcp"
+                    and not set(binding["self_check_permissions"]).issubset(
+                        document.get("custom_role_inputs", [])
+                    )
+                )
             ):
                 raise SetupGateError(
                     f"{provider.upper()} deployment identity binding does not "
@@ -733,6 +743,11 @@ def _pack_reference(provider: str, *, authority: bool) -> dict[str, str]:
                     "service_principal",
                     "client_secret",
                     "custom_role_assignment",
+                ),
+                "gcp": (
+                    "service_account",
+                    "service_account_key",
+                    "project_custom_role_binding",
                 ),
             }[provider]
             if (

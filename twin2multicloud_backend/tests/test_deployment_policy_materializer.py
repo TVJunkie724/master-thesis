@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
+from src.services import deployment_policy_materializer as materializer
 from src.services.deployment_policy_materializer import (
     AWS_MANAGED_POLICY_CHARACTER_LIMIT,
+    PolicyMaterializationError,
     load_gcp_phase8_api_baseline,
     materialize_aws_deployment_bundle,
     materialize_azure_custom_role,
@@ -38,6 +42,9 @@ def test_management_materializes_all_provider_documents_from_generated_contracts
     assert azure["scope"] == ("/subscriptions/22222222-2222-4222-8222-222222222222")
     assert gcp["parent"] == "projects/twin2mc-test-project"
     assert gcp["roleId"] == "twin2mc_e2e_a1b2c3d4"
+    assert gcp["permission_set_version"] == "thesis-demo-v2"
+    assert gcp["region"] == "europe-west1"
+    assert gcp["identity_binding_id"] == "gcp.thesis-demo-v2.service-account-v1"
     baseline = load_gcp_phase8_api_baseline()
     assert baseline["owner"] == "bootstrap.gcp.admin-v3"
     assert baseline["target_mode"] == "existing_project"
@@ -52,3 +59,29 @@ def test_management_materializes_all_provider_documents_from_generated_contracts
         "session_token",
     ):
         assert forbidden not in serialized
+
+
+def test_gcp_identity_binding_self_checks_must_exist_in_custom_role(monkeypatch):
+    original = materializer._load_identity_binding
+
+    def binding_with_ungranted_self_check(provider, pack):
+        binding = original(provider, pack)
+        return {
+            **binding,
+            "self_check_permissions": [
+                *binding["self_check_permissions"],
+                "ungranted.example.permission",
+            ],
+        }
+
+    monkeypatch.setattr(
+        materializer,
+        "_load_identity_binding",
+        binding_with_ungranted_self_check,
+    )
+
+    with pytest.raises(PolicyMaterializationError, match="self checks"):
+        materialize_gcp_custom_role(
+            project_id="twin2mc-test-project",
+            run_id=RUN_ID,
+        )

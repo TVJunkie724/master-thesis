@@ -2,8 +2,8 @@
 
 **Date:** 2026-08-23  
 **Status:** In progress (G0, isolated credential-free G1, version-aware G4
-validator logic, and the AWS/Azure provider drivers implemented offline; G2-G5
-not run for any provider)
+validator logic, and AWS/Azure plus the GCP existing-project provider drivers
+implemented offline; G2-G5 not run for any provider)
 **Parent issue:** [#107](https://github.com/TVJunkie724/master-thesis/issues/107)  
 **Scope:** AWS, Azure, and GCP guided bootstrap, bounded deployment identities,
 credential preflight, the fixed GCP Phase 8 API baseline, and cleanup only
@@ -37,12 +37,13 @@ live test rather than an offline smoke.
 ## 2. Current Baseline And Gap
 
 The repository proves the complete lifecycle with the `deterministic_fake`
-Management adapter and now implements AWS SDK plus Azure OAuth/Graph/ARM paths
-against injected, stateful offline fakes. The production default remains
-`disabled`. `supervised_live` additionally requires the explicit
-`CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS=aws`, `azure`, or `aws,azure` allowlist;
-an empty allowlist and GCP remain visibly blocked. No real provider credential
-or cloud identity was used to produce this evidence.
+Management adapter and now implements AWS SDK, Azure OAuth/Graph/ARM, and GCP
+existing-project REST paths against injected, stateful offline fakes. The
+production default remains `disabled`. `supervised_live` additionally requires
+an explicit comma-separated subset of `aws`, `azure`, and `gcp`; an empty
+allowlist remains visibly blocked. GCP organization/project-creation mode is
+still unsupported. No real provider credential or cloud identity was used to
+produce this evidence.
 
 The manual scripts under `bootstrap/<provider>/` are useful historical
 fallbacks, but they are not sufficient as the new live gate:
@@ -60,8 +61,9 @@ fallbacks, but they are not sufficient as the new live gate:
 - generated secret JSON can be written to stdout unless an output file is
   selected.
 
-The next implementation slice must therefore add a reviewed live adapter and
-a setup-only runner rather than relabel the existing deployment E2E tests.
+The provider adapters are now implemented offline. The remaining implementation
+slice must add the separately guarded setup-only runner rather than relabel the
+existing deployment E2E tests.
 
 ### 2.1 Contract Findings To Resolve Before Live Execution
 
@@ -92,6 +94,12 @@ a setup-only runner rather than relabel the existing deployment E2E tests.
   permission-pack digest and adds the IAM-user self-inspection actions used by
   the Deployer preflight. AssumeRole remains explicit future work rather than
   an unimplemented claim of the PoC.
+- GCP now equivalently pins
+  `gcp.thesis-demo-v2.service-account-v1`: one generated service account, one
+  project custom-role binding, and one user-managed JSON key in the selected
+  existing project. Its digest is bound to the unchanged v2 permission pack;
+  project creation, billing mutation, API enablement, and role administration
+  are excluded from the retained identity.
 - The existing guided session has no provider-identity deletion lifecycle.
   Deleting a local CloudConnection alone is not cleanup, so the disposable
   live runner needs its own provider cleanup ledger and operation.
@@ -103,12 +111,21 @@ a setup-only runner rather than relabel the existing deployment E2E tests.
 - GCP existing-project and organization/project-creation paths cannot share
   one initial result. Only the existing-project path is admitted first.
 - The historical GCP v1/v2 packs remain evidence, but the active existing-
-  project path now pins `bootstrap.gcp.admin-v3`. It retains the v2 inspection
-  and role-reconciliation permissions and adds only
+  project path now pins `bootstrap.gcp.admin-v3`. It retains the v2 existing-
+  project inspection and exact identity create/read/delete permissions, drops
+  the unsupported organization path plus unused role list/update permissions,
+  and adds
   `serviceusage.services.enable` plus `serviceusage.operations.get` for the
-  fixed 19-service `gcp.phase8-api-baseline.v1`. The setup manifest digest
-  binds both artifacts. Cleanup treats `deleted=true` as the correct immediate
-  custom-role result and intentionally leaves the shared API baseline enabled.
+  fixed 19-service `gcp.phase8-api-baseline.v1`, and adds only
+  `iam.serviceAccountKeys.get` for the exact X.509 public-key comparison needed
+  before deleting a submitted private key. The driver reads or creates the
+  exact run-owned role and fails closed on drift instead of mutating an
+  unexpected role. The setup manifest digest binds both artifacts. Cleanup
+  treats `deleted=true` as the correct immediate custom-role result and
+  intentionally leaves the shared API baseline enabled. Any user-managed key
+  on the generated account that is not the sole key recorded by the current
+  rollback receipt is treated as contamination and is never replaced or
+  deleted automatically.
 - The Deployer credential checkers now select the exact synchronized
   `thesis-demo-v2` inputs whenever the CloudConnection carries that version;
   missing and historical versions retain the legacy matrices only for
@@ -348,15 +365,16 @@ tagged application/service principal, a deterministic subscription custom role
 and assignment, and one 24-hour generated application secret. The generated
 principal must prove the exact role document, sole subscription assignment,
 tenant/subscription, and frozen region. Cleanup refuses foreign credentials,
-certificates, assignments, applications, or principals. GCP implementation and
-all live G2-G5 evidence remain pending. GCP API ownership is resolved offline;
-G6/G7 wait for live setup evidence.
+certificates, assignments, applications, or principals. The GCP existing-
+project REST driver validates prerequisites and active billing, enables the
+fixed baseline, reconciles the digest-bound service-account/custom-role/key
+identity, validates the generated credential, and retains APIs during identity
+cleanup. All live G2-G5 evidence remains pending; G6/G7 wait for that evidence.
 
-The GCP SDK driver and its generated-credential provider validation are still
-pending. Until that driver exists and is explicitly allowlisted, the GCP guide
-stays blocking. The AWS/Azure offline drivers are not live proof: AWS IAM
-Access Analyzer, Azure provider-operation validation, and supervised G2-G5
-remain required before G6.
+All three drivers are independently allowlisted and offline-tested, but are
+not live proof. AWS IAM Access Analyzer, Azure provider-operation validation,
+GCP authority/API/soft-delete behavior, and supervised G2-G5 remain required
+before G6.
 
 - Keep the resolved AWS IAM-user binding, AWS/Azure v2 bootstrap boundaries,
   and separate exact GCP v3 plus API-baseline digests pinned before provider
@@ -368,7 +386,7 @@ remain required before G6.
   deployment-pack digests, with exact opt-in and offline fake-provider tests.
 - [x] Implement the Azure adapter against the pinned authority and
   deployment-pack digests, with exact opt-in and offline fake-provider tests.
-- Implement the GCP adapter against the pinned authority, API-baseline, and
+- [x] Implement the GCP adapter against the pinned authority, API-baseline, and
   deployment-pack digests.
 - [x] Add the shared SDK-independent adapter transaction, exact target/result
   validation, and secret-free provider rollback receipt; keep providers
@@ -380,10 +398,10 @@ remain required before G6.
 - [x] Make the provider-native documents importable by Management from the
   synchronized generated contracts; the CLI and future adapters share this
   implementation and must not maintain a second hand-written policy inventory.
-- Keep provider calls in Management; Flutter remains a typed client only.
-- Validate the generated credential before persisting its encrypted
+- [x] Keep provider calls in Management; Flutter remains a typed client only.
+- [x] Validate the generated credential before persisting its encrypted
   CloudConnection.
-- Do not call workload-service APIs from the adapter.
+- [x] Do not call workload-service APIs from the adapter.
 
 ### Slice C — Setup-Only Live Runner And Cleanup
 

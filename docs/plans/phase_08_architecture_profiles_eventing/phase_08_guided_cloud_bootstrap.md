@@ -439,7 +439,7 @@ The initial provider behavior is explicit:
 | AWS IAM-user access key | Delete the exact submitted access-key ID when it belongs to the declared bootstrap principal and `bootstrap.aws.admin-v2` permits the call | Show IAM key ID and official delete-key steps |
 | AWS STS session | Record the provider-issued expiration as `expires_at_provider`; do not claim deletion or early revocation | Show principal/session identifier and exact expiry; no cleanup acknowledgement is required |
 | Azure service-principal client secret | Remove the exact submitted credential/key ID only when the bootstrap app and Graph authority permit it | Show tenant, application ID, safe credential ID, and official credential-removal steps |
-| GCP service-account key | Delete the exact submitted key ID when it belongs to the declared service account and `bootstrap.gcp.admin-v3` permits it; leave the shared API baseline enabled | Show service-account email/key ID and official delete-key steps |
+| GCP service-account key | Delete the exact submitted key ID only after its private material matches that key ID's provider X.509 public key; leave the shared API baseline enabled | Show service-account email/key ID and official delete-key steps |
 
 The execute request must derive and validate the safe credential/key identifier
 before provider mutation. If a provider credential format does not expose a
@@ -676,9 +676,9 @@ boundary, generated `thesis-demo-v2` deployment CloudConnections, Deployer
 admission, both Flutter entry points, deterministic provider adapters, manual
 cleanup acknowledgement, and compatibility fallback are implemented. The
 production default fails closed and therefore makes no live-provider claim.
-The AWS SDK and Azure OAuth/Graph/ARM drivers are available only when both
-`supervised_live` and the exact provider allowlist are configured; GCP remains
-blocked.
+The AWS SDK, Azure OAuth/Graph/ARM, and GCP existing-project REST drivers are
+available only when both `supervised_live` and the exact provider allowlist
+are configured. Organization/project-creation GCP remains blocked.
 
 The implementation and review evidence is recorded in
 [`guided_cloud_access_bootstrap.md`](../../../twin2multicloud_flutter/docs/configuration_workspace/implementation/guided_cloud_access_bootstrap.md).
@@ -716,8 +716,18 @@ driver uses the same materialized custom-role bundle, one exactly tagged
 application/service principal, one deterministic subscription assignment, and
 one 24-hour generated client secret. It validates the exact role, sole
 assignment, tenant/subscription, and frozen region and refuses foreign Graph
-credentials or ARM assignments during cleanup. GCP remains pending. G2-G5 live
-proof remains pending for all providers, so G6/G7 stay blocked.
+credentials or ARM assignments during cleanup. GCP now pins
+`gcp.thesis-demo-v2.service-account-v1`, authenticates only from the submitted
+service-account JSON without ADC fallback, checks the existing project and
+active billing, enables the exact fixed API baseline, and reconciles one
+run-owned service account, project custom-role binding, and JSON key. It
+validates the generated credential against the sole binding, project-testable
+permissions, and all 19 services, with bounded backoff only for documented GCP
+IAM account/key visibility and role-binding propagation. Before any submitted-
+key deletion it also cryptographically matches the private material to the
+exact provider key ID;
+identity cleanup never disables the shared baseline. G2-G5 live proof remains
+pending for all providers, so G6/G7 stay blocked.
 
 The credential-free local integration boundary is available as
 `./thesis.sh test setup-smoke`. It runs the actual shared Flutter bootstrap UI
@@ -789,6 +799,8 @@ real bootstrap credentials or reach a live provider.
 - [Azure role assignments](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-steps)
 - [Azure CLI service-principal role management](https://learn.microsoft.com/en-us/cli/azure/azure-cli-sp-tutorial-5)
 - [GCP service-account key creation and deletion](https://cloud.google.com/iam/docs/keys-create-delete)
+- [GCP service-account key listing and public-key retrieval](https://cloud.google.com/iam/docs/keys-list-get)
+- [GCP OAuth 2.0 service-account assertions](https://developers.google.com/identity/protocols/oauth2/service-account)
 - [GCP service-account key security guidance](https://cloud.google.com/iam/docs/best-practices-for-managing-service-account-keys)
 - [Cloud Run direct IAP configuration](https://cloud.google.com/run/docs/securing/identity-aware-proxy-cloud-run)
 

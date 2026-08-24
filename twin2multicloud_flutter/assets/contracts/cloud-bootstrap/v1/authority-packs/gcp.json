@@ -30,6 +30,7 @@
         "iam.serviceAccounts.get",
         "iam.serviceAccountKeys.create",
         "iam.serviceAccountKeys.delete",
+        "iam.serviceAccountKeys.get",
         "iam.serviceAccountKeys.list"
       ]
     },
@@ -40,14 +41,13 @@
         "iam.roles.create",
         "iam.roles.delete",
         "iam.roles.get",
-        "iam.roles.list",
-        "iam.roles.update",
         "resourcemanager.projects.setIamPolicy"
       ]
     }
   ],
   "credential_cleanup": [
-    "Delete only the submitted service-account key after proving its service-account owner.",
+    "Delete only the submitted service-account key after its private material is cryptographically matched to the exact provider key ID through the returned X.509 public key.",
+    "Fail closed when the generated service account contains a user-managed key that is not the sole key recorded by the current rollback receipt; never replace or delete that unrecorded key automatically.",
     "Remove the exact project binding before deleting the gate-owned service account and custom role.",
     "Treat a gate-owned custom role with deleted=true as successfully deactivated during Google's seven-day soft-delete window; do not reuse its run ID.",
     "Never delete or alter an existing_user_owned service-account key.",
@@ -63,6 +63,8 @@
   ],
   "sources": [
     "https://docs.cloud.google.com/iam/docs/keys-create-delete",
+    "https://docs.cloud.google.com/iam/docs/keys-list-get",
+    "https://developers.google.com/identity/protocols/oauth2/service-account",
     "https://docs.cloud.google.com/service-usage/docs/enable-disable",
     "https://docs.cloud.google.com/service-usage/docs/reference/rest/v1/services/enable",
     "https://docs.cloud.google.com/service-usage/docs/reference/rest/v1/operations/get",

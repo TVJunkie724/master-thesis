@@ -70,6 +70,28 @@ class CloudBootstrapContractSyncTests(unittest.TestCase):
         self.assertLessEqual(len(baseline["services"]), 20)
         self.assertIn("serviceusage.services.enable", permissions)
         self.assertIn("serviceusage.operations.get", permissions)
+        self.assertIn("iam.serviceAccountKeys.get", permissions)
+        self.assertNotIn("iam.roles.list", permissions)
+        self.assertNotIn("iam.roles.update", permissions)
+        binding = json.loads(
+            contract_sync.DEPLOYMENT_IDENTITY_BINDINGS["gcp"].read_text(
+                encoding="utf-8"
+            )
+        )
+        deployment_pack = json.loads(
+            contract_sync.DEPLOYMENT_PACK_SOURCES[
+                "v1/deployment-packs/gcp.json"
+            ].read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            binding["binding_id"],
+            "gcp.thesis-demo-v2.service-account-v1",
+        )
+        self.assertTrue(
+            set(binding["self_check_permissions"]).issubset(
+                deployment_pack["custom_role_inputs"]
+            )
+        )
 
     def test_gcp_guide_contract_rejects_organization_target(self) -> None:
         guide = json.loads(

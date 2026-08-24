@@ -145,6 +145,11 @@ class PolicyMaterializationTests(unittest.TestCase):
         self.assertEqual(first["parent"], "projects/twin2mc-test-project")
         self.assertEqual(first["roleId"], "twin2mc_e2e_a1b2c3d4")
         self.assertEqual(
+            first["identity_binding_id"],
+            "gcp.thesis-demo-v2.service-account-v1",
+        )
+        self.assertEqual(first["region"], "europe-west1")
+        self.assertEqual(
             first["role"]["includedPermissions"], pack("gcp")["custom_role_inputs"]
         )
         self.assertTrue(

@@ -1,7 +1,8 @@
 # GCP Phase 8 API Enablement Ownership
 
 **Date:** 2026-08-24  
-**Status:** Offline implementation complete; supervised G2-G5 validation pending
+**Status:** Offline implementation and existing-project driver complete;
+supervised G2-G5 validation pending
 **Profiles:** `five-layer-baseline@2`, `six-layer-eventing@1`  
 **Live scope:** existing-project path only; no provider call is authorized by this plan
 
@@ -24,9 +25,14 @@ API enablement belongs to the short-lived GCP bootstrap authority, not to the
 retained deployment identity and not to Terraform.
 
 - Publish `bootstrap.gcp.admin-v3` for the existing-project PoC path. It adds
-  only `serviceusage.services.enable` and `serviceusage.operations.get` to the
-  prior identity-bootstrap authority so the bounded enable operation can be
-  started and awaited.
+  `serviceusage.services.enable` and `serviceusage.operations.get` to the prior
+  identity-bootstrap authority so the bounded enable operation can be started
+  and awaited. The implementation review additionally requires
+  `iam.serviceAccountKeys.get`: Google can try other keys when a JWT `kid` is
+  incorrect, so automatic submitted-key deletion first compares its private
+  material with the exact key ID's X.509 public key. V3 also removes the v2
+  organization/project-creation authority and the unused `iam.roles.list` and
+  `iam.roles.update` permissions.
 - The bootstrap enables one reviewed fixed superset of the public APIs used by
   every supported GCP placement of both Phase 8 profiles. The PoC deliberately
   prefers a deterministic superset over placement-specific cost optimization.
@@ -109,6 +115,15 @@ The UI must show the exact baseline, the enable-only mutation, the retained
 enabled state, the existing-project-only live limitation, and the fact that no
 Twin workload is deployed during setup.
 
+The REST driver applies bounded exponential backoff only at Google's documented
+eventually consistent IAM boundaries: visibility of the newly created service
+account and key, followed by propagation of the new project role binding. A
+missing permission, foreign resource, unsupported scope, or organization-policy
+block still fails closed and is never retried into a broader mutation.
+Likewise, an unrecorded user-managed key on the deterministic deployment
+service account is treated as foreign contamination; the driver neither
+replaces it nor deletes the enclosing account automatically.
+
 ## 5. Implementation Slices
 
 1. Contract: add a strict synchronized GCP API-baseline artifact and active
@@ -119,13 +134,13 @@ Twin workload is deployed during setup.
    remove the v2 dynamic API resource, and add source tests proving the v2
    dependency union is covered exactly once by the bootstrap baseline.
 4. Management/UI/demo: expose v3, the baseline digest/list, and the exact
-   mutation/limitation text without introducing a live provider adapter.
+   mutation/limitation text while keeping the supervised provider adapter
+   behind a default-empty explicit opt-in.
 5. Verification: contract sync, negative drift tests, credential/preflight
    tests, Terraform native mock plans for all supported placements, Flutter
    model/UI tests, setup smoke, strict docs, and secret scans.
-6. Supervised follow-up: only after the offline gate is clean, implement and run
-   the existing-project live adapter through G2-G5. Paid G6/G7 remain separately
-   authorized.
+6. Supervised follow-up: only after the offline gate is clean, run the existing-
+   project adapter through G2-G5. Paid G6/G7 remain separately authorized.
 
 ## 6. Rejected Alternatives
 
@@ -145,6 +160,10 @@ Twin workload is deployed during setup.
 - [Google Cloud: `services.enable` authorization](https://docs.cloud.google.com/service-usage/docs/reference/rest/v1/services/enable)
 - [Google Cloud: poll a Service Usage operation](https://docs.cloud.google.com/service-usage/docs/reference/rest/v1/operations/get)
 - [Google Cloud: Service Usage access control](https://docs.cloud.google.com/service-usage/docs/access-control)
+- [Google Cloud: list and get service-account keys](https://cloud.google.com/iam/docs/keys-list-get)
+- [Google OAuth 2.0 service-account assertions](https://developers.google.com/identity/protocols/oauth2/service-account)
+- [Google Cloud: service-account creation and visibility](https://cloud.google.com/iam/docs/service-accounts-create)
+- [Google Cloud: IAM access-change propagation](https://cloud.google.com/iam/docs/access-change-propagation)
 - [Terraform Google provider: `google_project_service`](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/google_project_service)
 
 ## 8. Offline Implementation Record
@@ -166,6 +185,13 @@ Twin workload is deployed during setup.
 - Flutter and demo mode show the exact baseline, mutation/retention wording,
   limitation list, and reviewed artifact link in an existing-project-only
   flow.
+- The supervised existing-project driver uses only the submitted service-
+  account JSON, validates the exact project and active billing, enables the
+  baseline with Service Usage long-running-operation polling, materializes the
+  digest-bound `gcp.thesis-demo-v2.service-account-v1` identity, and validates
+  the generated credential without deploying a Twin workload. Its offline
+  fakes prove rollback removes only the run-owned key, binding, role, and
+  service account while retaining the enabled APIs.
 
 Credential-free contract, Deployer, Management, Flutter, native mock-plan, and
 strict documentation gates are the admissible evidence for this record. It

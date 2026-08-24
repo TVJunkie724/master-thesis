@@ -83,6 +83,10 @@ class SetupGateManifestTests(unittest.TestCase):
                 )
             if provider == "gcp":
                 self.assertEqual(
+                    item.document["deployment_pack"]["id"],
+                    "gcp.thesis-demo-v2.service-account-v1",
+                )
+                self.assertEqual(
                     item.document["bootstrap_authority_pack"]["id"],
                     "bootstrap.gcp.admin-v3",
                 )
@@ -263,6 +267,9 @@ class SetupGateManifestTests(unittest.TestCase):
             ALLOWED_SETUP_OPERATIONS["gcp"],
         )
         self.assertIn("serviceusage.operations.get", ALLOWED_SETUP_OPERATIONS["gcp"])
+        self.assertIn("iam.service_account_keys.get", ALLOWED_SETUP_OPERATIONS["gcp"])
+        self.assertNotIn("iam.roles.list", ALLOWED_SETUP_OPERATIONS["gcp"])
+        self.assertNotIn("iam.roles.update", ALLOWED_SETUP_OPERATIONS["gcp"])
         self.assertNotIn(
             "serviceusage.services.disable", ALLOWED_SETUP_OPERATIONS["gcp"]
         )
