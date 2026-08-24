@@ -130,6 +130,18 @@ void main() {
       );
       expect(gcpGuide.bootstrapAuthorityPack.id, 'bootstrap.gcp.admin-v2');
       expect(gcpGuide.bootstrapAuthorityPack.version, '2');
+      final azureGuide = await api.getCloudBootstrapGuide(
+        CloudProvider.azure,
+        CloudBootstrapTarget.azure(
+          tenantId: '11111111-1111-4111-8111-111111111111',
+          subscriptionId: '22222222-2222-4222-8222-222222222222',
+          region: 'westeurope',
+        ),
+      );
+      expect(
+        azureGuide.generatedDeploymentPack.id,
+        'azure.thesis-demo-v2.service-principal-v1',
+      );
       final draft = await api.createCloudBootstrapSession(
         guide: guide,
         entryPoint: CloudBootstrapEntryPoint.settings,

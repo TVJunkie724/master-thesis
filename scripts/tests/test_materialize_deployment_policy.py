@@ -55,6 +55,7 @@ class PolicyMaterializationTests(unittest.TestCase):
         self.assertEqual(first, second)
         expected.update(
             {
+                "ec2:DescribeRegions",
                 "iam:ListUserPolicies",
                 "iam:GetUserPolicy",
                 "iam:ListAttachedUserPolicies",
@@ -92,14 +93,7 @@ class PolicyMaterializationTests(unittest.TestCase):
         regional = [
             statement
             for statement in policy["Statement"]
-            if any(
-                not action.startswith(("iam:", "sts:"))
-                for action in (
-                    [statement["Action"]]
-                    if isinstance(statement["Action"], str)
-                    else statement["Action"]
-                )
-            )
+            if statement["Sid"].endswith("Regional")
         ]
         self.assertTrue(regional)
         self.assertTrue(
@@ -110,7 +104,7 @@ class PolicyMaterializationTests(unittest.TestCase):
             )
         )
 
-    def test_azure_role_is_subscription_scoped_and_inventory_exact(self) -> None:
+    def test_azure_role_is_subscription_scoped_with_explicit_self_checks(self) -> None:
         first = materialize_azure_custom_role(
             subscription_id=SUBSCRIPTION_ID, run_id=RUN_ID
         )
@@ -122,9 +116,19 @@ class PolicyMaterializationTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(first["scope"], f"/subscriptions/{SUBSCRIPTION_ID}")
         self.assertEqual(first["properties"]["assignableScopes"], [first["scope"]])
-        self.assertEqual(permission["actions"], pack("azure")["role_inputs"]["actions"])
+        expected_actions = [
+            *pack("azure")["role_inputs"]["actions"],
+            "Microsoft.Resources/subscriptions/read",
+            "Microsoft.Resources/subscriptions/locations/read",
+            "Microsoft.Authorization/roleDefinitions/read",
+        ]
+        self.assertEqual(permission["actions"], expected_actions)
         self.assertEqual(
             permission["dataActions"], pack("azure")["role_inputs"]["data_actions"]
+        )
+        self.assertEqual(
+            first["identity_binding_id"],
+            "azure.thesis-demo-v2.service-principal-v1",
         )
 
     def test_gcp_role_is_project_scoped_and_inventory_exact(self) -> None:

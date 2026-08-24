@@ -687,7 +687,20 @@ enforces AWS's managed-policy size limit and required conditions, and contains
 no provider client or credential input. AWS output is now a complete safe
 bundle for the pinned IAM-user binding: generated user name, managed-policy
 name/ARN and document, plus the exact user-policy attachment. It contains no
-access-key value and still makes no live-provider claim.
+access-key value and still makes no live-provider claim. The binding also owns
+the unconditioned `ec2:DescribeRegions` read used before the region-scoped
+workload policy can be evaluated.
+
+Azure now likewise pins
+`azure.thesis-demo-v2.service-principal-v1`. Its materialized custom role is
+the frozen v2 workload inventory plus only the subscription, location, and
+role-definition reads used by the existing service-principal preflight. The
+Deployer selects the synchronized v2 provider packs by
+`permission_set_version`; GCP reports non-project-testable permissions and the
+resolved architecture API set as deferred warnings. No provider result is
+claimed until the supervised gate runs. GCP Terraform API enablement versus
+the deliberately omitted `serviceusage.services.enable` permission remains a
+blocking G6/G7 design decision, not an implicit permission expansion.
 
 The credential-free local integration boundary is available as
 `./thesis.sh test setup-smoke`. It runs the actual shared Flutter bootstrap UI

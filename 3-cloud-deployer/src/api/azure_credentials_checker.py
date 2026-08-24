@@ -24,6 +24,10 @@ import os
 import logging
 
 from logger import logger
+from src.api.permission_sets import (
+    ACTIVE_PERMISSION_SET_VERSION,
+    deployment_permission_pack_for_version,
+)
 from src.core.observability import redact_sensitive
 
 # ==========================================
@@ -646,7 +650,52 @@ def _action_allowed(role_info: dict, required_action: str, data_plane: bool = Fa
     return _action_matches(action_set, required_action)
 
 
-def _compare_permissions(role_info: dict) -> dict:
+def _azure_permission_contract_for_version(
+    permission_set_version: str | None,
+) -> dict:
+    """Return the selected version's Azure management/data action contract."""
+
+    pack = deployment_permission_pack_for_version("azure", permission_set_version)
+    if pack is None:
+        return REQUIRED_AZURE_PERMISSIONS
+    role_inputs = pack.get("role_inputs")
+    if not isinstance(role_inputs, dict) or set(role_inputs) != {
+        "actions",
+        "data_actions",
+    }:
+        raise ValueError("Active Azure deployment permission inputs are malformed")
+    actions = role_inputs["actions"]
+    data_actions = role_inputs["data_actions"]
+    for name, values in (("actions", actions), ("data_actions", data_actions)):
+        if (
+            not isinstance(values, list)
+            or not values
+            or any(not isinstance(value, str) or not value for value in values)
+            or len(values) != len(set(values))
+        ):
+            raise ValueError(
+                f"Active Azure deployment permission {name} are invalid"
+            )
+    return {
+        "thesis_demo_v2": {
+            "description": "Active Phase 8 Azure deployment permission pack",
+            "resource_providers": sorted(
+                {
+                    action.split("/", maxsplit=1)[0]
+                    for action in actions
+                    if action.startswith("Microsoft.")
+                }
+            ),
+            "required_actions": actions,
+            "required_data_actions": data_actions,
+        }
+    }
+
+
+def _compare_permissions(
+    role_info: dict,
+    required_permissions: dict | None = None,
+) -> dict:
     """
     Compare user's actual permissions against required actions by layer.
     
@@ -662,12 +711,17 @@ def _compare_permissions(role_info: dict) -> dict:
             "summary": {"total_layers": 0, "valid_layers": 0, "partial_layers": 0, "invalid_layers": 0},
         }
     
+    permission_contract = (
+        REQUIRED_AZURE_PERMISSIONS
+        if required_permissions is None
+        else required_permissions
+    )
     by_layer = {}
-    total_layers = len(REQUIRED_AZURE_PERMISSIONS)
+    total_layers = len(permission_contract)
     valid_layers = 0
     partial_layers = 0
     
-    for layer_name, requirements in REQUIRED_AZURE_PERMISSIONS.items():
+    for layer_name, requirements in permission_contract.items():
         layer_status = "valid"
         missing_actions = []
         present_actions = []
@@ -738,6 +792,9 @@ def check_azure_credentials(credentials: dict) -> dict:
     Returns:
         Dict with status, caller_identity, and permission results by layer
     """
+    active_v2 = (
+        credentials.get("permission_set_version") == ACTIVE_PERMISSION_SET_VERSION
+    )
     result = {
         "status": "invalid",
         "message": "",
@@ -747,8 +804,14 @@ def check_azure_credentials(credentials: dict) -> dict:
         "by_layer": {},
         "summary": {"total_layers": 0, "valid_layers": 0, "partial_layers": 0, "invalid_layers": 0},
         "recommended_roles": {
-            "custom": "Digital Twin Deployer (recommended, least-privilege)",
-            "builtin": ["Contributor", "User Access Administrator"]
+            "custom": (
+                "Versioned thesis-demo-v2 custom role"
+                if active_v2
+                else "Digital Twin Deployer (recommended, least-privilege)"
+            ),
+            "builtin": []
+            if active_v2
+            else ["Contributor", "User Access Administrator"],
         },
     }
     
@@ -856,7 +919,10 @@ def check_azure_credentials(credentials: dict) -> dict:
         result["assigned_roles"] = [a["role_name"] for a in role_info.get("assignments", [])]
         
         # Step 4: Compare against required permissions
-        comparison = _compare_permissions(role_info)
+        permission_contract = _azure_permission_contract_for_version(
+            credentials.get("permission_set_version")
+        )
+        comparison = _compare_permissions(role_info, permission_contract)
         result["by_layer"] = comparison["by_layer"]
         result["summary"] = comparison["summary"]
         
@@ -872,7 +938,14 @@ def check_azure_credentials(credentials: dict) -> dict:
             result["message"] = f"Some layers have missing permissions: {missing_count} of {summary['total_layers']} layers incomplete."
         else:
             result["status"] = "invalid"
-            result["message"] = "Required permissions are missing. Use our custom 'Digital Twin Deployer' role (recommended) or assign Contributor + User Access Administrator."
+            result["message"] = (
+                "Required thesis-demo-v2 permissions are missing. Re-run the "
+                "reviewed provider bootstrap and then rerun preflight."
+                if active_v2
+                else "Required permissions are missing. Use our custom "
+                "'Digital Twin Deployer' role (recommended) or assign "
+                "Contributor + User Access Administrator."
+            )
         
         return result
         

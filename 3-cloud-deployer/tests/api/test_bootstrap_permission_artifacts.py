@@ -357,9 +357,44 @@ def test_active_aws_identity_binding_covers_iam_user_self_check_permissions():
     assert binding["base_pack_digest"] == (
         f"sha256:{hashlib.sha256(canonical).hexdigest()}"
     )
-    assert set(binding["self_check_permissions"]) == set(
-        SELF_CHECK_PERMISSIONS["user"]
+    assert set(binding["self_check_permissions"]) == {
+        "ec2:DescribeRegions",
+        *SELF_CHECK_PERMISSIONS["user"],
+    }
+
+
+def test_active_azure_identity_binding_covers_deployer_self_inspection():
+    artifact = json.loads(
+        (PERMISSION_SET_DIR / "azure_thesis_demo_v2.json").read_text()
     )
+    binding = json.loads(
+        (
+            ROOT
+            / "src/contracts/generated/cloud-bootstrap/v1/"
+            "deployment-identity-bindings/azure.json"
+        ).read_text()
+    )
+    canonical = json.dumps(
+        artifact,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+    assert binding["binding_id"] == (
+        "azure.thesis-demo-v2.service-principal-v1"
+    )
+    assert binding["identity_kind"] == "service_principal"
+    assert binding["connection_auth_type"] == "client_secret"
+    assert binding["policy_attachment_kind"] == "custom_role_assignment"
+    assert binding["base_pack_digest"] == (
+        f"sha256:{hashlib.sha256(canonical).hexdigest()}"
+    )
+    assert set(binding["self_check_permissions"]) == {
+        "Microsoft.Resources/subscriptions/read",
+        "Microsoft.Resources/subscriptions/locations/read",
+        "Microsoft.Authorization/roleDefinitions/read",
+    }
 
 
 def test_aws_v2_can_activate_outbound_identity_for_remote_azure_routes():

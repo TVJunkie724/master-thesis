@@ -20,6 +20,10 @@ import logging
 from typing import Optional
 
 from logger import logger
+from src.api.permission_sets import (
+    ACTIVE_PERMISSION_SET_VERSION,
+    deployment_permission_pack_for_version,
+)
 from src.core.observability import redact_sensitive
 
 # ==========================================
@@ -196,6 +200,43 @@ GCP_RESOURCE_SCOPED_PERMISSIONS = {
     "storage.buckets.get",
     "storage.buckets.update",
 }
+
+GCP_V2_PROJECT_TESTABLE_PERMISSIONS = {
+    "resourcemanager.projects.get",
+    "resourcemanager.projects.getIamPolicy",
+    "resourcemanager.projects.setIamPolicy",
+}
+GCP_V2_DIRECTLY_TESTED_PERMISSIONS = {"serviceusage.services.get"}
+GCP_V2_REGION = "europe-west1"
+
+
+def _gcp_permission_contract_for_version(
+    permission_set_version: str | None,
+) -> dict:
+    """Return the selected version's GCP custom-role permission contract."""
+
+    pack = deployment_permission_pack_for_version("gcp", permission_set_version)
+    if pack is None:
+        return REQUIRED_GCP_PERMISSIONS
+    permissions = pack.get("custom_role_inputs")
+    if (
+        not isinstance(permissions, list)
+        or not permissions
+        or any(
+            not isinstance(permission, str)
+            or not permission
+            or "*" in permission
+            for permission in permissions
+        )
+        or len(permissions) != len(set(permissions))
+    ):
+        raise ValueError("Active GCP deployment permission inputs are invalid")
+    return {
+        "thesis_demo_v2": {
+            "description": "Active Phase 8 GCP deployment permission pack",
+            "permissions": permissions,
+        }
+    }
 
 
 def _parse_service_account_json(credentials_input: str) -> tuple:
@@ -389,11 +430,55 @@ def _check_enabled_apis(project_id: str, credentials=None) -> dict:
         return {"status": "error", "error": redact_sensitive(exc)}
 
 
-def _get_all_required_gcp_permissions() -> set[str]:
+def _check_v2_identity_prerequisite_api(
+    project_id: str,
+    credentials=None,
+) -> dict:
+    """Verify the already-enabled IAM API without listing or enabling services."""
+
+    service = "iam.googleapis.com"
+    try:
+        from google.cloud import service_usage_v1
+
+        client = service_usage_v1.ServiceUsageClient(credentials=credentials)
+        response = client.get_service(
+            name=f"projects/{project_id}/services/{service}"
+        )
+        state = getattr(response, "state", None)
+        enabled_state = getattr(service_usage_v1.State, "ENABLED", None)
+        enabled = state == enabled_state or getattr(state, "name", None) == "ENABLED"
+        return {
+            "status": "checked",
+            "api": service,
+            "enabled": enabled,
+            "required_permission": "serviceusage.services.get",
+        }
+    except ImportError:
+        return {
+            "status": "sdk_not_installed",
+            "api": service,
+            "error": "google-cloud-service-usage not installed",
+        }
+    except Exception as exc:
+        return {
+            "status": "check_failed",
+            "api": service,
+            "error": redact_sensitive(exc),
+        }
+
+
+def _get_all_required_gcp_permissions(
+    required_by_layer: dict | None = None,
+) -> set[str]:
     """Flatten the versioned GCP permission contract into one set."""
+    permission_contract = (
+        REQUIRED_GCP_PERMISSIONS
+        if required_by_layer is None
+        else required_by_layer
+    )
     return {
         permission
-        for group in REQUIRED_GCP_PERMISSIONS.values()
+        for group in permission_contract.values()
         for permission in group["permissions"]
     }
 
@@ -406,27 +491,35 @@ def _is_resource_scoped_gcp_permission(permission: str) -> bool:
     )
 
 
-def _get_project_testable_gcp_permissions() -> set[str]:
+def _get_project_testable_gcp_permissions(
+    required_by_layer: dict | None = None,
+) -> set[str]:
     """Return required permissions that are safe to test against projects/{id}."""
     return {
         permission
-        for permission in _get_all_required_gcp_permissions()
+        for permission in _get_all_required_gcp_permissions(required_by_layer)
         if not _is_resource_scoped_gcp_permission(permission)
     }
 
 
-def _get_resource_scoped_gcp_permissions() -> set[str]:
+def _get_resource_scoped_gcp_permissions(
+    required_by_layer: dict | None = None,
+) -> set[str]:
     """Return required permissions deferred to resource/provider validation."""
     return {
         permission
-        for permission in _get_all_required_gcp_permissions()
+        for permission in _get_all_required_gcp_permissions(required_by_layer)
         if _is_resource_scoped_gcp_permission(permission)
     }
 
 
 def _compare_gcp_permissions(granted_permissions: set[str], required_by_layer: dict | None = None) -> dict:
     """Compare granted permissions from testIamPermissions with the contract."""
-    permission_contract = required_by_layer or REQUIRED_GCP_PERMISSIONS
+    permission_contract = (
+        REQUIRED_GCP_PERMISSIONS
+        if required_by_layer is None
+        else required_by_layer
+    )
     by_layer = {}
     total_required = 0
     total_valid = 0
@@ -458,10 +551,18 @@ def _compare_gcp_permissions(granted_permissions: set[str], required_by_layer: d
     }
 
 
-def _filter_gcp_permission_contract(permissions_to_include: set[str]) -> dict:
+def _filter_gcp_permission_contract(
+    permissions_to_include: set[str],
+    required_by_layer: dict | None = None,
+) -> dict:
     """Return the permission contract with only selected permissions per layer."""
+    permission_contract = (
+        REQUIRED_GCP_PERMISSIONS
+        if required_by_layer is None
+        else required_by_layer
+    )
     filtered = {}
-    for layer_name, requirements in REQUIRED_GCP_PERMISSIONS.items():
+    for layer_name, requirements in permission_contract.items():
         permissions = [
             permission
             for permission in requirements["permissions"]
@@ -475,7 +576,13 @@ def _filter_gcp_permission_contract(permissions_to_include: set[str]) -> dict:
     return filtered
 
 
-def _check_iam_permissions(project_id: str, credentials=None) -> dict:
+def _check_iam_permissions(
+    project_id: str,
+    credentials=None,
+    *,
+    required_by_layer: dict | None = None,
+    project_testable_permissions: set[str] | None = None,
+) -> dict:
     """
     Check granted GCP IAM permissions against the explicit deployment contract.
 
@@ -487,27 +594,37 @@ def _check_iam_permissions(project_id: str, credentials=None) -> dict:
         from google.cloud import resourcemanager_v3
 
         client = resourcemanager_v3.ProjectsClient(credentials=credentials)
-        project_testable_permissions = sorted(_get_project_testable_gcp_permissions())
-        deferred_permissions = sorted(_get_resource_scoped_gcp_permissions())
+        all_required = _get_all_required_gcp_permissions(required_by_layer)
+        if project_testable_permissions is None:
+            testable = _get_project_testable_gcp_permissions(required_by_layer)
+        else:
+            if not project_testable_permissions.issubset(all_required):
+                raise ValueError(
+                    "Project-testable GCP permissions must belong to the selected pack"
+                )
+            testable = project_testable_permissions
+        deferred_permissions = sorted(all_required - testable)
+        testable_permissions = sorted(testable)
         response = client.test_iam_permissions(
             resource=f"projects/{project_id}",
-            permissions=project_testable_permissions,
+            permissions=testable_permissions,
         )
         granted_permissions = set(response.permissions)
         comparison = _compare_gcp_permissions(
             granted_permissions,
-            _filter_gcp_permission_contract(set(project_testable_permissions)),
+            _filter_gcp_permission_contract(testable, required_by_layer),
         )
 
         return {
             "status": "checked",
             "resource": f"projects/{project_id}",
             "granted_permissions": sorted(granted_permissions),
-            "required_permissions": project_testable_permissions,
+            "required_permissions": testable_permissions,
             "deferred_permissions": deferred_permissions,
             "deferred_reason": (
-                "These permissions are resource-scoped and are not hard-failed by "
-                "project-level testIamPermissions before deployment resources exist."
+                "These permissions need resource- or provider-operation-specific "
+                "validation and are not hard-failed by project-level "
+                "testIamPermissions before deployment resources exist."
             ),
             **comparison,
         }
@@ -592,6 +709,10 @@ def check_gcp_credentials(credentials: dict) -> dict:
     Returns:
         Dict with status, caller_identity, and permission results
     """
+    active_v2 = (
+        credentials.get("permission_set_version") == ACTIVE_PERMISSION_SET_VERSION
+    )
+    permission_contract = REQUIRED_GCP_PERMISSIONS
     result = {
         "status": "invalid",
         "message": "",
@@ -601,8 +722,8 @@ def check_gcp_credentials(credentials: dict) -> dict:
         "api_status": None,
         "permission_status": None,
         "validation_project": None,
-        "required_roles": REQUIRED_GCP_ROLES,
-        "required_permissions": REQUIRED_GCP_PERMISSIONS,
+        "required_roles": [] if active_v2 else REQUIRED_GCP_ROLES,
+        "required_permissions": permission_contract,
     }
     
     # Validate required fields
@@ -629,6 +750,11 @@ def check_gcp_credentials(credentials: dict) -> dict:
         return result
     
     try:
+        permission_contract = _gcp_permission_contract_for_version(
+            credentials.get("permission_set_version")
+        )
+        result["required_permissions"] = permission_contract
+
         # Step 1: Parse and validate service account JSON (handles both file path and JSON content)
         # Returns credentials object for thread-safe SDK usage
         try:
@@ -699,7 +825,29 @@ def check_gcp_credentials(credentials: dict) -> dict:
         # Step 3: Validate region
         region = credentials.get("gcp_region", "")
         if region:
-            region_result = _validate_gcp_region(project_id, region, credentials=gcp_credentials)
+            region_result = (
+                {
+                    "valid": region == GCP_V2_REGION,
+                    "region": region,
+                    "validation_source": "frozen_phase8_profile",
+                    **(
+                        {}
+                        if region == GCP_V2_REGION
+                        else {
+                            "error": (
+                                "Active thesis-demo-v2 profiles require GCP region "
+                                f"'{GCP_V2_REGION}'."
+                            )
+                        }
+                    ),
+                }
+                if active_v2
+                else _validate_gcp_region(
+                    project_id,
+                    region,
+                    credentials=gcp_credentials,
+                )
+            )
             result["region_validation"] = {"gcp_region": region_result}
             
             if not region_result.get("valid") and not region_result.get("skipped"):
@@ -708,7 +856,50 @@ def check_gcp_credentials(credentials: dict) -> dict:
                 return result
         
         # Step 4: Check enabled APIs
-        api_status = _check_enabled_apis(project_id, credentials=gcp_credentials)
+        if active_v2:
+            identity_api = _check_v2_identity_prerequisite_api(
+                project_id,
+                credentials=gcp_credentials,
+            )
+            if identity_api["status"] != "checked":
+                result["api_status"] = identity_api
+                result["status"] = "partial"
+                result["message"] = (
+                    "Credentials valid. The required IAM API could not be "
+                    "verified without mutation."
+                )
+                return result
+            if not identity_api["enabled"]:
+                result["api_status"] = {
+                    "status": "checked",
+                    "by_layer": {
+                        "identity_prerequisite": {
+                            "status": "invalid",
+                            "present_apis": [],
+                            "missing_apis": [identity_api["api"]],
+                        }
+                    },
+                }
+                result["status"] = "invalid"
+                result["message"] = (
+                    "The IAM API must already be enabled before the identity-only "
+                    "gate; this preflight will not enable it."
+                )
+                return result
+            api_status = {
+                "status": "deferred_to_twin_preflight",
+                "by_layer": {},
+                "identity_prerequisite": identity_api,
+                "reason": (
+                    "The exact Five-layer v2/Six-layer v1 API set depends on the "
+                    "selected resolved architecture and is checked after Twin binding."
+                ),
+            }
+        else:
+            api_status = _check_enabled_apis(
+                project_id,
+                credentials=gcp_credentials,
+            )
         result["api_status"] = api_status
         
         if api_status["status"] == "sdk_not_installed":
@@ -716,13 +907,20 @@ def check_gcp_credentials(credentials: dict) -> dict:
             result["message"] = "Credentials valid. API check skipped (google-cloud-service-usage not installed)."
             return result
         
-        if api_status["status"] != "checked":
+        if api_status["status"] not in {"checked", "deferred_to_twin_preflight"}:
             result["status"] = "partial"
             result["message"] = f"Credentials valid. API check failed: {api_status.get('error', 'Unknown')}"
             return result
 
         # Step 5: Check effective IAM permissions without mutating cloud resources
-        permission_status = _check_iam_permissions(project_id, credentials=gcp_credentials)
+        permission_status = _check_iam_permissions(
+            project_id,
+            credentials=gcp_credentials,
+            required_by_layer=permission_contract,
+            project_testable_permissions=(
+                GCP_V2_PROJECT_TESTABLE_PERMISSIONS if active_v2 else None
+            ),
+        )
         result["permission_status"] = permission_status
 
         if permission_status["status"] != "checked":
@@ -733,6 +931,30 @@ def check_gcp_credentials(credentials: dict) -> dict:
             )
             return result
 
+        if active_v2:
+            directly_verified = GCP_V2_DIRECTLY_TESTED_PERMISSIONS
+            deferred = set(permission_status.get("deferred_permissions", []))
+            if not directly_verified.issubset(deferred):
+                result["status"] = "error"
+                result["message"] = (
+                    "GCP v2 permission coverage could not be reconciled safely."
+                )
+                return result
+            permission_status["deferred_permissions"] = sorted(
+                deferred - directly_verified
+            )
+            permission_status["directly_verified_permissions"] = sorted(
+                directly_verified
+            )
+            layer = permission_status.get("by_layer", {}).get("thesis_demo_v2")
+            summary = permission_status.get("summary")
+            if isinstance(layer, dict) and isinstance(summary, dict):
+                layer["valid"] = sorted(
+                    set(layer.get("valid", [])) | directly_verified
+                )
+                summary["total_required"] += len(directly_verified)
+                summary["valid"] += len(directly_verified)
+
         missing_permissions = permission_status.get("summary", {}).get("missing", 0)
         if missing_permissions:
             result["status"] = "partial"
@@ -742,6 +964,15 @@ def check_gcp_credentials(credentials: dict) -> dict:
             )
             return result
         
+        if active_v2:
+            result["status"] = "valid"
+            result["message"] = (
+                "All project-testable thesis-demo-v2 permissions are present; "
+                "resource-, provider-operation-, and architecture-scoped checks "
+                "remain explicit warnings."
+            )
+            return result
+
         # Determine overall status
         all_valid = all(
             layer["status"] == "valid" 

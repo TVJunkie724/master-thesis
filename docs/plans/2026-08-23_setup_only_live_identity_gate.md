@@ -1,7 +1,8 @@
 # Setup-Only Live Identity Gate Before Paid Cloud E2E
 
 **Date:** 2026-08-23  
-**Status:** In progress (G0 and isolated credential-free G1 implemented; G2+ not run)
+**Status:** In progress (G0, isolated credential-free G1, and version-aware
+G4 validator logic implemented offline; G2-G5 not run)
 **Parent issue:** [#107](https://github.com/TVJunkie724/master-thesis/issues/107)  
 **Scope:** AWS, Azure, and GCP guided bootstrap, bounded deployment identities,
 credential preflight, and cleanup only
@@ -98,14 +99,25 @@ an identity-only runner rather than relabel the existing deployment E2E tests.
   adding only `serviceusage.services.get` and `iam.roles.list`; API enablement
   remains forbidden. Cleanup treats `deleted=true` as the correct immediate
   result because GCP keeps a custom role soft-deleted for seven days.
-- The current Deployer credential checkers still compare effective provider
-  permissions with their historical generic service matrices rather than the
-  selected immutable `thesis-demo-v2` inputs. Those matrices intentionally do
-  not equal the new Five-layer v2/Six-layer v1 bundles. G4 is therefore blocked
-  until validation selects the exact versioned provider pack and reports its
-  coverage without silently broadening that pack. The AWS identity binding
-  separately supplies the IAM-user metadata reads needed to inspect the
-  attached managed policy; those reads are not workload permissions.
+- The Deployer credential checkers now select the exact synchronized
+  `thesis-demo-v2` inputs whenever the CloudConnection carries that version;
+  missing and historical versions retain the legacy matrices only for
+  compatibility and fail the normalized version gate. AWS and Azure use
+  separate versioned identity bindings for the metadata reads required by
+  their implemented IAM-user and service-principal self-inspection paths.
+  GCP tests three v2 permissions that Cloud Resource Manager can safely
+  evaluate at `projects/{id}` and exercises `serviceusage.services.get`
+  directly against the already-enabled IAM API; it reports every remaining
+  permission explicitly as deferred instead of producing false project-scope
+  failures.
+  This is offline implementation evidence, not live G4 provider evidence.
+- A separate GCP G6/G7 blocker remains explicit: Five-/Six-layer Terraform
+  declares `google_project_service` resources, while `thesis-demo-v2`
+  deliberately omits `serviceusage.services.enable`. Before plan/apply
+  admission, the architecture must choose and implement one reviewed owner:
+  pre-enable the exact resolved API set outside Terraform, or publish a new
+  versioned deployment boundary. The setup-only gate must not silently enable
+  workload APIs or mutate the frozen v2 pack.
 
 ## 3. Gate Sequence
 
@@ -166,6 +178,9 @@ Allowed:
 - create one short-lived test client secret;
 - create/reuse the reviewed v2 custom role definition and assign it only at the
   planned subscription/test scope;
+- include only the three `azure.thesis-demo-v2.service-principal-v1`
+  self-inspection reads needed to resolve the subscription, list its locations,
+  and read the assigned role definition;
 - authenticate the generated service principal and run read-only preflight;
 - remove the exact assignment, owned role definition, service principal,
   application, and test secret.
@@ -210,8 +225,10 @@ Every provider must pass the following cases before G6:
 6. A conflicting request cannot reuse the same session or generated identity.
 7. The generated credential authenticates as the new non-admin identity, not
    as the bootstrap principal.
-8. The generated credential carries `thesis-demo-v2` and passes the existing
-   permission/preflight contract.
+8. The generated credential carries `thesis-demo-v2`; AWS/Azure self-inspection
+   and GCP project-testable permissions pass the version-aware normalized
+   permission/preflight contract, with every deferred provider-operation check
+   retained as a warning.
 9. Bootstrap secret sentinels are absent from database rows, API responses,
    application logs, Flutter state, exports, and captured evidence.
 10. A forced failure after each provider mutation can be reconciled or cleaned
@@ -286,10 +303,12 @@ Implemented and credential-free as of 2026-08-24.
 
 ### Slice B — Reviewed Live Provider Adapters
 
-Not enabled. Provider-native policy materialization is implemented offline;
-version-aware Deployer permission validation against the exact selected v2
-pack must land before any provider adapter is admitted. Provider calls and
-`supervised_live` mode remain pending.
+Not enabled. Provider-native policy materialization and version-aware Deployer
+permission selection are implemented offline. The Azure materializer now
+combines the immutable workload inventory with the separately pinned
+`azure.thesis-demo-v2.service-principal-v1` self-inspection reads. Provider
+calls, `supervised_live` mode, and live G2-G5 evidence remain pending; GCP
+architecture-specific API ownership must be resolved before G6/G7.
 
 - Keep the resolved AWS IAM-user binding and the AWS/Azure/GCP v2 bootstrap
   authority boundaries pinned before provider code is enabled.

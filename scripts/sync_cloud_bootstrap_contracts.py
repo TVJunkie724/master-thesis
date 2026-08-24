@@ -29,6 +29,13 @@ DEPLOYMENT_PACK_SOURCES = {
     / f"{provider}_thesis_demo_v2.json"
     for provider in ("aws", "azure", "gcp")
 }
+DEPLOYMENT_IDENTITY_BINDINGS = {
+    provider: SOURCE_ROOT
+    / "v1"
+    / "deployment-identity-bindings"
+    / f"{provider}.json"
+    for provider in ("aws", "azure")
+}
 TARGETS = (
     REPO_ROOT
     / "twin2multicloud_backend"
@@ -95,6 +102,7 @@ def validate_source() -> str:
         "v1/cloud-bootstrap-guide.schema.json",
         "v1/cloud-bootstrap-session.schema.json",
         "v1/deployment-identity-bindings/aws.json",
+        "v1/deployment-identity-bindings/azure.json",
         "v1/fixtures/valid/aws-guide.json",
         "v1/fixtures/valid/aws-ready-session.json",
         "v1/fixtures/invalid/guide-secret-value.json",
@@ -132,10 +140,8 @@ def validate_source() -> str:
             or document.get("permission_set_version") != "thesis-demo-v2"
         ):
             raise ValueError(f"Deployment pack mismatch: {path.relative_to(REPO_ROOT)}")
-        if provider == "aws":
-            binding_path = (
-                SOURCE_ROOT / "v1" / "deployment-identity-bindings" / "aws.json"
-            )
+        if provider in DEPLOYMENT_IDENTITY_BINDINGS:
+            binding_path = DEPLOYMENT_IDENTITY_BINDINGS[provider]
             binding = json.loads(binding_path.read_text(encoding="utf-8"))
             Draft202012Validator(
                 schemas["deployment-identity-binding.schema.json"]
@@ -145,16 +151,31 @@ def validate_source() -> str:
                 or binding["permission_set_version"]
                 != document["permission_set_version"]
                 or binding["base_pack_digest"] != _document_digest(document)
-                or binding["identity_kind"] != "iam_user"
-                or binding["connection_auth_type"] != "access_key"
-                or binding["policy_attachment_kind"] != "customer_managed_policy"
                 or not binding["self_check_permissions"]
                 or len(binding["self_check_permissions"])
                 != len(set(binding["self_check_permissions"]))
             ):
                 raise ValueError(
-                    "AWS deployment identity binding does not match the frozen "
+                    f"{provider.upper()} deployment identity binding does not "
+                    "match the frozen "
                     "deployment pack or implemented CloudConnection path"
+                )
+            expected_identity = {
+                "aws": ("iam_user", "access_key", "customer_managed_policy"),
+                "azure": (
+                    "service_principal",
+                    "client_secret",
+                    "custom_role_assignment",
+                ),
+            }[provider]
+            if (
+                binding["identity_kind"],
+                binding["connection_auth_type"],
+                binding["policy_attachment_kind"],
+            ) != expected_identity:
+                raise ValueError(
+                    f"{provider.upper()} deployment identity binding does not "
+                    "match the implemented CloudConnection path"
                 )
     guide_schema = json.loads(
         (SOURCE_ROOT / "v1" / "cloud-bootstrap-guide.schema.json").read_text(

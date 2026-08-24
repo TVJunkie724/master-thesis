@@ -329,9 +329,9 @@ async def check_azure_from_config(
     tags=["Permissions - Upload"],
     summary="Verify GCP permissions from request body",
     description=(
-        "**Purpose:** Verifies GCP Service Account credentials against required permissions.\n\n"
+        "**Purpose:** Verifies GCP Service Account credentials against the selected versioned permission pack.\n\n"
         "**When to call:** During wizard to validate user-provided GCP credentials.\n\n"
-        "**Checks:** Project access, API enablement (Pub/Sub, Cloud Functions, Firestore, etc)."
+        "**Checks:** Project access, billing, region, project-testable IAM permissions, and explicit deferred architecture checks."
     ),
     responses={
         200: {"description": "Credential validation completed (check status field)"},
@@ -343,15 +343,10 @@ async def check_gcp_from_body(request: GCPCredentialsRequest):
     """
     Validate GCP Service Account credentials from request body.
     
-    Checks permissions for L1-L3 deployment layers:
-    - **L1**: Pub/Sub, Eventarc
-    - **L2**: Cloud Functions, Cloud Run, Cloud Build
-    - **L3**: Firestore, Cloud Storage, Cloud Scheduler
-    
-    TODO(GCP-L4L5): L4/L5 not available - GCP lacks managed Digital Twin and Grafana services.
-    When GCP L4/L5 is implemented, add permission checks for those layers here.
-    
-    Returns status and missing APIs.
+    The active Phase 8 pack covers Five-layer v2 and Six-layer v1, including
+    the PoC's custom GCP L4/L5 implementations. Permissions that cannot be
+    evaluated safely on the project resource remain explicit warnings for the
+    resolved-architecture preflight rather than false negatives.
     """
     return check_gcp_credentials(request.model_dump())
 

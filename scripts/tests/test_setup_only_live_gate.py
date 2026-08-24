@@ -76,6 +76,11 @@ class SetupGateManifestTests(unittest.TestCase):
                     item.document["deployment_pack"]["id"],
                     "aws.thesis-demo-v2.iam-user-v1",
                 )
+            if provider == "azure":
+                self.assertEqual(
+                    item.document["deployment_pack"]["id"],
+                    "azure.thesis-demo-v2.service-principal-v1",
+                )
             self.assertRegex(
                 item.document["bootstrap_authority_pack"]["digest"],
                 r"^sha256:[a-f0-9]{64}$",
@@ -224,6 +229,13 @@ class SetupGateManifestTests(unittest.TestCase):
         self.assertEqual(reference["version"], "2")
         self.assertIn("managed_policy", RESOURCE_KINDS["aws"])
         self.assertNotIn("inline_policy", RESOURCE_KINDS["aws"])
+
+    def test_azure_manifest_pins_service_principal_identity_binding(self) -> None:
+        reference = manifest("azure").document["deployment_pack"]
+
+        self.assertEqual(
+            reference["id"], "azure.thesis-demo-v2.service-principal-v1"
+        )
 
     def test_gcp_manifest_uses_prerequisite_aware_v2_authority_pack(self) -> None:
         reference = manifest("gcp").document["bootstrap_authority_pack"]

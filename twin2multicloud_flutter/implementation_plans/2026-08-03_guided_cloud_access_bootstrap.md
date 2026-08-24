@@ -9,6 +9,8 @@ provider-authority review findings with active
 `aws.thesis-demo-v2.iam-user-v1`, which binds the frozen deployment permission
 inventory to the actually implemented IAM-user/access-key identity. Historical
 v1 packs remain available only as versioned evidence and compatibility input.
+Azure now also pins `azure.thesis-demo-v2.service-principal-v1`, keeping its
+three Deployer metadata reads separate from the frozen workload inventory.
 
 ## 0. Git Branch
 

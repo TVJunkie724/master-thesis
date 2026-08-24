@@ -48,7 +48,8 @@ or relabel the script flow.
    `bootstrap.<provider>.admin-v2` authority-pack identity/digest, Management-
    selected generated-deployment-pack identity/digest (`thesis-demo-v2` for
    Five-layer v2), the AWS `aws.thesis-demo-v2.iam-user-v1` identity binding
-   where applicable, known scope gaps, credential-origin options, and disposal
+   and Azure `azure.thesis-demo-v2.service-principal-v1` identity binding where
+   applicable, known scope gaps, credential-origin options, and disposal
    behavior through a safe-context
    `POST /cloud-bootstrap/{provider}/guide` request.
 2. Add owner-scoped `cloud-bootstrap-session.v1` and the following Management

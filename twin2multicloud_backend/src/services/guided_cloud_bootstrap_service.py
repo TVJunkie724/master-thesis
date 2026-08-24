@@ -677,19 +677,17 @@ class GuidedCloudBootstrapService:
             artifact_path = (
                 f"3-cloud-deployer/docs/references/permission_sets/{repository_name}"
             )
-            if provider == "aws":
+            if provider in {"aws", "azure"}:
                 binding_path = (
-                    CONTRACT_ROOT / "deployment-identity-bindings" / "aws.json"
+                    CONTRACT_ROOT
+                    / "deployment-identity-bindings"
+                    / f"{provider}.json"
                 )
                 binding = json.loads(binding_path.read_text(encoding="utf-8"))
                 if (
-                    binding.get("provider") != "aws"
+                    binding.get("provider") != provider
                     or binding.get("permission_set_version") != version
                     or binding.get("base_pack_digest") != digest
-                    or binding.get("identity_kind") != "iam_user"
-                    or binding.get("connection_auth_type") != "access_key"
-                    or binding.get("policy_attachment_kind")
-                    != "customer_managed_policy"
                     or not isinstance(binding.get("self_check_permissions"), list)
                     or not binding["self_check_permissions"]
                     or len(binding["self_check_permissions"])
@@ -697,7 +695,24 @@ class GuidedCloudBootstrapService:
                 ):
                     raise CloudBootstrapDomainError(
                         "BOOTSTRAP_AUTHORITY_PACK_MISMATCH",
-                        "The AWS deployment identity binding does not match the active permission pack.",
+                        "The deployment identity binding does not match the active permission pack.",
+                    )
+                expected_identity = {
+                    "aws": ("iam_user", "access_key", "customer_managed_policy"),
+                    "azure": (
+                        "service_principal",
+                        "client_secret",
+                        "custom_role_assignment",
+                    ),
+                }[provider]
+                if (
+                    binding.get("identity_kind"),
+                    binding.get("connection_auth_type"),
+                    binding.get("policy_attachment_kind"),
+                ) != expected_identity:
+                    raise CloudBootstrapDomainError(
+                        "BOOTSTRAP_AUTHORITY_PACK_MISMATCH",
+                        "The deployment identity binding does not match the implemented CloudConnection path.",
                     )
                 digest = _digest(
                     {"permission_set": document, "identity_binding": binding}
@@ -706,7 +721,8 @@ class GuidedCloudBootstrapService:
                 scope = binding["scope_summary"]
                 limitations = [*binding["limitations"], *limitations]
                 artifact_path = (
-                    "contracts/cloud-bootstrap/v1/deployment-identity-bindings/aws.json"
+                    "contracts/cloud-bootstrap/v1/deployment-identity-bindings/"
+                    f"{provider}.json"
                 )
         fields: dict[str, Any] = {
             "id": pack_id,

@@ -102,6 +102,90 @@ class TestGCPProjectStateValidation:
         assert result["status"] in ["valid", "partial"]
 
     @patch('src.api.gcp_credentials_checker._check_enabled_apis')
+    @patch('src.api.gcp_credentials_checker._check_v2_identity_prerequisite_api')
+    @patch('src.api.gcp_credentials_checker._check_iam_permissions')
+    @patch('src.api.gcp_credentials_checker._validate_gcp_region')
+    @patch('src.api.gcp_credentials_checker._check_billing_enabled')
+    @patch('src.api.gcp_credentials_checker._check_project_access')
+    @patch('src.api.gcp_credentials_checker._parse_service_account_json')
+    def test_v2_defers_architecture_apis_and_uses_the_frozen_permission_pack(
+        self,
+        mock_parse,
+        mock_project_access,
+        mock_billing,
+        mock_region,
+        mock_iam,
+        mock_identity_api,
+        mock_apis,
+    ):
+        from src.api.gcp_credentials_checker import (
+            GCP_V2_PROJECT_TESTABLE_PERMISSIONS,
+            check_gcp_credentials,
+        )
+        from src.api.permission_sets import active_deployment_permission_pack
+
+        mock_parse.return_value = _make_mock_parse_return()
+        mock_project_access.return_value = {
+            "status": "accessible",
+            "project_id": "test-project",
+            "display_name": "Test Project",
+            "state": "ACTIVE",
+        }
+        mock_billing.return_value = {"status": "checked", "billing_enabled": True}
+        mock_identity_api.return_value = {
+            "status": "checked",
+            "api": "iam.googleapis.com",
+            "enabled": True,
+            "required_permission": "serviceusage.services.get",
+        }
+        mock_iam.return_value = {
+            "status": "checked",
+            "summary": {"total_required": 3, "valid": 3, "missing": 0},
+            "by_layer": {
+                "thesis_demo_v2": {
+                    "status": "valid",
+                    "valid": sorted(GCP_V2_PROJECT_TESTABLE_PERMISSIONS),
+                    "missing": [],
+                }
+            },
+            "deferred_permissions": [
+                "run.services.create",
+                "serviceusage.services.get",
+            ],
+        }
+
+        result = check_gcp_credentials({
+            "gcp_credentials_file": '{"type":"service_account"}',
+            "gcp_region": "europe-west1",
+            "gcp_project_id": "test-project",
+            "permission_set_version": "thesis-demo-v2",
+        })
+
+        mock_apis.assert_not_called()
+        mock_region.assert_not_called()
+        expected = active_deployment_permission_pack("gcp")["custom_role_inputs"]
+        assert mock_iam.call_args.kwargs["required_by_layer"] == {
+            "thesis_demo_v2": {
+                "description": "Active Phase 8 GCP deployment permission pack",
+                "permissions": expected,
+            }
+        }
+        assert mock_iam.call_args.kwargs["project_testable_permissions"] == (
+            GCP_V2_PROJECT_TESTABLE_PERMISSIONS
+        )
+        assert result["status"] == "valid"
+        assert result["api_status"]["status"] == "deferred_to_twin_preflight"
+        assert result["permission_status"]["summary"] == {
+            "total_required": 4,
+            "valid": 4,
+            "missing": 0,
+        }
+        assert result["permission_status"]["directly_verified_permissions"] == [
+            "serviceusage.services.get"
+        ]
+        assert result["required_roles"] == []
+
+    @patch('src.api.gcp_credentials_checker._check_enabled_apis')
     @patch('src.api.gcp_credentials_checker._check_iam_permissions')
     @patch('src.api.gcp_credentials_checker._validate_gcp_region')
     @patch('src.api.gcp_credentials_checker._check_billing_enabled')

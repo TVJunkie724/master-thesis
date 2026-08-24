@@ -198,6 +198,9 @@ def _gcp_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
 
     if status == "valid":
         checks.append(_passed("credentials", "GCP_READY", result.get("message") or "GCP credentials are ready."))
+        checks.extend(
+            _gcp_deferred_api_checks(_safe_dict(result.get("api_status")))
+        )
         checks.extend(_gcp_deferred_permission_checks(_safe_dict(result.get("permission_status"))))
         return checks
 
@@ -237,6 +240,7 @@ def _gcp_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
         ))
 
     api_status = _safe_dict(result.get("api_status"))
+    checks.extend(_gcp_deferred_api_checks(api_status))
     missing_apis = _gcp_missing_apis(api_status)
     if missing_apis:
         checks.append(_failed(
@@ -347,8 +351,8 @@ def _gcp_deferred_permission_checks(permission_status: dict[str, Any]) -> list[P
         status="warning",
         code="RESOURCE_SCOPED_PERMISSIONS_DEFERRED",
         message=(
-            "Some GCP permissions are resource-scoped and cannot be hard-failed "
-            "by project-level testIamPermissions before deployment resources exist."
+            "Some GCP permissions are resource- or provider-operation-specific "
+            "and cannot be hard-failed by project-level testIamPermissions."
         ),
         action=(
             "Keep these permissions in the bootstrap role and validate them during "
@@ -360,6 +364,29 @@ def _gcp_deferred_permission_checks(permission_status: dict[str, Any]) -> list[P
             "reason": permission_status.get("deferred_reason"),
         },
     )]
+
+
+def _gcp_deferred_api_checks(
+    api_status: dict[str, Any],
+) -> list[ProviderPreflightCheck]:
+    if api_status.get("status") != "deferred_to_twin_preflight":
+        return []
+    reason = str(
+        api_status.get("reason")
+        or "The exact API set depends on the selected resolved architecture."
+    )
+    return [
+        ProviderPreflightCheck(
+            name="architecture_api_readiness",
+            status="warning",
+            code="ARCHITECTURE_API_CHECK_DEFERRED",
+            message=reason,
+            action=(
+                "Bind the CloudConnection to the selected Twin and run the "
+                "architecture-specific deployment preflight before deploy."
+            ),
+        )
+    ]
 
 
 def _passed(name: str, code: str, message: str) -> ProviderPreflightCheck:

@@ -110,7 +110,9 @@ The default view explains four facts before accepting a secret:
    credential must pass, and which Management-selected deployment pack will be
    assigned (`thesis-demo-v2` for Five-layer v2); AWS additionally presents
    the versioned `aws.thesis-demo-v2.iam-user-v1` binding that makes the PoC's
-   IAM-user/access-key deployment identity explicit;
+   IAM-user/access-key deployment identity explicit, while Azure presents
+   `azure.thesis-demo-v2.service-principal-v1` for its
+   service-principal/client-secret and Deployer self-inspection boundary;
 3. that the submitted secret is request-scoped and never rehydrated; and
 4. whether Twin2MultiCloud will attempt to revoke a dedicated disposable
    credential or leave an existing user-owned credential untouched.

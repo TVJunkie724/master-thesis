@@ -48,14 +48,15 @@ DEPLOYMENT_PACK_PATHS = {
     provider: PERMISSION_SET_ROOT / f"{provider}_thesis_demo_v2.json"
     for provider in PROVIDERS
 }
-AWS_DEPLOYMENT_BINDING_PATH = (
-    REPO_ROOT
+DEPLOYMENT_BINDING_PATHS = {
+    provider: REPO_ROOT
     / "contracts"
     / "cloud-bootstrap"
     / "v1"
     / "deployment-identity-bindings"
-    / "aws.json"
-)
+    / f"{provider}.json"
+    for provider in ("aws", "azure")
+}
 
 TARGET_KEYS = {
     "aws": frozenset({"provider", "account_id", "region"}),
@@ -699,23 +700,38 @@ def _pack_reference(provider: str, *, authority: bool) -> dict[str, str]:
     else:
         pack_id = f"{provider}.{document.get('permission_set_version')}"
         version = document.get("permission_set_version")
-        if provider == "aws":
+        if provider in DEPLOYMENT_BINDING_PATHS:
             base_digest = _document_digest(document)
-            binding = _load_json(AWS_DEPLOYMENT_BINDING_PATH)
+            binding = _load_json(DEPLOYMENT_BINDING_PATHS[provider])
             if (
                 binding.get("provider") != provider
                 or binding.get("permission_set_version") != version
                 or binding.get("base_pack_digest") != base_digest
-                or binding.get("identity_kind") != "iam_user"
-                or binding.get("connection_auth_type") != "access_key"
-                or binding.get("policy_attachment_kind") != "customer_managed_policy"
                 or not isinstance(binding.get("self_check_permissions"), list)
                 or not binding["self_check_permissions"]
                 or len(binding["self_check_permissions"])
                 != len(set(binding["self_check_permissions"]))
             ):
                 raise SetupGateError(
-                    "AWS deployment identity binding does not match the active pack."
+                    f"{provider.upper()} deployment identity binding does not "
+                    "match the active pack."
+                )
+            expected_identity = {
+                "aws": ("iam_user", "access_key", "customer_managed_policy"),
+                "azure": (
+                    "service_principal",
+                    "client_secret",
+                    "custom_role_assignment",
+                ),
+            }[provider]
+            if (
+                binding.get("identity_kind"),
+                binding.get("connection_auth_type"),
+                binding.get("policy_attachment_kind"),
+            ) != expected_identity:
+                raise SetupGateError(
+                    f"{provider.upper()} deployment identity binding does not "
+                    "match the implemented CloudConnection path."
                 )
             pack_id = binding.get("binding_id")
             document = {

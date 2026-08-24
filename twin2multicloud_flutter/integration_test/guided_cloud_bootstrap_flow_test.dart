@@ -65,14 +65,14 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpUntilPhase(tester, bloc, CloudBootstrapPhase.guide);
 
     expect(
       find.text('Thesis simulation — no cloud resources are created'),
       findsOneWidget,
     );
     await tester.tap(find.text('I completed these steps'));
-    await tester.pumpAndSettle();
+    await _pumpUntilPhase(tester, bloc, CloudBootstrapPhase.authority);
     expect(
       bloc.state.phase,
       CloudBootstrapPhase.authority,
@@ -88,7 +88,7 @@ void main() {
     );
     await tester.ensureVisible(find.text('Create bounded access'));
     await tester.tap(find.text('Create bounded access'));
-    await tester.pumpAndSettle();
+    await _pumpUntilPhase(tester, bloc, CloudBootstrapPhase.result);
 
     expect(find.text('Bounded deployment access created'), findsOneWidget);
     expect(find.textContaining(_submittedSecretSentinel), findsNothing);
@@ -314,6 +314,21 @@ void main() {
       expect(cancelled.state, CloudBootstrapSessionState.cancelled);
       expect(cancelled.commandPermissions, {'start_new'});
     },
+  );
+}
+
+Future<void> _pumpUntilPhase(
+  WidgetTester tester,
+  CloudBootstrapBloc bloc,
+  CloudBootstrapPhase expected,
+) async {
+  for (var attempt = 0; attempt < 100; attempt++) {
+    await tester.pump(const Duration(milliseconds: 100));
+    if (bloc.state.phase == expected && !bloc.state.commandInProgress) return;
+  }
+  fail(
+    'Timed out waiting for $expected. Last phase: ${bloc.state.phase}; '
+    'safe error: ${bloc.state.safeError}',
   );
 }
 

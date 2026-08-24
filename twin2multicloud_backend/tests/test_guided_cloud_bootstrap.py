@@ -145,13 +145,18 @@ def test_guides_are_strict_safe_and_reference_v2_for_every_provider(auth_client)
         assert guide["generated_deployment_pack"]["version"] == "thesis-demo-v2"
         expected_deployment_pack = {
             "aws": "aws.thesis-demo-v2.iam-user-v1",
-            "azure": "azure.thesis-demo-v2",
+            "azure": "azure.thesis-demo-v2.service-principal-v1",
             "gcp": "gcp.thesis-demo-v2",
         }[provider]
         assert guide["generated_deployment_pack"]["id"] == expected_deployment_pack
         if provider == "aws":
             assert (
                 "IAM deployment user"
+                in guide["generated_deployment_pack"]["scope_summary"]
+            )
+        if provider == "azure":
+            assert (
+                "service principal"
                 in guide["generated_deployment_pack"]["scope_summary"]
             )
         expected_authority = {

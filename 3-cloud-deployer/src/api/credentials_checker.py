@@ -17,6 +17,7 @@ import os
 
 from logger import logger
 from src.core.observability import redact_sensitive
+from src.api.permission_sets import deployment_permission_pack_for_version
 
 # ==========================================
 # Shared Permission Sets (avoid duplication)
@@ -244,7 +245,49 @@ REQUIRED_AWS_PERMISSIONS = {
 
 
 
-def _get_all_required_permissions() -> dict:
+def _aws_permission_contract_for_version(
+    permission_set_version: str | None,
+) -> dict:
+    """Return the selected version's grouped AWS permission contract."""
+
+    pack = deployment_permission_pack_for_version("aws", permission_set_version)
+    if pack is None:
+        return REQUIRED_AWS_PERMISSIONS
+    policy_inputs = pack.get("policy_inputs")
+    if not isinstance(policy_inputs, list) or not policy_inputs:
+        raise ValueError("Active AWS deployment permission pack has no policy inputs")
+
+    contract = {}
+    seen_actions = set()
+    for item in policy_inputs:
+        if not isinstance(item, dict) or set(item) != {"group", "actions"}:
+            raise ValueError("Active AWS deployment permission group is malformed")
+        group = item["group"]
+        actions = item["actions"]
+        if (
+            not isinstance(group, str)
+            or not group
+            or group in contract
+            or not isinstance(actions, list)
+            or not actions
+            or any(
+                not isinstance(action, str) or ":" not in action
+                for action in actions
+            )
+            or len(actions) != len(set(actions))
+            or seen_actions.intersection(actions)
+        ):
+            raise ValueError("Active AWS deployment permission group is invalid")
+        seen_actions.update(actions)
+        services = {}
+        for action in actions:
+            service = action.split(":", maxsplit=1)[0]
+            services.setdefault(service, []).append(action)
+        contract[group] = services
+    return contract
+
+
+def _get_all_required_permissions(required_by_layer: dict | None = None) -> dict:
     """
     Flatten all required permissions into a single dict by service,
     with layer references. Removes duplicates.
@@ -253,7 +296,12 @@ def _get_all_required_permissions() -> dict:
         Dict like: {"iam": {"actions": set(), "layers": set()}, ...}
     """
     result = {}
-    for layer_name, services in REQUIRED_AWS_PERMISSIONS.items():
+    permission_contract = (
+        REQUIRED_AWS_PERMISSIONS
+        if required_by_layer is None
+        else required_by_layer
+    )
+    for layer_name, services in permission_contract.items():
         for service_name, actions in services.items():
             if service_name not in result:
                 result[service_name] = {"actions": set(), "layers": set()}
@@ -628,7 +676,11 @@ def _check_permission(permission: str, available: set) -> bool:
     return False
 
 
-def _compare_permissions(available: set, required: dict) -> dict:
+def _compare_permissions(
+    available: set,
+    required: dict,
+    required_by_layer: dict | None = None,
+) -> dict:
     """
     Compare available permissions against required permissions.
     
@@ -669,7 +721,12 @@ def _compare_permissions(available: set, required: dict) -> dict:
         }
     
     # Build by_layer view
-    for layer_name, services in REQUIRED_AWS_PERMISSIONS.items():
+    permission_contract = (
+        REQUIRED_AWS_PERMISSIONS
+        if required_by_layer is None
+        else required_by_layer
+    )
+    for layer_name, services in permission_contract.items():
         layer_status = "valid"
         layer_services = {}
         
@@ -825,8 +882,15 @@ def check_aws_credentials(credentials: dict) -> dict:
         result["can_list_policies"] = True
         
         # Step 3: Compare against required permissions
-        required = _get_all_required_permissions()
-        comparison = _compare_permissions(available_permissions, required)
+        permission_contract = _aws_permission_contract_for_version(
+            credentials.get("permission_set_version")
+        )
+        required = _get_all_required_permissions(permission_contract)
+        comparison = _compare_permissions(
+            available_permissions,
+            required,
+            permission_contract,
+        )
         
         result["by_layer"] = comparison["by_layer"]
         result["by_service"] = comparison["by_service"]

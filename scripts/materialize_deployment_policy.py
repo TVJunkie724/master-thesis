@@ -19,13 +19,12 @@ from uuid import UUID, uuid5
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PACK_ROOT = REPO_ROOT / "3-cloud-deployer" / "docs" / "references" / "permission_sets"
-AWS_IDENTITY_BINDING_PATH = (
+IDENTITY_BINDING_ROOT = (
     REPO_ROOT
     / "contracts"
     / "cloud-bootstrap"
     / "v1"
     / "deployment-identity-bindings"
-    / "aws.json"
 )
 PERMISSION_SET_VERSION = "thesis-demo-v2"
 AWS_MANAGED_POLICY_CHARACTER_LIMIT = 6_144
@@ -66,23 +65,41 @@ def _document_digest(document: dict[str, Any]) -> str:
     return f"sha256:{hashlib.sha256(payload).hexdigest()}"
 
 
-def _load_aws_identity_binding(pack: dict[str, Any]) -> dict[str, Any]:
-    binding = json.loads(AWS_IDENTITY_BINDING_PATH.read_text(encoding="utf-8"))
+def _load_identity_binding(provider: str, pack: dict[str, Any]) -> dict[str, Any]:
+    binding = json.loads(
+        (IDENTITY_BINDING_ROOT / f"{provider}.json").read_text(encoding="utf-8")
+    )
+    expected = {
+        "aws": (
+            "aws.thesis-demo-v2.iam-user-v1",
+            "iam_user",
+            "access_key",
+            "customer_managed_policy",
+        ),
+        "azure": (
+            "azure.thesis-demo-v2.service-principal-v1",
+            "service_principal",
+            "client_secret",
+            "custom_role_assignment",
+        ),
+    }.get(provider)
     if (
-        binding.get("binding_id") != "aws.thesis-demo-v2.iam-user-v1"
-        or binding.get("provider") != "aws"
+        expected is None
+        or binding.get("binding_id") != expected[0]
+        or binding.get("provider") != provider
         or binding.get("permission_set_version") != PERMISSION_SET_VERSION
         or binding.get("base_pack_digest") != _document_digest(pack)
-        or binding.get("identity_kind") != "iam_user"
-        or binding.get("connection_auth_type") != "access_key"
-        or binding.get("policy_attachment_kind") != "customer_managed_policy"
+        or binding.get("identity_kind") != expected[1]
+        or binding.get("connection_auth_type") != expected[2]
+        or binding.get("policy_attachment_kind") != expected[3]
         or not isinstance(binding.get("self_check_permissions"), list)
         or not binding["self_check_permissions"]
         or len(binding["self_check_permissions"])
         != len(set(binding["self_check_permissions"]))
     ):
         raise PolicyMaterializationError(
-            "AWS deployment identity binding does not match the frozen v2 pack."
+            f"{provider.upper()} deployment identity binding does not match "
+            "the frozen v2 pack."
         )
     return binding
 
@@ -114,7 +131,7 @@ def materialize_aws_deployment_bundle(
         raise PolicyMaterializationError("AWS account ID must contain 12 digits.")
     _require_run_id(run_id)
     pack = _load_pack("aws")
-    binding = _load_aws_identity_binding(pack)
+    binding = _load_identity_binding("aws", pack)
     inputs = pack.get("policy_inputs")
     if not isinstance(inputs, list) or not inputs:
         raise PolicyMaterializationError("AWS policy_inputs are missing.")
@@ -265,14 +282,28 @@ def materialize_azure_custom_role(
         ) from exc
     _require_run_id(run_id)
     pack = _load_pack("azure")
+    binding = _load_identity_binding("azure", pack)
     inputs = pack.get("role_inputs")
     if not isinstance(inputs, dict) or set(inputs) != {"actions", "data_actions"}:
         raise PolicyMaterializationError("Azure role_inputs are invalid.")
     actions = _unique_strings(inputs["actions"], "Azure actions")
     data_actions = _unique_strings(inputs["data_actions"], "Azure data actions")
+    self_check_actions = _unique_strings(
+        binding["self_check_permissions"], "Azure self-check permissions"
+    )
+    overlap = set(actions).intersection(self_check_actions)
+    if overlap:
+        raise PolicyMaterializationError(
+            "Azure self-check permissions duplicate base-pack actions: "
+            f"{sorted(overlap)}"
+        )
     scope = f"/subscriptions/{subscription}"
     role_id = str(uuid5(AZURE_ROLE_NAMESPACE, f"{subscription}:{run_id}"))
     return {
+        "schema_version": "azure-deployment-identity-bundle.v1",
+        "provider": "azure",
+        "permission_set_version": PERMISSION_SET_VERSION,
+        "identity_binding_id": binding["binding_id"],
         "role_definition_id": role_id,
         "scope": scope,
         "properties": {
@@ -283,7 +314,7 @@ def materialize_azure_custom_role(
             "type": "CustomRole",
             "permissions": [
                 {
-                    "actions": actions,
+                    "actions": [*actions, *self_check_actions],
                     "notActions": [],
                     "dataActions": data_actions,
                     "notDataActions": [],

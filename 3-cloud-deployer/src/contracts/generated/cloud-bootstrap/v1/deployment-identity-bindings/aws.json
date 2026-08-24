@@ -8,6 +8,7 @@
   "connection_auth_type": "access_key",
   "policy_attachment_kind": "customer_managed_policy",
   "self_check_permissions": [
+    "ec2:DescribeRegions",
     "iam:ListUserPolicies",
     "iam:GetUserPolicy",
     "iam:ListAttachedUserPolicies",
@@ -22,7 +23,7 @@
   "rationale": "The Phase 8 PoC already persists AWS deployment CloudConnections as access-key credentials and configures the Terraform AWS provider with those credentials. This explicit binding corrects the executable identity assignment without mutating the frozen thesis-demo-v2 permission inventory.",
   "limitations": [
     "The binding is specific to the PoC IAM-user path and does not claim STS AssumeRole support.",
-    "The binding adds only the IAM-user self-inspection actions required by the existing Deployer preflight; the customer-managed policy document must remain below the AWS 6,144-character quota and requires supervised IAM Access Analyzer validation before live use.",
+    "The binding adds only the region-discovery and IAM-user self-inspection actions required by the existing Deployer preflight; the customer-managed policy document must remain below the AWS 6,144-character quota and requires supervised IAM Access Analyzer validation before live use.",
     "Static access keys remain a bounded PoC trade-off; workload roles created inside the deployed architecture are separate identities."
   ]
 }

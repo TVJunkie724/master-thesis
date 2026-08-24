@@ -25,15 +25,18 @@ user-managed. The active guide pins the three `bootstrap.<provider>.admin-v2`
 authority packs. AWS also pins `aws.thesis-demo-v2.iam-user-v1`, so its
 IAM-user/access-key identity and customer-managed-policy attachment are part of
 the reviewed contract rather than inferred from the permission inventory.
+Azure similarly pins `azure.thesis-demo-v2.service-principal-v1` for its
+service-principal/client-secret path and the three ARM metadata reads required
+by Deployer self-inspection.
 
 ## Implemented Boundary
 
 | Area | Implementation |
 |---|---|
-| Contracts | Synchronized strict `cloud-bootstrap-guide.v1` and `cloud-bootstrap-session.v1` schemas, fixtures, active v2 provider authority packs, deployment-pack references, and the AWS deployment-identity binding |
+| Contracts | Synchronized strict `cloud-bootstrap-guide.v1` and `cloud-bootstrap-session.v1` schemas, fixtures, active v2 provider authority packs, deployment-pack references, and the AWS/Azure deployment-identity bindings |
 | Management | Owner-scoped safe sessions, scope uniqueness, optimistic revision, create/execute idempotency, stale-lease reconciliation, cancel, recheck, manual-revocation acknowledgement, audit events, and encrypted generated CloudConnection persistence |
 | Adapters | Deterministic no-cloud AWS, Azure, and GCP lifecycle adapters; production default is disabled |
-| Deployer | Generated `thesis-demo-v2` deployment connections pass the normal metadata/version admission boundary without bootstrap material; live effective-permission validation is not claimed |
+| Deployer | Generated `thesis-demo-v2` connections select the exact synchronized provider pack; AWS/Azure identity bindings cover checker metadata reads. GCP checks the IAM API without mutation and reports non-project-testable coverage explicitly. Live provider evidence is not claimed. |
 | Flutter | Strict response models, one-use request object, route-scoped BLoC, shared dialog composition, provider target/guide/authority/result steps, resume/recheck/cancel/start-new, and explicit manual cleanup |
 | Entry points | Settings refreshes Cloud Accounts; Prepare deployment reloads and selects the returned connection for the active Twin draft |
 | Compatibility | Existing manual plan/script/import endpoints and advanced raw deployment-connection import remain available |
@@ -65,10 +68,10 @@ managed-runtime memory-zeroization claim.
 lifecycle and persists synthetic generated deployment credentials, but creates
 no provider identity or cloud resource. Production uses `disabled` and fails
 closed. A real AWS, Azure, or GCP adapter and any supervised live-cloud evidence
-require separate authorization and review. Before the setup-only G4 gate, the
-Deployer's historical generic permission checkers must select and validate the
-exact active `thesis-demo-v2` provider pack. The versioned manual scripts
-remain the current supervised provider path.
+require separate authorization and review. The version-aware Deployer checker
+path is implemented and tested offline, but G2-G5 have not contacted any
+provider. The versioned manual scripts remain the current supervised provider
+path. GCP workload-API enablement ownership remains unresolved and blocks G6/G7.
 
 ## Verification
 

@@ -56,7 +56,9 @@ secret.
   `thesis-demo-v2` deployment-pack IDs/digests; Flutter only presents the
   Management-selected pack. AWS additionally publishes the versioned
   `aws.thesis-demo-v2.iam-user-v1` binding for the implemented IAM-user and
-  access-key path.
+  access-key path; Azure publishes
+  `azure.thesis-demo-v2.service-principal-v1` for the implemented
+  service-principal/client-secret path and its Deployer metadata reads.
 - The Management API owns bootstrap sessions, owner isolation, request-only
   secret handling, idempotency, and generated CloudConnection persistence.
 - AWS, Azure, and GCP provider adapters return stable safe findings and

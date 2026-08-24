@@ -256,6 +256,42 @@ def test_gcp_preflight_warns_for_deferred_resource_scoped_permissions(mock_check
 
 
 @patch("src.api.credentials.check_gcp_credentials")
+def test_gcp_preflight_warns_when_exact_api_set_needs_twin_resolution(mock_check):
+    mock_check.return_value = {
+        "status": "valid",
+        "message": "All project-testable thesis-demo-v2 permissions are present.",
+        "api_status": {
+            "status": "deferred_to_twin_preflight",
+            "by_layer": {},
+            "reason": "The exact API set depends on the selected Twin.",
+        },
+        "permission_status": {
+            "status": "checked",
+            "resource": "projects/test-project",
+            "deferred_permissions": [],
+            "by_layer": {
+                "thesis_demo_v2": {
+                    "status": "valid",
+                    "missing": [],
+                }
+            },
+        },
+        "required_roles": [],
+    }
+
+    response = client.post("/permissions/preflight/gcp", json=GCP_PAYLOAD)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ready"] is True
+    assert [check["code"] for check in data["checks"]] == [
+        "GCP_READY",
+        "ARCHITECTURE_API_CHECK_DEFERRED",
+    ]
+    assert data["checks"][1]["status"] == "warning"
+
+
+@patch("src.api.credentials.check_gcp_credentials")
 def test_gcp_preflight_maps_billing_failure(mock_check):
     mock_check.return_value = {
         "status": "invalid",
