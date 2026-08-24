@@ -72,6 +72,7 @@ class PolicyMaterializationTests(unittest.TestCase):
             aws_policy_character_count(policy), AWS_MANAGED_POLICY_CHARACTER_LIMIT
         )
         self.assertEqual(first["identity_binding_id"], "aws.thesis-demo-v2.iam-user-v1")
+        self.assertEqual(first["region"], "eu-central-1")
         self.assertEqual(first["identity"]["kind"], "iam_user")
         self.assertEqual(first["identity"]["auth_type"], "access_key")
         self.assertEqual(first["attachment"]["kind"], "customer_managed_policy")

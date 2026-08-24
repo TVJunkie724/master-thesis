@@ -57,8 +57,10 @@ from src.services.cloud_bootstrap_adapters import (
     CloudBootstrapAdapterResult,
     DeterministicFakeCloudBootstrapAdapter,
     DisabledCloudBootstrapAdapter,
+    SupervisedLiveCloudBootstrapAdapter,
     UnconfiguredSupervisedLiveCloudBootstrapAdapter,
 )
+from src.services.aws_cloud_bootstrap_driver import AWSCloudBootstrapDriver
 from src.services.cloud_bootstrap_errors import CloudBootstrapDomainError
 from src.services.cloud_connection_service import CloudConnectionService
 from src.services.credential_security_audit_service import (
@@ -190,7 +192,14 @@ class GuidedCloudBootstrapService:
         if mode == "deterministic_fake":
             return DeterministicFakeCloudBootstrapAdapter()
         if mode == "supervised_live":
-            return UnconfiguredSupervisedLiveCloudBootstrapAdapter()
+            drivers = {}
+            if "aws" in settings.cloud_bootstrap_supervised_providers:
+                drivers["aws"] = AWSCloudBootstrapDriver()
+            return (
+                SupervisedLiveCloudBootstrapAdapter(drivers)
+                if drivers
+                else UnconfiguredSupervisedLiveCloudBootstrapAdapter()
+            )
         return DisabledCloudBootstrapAdapter()
 
     def guide(
@@ -233,9 +242,9 @@ class GuidedCloudBootstrapService:
                 CloudBootstrapFinding(
                     code="BOOTSTRAP_IDENTITY_CREATION_FAILED",
                     title="Supervised provider adapter is not configured",
-                    message="The live execution contract is recognized, but this build has no reviewed AWS, Azure, or GCP adapter wired in.",
+                    message="The live execution contract is recognized, but this build has no reviewed adapter enabled for the selected provider.",
                     blocking=True,
-                    action="Keep using the offline simulation until a reviewed provider adapter is installed.",
+                    action="Keep using the offline simulation until this provider adapter is installed and explicitly enabled.",
                 )
             )
         payload = {

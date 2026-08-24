@@ -646,6 +646,20 @@ def test_unconfigured_supervised_live_mode_is_visible_and_fails_closed(
     assert db.query(CloudConnection).count() == 0
 
 
+def test_supervised_aws_requires_exact_provider_opt_in(auth_client, monkeypatch):
+    monkeypatch.setattr(settings, "CLOUD_BOOTSTRAP_ADAPTER_MODE", "supervised_live")
+    monkeypatch.setattr(settings, "CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS", "aws")
+
+    aws_guide = _guide(auth_client, "aws")
+    azure_guide = _guide(auth_client, "azure")
+    gcp_guide = _guide(auth_client, "gcp")
+
+    assert aws_guide["execution_mode"] == "supervised_live"
+    assert aws_guide["known_blockers"] == []
+    assert azure_guide["known_blockers"][0]["blocking"] is True
+    assert gcp_guide["known_blockers"][0]["blocking"] is True
+
+
 class _TwoPhaseAWSAdapter:
     def __init__(
         self,

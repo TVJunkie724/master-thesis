@@ -1,8 +1,9 @@
 # Setup-Only Live Gate Before Paid Cloud E2E
 
 **Date:** 2026-08-23  
-**Status:** In progress (G0, isolated credential-free G1, and version-aware
-G4 validator logic implemented offline; G2-G5 not run)
+**Status:** In progress (G0, isolated credential-free G1, version-aware G4
+validator logic, and the AWS provider driver implemented offline; G2-G5 not
+run for any provider)
 **Parent issue:** [#107](https://github.com/TVJunkie724/master-thesis/issues/107)  
 **Scope:** AWS, Azure, and GCP guided bootstrap, bounded deployment identities,
 credential preflight, the fixed GCP Phase 8 API baseline, and cleanup only
@@ -35,12 +36,13 @@ live test rather than an offline smoke.
 
 ## 2. Current Baseline And Gap
 
-The repository currently proves the complete lifecycle only with the
-`deterministic_fake` Management adapter. The production default is
-`disabled`. The synchronized `supervised_live` mode is now recognized by the
-canonical schema, Management, OpenAPI, and Flutter, but remains visibly blocked
-by an unconfigured fail-closed adapter; a real provider credential cannot yet
-cause the guided UI to create a provider identity.
+The repository proves the complete lifecycle with the `deterministic_fake`
+Management adapter and now implements the AWS SDK path against injected,
+stateful offline fakes. The production default remains `disabled`.
+`supervised_live` additionally requires the explicit
+`CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS=aws` allowlist before AWS is selectable;
+an empty allowlist, Azure, and GCP remain visibly blocked. No real provider
+credential or cloud identity was used to produce this evidence.
 
 The manual scripts under `bootstrap/<provider>/` are useful historical
 fallbacks, but they are not sufficient as the new live gate:
@@ -312,8 +314,9 @@ Implemented and credential-free as of 2026-08-24.
 
 ### Slice B — Reviewed Live Provider Adapters
 
-Partially implemented, not enabled. The synchronized `supervised_live` mode
-and its fail-closed UI/Management boundary are implemented. An SDK-independent
+Partially implemented and disabled by default. The synchronized
+`supervised_live` mode and its fail-closed UI/Management boundary are
+implemented. An SDK-independent
 adapter orchestrator now derives an ownership-bounded run ID, dispatches one
 provider at a time, admits only a validated `thesis-demo-v2` CloudConnection,
 and requires a typed secret-free rollback receipt. It compensates a generated
@@ -327,27 +330,40 @@ becomes explicit manual revocation. Provider-native
 policy materialization is now one shared, provider-SDK-free Management module
 backed only by synchronized generated contracts; the repository CLI reuses
 that module. Version-aware Deployer
-permission selection are implemented offline. The Azure materializer now
+permission selection is implemented offline. The Azure materializer now
 combines the immutable workload inventory with the separately pinned
 `azure.thesis-demo-v2.service-principal-v1` self-inspection reads. Provider
-implementations and live G2-G5 evidence remain pending. GCP API
-ownership is resolved offline; G6/G7 wait for that live setup evidence.
+implementation now includes an AWS IAM-user driver. It validates the exact
+account and non-root caller, reconciles only run-tagged setup resources,
+attaches the materialized v2 customer-managed policy, rotates one generated
+access key, authenticates that key, validates its exact policy attachment and
+document, rejects inline/group authority, validates the frozen selected
+region, and performs ownership-bounded compensation/finalization.
+Its boto3 clients are lazy and credential-explicit, and stateful fake tests
+cover retry, validation failure, and unowned user/policy name collisions. The
+driver is selectable only through the two-part mode/provider opt-in. Azure and
+GCP implementations and live G2-G5 evidence remain pending. GCP API ownership
+is resolved offline; G6/G7 wait for live setup evidence.
 
-The concrete SDK drivers and their generated-credential provider validation
-are still pending. Until both exist for a provider, the runtime factory
-intentionally selects the unconfigured adapter and the guide stays blocking.
+The Azure and GCP SDK drivers and their generated-credential provider
+validation are still pending. Until the corresponding driver exists and is
+explicitly allowlisted, the guide for that provider stays blocking. AWS's
+offline driver is not live proof: IAM Access Analyzer plus supervised G2-G5
+remain required before G6.
 
 - Keep the resolved AWS IAM-user binding, AWS/Azure v2 bootstrap boundaries,
   and separate exact GCP v3 plus API-baseline digests pinned before provider
   code is enabled.
 - [x] Add a synchronized `supervised_live` mode while retaining production
-  default `disabled` and test default `deterministic_fake`; keep it blocked
-  until the reviewed provider adapters below replace the fail-closed boundary.
-- Implement AWS, Azure, and GCP adapters against the pinned authority and
+  default `disabled` and test default `deterministic_fake`; keep each provider
+  blocked until its reviewed adapter is explicitly enabled.
+- [x] Implement the AWS adapter against the pinned authority and
+  deployment-pack digests, with exact opt-in and offline fake-provider tests.
+- Implement Azure and GCP adapters against the pinned authority and
   deployment-pack digests.
 - [x] Add the shared SDK-independent adapter transaction, exact target/result
-  validation, and secret-free provider rollback receipt; keep concrete SDK
-  drivers pending.
+  validation, and secret-free provider rollback receipt; keep providers
+  without a concrete SDK driver blocked.
 - [x] Persist and validate the generated connection before bootstrap-authority
   finalization; compensate local persistence failure while authority remains
   available, and retain a valid connection with manual-revocation state if only

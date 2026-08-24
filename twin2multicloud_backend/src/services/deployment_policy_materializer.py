@@ -150,6 +150,11 @@ def materialize_aws_deployment_bundle(
             )
     if passed_to_service is None or requested_regions is None:
         raise PolicyMaterializationError("AWS mandatory conditions are incomplete.")
+    region = pack.get("region")
+    if not isinstance(region, str) or requested_regions != [region]:
+        raise PolicyMaterializationError(
+            "AWS deployment region does not match its requested-region condition."
+        )
 
     statements: list[dict[str, Any]] = []
     seen_actions: set[str] = set()
@@ -243,6 +248,7 @@ def materialize_aws_deployment_bundle(
         "schema_version": "aws-deployment-identity-bundle.v1",
         "provider": "aws",
         "account_id": account_id,
+        "region": region,
         "permission_set_version": PERMISSION_SET_VERSION,
         "identity_binding_id": binding["binding_id"],
         "identity": {

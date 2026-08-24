@@ -118,6 +118,7 @@ class Settings(BaseSettings):
         "deterministic_fake",
         "supervised_live",
     ] = "disabled"
+    CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS: str = ""
     CLOUD_BOOTSTRAP_LEASE_TIMEOUT_SECONDS: int = Field(default=300, ge=30, le=3600)
 
     # GLB File Storage (for scene.glb uploads)
@@ -146,6 +147,17 @@ class Settings(BaseSettings):
             )
         if self.SEED_DATA and self.APP_ENV not in non_production:
             raise ValueError("SEED_DATA is only allowed in development or test")
+        providers = self.cloud_bootstrap_supervised_providers
+        if len(providers) != len(set(providers)) or not set(providers).issubset(
+            {"aws"}
+        ):
+            raise ValueError(
+                "CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS contains an unsupported or duplicate provider"
+            )
+        if providers and self.CLOUD_BOOTSTRAP_ADAPTER_MODE != "supervised_live":
+            raise ValueError(
+                "CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS requires supervised_live mode"
+            )
         if self.DEV_AUTH_ENABLED and not self.DEV_AUTH_TOKEN:
             raise ValueError("DEV_AUTH_TOKEN is required when DEV_AUTH_ENABLED is true")
 
@@ -311,6 +323,14 @@ class Settings(BaseSettings):
     def cors_origins(self) -> tuple[str, ...]:
         return tuple(
             value.strip() for value in self.CORS_ORIGINS.split(",") if value.strip()
+        )
+
+    @property
+    def cloud_bootstrap_supervised_providers(self) -> tuple[str, ...]:
+        return tuple(
+            value.strip().lower()
+            for value in self.CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS.split(",")
+            if value.strip()
         )
 
     @property

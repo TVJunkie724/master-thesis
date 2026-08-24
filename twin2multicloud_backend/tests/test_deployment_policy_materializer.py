@@ -29,6 +29,7 @@ def test_management_materializes_all_provider_documents_from_generated_contracts
     )
 
     assert aws["permission_set_version"] == "thesis-demo-v2"
+    assert aws["region"] == "eu-central-1"
     assert aws["managed_policy"]["character_count"] <= (
         AWS_MANAGED_POLICY_CHARACTER_LIMIT
     )
