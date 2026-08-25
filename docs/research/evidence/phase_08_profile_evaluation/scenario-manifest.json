@@ -12,35 +12,35 @@
     "conversion_policy": "usd_identity_no_conversion"
   },
   "observation_policy": {
-    "evaluation_cutoff": "2026-08-14",
-    "pricing_observation_timestamp": "2026-08-11T10:12:00Z",
+    "evaluation_cutoff": "2026-08-25",
+    "pricing_observation_timestamp": "2026-08-25T16:58:12Z",
     "generation_timestamp_policy": "no_runtime_timestamp_in_generated_artifacts"
   },
   "pricing_snapshots": [
     {
       "provider": "aws",
       "region": "eu-central-1",
-      "snapshot_id": "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
-      "digest": "sha256:acb96faf904bc16d9d00d83fb26372ee2bf35255340ab5afaf6df6e87b8342b7",
-      "fetched_at": "2026-08-11T10:12:00Z",
+      "snapshot_id": "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547",
+      "digest": "sha256:10c26d4e01340f0fbfe592a48baf5cd2b8cc827b294719811741c8adabed9822",
+      "fetched_at": "2026-08-25T16:58:12Z",
       "source": "reviewed_baseline",
       "review_status": "reviewed"
     },
     {
       "provider": "azure",
       "region": "westeurope",
-      "snapshot_id": "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee",
-      "digest": "sha256:9a91dd0c760ab1a4c66f6e8abe2acd5f98d80da560d605c09d509957c1a172ce",
-      "fetched_at": "2026-08-11T10:12:00Z",
+      "snapshot_id": "pcs_1bc1d5d9a11bc9b780eab255e7b4849d863a8614c62974eb9df90ad05b3ea46d",
+      "digest": "sha256:4263b7a2a59b86d0501bab1dc2db0c24625c8a950bafd935f4f129d5d0f8bcc5",
+      "fetched_at": "2026-08-25T16:58:12Z",
       "source": "reviewed_baseline",
       "review_status": "reviewed"
     },
     {
       "provider": "gcp",
       "region": "europe-west1",
-      "snapshot_id": "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018",
-      "digest": "sha256:27f7082bd221f2f356067efe7891dddd9ed2ea97eece82b133f32c848d10e378",
-      "fetched_at": "2026-08-11T10:12:00Z",
+      "snapshot_id": "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd",
+      "digest": "sha256:92884a3c05f10e156a7c1e9ec60d6fde5e3e1d9051f6dfc3cd0a870fe50e2697",
+      "fetched_at": "2026-08-25T16:58:12Z",
       "source": "reviewed_baseline",
       "review_status": "reviewed"
     }

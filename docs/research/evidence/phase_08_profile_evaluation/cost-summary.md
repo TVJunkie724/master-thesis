@@ -4,14 +4,14 @@
 
 Totals are estimated USD/month from frozen evidence. Winners are selected inside one profile only. Fixed shared resources are charged once to their declared cost owner without consumer apportionment. Same-provider bridge and egress totals are zero.
 
-| Size | Profile | Winner | Estimated total | Independent Event Layer | Candidates costed |
+| Size | Profile | Winner | Estimated total | Independent Event Layer | Fully admitted candidates |
 |---|---|---|---:|---:|---:|
-| Small | `five-layer-baseline@2` | `aws|aws|aws|aws|aws|aws|aws` | 46.1627034186 | 0 | 729 |
-| Small | `six-layer-eventing@1` | `aws|gcp|aws|azure|azure|azure|aws|gcp` | 116.7309326605 | 39.441182659 | 2187 |
-| Medium | `five-layer-baseline@2` | `aws|aws|aws|aws|aws|aws|aws` | 2997.009071925 | 0 | 729 |
-| Medium | `six-layer-eventing@1` | `gcp|aws|aws|gcp|gcp|azure|aws|gcp` | 3222.52031851 | 802.114149835 | 2187 |
+| Small | `five-layer-baseline@2` | `aws|aws|aws|aws|aws|aws|aws` | 45.5643284186 | 0 | 729 |
+| Small | `six-layer-eventing@1` | `aws|gcp|aws|azure|azure|azure|aws|gcp` | 129.6325576605 | 39.441182659 | 2075 |
+| Medium | `five-layer-baseline@2` | `aws|aws|aws|aws|aws|aws|aws` | 2922.321571925 | 0 | 729 |
+| Medium | `six-layer-eventing@1` | `gcp|aws|aws|gcp|gcp|azure|aws|gcp` | 3222.52031851 | 802.114149835 | 2075 |
 | Large | `five-layer-baseline@2` | `azure|azure|azure|azure|azure|azure|azure` | 85748.73771 | 0 | 729 |
-| Large | `six-layer-eventing@1` | `gcp|aws|azure|azure|azure|azure|azure|gcp` | 85344.398781073 | 38923.622497143 | 2187 |
+| Large | `six-layer-eventing@1` | `gcp|aws|azure|azure|azure|azure|azure|gcp` | 85344.398781073 | 38923.622497143 | 1265 |
 
 ## Historical reconstruction
 

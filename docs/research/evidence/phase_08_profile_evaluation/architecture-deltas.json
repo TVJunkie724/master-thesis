@@ -133,8 +133,8 @@
         "component.visualization": "aws"
       },
       "six_layer_event_provider": "aws",
-      "five_layer_monthly_total": "46.1627034186",
-      "six_layer_monthly_total": "150.3953600285",
+      "five_layer_monthly_total": "45.5643284186",
+      "six_layer_monthly_total": "149.7969850285",
       "total_delta": "104.2326566099",
       "six_layer_event_scope_total": "105.173677027",
       "currency": "USD",
@@ -162,8 +162,8 @@
         "component.visualization": "aws"
       },
       "six_layer_event_provider": "aws",
-      "five_layer_monthly_total": "102.948582015306640625",
-      "six_layer_monthly_total": "145.6019360285",
+      "five_layer_monthly_total": "102.350207015306640625",
+      "six_layer_monthly_total": "145.0035610285",
       "total_delta": "42.653354013193359375",
       "six_layer_event_scope_total": "105.173677027",
       "currency": "USD",
@@ -191,9 +191,9 @@
         "component.visualization": "aws"
       },
       "six_layer_event_provider": "aws",
-      "five_layer_monthly_total": "153.737143464726806640625",
-      "six_layer_monthly_total": "229.1312432285",
-      "total_delta": "75.394099763773193359375",
+      "five_layer_monthly_total": "180.764393464726806640625",
+      "six_layer_monthly_total": "255.5328682285",
+      "total_delta": "74.768474763773193359375",
       "six_layer_event_scope_total": "105.173677027",
       "currency": "USD",
       "comparison_status": "matched_context_offline_estimate"
@@ -278,9 +278,9 @@
         "component.visualization": "azure"
       },
       "six_layer_event_provider": "azure",
-      "five_layer_monthly_total": "253.279799449420166015625",
-      "six_layer_monthly_total": "276.16233128",
-      "total_delta": "22.882531830579833984375",
+      "five_layer_monthly_total": "280.905424449420166015625",
+      "six_layer_monthly_total": "303.16233128",
+      "total_delta": "22.256906830579833984375",
       "six_layer_event_scope_total": "60.64648608",
       "currency": "USD",
       "comparison_status": "matched_context_offline_estimate"
@@ -307,9 +307,9 @@
         "component.visualization": "gcp"
       },
       "six_layer_event_provider": "gcp",
-      "five_layer_monthly_total": "315.851069781781494140625",
-      "six_layer_monthly_total": "286.0800050835546875",
-      "total_delta": "-29.771064698226806640625",
+      "five_layer_monthly_total": "329.978944781781494140625",
+      "six_layer_monthly_total": "299.5822550835546875",
+      "total_delta": "-30.396689698226806640625",
       "six_layer_event_scope_total": "0.008512565",
       "currency": "USD",
       "comparison_status": "matched_context_offline_estimate"
@@ -336,9 +336,9 @@
         "component.visualization": "gcp"
       },
       "six_layer_event_provider": "gcp",
-      "five_layer_monthly_total": "319.042022767974853515625",
-      "six_layer_monthly_total": "281.2865810835546875",
-      "total_delta": "-37.755441684420166015625",
+      "five_layer_monthly_total": "333.169897767974853515625",
+      "six_layer_monthly_total": "294.7888310835546875",
+      "total_delta": "-38.381066684420166015625",
       "six_layer_event_scope_total": "0.008512565",
       "currency": "USD",
       "comparison_status": "matched_context_offline_estimate"
@@ -365,9 +365,9 @@
         "component.visualization": "gcp"
       },
       "six_layer_event_provider": "gcp",
-      "five_layer_monthly_total": "367.318979967974853515625",
-      "six_layer_monthly_total": "364.8158882835546875",
-      "total_delta": "-2.503091684420166015625",
+      "five_layer_monthly_total": "408.446854967974853515625",
+      "six_layer_monthly_total": "405.3181382835546875",
+      "total_delta": "-3.128716684420166015625",
       "six_layer_event_scope_total": "0.008512565",
       "currency": "USD",
       "comparison_status": "matched_context_offline_estimate"
@@ -394,8 +394,8 @@
         "component.visualization": "aws"
       },
       "six_layer_event_provider": "aws",
-      "five_layer_monthly_total": "2997.009071925",
-      "six_layer_monthly_total": "3788.783439214",
+      "five_layer_monthly_total": "2922.321571925",
+      "six_layer_monthly_total": "3714.095939214",
       "total_delta": "791.774367289",
       "six_layer_event_scope_total": "876.329242914",
       "currency": "USD",
@@ -423,8 +423,8 @@
         "component.visualization": "aws"
       },
       "six_layer_event_provider": "aws",
-      "five_layer_monthly_total": "3528.49294147734375",
-      "six_layer_monthly_total": "3589.566543214",
+      "five_layer_monthly_total": "3453.80544147734375",
+      "six_layer_monthly_total": "3514.879043214",
       "total_delta": "61.07360173665625",
       "six_layer_event_scope_total": "876.329242914",
       "currency": "USD",
@@ -452,9 +452,9 @@
         "component.visualization": "aws"
       },
       "six_layer_event_provider": "aws",
-      "five_layer_monthly_total": "16634.05338845615234375",
-      "six_layer_monthly_total": "16989.209434414",
-      "total_delta": "355.15604595784765625",
+      "five_layer_monthly_total": "20942.80338845615234375",
+      "six_layer_monthly_total": "21234.521934414",
+      "total_delta": "291.71854595784765625",
       "six_layer_event_scope_total": "876.329242914",
       "currency": "USD",
       "comparison_status": "matched_context_offline_estimate"
@@ -539,9 +539,9 @@
         "component.visualization": "azure"
       },
       "six_layer_event_provider": "azure",
-      "five_layer_monthly_total": "18845.89128697880859375",
-      "six_layer_monthly_total": "21471.8794412",
-      "total_delta": "2625.98815422119140625",
+      "five_layer_monthly_total": "23229.32878697880859375",
+      "six_layer_monthly_total": "25791.8794412",
+      "total_delta": "2562.55065422119140625",
       "six_layer_event_scope_total": "3455.68857",
       "currency": "USD",
       "comparison_status": "matched_context_offline_estimate"
@@ -568,9 +568,9 @@
         "component.visualization": "gcp"
       },
       "six_layer_event_provider": "gcp",
-      "five_layer_monthly_total": "9212.41550253427734375",
-      "six_layer_monthly_total": "8796.421081261125",
-      "total_delta": "-415.99442127315234375",
+      "five_layer_monthly_total": "11436.30300253427734375",
+      "six_layer_monthly_total": "10956.871081261125",
+      "total_delta": "-479.43192127315234375",
       "six_layer_event_scope_total": "117.928775683",
       "currency": "USD",
       "comparison_status": "matched_context_offline_estimate"
@@ -597,9 +597,9 @@
         "component.visualization": "gcp"
       },
       "six_layer_event_provider": "gcp",
-      "five_layer_monthly_total": "9321.95682535693359375",
-      "six_layer_monthly_total": "8597.204185261125",
-      "total_delta": "-724.75264009580859375",
+      "five_layer_monthly_total": "11545.84432535693359375",
+      "six_layer_monthly_total": "10757.654185261125",
+      "total_delta": "-788.19014009580859375",
       "six_layer_event_scope_total": "117.928775683",
       "currency": "USD",
       "comparison_status": "matched_context_offline_estimate"
@@ -626,9 +626,9 @@
         "component.visualization": "gcp"
       },
       "six_layer_event_provider": "gcp",
-      "five_layer_monthly_total": "22143.01778655693359375",
-      "six_layer_monthly_total": "21996.487076461125",
-      "total_delta": "-146.53071009580859375",
+      "five_layer_monthly_total": "28686.90528655693359375",
+      "six_layer_monthly_total": "28476.937076461125",
+      "total_delta": "-209.96821009580859375",
       "six_layer_event_scope_total": "117.928775683",
       "currency": "USD",
       "comparison_status": "matched_context_offline_estimate"
@@ -655,8 +655,8 @@
         "component.visualization": "aws"
       },
       "six_layer_event_provider": "aws",
-      "five_layer_monthly_total": "93806.3817305",
-      "six_layer_monthly_total": "120404.100469356",
+      "five_layer_monthly_total": "93058.1567305",
+      "six_layer_monthly_total": "119655.875469356",
       "total_delta": "26597.718738856",
       "six_layer_event_scope_total": "28947.778501356",
       "currency": "USD",
@@ -684,8 +684,8 @@
         "component.visualization": "aws"
       },
       "six_layer_event_provider": "aws",
-      "five_layer_monthly_total": "138743.5274230625",
-      "six_layer_monthly_total": "119041.418053356",
+      "five_layer_monthly_total": "137995.3024230625",
+      "six_layer_monthly_total": "118293.193053356",
       "total_delta": "-19702.1093697065",
       "six_layer_event_scope_total": "28947.778501356",
       "currency": "USD",
@@ -713,9 +713,9 @@
         "component.visualization": "aws"
       },
       "six_layer_event_provider": "aws",
-      "five_layer_monthly_total": "606229.32864311015625",
-      "six_layer_monthly_total": "621697.874384556",
-      "total_delta": "15468.54574144584375",
+      "five_layer_monthly_total": "768124.85364311015625",
+      "six_layer_monthly_total": "782949.649384556",
+      "total_delta": "14824.79574144584375",
       "six_layer_event_scope_total": "28947.778501356",
       "currency": "USD",
       "comparison_status": "matched_context_offline_estimate"
@@ -800,9 +800,9 @@
         "component.visualization": "azure"
       },
       "six_layer_event_provider": "azure",
-      "five_layer_monthly_total": "624052.64586004765625",
-      "six_layer_monthly_total": "640757.61124088",
-      "total_delta": "16704.96538083234375",
+      "five_layer_monthly_total": "786696.39586004765625",
+      "six_layer_monthly_total": "802757.61124088",
+      "total_delta": "16061.21538083234375",
       "six_layer_event_scope_total": "62583.94612968",
       "currency": "USD",
       "comparison_status": "matched_context_offline_estimate"
@@ -829,9 +829,9 @@
         "component.visualization": "gcp"
       },
       "six_layer_event_provider": "gcp",
-      "five_layer_monthly_total": "325399.3419605478515625",
-      "six_layer_monthly_total": "318493.7486128976953125",
-      "total_delta": "-6905.59334765015625",
+      "five_layer_monthly_total": "407061.0919605478515625",
+      "six_layer_monthly_total": "399511.7486128976953125",
+      "total_delta": "-7549.34334765015625",
       "six_layer_event_scope_total": "6678.06941226",
       "currency": "USD",
       "comparison_status": "matched_context_offline_estimate"
@@ -858,9 +858,9 @@
         "component.visualization": "gcp"
       },
       "six_layer_event_provider": "gcp",
-      "five_layer_monthly_total": "356455.8655334853515625",
-      "six_layer_monthly_total": "317130.2561968976953125",
-      "total_delta": "-39325.60933658765625",
+      "five_layer_monthly_total": "438117.6155334853515625",
+      "six_layer_monthly_total": "398148.2561968976953125",
+      "total_delta": "-39969.35933658765625",
       "six_layer_event_scope_total": "6678.06941226",
       "currency": "USD",
       "comparison_status": "matched_context_offline_estimate"
@@ -887,9 +887,9 @@
         "component.visualization": "gcp"
       },
       "six_layer_event_provider": "gcp",
-      "five_layer_monthly_total": "818156.9199346853515625",
-      "six_layer_monthly_total": "819774.7125280976953125",
-      "total_delta": "1617.79259341234375",
+      "five_layer_monthly_total": "1061818.6699346853515625",
+      "six_layer_monthly_total": "1062792.7125280976953125",
+      "total_delta": "974.04259341234375",
       "six_layer_event_scope_total": "6678.06941226",
       "currency": "USD",
       "comparison_status": "matched_context_offline_estimate"

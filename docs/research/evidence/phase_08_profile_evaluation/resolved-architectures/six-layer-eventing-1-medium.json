@@ -7,7 +7,7 @@
   "resolved_twin_architecture": {
     "schema_version": "resolved-twin-architecture.v2",
     "resolution_status": "offline_contract_fixture",
-    "resolution_id": "138d98d3-cc5c-576d-849b-e91178bd91bd",
+    "resolution_id": "02ad703c-c987-5e5e-9c7f-dcecc164937b",
     "calculation_run_id": "79b9e7f2-201d-502e-af40-6acd2fc6cdf5",
     "architecture_profile_ref": {
       "id": "six-layer-eventing",
@@ -52,23 +52,23 @@
     },
     "pricing_evidence_refs": [
       {
-        "id": "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+        "id": "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547",
         "version": "1",
-        "digest": "sha256:acb96faf904bc16d9d00d83fb26372ee2bf35255340ab5afaf6df6e87b8342b7",
+        "digest": "sha256:10c26d4e01340f0fbfe592a48baf5cd2b8cc827b294719811741c8adabed9822",
         "provider": "aws",
         "currency": "USD"
       },
       {
-        "id": "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee",
+        "id": "pcs_1bc1d5d9a11bc9b780eab255e7b4849d863a8614c62974eb9df90ad05b3ea46d",
         "version": "1",
-        "digest": "sha256:9a91dd0c760ab1a4c66f6e8abe2acd5f98d80da560d605c09d509957c1a172ce",
+        "digest": "sha256:4263b7a2a59b86d0501bab1dc2db0c24625c8a950bafd935f4f129d5d0f8bcc5",
         "provider": "azure",
         "currency": "USD"
       },
       {
-        "id": "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018",
+        "id": "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd",
         "version": "1",
-        "digest": "sha256:27f7082bd221f2f356067efe7891dddd9ed2ea97eece82b133f32c848d10e378",
+        "digest": "sha256:92884a3c05f10e156a7c1e9ec60d6fde5e3e1d9051f6dfc3cd0a870fe50e2697",
         "provider": "gcp",
         "currency": "USD"
       }
@@ -404,7 +404,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018"
+          "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -448,8 +448,8 @@
         },
         "transfer_route_class": "cross_provider",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
-          "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547",
+          "pcs_1bc1d5d9a11bc9b780eab255e7b4849d863a8614c62974eb9df90ad05b3ea46d"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -493,8 +493,8 @@
         },
         "transfer_route_class": "cross_provider",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
-          "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547",
+          "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -538,7 +538,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -582,7 +582,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018"
+          "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd"
         ],
         "formula_refs": [
           "formula.phase-08-eventing"
@@ -626,8 +626,8 @@
         },
         "transfer_route_class": "cross_provider",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
-          "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547",
+          "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd"
         ],
         "formula_refs": [
           "formula.phase-08-eventing"
@@ -671,8 +671,8 @@
         },
         "transfer_route_class": "cross_provider",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
-          "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547",
+          "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd"
         ],
         "formula_refs": [
           "formula.phase-08-eventing"
@@ -716,7 +716,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018"
+          "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd"
         ],
         "formula_refs": [
           "formula.phase-08-eventing"
@@ -760,8 +760,8 @@
         },
         "transfer_route_class": "cross_provider",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
-          "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547",
+          "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd"
         ],
         "formula_refs": [
           "formula.phase-08-eventing"
@@ -800,7 +800,7 @@
     "deployment_specification_ref": {
       "schema_version": "resolved-deployment-specification.v2",
       "calculation_run_id": "79b9e7f2-201d-502e-af40-6acd2fc6cdf5",
-      "digest": "sha256:630c48fa59ef98eeba171d1f5b74faa3fc6462c0131c4a17f0dedf5a1fa32b7d"
+      "digest": "sha256:8d7ad93c7bb4f3b4c5db5a30f06b2000365edaf379f57456256c3657a97c7337"
     },
     "cost_summary": {
       "currency": "USD",
@@ -965,9 +965,9 @@
       "validator_version": "2",
       "validation_digest": "sha256:3e8ccf6f600452e283238bdc88597278d059ed83566d1af805c696aff009e745"
     },
-    "content_digest": "sha256:25e96ab76ae288964d966daa0fcc9299fe7caa3516839458770c8ff4c910d25b"
+    "content_digest": "sha256:6b0ce771bb743ecce82197217f07d8810d5e47ad120a00a3701a18b58d5a1d07"
   },
-  "resolved_twin_architecture_digest": "sha256:6527c2ec141c650099c0a3a5dfa08a0a633747078a1e592ad2cecb092edd54cc",
+  "resolved_twin_architecture_digest": "sha256:85ead96c5cd8e1096ffa279484a96f4dc92f1564c233b963250f4e993261925c",
   "resolved_deployment_specification": {
     "schema_version": "resolved-deployment-specification.v2",
     "calculation_run_id": "79b9e7f2-201d-502e-af40-6acd2fc6cdf5",
@@ -1005,15 +1005,15 @@
       "pricing_evidence_refs": [
         {
           "provider": "aws",
-          "digest": "sha256:acb96faf904bc16d9d00d83fb26372ee2bf35255340ab5afaf6df6e87b8342b7"
+          "digest": "sha256:10c26d4e01340f0fbfe592a48baf5cd2b8cc827b294719811741c8adabed9822"
         },
         {
           "provider": "azure",
-          "digest": "sha256:9a91dd0c760ab1a4c66f6e8abe2acd5f98d80da560d605c09d509957c1a172ce"
+          "digest": "sha256:4263b7a2a59b86d0501bab1dc2db0c24625c8a950bafd935f4f129d5d0f8bcc5"
         },
         {
           "provider": "gcp",
-          "digest": "sha256:27f7082bd221f2f356067efe7891dddd9ed2ea97eece82b133f32c848d10e378"
+          "digest": "sha256:92884a3c05f10e156a7c1e9ec60d6fde5e3e1d9051f6dfc3cd0a870fe50e2697"
         }
       ]
     },
@@ -3363,7 +3363,7 @@
         "compatibility_version": "1"
       }
     ],
-    "digest": "sha256:630c48fa59ef98eeba171d1f5b74faa3fc6462c0131c4a17f0dedf5a1fa32b7d"
+    "digest": "sha256:8d7ad93c7bb4f3b4c5db5a30f06b2000365edaf379f57456256c3657a97c7337"
   },
-  "resolved_deployment_specification_digest": "sha256:630c48fa59ef98eeba171d1f5b74faa3fc6462c0131c4a17f0dedf5a1fa32b7d"
+  "resolved_deployment_specification_digest": "sha256:8d7ad93c7bb4f3b4c5db5a30f06b2000365edaf379f57456256c3657a97c7337"
 }

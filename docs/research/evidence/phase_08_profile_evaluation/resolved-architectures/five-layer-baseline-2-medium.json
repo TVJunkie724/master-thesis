@@ -7,7 +7,7 @@
   "resolved_twin_architecture": {
     "schema_version": "resolved-twin-architecture.v2",
     "resolution_status": "offline_contract_fixture",
-    "resolution_id": "2acfe749-ed8e-517f-a003-a8f1a94f564e",
+    "resolution_id": "b8430e33-5034-50d1-86ba-3662c9aae19c",
     "calculation_run_id": "b725ec0d-9db6-5c45-ab8c-8543a44e7bcb",
     "architecture_profile_ref": {
       "id": "five-layer-baseline",
@@ -40,9 +40,9 @@
     },
     "pricing_evidence_refs": [
       {
-        "id": "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+        "id": "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547",
         "version": "1",
-        "digest": "sha256:acb96faf904bc16d9d00d83fb26372ee2bf35255340ab5afaf6df6e87b8342b7",
+        "digest": "sha256:10c26d4e01340f0fbfe592a48baf5cd2b8cc827b294719811741c8adabed9822",
         "provider": "aws",
         "currency": "USD"
       }
@@ -181,7 +181,7 @@
         ],
         "cost_contribution": {
           "currency": "USD",
-          "monthly_amount": "505.010875625"
+          "monthly_amount": "430.323375625"
         },
         "required": true
       },
@@ -309,7 +309,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -353,7 +353,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -397,7 +397,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -441,7 +441,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -485,7 +485,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -529,7 +529,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -573,7 +573,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -617,7 +617,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -656,14 +656,14 @@
     "deployment_specification_ref": {
       "schema_version": "resolved-deployment-specification.v2",
       "calculation_run_id": "b725ec0d-9db6-5c45-ab8c-8543a44e7bcb",
-      "digest": "sha256:61b189c1b86be7e9a0bbf3aa0e3f3e3c56b864339c19286ffdf9d2aad241c0cb"
+      "digest": "sha256:489aa480e91be8c0014954af49bee93509f919341e2cc7d5ca9536d816e2e8a5"
     },
     "cost_summary": {
       "currency": "USD",
       "responsibility_totals": [
         {
           "item_id": "responsibility.ingestion",
-          "monthly_amount": "505.010875625"
+          "monthly_amount": "430.323375625"
         },
         {
           "item_id": "responsibility.processing",
@@ -697,7 +697,7 @@
         },
         {
           "item_id": "component.ingestion",
-          "monthly_amount": "505.010875625"
+          "monthly_amount": "430.323375625"
         },
         {
           "item_id": "component.processing",
@@ -746,7 +746,7 @@
           "monthly_amount": "0"
         }
       ],
-      "monthly_total": "2997.009071925"
+      "monthly_total": "2922.321571925"
     },
     "functional_completeness": {
       "status": "complete",
@@ -779,9 +779,9 @@
       "validator_version": "2",
       "validation_digest": "sha256:0d48add69a212195fd2c37d7adce303682f0834c5bccd0f9aa1057a52c1aba68"
     },
-    "content_digest": "sha256:d9c36061011b53d3c4a53c10f7e23a24f7c58f613d29e977571e098e30f84433"
+    "content_digest": "sha256:2a0f47c52541b4566b3ce9a37a9e9ef110f0094d6b4c1777b7c68fd2b6ec9dbe"
   },
-  "resolved_twin_architecture_digest": "sha256:d7aeb2c2595ce80a8f8897b01ae4b87de9c5f5602a405d47710bcd41cb825989",
+  "resolved_twin_architecture_digest": "sha256:bc2ec6dcfad0e5dade47db8dabfe6ca622e63964efc727938540f7d652df41c7",
   "resolved_deployment_specification": {
     "schema_version": "resolved-deployment-specification.v2",
     "calculation_run_id": "b725ec0d-9db6-5c45-ab8c-8543a44e7bcb",
@@ -819,7 +819,7 @@
       "pricing_evidence_refs": [
         {
           "provider": "aws",
-          "digest": "sha256:acb96faf904bc16d9d00d83fb26372ee2bf35255340ab5afaf6df6e87b8342b7"
+          "digest": "sha256:10c26d4e01340f0fbfe592a48baf5cd2b8cc827b294719811741c8adabed9822"
         }
       ]
     },
@@ -2220,7 +2220,7 @@
         "compatibility_version": "1"
       }
     ],
-    "digest": "sha256:61b189c1b86be7e9a0bbf3aa0e3f3e3c56b864339c19286ffdf9d2aad241c0cb"
+    "digest": "sha256:489aa480e91be8c0014954af49bee93509f919341e2cc7d5ca9536d816e2e8a5"
   },
-  "resolved_deployment_specification_digest": "sha256:61b189c1b86be7e9a0bbf3aa0e3f3e3c56b864339c19286ffdf9d2aad241c0cb"
+  "resolved_deployment_specification_digest": "sha256:489aa480e91be8c0014954af49bee93509f919341e2cc7d5ca9536d816e2e8a5"
 }

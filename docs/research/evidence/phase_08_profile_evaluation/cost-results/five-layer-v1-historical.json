@@ -70,7 +70,7 @@
         }
       },
       "resolved_architecture_path": "resolved-architectures/five-layer-baseline-1-historical-base-v1.json",
-      "resolved_deployment_specification_digest": "sha256:db78991ff27907ba37f7a28aac949c956e53f8c45539af261df317e8ac8bb64d",
+      "resolved_deployment_specification_digest": "sha256:8e4d4b22b8e8770cada0a11ab9c9791b2a78b4b0e70f9ca27c8c477d382776fa",
       "category_breakdown_status": "not_retrofitted_to_historical_contract"
     },
     {
@@ -134,7 +134,7 @@
         }
       },
       "resolved_architecture_path": "resolved-architectures/five-layer-baseline-1-historical-edge-heavy-v1.json",
-      "resolved_deployment_specification_digest": "sha256:c483d7e6f8e04cddec4d371b9566c06a82e7fbb265d45778bee2826fcd4ac992",
+      "resolved_deployment_specification_digest": "sha256:93136e0dde2185538937b40dc9c2aaa35a668081612c6293ae38653f959b0312",
       "category_breakdown_status": "not_retrofitted_to_historical_contract"
     }
   ],

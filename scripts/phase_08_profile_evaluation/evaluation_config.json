@@ -2,9 +2,9 @@
   "$schema": "evaluation-config.schema.json",
   "schema_version": "phase-08-profile-evaluation-config.v1",
   "package_id": "phase-08-profile-evaluation@1",
-  "implementation_freeze_commit": "473a53ace895bab62459f57f3d0fe2d05e1e19ee",
-  "evaluation_cutoff": "2026-08-14",
-  "observation_timestamp": "2026-08-11T10:12:00Z",
+  "implementation_freeze_commit": "da43043f85902687bd291752bdf1ffde08956902",
+  "evaluation_cutoff": "2026-08-25",
+  "observation_timestamp": "2026-08-25T16:58:12Z",
   "currency": "USD",
   "regions": {
     "aws": "eu-central-1",
@@ -18,7 +18,7 @@
     "container_images": [
       {
         "service": "optimizer",
-        "digest": "sha256:9e501de37225f0bbd2dfddb5633f5058e189c8e3a062949053809a0bbcde2034"
+        "digest": "sha256:9c2f89817d2c2b63d54bf5e2ebd2ac39b47dad81d78e604568b299d5287db1de"
       },
       {
         "service": "management-api",
@@ -26,7 +26,7 @@
       },
       {
         "service": "deployer",
-        "digest": "sha256:71bf1a1e57bd709e5f246ff973df762c5246dd22210a431e0c67abce14f9a3f8"
+        "digest": "sha256:386ea4789923abf2880183819901b49afc52bc72328044a77febe107d533e3f1"
       },
       {
         "service": "docs",

@@ -7,7 +7,7 @@
   "resolved_twin_architecture": {
     "schema_version": "resolved-twin-architecture.v2",
     "resolution_status": "offline_contract_fixture",
-    "resolution_id": "ae18a531-fc65-58a8-8a52-0785f0dfad6d",
+    "resolution_id": "62807c9e-8349-5662-b457-958dd92ac9cf",
     "calculation_run_id": "28c6b82d-6364-5bfe-a35a-2dddd5cc4021",
     "architecture_profile_ref": {
       "id": "six-layer-eventing",
@@ -52,23 +52,23 @@
     },
     "pricing_evidence_refs": [
       {
-        "id": "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
+        "id": "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547",
         "version": "1",
-        "digest": "sha256:acb96faf904bc16d9d00d83fb26372ee2bf35255340ab5afaf6df6e87b8342b7",
+        "digest": "sha256:10c26d4e01340f0fbfe592a48baf5cd2b8cc827b294719811741c8adabed9822",
         "provider": "aws",
         "currency": "USD"
       },
       {
-        "id": "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee",
+        "id": "pcs_1bc1d5d9a11bc9b780eab255e7b4849d863a8614c62974eb9df90ad05b3ea46d",
         "version": "1",
-        "digest": "sha256:9a91dd0c760ab1a4c66f6e8abe2acd5f98d80da560d605c09d509957c1a172ce",
+        "digest": "sha256:4263b7a2a59b86d0501bab1dc2db0c24625c8a950bafd935f4f129d5d0f8bcc5",
         "provider": "azure",
         "currency": "USD"
       },
       {
-        "id": "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018",
+        "id": "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd",
         "version": "1",
-        "digest": "sha256:27f7082bd221f2f356067efe7891dddd9ed2ea97eece82b133f32c848d10e378",
+        "digest": "sha256:92884a3c05f10e156a7c1e9ec60d6fde5e3e1d9051f6dfc3cd0a870fe50e2697",
         "provider": "gcp",
         "currency": "USD"
       }
@@ -273,7 +273,7 @@
         ],
         "cost_contribution": {
           "currency": "USD",
-          "monthly_amount": "42.192820517"
+          "monthly_amount": "41.594445517"
         },
         "required": true
       },
@@ -309,7 +309,7 @@
         ],
         "cost_contribution": {
           "currency": "USD",
-          "monthly_amount": "41.92275"
+          "monthly_amount": "55.42275"
         },
         "required": true
       },
@@ -403,7 +403,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+          "pcs_1bc1d5d9a11bc9b780eab255e7b4849d863a8614c62974eb9df90ad05b3ea46d"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -447,8 +447,8 @@
         },
         "transfer_route_class": "cross_provider",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
-          "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547",
+          "pcs_1bc1d5d9a11bc9b780eab255e7b4849d863a8614c62974eb9df90ad05b3ea46d"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -492,8 +492,8 @@
         },
         "transfer_route_class": "cross_provider",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
-          "pcs_1e5bf29d6a0a469af6da33859c1caed7d37145734e662f53380294771589aeee"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547",
+          "pcs_1bc1d5d9a11bc9b780eab255e7b4849d863a8614c62974eb9df90ad05b3ea46d"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -537,7 +537,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547"
         ],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
@@ -581,8 +581,8 @@
         },
         "transfer_route_class": "cross_provider",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
-          "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547",
+          "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd"
         ],
         "formula_refs": [
           "formula.phase-08-eventing"
@@ -626,7 +626,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018"
+          "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd"
         ],
         "formula_refs": [
           "formula.phase-08-eventing"
@@ -670,7 +670,7 @@
         },
         "transfer_route_class": "same_provider_same_region",
         "transfer_evidence_refs": [
-          "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018"
+          "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd"
         ],
         "formula_refs": [
           "formula.phase-08-eventing"
@@ -714,8 +714,8 @@
         },
         "transfer_route_class": "cross_provider",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
-          "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547",
+          "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd"
         ],
         "formula_refs": [
           "formula.phase-08-eventing"
@@ -759,8 +759,8 @@
         },
         "transfer_route_class": "cross_provider",
         "transfer_evidence_refs": [
-          "pcs_8b185e12ad8a8a767d4edadc4900c57b47a194e992cb0b7770d882c0a2013464",
-          "pcs_e5be79c382cda0ecd8329fc25a2d09cbd95cb3f62d73476aad51c392d78ae018"
+          "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547",
+          "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd"
         ],
         "formula_refs": [
           "formula.phase-08-eventing"
@@ -799,18 +799,18 @@
     "deployment_specification_ref": {
       "schema_version": "resolved-deployment-specification.v2",
       "calculation_run_id": "28c6b82d-6364-5bfe-a35a-2dddd5cc4021",
-      "digest": "sha256:762485251fa772c27760fcda7a0703b451f83d16e62134fe97eb614d4e13fd4d"
+      "digest": "sha256:2727477865149b52457b662b590bd209ebaabeb9fee8d372e8f35ae73ca87dfb"
     },
     "cost_summary": {
       "currency": "USD",
       "responsibility_totals": [
         {
           "item_id": "responsibility.ingestion",
-          "monthly_amount": "42.192820517"
+          "monthly_amount": "41.594445517"
         },
         {
           "item_id": "responsibility.processing",
-          "monthly_amount": "41.92275"
+          "monthly_amount": "55.42275"
         },
         {
           "item_id": "responsibility.storage",
@@ -848,11 +848,11 @@
         },
         {
           "item_id": "component.ingestion",
-          "monthly_amount": "42.192820517"
+          "monthly_amount": "41.594445517"
         },
         {
           "item_id": "component.processing",
-          "monthly_amount": "41.92275"
+          "monthly_amount": "55.42275"
         },
         {
           "item_id": "component.twin-state",
@@ -901,7 +901,7 @@
           "monthly_amount": "0"
         }
       ],
-      "monthly_total": "116.7309326605"
+      "monthly_total": "129.6325576605"
     },
     "functional_completeness": {
       "status": "complete",
@@ -964,9 +964,9 @@
       "validator_version": "2",
       "validation_digest": "sha256:3e8ccf6f600452e283238bdc88597278d059ed83566d1af805c696aff009e745"
     },
-    "content_digest": "sha256:23928afca630a5d28976ca4e52c228fe6ab245bb3178d386f26ee61370216281"
+    "content_digest": "sha256:254276e707025b90d3d0fb07e9ab960789854e219d0225dfc5a64df8042cc55a"
   },
-  "resolved_twin_architecture_digest": "sha256:37fc732a45f91fd1bf962ac7c8080a624b033288d7d162e432505a7825215197",
+  "resolved_twin_architecture_digest": "sha256:5556078e0ca537cd9ddb29b3f9b0d05382451fb89cfcb777cb8ca1ce00bd6e42",
   "resolved_deployment_specification": {
     "schema_version": "resolved-deployment-specification.v2",
     "calculation_run_id": "28c6b82d-6364-5bfe-a35a-2dddd5cc4021",
@@ -1004,15 +1004,15 @@
       "pricing_evidence_refs": [
         {
           "provider": "aws",
-          "digest": "sha256:acb96faf904bc16d9d00d83fb26372ee2bf35255340ab5afaf6df6e87b8342b7"
+          "digest": "sha256:10c26d4e01340f0fbfe592a48baf5cd2b8cc827b294719811741c8adabed9822"
         },
         {
           "provider": "azure",
-          "digest": "sha256:9a91dd0c760ab1a4c66f6e8abe2acd5f98d80da560d605c09d509957c1a172ce"
+          "digest": "sha256:4263b7a2a59b86d0501bab1dc2db0c24625c8a950bafd935f4f129d5d0f8bcc5"
         },
         {
           "provider": "gcp",
-          "digest": "sha256:27f7082bd221f2f356067efe7891dddd9ed2ea97eece82b133f32c848d10e378"
+          "digest": "sha256:92884a3c05f10e156a7c1e9ec60d6fde5e3e1d9051f6dfc3cd0a870fe50e2697"
         }
       ]
     },
@@ -3150,7 +3150,7 @@
         "compatibility_version": "1"
       }
     ],
-    "digest": "sha256:762485251fa772c27760fcda7a0703b451f83d16e62134fe97eb614d4e13fd4d"
+    "digest": "sha256:2727477865149b52457b662b590bd209ebaabeb9fee8d372e8f35ae73ca87dfb"
   },
-  "resolved_deployment_specification_digest": "sha256:762485251fa772c27760fcda7a0703b451f83d16e62134fe97eb614d4e13fd4d"
+  "resolved_deployment_specification_digest": "sha256:2727477865149b52457b662b590bd209ebaabeb9fee8d372e8f35ae73ca87dfb"
 }

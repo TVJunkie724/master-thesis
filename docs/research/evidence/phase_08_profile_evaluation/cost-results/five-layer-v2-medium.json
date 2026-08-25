@@ -32,13 +32,13 @@
         "gate.live-pricing.aws.twinmaker-account-plan"
       ],
       "resolved_architecture_path": "resolved-architectures/five-layer-baseline-2-medium.json",
-      "resolved_twin_architecture_digest": "sha256:d7aeb2c2595ce80a8f8897b01ae4b87de9c5f5602a405d47710bcd41cb825989",
-      "resolved_deployment_specification_digest": "sha256:61b189c1b86be7e9a0bbf3aa0e3f3e3c56b864339c19286ffdf9d2aad241c0cb",
+      "resolved_twin_architecture_digest": "sha256:bc2ec6dcfad0e5dade47db8dabfe6ca622e63964efc727938540f7d652df41c7",
+      "resolved_deployment_specification_digest": "sha256:489aa480e91be8c0014954af49bee93509f919341e2cc7d5ca9536d816e2e8a5",
       "cost": {
-        "monthly_total": "2997.009071925",
+        "monthly_total": "2922.321571925",
         "category_totals": {
           "service": "0",
-          "request-throughput": "1455.748391625",
+          "request-throughput": "1381.060891625",
           "storage": "1203.6866",
           "transfer": "0",
           "tiering": "1.03068",
@@ -65,7 +65,7 @@
             "provider": "aws",
             "logical_component_id": "component.ingestion",
             "category": "request-throughput",
-            "monthly_amount": "74.85",
+            "monthly_amount": "0.1625",
             "cost_owner_id": "cost::aws.iot-commands"
           },
           {
@@ -248,12 +248,12 @@
         "gate.live-capacity.aws.twinmaker-query-behavior",
         "gate.live-pricing.aws.twinmaker-account-plan"
       ],
-      "resolved_deployment_specification_digest": "sha256:462bcf34bee3692461d5c37b5314a82c5b2ee0419cc512db813012036886b87b",
+      "resolved_deployment_specification_digest": "sha256:16733814e795239818c44f1bf5107e59a1a69c55e6974449cbfa1ea5944f8dd8",
       "cost": {
-        "monthly_total": "2997.009071925",
+        "monthly_total": "2922.321571925",
         "category_totals": {
           "service": "0",
-          "request-throughput": "1455.748391625",
+          "request-throughput": "1381.060891625",
           "storage": "1203.6866",
           "transfer": "0",
           "tiering": "1.03068",
@@ -280,7 +280,7 @@
             "provider": "aws",
             "logical_component_id": "component.ingestion",
             "category": "request-throughput",
-            "monthly_amount": "74.85",
+            "monthly_amount": "0.1625",
             "cost_owner_id": "cost::aws.iot-commands"
           },
           {
@@ -465,12 +465,12 @@
         "gate.live-capacity.azure.cosmos-request-charge-fixture",
         "gate.live-capacity.azure.reader-latency-and-quota"
       ],
-      "resolved_deployment_specification_digest": "sha256:3f3ddcc8b16af6f4a4a558f925d2ca8d371629e96cd2cd413f37d95bf94c828e",
+      "resolved_deployment_specification_digest": "sha256:3605ceaf77af87ac9816cacf77f21be1d7bc0a9c5647cfc0778ca358f1aeee2a",
       "cost": {
-        "monthly_total": "3528.49294147734375",
+        "monthly_total": "3453.80544147734375",
         "category_totals": {
           "service": "21.90318",
-          "request-throughput": "1221.26437",
+          "request-throughput": "1146.57687",
           "storage": "1203.6866",
           "transfer": "0",
           "tiering": "1.03068",
@@ -497,7 +497,7 @@
             "provider": "aws",
             "logical_component_id": "component.ingestion",
             "category": "request-throughput",
-            "monthly_amount": "74.85",
+            "monthly_amount": "0.1625",
             "cost_owner_id": "cost::aws.iot-commands"
           },
           {
@@ -772,21 +772,21 @@
         "gate.live-capacity.gcp.firestore-gradual-ramp-and-transaction-contention",
         "gate.live-capacity.gcp.reader-latency-and-quota"
       ],
-      "resolved_deployment_specification_digest": "sha256:026df82708432cbb2af83b27c3c7e7dcf3658f419c33955305b1f72d5013f09c",
+      "resolved_deployment_specification_digest": "sha256:d9c3f7e6fad5e8b181750f500e5f658366c0250ffa16693102dba3d688275642",
       "cost": {
-        "monthly_total": "16634.05338845615234375",
+        "monthly_total": "20942.80338845615234375",
         "category_totals": {
           "service": "0",
-          "request-throughput": "14644.93192577880859375",
+          "request-throughput": "18890.24442577880859375",
           "storage": "1215.9526712",
           "transfer": "0",
           "tiering": "1.03068",
           "observability": "99.654",
           "failure-replay": "5.075",
           "visualization-seat": "275.1644003",
-          "bridge": "392.24471117734375"
+          "bridge": "455.68221117734375"
         },
-        "event_transport_scope_total": "392.24471117734375",
+        "event_transport_scope_total": "455.68221117734375",
         "independent_event_layer_total": "0",
         "contributions": [
           {
@@ -804,7 +804,7 @@
             "provider": "aws",
             "logical_component_id": "component.ingestion",
             "category": "request-throughput",
-            "monthly_amount": "74.85",
+            "monthly_amount": "0.1625",
             "cost_owner_id": "cost::aws.iot-commands"
           },
           {
@@ -867,7 +867,7 @@
             "provider": "gcp",
             "logical_component_id": "component.twin-state",
             "category": "request-throughput",
-            "monthly_amount": "6704.64",
+            "monthly_amount": "8864.64",
             "cost_owner_id": "cost::gcp.cloud-run-twin-api-materializer"
           },
           {
@@ -885,7 +885,7 @@
             "provider": "gcp",
             "logical_component_id": "component.twin-state",
             "category": "request-throughput",
-            "monthly_amount": "6704.64",
+            "monthly_amount": "8864.64",
             "cost_owner_id": "cost::gcp.cloud-run-iap-twin-explorer"
           },
           {
@@ -975,7 +975,7 @@
             "provider": "gcp",
             "logical_component_id": "component.twin-state",
             "category": "bridge",
-            "monthly_amount": "196.91",
+            "monthly_amount": "260.3475",
             "cost_owner_id": "cost::gcp.cloud-run-event-adapter"
           },
           {
@@ -1098,7 +1098,7 @@
         "gate.live-capacity.azure.reader-latency-and-quota",
         "gate.live-pricing.aws.twinmaker-account-plan"
       ],
-      "resolved_deployment_specification_digest": "sha256:2bd576f3c9c4dde8b2911da13282958e8075f1aa55c8efbde90ee01e8d7ca1a0",
+      "resolved_deployment_specification_digest": "sha256:e4d3ad4f768bf4e3a4f417efaf7141c0697189b4173d2bc03b4bdcbe48073635",
       "cost": {
         "monthly_total": "5630.78951717734375",
         "category_totals": {
@@ -1375,7 +1375,7 @@
         "gate.live-capacity.azure.cosmos-request-charge-fixture",
         "gate.live-capacity.azure.reader-latency-and-quota"
       ],
-      "resolved_deployment_specification_digest": "sha256:9606f91248c0924381424809daf8854fb7ff4a37c8d38c1c2f03dc3a6ec58770",
+      "resolved_deployment_specification_digest": "sha256:bd8d12f03ff6d2c729ab5341c6a5b3a3f16228e228c34bb9c4a145002eaa1634",
       "cost": {
         "monthly_total": "4934.18991",
         "category_totals": {
@@ -1574,21 +1574,21 @@
         "gate.live-capacity.gcp.firestore-gradual-ramp-and-transaction-contention",
         "gate.live-capacity.gcp.reader-latency-and-quota"
       ],
-      "resolved_deployment_specification_digest": "sha256:fb18a94361b1f55d6b309404e236b1b8ca6b5a7f2529cbca488f8586056721b2",
+      "resolved_deployment_specification_digest": "sha256:cea10340e2077713d07dc84ad3ee3369220b5736649d19ad84dc1ee0fc2728a3",
       "cost": {
-        "monthly_total": "18845.89128697880859375",
+        "monthly_total": "23229.32878697880859375",
         "category_totals": {
           "service": "0",
-          "request-throughput": "15404.18641577880859375",
+          "request-throughput": "19724.18641577880859375",
           "storage": "2294.3644712",
           "transfer": "0",
           "tiering": "108.864",
           "observability": "308.55",
           "failure-replay": "0",
           "visualization-seat": "242.7874",
-          "bridge": "487.139"
+          "bridge": "550.5765"
         },
-        "event_transport_scope_total": "487.139",
+        "event_transport_scope_total": "550.5765",
         "independent_event_layer_total": "0",
         "contributions": [
           {
@@ -1651,7 +1651,7 @@
             "provider": "gcp",
             "logical_component_id": "component.twin-state",
             "category": "request-throughput",
-            "monthly_amount": "6704.64",
+            "monthly_amount": "8864.64",
             "cost_owner_id": "cost::gcp.cloud-run-twin-api-materializer"
           },
           {
@@ -1669,7 +1669,7 @@
             "provider": "gcp",
             "logical_component_id": "component.twin-state",
             "category": "request-throughput",
-            "monthly_amount": "6704.64",
+            "monthly_amount": "8864.64",
             "cost_owner_id": "cost::gcp.cloud-run-iap-twin-explorer"
           },
           {
@@ -1750,7 +1750,7 @@
             "provider": "gcp",
             "logical_component_id": "component.twin-state",
             "category": "bridge",
-            "monthly_amount": "196.91",
+            "monthly_amount": "260.3475",
             "cost_owner_id": "cost::gcp.cloud-run-event-adapter"
           },
           {
@@ -1873,21 +1873,21 @@
         "gate.live-capacity.gcp.reader-latency-and-quota",
         "gate.live-pricing.aws.twinmaker-account-plan"
       ],
-      "resolved_deployment_specification_digest": "sha256:36a20c74e698ff5ffe74a774b8e9e2b0d89425aa361d3c5ee2874a0e2af87778",
+      "resolved_deployment_specification_digest": "sha256:09135e6cd17ec253298c86e5223f6250e60b10c70fa7ae752c5ea7e3543c5782",
       "cost": {
-        "monthly_total": "9212.41550253427734375",
+        "monthly_total": "11436.30300253427734375",
         "category_totals": {
           "service": "0",
-          "request-throughput": "7104.66683015380859375",
+          "request-throughput": "9264.66683015380859375",
           "storage": "1518.5662",
           "transfer": "0.36",
           "tiering": "14.356",
           "observability": "99.654",
           "failure-replay": "5.075",
-          "visualization-seat": "64.742761203125",
-          "bridge": "404.99471117734375"
+          "visualization-seat": "65.192761203125",
+          "bridge": "468.43221117734375"
         },
-        "event_transport_scope_total": "404.99471117734375",
+        "event_transport_scope_total": "468.43221117734375",
         "independent_event_layer_total": "0",
         "contributions": [
           {
@@ -1923,7 +1923,7 @@
             "provider": "gcp",
             "logical_component_id": "component.processing",
             "category": "request-throughput",
-            "monthly_amount": "6704.64",
+            "monthly_amount": "8864.64",
             "cost_owner_id": "cost::gcp.cloud-run-service"
           },
           {
@@ -1995,7 +1995,7 @@
             "provider": "gcp",
             "logical_component_id": "component.visualization",
             "category": "visualization-seat",
-            "monthly_amount": "1.3968",
+            "monthly_amount": "1.8468",
             "cost_owner_id": "cost::gcp.cloud-run-raw-history-reader"
           },
           {
@@ -2067,7 +2067,7 @@
             "provider": "gcp",
             "logical_component_id": "component.ingestion",
             "category": "bridge",
-            "monthly_amount": "196.91",
+            "monthly_amount": "260.3475",
             "cost_owner_id": "cost::gcp.cloud-run-event-adapter"
           },
           {
@@ -2180,21 +2180,21 @@
         "gate.live-capacity.gcp.firestore-gradual-ramp-and-transaction-contention",
         "gate.live-capacity.gcp.reader-latency-and-quota"
       ],
-      "resolved_deployment_specification_digest": "sha256:a55344793121c932b3085916af5c5348092a9f20ebc8ec1ba09b12ea550fd389",
+      "resolved_deployment_specification_digest": "sha256:430709207aac0eb446496400380b318c7223fe5c70b2a5ef8c773b4c903093b7",
       "cost": {
-        "monthly_total": "9321.95682535693359375",
+        "monthly_total": "11545.84432535693359375",
         "category_totals": {
           "service": "21.90318",
-          "request-throughput": "6893.35868415380859375",
+          "request-throughput": "9053.35868415380859375",
           "storage": "1518.5662",
           "transfer": "0.36",
           "tiering": "14.356",
           "observability": "308.55",
           "failure-replay": "0",
-          "visualization-seat": "64.742761203125",
-          "bridge": "500.12"
+          "visualization-seat": "65.192761203125",
+          "bridge": "563.5575"
         },
-        "event_transport_scope_total": "500.12",
+        "event_transport_scope_total": "563.5575",
         "independent_event_layer_total": "0",
         "contributions": [
           {
@@ -2230,7 +2230,7 @@
             "provider": "gcp",
             "logical_component_id": "component.processing",
             "category": "request-throughput",
-            "monthly_amount": "6704.64",
+            "monthly_amount": "8864.64",
             "cost_owner_id": "cost::gcp.cloud-run-service"
           },
           {
@@ -2302,7 +2302,7 @@
             "provider": "gcp",
             "logical_component_id": "component.visualization",
             "category": "visualization-seat",
-            "monthly_amount": "1.3968",
+            "monthly_amount": "1.8468",
             "cost_owner_id": "cost::gcp.cloud-run-raw-history-reader"
           },
           {
@@ -2365,7 +2365,7 @@
             "provider": "gcp",
             "logical_component_id": "component.ingestion",
             "category": "bridge",
-            "monthly_amount": "196.91",
+            "monthly_amount": "260.3475",
             "cost_owner_id": "cost::gcp.cloud-run-event-adapter"
           },
           {
@@ -2484,21 +2484,21 @@
         "gate.live-capacity.gcp.firestore-gradual-ramp-and-transaction-contention",
         "gate.live-capacity.gcp.reader-latency-and-quota"
       ],
-      "resolved_deployment_specification_digest": "sha256:49d89e42e5b3ed358d681daef18733eee80b74a5c3fa04eb6e645c342f9d980f",
+      "resolved_deployment_specification_digest": "sha256:0744b2377254d89597fce0f63ed38ff53ef84e601770e7526d19a8a229e28441",
       "cost": {
-        "monthly_total": "22143.01778655693359375",
+        "monthly_total": "28686.90528655693359375",
         "category_totals": {
           "service": "0",
-          "request-throughput": "20489.73675415380859375",
+          "request-throughput": "27033.17425415380859375",
           "storage": "1530.8322712",
           "transfer": "0",
           "tiering": "14.356",
           "observability": "43.35",
           "failure-replay": "0",
-          "visualization-seat": "64.742761203125",
+          "visualization-seat": "65.192761203125",
           "bridge": "0"
         },
-        "event_transport_scope_total": "196.91",
+        "event_transport_scope_total": "260.3475",
         "independent_event_layer_total": "0",
         "contributions": [
           {
@@ -2534,7 +2534,7 @@
             "provider": "gcp",
             "logical_component_id": "component.processing",
             "category": "request-throughput",
-            "monthly_amount": "6704.64",
+            "monthly_amount": "8864.64",
             "cost_owner_id": "cost::gcp.cloud-run-service"
           },
           {
@@ -2579,7 +2579,7 @@
             "provider": "gcp",
             "logical_component_id": "component.twin-state",
             "category": "request-throughput",
-            "monthly_amount": "6704.64",
+            "monthly_amount": "8864.64",
             "cost_owner_id": "cost::gcp.cloud-run-twin-api-materializer"
           },
           {
@@ -2597,7 +2597,7 @@
             "provider": "gcp",
             "logical_component_id": "component.twin-state",
             "category": "request-throughput",
-            "monthly_amount": "6704.64",
+            "monthly_amount": "8864.64",
             "cost_owner_id": "cost::gcp.cloud-run-iap-twin-explorer"
           },
           {
@@ -2633,7 +2633,7 @@
             "provider": "gcp",
             "logical_component_id": "component.visualization",
             "category": "visualization-seat",
-            "monthly_amount": "1.3968",
+            "monthly_amount": "1.8468",
             "cost_owner_id": "cost::gcp.cloud-run-raw-history-reader"
           },
           {
@@ -2669,7 +2669,7 @@
             "provider": "gcp",
             "logical_component_id": "component.ingestion",
             "category": "request-throughput",
-            "monthly_amount": "196.91",
+            "monthly_amount": "260.3475",
             "cost_owner_id": "cost::gcp.cloud-run-event-adapter"
           },
           {

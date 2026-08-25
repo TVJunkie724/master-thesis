@@ -22,17 +22,17 @@
       "pricing_registry_version": "2026.07.17",
       "catalog_references": {
         "aws": {
-          "snapshot_id": "pcs_abbdc78dd741d03ed24ee09de7ff6c44f43141a8b6734ea3bbb69dcd96c87d38",
+          "snapshot_id": "pcs_c72170c376ee6439e17ea6cc4f548c396db1655d51883cacff5cfcf83effca0b",
           "pricing_region": "eu-central-1",
           "content_digest": "sha256:20fe1b1b99a81af8fddd4ff23f00e5a28797f6783282ce10f2df143d938c0263"
         },
         "azure": {
-          "snapshot_id": "pcs_7ff56bdbc7433fa59f0fcd3b972a0db26e0478244c23d0d5b6527ad426e534bc",
+          "snapshot_id": "pcs_8938428fa5013a022c1bbe3056ea46c521e1b9fb7a07d24056bed978ae884dfd",
           "pricing_region": "westeurope",
           "content_digest": "sha256:ebcbb03ed86164b897da84c647eeee0fadfd14133c787072937df0431e15d629"
         },
         "gcp": {
-          "snapshot_id": "pcs_99b3d232ecb181cbf2c3eb28f8ee0fd61d63606414a5c2e40678d2ba8303403d",
+          "snapshot_id": "pcs_c0d35bceda7522575310fbe6330e211e5949c13f8655306d93a8ffff14edc7fc",
           "pricing_region": "europe-west1",
           "content_digest": "sha256:272aeac67eba00e3150f9dd2e4f22163d9931581ec687f4f1486c9c1a62bffce"
         }
@@ -52,7 +52,7 @@
             "classification": "usage_tier",
             "value": "throughput",
             "formula_reference": "formula_set:cost_formula_set_v1",
-            "evidence_reference": "catalog:pcs_99b3d232ecb181cbf2c3eb28f8ee0fd61d63606414a5c2e40678d2ba8303403d"
+            "evidence_reference": "catalog:pcs_c0d35bceda7522575310fbe6330e211e5949c13f8655306d93a8ffff14edc7fc"
           }
         ]
       },
@@ -156,7 +156,7 @@
             "classification": "usage_tier",
             "value": "steps",
             "formula_reference": "formula_set:cost_formula_set_v1",
-            "evidence_reference": "catalog:pcs_99b3d232ecb181cbf2c3eb28f8ee0fd61d63606414a5c2e40678d2ba8303403d"
+            "evidence_reference": "catalog:pcs_c0d35bceda7522575310fbe6330e211e5949c13f8655306d93a8ffff14edc7fc"
           }
         ]
       },
@@ -272,7 +272,7 @@
             "classification": "usage_tier",
             "value": "operations_query_units_and_messages",
             "formula_reference": "formula_set:cost_formula_set_v1",
-            "evidence_reference": "catalog:pcs_7ff56bdbc7433fa59f0fcd3b972a0db26e0478244c23d0d5b6527ad426e534bc"
+            "evidence_reference": "catalog:pcs_8938428fa5013a022c1bbe3056ea46c521e1b9fb7a07d24056bed978ae884dfd"
           }
         ]
       },
@@ -321,7 +321,7 @@
             "classification": "usage_tier",
             "value": "licensed_users",
             "formula_reference": "formula_set:cost_formula_set_v1",
-            "evidence_reference": "catalog:pcs_abbdc78dd741d03ed24ee09de7ff6c44f43141a8b6734ea3bbb69dcd96c87d38"
+            "evidence_reference": "catalog:pcs_c72170c376ee6439e17ea6cc4f548c396db1655d51883cacff5cfcf83effca0b"
           }
         ]
       },
@@ -460,7 +460,7 @@
         ]
       }
     ],
-    "digest": "sha256:db78991ff27907ba37f7a28aac949c956e53f8c45539af261df317e8ac8bb64d"
+    "digest": "sha256:8e4d4b22b8e8770cada0a11ab9c9791b2a78b4b0e70f9ca27c8c477d382776fa"
   },
-  "resolved_deployment_specification_digest": "sha256:db78991ff27907ba37f7a28aac949c956e53f8c45539af261df317e8ac8bb64d"
+  "resolved_deployment_specification_digest": "sha256:8e4d4b22b8e8770cada0a11ab9c9791b2a78b4b0e70f9ca27c8c477d382776fa"
 }
