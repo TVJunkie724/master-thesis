@@ -1716,8 +1716,8 @@ def verification_artifact(*, config: Mapping[str, Any], output: Path) -> dict[st
                 "command": "python scripts/verify_resolved_deployment_drift.py",
                 "status": "passed",
                 "exit_status": 0,
-                "test_count": 5896,
-                "scope": "Phase 8 decision/evaluation, contract and drift tests; Optimizer 979, Management 1131, Deployer 2381 (one skipped), Flutter 901 plus architecture gate; builds, security, docs, static checks, and cleanup",
+                "test_count": 5898,
+                "scope": "Phase 8 decision/evaluation, contract and drift tests; Optimizer 981, Management 1131, Deployer 2381 (one skipped), Flutter 901 plus architecture gate; builds, security, docs, static checks, and cleanup",
             },
         ],
         "cloud_activity": {

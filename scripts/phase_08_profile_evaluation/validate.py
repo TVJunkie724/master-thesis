@@ -443,6 +443,38 @@ def validate_sources() -> None:
         assert source["retrieved_at"] and source["effective_at"]
         assert DIGEST_PATTERN.fullmatch(source["content_digest"])
         assert source["review_status"] == "reviewed"
+    command_fact = next(
+        fact
+        for source in event_sources
+        for fact in source.get("facts", [])
+        if fact["fact_id"] == "fact.aws.iot-command.execution"
+    )
+    pricing_matrix = read_json(
+        REPOSITORY_ROOT
+        / "docs/research/evidence/phase_08_eventing/pricing-model-matrix.json"
+    )
+    pricing_intents = {
+        item["intent_id"]: item for item in pricing_matrix["price_intents"]
+    }
+    rate_card_source = read_json(
+        REPOSITORY_ROOT
+        / "2-twin2clouds/pricing_registry/five_layer_v2_rate_card_sources.v2.json"
+    )
+    aws_rates = rate_card_source["providers"]["aws"]["rates"]
+    assert Decimal(aws_rates["iotCommandExecution"]) == Decimal(
+        str(command_fact["value"])
+    )
+    assert Decimal(aws_rates["iotCommandFreeExecutions"]) == 0
+    gcp_rates = rate_card_source["providers"]["gcp"]["rates"]
+    assert Decimal(gcp_rates["cloudRunRequest"]) == Decimal(
+        str(pricing_intents["intent.gcp.cloud-run.request"]["unit_price_usd"])
+    )
+    assert Decimal(gcp_rates["cloudRunVcpuSecond"]) == Decimal(
+        str(pricing_intents["intent.gcp.cloud-run.cpu"]["unit_price_usd"])
+    )
+    assert Decimal(gcp_rates["cloudRunMemoryGibSecond"]) == Decimal(
+        str(pricing_intents["intent.gcp.cloud-run.memory"]["unit_price_usd"])
+    )
     service_sources = read_json(
         REPOSITORY_ROOT
         / "docs/research/evidence/phase_08_service_bundles/source-ledger.json"
