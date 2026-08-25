@@ -2,7 +2,7 @@
   "$schema": "evaluation-config.schema.json",
   "schema_version": "phase-08-profile-evaluation-config.v1",
   "package_id": "phase-08-profile-evaluation@1",
-  "implementation_freeze_commit": "da43043f85902687bd291752bdf1ffde08956902",
+  "implementation_freeze_commit": "af70ec2a70af9e95a75cbedbd3c9fbb902b11ed1",
   "evaluation_cutoff": "2026-08-25",
   "observation_timestamp": "2026-08-25T16:58:12Z",
   "currency": "USD",
@@ -18,7 +18,7 @@
     "container_images": [
       {
         "service": "optimizer",
-        "digest": "sha256:9c2f89817d2c2b63d54bf5e2ebd2ac39b47dad81d78e604568b299d5287db1de"
+        "digest": "sha256:eb81aea81adf3e1fa8e77f1d402d7df28e9ce82d3fa802d2a865ea49e926d8d3"
       },
       {
         "service": "management-api",
