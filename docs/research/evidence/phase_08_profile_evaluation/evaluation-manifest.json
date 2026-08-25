@@ -2,7 +2,7 @@
   "$schema": "schemas/evaluation-manifest.schema.json",
   "schema_version": "phase-08-profile-evaluation-manifest.v1",
   "package_id": "phase-08-profile-evaluation@1",
-  "implementation_freeze_commit": "af70ec2a70af9e95a75cbedbd3c9fbb902b11ed1",
+  "implementation_freeze_commit": "143663ecea897fbddb52ff6f1df30e89a0416118",
   "profiles": [
     {
       "id": "five-layer-baseline",
@@ -95,7 +95,7 @@
       "category": "evaluation",
       "path": "scripts/phase_08_profile_evaluation",
       "kind": "tree",
-      "digest": "sha256:97f527d54a7021b614a6a3ccdc282bd6e8c51479b25bf6da55e3d3c4c7b65078",
+      "digest": "sha256:54c296540056fefdba4ed77008068a188a11f14eada67f3bd4724f490e27ea0c",
       "file_count": 9
     },
     {
@@ -260,7 +260,7 @@
     "container_images": [
       {
         "service": "optimizer",
-        "digest": "sha256:eb81aea81adf3e1fa8e77f1d402d7df28e9ce82d3fa802d2a865ea49e926d8d3"
+        "digest": "sha256:ffa9b5e8a59e6f1ebbd672214d8652e97a40e1207b27aa4b07281cd87f0a873b"
       },
       {
         "service": "management-api",

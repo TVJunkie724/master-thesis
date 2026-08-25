@@ -46,7 +46,7 @@
     },
     {
       "path": "evaluation-manifest.json",
-      "digest": "sha256:77886b60f70b34cac0b9000e64a8850e143aec8933c83cd7399acbf124fb61bf"
+      "digest": "sha256:ff73c91d6d11be63c0a1a8523676d569bd7bbdc22898ad514ccae2423e569439"
     },
     {
       "path": "functional-matrix.json",
@@ -109,7 +109,7 @@
       "digest": "sha256:8e8161a23b6bfbfeda05f500b744b49f3e51a8f992d339416395a618778da78d"
     }
   ],
-  "artifact_set_digest": "sha256:998ab2fe3a95bfd983381cba3319ef9d588689a28c495b25f4ceda31f2602780",
+  "artifact_set_digest": "sha256:1566544aee48a9b98a9a30b8e65ab6ca54a57aa862fed508dcb74efba427891d",
   "commands": [
     {
       "command_id": "generator",
@@ -164,8 +164,8 @@
       "command": "python scripts/verify_resolved_deployment_drift.py",
       "status": "passed",
       "exit_status": 0,
-      "test_count": 5896,
-      "scope": "Phase 8 decision/evaluation, contract and drift tests; Optimizer 979, Management 1131, Deployer 2381 (one skipped), Flutter 901 plus architecture gate; builds, security, docs, static checks, and cleanup"
+      "test_count": 5898,
+      "scope": "Phase 8 decision/evaluation, contract and drift tests; Optimizer 981, Management 1131, Deployer 2381 (one skipped), Flutter 901 plus architecture gate; builds, security, docs, static checks, and cleanup"
     }
   ],
   "cloud_activity": {
