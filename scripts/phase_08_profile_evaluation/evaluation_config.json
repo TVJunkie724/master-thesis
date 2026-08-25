@@ -2,7 +2,7 @@
   "$schema": "evaluation-config.schema.json",
   "schema_version": "phase-08-profile-evaluation-config.v1",
   "package_id": "phase-08-profile-evaluation@1",
-  "implementation_freeze_commit": "143663ecea897fbddb52ff6f1df30e89a0416118",
+  "implementation_freeze_commit": "d4ac0ed9e50f22ab9931f2896557d2c0e4c14ebd",
   "evaluation_cutoff": "2026-08-25",
   "observation_timestamp": "2026-08-25T16:58:12Z",
   "currency": "USD",

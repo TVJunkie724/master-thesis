@@ -2,7 +2,7 @@
   "$schema": "schemas/evaluation-manifest.schema.json",
   "schema_version": "phase-08-profile-evaluation-manifest.v1",
   "package_id": "phase-08-profile-evaluation@1",
-  "implementation_freeze_commit": "143663ecea897fbddb52ff6f1df30e89a0416118",
+  "implementation_freeze_commit": "d4ac0ed9e50f22ab9931f2896557d2c0e4c14ebd",
   "profiles": [
     {
       "id": "five-layer-baseline",
@@ -95,7 +95,7 @@
       "category": "evaluation",
       "path": "scripts/phase_08_profile_evaluation",
       "kind": "tree",
-      "digest": "sha256:54c296540056fefdba4ed77008068a188a11f14eada67f3bd4724f490e27ea0c",
+      "digest": "sha256:53f2c96c52953f71bc181becb5a400642c89d3193cf28c03431643b4e0a17bcf",
       "file_count": 9
     },
     {
