@@ -337,6 +337,47 @@ def test_real_single_cloud_optimizer_prices_complete_profile(provider):
     }
 
 
+def test_optimizer_rejects_cheapest_candidate_when_resolution_is_not_materializable():
+    pricing, evidence = _pricing()
+    registry = _registry()
+    base_resolver = FiveLayerV2CatalogCostLedgerResolver(pricing)
+    invalid_assignment = {
+        "component.ingestion": "aws",
+        "component.processing": "aws",
+        "component.hot-storage": "aws",
+        "component.cool-storage": "azure",
+        "component.archive-storage": "azure",
+        "component.twin-state": "azure",
+        "component.visualization": "aws",
+        "component.eventing": "gcp",
+    }
+
+    def prefer_unmaterializable_candidate(specification, assignment, workload):
+        ledger = copy.deepcopy(
+            base_resolver.resolve(specification, assignment, workload)
+        )
+        if assignment != invalid_assignment:
+            quote = ledger["component_costs"][0]
+            quote["monthly_amount"] = str(
+                Decimal(quote["monthly_amount"]) + Decimal("1000000000")
+            )
+        return ledger
+
+    result = optimize_six_layer_eventing_v1(
+        calculation_run_id=RUN_ID,
+        architecture_profile=_profile_ref(registry),
+        extension_bindings=_extension_bindings(),
+        workload=_workload("small"),
+        pricing_evidence_refs=evidence,
+        cost_ledger_resolver=prefer_unmaterializable_candidate,
+        registry=registry,
+    )
+
+    assert result.winning_candidate_id != "aws|aws|aws|azure|azure|azure|aws|gcp"
+    assert result.costed_candidate_count < result.enumerated_candidate_count
+    assert dict(result.rejected_by_error_code)["ARCH_RESOLUTION_BUILD_FAILED"] > 0
+
+
 def test_optimizer_materializes_source_owned_event_bridges_in_rta():
     pricing, evidence = _pricing()
     registry = _registry()

@@ -117,11 +117,13 @@ The default suite excludes live cloud tests and is safe to run without cloud
 credentials:
 
 ```bash
-docker compose run --rm --no-deps 3cloud-deployer ./run_tests.sh
+./thesis.sh test deployment-contract
 ```
 
-This runs unit/integration tests, Ruff, Bandit, bytecode compilation, and
-`pip check`. Live E2E tests require explicit opt-in and provider credentials:
+This mounts the repository artifacts required by the architecture-inventory
+tests and runs the credential-free cross-project deployment-contract gate. Use
+`./thesis.sh test deployment-contract --focused` only for contract diagnosis.
+Live E2E tests require explicit opt-in and provider credentials:
 
 ```bash
 docker compose run --rm --no-deps -e RUN_E2E_TESTS=1 3cloud-deployer \

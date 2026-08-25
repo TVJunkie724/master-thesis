@@ -2,8 +2,8 @@
 title: "Phase 8 Architecture-Profile Evaluation Method And Results"
 description: "Reproducible offline evaluation protocol and bounded interpretation for the historical Five-layer v1, Five-layer v2, and Six-layer v1 profiles."
 tags: [architecture, digital-twin, eventing, evaluation, reproducibility, phase-8]
-lastUpdated: "2026-08-14"
-version: "1.0"
+lastUpdated: "2026-08-25"
+version: "1.1"
 ---
 
 # Phase 8 Architecture-Profile Evaluation Method And Results
@@ -37,12 +37,17 @@ Every candidate passes the following ordered gates:
 2. **Theoretical capacity.** The frozen Small, Medium, or Large workload must
    remain within the documented formula and service-bundle bounds. A capacity
    requirement that needs supervised provider evidence remains live-unverified.
-3. **Estimated cost.** Only candidates that pass the preceding gates receive a
-   publishable estimated USD/month total.
+3. **Estimated cost.** Candidates that pass the preceding gates receive a
+   provisional estimated USD/month total.
+4. **Deployment materialization.** The complete resolved architecture and
+   Deployer specification must build successfully before a candidate is
+   admitted to ranking or publication.
 
 Unsupported and live-unverified candidates remain evidence rows with stable
-reasons. They do not receive placeholder, partial, or zero totals. This avoids
-letting an incomplete architecture appear cheaper.
+reasons. Candidates that cannot be materialized are counted by stable error
+code and excluded before ranking. They do not receive placeholder, partial, or
+zero published totals. This avoids letting an incomplete architecture appear
+cheaper.
 
 The generator uses frozen repository inputs, exact profile and workload
 digests, the Phase 8 European region set, and immutable pricing catalog
@@ -63,10 +68,16 @@ neither a bridge nor cross-cloud transfer), and one representative admissible
 three-provider graph. Five-layer v2 has no independent Event placement or
 Event-provider-pair result.
 
-Five-layer v2 costs 729 admissible candidates per size. Six-layer v1 costs
-2,187 per size because the independently placed Event Layer adds a provider
-dimension. The package additionally reconstructs the two frozen historical v1
-scenarios and preserves rejected all-GCP historical resolutions without totals.
+Five-layer v2 enumerates and fully admits 729 candidates per size. Six-layer v1
+enumerates 2,187 candidates per size because the independently placed Event
+Layer adds a provider dimension. Deployment materialization admits 2,075 for
+Small and Medium and 1,265 for Large; the remaining 112, 112, and 922
+candidates respectively are retained as `ARCH_RESOLUTION_BUILD_FAILED`
+rejections and cannot win the ranking. The generated field
+`costed_candidate_count` therefore denotes candidates that are both costed and
+fully materializable. The package additionally reconstructs the two frozen
+historical v1 scenarios and preserves rejected all-GCP historical resolutions
+without totals.
 
 ## Exact-Once Ownership And Attribution
 

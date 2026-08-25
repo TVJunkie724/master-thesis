@@ -234,6 +234,14 @@ def validate_cost(cost: Mapping[str, Any]) -> None:
 
 
 def validate_active_results(package: Path) -> None:
+    expected_optimizer_counts = {
+        "five-layer-v2": {size: (729, 729, {}) for size in SIZES},
+        "six-layer-v1": {
+            "small": (2187, 2075, {"ARCH_RESOLUTION_BUILD_FAILED": 112}),
+            "medium": (2187, 2075, {"ARCH_RESOLUTION_BUILD_FAILED": 112}),
+            "large": (2187, 1265, {"ARCH_RESOLUTION_BUILD_FAILED": 922}),
+        },
+    }
     expected_pairs = {
         f"{source}->{destination}"
         for source in PROVIDERS
@@ -244,12 +252,15 @@ def validate_active_results(package: Path) -> None:
         f"{hot}-l3l5-{twin}-l4" for hot in PROVIDERS for twin in PROVIDERS
     }
     for size in SIZES:
-        for profile, expected_count in (("five-layer-v2", 729), ("six-layer-v1", 2187)):
+        for profile in ("five-layer-v2", "six-layer-v1"):
             result = read_json(package / "cost-results" / f"{profile}-{size}.json")
             optimizer = result["optimizer_result"]
-            assert optimizer["enumerated_candidate_count"] == expected_count
-            assert optimizer["costed_candidate_count"] == expected_count
-            assert not optimizer["rejected_by_error_code"]
+            expected_enumerated, expected_costed, expected_rejections = (
+                expected_optimizer_counts[profile][size]
+            )
+            assert optimizer["enumerated_candidate_count"] == expected_enumerated
+            assert optimizer["costed_candidate_count"] == expected_costed
+            assert optimizer["rejected_by_error_code"] == expected_rejections
             assert {
                 item["placement_id"] for item in result["online_placement_results"]
             } == expected_placements

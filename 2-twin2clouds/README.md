@@ -174,7 +174,12 @@ manifest, publishes content-addressed AWS/Azure/GCP snapshots, archives the
 predecessor baseline, and supports the pinned USD and EUR calculation
 currencies. The rate cards are bounded to the frozen thesis Small, Medium, and
 Large workloads; they are reproducible pricing evidence, not a general cloud
-price catalogue. Azure Large uses a 108,000-RU/s offline comparison proxy: the
+price catalogue. AWS IoT Commands uses the regional Commands execution SKU,
+not the more expensive Device Jobs remote-action meter. Cloud Run services use
+the request-based Tier-1 CPU, memory, and request rates. Account-wide free-tier
+grants are deliberately excluded from both models so one allowance cannot be
+counted independently for multiple architecture components. Azure Large uses a
+108,000-RU/s offline comparison proxy: the
 rounded maximum of the storage floor and the documented 10-RU write / 1-RU
 read operation estimates for the frozen workload. Its supervised request-charge
 and capacity gates remain mandatory before deployment, so the proxy cannot be

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "five-layer-v2-rate-card-sources.v2",
-  "reviewedAt": "2026-08-11T10:12:00Z",
+  "reviewedAt": "2026-08-25T16:58:12Z",
   "currencyConversions": {
     "USD": "1",
     "EUR": "0.865948"
@@ -40,13 +40,17 @@
           "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonECR/current/eu-central-1/index.json"
         },
         {
+          "sourceId": "aws-public-price-list-iot-device-management",
+          "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/IoTDeviceManagement/current/eu-central-1/index.json"
+        },
+        {
           "sourceId": "aws-iot-device-management-pricing",
           "url": "https://aws.amazon.com/iot-device-management/pricing/"
         }
       ],
       "rates": {
-        "iotCommandExecution": "0.003",
-        "iotCommandFreeExecutions": "50",
+        "iotCommandExecution": "0.0000065",
+        "iotCommandFreeExecutions": "0",
         "sqsFifoRequestTier1": "0.0000005",
         "sqsFifoRequestTier2": "0.00000048",
         "sqsFifoRequestTier3": "0.00000044",
@@ -111,7 +115,7 @@
       "region": "europe-west1",
       "sources": [
         {
-          "sourceId": "gcp-cloud-run-pricing",
+          "sourceId": "gcp-cloud-run-request-based-pricing",
           "url": "https://cloud.google.com/run/pricing"
         },
         {
@@ -137,8 +141,8 @@
       ],
       "rates": {
         "cloudRunRequest": "0.0000004",
-        "cloudRunVcpuSecond": "0.000018",
-        "cloudRunMemoryGibSecond": "0.000002",
+        "cloudRunVcpuSecond": "0.000024",
+        "cloudRunMemoryGibSecond": "0.0000025",
         "pubsubPerByte": "0.0000000000363797880709171295166015625",
         "cloudLoggingIngestionPerGib": "0.5",
         "cloudLoggingRetentionPerGibMonth": "0.01",

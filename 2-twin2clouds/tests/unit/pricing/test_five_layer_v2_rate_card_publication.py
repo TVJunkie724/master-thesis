@@ -18,6 +18,9 @@ from scripts.publish_five_layer_v2_rate_cards import (
 
 
 ROOT = Path(__file__).resolve().parents[3]
+RESEARCH_EVIDENCE_ROOT = (
+    ROOT.parent / "docs" / "research" / "evidence" / "phase_08_eventing"
+)
 BASELINE_ROOT = ROOT / "json" / "pricing_catalog_baselines"
 CAPACITY_REGISTRY = (
     ROOT
@@ -78,6 +81,45 @@ def test_publication_is_deterministic_and_covers_every_registered_dimension():
                 assert selectors <= registered[component_id]
 
     assert len(conversions) == 1
+
+
+def test_active_rates_match_reviewed_command_and_cloud_run_evidence():
+    source = _read(SOURCE_PATH)
+    source_ledger = _read(RESEARCH_EVIDENCE_ROOT / "source-ledger.json")
+    pricing_matrix = _read(RESEARCH_EVIDENCE_ROOT / "pricing-model-matrix.json")
+
+    command_fact = next(
+        fact
+        for entry in source_ledger["sources"]
+        for fact in entry.get("facts", [])
+        if fact["fact_id"] == "fact.aws.iot-command.execution"
+    )
+    intents = {
+        item["intent_id"]: item for item in pricing_matrix["price_intents"]
+    }
+
+    aws_rates = source["providers"]["aws"]["rates"]
+    assert Decimal(aws_rates["iotCommandExecution"]) == Decimal(
+        str(command_fact["value"])
+    )
+    assert Decimal(aws_rates["iotCommandFreeExecutions"]) == 0
+
+    gcp_rates = source["providers"]["gcp"]["rates"]
+    assert Decimal(gcp_rates["cloudRunRequest"]) == Decimal(
+        str(intents["intent.gcp.cloud-run.request"]["unit_price_usd"])
+    )
+    assert Decimal(gcp_rates["cloudRunVcpuSecond"]) == Decimal(
+        str(intents["intent.gcp.cloud-run.cpu"]["unit_price_usd"])
+    )
+    assert Decimal(gcp_rates["cloudRunMemoryGibSecond"]) == Decimal(
+        str(intents["intent.gcp.cloud-run.memory"]["unit_price_usd"])
+    )
+
+    _, snapshots = _expected_publication()
+    cloud_run = snapshots["gcp"].pricing[RATE_CARD_KEY]["componentRates"][
+        "gcp.cloud-run-service"
+    ]["variants"][0]
+    assert all(meter["freeQuantity"] == "0" for meter in cloud_run["meters"])
 
 
 def test_azure_iot_hub_uses_exact_frozen_scenario_capacity_prices():

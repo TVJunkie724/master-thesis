@@ -1,0 +1,1492 @@
+{
+  "pricing": {
+    "__evidence__": {
+      "fields": {
+        "cloudScheduler.jobPrice": {
+          "currency": "USD",
+          "fetched_at": "2026-07-17T00:00:00Z",
+          "field_path": "cloudScheduler.jobPrice",
+          "intent_id": "gcp.transition.cloud_scheduler",
+          "mapping_version": "2026.07.17",
+          "normalization_rule": "per_job_month",
+          "normalized_value": 0.1,
+          "provider": "gcp",
+          "registry_version": "2026.07.17",
+          "reproducible": true,
+          "request_scope": {
+            "billing_scope": "billing_account",
+            "free_allowance_allocation": "excluded_without_account_evidence",
+            "price_basis": "job_month"
+          },
+          "review_required": false,
+          "schema_version": "pricing-evidence.v1",
+          "selected_row": {
+            "description": "Cloud Scheduler job",
+            "price": 0.1,
+            "unit": "job_month"
+          },
+          "source_api": "gcp-cloud-scheduler-pricing-documentation",
+          "source_reference": {
+            "document_id": "gcp-cloud-scheduler-pricing",
+            "url": "https://cloud.google.com/scheduler/pricing"
+          },
+          "source_type": "official_cloud_evidence"
+        },
+        "transfer.catalog": {
+          "evidence_id": "gcp.transfer.17b2550c76fcff88ad9d2a1b79a576c592f804b751d4ad2c2ce8858d7cd0e857",
+          "fetched_at": "2026-07-17T17:54:56Z",
+          "intent_id": "transfer.egress_gb",
+          "mapping_version": "2026.07.18",
+          "pricing_region": "europe-west1",
+          "provider": "gcp",
+          "review_required": false,
+          "schema_version": "transfer-pricing-evidence.v1",
+          "selected_row_count": 3,
+          "selected_rows": [
+            {
+              "endQuantity": 1024,
+              "startQuantity": 0,
+              "tierId": "gcp-paid-1",
+              "unitPrice": 0.12
+            },
+            {
+              "endQuantity": 10240,
+              "startQuantity": 1024,
+              "tierId": "gcp-paid-2",
+              "unitPrice": 0.11
+            },
+            {
+              "endQuantity": null,
+              "startQuantity": 10240,
+              "tierId": "gcp-paid-3",
+              "unitPrice": 0.085
+            }
+          ],
+          "source_api": "gcp-official-pricing-reviewed-baseline",
+          "source_type": "reviewed_baseline",
+          "source_url": "https://cloud.google.com/skus/sku-groups/network-premium-gce-internet-egress"
+        }
+      },
+      "fiveLayerV2": {
+        "currency_source": {
+          "observedAt": "2026-08-11T09:10:00Z",
+          "providerUpdatedAt": "2026-08-11T00:02:31Z",
+          "sourceId": "open-er-api-usd-2026-08-11",
+          "url": "https://open.er-api.com/v6/latest/USD"
+        },
+        "rate_card_digest": "sha256:49d63171bb1cc1cbd94ae7432bf5d7a795caddaff90f72a472186b8ad3dc01cb",
+        "reviewed_at": "2026-08-25T16:58:12Z",
+        "schema_version": "five-layer-v2-rate-card-evidence.v1",
+        "source_manifest": "five_layer_v2_rate_card_sources.v2.json",
+        "source_manifest_digest": "sha256:6661ae96d6f53219235f70eff14f9c174f05078ae3503e784e3f0ea926d3b5aa",
+        "sources": [
+          {
+            "sourceId": "gcp-cloud-run-request-based-pricing",
+            "url": "https://cloud.google.com/run/pricing"
+          },
+          {
+            "sourceId": "gcp-pubsub-pricing",
+            "url": "https://cloud.google.com/pubsub/pricing"
+          },
+          {
+            "sourceId": "gcp-cloud-logging-pricing",
+            "url": "https://cloud.google.com/logging/pricing"
+          },
+          {
+            "sourceId": "gcp-vpc-network-pricing",
+            "url": "https://cloud.google.com/vpc/network-pricing"
+          },
+          {
+            "sourceId": "gcp-artifact-registry-pricing",
+            "url": "https://cloud.google.com/artifact-registry/pricing"
+          },
+          {
+            "sourceId": "gcp-gke-pricing",
+            "url": "https://cloud.google.com/kubernetes-engine/pricing"
+          }
+        ]
+      },
+      "provider": "gcp",
+      "schema_version": "pricing-generated-evidence.v1"
+    },
+    "__quality__": {
+      "fallback_fields": [
+        "apiGateway.pricePerMillionCalls",
+        "cloudWorkflows.stepPrice",
+        "functions.durationPrice",
+        "functions.freeComputeTime",
+        "functions.freeRequests",
+        "functions.requestPrice",
+        "grafana.e2MediumPrice",
+        "grafana.storagePrice",
+        "iot.pricePerDeviceAndMonth",
+        "iot.pricePerGiB",
+        "storage_archive.dataRetrievalPrice",
+        "storage_archive.lifecycleAndWritePrice",
+        "storage_archive.storagePrice",
+        "storage_cool.dataRetrievalPrice",
+        "storage_cool.requestPrice",
+        "storage_cool.storagePrice",
+        "storage_cool.upfrontPrice",
+        "storage_hot.freeStorage",
+        "storage_hot.readPrice",
+        "storage_hot.storagePrice",
+        "storage_hot.writePrice",
+        "twinmaker.e2MediumPrice",
+        "twinmaker.storagePrice"
+      ],
+      "field_sources": {
+        "apiGateway.pricePerMillionCalls": "fallback_static",
+        "cloudScheduler.jobPrice": "curated",
+        "cloudWorkflows.stepPrice": "fallback_static",
+        "functions.durationPrice": "fallback_static",
+        "functions.freeComputeTime": "fallback_static",
+        "functions.freeRequests": "fallback_static",
+        "functions.requestPrice": "fallback_static",
+        "grafana.e2MediumPrice": "fallback_static",
+        "grafana.storagePrice": "fallback_static",
+        "iot.pricePerDeviceAndMonth": "fallback_static",
+        "iot.pricePerGiB": "fallback_static",
+        "storage_archive.dataRetrievalPrice": "fallback_static",
+        "storage_archive.lifecycleAndWritePrice": "fallback_static",
+        "storage_archive.storagePrice": "fallback_static",
+        "storage_cool.dataRetrievalPrice": "fallback_static",
+        "storage_cool.requestPrice": "fallback_static",
+        "storage_cool.storagePrice": "fallback_static",
+        "storage_cool.upfrontPrice": "fallback_static",
+        "storage_hot.freeStorage": "fallback_static",
+        "storage_hot.readPrice": "fallback_static",
+        "storage_hot.storagePrice": "fallback_static",
+        "storage_hot.writePrice": "fallback_static",
+        "transfer.aggregation_semantics": "curated",
+        "transfer.billing_scope": "curated",
+        "transfer.billing_unit": "curated",
+        "transfer.bytes_per_billing_unit": "curated",
+        "transfer.currency": "curated",
+        "transfer.destination_geographies": "curated",
+        "transfer.evidence_id": "curated",
+        "transfer.network_tier": "curated",
+        "transfer.pricing_tiers": "curated",
+        "transfer.route_class": "curated",
+        "transfer.schema_version": "curated",
+        "transfer.source_geography": "curated",
+        "transfer.source_region": "curated",
+        "twinmaker.e2MediumPrice": "fallback_static",
+        "twinmaker.storagePrice": "fallback_static"
+      },
+      "quality_status": "review_required",
+      "review_required": true,
+      "unsupported_fields": []
+    },
+    "__schema__": {
+      "baseline_provenance": "phase_08_reviewed_rate_card_overlay",
+      "contract_version": "2026.07.18",
+      "generated_at": "2026-08-25T16:58:12Z",
+      "pricing_region": "europe-west1",
+      "provider": "gcp",
+      "schema_version": "pricing-provider-schema.v2",
+      "snapshot_digest": "sha256:92884a3c05f10e156a7c1e9ec60d6fde5e3e1d9051f6dfc3cd0a870fe50e2697"
+    },
+    "apiGateway": {
+      "pricePerMillionCalls": 3.0
+    },
+    "cloudScheduler": {
+      "jobPrice": 0.1
+    },
+    "cloudWorkflows": {
+      "stepPrice": 2.5e-05
+    },
+    "fiveLayerV2": {
+      "baseCurrency": "USD",
+      "componentRates": {
+        "apache.bifromq-4.0.0-incubating-on-gke-standard": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "node_hours",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0608511",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "hours/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "connected_devices": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "messages": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "node_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.artifact-registry-if-container-selected": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "resource_count",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "count"
+                }
+              ],
+              "nonBillableDimensions": {},
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.cloud-logging": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "log_ingestion_gib",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.5",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "GiB/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "retained_log_gib_month",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.01",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "GiB-month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.cloud-monitoring": {
+          "variants": [
+            {
+              "meters": [],
+              "nonBillableDimensions": {
+                "log_ingestion_gib": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "retained_log_gib_month": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.cloud-run-event-adapter": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "requests",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000004",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "requests/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "vcpu_seconds",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.000024",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "vCPU-s/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "memory_gib_seconds",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000025",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "GiB-s/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.cloud-run-event-service-small-medium": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "requests",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000004",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "requests/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "vcpu_seconds",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.000024",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "vCPU-s/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "memory_gib_seconds",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000025",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "GiB-s/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.cloud-run-iap-twin-explorer": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "requests",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000004",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "requests/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "vcpu_seconds",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.000024",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "vCPU-s/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "memory_gib_seconds",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000025",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "GiB-s/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "twin_entities": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "twin_operations": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.cloud-run-raw-history-reader": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "requests",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000004",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "requests/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "vcpu_seconds",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.000024",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "vCPU-s/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "memory_gib_seconds",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000025",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "GiB-s/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.cloud-run-service": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "requests",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000004",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "requests/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "vcpu_seconds",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.000024",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "vCPU-s/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "memory_gib_seconds",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000025",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "GiB-s/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.cloud-run-storage-job": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "task_count",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "14.256",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "count"
+                }
+              ],
+              "nonBillableDimensions": {
+                "memory_gib_seconds": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "requests": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "stored_gib_month": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "vcpu_seconds": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.cloud-run-twin-api-materializer": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "requests",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000004",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "requests/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "vcpu_seconds",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.000024",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "vCPU-s/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "memory_gib_seconds",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000025",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "GiB-s/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "twin_entities": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "twin_operations": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.cloud-run-worker-pool-fixed-large": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "requests",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000004",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "requests/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "vcpu_seconds",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.000024",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "vCPU-s/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "memory_gib_seconds",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000025",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "GiB-s/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.cloud-scheduler": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "scheduled_invocations",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0.1",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "invocations/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.cloud-storage-archive": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "stored_gib_month",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0014",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "GiB-month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.cloud-storage-nearline": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "stored_gib_month",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.011",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "GiB-month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.direct-iap-layer-access": {
+          "variants": [
+            {
+              "meters": [],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.external-load-balancer": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "rule_hours",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.025",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "hours/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "processed_bytes",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.000000000007450580596923828125",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "bytes/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.firestore-native-standard-bounded-twin": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "document_reads",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.00000033",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "operations/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "document_writes",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000018",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "operations/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "document_deletes",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.00000033",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "operations/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "stored_gib_month",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.135",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "GiB-month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "timestamp_shards": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "twin_entities": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "twin_operations": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.firestore-native-standard-raw-and-rollup": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "document_reads",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.00000033",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "operations/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "document_writes",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000018",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "operations/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "document_deletes",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.00000033",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "operations/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "stored_gib_month",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.135",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "GiB-month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "timestamp_shards": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.grafana-tls-load-balancer": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "rule_hours",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.025",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "hours/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "processed_bytes",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.000000000007450580596923828125",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "bytes/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "editor_seats": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "viewer_seats": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "workspace_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.ordered-mqtt-pubsub-adapter": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "node_hours",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0608511",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "hours/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "connected_devices": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "delivery_bytes": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "messages": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "node_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "publish_bytes": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.persistent-disk-rwo": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "stored_gib_month",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.04",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "GiB-month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.pubsub-separated-embedded-topics": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "publish_bytes",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000000000363797880709171295166015625",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "bytes/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "delivery_bytes",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000000000363797880709171295166015625",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "bytes/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.pubsub-separated-event-layer-topics": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "publish_bytes",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000000000363797880709171295166015625",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "bytes/month"
+                },
+                {
+                  "billingIncrement": "1",
+                  "dimension": "delivery_bytes",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0000000000363797880709171295166015625",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "bytes/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "gcp.workflows": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "workflow_transitions",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.000025",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "transitions/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "workflow_executions": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "grafana.oss-12-on-gke": {
+          "variants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1",
+                  "dimension": "node_hours",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0.0608511",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "hours/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "editor_seats": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "node_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "viewer_seats": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "workspace_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "grafana.yesoreyeram-infinity-datasource": {
+          "variants": [
+            {
+              "meters": [],
+              "nonBillableDimensions": {
+                "editor_seats": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "resource_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "viewer_seats": "not_a_separate_meter_in_the_reviewed_poc_rate_card",
+                "workspace_count": "not_a_separate_meter_in_the_reviewed_poc_rate_card"
+              },
+              "selectors": {}
+            }
+          ]
+        }
+      },
+      "currencyConversions": {
+        "EUR": "0.865948",
+        "USD": "1"
+      },
+      "formulaReference": "formula.phase-08-complete-service-bundles",
+      "routeRates": {
+        "domain_event_cross_cloud": {
+          "destinationVariants": [
+            {
+              "meters": [],
+              "nonBillableDimensions": {
+                "destination_operations": "priced_by_the_selected_destination_broker_component"
+              },
+              "selectors": {}
+            }
+          ],
+          "sourceVariants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1073741824",
+                  "dimension": "cross_cloud_egress_bytes",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0",
+                      "upTo": "1073741824"
+                    },
+                    {
+                      "pricePerUnit": "0.000000000111758708953857421875",
+                      "upTo": "1099511627776"
+                    },
+                    {
+                      "pricePerUnit": "0.00000000010244548320770263671875",
+                      "upTo": "10995116277760"
+                    },
+                    {
+                      "pricePerUnit": "0.000000000079162418842315673828125",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "bytes/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "source_runtime": "priced_by_the_selected_source_adapter_component"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "storage_cool_to_archive_cross_cloud": {
+          "destinationVariants": [
+            {
+              "meters": [],
+              "nonBillableDimensions": {
+                "destination_operations": "priced_by_the_selected_destination_broker_component"
+              },
+              "selectors": {}
+            }
+          ],
+          "sourceVariants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1073741824",
+                  "dimension": "cross_cloud_egress_bytes",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0",
+                      "upTo": "1073741824"
+                    },
+                    {
+                      "pricePerUnit": "0.000000000111758708953857421875",
+                      "upTo": "1099511627776"
+                    },
+                    {
+                      "pricePerUnit": "0.00000000010244548320770263671875",
+                      "upTo": "10995116277760"
+                    },
+                    {
+                      "pricePerUnit": "0.000000000079162418842315673828125",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "bytes/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "source_runtime": "priced_by_the_selected_source_adapter_component"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "storage_hot_to_cool_cross_cloud": {
+          "destinationVariants": [
+            {
+              "meters": [],
+              "nonBillableDimensions": {
+                "destination_operations": "priced_by_the_selected_destination_broker_component"
+              },
+              "selectors": {}
+            }
+          ],
+          "sourceVariants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1073741824",
+                  "dimension": "cross_cloud_egress_bytes",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0",
+                      "upTo": "1073741824"
+                    },
+                    {
+                      "pricePerUnit": "0.000000000111758708953857421875",
+                      "upTo": "1099511627776"
+                    },
+                    {
+                      "pricePerUnit": "0.00000000010244548320770263671875",
+                      "upTo": "10995116277760"
+                    },
+                    {
+                      "pricePerUnit": "0.000000000079162418842315673828125",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "bytes/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "source_runtime": "priced_by_the_selected_source_adapter_component"
+              },
+              "selectors": {}
+            }
+          ]
+        },
+        "twin_projection_cross_cloud": {
+          "destinationVariants": [
+            {
+              "meters": [],
+              "nonBillableDimensions": {
+                "destination_operations": "priced_by_the_selected_destination_broker_component"
+              },
+              "selectors": {}
+            }
+          ],
+          "sourceVariants": [
+            {
+              "meters": [
+                {
+                  "billingIncrement": "1073741824",
+                  "dimension": "cross_cloud_egress_bytes",
+                  "freeQuantity": "0",
+                  "minimumCharge": "0",
+                  "tiers": [
+                    {
+                      "pricePerUnit": "0",
+                      "upTo": "1073741824"
+                    },
+                    {
+                      "pricePerUnit": "0.000000000111758708953857421875",
+                      "upTo": "1099511627776"
+                    },
+                    {
+                      "pricePerUnit": "0.00000000010244548320770263671875",
+                      "upTo": "10995116277760"
+                    },
+                    {
+                      "pricePerUnit": "0.000000000079162418842315673828125",
+                      "upTo": null
+                    }
+                  ],
+                  "unit": "bytes/month"
+                }
+              ],
+              "nonBillableDimensions": {
+                "source_runtime": "priced_by_the_selected_source_adapter_component"
+              },
+              "selectors": {}
+            }
+          ]
+        }
+      },
+      "schemaVersion": "five-layer-v2-rate-card.v2"
+    },
+    "functions": {
+      "durationPrice": 2.5e-06,
+      "freeComputeTime": 400000,
+      "freeRequests": 2000000,
+      "requestPrice": 4e-07
+    },
+    "grafana": {
+      "e2MediumPrice": 0.0608511,
+      "editorPrice": 0,
+      "storagePrice": 0.2,
+      "viewerPrice": 0
+    },
+    "iot": {
+      "pricePerDeviceAndMonth": 0,
+      "pricePerGiB": 0.0390625
+    },
+    "storage_archive": {
+      "dataRetrievalPrice": 0.05,
+      "lifecycleAndWritePrice": 6.5e-05,
+      "storagePrice": 0.0014
+    },
+    "storage_cool": {
+      "dataRetrievalPrice": 0.01,
+      "requestPrice": 2.6e-05,
+      "storagePrice": 0.011,
+      "upfrontPrice": 0.0
+    },
+    "storage_hot": {
+      "freeStorage": 1,
+      "readPrice": 3.3e-07,
+      "storagePrice": 0.135,
+      "writePrice": 1.8e-06
+    },
+    "transfer": {
+      "aggregation_semantics": "sku_account_aggregate_public_egress",
+      "billing_scope": "sku_account_aggregate_public_egress",
+      "billing_unit": "gib",
+      "bytes_per_billing_unit": 1073741824,
+      "currency": "USD",
+      "destination_geographies": [
+        "europe"
+      ],
+      "evidence_id": "gcp.transfer.17b2550c76fcff88ad9d2a1b79a576c592f804b751d4ad2c2ce8858d7cd0e857",
+      "network_tier": "premium",
+      "pricing_tiers": [
+        {
+          "end_quantity": 1,
+          "start_quantity": 0,
+          "tier_id": "free-allowance",
+          "unit": "gib",
+          "unit_price": 0
+        },
+        {
+          "end_quantity": 1024,
+          "start_quantity": 1,
+          "tier_id": "gcp-paid-1",
+          "unit": "gib",
+          "unit_price": 0.12
+        },
+        {
+          "end_quantity": 10240,
+          "start_quantity": 1024,
+          "tier_id": "gcp-paid-2",
+          "unit": "gib",
+          "unit_price": 0.11
+        },
+        {
+          "end_quantity": null,
+          "start_quantity": 10240,
+          "tier_id": "gcp-paid-3",
+          "unit": "gib",
+          "unit_price": 0.085
+        }
+      ],
+      "route_class": "cross_provider_public_internet",
+      "schema_version": "transfer-pricing-catalog.v1",
+      "source_geography": "europe",
+      "source_region": "europe-west1"
+    },
+    "twinmaker": {
+      "e2MediumPrice": 0.0608511,
+      "entityPrice": 0,
+      "queryPrice": 0,
+      "storagePrice": 0.2,
+      "unifiedDataAccessAPICallsPrice": 0
+    }
+  },
+  "reference": {
+    "calculation_source": "reviewed_baseline",
+    "content_digest": "sha256:92884a3c05f10e156a7c1e9ec60d6fde5e3e1d9051f6dfc3cd0a870fe50e2697",
+    "contract_version": "2026.07.18",
+    "fetched_at": "2026-08-25T16:58:12Z",
+    "mapping_versions": [
+      "2026.06.08",
+      "2026.07.18"
+    ],
+    "pricing_region": "europe-west1",
+    "provider": "gcp",
+    "provider_schema_version": "pricing-provider-schema.v2",
+    "publication_status": "published",
+    "registry_version": "2026.07.17",
+    "review_status": "reviewed",
+    "schema_version": "pricing-catalog-reference.v1",
+    "snapshot_id": "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd",
+    "source": "reviewed_baseline"
+  },
+  "schema_version": "pricing-catalog-snapshot.v2"
+}

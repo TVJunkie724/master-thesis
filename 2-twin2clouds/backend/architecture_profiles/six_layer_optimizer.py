@@ -180,10 +180,10 @@ def optimize_six_layer_eventing_v1(
     strategy.validate_request(context)
     candidates = strategy.enumerate_candidates(context)
     rejections = RejectionCollector()
-    complete_candidates = {}
     costed_candidates = []
     specifications = {}
     cost_ledgers = {}
+    resolved_architectures = {}
     for candidate in candidates:
         try:
             complete = strategy.validate_functional_completeness(candidate, context)
@@ -247,6 +247,15 @@ def optimize_six_layer_eventing_v1(
                 canonical_assignment_key=tuple(sorted(assignment.items())),
                 evaluation=evaluation,
             )
+            resolved_architecture = strategy.build_resolution(
+                SixLayerEventingV1ResolutionWinner(
+                    candidate=complete,
+                    costed_candidate=costed,
+                    deployment_specification=specification,
+                    pricing_evidence_refs=selected_pricing_refs,
+                ),
+                context,
+            )
         except (ArchitectureResolutionError, KeyError) as exc:
             code = (
                 exc.code
@@ -255,9 +264,9 @@ def optimize_six_layer_eventing_v1(
             )
             rejections.record(code, candidate.candidate_id)
             continue
-        complete_candidates[candidate.candidate_id] = complete
         specifications[candidate.candidate_id] = specification
         cost_ledgers[candidate.candidate_id] = dict(ledger)
+        resolved_architectures[candidate.candidate_id] = resolved_architecture
         costed_candidates.append(costed)
     if not costed_candidates:
         raise ArchitectureResolutionError(
@@ -268,22 +277,8 @@ def optimize_six_layer_eventing_v1(
             diagnostics=rejections.freeze(),
         )
     winner = select_lowest_cost_five_layer_v2_candidate(tuple(costed_candidates))
-    complete_winner = complete_candidates[winner.candidate_id]
     specification = specifications[winner.candidate_id]
-    used_providers = {
-        option.provider for option in complete_winner.candidate.components
-    }
-    resolved_architecture = strategy.build_resolution(
-        SixLayerEventingV1ResolutionWinner(
-            candidate=complete_winner,
-            costed_candidate=winner,
-            deployment_specification=specification,
-            pricing_evidence_refs={
-                provider: pricing_evidence_refs[provider] for provider in used_providers
-            },
-        ),
-        context,
-    )
+    resolved_architecture = resolved_architectures[winner.candidate_id]
     frozen_rejections = rejections.freeze()
     return SixLayerEventingV1OptimizationResult(
         resolved_architecture=resolved_architecture,

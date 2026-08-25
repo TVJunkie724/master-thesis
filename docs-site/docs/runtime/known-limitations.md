@@ -85,13 +85,14 @@ estimation model, not provider invoice reconciliation: it does not import
 unrelated account traffic, negotiated discounts, taxes, or billing exports.
 
 Destination glue free tiers are aggregated across glue routes in one
-calculation. Existing provider layer calculators still price several
-serverless components independently, so account-wide request and compute
-allowances shared between layer functions, glue functions, and unrelated
-workloads are not yet reconciled as one provider invoice pool. This must be
-measured and corrected, where material, under
-[formula validation issue #42](https://github.com/TVJunkie724/master-thesis/issues/42)
-before final thesis evaluation and supervised E2E.
+calculation. The active Phase 8 provider rate cards deliberately exclude
+account-wide serverless request and compute grants, including AWS IoT Commands
+and Cloud Run request-based grants. This conservative policy avoids assigning
+one billing-account allowance independently to multiple layer or supporting
+components. The resulting totals are reproducible list-price estimates rather
+than invoice predictions; free-tier materiality and winner sensitivity remain
+explicit evaluation dimensions under
+[formula validation issue #42](https://github.com/TVJunkie724/master-thesis/issues/42).
 
 Storage mover runtime ownership is now explicit in calculation, evidence,
 resolved specification, Management validation, and Deployer tfvar translation.

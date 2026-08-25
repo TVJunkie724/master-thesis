@@ -1583,7 +1583,7 @@ def generate_markdown(
         "inside one profile only. Fixed shared resources are charged once to their "
         "declared cost owner without consumer apportionment. Same-provider bridge and "
         "egress totals are zero.\n\n",
-        "| Size | Profile | Winner | Estimated total | Independent Event Layer | Candidates costed |\n",
+        "| Size | Profile | Winner | Estimated total | Independent Event Layer | Fully admitted candidates |\n",
         "|---|---|---|---:|---:|---:|\n",
     ]
     for size in SIZES:

@@ -1,10 +1,19 @@
-# Aktuelle Architektur-Schulden und Refactoring-Roadmap
+# Historischer Architektur-Audit vom 26. April 2026
+
+> **Archivstatus:** Dieses Dokument ist ein historischer Befund und keine
+> aktuelle Produkt- oder Thesis-Roadmap. Zahlreiche Findings wurden bis zum
+> Phase-8-Freeze behoben oder durch versionierte Contracts, CloudConnections,
+> Operation Packages und die kanonische `docs-site/`-Dokumentation ersetzt.
+> Aktive Abschlussarbeit wird über die Forschungsfragen, das eingefrorene
+> Phase-8-Evidence-Package und GitHub Issues gesteuert. Offene Altfindings sind
+> nicht automatisch Teil des Thesis-Scopes.
 
 **Datum:** 2026-04-26
 **Scope:** `2-twin2clouds` (Brain), `3-cloud-deployer` (Muscle), `twin2multicloud_backend` + `twin2multicloud_flutter` (Orchestrator)
 **Ziel:** Alle gravierenden Architektur-Schulden benennen, nach Risiko priorisieren und eine Roadmap definieren, um sie schrittweise aufzulösen.
 
-Dieses Dokument beschreibt nur den **aktuellen Befund**. Bereits erledigte Altlasten wie `2-twin2clouds/backend/deprecated_calculation/`, doppelte Backend-Entry-Points im Management API und archivierte alte Implementation Plans sind hier nicht mehr als offene Findings enthalten.
+Dieses Dokument beschreibt den Befund zum **26. April 2026**. Es darf nicht als
+Beschreibung des heutigen Implementierungsstands gelesen werden.
 
 ---
 
