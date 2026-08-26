@@ -8,6 +8,9 @@ For agent/contributor workflow rules, see [ONBOARDING.md](ONBOARDING.md).
 For the canonical published user and developer documentation site, see
 [`docs-site/`](docs-site/). Research reasoning and material for later thesis synthesis
 live separately under [`docs/research/`](docs/research/).
+The final research-PoC boundary is defined by the
+[target concept](docs/plans/2026-08-26_thesis_poc_target_concept.md) and its
+[dependency-ordered execution plan](docs/plans/2026-08-26_thesis_poc_execution_plan.md).
 
 ---
 
@@ -24,9 +27,9 @@ live separately under [`docs/research/`](docs/research/).
 
 ---
 
-## Current Architecture Profiles
+## Current Six-Layer Contract
 
-The closed Phase 8 catalog exposes one profile for new offline calculations:
+The closed Phase 8 path uses one contract for new calculations:
 `six-layer-eventing@1`. It owns the complete L1-L5 service composition and an
 independently assigned Eventing responsibility for brokered delivery, fan-out,
 retry/DLQ, replay, ordering, observability, and cross-cloud routes.

@@ -9,12 +9,16 @@ The intermediate runtime profile was removed. The original Five-layer model is
 retained only as the Optimizer's historical baseline implementation and is not
 published through shared contracts, Management, Deployer, Terraform, or Flutter.
 
-Credential provisioning is also outside Phase 8. Operators provide a
-preconfigured administrator credential for the supervised PoC; the retained
-security boundary is documented in `docs/plans/2026-08-26_poc_credentials.md`.
+Operators provide a preconfigured administrator credential for the supervised
+PoC. Twin2MultiCloud may use it for graph-derived readiness and a bounded set
+of explicitly confirmed provider-preparation actions; creating, rotating, and
+revoking the deployment authority remains outside scope. The retained security
+boundary is documented in `docs/plans/2026-08-26_poc_credentials.md`.
 
 ## Active sources
 
+- `docs/plans/2026-08-26_thesis_poc_target_concept.md`
+- `docs/plans/2026-08-26_thesis_poc_execution_plan.md`
 - `docs/plans/2026-08-25_six_layer_only_architecture.md`
 - `docs/plans/2026-08-26_poc_credentials.md`
 - `docs/research/evidence/phase_08_eventing/`

@@ -1,5 +1,13 @@
 # Project Vision: Twin2MultiCloud
 
+Planning status: this document still describes the current integrated system.
+The binding final-thesis scope is the
+[Thesis PoC Target Concept](docs/plans/2026-08-26_thesis_poc_target_concept.md),
+implemented in the order defined by the
+[Thesis PoC Execution Plan](docs/plans/2026-08-26_thesis_poc_execution_plan.md).
+Capabilities scheduled for removal remain current-state descriptions until
+their implementation phase and documentation cleanup are complete.
+
 ## 1. The Core Vision
 **Twin2MultiCloud** is a unified application designed to bridge the gap between theoretical cost optimization and practical multi-cloud infrastructure deployment.
 
