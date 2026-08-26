@@ -95,13 +95,14 @@ def test_default_registry_enables_only_cost_profile_and_metric():
     assert "sustainability" not in registry.metric_providers
 
 
-def test_disabled_profile_cannot_be_selected_for_execution():
+def test_non_cost_profile_is_not_declared_or_selectable():
     registry = build_default_profile_registry(FakePricingRegistryService())
 
+    assert set(registry.list_profiles()) == {"cost_minimization_v1"}
     with pytest.raises(OptimizationConfigError) as exc:
         registry.select_profile("latency_minimization_v1")
 
-    assert "disabled" in str(exc.value)
+    assert "Unknown optimization profile" in str(exc.value)
 
 
 def test_unknown_active_profile_fails_validation():
@@ -184,15 +185,15 @@ def test_unknown_enabled_intent_group_fails_validation():
     assert "unknown registry intent group latency" in str(exc.value)
 
 
-def test_disabled_metric_declarations_do_not_produce_result_objects():
+def test_non_cost_metric_declarations_are_absent():
     registry = build_default_profile_registry(FakePricingRegistryService())
 
-    assert registry.metric_declarations["latency"].enabled is False
+    assert set(registry.metric_declarations) == {"cost"}
     with pytest.raises(OptimizationConfigError):
         registry.get_metric_provider("latency")
 
 
-def test_disabled_tbd_profiles_do_not_affect_active_profile_metadata():
+def test_cost_profile_metadata_contains_no_future_objectives():
     registry = build_default_profile_registry(FakePricingRegistryService())
 
     metadata = registry.build_result_metadata()

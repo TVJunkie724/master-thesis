@@ -100,13 +100,6 @@ DEFAULT_SCORING_STRATEGY_DECLARATIONS: dict[str, ScoringStrategyDeclaration] = {
         compatible_metric_provider_ids=("cost",),
         description="Selects the candidate with the lowest monthly cost.",
     ),
-    "weighted_sum_v1": ScoringStrategyDeclaration(
-        strategy_id="weighted_sum_v1",
-        enabled=False,
-        compatible_metric_provider_ids=("cost", "latency"),
-        status="tbd",
-        description="Future multi-objective weighted score. Declarative only.",
-    ),
 }
 
 
@@ -114,7 +107,5 @@ DEFAULT_SCORING_STRATEGIES: dict[str, ScoringStrategy] = {
     "min_total_cost_v1": CostOnlyScoringStrategy(),
 }
 
-# TODO(future-optimization-entrypoint): Add concrete ScoringStrategy instances
-# here only when all compatible metric providers and calculation models are
-# implemented. Multi-objective scoring must document weights and remain tied to
-# an explicit OptimizationProfile.
+# The strategy protocol remains the extension pattern; only monetary cost has
+# a runtime declaration and implementation in this thesis PoC.

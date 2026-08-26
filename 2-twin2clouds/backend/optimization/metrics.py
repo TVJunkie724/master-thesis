@@ -6,7 +6,6 @@ from typing import Any, Protocol
 
 from backend.optimization.context import OptimizationMetricContext
 
-
 ALLOWED_EVIDENCE_LEVELS = {
     "api_backed",
     "official_documentation",
@@ -99,22 +98,6 @@ DEFAULT_METRIC_DECLARATIONS: dict[str, MetricProviderDeclaration] = {
         required_inputs=("cost",),
         description="Monthly cost derived from evidence-backed provider pricing.",
     ),
-    "latency": MetricProviderDeclaration(
-        metric_id="latency",
-        enabled=False,
-        evidence_level="tbd",
-        required_inputs=("latency_ms",),
-        status="tbd",
-        description="Future latency objective. Declarative only in this thesis slice.",
-    ),
-    "sustainability": MetricProviderDeclaration(
-        metric_id="sustainability",
-        enabled=False,
-        evidence_level="tbd",
-        required_inputs=("carbon_score",),
-        status="tbd",
-        description="Future sustainability objective. Declarative only in this thesis slice.",
-    ),
 }
 
 
@@ -122,7 +105,5 @@ DEFAULT_METRIC_PROVIDERS: dict[str, MetricProvider] = {
     "cost": CostMetricProvider(),
 }
 
-# TODO(future-optimization-entrypoint): Register concrete non-cost
-# MetricProvider implementations here after they can produce evidence-backed,
-# numeric MetricResult values. Keep declarations disabled until the provider is
-# implemented and profile validation proves it belongs to an enabled profile.
+# Future metrics can implement this contract once they have evidence-backed
+# values; they are not predeclared in the thesis runtime.

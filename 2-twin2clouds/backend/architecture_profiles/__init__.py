@@ -1,17 +1,16 @@
 """Dark architecture-profile resolution contracts for the Optimizer."""
 
 from .capability_resolver import CapabilityReport, resolve_provider_capabilities
-from .five_layer_strategy import (
-    FiveLayerCompletePathStrategy,
-    build_default_strategy_registry,
-    validate_architecture_strategy_readiness,
-)
+from .five_layer_strategy import FiveLayerCompletePathStrategy
 from .registry import ArchitectureProfileRegistry
+from .six_layer_strategy import (
+    SixLayerEventingV1CandidateStrategy,
+    validate_six_layer_strategy_readiness,
+)
 from .strategy import (
     ArchitectureOptimizationStrategy,
     ArchitectureProfileRef,
     ArchitectureResolutionContext,
-    ArchitectureStrategyRegistry,
     ExtensionBindingRef,
     OptimizationBundleRef,
     build_resolution_context,
@@ -19,16 +18,15 @@ from .strategy import (
 
 __all__ = [
     "ArchitectureOptimizationStrategy",
-    "ArchitectureProfileRegistry",
     "ArchitectureProfileRef",
+    "ArchitectureProfileRegistry",
     "ArchitectureResolutionContext",
-    "ArchitectureStrategyRegistry",
     "CapabilityReport",
     "ExtensionBindingRef",
     "FiveLayerCompletePathStrategy",
     "OptimizationBundleRef",
-    "build_default_strategy_registry",
+    "SixLayerEventingV1CandidateStrategy",
     "build_resolution_context",
     "resolve_provider_capabilities",
-    "validate_architecture_strategy_readiness",
+    "validate_six_layer_strategy_readiness",
 ]

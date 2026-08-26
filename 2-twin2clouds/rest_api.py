@@ -10,16 +10,23 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.logger import logger
+# Import API routers
+from api import (
+    calculation,
+    capabilities,
+    credentials,
+    file_status,
+    pricing,
+    pricing_registry,
+    regions,
+    validation,
+)
 from backend.architecture_profiles import (
-    validate_architecture_strategy_readiness,
+    validate_six_layer_strategy_readiness,
 )
 from backend.config_loader import load_config_file
+from backend.logger import logger
 from backend.pricing_catalog_repository import get_pricing_catalog_repository
-
-# Import API routers
-from api import capabilities, calculation, pricing, pricing_registry, regions, file_status, credentials, validation
-
 
 # =============================================================================
 # Lifespan Context Manager (replaces deprecated on_event)
@@ -32,7 +39,7 @@ async def lifespan(app: FastAPI):
         logger.info("🚀 Starting Twin2Clouds API...")
         load_config_file()
         get_pricing_catalog_repository().verify_readiness()
-        validate_architecture_strategy_readiness()
+        validate_six_layer_strategy_readiness()
         logger.info("✅ API ready.")
     except Exception:
         logger.exception("Optimizer startup readiness failed")

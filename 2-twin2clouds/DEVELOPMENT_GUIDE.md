@@ -55,10 +55,11 @@ evidence, normalization metadata, formula references, and result traces.
 
 ## Extension Points
 
-New optimization objectives belong in the established extension points under
-`backend/optimization/` and must bind a compatible metric provider,
-calculation model, scoring strategy, pricing intent group, formula set, workload
-contract, and result schema. Disabled declarations are not executable features.
+The thesis runtime contains only the monetary-cost implementation under
+`backend/optimization/`. A future objective can reuse the metric, calculation,
+and scoring boundaries only after its evidence, formula, workload, result, and
+regression contracts exist; inactive declarations do not belong in runtime
+configuration.
 
 New provider layer calculators return the canonical
 `backend.calculation_v2.layers.LayerResult` contract. Unsupported capabilities

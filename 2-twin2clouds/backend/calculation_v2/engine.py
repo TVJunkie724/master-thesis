@@ -18,23 +18,44 @@ from decimal import Decimal, InvalidOperation
 from math import isfinite
 from typing import Any, Dict
 
-from backend.calculation_v2.layers import (
-    AWSLayerCalculators,
-    AzureLayerCalculators,
-    GCPLayerCalculators,
-    LayerResult,
-    SUPPORTED_LAYER_KEYS,
-    SUPPORTED_PROVIDER_KEYS,
+from backend.architecture_profiles.completeness import (
+    CompleteArchitectureCandidate,
+)
+from backend.architecture_profiles.diagnostics import (
+    ArchitectureResolutionError,
+    RejectionCollector,
+)
+from backend.architecture_profiles.five_layer_strategy import (
+    FIVE_LAYER_PROFILE_REF,
+    FiveLayerCompletePathStrategy,
+)
+from backend.architecture_profiles.resolution_builder import (
+    ArchitectureResolutionWinner,
+)
+from backend.architecture_profiles.six_layer_strategy import (
+    SIX_LAYER_EVENTING_V1_PROFILE_REF,
+    SixLayerEventingV1CandidateStrategy,
+)
+from backend.architecture_profiles.strategy import (
+    ArchitectureResolutionContext,
 )
 from backend.calculation_v2.currency import apply_result_currency
 from backend.calculation_v2.formulas import (
     billable_1kb_units,
 )
+from backend.calculation_v2.layers import (
+    SUPPORTED_LAYER_KEYS,
+    SUPPORTED_PROVIDER_KEYS,
+    AWSLayerCalculators,
+    AzureLayerCalculators,
+    GCPLayerCalculators,
+    LayerResult,
+)
 from backend.calculation_v2.path_optimizer import (
     LAYER_ORDER,
     build_optimization_diagnostics,
-    build_transition_runtime_context,
     build_transfer_pricing_context,
+    build_transition_runtime_context,
     evaluate_complete_paths,
 )
 from backend.calculation_v2.strategy_context import (
@@ -43,6 +64,8 @@ from backend.calculation_v2.strategy_context import (
 )
 from backend.calculation_v2.strategy_traceability import (
     TRACE_SCHEMA_VERSION as STRATEGY_TRACE_SCHEMA_VERSION,
+)
+from backend.calculation_v2.strategy_traceability import (
     build_intent_result_trace as build_strategy_result_trace,
 )
 from backend.calculation_v2.traceability import (
@@ -53,30 +76,13 @@ from backend.calculation_v2.transfer_pricing import (
     TransferPricingContractError,
     TransferRouteClass,
 )
+from backend.executable_topology import ensure_executable_error_handling_topology
 from backend.optimization.context import OptimizationMetricContext
 from backend.optimization.profiles import build_default_profile_registry
 from backend.optimization.scoring import OptimizationCandidate
-from backend.architecture_profiles.completeness import (
-    CompleteArchitectureCandidate,
-)
-from backend.architecture_profiles.diagnostics import (
-    ArchitectureResolutionError,
-    RejectionCollector,
-)
-from backend.architecture_profiles.five_layer_strategy import (
-    build_default_strategy_registry,
-)
-from backend.architecture_profiles.resolution_builder import (
-    ArchitectureResolutionWinner,
-)
-from backend.architecture_profiles.strategy import (
-    ArchitectureResolutionContext,
-)
-from backend.executable_topology import ensure_executable_error_handling_topology
 from backend.pricing_catalog_models import PricingCatalogContext
 from backend.pricing_registry_service import PricingRegistryService
 from backend.transfer_catalog import validate_transfer_catalog
-
 
 # =============================================================================
 # Calculator Instances
@@ -726,10 +732,20 @@ def calculate_cheapest_costs(
                 for provider in ("aws", "azure", "gcp")
             },
         )
-        strategy_registry = build_default_strategy_registry(bound_architecture_context)
-        architecture_strategy = strategy_registry.resolve(
-            bound_architecture_context.profile
-        )
+        if bound_architecture_context.profile_ref == SIX_LAYER_EVENTING_V1_PROFILE_REF:
+            architecture_strategy = SixLayerEventingV1CandidateStrategy(
+                bound_architecture_context.profile
+            )
+        elif bound_architecture_context.profile_ref == FIVE_LAYER_PROFILE_REF:
+            architecture_strategy = FiveLayerCompletePathStrategy(
+                bound_architecture_context.profile
+            )
+        else:
+            raise ArchitectureResolutionError(
+                "ARCH_PROFILE_BUNDLE_INCOMPATIBLE",
+                "architectureProfile",
+                "No cost strategy supports the immutable architecture contract",
+            )
         architecture_strategy.validate_request(bound_architecture_context)
         architecture_candidates = architecture_strategy.enumerate_candidates(
             bound_architecture_context

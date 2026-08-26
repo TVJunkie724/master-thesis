@@ -31,7 +31,7 @@ Management API
        -> provider fetchers
        -> normalized pricing snapshots
        -> calculation strategy + formulas
-       -> architecture profile strategy + completeness gate
+       -> fixed Six-layer strategy + completeness gate
        -> cost result + trace evidence
        -> resolved deployment specification + resolved architecture
 ```
@@ -138,10 +138,10 @@ source-provider billing pool, and passes those totals to the active scoring
 strategy. Unsupported routes and capabilities fail closed rather than entering
 selection as zero-cost alternatives.
 
-### Architecture-Profile Resolution
+### Six-Layer Resolution
 
-Phase 8.5 adds a closed strategy registry under
-`backend/architecture_profiles/`. When
+The closed Six-layer resolver lives under `backend/architecture_profiles/`.
+When
 `ARCHITECTURE_PROFILE_RESOLUTION_ENABLED=true`, `PUT /calculate` additionally
 requires the exact Management-owned `architectureProfile` reference and the
 complete immutable `extensionBindings` set. The Optimizer:
@@ -210,7 +210,7 @@ a provider invoice or live-capacity result.
 | Path | Purpose |
 |---|---|
 | `api/` | FastAPI transport adapters |
-| `backend/architecture_profiles/` | Closed profile registry, candidate/completeness strategy, diagnostics, and resolution builder |
+| `backend/architecture_profiles/` | Fixed Six-layer candidate/completeness strategy, diagnostics, and resolution builder; historical Five-layer adapter |
 | `backend/calculation_v2/` | Calculation engine, formulas, layer contracts, traceability |
 | `backend/optimization/` | Metrics, profiles, scoring, and extension points |
 | `backend/fetch_data/` | Provider pricing adapters and refresh orchestration |

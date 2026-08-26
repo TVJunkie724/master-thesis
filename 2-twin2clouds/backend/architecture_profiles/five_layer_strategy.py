@@ -8,8 +8,8 @@ from typing import Any, Mapping
 from backend.calculation_v2.path_optimizer import CompletePathEvaluation
 
 from .candidate_factory import (
-    ArchitectureCandidate,
     BASELINE_LAYER_COMPONENTS,
+    ArchitectureCandidate,
     enumerate_component_candidates,
 )
 from .completeness import (
@@ -23,7 +23,6 @@ from .resolution_builder import ResolvedTwinArchitectureBuilder
 from .strategy import (
     ArchitectureProfileRef,
     ArchitectureResolutionContext,
-    ArchitectureStrategyRegistry,
     OptimizationBundleRef,
 )
 
@@ -140,44 +139,3 @@ class FiveLayerCompletePathStrategy:
             winner=winner,
             context=context,
         )
-
-
-def build_default_strategy_registry(
-    context: ArchitectureResolutionContext,
-) -> ArchitectureStrategyRegistry:
-    return _build_strategy_registry(context.profile)
-
-
-def validate_architecture_strategy_readiness(
-    registry=None,
-) -> ArchitectureStrategyRegistry:
-    """Load and resolve the exact reviewed strategy during API startup."""
-
-    if registry is None:
-        from .registry import ArchitectureProfileRegistry
-
-        registry = ArchitectureProfileRegistry()
-    return _build_strategy_registry(registry.profile)
-
-
-def _build_strategy_registry(
-    profile: Mapping[str, Any],
-) -> ArchitectureStrategyRegistry:
-    profile_ref = (
-        str(profile.get("profile_id")),
-        str(profile.get("profile_version")),
-    )
-    if profile_ref == ("six-layer-eventing", "1"):
-        from .six_layer_strategy import SixLayerEventingV1CandidateStrategy
-
-        strategy = SixLayerEventingV1CandidateStrategy(profile)
-    else:
-        strategy = FiveLayerCompletePathStrategy(profile)
-    registry = ArchitectureStrategyRegistry()
-    registry.register(
-        profile,
-        strategy,
-    )
-    registry.freeze()
-    registry.resolve(profile)
-    return registry

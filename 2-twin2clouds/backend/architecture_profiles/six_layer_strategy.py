@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from .candidate_factory import (
-    ArchitectureCandidate,
     SIX_LAYER_COMPONENTS,
+    ArchitectureCandidate,
     enumerate_component_candidates,
 )
 from .completeness import (
@@ -17,14 +17,13 @@ from .completeness import (
     validate_candidate_completeness,
 )
 from .diagnostics import ArchitectureResolutionError
-from .six_layer_costing import SixLayerCostEvaluation, SixLayerCostedCandidate
+from .six_layer_costing import SixLayerCostedCandidate, SixLayerCostEvaluation
 from .six_layer_resolution_builder import SixLayerResolutionBuilder
 from .strategy import (
     ArchitectureProfileRef,
     ArchitectureResolutionContext,
     OptimizationBundleRef,
 )
-
 
 SIX_LAYER_EVENTING_V1_PROFILE_REF = ArchitectureProfileRef(
     profile_id="six-layer-eventing",
@@ -183,3 +182,13 @@ class SixLayerEventingV1CandidateStrategy:
             cost_evaluation=winner.costed_candidate.evaluation,
             pricing_evidence_refs=winner.pricing_evidence_refs,
         )
+
+
+def validate_six_layer_strategy_readiness(registry=None) -> SixLayerEventingV1CandidateStrategy:
+    """Load and validate the sole deployable strategy during API startup."""
+
+    if registry is None:
+        from .registry import ArchitectureProfileRegistry
+
+        registry = ArchitectureProfileRegistry()
+    return SixLayerEventingV1CandidateStrategy(registry.profile)

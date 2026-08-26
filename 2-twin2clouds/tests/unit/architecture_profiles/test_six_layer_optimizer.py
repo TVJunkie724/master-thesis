@@ -10,31 +10,32 @@ from pathlib import Path
 import pytest
 
 from backend.architecture_profiles.diagnostics import ArchitectureResolutionError
-from backend.architecture_profiles.six_layer_optimizer import PROVIDER_REGIONS
+from backend.architecture_profiles.registry import ArchitectureProfileRegistry
 from backend.architecture_profiles.six_layer_costing import (
     evaluate_six_layer_costs,
+)
+from backend.architecture_profiles.six_layer_optimizer import (
+    PROVIDER_REGIONS,
+    SIX_LAYER_KEYS,
+    optimize_six_layer_eventing_v1,
 )
 from backend.architecture_profiles.six_layer_pricing import (
     SixLayerCatalogCostLedgerResolver,
 )
+from backend.architecture_profiles.six_layer_strategy import (
+    SixLayerEventingV1CandidateStrategy,
+)
 from backend.architecture_profiles.six_layer_workload import (
     CONTRACT_ROOT as WORKLOAD_ROOT,
+)
+from backend.architecture_profiles.six_layer_workload import (
     resolve_six_layer_workload,
 )
-from backend.architecture_profiles.registry import ArchitectureProfileRegistry
-from backend.architecture_profiles.six_layer_optimizer import (
-    SIX_LAYER_KEYS,
-    optimize_six_layer_eventing_v1,
-)
 from backend.architecture_profiles.strategy import build_resolution_context
-from backend.architecture_profiles.five_layer_strategy import (
-    build_default_strategy_registry,
-)
 from backend.deployment_specification.six_layer_builder import (
     SIX_LAYER_LOGICAL_COMPONENTS,
     build_six_layer_eventing_v1_deployment_specification,
 )
-
 
 RUN_ID = "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01"
 BASELINE_ROOT = (
@@ -228,7 +229,7 @@ def _placement_rds(
     return assignment, specification
 
 
-def test_registry_and_strategy_enumerate_only_colocated_l3_hot_l5_candidates():
+def test_six_layer_strategy_enumerates_only_colocated_l3_hot_l5_candidates():
     registry = _registry()
     context = build_resolution_context(
         registry=registry,
@@ -240,7 +241,7 @@ def test_registry_and_strategy_enumerate_only_colocated_l3_hot_l5_candidates():
         layer_options={layer: (("AWS", 0), ("Azure", 0)) for layer in SIX_LAYER_KEYS},
         provider_regions=PROVIDER_REGIONS,
     )
-    strategy = build_default_strategy_registry(context).resolve(context.profile)
+    strategy = SixLayerEventingV1CandidateStrategy(context.profile)
     candidates = strategy.enumerate_candidates(context)
 
     assert len(candidates) == 128

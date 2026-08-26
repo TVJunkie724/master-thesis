@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
 from backend.deployment_specification.six_layer_builder import (
@@ -11,22 +11,23 @@ from backend.deployment_specification.six_layer_builder import (
 )
 
 from .diagnostics import ArchitectureResolutionError, RejectionCollector
-from .five_layer_strategy import build_default_strategy_registry
+from .registry import DEFINITIONS_ROOT, ArchitectureProfileRegistry
 from .six_layer_costing import (
-    SixLayerCostEvaluation,
     SixLayerCostedCandidate,
+    SixLayerCostEvaluation,
     evaluate_six_layer_costs,
     select_lowest_cost_six_layer_candidate,
 )
 from .six_layer_pricing import build_six_layer_catalog_cost_ledger_resolver
+from .six_layer_strategy import (
+    SixLayerEventingV1CandidateStrategy,
+    SixLayerEventingV1ResolutionWinner,
+)
 from .six_layer_workload import (
     ResolvedSixLayerWorkload,
     resolve_six_layer_workload,
 )
-from .registry import ArchitectureProfileRegistry, DEFINITIONS_ROOT
-from .six_layer_strategy import SixLayerEventingV1ResolutionWinner
 from .strategy import ArchitectureResolutionContext, build_resolution_context
-
 
 SIX_LAYER_KEYS = (
     "L1",
@@ -181,7 +182,7 @@ def optimize_six_layer_eventing_v1(
     )
     _validate_eventing_decision_manifest(context)
     resolved_workload = resolve_six_layer_workload(workload)
-    strategy = build_default_strategy_registry(context).resolve(context.profile)
+    strategy = SixLayerEventingV1CandidateStrategy(context.profile)
     strategy.validate_request(context)
     candidates = strategy.enumerate_candidates(context)
     rejections = RejectionCollector()
