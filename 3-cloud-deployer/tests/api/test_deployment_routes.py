@@ -17,7 +17,9 @@ from fastapi.testclient import TestClient
 import rest_api
 from src.api import deployment
 from src.api.dependencies import validate_provider
-from src.api.operation_context import operation_project_path as real_operation_project_path
+from src.api.operation_context import (
+    operation_project_path as real_operation_project_path,
+)
 from src.core.observability import OperationContext
 from src.deployment_specification.errors import DeploymentSpecificationError
 
@@ -148,7 +150,7 @@ def test_prepare_context_rejects_historical_manifest_for_new_deploy():
         patch.object(deployment, "create_context", return_value=context),
         pytest.raises(
             ValueError,
-            match="new deployment operations require DeploymentManifest v3 or v4",
+            match="new deployment operations require DeploymentManifest v4",
         ),
     ):
         deployment._prepare_deployment_context(
@@ -724,10 +726,7 @@ def test_deployment_specification_failure_exposes_only_stable_safe_contract():
             )
 
     assert exc_info.value.status_code == 400
-    assert (
-        exc_info.value.detail["error_code"]
-        == "DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH"
-    )
+    assert exc_info.value.detail["error_code"] == "DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH"
     assert exc_info.value.detail["message"] == (
         "Validation failed: DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH "
         "[deployment_manifest.package.files]: "

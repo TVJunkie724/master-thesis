@@ -38,7 +38,7 @@ This plan executes the final whole-application quality gate from GitHub issue
 [Post-Phase-8 Flutter Finalization](../docs/frontend_delta/concepts/CONCEPT_POST_PHASE_08_FINALIZATION.md)
 concept. It audits the application as one coherent Thesis PoC after the
 Configuration Workspace, pricing, operations, CloudConnection, architecture
-profile, Five-layer v2, and Six-layer v1 work.
+profile, Six-layer, and Six-layer v1 work.
 
 The audit has three outcomes only:
 
@@ -71,7 +71,7 @@ Application shell
     |
     |-- /settings                  Profile, theme, cloud access
     |   |-- connection create/validate/delete dialogs
-    |   `-- guided bootstrap dialog and manual-prerequisite states
+    |   `-- externally provisioned CloudConnection forms and states
     |
     |-- /pricing-review            Provider freshness and reviewed evidence
     |   |-- provider selector
@@ -353,7 +353,7 @@ adapter groups below through the single Management API origin:
 |---|---|---|
 | Authentication/profile | `/auth/*`, `/users/me` | Router guards and safe errors; demo never starts external auth. |
 | Twins/configuration | `/twins`, `/twins/{id}`, `/twins/{id}/config` | Typed create/edit/hydration and ownership-safe errors. |
-| Cloud access/bootstrap | `/cloud-connections/*`, `/cloud-bootstrap/*` | No secret response rendering or persistence in Flutter. |
+| Cloud access | `/cloud-connections/*` | No secret response rendering or persistence in Flutter. |
 | Pricing/optimization | `/optimizer/pricing-health`, refresh/review/run endpoints | Typed freshness/evidence and no client-authored trusted pricing. |
 | Architecture profiles | `/architecture-profiles/*`, Twin selection/resolution | Complete read-only profiles and revision-safe invalidation. |
 | Deployment operations | Twin readiness/preflight/deploy/destroy/log/output endpoints | Typed operations, redaction, and bounded SSE recovery. |

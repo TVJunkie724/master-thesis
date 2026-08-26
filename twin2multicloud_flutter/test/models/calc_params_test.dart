@@ -161,17 +161,17 @@ void main() {
       });
     });
 
-    group('Five-layer v2', () {
+    group('Six-layer', () {
       test(
         'serializes the exact frozen Small workload with embedded events',
         () {
-          final params = CalcParams.fiveLayerV2(
-            scenario: FiveLayerWorkloadScenario.small,
+          final params = CalcParams.sixLayer(
+            scenario: SixLayerWorkloadScenario.small,
           );
 
-          expect(params.isFiveLayerV2, isTrue);
+          expect(params.isSixLayer, isTrue);
           expect(params.toJson(), {
-            'schemaVersion': 'five-layer-workload.v2',
+            'schemaVersion': 'six-layer-workload.v1',
             'numberOfDevices': 100,
             'deviceSendingIntervalInMinutes': 2.0,
             'averageSizeOfMessageInKb': 0.25,
@@ -196,22 +196,22 @@ void main() {
       );
 
       test('round-trips Large EUR without changing its scenario identity', () {
-        final original = CalcParams.fiveLayerV2(
-          scenario: FiveLayerWorkloadScenario.large,
+        final original = CalcParams.sixLayer(
+          scenario: SixLayerWorkloadScenario.large,
           currency: 'EUR',
         );
 
         final parsed = CalcParams.fromJson(original.toJson());
 
-        expect(parsed.scenario, FiveLayerWorkloadScenario.large);
+        expect(parsed.scenario, SixLayerWorkloadScenario.large);
         expect(parsed.eventingScenarioId, 'eventing-large-v1');
         expect(parsed.currency, 'EUR');
         expect(parsed.toJson(), original.toJson());
       });
 
       test('rejects unknown fields and mismatched event scenarios', () {
-        final valid = CalcParams.fiveLayerV2(
-          scenario: FiveLayerWorkloadScenario.medium,
+        final valid = CalcParams.sixLayer(
+          scenario: SixLayerWorkloadScenario.medium,
         ).toJson();
 
         expect(
@@ -239,17 +239,17 @@ void main() {
           dashboardRefreshesPerHour: 12,
           amountOfActiveEditors: 2,
           amountOfActiveViewers: 1,
-          schemaVersion: CalcParams.fiveLayerV2SchemaVersion,
+          schemaVersion: CalcParams.sixLayerSchemaVersion,
         );
 
         expect(inconsistent.toJson, throwsStateError);
       });
 
       test('currency change preserves every frozen workload dimension', () {
-        final usd = CalcParams.fiveLayerV2(
-          scenario: FiveLayerWorkloadScenario.medium,
+        final usd = CalcParams.sixLayer(
+          scenario: SixLayerWorkloadScenario.medium,
         );
-        final eur = CalcParams.fiveLayerV2(
+        final eur = CalcParams.sixLayer(
           scenario: usd.scenario!,
           currency: 'EUR',
         );

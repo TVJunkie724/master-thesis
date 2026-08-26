@@ -1,8 +1,9 @@
 # Twin2MultiCloud Documentation
 
-Twin2MultiCloud is an integrated thesis platform for configuring, cost-optimizing,
-deploying, and inspecting five-layer Digital Twins across AWS, Azure, and Google
-Cloud. This site is the canonical human-readable description of the application.
+Twin2MultiCloud is an integrated thesis PoC for configuring, cost-optimizing,
+deploying, and inspecting a standalone Six-layer Digital Twin across AWS, Azure,
+and Google Cloud. The original Five-layer calculation remains an Optimizer-only
+historical baseline. This site is the canonical human-readable description of the application.
 
 ## Choose Your Path
 

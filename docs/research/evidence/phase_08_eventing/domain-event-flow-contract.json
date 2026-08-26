@@ -3,7 +3,6 @@
   "schema_version": "domain-event-flow.v1",
   "contract_id": "domain-event-flow@1",
   "profiles": [
-    "five-layer-baseline@2",
     "six-layer-eventing@1"
   ],
   "components": [
@@ -52,7 +51,9 @@
     {
       "channel_id": "telemetry.received.v1",
       "producer": "component.device-ingress",
-      "consumers": ["component.telemetry-processor"],
+      "consumers": [
+        "component.telemetry-processor"
+      ],
       "payload_class": "telemetry",
       "ordering_key": "source_id"
     },
@@ -70,42 +71,54 @@
     {
       "channel_id": "event.matched.v1",
       "producer": "component.rule-evaluator",
-      "consumers": ["component.action-dispatcher"],
+      "consumers": [
+        "component.action-dispatcher"
+      ],
       "payload_class": "match",
       "ordering_key": "source_id"
     },
     {
       "channel_id": "notification.requested.v1",
       "producer": "component.action-dispatcher",
-      "consumers": ["component.notification-workflow"],
+      "consumers": [
+        "component.notification-workflow"
+      ],
       "payload_class": "notification",
       "ordering_key": "source_id"
     },
     {
       "channel_id": "device.command.requested.v1",
       "producer": "component.action-dispatcher",
-      "consumers": ["component.device-command-adapter"],
+      "consumers": [
+        "component.device-command-adapter"
+      ],
       "payload_class": "device_command",
       "ordering_key": "source_id"
     },
     {
       "channel_id": "extension.action.outcome.v1",
       "producer": "component.action-dispatcher",
-      "consumers": ["component.historical-persistence"],
+      "consumers": [
+        "component.historical-persistence"
+      ],
       "payload_class": "outcome",
       "ordering_key": "source_id"
     },
     {
       "channel_id": "notification.workflow.outcome.v1",
       "producer": "component.notification-workflow",
-      "consumers": ["component.historical-persistence"],
+      "consumers": [
+        "component.historical-persistence"
+      ],
       "payload_class": "outcome",
       "ordering_key": "source_id"
     },
     {
       "channel_id": "device.command.outcome.v1",
       "producer": "component.device-command-adapter",
-      "consumers": ["component.historical-persistence"],
+      "consumers": [
+        "component.historical-persistence"
+      ],
       "payload_class": "outcome",
       "ordering_key": "source_id"
     }

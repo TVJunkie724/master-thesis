@@ -76,10 +76,7 @@ class ArchitectureCandidate:
         self,
     ) -> tuple[tuple[str, str, str], ...]:
         return tuple(
-            sorted(
-                option.canonical_assignment_key
-                for option in self.components
-            )
+            sorted(option.canonical_assignment_key for option in self.components)
         )
 
     def component(self, logical_component_id: str) -> ComponentOption:
@@ -114,9 +111,7 @@ def enumerate_component_candidates(
             "optimization_slot_ids",
             "Profile optimization slots differ from the baseline adapter",
         )
-    expected_layers = {
-        layer_key for layer_key, _, _ in layer_components
-    }
+    expected_layers = {layer_key for layer_key, _, _ in layer_components}
     if set(context.layer_options) != expected_layers:
         raise ArchitectureResolutionError(
             "ARCH_WORKLOAD_INCOMPATIBLE",
@@ -125,12 +120,10 @@ def enumerate_component_candidates(
         )
 
     profile_components = {
-        str(item["component_id"]): item
-        for item in context.profile["components"]
+        str(item["component_id"]): item for item in context.profile["components"]
     }
     profile_slots = {
-        str(item["slot_id"]): item
-        for item in context.profile["extension_slots"]
+        str(item["slot_id"]): item for item in context.profile["extension_slots"]
     }
     catalog_components = {
         str(item["deployment_component_id"]): item
@@ -177,23 +170,9 @@ def enumerate_component_candidates(
 
     candidates = []
     for selected in product(*option_matrix):
-        if (
-            profile_ref
-            in {
-                ("five-layer-baseline", "2"),
-                ("six-layer-eventing", "1"),
-            }
-            and next(
-                option.provider
-                for option in selected
-                if option.layer_key == "L3_hot"
-            )
-            != next(
-                option.provider
-                for option in selected
-                if option.layer_key == "L5"
-            )
-        ):
+        if profile_ref == ("six-layer-eventing", "1") and next(
+            option.provider for option in selected if option.layer_key == "L3_hot"
+        ) != next(option.provider for option in selected if option.layer_key == "L5"):
             continue
         candidate_id = "|".join(option.provider for option in selected)
         candidates.append(
@@ -217,7 +196,9 @@ def _build_component_option(
     profile_slots: Mapping[str, Mapping[str, Any]],
 ) -> tuple[ComponentOption | None, str | None]:
     profile = context.provider_profiles.get(provider)
-    region = context.provider_regions.get(provider) if context.provider_regions else None
+    region = (
+        context.provider_regions.get(provider) if context.provider_regions else None
+    )
     if (
         cost is None
         or profile is None
@@ -245,9 +226,7 @@ def _build_component_option(
     ):
         return None, "ARCH_PROVIDER_IMPLEMENTATION_MISSING"
     required_capabilities = set(logical["required_capability_ids"])
-    if not required_capabilities.issubset(
-        set(mapping["provided_capability_ids"])
-    ):
+    if not required_capabilities.issubset(set(mapping["provided_capability_ids"])):
         return None, "ARCH_FUNCTIONAL_INCOMPLETE"
     expected_region_id = f"region.{provider}.{region}"
     if expected_region_id not in mapping["supported_region_ids"]:
@@ -318,15 +297,10 @@ def _component_incompatibility(
     if (
         not mapping["formula_refs"]
         or not component["formula_refs"]
-        or not set(mapping["formula_refs"]).issubset(
-            set(component["formula_refs"])
-        )
+        or not set(mapping["formula_refs"]).issubset(set(component["formula_refs"]))
     ):
         return "ARCH_FORMULA_MISSING"
-    if (
-        not mapping["service_model_refs"]
-        or not component["pricing_model_refs"]
-    ):
+    if not mapping["service_model_refs"] or not component["pricing_model_refs"]:
         return "ARCH_PRICING_EVIDENCE_MISSING"
     if not component["service_id"]:
         return "ARCH_COMPONENT_CANDIDATE_MISSING"
@@ -392,10 +366,8 @@ def _provider_profile_is_compatible(
             )
         )
         in compatibility["compatible_deployment_specification_versions"]
-        and _resolver_version(context)
-        in compatibility["compatible_resolver_versions"]
-        and _resolver_version(context)
-        in compatibility["compatible_runtime_versions"]
+        and _resolver_version(context) in compatibility["compatible_resolver_versions"]
+        and _resolver_version(context) in compatibility["compatible_runtime_versions"]
     )
 
 

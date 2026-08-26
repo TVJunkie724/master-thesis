@@ -46,7 +46,7 @@ def _graph_evidence() -> dict[str, object]:
         "calculation_run_id": "run-1",
         "graph_digest": "sha256:" + ("1" * 64),
         "architecture_digest": "sha256:" + ("2" * 64),
-        "profile_id": "five-layer-baseline",
+        "profile_id": "six-layer-eventing",
         "profile_version": "1",
         "catalog_id": "baseline",
         "catalog_version": "1",
@@ -156,7 +156,7 @@ async def test_validate_config_file_forwards_trusted_context_params():
         {"file": ("config_user.json", b"{}", "application/json")},
         provider="gcp",
         context_params={
-            "architecture_profile_id": "five-layer-baseline",
+            "architecture_profile_id": "six-layer-eventing",
             "architecture_profile_version": "2",
             "layer_4_provider": "azure",
             "layer_5_provider": "gcp",
@@ -165,7 +165,7 @@ async def test_validate_config_file_forwards_trusted_context_params():
 
     assert seen["url"] == (
         "http://deployer.test/validate/user-config?"
-        "architecture_profile_id=five-layer-baseline&"
+        "architecture_profile_id=six-layer-eventing&"
         "architecture_profile_version=2&layer_4_provider=azure&"
         "layer_5_provider=gcp&provider=gcp"
     )
@@ -217,9 +217,9 @@ async def test_viewer_rotation_posts_once_with_only_operation_package_header():
             },
         )
 
-    response = await _client_with_handler(
-        handler
-    ).rotate_gcp_grafana_viewer_credential("factory", "one-shot-token")
+    response = await _client_with_handler(handler).rotate_gcp_grafana_viewer_credential(
+        "factory", "one-shot-token"
+    )
 
     assert response["password"] == "fixture-password"
     assert seen == [

@@ -40,7 +40,7 @@ implemented offline. Final policy, quota, browser-access, and capacity
 completeness still require supervised project-level evidence and therefore
 block deployment selection.
 
-Both active profiles use BifroMQ on GKE as the MQTT/command device
+The active profile uses BifroMQ on GKE as the MQTT/command device
 boundary while retaining Pub/Sub as the durable cloud backbone, Firestore
 Native Standard edition with timestamp shards as L3 hot history, a typed Cloud
 Run reader, a bounded Cloud Run Twin API, and Grafana on GKE as L5. When GCP

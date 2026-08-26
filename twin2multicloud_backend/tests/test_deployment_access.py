@@ -64,8 +64,8 @@ def _evidence(
     l4: str,
     l5: str,
     *,
-    profile_id: str = "five-layer-baseline",
-    profile_version: str = "2",
+    profile_id: str = "six-layer-eventing",
+    profile_version: str = "1",
 ) -> dict:
     return {
         "schema_version": "deployment-access-evidence.v1",
@@ -79,8 +79,8 @@ def _evidence(
 def _seed(
     db,
     *,
-    profile_id: str = "five-layer-baseline",
-    profile_version: str = "2",
+    profile_id: str = "six-layer-eventing",
+    profile_version: str = "1",
     l4: str = "aws",
     l5: str = "aws",
     state: TwinState = TwinState.DEPLOYED,
@@ -107,11 +107,7 @@ def _seed(
                 profile_id=profile_id,
                 profile_version=profile_version,
             )
-            if (profile_id, profile_version)
-            in {
-                ("five-layer-baseline", "2"),
-                ("six-layer-eventing", "1"),
-            }
+            if (profile_id, profile_version) == ("six-layer-eventing", "1")
             else None
         ),
         terraform_outputs={"unrelated_password": "must-not-be-read"},
@@ -169,7 +165,7 @@ def _rotation_service(db, deployer, *, blocker=None) -> DeploymentAccessService:
 @pytest.mark.parametrize("l5", ["aws", "azure", "gcp"])
 @pytest.mark.parametrize(
     ("profile_id", "profile_version"),
-    [("five-layer-baseline", "2"), ("six-layer-eventing", "1")],
+    [("six-layer-eventing", "1")],
 )
 def test_all_nine_placements_return_exact_l4_l5(
     db,
@@ -199,15 +195,11 @@ def test_all_nine_placements_return_exact_l4_l5(
     assert "password" not in serialized
 
 
-def test_historical_profile_returns_explicit_unsupported_snapshot(db) -> None:
-    user, twin, deployment = _seed(db, profile_version="1")
+def test_removed_profile_version_returns_explicit_unsupported_snapshot(db) -> None:
+    user, twin, _deployment = _seed(db, profile_version="2")
 
-    snapshot = _service(db).get_access(twin.id, user.id)
-
-    assert snapshot.deployment_id == deployment.id
-    assert snapshot.availability == "unsupported"
-    assert snapshot.reason_code == "unsupported_historical_profile"
-    assert snapshot.surfaces == ()
+    with pytest.raises(ConflictError, match="PROFILE_NOT_SUPPORTED"):
+        _service(db).get_access(twin.id, user.id)
 
 
 def test_cross_owner_access_is_not_found(db) -> None:
@@ -238,16 +230,20 @@ def test_invalid_persisted_evidence_fails_closed_without_output_fallback(db) -> 
         _service(db).get_access(twin.id, user.id)
 
 
-def test_persisted_evidence_must_match_the_deployment_profile(db) -> None:
+def test_removed_profile_evidence_is_invalid(db) -> None:
     user, twin, deployment = _seed(
         db,
         profile_id="six-layer-eventing",
         profile_version="1",
     )
-    deployment.deployment_access_evidence = _evidence("aws", "aws")
+    deployment.deployment_access_evidence = _evidence(
+        "aws",
+        "aws",
+        profile_version="2",
+    )
     db.commit()
 
-    with pytest.raises(ValidationError, match="EVIDENCE_PROFILE_MISMATCH"):
+    with pytest.raises(ValidationError, match="EVIDENCE_INVALID"):
         _service(db).get_access(twin.id, user.id)
 
 
@@ -268,7 +264,7 @@ def test_schema_rejects_crossed_active_profile_versions() -> None:
         profile_version="2",
     )
 
-    with pytest.raises(PydanticValidationError, match="profile/version"):
+    with pytest.raises(PydanticValidationError, match="profile_version"):
         DeploymentAccessEvidence.model_validate(evidence)
 
 
@@ -285,8 +281,8 @@ def test_owner_scoped_endpoint_returns_contract(auth_client, db) -> None:
         status="success",
         started_at=NOW,
         completed_at=NOW,
-        profile_id="five-layer-baseline",
-        profile_version="2",
+        profile_id="six-layer-eventing",
+        profile_version="1",
         deployment_access_evidence=_evidence("azure", "gcp"),
     )
     db.add(deployment)

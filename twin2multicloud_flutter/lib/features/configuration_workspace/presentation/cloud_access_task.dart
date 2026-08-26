@@ -3,10 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../bloc/wizard/wizard.dart';
-import '../../cloud_bootstrap/cloud_bootstrap_dialog.dart';
-import '../../../models/cloud_bootstrap.dart';
 import '../../../models/cloud_connection.dart';
-import '../../../providers/runtime_providers.dart';
 import '../../../theme/spacing.dart';
 import '../../../widgets/cloud_connections/cloud_connections_group.dart';
 
@@ -38,7 +35,7 @@ class CloudAccessTask extends ConsumerWidget {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    'Bind deployment access only for providers used by the selected architecture.',
+                    'Select a preconfigured PoC credential for every provider used by the selected architecture.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -63,28 +60,18 @@ class CloudAccessTask extends ConsumerWidget {
                               subtitle: Text(
                                 state.selectedCloudConnectionIds[provider] ==
                                         null
-                                    ? 'Bounded deployment access is missing.'
-                                    : 'Bounded deployment access selected.',
+                                    ? 'Preconfigured deployment access is missing.'
+                                    : 'Preconfigured deployment access selected.',
                               ),
                               trailing:
                                   state.selectedCloudConnectionIds[provider] ==
                                       null
-                                  ? FilledButton(
-                                      onPressed: state.twinId == null
-                                          ? null
-                                          : () => _openBootstrap(
-                                              context,
-                                              ref,
-                                              provider,
-                                              state.twinId!,
-                                            ),
-                                      child: const Text('Set up access'),
-                                    )
+                                  ? const Icon(Icons.key_outlined)
                                   : const Icon(Icons.check_circle_outline),
                             ),
                           const SizedBox(height: AppSpacing.sm),
                           Text(
-                            'Provider prerequisites are checked later by deployment preflight; administrator authority is not requested again.',
+                            'For this PoC, an existing non-root administrator credential is entered manually. Provider prerequisites are checked later by deployment preflight.',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
@@ -127,25 +114,5 @@ class CloudAccessTask extends ConsumerWidget {
         );
       },
     );
-  }
-
-  Future<void> _openBootstrap(
-    BuildContext context,
-    WidgetRef ref,
-    CloudProvider provider,
-    String twinId,
-  ) async {
-    final connection = await showCloudBootstrapFlow(
-      context: context,
-      api: ref.read(apiServiceProvider),
-      provider: provider,
-      entryPoint: CloudBootstrapEntryPoint.twinPrepare,
-      twinId: twinId,
-    );
-    if (connection != null && context.mounted) {
-      final bloc = context.read<WizardBloc>();
-      bloc.add(const WizardCloudConnectionsLoadRequested());
-      bloc.add(WizardCloudConnectionSelected(provider, connection.id));
-    }
   }
 }

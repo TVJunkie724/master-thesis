@@ -89,7 +89,7 @@ void main() {
     },
   );
 
-  test('returns immutable provider, check, and permission collections', () {
+  test('returns immutable provider and check collections', () {
     final snapshot = DeploymentReadinessSnapshot.fromCachedJson(
       _document(DeploymentReadinessSnapshot.cachedSchemaVersion),
     );
@@ -126,9 +126,6 @@ Map<String, dynamic> _document(String schemaVersion) {
         'ready': true,
         'status': 'ready',
         'summary': 'Cloud connection preflight passed',
-        'expected_permission_set_version': 'thesis-demo-v1',
-        'supplied_permission_set_version': 'thesis-demo-v1',
-        'permission_set_status': 'matched',
         'checked_at': '2026-07-14T09:00:00Z',
         'checks': [
           {

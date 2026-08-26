@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
@@ -127,63 +128,18 @@ abstract final class TypedApiFixtures {
   static Map<String, dynamic> deploymentSpecificationJson({
     String runId = 'run-123',
   }) {
-    final specification = <String, dynamic>{
-      'schema_version': 'resolved-deployment-specification.v1',
-      'calculation_run_id': runId,
-      'architecture_profile': {
-        'profile_id': 'five-layer-baseline',
-        'profile_version': '1',
-      },
-      'optimization_context': {
-        'optimization_profile_id': 'cost_minimization_v1',
-        'optimization_profile_version': '2026.07.17',
-        'calculation_strategy_id': 'cost_calculation_v2',
-        'formula_set_id': 'cost_formula_set_v1',
-        'workload_contract_id': 'digital_twin_workload_v1',
-        'pricing_registry_version': '2026.07.17',
-        'catalog_references': {
-          for (final provider in CloudProvider.values)
-            provider.apiValue: {
-              'snapshot_id':
-                  'pcs_${provider.apiValue.padRight(64, provider.apiValue[0]).substring(0, 64)}',
-              'pricing_region': switch (provider) {
-                CloudProvider.aws => 'eu-central-1',
-                CloudProvider.azure => 'westeurope',
-                CloudProvider.gcp => 'europe-west1',
-              },
-              'content_digest':
-                  'sha256:${List.filled(64, switch (provider) {
-                    CloudProvider.aws => '1',
-                    CloudProvider.azure => '2',
-                    CloudProvider.gcp => '3',
-                  }).join()}',
-            },
-        },
-      },
-      'currency': 'USD',
-      'components': [
-        for (final slot in ResolvedDeploymentSlot.values.where(
-          (item) => item.isArchitectureSlot,
-        ))
-          {
-            'component_id': '${slot.apiValue}.aws.test',
-            'slot_id': slot.apiValue,
-            'provider': 'aws',
-            'service_id': 'aws.test',
-            'required': true,
-            'dimensions': [
-              {
-                'dimension_id': '${slot.apiValue}.tier',
-                'classification': 'deployable_selection',
-                'value': 'standard',
-                'formula_reference': 'formula_set:cost_formula_set_v1',
-                'evidence_reference':
-                    'deployment_registry:resolved-deployment-dimensions.v1',
-                'terraform_target': '${slot.apiValue}_tier',
-              },
-            ],
-          },
-      ],
+    final specification =
+        jsonDecode(
+              File(
+                '../contracts/resolved-deployment-specification/v2/fixtures/'
+                'valid/six-layer-aws-azure-eventing-small.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+    specification['calculation_run_id'] = runId;
+    specification['readiness'] = {
+      'status': 'deployment_ready',
+      'blocking_gate_ids': <String>[],
     };
     specification['digest'] =
         ResolvedDeploymentSpecificationData.calculateDigest(specification);

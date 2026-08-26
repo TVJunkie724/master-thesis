@@ -97,7 +97,7 @@ In the Phase 8.0 predecessor snapshot, AWS and Azure had deployer catalog
 implementations for every slot. GCP stopped at L3 archive; GCP L4 and L5 were
 explicitly unsupported. Mixed-provider paths used destination-owned
 bridge/writer functions and source-owned transition runtimes. The active
-`five-layer-baseline@2` profile later added its separately registered,
+`six-layer-eventing@1` profile later added its separately registered,
 provider-hosted GCP L4/L5 composition without changing this historical
 inventory.
 
@@ -136,9 +136,9 @@ boundary and are used for provider API authorization.
   directly to a same-provider L3 hot reader. A path whose L5 provider differs
   from L3 hot lacks a current remote reader binding and is explicit unsafe debt.
 
-## Successor Profiles Implemented After This Snapshot
+## Standalone Successor Implemented After This Snapshot
 
-The active offline-evaluation successor `five-layer-baseline@2` makes the
+The active offline-evaluation successor `six-layer-eventing@1` makes the
 executable raw dashboard path and the Twin projection explicit:
 
 ```text
@@ -149,10 +149,10 @@ L3 hot -> L4  selected current state/model/relationships
 For the first profile version, L3 hot and L5 are provider-local while L4 is
 independently placeable. L1, L2, L3 cool, and L3 archive also remain
 independent. L4-to-L5/3D visualization remains outside the profile. The
-separately active `six-layer-eventing@1` inherits this L1-L5 graph and adds
-only its independently assigned Eventing responsibility. Both profiles are
-selectable for deterministic offline evaluation; explicit supervised
-live-capacity gates still prevent deployment selection.
+standalone profile owns this L1-L5 graph and its independently assigned
+Eventing responsibility. It is selectable for deterministic offline
+evaluation; explicit supervised live-capacity gates still prevent deployment
+selection.
 
 The predecessor GCP acquisition path started at Pub/Sub and the simulator
 published to Pub/Sub directly. It is not a complete heterogeneous MQTT device

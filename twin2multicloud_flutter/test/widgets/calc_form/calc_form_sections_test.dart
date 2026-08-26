@@ -127,7 +127,7 @@ void main() {
     },
   );
 
-  testWidgets('Five-layer v2 initializes Small and emits only canonical fields', (
+  testWidgets('Six-layer initializes Small and emits only canonical fields', (
     tester,
   ) async {
     CalcParams? changed;
@@ -138,8 +138,8 @@ void main() {
         home: Scaffold(
           body: SingleChildScrollView(
             child: CalcForm(
-              profileId: 'five-layer-baseline',
-              profileVersion: '2',
+              profileId: 'six-layer-eventing',
+              profileVersion: '1',
               section: CalcFormSection.scenarioAndCurrency,
               onChanged: (params) => changed = params,
             ),
@@ -149,19 +149,19 @@ void main() {
     );
     await tester.pump();
 
-    expect(changed?.scenario, FiveLayerWorkloadScenario.small);
+    expect(changed?.scenario, SixLayerWorkloadScenario.small);
     expect(changed?.toJson()['eventingScenarioId'], 'eventing-small-v1');
     expect(changed?.toJson(), isNot(contains('useEventChecking')));
     expect(
       find.text(
-        'Events are embedded and always active in Five-layer v2. '
-        'They are part of the frozen comparison workload and cannot be disabled.',
+        'Events use the independent Event Layer and are always active in the standalone Six-layer profile. '
+        'They are part of the canonical PoC workload and cannot be disabled.',
       ),
       findsOneWidget,
     );
   });
 
-  testWidgets('Five-layer v2 scenario and currency selection stays frozen', (
+  testWidgets('Six-layer scenario and currency selection stays frozen', (
     tester,
   ) async {
     CalcParams? changed;
@@ -172,11 +172,11 @@ void main() {
         home: Scaffold(
           body: SingleChildScrollView(
             child: CalcForm(
-              profileId: 'five-layer-baseline',
-              profileVersion: '2',
+              profileId: 'six-layer-eventing',
+              profileVersion: '1',
               section: CalcFormSection.scenarioAndCurrency,
-              initialParams: CalcParams.fiveLayerV2(
-                scenario: FiveLayerWorkloadScenario.small,
+              initialParams: CalcParams.sixLayer(
+                scenario: SixLayerWorkloadScenario.small,
               ),
               onChanged: (params) => changed = params,
             ),
@@ -186,21 +186,19 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(
-      find.byKey(const ValueKey('five-layer-v2-scenario-large')),
-    );
+    await tester.tap(find.byKey(const ValueKey('six-layer-scenario-large')));
     await tester.pump();
     await tester.tap(find.text('EUR (€)'));
     await tester.pump();
 
-    expect(changed?.scenario, FiveLayerWorkloadScenario.large);
+    expect(changed?.scenario, SixLayerWorkloadScenario.large);
     expect(changed?.currency, 'EUR');
     expect(changed?.eventingScenarioId, 'eventing-large-v1');
     expect(changed?.numberOfDevices, 30000);
     expect(changed?.hotStorageDurationInMonths, 1);
   });
 
-  testWidgets('Five-layer v2 processing is read-only embedded event evidence', (
+  testWidgets('Six-layer processing is read-only embedded event evidence', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -208,11 +206,11 @@ void main() {
         home: Scaffold(
           body: SingleChildScrollView(
             child: CalcForm(
-              profileId: 'five-layer-baseline',
-              profileVersion: '2',
+              profileId: 'six-layer-eventing',
+              profileVersion: '1',
               section: CalcFormSection.processing,
-              initialParams: CalcParams.fiveLayerV2(
-                scenario: FiveLayerWorkloadScenario.medium,
+              initialParams: CalcParams.sixLayer(
+                scenario: SixLayerWorkloadScenario.medium,
               ),
             ),
           ),
@@ -261,11 +259,11 @@ void main() {
         home: Scaffold(
           body: SingleChildScrollView(
             child: CalcForm(
-              profileId: 'five-layer-baseline',
-              profileVersion: '2',
+              profileId: 'six-layer-eventing',
+              profileVersion: '1',
               section: CalcFormSection.twinCapabilities,
-              initialParams: CalcParams.fiveLayerV2(
-                scenario: FiveLayerWorkloadScenario.small,
+              initialParams: CalcParams.sixLayer(
+                scenario: SixLayerWorkloadScenario.small,
               ),
             ),
           ),
@@ -281,7 +279,7 @@ void main() {
   });
 
   testWidgets(
-    'Five-layer v2 scenario cards follow all supported responsive boundaries',
+    'Six-layer scenario cards follow all supported responsive boundaries',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -299,11 +297,11 @@ void main() {
             home: Scaffold(
               body: SingleChildScrollView(
                 child: CalcForm(
-                  profileId: 'five-layer-baseline',
-                  profileVersion: '2',
+                  profileId: 'six-layer-eventing',
+                  profileVersion: '1',
                   section: CalcFormSection.scenarioAndCurrency,
-                  initialParams: CalcParams.fiveLayerV2(
-                    scenario: FiveLayerWorkloadScenario.small,
+                  initialParams: CalcParams.sixLayer(
+                    scenario: SixLayerWorkloadScenario.small,
                   ),
                 ),
               ),
@@ -318,11 +316,9 @@ void main() {
             ? 2
             : 1;
         final expectedWidth = (width - (columns - 1) * 16) / columns;
-        for (final scenario in FiveLayerWorkloadScenario.values) {
+        for (final scenario in SixLayerWorkloadScenario.values) {
           final size = tester.getSize(
-            find.byKey(
-              ValueKey('five-layer-v2-scenario-card-${scenario.name}'),
-            ),
+            find.byKey(ValueKey('six-layer-scenario-card-${scenario.name}')),
           );
           expect(size.width, closeTo(expectedWidth, 0.01), reason: '$width');
         }

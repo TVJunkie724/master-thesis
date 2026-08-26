@@ -15,7 +15,6 @@ void main() {
     ValueChanged<CloudAccessEntry>? onValidate,
     ValueChanged<CloudAccessEntry>? onSetDefault,
     ValueChanged<CloudAccessEntry>? onDelete,
-    ValueChanged<CloudProvider>? onSetupDeployment,
     VoidCallback? onRetry,
   }) {
     return MaterialApp(
@@ -31,7 +30,6 @@ void main() {
             onValidate: onValidate ?? (_) {},
             onSetDefault: onSetDefault ?? (_) {},
             onDelete: onDelete ?? (_) {},
-            onSetupDeployment: onSetupDeployment,
             onRetry: onRetry ?? () {},
           ),
         ),
@@ -150,24 +148,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('New AWS Pricing access'), findsOneWidget);
-    });
-
-    testWidgets('offers guided deployment setup as the primary action', (
-      tester,
-    ) async {
-      CloudProvider? selected;
-      await tester.pumpWidget(
-        buildWidget(
-          inventory: _inventory(),
-          onSetupDeployment: (provider) => selected = provider,
-        ),
-      );
-
-      await tester.tap(find.text('Set up deployment access').first);
-      await tester.pump();
-
-      expect(selected, CloudProvider.aws);
-      expect(find.text('Advanced: import existing access'), findsWidgets);
     });
 
     testWidgets('selects a non-default pricing option from its action menu', (

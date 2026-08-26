@@ -22,29 +22,20 @@ No runtime code or cloud resource is changed by this evidence.
 
 ## Profile Boundary
 
-The evaluated profiles have three different roles:
+This package evaluates one standalone runtime profile:
+`six-layer-eventing@1`. Rule evaluation, extension action, notification
+workflow, and device-command feedback are mandatory domain behavior. Routing,
+buffering, fan-out, retry/DLQ, replay, ordering, observability, and cross-cloud
+transport belong to its independent Eventing responsibility.
 
-| Profile | Role |
-|---|---|
-| `five-layer-baseline@1` | Immutable historical/paper-compatible reference. Its omitted optional event paths remain omitted. |
-| `five-layer-baseline@2` | Five-responsibility control profile. Rule evaluation, extension action, notification workflow, and device-command feedback are always present as embedded L1/L2 behavior. |
-| `six-layer-eventing@1` | Treatment profile with the same domain-event behavior as `five-layer-baseline@2`, plus independent routing, buffering, fan-out, retry/DLQ, replay, ordering, observability, and cross-cloud transport ownership. |
-
-The new profiles contain no `useEventChecking`,
+The profile contains no `useEventChecking`,
 `triggerNotificationWorkflow`, or `returnFeedbackToDevice` switch. A typed rule
 match controls invocation volume; it does not control component presence.
 
-The fair comparison is therefore not "without events" versus "with events".
-It is embedded event behavior versus the same behavior with a separately owned
-Eventing responsibility. The historical `@1` result is reproduced separately.
-
-Functional parity covers the same event types, rule matches, actions,
-workflows, device commands, outcomes, and scenario volumes. It does not claim
-identical transport quality. The embedded profile records what its direct
-edges actually provide; the treatment must additionally satisfy the
-Event-Layer at-least-once, ordering, fan-out, replay, DLQ, and observability
-contract. That quality delta is an evaluation result, not a hidden baseline
-requirement.
+Five-layer v1 remains an Optimizer-only historical reproduction and is outside
+this runtime evidence package. The evaluation therefore reports the Six-layer
+capability, topology, cost, and limitation results directly; it does not claim
+a second deployable control profile.
 
 ## Shared Domain Flow
 
@@ -116,7 +107,7 @@ Capacity allocations below include at least 20% headroom over serialized
 application bytes. Provider-internal replication and network protocol overhead
 are not invented as payload. They remain explicit sensitivity limitations.
 
-## Selected Embedded Bundles: `five-layer-baseline@2`
+## Selected Embedded Components Inside `six-layer-eventing@1`
 
 These resources belong to their existing L1/L2 responsibilities. They do not
 create an independently selectable Eventing layer.
@@ -127,13 +118,12 @@ create an independently selectable Eventing layer.
 | Azure | IoT Hub; Event Hubs-compatible route to the processor avoids the Event Grid Basic throughput ceiling | Azure Functions processor, rule evaluator, extension adapter, and Service Bus; remote telemetry edges additionally use Event Hubs Standard/Dedicated outboxes | Logic Apps Consumption (stateful multitenant) | IoT Hub cloud-to-device per-device queue | Capability-admissible; live verification pending |
 | GCP | Apache BifroMQ 4.0.0-incubating on GKE is the bidirectional MQTT boundary; an ordered QoS 1 adapter forwards telemetry to Pub/Sub | Cloud Run services for processor, rule evaluator, extension adapter, authenticated direct delivery, and source bridge; Pub/Sub is the durable cloud backbone | Google Cloud Workflows | Pub/Sub command outbox through BifroMQ, with the correlated outcome returning through BifroMQ to Pub/Sub | Capability-admissible for the PoC with explicit hosted-boundary, integration-adapter, load-test, and incubation-risk gates |
 
-Cross-cloud direct responsibility edges do not fall back to public
-function-to-function invocation. A remote edge conditionally adds the same
-source-owned durable outbox and bridge-forwarder pattern described below, but
-that resource is costed to the producing five-layer responsibility rather than
-to a separate Eventing responsibility. The exact embedded outboxes are Kinesis
-plus SNS FIFO on AWS, Event Hubs plus Service Bus on Azure, and Pub/Sub on GCP.
-They are absent in the corresponding single-cloud placement.
+Cross-cloud routes do not fall back to public function-to-function invocation.
+A remote route conditionally adds the source-owned durable outbox and
+bridge-forwarder pattern described below, with its cost owned by the Six-layer
+Eventing responsibility. The exact provider components are Kinesis plus SNS
+FIFO on AWS, Event Hubs plus Service Bus on Azure, and Pub/Sub on GCP. They are
+absent in the corresponding single-cloud placement.
 
 The extension-action and external-notification members above are controlled
 synthetic PoC sinks. Event `functionName`/`functionNameB` values are correlated
@@ -575,7 +565,7 @@ because fan-out occurs after the landing broker.
 `scenario-cost-results.json` is generated offline by
 `scripts/phase_08_eventing/calculate_scenarios.py`. Its normalized result digest
 is
-`sha256:eb145f809a9f3662c1572d7bd05cb00c1a97906732cd9442988f85c8f2b78781`.
+`sha256:06191b57423c95854e4848be47dccfd0d9dba18ba0260d08c8dfcb5e6dc3c43a`.
 The generator emits per-channel publication, delivery, retry, DLQ, replay,
 retention, compute, workflow, observability, outbox, landing, and transfer
 traces. Reordering source-ledger or pricing-matrix rows does not change the

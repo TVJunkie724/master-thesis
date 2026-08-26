@@ -9,7 +9,6 @@ from src.models.deployment import Deployment, DeploymentStatus
 from src.models.deployment_log import DeploymentLog, OperationType
 from src.models.deployment_preflight import DeploymentPreflightCache
 from src.models.cloud_connection import CloudConnection
-from src.models.cloud_bootstrap_session import CloudBootstrapSession
 from src.models.cost_calculation import CostCalculationRun, CostCalculationResultItem
 from src.models.pricing_refresh_run import PricingRefreshRun
 from src.models.pricing_review import PricingCandidateReport, PricingReviewDecision
@@ -36,19 +35,40 @@ from src.models.authentication import (
 )
 
 __all__ = [
-    "Base", "get_db", "engine",
-    "User", "DigitalTwin", "TwinState", "TwinConfiguration", "OptimizerConfiguration",
-    "DeployerConfiguration", "FileVersion", "Deployment", "DeploymentStatus",
-    "DeploymentLog", "OperationType", "DeploymentPreflightCache", "CloudConnection",
-    "CloudBootstrapSession",
-    "CostCalculationRun", "CostCalculationResultItem", "PricingRefreshRun",
-    "PricingCandidateReport", "PricingReviewDecision",
+    "Base",
+    "get_db",
+    "engine",
+    "User",
+    "DigitalTwin",
+    "TwinState",
+    "TwinConfiguration",
+    "OptimizerConfiguration",
+    "DeployerConfiguration",
+    "FileVersion",
+    "Deployment",
+    "DeploymentStatus",
+    "DeploymentLog",
+    "OperationType",
+    "DeploymentPreflightCache",
+    "CloudConnection",
+    "CostCalculationRun",
+    "CostCalculationResultItem",
+    "PricingRefreshRun",
+    "PricingCandidateReport",
+    "PricingReviewDecision",
     "CredentialSecurityEvent",
-    "UserFunctionArtifact", "UserFunctionArtifactFile",
-    "UserFunctionArtifactDependency", "TwinExtensionBinding",
+    "UserFunctionArtifact",
+    "UserFunctionArtifactFile",
+    "UserFunctionArtifactDependency",
+    "TwinExtensionBinding",
     "UserFunctionAuditEvent",
-    "TwinArchitectureSelection", "ResolvedTwinArchitectureRecord",
-    "ResolvedArchitectureComponentAssignment", "ResolvedArchitectureEdge",
+    "TwinArchitectureSelection",
+    "ResolvedTwinArchitectureRecord",
+    "ResolvedArchitectureComponentAssignment",
+    "ResolvedArchitectureEdge",
     "ArchitectureAuditEvent",
-    "AuthenticationEvent", "AuthLoginTransaction", "AuthSession", "ExternalIdentity",
+    "AuthenticationEvent",
+    "AuthLoginTransaction",
+    "AuthSession",
+    "ExternalIdentity",
 ]

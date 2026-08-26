@@ -17,17 +17,14 @@ implementation plans are authoritative.
   reconnect/error state; it does not authorize a direct downstream call.
 - The implemented Configuration Workspace supersedes the historical
   credential-first wizard below. Draft, workload, calculation, and architecture
-  review remain credential-free. Guided creation of a bounded deployment
-  CloudConnection is implemented in Prepare deployment and the shared Settings
-  entry point through a deterministic offline adapter; see
-  [Configuration Workspace Phase 9](twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md).
+  review remain credential-free. Provider administrator credentials are
+  imported manually as encrypted CloudConnections for the PoC.
 - `WizardBloc` owns the server-driven architecture catalog, pinned selection,
   detail acknowledgement, revisioned invalidation preview, stale-conflict
   recovery, and resolved-run review. The visible order is Define twin,
   Architecture, Workload, User Logic, Optimize and review, Deployment review.
-  The active catalog contains Five-layer v2 and Six-layer v1; historical
-  Five-layer v1 remains read-only. Results stay profile-local and the UI does
-  not claim one universal Five-versus-Six winner.
+  The active catalog contains only `six-layer-eventing@1`; the historical
+  Five-layer baseline remains internal to the Optimizer and is not selectable.
 - Logical graphs are typed and read-only: wide/medium layouts use bounded
   Sugiyama overview/component projections; compact layouts list only declared
   labeled edges. Flutter never invents topology or offers infrastructure
@@ -361,8 +358,8 @@ Twin Overview
 
 **Sections:**
 - **Layer Access is typed:** it uses `deployment-access.v1`, not arbitrary
-  Terraform output keys. An available Five-layer v2 or Six-layer v1 result
-  contains exactly one independently actionable L4 and L5 surface.
+  Terraform output keys. An available Six-layer result contains exactly one
+  independently actionable L4 and L5 surface.
 - **L4 and L5 remain functionally separate:** L4 exposes semantic current
   state/relationships; L5 exposes L3 raw history and rollups. There is no
   implied L4-to-L5 or 3D path.

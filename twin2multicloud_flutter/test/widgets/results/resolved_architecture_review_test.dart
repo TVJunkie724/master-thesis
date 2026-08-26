@@ -11,15 +11,14 @@ import 'package:twin2multicloud_flutter/widgets/results/resolved_architecture_re
 void main() {
   late ResolvedTwinArchitectureRead resolved;
   late ResolvedTwinArchitectureRead singleCloudResolved;
-  late ResolvedTwinArchitectureRead supportingResolved;
   late ResolvedTwinArchitectureRead sixLayerResolved;
 
   setUpAll(() {
     final architecture = Map<String, dynamic>.from(
       jsonDecode(
             File(
-              '../contracts/architecture-profiles/v1/fixtures/valid/'
-              'mixed-baseline-resolved-architecture.json',
+              '../contracts/architecture-profiles/v2/fixtures/valid/'
+              'six-layer-aws-azure-eventing-small-resolved.json',
             ).readAsStringSync(),
           )
           as Map,
@@ -29,7 +28,7 @@ void main() {
       'calculation_run_id': architecture['calculation_run_id'],
       'selected_for_deployment_at': '2026-08-03T10:00:00Z',
       'architecture_compatibility_status': 'ready',
-      'origin': 'reconstructed_v1',
+      'origin': 'native_v2',
       'architecture': architecture,
     });
     final singleCloudArchitecture = Map<String, dynamic>.from(
@@ -66,25 +65,8 @@ void main() {
       'calculation_run_id': singleCloudArchitecture['calculation_run_id'],
       'selected_for_deployment_at': '2026-08-03T10:00:00Z',
       'architecture_compatibility_status': 'ready',
-      'origin': 'reconstructed_v1',
+      'origin': 'native_v2',
       'architecture': singleCloudArchitecture,
-    });
-    final supportingArchitecture = Map<String, dynamic>.from(
-      jsonDecode(jsonEncode(architecture)) as Map,
-    );
-    for (final raw
-        in (supportingArchitecture['component_assignments'] as List).take(3)) {
-      (raw as Map<String, dynamic>)['required'] = false;
-    }
-    supportingArchitecture['content_digest'] =
-        ResolvedTwinArchitecture.calculateDigest(supportingArchitecture);
-    supportingResolved = ResolvedTwinArchitectureRead.fromJson({
-      'twin_id': 'twin-1',
-      'calculation_run_id': supportingArchitecture['calculation_run_id'],
-      'selected_for_deployment_at': '2026-08-03T10:00:00Z',
-      'architecture_compatibility_status': 'ready',
-      'origin': 'reconstructed_v1',
-      'architecture': supportingArchitecture,
     });
     final sixLayerArchitecture = Map<String, dynamic>.from(
       jsonDecode(
@@ -111,21 +93,21 @@ void main() {
     await tester.pumpWidget(_app(resolved));
 
     expect(find.text('Functionally complete'), findsOneWidget);
-    expect(find.text('five-layer-baseline@1'), findsOneWidget);
-    expect(find.text('7.6 USD / month'), findsOneWidget);
+    expect(find.text('six-layer-eventing@1'), findsOneWidget);
+    expect(find.text('166.6660612595 USD / month'), findsOneWidget);
     expect(find.byType(LogicalResolvedFlow), findsOneWidget);
     expect(find.byTooltip('Zoom in resolved architecture'), findsOneWidget);
-    expect(find.text('azure.archive-storage'), findsOneWidget);
+    expect(find.text('azure.archive-storage.v2'), findsOneWidget);
     await tester.ensureVisible(find.text('Cost and evidence'));
     await tester.tap(find.text('Cost and evidence'));
     await tester.pumpAndSettle();
     expect(find.text('responsibility.storage'), findsOneWidget);
     expect(find.textContaining('sha256:'), findsWidgets);
-    await tester.ensureVisible(find.text('Connections (6)'));
-    await tester.tap(find.text('Connections (6)'));
+    await tester.ensureVisible(find.text('Connections (9)'));
+    await tester.tap(find.text('Connections (9)'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('cross_provider_adapter'), findsOneWidget);
-    expect(find.byIcon(Icons.cloud_sync), findsOneWidget);
+    expect(find.textContaining('cross_provider_adapter'), findsWidgets);
+    expect(find.byIcon(Icons.cloud_sync), findsWidgets);
   });
 
   for (final textScale in [1.5, 2.0]) {
@@ -139,14 +121,6 @@ void main() {
         expect(find.byType(LogicalResolvedFlow), findsOneWidget);
         if (width < 720) {
           expect(find.byTooltip('Zoom in resolved architecture'), findsNothing);
-          expect(
-            find.bySemanticsLabel(
-              'component.ingestion connects to component.processing, '
-              'edge.ingestion-to-processing, cross-cloud bridge, '
-              'cross_provider_adapter, asynchronous, per_entity',
-            ),
-            findsOneWidget,
-          );
         } else {
           expect(
             find.byTooltip('Zoom in resolved architecture'),
@@ -172,27 +146,13 @@ void main() {
     await tester.pumpWidget(_app(singleCloudResolved));
 
     expect(find.text('1 provider'), findsOneWidget);
-    await tester.ensureVisible(find.text('Connections (6)'));
-    await tester.tap(find.text('Connections (6)'));
+    await tester.ensureVisible(find.text('Connections (9)'));
+    await tester.tap(find.text('Connections (9)'));
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.cloud_sync), findsNothing);
-    expect(find.byIcon(Icons.arrow_forward), findsNWidgets(6));
+    expect(find.byIcon(Icons.arrow_forward), findsNWidgets(9));
     expect(find.textContaining('cross_provider_adapter'), findsNothing);
-  });
-
-  testWidgets('supporting resources remain a bounded disclosure', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_app(supportingResolved));
-
-    expect(find.text('Supporting resources (3)'), findsOneWidget);
-    await tester.ensureVisible(find.text('Supporting resources (3)'));
-    await tester.tap(find.text('Supporting resources (3)'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('azure.archive-storage'), findsOneWidget);
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Six-layer review exposes the Event Layer without an admin UI', (

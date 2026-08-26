@@ -1,4 +1,4 @@
-"""Inherited finite, idempotent AWS hot-to-cool exporter for Six-layer v1.
+"""Finite, idempotent AWS hot-to-cool exporter for Six-layer v1.
 
 Each scheduled Fargate task owns one deterministic DynamoDB storage-window
 shard. Objects and manifests use conditional creation, so retries can verify
@@ -23,9 +23,9 @@ WINDOW = timedelta(minutes=5)
 MAX_OBJECT_BYTES = 64 * 1024 * 1024
 MAX_TASK_INPUT_BYTES = 512 * 1024 * 1024
 MAX_MANIFEST_BYTES = 2 * 1024 * 1024
-ARTIFACT_SCHEMA = "five-layer-v2-storage-window.v1"
+ARTIFACT_SCHEMA = "six-layer-storage-window.v1"
 TRANSITION_SCHEMA = "storage_transition.v1"
-INDEX_SCHEMA = "five-layer-v2-storage-index.v1"
+INDEX_SCHEMA = "six-layer-storage-index.v1"
 
 
 class StorageTransitionError(RuntimeError):

@@ -23,8 +23,7 @@ DECISION_PATH = EVIDENCE_ROOT / "decision.json"
 README_PATH = EVIDENCE_ROOT / "README.md"
 PROVIDERS = {"aws", "azure", "gcp"}
 SCENARIOS = {"eventing-small-v1", "eventing-medium-v1", "eventing-large-v1"}
-PROFILE_TARGETS = {"five-layer-baseline@2", "six-layer-eventing@1"}
-HISTORICAL_PROFILE = "five-layer-baseline@1"
+PROFILE_TARGETS = {"six-layer-eventing@1"}
 EXPECTED_PROFILE_EXTENSION_EVENT_TYPES = [
     "twin.state.upserted",
     "twin.model.upserted",
@@ -32,28 +31,6 @@ EXPECTED_PROFILE_EXTENSION_EVENT_TYPES = [
     "twin.relationship.deleted",
 ]
 EXPECTED_BRIDGE_COMPONENTS = {
-    "five-layer-baseline@2": {
-        "aws": {
-            "telemetry": {"deployment.aws.embedded.bridge-kinesis"},
-            "control": {
-                "deployment.aws.embedded.bridge-sns-fifo",
-                "deployment.aws.embedded.direct-edge-transport",
-            },
-        },
-        "azure": {
-            "telemetry": {
-                "deployment.azure.embedded.bridge-event-hubs-standard",
-                "deployment.azure.embedded.bridge-event-hubs-dedicated",
-            },
-            "control": {
-                "deployment.azure.embedded.direct-edge-transport",
-            },
-        },
-        "gcp": {
-            "telemetry": {"deployment.gcp.embedded.pubsub"},
-            "control": {"deployment.gcp.embedded.pubsub"},
-        },
-    },
     "six-layer-eventing@1": {
         "aws": {
             "telemetry": {"deployment.aws.event.kinesis"},
@@ -388,13 +365,10 @@ def validate_coverage(
 
     parity = artifacts["profile-parity-decision.json"]
     profile_ids = {row["profile_id"] for row in parity["profiles"]}
-    expected_profiles = PROFILE_TARGETS | {HISTORICAL_PROFILE}
-    if profile_ids != expected_profiles:
+    if profile_ids != PROFILE_TARGETS:
         errors.append(f"profile parity mismatch: {sorted(profile_ids)}")
     if set(parity["comparison_rule"]["functional_parity_profiles"]) != PROFILE_TARGETS:
-        errors.append(
-            "functional comparison must be exactly five-layer@2 vs six-layer@1"
-        )
+        errors.append("functional validation must target only six-layer@1")
     if parity["legacy_flag_policy"]["new_profile_behavior"] != "reject":
         errors.append("new profiles must reject all legacy event feature flags")
 
@@ -681,25 +655,15 @@ def validate_manifest(
         errors.append(f"manifest references unknown bundles: {sorted(unknown_bundles)}")
 
     adapter_ids = {row["adapter_id"] for row in manifest["runtime_adapters"]}
-    permission_ids = {row["permission_set_id"] for row in manifest["permission_sets"]}
     add_duplicates(
         errors,
         "adapter_id",
         (row["adapter_id"] for row in manifest["runtime_adapters"]),
     )
-    add_duplicates(
-        errors,
-        "permission_set_id",
-        (row["permission_set_id"] for row in manifest["permission_sets"]),
-    )
     for component in manifest["service_components"]:
         for adapter_id in component["runtime_adapter_ids"]:
             if adapter_id not in adapter_ids:
                 errors.append(f"unresolved runtime adapter: {adapter_id}")
-        if component["permission_set_ref"] not in permission_ids:
-            errors.append(
-                f"unresolved permission set: {component['permission_set_ref']}"
-            )
 
     contract_ids = {row["contract_id"] for row in manifest["contract_targets"]}
     add_duplicates(
@@ -777,11 +741,7 @@ def validate_manifest(
                 f"{route['route_class_id']}: incomplete profile route bindings"
             )
         for binding in bindings:
-            expected_scope = (
-                "embedded"
-                if binding["profile_id"] == "five-layer-baseline@2"
-                else "event_layer"
-            )
+            expected_scope = "event_layer"
             for side, provider in (
                 ("source", route["source_provider"]),
                 ("destination", route["destination_provider"]),
@@ -840,11 +800,6 @@ def validate_manifest(
                         f"{route['route_class_id']}: source {component_id} "
                         "does not own the route bridge adapter"
                     )
-        for permission in route["permission_set_refs"]:
-            if permission not in permission_ids:
-                errors.append(
-                    f"{route['route_class_id']}: unresolved permission {permission}"
-                )
 
     domain_channels = {row["channel_id"]: row for row in domain["channels"]}
     manifest_edges = {row["channel_id"]: row for row in manifest["logical_edges"]}
@@ -881,9 +836,6 @@ def validate_manifest(
     )
     referenced_implementation_paths.update(
         row["source_path"] for row in manifest["runtime_adapters"]
-    )
-    referenced_implementation_paths.update(
-        row["path"] for row in manifest["permission_sets"]
     )
     for path in sorted(referenced_implementation_paths - set(file_paths)):
         errors.append(f"implementation path has no file owner: {path}")

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import pytest
 
+from src.schemas.optimizer_calculation import SIX_LAYER_WORKLOAD_ROOT
 from src.services.aws_twinmaker_pricing_context_service import (
     ResolvedAwsTwinMakerPricingContext,
 )
@@ -14,12 +16,14 @@ from tests.optimizer_transfer_pricing_test_data import optimizer_transfer_result
 from tests.pricing_catalog_test_data import catalog_context
 
 
-def _valid_route_params(sample_calc_params: dict) -> dict:
+def _valid_route_params(_sample_calc_params: dict) -> dict:
     return {
-        **sample_calc_params,
-        "average3DModelSizeInMB": 100.0,
-        "orchestrationActionsPerMessage": 1,
-        "eventsPerMessage": 1,
+        **json.loads(
+            (
+                SIX_LAYER_WORKLOAD_ROOT / "fixtures" / "valid" / "core-small.json"
+            ).read_text(encoding="utf-8")
+        ),
+        "optimizationProfileId": "cost-minimization-v2",
     }
 
 
@@ -165,9 +169,7 @@ async def test_calculate_rejects_aws_l4_without_trusted_result_context():
                         "L5": "Azure",
                     }
                 ),
-                "providerPricingContexts": {
-                    "awsTwinMaker": {"status": "compatible"}
-                },
+                "providerPricingContexts": {"awsTwinMaker": {"status": "compatible"}},
             }
         }
     )
@@ -182,8 +184,8 @@ async def test_calculate_rejects_aws_l4_without_trusted_result_context():
 @pytest.mark.asyncio
 async def test_calculate_rejects_invalid_transfer_pricing_evidence():
     payload = optimizer_transfer_result()
-    payload["transferPricingContext"]["routes"][0]["catalogSnapshotId"] = (
-        "pcs_" + ("d" * 64)
+    payload["transferPricingContext"]["routes"][0]["catalogSnapshotId"] = "pcs_" + (
+        "d" * 64
     )
 
     with pytest.raises(DownstreamServiceError) as exc_info:
@@ -198,7 +200,9 @@ async def test_calculate_rejects_invalid_transfer_pricing_evidence():
     )
 
 
-def test_calculate_route_returns_optimizer_payload(authenticated_client, sample_calc_params):
+def test_calculate_route_returns_optimizer_payload(
+    authenticated_client, sample_calc_params
+):
     client, headers = authenticated_client
     fake = FakeOptimizerClient(optimizer_transfer_result())
 
@@ -207,12 +211,14 @@ def test_calculate_route_returns_optimizer_payload(authenticated_client, sample_
             "src.api.routes.optimizer._optimizer_calculation_service",
             lambda _db: _service(fake),
         )
-        response = client.put("/optimizer/calculate", json=_valid_route_params(sample_calc_params), headers=headers)
+        response = client.put(
+            "/optimizer/calculate",
+            json=_valid_route_params(sample_calc_params),
+            headers=headers,
+        )
 
     assert response.status_code == 200
-    assert response.json()["pricingCatalogs"] == (
-        catalog_context().to_http_dict()
-    )
+    assert response.json()["pricingCatalogs"] == (catalog_context().to_http_dict())
     assert len(response.json()["transferPricingContext"]["routes"]) == 6
     assert fake.calls[0] == {
         **_valid_route_params(sample_calc_params),
@@ -226,41 +232,9 @@ def test_calculate_route_returns_optimizer_payload(authenticated_client, sample_
     }
 
 
-def test_calculate_route_preserves_omitted_adt_assumption_provenance(
-    authenticated_client,
-    sample_calc_params,
+def test_calculate_route_maps_optimizer_timeout(
+    authenticated_client, sample_calc_params
 ):
-    client, headers = authenticated_client
-    fake = FakeOptimizerClient(optimizer_transfer_result())
-    params = _valid_route_params(sample_calc_params)
-    params.pop("averageDigitalTwinQueryUnitsPerQuery")
-    params.pop("averageDigitalTwinQueryResponseSizeInKb")
-
-    with pytest.MonkeyPatch.context() as monkeypatch:
-        monkeypatch.setattr(
-            "src.api.routes.optimizer._optimizer_calculation_service",
-            lambda _db: _service(fake),
-        )
-        response = client.put(
-            "/optimizer/calculate",
-            json=params,
-            headers=headers,
-        )
-
-    assert response.status_code == 200
-    assert fake.calls[0] == {
-        **params,
-        "providerPricingCatalogs": catalog_context().to_http_dict(),
-        "providerPricingContexts": {
-            "awsTwinMaker": {
-                "status": "unavailable",
-                "reasonCode": "AWS_TWINMAKER_PLAN_UNOBSERVED",
-            }
-        },
-    }
-
-
-def test_calculate_route_maps_optimizer_timeout(authenticated_client, sample_calc_params):
     client, headers = authenticated_client
 
     with pytest.MonkeyPatch.context() as monkeypatch:
@@ -272,7 +246,11 @@ def test_calculate_route_maps_optimizer_timeout(authenticated_client, sample_cal
                 ),
             ),
         )
-        response = client.put("/optimizer/calculate", json=_valid_route_params(sample_calc_params), headers=headers)
+        response = client.put(
+            "/optimizer/calculate",
+            json=_valid_route_params(sample_calc_params),
+            headers=headers,
+        )
 
     assert response.status_code == 504
     assert response.json()["detail"] == "Optimizer service timed out"

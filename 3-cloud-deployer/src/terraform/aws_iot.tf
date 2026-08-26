@@ -16,7 +16,7 @@
 # ==============================================================================
 
 locals {
-  l1_aws_enabled = var.layer_1_provider == "aws" && !local.five_layer_v2_enabled
+  l1_aws_enabled = var.layer_1_provider == "aws" && !local.six_layer_enabled
 
   # Pre-built Lambda packages directory
   l1_lambda_build_dir = "${var.project_path}/.build/aws"

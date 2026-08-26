@@ -2,7 +2,7 @@
   "schema_version": "resolved-deployment-specification.v1",
   "calculation_run_id": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
   "architecture_profile": {
-    "profile_id": "five-layer-baseline",
+    "profile_id": "six-layer-eventing",
     "profile_version": "1"
   },
   "optimization_context": {

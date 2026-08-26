@@ -5,7 +5,6 @@ from .models import (
     ValidatedResolvedDeploymentSpecification,
 )
 from .errors import DeploymentSpecificationError
-from .translator import translate_deployment_tfvars
 from .validator import (
     calculate_digest,
     validate_deployment_manifest,
@@ -17,7 +16,6 @@ __all__ = [
     "ValidatedResolvedDeploymentSpecification",
     "DeploymentSpecificationError",
     "calculate_digest",
-    "translate_deployment_tfvars",
     "validate_deployment_manifest",
     "validate_resolved_deployment_specification",
 ]

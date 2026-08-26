@@ -71,7 +71,6 @@ class CloudAccessEntry extends Equatable {
   final bool? isDefaultForPricing;
   final DateTime? lastValidatedAt;
   final DateTime? lastUsedAt;
-  final String? permissionSetStatus;
   final int boundTwinCount;
   final List<String> boundTwinLabels;
   final List<String> actions;
@@ -90,7 +89,6 @@ class CloudAccessEntry extends Equatable {
     this.isDefaultForPricing,
     this.lastValidatedAt,
     this.lastUsedAt,
-    this.permissionSetStatus,
     this.boundTwinCount = 0,
     this.boundTwinLabels = const [],
     this.actions = const [],
@@ -111,7 +109,6 @@ class CloudAccessEntry extends Equatable {
       isDefaultForPricing: json['is_default_for_pricing'] as bool?,
       lastValidatedAt: _date(json['last_validated_at']),
       lastUsedAt: _date(json['last_used_at']),
-      permissionSetStatus: _string(json['permission_set_status']),
       boundTwinCount: _integer(json['bound_twin_count']),
       boundTwinLabels: _strings(json['bound_twin_labels']),
       actions: _strings(json['actions']),
@@ -138,7 +135,6 @@ class CloudAccessEntry extends Equatable {
     isDefaultForPricing,
     lastValidatedAt,
     lastUsedAt,
-    permissionSetStatus,
     boundTwinCount,
     boundTwinLabels,
     actions,

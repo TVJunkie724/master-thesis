@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/demo/demo_fixture_store.dart';
 import 'package:twin2multicloud_flutter/demo/demo_management_api.dart';
-import 'package:twin2multicloud_flutter/models/cloud_bootstrap.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/deployment_access.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
@@ -106,210 +105,6 @@ void main() {
           ),
         ),
         throwsDemoCode('DEMO_CONNECTION_CREDENTIALS_REQUIRED'),
-      );
-    });
-
-    test('guided bootstrap demo matches deterministic fake disposal', () async {
-      final target = CloudBootstrapTarget.aws(
-        accountId: '123456789012',
-        region: 'eu-central-1',
-      );
-      final guide = await api.getCloudBootstrapGuide(CloudProvider.aws, target);
-      expect(guide.bootstrapAuthorityPack.id, 'bootstrap.aws.admin-v2');
-      expect(guide.bootstrapAuthorityPack.version, '2');
-      expect(
-        guide.generatedDeploymentPack.id,
-        'aws.thesis-demo-v2.iam-user-v1',
-      );
-      final gcpGuide = await api.getCloudBootstrapGuide(
-        CloudProvider.gcp,
-        CloudBootstrapTarget.gcpExistingProject(
-          projectId: 'twin2mc-demo-project',
-          region: 'europe-west1',
-        ),
-      );
-      expect(gcpGuide.bootstrapAuthorityPack.id, 'bootstrap.gcp.admin-v3');
-      expect(gcpGuide.bootstrapAuthorityPack.version, '3');
-      expect(gcpGuide.apiBaseline?.services, hasLength(19));
-      expect(gcpGuide.apiBaseline?.retainEnabled, isTrue);
-      final azureGuide = await api.getCloudBootstrapGuide(
-        CloudProvider.azure,
-        CloudBootstrapTarget.azure(
-          tenantId: '11111111-1111-4111-8111-111111111111',
-          subscriptionId: '22222222-2222-4222-8222-222222222222',
-          region: 'westeurope',
-        ),
-      );
-      expect(
-        azureGuide.generatedDeploymentPack.id,
-        'azure.thesis-demo-v2.service-principal-v1',
-      );
-      final draft = await api.createCloudBootstrapSession(
-        guide: guide,
-        entryPoint: CloudBootstrapEntryPoint.settings,
-        displayName: 'Demo AWS deployment access',
-        idempotencyKey: 'demo-create-bootstrap-0001',
-      );
-      final resumed = await api.createCloudBootstrapSession(
-        guide: guide,
-        entryPoint: CloudBootstrapEntryPoint.settings,
-        displayName: 'Ignored duplicate display name',
-        idempotencyKey: 'demo-create-bootstrap-0002',
-      );
-      expect(resumed.id, draft.id);
-      const submittedSecret = 'submitted-demo-bootstrap-secret';
-      final connectionCount = store.cloudConnections.length;
-      final ready = await api.executeCloudBootstrapSession(
-        draft.id,
-        CloudBootstrapExecuteRequest(
-          expectedRevision: draft.revision,
-          idempotencyKey: 'demo-execute-bootstrap-0001',
-          credentialOrigin: CloudBootstrapCredentialOrigin.dedicatedDisposable,
-          credential: const {
-            'provider': 'aws',
-            'access_key_id': 'AKIAEXAMPLE00000001',
-            'secret_access_key': submittedSecret,
-          },
-        ),
-      );
-      final replay = await api.executeCloudBootstrapSession(
-        draft.id,
-        CloudBootstrapExecuteRequest(
-          expectedRevision: draft.revision,
-          idempotencyKey: 'demo-execute-bootstrap-0001',
-          credentialOrigin: CloudBootstrapCredentialOrigin.dedicatedDisposable,
-          credential: const {
-            'provider': 'aws',
-            'access_key_id': 'AKIAREPLAY0000000000',
-            'secret_access_key': 'different-replay-secret',
-          },
-        ),
-      );
-
-      expect(ready.state, CloudBootstrapSessionState.ready);
-      expect(ready.disposalStatus, 'revoked');
-      expect(ready.connection?.permissionSetVersion, 'thesis-demo-v2');
-      expect(replay.connection?.id, ready.connection?.id);
-      expect(store.cloudConnections, hasLength(connectionCount + 1));
-      expect(
-        store.cloudConnections.toString(),
-        isNot(contains(submittedSecret)),
-      );
-    });
-
-    test(
-      'guided bootstrap demo enforces re-entry and manual cleanup',
-      () async {
-        final awsTarget = CloudBootstrapTarget.aws(
-          accountId: '123456789012',
-          region: 'eu-central-1',
-        );
-        final awsGuide = await api.getCloudBootstrapGuide(
-          CloudProvider.aws,
-          awsTarget,
-        );
-        final awsDraft = await api.createCloudBootstrapSession(
-          guide: awsGuide,
-          entryPoint: CloudBootstrapEntryPoint.settings,
-          displayName: 'AWS re-entry',
-          idempotencyKey: 'demo-create-reentry-0001',
-        );
-        final rejected = await api.executeCloudBootstrapSession(
-          awsDraft.id,
-          CloudBootstrapExecuteRequest(
-            expectedRevision: awsDraft.revision,
-            idempotencyKey: 'demo-execute-rejected-0001',
-            credentialOrigin:
-                CloudBootstrapCredentialOrigin.dedicatedDisposable,
-            credential: const {
-              'provider': 'aws',
-              'access_key_id': 'ZZZZEXAMPLE00000001',
-              'secret_access_key': 'submitted-invalid-secret',
-            },
-          ),
-        );
-        expect(
-          rejected.state,
-          CloudBootstrapSessionState.credentialReentryRequired,
-        );
-        expect(rejected.finding?.code, 'BOOTSTRAP_CREDENTIAL_INVALID');
-
-        final azureTarget = CloudBootstrapTarget.azure(
-          tenantId: 'tenant-demo',
-          subscriptionId: 'subscription-demo',
-          region: 'westeurope',
-          bootstrapCredentialKeyId: 'manual-key-demo',
-        );
-        final azureGuide = await api.getCloudBootstrapGuide(
-          CloudProvider.azure,
-          azureTarget,
-        );
-        expect(
-          azureGuide.bootstrapAuthorityPack.id,
-          'bootstrap.azure.admin-v2',
-        );
-        expect(azureGuide.bootstrapAuthorityPack.version, '2');
-        final azureDraft = await api.createCloudBootstrapSession(
-          guide: azureGuide,
-          entryPoint: CloudBootstrapEntryPoint.settings,
-          displayName: 'Azure manual cleanup',
-          idempotencyKey: 'demo-create-manual-0001',
-        );
-        final pending = await api.executeCloudBootstrapSession(
-          azureDraft.id,
-          CloudBootstrapExecuteRequest(
-            expectedRevision: azureDraft.revision,
-            idempotencyKey: 'demo-execute-manual-0001',
-            credentialOrigin:
-                CloudBootstrapCredentialOrigin.dedicatedDisposable,
-            credential: const {
-              'provider': 'azure',
-              'tenant_id': 'tenant-demo',
-              'subscription_id': 'subscription-demo',
-              'client_id': 'client-demo',
-              'client_secret': 'submitted-azure-secret',
-            },
-          ),
-        );
-        expect(
-          pending.state,
-          CloudBootstrapSessionState.manualRevocationRequired,
-        );
-        expect(pending.safeCredentialIdentifier, 'manual-key-demo');
-        expect(pending.finding?.code, 'BOOTSTRAP_MANUAL_REVOCATION_REQUIRED');
-        expect(pending.finding?.remediationUrl?.scheme, 'https');
-        final ready = await api.acknowledgeCloudBootstrapRevocation(
-          pending.id,
-          pending.revision,
-        );
-        expect(ready.state, CloudBootstrapSessionState.ready);
-        expect(ready.disposalStatus, 'revoked');
-      },
-    );
-
-    test('filters active and terminal bootstrap sessions exactly', () async {
-      final guide = await api.getCloudBootstrapGuide(
-        CloudProvider.aws,
-        CloudBootstrapTarget.aws(
-          accountId: '123456789012',
-          region: 'eu-central-1',
-        ),
-      );
-      final draft = await api.createCloudBootstrapSession(
-        guide: guide,
-        entryPoint: CloudBootstrapEntryPoint.settings,
-        displayName: 'Filtered bootstrap',
-        idempotencyKey: 'create-filter-session-0001',
-      );
-
-      expect(await api.listCloudBootstrapSessions(active: true), [draft]);
-      expect(await api.listCloudBootstrapSessions(active: false), isEmpty);
-
-      await api.cancelCloudBootstrapSession(draft.id, draft.revision);
-      expect(await api.listCloudBootstrapSessions(active: true), isEmpty);
-      expect(
-        (await api.listCloudBootstrapSessions(active: false)).single.state,
-        CloudBootstrapSessionState.cancelled,
       );
     });
 
@@ -426,8 +221,8 @@ void main() {
         'eu-central-1',
       );
 
-      final calculationParams = CalcParams.fiveLayerV2(
-        scenario: FiveLayerWorkloadScenario.small,
+      final calculationParams = CalcParams.sixLayer(
+        scenario: SixLayerWorkloadScenario.small,
       );
       final run = await api.createOptimizerRun('demo-draft', calculationParams);
       final calculation = run.optimization;
@@ -443,7 +238,7 @@ void main() {
       expect(calculation.result.totalCost, greaterThan(0));
       expect(calculation.result.pricingCatalogContext, isNotNull);
       expect(calculation.result.pricingCatalogContext!.catalogs, hasLength(3));
-      expect(calculation.isNativeFiveLayerV2, isTrue);
+      expect(calculation.isNativeSixLayer, isTrue);
       expect(
         calculation.result.optimizationProfile?.profileId,
         'cost-minimization-v2',
@@ -455,7 +250,7 @@ void main() {
       expect(calculation.result.cheapestPath, hasLength(7));
       expect(calculation.result.transferPricingContext, isNull);
       expect(calculation.result.optimizationDiagnostics, isNull);
-      expect(calculation.result.transferCosts, hasLength(8));
+      expect(calculation.result.transferCosts, hasLength(9));
       expect(calculation.result.transferCosts!.values, everyElement(0));
       final persisted = await api.getOptimizerConfig('demo-draft');
       expect(persisted?.optimization?.payload, isNotEmpty);
@@ -469,9 +264,9 @@ void main() {
       expect(latest?.selectedForDeploymentAt, isNull);
       final specification =
           latest?.specification as ResolvedDeploymentSpecificationV2;
-      expect(specification.architectureProfileRef.version, '2');
-      expect(specification.logicalComponentCount, 7);
-      expect(specification.providers, {CloudProvider.aws});
+      expect(specification.architectureProfileRef.version, '1');
+      expect(specification.logicalComponentCount, 8);
+      expect(specification.providers, {CloudProvider.aws, CloudProvider.azure});
       expect(specification.readiness.evaluationOnly, isTrue);
       expect(
         specification.readiness.blockingGateIds,
@@ -479,7 +274,9 @@ void main() {
           'gate.live-capacity.aws.dynamodb-partition-distribution',
           'gate.live-capacity.aws.reader-latency-and-quota',
           'gate.live-capacity.aws.twinmaker-query-behavior',
-          'gate.live-pricing.aws.twinmaker-account-plan',
+          'gate.live-capacity.azure.cosmos-partition-distribution',
+          'gate.live-capacity.azure.cosmos-request-charge-fixture',
+          'gate.live-capacity.azure.reader-latency-and-quota',
         ]),
       );
       expect(
@@ -520,7 +317,7 @@ void main() {
       );
     });
 
-    test('rejects a legacy workload after Five-layer v2 activation', () async {
+    test('rejects a legacy workload after Six-layer activation', () async {
       final params = CalcParams.fromJson({
         ...CalcParams.defaultParams().toJson(),
         'integrateErrorHandling': true,
@@ -533,76 +330,80 @@ void main() {
       expect(await api.getOptimizerConfig('demo-draft'), isNull);
     });
 
-    test('keeps all v2 scenario evidence internally paired', () async {
-      const cases = <(FiveLayerWorkloadScenario, String, Set<CloudProvider>)>[
-        (FiveLayerWorkloadScenario.small, 'USD', {CloudProvider.aws}),
-        (
-          FiveLayerWorkloadScenario.medium,
-          'EUR',
-          {CloudProvider.azure, CloudProvider.gcp},
-        ),
-        (
-          FiveLayerWorkloadScenario.large,
-          'USD',
-          {CloudProvider.aws, CloudProvider.azure, CloudProvider.gcp},
-        ),
-      ];
-
-      for (final testCase in cases) {
-        final run = await api.createOptimizerRun(
-          'demo-draft',
-          CalcParams.fiveLayerV2(scenario: testCase.$1, currency: testCase.$2),
-        );
-        final specification =
-            run.deploymentRun.specification
-                as ResolvedDeploymentSpecificationV2;
-        final architecture = await api.getRunResolvedArchitecture(run.id);
-
-        expect(specification.currency, testCase.$2);
-        expect(specification.providers, testCase.$3);
-        expect(specification.readiness.evaluationOnly, isTrue);
-        expect(specification.readiness.blockingGateIds, isNotEmpty);
-        expect(architecture.architecture.costSummary.currency, testCase.$2);
-        expect(run.optimization.isNativeFiveLayerV2, isTrue);
-        expect(run.optimization.payload, isNot(contains('inputParamsUsed')));
-        expect(run.optimization.result.cheapestPath, hasLength(7));
-        expect(
-          architecture.architecture.costSummary.monthlyTotal,
-          run.optimization.payload['totalCostExact'],
-        );
-        expect(
-          architecture.architecture.deploymentSpecificationDigest,
-          specification.digest,
-        );
-        await expectLater(
-          api.selectOptimizerRunForDeployment('demo-draft', run.id),
-          throwsDemoCode('DEPLOYMENT_CAPACITY_EVIDENCE_PENDING'),
-        );
-      }
-    });
-
     test(
-      'uses the pinned Five-layer v2 EUR conversion in demo results',
+      'keeps every workload size paired with the canonical fixture',
       () async {
-        final usd = await api.createOptimizerRun(
-          'demo-draft',
-          CalcParams.fiveLayerV2(scenario: FiveLayerWorkloadScenario.small),
-        );
-        final eur = await api.createOptimizerRun(
-          'demo-draft',
-          CalcParams.fiveLayerV2(
-            scenario: FiveLayerWorkloadScenario.small,
-            currency: 'EUR',
+        const cases = <(SixLayerWorkloadScenario, String, Set<CloudProvider>)>[
+          (
+            SixLayerWorkloadScenario.small,
+            'USD',
+            {CloudProvider.aws, CloudProvider.azure},
           ),
-        );
+          (
+            SixLayerWorkloadScenario.medium,
+            'EUR',
+            {CloudProvider.aws, CloudProvider.azure},
+          ),
+          (
+            SixLayerWorkloadScenario.large,
+            'USD',
+            {CloudProvider.aws, CloudProvider.azure},
+          ),
+        ];
 
-        expect(eur.currency, 'EUR');
-        expect(
-          eur.totalMonthlyCost,
-          closeTo(usd.totalMonthlyCost * 0.865948, 0.00001),
-        );
+        for (final testCase in cases) {
+          final run = await api.createOptimizerRun(
+            'demo-draft',
+            CalcParams.sixLayer(scenario: testCase.$1, currency: testCase.$2),
+          );
+          final specification =
+              run.deploymentRun.specification
+                  as ResolvedDeploymentSpecificationV2;
+          final architecture = await api.getRunResolvedArchitecture(run.id);
+
+          expect(specification.currency, testCase.$2);
+          expect(specification.providers, testCase.$3);
+          expect(specification.readiness.evaluationOnly, isTrue);
+          expect(specification.readiness.blockingGateIds, isNotEmpty);
+          expect(architecture.architecture.costSummary.currency, testCase.$2);
+          expect(run.optimization.isNativeSixLayer, isTrue);
+          expect(run.optimization.payload, isNot(contains('inputParamsUsed')));
+          expect(run.optimization.result.cheapestPath, hasLength(7));
+          expect(
+            architecture.architecture.costSummary.monthlyTotal,
+            run.optimization.payload['totalCostExact'],
+          );
+          expect(
+            architecture.architecture.deploymentSpecificationDigest,
+            specification.digest,
+          );
+          await expectLater(
+            api.selectOptimizerRunForDeployment('demo-draft', run.id),
+            throwsDemoCode('DEPLOYMENT_CAPACITY_EVIDENCE_PENDING'),
+          );
+        }
       },
     );
+
+    test('uses the pinned Six-layer EUR conversion in demo results', () async {
+      final usd = await api.createOptimizerRun(
+        'demo-draft',
+        CalcParams.sixLayer(scenario: SixLayerWorkloadScenario.small),
+      );
+      final eur = await api.createOptimizerRun(
+        'demo-draft',
+        CalcParams.sixLayer(
+          scenario: SixLayerWorkloadScenario.small,
+          currency: 'EUR',
+        ),
+      );
+
+      expect(eur.currency, 'EUR');
+      expect(
+        eur.totalMonthlyCost,
+        closeTo(usd.totalMonthlyCost * 0.865948, 0.00001),
+      );
+    });
 
     test(
       'does not invent catalog evidence for a legacy saved result',
@@ -616,9 +417,7 @@ void main() {
 
         expect(loaded?.pricingCatalogContext, isNull);
         expect(loaded?.optimization?.result.pricingCatalogContext, isNull);
-        final run = await api.getLatestOptimizerRun('demo-configured');
-        expect(run?.compatibility, DeploymentCompatibility.legacyNotDeployable);
-        expect(run?.specification, isNull);
+        expect(await api.getLatestOptimizerRun('demo-configured'), isNull);
       },
     );
   });

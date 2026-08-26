@@ -5,16 +5,12 @@
   "architecture_profile_ref": {
     "id": "six-layer-eventing",
     "version": "1",
-    "digest": "sha256:0ecbf18fdc54a479c81a81df114fc508983db7da1786836aa1774e03d1665066"
+    "digest": "sha256:5005e709b88026dc67570fd1cc93560628ddaf251e76506c5d78f66090fa0804"
   },
   "provider": "azure",
   "lifecycle_status": "active",
   "region_policy_ref": {
-    "id": "region-policy.azure.five-layer-v2",
-    "version": "1"
-  },
-  "permission_set_ref": {
-    "id": "permission-set.azure.thesis-demo-v2",
+    "id": "region-policy.azure.six-layer-domain-v1",
     "version": "1"
   },
   "supported": true,
@@ -577,5 +573,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:34c34bc42abd9d57d9cc0cd25b10bdb67f4ce404091c9e590275e52a91128c92"
+  "content_digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
 }

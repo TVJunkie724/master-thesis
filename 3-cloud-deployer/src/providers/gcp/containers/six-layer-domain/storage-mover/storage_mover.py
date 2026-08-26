@@ -1,4 +1,4 @@
-"""Inherited finite, idempotent GCP hot-to-cool exporter for Six-layer v1.
+"""Finite, idempotent GCP hot-to-cool exporter for Six-layer v1.
 
 Each Cloud Run task owns a deterministic subset of Firestore timestamp shards
 for exactly one five-minute storage window. Objects and manifests use
@@ -25,9 +25,9 @@ WINDOW = timedelta(minutes=5)
 MAX_OBJECT_BYTES = 64 * 1024 * 1024
 MAX_TASK_INPUT_BYTES = 512 * 1024 * 1024
 MAX_MANIFEST_BYTES = 2 * 1024 * 1024
-ARTIFACT_SCHEMA = "five-layer-v2-storage-window.v1"
+ARTIFACT_SCHEMA = "six-layer-storage-window.v1"
 TRANSITION_SCHEMA = "storage_transition.v1"
-INDEX_SCHEMA = "five-layer-v2-storage-index.v1"
+INDEX_SCHEMA = "six-layer-storage-index.v1"
 
 
 class StorageTransitionError(RuntimeError):
@@ -118,13 +118,19 @@ def partition_lines(lines: Iterable[bytes]) -> tuple[tuple[bytes, ...], ...]:
     return tuple(parts)
 
 
-def assigned_shards(shard_count: int, task_count: int, task_index: int) -> tuple[int, ...]:
+def assigned_shards(
+    shard_count: int, task_count: int, task_index: int
+) -> tuple[int, ...]:
     if task_index < 0 or task_index >= task_count:
         raise StorageTransitionError("INVALID_CLOUD_RUN_TASK_INDEX")
-    return tuple(shard for shard in range(shard_count) if shard % task_count == task_index)
+    return tuple(
+        shard for shard in range(shard_count) if shard % task_count == task_index
+    )
 
 
-def _write_once(bucket: Any, name: str, content: bytes, metadata: dict[str, str]) -> None:
+def _write_once(
+    bucket: Any, name: str, content: bytes, metadata: dict[str, str]
+) -> None:
     checksum = hashlib.sha256(content).hexdigest()
     expected = {**metadata, "sha256": checksum}
     blob = bucket.blob(name)
@@ -132,7 +138,9 @@ def _write_once(bucket: Any, name: str, content: bytes, metadata: dict[str, str]
         blob.metadata = expected
         blob.upload_from_string(
             content,
-            content_type="application/json" if name.endswith(".json") else "application/gzip",
+            content_type="application/json"
+            if name.endswith(".json")
+            else "application/gzip",
             if_generation_match=0,
         )
         return
@@ -358,7 +366,9 @@ def main() -> None:
     transition = os.environ.get("TRANSITION", "")
     source_provider = os.environ.get("SOURCE_PROVIDER", "")
     destination_provider = os.environ.get("DESTINATION_PROVIDER", "")
-    if transition != "hot-to-cool" or {source_provider, destination_provider} != {"google"}:
+    if transition != "hot-to-cool" or {source_provider, destination_provider} != {
+        "google"
+    }:
         raise StorageTransitionError("UNSUPPORTED_STORAGE_TRANSITION_ROUTE")
     database_name = os.environ.get("FIRESTORE_DATABASE", "")
     bucket_name = os.environ.get("HISTORY_BUCKET", "")

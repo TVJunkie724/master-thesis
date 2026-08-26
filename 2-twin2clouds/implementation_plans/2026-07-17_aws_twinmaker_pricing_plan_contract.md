@@ -402,9 +402,8 @@ and resulting public catalog evidence must use the configured target region.
 Neither the credential checker nor refresh path may silently default a missing
 target region.
 
-`iottwinmaker:GetPricingPlan` belongs only to the pricing-purpose policy and
-bootstrap output. It must not be added to `thesis-demo-v1` deployment
-permissions.
+`iottwinmaker:GetPricingPlan` belongs only to the pricing-purpose provider
+credential. It is not required by the deployment path.
 
 The credential-based AWS refresh must observe the plan before it performs and
 publishes the public catalog refresh. A failed observation fails the user

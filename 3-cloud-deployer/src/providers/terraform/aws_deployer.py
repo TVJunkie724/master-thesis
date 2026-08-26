@@ -20,9 +20,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-V2_SEED_ROOT_ID = "twin2multicloud-poc-root"
-V2_SEED_DEVICE_ID = "twin2multicloud-poc-device"
-V2_SEED_COMPONENT_NAME = "Twin2MultiCloudPoCDevice"
+SIX_LAYER_SEED_ROOT_ID = "twin2multicloud-poc-root"
+SIX_LAYER_SEED_DEVICE_ID = "twin2multicloud-poc-device"
+SIX_LAYER_SEED_COMPONENT_NAME = "Twin2MultiCloudPoCDevice"
 
 
 def _is_active_phase8_profile(context: "DeploymentContext") -> bool:
@@ -43,7 +43,9 @@ def _active_phase8_profile(context: "DeploymentContext") -> str:
     return f"{profile[0]}@{profile[1]}"
 
 
-def _simulator_iot_policy(*, region: str, account_id: str, device_id: str, topic: str) -> dict:
+def _simulator_iot_policy(
+    *, region: str, account_id: str, device_id: str, topic: str
+) -> dict:
     """Return the exact runtime permissions needed by one simulator device."""
     return {
         "Version": "2012-10-17",
@@ -91,14 +93,18 @@ def _ensure_iot_policy(iot, *, policy_name: str, policy_document: dict) -> None:
     if _policy_document(current["policyDocument"]) == policy_document:
         return
 
-    versions = iot.list_policy_versions(policyName=policy_name).get("policyVersions", [])
+    versions = iot.list_policy_versions(policyName=policy_name).get(
+        "policyVersions", []
+    )
     if len(versions) >= 5:
         removable = sorted(
             (version for version in versions if not version.get("isDefaultVersion")),
             key=lambda version: str(version.get("createDate") or ""),
         )
         if not removable:
-            raise RuntimeError(f"AWS IoT policy '{policy_name}' has no removable version")
+            raise RuntimeError(
+                f"AWS IoT policy '{policy_name}' has no removable version"
+            )
         iot.delete_policy_version(
             policyName=policy_name,
             policyVersionId=removable[0]["versionId"],
@@ -117,12 +123,16 @@ def _require_aws_provider(context: "DeploymentContext"):
     return provider
 
 
-def _resolve_lambda_arn(lambda_client, outputs: dict, output_key: str, name: str) -> str | None:
+def _resolve_lambda_arn(
+    lambda_client, outputs: dict, output_key: str, name: str
+) -> str | None:
     arn = outputs.get(output_key)
     if arn:
         return str(arn)
     try:
-        return lambda_client.get_function(FunctionName=name)["Configuration"]["FunctionArn"]
+        return lambda_client.get_function(FunctionName=name)["Configuration"][
+            "FunctionArn"
+        ]
     except lambda_client.exceptions.ResourceNotFoundException:
         return None
 
@@ -135,7 +145,7 @@ def _hierarchy_contains_component(nodes: list[dict]) -> bool:
     )
 
 
-def _five_layer_v2_seed(context: "DeploymentContext") -> dict:
+def _six_layer_seed(context: "DeploymentContext") -> dict:
     """Return the deterministic minimal TwinMaker graph used by the thesis PoC."""
     configured_devices = getattr(context.config, "iot_devices", [])
     devices = configured_devices if isinstance(configured_devices, list) else []
@@ -145,16 +155,16 @@ def _five_layer_v2_seed(context: "DeploymentContext") -> dict:
     )
     return {
         "type": "entity",
-        "id": V2_SEED_ROOT_ID,
+        "id": SIX_LAYER_SEED_ROOT_ID,
         "children": [
             {
                 "type": "entity",
-                "id": V2_SEED_DEVICE_ID,
+                "id": SIX_LAYER_SEED_DEVICE_ID,
                 "children": [
                     {
                         "type": "component",
-                        "name": V2_SEED_COMPONENT_NAME,
-                        "componentTypeId": V2_SEED_COMPONENT_NAME,
+                        "name": SIX_LAYER_SEED_COMPONENT_NAME,
+                        "componentTypeId": SIX_LAYER_SEED_COMPONENT_NAME,
                         "properties": [
                             {"name": "value", "dataType": "DOUBLE"},
                         ],
@@ -177,14 +187,14 @@ def _five_layer_v2_seed(context: "DeploymentContext") -> dict:
     }
 
 
-def _probe_five_layer_v2_seed(
+def _probe_six_layer_seed(
     twinmaker,
     *,
     workspace_id: str,
     twin_name: str,
 ) -> None:
     """Read back the bounded seed graph through the deployed TwinMaker API."""
-    component_type_id = f"{twin_name}-{V2_SEED_COMPONENT_NAME}"
+    component_type_id = f"{twin_name}-{SIX_LAYER_SEED_COMPONENT_NAME}"
     run = RuntimeRun("AWS", "TwinMaker content probe", logger)
 
     def read_component_type() -> None:
@@ -198,25 +208,27 @@ def _probe_five_layer_v2_seed(
     def read_root() -> None:
         response = twinmaker.get_entity(
             workspaceId=workspace_id,
-            entityId=V2_SEED_ROOT_ID,
+            entityId=SIX_LAYER_SEED_ROOT_ID,
         )
-        if response.get("entityId") != V2_SEED_ROOT_ID:
+        if response.get("entityId") != SIX_LAYER_SEED_ROOT_ID:
             raise RuntimeError("TwinMaker seed root readback returned the wrong entity")
 
     def read_device() -> None:
         response = twinmaker.get_entity(
             workspaceId=workspace_id,
-            entityId=V2_SEED_DEVICE_ID,
+            entityId=SIX_LAYER_SEED_DEVICE_ID,
         )
-        if response.get("parentEntityId") != V2_SEED_ROOT_ID:
+        if response.get("parentEntityId") != SIX_LAYER_SEED_ROOT_ID:
             raise RuntimeError("TwinMaker seed relationship is not readable")
-        component = response.get("components", {}).get(V2_SEED_COMPONENT_NAME, {})
+        component = response.get("components", {}).get(
+            SIX_LAYER_SEED_COMPONENT_NAME, {}
+        )
         if component.get("componentTypeId") != component_type_id:
             raise RuntimeError("TwinMaker seed component is not readable")
 
     run.attempt(component_type_id, read_component_type)
-    run.attempt(V2_SEED_ROOT_ID, read_root)
-    run.attempt(V2_SEED_DEVICE_ID, read_device)
+    run.attempt(SIX_LAYER_SEED_ROOT_ID, read_root)
+    run.attempt(SIX_LAYER_SEED_DEVICE_ID, read_device)
     run.raise_if_failed()
 
 
@@ -235,7 +247,7 @@ def create_twinmaker_entities(
     if not isinstance(hierarchy, list):
         raise ValueError("AWS TwinMaker hierarchy must be a list")
     if _is_active_phase8_profile(context):
-        hierarchy = [*hierarchy, _five_layer_v2_seed(context)]
+        hierarchy = [*hierarchy, _six_layer_seed(context)]
     elif not hierarchy:
         raise ValueError("AWS TwinMaker hierarchy must be a non-empty list")
 
@@ -248,14 +260,19 @@ def create_twinmaker_entities(
         "aws_l4_connector_function_arn",
         f"{twin_name}-l4-connector",
     )
-    connector_last_entry_arn = _resolve_lambda_arn(
-        lambda_client,
-        terraform_outputs,
-        "aws_l4_connector_last_entry_function_arn",
-        f"{twin_name}-l4-connector-last-entry",
-    ) or connector_arn
+    connector_last_entry_arn = (
+        _resolve_lambda_arn(
+            lambda_client,
+            terraform_outputs,
+            "aws_l4_connector_last_entry_function_arn",
+            f"{twin_name}-l4-connector-last-entry",
+        )
+        or connector_arn
+    )
     if _hierarchy_contains_component(hierarchy) and not connector_arn:
-        raise RuntimeError("TwinMaker hierarchy contains components but no L4 connector exists")
+        raise RuntimeError(
+            "TwinMaker hierarchy contains components but no L4 connector exists"
+        )
 
     run = RuntimeRun("AWS", "TwinMaker", logger)
     for root in hierarchy:
@@ -271,7 +288,7 @@ def create_twinmaker_entities(
         )
     run.raise_if_failed()
     if _is_active_phase8_profile(context):
-        _probe_five_layer_v2_seed(
+        _probe_six_layer_seed(
             twinmaker,
             workspace_id=str(workspace_id),
             twin_name=twin_name,
@@ -293,9 +310,12 @@ def _create_twinmaker_node(
     if node_type == "entity":
         entity_id = node.get("id")
         if not isinstance(entity_id, str) or not entity_id:
-            run.attempt("invalid entity", lambda: (_ for _ in ()).throw(
-                ValueError("TwinMaker entity is missing a non-empty id")
-            ))
+            run.attempt(
+                "invalid entity",
+                lambda: (_ for _ in ()).throw(
+                    ValueError("TwinMaker entity is missing a non-empty id")
+                ),
+            )
             return
         if not _create_entity(run, twinmaker, workspace_id, entity_id, parent_id):
             return
@@ -331,7 +351,9 @@ def _create_twinmaker_node(
     )
 
 
-def _create_entity(run, twinmaker, workspace_id: str, entity_id: str, parent_id: str | None) -> bool:
+def _create_entity(
+    run, twinmaker, workspace_id: str, entity_id: str, parent_id: str | None
+) -> bool:
     def create() -> bool:
         params = {
             "workspaceId": workspace_id,
@@ -385,19 +407,27 @@ def _create_component(
 ) -> None:
     name = node.get("name", node.get("componentTypeId"))
     if not isinstance(name, str) or not name:
-        run.attempt("invalid component", lambda: (_ for _ in ()).throw(
-            ValueError("TwinMaker component is missing a non-empty name")
-        ))
+        run.attempt(
+            "invalid component",
+            lambda: (_ for _ in ()).throw(
+                ValueError("TwinMaker component is missing a non-empty name")
+            ),
+        )
         return
     if not parent_id:
-        run.attempt(name, lambda: (_ for _ in ()).throw(
-            ValueError("TwinMaker component must be nested below an entity")
-        ))
+        run.attempt(
+            name,
+            lambda: (_ for _ in ()).throw(
+                ValueError("TwinMaker component must be nested below an entity")
+            ),
+        )
         return
     component_type_id = f"{twin_name}-{name}"
 
     def create_and_attach() -> bool:
-        functions = {"dataReader": {"implementedBy": {"lambda": {"arn": connector_arn}}}}
+        functions = {
+            "dataReader": {"implementedBy": {"lambda": {"arn": connector_arn}}}
+        }
         if connector_last_entry_arn:
             functions["attributePropertyValueReaderByEntity"] = {
                 "implementedBy": {"lambda": {"arn": connector_last_entry_arn}}
@@ -410,7 +440,9 @@ def _create_component(
                 functions=functions,
             )
         except twinmaker.exceptions.ConflictException:
-            logger.info("TwinMaker component type already exists: %s", component_type_id)
+            logger.info(
+                "TwinMaker component type already exists: %s", component_type_id
+            )
         else:
             _wait_for_component_type(twinmaker, workspace_id, component_type_id)
         try:
@@ -426,7 +458,9 @@ def _create_component(
     run.attempt(component_type_id, create_and_attach, default=False)
 
 
-def _wait_for_component_type(twinmaker, workspace_id: str, component_type_id: str) -> None:
+def _wait_for_component_type(
+    twinmaker, workspace_id: str, component_type_id: str
+) -> None:
     for _ in range(30):
         response = twinmaker.get_component_type(
             workspaceId=workspace_id,
@@ -462,9 +496,12 @@ def register_aws_iot_devices(
     for device in devices:
         device_id = device.get("id")
         if not isinstance(device_id, str) or not device_id:
-            run.attempt("invalid device", lambda: (_ for _ in ()).throw(
-                ValueError("IoT device is missing a non-empty id")
-            ))
+            run.attempt(
+                "invalid device",
+                lambda: (_ for _ in ()).throw(
+                    ValueError("IoT device is missing a non-empty id")
+                ),
+            )
             continue
         run.attempt(
             device_id,
@@ -480,7 +517,14 @@ def register_aws_iot_devices(
     run.raise_if_failed()
 
 
-def _register_iot_device(provider, project_path: Path, device: dict, twin_name: str, account_id: str, endpoint: str) -> None:
+def _register_iot_device(
+    provider,
+    project_path: Path,
+    device: dict,
+    twin_name: str,
+    account_id: str,
+    endpoint: str,
+) -> None:
     iot = provider.clients["iot"]
     device_id = device["id"]
     thing_name = f"{twin_name}-{device_id}"
@@ -496,10 +540,16 @@ def _register_iot_device(provider, project_path: Path, device: dict, twin_name: 
     key_path = cert_dir / "private.pem.key"
     created_certificate_id: str | None = None
     if cert_path.is_file() and key_path.is_file():
-        principals = iot.list_thing_principals(thingName=thing_name).get("principals", [])
-        certificate_arns = [principal for principal in principals if ":cert/" in principal]
+        principals = iot.list_thing_principals(thingName=thing_name).get(
+            "principals", []
+        )
+        certificate_arns = [
+            principal for principal in principals if ":cert/" in principal
+        ]
         if len(certificate_arns) != 1:
-            raise RuntimeError(f"Cannot prove exactly one certificate for '{device_id}'")
+            raise RuntimeError(
+                f"Cannot prove exactly one certificate for '{device_id}'"
+            )
         certificate_arn = certificate_arns[0]
         certificate_id = certificate_arn.rsplit("/", 1)[-1]
         remote_certificate = iot.describe_certificate(certificateId=certificate_id)[
@@ -587,7 +637,9 @@ def _rollback_created_certificate(
                 certificateId=certificate_id,
                 newStatus="INACTIVE",
             ),
-            lambda: iot.delete_certificate(certificateId=certificate_id, forceDelete=True),
+            lambda: iot.delete_certificate(
+                certificateId=certificate_id, forceDelete=True
+            ),
         )
     )
     for operation in operations:
@@ -648,7 +700,7 @@ def configure_aws_grafana(
     provider = _require_aws_provider(context)
     if _is_active_phase8_profile(context):
         from src.providers.aws.layers.layer_5_grafana import (
-            configure_five_layer_v2_grafana,
+            configure_six_layer_grafana,
         )
 
         bundle = terraform_outputs.get("aws_component_visualization_output")
@@ -668,7 +720,7 @@ def configure_aws_grafana(
                 "AWS visualization output is missing: " + ", ".join(missing)
             )
         device_id, metric = _default_v2_dashboard_series(context.config)
-        configure_five_layer_v2_grafana(
+        configure_six_layer_grafana(
             provider,
             workspace_id=str(bundle["workspace_id"]),
             grafana_url=str(bundle["workspace_url"]).rstrip("/"),

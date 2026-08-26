@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from src.providers.azure.provider import AzureProvider
 
 logger = logging.getLogger(__name__)
-V2_SEED_MODEL_ID = "dtmi:twin2multicloud:poc:TwinNode;1"
+SIX_LAYER_SEED_MODEL_ID = "dtmi:twin2multicloud:poc:TwinNode;1"
 
 
 # ==========================================
@@ -70,7 +70,7 @@ def _sanitize_twin_id(name: str) -> str:
     return value[:120]
 
 
-def five_layer_v2_seed(config) -> dict[str, list[dict[str, Any]]]:
+def six_layer_seed(config) -> dict[str, list[dict[str, Any]]]:
     """Build the deterministic minimal ADT Explorer seed for the thesis PoC."""
 
     configured_devices = getattr(config, "iot_devices", [])
@@ -84,7 +84,7 @@ def five_layer_v2_seed(config) -> dict[str, list[dict[str, Any]]]:
     if seed_device_id == root_id:
         seed_device_id = _sanitize_twin_id(f"{device_id}-device")
     model = {
-        "@id": V2_SEED_MODEL_ID,
+        "@id": SIX_LAYER_SEED_MODEL_ID,
         "@type": "Interface",
         "@context": "dtmi:dtdl:context;2",
         "displayName": "Twin2MultiCloud PoC node",
@@ -100,7 +100,7 @@ def five_layer_v2_seed(config) -> dict[str, list[dict[str, Any]]]:
             {
                 "@type": "Relationship",
                 "name": "contains",
-                "target": V2_SEED_MODEL_ID,
+                "target": SIX_LAYER_SEED_MODEL_ID,
             },
         ],
     }
@@ -109,7 +109,7 @@ def five_layer_v2_seed(config) -> dict[str, list[dict[str, Any]]]:
         "twins": [
             {
                 "$dtId": root_id,
-                "$metadata": {"$model": V2_SEED_MODEL_ID},
+                "$metadata": {"$model": SIX_LAYER_SEED_MODEL_ID},
                 "nodeId": root_id,
                 "provider": "azure",
                 "status": "seeded",
@@ -117,7 +117,7 @@ def five_layer_v2_seed(config) -> dict[str, list[dict[str, Any]]]:
             },
             {
                 "$dtId": seed_device_id,
-                "$metadata": {"$model": V2_SEED_MODEL_ID},
+                "$metadata": {"$model": SIX_LAYER_SEED_MODEL_ID},
                 "nodeId": device_id,
                 "provider": "azure",
                 "status": "awaiting-telemetry",
@@ -136,7 +136,7 @@ def five_layer_v2_seed(config) -> dict[str, list[dict[str, Any]]]:
 
 
 def _merge_v2_seed(hierarchy: dict, config) -> dict[str, list[dict[str, Any]]]:
-    seed = five_layer_v2_seed(config)
+    seed = six_layer_seed(config)
     merged: dict[str, list[dict[str, Any]]] = {}
 
     def identity(collection: str, item: dict[str, Any]):
@@ -426,12 +426,14 @@ def upload_dtdl_models(
     run.raise_if_failed()
 
     if ensure_v2_seed:
-        seed = five_layer_v2_seed(config)
+        seed = six_layer_seed(config)
         probe = RuntimeRun("Azure", "Digital Twins content probe", logger)
 
         for model in seed["models"]:
             model_id = model["@id"]
-            probe.attempt(model_id, lambda model_id=model_id: client.get_model(model_id))
+            probe.attempt(
+                model_id, lambda model_id=model_id: client.get_model(model_id)
+            )
         for twin in seed["twins"]:
             twin_id = twin["$dtId"]
             probe.attempt(

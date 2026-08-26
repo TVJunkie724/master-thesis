@@ -149,10 +149,7 @@ void main() {
 
     expect(snapshot.availability, DeploymentAccessAvailability.unsupported);
     expect(snapshot.surfaces, isEmpty);
-    expect(
-      find.textContaining('historical five-layer profile'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('historical six-layer profile'), findsOneWidget);
     expect(find.byKey(const Key('open-layer-l4')), findsNothing);
   });
 

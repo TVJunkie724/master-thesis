@@ -26,24 +26,20 @@ live separately under [`docs/research/`](docs/research/).
 
 ## Current Architecture Profiles
 
-The closed Phase 8 catalog exposes two profiles for new offline calculations:
+The closed Phase 8 catalog exposes one profile for new offline calculations:
+`six-layer-eventing@1`. It owns the complete L1-L5 service composition and an
+independently assigned Eventing responsibility for brokered delivery, fan-out,
+retry/DLQ, replay, ordering, observability, and cross-cloud routes.
 
-- `five-layer-baseline@2` keeps the five scientific responsibilities and
-  embeds the mandatory rule/action/workflow/device-feedback behavior in L1/L2;
-- `six-layer-eventing@1` inherits the identical L1-L5 contract and adds one
-  independently assigned Eventing responsibility for brokered delivery,
-  fan-out, retry/DLQ, replay, ordering, observability, and cross-cloud routes.
-
-Both profiles require L3 hot and L5 to share a provider; L4 remains independently
-placeable. Historical `five-layer-baseline@1` stays readable for reproduction
-and compatibility but is not selectable for new work. The reproducible offline
-evaluation is under
-[`docs/research/evidence/phase_08_profile_evaluation/`](docs/research/evidence/phase_08_profile_evaluation/).
+The profile requires L3 hot and L5 to share a provider; L4 remains independently
+placeable. Historical `five-layer-baseline@1` stays inside the Optimizer for
+reproduction but is not selectable for new runtime work. Reproducible offline
+evidence is under [`docs/research/evidence/phase_08_eventing/`](docs/research/evidence/phase_08_eventing/)
+and [`docs/research/evidence/phase_08_service_bundles/`](docs/research/evidence/phase_08_service_bundles/).
 It does not prove a provider deployment, live capacity, or browser sign-in.
 
-For the exact first-use sequence from externally obtained provider bootstrap
-authority through a bounded CloudConnection, Twin calculation, deployment
-preflight, and eventual L4/L5 access, see the
+For the first-use sequence from a preconfigured PoC CloudConnection through
+Twin calculation, deployment preflight, and eventual L4/L5 access, see the
 [Configuration Workspace guide](docs-site/docs/user-guide/configuration-workspace.md#first-real-provider-lifecycle).
 
 ---
@@ -375,8 +371,8 @@ The deployment-contract gate strips provider credential environment variables,
 rejects cloud credential overlays and `RUN_E2E_TESTS=1`, uses isolated temporary
 runtime secrets, performs no `terraform apply`, and removes its verification
 containers, networks, and volumes. The focused mode validates the frozen
-Optimizer result through Management persistence, the profile-matched Manifest
-v3/v4 boundary, typed tfvars, and
+Optimizer result through Management persistence, the Six-layer Manifest v4
+boundary, typed tfvars, and
 credential-free Terraform mock plans. The no-argument command additionally
 runs all safe service, Flutter, documentation, static, and security gates.
 

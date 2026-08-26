@@ -3,7 +3,7 @@
 The canonical source is:
 
 ```text
-contracts/architecture-profiles/v1/
+contracts/architecture-profiles/v2/
   architecture-profile.schema.json
   provider-implementation-profile.schema.json
   deployment-component-catalog.schema.json
@@ -13,14 +13,11 @@ contracts/architecture-profiles/v1/
   runtime.py
   fixtures/
 contracts/architecture-profiles/definitions/
-  manifest.json
-  five-layer-v2-manifest.json
   six-layer-eventing-v1-manifest.json
   six-layer-eventing-v1-cost-registry.json
-  profiles/{five-layer-baseline/{1,2},six-layer-eventing/1}/profile.json
-  provider-implementations/{five-layer-baseline/{1,2},six-layer-eventing/1}/{aws,azure,gcp}/1.json
-  component-catalogs/{baseline,complete-service,six-layer-eventing}/1/catalog.json
-  fixtures/{resolved,unsupported}/
+  profiles/six-layer-eventing/1/profile.json
+  provider-implementations/six-layer-eventing/1/{aws,azure,gcp}/1.json
+  component-catalogs/six-layer-eventing/1/catalog.json
 ```
 
 Do not edit generated copies below the Optimizer, Management API, or Deployer.
@@ -80,7 +77,7 @@ Provider components are developer-authored, closed-world definitions. Update
 the reviewed Phase 8.1 decision and evidence first, then update the binding
 table in `scripts/architecture_profile_catalog.py`. Every component must name
 real HCL resource, variable, and output symbols; deployment-dimension IDs;
-`thesis-demo-v1` capabilities; pricing intents and formulas; a static package
+provider operation capabilities; pricing intents and formulas; a static package
 or managed-source artifact; runtime/port/error/observability/cleanup contracts;
 and compatibility versions. Regeneration pins canonical source digests.
 
@@ -104,8 +101,8 @@ invalidation digest; assignments and infrastructure evidence remain
 server-owned.
 
 Optimizer calculation output and profile-matched Deployer package/Terraform
-execution are active. Flutter presents active Five-layer v2 and Six-layer v1
-selection, frozen workload, and profile-specific typed RTA/RDS v2 evidence
+execution are active. Flutter presents the active Six-layer v1 selection,
+frozen workload, and typed RTA/RDS v2 evidence
 through Management only.
 
 ## Extending The Deployment Graph
@@ -119,7 +116,7 @@ To extend one reviewed profile:
 2. register every compatible logical-edge implementation, including direction,
    trust, transfer, delivery, cost, and any destination-owned support component;
 3. update the provider implementation mapping and source-digest inventory;
-4. regenerate architecture and the profile-matched Manifest v3/v4 fixtures/copies;
+4. regenerate architecture and the profile-matched Manifest v4 fixtures/copies;
 5. add negative graph tests plus an offline package/tfvars path;
 6. run `./thesis.sh test deployment-contract --focused`.
 

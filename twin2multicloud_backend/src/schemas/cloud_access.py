@@ -15,7 +15,6 @@ CloudAccessStatus = Literal[
     "stale",
     "disabled",
 ]
-CloudAccessPermissionSetStatus = Literal["matched", "missing", "outdated"]
 
 
 class CloudAccessEntry(BaseModel):
@@ -31,7 +30,6 @@ class CloudAccessEntry(BaseModel):
     is_default_for_pricing: bool | None = None
     last_validated_at: datetime | None = None
     last_used_at: datetime | None = None
-    permission_set_status: CloudAccessPermissionSetStatus | None = None
     bound_twin_count: int = 0
     bound_twin_labels: list[str] = Field(default_factory=list)
     actions: list[str] = Field(default_factory=list)

@@ -62,16 +62,6 @@ class DeploymentAccessService:
             raise ConflictError("DEPLOYMENT_ACCESS_DEPLOYMENT_NOT_FOUND")
 
         profile = (deployment.profile_id, str(deployment.profile_version or ""))
-        generated_at = deployment.completed_at or deployment.started_at
-        if profile == ("five-layer-baseline", "1"):
-            return DeploymentAccessSnapshot(
-                twin_id=twin.id,
-                deployment_id=deployment.id,
-                generated_at=generated_at,
-                availability="unsupported",
-                reason_code="unsupported_historical_profile",
-                surfaces=(),
-            )
         if profile not in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES:
             raise ConflictError("DEPLOYMENT_ACCESS_PROFILE_NOT_SUPPORTED")
         try:

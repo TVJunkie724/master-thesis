@@ -13,7 +13,11 @@ import zipfile
 
 import file_manager
 import constants as CONSTANTS
-from tests.utils.deployment_specification import deployment_manifest
+from tests.utils.deployment_specification import (
+    deployment_manifest,
+    load_specification,
+    provider_config_for_specification,
+)
 
 
 # ==========================================
@@ -83,6 +87,8 @@ def _valid_zip_with_manifest(resource_name: str) -> bytes:
     import uuid
 
     unique_id = uuid.uuid4().hex[:4]
+    specification = load_specification()
+    providers = provider_config_for_specification(specification)
     files = {
         CONSTANTS.CONFIG_FILE: json.dumps(
             {
@@ -94,39 +100,40 @@ def _valid_zip_with_manifest(resource_name: str) -> bytes:
         ),
         CONSTANTS.CONFIG_IOT_DEVICES_FILE: "[]",
         CONSTANTS.CONFIG_EVENTS_FILE: "[]",
-        CONSTANTS.CONFIG_HIERARCHY_FILE: "[]",
         CONSTANTS.CONFIG_CREDENTIALS_FILE: json.dumps(
             {
                 "aws": {
                     "aws_access_key_id": f"AKIA{unique_id}",
                     "aws_secret_access_key": f"secret{unique_id}",
-                    "aws_region": "us-east-1",
-                }
+                    "aws_region": "eu-central-1",
+                },
+                "azure": {
+                    "azure_subscription_id": "subscription",
+                    "azure_client_id": "client",
+                    "azure_client_secret": f"secret{unique_id}",
+                    "azure_tenant_id": "tenant",
+                    "azure_region": "westeurope",
+                    "azure_region_iothub": "westeurope",
+                    "azure_region_digital_twin": "westeurope",
+                },
             }
         ),
-        CONSTANTS.CONFIG_PROVIDERS_FILE: json.dumps(
-            {
-                "layer_1_provider": "aws",
-                "layer_2_provider": "aws",
-                "layer_3_hot_provider": "aws",
-                "layer_3_cold_provider": "aws",
-                "layer_3_archive_provider": "aws",
-                "layer_4_provider": "aws",
-                "layer_5_provider": "aws",
-            }
-        ),
+        CONSTANTS.CONFIG_PROVIDERS_FILE: json.dumps(providers),
         CONSTANTS.CONFIG_OPTIMIZATION_FILE: json.dumps({"result": {}}),
         "config_user.json": json.dumps(
             {
                 "admin_email": "admin@example.com",
                 "admin_first_name": "Platform",
                 "admin_last_name": "Admin",
+                "aws_layer_access_principal_intent": "existing",
+                "azure_principal_object_id": ("11111111-1111-1111-1111-111111111111"),
+                "azure_principal_label": "admin@example.com",
             }
         ),
-        "twin_hierarchy/aws_hierarchy.json": "[]",
-        "lambda_functions/placeholder.txt": "placeholder",
     }
     manifest = deployment_manifest(
+        specification=specification,
+        providers=providers,
         package_files=sorted(files),
         resource_name=resource_name,
     )

@@ -18,10 +18,10 @@ void main() {
     (tester) async {
       final state =
           architectureReadyWizardState(
-            profileId: 'five-layer-baseline',
+            profileId: 'six-layer-eventing',
           ).copyWith(
-            calcParams: CalcParams.fiveLayerV2(
-              scenario: FiveLayerWorkloadScenario.small,
+            calcParams: CalcParams.sixLayer(
+              scenario: SixLayerWorkloadScenario.small,
             ),
           );
       final bloc = WizardBloc(api: _MockManagementApi(), initialState: state);

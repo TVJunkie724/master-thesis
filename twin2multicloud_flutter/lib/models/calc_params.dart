@@ -1,14 +1,14 @@
 import 'package:collection/collection.dart';
 
-enum FiveLayerWorkloadScenario {
+enum SixLayerWorkloadScenario {
   small,
   medium,
   large;
 
   String get label => switch (this) {
-    FiveLayerWorkloadScenario.small => 'Small',
-    FiveLayerWorkloadScenario.medium => 'Medium',
-    FiveLayerWorkloadScenario.large => 'Large',
+    SixLayerWorkloadScenario.small => 'Small',
+    SixLayerWorkloadScenario.medium => 'Medium',
+    SixLayerWorkloadScenario.large => 'Large',
   };
 
   String get eventingScenarioId => 'eventing-$name-v1';
@@ -20,13 +20,13 @@ enum FiveLayerWorkloadScenario {
 /// Used in Wizard Step 2 to configure digital twin cost calculation.
 class CalcParams {
   static const _mapEquality = MapEquality<String, dynamic>();
-  static const fiveLayerV2SchemaVersion = 'five-layer-workload.v2';
+  static const sixLayerSchemaVersion = 'six-layer-workload.v1';
 
   /// Wire discriminator. Null denotes the historical v1 calculation shape.
   final String? schemaVersion;
 
   /// Frozen thesis scenario for the strict Phase 8 workload-v2 wire variant.
-  final FiveLayerWorkloadScenario? scenario;
+  final SixLayerWorkloadScenario? scenario;
 
   /// Embedded event workload paired with the selected v2 scenario.
   final String? eventingScenarioId;
@@ -187,8 +187,8 @@ class CalcParams {
     this.twinGraphUpdatesPerSecond,
   });
 
-  bool get isFiveLayerV2 =>
-      schemaVersion == fiveLayerV2SchemaVersion &&
+  bool get isSixLayer =>
+      schemaVersion == sixLayerSchemaVersion &&
       scenario != null &&
       eventingScenarioId == scenario!.eventingScenarioId &&
       twinStateMaterializationsPerSecond != null &&
@@ -211,10 +211,10 @@ class CalcParams {
         eventingScenarioId != null ||
         twinStateMaterializationsPerSecond != null ||
         twinGraphUpdatesPerSecond != null;
-    if (hasVariantMetadata && !isFiveLayerV2) {
+    if (hasVariantMetadata && !isSixLayer) {
       throw StateError('Phase 8 workload-v2 metadata is inconsistent.');
     }
-    return isFiveLayerV2 ? _fiveLayerV2Json() : _legacyJson();
+    return isSixLayer ? _sixLayerJson() : _legacyJson();
   }
 
   Map<String, dynamic> _legacyJson() => {
@@ -250,8 +250,8 @@ class CalcParams {
     'currency': currency,
   };
 
-  Map<String, dynamic> _fiveLayerV2Json() => {
-    'schemaVersion': fiveLayerV2SchemaVersion,
+  Map<String, dynamic> _sixLayerJson() => {
+    'schemaVersion': sixLayerSchemaVersion,
     'numberOfDevices': numberOfDevices,
     'deviceSendingIntervalInMinutes': deviceSendingIntervalInMinutes,
     'averageSizeOfMessageInKb': averageSizeOfMessageInKb,
@@ -288,8 +288,8 @@ class CalcParams {
     amountOfActiveViewers: 0,
   );
 
-  factory CalcParams.fiveLayerV2({
-    required FiveLayerWorkloadScenario scenario,
+  factory CalcParams.sixLayer({
+    required SixLayerWorkloadScenario scenario,
     String currency = 'USD',
   }) {
     if (currency != 'USD' && currency != 'EUR') {
@@ -298,7 +298,7 @@ class CalcParams {
       );
     }
     final values = switch (scenario) {
-      FiveLayerWorkloadScenario.small => const (
+      SixLayerWorkloadScenario.small => const (
         devices: 100,
         interval: 2.0,
         messageSize: 0.25,
@@ -311,7 +311,7 @@ class CalcParams {
         materializations: 0.1,
         graphUpdates: 0.01,
       ),
-      FiveLayerWorkloadScenario.medium => const (
+      SixLayerWorkloadScenario.medium => const (
         devices: 4000,
         interval: 0.5,
         messageSize: 0.5,
@@ -324,7 +324,7 @@ class CalcParams {
         materializations: 2.5,
         graphUpdates: 0.1,
       ),
-      FiveLayerWorkloadScenario.large => const (
+      SixLayerWorkloadScenario.large => const (
         devices: 30000,
         interval: 0.1,
         messageSize: 0.8,
@@ -357,7 +357,7 @@ class CalcParams {
       triggerNotificationWorkflow: true,
       returnFeedbackToDevice: true,
       currency: currency,
-      schemaVersion: fiveLayerV2SchemaVersion,
+      schemaVersion: sixLayerSchemaVersion,
       scenario: scenario,
       eventingScenarioId: scenario.eventingScenarioId,
       twinStateMaterializationsPerSecond: values.materializations,
@@ -368,7 +368,7 @@ class CalcParams {
   /// Create from JSON (for loading saved params)
   factory CalcParams.fromJson(Map<String, dynamic> json) {
     if (json.containsKey('schemaVersion')) {
-      return _fiveLayerV2FromJson(json);
+      return _sixLayerFromJson(json);
     }
     return CalcParams(
       numberOfDevices: json['numberOfDevices'] ?? 100,
@@ -415,7 +415,7 @@ class CalcParams {
   }
 }
 
-CalcParams _fiveLayerV2FromJson(Map<String, dynamic> json) {
+CalcParams _sixLayerFromJson(Map<String, dynamic> json) {
   const keys = {
     'schemaVersion',
     'numberOfDevices',
@@ -438,7 +438,7 @@ CalcParams _fiveLayerV2FromJson(Map<String, dynamic> json) {
   };
   if (json.keys.toSet().difference(keys).isNotEmpty ||
       keys.difference(json.keys.toSet()).isNotEmpty ||
-      json['schemaVersion'] != CalcParams.fiveLayerV2SchemaVersion) {
+      json['schemaVersion'] != CalcParams.sixLayerSchemaVersion) {
     throw const FormatException(
       'Phase 8 workload-v2 fields are incomplete or unsupported.',
     );
@@ -449,8 +449,8 @@ CalcParams _fiveLayerV2FromJson(Map<String, dynamic> json) {
       'Phase 8 workload-v2 currency must be USD or EUR.',
     );
   }
-  for (final scenario in FiveLayerWorkloadScenario.values) {
-    final candidate = CalcParams.fiveLayerV2(
+  for (final scenario in SixLayerWorkloadScenario.values) {
+    final candidate = CalcParams.sixLayer(
       scenario: scenario,
       currency: currency as String,
     );

@@ -8,16 +8,21 @@ import zipfile
 import pytest
 
 from src.models.deployer_config import DeployerConfiguration
-from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
 from src.services.service_errors import EntityNotFoundError
-from src.services.test_deployment_service import TestDeploymentService as GatedTestDeploymentService
+from src.services.test_deployment_service import (
+    TestDeploymentService as GatedTestDeploymentService,
+)
 
 
 def _create_user(db) -> User:
-    user = User(email="test-deployment-service@example.test", name="Test Service", auth_provider="google")
+    user = User(
+        email="test-deployment-service@example.test",
+        name="Test Service",
+        auth_provider="google",
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -69,7 +74,9 @@ async def test_start_log_trace_creates_session_and_schedules_runner(db_session):
     session_records = []
     scheduled = []
 
-    result = await _service(db_session, session_records=session_records, scheduled=scheduled).start_log_trace(
+    result = await _service(
+        db_session, session_records=session_records, scheduled=scheduled
+    ).start_log_trace(
         twin_id=twin.id,
         user_id=user.id,
         duration=30,
@@ -100,10 +107,17 @@ async def test_start_log_trace_rejects_missing_twin(db_session):
         )
 
 
-def test_build_mock_simulator_archive_uses_optimizer_and_deployer_names(db_session):
+def test_build_mock_simulator_archive_uses_architecture_and_deployer_names(
+    db_session, monkeypatch
+):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, name="Simulator Twin")
-    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="AZURE"))
+    monkeypatch.setattr(
+        "src.services.test_deployment_service.provider_for_component",
+        lambda _twin, component_id: (
+            "azure" if component_id == "component.ingestion" else None
+        ),
+    )
     db_session.add(
         DeployerConfiguration(
             twin_id=twin.id,
@@ -112,7 +126,9 @@ def test_build_mock_simulator_archive_uses_optimizer_and_deployer_names(db_sessi
     )
     db_session.commit()
 
-    archive = _service(db_session).build_mock_simulator_archive(twin_id=twin.id, user_id=user.id)
+    archive = _service(db_session).build_mock_simulator_archive(
+        twin_id=twin.id, user_id=user.id
+    )
 
     assert archive.filename == "simulator_canonical-simulator-name_azure.zip"
     with zipfile.ZipFile(archive.content) as zip_file:
@@ -125,7 +141,10 @@ def test_build_mock_simulator_archive_uses_optimizer_and_deployer_names(db_sessi
         }
         config = json.loads(zip_file.read("config.json"))
         assert config["digital_twin_name"] == "canonical-simulator-name"
-        assert config["topic_name"] == "projects/mock-project/topics/canonical-simulator-name-telemetry"
+        assert (
+            config["topic_name"]
+            == "projects/mock-project/topics/canonical-simulator-name-telemetry"
+        )
         assert "AZURE" in zip_file.read("README.md").decode("utf-8")
 
 
@@ -133,4 +152,6 @@ def test_build_mock_simulator_archive_rejects_missing_twin(db_session):
     user = _create_user(db_session)
 
     with pytest.raises(EntityNotFoundError):
-        _service(db_session).build_mock_simulator_archive(twin_id="missing", user_id=user.id)
+        _service(db_session).build_mock_simulator_archive(
+            twin_id="missing", user_id=user.id
+        )

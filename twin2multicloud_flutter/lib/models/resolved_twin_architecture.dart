@@ -8,8 +8,7 @@ import 'cloud_connection.dart';
 import 'json_contract.dart';
 
 enum ArchitectureCompatibilityStatus {
-  ready('ready'),
-  legacyNotResolvable('legacy_not_resolvable');
+  ready('ready');
 
   final String apiValue;
 
@@ -25,8 +24,6 @@ enum ArchitectureCompatibilityStatus {
 }
 
 enum ResolvedArchitectureOrigin {
-  nativeV1('native_v1'),
-  reconstructedV1('reconstructed_v1'),
   nativeV2('native_v2');
 
   final String apiValue;
@@ -556,11 +553,10 @@ class ResolvedFunctionalCompleteness extends Equatable {
 }
 
 class ResolvedTwinArchitecture extends Equatable {
-  static const v1SchemaVersion = 'resolved-twin-architecture.v1';
   static const v2SchemaVersion = 'resolved-twin-architecture.v2';
 
   final String schemaVersion;
-  final String? resolutionStatus;
+  final String resolutionStatus;
   final String resolutionId;
   final String calculationRunId;
   final PinnedArchitectureReference profileRef;
@@ -604,21 +600,17 @@ class ResolvedTwinArchitecture extends Equatable {
       architecture,
       'schema_version',
     );
-    if (schemaVersion != v1SchemaVersion && schemaVersion != v2SchemaVersion) {
+    if (schemaVersion != v2SchemaVersion) {
       throw const FormatException(
         'Unsupported resolved Twin architecture schema version.',
       );
     }
-    return _calculateArchitectureDigest(
-      architecture,
-      isV2: schemaVersion == v2SchemaVersion,
-    );
+    return _calculateArchitectureDigest(architecture, isV2: true);
   }
 
   factory ResolvedTwinArchitecture.fromJson(Map<String, dynamic> json) {
     final schemaVersion = JsonContract.requiredString(json, 'schema_version');
-    final isV2 = schemaVersion == v2SchemaVersion;
-    if (!isV2 && schemaVersion != v1SchemaVersion) {
+    if (schemaVersion != v2SchemaVersion) {
       throw const FormatException(
         'Unsupported resolved Twin architecture schema version.',
       );
@@ -639,14 +631,14 @@ class ResolvedTwinArchitecture extends Equatable {
       'cost_summary',
       'functional_completeness',
       'content_digest',
-      if (isV2) 'resolution_status',
+      'resolution_status',
     };
     _expectExactKeys(json, expectedKeys, 'resolved twin architecture');
-    final resolutionStatus = isV2
-        ? JsonContract.requiredString(json, 'resolution_status')
-        : null;
-    if (isV2 &&
-        resolutionStatus != 'offline_contract_fixture' &&
+    final resolutionStatus = JsonContract.requiredString(
+      json,
+      'resolution_status',
+    );
+    if (resolutionStatus != 'offline_contract_fixture' &&
         resolutionStatus != 'publishable') {
       throw const FormatException(
         'Invalid API contract: v2 resolution status is unsupported.',
@@ -794,10 +786,8 @@ class ResolvedTwinArchitecture extends Equatable {
       'calculation_run_id',
       'digest',
     }, 'deployment specification reference');
-    final expectedDeploymentSchema = isV2
-        ? 'resolved-deployment-specification.v2'
-        : 'resolved-deployment-specification.v1';
-    if (deployment['schema_version'] != expectedDeploymentSchema) {
+    if (deployment['schema_version'] !=
+        'resolved-deployment-specification.v2') {
       throw const FormatException(
         'Invalid API contract: deployment specification version is unsupported.',
       );
@@ -937,12 +927,7 @@ class ResolvedTwinArchitectureRead extends Equatable {
       );
     }
     final origin = ResolvedArchitectureOrigin.parse(json['origin']);
-    if ((architecture.schemaVersion ==
-                ResolvedTwinArchitecture.v2SchemaVersion &&
-            origin != ResolvedArchitectureOrigin.nativeV2) ||
-        (architecture.schemaVersion ==
-                ResolvedTwinArchitecture.v1SchemaVersion &&
-            origin == ResolvedArchitectureOrigin.nativeV2)) {
+    if (origin != ResolvedArchitectureOrigin.nativeV2) {
       throw const FormatException(
         'Invalid API contract: architecture origin and schema differ.',
       );

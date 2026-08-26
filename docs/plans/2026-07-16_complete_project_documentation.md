@@ -150,7 +150,7 @@ families and evaluation hierarchy without duplicating each explanation in a matr
 ## 10. Security And Safety Rules
 
 - Use example schemas only; never read or reproduce ignored credential contents.
-- Separate runtime encryption/signing keys, cloud bootstrap credentials, stored CloudConnections, pricing credentials, and deployment credentials.
+- Separate runtime encryption/signing keys from stored provider CloudConnections.
 - Mark the development token and local file overlays as development-only.
 - Explain HTTPS/proxy trust, rate limiting, audit events, secret redaction, credential deletion constraints, and rotation limitations.
 - Mark provider permission policies as baselines until supervised least-privilege verification is complete.

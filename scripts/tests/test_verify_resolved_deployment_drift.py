@@ -21,22 +21,13 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             verification.ROOT / ".github/workflows/deployment-contract.yml"
         ).read_text(encoding="utf-8")
         required_paths = (
-            "contracts/architecture-inventory/**",
-            "contracts/cloud-bootstrap/**",
-            "contracts/five-layer-workload/**",
+            "contracts/six-layer-workload/**",
             "contracts/user-function-extension/**",
-            "docs/research/evidence/phase_08_profile_evaluation/**",
-            "scripts/phase_08_profile_evaluation/**",
             "scripts/generate_deployment_manifest_fixtures.py",
-            "scripts/sync_cloud_bootstrap_contracts.py",
-            "scripts/sync_five_layer_v2_contracts.py",
-            "scripts/sync_five_layer_workload_contract.py",
+            "scripts/sync_six_layer_contracts.py",
+            "scripts/sync_six_layer_workload_contract.py",
             "scripts/sync_six_layer_eventing_contracts.py",
             "scripts/sync_user_function_extension_contracts.py",
-            "scripts/setup_only_live_gate.py",
-            "scripts/materialize_deployment_policy.py",
-            "scripts/tests/test_setup_only_live_gate.py",
-            "scripts/tests/test_materialize_deployment_policy.py",
             "scripts/verify_six_layer_management_boundary.py",
         )
 
@@ -55,8 +46,6 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             {"THESIS_CLOUD_CREDENTIAL_OVERLAY": "yes"},
             {"WITH_CREDENTIALS": "on"},
             {"COMPOSE_FILE": "compose.yaml:compose.cloud.local.yaml"},
-            {"TWIN2MC_SETUP_GATE_ENABLED": "1"},
-            {"TWIN2MC_SETUP_GATE_CONFIRMATION": "twin2mc-e2e-test:aws:setup_only"},
         )
 
         for environment in unsafe_environments:
@@ -74,8 +63,6 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "/tmp/not-used.json",
             "TF_VAR_cloud_secret": "not-used",
             "RUN_E2E_TESTS": "false",
-            "TWIN2MC_SETUP_GATE_ENABLED": "1",
-            "TWIN2MC_SETUP_GATE_CONFIRMATION": "not-used",
         }
         runtime_secrets = Path("/tmp/runtime-secrets")
 
@@ -97,8 +84,6 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         self.assertNotIn("GCP_SERVICE_ACCOUNT_JSON", result)
         self.assertNotIn("GOOGLE_APPLICATION_CREDENTIALS", result)
         self.assertNotIn("TF_VAR_cloud_secret", result)
-        self.assertNotIn("TWIN2MC_SETUP_GATE_ENABLED", result)
-        self.assertNotIn("TWIN2MC_SETUP_GATE_CONFIRMATION", result)
 
     def test_ephemeral_runtime_secrets_are_private_and_valid(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_root:
@@ -133,7 +118,6 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
                 "Compose model",
                 "Verification images",
                 "Phase 8 decision evidence",
-                "Phase 8 profile evaluation evidence",
                 "Canonical contract and root tests",
                 "Optimizer formula-to-selection drift",
                 "Management persistence-to-manifest drift",
@@ -144,14 +128,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "tests/unit/calculation_v2/test_deployment_drift_matrix.py",
             rendered,
         )
-        self.assertIn(
-            "scripts/sync_architecture_profile_contracts.py --check",
-            rendered,
-        )
-        self.assertIn(
-            "scripts.tests.test_architecture_profile_contract_sync",
-            rendered,
-        )
+        self.assertNotIn("sync_architecture_profile_contracts.py", rendered)
         self.assertIn(
             "-p no:cacheprovider scripts/tests/test_deployment_manifest_contract_sync.py",
             rendered,
@@ -164,8 +141,6 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "scripts.tests.test_user_function_extension_contract_sync",
             rendered,
         )
-        self.assertIn("scripts.tests.test_setup_only_live_gate", rendered)
-        self.assertIn("scripts.tests.test_materialize_deployment_policy", rendered)
         self.assertIn(
             "scripts/sync_deployment_access_contracts.py --check",
             rendered,

@@ -47,6 +47,7 @@ from src.services.deployment_log_read_service import DeploymentLogReadService
 from src.services.deployment_access_service import DeploymentAccessService
 from src.services.deployment_orchestrator import DeploymentOrchestrator
 from src.services.deployment_readiness_service import DeploymentReadinessService
+from src.services.architecture_projection_service import required_providers
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import (
@@ -475,17 +476,7 @@ async def start_log_trace(
         from src.services.deployment_stream_service import create_session
         from src.api.routes.test_endpoints import _run_test_log_trace_stream
 
-        providers = ["aws"]
-        if twin.optimizer_config:
-            oc = twin.optimizer_config
-            unique = {
-                p.lower()
-                for p in filter(
-                    None, [oc.cheapest_l1, oc.cheapest_l2, oc.cheapest_l3_hot]
-                )
-            }
-            if unique:
-                providers = list(unique)
+        providers = sorted(required_providers(twin)) or ["aws"]
 
         trace_id = f"TRACE-{uuid.uuid4().hex[:8].upper()}"
         session_id = str(uuid.uuid4())

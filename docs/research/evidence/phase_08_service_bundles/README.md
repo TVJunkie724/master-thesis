@@ -25,12 +25,10 @@ deployment evidence rather than steady-state monthly architecture load. ACR
 Task availability for Azure free-credit subscriptions remains a fail-closed
 preflight because the provider currently documents a temporary pause.
 
-The package approves implementation authority for `five-layer-baseline@2` and
-the later `six-layer-eventing@1` delta. It does **not** activate either profile,
-prove live cloud readiness, or modify the historical
-`five-layer-baseline@1`/Phase 8.8 evidence. Live deployment, paid capacity,
-identity exchange, browser sign-in, and cleanup remain separately approved
-supervised gates.
+The package approves the standalone `six-layer-eventing@1` service boundary.
+It does **not** prove live cloud readiness. Live deployment, paid capacity,
+identity exchange, browser sign-in, and cleanup remain separately supervised
+gates.
 
 The service-family choice is functionality-first. Cost is not used to replace
 a required service with an incomplete one. Once the closed bundle is admitted,
@@ -39,9 +37,8 @@ versioned price catalog within the selected profile.
 
 ## Frozen Boundary
 
-- Five-layer v2 and Six-layer v1 expose the same mandatory domain behavior;
-  Six-layer moves canonical domain-event transport into an independently owned
-  Eventing responsibility.
+- Six-layer v1 includes mandatory domain behavior and owns canonical
+  domain-event transport in an independent Eventing responsibility.
 - L3 hot and L5 are provider-local; L4 remains independently placeable. The
   package contains all three single-cloud and six `L3 hot/L5 != L4` cases.
 - `L3 hot -> L5` uses `raw_history_query.v1`.
@@ -114,12 +111,10 @@ not fabricate measurements.
 | `capacity-matrix.json` | Deterministic capacity derivations and honest live gates |
 | `pricing-ownership-matrix.json` | Exactly-once component/route cost ownership without stale price fallback |
 | `source-ledger.json` | Primary-source facts checked at the research cutoff |
-| `implementation-component-manifest.json` | 73 provider-owned selected components, exact Terraform/SDK/platform bindings, provider requirements, apply stages, profiles, permissions, atomic capacity dimensions, and test ownership |
+| `implementation-component-manifest.json` | 73 provider-owned selected components, exact Terraform/SDK/platform bindings, provider requirements, apply stages, atomic capacity dimensions, and test ownership |
 
-The matching `thesis-demo-v2` permission manifests and scope reviews live in
-`3-cloud-deployer/docs/references/permission_sets/`. They deliberately expose
-known scoping gaps and are not labelled least privilege. All v1 permission
-artifacts remain byte-stable.
+Deployment-authority provisioning and permission-pack evidence are outside
+this package. The PoC uses preconfigured provider credentials.
 
 ## Reproducibility
 

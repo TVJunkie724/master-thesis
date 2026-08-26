@@ -212,16 +212,12 @@ def validate_provider_selections(
             "gcp" if provider.strip().lower() == "google" else provider.strip().lower()
         )
         if (
-            architecture_profile
-            in {
-                ("five-layer-baseline", "2"),
-                ("six-layer-eventing", "1"),
-            }
+            architecture_profile == ("six-layer-eventing", "1")
             and normalized_provider == "gcp"
             and layer in {"l4", "l5"}
         ):
             # The public v1 capability matrix describes the historical generic
-            # layer path. Five-layer v2 owns separate closed-world GCP L4/L5
+            # layer path. Six-layer owns separate closed-world GCP L4/L5
             # implementations that have already passed graph resolution.
             continue
         violations.append(

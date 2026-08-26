@@ -8,8 +8,6 @@ version: "1.2"
 
 <!-- SOURCES:
 - twin2multicloud_flutter/docs/frontend_delta/ROADMAP_FRONTEND_DELTA.md
-- twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
-- twin2multicloud_flutter/docs/feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md
 EXTRACTED: 2026-08-05 | VERSION: 1.2
 -->
 
@@ -37,22 +35,14 @@ markers in production code.
 
 - CloudConnection selection remains the credential SSOT UI path.
 - Profile-level cloud account visibility is the shared Settings entry point for
-  provider, account/project/subscription metadata, validation status, and the
-  implemented offline guided bootstrap. Prepare deployment uses the same Management-owned
-  bootstrap feature after the selected architecture determines required
-  provider scopes, then continues through the separate Twin deployment-
+  provider, account/project/subscription metadata, and validation status.
+  Prepare deployment uses a preconfigured CloudConnection after the selected
+  architecture determines required provider scopes, then continues through
+  the separate Twin deployment-
   preflight owner.
-- Admin/bootstrap credentials are not a persistent app credential type. They
-  are submitted only in the create-session request and are never restored.
-- The UI distinguishes local secret release, successful provider-side
-  revocation, required manual cleanup, and an existing user-owned credential
-  remaining valid. It never labels local disposal as revocation.
-- The binding concept and backend request are
-  [Guided Cloud Access Bootstrap](../configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md)
-  and [FR-002](../feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md).
-- Deterministic provider adapters close the local PoC lifecycle without cloud
-  mutation. Production remains disabled; live provider identity creation stays
-  behind the reviewed external scripts and supervised validation.
+- The PoC reuses externally provisioned, non-root administrator connections
+  for every required provider scope. The UI neither creates provider identities
+  nor derives reduced permission sets.
 
 ## Optimization Strategies
 

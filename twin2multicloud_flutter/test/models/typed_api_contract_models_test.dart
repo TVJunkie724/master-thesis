@@ -193,21 +193,21 @@ void main() {
       final architecture =
           jsonDecode(
                 File(
-                  'assets/demo/v1/resolved-twin-architecture-v2-small.json',
+                  'assets/demo/v1/resolved-twin-architecture-six-layer-v1.json',
                 ).readAsStringSync(),
               )
               as Map<String, dynamic>;
       final specification =
           jsonDecode(
                 File(
-                  'assets/demo/v1/resolved-deployment-specification-v2-small.json',
+                  'assets/demo/v1/resolved-deployment-specification-six-layer-v1.json',
                 ).readAsStringSync(),
               )
               as Map<String, dynamic>;
       final runId = architecture['calculation_run_id'].toString();
       final payload = <String, dynamic>{
-        'totalCost': 0.0,
-        'totalCostExact': '0',
+        'totalCost': 166.6660612595,
+        'totalCostExact': '166.6660612595',
         'currency': 'USD',
         'resolvedTwinArchitecture': architecture,
         'resolvedDeploymentSpecification': specification,
@@ -219,7 +219,7 @@ void main() {
         'twin_id': 'twin-v2',
         'status': 'succeeded',
         'result_summary': payload,
-        'total_monthly_cost': 0.0,
+        'total_monthly_cost': 166.6660612595,
         'currency': 'USD',
         'deployment_compatibility_status': 'ready',
         'deployment_specification_digest': specification['digest'],
@@ -230,7 +230,7 @@ void main() {
         'completed_at': '2026-08-11T10:00:01Z',
       });
 
-      expect(run.optimization.isNativeFiveLayerV2, isTrue);
+      expect(run.optimization.isNativeSixLayer, isTrue);
       expect(run.optimization.result.transferPricingContext, isNull);
       expect(run.deploymentRun.specification, isNotNull);
     });

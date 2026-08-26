@@ -134,13 +134,6 @@ _StatusPresentation _presentation(
     icon: Icons.error_outline,
     color: (context) => Theme.of(context).colorScheme.error,
   ),
-  ResolvedDeploymentReviewState.legacy => _StatusPresentation(
-    title: 'Architecture recalculation required',
-    description:
-        'This saved result predates deployable resource specifications.',
-    icon: Icons.history_outlined,
-    color: (context) => Theme.of(context).colorScheme.tertiary,
-  ),
   ResolvedDeploymentReviewState.unsupported => _StatusPresentation(
     title: 'Specification version unsupported',
     description:

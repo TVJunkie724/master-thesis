@@ -26,21 +26,13 @@ architecture-profile contracts in #149, the deterministic user-function
 prerequisite #113, the exact provider/component catalog in #150, Management
 persistence in #142, Optimizer profile resolution in #151, and the
 dark Manifest v3 Deployer graph compiler in #152 are locally implemented and
-reviewed. The Phase 8.8 offline decision package also
-freezes the event-enabled five-layer control, the six-layer treatment, six
-provider bundles, the exact source-owned cross-cloud bridge, and its
-Small/Medium/Large evidence without claiming runtime or live-cloud support.
-Phase 8.7's compact Flutter profile workflow is implemented and zero-finding
-reviewed locally; the runtime and demo catalogs now expose active Five-layer
-v2 and Six-layer v1 definitions. Guided cloud bootstrap
-is implemented and zero-finding reviewed for the deterministic offline PoC;
-production provider adapters remain disabled. Five-layer v2 and Six-layer v1
-are active for offline selection/evaluation with deployment blocked by
-explicit supervised live-capacity gates. The final 8.9B audit precedes the
-Phase 8.10 evaluation package. Credential,
-remaining Optimizer coverage, manual UI audit, and external authentication work
-remain independently tracked in their GitHub milestones rather than inferred
-from one global "current phase" label.
+reviewed. The current Phase 8 evidence freezes one standalone Six-layer
+profile, six provider bundles, the exact source-owned cross-cloud bridge, and
+Small/Medium/Large inputs without claiming live-cloud support. The runtime and
+demo catalogs expose only Six-layer v1. Operators provide preconfigured PoC
+credentials; identity provisioning is out of scope. Deployment remains blocked
+by explicit supervised live-capacity gates. Remaining Optimizer coverage,
+manual UI audit, and external authentication work stay independently tracked.
 
 ## Backlog Rule
 

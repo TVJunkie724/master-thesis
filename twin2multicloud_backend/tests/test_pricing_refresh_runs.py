@@ -203,10 +203,7 @@ def test_start_aws_pricing_refresh_uses_user_owned_connection_without_secret_out
         fake.calls[0]["credentials"]["aws_secret_access_key"]
         == "TEST_SECRET_ACCESS_KEY"
     )
-    assert (
-        fake.calls[0]["credentials"]["aws_configured_account_id"]
-        == "123456789012"
-    )
+    assert fake.calls[0]["credentials"]["aws_configured_account_id"] == "123456789012"
     persisted_context = body["result_summary"][ACCOUNT_CONTEXT_KEY]
     assert persisted_context["management_binding"] == {
         "schema_version": "aws-twinmaker-management-binding.v1",
@@ -309,13 +306,18 @@ def test_start_gcp_pricing_refresh_maps_service_account_payload(
     assert connection.last_used_at is not None
 
 
-def test_start_pricing_refresh_rejects_deployment_connection(authenticated_client):
+def test_start_pricing_refresh_accepts_validated_admin_connection(
+    authenticated_client,
+    db_session,
+):
     client, headers = authenticated_client
     _override_optimizer()
     payload = _aws_request()
     payload["purpose"] = "deployment"
-    payload["permission_set_version"] = "thesis-demo-v1"
     created = client.post("/cloud-connections/", json=payload, headers=headers).json()
+    connection = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
+    connection.validation_status = "valid"
+    db_session.commit()
 
     response = client.post(
         "/optimizer/pricing-refresh/aws",
@@ -323,8 +325,7 @@ def test_start_pricing_refresh_rejects_deployment_connection(authenticated_clien
         headers=headers,
     )
 
-    assert response.status_code == 400
-    assert "not configured for pricing" in response.json()["detail"]
+    assert response.status_code == 200
 
 
 def test_start_pricing_refresh_rejects_unvalidated_pricing_connection(

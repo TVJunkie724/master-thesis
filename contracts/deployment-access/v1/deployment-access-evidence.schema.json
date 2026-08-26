@@ -13,10 +13,8 @@
   ],
   "properties": {
     "schema_version": {"const": "deployment-access-evidence.v1"},
-    "profile_id": {
-      "enum": ["five-layer-baseline", "six-layer-eventing"]
-    },
-    "profile_version": {"enum": ["1", "2"]},
+    "profile_id": {"const": "six-layer-eventing"},
+    "profile_version": {"const": "1"},
     "generated_at": {"type": "string", "format": "date-time"},
     "surfaces": {
       "type": "array",
@@ -29,19 +27,5 @@
       "minContains": 1,
       "maxContains": 1
     }
-  },
-  "oneOf": [
-    {
-      "properties": {
-        "profile_id": {"const": "five-layer-baseline"},
-        "profile_version": {"const": "2"}
-      }
-    },
-    {
-      "properties": {
-        "profile_id": {"const": "six-layer-eventing"},
-        "profile_version": {"const": "1"}
-      }
-    }
-  ]
+  }
 }

@@ -21,15 +21,13 @@ Read `integration_vision.md` to understand the complete ecosystem.
 **Key concepts to understand:**
 - The 5-Layer Architecture (Data Acquisition, Processing, Storage, Management, Visualization)
 - How the 3 core projects relate: Orchestrator → Brain → Muscle
-- The current closed profile boundary: historical `five-layer-baseline@1`,
-  active offline `five-layer-baseline@2`, and active offline
-  `six-layer-eventing@1`. Six-layer inherits the same L1-L5 contract and adds
-  only the independent Eventing responsibility.
+- The current closed profile boundary: historical Optimizer-only
+  `five-layer-baseline@1` and standalone runtime `six-layer-eventing@1`.
 
 For Phase 8 work, read
 `docs/plans/phase_08_architecture_profiles_eventing/HANDOFF.md` and the
-machine-readable evidence index at
-`docs/research/evidence/phase_08_profile_evaluation/README.md` before changing
+machine-readable evidence in `docs/research/evidence/phase_08_eventing/` and
+`docs/research/evidence/phase_08_service_bundles/` before changing
 contracts, cost logic, deployment graphs, or current documentation.
 
 ---

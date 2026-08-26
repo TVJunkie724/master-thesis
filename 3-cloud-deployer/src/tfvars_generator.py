@@ -29,25 +29,19 @@ import re
 
 from src.core.config_loader import load_optimization_flags
 from src.core.secure_files import atomic_write_private_bytes
-from src.deployment_specification import (
-    translate_deployment_tfvars,
-    validate_deployment_manifest,
-)
+from src.deployment_specification import validate_deployment_manifest
 from src.architecture_profiles import resolve_deployment_graph
 from src.terraform_inputs import translate_graph_inputs
 
 logger = logging.getLogger(__name__)
 TERRAFORM_VARIABLE_PATTERN = re.compile(r'variable\s+"([a-zA-Z0-9_]+)"')
-PHASE_8_COMPARISON_PROFILES = {
-    ("five-layer-baseline", "2"),
-    ("six-layer-eventing", "1"),
-}
-PHASE_8_FIXED_REGIONS = {
+SIX_LAYER_PROFILES = {("six-layer-eventing", "1")}
+SIX_LAYER_FIXED_REGIONS = {
     "aws_region": "eu-central-1",
     "azure_region": "westeurope",
     "gcp_region": "europe-west1",
 }
-PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS = {
+SIX_LAYER_FORBIDDEN_OPTIMIZER_FIELDS = {
     "allowGcpSelfHostedL4",
     "allowGcpSelfHostedL5",
     "amountOfActiveEditors",
@@ -66,7 +60,7 @@ PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS = {
     "triggerNotificationWorkflow",
     "useEventChecking",
 }
-PHASE_8_FORBIDDEN_TFVARS = {
+SIX_LAYER_FORBIDDEN_TFVARS = {
     "aws_event_actions",
     "aws_event_feedback_enabled",
     "aws_event_feedback_zip_path",
@@ -137,21 +131,11 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
         deployment_manifest,
         providers,
     )
-    resolved_graph = (
-        resolve_deployment_graph(validated_manifest)
-        if validated_manifest.manifest_version in {"3.0", "4.0"}
-        else None
-    )
+    resolved_graph = resolve_deployment_graph(validated_manifest)
     phase8_profile = _phase8_profile_identity(resolved_graph)
-    deployment_tfvars = (
-        translate_graph_inputs(resolved_graph).values
-        if resolved_graph is not None
-        else translate_deployment_tfvars(validated_manifest.specification)
-    )
-    tfvars["resolved_component_dimensions"] = (
-        _project_graph_component_dimensions(resolved_graph)
-        if resolved_graph is not None
-        else {}
+    deployment_tfvars = translate_graph_inputs(resolved_graph).values
+    tfvars["resolved_component_dimensions"] = _project_graph_component_dimensions(
+        resolved_graph
     )
 
     # Load config_iot_devices.json (device definitions)
@@ -311,7 +295,7 @@ def _phase8_profile_identity(graph) -> tuple[str, str] | None:
         str(graph.profile_ref.get("id", "")),
         str(graph.profile_ref.get("version", "")),
     )
-    return identity if identity in PHASE_8_COMPARISON_PROFILES else None
+    return identity if identity in SIX_LAYER_PROFILES else None
 
 
 def _validate_phase8_optimization_artifact(project_dir: Path) -> None:
@@ -343,7 +327,10 @@ def _validate_phase8_optimization_artifact(project_dir: Path) -> None:
             sources.append(input_params)
     forbidden = sorted(
         set().union(
-            *(PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS & source.keys() for source in sources)
+            *(
+                SIX_LAYER_FORBIDDEN_OPTIMIZER_FIELDS & source.keys()
+                for source in sources
+            )
         )
     )
     if forbidden:
@@ -359,7 +346,7 @@ def _validate_phase8_tfvars(
 ) -> None:
     if profile is None:
         return
-    forbidden = sorted(PHASE_8_FORBIDDEN_TFVARS & tfvars.keys())
+    forbidden = sorted(SIX_LAYER_FORBIDDEN_TFVARS & tfvars.keys())
     if forbidden:
         raise ConfigurationError(
             "Phase 8 Terraform inputs contain retired feature or shared-token fields: "
@@ -380,7 +367,7 @@ def _validate_phase8_tfvars(
             if key.endswith("_provider")
         ),
     }
-    for field, expected in PHASE_8_FIXED_REGIONS.items():
+    for field, expected in SIX_LAYER_FIXED_REGIONS.items():
         provider = field.removesuffix("_region")
         if selected[provider] and tfvars.get(field) != expected:
             raise ConfigurationError(
@@ -388,7 +375,7 @@ def _validate_phase8_tfvars(
             )
     if (
         tfvars.get("layer_1_provider") == "azure"
-        and tfvars.get("azure_region_iothub") != PHASE_8_FIXED_REGIONS["azure_region"]
+        and tfvars.get("azure_region_iothub") != SIX_LAYER_FIXED_REGIONS["azure_region"]
     ):
         raise ConfigurationError(
             "azure_region_iothub must be westeurope for the selected Phase 8 comparison profile"
@@ -452,7 +439,7 @@ def _load_graph_azure_function_zips(
     project_dir: Path,
     graph,
 ) -> dict[str, str]:
-    """Load graph-built Azure app bundles without rebuilding legacy packages."""
+    """Load graph-built Azure app bundles from immutable evidence."""
 
     from src.providers.terraform.package_builder import (
         _selected_static_function_packages,
@@ -464,7 +451,7 @@ def _load_graph_azure_function_zips(
         package_id
         for package_id in expected_package_ids
         if package_id.startswith("azure_bundle_")
-        or package_id in {"azure_five-layer-v2", "azure_six-layer-eventing"}
+        or package_id in {"azure_six-layer-domain", "azure_six-layer-eventing"}
     }
     evidence_path = project_dir / ".twin2multicloud" / "graph" / "package-evidence.json"
     try:
@@ -488,7 +475,7 @@ def _load_graph_azure_function_zips(
         "azure_l2_zip_path": "",
         "azure_l3_zip_path": "",
         "azure_user_zip_path": "",
-        "azure_v2_zip_path": "",
+        "azure_six_layer_zip_path": "",
         "azure_event_zip_path": "",
     }
     for group in ("l0", "l1", "l2", "l3"):
@@ -512,18 +499,21 @@ def _load_graph_azure_function_zips(
         for group in ("l0", "l1", "l2", "l3")
         if result[f"azure_{group}_zip_path"]
     }
-    v2_package = project_dir / ".build" / "azure" / "five-layer-v2.zip"
-    if "azure_five-layer-v2" in expected_azure:
-        item = evidence_packages.get("azure_five-layer-v2")
+    domain_package = project_dir / ".build" / "azure" / "six-layer-domain.zip"
+    if "azure_six-layer-domain" in expected_azure:
+        item = evidence_packages.get("azure_six-layer-domain")
         if (
             item is None
-            or not v2_package.is_file()
-            or v2_package.is_symlink()
-            or item.get("sha256") != hashlib.sha256(v2_package.read_bytes()).hexdigest()
+            or not domain_package.is_file()
+            or domain_package.is_symlink()
+            or item.get("sha256")
+            != hashlib.sha256(domain_package.read_bytes()).hexdigest()
         ):
-            raise ConfigurationError("Graph-built Azure v2 package digest is invalid.")
-        result["azure_v2_zip_path"] = str(v2_package)
-        discovered.add("azure_five-layer-v2")
+            raise ConfigurationError(
+                "Graph-built Azure Six-layer package digest is invalid."
+            )
+        result["azure_six_layer_zip_path"] = str(domain_package)
+        discovered.add("azure_six-layer-domain")
     event_package = project_dir / ".build" / "azure" / "six-layer-eventing.zip"
     if "azure_six-layer-eventing" in expected_azure:
         item = evidence_packages.get("azure_six-layer-eventing")
@@ -1130,9 +1120,9 @@ def _load_platform_user_config(project_dir: Path) -> dict:
             "aws_layer_access_principal_intent"
         ]
 
-    # Five-layer v2 binds read-only browser access to an existing Entra
+    # Six-layer binds read-only browser access to an existing Entra
     # principal. Its object ID is an identifier, not an authentication secret;
-    # account creation and passwords remain an explicit cloud-side bootstrap.
+    # account creation and passwords remain an explicit cloud-side prerequisite.
     if user.get("azure_principal_object_id"):
         result["azure_layer_access_principal_object_id"] = user[
             "azure_principal_object_id"

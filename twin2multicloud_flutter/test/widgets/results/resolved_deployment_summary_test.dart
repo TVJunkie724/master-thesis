@@ -7,34 +7,29 @@ import 'package:twin2multicloud_flutter/models/resolved_deployment_specification
 import 'package:twin2multicloud_flutter/widgets/results/resolved_deployment_summary.dart';
 
 void main() {
-  testWidgets('renders every resolved component and keeps evidence collapsed', (
+  testWidgets('renders every Six-layer selection and collapsed evidence', (
     tester,
   ) async {
-    final run = _selectedRun();
+    final run = _run(deploymentReady: true, selected: true);
     final specification =
-        run.specification! as ResolvedDeploymentSpecificationV1;
+        run.specification! as ResolvedDeploymentSpecificationV2;
 
-    await _pumpSummary(tester, run: run);
+    await _pumpSummary(tester, run: run, width: 1000);
 
-    for (final slot in ResolvedDeploymentSlot.values.where(
-      (item) => item.isArchitectureSlot,
-    )) {
-      final componentCount = specification.components
-          .where((component) => component.slot == slot)
-          .length;
-      expect(find.text(slot.label), findsNWidgets(componentCount));
+    expect(find.textContaining('8 architecture responsibilities'), findsOne);
+    for (final selection in specification.componentSelections) {
+      expect(find.text(selection.implementationComponentId), findsOneWidget);
     }
-    expect(find.text('Supporting runtime'), findsOneWidget);
     expect(find.text('Show technical evidence'), findsOneWidget);
-    expect(find.text(run.specification!.digest), findsNothing);
-    expect(find.textContaining('throughput'), findsNothing);
+    expect(find.text(specification.digest), findsNothing);
+    expect(find.textContaining('resource_count'), findsNothing);
 
     await tester.ensureVisible(find.text('Show technical evidence'));
     await tester.tap(find.text('Show technical evidence'));
     await tester.pumpAndSettle();
 
-    expect(find.text(run.specification!.digest), findsOneWidget);
-    expect(find.textContaining('throughput'), findsWidgets);
+    expect(find.text(specification.digest), findsOneWidget);
+    expect(find.textContaining('resource_count'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
@@ -44,45 +39,10 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(480, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await _pumpSummary(tester, run: _selectedRun(), width: 480);
+    await _pumpSummary(tester, run: _run(deploymentReady: false), width: 480);
 
     expect(find.text('Resolved cloud resources'), findsOneWidget);
     expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('legacy state offers recalculation without component rows', (
-    tester,
-  ) async {
-    final legacy = OptimizerDeploymentRunData.fromDetailJson({
-      'id': 'legacy-run',
-      'twin_id': 'twin-1',
-      'status': 'succeeded',
-      'deployment_compatibility_status': 'legacy_not_deployable',
-      'deployment_specification_digest': null,
-      'deployment_specification_version': null,
-      'resolved_deployment_specification': null,
-      'selected_for_deployment_at': null,
-      'created_at': '2026-07-17T08:00:00Z',
-    });
-    var recalculations = 0;
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: ResolvedDeploymentSummary(
-            review: ResolvedDeploymentReview.fromRun(legacy),
-            isSelecting: false,
-            onRetrySelection: null,
-            onRecalculateArchitecture: () => recalculations += 1,
-          ),
-        ),
-      ),
-    );
-
-    expect(find.text('Architecture recalculation required'), findsOneWidget);
-    expect(find.text('Recalculate architecture'), findsOneWidget);
-    await tester.tap(find.text('Recalculate architecture'));
-    expect(recalculations, 1);
   });
 
   testWidgets('future specification is inspectable but not deployable', (
@@ -92,30 +52,20 @@ void main() {
       ..['schema_version'] = 'resolved-deployment-specification.v3';
     specification['digest'] =
         ResolvedDeploymentSpecificationData.calculateDigest(specification);
-    final run = OptimizerDeploymentRunData.fromDetailJson({
-      'id': specification['calculation_run_id'],
-      'twin_id': 'twin-1',
-      'status': 'succeeded',
-      'deployment_compatibility_status': 'ready',
-      'deployment_specification_digest': specification['digest'],
-      'deployment_specification_version': specification['schema_version'],
-      'resolved_deployment_specification': specification,
-      'selected_for_deployment_at': null,
-      'created_at': '2026-07-17T08:00:00Z',
-    });
+    final run = _runFromSpecification(specification);
 
     await _pumpSummary(tester, run: run);
 
     expect(find.text('Specification version unsupported'), findsOneWidget);
     expect(find.text('Recalculate architecture'), findsOneWidget);
-    expect(find.text('Supporting runtime'), findsNothing);
+    expect(find.text('Live capacity evidence pending'), findsNothing);
   });
 
-  testWidgets('failed selection exposes exactly one bounded retry', (
+  testWidgets('failed deployment-ready selection exposes one bounded retry', (
     tester,
   ) async {
     var retries = 0;
-    final run = _selectedRun(selected: false);
+    final run = _run(deploymentReady: true);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -140,12 +90,12 @@ void main() {
     expect(retries, 1);
   });
 
-  testWidgets('v2 renders evaluation evidence and exact blocking gates', (
+  testWidgets('renders evaluation evidence and exact blocking gates', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1000, 1200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    final run = _v2Run();
+    final run = _run(deploymentReady: false);
     final specification =
         run.specification! as ResolvedDeploymentSpecificationV2;
 
@@ -158,19 +108,7 @@ void main() {
     }
     expect(find.text('Verify'), findsNothing);
     expect(find.text('Retry'), findsNothing);
-    expect(
-      find.textContaining('7 architecture responsibilities'),
-      findsOneWidget,
-    );
-    for (final selection in specification.componentSelections) {
-      expect(find.text(selection.implementationComponentId), findsOneWidget);
-    }
-    expect(find.text(specification.digest), findsNothing);
-
-    await tester.ensureVisible(find.text('Show technical evidence'));
-    await tester.tap(find.text('Show technical evidence'));
-    await tester.pumpAndSettle();
-    expect(find.text(specification.digest), findsOneWidget);
+    expect(find.textContaining('8 architecture responsibilities'), findsOne);
     expect(tester.takeException(), isNull);
   });
 }
@@ -179,65 +117,63 @@ Future<void> _pumpSummary(
   WidgetTester tester, {
   required OptimizerDeploymentRunData run,
   double width = 800,
-}) {
-  return tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: SingleChildScrollView(
-          child: SizedBox(
-            width: width,
-            child: ResolvedDeploymentSummary(
-              review: ResolvedDeploymentReview.fromRun(run),
-              isSelecting: false,
-              onRetrySelection: null,
-              onRecalculateArchitecture: () {},
-            ),
+}) => tester.pumpWidget(
+  MaterialApp(
+    home: Scaffold(
+      body: SingleChildScrollView(
+        child: SizedBox(
+          width: width,
+          child: ResolvedDeploymentSummary(
+            review: ResolvedDeploymentReview.fromRun(run),
+            isSelecting: false,
+            onRetrySelection: null,
+            onRecalculateArchitecture: () {},
           ),
         ),
       ),
     ),
-  );
-}
+  ),
+);
 
-OptimizerDeploymentRunData _selectedRun({bool selected = true}) {
+OptimizerDeploymentRunData _run({
+  required bool deploymentReady,
+  bool selected = false,
+}) {
   final specification = _fixture();
-  return OptimizerDeploymentRunData.fromDetailJson({
-    'id': specification['calculation_run_id'],
-    'twin_id': 'twin-1',
-    'status': 'succeeded',
-    'deployment_compatibility_status': 'ready',
-    'deployment_specification_digest': specification['digest'],
-    'deployment_specification_version': specification['schema_version'],
-    'resolved_deployment_specification': specification,
-    'selected_for_deployment_at': selected ? '2026-07-17T09:00:00Z' : null,
-    'created_at': '2026-07-17T08:00:00Z',
-  });
+  if (deploymentReady) {
+    specification['readiness'] = {
+      'status': 'deployment_ready',
+      'blocking_gate_ids': <String>[],
+    };
+    specification['digest'] =
+        ResolvedDeploymentSpecificationData.calculateDigest(specification);
+  }
+  return _runFromSpecification(
+    specification,
+    selected: selected ? '2026-08-25T09:00:00Z' : null,
+  );
 }
 
-Map<String, dynamic> _fixture() {
-  final file = File(
-    '../twin2multicloud_backend/src/contracts/generated/'
-    'resolved-deployment-specification/v1/fixtures/valid/mixed-providers.json',
-  );
-  return jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
-}
+OptimizerDeploymentRunData _runFromSpecification(
+  Map<String, dynamic> specification, {
+  String? selected,
+}) => OptimizerDeploymentRunData.fromDetailJson({
+  'id': specification['calculation_run_id'],
+  'twin_id': 'twin-six-layer',
+  'status': 'succeeded',
+  'deployment_compatibility_status': 'ready',
+  'deployment_specification_digest': specification['digest'],
+  'deployment_specification_version': specification['schema_version'],
+  'resolved_deployment_specification': specification,
+  'selected_for_deployment_at': selected,
+  'created_at': '2026-08-25T08:00:00Z',
+});
 
-OptimizerDeploymentRunData _v2Run() {
-  final file = File(
-    '../contracts/resolved-deployment-specification/v2/fixtures/valid/'
-    'three-cloud-mixed-large.json',
-  );
-  final specification =
-      jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
-  return OptimizerDeploymentRunData.fromDetailJson({
-    'id': specification['calculation_run_id'],
-    'twin_id': 'twin-v2',
-    'status': 'succeeded',
-    'deployment_compatibility_status': 'ready',
-    'deployment_specification_digest': specification['digest'],
-    'deployment_specification_version': specification['schema_version'],
-    'resolved_deployment_specification': specification,
-    'selected_for_deployment_at': null,
-    'created_at': '2026-08-04T08:00:00Z',
-  });
-}
+Map<String, dynamic> _fixture() =>
+    jsonDecode(
+          File(
+            '../contracts/resolved-deployment-specification/v2/fixtures/valid/'
+            'six-layer-aws-azure-eventing-small.json',
+          ).readAsStringSync(),
+        )
+        as Map<String, dynamic>;

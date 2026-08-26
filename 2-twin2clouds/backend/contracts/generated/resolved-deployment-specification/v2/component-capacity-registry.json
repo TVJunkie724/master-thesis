@@ -1,5 +1,5 @@
 {
-  "schema_version": "five-layer-v2-component-capacity-registry.v1",
+  "schema_version": "six-layer-component-capacity-registry.v1",
   "package_ref": {
     "id": "phase-08-complete-service-bundles",
     "version": "1",
@@ -1907,5 +1907,5 @@
       "deduplication_key": "domain_event_cross_cloud::gcp->azure"
     }
   ],
-  "content_digest": "sha256:9d5dd39619132876cdd115517bf3e906458f4d30f0d6259e1df8d3be4d944899"
+  "content_digest": "sha256:d416ae457c363e10a05e77d994fa52eef86022772021dbcd41ef170531da319c"
 }

@@ -13,7 +13,7 @@ version: "1.1"
 **Implemented and offline verified.** `twin2multicloud_backend`,
 `3-cloud-deployer`, and Flutter share strict contracts and fixtures. The local
 integration uses a real Management API with deterministic test-only provider
-mutation; no cloud resource or browser session is involved. Five-layer v2 is
+mutation; no cloud resource or browser session is involved. Six-layer is
 active for offline selection/evaluation, while its explicit live-capacity
 gates keep deployment selection blocked.
 
@@ -29,7 +29,7 @@ Access section from existing endpoints.
 
 1. Add owner-scoped `GET /twins/{id}/deployment-access` returning exact
    `deployment-access.v1`; `available` responses contain one L4 and one L5
-   surface for deployed `five-layer-baseline@2` Twins, while historical
+   surface for deployed `six-layer-eventing@1` Twins, while historical
    profiles return `unsupported` with zero surfaces and a stable reason.
 2. Persist only allowlisted safe URLs, provider/service IDs, principal labels,
    readiness, capability/limitation values, deployment/content revisions, and

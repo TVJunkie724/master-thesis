@@ -262,8 +262,8 @@ Gate:
 
 Status: In progress. Config read/write boundary complete:
 [PHASE_01_SLICE_07A_CONFIG_READ_WRITE_BOUNDARY_REVIEW.md](PHASE_01_SLICE_07A_CONFIG_READ_WRITE_BOUNDARY_REVIEW.md)
-Credential validation boundary complete:
-[PHASE_01_SLICE_07B_CREDENTIAL_VALIDATION_BOUNDARY_REVIEW.md](PHASE_01_SLICE_07B_CREDENTIAL_VALIDATION_BOUNDARY_REVIEW.md)
+Credential validation is retained as runtime behavior; provisioning and
+least-privilege design are narrowed by the PoC credential decision.
 Deployer config read/write boundary complete:
 [PHASE_01_SLICE_07C_DEPLOYER_CONFIG_BOUNDARY_REVIEW.md](PHASE_01_SLICE_07C_DEPLOYER_CONFIG_BOUNDARY_REVIEW.md)
 Deployer validation boundary complete:

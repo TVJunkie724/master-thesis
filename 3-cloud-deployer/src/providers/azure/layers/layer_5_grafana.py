@@ -43,10 +43,10 @@ MANAGEMENT_API_VERSION = "2025-08-01"
 APP_SERVICE_API_VERSION = "2025-05-01"
 JSON_DATASOURCE_PLUGIN_ID = "marcusolsson-json-datasource"
 JSON_DATASOURCE_PLUGIN_VERSION = "1.4.0"
-V2_DATASOURCE_UID = "t2mc-azure-hot-reader"
-V2_FOLDER_UID = "t2mc-raw-rollups"
-V2_DASHBOARD_UID = "t2mc-raw-rollups"
-V2_READER_FUNCTION_NAME = "v2-raw-history-reader"
+SIX_LAYER_DATASOURCE_UID = "t2mc-azure-hot-reader"
+SIX_LAYER_FOLDER_UID = "t2mc-raw-rollups"
+SIX_LAYER_DASHBOARD_UID = "t2mc-raw-rollups"
+SIX_LAYER_READER_FUNCTION_NAME = "six-layer-raw-history-reader"
 _TRANSIENT_GRAFANA_READINESS_CODES = frozenset({403, 404, 429, 502, 503, 504})
 
 
@@ -157,7 +157,7 @@ def _function_arm_url(
         "https://management.azure.com/subscriptions/"
         f"{provider.subscription_id}/resourceGroups/{provider.naming.resource_group()}"
         f"/providers/Microsoft.Web/sites/{function_app_name}"
-        f"/functions/{V2_READER_FUNCTION_NAME}/{suffix}"
+        f"/functions/{SIX_LAYER_READER_FUNCTION_NAME}/{suffix}"
     )
 
 
@@ -523,7 +523,7 @@ def _upsert_v2_datasource(
 ) -> None:
     headers = _headers(grafana_token)
     config = {
-        "uid": V2_DATASOURCE_UID,
+        "uid": SIX_LAYER_DATASOURCE_UID,
         "name": datasource_name,
         "type": JSON_DATASOURCE_PLUGIN_ID,
         "url": hot_reader_url,
@@ -537,13 +537,13 @@ def _upsert_v2_datasource(
         "secureJsonData": {"httpHeaderValue1": function_key},
     }
     response = requests.get(
-        f"{grafana_url}/api/datasources/uid/{V2_DATASOURCE_UID}",
+        f"{grafana_url}/api/datasources/uid/{SIX_LAYER_DATASOURCE_UID}",
         headers=headers,
         timeout=30,
     )
     if response.status_code == 200:
         response = requests.put(
-            f"{grafana_url}/api/datasources/uid/{V2_DATASOURCE_UID}",
+            f"{grafana_url}/api/datasources/uid/{SIX_LAYER_DATASOURCE_UID}",
             headers=headers,
             json=config,
             timeout=30,
@@ -570,7 +570,10 @@ def _history_target(
     value_field = "value" if bucket_seconds == 0 else "avg"
     return {
         "refId": "A",
-        "datasource": {"type": JSON_DATASOURCE_PLUGIN_ID, "uid": V2_DATASOURCE_UID},
+        "datasource": {
+            "type": JSON_DATASOURCE_PLUGIN_ID,
+            "uid": SIX_LAYER_DATASOURCE_UID,
+        },
         "method": "GET",
         "urlPath": "",
         "queryParams": "",
@@ -607,7 +610,7 @@ def _v2_dashboard(
     metric: str,
     architecture_profile: str,
 ) -> dict[str, Any]:
-    datasource = {"type": JSON_DATASOURCE_PLUGIN_ID, "uid": V2_DATASOURCE_UID}
+    datasource = {"type": JSON_DATASOURCE_PLUGIN_ID, "uid": SIX_LAYER_DATASOURCE_UID}
     field_config = {
         "defaults": {
             "color": {"mode": "palette-classic"},
@@ -622,7 +625,7 @@ def _v2_dashboard(
         "overrides": [],
     }
     return {
-        "uid": V2_DASHBOARD_UID,
+        "uid": SIX_LAYER_DASHBOARD_UID,
         "title": "Raw & Rollups",
         "description": (
             f"{architecture_profile} PoC view over provider-local L3 hot storage. "
@@ -699,7 +702,7 @@ def _upsert_v2_folder_and_dashboard(
 ) -> None:
     headers = _headers(grafana_token)
     response = requests.get(
-        f"{grafana_url}/api/folders/{V2_FOLDER_UID}",
+        f"{grafana_url}/api/folders/{SIX_LAYER_FOLDER_UID}",
         headers=headers,
         timeout=30,
     )
@@ -707,14 +710,14 @@ def _upsert_v2_folder_and_dashboard(
         response = requests.post(
             f"{grafana_url}/api/folders",
             headers=headers,
-            json={"uid": V2_FOLDER_UID, "title": "Raw & Rollups"},
+            json={"uid": SIX_LAYER_FOLDER_UID, "title": "Raw & Rollups"},
             timeout=30,
         )
         _require_status(response, (200,), "Azure Grafana folder creation")
     elif response.status_code == 200:
         if response.json().get("title") != "Raw & Rollups":
             response = requests.put(
-                f"{grafana_url}/api/folders/{V2_FOLDER_UID}",
+                f"{grafana_url}/api/folders/{SIX_LAYER_FOLDER_UID}",
                 headers=headers,
                 json={"title": "Raw & Rollups", "version": -1},
                 timeout=30,
@@ -730,7 +733,7 @@ def _upsert_v2_folder_and_dashboard(
         headers=headers,
         json={
             "dashboard": _v2_dashboard(device_id, metric, architecture_profile),
-            "folderUid": V2_FOLDER_UID,
+            "folderUid": SIX_LAYER_FOLDER_UID,
             "message": f"Provision {architecture_profile} PoC dashboard",
             "overwrite": True,
         },
@@ -773,7 +776,7 @@ def _probe_v2_surface(
             )
     headers = _headers(grafana_token)
     response = requests.get(
-        f"{grafana_url}/api/datasources/uid/{V2_DATASOURCE_UID}/health",
+        f"{grafana_url}/api/datasources/uid/{SIX_LAYER_DATASOURCE_UID}/health",
         headers=headers,
         timeout=30,
     )
@@ -781,14 +784,14 @@ def _probe_v2_surface(
     if response.json().get("status") != "OK":
         raise RuntimeError("Azure Grafana datasource health probe was not OK")
     response = requests.get(
-        f"{grafana_url}/api/dashboards/uid/{V2_DASHBOARD_UID}",
+        f"{grafana_url}/api/dashboards/uid/{SIX_LAYER_DASHBOARD_UID}",
         headers=headers,
         timeout=30,
     )
     _require_status(response, (200,), "Azure Grafana dashboard probe")
 
 
-def configure_five_layer_v2_grafana(
+def configure_six_layer_grafana(
     provider: "AzureProvider",
     *,
     workspace_name: str,

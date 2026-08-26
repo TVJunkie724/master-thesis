@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import base64
-import json
 import struct
 
 import pytest
 
 from src.config import settings
-from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
@@ -76,16 +74,19 @@ def _service(db, tmp_path, deployer_client=None) -> ProjectZipExtractionService:
 
 
 @pytest.mark.asyncio
-async def test_upload_project_zip_sends_validation_context_from_optimizer_columns(
-    db_session, tmp_path
+async def test_upload_project_zip_sends_selected_architecture_providers(
+    db_session, tmp_path, monkeypatch
 ):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    db_session.add(
-        OptimizerConfiguration(twin_id=twin.id, cheapest_l2="AWS", cheapest_l4="Azure")
+    providers = {
+        "component.processing": "aws",
+        "component.twin-state": "azure",
+    }
+    monkeypatch.setattr(
+        "src.services.architecture_projection_service.provider_for_component",
+        lambda _twin, component_id: providers.get(component_id),
     )
-    db_session.commit()
-    db_session.refresh(twin)
 
     fake = _FakeDeployerClient()
     result = await _service(db_session, tmp_path, fake).upload_project_zip(
@@ -103,19 +104,11 @@ async def test_upload_project_zip_sends_validation_context_from_optimizer_column
 
 
 @pytest.mark.asyncio
-async def test_upload_project_zip_uses_result_json_provider_fallback(
+async def test_upload_project_zip_does_not_use_optimizer_result_fallback(
     db_session, tmp_path
 ):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    db_session.add(
-        OptimizerConfiguration(
-            twin_id=twin.id,
-            result_json=json.dumps({"calculationResult": {"L2": "GCP", "L4": "AWS"}}),
-        )
-    )
-    db_session.commit()
-    db_session.refresh(twin)
 
     fake = _FakeDeployerClient()
     await _service(db_session, tmp_path, fake).upload_project_zip(
@@ -123,8 +116,8 @@ async def test_upload_project_zip_uses_result_json_provider_fallback(
     )
 
     validation_context = fake.calls[0][1]
-    assert validation_context["l2_provider"] == "gcp"
-    assert validation_context["l4_provider"] == "aws"
+    assert "l2_provider" not in validation_context
+    assert "l4_provider" not in validation_context
 
 
 @pytest.mark.asyncio

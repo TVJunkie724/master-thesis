@@ -860,9 +860,7 @@ def _check_provider_profile(
     }
     provided = set(document["capability_claims"]["provided_capability_ids"])
     missing = sorted(required_capabilities - provided)
-    declared_missing = sorted(
-        document["capability_claims"]["missing_capability_ids"]
-    )
+    declared_missing = sorted(document["capability_claims"]["missing_capability_ids"])
     if missing != declared_missing:
         _fail(
             "ARCH_CAPABILITY_INCOMPLETE",
@@ -1020,8 +1018,7 @@ def _check_catalog(
     if not profiles:
         return
     linked_profile_refs = {
-        (profile["profile_id"], profile["profile_version"])
-        for profile in profiles
+        (profile["profile_id"], profile["profile_version"]) for profile in profiles
     }
     catalog_profile_refs = {
         (reference["id"], reference["version"])
@@ -1224,7 +1221,7 @@ def _check_resolved(
         _fail(
             "ARCH_BUNDLE_INCOMPATIBLE",
             "component_assignments",
-            "Five-layer v2 requires provider-local L3 hot and L5",
+            "Six-layer requires provider-local L3 hot and L5",
         )
     expected_components = {item["component_id"] for item in profile["components"]}
     if set(by_component) != expected_components:
@@ -1261,12 +1258,9 @@ def _check_resolved(
                 f"component_assignments[{index}].provider_implementation_profile_ref",
                 "Assignment provider profile is not pinned by the resolution",
             )
-        if (
-            not provider_profile["supported"]
-            or (
-                document["resolution_status"] == "publishable"
-                and provider_profile["lifecycle_status"] != "active"
-            )
+        if not provider_profile["supported"] or (
+            document["resolution_status"] == "publishable"
+            and provider_profile["lifecycle_status"] != "active"
         ):
             _fail(
                 "ARCH_CAPABILITY_INCOMPLETE",

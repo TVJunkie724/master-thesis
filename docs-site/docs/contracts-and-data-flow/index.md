@@ -38,9 +38,8 @@ Optimizer and Deployer remain internal services.
 
 ## Status And Scope
 
-The diagrams cover the current five-layer baseline and its current contract
-versions. Planned architecture profiles and the proposed eventing layer belong to
-research and implementation-planning material until they are implemented. Whenever
+The diagrams cover the current standalone Six-layer profile and its v2/v4
+contracts. The Five-layer baseline is historical Optimizer evidence only. Whenever
 the executable contracts change, update this section in the same change and run:
 
 ```bash

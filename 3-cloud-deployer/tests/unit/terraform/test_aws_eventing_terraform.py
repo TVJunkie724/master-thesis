@@ -58,7 +58,7 @@ def test_aws_event_layer_uses_graph_capacity_and_bounded_failure_storage():
     assert '"bridge-${channel}" => { stream = channel }' in source
     assert (
         'aws_kinesis_stream_consumer.domain_consumers["bridge-${each.key}"].arn'
-        in _source("five_layer_v2_bridge_aws.tf")
+        in _source("six_layer_bridge_aws.tf")
     )
     assert (
         "count                = "
@@ -84,7 +84,7 @@ def test_aws_event_layer_uses_graph_capacity_and_bounded_failure_storage():
 
 
 def test_inherited_aws_domain_runtime_routes_through_local_event_layer():
-    source = _source("aws_five_layer_v2.tf")
+    source = _source("aws_six_layer.tf")
     assert (
         "EVENTING_RECEIVED_STREAM_ARN = local.six_layer_eventing_enabled && "
         'var.event_layer_provider == "aws" ? '
@@ -96,24 +96,27 @@ def test_inherited_aws_domain_runtime_routes_through_local_event_layer():
         'aws_kinesis_stream.domain_telemetry["processed"].arn'
     ) in source
     assert "EVENTING_CONTROL_TOPIC_ARN" in source
-    assert "aws_v2_embedded_event_enabled" in source
-    assert "local.aws_v2_l2_enabled && local.aws_v2_embedded_event_enabled" in source
+    assert "aws_six_layer_embedded_event_enabled" in source
+    assert (
+        "local.aws_six_layer_l2_enabled && local.aws_six_layer_embedded_event_enabled"
+        in source
+    )
     assert "L1_PROVIDER                       = var.layer_1_provider" in source
     assert "L2_PROVIDER                       = var.layer_2_provider" in source
     assert "raw_message_delivery = true" in source
 
 
 def test_aws_event_layer_can_be_the_source_of_a_directed_bridge():
-    source = _source("five_layer_v2_bridge_aws.tf")
-    assert "aws_v2_event_bridge_streams" in source
+    source = _source("six_layer_bridge_aws.tf")
+    assert "aws_six_layer_event_bridge_streams" in source
     assert 'aws_kinesis_stream.domain_telemetry["received"].arn' in source
     assert 'aws_kinesis_stream.domain_telemetry["processed"].arn' in source
     assert (
-        'resource "aws_sns_topic_subscription" "aws_v2_event_bridge_control_source"'
+        'resource "aws_sns_topic_subscription" "aws_six_layer_event_bridge_control_source"'
     ) in source
-    assert "aws_v2_event_bridge_control_types" in source
+    assert "aws_six_layer_event_bridge_control_types" in source
     assert (
-        'resource "aws_lambda_event_source_mapping" "aws_v2_event_bridge_telemetry"'
+        'resource "aws_lambda_event_source_mapping" "aws_six_layer_event_bridge_telemetry"'
     ) in source
     assert source.count('starting_position                  = "TRIM_HORIZON"') == 2
     assert 'starting_position                  = "LATEST"' not in source

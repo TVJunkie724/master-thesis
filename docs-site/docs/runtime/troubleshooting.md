@@ -42,27 +42,13 @@ restore its original encryption key; do not generate a replacement silently.
 
 ## Credential Validation Fails
 
-Check connection purpose/provider/account metadata, validation message, permission-set
-version, and whether the twin is bound to the intended deployment connection. Pricing
+Check connection purpose/provider/account metadata, validation message, and
+whether the twin is bound to the intended deployment connection. Pricing
 refresh uses a user-level pricing default, not an arbitrary twin.
 
-Never paste the credential into logs or issue bodies. Re-bootstrap or replace a
-connection through the application boundary.
-
-## Guided Bootstrap Stops Or Requires Cleanup
-
-- `BOOTSTRAP_IDENTITY_CREATION_FAILED` together with a disabled guide in
-  production is intentional: no live provider adapter is enabled. Use the
-  reviewed manual script/import path for supervised cloud work.
-- If the session requests credential re-entry, submit a fresh credential; the
-  previous value was released and cannot be restored.
-- If provider-side automatic deletion could not be proven, follow the exact
-  official cleanup link and acknowledge manual revocation only after completing
-  it. Local application release is not proof of provider revocation.
-- Resume the active provider/target session instead of creating a conflicting
-  duplicate. Cancel or start new only when the UI exposes that safe transition.
-- Recheck uses safe session and generated-connection state; never paste the
-  bootstrap credential into logs, tickets, or persisted configuration.
+Never paste the credential into logs or issue bodies. Replace the
+CloudConnection through the write-only application boundary and revoke the old
+credential directly with the provider.
 
 ## Pricing Is Stale Or Review-Required
 
@@ -78,14 +64,13 @@ has an active operation; use status/history rather than starting another.
 
 ## Manifest Or Deployment Graph Preflight Fails
 
-Operation packages require the manifest version owned by their frozen profile:
-v3 for historical Five-layer v1 evidence and v4 for active Five-layer v2 or
-Six-layer v1. Do not downgrade the archive or copy values from `cheapest_l*`
+Operation packages require Manifest v4 owned by the frozen Six-layer profile.
+Historical Five-layer calculations are not deployable. Do not downgrade the archive or copy values from `cheapest_l*`
 fields. Use the stable code to locate the owning contract:
 
 | Code family | Check |
 |---|---|
-| `DEPLOYMENT_MANIFEST_*` | profile-matched v3/v4 schema, bounded inventory, secret-free manifest |
+| `DEPLOYMENT_MANIFEST_*` | Six-layer v4 schema, bounded inventory, secret-free manifest |
 | `DEPLOYMENT_ARCHITECTURE_*` | selected run, architecture/specification cross-links and digests |
 | `DEPLOYMENT_PROFILE_CATALOG_MISMATCH` | exact generated profile/catalog copies and digests |
 | `DEPLOYMENT_GRAPH_NODE_*`, `EDGE_*`, `BINDING_*`, `CYCLE_*` | registered component, edge, port, trust, and binding ownership |

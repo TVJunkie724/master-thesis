@@ -46,12 +46,12 @@ run "six_layer_aws_azure_gcp_routes_event_targets_without_hidden_landing" {
     platform_user_last_name               = "Researcher"
     gcp_project_id                        = "phase8-poc-project"
     gcp_region                            = "europe-west1"
-    gcp_v2_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    gcp_v2_processor_extension_image      = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-    gcp_v2_storage_mover_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/storage@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-    gcp_v2_grafana_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    gcp_six_layer_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    gcp_six_layer_processor_extension_image      = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    gcp_six_layer_storage_mover_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/storage@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    gcp_six_layer_grafana_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     gcp_grafana_source_cidrs              = ["203.0.113.42/32"]
-    aws_v2_bridge_image                   = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    aws_six_layer_bridge_image                   = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
     aws_outbound_identity_required        = true
     aws_outbound_identity_destinations    = ["azure"]
     aws_outbound_identity_issuer          = "https://token.actions.githubusercontent.com"
@@ -220,19 +220,19 @@ run "six_layer_aws_azure_gcp_routes_event_targets_without_hidden_landing" {
         "bridge-processed",
       ]) &&
       length(azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge) == 0 &&
-      length(azurerm_servicebus_topic.azure_v2_remote_control) == 0 &&
-      toset(keys(azurerm_role_assignment.azure_v2_bridge_from_aws_telemetry)) == toset(["event_received"]) &&
-      toset(keys(azurerm_role_assignment.azure_v2_bridge_from_aws_control)) == toset(["event"]) &&
-      toset(keys(azurerm_role_assignment.azure_v2_bridge_from_gcp_telemetry)) == toset(["event_processed"]) &&
-      toset(keys(azurerm_role_assignment.azure_v2_bridge_from_gcp_control)) == toset(["event"])
+      length(azurerm_servicebus_topic.azure_six_layer_remote_control) == 0 &&
+      toset(keys(azurerm_role_assignment.azure_six_layer_bridge_from_aws_telemetry)) == toset(["event_received"]) &&
+      toset(keys(azurerm_role_assignment.azure_six_layer_bridge_from_aws_control)) == toset(["event"]) &&
+      toset(keys(azurerm_role_assignment.azure_six_layer_bridge_from_gcp_telemetry)) == toset(["event_processed"]) &&
+      toset(keys(azurerm_role_assignment.azure_six_layer_bridge_from_gcp_control)) == toset(["event"])
     )
     error_message = "AWS and GCP inputs must publish directly to the Azure Event Layer without hidden Azure domain landing brokers."
   }
 
   assert {
     condition = (
-      toset(keys(google_pubsub_topic_iam_member.gcp_v2_bridge_from_azure)) == toset(["remote_telemetry", "remote_control"]) &&
-      length(aws_iam_role_policy.aws_v2_bridge_target_from_azure) == 1 &&
+      toset(keys(google_pubsub_topic_iam_member.gcp_six_layer_bridge_from_azure)) == toset(["remote_telemetry", "remote_control"]) &&
+      length(aws_iam_role_policy.aws_six_layer_bridge_target_from_azure) == 1 &&
       contains(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics), "remote-telemetry-inbound") &&
       contains(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics), "remote-control-inbound")
     )
@@ -271,13 +271,13 @@ run "six_layer_azure_gcp_aws_routes_cover_remaining_directed_pairs" {
     platform_user_last_name               = "Researcher"
     gcp_project_id                        = "phase8-poc-project"
     gcp_region                            = "europe-west1"
-    gcp_v2_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    gcp_v2_storage_mover_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/storage@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-    gcp_v2_grafana_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/grafana@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    gcp_six_layer_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    gcp_six_layer_storage_mover_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/storage@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    gcp_six_layer_grafana_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/grafana@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     gcp_event_runtime_image               = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/event@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     gcp_grafana_source_cidrs              = ["203.0.113.42/32"]
-    aws_v2_bridge_image                   = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
-    aws_v2_storage_mover_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test-storage@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    aws_six_layer_bridge_image                   = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    aws_six_layer_storage_mover_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test-storage@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
     enable_aws_logging                    = false
     enable_azure_logging                  = false
     enable_gcp_logging                    = false
@@ -406,8 +406,8 @@ run "six_layer_azure_gcp_aws_routes_cover_remaining_directed_pairs" {
       !contains(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics), "remote-control-inbound") &&
       !contains(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics), "remote-telemetry-outbound") &&
       !contains(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics), "remote-control-outbound") &&
-      toset(keys(google_pubsub_topic_iam_member.gcp_v2_bridge_from_azure)) == toset(["event_received", "event_control"]) &&
-      toset(keys(google_pubsub_topic_iam_member.gcp_v2_bridge_from_aws)) == toset(["event_processed", "event_control"])
+      toset(keys(google_pubsub_topic_iam_member.gcp_six_layer_bridge_from_azure)) == toset(["event_received", "event_control"]) &&
+      toset(keys(google_pubsub_topic_iam_member.gcp_six_layer_bridge_from_aws)) == toset(["event_processed", "event_control"])
     )
     error_message = "Azure and AWS inputs must publish directly to the GCP Event Layer without hidden GCP domain landing topics."
   }
@@ -416,9 +416,9 @@ run "six_layer_azure_gcp_aws_routes_cover_remaining_directed_pairs" {
     condition = (
       toset(keys(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge)) == toset(["inbound", "outbound"]) &&
       toset(keys(aws_sns_topic.aws_aws_sns_fifo_only_for_reviewed_remote_control_edge)) == toset(["inbound", "outbound"]) &&
-      toset(keys(azurerm_servicebus_topic.azure_v2_remote_control)) == toset(["inbound", "outbound"]) &&
-      length(aws_iam_role_policy.aws_v2_bridge_target_from_gcp) == 1 &&
-      toset(keys(azurerm_role_assignment.azure_v2_bridge_from_gcp_control)) == toset(["remote"])
+      toset(keys(azurerm_servicebus_topic.azure_six_layer_remote_control)) == toset(["inbound", "outbound"]) &&
+      length(aws_iam_role_policy.aws_six_layer_bridge_target_from_gcp) == 1 &&
+      toset(keys(azurerm_role_assignment.azure_six_layer_bridge_from_gcp_control)) == toset(["remote"])
     )
     error_message = "GCP Event Layer outputs must retain the explicit AWS/Azure domain landing boundary."
   }
@@ -431,16 +431,16 @@ run "six_layer_azure_gcp_aws_routes_cover_remaining_directed_pairs" {
         "audit",
         "realtime-visualization",
       ]) &&
-      toset(keys(google_cloud_run_v2_worker_pool.gcp_v2_cross_cloud_bridge)) == toset([
+      toset(keys(google_cloud_run_v2_worker_pool.gcp_six_layer_cross_cloud_bridge)) == toset([
         "event-received",
         "event-processed",
       ]) &&
       alltrue([
-        for pool in values(google_cloud_run_v2_worker_pool.gcp_v2_cross_cloud_bridge) :
+        for pool in values(google_cloud_run_v2_worker_pool.gcp_six_layer_cross_cloud_bridge) :
         pool.scaling[0].manual_instance_count == 21
       ]) &&
       alltrue([
-        for key, subscription in google_pubsub_subscription.gcp_v2_bridge_source :
+        for key, subscription in google_pubsub_subscription.gcp_six_layer_bridge_source :
         length(subscription.push_config) == (startswith(key, "event-control-") ? 1 : 0)
       ])
     )
@@ -481,11 +481,11 @@ run "six_layer_azure_domains_aws_eventing_use_exact_source_consumers" {
     azure_layer_access_principal_object_id = "11111111-1111-1111-1111-111111111111"
     azure_layer_access_principal_label     = "researcher@example.test"
     aws_event_kinesis_shards               = 1
-    aws_v2_bridge_image                    = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    aws_six_layer_bridge_image                    = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     aws_outbound_identity_required         = true
     aws_outbound_identity_destinations     = ["azure"]
     aws_outbound_identity_issuer           = "https://token.actions.githubusercontent.com"
-    azure_v2_storage_mover_image           = "routetestcv2mock.azurecr.io/storage-mover@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    azure_six_layer_storage_mover_image           = "routetestcv2mock.azurecr.io/storage-mover@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     enable_aws_logging                     = false
     enable_azure_logging                   = false
     resolved_component_dimensions = {
@@ -638,13 +638,13 @@ run "six_layer_azure_domains_aws_eventing_use_exact_source_consumers" {
         "bridge-received",
         "bridge-processed",
       ]) &&
-      toset(keys(aws_lambda_event_source_mapping.aws_v2_event_bridge_telemetry)) == toset([
+      toset(keys(aws_lambda_event_source_mapping.aws_six_layer_event_bridge_telemetry)) == toset([
         "received",
         "processed",
       ]) &&
       length(aws_lambda_function.event_runtime) == 0 &&
       length(aws_sns_topic_subscription.domain_control) == 0 &&
-      length(aws_sns_topic_subscription.aws_v2_event_bridge_control_source) == 1
+      length(aws_sns_topic_subscription.aws_six_layer_event_bridge_control_source) == 1
     )
     error_message = "A remote-only AWS Event Layer must allocate only its two source-owned EFO bridge consumers and no empty local control subscriber."
   }

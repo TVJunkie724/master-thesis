@@ -25,7 +25,7 @@ a commit-label correction only and does not change scope or acceptance.
 
 This plan extends the existing Twin Overview so a researcher can use, not just
 technically deploy, the selected L4 and L5 services. A deployed
-`five-layer-baseline@2` Twin receives two typed sibling cards:
+`six-layer-eventing@1` Twin receives two typed sibling cards:
 
 - **L4 Semantic Twin:** AWS IoT TwinMaker console, Azure Digital Twins
   Explorer, or the GCP read-only Twin Explorer;

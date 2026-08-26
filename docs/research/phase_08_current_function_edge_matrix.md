@@ -380,7 +380,7 @@ Phase 8.4 subsequently added the server-owned
 allowlist. The Phase 8.6 migration has since reduced the remaining executable
 legacy surface; the current drift gate verifies 88 anchors across 14 source
 files, as tracked in
-[`phase_08_4_fixed_field_reader_inventory.md`](../plans/phase_08_architecture_profiles_eventing/phase_08_4_fixed_field_reader_inventory.md);
+[`README.md`](../plans/phase_08_architecture_profiles_eventing/README.md);
 the Phase 8.0 count above remains the historical cut rather than being silently
 rewritten.
 

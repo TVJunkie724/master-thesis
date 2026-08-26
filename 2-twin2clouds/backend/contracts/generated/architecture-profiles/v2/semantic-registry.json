@@ -13,20 +13,20 @@
       "pricing_registry_versions": [
         "1"
       ],
-      "workload_contract_id": "five-layer-workload",
-      "workload_contract_version": "2",
+      "workload_contract_id": "six-layer-workload",
+      "workload_contract_version": "1",
       "deployment_specification_versions": [
         "resolved-deployment-specification.v2"
       ],
-      "compatibility_digest": "sha256:a0c39dcae6c95c2cb25251389c6569a0f5ea4428a0403ccc4cf934541cda06f1"
+      "compatibility_digest": "sha256:9b9fdbbc21682ad9f486619e4290f76d2c3a567eff20e555c0063954c7e0d2cc"
     }
   ],
-  "content_digest": "sha256:f9e0c0fee99a7b05f44967767c3be41f7887005806a585f4aef92025172838a7",
+  "content_digest": "sha256:895bf62f81af6079134298b2abf3ad0e7893375f344aab1c1b6ab8cfc9cf5bde",
   "cycle_contracts": [
     {
       "compatibility_version": "1",
       "cycle_id": "cycle.hot-storage.twin-state",
-      "workflow_semantics": "Bounded, explicitly correlated reconciliation between hot storage and Twin state; not enabled by the baseline profile."
+      "workflow_semantics": "Bounded, explicitly correlated reconciliation between hot storage and Twin state."
     },
     {
       "cycle_id": "cycle.ingestion.processing",
@@ -43,12 +43,10 @@
     {
       "schema_version": "resolved-deployment-specification.v2",
       "architecture_profile_ids": [
-        "five-layer-baseline",
         "six-layer-eventing"
       ],
       "architecture_profile_versions": [
-        "1",
-        "2"
+        "1"
       ]
     }
   ],

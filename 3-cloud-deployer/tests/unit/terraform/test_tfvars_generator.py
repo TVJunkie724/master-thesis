@@ -11,12 +11,13 @@ import pytest
 from tests.utils.deployment_specification import (
     deployment_manifest,
     load_specification,
+    provider_config_for_specification,
 )
 
 from src.tfvars_generator import (
     generate_tfvars,
     ConfigurationError,
-    PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS,
+    SIX_LAYER_FORBIDDEN_OPTIMIZER_FIELDS,
     _load_config,
     _load_credentials,
     _load_providers,
@@ -25,7 +26,9 @@ from src.tfvars_generator import (
     _validate_phase8_optimization_artifact,
     _validate_phase8_tfvars,
 )
-from src.configuration_validation.complete import V2_FORBIDDEN_OPTIMIZER_FIELDS
+from src.configuration_validation.complete import (
+    SIX_LAYER_FORBIDDEN_OPTIMIZER_FIELDS as VALIDATION_FORBIDDEN_OPTIMIZER_FIELDS,
+)
 
 
 class TestLoadConfig:
@@ -275,6 +278,8 @@ class TestGenerateTfvars:
     @pytest.fixture
     def complete_project(self, tmp_path):
         """Create a complete project structure for testing."""
+        specification = load_specification()
+        providers = provider_config_for_specification(specification)
         # config.json
         (tmp_path / "config.json").write_text(
             json.dumps({"digital_twin_name": "test-twin"})
@@ -284,31 +289,24 @@ class TestGenerateTfvars:
         (tmp_path / "config_credentials.json").write_text(
             json.dumps(
                 {
+                    "aws": {
+                        "aws_access_key_id": "key",
+                        "aws_secret_access_key": "secret",
+                        "aws_region": "eu-central-1",
+                    },
                     "azure": {
                         "azure_subscription_id": "sub",
                         "azure_client_id": "client",
                         "azure_client_secret": "secret",
                         "azure_tenant_id": "tenant",
                         "azure_region": "westeurope",
-                    }
+                    },
                 }
             )
         )
 
         # config_providers.json
-        (tmp_path / "config_providers.json").write_text(
-            json.dumps(
-                {
-                    "layer_1_provider": "azure",
-                    "layer_2_provider": "azure",
-                    "layer_3_hot_provider": "azure",
-                    "layer_3_cold_provider": "azure",
-                    "layer_3_archive_provider": "azure",
-                    "layer_4_provider": "azure",
-                    "layer_5_provider": "azure",
-                }
-            )
-        )
+        (tmp_path / "config_providers.json").write_text(json.dumps(providers))
 
         # config_iot_devices.json
         (tmp_path / "config_iot_devices.json").write_text(
@@ -317,16 +315,8 @@ class TestGenerateTfvars:
         (tmp_path / "deployment_manifest.json").write_text(
             json.dumps(
                 deployment_manifest(
-                    providers={
-                        "layer_1_provider": "azure",
-                        "layer_2_provider": "azure",
-                        "layer_3_hot_provider": "azure",
-                        "layer_3_cold_provider": "azure",
-                        "layer_3_archive_provider": "azure",
-                        "layer_4_provider": "azure",
-                        "layer_5_provider": "azure",
-                    },
-                    specification=load_specification("all-azure.json"),
+                    providers=providers,
+                    specification=specification,
                 )
             )
         )
@@ -338,17 +328,22 @@ class TestGenerateTfvars:
         with pytest.raises(ValueError, match="project_path is required"):
             generate_tfvars(None, "/tmp/output.json")
 
-    def test_generates_tfvars_file(self, complete_project, tmp_path):
+    def test_generates_tfvars_file(self, complete_project, tmp_path, monkeypatch):
         """Should generate tfvars.json file."""
         output_path = tmp_path / "terraform" / "generated.tfvars.json"
+        monkeypatch.setattr(
+            "src.tfvars_generator._load_graph_azure_function_zips",
+            lambda _project_dir, _graph: {},
+        )
 
         result = generate_tfvars(str(complete_project), str(output_path))
 
         assert output_path.exists()
         assert result["digital_twin_name"] == "test-twin"
-        assert result["layer_1_provider"] == "azure"
-        assert result["azure_iot_hub_sku"] == "F1"
-        assert result["azure_iot_hub_capacity"] == 1
+        assert result["layer_1_provider"] == "aws"
+        assert result["event_layer_provider"] == "azure"
+        assert result["architecture_profile_id"] == "six-layer-eventing"
+        assert result["architecture_profile_version"] == "1"
         assert stat.S_IMODE(output_path.stat().st_mode) == 0o600
 
         # Verify file content matches
@@ -386,7 +381,7 @@ def test_phase8_tfvars_reject_unpriced_region(
     values = {provider_key: provider, region_key: invalid}
 
     with pytest.raises(ConfigurationError, match="must be"):
-        _validate_phase8_tfvars(values, ("five-layer-baseline", "2"))
+        _validate_phase8_tfvars(values, ("six-layer-eventing", "1"))
 
 
 def test_phase8_optimizer_artifact_rejects_even_false_legacy_flag(tmp_path):
@@ -407,7 +402,7 @@ def test_phase8_optimizer_artifact_accepts_empty_input_contract(tmp_path):
 
 
 def test_phase8_tfvars_guard_matches_complete_validation_forbidden_fields():
-    assert PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS == V2_FORBIDDEN_OPTIMIZER_FIELDS
+    assert SIX_LAYER_FORBIDDEN_OPTIMIZER_FIELDS == VALIDATION_FORBIDDEN_OPTIMIZER_FIELDS
 
 
 def test_phase8_optimizer_artifact_rejects_malformed_input_envelope(tmp_path):

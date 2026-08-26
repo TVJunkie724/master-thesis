@@ -295,42 +295,6 @@ class CredentialResolutionService:
 
         return required_providers(twin)
 
-    @classmethod
-    def required_providers_from_optimizer(cls, optimizer_config) -> set[str]:
-        """Return the historical seven-slot provider projection.
-
-        This remains a migration/read compatibility boundary. Executable v3
-        packages pass their selected-architecture provider set explicitly.
-        """
-
-        if optimizer_config is None:
-            return set()
-        fields = (
-            "cheapest_l1",
-            "cheapest_l2",
-            "cheapest_l3_hot",
-            "cheapest_l3_cool",
-            "cheapest_l3_archive",
-            "cheapest_l4",
-            "cheapest_l5",
-        )
-        providers = {
-            cls._normalize_provider(getattr(optimizer_config, field, None))
-            for field in fields
-        }
-        return {provider for provider in providers if provider}
-
-    @classmethod
-    def required_providers_for_compatibility(cls, twin) -> set[str]:
-        """Prefer the immutable architecture and fall back for legacy twins."""
-
-        selected = cls.required_providers_from_architecture(twin)
-        if selected:
-            return selected
-        return cls.required_providers_from_optimizer(
-            getattr(twin, "optimizer_config", None)
-        )
-
     def _build_provider_credentials(
         self,
         provider: str,
@@ -496,7 +460,7 @@ class CredentialResolutionService:
         selected_providers = (
             required_providers
             if required_providers is not None
-            else self.required_providers_for_compatibility(twin)
+            else self.required_providers_from_architecture(twin)
         )
         providers = {
             self._normalize_provider(provider)

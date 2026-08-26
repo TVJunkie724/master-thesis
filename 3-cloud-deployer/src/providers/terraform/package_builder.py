@@ -14,15 +14,12 @@ from src.providers.terraform.package_builders.aws import (
     build_aws_lambda_packages,
     get_lambda_zip_path,
 )
-from src.providers.terraform.package_builders.aws_v2 import (
-    BRIDGE_PACKAGE_ID as AWS_V2_BRIDGE_PACKAGE_ID,
-    SIX_LAYER_BRIDGE_PACKAGE_ID as AWS_SIX_LAYER_BRIDGE_PACKAGE_ID,
-    STORAGE_MOVER_PACKAGE_ID as AWS_V2_STORAGE_MOVER_PACKAGE_ID,
+from src.providers.terraform.package_builders.aws_six_layer import (
+    BRIDGE_PACKAGE_ID as AWS_SIX_LAYER_BRIDGE_PACKAGE_ID,
+    STORAGE_MOVER_PACKAGE_ID as AWS_SIX_LAYER_STORAGE_MOVER_PACKAGE_ID,
     build_aws_six_layer_bridge_context,
     build_aws_six_layer_domain_app,
-    build_aws_v2_bridge_context,
-    build_aws_v2_graph_app,
-    build_aws_v2_storage_mover_context,
+    build_aws_six_layer_storage_mover_context,
 )
 from src.providers.terraform.package_builders.aws_eventing import (
     build_aws_eventing_app,
@@ -43,14 +40,14 @@ from src.providers.terraform.package_builders.azure import (
     build_azure_user_bundle,
     get_azure_zip_path,
 )
-from src.providers.terraform.package_builders.azure_v2 import (
-    AZURE_V2_GRAPH_APPS,
-    azure_v2_graph_package_ids,
-    build_azure_v2_graph_apps,
+from src.providers.terraform.package_builders.azure_six_layer import (
+    AZURE_SIX_LAYER_GRAPH_APPS,
+    azure_six_layer_graph_package_ids,
+    build_azure_six_layer_graph_apps,
 )
-from src.providers.terraform.package_builders.azure_v2_container import (
-    PACKAGE_ID as AZURE_V2_STORAGE_MOVER_PACKAGE_ID,
-    build_azure_v2_storage_mover_context,
+from src.providers.terraform.package_builders.azure_six_layer_container import (
+    PACKAGE_ID as AZURE_SIX_LAYER_STORAGE_MOVER_PACKAGE_ID,
+    build_azure_six_layer_storage_mover_context,
 )
 from src.providers.terraform.package_builders.common import (
     _clean_old_versioned_zips,
@@ -65,9 +62,9 @@ from src.providers.terraform.package_builders.gcp import (
     build_gcp_cloud_function_packages,
     get_gcp_zip_path,
 )
-from src.providers.terraform.package_builders.gcp_v2 import (
-    build_gcp_v2_container_contexts,
-    build_gcp_v2_extension_container_context,
+from src.providers.terraform.package_builders.gcp_six_layer import (
+    build_gcp_six_layer_container_contexts,
+    build_gcp_six_layer_extension_container_context,
 )
 from src.providers.terraform.package_builders.user import (
     _compute_source_hash,
@@ -132,10 +129,13 @@ def build_all_packages(
         gcp_container_names, expected_gcp_container_packages = (
             _selected_gcp_container_packages(graph)
         )
-        aws_v2_storage_mover_selected = _aws_v2_storage_mover_selected(graph)
-        aws_v2_bridge_selected = _aws_v2_bridge_selected(graph)
+        aws_six_layer_storage_mover_selected = _aws_six_layer_storage_mover_selected(
+            graph
+        )
         aws_six_layer_bridge_selected = _aws_six_layer_bridge_selected(graph)
-        azure_v2_storage_mover_selected = _azure_v2_storage_mover_selected(graph)
+        azure_six_layer_storage_mover_selected = (
+            _azure_six_layer_storage_mover_selected(graph)
+        )
 
     packages: Dict[str, Path] = {}
     extension_packages = build_bound_extension_packages(
@@ -151,16 +151,12 @@ def build_all_packages(
             extension_packages,
             correlation_id=operation_id,
         )
-        aws_v2_selected = "five-layer-v2" in selected_functions["aws"]
-        aws_six_layer_domain_selected = (
-            "six-layer-domain" in selected_functions["aws"]
-        )
+        aws_six_layer_domain_selected = "six-layer-domain" in selected_functions["aws"]
         aws_eventing_selected = "six-layer-eventing" in selected_functions["aws"]
         aws_v1_names = tuple(
             name
             for name in selected_functions["aws"]
-            if name
-            not in {"five-layer-v2", "six-layer-domain", "six-layer-eventing"}
+            if name not in {"six-layer", "six-layer-domain", "six-layer-eventing"}
         )
         packages.update(
             build_aws_lambda_packages(
@@ -170,22 +166,24 @@ def build_all_packages(
                 selected_function_names=aws_v1_names,
             )
         )
-        if aws_v2_selected:
-            packages.update(build_aws_v2_graph_app(project_path))
         if aws_six_layer_domain_selected:
             packages.update(build_aws_six_layer_domain_app(project_path))
         if aws_eventing_selected:
             packages.update(build_aws_eventing_app(project_path))
-        azure_v2_names = tuple(
-            name for name in selected_functions["azure"] if name in AZURE_V2_GRAPH_APPS
+        azure_six_layer_names = tuple(
+            name
+            for name in selected_functions["azure"]
+            if name in AZURE_SIX_LAYER_GRAPH_APPS
         )
         azure_v1_names = tuple(
             name
             for name in selected_functions["azure"]
-            if name not in AZURE_V2_GRAPH_APPS
+            if name not in AZURE_SIX_LAYER_GRAPH_APPS
         )
         packages.update(build_azure_graph_bundles(project_path, azure_v1_names))
-        packages.update(build_azure_v2_graph_apps(project_path, azure_v2_names))
+        packages.update(
+            build_azure_six_layer_graph_apps(project_path, azure_six_layer_names)
+        )
         packages.update(
             build_gcp_cloud_function_packages(
                 terraform_dir,
@@ -195,21 +193,19 @@ def build_all_packages(
             )
         )
         packages.update(
-            build_gcp_v2_container_contexts(project_path, gcp_container_names)
+            build_gcp_six_layer_container_contexts(project_path, gcp_container_names)
         )
-        if aws_v2_storage_mover_selected:
-            packages.update(build_aws_v2_storage_mover_context(project_path))
-        if aws_v2_bridge_selected:
-            packages.update(build_aws_v2_bridge_context(project_path))
+        if aws_six_layer_storage_mover_selected:
+            packages.update(build_aws_six_layer_storage_mover_context(project_path))
         if aws_six_layer_bridge_selected:
             packages.update(build_aws_six_layer_bridge_context(project_path))
-        if azure_v2_storage_mover_selected:
-            packages.update(build_azure_v2_storage_mover_context(project_path))
+        if azure_six_layer_storage_mover_selected:
+            packages.update(build_azure_six_layer_storage_mover_context(project_path))
         if (
             providers_config.get("layer_2_provider") in {"gcp", "google"}
             and "extension:processor.telemetry" in packages
         ):
-            build_gcp_v2_extension_container_context(
+            build_gcp_six_layer_extension_container_context(
                 project_path,
                 packages["extension:processor.telemetry"],
             )
@@ -217,19 +213,18 @@ def build_all_packages(
             expected_static_packages
             | expected_gcp_container_packages
             | (
-                {AWS_V2_STORAGE_MOVER_PACKAGE_ID}
-                if aws_v2_storage_mover_selected
+                {AWS_SIX_LAYER_STORAGE_MOVER_PACKAGE_ID}
+                if aws_six_layer_storage_mover_selected
                 else set()
             )
-            | ({AWS_V2_BRIDGE_PACKAGE_ID} if aws_v2_bridge_selected else set())
             | (
                 {AWS_SIX_LAYER_BRIDGE_PACKAGE_ID}
                 if aws_six_layer_bridge_selected
                 else set()
             )
             | (
-                {AZURE_V2_STORAGE_MOVER_PACKAGE_ID}
-                if azure_v2_storage_mover_selected
+                {AZURE_SIX_LAYER_STORAGE_MOVER_PACKAGE_ID}
+                if azure_six_layer_storage_mover_selected
                 else set()
             )
             | {
@@ -288,12 +283,15 @@ def _validate_graph_package_selection(
     providers_config: dict,
 ) -> None:
     expected = provider_projection(graph)
+    expected_configuration = {
+        key: value for key, value in expected.items() if key != "event_layer_provider"
+    }
     normalized_actual = {
         key: ("google" if value == "gcp" else value)
         for key, value in providers_config.items()
-        if key in expected
+        if key in expected_configuration
     }
-    if normalized_actual != expected:
+    if normalized_actual != expected_configuration:
         raise DeploymentSpecificationError(
             "DEPLOYMENT_PACKAGE_CATALOG_MISMATCH",
             "config_providers",
@@ -437,26 +435,18 @@ def _selected_static_function_packages(
             if route.execution_kind == "source_event_forwarder"
             for provider in (route.source_provider, route.destination_provider)
         }
-        if profile
-        in {
-            ("five-layer-baseline", "2"),
-            ("six-layer-eventing", "1"),
-        }
+        if profile == ("six-layer-eventing", "1")
         else set()
     )
-    domain_runtime_name = (
-        "six-layer-domain"
-        if profile == ("six-layer-eventing", "1")
-        else "five-layer-v2"
-    )
+    domain_runtime_name = "six-layer-domain"
     for provider in event_route_providers.intersection({"aws", "azure"}):
         selected[provider].add(domain_runtime_name)
         if provider == "aws":
             package_ids.add(f"aws_{domain_runtime_name}")
-    azure_v2_names = selected["azure"].intersection(AZURE_V2_GRAPH_APPS)
-    azure_v1_names = selected["azure"] - azure_v2_names
+    azure_six_layer_names = selected["azure"].intersection(AZURE_SIX_LAYER_GRAPH_APPS)
+    azure_v1_names = selected["azure"] - azure_six_layer_names
     package_ids.update(azure_graph_package_ids(azure_v1_names))
-    package_ids.update(azure_v2_graph_package_ids(azure_v2_names))
+    package_ids.update(azure_six_layer_graph_package_ids(azure_six_layer_names))
     return (
         {
             provider: tuple(sorted(functions))
@@ -480,42 +470,21 @@ def _selected_gcp_container_packages(
             continue
         selected.add(source_path.name)
     profile = (graph.profile_ref.get("id"), str(graph.profile_ref.get("version")))
-    if profile in {
-        ("five-layer-baseline", "2"),
-        ("six-layer-eventing", "1"),
-    } and any(
+    if profile == ("six-layer-eventing", "1") and any(
         route.execution_kind == "source_event_forwarder"
         and "gcp" in {route.source_provider, route.destination_provider}
         for route in resolve_cross_cloud_routes(graph)
     ):
-        selected.add(
-            "six-layer-domain"
-            if profile == ("six-layer-eventing", "1")
-            else "five-layer-v2"
-        )
+        selected.add("six-layer-domain")
     names = tuple(sorted(selected))
     return names, {f"gcp_{name}" for name in names}
 
 
-def _aws_v2_storage_mover_selected(graph: ResolvedDeploymentGraph) -> bool:
+def _aws_six_layer_storage_mover_selected(graph: ResolvedDeploymentGraph) -> bool:
     return any(
         "aws.ecs-fargate-storage-mover" in component_id
         for node in graph.nodes
         for component_id in node.deployment_specification_component_ids
-    )
-
-
-def _aws_v2_bridge_selected(graph: ResolvedDeploymentGraph) -> bool:
-    profile = (
-        graph.profile_ref.get("id"),
-        str(graph.profile_ref.get("version")),
-    )
-    if profile != ("five-layer-baseline", "2"):
-        return False
-    return any(
-        route.source_provider == "aws"
-        and route.execution_kind == "source_event_forwarder"
-        for route in resolve_cross_cloud_routes(graph)
     )
 
 
@@ -533,7 +502,7 @@ def _aws_six_layer_bridge_selected(graph: ResolvedDeploymentGraph) -> bool:
     )
 
 
-def _azure_v2_storage_mover_selected(graph: ResolvedDeploymentGraph) -> bool:
+def _azure_six_layer_storage_mover_selected(graph: ResolvedDeploymentGraph) -> bool:
     return any(
         "azure.container-apps-scheduled-storage-job" in component_id
         for node in graph.nodes
@@ -657,8 +626,8 @@ __all__ = [
     "_should_include_file",
     "build_all_packages",
     "build_aws_lambda_packages",
-    "build_aws_v2_bridge_context",
-    "build_aws_v2_storage_mover_context",
+    "build_aws_six_layer_bridge_context",
+    "build_aws_six_layer_storage_mover_context",
     "build_azure_function_packages",
     "build_azure_l0_bundle",
     "build_azure_l1_bundle",
@@ -666,7 +635,7 @@ __all__ = [
     "build_azure_l3_bundle",
     "build_azure_user_bundle",
     "build_gcp_cloud_function_packages",
-    "build_gcp_v2_container_contexts",
+    "build_gcp_six_layer_container_contexts",
     "build_user_packages",
     "get_azure_zip_path",
     "get_functions_for_provider_build",

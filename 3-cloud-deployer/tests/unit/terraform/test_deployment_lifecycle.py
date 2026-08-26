@@ -67,9 +67,9 @@ def _strategy(tmp_path, events):
     strategy._build_packages = MagicMock(side_effect=lambda: events.append("build"))
     strategy._validate_project = MagicMock()
     strategy._generate_tfvars = MagicMock(side_effect=lambda: events.append("tfvars"))
-    strategy._prepare_gcp_v2_image_foundation = MagicMock(return_value=False)
-    strategy._prepare_aws_v2_image_foundation = MagicMock(return_value=False)
-    strategy._prepare_azure_v2_image_foundation = MagicMock(return_value=False)
+    strategy._prepare_gcp_six_layer_image_foundation = MagicMock(return_value=False)
+    strategy._prepare_aws_six_layer_image_foundation = MagicMock(return_value=False)
+    strategy._prepare_azure_six_layer_image_foundation = MagicMock(return_value=False)
     strategy._run_post_deployment = MagicMock(
         side_effect=lambda context: events.append("post")
     )
@@ -109,7 +109,9 @@ def test_strategy_attaches_typed_post_deployment_evidence(monkeypatch, tmp_path)
     events = []
     strategy = _strategy(tmp_path, events)
     strategy._terraform_outputs = {"resource": "created"}
-    strategy._load_providers_config = MagicMock(return_value={"layer_4_provider": "aws"})
+    strategy._load_providers_config = MagicMock(
+        return_value={"layer_4_provider": "aws"}
+    )
     runtime_evidence = object()
     monkeypatch.setattr(
         "src.providers.terraform.deployer_strategy.run_post_deployment",
@@ -137,9 +139,9 @@ def test_sync_deployment_does_not_advance_metadata_when_apply_fails(tmp_path):
 def test_sync_gcp_deployment_applies_foundation_images_cloud_then_kubernetes(tmp_path):
     events = []
     strategy = _strategy(tmp_path, events)
-    strategy._prepare_gcp_v2_image_foundation.return_value = True
+    strategy._prepare_gcp_six_layer_image_foundation.return_value = True
     strategy._gcp_kubernetes_state_exists = MagicMock(return_value=False)
-    strategy._publish_gcp_v2_images = MagicMock(
+    strategy._publish_gcp_six_layer_images = MagicMock(
         side_effect=lambda: events.append("publish")
     )
     strategy._merge_tfvars = MagicMock(
@@ -151,7 +153,7 @@ def test_sync_gcp_deployment_applies_foundation_images_cloud_then_kubernetes(tmp
     foundation = (
         "apply_targets",
         str(strategy.tfvars_path),
-        strategy.GCP_V2_IMAGE_FOUNDATION_TARGETS,
+        strategy.GCP_SIX_LAYER_IMAGE_FOUNDATION_TARGETS,
     )
     assert events.index(foundation) < events.index("publish")
     apply_positions = [
@@ -162,7 +164,7 @@ def test_sync_gcp_deployment_applies_foundation_images_cloud_then_kubernetes(tmp
     assert len(apply_positions) == 2
     assert (
         apply_positions[0]
-        < events.index(("merge", {"gcp_v2_kubernetes_stage_enabled": True}))
+        < events.index(("merge", {"gcp_six_layer_kubernetes_stage_enabled": True}))
         < apply_positions[1]
     )
 
@@ -170,9 +172,9 @@ def test_sync_gcp_deployment_applies_foundation_images_cloud_then_kubernetes(tmp
 def test_sync_gcp_resume_does_not_remove_existing_kubernetes_resources(tmp_path):
     events = []
     strategy = _strategy(tmp_path, events)
-    strategy._prepare_gcp_v2_image_foundation.return_value = True
+    strategy._prepare_gcp_six_layer_image_foundation.return_value = True
     strategy._gcp_kubernetes_state_exists = MagicMock(return_value=True)
-    strategy._publish_gcp_v2_images = MagicMock(
+    strategy._publish_gcp_six_layer_images = MagicMock(
         side_effect=lambda: events.append("publish")
     )
     strategy._merge_tfvars = MagicMock(
@@ -185,14 +187,14 @@ def test_sync_gcp_resume_does_not_remove_existing_kubernetes_resources(tmp_path)
         event for event in events if isinstance(event, tuple) and event[0] == "apply"
     ]
     assert len(applies) == 1
-    assert ("merge", {"gcp_v2_kubernetes_stage_enabled": True}) in events
+    assert ("merge", {"gcp_six_layer_kubernetes_stage_enabled": True}) in events
 
 
 def test_sync_aws_deployment_publishes_image_before_runtime_apply(tmp_path):
     events = []
     strategy = _strategy(tmp_path, events)
-    strategy._prepare_aws_v2_image_foundation.return_value = True
-    strategy._publish_aws_v2_images = MagicMock(
+    strategy._prepare_aws_six_layer_image_foundation.return_value = True
+    strategy._publish_aws_six_layer_images = MagicMock(
         side_effect=lambda: events.append("publish-aws")
     )
 
@@ -201,7 +203,7 @@ def test_sync_aws_deployment_publishes_image_before_runtime_apply(tmp_path):
     foundation = (
         "apply_targets",
         str(strategy.tfvars_path),
-        strategy.AWS_V2_IMAGE_FOUNDATION_TARGETS,
+        strategy.AWS_SIX_LAYER_IMAGE_FOUNDATION_TARGETS,
     )
     runtime_apply = ("apply", str(strategy.tfvars_path))
     assert (
@@ -214,8 +216,8 @@ def test_sync_aws_deployment_publishes_image_before_runtime_apply(tmp_path):
 def test_sync_azure_deployment_publishes_image_before_runtime_apply(tmp_path):
     events = []
     strategy = _strategy(tmp_path, events)
-    strategy._prepare_azure_v2_image_foundation.return_value = True
-    strategy._publish_azure_v2_images = MagicMock(
+    strategy._prepare_azure_six_layer_image_foundation.return_value = True
+    strategy._publish_azure_six_layer_images = MagicMock(
         side_effect=lambda: events.append("publish-azure")
     )
 
@@ -224,7 +226,7 @@ def test_sync_azure_deployment_publishes_image_before_runtime_apply(tmp_path):
     foundation = (
         "apply_targets",
         str(strategy.tfvars_path),
-        strategy.AZURE_V2_IMAGE_FOUNDATION_TARGETS,
+        strategy.AZURE_SIX_LAYER_IMAGE_FOUNDATION_TARGETS,
     )
     runtime_apply = ("apply", str(strategy.tfvars_path))
     assert (
@@ -237,12 +239,12 @@ def test_sync_azure_deployment_publishes_image_before_runtime_apply(tmp_path):
 def test_sync_combined_foundations_publish_in_canonical_provider_order(tmp_path):
     events = []
     strategy = _strategy(tmp_path, events)
-    strategy._prepare_aws_v2_image_foundation.return_value = True
-    strategy._prepare_azure_v2_image_foundation.return_value = True
-    strategy._publish_aws_v2_images = MagicMock(
+    strategy._prepare_aws_six_layer_image_foundation.return_value = True
+    strategy._prepare_azure_six_layer_image_foundation.return_value = True
+    strategy._publish_aws_six_layer_images = MagicMock(
         side_effect=lambda: events.append("publish-aws")
     )
-    strategy._publish_azure_v2_images = MagicMock(
+    strategy._publish_azure_six_layer_images = MagicMock(
         side_effect=lambda: events.append("publish-azure")
     )
 
@@ -252,8 +254,8 @@ def test_sync_combined_foundations_publish_in_canonical_provider_order(tmp_path)
         "apply_targets",
         str(strategy.tfvars_path),
         (
-            *strategy.AWS_V2_IMAGE_FOUNDATION_TARGETS,
-            *strategy.AZURE_V2_IMAGE_FOUNDATION_TARGETS,
+            *strategy.AWS_SIX_LAYER_IMAGE_FOUNDATION_TARGETS,
+            *strategy.AZURE_SIX_LAYER_IMAGE_FOUNDATION_TARGETS,
         ),
     )
     runtime_apply = ("apply", str(strategy.tfvars_path))

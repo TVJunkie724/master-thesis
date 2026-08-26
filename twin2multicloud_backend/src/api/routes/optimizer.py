@@ -7,6 +7,7 @@ This module provides:
 - Credential-forwarded pricing refresh
 - Calculation endpoint proxy
 """
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -16,7 +17,9 @@ from src.models.database import get_db
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.clients.optimizer_client import OptimizerClient
-from src.services.pricing_review_state_service import build_pricing_review_state_response
+from src.services.pricing_review_state_service import (
+    build_pricing_review_state_response,
+)
 from src.schemas.pricing_review import PricingReviewStateResponse
 from src.schemas.pricing_health import PricingHealthResponse
 from src.schemas.optimizer_calculation import OptimizerCalculationParams
@@ -26,14 +29,22 @@ from src.services.aws_twinmaker_pricing_context_service import (
 )
 from src.services.pricing_catalog_context_service import PricingCatalogContextService
 from src.services.optimizer_calculation_service import OptimizerCalculationService
-from src.services.optimizer_pricing_catalog_service import OptimizerPricingCatalogService
-from src.services.optimizer_pricing_refresh_service import OptimizerPricingRefreshService
+from src.services.optimizer_pricing_catalog_service import (
+    OptimizerPricingCatalogService,
+)
+from src.services.optimizer_pricing_refresh_service import (
+    OptimizerPricingRefreshService,
+)
 from src.services.optimizer_pricing_stream_service import OptimizerPricingStreamService
 from src.services.optimizer_status_service import OptimizerStatusService
 from src.services.cloud_access_inventory_service import CloudAccessInventoryService
 from src.services.pricing_health_service import build_pricing_health_response
 from src.services.external_service_mapping import map_optimizer_client_error
-from src.services.service_errors import DownstreamServiceError, EntityNotFoundError, ValidationError
+from src.services.service_errors import (
+    DownstreamServiceError,
+    EntityNotFoundError,
+    ValidationError,
+)
 from src.services.errors import (
     ExternalServiceError,
     ExternalServiceUnavailable,
@@ -43,6 +54,7 @@ from src.services.errors import (
 from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/optimizer", tags=["optimizer"])
+
 
 def _optimizer_status_service() -> OptimizerStatusService:
     """Build the optimizer status service for this request."""
@@ -94,9 +106,7 @@ async def _owner_pricing_statuses(
     user_id: str,
 ) -> dict[str, dict[str, Any]]:
     try:
-        return await _pricing_catalog_context_service(db).status_for_user(
-            user_id
-        )
+        return await _pricing_catalog_context_service(db).status_for_user(user_id)
     except (ExternalServiceError, ExternalServiceUnavailable) as exc:
         _raise_downstream_http_error(map_optimizer_client_error(exc))
     except OptimizerContractError as exc:
@@ -106,6 +116,7 @@ async def _owner_pricing_statuses(
 # ============================================================================
 # Data Freshness Endpoints
 # ============================================================================
+
 
 @router.get(
     "/pricing-status",
@@ -124,7 +135,7 @@ async def _owner_pricing_statuses(
         502: {"description": "Optimizer contract or request failed"},
         503: {"description": "Cannot connect to Optimizer service"},
         504: {"description": "Optimizer service timed out"},
-    }
+    },
 )
 async def get_pricing_status(
     db: Session = Depends(get_db),
@@ -132,7 +143,7 @@ async def get_pricing_status(
 ):
     """
     Get owner-scoped immutable pricing catalog status for all providers.
-    
+
     Returns the exact catalog identity and freshness status
     for AWS, Azure, and GCP.
     """
@@ -159,7 +170,7 @@ async def get_pricing_status(
         502: {"description": "Optimizer contract or request failed"},
         503: {"description": "Cannot connect to Optimizer service"},
         504: {"description": "Optimizer service timed out"},
-    }
+    },
 )
 async def get_pricing_review_state(
     db: Session = Depends(get_db),
@@ -215,12 +226,12 @@ async def get_pricing_health(
     responses={
         401: ERROR_RESPONSES[401],
         503: {"description": "Cannot connect to Optimizer service"},
-    }
+    },
 )
 async def get_regions_status(current_user: User = Depends(get_current_user)):
     """
     Get regions file age for all providers.
-    
+
     Returns the age and freshness status of cached region data
     for AWS, Azure, and GCP.
     """
@@ -233,6 +244,7 @@ async def get_regions_status(current_user: User = Depends(get_current_user)):
 # ============================================================================
 # Exact pricing catalog diagnostics
 # ============================================================================
+
 
 @router.get(
     "/pricing/catalogs/{provider}/{pricing_region}/snapshots/{snapshot_id}",
@@ -250,13 +262,13 @@ async def get_regions_status(current_user: User = Depends(get_current_user)):
         502: {"description": "Optimizer contract or request failed"},
         503: {"description": "Cannot connect to Optimizer service"},
         504: {"description": "Optimizer service timed out"},
-    }
+    },
 )
 async def get_exact_pricing_catalog_snapshot(
     provider: str,
     pricing_region: str,
     snapshot_id: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """Proxy one exact diagnostic snapshot without exposing a latest alias."""
     try:
@@ -274,6 +286,7 @@ async def get_exact_pricing_catalog_snapshot(
 # ============================================================================
 # Pricing Refresh Endpoints
 # ============================================================================
+
 
 @router.post(
     "/refresh-pricing/{provider}",
@@ -293,21 +306,21 @@ async def get_exact_pricing_catalog_snapshot(
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
         503: {"description": "Cannot connect to Optimizer service"},
-    }
+    },
 )
 async def refresh_pricing(
     provider: str,
     twin_id: str = Query(..., description="Twin ID to get credentials from"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Refresh pricing using credentials resolved from the twin's CloudConnection.
-    
+
     - AWS: Requires an AWS CloudConnection
     - Azure: No credentials needed (public API)
     - GCP: Requires a GCP CloudConnection
-    
+
     Credentials are decrypted from CloudConnection storage and forwarded to Optimizer.
     """
     try:
@@ -340,17 +353,17 @@ async def refresh_pricing(
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
 async def stream_refresh_pricing(
     provider: str,
     twin_id: str = Query(..., description="Twin ID to get credentials from"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     SSE stream for pricing refresh with real-time logs.
-    
+
     Event types:
     - log: Regular progress message
     - complete: Refresh completed successfully
@@ -371,8 +384,8 @@ async def stream_refresh_pricing(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"  # Disable nginx buffering
-        }
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
     )
 
 
@@ -380,18 +393,19 @@ async def stream_refresh_pricing(
 # Calculation Endpoint
 # ============================================================================
 
+
 @router.put(
     "/calculate",
     operation_id="calculateOptimalDistribution",
     summary="Proxy calculation request to Optimizer",
     description=(
         "**Purpose:** Calculate the globally cheapest executable complete path "
-        "for the closed Five-Layer Digital Twin baseline.\n\n"
+        "for the validated Six-layer Eventing architecture.\n\n"
         "**Prerequisites:** Call `getPricingStatus` first. If pricing is stale, "
         "refresh the affected provider before calculating.\n\n"
         "**Response includes:**\n"
         "- `awsCosts`, `azureCosts`, `gcpCosts`: Per-layer cost breakdowns\n"
-        "- `cheapestPath`: Selected provider assignment across all seven slots\n"
+        "- `cheapestPath`: Selected provider assignment across all eight components\n"
         "- `transferPricingContext`: Exact six-route, tier, pool, and catalog evidence\n"
         "- `optimizationDiagnostics`: Bounded complete-path solver diagnostics\n\n"
         "Management injects trusted catalog context and rejects route evidence "
@@ -401,7 +415,7 @@ async def stream_refresh_pricing(
         401: ERROR_RESPONSES[401],
         422: ERROR_RESPONSES[422],
         503: {"description": "Cannot connect to Optimizer service"},
-    }
+    },
 )
 async def calculate(
     params: OptimizerCalculationParams,
@@ -410,7 +424,7 @@ async def calculate(
 ):
     """
     Proxy calculation request to Optimizer.
-    
+
     Accepts all calculation parameters and forwards to the Optimizer service.
     Returns the full optimization result including:
     - awsCosts, azureCosts, gcpCosts

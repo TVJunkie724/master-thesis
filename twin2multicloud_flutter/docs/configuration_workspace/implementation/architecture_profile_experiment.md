@@ -9,7 +9,7 @@ version: "1.7"
 <!-- SOURCES:
 - twin2multicloud_flutter/implementation_plans/2026-08-03_architecture_profile_experiment.md
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md
-- docs/plans/phase_08_architecture_profiles_eventing/phase_08_7_flutter_profile_workflow.md
+- docs/plans/phase_08_architecture_profiles_eventing/README.md
 - twin2multicloud_flutter/lib/bloc/wizard/
 - twin2multicloud_flutter/lib/features/configuration_workspace/
 - twin2multicloud_flutter/lib/widgets/results/resolved_architecture_review.dart
@@ -27,18 +27,18 @@ seven-operation `ArchitectureApi`; `WizardBloc` owns all network commands and
 workflow state; Riverpod continues to inject the runtime adapter. No widget
 calls Optimizer, Deployer, or a cloud provider.
 
-The real and demo catalogs now expose active Five-layer v2 and Six-layer v1
-for offline selection. `five-layer-baseline@1` remains visible only as
+The real and demo catalogs now expose active standalone Six-layer v1
+for offline selection. `six-layer-eventing@1` remains visible only as
 historical evidence for audit, verification, and destroy compatibility. The
 connected local stack calculates both active profiles and persists their exact
 RTA/RDS v2 evidence. Demo Small/Medium/Large calculations deliberately remain
-canonical Five-layer fixtures; selecting Six-layer in Demo allows profile
+canonical Six-layer fixtures; selecting Six-layer in Demo allows profile
 inspection but calculation returns `DEMO_PROFILE_CALCULATION_UNAVAILABLE`
 rather than fabricating or relabeling a resolved result.
 
 | In scope | Out of scope |
 |---|---|
-| Typed profile/resolution reads, BLoC-owned selection state, active Five-layer-v2 and Six-layer-v1 Workload/RTA/RDS evidence, fixture-driven generic review, responsive/accessibility behavior, and credential-free Management integration | Arbitrary workload or topology editing, provider execution, live-capacity claims, infrastructure editing, and real cloud deployment |
+| Typed profile/resolution reads, BLoC-owned selection state, active Six-layer-v2 and Six-layer-v1 Workload/RTA/RDS evidence, fixture-driven generic review, responsive/accessibility behavior, and credential-free Management integration | Arbitrary workload or topology editing, provider execution, live-capacity claims, infrastructure editing, and real cloud deployment |
 
 ## Journey And State
 
@@ -103,10 +103,10 @@ This is a Master-thesis PoC boundary, not a general architecture product. It
 does not add free-form layers, provider SKU controls, an Event feature flag,
 cloud-console embedding, L4-to-L5/3D behavior, arbitrary workload editing, or
 fabricated live-capacity evidence. Phase 8.9A atomically activated the frozen
-Workload v2 scenarios and Five-layer v2 for offline evaluation. Phase 8.9B
+Workload v2 scenarios and Six-layer for offline evaluation. Phase 8.9B
 activates the strict Six-layer Eventing delta through the same workflow.
-Guided bootstrap and deployed L4/L5 access
-remain separate reviewed slices and do not make the offline demo deployable.
+Provider credential provisioning and deployed L4/L5 access remain outside
+this offline architecture experiment.
 
 ## Verification
 
@@ -119,8 +119,8 @@ and the pricing/navigation regression suite.
 
 The credential-free desktop integration tests create and remove local Twins,
 verify the Management-owned active/historical profile boundary, and exercise
-both active profiles. The Six-layer workflow changes the selected profile,
-calculates and persists one local Six-layer resolution, verifies the independent
+the single active profile. The Six-layer workflow calculates and persists one
+local Six-layer resolution, verifies the independent
 `component.eventing` assignment, and confirms that live deployment remains
 blocked without capacity evidence. The repository entrypoint
 runs the tests after Management readiness through OrbStack-compatible Compose.
@@ -131,8 +131,8 @@ The reusable Phase 8.7 implementation commit is `a0f6fb7b`; the Six-layer UI
 activation is recorded by `e977982b` and `a661d789`. Phase 8.7's two review
 perspectives closed all state, UI, and verification findings. The latest 8.9B
 Flutter rerun passed 893 tests, static analysis, Web release, and macOS debug
-builds. The complete OrbStack integration passed 10 readiness, 2 active-profile,
-1 extension, 3 guided-bootstrap, and 10 Layer Access checks in an isolated
+builds. The complete OrbStack integration passed readiness, active-profile,
+extension, and Layer Access checks in an isolated
 Compose project. Linux and Windows remain the existing host-CI build gates
 when this branch is integrated; the local macOS run does not claim those host
 builds. Two final 8.9B reviews of the complete profile workflow and its
@@ -141,7 +141,7 @@ frozen for Phase 8.10 evaluation, while live-capacity gates remain fail-closed.
 
 Phase 8.10 now generates the thesis evaluation as a deterministic repository
 evidence package. That package evaluates the historical v1 reconstruction and
-the two active profiles, but it does not add another Flutter flow, turn the UI
+the standalone Six-layer profile, but it does not add another Flutter flow, turn the UI
 into an evaluation dashboard, or authorize a cross-profile winner claim.
 
 Authoritative sources:
@@ -149,4 +149,4 @@ Authoritative sources:
 - [Architecture Profile Experiment concept](../concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md)
 - [Architecture Profile Experiment phase](../phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md)
 - [Configuration Workspace roadmap](../ROADMAP_CONFIGURATION_WORKSPACE.md)
-- `docs/plans/phase_08_architecture_profiles_eventing/phase_08_7_flutter_profile_workflow.md`
+- `docs/plans/phase_08_architecture_profiles_eventing/README.md`

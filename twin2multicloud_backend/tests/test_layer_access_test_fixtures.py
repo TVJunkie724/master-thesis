@@ -45,9 +45,7 @@ def test_fixture_matrix_covers_exact_nine_owner_scoped_placements(db) -> None:
 
     assert payload["schema_version"] == "layer-access-test-fixtures.v1"
     assert set(payload["placements"]) == {
-        f"{l4}-{l5}"
-        for l4 in ("aws", "azure", "gcp")
-        for l5 in ("aws", "azure", "gcp")
+        f"{l4}-{l5}" for l4 in ("aws", "azure", "gcp") for l5 in ("aws", "azure", "gcp")
     }
     for placement, twin_id in payload["placements"].items():
         l4, l5 = placement.split("-")
@@ -62,9 +60,8 @@ def test_fixture_edges_are_explicit_and_outputs_remain_redacted(db) -> None:
     owner, payload = _seed(db)
     service = _service(db)
 
-    historical = service.get_access(payload["historical_twin_id"], owner.id)
-    assert historical.availability == "unsupported"
-    assert historical.surfaces == ()
+    with pytest.raises(ConflictError, match="PROFILE_NOT_SUPPORTED"):
+        service.get_access(payload["unsupported_twin_id"], owner.id)
 
     blocked = service.get_access(payload["blocked_twin_id"], owner.id)
     assert blocked.surfaces[0].readiness.access_binding == "blocked"
@@ -96,7 +93,9 @@ def test_fixture_edges_are_explicit_and_outputs_remain_redacted(db) -> None:
 
 
 @pytest.mark.asyncio
-async def test_fixture_rotation_changes_fingerprint_without_persisting_password(db) -> None:
+async def test_fixture_rotation_changes_fingerprint_without_persisting_password(
+    db,
+) -> None:
     owner, payload = _seed(db)
     twin_id = payload["rotation_twin_id"]
     service = _service(db)
@@ -108,9 +107,10 @@ async def test_fixture_rotation_changes_fingerprint_without_persisting_password(
     assert deployment is not None
     assert rotation_count(twin_id) == 2
     assert first.password != second.password
-    assert deployment.layer_access_credential_fingerprint == hashlib.sha256(
-        second.password.encode("utf-8")
-    ).hexdigest()
+    assert (
+        deployment.layer_access_credential_fingerprint
+        == hashlib.sha256(second.password.encode("utf-8")).hexdigest()
+    )
     persisted = str(deployment.__dict__)
     assert first.password not in persisted
     assert second.password not in persisted

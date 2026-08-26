@@ -46,9 +46,7 @@ SOURCE_ROOT = CONTRACT_ROOT / "examples" / "source" / "valid"
 
 def _metadata(**updates) -> dict:
     document = json.loads(
-        (CONTRACT_ROOT / "examples" / "valid-artifact.json").read_text(
-            encoding="utf-8"
-        )
+        (CONTRACT_ROOT / "examples" / "valid-artifact.json").read_text(encoding="utf-8")
     )
     metadata = {
         "slot_id": document["slot_id"],
@@ -214,10 +212,7 @@ def test_api_rejects_platform_fields_secrets_and_stale_binding(
         headers=headers,
     )
     assert platform_field.status_code == 422
-    assert (
-        platform_field.json()["detail"]["error_code"]
-        == "EXTENSION_SCHEMA_INVALID"
-    )
+    assert platform_field.json()["detail"]["error_code"] == "EXTENSION_SCHEMA_INVALID"
 
     secret = client.post(
         "/user-function-artifacts/validate",
@@ -399,17 +394,12 @@ def test_openapi_does_not_expose_stored_source_fields(client):
         "slot_version",
         "expected_revision",
     }
-    assert (
-        "/user-function-artifacts/{legacy_artifact_id}/import"
-        in schema["paths"]
-    )
+    assert "/user-function-artifacts/{legacy_artifact_id}/import" in schema["paths"]
 
 
 def test_deployment_materializes_only_valid_owner_scoped_bindings():
     manifest = json.loads(
-        (CONTRACT_ROOT / "examples" / "valid-artifact.json").read_text(
-            encoding="utf-8"
-        )
+        (CONTRACT_ROOT / "examples" / "valid-artifact.json").read_text(encoding="utf-8")
     )
     artifact = SimpleNamespace(
         id=manifest["artifact_id"],
@@ -456,7 +446,9 @@ def test_deployment_materializes_only_valid_owner_scoped_bindings():
         _materialize_extension_bindings(twin)
 
 
-def test_new_deployment_blocks_legacy_source_and_omits_it_when_v1_is_bound():
+def test_new_deployment_blocks_legacy_source_and_omits_it_when_v1_is_bound(
+    sample_calc_params,
+):
     dc = DeployerConfiguration(
         processor_contents=json.dumps(
             {"device": "def legacy(payload):\n    return payload\n"}
@@ -479,14 +471,12 @@ def test_new_deployment_blocks_legacy_source_and_omits_it_when_v1_is_bound():
             twin,
             {},
             credentials,
-            optimizer_params={},
+            optimizer_params=sample_calc_params,
         )
     assert "EXTENSION_BINDING_UNRESOLVED" in str(exc.value.errors)
 
     manifest = json.loads(
-        (CONTRACT_ROOT / "examples" / "valid-artifact.json").read_text(
-            encoding="utf-8"
-        )
+        (CONTRACT_ROOT / "examples" / "valid-artifact.json").read_text(encoding="utf-8")
     )
     artifact = SimpleNamespace(
         id=manifest["artifact_id"],
@@ -519,7 +509,7 @@ def test_new_deployment_blocks_legacy_source_and_omits_it_when_v1_is_bound():
         twin,
         {},
         credentials,
-        optimizer_params={},
+        optimizer_params=sample_calc_params,
     )
     paths = {item.path for item in files}
     assert ".twin2multicloud/extensions/bindings.json" in paths

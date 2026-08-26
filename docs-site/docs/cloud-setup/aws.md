@@ -1,45 +1,14 @@
 # AWS Setup
 
-## Tools And Identity
+Use an isolated AWS thesis account and a preconfigured non-root administrator
+credential. Register it as an encrypted CloudConnection and validate the
+account with STS before pricing or deployment.
 
-The bootstrap artifact is `bootstrap/aws/bootstrap_deployment_identity.sh` and requires
-the AWS CLI authenticated as an operator allowed to manage the target IAM identity and
-policy. Administrator material is consumed by the CLI session, not by the script as an
-argument and not by the Management API database.
+AWS pricing refresh additionally validates the read operations required for
+the regional price evidence and the IoT TwinMaker pricing plan. Deployment
+preflight checks the real operations required by the selected Six-layer graph.
+The PoC does not derive an IAM policy or create/rotate access keys.
 
-## Workflow
-
-```bash
-bash bootstrap/aws/bootstrap_deployment_identity.sh --help
-# run the generated/dry-run command from the Management API bootstrap plan
-# add --apply only after reviewing account, region, identity, and policy
-```
-
-The output auth type is `access_key`. Import it through Cloud Accounts as a deployment
-CloudConnection and retain `permission_set_version=thesis-demo-v1` metadata.
-
-Existing access keys are not rotated implicitly. Rotation requires the explicit
-`--rotate-access-keys` guard and may revoke the old key; plan consumer cutover first.
-
-## Pricing Versus Deployment
-
-AWS pricing retrieval and infrastructure deployment have different API surfaces. The
-pricing policy reference under `2-twin2clouds/docs/references` is separate from the
-Deployer baseline under `3-cloud-deployer/docs/references`. Do not merge them into an
-unreviewed broad role solely for convenience.
-
-The pricing identity must be able to:
-
-- verify its account with STS `GetCallerIdentity`;
-- read the regional public Price List evidence used by the Optimizer;
-- call the read-only IoT TwinMaker `GetPricingPlan` operation in the configured region.
-
-Pricing Review persists only a secret-free account observation bound to the user-owned
-pricing CloudConnection and its fingerprint. It never stores the returned credential
-payload in refresh evidence and never calls `UpdatePricingPlan`.
-
-## Verification Status
-
-Static policy syntax, permission inventory, preflight behavior, and mocked provider
-tests are implemented. Final least-privilege completeness requires supervised refresh,
-deploy, verification, and destroy in the intended account/regions.
+Static checks and mocked provider tests are implemented. Real refresh,
+deploy, verification, destroy, and credential revocation remain supervised
+live gates.

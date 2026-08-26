@@ -240,11 +240,11 @@ void main() {
     test('Phase 8 readiness does not require retired event artifacts', () {
       final ready =
           architectureReadyWizardState(
-            profileId: 'five-layer-baseline',
+            profileId: 'six-layer-eventing',
             withExtensionSlot: false,
           ).copyWith(
-            calcParams: CalcParams.fiveLayerV2(
-              scenario: FiveLayerWorkloadScenario.small,
+            calcParams: CalcParams.sixLayer(
+              scenario: SixLayerWorkloadScenario.small,
             ),
             calcResult: _result(const [
               'L1_GCP',
@@ -270,11 +270,11 @@ void main() {
             resolvedArchitecturePhase: ResolvedArchitecturePhase.ready,
             resolvedArchitecture: resolvedArchitectureFixture(
               provider: CloudProvider.gcp,
-              profileId: 'five-layer-baseline',
+              profileId: 'six-layer-eventing',
             ),
           );
 
-      expect(ready.usesPhase8ComparisonProfile, isTrue);
+      expect(ready.usesSixLayerProfile, isTrue);
       expect(ready.deployerRequirements.deviceIds, isEmpty);
       expect(ready.deployerRequirements.eventActionNames, isEmpty);
       expect(ready.shouldShowFeedbackFunction, isFalse);

@@ -74,8 +74,12 @@ void main() {
     await _prepare(bloc);
 
     bloc.add(const WizardCalculateRequested());
-    await bloc.stream.firstWhere((state) => state.deploymentReview.ready);
+    await bloc.stream.firstWhere(
+      (state) => state.deploymentReview.ready || state.errorMessage != null,
+    );
 
+    expect(bloc.state.errorMessage, isNull);
+    expect(bloc.state.deploymentReview.ready, isTrue);
     expect(bloc.state.twinId, 'new-twin');
     expect(bloc.state.calcResult, run.optimization.result);
     expect(bloc.state.optimizationResultData, run.optimization);
@@ -206,9 +210,9 @@ void main() {
   );
 
   test(
-    'five-layer v2 offline evidence loads for review without deployment selection',
+    'six-layer v2 offline evidence loads for review without deployment selection',
     () async {
-      final run = _fiveLayerV2OptimizerRun();
+      final run = _sixLayerOptimizerRun();
       final profile =
           (run.deploymentRun.specification as ResolvedDeploymentSpecificationV2)
               .architectureProfileRef;
@@ -221,21 +225,20 @@ void main() {
       ).thenAnswer((_) async => run);
       when(
         () => api.getRunResolvedArchitecture(run.id),
-      ).thenAnswer((_) async => _fiveLayerV2ResolvedArchitecture());
+      ).thenAnswer((_) async => _sixLayerResolvedArchitecture());
       final bloc = _bloc(
         api,
         initialState: architectureReadyWizardState(
           persisted: false,
           profileId: profile.id,
+          profileVersion: profile.version,
           profileDigest: profile.digest,
         ),
       );
       addTearDown(bloc.close);
       await _prepare(
         bloc,
-        params: CalcParams.fiveLayerV2(
-          scenario: FiveLayerWorkloadScenario.small,
-        ),
+        params: CalcParams.sixLayer(scenario: SixLayerWorkloadScenario.small),
       );
 
       bloc.add(const WizardCalculateRequested());
@@ -566,10 +569,10 @@ Future<void> _prepare(
   );
 }
 
-OptimizerRunData _fiveLayerV2OptimizerRun() {
+OptimizerRunData _sixLayerOptimizerRun() {
   final specification = _jsonFixture(
     '../contracts/resolved-deployment-specification/v2/fixtures/valid/'
-    'single-cloud-aws-small.json',
+    'six-layer-aws-azure-eventing-small.json',
   );
   final runId = specification['calculation_run_id']! as String;
   final optimization = TypedApiFixtures.optimization();
@@ -596,10 +599,10 @@ OptimizerRunData _fiveLayerV2OptimizerRun() {
   );
 }
 
-ResolvedTwinArchitectureRead _fiveLayerV2ResolvedArchitecture() {
+ResolvedTwinArchitectureRead _sixLayerResolvedArchitecture() {
   final architecture = _jsonFixture(
     '../contracts/architecture-profiles/v2/fixtures/valid/'
-    'single-cloud-aws-small-resolved.json',
+    'six-layer-aws-azure-eventing-small-resolved.json',
   );
   return ResolvedTwinArchitectureRead.fromJson({
     'twin_id': 'new-twin',

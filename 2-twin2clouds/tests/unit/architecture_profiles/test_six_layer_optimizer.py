@@ -10,16 +10,16 @@ from pathlib import Path
 import pytest
 
 from backend.architecture_profiles.diagnostics import ArchitectureResolutionError
-from backend.architecture_profiles.five_layer_v2_optimizer import PROVIDER_REGIONS
-from backend.architecture_profiles.five_layer_v2_costing import (
-    evaluate_five_layer_v2_costs,
+from backend.architecture_profiles.six_layer_optimizer import PROVIDER_REGIONS
+from backend.architecture_profiles.six_layer_costing import (
+    evaluate_six_layer_costs,
 )
-from backend.architecture_profiles.five_layer_v2_pricing import (
-    FiveLayerV2CatalogCostLedgerResolver,
+from backend.architecture_profiles.six_layer_pricing import (
+    SixLayerCatalogCostLedgerResolver,
 )
-from backend.architecture_profiles.five_layer_v2_workload import (
+from backend.architecture_profiles.six_layer_workload import (
     CONTRACT_ROOT as WORKLOAD_ROOT,
-    resolve_five_layer_v2_workload,
+    resolve_six_layer_workload,
 )
 from backend.architecture_profiles.registry import ArchitectureProfileRegistry
 from backend.architecture_profiles.six_layer_optimizer import (
@@ -30,7 +30,7 @@ from backend.architecture_profiles.strategy import build_resolution_context
 from backend.architecture_profiles.five_layer_strategy import (
     build_default_strategy_registry,
 )
-from backend.deployment_specification.five_layer_v2_builder import (
+from backend.deployment_specification.six_layer_builder import (
     SIX_LAYER_LOGICAL_COMPONENTS,
     build_six_layer_eventing_v1_deployment_specification,
 )
@@ -115,7 +115,7 @@ def _workload(size: str):
 
 
 def _resolved_workload(size: str):
-    return resolve_five_layer_v2_workload(_workload(size))
+    return resolve_six_layer_workload(_workload(size))
 
 
 def _pricing():
@@ -143,9 +143,7 @@ def _pricing():
 
 def _rds(provider: str, size: str):
     registry = _registry()
-    assignment = {
-        logical: provider for logical in SIX_LAYER_LOGICAL_COMPONENTS
-    }
+    assignment = {logical: provider for logical in SIX_LAYER_LOGICAL_COMPONENTS}
     return build_six_layer_eventing_v1_deployment_specification(
         calculation_run_id=RUN_ID,
         assignment=assignment,
@@ -160,9 +158,7 @@ def _rds(provider: str, size: str):
             "version": registry.catalog["catalog_version"],
             "digest": registry.catalog["content_digest"],
         },
-        workload_contract_digest=registry.profile["workload_contract_ref"][
-            "digest"
-        ],
+        workload_contract_digest=registry.profile["workload_contract_ref"]["digest"],
         pricing_evidence_digests={provider: "sha256:" + ("a" * 64)},
         definition_lifecycle_statuses={
             "profile": "active",
@@ -215,9 +211,7 @@ def _placement_rds(
             "version": registry.catalog["catalog_version"],
             "digest": registry.catalog["content_digest"],
         },
-        workload_contract_digest=registry.profile["workload_contract_ref"][
-            "digest"
-        ],
+        workload_contract_digest=registry.profile["workload_contract_ref"]["digest"],
         pricing_evidence_digests={
             provider: "sha256:" + marker * 64
             for provider, marker in {"aws": "a", "azure": "b", "gcp": "c"}.items()
@@ -243,9 +237,7 @@ def test_registry_and_strategy_enumerate_only_colocated_l3_hot_l5_candidates():
         extension_bindings=_extension_bindings(),
         resolution_status="offline_contract_fixture",
     ).with_execution_inputs(
-        layer_options={
-            layer: (("AWS", 0), ("Azure", 0)) for layer in SIX_LAYER_KEYS
-        },
+        layer_options={layer: (("AWS", 0), ("Azure", 0)) for layer in SIX_LAYER_KEYS},
         provider_regions=PROVIDER_REGIONS,
     )
     strategy = build_default_strategy_registry(context).resolve(context.profile)
@@ -258,8 +250,7 @@ def test_registry_and_strategy_enumerate_only_colocated_l3_hot_l5_candidates():
         for candidate in candidates
     )
     assert {
-        candidate.component("component.eventing").provider
-        for candidate in candidates
+        candidate.component("component.eventing").provider for candidate in candidates
     } == {"aws", "azure"}
 
 
@@ -329,9 +320,7 @@ def test_real_single_cloud_optimizer_prices_complete_profile(provider):
         if "eventing" in item["edge_id"]
     ]
     assert len(event_edges) == 5
-    assert {item["mechanism"] for item in event_edges} == {
-        "provider_native_trigger"
-    }
+    assert {item["mechanism"] for item in event_edges} == {"provider_native_trigger"}
     assert {item["transfer_route_class"] for item in event_edges} == {
         "same_provider_same_region"
     }
@@ -340,7 +329,7 @@ def test_real_single_cloud_optimizer_prices_complete_profile(provider):
 def test_optimizer_rejects_cheapest_candidate_when_resolution_is_not_materializable():
     pricing, evidence = _pricing()
     registry = _registry()
-    base_resolver = FiveLayerV2CatalogCostLedgerResolver(pricing)
+    base_resolver = SixLayerCatalogCostLedgerResolver(pricing)
     invalid_assignment = {
         "component.ingestion": "aws",
         "component.processing": "aws",
@@ -381,7 +370,7 @@ def test_optimizer_rejects_cheapest_candidate_when_resolution_is_not_materializa
 def test_optimizer_materializes_source_owned_event_bridges_in_rta():
     pricing, evidence = _pricing()
     registry = _registry()
-    base_resolver = FiveLayerV2CatalogCostLedgerResolver(
+    base_resolver = SixLayerCatalogCostLedgerResolver(
         {provider: pricing[provider] for provider in ("aws", "azure")}
     )
 
@@ -470,7 +459,9 @@ def test_catalog_covers_all_six_directed_provider_pairs_for_every_event_edge():
         for destination in ("aws", "azure", "gcp")
         if source != destination
     }
-    assert all(item["mechanism"] == "cross_provider_adapter" for item in implementations)
+    assert all(
+        item["mechanism"] == "cross_provider_adapter" for item in implementations
+    )
     assert all(item["glue_component_ids"] for item in implementations)
 
 
@@ -516,12 +507,12 @@ def test_cross_cloud_event_routes_use_exact_frozen_channel_quantities(size, expe
     pricing, _evidence = _pricing()
     assignment, specification = _cross_cloud_rds(size)
 
-    ledger = FiveLayerV2CatalogCostLedgerResolver(pricing).resolve(
+    ledger = SixLayerCatalogCostLedgerResolver(pricing).resolve(
         specification,
         assignment,
         _resolved_workload(size),
     )
-    evaluate_five_layer_v2_costs(
+    evaluate_six_layer_costs(
         specification=specification,
         assignment=assignment,
         resolved_workload=_resolved_workload(size),
@@ -564,7 +555,7 @@ def test_independent_remote_hot_storage_selects_its_event_landing_bundle():
         "aws.lambda-event-adapter",
     }.issubset(selected)
 
-    ledger = FiveLayerV2CatalogCostLedgerResolver(pricing).resolve(
+    ledger = SixLayerCatalogCostLedgerResolver(pricing).resolve(
         specification,
         assignment,
         _resolved_workload("small"),
@@ -599,7 +590,7 @@ def test_cost_evaluation_rejects_a_tampered_topology_registry_binding():
     pricing, _evidence = _pricing()
     assignment, specification = _cross_cloud_rds("small")
     workload = _resolved_workload("small")
-    ledger = FiveLayerV2CatalogCostLedgerResolver(pricing).resolve(
+    ledger = SixLayerCatalogCostLedgerResolver(pricing).resolve(
         specification,
         assignment,
         workload,
@@ -612,7 +603,7 @@ def test_cost_evaluation_rejects_a_tampered_topology_registry_binding():
     event_quote["topology_cost_registry_digest"] = "sha256:" + "0" * 64
 
     with pytest.raises(ArchitectureResolutionError) as raised:
-        evaluate_five_layer_v2_costs(
+        evaluate_six_layer_costs(
             specification=specification,
             assignment=assignment,
             resolved_workload=workload,
@@ -635,9 +626,7 @@ def test_all_243_event_topologies_reconcile_to_the_frozen_cost_registry():
     )
 
     for scenario in registry["scenarios"]:
-        size = scenario["scenario_id"].removeprefix("eventing-").removesuffix(
-            "-v1"
-        )
+        size = scenario["scenario_id"].removeprefix("eventing-").removesuffix("-v1")
         for placement in scenario["placements"]:
             assignment, specification = _placement_rds(
                 size,
@@ -646,7 +635,7 @@ def test_all_243_event_topologies_reconcile_to_the_frozen_cost_registry():
                 processing=placement["processing_provider"],
                 hot_storage=placement["hot_storage_provider"],
             )
-            ledger = FiveLayerV2CatalogCostLedgerResolver(pricing).resolve(
+            ledger = SixLayerCatalogCostLedgerResolver(pricing).resolve(
                 specification,
                 assignment,
                 _resolved_workload(size),

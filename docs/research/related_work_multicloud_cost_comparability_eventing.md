@@ -639,8 +639,8 @@ This strengthens the distinction from catalogue-style service comparison:
 provider services are compared as complete deployable compositions, while
 cross-cloud event bridges, finite storage jobs, provider-local L3-hot
 raw-history reads, and L3-hot-to-L4 Twin projections remain separate cost and
-failure boundaries. L4-to-L5/3D visualization is deliberately outside
-Five-layer v2 and requires a later capability version.
+failure boundaries. L4-to-L5/3D visualization is deliberately outside the PoC
+and requires a later capability version.
 
 ## Citation-Ready Source List
 

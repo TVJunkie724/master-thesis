@@ -14,7 +14,7 @@ from tests.architecture_test_data import linked_architecture_fixture_documents
 from tests.test_resolved_architecture_service import _state
 
 
-def test_profile_routes_expose_active_v2_and_keep_v1_read_only(
+def test_profile_routes_expose_only_active_six_layer_profile(
     authenticated_client,
     db_session,
 ):
@@ -29,11 +29,11 @@ def test_profile_routes_expose_active_v2_and_keep_v1_read_only(
 
     listed = client.get("/architecture-profiles", headers=headers)
     detail = client.get(
-        "/architecture-profiles/five-layer-baseline/versions/1",
+        "/architecture-profiles/six-layer-eventing/versions/1",
         headers=headers,
     )
     active_detail = client.get(
-        "/architecture-profiles/five-layer-baseline/versions/2",
+        "/architecture-profiles/six-layer-eventing/versions/2",
         headers=headers,
     )
     selection = client.get(
@@ -43,19 +43,16 @@ def test_profile_routes_expose_active_v2_and_keep_v1_read_only(
 
     assert listed.status_code == 200
     assert [
-        (item["profile_id"], item["profile_version"])
-        for item in listed.json()
+        (item["profile_id"], item["profile_version"]) for item in listed.json()
     ] == [
-        ("five-layer-baseline", "2"),
         ("six-layer-eventing", "1"),
     ]
-    assert detail.status_code == 409
-    assert detail.json()["error_code"] == "ARCH_PROFILE_NOT_ACTIVE"
-    assert active_detail.status_code == 200
-    assert active_detail.json()["profile_version"] == "2"
+    assert detail.status_code == 200
+    assert detail.json()["profile_version"] == "1"
+    assert active_detail.status_code in {404, 409}
     assert selection.status_code == 200
     assert selection.json()["revision"] == 1
-    assert selection.json()["profile_version"] == "2"
+    assert selection.json()["profile_version"] == "1"
     db_session.expire_all()
     default_audit = (
         db_session.query(ArchitectureAuditEvent)
@@ -71,13 +68,12 @@ def test_profile_routes_expose_active_v2_and_keep_v1_read_only(
         f"/twins/{twin_id}/architecture-profile/change-preview",
         headers=headers,
         json={
-            "profile_id": "five-layer-baseline",
+            "profile_id": "six-layer-eventing",
             "profile_version": "1",
             "expected_revision": 1,
         },
     )
-    assert preview.status_code == 409
-    assert preview.json()["error_code"] == "ARCH_PROFILE_NOT_ACTIVE"
+    assert preview.status_code == 200
 
     unresolved = client.get(
         f"/twins/{twin_id}/resolved-architecture",
@@ -104,7 +100,7 @@ def test_profile_routes_require_auth_and_reject_client_authored_state(
         f"/twins/{twin_id}/architecture-profile/change-preview",
         headers=auth_headers,
         json={
-            "profile_id": "five-layer-baseline",
+            "profile_id": "six-layer-eventing",
             "profile_version": "1",
             "expected_revision": 1,
             "profile_digest": "sha256:" + ("0" * 64),
@@ -114,7 +110,7 @@ def test_profile_routes_require_auth_and_reject_client_authored_state(
         f"/twins/{twin_id}/architecture-profile",
         headers=auth_headers,
         json={
-            "profile_id": "five-layer-baseline",
+            "profile_id": "six-layer-eventing",
             "profile_version": "1",
             "expected_revision": 1,
             "invalidation_digest": "sha256:" + ("0" * 64),
@@ -222,7 +218,7 @@ def test_architecture_openapi_contract_is_strict(client):
     schemas = openapi["components"]["schemas"]
     preview_request = schemas["ArchitectureProfileChangeRequest"]
     selection_request = schemas["ArchitectureProfileSelectionRequest"]
-    resolution = schemas["ResolvedTwinArchitectureContract"]
+    resolution = schemas["ResolvedTwinArchitectureContractV2"]
     assert preview_request["additionalProperties"] is False
     assert selection_request["additionalProperties"] is False
     assert "invalidation_digest" in selection_request["required"]

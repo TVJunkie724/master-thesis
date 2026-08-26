@@ -31,7 +31,12 @@ variable "project_path" {
 variable "architecture_profile_id" {
   description = "Resolved immutable architecture profile identifier"
   type        = string
-  default     = "five-layer-baseline"
+  default     = "six-layer-eventing"
+
+  validation {
+    condition     = var.architecture_profile_id == "six-layer-eventing"
+    error_message = "Only the standalone six-layer-eventing profile is supported."
+  }
 }
 
 variable "architecture_profile_version" {
@@ -40,8 +45,8 @@ variable "architecture_profile_version" {
   default     = "1"
 
   validation {
-    condition     = contains(["1", "2"], var.architecture_profile_version)
-    error_message = "architecture_profile_version must be a supported immutable version."
+    condition     = var.architecture_profile_version == "1"
+    error_message = "Only six-layer-eventing profile version 1 is supported."
   }
 }
 
@@ -416,45 +421,45 @@ variable "layer_5_provider" {
 # Resolved Deployment Specification - AWS
 # ==============================================================================
 
-variable "aws_v2_storage_mover_image" {
-  description = "Content-addressed AWS Five-layer v2 finite storage-mover image"
+variable "aws_six_layer_storage_mover_image" {
+  description = "Content-addressed AWS Six-layer finite storage-mover image"
   type        = string
   default     = ""
 
   validation {
     condition = (
-      var.aws_v2_storage_mover_image == "" ||
-      can(regex("^[0-9]+\\.dkr\\.ecr\\.[a-z0-9-]+\\.amazonaws\\.com/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.aws_v2_storage_mover_image))
+      var.aws_six_layer_storage_mover_image == "" ||
+      can(regex("^[0-9]+\\.dkr\\.ecr\\.[a-z0-9-]+\\.amazonaws\\.com/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.aws_six_layer_storage_mover_image))
     )
-    error_message = "aws_v2_storage_mover_image must be an ECR image pinned by sha256 digest."
+    error_message = "aws_six_layer_storage_mover_image must be an ECR image pinned by sha256 digest."
   }
 }
 
-variable "aws_v2_bridge_image" {
-  description = "Content-addressed AWS Five-layer v2 outbound event-bridge Lambda image"
+variable "aws_six_layer_bridge_image" {
+  description = "Content-addressed AWS Six-layer outbound event-bridge Lambda image"
   type        = string
   default     = ""
 
   validation {
     condition = (
-      var.aws_v2_bridge_image == "" ||
-      can(regex("^[0-9]+\\.dkr\\.ecr\\.[a-z0-9-]+\\.amazonaws\\.com/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.aws_v2_bridge_image))
+      var.aws_six_layer_bridge_image == "" ||
+      can(regex("^[0-9]+\\.dkr\\.ecr\\.[a-z0-9-]+\\.amazonaws\\.com/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.aws_six_layer_bridge_image))
     )
-    error_message = "aws_v2_bridge_image must be an ECR image pinned by sha256 digest."
+    error_message = "aws_six_layer_bridge_image must be an ECR image pinned by sha256 digest."
   }
 }
 
-variable "azure_v2_storage_mover_image" {
-  description = "Content-addressed Azure Five-layer v2 finite storage-mover image"
+variable "azure_six_layer_storage_mover_image" {
+  description = "Content-addressed Azure Six-layer finite storage-mover image"
   type        = string
   default     = ""
 
   validation {
     condition = (
-      var.azure_v2_storage_mover_image == "" ||
-      can(regex("^[a-z0-9]+\\.azurecr\\.io/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.azure_v2_storage_mover_image))
+      var.azure_six_layer_storage_mover_image == "" ||
+      can(regex("^[a-z0-9]+\\.azurecr\\.io/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.azure_six_layer_storage_mover_image))
     )
-    error_message = "azure_v2_storage_mover_image must be an ACR image pinned by sha256 digest."
+    error_message = "azure_six_layer_storage_mover_image must be an ACR image pinned by sha256 digest."
   }
 }
 
@@ -1117,7 +1122,7 @@ variable "platform_user_last_name" {
 }
 
 variable "aws_layer_access_principal_intent" {
-  description = "Five-layer v2 AWS browser principal behavior: resolve an existing Identity Center user, or explicitly invite one in the built-in directory"
+  description = "Six-layer AWS browser principal behavior: resolve an existing Identity Center user, or explicitly invite one in the built-in directory"
   type        = string
   default     = "existing"
 
@@ -1128,7 +1133,7 @@ variable "aws_layer_access_principal_intent" {
 }
 
 variable "azure_layer_access_principal_object_id" {
-  description = "Existing Entra principal object ID receiving Five-layer v2 ADT Reader and Grafana Viewer access; the platform never creates this principal"
+  description = "Existing Entra principal object ID receiving Six-layer ADT Reader and Grafana Viewer access; the platform never creates this principal"
   type        = string
   default     = ""
 
@@ -1175,64 +1180,64 @@ variable "gcp_region" {
   default     = "europe-west1"
 }
 
-variable "gcp_v2_platform_image" {
-  description = "Content-addressed GCP Five-layer v2 platform runtime image"
+variable "gcp_six_layer_platform_image" {
+  description = "Content-addressed GCP Six-layer platform runtime image"
   type        = string
   default     = ""
 
   validation {
     condition = (
-      var.gcp_v2_platform_image == "" ||
-      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_v2_platform_image))
+      var.gcp_six_layer_platform_image == "" ||
+      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_six_layer_platform_image))
     )
-    error_message = "gcp_v2_platform_image must be an Artifact Registry image pinned by sha256 digest."
+    error_message = "gcp_six_layer_platform_image must be an Artifact Registry image pinned by sha256 digest."
   }
 }
 
-variable "gcp_v2_processor_extension_image" {
+variable "gcp_six_layer_processor_extension_image" {
   description = "Content-addressed GCP processor.telemetry@1 adapter image"
   type        = string
   default     = ""
 
   validation {
     condition = (
-      var.gcp_v2_processor_extension_image == "" ||
-      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_v2_processor_extension_image))
+      var.gcp_six_layer_processor_extension_image == "" ||
+      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_six_layer_processor_extension_image))
     )
-    error_message = "gcp_v2_processor_extension_image must be an Artifact Registry image pinned by sha256 digest."
+    error_message = "gcp_six_layer_processor_extension_image must be an Artifact Registry image pinned by sha256 digest."
   }
 }
 
-variable "gcp_v2_storage_mover_image" {
-  description = "Content-addressed GCP Five-layer v2 finite storage-mover image"
+variable "gcp_six_layer_storage_mover_image" {
+  description = "Content-addressed GCP Six-layer finite storage-mover image"
   type        = string
   default     = ""
 
   validation {
     condition = (
-      var.gcp_v2_storage_mover_image == "" ||
-      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_v2_storage_mover_image))
+      var.gcp_six_layer_storage_mover_image == "" ||
+      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_six_layer_storage_mover_image))
     )
-    error_message = "gcp_v2_storage_mover_image must be an Artifact Registry image pinned by sha256 digest."
+    error_message = "gcp_six_layer_storage_mover_image must be an Artifact Registry image pinned by sha256 digest."
   }
 }
 
-variable "gcp_v2_grafana_image" {
-  description = "Content-addressed GCP Five-layer v2 Grafana image with the reviewed signed Infinity plugin"
+variable "gcp_six_layer_grafana_image" {
+  description = "Content-addressed GCP Six-layer Grafana image with the reviewed signed Infinity plugin"
   type        = string
   default     = ""
 
   validation {
     condition = (
-      var.gcp_v2_grafana_image == "" ||
-      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_v2_grafana_image))
+      var.gcp_six_layer_grafana_image == "" ||
+      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_six_layer_grafana_image))
     )
-    error_message = "gcp_v2_grafana_image must be an Artifact Registry image pinned by sha256 digest."
+    error_message = "gcp_six_layer_grafana_image must be an Artifact Registry image pinned by sha256 digest."
   }
 }
 
-variable "gcp_v2_kubernetes_stage_enabled" {
-  description = "Activate the automatic post-cluster Kubernetes apply stage for Five-layer v2"
+variable "gcp_six_layer_kubernetes_stage_enabled" {
+  description = "Activate the automatic post-cluster Kubernetes apply stage for Six-layer"
   type        = bool
   default     = true
 }
@@ -1539,8 +1544,8 @@ variable "azure_user_zip_path" {
   default     = ""
 }
 
-variable "azure_v2_zip_path" {
-  description = "Content-addressed Five-layer v2 Azure Function App package"
+variable "azure_six_layer_zip_path" {
+  description = "Content-addressed Six-layer Azure Function App package"
   type        = string
   default     = ""
 }

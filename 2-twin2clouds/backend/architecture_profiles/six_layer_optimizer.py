@@ -6,23 +6,22 @@ from dataclasses import dataclass
 import json
 from typing import Any, Callable, Mapping
 
-from backend.deployment_specification.five_layer_v2_builder import (
+from backend.deployment_specification.six_layer_builder import (
     build_six_layer_eventing_v1_deployment_specification,
 )
 
 from .diagnostics import ArchitectureResolutionError, RejectionCollector
 from .five_layer_strategy import build_default_strategy_registry
-from .five_layer_v2_costing import (
-    FiveLayerV2CostEvaluation,
-    FiveLayerV2CostedCandidate,
-    evaluate_five_layer_v2_costs,
-    select_lowest_cost_five_layer_v2_candidate,
+from .six_layer_costing import (
+    SixLayerCostEvaluation,
+    SixLayerCostedCandidate,
+    evaluate_six_layer_costs,
+    select_lowest_cost_six_layer_candidate,
 )
-from .five_layer_v2_optimizer import PROVIDER_LABELS, PROVIDER_REGIONS
-from .five_layer_v2_pricing import build_five_layer_v2_catalog_cost_ledger_resolver
-from .five_layer_v2_workload import (
-    ResolvedFiveLayerV2Workload,
-    resolve_five_layer_v2_workload,
+from .six_layer_pricing import build_six_layer_catalog_cost_ledger_resolver
+from .six_layer_workload import (
+    ResolvedSixLayerWorkload,
+    resolve_six_layer_workload,
 )
 from .registry import ArchitectureProfileRegistry, DEFINITIONS_ROOT
 from .six_layer_strategy import SixLayerEventingV1ResolutionWinner
@@ -39,9 +38,15 @@ SIX_LAYER_KEYS = (
     "L5",
     "Eventing",
 )
+PROVIDER_LABELS = {"aws": "AWS", "azure": "Azure", "gcp": "GCP"}
+PROVIDER_REGIONS = {
+    "aws": "eu-central-1",
+    "azure": "westeurope",
+    "gcp": "europe-west1",
+}
 EVENTING_MANIFEST_PATH = DEFINITIONS_ROOT / "six-layer-eventing-v1-manifest.json"
 EVENTING_MANIFEST_DIGEST = (
-    "sha256:f89997f15435add605b963adbde22d66abc00736b68a896586801b7e947b659f"
+    "sha256:bca07c5bdab154dfed3722159fa3fc28b3ef86d2250d7ca3450fe01e214676d5"
 )
 EVENTING_COST_REGISTRY_DIGEST = (
     "sha256:851af214c192826c2b5d0cd4250c552a7a23e1e40a6ca01a807fdf38c77d3972"
@@ -55,7 +60,7 @@ EVENTING_IMPLEMENTATION_DIGEST = (
 
 
 CostLedgerResolver = Callable[
-    [Mapping[str, Any], Mapping[str, str], ResolvedFiveLayerV2Workload],
+    [Mapping[str, Any], Mapping[str, str], ResolvedSixLayerWorkload],
     Mapping[str, Any],
 ]
 
@@ -64,7 +69,7 @@ CostLedgerResolver = Callable[
 class SixLayerEventingV1OptimizationResult:
     resolved_architecture: Mapping[str, Any]
     deployment_specification: Mapping[str, Any]
-    cost_evaluation: FiveLayerV2CostEvaluation
+    cost_evaluation: SixLayerCostEvaluation
     cost_ledger: Mapping[str, Any]
     winning_candidate_id: str
     enumerated_candidate_count: int
@@ -139,7 +144,7 @@ def optimize_six_layer_eventing_v1(
             "Supply exactly one live catalog or explicit test-ledger resolver",
         )
     ledger_resolver = cost_ledger_resolver or (
-        build_five_layer_v2_catalog_cost_ledger_resolver(pricing_by_provider or {})
+        build_six_layer_catalog_cost_ledger_resolver(pricing_by_provider or {})
     )
     if (
         not providers
@@ -175,7 +180,7 @@ def optimize_six_layer_eventing_v1(
         provider_regions=PROVIDER_REGIONS,
     )
     _validate_eventing_decision_manifest(context)
-    resolved_workload = resolve_five_layer_v2_workload(workload)
+    resolved_workload = resolve_six_layer_workload(workload)
     strategy = build_default_strategy_registry(context).resolve(context.profile)
     strategy.validate_request(context)
     candidates = strategy.enumerate_candidates(context)
@@ -236,13 +241,13 @@ def optimize_six_layer_eventing_v1(
                 azure_large_autoscale_evidence_digest=azure_large_autoscale_evidence_digest,
             )
             ledger = ledger_resolver(specification, assignment, resolved_workload)
-            evaluation = evaluate_five_layer_v2_costs(
+            evaluation = evaluate_six_layer_costs(
                 specification=specification,
                 assignment=assignment,
                 resolved_workload=resolved_workload,
                 cost_ledger=ledger,
             )
-            costed = FiveLayerV2CostedCandidate(
+            costed = SixLayerCostedCandidate(
                 candidate_id=candidate.candidate_id,
                 canonical_assignment_key=tuple(sorted(assignment.items())),
                 evaluation=evaluation,
@@ -276,7 +281,7 @@ def optimize_six_layer_eventing_v1(
             enumerated_candidate_count=len(candidates),
             diagnostics=rejections.freeze(),
         )
-    winner = select_lowest_cost_five_layer_v2_candidate(tuple(costed_candidates))
+    winner = select_lowest_cost_six_layer_candidate(tuple(costed_candidates))
     specification = specifications[winner.candidate_id]
     resolved_architecture = resolved_architectures[winner.candidate_id]
     frozen_rejections = rejections.freeze()

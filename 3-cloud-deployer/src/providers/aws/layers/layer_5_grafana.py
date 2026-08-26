@@ -38,9 +38,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 JSON_DATASOURCE_PLUGIN_ID = "marcusolsson-json-datasource"
 JSON_DATASOURCE_PLUGIN_VERSION = "1.4.0"
-V2_DATASOURCE_UID = "t2mc-aws-hot-reader"
-V2_FOLDER_UID = "t2mc-raw-rollups"
-V2_DASHBOARD_UID = "t2mc-raw-rollups"
+SIX_LAYER_DATASOURCE_UID = "t2mc-aws-hot-reader"
+SIX_LAYER_FOLDER_UID = "t2mc-raw-rollups"
+SIX_LAYER_DASHBOARD_UID = "t2mc-raw-rollups"
 _TRANSIENT_GRAFANA_READINESS_CODES = frozenset({403, 404, 429, 502, 503, 504})
 
 
@@ -56,11 +56,13 @@ def _headers(token: str) -> dict[str, str]:
     }
 
 
-def _provisioning_service_account(provider: "AWSProvider", workspace_id: str) -> tuple[str, str]:
+def _provisioning_service_account(
+    provider: "AWSProvider", workspace_id: str
+) -> tuple[str, str]:
     """Create one short-lived Grafana v12 automation identity and token."""
 
     client = provider.clients["grafana"]
-    name = f"{provider.twin_name}-v2-provisioner"
+    name = f"{provider.twin_name}-six-provisioner"
     accounts = client.list_workspace_service_accounts(
         workspaceId=workspace_id,
         maxResults=100,
@@ -154,11 +156,15 @@ def _ensure_exact_plugin(grafana_url: str, token: str) -> None:
     _wait_for_exact_plugin(grafana_url, token)
 
 
-def _install_reader_key(provider: "AWSProvider", function_name: str, reader_key: str) -> None:
+def _install_reader_key(
+    provider: "AWSProvider", function_name: str, reader_key: str
+) -> None:
     client = provider.clients["lambda"]
     current = client.get_function_configuration(FunctionName=function_name)
     variables = dict(current.get("Environment", {}).get("Variables", {}))
-    variables["READER_KEY_SHA256"] = hashlib.sha256(reader_key.encode("utf-8")).hexdigest()
+    variables["READER_KEY_SHA256"] = hashlib.sha256(
+        reader_key.encode("utf-8")
+    ).hexdigest()
     client.update_function_configuration(
         FunctionName=function_name,
         Environment={"Variables": variables},
@@ -170,7 +176,7 @@ def _upsert_v2_datasource(
     *, grafana_url: str, token: str, reader_url: str, reader_key: str
 ) -> None:
     config = {
-        "uid": V2_DATASOURCE_UID,
+        "uid": SIX_LAYER_DATASOURCE_UID,
         "name": "Twin2MultiCloud Raw History",
         "type": JSON_DATASOURCE_PLUGIN_ID,
         "url": reader_url,
@@ -181,13 +187,13 @@ def _upsert_v2_datasource(
         "secureJsonData": {"httpHeaderValue1": reader_key},
     }
     response = requests.get(
-        f"{grafana_url}/api/datasources/uid/{V2_DATASOURCE_UID}",
+        f"{grafana_url}/api/datasources/uid/{SIX_LAYER_DATASOURCE_UID}",
         headers=_headers(token),
         timeout=30,
     )
     if response.status_code == 200:
         response = requests.put(
-            f"{grafana_url}/api/datasources/uid/{V2_DATASOURCE_UID}",
+            f"{grafana_url}/api/datasources/uid/{SIX_LAYER_DATASOURCE_UID}",
             headers=_headers(token),
             json=config,
             timeout=30,
@@ -212,7 +218,10 @@ def _history_target(device_id: str, metric: str, bucket_seconds: int) -> dict[st
     value_field = "value" if bucket_seconds == 0 else "avg"
     return {
         "refId": "A",
-        "datasource": {"type": JSON_DATASOURCE_PLUGIN_ID, "uid": V2_DATASOURCE_UID},
+        "datasource": {
+            "type": JSON_DATASOURCE_PLUGIN_ID,
+            "uid": SIX_LAYER_DATASOURCE_UID,
+        },
         "method": "GET",
         "urlPath": "",
         "params": [
@@ -224,8 +233,18 @@ def _history_target(device_id: str, metric: str, bucket_seconds: int) -> dict[st
             ["limit", "1000"],
         ],
         "fields": [
-            {"jsonPath": f"$.points[*].{timestamp_field}", "name": "Time", "type": "time", "language": "jsonpath"},
-            {"jsonPath": f"$.points[*].{value_field}", "name": metric, "type": "number", "language": "jsonpath"},
+            {
+                "jsonPath": f"$.points[*].{timestamp_field}",
+                "name": "Time",
+                "type": "time",
+                "language": "jsonpath",
+            },
+            {
+                "jsonPath": f"$.points[*].{value_field}",
+                "name": metric,
+                "type": "number",
+                "language": "jsonpath",
+            },
         ],
     }
 
@@ -235,9 +254,9 @@ def _v2_dashboard(
     metric: str,
     architecture_profile: str,
 ) -> dict[str, Any]:
-    datasource = {"type": JSON_DATASOURCE_PLUGIN_ID, "uid": V2_DATASOURCE_UID}
+    datasource = {"type": JSON_DATASOURCE_PLUGIN_ID, "uid": SIX_LAYER_DATASOURCE_UID}
     return {
-        "uid": V2_DASHBOARD_UID,
+        "uid": SIX_LAYER_DASHBOARD_UID,
         "title": "Twin2MultiCloud Raw & Rollups",
         "description": (
             f"Bounded {architecture_profile} PoC view over provider-local "
@@ -293,7 +312,7 @@ def _upsert_v2_dashboard(
     architecture_profile: str,
 ) -> None:
     response = requests.get(
-        f"{grafana_url}/api/folders/{V2_FOLDER_UID}",
+        f"{grafana_url}/api/folders/{SIX_LAYER_FOLDER_UID}",
         headers=_headers(token),
         timeout=30,
     )
@@ -301,18 +320,20 @@ def _upsert_v2_dashboard(
         response = requests.post(
             f"{grafana_url}/api/folders",
             headers=_headers(token),
-            json={"uid": V2_FOLDER_UID, "title": "Raw & Rollups"},
+            json={"uid": SIX_LAYER_FOLDER_UID, "title": "Raw & Rollups"},
             timeout=30,
         )
         _require_status(response, (200,), "AWS Grafana folder creation")
     elif response.status_code != 200:
-        raise RuntimeError(f"AWS Grafana folder lookup returned HTTP {response.status_code}")
+        raise RuntimeError(
+            f"AWS Grafana folder lookup returned HTTP {response.status_code}"
+        )
     response = requests.post(
         f"{grafana_url}/api/dashboards/db",
         headers=_headers(token),
         json={
             "dashboard": _v2_dashboard(device_id, metric, architecture_profile),
-            "folderUid": V2_FOLDER_UID,
+            "folderUid": SIX_LAYER_FOLDER_UID,
             "message": f"Provision {architecture_profile} PoC dashboard",
             "overwrite": True,
         },
@@ -331,7 +352,10 @@ def _probe_v2_surface(
     metric: str,
 ) -> None:
     now = datetime.now(timezone.utc)
-    for bucket, start in ((0, now - timedelta(hours=24)), (3600, now - timedelta(days=30))):
+    for bucket, start in (
+        (0, now - timedelta(hours=24)),
+        (3600, now - timedelta(days=30)),
+    ):
         response = requests.get(
             reader_url,
             headers={"X-Twin-Reader-Key": reader_key},
@@ -347,9 +371,11 @@ def _probe_v2_surface(
         )
         _require_status(response, (200,), "AWS raw-history query probe")
         if response.json().get("schema_version") != "raw-history-query.v1":
-            raise RuntimeError("AWS raw-history query probe returned an invalid contract")
+            raise RuntimeError(
+                "AWS raw-history query probe returned an invalid contract"
+            )
     response = requests.get(
-        f"{grafana_url}/api/datasources/uid/{V2_DATASOURCE_UID}/health",
+        f"{grafana_url}/api/datasources/uid/{SIX_LAYER_DATASOURCE_UID}/health",
         headers=_headers(token),
         timeout=30,
     )
@@ -357,14 +383,14 @@ def _probe_v2_surface(
     if response.json().get("status") != "OK":
         raise RuntimeError("AWS Grafana datasource health probe was not OK")
     response = requests.get(
-        f"{grafana_url}/api/dashboards/uid/{V2_DASHBOARD_UID}",
+        f"{grafana_url}/api/dashboards/uid/{SIX_LAYER_DASHBOARD_UID}",
         headers=_headers(token),
         timeout=30,
     )
     _require_status(response, (200,), "AWS Grafana dashboard probe")
 
 
-def configure_five_layer_v2_grafana(
+def configure_six_layer_grafana(
     provider: "AWSProvider",
     *,
     workspace_id: str,
@@ -424,25 +450,26 @@ def configure_five_layer_v2_grafana(
 # Helper Functions
 # ==========================================
 
-def _get_grafana_workspace_id(provider: 'AWSProvider') -> Optional[str]:
+
+def _get_grafana_workspace_id(provider: "AWSProvider") -> Optional[str]:
     """
     Get the Grafana workspace ID.
-    
+
     Args:
         provider: Initialized AWSProvider
-        
+
     Returns:
         Workspace ID or None if not found
-        
+
     Raises:
         ValueError: If provider is None
     """
     if provider is None:
         raise ValueError("provider is required")
-    
+
     workspace_name = provider.naming.grafana_workspace()
     client = provider.clients["grafana"]
-    
+
     try:
         response = client.list_workspaces()
         for workspace in response.get("workspaces", []):
@@ -460,25 +487,25 @@ def _get_grafana_workspace_id(provider: 'AWSProvider') -> Optional[str]:
             raise
 
 
-def _get_grafana_workspace_url(provider: 'AWSProvider') -> Optional[str]:
+def _get_grafana_workspace_url(provider: "AWSProvider") -> Optional[str]:
     """
     Get the Grafana workspace URL.
-    
+
     Args:
         provider: Initialized AWSProvider
-        
+
     Returns:
         Workspace URL or None if not found
     """
     if provider is None:
         raise ValueError("provider is required")
-    
+
     workspace_id = _get_grafana_workspace_id(provider)
     if not workspace_id:
         return None
-    
+
     client = provider.clients["grafana"]
-    
+
     try:
         response = client.describe_workspace(workspaceId=workspace_id)
         return response.get("workspace", {}).get("endpoint")
@@ -488,14 +515,14 @@ def _get_grafana_workspace_url(provider: 'AWSProvider') -> Optional[str]:
         return None
 
 
-def _get_grafana_api_key(provider: 'AWSProvider', workspace_id: str) -> Optional[str]:
+def _get_grafana_api_key(provider: "AWSProvider", workspace_id: str) -> Optional[str]:
     """
     Get or create a Grafana API key for datasource configuration.
-    
+
     Args:
         provider: Initialized AWSProvider
         workspace_id: Grafana workspace ID
-        
+
     Returns:
         API key or None if not available
     """
@@ -503,17 +530,17 @@ def _get_grafana_api_key(provider: 'AWSProvider', workspace_id: str) -> Optional
         raise ValueError("provider is required")
     if not workspace_id:
         raise ValueError("workspace_id is required")
-    
+
     client = provider.clients["grafana"]
     key_name = f"{provider.twin_name}-deployer-key"
-    
+
     try:
         # Create a new API key
         response = client.create_workspace_api_key(
             workspaceId=workspace_id,
             keyName=key_name,
             keyRole="ADMIN",
-            secondsToLive=3600  # 1 hour
+            secondsToLive=3600,  # 1 hour
         )
         return response.get("key")
     except ClientError as e:
@@ -522,14 +549,13 @@ def _get_grafana_api_key(provider: 'AWSProvider', workspace_id: str) -> Optional
             # Key already exists, delete and recreate
             try:
                 client.delete_workspace_api_key(
-                    workspaceId=workspace_id,
-                    keyName=key_name
+                    workspaceId=workspace_id, keyName=key_name
                 )
                 response = client.create_workspace_api_key(
                     workspaceId=workspace_id,
                     keyName=key_name,
                     keyRole="ADMIN",
-                    secondsToLive=3600
+                    secondsToLive=3600,
                 )
                 return response.get("key")
             except ClientError:
@@ -544,19 +570,20 @@ def _get_grafana_api_key(provider: 'AWSProvider', workspace_id: str) -> Optional
 # SDK-Managed Resource Checks
 # ==========================================
 
-def check_datasource(datasource_name: str, provider: 'AWSProvider') -> bool:
+
+def check_datasource(datasource_name: str, provider: "AWSProvider") -> bool:
     """
     Check if a Grafana datasource exists.
-    
+
     Uses the Grafana HTTP API to check datasource status.
-    
+
     Args:
         datasource_name: Name of the datasource to check
         provider: Initialized AWSProvider
-        
+
     Returns:
         True if datasource exists, False otherwise
-        
+
     Raises:
         ValueError: If datasource_name or provider is None
     """
@@ -564,28 +591,28 @@ def check_datasource(datasource_name: str, provider: 'AWSProvider') -> bool:
         raise ValueError("datasource_name is required")
     if provider is None:
         raise ValueError("provider is required")
-    
+
     workspace_id = _get_grafana_workspace_id(provider)
     if not workspace_id:
         logger.info("✗ Grafana workspace not accessible")
         return False
-    
+
     grafana_url = _get_grafana_workspace_url(provider)
     if not grafana_url:
         return False
-    
+
     api_key = _get_grafana_api_key(provider, workspace_id)
     if not api_key:
         logger.info("✗ Could not get Grafana API key")
         return False
-    
+
     try:
         response = requests.get(
             f"https://{grafana_url}/api/datasources/name/{datasource_name}",
             headers={"Authorization": f"Bearer {api_key}"},
-            timeout=30
+            timeout=30,
         )
-        
+
         if response.status_code == 200:
             logger.info(f"✓ Grafana datasource exists: {datasource_name}")
             return True
@@ -600,19 +627,19 @@ def check_datasource(datasource_name: str, provider: 'AWSProvider') -> bool:
         return False
 
 
-def info_l5(context: 'DeploymentContext', provider: 'AWSProvider') -> Dict[str, Any]:
+def info_l5(context: "DeploymentContext", provider: "AWSProvider") -> Dict[str, Any]:
     """
     Check status of SDK-managed L5 resources.
-    
+
     Checks Grafana datasource configuration status.
-    
+
     Args:
         context: Deployment context with config
         provider: Initialized AWSProvider
-        
+
     Returns:
         Dictionary with L5 status information
-        
+
     Raises:
         ValueError: If context or provider is None
     """
@@ -620,23 +647,23 @@ def info_l5(context: 'DeploymentContext', provider: 'AWSProvider') -> Dict[str, 
         raise ValueError("context is required")
     if provider is None:
         raise ValueError("provider is required")
-    
-    logger.info(f"[L5] Checking SDK-managed resources for {context.config.digital_twin_name}")
-    
+
+    logger.info(
+        f"[L5] Checking SDK-managed resources for {context.config.digital_twin_name}"
+    )
+
     workspace_url = _get_grafana_workspace_url(provider)
     datasource_name = f"{context.config.digital_twin_name}-hot-reader"
     datasource_exists = False
-    
+
     if workspace_url:
         datasource_exists = check_datasource(datasource_name, provider)
-    
+
     return {
         "layer": "5",
         "provider": "aws",
         "grafana_url": workspace_url,
-        "datasources": {
-            datasource_name: datasource_exists
-        }
+        "datasources": {datasource_name: datasource_exists},
     }
 
 
@@ -644,17 +671,18 @@ def info_l5(context: 'DeploymentContext', provider: 'AWSProvider') -> Dict[str, 
 # Post-Terraform SDK Operations
 # ==========================================
 
-def configure_grafana_datasource(provider: 'AWSProvider', hot_reader_url: str) -> None:
+
+def configure_grafana_datasource(provider: "AWSProvider", hot_reader_url: str) -> None:
     """
     Configure JSON API datasource in AWS Managed Grafana (post-Terraform).
-    
+
     Creates a JSON API datasource that points to the Hot Reader Lambda
     for data visualization.
-    
+
     Args:
         provider: Initialized AWSProvider
         hot_reader_url: URL of the Hot Reader Lambda (via API Gateway)
-        
+
     Raises:
         ValueError: If provider or hot_reader_url is None/empty
         requests.RequestException: If HTTP request fails
@@ -663,61 +691,59 @@ def configure_grafana_datasource(provider: 'AWSProvider', hot_reader_url: str) -
         raise ValueError("provider is required")
     if not hot_reader_url:
         raise ValueError("hot_reader_url is required")
-    
+
     workspace_id = _get_grafana_workspace_id(provider)
     if not workspace_id:
         logger.warning("Grafana workspace not found, skipping datasource config")
         return
-    
+
     grafana_url = _get_grafana_workspace_url(provider)
     if not grafana_url:
         logger.warning("Grafana workspace URL not found, skipping datasource config")
         return
-    
+
     api_key = _get_grafana_api_key(provider, workspace_id)
     if not api_key:
         logger.warning("Could not get Grafana API key, skipping datasource config")
         return
-    
+
     datasource_name = f"{provider.twin_name}-hot-reader"
-    
+
     logger.info(f"Configuring Grafana datasource: {datasource_name}")
     logger.info(f"  Hot Reader URL: {hot_reader_url}")
-    
+
     datasource_config = {
         "name": datasource_name,
         "type": "marcusolsson-json-datasource",
         "url": hot_reader_url,
         "access": "proxy",
         "basicAuth": False,
-        "jsonData": {
-            "httpMethod": "GET"
-        }
+        "jsonData": {"httpMethod": "GET"},
     }
-    
+
     try:
         # Check if datasource exists
         response = requests.get(
             f"https://{grafana_url}/api/datasources/name/{datasource_name}",
             headers={"Authorization": f"Bearer {api_key}"},
-            timeout=30
+            timeout=30,
         )
-        
+
         if response.status_code == 200:
             # Update existing
             existing_ds = response.json()
             datasource_id = existing_ds.get("id")
-            
+
             response = requests.put(
                 f"https://{grafana_url}/api/datasources/{datasource_id}",
                 headers={
                     "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
                 },
                 json=datasource_config,
-                timeout=30
+                timeout=30,
             )
-            
+
             if response.status_code == 200:
                 logger.info(f"✓ Grafana datasource updated: {datasource_name}")
             else:
@@ -728,19 +754,19 @@ def configure_grafana_datasource(provider: 'AWSProvider', hot_reader_url: str) -
                 f"https://{grafana_url}/api/datasources",
                 headers={
                     "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
                 },
                 json=datasource_config,
-                timeout=30
+                timeout=30,
             )
-            
+
             if response.status_code in (200, 201):
                 logger.info(f"✓ Grafana datasource created: {datasource_name}")
             else:
                 logger.warning(f"Failed to create datasource: {response.status_code}")
-                
+
     except requests.RequestException as e:
         logger.error(f"HTTP error configuring datasource: {e}")
         raise
-    
+
     logger.info("✓ Grafana datasource configuration complete")

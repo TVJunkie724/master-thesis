@@ -54,7 +54,21 @@ class TestOptimizerConfigRoutes:
             headers=headers,
         )
 
-        updated_params = {**sample_calc_params, "numberOfDevices": 500}
+        updated_params = {
+            **sample_calc_params,
+            "numberOfDevices": 4000,
+            "deviceSendingIntervalInMinutes": 0.5,
+            "averageSizeOfMessageInKb": 0.5,
+            "twinEntityCount": 4000,
+            "aggregateDashboardRefreshesPerHour": 60,
+            "apiCallsPerAggregateDashboardRefresh": 10,
+            "dashboardActiveHoursPerDay": 4,
+            "monthlyEditorSeats": 25,
+            "monthlyViewerSeats": 10,
+            "twinStateMaterializationsPerSecond": 2.5,
+            "twinGraphUpdatesPerSecond": 0.1,
+            "eventingScenarioId": "eventing-medium-v1",
+        }
         response = client.put(
             f"/twins/{twin_id}/optimizer-config/params",
             json={"params": updated_params},
@@ -62,7 +76,7 @@ class TestOptimizerConfigRoutes:
         )
 
         assert response.status_code == 200
-        assert response.json()["params"]["numberOfDevices"] == 500
+        assert response.json()["params"]["numberOfDevices"] == 4000
 
     def test_client_result_write_endpoint_is_removed(
         self,

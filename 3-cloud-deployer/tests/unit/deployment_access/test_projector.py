@@ -34,8 +34,8 @@ def _context(
     l4: str,
     l5: str,
     *,
-    profile_id: str = "five-layer-baseline",
-    version: str = "2",
+    profile_id: str = "six-layer-eventing",
+    version: str = "1",
 ) -> SimpleNamespace:
     return SimpleNamespace(
         config=_Config(l4, l5),
@@ -80,7 +80,7 @@ def _outputs() -> dict:
             "access_url": "https://g-example.grafana-workspace.eu-central-1.amazonaws.com/d/t2mc-raw-rollups/raw-rollups",
             "workspace_url": "https://g-example.grafana-workspace.eu-central-1.amazonaws.com",
             "reader_url": "https://reader.lambda-url.eu-central-1.on.aws/",
-            "reader_function_name": "factory-v2-raw-history-reader",
+            "reader_function_name": "factory-six-layer-raw-history-reader",
             "principal_label": "researcher@example.invalid",
             "internal_evidence": _internal(
                 "aws-grafana-workspace",
@@ -168,7 +168,7 @@ def _outputs() -> dict:
 @pytest.mark.parametrize("l5", ["aws", "azure", "gcp"])
 @pytest.mark.parametrize(
     ("profile_id", "version"),
-    [("five-layer-baseline", "2"), ("six-layer-eventing", "1")],
+    [("six-layer-eventing", "1")],
 )
 def test_projects_exact_two_safe_surfaces_for_all_nine_placements(
     l4: str, l5: str, profile_id: str, version: str
@@ -192,7 +192,9 @@ def test_projects_exact_two_safe_surfaces_for_all_nine_placements(
         ("l4", l4),
         ("l5", l5),
     ]
-    assert all(item["readiness"]["content"] == "pending" for item in evidence["surfaces"])
+    assert all(
+        item["readiness"]["content"] == "pending" for item in evidence["surfaces"]
+    )
     serialized = json.dumps(evidence)
     assert "must-not-cross" not in serialized
     assert "reader_url" not in serialized
@@ -204,7 +206,7 @@ def test_projects_exact_two_safe_surfaces_for_all_nine_placements(
 @pytest.mark.parametrize("l5", ["aws", "azure", "gcp"])
 @pytest.mark.parametrize(
     ("profile_id", "version"),
-    [("five-layer-baseline", "2"), ("six-layer-eventing", "1")],
+    [("six-layer-eventing", "1"), ("six-layer-eventing", "1")],
 )
 def test_successful_runtime_gates_mark_all_nine_placements_content_ready(
     l4: str, l5: str, profile_id: str, version: str
@@ -226,17 +228,6 @@ def test_successful_runtime_gates_mark_all_nine_placements_content_ready(
         surface["readiness"]["content"] == "ready"
         and surface["readiness"]["data_probe"] == "ready"
         for surface in evidence["surfaces"]
-    )
-
-
-def test_historical_profile_has_no_deployer_access_evidence() -> None:
-    assert (
-        project_deployment_access_evidence(
-            _context("aws", "aws", version="1"),
-            _outputs(),
-            generated_at=FIXED_TIME,
-        )
-        is None
     )
 
 

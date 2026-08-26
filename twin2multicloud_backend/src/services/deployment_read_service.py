@@ -120,9 +120,7 @@ class DeploymentReadService:
     @staticmethod
     def _uses_gcp_firestore(twin: DigitalTwin) -> bool:
         from src.services.architecture_projection_service import (
-            compatibility_provider_for_component,
+            provider_for_component,
         )
 
-        return is_gcp_provider(
-            compatibility_provider_for_component(twin, "component.hot-storage")
-        )
+        return is_gcp_provider(provider_for_component(twin, "component.hot-storage"))

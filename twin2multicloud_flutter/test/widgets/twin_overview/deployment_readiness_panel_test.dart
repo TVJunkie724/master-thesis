@@ -129,9 +129,6 @@ DeploymentReadinessSnapshot _snapshot({required bool ready}) {
             ? ProviderDeploymentReadinessStatus.ready
             : ProviderDeploymentReadinessStatus.notChecked,
         summary: check.message,
-        expectedPermissionSetVersion: 'thesis-demo-v1',
-        suppliedPermissionSetVersion: 'thesis-demo-v1',
-        permissionSetStatus: PermissionSetReadinessStatus.matched,
         checkedAt: ready ? DateTime.utc(2026, 7, 14, 9) : null,
         checks: [check],
       ),

@@ -27,7 +27,7 @@ credential lifecycle. External navigation uses the screen's injected launcher.
 | `idle` | Access becomes available only after deployment |
 | `loading` | Inline progress without blocking other Twin actions |
 | `ready` | Ordered L4/L5 cards with independent readiness |
-| `unsupported` | Historical Five-layer v1 explanation and zero links |
+| `unsupported` | Historical Six-layer v1 explanation and zero links |
 | `failed` | Safe isolated error and explicit retry |
 
 Open requires only `resource=ready` and `access_binding=ready`. Content and
@@ -52,7 +52,7 @@ The mutating rotation is never automatically retried.
 | L4 | IoT TwinMaker / Identity Center | Azure Digital Twins / Entra ID | Twin Explorer / IAP |
 | L5 | Managed Grafana / Identity Center | Managed Grafana / Entra ID | Grafana OSS on GKE / generated Viewer |
 
-The available Five-layer v2 response always contains exactly one surface for
+The available Six-layer response always contains exactly one surface for
 each layer. All nine provider pairs use the same DTO and widget tree.
 
 ## Secret Boundary

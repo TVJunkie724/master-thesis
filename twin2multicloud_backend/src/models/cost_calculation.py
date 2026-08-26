@@ -25,13 +25,11 @@ class CostCalculationRun(Base):
     __tablename__ = "cost_calculation_runs"
     __table_args__ = (
         CheckConstraint(
-            "deployment_compatibility_status IN "
-            "('ready', 'legacy_not_deployable')",
+            "deployment_compatibility_status IN ('ready', 'unavailable')",
             name="ck_cost_runs_deployment_compatibility_status",
         ),
         CheckConstraint(
-            "architecture_compatibility_status IN "
-            "('ready', 'legacy_not_resolvable')",
+            "architecture_compatibility_status IN ('ready', 'unavailable')",
             name="ck_cost_runs_architecture_compatibility_status",
         ),
         Index(
@@ -49,7 +47,12 @@ class CostCalculationRun(Base):
     )
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    twin_id = Column(String, ForeignKey("digital_twins.id", ondelete="CASCADE"), nullable=False, index=True)
+    twin_id = Column(
+        String,
+        ForeignKey("digital_twins.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     optimizer_config_id = Column(
         String,
@@ -77,25 +80,31 @@ class CostCalculationRun(Base):
     deployment_compatibility_status = Column(
         String(32),
         nullable=False,
-        default="legacy_not_deployable",
-        server_default="legacy_not_deployable",
+        default="unavailable",
+        server_default="unavailable",
     )
     architecture_compatibility_status = Column(
         String(32),
         nullable=False,
-        default="legacy_not_resolvable",
-        server_default="legacy_not_resolvable",
+        default="unavailable",
+        server_default="unavailable",
     )
     resolved_architecture_version = Column(String(64), nullable=True)
     resolved_architecture_digest = Column(String(71), nullable=True, index=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
     completed_at = Column(DateTime(timezone=True), nullable=True)
     selected_for_deployment_at = Column(DateTime(timezone=True), nullable=True)
     error_code = Column(String, nullable=True)
     error_message = Column(String, nullable=True)
 
     twin = relationship("DigitalTwin", back_populates="cost_calculation_runs")
-    optimizer_config = relationship("OptimizerConfiguration", back_populates="cost_calculation_runs")
+    optimizer_config = relationship(
+        "OptimizerConfiguration", back_populates="cost_calculation_runs"
+    )
     result_items = relationship(
         "CostCalculationResultItem",
         back_populates="run",
@@ -135,7 +144,11 @@ class CostCalculationResultItem(Base):
     service_model_id = Column(String, nullable=True)
     calculation_notes_json = Column(Text, nullable=True)
     review_status = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
     run = relationship("CostCalculationRun", back_populates="result_items")
 
@@ -181,6 +194,4 @@ def _prevent_resolved_architecture_mutation(_mapper, _connection, target) -> Non
         if state.attrs[field].history.has_changes()
     ]
     if changed:
-        raise ValueError(
-            "Resolved architecture fields are immutable after creation"
-        )
+        raise ValueError("Resolved architecture fields are immutable after creation")

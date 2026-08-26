@@ -1,13 +1,9 @@
 from datetime import datetime
-from collections.abc import Mapping
-from typing import Literal, Optional, Union
+from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
-from src.schemas.optimizer_calculation import (
-    FiveLayerV2OptimizerCalculationParams,
-    OptimizerCalculationParams,
-)
+from src.schemas.optimizer_calculation import OptimizerCalculationParams
 from src.schemas.pricing_catalog import PricingCatalogContext
 from src.schemas.resolved_deployment_specification import (
     DeploymentCompatibilityStatus,
@@ -18,29 +14,11 @@ from src.schemas.resolved_deployment_specification import (
 class CostCalculationRunCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    params: Union[
-        FiveLayerV2OptimizerCalculationParams,
-        OptimizerCalculationParams,
-    ] = Field(
+    params: OptimizerCalculationParams = Field(
         ...,
         description="Optimizer calculation parameters",
     )
     pricing_evidence_version: Optional[str] = None
-
-    @field_validator("params", mode="before")
-    @classmethod
-    def parse_profile_specific_params(cls, value):
-        if isinstance(
-            value,
-            (FiveLayerV2OptimizerCalculationParams, OptimizerCalculationParams),
-        ):
-            return value
-        if (
-            isinstance(value, Mapping)
-            and value.get("schemaVersion") == "five-layer-workload.v2"
-        ):
-            return FiveLayerV2OptimizerCalculationParams.model_validate(value)
-        return OptimizerCalculationParams.model_validate(value)
 
 
 class CostCalculationResultItemResponse(BaseModel):
@@ -88,7 +66,7 @@ class CostCalculationRunSummaryResponse(BaseModel):
     deployment_compatibility_status: DeploymentCompatibilityStatus
     architecture_compatibility_status: Literal[
         "ready",
-        "legacy_not_resolvable",
+        "unavailable",
     ]
     resolved_architecture_version: Optional[str] = None
     resolved_architecture_digest: Optional[str] = None
@@ -102,9 +80,9 @@ class CostCalculationRunSummaryResponse(BaseModel):
 class CostCalculationRunDetailResponse(CostCalculationRunSummaryResponse):
     params: dict
     result_summary: Optional[dict] = None
-    resolved_deployment_specification: (
-        Optional[ResolvedDeploymentSpecificationDocument]
-    ) = None
+    resolved_deployment_specification: Optional[
+        ResolvedDeploymentSpecificationDocument
+    ] = None
     result_items: list[CostCalculationResultItemResponse] = Field(default_factory=list)
 
 

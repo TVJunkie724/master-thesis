@@ -24,9 +24,9 @@ sys.path.insert(
 from src.providers.terraform.package_builder import (
     _create_lambda_zip,
     build_aws_lambda_packages,
-    build_aws_v2_bridge_context,
-    build_aws_v2_graph_app,
-    build_aws_v2_storage_mover_context,
+    build_aws_six_layer_bridge_context,
+    build_aws_six_layer_domain_app,
+    build_aws_six_layer_storage_mover_context,
 )
 
 
@@ -290,7 +290,6 @@ class TestRealLambdaFunctions:
             "__pycache__",
             "processor_wrapper",
             "default-processor",
-            "five-layer-v2",  # validated as an explicit multi-handler package below
             "six-layer-domain",  # profile-local multi-handler package
         }
 
@@ -312,7 +311,7 @@ class TestRealLambdaFunctions:
             "__pycache__",
             "processor_wrapper",
             "default-processor",
-            "five-layer-v2",  # validated as an explicit multi-handler package below
+            "six-layer-domain",  # validated as an explicit multi-handler package below
         }
 
         for func_dir in lambda_functions_dir.iterdir():
@@ -384,11 +383,11 @@ class TestRealLambdaFunctions:
             except SyntaxError as e:
                 pytest.fail(f"Syntax error in {py_file.name}: {e}")
 
-    def test_five_layer_v2_multi_handler_package(self, tmp_path):
+    def test_six_layer_multi_handler_package(self, tmp_path):
         """The graph-selected v2 artifact must build the exact Lambda ZIP."""
-        packages = build_aws_v2_graph_app(tmp_path)
+        packages = build_aws_six_layer_domain_app(tmp_path)
 
-        package = packages["aws_five-layer-v2"]
+        package = packages["aws_six-layer-domain"]
         first_bytes = package.read_bytes()
         with zipfile.ZipFile(package) as archive:
             assert "handler.py" in archive.namelist()
@@ -417,12 +416,12 @@ class TestRealLambdaFunctions:
                 "raw_history_reader",
             } <= functions
 
-        build_aws_v2_graph_app(tmp_path)
+        build_aws_six_layer_domain_app(tmp_path)
         assert package.read_bytes() == first_bytes
 
-    def test_five_layer_v2_storage_mover_context_is_deterministic(self, tmp_path):
-        package = build_aws_v2_storage_mover_context(tmp_path)[
-            "aws_five-layer-v2-storage-mover"
+    def test_six_layer_storage_mover_context_is_deterministic(self, tmp_path):
+        package = build_aws_six_layer_storage_mover_context(tmp_path)[
+            "aws_six-layer-domain-storage-mover"
         ]
         first_bytes = package.read_bytes()
 
@@ -434,14 +433,12 @@ class TestRealLambdaFunctions:
                 "storage_mover.py",
             }
 
-        build_aws_v2_storage_mover_context(tmp_path)
+        build_aws_six_layer_storage_mover_context(tmp_path)
         assert package.read_bytes() == first_bytes
 
-    def test_five_layer_v2_bridge_context_is_complete_and_deterministic(
-        self, tmp_path
-    ):
-        package = build_aws_v2_bridge_context(tmp_path)[
-            "aws_five-layer-v2-bridge"
+    def test_six_layer_bridge_context_is_complete_and_deterministic(self, tmp_path):
+        package = build_aws_six_layer_bridge_context(tmp_path)[
+            "aws_six-layer-domain-bridge"
         ]
         first_bytes = package.read_bytes()
 
@@ -460,7 +457,7 @@ class TestRealLambdaFunctions:
             assert "phase8_eventing.aws.runtime.lambda_handler" in dockerfile
             assert "@sha256:224c112c" in dockerfile
 
-        build_aws_v2_bridge_context(tmp_path)
+        build_aws_six_layer_bridge_context(tmp_path)
         assert package.read_bytes() == first_bytes
 
 

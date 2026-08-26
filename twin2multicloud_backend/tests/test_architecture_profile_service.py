@@ -35,7 +35,7 @@ def _activate_profiles_used_by_transaction_tests(monkeypatch):
         "src.services.architecture_profile_service.RUNTIME_SELECTABLE_PROFILE_REFS",
         frozenset(
             {
-                ("five-layer-baseline", "1"),
+                ("six-layer-eventing", "1"),
                 ("minimal-profile", "1"),
                 ("concurrent-profile", "1"),
             }
@@ -63,7 +63,7 @@ def _twin_with_selection(db_session):
     db_session.add(twin)
     db_session.flush()
     historical = ArchitectureProfileService.get_definition(
-        "five-layer-baseline",
+        "six-layer-eventing",
         "1",
         require_active=False,
     )
@@ -95,17 +95,12 @@ def test_catalog_excludes_historical_profile_until_runtime_activation(
 
     assert profiles == []
     with pytest.raises(ArchitectureDomainError) as historical:
-        service.get_profile("five-layer-baseline", "1")
+        service.get_profile("six-layer-eventing", "1")
     assert historical.value.code == "ARCH_PROFILE_NOT_ACTIVE"
 
 
 def test_runtime_activated_catalog_returns_safe_detail(monkeypatch):
-    assert RUNTIME_SELECTABLE_PROFILE_REFS == frozenset(
-        {
-            ("five-layer-baseline", "2"),
-            ("six-layer-eventing", "1"),
-        }
-    )
+    assert RUNTIME_SELECTABLE_PROFILE_REFS == frozenset({("six-layer-eventing", "1")})
     monkeypatch.setattr(
         "src.services.architecture_profile_service.RUNTIME_SELECTABLE_PROFILE_REFS",
         RUNTIME_SELECTABLE_PROFILE_REFS,
@@ -113,41 +108,35 @@ def test_runtime_activated_catalog_returns_safe_detail(monkeypatch):
     service = ArchitectureProfileService()
 
     profiles = service.list_profiles()
-    detail = service.get_profile("five-layer-baseline", "2")
-    eventing_detail = service.get_profile("six-layer-eventing", "1")
+    detail = service.get_profile("six-layer-eventing", "1")
 
     assert [(item.profile_id, item.profile_version) for item in profiles] == [
-        ("five-layer-baseline", "2"),
         ("six-layer-eventing", "1"),
     ]
     assert detail.lifecycle_status == "active"
-    assert len(detail.responsibilities) == 5
-    assert len(detail.logical_components) == 7
-    assert len(detail.logical_edges) == 8
-    assert len(detail.visualization.nodes) == 7
-    assert len(eventing_detail.responsibilities) == 6
-    assert len(eventing_detail.logical_components) == 8
-    assert len(eventing_detail.logical_edges) == 9
-    assert len(eventing_detail.visualization.nodes) == 8
+    assert len(detail.responsibilities) == 6
+    assert len(detail.logical_components) == 8
+    assert len(detail.logical_edges) == 9
+    assert len(detail.visualization.nodes) == 8
     serialized = detail.model_dump_json()
     assert "terraform_binding" not in serialized
     assert "package_artifact" not in serialized
 
 
-def test_new_default_selection_pins_five_layer_v2():
+def test_new_default_selection_pins_six_layer():
     selection = ArchitectureProfileService.build_default_selection(
         twin_id="new-twin",
         user_id="owner",
     )
 
-    assert selection.profile_id == "five-layer-baseline"
-    assert selection.profile_version == "2"
+    assert selection.profile_id == "six-layer-eventing"
+    assert selection.profile_version == "1"
     assert (
         selection.profile_digest
         == (
             ArchitectureProfileService.get_definition(
-                "five-layer-baseline",
-                "2",
+                "six-layer-eventing",
+                "1",
             )["content_digest"]
         )
     )
@@ -157,7 +146,7 @@ def test_invalid_profile_identity_is_rejected_before_repository_access():
     with pytest.raises(ArchitectureDomainError) as invalid_id:
         ArchitectureProfileService.get_definition("../profiles", "1")
     with pytest.raises(ArchitectureDomainError) as invalid_version:
-        ArchitectureProfileService.get_definition("five-layer-baseline", "0")
+        ArchitectureProfileService.get_definition("six-layer-eventing", "0")
 
     assert invalid_id.value.code == "ARCH_PROFILE_NOT_FOUND"
     assert invalid_version.value.code == "ARCH_PROFILE_VERSION_UNSUPPORTED"
@@ -172,14 +161,14 @@ def test_unknown_and_inactive_profiles_fail_with_stable_codes(
     assert unknown.value.code == "ARCH_PROFILE_NOT_FOUND"
 
     baseline = ArchitectureProfileService.get_definition(
-        "five-layer-baseline",
+        "six-layer-eventing",
         "1",
     )
     inactive = copy.deepcopy(baseline)
     inactive["lifecycle_status"] = "deprecated"
     inactive["content_digest"] = calculate_digest(inactive)
     root = tmp_path / "definitions"
-    path = root / "profiles" / "five-layer-baseline" / "1" / "profile.json"
+    path = root / "profiles" / "six-layer-eventing" / "1" / "profile.json"
     path.parent.mkdir(parents=True)
     path.write_text(json.dumps(inactive), encoding="utf-8")
     monkeypatch.setattr(
@@ -189,7 +178,7 @@ def test_unknown_and_inactive_profiles_fail_with_stable_codes(
 
     with pytest.raises(ArchitectureDomainError) as rejected:
         ArchitectureProfileService.get_definition(
-            "five-layer-baseline",
+            "six-layer-eventing",
             "1",
         )
     assert rejected.value.code == "ARCH_PROFILE_NOT_ACTIVE"
@@ -200,7 +189,7 @@ def test_active_profile_catalog_bound_fails_closed(
     monkeypatch,
 ):
     baseline = ArchitectureProfileService.get_definition(
-        "five-layer-baseline",
+        "six-layer-eventing",
         "1",
     )
     root = tmp_path / "definitions"
@@ -252,14 +241,14 @@ def test_same_profile_preview_and_selection_are_idempotent(db_session):
     preview = service.preview_change(
         twin_id=twin.id,
         user_id=user.id,
-        profile_id="five-layer-baseline",
+        profile_id="six-layer-eventing",
         profile_version="1",
         expected_revision=1,
     )
     selected = service.select_profile(
         twin_id=twin.id,
         user_id=user.id,
-        profile_id="five-layer-baseline",
+        profile_id="six-layer-eventing",
         profile_version="1",
         expected_revision=1,
         invalidation_digest=preview.invalidation_digest,
@@ -282,7 +271,7 @@ def test_inactive_current_profile_can_be_changed_to_active_target(
     selection.profile_digest = "sha256:" + ("a" * 64)
     db_session.commit()
     baseline = ArchitectureProfileService.get_definition(
-        "five-layer-baseline",
+        "six-layer-eventing",
         "1",
     )
     retired = copy.deepcopy(baseline)
@@ -316,20 +305,20 @@ def test_inactive_current_profile_can_be_changed_to_active_target(
     preview = service.preview_change(
         twin_id=twin.id,
         user_id=user.id,
-        profile_id="five-layer-baseline",
+        profile_id="six-layer-eventing",
         profile_version="1",
         expected_revision=1,
     )
     result = service.select_profile(
         twin_id=twin.id,
         user_id=user.id,
-        profile_id="five-layer-baseline",
+        profile_id="six-layer-eventing",
         profile_version="1",
         expected_revision=1,
         invalidation_digest=preview.invalidation_digest,
     )
 
-    assert result.selection.profile_id == "five-layer-baseline"
+    assert result.selection.profile_id == "six-layer-eventing"
     assert result.revision == 2
 
 
@@ -339,7 +328,7 @@ def test_profile_change_invalidates_only_previewed_twin_state(
 ):
     user, twin = _twin_with_selection(db_session)
     baseline = ArchitectureProfileService.get_definition(
-        "five-layer-baseline",
+        "six-layer-eventing",
         "1",
     )
     target = copy.deepcopy(baseline)
@@ -430,7 +419,6 @@ def test_profile_change_invalidates_only_previewed_twin_state(
         provider="aws",
         cloud_connection_id="connection",
         connection_payload_fingerprint="fingerprint",
-        expected_permission_set_version="1",
         ready=True,
         summary="ready",
         checks_json="[]",
@@ -459,6 +447,7 @@ def test_profile_change_invalidates_only_previewed_twin_state(
     )
 
     assert [item.field_id for item in preview.incompatible_workload_fields] == [
+        "workload.eventing-scenario",
         "workload.logical-query-count",
         "workload.telemetry-update-count",
     ]
@@ -501,7 +490,7 @@ def test_stale_revision_and_digest_do_not_mutate_selection(db_session):
         service.preview_change(
             twin_id=twin.id,
             user_id=user.id,
-            profile_id="five-layer-baseline",
+            profile_id="six-layer-eventing",
             profile_version="1",
             expected_revision=2,
         )
@@ -511,7 +500,7 @@ def test_stale_revision_and_digest_do_not_mutate_selection(db_session):
         service.select_profile(
             twin_id=twin.id,
             user_id=user.id,
-            profile_id="five-layer-baseline",
+            profile_id="six-layer-eventing",
             profile_version="1",
             expected_revision=1,
             invalidation_digest="sha256:" + ("0" * 64),
@@ -568,7 +557,7 @@ def test_concurrent_profile_change_uses_database_optimistic_lock(
 ):
     user, twin = _twin_with_selection(db_session)
     baseline = ArchitectureProfileService.get_definition(
-        "five-layer-baseline",
+        "six-layer-eventing",
         "1",
     )
     target = copy.deepcopy(baseline)

@@ -17,6 +17,7 @@ CloudAuthType = Literal[
     "workload_identity",
 ]
 
+
 class CloudConnectionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -26,12 +27,6 @@ class CloudConnectionCreate(BaseModel):
     is_default_for_pricing: bool = False
     display_name: str = Field(..., min_length=1, max_length=120)
     auth_type: CloudAuthType | None = None
-    permission_set_version: str | None = Field(
-        default=None,
-        min_length=1,
-        max_length=80,
-        description="Versioned deployment permission-set baseline for this connection.",
-    )
     cloud_scope: dict[str, Any] = Field(default_factory=dict)
     aws: AWSCredentials | None = None
     azure: AzureCredentials | None = None
@@ -44,7 +39,8 @@ class CloudConnectionCreate(BaseModel):
             raise ValueError(f"{self.provider} payload is required")
 
         extra_payloads = [
-            provider for provider, provider_payload in payload.items()
+            provider
+            for provider, provider_payload in payload.items()
             if provider != self.provider and provider_payload is not None
         ]
         if extra_payloads:
@@ -56,9 +52,13 @@ class CloudConnectionCreate(BaseModel):
             "gcp": {"service_account_key"},
         }
         if self.auth_type and self.auth_type not in supported_auth_types[self.provider]:
-            raise ValueError(f"{self.auth_type} is not supported for {self.provider} Cloud Connections yet")
+            raise ValueError(
+                f"{self.auth_type} is not supported for {self.provider} Cloud Connections yet"
+            )
         if self.provider == "gcp" and self.gcp and not self.gcp.service_account_json:
-            raise ValueError("gcp service_account_json is required for service_account_key Cloud Connections")
+            raise ValueError(
+                "gcp service_account_json is required for service_account_key Cloud Connections"
+            )
         if self.provider == "aws" and self.aws:
             cloud_scope = dict(self.cloud_scope)
             configured_region = str(cloud_scope.get("region") or "").strip()
@@ -79,10 +79,10 @@ class CloudConnectionCreate(BaseModel):
         if self.purpose == "pricing":
             if self.provider == "azure":
                 raise ValueError("Azure pricing uses the public Retail Prices API")
-            if self.permission_set_version is not None:
-                raise ValueError("permission_set_version is only supported for deployment Cloud Connections")
         elif self.is_default_for_pricing:
-            raise ValueError("Only pricing Cloud Connections may be selected as pricing default")
+            raise ValueError(
+                "Only pricing Cloud Connections may be selected as pricing default"
+            )
         return self
 
 
@@ -90,7 +90,6 @@ class CloudConnectionUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     display_name: str | None = Field(default=None, min_length=1, max_length=120)
-    permission_set_version: str | None = Field(default=None, min_length=1, max_length=80)
     cloud_scope: dict[str, Any] | None = None
     is_default_for_pricing: bool | None = None
 
@@ -105,7 +104,6 @@ class CloudConnectionResponse(BaseModel):
     is_default_for_pricing: bool
     display_name: str
     auth_type: str
-    permission_set_version: str | None = None
     cloud_scope: dict[str, Any]
     payload_fingerprint: str
     payload_summary: dict[str, Any]
@@ -139,9 +137,6 @@ class CloudPreflightCheck(BaseModel):
 class CloudConnectionPreflightResponse(BaseModel):
     id: str
     provider: CloudProvider
-    expected_permission_set_version: str
-    supplied_permission_set_version: str | None = None
-    permission_set_status: Literal["matched", "missing", "outdated"]
     ready: bool
     summary: str
     checks: list[CloudPreflightCheck]

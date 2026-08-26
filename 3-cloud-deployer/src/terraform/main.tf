@@ -115,15 +115,15 @@ provider "google" {
   credentials = var.gcp_credentials_json != "" ? var.gcp_credentials_json : "{\"type\":\"service_account\",\"project_id\":\"placeholder\",\"private_key_id\":\"\",\"private_key\":\"\",\"client_email\":\"placeholder@placeholder.iam.gserviceaccount.com\",\"client_id\":\"\",\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\",\"token_uri\":\"https://oauth2.googleapis.com/token\"}"
 }
 
-# Five-layer v2 GKE workloads are applied only after the Google resources in
+# Six-layer GKE workloads are applied only after the Google resources in
 # stage 1 expose a cluster endpoint and short-lived access token.
 provider "kubernetes" {
-  host = local.gcp_v2_gke_enabled ? (
-    "https://${local.gcp_v2_gke_endpoint}"
+  host = local.gcp_six_layer_gke_enabled ? (
+    "https://${local.gcp_six_layer_gke_endpoint}"
   ) : "https://127.0.0.1"
-  token = try(data.google_client_config.gcp_v2_kubernetes[0].access_token, "")
+  token = try(data.google_client_config.gcp_six_layer_kubernetes[0].access_token, "")
   cluster_ca_certificate = try(
-    base64decode(local.gcp_v2_gke_ca_certificate),
+    base64decode(local.gcp_six_layer_gke_ca_certificate),
     "",
   )
 }
@@ -158,15 +158,7 @@ locals {
     var.architecture_profile_version == "1"
   )
 
-  # Six-layer v1 inherits the reviewed Five-layer v2 implementation foundation.
-  # Keep the established local name while the provider files are activated as
-  # an exact L1-L5 base plus a separately selected Event Layer.
-  five_layer_v2_enabled = (
-    (
-      var.architecture_profile_id == "five-layer-baseline" &&
-      var.architecture_profile_version == "2"
-    ) || local.six_layer_eventing_enabled
-  )
+  six_layer_enabled = local.six_layer_eventing_enabled
 
   # Provider-to-layer mapping for conditional deployments
   deploy_azure = contains([
@@ -180,8 +172,8 @@ locals {
     var.event_layer_provider
   ], "azure")
 
-  azure_v1_enabled = local.deploy_azure && !local.five_layer_v2_enabled
-  azure_v2_enabled = local.deploy_azure && local.five_layer_v2_enabled
+  azure_v1_enabled = false
+  azure_six_layer_enabled = local.deploy_azure && local.six_layer_enabled
 
   deploy_aws = contains([
     var.layer_1_provider,
@@ -209,8 +201,8 @@ locals {
   azure_iothub_region = var.azure_region_iothub != "" ? var.azure_region_iothub : var.azure_region
 }
 
-resource "terraform_data" "five_layer_v2_retention_guard" {
-  count = local.five_layer_v2_enabled ? 1 : 0
+resource "terraform_data" "six_layer_retention_guard" {
+  count = local.six_layer_enabled ? 1 : 0
 
   input = {
     hot_boundary_days     = var.layer_3_hot_to_cold_interval_days
@@ -225,7 +217,7 @@ resource "terraform_data" "five_layer_v2_retention_guard" {
         var.layer_3_hot_to_cold_interval_days < var.layer_3_cold_to_archive_interval_days &&
         var.layer_3_cold_to_archive_interval_days < var.layer_3_archive_expiry_interval_days
       )
-      error_message = "Five-layer v2 requires cumulative retention boundaries 0 < hot < cool < archive."
+      error_message = "Six-layer requires cumulative retention boundaries 0 < hot < cool < archive."
     }
     precondition {
       condition = (
@@ -233,24 +225,24 @@ resource "terraform_data" "five_layer_v2_retention_guard" {
         var.platform_user_first_name != "" &&
         var.platform_user_last_name != ""
       )
-      error_message = "Five-layer v2 requires the platform user identity used to provision usable L4/L5 access."
+      error_message = "Six-layer requires the platform user identity used to provision usable L4/L5 access."
     }
     precondition {
       condition = (
-        !local.azure_v2_enabled ||
+        !local.azure_six_layer_enabled ||
         (var.layer_4_provider != "azure" && var.layer_5_provider != "azure") ||
         (
           var.azure_layer_access_principal_object_id != "" &&
           var.azure_layer_access_principal_label != ""
         )
       )
-      error_message = "Five-layer v2 Azure L4/L5 requires an existing Entra principal object ID and label; create or choose the principal during the documented manual bootstrap before deployment."
+      error_message = "Six-layer Azure L4/L5 requires an existing Entra principal object ID and label; create or choose the principal as a manual cloud prerequisite before deployment."
     }
   }
 }
 
 resource "terraform_data" "phase_8_fixed_region_guard" {
-  count = local.five_layer_v2_enabled ? 1 : 0
+  count = local.six_layer_enabled ? 1 : 0
 
   input = {
     aws_region          = local.deploy_aws ? var.aws_region : null

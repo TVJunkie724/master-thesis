@@ -116,15 +116,14 @@ Errors must be captured at every layer and surfaced to the user.
 *   **Reporting:**
     *   Current operations propagate structured, bounded errors and correlation
         evidence through the Management API.
-    *   A centralized notification topic is not part of the executable
-        five-layer baseline. Adding one requires a separately reviewed
-        Eventing/error contract and complete provider/deployment support.
+    *   Event routing belongs to the independently owned Event Layer of the
+        standalone Six-layer profile and its reviewed provider/deployment contracts.
 
 ## 6. Current Architecture Program And Remaining Evaluation
 
--   **Architecture profiles:** The reviewed, versioned closed-world Five-layer
-    v2 and Six-layer v1 profiles now replace scattered fixed-layer knowledge for
-    the Phase 8 experiment.
+-   **Architecture profiles:** `six-layer-eventing@1` is the only active,
+    deployable closed-world profile. The original Five-layer calculation is an
+    Optimizer-only historical baseline.
 -   **Functional completeness:** Incomplete provider paths are rejected before
     profile-local cost ranking.
 -   **Remaining paper validation:** Phase 8.10 compares reproducible estimated

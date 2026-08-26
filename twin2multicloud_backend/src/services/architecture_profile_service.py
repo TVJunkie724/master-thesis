@@ -52,16 +52,12 @@ DEFINITIONS_ROOT = (
     / "architecture-profiles"
     / "definitions"
 )
-DEFAULT_PROFILE_ID = "five-layer-baseline"
-DEFAULT_PROFILE_VERSION = "2"
-# Runtime activation is deliberately independent from historical definitions:
-# Historical Five-layer @1 remains byte-stable/readable. Only the two reviewed
-# Phase 8 comparison targets can be selected for a new calculation.
+DEFAULT_PROFILE_ID = "six-layer-eventing"
+DEFAULT_PROFILE_VERSION = "1"
+# Six-layer is the sole profile owned by Management. Historical comparison
+# architectures remain internal to the Optimizer and are not API profiles.
 RUNTIME_SELECTABLE_PROFILE_REFS: frozenset[tuple[str, str]] = frozenset(
-    {
-        ("five-layer-baseline", "2"),
-        ("six-layer-eventing", "1"),
-    }
+    {("six-layer-eventing", "1")}
 )
 MAX_ACTIVE_PROFILE_VERSIONS = 32
 PROFILE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$")
@@ -77,6 +73,7 @@ MUTATION_REGRESS_STATES = {
     TwinState.DESTROYED,
 }
 WORKLOAD_STORAGE_KEYS: dict[str, tuple[str, ...]] = {
+    "workload.eventing-scenario": ("eventingScenarioId",),
     "workload.telemetry-update-count": (
         "numberOfDevices",
         "deviceSendingIntervalInMinutes",

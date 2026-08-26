@@ -6,7 +6,11 @@ from sqlalchemy.orm import Session
 
 from src.models.optimizer_config import OptimizerConfiguration
 from src.repositories.twin_repository import TwinRepository
-from src.schemas.optimizer_config import OptimizerConfigResponse, OptimizerParamsUpdate
+from src.schemas.optimizer_config import (
+    CheapestPathResponse,
+    OptimizerConfigResponse,
+    OptimizerParamsUpdate,
+)
 from src.services.architecture_projection_service import provider_path
 from src.services.optimizer_config_projection import (
     optimizer_config_to_response,
@@ -30,7 +34,11 @@ class OptimizerConfigurationService:
         """Return the persisted optimizer config, creating an empty one when missing."""
         twin = self._require_twin(twin_id, user_id)
         config = self._ensure_config(twin_id, twin)
-        return optimizer_config_to_response(config)
+        response = optimizer_config_to_response(config)
+        path = provider_path(twin)
+        if path:
+            response.cheapest_path = CheapestPathResponse(**path)
+        return response
 
     def update_params(
         self,

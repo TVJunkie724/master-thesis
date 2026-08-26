@@ -11,7 +11,7 @@ version: "1.1"
 - FRONTEND_ARCHITECTURE.md sections "Architecture Overview" and "Flutter Tech Stack Explained"
 - docs-site/docs/architecture/refactoring-roadmap.md
 - docs/plans/phase_08_architecture_profiles_eventing/README.md
-- docs/plans/phase_08_architecture_profiles_eventing/phase_08_10_evaluation_and_documentation.md
+- docs/plans/phase_08_architecture_profiles_eventing/README.md
 - twin2multicloud_flutter/docs/frontend_delta/ROADMAP_FRONTEND_DELTA.md
 - twin2multicloud_flutter/docs/frontend_delta/phases/PHASE_09_CROSS_CUTTING_QUALITY_GATE.md
 - twin2multicloud_flutter/docs/configuration_workspace/ROADMAP_CONFIGURATION_WORKSPACE.md
@@ -26,7 +26,7 @@ EXTRACTED: 2026-08-23 | VERSION: 1.1
 Phase 8 is complete for the credential-free, offline Thesis PoC. Its final
 frontend phase was a human visual and interaction audit, not another feature
 expansion. Before that audit, older backlog items were reconciled with the
-approved Five-layer v2, Six-layer v1, credential, deployment, and operations
+approved Six-layer, Six-layer v1, credential, deployment, and operations
 contracts. Phase 10 records the completed audit.
 
 The finalization sequence is:
@@ -56,11 +56,11 @@ The finalization sequence is:
 
 | Issue | Final decision | Reason |
 |---|---|---|
-| #6 CloudConnection credential SSOT | Complete for the application path | Flutter creates, selects, validates, binds, and deletes CloudConnections. Guided bootstrap persists only bounded deployment identities. Private one-shot operation packages are a transport format, not a second credential source. The explicit `.secrets/local/` overlay remains an optional component-diagnostic compatibility path. |
+| #6 CloudConnection credential SSOT | Reduced for the thesis PoC | Flutter creates, selects, validates, binds, and deletes CloudConnections containing externally provisioned administrator credentials. Identity creation and least-privilege derivation are excluded. Private one-shot operation packages are a transport format, not a second credential source. |
 | #33 Pricing and region freshness | Complete for the approved PoC scope | Pricing health, refresh, progress, errors, last-known-good evidence, and review are user-visible. Region catalogs are versioned optimizer inputs; provider-region selection and immutable pricing references are visible. A long-running general region-catalog refresh UI is maintenance functionality and is not required for the experiment. |
 | #34 Manual provider override | Not selected | Flutter may review complete optimizer results but must not author arbitrary provider bindings. Such an override could invalidate functional completeness, the architecture digest, resolved service selections, transfer pricing, and Terraform evidence. Comparing complete candidates remains valid; mutating one candidate does not. |
 | #40 Twin operations dashboard | Complete for the approved PoC scope | Dashboard and Twin Overview expose persisted lifecycle state, readiness/preflight, deploy/destroy, bounded logs, outputs, simulator/trace diagnostics, resolved configuration, and L4/L5 access. Continuous provider-resource monitoring is not part of the PoC. |
-| #41 Centralized error notification | Not selected | Management-owned validation, operation errors, correlation, redaction, persisted logs, and SSE recovery cover the demonstrator. Domain events in Five-layer v2 and the Six-layer Event Layer are Twin behavior, not an enterprise error-notification transport. |
+| #41 Centralized error notification | Not selected | Management-owned validation, operation errors, correlation, redaction, persisted logs, and SSE recovery cover the demonstrator. Domain events in Six-layer and the Six-layer Event Layer are Twin behavior, not an enterprise error-notification transport. |
 | #118 Resolved deployment specification | Complete offline | The selected cost model, Management persistence, operation manifest, typed Deployer projection, Terraform plan evidence, and Flutter review agree. Live provider application is owned only by #107. |
 | #111 Manual visual audit | Complete | The whole-application human quality gate passed with deterministic demo/local state and no cloud mutation; see Phase 10. |
 

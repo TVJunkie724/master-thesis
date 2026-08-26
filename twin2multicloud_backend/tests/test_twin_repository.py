@@ -16,7 +16,9 @@ def _create_user(db, email: str = "repo-owner@example.test") -> User:
     return user
 
 
-def _create_twin(db, user: User, name: str = "Factory Twin", state: TwinState = TwinState.DRAFT) -> DigitalTwin:
+def _create_twin(
+    db, user: User, name: str = "Factory Twin", state: TwinState = TwinState.DRAFT
+) -> DigitalTwin:
     twin = DigitalTwin(name=name, user_id=user.id, state=state)
     db.add(twin)
     db.commit()
@@ -68,7 +70,12 @@ def test_name_exists_for_user_is_case_insensitive_and_ignores_inactive(db_sessio
     repository = TwinRepository(db_session)
 
     assert repository.name_exists_for_user("factory twin", owner.id) is True
-    assert repository.name_exists_for_user("Factory Twin", owner.id, exclude_twin_id=twin.id) is False
+    assert (
+        repository.name_exists_for_user(
+            "Factory Twin", owner.id, exclude_twin_id=twin.id
+        )
+        is False
+    )
     assert repository.name_exists_for_user("Reusable", owner.id) is False
 
 
@@ -79,8 +86,12 @@ def test_get_with_configs_for_user_loads_related_configuration_records(db_sessio
     inactive = _create_twin(db_session, owner, "Inactive Configs", TwinState.INACTIVE)
     other_twin = _create_twin(db_session, other, "Other Configs")
     db_session.add(TwinConfiguration(twin_id=twin.id, debug_mode=True))
-    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="aws"))
-    db_session.add(DeployerConfiguration(twin_id=twin.id, deployer_digital_twin_name="factory"))
+    db_session.add(
+        OptimizerConfiguration(twin_id=twin.id, params='{"scenario":"small"}')
+    )
+    db_session.add(
+        DeployerConfiguration(twin_id=twin.id, deployer_digital_twin_name="factory")
+    )
     db_session.commit()
 
     repository = TwinRepository(db_session)
@@ -88,7 +99,7 @@ def test_get_with_configs_for_user_loads_related_configuration_records(db_sessio
 
     assert loaded is not None
     assert loaded.configuration.debug_mode is True
-    assert loaded.optimizer_config.cheapest_l1 == "aws"
+    assert loaded.optimizer_config.params == '{"scenario":"small"}'
     assert loaded.deployer_config.deployer_digital_twin_name == "factory"
     assert repository.get_with_configs_for_user(twin.id, other.id) is None
     assert repository.get_with_configs_for_user(inactive.id, owner.id) is None

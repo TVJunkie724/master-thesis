@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Any, Literal, Union
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -308,28 +308,6 @@ class ArchitectureProfileSelectionResult(BaseModel):
     deployment_readiness_state: Literal["unchanged", "invalidated"]
 
 
-class ResolvedTwinArchitectureContract(BaseModel):
-    """Typed top-level v1 resolution; nested data stays contract-owned."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    schema_version: Literal["resolved-twin-architecture.v1"]
-    resolution_id: str
-    calculation_run_id: str
-    architecture_profile_ref: PinnedArchitectureReference
-    optimization_bundle_ref: dict[str, Any]
-    provider_profile_refs: list[dict[str, Any]]
-    workload_contract_ref: PinnedArchitectureReference
-    pricing_evidence_refs: list[dict[str, Any]]
-    component_assignments: list[dict[str, Any]]
-    resolved_edges: list[dict[str, Any]]
-    extension_bindings: list[dict[str, Any]]
-    deployment_specification_ref: dict[str, Any]
-    cost_summary: dict[str, Any]
-    functional_completeness: dict[str, Any]
-    content_digest: str
-
-
 class ResolvedTwinArchitectureContractV2(BaseModel):
     """Strict public v2 resolution including typed component and edge data."""
 
@@ -353,13 +331,7 @@ class ResolvedTwinArchitectureContractV2(BaseModel):
     content_digest: str
 
 
-ResolvedTwinArchitectureDocument = Annotated[
-    Union[
-        ResolvedTwinArchitectureContract,
-        ResolvedTwinArchitectureContractV2,
-    ],
-    Field(discriminator="schema_version"),
-]
+ResolvedTwinArchitectureDocument = ResolvedTwinArchitectureContractV2
 
 
 class ResolvedArchitectureReadResponse(BaseModel):
@@ -368,11 +340,8 @@ class ResolvedArchitectureReadResponse(BaseModel):
     twin_id: str
     calculation_run_id: str
     selected_for_deployment_at: datetime | None
-    architecture_compatibility_status: Literal[
-        "ready",
-        "legacy_not_resolvable",
-    ]
-    origin: Literal["native_v1", "reconstructed_v1", "native_v2"]
+    architecture_compatibility_status: Literal["ready"]
+    origin: Literal["native_v2"]
     architecture: ResolvedTwinArchitectureDocument
 
 

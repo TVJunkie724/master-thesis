@@ -1119,7 +1119,7 @@ def _remote_landing(value: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _consume_eventing_delivery(role: str, value: Mapping[str, Any]) -> None:
-    """Run one inherited L1-L5 responsibility after Event-Layer acceptance."""
+    """Run one L1-L5 responsibility after Event-Layer acceptance."""
 
     event = core.validate_canonical_event(value)
     if role == "telemetry-processor":

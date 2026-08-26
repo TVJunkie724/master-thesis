@@ -27,12 +27,7 @@ SURFACE_MATRIX = {
     ("l5", "azure"): ("azure_managed_grafana", "azure_entra", "none"),
     ("l5", "gcp"): ("gcp_grafana_oss", "generated_viewer", "rotate"),
 }
-SUPPORTED_DEPLOYMENT_ACCESS_PROFILES = frozenset(
-    {
-        ("five-layer-baseline", "2"),
-        ("six-layer-eventing", "1"),
-    }
-)
+SUPPORTED_DEPLOYMENT_ACCESS_PROFILES = frozenset({("six-layer-eventing", "1")})
 
 
 class _ClosedModel(BaseModel):
@@ -126,8 +121,8 @@ class DeploymentAccessSurface(_ClosedModel):
 
 class DeploymentAccessEvidence(_ClosedModel):
     schema_version: Literal["deployment-access-evidence.v1"]
-    profile_id: Literal["five-layer-baseline", "six-layer-eventing"]
-    profile_version: Literal["1", "2"]
+    profile_id: Literal["six-layer-eventing"]
+    profile_version: Literal["1"]
     generated_at: datetime
     surfaces: tuple[DeploymentAccessSurface, DeploymentAccessSurface]
 
@@ -159,7 +154,9 @@ class DeploymentAccessSnapshot(_ClosedModel):
             if self.reason_code is not None or layers != ["l4", "l5"]:
                 raise ValueError("available snapshot must contain exact L4/L5 surfaces")
         elif self.reason_code is None or self.surfaces:
-            raise ValueError("unsupported snapshot must contain a reason and no surfaces")
+            raise ValueError(
+                "unsupported snapshot must contain a reason and no surfaces"
+            )
         return self
 
 

@@ -13,7 +13,6 @@ THESIS_OPTIMIZER_PORT="${THESIS_OPTIMIZER_PORT:-5003}"
 THESIS_DEPLOYER_PORT="${THESIS_DEPLOYER_PORT:-5004}"
 THESIS_MANAGEMENT_API_PORT="${THESIS_MANAGEMENT_API_PORT:-5005}"
 THESIS_LAYER_ACCESS_TEST_PORT="${THESIS_LAYER_ACCESS_TEST_PORT:-5515}"
-THESIS_SETUP_SMOKE_PORT="${THESIS_SETUP_SMOKE_PORT:-5516}"
 THESIS_DOCS_PORT="${THESIS_DOCS_PORT:-5010}"
 THESIS_API_BASE_URL="${THESIS_API_BASE_URL:-http://localhost:${THESIS_MANAGEMENT_API_PORT}}"
 THESIS_DEV_AUTH_TOKEN="${THESIS_DEV_AUTH_TOKEN:-dev-token}"
@@ -60,7 +59,6 @@ Usage:
   ./thesis.sh down
   ./thesis.sh test backend
   ./thesis.sh test frontend
-  ./thesis.sh test setup-smoke
   ./thesis.sh test frontend-integration
   ./thesis.sh test deployment-contract [--focused]
   ./thesis.sh latex [watch|once|clean|logs]
@@ -80,8 +78,6 @@ App commands:
   down               Stop app/docs containers for this compose project.
   test backend       Run Management API tests without tests/e2e.
   test frontend      Run static architecture, analysis, unit/widget, and build gates.
-  test setup-smoke   Run only the credential-free guided bootstrap flow against
-                     an isolated local Management API and ephemeral database.
   test frontend-integration
                      Run read-only Flutter contracts against credential-free
                      local containers. Requires the host desktop toolchain;
@@ -125,7 +121,6 @@ Environment:
   THESIS_MANAGEMENT_API_PORT   Host port for Management API. Default: 5005.
   THESIS_LAYER_ACCESS_TEST_PORT
                                Isolated test-only Management API port. Default: 5515.
-  THESIS_SETUP_SMOKE_PORT      Isolated setup-smoke Management API port. Default: 5516.
   THESIS_DOCS_PORT             Host port for MkDocs. Default: 5010.
   THESIS_API_BASE_URL          Flutter API URL. Default: http://localhost:${THESIS_MANAGEMENT_API_PORT}.
   THESIS_DEV_AUTH_TOKEN        Flutter dev auth token. Default: dev-token.
@@ -592,12 +587,6 @@ run_frontend_integration_tests() {
       integration_test/user_function_extension_contract_test.dart \
       -d "$host_device" \
       --dart-define-from-file=config/dev.json)
-    info "Running the guided cloud-bootstrap contract on $host_device."
-    (cd "$FLUTTER_DIR" && flutter test \
-      integration_test/guided_cloud_bootstrap_flow_test.dart \
-      -d "$host_device" \
-      --dart-define-from-file=config/dev.json)
-
     info "Starting an isolated credential-free Layer Access fixture API."
     compose_cmd run -d --rm --no-deps \
       --name "$layer_access_container" \
@@ -624,14 +613,6 @@ run_frontend_integration_tests() {
       fail "A one-time Layer Access test credential was found in persistence."
     fi
 
-    local bootstrap_sentinel="phase8-submitted-bootstrap-secret-never-persist"
-    if compose_cmd logs management-api 2>&1 | grep -Fq "$bootstrap_sentinel"; then
-      fail "Guided bootstrap submitted secret was found in Management API logs."
-    fi
-    if compose_cmd exec -T management-api sh -c \
-      "grep -aFq '$bootstrap_sentinel' /app/data/app.db /app/data/app.db-wal /app/data/app.db-shm 2>/dev/null"; then
-      fail "Guided bootstrap submitted secret was found in Management persistence."
-    fi
   )
   integration_status=$?
   set -e
@@ -654,65 +635,6 @@ run_frontend_integration_tests() {
   return "$integration_status"
 }
 
-run_setup_smoke_tests() {
-  require_docker
-  require_flutter
-  [ "$WITH_CREDENTIALS" -eq 0 ] ||
-    fail "Setup smoke must run without cloud credential overlays."
-
-  bootstrap_local_runtime_secrets
-  local container="${THESIS_COMPOSE_PROJECT}-setup-smoke-$$"
-  local smoke_status
-  set +e
-  (
-    set -e
-    info "Starting an isolated credential-free guided-bootstrap API."
-    compose_cmd run -d --rm --no-deps \
-      --name "$container" \
-      -p "127.0.0.1:${THESIS_SETUP_SMOKE_PORT}:5005" \
-      -e "DATABASE_URL=sqlite:////tmp/setup-smoke.db" \
-      -e "CLOUD_BOOTSTRAP_ADAPTER_MODE=deterministic_fake" \
-      -e "ENABLE_TEST_ENDPOINTS=false" \
-      -e "CREDENTIAL_RATE_LIMIT_ENABLED=false" \
-      -e "AUTH_RATE_LIMIT_ENABLED=false" \
-      management-api >/dev/null
-    wait_for_url \
-      "Guided bootstrap fixture API" \
-      "http://127.0.0.1:${THESIS_SETUP_SMOKE_PORT}/health"
-
-    local host_device
-    host_device="$(resolve_host_desktop_device)" || exit $?
-    info "Running only the guided cloud-bootstrap contract on $host_device."
-    (cd "$FLUTTER_DIR" && flutter test \
-      integration_test/guided_cloud_bootstrap_flow_test.dart \
-      -d "$host_device" \
-      --dart-define="APP_MODE=development" \
-      --dart-define="API_BASE_URL=http://127.0.0.1:${THESIS_SETUP_SMOKE_PORT}" \
-      --dart-define="DEV_AUTH_TOKEN=${THESIS_DEV_AUTH_TOKEN}")
-
-    local bootstrap_sentinel="phase8-submitted-bootstrap-secret-never-persist"
-    if docker_cmd logs "$container" 2>&1 | grep -Fq "$bootstrap_sentinel"; then
-      fail "Guided bootstrap submitted secret was found in setup-smoke logs."
-    fi
-    if docker_cmd exec "$container" sh -c \
-      "grep -aFq '$bootstrap_sentinel' /tmp/setup-smoke.db /tmp/setup-smoke.db-wal /tmp/setup-smoke.db-shm 2>/dev/null"; then
-      fail "Guided bootstrap submitted secret was found in setup-smoke persistence."
-    fi
-    local remaining_connections
-    remaining_connections="$(docker_cmd exec "$container" python -c \
-      "import sqlite3; connection = sqlite3.connect('/tmp/setup-smoke.db'); print(connection.execute('SELECT COUNT(*) FROM cloud_connections').fetchone()[0])")"
-    [ "$remaining_connections" = "0" ] ||
-      fail "Setup smoke left $remaining_connections generated CloudConnection row(s) behind."
-  )
-  smoke_status=$?
-  set -e
-
-  if docker_cmd inspect "$container" >/dev/null 2>&1; then
-    info "Stopping the isolated guided-bootstrap API."
-    docker_cmd stop "$container" >/dev/null || true
-  fi
-  return "$smoke_status"
-}
 
 run_deployment_contract_tests() {
   ensure_python_command
@@ -826,10 +748,6 @@ main() {
         frontend)
           [ "$#" -eq 0 ] || fail "Unknown option for test $target: $1"
           run_frontend_tests
-          ;;
-        setup-smoke)
-          [ "$#" -eq 0 ] || fail "Unknown option for test $target: $1"
-          run_setup_smoke_tests
           ;;
         frontend-integration)
           [ "$#" -eq 0 ] || fail "Unknown option for test $target: $1"

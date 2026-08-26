@@ -10,13 +10,13 @@ from pydantic import ValidationError as PydanticValidationError
 
 from src.models.cloud_connection import CloudConnection
 from src.models.deployment_preflight import DeploymentPreflightCache
-from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin, TwinState
 from src.models.twin_config import TwinConfiguration
 from src.models.user import User
 from src.schemas.cloud_connection import CloudConnectionCreate
 from src.schemas.deployment_readiness import DeploymentReadinessResponse
 from src.services.cloud_connection_service import CloudConnectionService
+from src.services.credential_resolution_service import CredentialResolutionService
 from src.services.deployment_readiness_service import DeploymentReadinessService
 from src.services.service_errors import EntityNotFoundError, ValidationError
 
@@ -24,6 +24,17 @@ from src.services.service_errors import EntityNotFoundError, ValidationError
 _AWS_SECRET = "aws-secret-value-for-redaction"
 _AZURE_SECRET = "azure-secret-value-for-redaction"
 _GCP_SECRET = "gcp-private-key-value-for-redaction"
+_EXPECTED_PROVIDERS: dict[str, set[str]] = {}
+
+
+@pytest.fixture(autouse=True)
+def _selected_architecture_provider_projection(monkeypatch):
+    _EXPECTED_PROVIDERS.clear()
+    monkeypatch.setattr(
+        CredentialResolutionService,
+        "required_providers_from_architecture",
+        staticmethod(lambda twin: set(_EXPECTED_PROVIDERS.get(twin.id, set()))),
+    )
 
 
 def _create_user(db, email: str = "readiness@example.test") -> User:
@@ -37,17 +48,13 @@ def _create_user(db, email: str = "readiness@example.test") -> User:
 def _connection_request(
     provider: str,
     *,
-    permission_set_version: str | None = "thesis-demo-v2",
     purpose: str = "deployment",
 ) -> CloudConnectionCreate:
     common = {
         "provider": provider,
         "purpose": purpose,
         "display_name": f"{provider.upper()} deployment",
-        "permission_set_version": permission_set_version,
     }
-    if purpose == "pricing":
-        common.pop("permission_set_version")
     if provider == "aws":
         common["aws"] = {
             "access_key_id": "AKIAREADINESSFIXTURE",
@@ -86,7 +93,6 @@ def _create_twin(
     user: User,
     providers: tuple[str, ...],
     *,
-    permission_versions: dict[str, str | None] | None = None,
     purposes: dict[str, str] | None = None,
 ) -> tuple[DigitalTwin, dict[str, CloudConnection]]:
     twin = DigitalTwin(
@@ -96,14 +102,8 @@ def _create_twin(
     )
     db.add(twin)
     db.flush()
+    _EXPECTED_PROVIDERS[twin.id] = set(providers)
 
-    path = {
-        "cheapest_l1": providers[0] if providers else None,
-        "cheapest_l2": providers[1] if len(providers) > 1 else None,
-        "cheapest_l3_hot": providers[2] if len(providers) > 2 else None,
-        "cheapest_l3_cool": providers[0] if providers else None,
-    }
-    db.add(OptimizerConfiguration(twin_id=twin.id, **path))
     config = TwinConfiguration(twin_id=twin.id)
     db.add(config)
     db.commit()
@@ -115,10 +115,6 @@ def _create_twin(
             user.id,
             _connection_request(
                 provider,
-                permission_set_version=(permission_versions or {}).get(
-                    provider,
-                    "thesis-demo-v2",
-                ),
                 purpose=(purposes or {}).get(provider, "deployment"),
             ),
         )
@@ -178,9 +174,6 @@ def test_readiness_contract_rejects_inconsistent_or_empty_provider_evidence():
                 "ready": True,
                 "status": "ready",
                 "summary": "Ready",
-                "expected_permission_set_version": "thesis-demo-v2",
-                "supplied_permission_set_version": "thesis-demo-v2",
-                "permission_set_status": "matched",
                 "checked_at": "2026-07-14T09:00:00Z",
                 "checks": [
                     {
@@ -216,7 +209,9 @@ def test_readiness_contract_rejects_inconsistent_or_empty_provider_evidence():
 
 
 @pytest.mark.asyncio
-async def test_three_provider_preflight_is_deterministic_cached_and_secret_free(db_session):
+async def test_three_provider_preflight_is_deterministic_cached_and_secret_free(
+    db_session,
+):
     user = _create_user(db_session)
     twin, _ = _create_twin(db_session, user, ("gcp", "aws", "azure"))
     calls = []
@@ -236,15 +231,24 @@ async def test_three_provider_preflight_is_deterministic_cached_and_secret_free(
     assert preflight.schema_version == "deployment-preflight.v1"
     assert preflight.ready is True
     assert preflight.required_providers == ["aws", "azure", "gcp"]
-    assert [provider.provider for provider in preflight.providers] == ["aws", "azure", "gcp"]
+    assert [provider.provider for provider in preflight.providers] == [
+        "aws",
+        "azure",
+        "gcp",
+    ]
     assert sorted(calls) == ["aws", "azure", "gcp"]
     assert cached.ready is True
-    assert db_session.query(DeploymentPreflightCache).filter_by(twin_id=twin.id).count() == 3
+    assert (
+        db_session.query(DeploymentPreflightCache).filter_by(twin_id=twin.id).count()
+        == 3
+    )
 
     serialized = preflight.model_dump_json()
     persisted = " ".join(
         entry.checks_json
-        for entry in db_session.query(DeploymentPreflightCache).filter_by(twin_id=twin.id)
+        for entry in db_session.query(DeploymentPreflightCache).filter_by(
+            twin_id=twin.id
+        )
     )
     for secret in (_AWS_SECRET, _AZURE_SECRET, _GCP_SECRET):
         assert secret not in serialized
@@ -256,7 +260,9 @@ async def test_secret_echo_from_validator_is_redacted_in_response_and_cache(db_s
     user = _create_user(db_session)
     twin, _ = _create_twin(db_session, user, ("aws",))
 
-    async def leaking_validator(provider, _optimizer_credentials, _deployer_credentials):
+    async def leaking_validator(
+        provider, _optimizer_credentials, _deployer_credentials
+    ):
         return {
             "provider": provider,
             "valid": False,
@@ -277,7 +283,7 @@ async def test_secret_echo_from_validator_is_redacted_in_response_and_cache(db_s
 
 
 @pytest.mark.asyncio
-async def test_missing_wrong_purpose_and_outdated_connections_fail_closed(db_session):
+async def test_missing_and_wrong_purpose_connections_fail_closed(db_session):
     user = _create_user(db_session)
 
     missing_twin, _ = _create_twin(db_session, user, ("aws",))
@@ -288,30 +294,23 @@ async def test_missing_wrong_purpose_and_outdated_connections_fail_closed(db_ses
         ("aws",),
         purposes={"aws": "pricing"},
     )
-    outdated_twin, _ = _create_twin(
-        db_session,
-        user,
-        ("aws",),
-        permission_versions={"aws": "legacy-v0"},
-    )
     db_session.commit()
     calls = []
 
     async def validator(provider, optimizer_credentials, deployer_credentials):
         calls.append(provider)
-        return await _successful_validator(provider, optimizer_credentials, deployer_credentials)
+        return await _successful_validator(
+            provider, optimizer_credentials, deployer_credentials
+        )
 
     service = DeploymentReadinessService(db_session, validator=validator)
     missing = await service.run_preflight(missing_twin.id, user.id)
     wrong = await service.run_preflight(wrong_twin.id, user.id)
-    outdated = await service.run_preflight(outdated_twin.id, user.id)
 
     assert missing.providers[0].checks[0].code == "CLOUD_CONNECTION_MISSING"
     assert wrong.providers[0].checks[0].code == "CLOUD_CONNECTION_PURPOSE_INVALID"
-    assert outdated.providers[0].permission_set_status == "outdated"
-    assert outdated.providers[0].checks[0].code == "OUTDATED_PERMISSION_SET"
-    assert missing.ready is wrong.ready is outdated.ready is False
-    assert calls == ["aws"]
+    assert missing.ready is wrong.ready is False
+    assert calls == []
 
 
 @pytest.mark.asyncio
@@ -352,7 +351,9 @@ async def test_binding_change_during_preflight_discards_result(db_session):
     async def changing_validator(provider, optimizer_credentials, deployer_credentials):
         twin.configuration.aws_cloud_connection_id = None
         db_session.commit()
-        return await _successful_validator(provider, optimizer_credentials, deployer_credentials)
+        return await _successful_validator(
+            provider, optimizer_credentials, deployer_credentials
+        )
 
     response = await DeploymentReadinessService(
         db_session,
@@ -362,7 +363,10 @@ async def test_binding_change_during_preflight_discards_result(db_session):
     assert response.ready is False
     assert response.providers[0].status == "stale"
     assert response.providers[0].checks[0].code == "CONNECTION_CHANGED_DURING_PREFLIGHT"
-    assert db_session.query(DeploymentPreflightCache).filter_by(twin_id=twin.id).count() == 0
+    assert (
+        db_session.query(DeploymentPreflightCache).filter_by(twin_id=twin.id).count()
+        == 0
+    )
 
 
 def test_missing_architecture_and_owner_mismatch_fail_closed(db_session):
@@ -411,7 +415,9 @@ def test_readiness_routes_are_owner_scoped_and_cached(authenticated_client, db_s
     assert missing.status_code == 404
 
 
-def test_preflight_route_delegates_to_owner_scoped_service(auth_client, test_twin, monkeypatch):
+def test_preflight_route_delegates_to_owner_scoped_service(
+    auth_client, test_twin, monkeypatch
+):
     calls = []
 
     class FakeReadinessService:

@@ -19,7 +19,6 @@ def _aws_connection_request():
     return {
         "provider": "aws",
         "display_name": "AWS Deployment",
-        "permission_set_version": "thesis-demo-v1",
         "cloud_scope": {"account_id": "123456789012", "region": "eu-central-1"},
         "aws": {
             "access_key_id": "TEST_ACCESS_KEY_ID",
@@ -84,7 +83,10 @@ def test_pricing_health_returns_dashboard_ready_provider_cards(authenticated_cli
     gcp = body["providers"]["gcp"]
     assert gcp["state"] == "review_required"
     assert gcp["severity"] == "warning"
-    assert gcp["primary_message"] == "Pricing refresh requires a user-scoped pricing credential."
+    assert (
+        gcp["primary_message"]
+        == "Pricing refresh requires a user-scoped pricing credential."
+    )
 
 
 def test_pricing_health_ignores_legacy_snapshot_timestamp(auth_client, test_twin, db):

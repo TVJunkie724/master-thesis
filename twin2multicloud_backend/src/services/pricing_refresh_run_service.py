@@ -222,13 +222,9 @@ class PricingRefreshRunService:
             raise PricingRefreshRequestError(
                 "Selected CloudConnection provider does not match the requested pricing provider."
             )
-        if connection.purpose != "pricing":
-            raise PricingRefreshRequestError(
-                "Selected CloudConnection is not configured for pricing access."
-            )
         if connection.validation_status != "valid":
             raise PricingRefreshRequestError(
-                "Selected pricing CloudConnection must be validated before refresh."
+                "Selected CloudConnection must be validated before refresh."
             )
         return connection
 
@@ -247,11 +243,15 @@ class PricingRefreshRunService:
         cloud_scope = _json_loads(connection.cloud_scope if connection else None) or {}
         return PricingRefreshCredentialSummary(
             connection_id=connection.id if connection else None,
-            identity_label=connection.display_name if connection else f"{provider.upper()} pricing access",
+            identity_label=connection.display_name
+            if connection
+            else f"{provider.upper()} pricing access",
             scope="user",
             provider_account_id=_string_or_none(cloud_scope.get("account_id")),
             provider_project_id=_string_or_none(cloud_scope.get("project_id")),
-            provider_subscription_id=_string_or_none(cloud_scope.get("subscription_id")),
+            provider_subscription_id=_string_or_none(
+                cloud_scope.get("subscription_id")
+            ),
         )
 
     def _optimizer_payload(
@@ -265,12 +265,12 @@ class PricingRefreshRunService:
         if connection is None:
             raise PricingRefreshRequestError("Pricing CloudConnection is required.")
 
-        payload = self.cloud_connections.build_optimizer_credentials(connection, user_id)
+        payload = self.cloud_connections.build_optimizer_credentials(
+            connection, user_id
+        )
         if provider == "aws":
             cloud_scope = _json_loads(connection.cloud_scope) or {}
-            configured_account_id = _string_or_none(
-                cloud_scope.get("account_id")
-            )
+            configured_account_id = _string_or_none(cloud_scope.get("account_id"))
             if configured_account_id:
                 payload["aws_configured_account_id"] = configured_account_id
             return payload
@@ -302,14 +302,10 @@ def _safe_result_summary(value: Any) -> dict[str, Any] | None:
         return None
     result: dict[str, Any] = {}
     prioritized_items = [
-        (key, value[key])
-        for key in PRIORITIZED_RESULT_KEYS
-        if key in value
+        (key, value[key]) for key in PRIORITIZED_RESULT_KEYS if key in value
     ]
     prioritized_items.extend(
-        (key, raw)
-        for key, raw in value.items()
-        if key not in PRIORITIZED_RESULT_KEYS
+        (key, raw) for key, raw in value.items() if key not in PRIORITIZED_RESULT_KEYS
     )
     for key, raw in prioritized_items[:MAX_RESULT_SUMMARY_ITEMS]:
         if _is_sensitive_key(str(key)):

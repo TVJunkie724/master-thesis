@@ -47,7 +47,7 @@ class OptimizationResultData extends Equatable {
     );
   }
 
-  bool get isNativeFiveLayerV2 =>
+  bool get isNativeSixLayer =>
       resolvedArchitecture?.schemaVersion ==
       ResolvedTwinArchitecture.v2SchemaVersion;
 
@@ -88,7 +88,7 @@ class OptimizerRunData extends Equatable {
     final result = OptimizationResultData.fromPayload(
       JsonContract.requiredObject(json, 'result_summary'),
     );
-    if (!result.isNativeFiveLayerV2 &&
+    if (!result.isNativeSixLayer &&
         (result.result.transferPricingContext == null ||
             result.result.optimizationDiagnostics == null)) {
       throw const FormatException(
@@ -126,7 +126,7 @@ class OptimizerRunData extends Equatable {
       );
     }
     final architecture = result.resolvedArchitecture;
-    if (result.isNativeFiveLayerV2) {
+    if (result.isNativeSixLayer) {
       final specification = deploymentRun.specification;
       if (architecture == null ||
           architecture.calculationRunId != id ||

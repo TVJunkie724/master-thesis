@@ -68,8 +68,6 @@ deployment operations.
 - Flutter DTO readiness matrix.
 - Backend gaps classified as feature requests or bugs.
 - Compatibility rule for legacy drafts and CloudConnection-only twins.
-- Implementation plan and audit:
-  [2026-06-17_frontend_delta_phase_01_contract_baseline.md](../../../implementation_plans/2026-06-17_frontend_delta_phase_01_contract_baseline.md)
 
 ## Required Contract Decisions
 
@@ -82,14 +80,14 @@ implementation starts:
 | Pricing trace shape | How are intent, provider query scope, candidate rows, rejected rows, selected row, hard checks, normalization, AI suggestion, and reviewed decision linked? |
 | Pricing trace safety | Which raw provider fields are safe to display in a collapsed debug/evidence panel? |
 | Simulator tests | Which Twin Overview action starts a simulator/test message run, and which route returns status/log output? |
-| Preflight | Which route returns deployment credential readiness, permission-set status, and remediation actions? |
+| Preflight | Which route returns validation status for the externally provisioned admin connection and remediation actions? |
 | Legacy drafts | Which fields are accepted only for read/migration compatibility and which fields must not be written by new Flutter saves? |
 
 ## Acceptance Criteria
 
 - All future Flutter phases reference typed Management API contracts.
 - Required fields are explicitly listed, including credential purpose, scope,
-  identity label, account/project/subscription, permission-set status, pricing
+  identity label, account/project/subscription, validation status, pricing
   freshness, review state, selected candidate metadata, pricing trace metadata,
   and simulator/test operation state.
 - No contract returns secret values, local file paths, or admin credentials.

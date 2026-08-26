@@ -12,7 +12,6 @@
     "provider",
     "lifecycle_status",
     "region_policy_ref",
-    "permission_set_ref",
     "supported",
     "component_mappings",
     "edge_mappings",
@@ -46,9 +45,6 @@
       ]
     },
     "region_policy_ref": {
-      "$ref": "semantic-registry.schema.json#/$defs/versioned_ref"
-    },
-    "permission_set_ref": {
       "$ref": "semantic-registry.schema.json#/$defs/versioned_ref"
     },
     "supported": {

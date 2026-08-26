@@ -12,7 +12,6 @@ from src.api.routes import (
     auth,
     architecture_profiles,
     cloud_access,
-    cloud_bootstrap,
     cloud_connections,
     credential_security_events,
     health,
@@ -21,7 +20,10 @@ from src.api.routes import (
     twins,
     user_function_extensions,
 )
-from src.api.routes.config import router as config_router, inline_router as config_inline_router
+from src.api.routes.config import (
+    router as config_router,
+    inline_router as config_inline_router,
+)
 from src.api.routes.optimizer import router as optimizer_router
 from src.api.routes.optimizer_config import router as optimizer_config_router
 from src.api.routes.optimizer_runs import router as optimizer_runs_router
@@ -48,7 +50,6 @@ from src.security.user_function_rate_limit import (
 )
 from src.services.auth_flow_service import AuthFlowError
 from src.services.architecture_errors import ArchitectureDomainError
-from src.services.cloud_bootstrap_errors import CloudBootstrapDomainError
 
 initialize_database_schema(engine, settings.DATABASE_URL)
 
@@ -62,6 +63,7 @@ async def lifespan(app: FastAPI):
     start_reaper()
     if settings.SEED_DATA:
         from scripts.seed_twins import seed_if_needed
+
         await seed_if_needed()
     yield
 
@@ -101,41 +103,11 @@ async def architecture_domain_error_handler(
     )
 
 
-@app.exception_handler(CloudBootstrapDomainError)
-async def cloud_bootstrap_domain_error_handler(
-    _request: Request,
-    exc: CloudBootstrapDomainError,
-) -> JSONResponse:
-    return JSONResponse(
-        status_code=exc.http_status,
-        content={
-            "error_code": exc.code,
-            "message": exc.message,
-            "fix_suggestion": exc.fix_suggestion,
-            "http_status": exc.http_status,
-            "request_id": current_request_id(),
-        },
-    )
-
-
 @app.exception_handler(RequestValidationError)
 async def request_validation_error_handler(
     request: Request,
     exc: RequestValidationError,
 ):
-    if request.url.path.startswith("/cloud-bootstrap/sessions/") and request.url.path.endswith(
-        "/execute"
-    ):
-        return JSONResponse(
-            status_code=422,
-            content={
-                "error_code": "BOOTSTRAP_CREDENTIAL_INVALID",
-                "message": "The bootstrap execute request is invalid.",
-                "fix_suggestion": "Review the provider guide and re-enter every required field.",
-                "http_status": 422,
-                "request_id": current_request_id(),
-            },
-        )
     return await request_validation_exception_handler(request, exc)
 
 
@@ -176,7 +148,9 @@ async def credential_security_unavailable_handler(
 
 
 @app.exception_handler(AuthFlowError)
-async def auth_flow_error_handler(_request: Request, exc: AuthFlowError) -> JSONResponse:
+async def auth_flow_error_handler(
+    _request: Request, exc: AuthFlowError
+) -> JSONResponse:
     return JSONResponse(
         status_code=exc.http_status,
         content={
@@ -258,6 +232,7 @@ async def user_function_security_unavailable_handler(
         },
     )
 
+
 # CORS
 # In DEBUG mode Flutter Web picks a random localhost port per session, so
 # we accept any localhost/127.0.0.1 origin via a regex. In production we
@@ -287,7 +262,6 @@ app.include_router(twin_operations.router)
 app.include_router(health.router)
 app.include_router(cloud_connections.router)
 app.include_router(credential_security_events.router)
-app.include_router(cloud_bootstrap.router)
 app.include_router(cloud_access.router)
 app.include_router(provider_capabilities.router)
 app.include_router(config_router)
@@ -303,7 +277,9 @@ app.include_router(sse_router)
 app.include_router(user_function_extensions.router)
 if settings.ENABLE_TEST_ENDPOINTS:
     from src.api.routes.test_endpoints import router as test_endpoints_router
+
     app.include_router(test_endpoints_router)
+
 
 @app.get("/")
 async def root():

@@ -23,7 +23,7 @@ CONTRACT_BUNDLE_ROOT = (
     / "generated"
     / "architecture-profiles"
 )
-CONTRACT_ROOT = CONTRACT_BUNDLE_ROOT / "v1"
+CONTRACT_ROOT = CONTRACT_BUNDLE_ROOT / "v2"
 
 
 def _load_runtime(version: str) -> ModuleType:
@@ -42,8 +42,8 @@ def _load_runtime(version: str) -> ModuleType:
     return module
 
 
-_runtimes = {version: _load_runtime(version) for version in ("v1", "v2")}
-ValidatedContract = _runtimes["v1"].ValidatedContract
+_runtime = _load_runtime("v2")
+ValidatedContract = _runtime.ValidatedContract
 
 
 class ContractError(ValueError):
@@ -53,19 +53,6 @@ class ContractError(ValueError):
         super().__init__(message.replace("\n", " ")[:400])
         self.code = code
         self.path = path[:240]
-
-
-def _version(document: Mapping[str, Any]) -> str:
-    schema_version = str(document.get("schema_version", ""))
-    if (
-        schema_version == "architecture-profile.v2"
-        and str(document.get("profile_id", "")) == "five-layer-baseline"
-        and str(document.get("profile_version", "")) == "1"
-    ):
-        return "v1"
-    if schema_version.endswith(".v2"):
-        return "v2"
-    return "v1"
 
 
 def _translate(exc: Exception) -> ContractError:
@@ -79,20 +66,19 @@ def _translate(exc: Exception) -> ContractError:
 def calculate_digest(document: Mapping[str, Any]) -> str:
     """Calculate an architecture digest with its matching runtime."""
 
-    return str(_runtimes[_version(document)].calculate_digest(document))
+    return str(_runtime.calculate_digest(document))
 
 
 def calculate_resolution_id(document: Mapping[str, Any]) -> str:
     """Calculate a resolution ID with its matching runtime."""
 
-    return str(_runtimes[_version(document)].calculate_resolution_id(document))
+    return str(_runtime.calculate_resolution_id(document))
 
 
 def canonical_json(value: object) -> str:
-    """Use v2 set semantics for v2 documents and v1 JSON otherwise."""
+    """Use the active v2 contract's canonical set semantics."""
 
-    version = _version(value) if isinstance(value, Mapping) else "v1"
-    return str(_runtimes[version].canonical_json(value))
+    return str(_runtime.canonical_json(value))
 
 
 class ArchitectureContractReadModel(RootModel[dict[str, Any]]):
@@ -113,18 +99,16 @@ class ArchitectureContractService:
         correlation_id: str | None = None,
     ) -> Any:
         typed = ArchitectureContractReadModel.model_validate(dict(document))
-        version = _version(typed.root)
-        runtime = _runtimes[version]
-        linked = tuple(item for item in linked_documents if _version(item) == version)
+        linked = tuple(linked_documents)
         try:
-            return runtime.validate_document(
+            return _runtime.validate_document(
                 typed.root,
-                bundle_root=CONTRACT_BUNDLE_ROOT / version,
+                bundle_root=CONTRACT_ROOT,
                 linked_documents=linked,
                 logger=logger,
                 correlation_id=correlation_id,
             )
-        except runtime.ContractError as exc:
+        except _runtime.ContractError as exc:
             raise _translate(exc) from exc
 
     @staticmethod
@@ -157,19 +141,7 @@ class ArchitectureContractService:
             ArchitectureContractReadModel.model_validate(dict(document)).root
             for document in documents
         )
-        validated: list[Any] = []
-        for version in ("v1", "v2"):
-            selected = tuple(item for item in typed if _version(item) == version)
-            if not selected:
-                continue
-            runtime = _runtimes[version]
-            try:
-                validated.extend(
-                    runtime.validate_bundle(
-                        selected,
-                        bundle_root=CONTRACT_BUNDLE_ROOT / version,
-                    )
-                )
-            except runtime.ContractError as exc:
-                raise _translate(exc) from exc
-        return tuple(validated)
+        try:
+            return tuple(_runtime.validate_bundle(typed, bundle_root=CONTRACT_ROOT))
+        except _runtime.ContractError as exc:
+            raise _translate(exc) from exc

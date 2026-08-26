@@ -19,7 +19,6 @@ from src.schemas.cloud_access import (
     CloudAccessProviderInventory,
     CloudAccessStatus,
 )
-from src.services.permission_sets import compare_permission_set_version
 
 
 SUPPORTED_PROVIDERS: tuple[CloudAccessProvider, ...] = ("aws", "azure", "gcp")
@@ -48,12 +47,14 @@ class CloudAccessInventoryService:
                 pricing_options=[
                     self._pricing_connection_entry(connection)
                     for connection in connections
-                    if connection.provider == provider and connection.purpose == "pricing"
+                    if connection.provider == provider
+                    and connection.purpose == "pricing"
                 ],
                 deployment=[
                     self._deployment_entry(connection, bindings.get(connection.id))
                     for connection in connections
-                    if connection.provider == provider and connection.purpose == "deployment"
+                    if connection.provider == provider
+                    and connection.purpose == "deployment"
                 ],
             )
             for provider in SUPPORTED_PROVIDERS
@@ -144,7 +145,9 @@ class CloudAccessInventoryService:
             identity_label=f"{provider.upper()} pricing access not configured",
             status="missing",
             is_default_for_pricing=False,
-            actions=["select_pricing_default"] if has_options else ["create_pricing_connection"],
+            actions=["select_pricing_default"]
+            if has_options
+            else ["create_pricing_connection"],
             primary_message=(
                 "Select a stored pricing credential before refreshing prices."
                 if has_options
@@ -152,7 +155,9 @@ class CloudAccessInventoryService:
             ),
         )
 
-    def _pricing_connection_entry(self, connection: CloudConnection) -> CloudAccessEntry:
+    def _pricing_connection_entry(
+        self, connection: CloudConnection
+    ) -> CloudAccessEntry:
         provider = _provider(connection.provider)
         cloud_scope = _safe_json_object(connection.cloud_scope)
         status = _status_from_validation(connection.validation_status)
@@ -174,11 +179,12 @@ class CloudAccessInventoryService:
             status=status,
             provider_account_id=_string_or_none(cloud_scope.get("account_id")),
             provider_project_id=_string_or_none(cloud_scope.get("project_id")),
-            provider_subscription_id=_string_or_none(cloud_scope.get("subscription_id")),
+            provider_subscription_id=_string_or_none(
+                cloud_scope.get("subscription_id")
+            ),
             is_default_for_pricing=bool(connection.is_default_for_pricing),
             last_validated_at=connection.last_validated_at,
             last_used_at=connection.last_used_at,
-            permission_set_status=None,
             actions=actions,
             primary_message=_pricing_message(connection),
         )
@@ -190,11 +196,6 @@ class CloudAccessInventoryService:
     ) -> CloudAccessEntry:
         provider = _provider(connection.provider)
         cloud_scope = _safe_json_object(connection.cloud_scope)
-        permission_set = compare_permission_set_version(
-            provider,
-            connection.permission_set_version,
-        )
-
         return CloudAccessEntry(
             connection_id=connection.id,
             provider=provider,
@@ -204,14 +205,15 @@ class CloudAccessInventoryService:
             status=_status_from_validation(connection.validation_status),
             provider_account_id=_string_or_none(cloud_scope.get("account_id")),
             provider_project_id=_string_or_none(cloud_scope.get("project_id")),
-            provider_subscription_id=_string_or_none(cloud_scope.get("subscription_id")),
+            provider_subscription_id=_string_or_none(
+                cloud_scope.get("subscription_id")
+            ),
             is_default_for_pricing=False,
             last_validated_at=connection.last_validated_at,
-            permission_set_status=permission_set.status,
             bound_twin_count=binding.count if binding else 0,
             bound_twin_labels=binding.labels if binding else [],
             actions=_deployment_actions(connection.validation_status, binding),
-            primary_message=_deployment_message(connection, binding, permission_set.status),
+            primary_message=_deployment_message(connection, binding),
         )
 
 
@@ -256,10 +258,7 @@ def _deployment_actions(
 def _deployment_message(
     connection: CloudConnection,
     binding: ConnectionBindingSummary | None,
-    permission_set_status: str,
 ) -> str:
-    if permission_set_status != "matched":
-        return "Deployment permission set needs review before use."
     if connection.validation_status == "valid":
         if binding and binding.count > 0:
             return "Deployment access is valid and bound to one or more twins."

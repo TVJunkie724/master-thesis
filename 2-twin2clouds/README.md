@@ -46,15 +46,11 @@ The canonical layer model is:
 | L4 | Twin management |
 | L5 | Visualization |
 
-The historical `five-layer-baseline@1` has no complete GCP L4/L5 realization
-and therefore remains read-only. The active `five-layer-baseline@2` instead
-uses the reviewed provider-hosted GCP Twin API and Grafana-on-GKE bundle; any
-missing capability or supervised capacity evidence still fails closed and is
-never represented as a zero-cost deployable alternative.
-The separately active `six-layer-eventing@1` inherits that exact L1-L5 base and
-adds an independently placed Eventing component. The Optimizer ranks candidates
-inside one profile only; it never chooses a universal winner across Five- and
-Six-layer scopes.
+The historical `five-layer-baseline@1` remains an Optimizer-only reproduction.
+The standalone `six-layer-eventing@1` uses the reviewed complete AWS, Azure,
+and provider-hosted GCP bundles plus an independently placed Eventing
+component. Missing capability or supervised capacity evidence fails closed and
+is never represented as a zero-cost deployable alternative.
 
 ## Start
 
@@ -157,19 +153,18 @@ complete immutable `extensionBindings` set. The Optimizer:
    cost ranking;
 4. ranks only admissible complete paths with exact decimal totals and a
    canonical tie-break key;
-5. emits one contract-validated resolved architecture linked to the matching
-   deployment specification: RTA v1/RDS v1 for historical profile v1 evidence,
-   or RTA v2/RDS v2 for the active profile v2 calculation path.
+5. emits one contract-validated RTA v2/RDS v2 pair for the standalone Six-layer
+   calculation path.
 
-The gate defaults to `true` for the reviewed `five-layer-baseline@2` path. An
+The gate defaults to `true` for the reviewed `six-layer-eventing@1` path. An
 explicit `false` remains the fail-closed operational rollback; it rejects
 architecture fields and never falls back to a legacy result. The activated
 provider definitions are contract-complete for offline calculation, while each
 unresolved supervised capacity gate remains embedded in RDS v2 and prevents
 deployment selection. Activation therefore does not claim a live-cloud E2E.
 
-Five-layer v2 calculation reads immutable repository-published provider rate
-cards. `scripts/publish_five_layer_v2_rate_cards.py` validates the source
+Six-layer calculation reads immutable repository-published provider rate
+cards. `scripts/publish_six_layer_rate_cards.py` validates the source
 manifest, publishes content-addressed AWS/Azure/GCP snapshots, archives the
 predecessor baseline, and supports the pinned USD and EUR calculation
 currencies. The rate cards are bounded to the frozen thesis Small, Medium, and
@@ -201,20 +196,14 @@ The result keeps physical messages, billable messages, included messages per
 unit, SKU, and capacity together under `details.tierSelection`, making the
 formula and deployable selection directly auditable.
 
-## Frozen Phase 8 Evaluation
+## Frozen Phase 8 Evidence
 
-The repository-level generator under
-`scripts/phase_08_profile_evaluation/` invokes the production profile
-strategies against the pinned S/M/L workloads and immutable regional rate
-cards. It covers 729 Five-layer v2 and 2,187 Six-layer v1 candidates per size,
-three single-cloud placements, all nine L3/L5-to-L4 placements, all six
-directed Event-provider pairs, and representative three-provider graphs.
-
-Results, rejected/no-total cases, matched-context deltas, limitations, RQ
-mapping, and RTA/RDS evidence are versioned under
-`docs/research/evidence/phase_08_profile_evaluation/`. The package reports
-profile-local winners and keeps independent Event Layer cost separate; it is
-offline estimation evidence, not a provider invoice or live-capacity result.
+The `phase_08_eventing` and `phase_08_service_bundles` packages freeze the
+standalone Six-layer capability, topology, workload, pricing ownership, and
+capacity assumptions. They cover three single-cloud placements, all nine
+L3/L5-to-L4 placements, all six directed Event-provider pairs, and
+representative three-provider graphs. This is offline estimation evidence, not
+a provider invoice or live-capacity result.
 
 ## Repository Layout
 

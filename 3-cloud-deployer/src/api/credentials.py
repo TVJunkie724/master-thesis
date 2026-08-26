@@ -57,10 +57,6 @@ class AWSCredentialsRequest(BaseModel):
     aws_access_key_id: str = Field(..., description="AWS Access Key ID")
     aws_secret_access_key: str = Field(..., description="AWS Secret Access Key")
     aws_region: str = Field(..., description="AWS Region (e.g., 'eu-central-1')")
-    permission_set_version: Optional[str] = Field(
-        None,
-        description="Versioned deployment permission-set baseline assigned to this credential.",
-    )
     aws_sso_region: Optional[str] = Field(
         None,
         description="AWS Region where IAM Identity Center (SSO) is enabled, if different from aws_region",
@@ -91,10 +87,6 @@ class AzureCredentialsRequest(BaseModel):
         ...,
         description="Azure Region for Digital Twins (e.g., 'westeurope'), must be in ADT supported list",
     )
-    permission_set_version: Optional[str] = Field(
-        None,
-        description="Versioned deployment permission-set baseline assigned to this credential.",
-    )
 
 
 class GCPCredentialsRequest(BaseModel):
@@ -112,10 +104,6 @@ class GCPCredentialsRequest(BaseModel):
         ..., description="Path to Service Account JSON key file"
     )
     gcp_region: str = Field(..., description="GCP Region (e.g., 'europe-west1')")
-    permission_set_version: Optional[str] = Field(
-        None,
-        description="Versioned deployment permission-set baseline assigned to this credential.",
-    )
 
 
 class CredentialsCheckResponse(BaseModel):
@@ -414,7 +402,7 @@ async def check_gcp_from_body(request: GCPCredentialsRequest):
     """
     Validate GCP Service Account credentials from request body.
 
-    The active Phase 8 pack covers Five-layer v2 and Six-layer v1, including
+    The active Phase 8 pack covers the standalone Six-layer v1 profile, including
     the PoC's custom GCP L4/L5 implementations. Permissions that cannot be
     evaluated safely on the project resource remain explicit warnings rather
     than false negatives; the fixed Phase 8 API superset is checked directly.

@@ -12,7 +12,7 @@ version: "1.3"
 - docs/research/phase_08_current_function_edge_matrix.md
 - docs/research/digital_twin_architecture_and_eventing_layer.md
 - docs/research/research_questions_and_evaluation_design.md
-- docs/plans/phase_08_architecture_profiles_eventing/phase_08_1_five_layer_baseline.md
+- docs/plans/phase_08_architecture_profiles_eventing/README.md
 EXTRACTED: 2026-07-29 | VERSION: 1.3
 -->
 
@@ -35,12 +35,10 @@ explicitly excluded rather than silently represented as supported.
 ### Lifecycle Addendum
 
 The decision and its digests remain immutable historical/paper-compatible
-evidence. It is no longer the target for new calculate/deploy operations.
-`five-layer-baseline@2` carries the corrected complete service bundles,
-mandatory domain-event behavior, workload semantics, identities, and
-typed provider-local L3-hot-to-L5 raw history plus independently placed
-L3-hot-to-L4 Twin projection. It does not claim L4-to-L5 or 3D/Twin-context
-visualization.
+evidence in the Optimizer. It is not published through Management, Deployer,
+Terraform, or Flutter and is not a target for new deployment operations. The
+standalone `six-layer-eventing@1` profile owns the current complete service
+bundles and runtime behavior.
 Existing `@1` records remain read/verify/destroy compatible and are never
 rewritten.
 
@@ -186,10 +184,8 @@ The decision neither changes prices nor introduces a new cost formula.
   complete-service decision selects an explicit provider-hosted bundle only
   for the new profiles.
 - The `@1` removal of the uncontracted L3-to-L5 shortcut remains frozen
-  historical evidence. `five-layer-baseline@2` separately introduces a typed
-  L3-hot-to-L5 raw-history edge, couples L3 hot with L5, and places L4
-  independently through `twin_projection.v1`; this does not rewrite the `@1`
-  decision.
+  historical evidence. The standalone Six-layer profile defines its own typed
+  raw-history and Twin-projection edges without rewriting the `@1` decision.
 - The optional error path remains visible but unsupported. A later profile may
   reintroduce it only through a separate reviewed contract.
 - Current fixed seven-slot compatibility remains during migration. It is not a

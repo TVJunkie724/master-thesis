@@ -31,7 +31,7 @@ from src.services.resolved_deployment_specification_service import (
 )
 
 
-BASELINE_ID = "five-layer-baseline"
+BASELINE_ID = "six-layer-eventing"
 BASELINE_VERSION = "1"
 ARCHITECTURE_MIGRATION_METRICS: Counter[tuple[str, str]] = Counter()
 ARCHITECTURE_COLUMNS = (
@@ -74,14 +74,10 @@ def migrate(database_url: str | None = None) -> list[str]:
             existing = _columns(connection, "cost_calculation_runs")
             for column_name, statement in ARCHITECTURE_COLUMNS:
                 if column_name in existing:
-                    actions.append(
-                        f"exists: cost_calculation_runs.{column_name}"
-                    )
+                    actions.append(f"exists: cost_calculation_runs.{column_name}")
                 else:
                     connection.execute(statement)
-                    actions.append(
-                        f"added: cost_calculation_runs.{column_name}"
-                    )
+                    actions.append(f"added: cost_calculation_runs.{column_name}")
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS "
                 "ix_cost_runs_resolved_architecture_digest "
@@ -91,15 +87,14 @@ def migrate(database_url: str | None = None) -> list[str]:
         selection_count = _backfill_selections(connection, profile_digest)
         actions.append(f"backfilled: architecture selections={selection_count}")
         reconstructed, legacy = _classify_runs(connection, profile)
-        ARCHITECTURE_MIGRATION_METRICS[
-            ("reconstructed", BASELINE_VERSION)
-        ] += reconstructed
-        ARCHITECTURE_MIGRATION_METRICS[
-            ("legacy_not_resolvable", BASELINE_VERSION)
-        ] += legacy
+        ARCHITECTURE_MIGRATION_METRICS[("reconstructed", BASELINE_VERSION)] += (
+            reconstructed
+        )
+        ARCHITECTURE_MIGRATION_METRICS[("legacy_not_resolvable", BASELINE_VERSION)] += (
+            legacy
+        )
         actions.append(
-            "classified: "
-            f"reconstructed={reconstructed}, legacy_not_resolvable={legacy}"
+            f"classified: reconstructed={reconstructed}, legacy_not_resolvable={legacy}"
         )
         _create_triggers(connection)
         actions.append("ensured: architecture immutability triggers")
@@ -340,9 +335,7 @@ def _classify_runs(
     ).fetchall()
     column_names = [
         item[1]
-        for item in connection.execute(
-            "PRAGMA table_info(cost_calculation_runs)"
-        )
+        for item in connection.execute("PRAGMA table_info(cost_calculation_runs)")
     ]
     reconstructed = 0
     legacy = 0
@@ -442,8 +435,7 @@ def _reconstructable_architecture(
     ):
         return None
     if (
-        validated_specification.digest
-        != row["deployment_specification_digest"]
+        validated_specification.digest != row["deployment_specification_digest"]
         or validated_specification.schema_version
         != row["deployment_specification_version"]
     ):
@@ -501,12 +493,9 @@ def _reconstructable_architecture(
         )
         != tuple(selection)
         or deployment_ref["calculation_run_id"] != row["id"]
-        or deployment_ref["digest"]
-        != row["deployment_specification_digest"]
-        or deployment_ref["schema_version"]
-        != row["deployment_specification_version"]
-        or architecture["workload_contract_ref"]
-        != profile["workload_contract_ref"]
+        or deployment_ref["digest"] != row["deployment_specification_digest"]
+        or deployment_ref["schema_version"] != row["deployment_specification_version"]
+        or architecture["workload_contract_ref"] != profile["workload_contract_ref"]
         or bundle_ref != expected_bundle_ref
         or not isinstance(result_profile, dict)
         or not isinstance(result_strategy, dict)
@@ -514,8 +503,7 @@ def _reconstructable_architecture(
         != result.get("optimization_profile_id")
         or bundle_ref["calculation_strategy_id"]
         != result.get("calculation_strategy_id")
-        or bundle_ref["formula_set_id"]
-        != result_strategy.get("formula_set_id")
+        or bundle_ref["formula_set_id"] != result_strategy.get("formula_set_id")
         or bundle_ref["scoring_strategy_id"]
         != result_profile.get("scoring_strategy_id")
         or architecture["functional_completeness"]["status"] != "complete"
@@ -529,9 +517,9 @@ def _reconstructable_architecture(
     ):
         return None
     try:
-        if Decimal(
-            architecture["cost_summary"]["monthly_total"]
-        ) != Decimal(str(row["total_monthly_cost"])):
+        if Decimal(architecture["cost_summary"]["monthly_total"]) != Decimal(
+            str(row["total_monthly_cost"])
+        ):
             return None
     except (InvalidOperation, TypeError, ValueError):
         return None
@@ -549,21 +537,15 @@ def _deployment_components_match(
     }
     assigned: set[str] = set()
     for assignment in architecture["component_assignments"]:
-        for component_id in assignment[
-            "deployment_specification_component_ids"
-        ]:
+        for component_id in assignment["deployment_specification_component_ids"]:
             component = components.get(component_id)
-            if (
-                component is None
-                or component.get("provider") != assignment["provider"]
-            ):
+            if component is None or component.get("provider") != assignment["provider"]:
                 return False
             assigned.add(component_id)
     non_auxiliary = {
         component_id
         for component_id, component in components.items()
-        if component.get("slot_id")
-        not in {"transition_runtime", "cross_cloud_glue"}
+        if component.get("slot_id") not in {"transition_runtime", "cross_cloud_glue"}
     }
     return assigned == non_auxiliary
 
@@ -610,9 +592,10 @@ def _extensions_match(
             configuration = json.loads(configuration_json)
         except (TypeError, json.JSONDecodeError):
             return False
-        configuration_digest = "sha256:" + hashlib.sha256(
-            canonical_json(configuration).encode("utf-8")
-        ).hexdigest()
+        configuration_digest = (
+            "sha256:"
+            + hashlib.sha256(canonical_json(configuration).encode("utf-8")).hexdigest()
+        )
         if (
             artifact_state != "valid"
             or artifact_digest != item["artifact_digest"]
@@ -758,9 +741,7 @@ def _insert_resolution(
                 provider["version"],
                 provider["digest"],
                 item["region"],
-                canonical_json(
-                    item["deployment_specification_component_ids"]
-                ),
+                canonical_json(item["deployment_specification_component_ids"]),
                 item["cost_contribution"]["monthly_amount"],
                 canonical_json(item["capability_evidence"]),
                 canonical_json(item["pricing_model_refs"]),
@@ -988,8 +969,7 @@ def _columns(
     table_name: str,
 ) -> set[str]:
     return {
-        str(row[1])
-        for row in connection.execute(f"PRAGMA table_info({table_name})")
+        str(row[1]) for row in connection.execute(f"PRAGMA table_info({table_name})")
     }
 
 

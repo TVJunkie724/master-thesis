@@ -7,7 +7,7 @@ This module contains all validation logic that works with ANY file source
 Usage:
     from src.validation.core import run_all_checks
     from src.validation.accessors import ZipFileAccessor
-    
+
     accessor = ZipFileAccessor(zipfile_obj)
     run_all_checks(accessor)  # Raises ValueError on failure
 """
@@ -39,10 +39,7 @@ PROVIDER_FUNCTION_DIRS = {
     "gcp": "cloud_functions",  # alias
 }
 
-PHASE_8_COMPARISON_PROFILES = {
-    ("five-layer-baseline", "2"),
-    ("six-layer-eventing", "1"),
-}
+SIX_LAYER_PROFILES = {("six-layer-eventing", "1")}
 
 FORBIDDEN_MANIFEST_CREDENTIAL_KEYS = {
     "access_token",
@@ -62,29 +59,30 @@ FORBIDDEN_MANIFEST_CREDENTIAL_KEYS = {
 # 1. File Accessor Protocol
 # ==========================================
 
+
 class FileAccessor(Protocol):
     """
     Protocol for accessing files from any source (ZIP, directory, etc.).
-    
+
     Implementations must provide these methods to abstract file access.
     """
-    
+
     def list_files(self) -> List[str]:
         """Return list of all file paths (relative to project root)."""
         ...
-    
+
     def file_exists(self, path: str) -> bool:
         """Check if a file exists."""
         ...
-    
+
     def read_text(self, path: str) -> str:
         """Read file contents as text. Raises FileNotFoundError if missing."""
         ...
-    
+
     def read_binary(self, path: str) -> bytes:
         """Read file contents as bytes. Raises FileNotFoundError if missing."""
         ...
-    
+
     def get_project_root(self) -> str:
         """Return the project root prefix (empty for directories, nested path for ZIPs)."""
         ...
@@ -94,23 +92,25 @@ class FileAccessor(Protocol):
 # 2. Validation Context
 # ==========================================
 
+
 @dataclass
 class ValidationResult:
     """
     Result of validation with error aggregation.
-    
+
     When aggregate_errors=True is used in run_all_checks(), all validation
     errors are collected rather than failing on the first error.
     """
+
     is_valid: bool = True
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
-    
+
     def add_error(self, error: str) -> None:
         """Add an error and mark result as invalid."""
         self.errors.append(error)
         self.is_valid = False
-    
+
     def add_warning(self, warning: str) -> None:
         """Add a warning (does not affect validity)."""
         self.warnings.append(warning)
@@ -120,12 +120,13 @@ class ValidationResult:
 class ValidationContext:
     """
     Container for validation state shared across all checks.
-    
+
     This is populated by build_context() and passed to all check functions.
     """
+
     project_root: str = ""
     all_files: List[str] = field(default_factory=list)
-    
+
     # Parsed config files (populated during schema check)
     opt_config: Dict[str, Any] = field(default_factory=dict)
     prov_config: Dict[str, Any] = field(default_factory=dict)
@@ -134,12 +135,12 @@ class ValidationContext:
     credentials_config: Dict[str, Any] = field(default_factory=dict)
     user_config: Dict[str, Any] = field(default_factory=dict)  # From config_user.json
     architecture_profile: tuple[str, str] | None = None
-    
+
     # Tracked directories/files (populated during context build)
     seen_event_actions: Set[str] = field(default_factory=set)
     seen_state_machines: Set[str] = field(default_factory=set)
     seen_feedback_func: bool = False
-    
+
     # Context injection for Mode A (Wizard Step 3)
     skip_config_files: List[str] = field(default_factory=list)  # Files to skip checking
     skip_credentials: bool = False  # Skip credential validation
@@ -149,45 +150,46 @@ class ValidationContext:
 # 3. Context Builder
 # ==========================================
 
+
 def build_context(accessor: FileAccessor) -> ValidationContext:
     """
     Build validation context by scanning file source.
-    
+
     This scans the file list and populates tracking sets.
     """
     ctx = ValidationContext()
     ctx.all_files = accessor.list_files()
     ctx.project_root = accessor.get_project_root()
-    
+
     FUNCTION_DIR_NAMES = [
         CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME,  # lambda_functions (AWS)
-        "azure_functions",                     # Azure
-        "cloud_functions",                     # GCP
+        "azure_functions",  # Azure
+        "cloud_functions",  # GCP
     ]
-    
+
     for filepath in ctx.all_files:
         basename = os.path.basename(filepath)
-        
+
         # Track event-feedback presence (ALL PROVIDERS)
         for func_dir in FUNCTION_DIR_NAMES:
             if f"{func_dir}/event-feedback/" in filepath:
                 ctx.seen_feedback_func = True
                 break
-        
+
         # Track event actions (ALL PROVIDERS)
         for func_dir in FUNCTION_DIR_NAMES:
             if f"{func_dir}/{CONSTANTS.EVENT_ACTIONS_DIR_NAME}/" in filepath:
                 parts = filepath.split(f"{CONSTANTS.EVENT_ACTIONS_DIR_NAME}/")
                 if len(parts) > 1:
-                    func_name = parts[1].split('/')[0]
+                    func_name = parts[1].split("/")[0]
                     if func_name:
                         ctx.seen_event_actions.add(func_name)
                 break
-        
+
         # Track state machines
         if basename in CONSTANTS.STATE_MACHINE_SIGNATURES:
             ctx.seen_state_machines.add(basename)
-    
+
     return ctx
 
 
@@ -195,10 +197,11 @@ def build_context(accessor: FileAccessor) -> ValidationContext:
 # 4. Core Validation Checks
 # ==========================================
 
+
 def check_required_files(accessor: FileAccessor, ctx: ValidationContext) -> None:
     """Check that all required configuration files are present.
     Returns all missing files, not just the first one.
-    
+
     Respects ctx.skip_config_files for context-aware validation (Mode A).
     """
     missing_files = []
@@ -206,25 +209,27 @@ def check_required_files(accessor: FileAccessor, ctx: ValidationContext) -> None
         # Skip files marked in context (Mode A: already in wizard state)
         if required_file in ctx.skip_config_files:
             continue
-        
+
         expected_path = ctx.project_root + required_file
         if not accessor.file_exists(expected_path):
             missing_files.append(required_file)
-    
+
     if missing_files:
-        raise ValueError("Missing required configuration files:\n  ◦ " + "\n  ◦ ".join(missing_files))
+        raise ValueError(
+            "Missing required configuration files:\n  ◦ " + "\n  ◦ ".join(missing_files)
+        )
 
 
 def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None:
     """
     Validate config file contents against schemas.
     Also populates ctx with parsed config data for later checks.
-    
+
     Collects errors from ALL config files before raising, so users see
     all issues at once rather than one file at a time.
     """
     from src.validator import validate_config_content
-    
+
     # Load config_user.json FIRST (optional file, needed for L5 checks later)
     # This must run even if other validations fail
     user_path = ctx.project_root + "config_user.json"
@@ -234,26 +239,26 @@ def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None
             ctx.user_config = json.loads(content)
         except Exception as e:
             raise ValueError(f"Failed to parse config_user.json: {e}")
-    
+
     # Collect all validation errors across all config files
     all_errors = []
-    
+
     for filepath in ctx.all_files:
         basename = os.path.basename(filepath)
-        
+
         if basename in CONSTANTS.CONFIG_SCHEMAS:
             try:
                 content = accessor.read_text(filepath)
-                
+
                 # Try to parse JSON first (for context population)
                 try:
                     parsed = json.loads(content)
                 except json.JSONDecodeError:
                     parsed = None
-                
+
                 # Validate content
                 validate_config_content(basename, content)
-                
+
                 # If validation passed, capture parsed configs for dependency checks
                 if parsed is not None:
                     if basename == CONSTANTS.CONFIG_OPTIMIZATION_FILE:
@@ -266,11 +271,11 @@ def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None
                         ctx.iot_config = parsed
                     elif basename == CONSTANTS.CONFIG_CREDENTIALS_FILE:
                         ctx.credentials_config = parsed
-                        
+
             except ValueError as e:
                 # Collect error and continue to next file
                 all_errors.append(str(e))
-                
+
                 # Still try to populate context with parsed data (even if invalid)
                 # This helps downstream checks have partial data
                 try:
@@ -290,16 +295,18 @@ def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None
                         "Could not populate validation context from invalid %s",
                         basename,
                     )
-                    
+
             except Exception as e:
                 all_errors.append(f"Validation failed for {basename}: {e}")
-    
+
     # Raise all collected errors together
     if all_errors:
         if len(all_errors) == 1:
             raise ValueError(all_errors[0])
         else:
-            raise ValueError("Config file validation errors:\n  ◦ " + "\n  ◦ ".join(all_errors))
+            raise ValueError(
+                "Config file validation errors:\n  ◦ " + "\n  ◦ ".join(all_errors)
+            )
 
 
 def check_deployment_manifest(
@@ -407,7 +414,9 @@ def check_deployment_manifest(
             "Deployment package inventory differs from the archive",
         )
 
-    missing_required_files = sorted(set(CONSTANTS.REQUIRED_CONFIG_FILES) - set(listed_files))
+    missing_required_files = sorted(
+        set(CONSTANTS.REQUIRED_CONFIG_FILES) - set(listed_files)
+    )
     if missing_required_files:
         raise DeploymentSpecificationError(
             "DEPLOYMENT_MANIFEST_PACKAGE_MISMATCH",
@@ -476,7 +485,7 @@ def _manifest_relative_files(ctx: ValidationContext) -> List[str]:
             continue
         if prefix and not filepath.startswith(prefix):
             continue
-        relative_path = filepath[len(prefix):] if prefix else filepath
+        relative_path = filepath[len(prefix) :] if prefix else filepath
         if relative_path and relative_path != CONSTANTS.DEPLOYMENT_MANIFEST_FILE:
             files.append(relative_path)
     return sorted(files)
@@ -500,7 +509,6 @@ def _find_forbidden_manifest_credential_key(value: Any) -> Optional[str]:
     return None
 
 
-
 def check_state_machines(accessor: FileAccessor, ctx: ValidationContext) -> None:
     """
     Validate state machine file content ONLY if:
@@ -508,15 +516,15 @@ def check_state_machines(accessor: FileAccessor, ctx: ValidationContext) -> None
     2. Only validates the state machine for the configured layer_2_provider
     """
     from src.validator import validate_state_machine_content
-    
+
     # Check if state machine validation is even needed
     opt_params = ctx.opt_config.get("result", {}).get("inputParamsUsed", {})
     if not opt_params.get("triggerNotificationWorkflow", False):
         return  # State machine not required, skip validation entirely
-    
+
     # Get configured provider
     l2_provider = ctx.prov_config.get("layer_2_provider", "").lower()
-    
+
     # Map provider to expected state machine file
     provider_state_machine = {
         "aws": CONSTANTS.AWS_STATE_MACHINE_FILE,
@@ -524,11 +532,11 @@ def check_state_machines(accessor: FileAccessor, ctx: ValidationContext) -> None
         "google": CONSTANTS.GOOGLE_STATE_MACHINE_FILE,
         "gcp": CONSTANTS.GOOGLE_STATE_MACHINE_FILE,
     }
-    
+
     target_file = provider_state_machine.get(l2_provider)
     if not target_file:
         return  # Unknown provider, skip
-    
+
     # Only validate the provider's state machine if it exists
     for filepath in ctx.all_files:
         if os.path.basename(filepath) == target_file:
@@ -538,7 +546,9 @@ def check_state_machines(accessor: FileAccessor, ctx: ValidationContext) -> None
             except ValueError:
                 raise
             except Exception as e:
-                raise ValueError(f"State Machine validation failed for {target_file}: {e}")
+                raise ValueError(
+                    f"State Machine validation failed for {target_file}: {e}"
+                )
             return  # Found and validated
 
 
@@ -551,61 +561,82 @@ PROVIDER_USER_CODE_FILES = {
 }
 
 
-def check_processor_syntax(accessor: FileAccessor, ctx: ValidationContext, l2_provider: str = None) -> None:
+def check_processor_syntax(
+    accessor: FileAccessor, ctx: ValidationContext, l2_provider: str = None
+) -> None:
     """
     Validate Python syntax and entry point signatures for user code files.
-    
+
     Expected file per provider:
     - AWS: lambda_function.py with lambda_handler(event, context)
-    - Azure: function_app.py with main(req) 
+    - Azure: function_app.py with main(req)
     - GCP: main.py with process(request)
     """
     # Build patterns based on configured provider
     if l2_provider:
         func_dir = PROVIDER_FUNCTION_DIRS.get(l2_provider.lower(), "")
         if not func_dir:
-            raise ValueError(f"Unknown layer_2_provider '{l2_provider}'. Expected: aws, azure, or google.")
-        
+            raise ValueError(
+                f"Unknown layer_2_provider '{l2_provider}'. Expected: aws, azure, or google."
+            )
+
         user_file = PROVIDER_USER_CODE_FILES.get(l2_provider.lower(), "main.py")
         escaped_file = re.escape(user_file)
-        
-        PROCESSOR_PATTERNS = [(rf".*{func_dir}/processors/[^/]+/{escaped_file}$", l2_provider.lower())]
-        EVENT_FEEDBACK_PATTERNS = [(rf".*{func_dir}/event-feedback/{escaped_file}$", l2_provider.lower())]
-        EVENT_ACTION_PATTERNS = [(rf".*{func_dir}/event_actions/[^/]+/{escaped_file}$", l2_provider.lower())]
+
+        PROCESSOR_PATTERNS = [
+            (rf".*{func_dir}/processors/[^/]+/{escaped_file}$", l2_provider.lower())
+        ]
+        EVENT_FEEDBACK_PATTERNS = [
+            (rf".*{func_dir}/event-feedback/{escaped_file}$", l2_provider.lower())
+        ]
+        EVENT_ACTION_PATTERNS = [
+            (rf".*{func_dir}/event_actions/[^/]+/{escaped_file}$", l2_provider.lower())
+        ]
     else:
         # No provider specified - check all providers
         PROCESSOR_PATTERNS = [
-            (rf".*{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/processors/[^/]+/lambda_function\.py$", "aws"),
+            (
+                rf".*{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/processors/[^/]+/lambda_function\.py$",
+                "aws",
+            ),
             (r".*azure_functions/processors/[^/]+/function_app\.py$", "azure"),
             (r".*cloud_functions/processors/[^/]+/main\.py$", "gcp"),
         ]
         EVENT_FEEDBACK_PATTERNS = [
-            (rf".*{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event-feedback/lambda_function\.py$", "aws"),
+            (
+                rf".*{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event-feedback/lambda_function\.py$",
+                "aws",
+            ),
             (r".*azure_functions/event-feedback/function_app\.py$", "azure"),
             (r".*cloud_functions/event-feedback/main\.py$", "gcp"),
         ]
         EVENT_ACTION_PATTERNS = [
-            (rf".*{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event_actions/[^/]+/lambda_function\.py$", "aws"),
+            (
+                rf".*{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event_actions/[^/]+/lambda_function\.py$",
+                "aws",
+            ),
             (r".*azure_functions/event_actions/[^/]+/function_app\.py$", "azure"),
             (r".*cloud_functions/event_actions/[^/]+/main\.py$", "gcp"),
         ]
-    
+
     ALL_PATTERNS = PROCESSOR_PATTERNS + EVENT_FEEDBACK_PATTERNS + EVENT_ACTION_PATTERNS
-    
+
     for filepath in ctx.all_files:
         matched_provider = None
         for pattern, provider in ALL_PATTERNS:
             if re.match(pattern, filepath):
                 matched_provider = provider
                 break
-        
+
         if matched_provider:
             try:
                 content = accessor.read_text(filepath)
                 ast.parse(content)  # Syntax check
                 _validate_entry_point_signature(content, filepath, matched_provider)
             except SyntaxError as e:
-                raise ValueError(f"Syntax error in {filepath}: {e.msg} at line {e.lineno}")
+                raise ValueError(
+                    f"Syntax error in {filepath}: {e.msg} at line {e.lineno}"
+                )
             except Exception as e:
                 raise ValueError(f"Validation failed for {filepath}: {e}")
 
@@ -613,24 +644,24 @@ def check_processor_syntax(accessor: FileAccessor, ctx: ValidationContext, l2_pr
 def _validate_entry_point_signature(content: str, filename: str, provider: str) -> None:
     """
     Validate entry point function exists with correct signature per provider.
-    
+
     - AWS: lambda_handler(event, context) - 2 params, no strict type hints
     - Azure: main(req) - 1 param, flexible
     - GCP: main(request) - 1 param (functions_framework convention)
     """
     tree = ast.parse(content)
-    
+
     # Define expected entry points per provider
     # NOTE: GCP uses main() with @functions_framework.http decorator, not process()
     entry_points = {
-        "aws": ("lambda_handler", 2),      # lambda_handler(event, context)
-        "azure": ("main", 1),              # main(req)
-        "google": ("main", 1),             # main(request) - functions_framework convention
-        "gcp": ("main", 1),                # main(request) - functions_framework convention
+        "aws": ("lambda_handler", 2),  # lambda_handler(event, context)
+        "azure": ("main", 1),  # main(req)
+        "google": ("main", 1),  # main(request) - functions_framework convention
+        "gcp": ("main", 1),  # main(request) - functions_framework convention
     }
-    
+
     expected_func, expected_params = entry_points.get(provider, ("main", 1))
-    
+
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name == expected_func:
             actual_params = len(node.args.args)
@@ -640,14 +671,16 @@ def _validate_entry_point_signature(content: str, filename: str, provider: str) 
                     f"found {actual_params}"
                 )
             return  # Found valid entry point function
-    
-    raise ValueError(f"{filename}: Missing required {expected_func}() function for {provider}")
+
+    raise ValueError(
+        f"{filename}: Missing required {expected_func}() function for {provider}"
+    )
 
 
 def check_event_actions(ctx: ValidationContext) -> None:
     """Check that event action functions exist when useEventChecking is enabled."""
     optimization = ctx.opt_config.get("result", {}).get("inputParamsUsed", {})
-    
+
     if optimization.get("useEventChecking", False):
         for event in ctx.events_config:
             action = event.get("action", {})
@@ -660,16 +693,18 @@ def check_event_actions(ctx: ValidationContext) -> None:
 def check_feedback_function(ctx: ValidationContext) -> None:
     """Check that event-feedback function exists when returnFeedbackToDevice is enabled."""
     optimization = ctx.opt_config.get("result", {}).get("inputParamsUsed", {})
-    
+
     if optimization.get("returnFeedbackToDevice", False):
         if not ctx.seen_feedback_func:
-            raise ValueError("Missing event-feedback function (required by returnFeedbackToDevice).")
+            raise ValueError(
+                "Missing event-feedback function (required by returnFeedbackToDevice)."
+            )
 
 
 def check_state_machine_presence(ctx: ValidationContext) -> None:
     """Check that state machine file exists when triggerNotificationWorkflow is enabled."""
     optimization = ctx.opt_config.get("result", {}).get("inputParamsUsed", {})
-    
+
     if optimization.get("triggerNotificationWorkflow", False):
         provider = ctx.prov_config.get("layer_2_provider")
         if not provider:
@@ -678,17 +713,17 @@ def check_state_machine_presence(ctx: ValidationContext) -> None:
                 "Required when 'triggerNotificationWorkflow' is enabled."
             )
         provider = provider.lower()
-        
+
         target_file_map = {
             "aws": CONSTANTS.AWS_STATE_MACHINE_FILE,
             "azure": CONSTANTS.AZURE_STATE_MACHINE_FILE,
             "google": CONSTANTS.GOOGLE_STATE_MACHINE_FILE,
             "gcp": CONSTANTS.GOOGLE_STATE_MACHINE_FILE,  # alias
         }
-        
+
         if provider not in target_file_map:
             raise ValueError(f"Invalid provider '{provider}' for state machine.")
-        
+
         target_file = target_file_map[provider]
         if target_file not in ctx.seen_state_machines:
             raise ValueError(
@@ -700,7 +735,7 @@ def check_state_machine_presence(ctx: ValidationContext) -> None:
 def check_event_action_types(ctx: ValidationContext) -> None:
     """
     Validate that workflow action types match the L2 provider.
-    
+
     Rules:
     - action.type: "step_function" → requires layer_2_provider: "aws"
     - action.type: "logic_app" → requires layer_2_provider: "azure"
@@ -708,34 +743,34 @@ def check_event_action_types(ctx: ValidationContext) -> None:
     - action.type: "lambda" or "function" → valid for any provider
     """
     l2_provider = ctx.prov_config.get("layer_2_provider", "").lower()
-    
+
     action_to_provider = {
         "step_function": "aws",
         "logic_app": "azure",
         "workflow": "google",
     }
-    
+
     for event in ctx.events_config:
         action = event.get("action", {})
         action_type = action.get("type")
-        
+
         # Skip lambda/function - valid for all providers
         if action_type in ("lambda", "function"):
             continue
-        
+
         # Check workflow action types
         if action_type in action_to_provider:
             required_provider = action_to_provider[action_type]
             # Handle 'gcp' alias for 'google'
             effective_l2 = "google" if l2_provider == "gcp" else l2_provider
-            
+
             if effective_l2 != required_provider:
                 raise ValueError(
                     f"Action type '{action_type}' requires layer_2_provider='{required_provider}', "
                     f"but got '{l2_provider}'. "
                     f"Either change the action type or the L2 provider."
                 )
-            
+
             # Check triggerNotificationWorkflow is enabled
             opt = ctx.opt_config.get("result", {}).get("inputParamsUsed", {})
             if not opt.get("triggerNotificationWorkflow", False):
@@ -749,10 +784,10 @@ def check_payloads_vs_devices(accessor: FileAccessor, ctx: ValidationContext) ->
     """Validate that iotDeviceId in payloads.json matches config_iot_devices.json.
     Returns all unknown device references, not just the first one."""
     payloads_path = ctx.project_root + CONSTANTS.PAYLOADS_FILE
-    
+
     if not accessor.file_exists(payloads_path):
         return  # Skip if file missing
-    
+
     try:
         payloads_content = json.loads(accessor.read_text(payloads_path))
     except json.JSONDecodeError as e:
@@ -762,20 +797,25 @@ def check_payloads_vs_devices(accessor: FileAccessor, ctx: ValidationContext) ->
 
     if not ctx.iot_config:
         return  # Skip device matching if no IoT devices configured
-    
-    valid_device_ids = {device.get("id") for device in ctx.iot_config if device.get("id")}
-    
+
+    valid_device_ids = {
+        device.get("id") for device in ctx.iot_config if device.get("id")
+    }
+
     # Collect all unknown device references
     unknown_devices = []
     for i, payload in enumerate(payloads_content):
         device_id = payload.get("iotDeviceId")
         if device_id and device_id not in valid_device_ids:
-            unknown_devices.append(f"Payload at index {i}: unknown device '{device_id}'")
-    
+            unknown_devices.append(
+                f"Payload at index {i}: unknown device '{device_id}'"
+            )
+
     if unknown_devices:
         raise ValueError(
-            "Payload validation errors:\n  ◦ " + "\n  ◦ ".join(unknown_devices) +
-            f"\n\nValid devices: {sorted(valid_device_ids)}"
+            "Payload validation errors:\n  ◦ "
+            + "\n  ◦ ".join(unknown_devices)
+            + f"\n\nValid devices: {sorted(valid_device_ids)}"
         )
 
 
@@ -783,14 +823,14 @@ def check_credentials_per_provider(ctx: ValidationContext) -> None:
     """Validate that credentials exist for all configured providers."""
     if not ctx.prov_config or not ctx.credentials_config:
         return  # Skip if missing
-    
+
     configured_providers = set()
     for key, value in ctx.prov_config.items():
         if (key.startswith("layer_") or key == "event_layer_provider") and value:
             # Skip 'none' - it's a placeholder for disabled layers, not a real provider
             if value.lower() != "none":
                 configured_providers.add(value.lower())
-    
+
     # Normalize provider names for credentials lookup
     # config_providers.json uses "google" but config_credentials.json uses "gcp"
     provider_to_cred_key = {
@@ -799,7 +839,7 @@ def check_credentials_per_provider(ctx: ValidationContext) -> None:
         "aws": "aws",
         "azure": "azure",
     }
-    
+
     for provider in configured_providers:
         cred_key = provider_to_cred_key.get(provider, provider)
         if cred_key not in ctx.credentials_config:
@@ -809,36 +849,41 @@ def check_credentials_per_provider(ctx: ValidationContext) -> None:
             )
 
 
-def check_hierarchy_provider_match(accessor: FileAccessor, ctx: ValidationContext) -> None:
+def check_hierarchy_provider_match(
+    accessor: FileAccessor, ctx: ValidationContext
+) -> None:
     """Validate that hierarchy file exists AND is valid for layer_4_provider."""
-    from src.validator import validate_aws_hierarchy_content, validate_azure_hierarchy_content
-    
+    from src.validator import (
+        validate_aws_hierarchy_content,
+        validate_azure_hierarchy_content,
+    )
+
     if not ctx.prov_config:
         return
-    
+
     layer_4_provider = ctx.prov_config.get("layer_4_provider")
     if not layer_4_provider:
         return  # L4 not configured
-    
+
     layer_4_provider = layer_4_provider.lower()
-    
+
     hierarchy_file_map = {
         "aws": "twin_hierarchy/aws_hierarchy.json",
-        "azure": "twin_hierarchy/azure_hierarchy.json"
+        "azure": "twin_hierarchy/azure_hierarchy.json",
     }
-    
+
     if layer_4_provider not in hierarchy_file_map:
         return  # Google doesn't have hierarchy file
-    
+
     expected_file = hierarchy_file_map[layer_4_provider]
     full_path = ctx.project_root + expected_file
-    
+
     # Check file exists
     if not accessor.file_exists(full_path):
         raise ValueError(
             f"Missing hierarchy file '{expected_file}' for layer_4_provider='{layer_4_provider}'."
         )
-    
+
     # Validate content based on provider
     try:
         content = accessor.read_text(full_path)
@@ -856,25 +901,25 @@ def check_scene_assets(accessor: FileAccessor, ctx: ValidationContext) -> None:
     """Validate scene assets when needs3DModel is enabled."""
     input_params = ctx.opt_config.get("result", {}).get("inputParamsUsed", {})
     needs_3d_model = input_params.get("needs3DModel", False)
-    
+
     if not needs_3d_model:
         return
-    
+
     layer_4_provider = ctx.prov_config.get("layer_4_provider", "")
     if layer_4_provider:
         layer_4_provider = layer_4_provider.lower()
-    
+
     if not layer_4_provider or layer_4_provider not in CONSTANTS.SCENE_REQUIRED_FILES:
         return
-    
+
     required_files = CONSTANTS.SCENE_REQUIRED_FILES[layer_4_provider]
     missing_files = []
-    
+
     for required_file in required_files:
         full_path = ctx.project_root + required_file
         if not accessor.file_exists(full_path):
             missing_files.append(required_file)
-    
+
     if missing_files:
         raise ValueError(
             f"Missing scene asset(s) for layer_4_provider='{layer_4_provider}' when needs3DModel=true: "
@@ -882,15 +927,19 @@ def check_scene_assets(accessor: FileAccessor, ctx: ValidationContext) -> None:
         )
 
 
-def check_provider_function_directory(accessor: FileAccessor, ctx: ValidationContext, l2_provider: str) -> None:
+def check_provider_function_directory(
+    accessor: FileAccessor, ctx: ValidationContext, l2_provider: str
+) -> None:
     """Ensure the configured provider's function directory exists."""
     if not l2_provider:
         return  # No L2 configured
-    
+
     func_dir = PROVIDER_FUNCTION_DIRS.get(l2_provider.lower())
     if not func_dir:
-        raise ValueError(f"Unknown layer_2_provider '{l2_provider}'. Expected: aws, azure, or google.")
-    
+        raise ValueError(
+            f"Unknown layer_2_provider '{l2_provider}'. Expected: aws, azure, or google."
+        )
+
     # Check if any file exists in the provider's function directory
     function_prefix = f"{ctx.project_root}{func_dir}/"
     has_files = any(f.startswith(function_prefix) for f in ctx.all_files)
@@ -900,13 +949,15 @@ def check_provider_function_directory(accessor: FileAccessor, ctx: ValidationCon
         )
 
 
-def check_processor_folders_match_devices(accessor: FileAccessor, ctx: ValidationContext, l2_provider: str) -> None:
+def check_processor_folders_match_devices(
+    accessor: FileAccessor, ctx: ValidationContext, l2_provider: str
+) -> None:
     """
     Validate that a processor folder exists for each device in config_iot_devices.json.
-    
+
     Processor folder name must match device ID exactly.
     Example: Device "temp-sensor-1" requires folder "processors/temp-sensor-1/"
-    
+
     The user function file inside must be:
     - Azure: function_app.py
     - AWS: lambda_function.py
@@ -914,14 +965,14 @@ def check_processor_folders_match_devices(accessor: FileAccessor, ctx: Validatio
     """
     if not ctx.iot_config:
         return  # No devices configured
-    
+
     func_dir = PROVIDER_FUNCTION_DIRS.get(l2_provider.lower(), "")
     if not func_dir:
         return
-    
+
     # Get all device IDs from config
     device_ids = {device.get("id") for device in ctx.iot_config if device.get("id")}
-    
+
     # Determine expected file pattern per provider
     file_patterns = {
         "azure": "function_app.py",
@@ -930,15 +981,14 @@ def check_processor_folders_match_devices(accessor: FileAccessor, ctx: Validatio
         "gcp": "main.py",
     }
     expected_file = file_patterns.get(l2_provider.lower(), "function_app.py")
-    
+
     for device_id in device_ids:
         expected_path = f"{func_dir}/processors/{device_id}/{expected_file}"
         full_path = ctx.project_root + expected_path
-        
+
         if not accessor.file_exists(full_path):
             raise ValueError(
-                f"Missing processor for device '{device_id}'. "
-                f"Expected: {expected_path}"
+                f"Missing processor for device '{device_id}'. Expected: {expected_path}"
             )
 
 
@@ -946,22 +996,23 @@ def check_processor_folders_match_devices(accessor: FileAccessor, ctx: Validatio
 # 5. Platform User Validation (AWS + Azure)
 # ==========================================
 
+
 def check_user_config_for_l4_l5(accessor: FileAccessor, ctx: ValidationContext) -> None:
     """
     Validate config_user.json when layer_5_provider is 'aws' or 'azure'.
-    
+
     - config_user.json is REQUIRED when L5 is AWS or Azure
     - Validates email format
     - For Azure: validates domain is verified (.onmicrosoft.com or commonly verified)
     """
     l4_provider = _normalized_provider(ctx.prov_config.get("layer_4_provider", ""))
     l5_provider = _normalized_provider(ctx.prov_config.get("layer_5_provider", ""))
-    phase8 = ctx.architecture_profile in PHASE_8_COMPARISON_PROFILES
-    
+    phase8 = ctx.architecture_profile in SIX_LAYER_PROFILES
+
     # Only required for AWS and Azure L5
     if not phase8 and l5_provider not in ["aws", "azure"]:
         return
-    
+
     # Check if config_user.json exists and has data
     if not ctx.user_config:
         raise ValueError(
@@ -971,11 +1022,10 @@ def check_user_config_for_l4_l5(accessor: FileAccessor, ctx: ValidationContext) 
                 if phase8
                 else f"Missing config_user.json. Required when layer_5_provider='{l5_provider}'.\n"
             )
-            +
-            "Create this file with: {\"admin_email\": \"your-email@domain.com\", "
-            "\"admin_first_name\": \"Platform\", \"admin_last_name\": \"Admin\"}"
+            + 'Create this file with: {"admin_email": "your-email@domain.com", '
+            '"admin_first_name": "Platform", "admin_last_name": "Admin"}'
         )
-    
+
     admin_email = ctx.user_config.get("admin_email", "")
     aws_intent = ctx.user_config.get("aws_layer_access_principal_intent")
     if (
@@ -994,24 +1044,24 @@ def check_user_config_for_l4_l5(accessor: FileAccessor, ctx: ValidationContext) 
         _check_phase8_user_config(ctx.user_config, l4_provider, l5_provider)
         logger.info(f"  ✓ Phase 8 platform user: {admin_email}")
         return
-    
+
     # Allow empty email to skip user provisioning (only deployer role will be assigned)
     if not admin_email:
         logger.info("  ✓ Platform user email not set - skipping user provisioning")
         return
-    
+
     # Email format validation
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
     if not re.match(pattern, admin_email):
         raise ValueError(
             f"Invalid email format for admin_email: '{admin_email}'.\n"
             "Please provide a valid email address."
         )
-    
+
     # Azure-specific: Require verified domain
     if l5_provider == "azure":
         email_domain = admin_email.split("@")[1] if "@" in admin_email else ""
-        
+
         # List of commonly verified Azure domain patterns
         # .onmicrosoft.com is always verified (default tenant domain)
         if not email_domain.endswith(".onmicrosoft.com"):
@@ -1021,11 +1071,11 @@ def check_user_config_for_l4_l5(accessor: FileAccessor, ctx: ValidationContext) 
                 f"  Domain '{email_domain}' is likely not verified in your Azure tenant.\n\n"
                 f"Options:\n"
                 f"  1. Use your tenant domain: username@YOUR_TENANT.onmicrosoft.com\n"
-                f"  2. Use an empty string to skip user provisioning: \"admin_email\": \"\"\n"
+                f'  2. Use an empty string to skip user provisioning: "admin_email": ""\n'
                 f"  3. If '{email_domain}' IS verified, add it to a custom domain list.\n\n"
                 f"Find your tenant domain in Azure Portal → Entra ID → Overview → Primary domain."
             )
-        
+
         logger.info(f"  ✓ Platform user (Azure): {admin_email}")
     else:
         logger.info(f"  ✓ Platform user (AWS): {admin_email}")
@@ -1072,9 +1122,7 @@ def _check_phase8_user_config(
     if l5_provider == "gcp":
         cidrs = user_config.get("gcp_grafana_source_cidrs")
         if not isinstance(cidrs, list) or not cidrs:
-            raise ValueError(
-                "GCP L5 requires at least one bounded Grafana source CIDR"
-            )
+            raise ValueError("GCP L5 requires at least one bounded Grafana source CIDR")
         for cidr in cidrs:
             if not isinstance(cidr, str) or cidr in {"0.0.0.0/0", "::/0"}:
                 raise ValueError(
@@ -1091,7 +1139,9 @@ def _check_phase8_user_config(
 def check_phase8_profile_artifacts(ctx: ValidationContext) -> None:
     """Reject historical user-owned runtime inputs in active Phase 8 packages."""
     relative_files = [
-        path[len(ctx.project_root):] if ctx.project_root and path.startswith(ctx.project_root) else path
+        path[len(ctx.project_root) :]
+        if ctx.project_root and path.startswith(ctx.project_root)
+        else path
         for path in ctx.all_files
     ]
     historical_asset_names = {
@@ -1123,10 +1173,10 @@ def check_phase8_profile_artifacts(ctx: ValidationContext) -> None:
         )
 
 
-
 # ==========================================
 # 6. Main Orchestrator
 # ==========================================
+
 
 def run_all_checks(
     accessor: FileAccessor,
@@ -1135,18 +1185,18 @@ def run_all_checks(
 ) -> None:
     """
     Run all validation checks.
-    
+
     This is the single entrypoint for all validation.
-    
+
     Args:
         accessor: FileAccessor implementation (ZIP or Directory)
-        
+
     Raises:
         ValueError: On any validation failure with descriptive message
     """
     # Phase 1: Build initial context (scans ALL files)
     ctx = build_context(accessor)
-    
+
     # Phase 2: Schema validation (populates ctx.prov_config)
     check_required_files(accessor, ctx)
     check_config_schemas(accessor, ctx)
@@ -1155,15 +1205,15 @@ def run_all_checks(
         ctx,
         required=require_deployment_manifest,
     )
-    
+
     # Phase 3: Get provider for provider-specific checks (fail-fast)
     l2_provider = ctx.prov_config.get("layer_2_provider")
     if not l2_provider:
         raise ValueError("Missing required 'layer_2_provider' in config_providers.json")
     l2_provider = l2_provider.lower()
-    
+
     # Phase 4: Provider-specific validations
-    phase8 = ctx.architecture_profile in PHASE_8_COMPARISON_PROFILES
+    phase8 = ctx.architecture_profile in SIX_LAYER_PROFILES
     if phase8:
         check_phase8_profile_artifacts(ctx)
     else:
@@ -1171,11 +1221,13 @@ def run_all_checks(
         check_state_machines(accessor, ctx)  # Already uses ctx.prov_config
         check_processor_syntax(accessor, ctx, l2_provider)
         check_event_actions(ctx)
-        check_event_action_types(ctx)  # Validate workflow action types match L2 provider
+        check_event_action_types(
+            ctx
+        )  # Validate workflow action types match L2 provider
         check_feedback_function(ctx)
         check_processor_folders_match_devices(accessor, ctx, l2_provider)
         check_state_machine_presence(ctx)  # Already provider-aware
-    
+
     # Phase 5: Cross-cutting validations
     check_payloads_vs_devices(accessor, ctx)
     check_credentials_per_provider(ctx)
@@ -1183,7 +1235,7 @@ def run_all_checks(
         check_hierarchy_provider_match(accessor, ctx)
         check_scene_assets(accessor, ctx)
     check_user_config_for_l4_l5(accessor, ctx)  # Validates config_user.json
-    
+
     logger.info("✓ All validation checks passed")
 
 
@@ -1195,19 +1247,19 @@ def run_all_checks_aggregated(
 ) -> ValidationResult:
     """
     Run all validation checks, aggregating errors instead of failing fast.
-    
+
     This mode collects ALL validation errors to provide maximum feedback
     to users on their first upload attempt.
-    
+
     Args:
         accessor: FileAccessor implementation (ZIP or Directory)
         ctx: Optional pre-built ValidationContext with skip settings
-        
+
     Returns:
         ValidationResult with is_valid status and all errors/warnings
     """
     result = ValidationResult()
-    
+
     # Phase 1: Build context if not provided
     if ctx is None:
         ctx = build_context(accessor)
@@ -1220,13 +1272,13 @@ def run_all_checks_aggregated(
         ctx.seen_event_actions = temp_ctx.seen_event_actions
         ctx.seen_state_machines = temp_ctx.seen_state_machines
         ctx.seen_feedback_func = temp_ctx.seen_feedback_func
-    
+
     # Phase 2: Required files and schema validation
     try:
         check_required_files(accessor, ctx)
     except ValueError as e:
         result.add_error(str(e))
-    
+
     try:
         check_config_schemas(accessor, ctx)
     except ValueError as e:
@@ -1240,16 +1292,16 @@ def run_all_checks_aggregated(
         )
     except ValueError as e:
         result.add_error(str(e))
-    
+
     # Phase 3: Get provider (need this for later checks)
     l2_provider = ctx.prov_config.get("layer_2_provider", "").lower()
     if not l2_provider and not ctx.prov_config:
         result.add_error("Missing config_providers.json or layer_2_provider not set")
         # Return early - can't do provider-specific checks without this
         return result
-    
+
     # Phase 4: Provider-specific validations (each collected separately)
-    phase8 = ctx.architecture_profile in PHASE_8_COMPARISON_PROFILES
+    phase8 = ctx.architecture_profile in SIX_LAYER_PROFILES
     provider_checks = (
         [(check_phase8_profile_artifacts, (ctx,))]
         if phase8
@@ -1269,7 +1321,7 @@ def run_all_checks_aggregated(
             check_fn(*args)
         except ValueError as e:
             result.add_error(str(e))
-    
+
     # Phase 5: Cross-cutting validations
     cross_checks = [(check_payloads_vs_devices, (accessor, ctx))]
     if not phase8:
@@ -1280,20 +1332,20 @@ def run_all_checks_aggregated(
             ]
         )
     cross_checks.append((check_user_config_for_l4_l5, (accessor, ctx)))
-    
+
     # Optionally skip credential check in Mode A
     if not ctx.skip_credentials:
         cross_checks.insert(1, (check_credentials_per_provider, (ctx,)))
-    
+
     for check_fn, args in cross_checks:
         try:
             check_fn(*args)
         except ValueError as e:
             result.add_error(str(e))
-    
+
     if result.is_valid:
         logger.info("✓ All validation checks passed")
     else:
         logger.warning(f"Validation found {len(result.errors)} error(s)")
-    
+
     return result

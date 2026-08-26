@@ -42,18 +42,6 @@
             ],
             "description": "AWS Region where IAM Identity Center (SSO) is enabled, if different from aws_region",
             "title": "Aws Sso Region"
-          },
-          "permission_set_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Versioned deployment permission-set baseline assigned to this credential.",
-            "title": "Permission Set Version"
           }
         },
         "required": [
@@ -185,18 +173,6 @@
             "description": "Azure AD Tenant ID",
             "title": "Azure Tenant Id",
             "type": "string"
-          },
-          "permission_set_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Versioned deployment permission-set baseline assigned to this credential.",
-            "title": "Permission Set Version"
           }
         },
         "required": [
@@ -552,10 +528,51 @@
         "title": "DataFlowRequest",
         "type": "object"
       },
+      "DeployerArchitectureProfileRef": {
+        "additionalProperties": false,
+        "description": "Pinned architecture profile used to select profile-specific validation.",
+        "properties": {
+          "digest": {
+            "maxLength": 71,
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 32,
+            "pattern": "^[1-9][0-9]*$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "digest"
+        ],
+        "title": "DeployerArchitectureProfileRef",
+        "type": "object"
+      },
       "DeployerCompleteValidation": {
         "additionalProperties": false,
         "description": "Bounded input for complete deployer configuration validation.",
         "properties": {
+          "architecture_profile_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeployerArchitectureProfileRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "cheapest_path": {
             "anyOf": [
               {
@@ -762,6 +779,51 @@
         "title": "DeployerValidationResponse",
         "type": "object"
       },
+      "DeploymentAccessCredentialResult": {
+        "additionalProperties": false,
+        "properties": {
+          "issued_at": {
+            "format": "date-time",
+            "title": "Issued At",
+            "type": "string"
+          },
+          "layer": {
+            "pattern": "^l5$",
+            "title": "Layer",
+            "type": "string"
+          },
+          "password": {
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "provider": {
+            "pattern": "^gcp$",
+            "title": "Provider",
+            "type": "string"
+          },
+          "schema_version": {
+            "pattern": "^deployment-access-credential\\.v1$",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "username": {
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "layer",
+          "provider",
+          "username",
+          "password",
+          "issued_at"
+        ],
+        "title": "DeploymentAccessCredentialResult",
+        "type": "object"
+      },
       "FileExtractionResult": {
         "description": "Result of extracting a single file from the ZIP.",
         "properties": {
@@ -937,18 +999,6 @@
             "description": "GCP Region (e.g., 'europe-west1')",
             "title": "Gcp Region",
             "type": "string"
-          },
-          "permission_set_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Versioned deployment permission-set baseline assigned to this credential.",
-            "title": "Permission Set Version"
           }
         },
         "required": [
@@ -1170,19 +1220,6 @@
             "title": "Checks",
             "type": "array"
           },
-          "expected_permission_set_version": {
-            "title": "Expected Permission Set Version",
-            "type": "string"
-          },
-          "permission_set_status": {
-            "enum": [
-              "matched",
-              "missing",
-              "outdated"
-            ],
-            "title": "Permission Set Status",
-            "type": "string"
-          },
           "provider": {
             "enum": [
               "aws",
@@ -1207,23 +1244,10 @@
           "summary": {
             "title": "Summary",
             "type": "string"
-          },
-          "supplied_permission_set_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Supplied Permission Set Version"
           }
         },
         "required": [
           "provider",
-          "expected_permission_set_version",
-          "permission_set_status",
           "ready",
           "status",
           "summary",
@@ -1923,6 +1947,66 @@
           }
         },
         "summary": "Deploy with SSE streaming logs",
+        "tags": [
+          "Infrastructure"
+        ]
+      }
+    },
+    "/infrastructure/deployment-access/l5/credentials:rotate": {
+      "post": {
+        "operationId": "rotate_deployment_access_credential_infrastructure_deployment_access_l5_credentials_rotate_post",
+        "parameters": [
+          {
+            "description": "Name of the project context",
+            "in": "query",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "description": "Name of the project context",
+              "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Operation-Package",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Operation-Package",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentAccessCredentialResult"
+                }
+              }
+            },
+            "description": "One-time Viewer credential"
+          },
+          "400": {
+            "description": "Invalid or expired operation package"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "502": {
+            "description": "Bounded GKE rotation failed"
+          }
+        },
+        "summary": "Rotate the deployed GCP Grafana Viewer credential once",
         "tags": [
           "Infrastructure"
         ]
@@ -3022,7 +3106,7 @@
         ]
       },
       "post": {
-        "description": "**Purpose:** Verifies GCP Service Account credentials against required permissions.\n\n**When to call:** During wizard to validate user-provided GCP credentials.\n\n**Checks:** Project access, API enablement (Pub/Sub, Cloud Functions, Firestore, etc).",
+        "description": "**Purpose:** Verifies GCP Service Account credentials against the selected versioned permission pack.\n\n**When to call:** During wizard to validate user-provided GCP credentials.\n\n**Checks:** Project access, billing, region, the fixed Phase 8 API baseline, project-testable IAM permissions, and explicit deferred resource/provider-operation checks.",
         "operationId": "verifyGcpCredentialsFromBody",
         "requestBody": {
           "content": {
@@ -5058,17 +5142,81 @@
     },
     "/validate/user-config": {
       "post": {
-        "description": "**Purpose:** Validates config_user.json for L5 platform user provisioning (Grafana admin).\n\n**When to call:** To validate platform user configuration before L5 deployment.\n\n**Azure requirement:** Email must use verified domain (*.onmicrosoft.com).",
+        "description": "**Purpose:** Validates config_user.json for L4/L5 browser access.\n\n**When to call:** To validate the platform identity before deployment.\n\n**Phase 8:** Trusted profile and L4/L5 context enables cross-cloud identity, Entra principal, AWS intent, and GCP CIDR checks.\n\n**Historical Azure:** Email must use a verified *.onmicrosoft.com domain.",
         "operationId": "validateUserConfig",
         "parameters": [
           {
-            "description": "L4 provider (aws or azure)",
+            "description": "Historical provider or selected L5 provider",
             "in": "query",
             "name": "provider",
             "required": true,
             "schema": {
               "$ref": "#/components/schemas/ProviderEnum",
-              "description": "L4 provider (aws or azure)"
+              "description": "Historical provider or selected L5 provider"
+            }
+          },
+          {
+            "in": "query",
+            "name": "architecture_profile_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Architecture Profile Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "architecture_profile_version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Architecture Profile Version"
+            }
+          },
+          {
+            "in": "query",
+            "name": "layer_4_provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Layer 4 Provider"
+            }
+          },
+          {
+            "in": "query",
+            "name": "layer_5_provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Layer 5 Provider"
             }
           }
         ],

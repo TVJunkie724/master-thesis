@@ -4,7 +4,7 @@
   "architecture_profile_ref": {
     "id": "six-layer-eventing",
     "version": "1",
-    "digest": "sha256:0ecbf18fdc54a479c81a81df114fc508983db7da1786836aa1774e03d1665066"
+    "digest": "sha256:5005e709b88026dc67570fd1cc93560628ddaf251e76506c5d78f66090fa0804"
   },
   "optimization_context": {
     "service_decision_ref": {
@@ -15,12 +15,12 @@
     "component_catalog_ref": {
       "id": "six-layer-eventing-component-catalog",
       "version": "1",
-      "digest": "sha256:e99bde162b10d648941109157910d6e5d4f29916b42b2ca23408715119a06b33"
+      "digest": "sha256:9c3b015df653fc90668b7159aaa350f81c4894dfbeb64bb11a3245e87460df79"
     },
     "workload_ref": {
-      "id": "five-layer-workload",
-      "version": "2",
-      "digest": "sha256:32fb431fb207e539bc85e6f22ce9bb3d7a9224e18722d41a7cda0339c80b9a95"
+      "id": "six-layer-workload",
+      "version": "1",
+      "digest": "sha256:51745c9efac65afd11fdd10c0a74b60c4443d0ba65a97a1647b736eadc01b7f5"
     },
     "eventing_scenario_ref": {
       "id": "eventing-small-v1",
@@ -35,11 +35,11 @@
     "pricing_evidence_refs": [
       {
         "provider": "aws",
-        "digest": "sha256:acb96faf904bc16d9d00d83fb26372ee2bf35255340ab5afaf6df6e87b8342b7"
+        "digest": "sha256:121893d4bd57f0114a49f72ba928c21e31491ac29b4b39b7638e319c77045bf6"
       },
       {
         "provider": "azure",
-        "digest": "sha256:9a91dd0c760ab1a4c66f6e8abe2acd5f98d80da560d605c09d509957c1a172ce"
+        "digest": "sha256:790a89d32263b460ed54b60bd491d78ad4a03173d87101d625fa567af7c79d06"
       }
     ]
   },
@@ -2050,5 +2050,5 @@
       "compatibility_version": "1"
     }
   ],
-  "digest": "sha256:fad2b115b115cef0f2ab5dbe9598b7c320d760038cce097d8c48d62c78ed2a89"
+  "digest": "sha256:58d5c74c4ee71edf4e705dfe42148bec0e0b8177d5d7dd594f8389389319816d"
 }

@@ -58,7 +58,7 @@ def test_azure_event_layer_uses_reviewed_tiers_and_failure_paths():
 
 
 def test_inherited_azure_runtime_replaces_embedded_transport_for_six_layer():
-    terraform = _source("azure_five_layer_v2.tf")
+    terraform = _source("azure_six_layer.tf")
     runtime = (
         TERRAFORM_ROOT.parent
         / "providers"
@@ -67,13 +67,13 @@ def test_inherited_azure_runtime_replaces_embedded_transport_for_six_layer():
         / "six-layer-domain"
         / "function_app.py"
     ).read_text(encoding="utf-8")
-    assert "azure_v2_embedded_event_enabled" in terraform
-    assert "V2_EVENTING_RECEIVED_HUB_NAME" in terraform
-    assert "V2_EVENTING_PROCESSED_HUB_NAME" in terraform
-    assert "V2_EVENTING_CONTROL_TOPIC_NAME" in terraform
-    assert "V2_EVENTING_DELIVERY_ENDPOINT_ENABLED" in terraform
-    assert "V2_L1_PROVIDER" in terraform
-    assert "V2_L2_PROVIDER" in terraform
+    assert "azure_six_layer_embedded_event_enabled" in terraform
+    assert "SIX_LAYER_EVENTING_RECEIVED_HUB_NAME" in terraform
+    assert "SIX_LAYER_EVENTING_PROCESSED_HUB_NAME" in terraform
+    assert "SIX_LAYER_EVENTING_CONTROL_TOPIC_NAME" in terraform
+    assert "SIX_LAYER_EVENTING_DELIVERY_ENDPOINT_ENABLED" in terraform
+    assert "SIX_LAYER_L1_PROVIDER" in terraform
+    assert "SIX_LAYER_L2_PROVIDER" in terraform
     assert "def _publish_eventing_stream" in runtime
     assert "def _publish_eventing_control" in runtime
     assert "def _consume_eventing_delivery" in runtime
@@ -94,34 +94,34 @@ def test_azure_event_layer_can_be_the_source_of_a_directed_bridge():
     assert "bridge-processed" in terraform
     assert "azure_event_bridge_received_enabled" in terraform
     assert "azure_event_bridge_processed_enabled" in terraform
-    assert "V2_BRIDGE_EVENT_RECEIVED_ENABLED" in _source("azure_five_layer_v2.tf")
-    assert "V2_BRIDGE_EVENT_PROCESSED_ENABLED" in _source("azure_five_layer_v2.tf")
+    assert "SIX_LAYER_BRIDGE_EVENT_RECEIVED_ENABLED" in _source("azure_six_layer.tf")
+    assert "SIX_LAYER_BRIDGE_EVENT_PROCESSED_ENABLED" in _source("azure_six_layer.tf")
     assert (
         'resource "azurerm_servicebus_subscription" "event_bridge_control"' in terraform
     )
     assert 'resource "azurerm_role_assignment" "azure_event_bridge"' in terraform
-    assert 'name="v2-cross-cloud-event-received-bridge"' in function_app
-    assert 'name="v2-cross-cloud-event-processed-bridge"' in function_app
-    assert 'name="v2-cross-cloud-event-control-bridge"' in function_app
+    assert 'name="six-layer-cross-cloud-event-received-bridge"' in function_app
+    assert 'name="six-layer-cross-cloud-event-processed-bridge"' in function_app
+    assert 'name="six-layer-cross-cloud-event-control-bridge"' in function_app
     assert "if BRIDGE_EVENT_RECEIVED_ENABLED:" in function_app
     assert "if BRIDGE_EVENT_PROCESSED_ENABLED:" in function_app
 
 
 def test_azure_l2_runtime_can_return_to_local_or_remote_event_layer():
-    source = _source("azure_five_layer_v2.tf")
+    source = _source("azure_six_layer.tf")
     processor = source.split(
         'resource "azurerm_function_app_flex_consumption" '
         '"azure_azure_functions_flex_consumption"',
         maxsplit=1,
     )[1].split(
         'resource "azurerm_function_app_flex_consumption" '
-        '"azure_v2_processor_extension"',
+        '"azure_six_layer_processor_extension"',
         maxsplit=1,
     )[0]
 
-    assert "V2_EVENT_LAYER_PROVIDER" in processor
-    assert "V2_EVENTING_PROCESSED_HUB_NAME" in processor
-    assert "V2_EVENTING_CONTROL_TOPIC_NAME" in processor
-    assert "V2_BRIDGE_TELEMETRY_HUB_NAME" in processor
-    assert "V2_BRIDGE_TELEMETRY__fullyQualifiedNamespace" in processor
-    assert "V2_BRIDGE_CONTROL_TOPIC_NAME" in processor
+    assert "SIX_LAYER_EVENT_LAYER_PROVIDER" in processor
+    assert "SIX_LAYER_EVENTING_PROCESSED_HUB_NAME" in processor
+    assert "SIX_LAYER_EVENTING_CONTROL_TOPIC_NAME" in processor
+    assert "SIX_LAYER_BRIDGE_TELEMETRY_HUB_NAME" in processor
+    assert "SIX_LAYER_BRIDGE_TELEMETRY__fullyQualifiedNamespace" in processor
+    assert "SIX_LAYER_BRIDGE_CONTROL_TOPIC_NAME" in processor

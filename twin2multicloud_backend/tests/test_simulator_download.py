@@ -11,7 +11,6 @@ import pytest
 from unittest.mock import patch, AsyncMock
 
 from src.models.twin import DigitalTwin, TwinState
-from src.models.optimizer_config import OptimizerConfiguration
 from src.models.deployer_config import DeployerConfiguration
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.clients.deployer_client import DeployerSimulatorArchive
@@ -55,8 +54,8 @@ def _prepared(project: str, provider: str = "aws") -> PreparedDeploymentProject:
 
 
 @pytest.fixture
-def deployed_twin_with_optimizer(authenticated_client, db_session):
-    """Create a deployed twin with optimizer config containing L1."""
+def deployed_twin(authenticated_client, db_session):
+    """Create a deployed twin with a Deployer resource name."""
     client, headers = authenticated_client
 
     # Create twin
@@ -72,15 +71,6 @@ def deployed_twin_with_optimizer(authenticated_client, db_session):
     )
     db_session.add(deployer_config)
 
-    # Add optimizer config with cheapest_l1 (individual columns, not dict)
-    opt_config = OptimizerConfiguration(
-        twin_id=twin_id,
-        cheapest_l1="aws",
-        cheapest_l2="azure",
-        cheapest_l3_hot="aws",
-        cheapest_l3_cool="gcp",
-    )
-    db_session.add(opt_config)
     db_session.commit()
 
     return client, headers, twin_id
@@ -101,11 +91,9 @@ def deployed_twin_with_optimizer(authenticated_client, db_session):
     new_callable=AsyncMock,
     return_value=_archive("aws", "sim-test-project"),
 )
-def test_download_simulator_aws_success(
-    mock_download, mock_prepare, deployed_twin_with_optimizer
-):
+def test_download_simulator_aws_success(mock_download, mock_prepare, deployed_twin):
     """Successfully download AWS simulator package."""
-    client, headers, twin_id = deployed_twin_with_optimizer
+    client, headers, twin_id = deployed_twin
 
     response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)
 
@@ -138,8 +126,7 @@ def test_download_simulator_azure_success(
     deployer_config = DeployerConfiguration(
         twin_id=twin_id, deployer_digital_twin_name="azure-project"
     )
-    opt_config = OptimizerConfiguration(twin_id=twin_id, cheapest_l1="azure")
-    db_session.add_all([deployer_config, opt_config])
+    db_session.add(deployer_config)
     db_session.commit()
 
     response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)
@@ -171,8 +158,7 @@ def test_download_simulator_gcp_success(
     deployer_config = DeployerConfiguration(
         twin_id=twin_id, deployer_digital_twin_name="gcp-project"
     )
-    opt_config = OptimizerConfiguration(twin_id=twin_id, cheapest_l1="gcp")
-    db_session.add_all([deployer_config, opt_config])
+    db_session.add(deployer_config)
     db_session.commit()
 
     response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)
@@ -220,28 +206,6 @@ def test_download_simulator_no_architecture(authenticated_client, db_session):
     assert "architecture" in response.json()["detail"].lower()
 
 
-def test_download_simulator_fixed_l1_cannot_replace_architecture(
-    authenticated_client,
-    db_session,
-):
-    """A historical L1 projection cannot replace selected architecture."""
-    client, headers = authenticated_client
-    twin_id = create_test_twin(client, headers, "No L1 Twin")
-
-    twin = db_session.query(DigitalTwin).filter_by(id=twin_id).first()
-    twin.state = TwinState.DEPLOYED
-
-    # Empty cheapest_l1 (no L1 provider set)
-    opt_config = OptimizerConfiguration(twin_id=twin_id, cheapest_l1=None)
-    db_session.add(opt_config)
-    db_session.commit()
-
-    response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)
-
-    assert response.status_code == 400
-    assert "architecture" in response.json()["detail"].lower()
-
-
 @patch(
     "src.services.deployment_service.prepare_project_for_deployment",
     new_callable=AsyncMock,
@@ -256,11 +220,9 @@ def test_download_simulator_fixed_l1_cannot_replace_architecture(
         public_detail="Project not found",
     ),
 )
-def test_download_simulator_deployer_404(
-    mock_download, mock_prepare, deployed_twin_with_optimizer
-):
+def test_download_simulator_deployer_404(mock_download, mock_prepare, deployed_twin):
     """404 when Deployer returns 404."""
-    client, headers, twin_id = deployed_twin_with_optimizer
+    client, headers, twin_id = deployed_twin
 
     response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)
 
@@ -284,10 +246,10 @@ def test_download_simulator_deployer_404(
     side_effect=ExternalServiceUnavailable("Deployer API timed out"),
 )
 def test_download_simulator_deployer_timeout(
-    mock_download, mock_prepare, deployed_twin_with_optimizer
+    mock_download, mock_prepare, deployed_twin
 ):
     """502 when Deployer times out."""
-    client, headers, twin_id = deployed_twin_with_optimizer
+    client, headers, twin_id = deployed_twin
 
     response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)
 
@@ -309,11 +271,9 @@ def test_download_simulator_deployer_timeout(
         public_detail="Internal server error",
     ),
 )
-def test_download_simulator_deployer_500(
-    mock_download, mock_prepare, deployed_twin_with_optimizer
-):
+def test_download_simulator_deployer_500(mock_download, mock_prepare, deployed_twin):
     """500 when Deployer returns 500."""
-    client, headers, twin_id = deployed_twin_with_optimizer
+    client, headers, twin_id = deployed_twin
 
     response = client.get(f"/twins/{twin_id}/simulator/download", headers=headers)
 

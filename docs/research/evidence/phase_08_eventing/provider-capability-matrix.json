@@ -478,7 +478,7 @@
             "source.aws.outbound-identity-federation.2026-07-20",
             "source.aws.web-identity.security.2026-07-20"
           ],
-          "limitation": "This support is deployed only for remote five-layer responsibility edges; every directed trust and destination acknowledgement is a live activation gate.",
+          "limitation": "This support is deployed only for remote Six-layer responsibility edges; every directed trust and destination acknowledgement is a live activation gate.",
           "implementation_status": "planned_phase_8_9"
         },
         {
@@ -495,7 +495,7 @@
             "source.azure.functions-service-bus-trigger.2026-07-20",
             "source.azure.workload-identity-federation.security.2026-07-20"
           ],
-          "limitation": "This support is deployed only for remote five-layer responsibility edges; every directed trust and destination acknowledgement is a live activation gate.",
+          "limitation": "This support is deployed only for remote Six-layer responsibility edges; every directed trust and destination acknowledgement is a live activation gate.",
           "implementation_status": "planned_phase_8_9"
         },
         {
@@ -512,7 +512,7 @@
             "source.gcp.cloud-run-worker-pools.2026-07-20",
             "source.gcp.workload-identity-federation.security.2026-07-20"
           ],
-          "limitation": "This support is deployed only for remote five-layer responsibility edges; every directed trust and destination acknowledgement is a live activation gate.",
+          "limitation": "This support is deployed only for remote Six-layer responsibility edges; every directed trust and destination acknowledgement is a live activation gate.",
           "implementation_status": "planned_phase_8_9"
         }
       ]

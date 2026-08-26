@@ -36,8 +36,8 @@ calculation, readiness result, or `configured` state. The workspace shows the ne
 recommended task rather than pretending downstream results remain current.
 
 The active profile list is owned by Management. Its current runtime catalog
-contains Five-layer v2 and Six-layer v1; historical Five-layer v1 Twins remain
-readable but are not selectable for new work. The earlier Phase 8.7 empty
+contains Six-layer v1; historical Five-layer v1 results remain Optimizer-only
+and are not selectable for new work. The earlier Phase 8.7 empty
 catalog was an activation seam, not a disabled or “coming soon” UI. A profile
 change first shows the exact server-calculated workload, user-logic, run, and
 readiness invalidations and requires explicit confirmation.
@@ -45,30 +45,23 @@ readiness invalidations and requires explicit confirmation.
 ## First Real-Provider Lifecycle
 
 No cloud preparation is required before creating a draft Twin or calculating
-an offline architecture. Real deployment access follows this exact current PoC
-boundary:
+an offline architecture. Real deployment access follows this PoC boundary:
 
-1. Outside the app, create or select the provider account/subscription/project,
-   enable billing where required, and obtain temporary owner/admin bootstrap
-   authority.
-2. Start the UI and create/configure/calculate the Twin without that authority.
-3. Resolve the selected providers in **Prepare deployment -> Cloud access**.
-   The in-app deterministic adapters are offline only. For a real provider,
-   request the reviewed manual bootstrap plan, authenticate through the
-   provider CLI, inspect the dry run, and apply it explicitly.
-4. Import and validate only the generated bounded `thesis-demo-v2`
-   CloudConnection. Bind it to the Twin; the initial owner/admin credential is
-   neither imported nor retained by the app.
-5. Revoke or delete the temporary owner/admin authority and complete any
-   provider-side manual cleanup before acknowledging it in the workflow.
-6. Run Twin deployment preflight. Complete only the exact account-level,
+1. Outside the app, create or select an isolated provider
+   account/subscription/project and enable billing where required.
+2. Create one non-root administrator credential for the supervised PoC.
+3. Register it through **Settings -> Cloud Accounts & Access**, validate the
+   displayed provider scope, and bind it to the Twin.
+4. Run Twin deployment preflight. Complete only the exact account-level,
    billing, quota, policy, AWS Identity Center, or GCP OAuth prerequisite the
    preflight reports, then recheck through the bounded connection.
-7. Deploy only in a separately approved supervised run. After successful live
+5. Deploy only in a separately approved supervised run. After successful live
    verification, Twin Overview can expose the generated L4 semantic-Twin and
    L5 Grafana links with their provider-owned access instructions.
+6. Destroy the deployment and revoke the PoC credential directly with the
+   provider when the experiment ends.
 
-The repository's offline evaluation and default tests stop before steps 3-7
+The repository's offline evaluation and default tests stop before steps 4-6
 perform any provider mutation. They do not produce live links or credentials.
 
 ## Calculation And Evidence
@@ -127,11 +120,10 @@ The calculation evidence view records the supplied values, their source, the der
 operation/query-unit quantities, and the three separate Azure Digital Twins cost
 components.
 
-The Processing task shows **Integrate Error Handling** as unavailable for the
-current five-layer baseline. Historical configurations that enabled the legacy
-field remain visible as **Legacy, not deployable** and must be recalculated
-without that field before deployment. This does not disable event checking,
-notification workflows, device feedback, or configured event actions.
+The Processing task renders the standalone Six-layer Event Layer as mandatory,
+read-only workload evidence. Historical configurations with retired feature
+flags remain visible as **Legacy, not deployable** and must be recalculated
+before deployment.
 
 ## Artifacts
 

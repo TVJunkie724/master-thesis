@@ -41,14 +41,10 @@ class _CalcFormState extends State<CalcForm> {
   GlobalKey<FormState> get _formKey => widget.formKey ?? _internalFormKey;
   int _rebuildKey = 0; // Forces form rebuild when presets are applied
   int? _selectedPreset; // 1, 2, 3, or null if input modified by user
-  FiveLayerWorkloadScenario _fiveLayerScenario =
-      FiveLayerWorkloadScenario.small;
+  SixLayerWorkloadScenario _sixLayerScenario = SixLayerWorkloadScenario.small;
 
-  bool get _isPhase8Profile =>
-      (widget.profileId == 'five-layer-baseline' &&
-          widget.profileVersion == '2') ||
-      (widget.profileId == 'six-layer-eventing' &&
-          widget.profileVersion == '1');
+  bool get _isSixLayerProfile =>
+      widget.profileId == 'six-layer-eventing' && widget.profileVersion == '1';
 
   bool get _usesIndependentEventLayer =>
       widget.profileId == 'six-layer-eventing' && widget.profileVersion == '1';
@@ -91,9 +87,9 @@ class _CalcFormState extends State<CalcForm> {
   String _currency = 'USD';
 
   void _updateParams() {
-    if (_isPhase8Profile) {
-      final params = CalcParams.fiveLayerV2(
-        scenario: _fiveLayerScenario,
+    if (_isSixLayerProfile) {
+      final params = CalcParams.sixLayer(
+        scenario: _sixLayerScenario,
         currency: _currency,
       );
       widget.onChanged?.call(params);
@@ -146,17 +142,17 @@ class _CalcFormState extends State<CalcForm> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_isPhase8Profile) {
+      if (_isSixLayerProfile) {
         final initial = widget.initialParams;
-        if (initial?.isFiveLayerV2 == true) {
+        if (initial?.isSixLayer == true) {
           _loadFromParams(initial!);
         } else {
-          _fiveLayerScenario = FiveLayerWorkloadScenario.small;
+          _sixLayerScenario = SixLayerWorkloadScenario.small;
           _currency = 'USD';
           _updateParams();
         }
       } else if (widget.initialParams != null &&
-          !widget.initialParams!.isFiveLayerV2) {
+          !widget.initialParams!.isSixLayer) {
         // Load from saved params
         _loadFromParams(widget.initialParams!);
       } else if (widget.initialParams == null) {
@@ -198,19 +194,19 @@ class _CalcFormState extends State<CalcForm> {
     if (!profileChanged) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (_isPhase8Profile) {
+      if (_isSixLayerProfile) {
         final initial = widget.initialParams;
-        if (initial?.isFiveLayerV2 == true) {
+        if (initial?.isSixLayer == true) {
           _loadFromParams(initial!);
         } else {
           setState(() {
-            _fiveLayerScenario = FiveLayerWorkloadScenario.small;
+            _sixLayerScenario = SixLayerWorkloadScenario.small;
             _currency = 'USD';
           });
           _updateParams();
         }
       } else if (widget.initialParams != null &&
-          !widget.initialParams!.isFiveLayerV2) {
+          !widget.initialParams!.isSixLayer) {
         _loadFromParams(widget.initialParams!);
       }
     });
@@ -246,7 +242,7 @@ class _CalcFormState extends State<CalcForm> {
       _amountOfActiveEditors = p.amountOfActiveEditors;
       _amountOfActiveViewers = p.amountOfActiveViewers;
       _currency = p.currency;
-      _fiveLayerScenario = p.scenario ?? FiveLayerWorkloadScenario.small;
+      _sixLayerScenario = p.scenario ?? SixLayerWorkloadScenario.small;
       _selectedPreset = null; // No preset when loading saved
       _rebuildKey++;
     });
@@ -312,7 +308,7 @@ class _CalcFormState extends State<CalcForm> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isPhase8Profile) return _buildFiveLayerV2Form();
+    if (_isSixLayerProfile) return _buildSixLayerForm();
     return Form(
       key: _formKey,
       child: KeyedSubtree(
@@ -369,9 +365,9 @@ class _CalcFormState extends State<CalcForm> {
     );
   }
 
-  Widget _buildFiveLayerV2Form() {
-    final params = CalcParams.fiveLayerV2(
-      scenario: _fiveLayerScenario,
+  Widget _buildSixLayerForm() {
+    final params = CalcParams.sixLayer(
+      scenario: _sixLayerScenario,
       currency: _currency,
     );
     return Form(
@@ -386,7 +382,7 @@ class _CalcFormState extends State<CalcForm> {
               description:
                   'Choose one reproducible Small, Medium, or Large workload.',
             ),
-            _buildFiveLayerScenarioCards(),
+            _buildSixLayerScenarioCards(),
             const SizedBox(height: AppSpacing.md),
             _buildCurrencySection(),
             const SizedBox(height: AppSpacing.md),
@@ -446,7 +442,7 @@ class _CalcFormState extends State<CalcForm> {
     );
   }
 
-  Widget _buildFiveLayerScenarioCards() => LayoutBuilder(
+  Widget _buildSixLayerScenarioCards() => LayoutBuilder(
     builder: (context, constraints) {
       final viewportWidth = MediaQuery.sizeOf(context).width;
       final roundedViewportWidth = viewportWidth.roundToDouble();
@@ -461,12 +457,12 @@ class _CalcFormState extends State<CalcForm> {
       return Wrap(
         spacing: AppSpacing.md,
         runSpacing: AppSpacing.md,
-        children: FiveLayerWorkloadScenario.values
+        children: SixLayerWorkloadScenario.values
             .map(
               (scenario) => SizedBox(
-                key: ValueKey('five-layer-v2-scenario-card-${scenario.name}'),
+                key: ValueKey('six-layer-scenario-card-${scenario.name}'),
                 width: cardWidth,
-                child: _buildFiveLayerScenarioCard(scenario),
+                child: _buildSixLayerScenarioCard(scenario),
               ),
             )
             .toList(growable: false),
@@ -474,9 +470,9 @@ class _CalcFormState extends State<CalcForm> {
     },
   );
 
-  Widget _buildFiveLayerScenarioCard(FiveLayerWorkloadScenario scenario) {
-    final selected = scenario == _fiveLayerScenario;
-    final params = CalcParams.fiveLayerV2(scenario: scenario);
+  Widget _buildSixLayerScenarioCard(SixLayerWorkloadScenario scenario) {
+    final selected = scenario == _sixLayerScenario;
+    final params = CalcParams.sixLayer(scenario: scenario);
     final color = Theme.of(context).colorScheme.primary;
     return Semantics(
       selected: selected,
@@ -493,10 +489,10 @@ class _CalcFormState extends State<CalcForm> {
               : BorderSide(color: Theme.of(context).dividerColor),
         ),
         child: InkWell(
-          key: ValueKey('five-layer-v2-scenario-${scenario.name}'),
+          key: ValueKey('six-layer-scenario-${scenario.name}'),
           onTap: () {
             if (selected) return;
-            setState(() => _fiveLayerScenario = scenario);
+            setState(() => _sixLayerScenario = scenario);
             _updateParams();
           },
           child: Padding(
@@ -1041,7 +1037,7 @@ class _CalcFormState extends State<CalcForm> {
             _buildDisabledSwitchWithBadge(
               title: 'Integrate Error Handling',
               tooltip:
-                  'The executable five-layer baseline does not deploy this '
+                  'The executable six-layer baseline does not deploy this '
                   'topology. Event checking, notification workflows, and '
                   'device feedback remain separate supported capabilities.',
               value: _integrateErrorHandling,
@@ -1586,9 +1582,9 @@ class _Phase8EventsNotice extends StatelessWidget {
           Expanded(
             child: Text(
               independentEventLayer
-                  ? 'Events use the independent Event Layer and are always active in Six-layer v1. '
-                        'They use the same frozen comparison workload as Five-layer v2 and cannot be disabled.'
-                  : 'Events are embedded and always active in Five-layer v2. '
+                  ? 'Events use the independent Event Layer and are always active in the standalone Six-layer profile. '
+                        'They are part of the canonical PoC workload and cannot be disabled.'
+                  : 'Events are embedded and always active in Six-layer. '
                         'They are part of the frozen comparison workload and cannot be disabled.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onPrimaryContainer,

@@ -422,31 +422,20 @@ four separate primary research questions.
 |---|---|---|
 | 1. Functional total matrix | Capability coverage and admissible provider profiles, evaluated separately for each architecture profile | RQ2 |
 | 2. Single-provider total cost | AWS, Azure, and GCP baselines under identical inputs within one profile | RQ3.1 |
-| 3. Eventing deep dive | Shared domain-event scenarios that compare embedded `five-layer-baseline@2` with `six-layer-eventing@1` | RQ3.2 |
-| 4. Overall optimization | Best admissible allocation within each profile, followed by an explicit functional, topology, and cost delta between profiles | RQ3 |
+| 3. Eventing deep dive | Shared domain-event scenarios that isolate the capability, topology, and cost contribution of the Six-layer Eventing responsibility | RQ3.2 |
+| 4. Overall optimization | Best admissible single-cloud and multi-cloud allocation inside the standalone Six-layer profile | RQ3 |
 
-The evaluation contains one historical reproduction and two separate,
-functionally aligned experiment paths:
+The evaluation contains one historical Optimizer reproduction and one active
+cross-service experiment path:
 
 ```text
 five-layer-baseline@1
   |
-  +--> immutable historical/paper-compatible reproduction
+  +--> immutable Optimizer-only historical reproduction
 
-five-layer-baseline@2
-  |
-  +--> functional-completeness gate
-  +--> mandatory embedded rule/action/workflow/command behavior
-  |          |
-  |          v
-  |     single-cloud baselines
-  |          |
-  |          v
-  |     multi-cloud optimum
-  |
 six-layer-eventing@1
   |
-  +--> the same rule/action/workflow/command behavior
+  +--> mandatory rule/action/workflow/command behavior
   +--> functional-completeness gate and Event-Layer matrices
              |
              v
@@ -455,32 +444,21 @@ six-layer-eventing@1
              v
         multi-cloud optimum
 
-the two new independently evaluated profiles
-             |
-             v
-functional delta + topology delta + estimated cost delta
-             |
-             v
-interpretation and threats to validity
+        capability + topology + estimated cost result
+                         |
+                         v
+              interpretation and threats to validity
 ```
 
-The v1 five-layer result reproduces the original Twin2Clouds result space. The
-v2 five-layer result is the fair counterfactual: it contains the domain-event
-features embedded in L1/L2. The six-layer result contains the same domain
-behavior and adds an independently owned Eventing and Messaging
-responsibility.
-
-The optimizer must not choose one global winner from a candidate pool that
-mixes both profiles. Such a ranking would be valid only if both profiles were
-shown to satisfy the same mandatory scenario contract despite their structural
-differences. The default thesis interpretation instead reports:
+The v1 five-layer result reproduces the original Twin2Clouds result space only
+inside the Optimizer. It is not a deployable comparison profile. The active
+evaluation reports:
 
 - the historical reproduction for `five-layer-baseline@1`;
-- the best single-cloud and multi-cloud result for `five-layer-baseline@2`;
 - the best single-cloud and multi-cloud result for
   `six-layer-eventing@1`; and
-- the additional transport/failure semantics, topology change, and estimated
-  cost delta introduced by `LE` under the same domain-event workload.
+- the capability, transport/failure semantics, topology, and estimated cost
+  owned by `LE` under the fixed domain-event workload.
 
 ## Evaluation Constructs
 
@@ -532,9 +510,9 @@ The current refactoring introduced strong extension points for:
 - deployment manifests and provider capability contracts; and
 - result traceability.
 
-The repository now has a bounded architecture-profile contract and active
-Optimizer, Management, Deployer, and Flutter paths for Five-layer v2 and
-Six-layer v1. Adding a new service inside an existing responsibility remains a
+The repository now has one bounded architecture-profile contract and active
+Optimizer, Management, Deployer, and Flutter paths for Six-layer v1. Adding a
+new service inside an existing responsibility remains a
 bounded extension; the completed `LE` activation demonstrates that adding an
 architectural responsibility is a reviewed cross-project change rather than a
 UI-authored topology edit.
@@ -543,29 +521,19 @@ The closed-world contract separates:
 
 ```text
 five-layer-baseline@1
-  responsibilities: L1, L2, L3-hot, L3-cool, L3-archive, L4, L5
-  edges: historical baseline data flows
-  role: immutable paper-compatible reproduction
-
-five-layer-baseline@2
-  responsibilities: L1, L2, L3-hot, L3-cool, L3-archive, L4, L5
-  edges: baseline data flows plus mandatory embedded
-         rule/action/workflow/device-command behavior
-  role: fair Event-Layer counterfactual
+  role: immutable Optimizer-only paper-compatible reproduction
 
 six-layer-eventing@1
-  responsibilities: baseline responsibilities plus LE
-  edges: the same domain-event behavior plus explicit Event-Layer
+  responsibilities: L1, L2, L3-hot, L3-cool, L3-archive, L4, L5, and LE
+  edges: mandatory domain-event behavior plus explicit Event-Layer
          routing, buffering, fan-out, retry/DLQ, replay, and bridge flows
 ```
 
-This contract keeps the approved historical baseline reproducible and makes
-both active comparison profiles data-driven and iterable. Phase 8.8 approved
-their shared behavior, exact provider bundles, cross-cloud bridge, and
-implementation blueprint; Phase 8.9 then passed the inherited Phase 8.6
-compiler, Phase 8.7 UI, complete-service, and activation gates. Both new
-profiles are runtime-selectable for offline calculation, while supervised
-live-capacity gates remain fail-closed.
+The active contract makes the standalone Six-layer architecture data-driven
+and iterable. The frozen Phase 8 evidence covers its behavior, exact provider
+bundles, cross-cloud bridge, and implementation blueprint. The profile is
+runtime-selectable for offline calculation, while supervised live-capacity
+gates remain fail-closed.
 It must not become a general architecture editor or arbitrary topology engine.
 Each profile owns its admissibility gate, candidate set, and optimization run.
 Cross-profile evaluation compares reported deltas; it does not silently merge
@@ -658,9 +626,8 @@ version/license, compute, identity, persistence, networking, operations,
 capacity, deployment, cleanup, and cost ownership are explicit. Absence of a
 single managed product is not itself a functional rejection.
 
-Two scenario families remain distinct. Five-layer v2 froze its standalone
-evidence first; the separately approved Six-layer implementation pairs the
-same scenario snapshots by size for the final bounded comparison:
+Two scenario families remain distinct inside the standalone Six-layer
+evaluation and are paired by size:
 
 - Core Twin scenarios determine device telemetry, storage retention, Twin and
   semantic update bounds, and aggregate raw-history dashboard queries;
@@ -668,9 +635,8 @@ same scenario snapshots by size for the final bounded comparison:
   delivery, ordering, retry, replay, bridge, and concurrent-device bounds.
 
 Runtime requests select one immutable `eventingScenarioId`; Management resolves
-and digest-checks the canonical Phase 8.8 object. Five-layer v2 persists the
-selected scenario ID and workload digest. A fair comparison reuses those exact
-values rather than recalculating the baseline. Inline custom Eventing
+and digest-checks the canonical Phase 8.8 object, then persists the selected
+scenario ID and workload digest. Inline custom Eventing
 values require a later contract version and are not mislabeled as frozen v1
 evidence.
 
@@ -681,7 +647,7 @@ with three independent L4 providers, yielding three single-cloud and six
 explicit negative candidate. The L5 contract measures only bounded raw-
 history reads from L3 hot; selected state/model/relationship changes reach L4
 through `twin_projection.v1`. L4-to-L5 Twin context and 3D scenes are outside
-Five-layer v2 and require a later versioned capability decision.
+the PoC and require a later versioned capability decision.
 
 ## Scope Decisions
 

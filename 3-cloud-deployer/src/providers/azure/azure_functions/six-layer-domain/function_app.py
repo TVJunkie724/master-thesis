@@ -61,37 +61,40 @@ from core import (
 
 app = func.FunctionApp()
 REMOTE_TELEMETRY_ENABLED = (
-    os.getenv("V2_REMOTE_TELEMETRY_ENABLED", "false").strip().lower() == "true"
+    os.getenv("SIX_LAYER_REMOTE_TELEMETRY_ENABLED", "false").strip().lower() == "true"
 )
 DOMAIN_CONSUMER_ENABLED = (
-    os.getenv("V2_DOMAIN_CONSUMER_ENABLED", "false").strip().lower() == "true"
+    os.getenv("SIX_LAYER_DOMAIN_CONSUMER_ENABLED", "false").strip().lower() == "true"
 )
 IOT_PROCESSOR_ENABLED = (
-    os.getenv("V2_IOT_PROCESSOR_ENABLED", "false").strip().lower() == "true"
+    os.getenv("SIX_LAYER_IOT_PROCESSOR_ENABLED", "false").strip().lower() == "true"
 )
 BRIDGE_TELEMETRY_ENABLED = (
-    os.getenv("V2_BRIDGE_TELEMETRY_ENABLED", "false").strip().lower() == "true"
+    os.getenv("SIX_LAYER_BRIDGE_TELEMETRY_ENABLED", "false").strip().lower() == "true"
 )
 BRIDGE_CONTROL_ENABLED = (
-    os.getenv("V2_BRIDGE_CONTROL_ENABLED", "false").strip().lower() == "true"
+    os.getenv("SIX_LAYER_BRIDGE_CONTROL_ENABLED", "false").strip().lower() == "true"
 )
 BRIDGE_EVENT_RECEIVED_ENABLED = (
-    os.getenv("V2_BRIDGE_EVENT_RECEIVED_ENABLED", "false").strip().lower() == "true"
+    os.getenv("SIX_LAYER_BRIDGE_EVENT_RECEIVED_ENABLED", "false").strip().lower()
+    == "true"
 )
 BRIDGE_EVENT_PROCESSED_ENABLED = (
-    os.getenv("V2_BRIDGE_EVENT_PROCESSED_ENABLED", "false").strip().lower() == "true"
+    os.getenv("SIX_LAYER_BRIDGE_EVENT_PROCESSED_ENABLED", "false").strip().lower()
+    == "true"
 )
 BRIDGE_EVENT_CONTROL_ENABLED = (
-    os.getenv("V2_BRIDGE_EVENT_CONTROL_ENABLED", "false").strip().lower() == "true"
+    os.getenv("SIX_LAYER_BRIDGE_EVENT_CONTROL_ENABLED", "false").strip().lower()
+    == "true"
 )
 RAW_HISTORY_ENABLED = (
-    os.getenv("V2_RAW_HISTORY_ENABLED", "false").strip().lower() == "true"
+    os.getenv("SIX_LAYER_RAW_HISTORY_ENABLED", "false").strip().lower() == "true"
 )
 ACTION_ENDPOINT_ENABLED = (
-    os.getenv("V2_ACTION_ENDPOINT_ENABLED", "false").strip().lower() == "true"
+    os.getenv("SIX_LAYER_ACTION_ENDPOINT_ENABLED", "false").strip().lower() == "true"
 )
 EVENTING_DELIVERY_ENDPOINT_ENABLED = (
-    os.getenv("V2_EVENTING_DELIVERY_ENDPOINT_ENABLED", "false").strip().lower()
+    os.getenv("SIX_LAYER_EVENTING_DELIVERY_ENDPOINT_ENABLED", "false").strip().lower()
     == "true"
 )
 _COSMOS_CONTAINER: Any | None = None
@@ -105,7 +108,7 @@ def _credential():
     global _AZURE_CREDENTIAL
     if _AZURE_CREDENTIAL is not None:
         return _AZURE_CREDENTIAL
-    client_id = os.getenv("V2_MANAGED_IDENTITY_CLIENT_ID", "")
+    client_id = os.getenv("SIX_LAYER_MANAGED_IDENTITY_CLIENT_ID", "")
     _AZURE_CREDENTIAL = DefaultAzureCredential(
         managed_identity_client_id=client_id or None
     )
@@ -125,7 +128,7 @@ def _service_bus_client():
     global _SERVICE_BUS_CLIENT
     if _SERVICE_BUS_CLIENT is not None:
         return _SERVICE_BUS_CLIENT
-    namespace = os.getenv("V2_SERVICE_BUS__fullyQualifiedNamespace", "")
+    namespace = os.getenv("SIX_LAYER_SERVICE_BUS__fullyQualifiedNamespace", "")
     if not namespace or namespace.startswith("disabled."):
         raise ContractError("DOMAIN_ROUTE_NOT_CONFIGURED", 503)
     _SERVICE_BUS_CLIENT = ServiceBusClient(
@@ -144,7 +147,7 @@ def _enqueue(event: Mapping[str, Any]) -> None:
     if _six_layer_eventing():
         _publish_eventing_control(validated)
         return
-    queue_name = os.getenv("V2_DOMAIN_QUEUE_NAME", "")
+    queue_name = os.getenv("SIX_LAYER_DOMAIN_QUEUE_NAME", "")
     if not queue_name:
         raise ContractError("DOMAIN_ROUTE_NOT_CONFIGURED", 503)
     message = ServiceBusMessage(
@@ -160,18 +163,18 @@ def _enqueue(event: Mapping[str, Any]) -> None:
 
 def _publish_eventing_stream(event: Mapping[str, Any]) -> None:
     validated = validate_canonical_event(event)
-    if _six_layer_eventing() and os.getenv("V2_EVENT_LAYER_PROVIDER") != "azure":
+    if _six_layer_eventing() and os.getenv("SIX_LAYER_EVENT_LAYER_PROVIDER") != "azure":
         _publish_telemetry(validated)
         return
     from azure.eventhub import EventData, EventHubProducerClient
 
     hub_setting = {
-        "telemetry.received.v1": "V2_EVENTING_RECEIVED_HUB_NAME",
-        "telemetry.processed.v1": "V2_EVENTING_PROCESSED_HUB_NAME",
+        "telemetry.received.v1": "SIX_LAYER_EVENTING_RECEIVED_HUB_NAME",
+        "telemetry.processed.v1": "SIX_LAYER_EVENTING_PROCESSED_HUB_NAME",
     }.get(str(validated["event_type"]))
     if hub_setting is None:
         raise ContractError("UNSUPPORTED_EVENTING_STREAM_EVENT")
-    namespace = os.getenv("V2_EVENTING__fullyQualifiedNamespace", "")
+    namespace = os.getenv("SIX_LAYER_EVENTING__fullyQualifiedNamespace", "")
     event_hub_name = os.getenv(hub_setting, "")
     if not namespace or namespace.startswith("disabled.") or not event_hub_name:
         raise ContractError("EVENTING_ROUTE_NOT_CONFIGURED", 503)
@@ -191,11 +194,11 @@ def _publish_eventing_stream(event: Mapping[str, Any]) -> None:
 
 def _publish_eventing_control(event: Mapping[str, Any]) -> None:
     validated = validate_canonical_event(event)
-    if _six_layer_eventing() and os.getenv("V2_EVENT_LAYER_PROVIDER") != "azure":
+    if _six_layer_eventing() and os.getenv("SIX_LAYER_EVENT_LAYER_PROVIDER") != "azure":
         _publish_control(validated)
         return
-    namespace = os.getenv("V2_EVENTING_SERVICE_BUS__fullyQualifiedNamespace", "")
-    topic_name = os.getenv("V2_EVENTING_CONTROL_TOPIC_NAME", "")
+    namespace = os.getenv("SIX_LAYER_EVENTING_SERVICE_BUS__fullyQualifiedNamespace", "")
+    topic_name = os.getenv("SIX_LAYER_EVENTING_CONTROL_TOPIC_NAME", "")
     if not namespace or namespace.startswith("disabled.") or not topic_name:
         raise ContractError("EVENTING_ROUTE_NOT_CONFIGURED", 503)
     client = ServiceBusClient(
@@ -220,8 +223,8 @@ def _publish_telemetry(event: Mapping[str, Any]) -> None:
     from azure.eventhub import EventData, EventHubProducerClient
 
     validated = validate_canonical_event(event)
-    namespace = os.getenv("V2_BRIDGE_TELEMETRY__fullyQualifiedNamespace", "")
-    event_hub_name = os.getenv("V2_BRIDGE_TELEMETRY_HUB_NAME", "")
+    namespace = os.getenv("SIX_LAYER_BRIDGE_TELEMETRY__fullyQualifiedNamespace", "")
+    event_hub_name = os.getenv("SIX_LAYER_BRIDGE_TELEMETRY_HUB_NAME", "")
     if not namespace or namespace.startswith("disabled.") or not event_hub_name:
         raise ContractError("REMOTE_HOT_ROUTE_NOT_CONFIGURED", 503)
     producer = EventHubProducerClient(
@@ -240,7 +243,7 @@ def _publish_telemetry(event: Mapping[str, Any]) -> None:
 
 def _publish_control(event: Mapping[str, Any]) -> None:
     validated = validate_canonical_event(event)
-    topic_name = os.getenv("V2_BRIDGE_CONTROL_TOPIC_NAME", "")
+    topic_name = os.getenv("SIX_LAYER_BRIDGE_CONTROL_TOPIC_NAME", "")
     if not topic_name:
         raise ContractError("REMOTE_CONTROL_ROUTE_NOT_CONFIGURED", 503)
     message = ServiceBusMessage(
@@ -289,8 +292,8 @@ def _extension_envelope(event: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _post_extension(envelope: Mapping[str, Any]) -> dict[str, Any]:
-    url = os.getenv("V2_PROCESSOR_EXTENSION_URL", "")
-    key = os.getenv("V2_PROCESSOR_EXTENSION_KEY", "")
+    url = os.getenv("SIX_LAYER_PROCESSOR_EXTENSION_URL", "")
+    key = os.getenv("SIX_LAYER_PROCESSOR_EXTENSION_KEY", "")
     if not url or not key:
         raise ContractError("PROCESSOR_EXTENSION_NOT_CONFIGURED", 503)
     request = Request(
@@ -376,7 +379,7 @@ def _post_bound_json(
 
 def _configured_rules() -> list[Mapping[str, Any]]:
     try:
-        rules = json.loads(os.getenv("V2_RULES_JSON", "[]"))
+        rules = json.loads(os.getenv("SIX_LAYER_RULES_JSON", "[]"))
     except json.JSONDecodeError as exc:
         raise ContractError("INVALID_RULE_CONFIGURATION", 503) from exc
     if not isinstance(rules, list):
@@ -390,7 +393,7 @@ def _evaluate_rules(event: Mapping[str, Any]) -> None:
 
 
 def _persist_processed(processed: Mapping[str, Any]) -> None:
-    if os.getenv("V2_HOT_PROVIDER") != "azure":
+    if os.getenv("SIX_LAYER_HOT_PROVIDER") != "azure":
         raise ContractError("REMOTE_HOT_ROUTE_NOT_CONFIGURED", 503)
     _write_raw_and_rollup(processed)
     _project_twin(processed)
@@ -400,7 +403,7 @@ def _project_twin(processed: Mapping[str, Any]) -> None:
     projection = build_twin_projection(processed)
     if projection is None:
         return
-    if os.getenv("V2_TWIN_PROVIDER") == "azure":
+    if os.getenv("SIX_LAYER_TWIN_PROVIDER") == "azure":
         _materialize_twin_projection(projection)
     else:
         _publish_control(projection)
@@ -410,7 +413,7 @@ def _process_received(event: Mapping[str, Any]) -> None:
     processed = build_processed_event(event, _invoke_processor_extension(event))
     if _six_layer_eventing():
         _publish_eventing_stream(processed)
-    elif os.getenv("V2_HOT_PROVIDER") == "azure":
+    elif os.getenv("SIX_LAYER_HOT_PROVIDER") == "azure":
         _enqueue(processed)
     else:
         _publish_telemetry(processed)
@@ -425,8 +428,8 @@ def _action_name(action: Mapping[str, Any]) -> str:
 
 
 def _invoke_poc_action(event: Mapping[str, Any], action: Mapping[str, Any]) -> bool:
-    url = os.getenv("V2_ACTION_FUNCTION_URL", "")
-    key = os.getenv("V2_ACTION_FUNCTION_KEY", "")
+    url = os.getenv("SIX_LAYER_ACTION_FUNCTION_URL", "")
+    key = os.getenv("SIX_LAYER_ACTION_FUNCTION_KEY", "")
     invocation = {
         "schema_version": "extension-action-invocation.v1",
         "invocation_id": event_id(event),
@@ -495,14 +498,14 @@ def _dispatch_match(event: Mapping[str, Any]) -> None:
                 "message": str(feedback.get("payload") or "Rule matched"),
             },
         )
-        if os.getenv("V2_L1_PROVIDER") == "azure":
+        if os.getenv("SIX_LAYER_L1_PROVIDER") == "azure":
             _enqueue(command)
         else:
             _publish_control(command)
 
 
 def _start_notification_workflow(event: Mapping[str, Any]) -> None:
-    url = os.getenv("V2_LOGIC_APP_CALLBACK_URL", "")
+    url = os.getenv("SIX_LAYER_LOGIC_APP_CALLBACK_URL", "")
     accepted = False
     for _ in range(3):
         response = _post_bound_json(url, event)
@@ -528,7 +531,7 @@ def _start_notification_workflow(event: Mapping[str, Any]) -> None:
 
 
 def _send_device_command(event: Mapping[str, Any]) -> bool:
-    hostname = os.getenv("V2_IOT_HUB_HOSTNAME", "")
+    hostname = os.getenv("SIX_LAYER_IOT_HUB_HOSTNAME", "")
     body = event_body(event)
     device_id = partition_key(event)
     if not hostname:
@@ -581,7 +584,7 @@ def _consume(event: dict) -> None:
     validated = validate_canonical_event(event)
     if (
         _six_layer_eventing()
-        and os.getenv("V2_EVENT_LAYER_PROVIDER") == "azure"
+        and os.getenv("SIX_LAYER_EVENT_LAYER_PROVIDER") == "azure"
         and validated["event_type"]
         in {
             "telemetry.received.v1",
@@ -602,33 +605,33 @@ def _consume(event: dict) -> None:
         else:
             _publish_eventing_control(validated)
     elif validated["event_type"] == "telemetry.received.v1":
-        if os.getenv("V2_L2_PROVIDER") != "azure":
+        if os.getenv("SIX_LAYER_L2_PROVIDER") != "azure":
             raise ContractError("REMOTE_PROCESSING_ROUTE_NOT_CONFIGURED", 503)
         _process_received(validated)
     elif validated["event_type"] == "telemetry.processed.v1":
         handled = False
-        if os.getenv("V2_HOT_PROVIDER") == "azure":
+        if os.getenv("SIX_LAYER_HOT_PROVIDER") == "azure":
             _persist_processed(validated)
             handled = True
-        if _six_layer_eventing() and os.getenv("V2_L2_PROVIDER") == "azure":
+        if _six_layer_eventing() and os.getenv("SIX_LAYER_L2_PROVIDER") == "azure":
             _evaluate_rules(validated)
             handled = True
         if not handled:
             raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
     elif validated["event_type"] == "twin.state.upserted":
-        if os.getenv("V2_TWIN_PROVIDER") != "azure":
+        if os.getenv("SIX_LAYER_TWIN_PROVIDER") != "azure":
             raise ContractError("REMOTE_TWIN_ROUTE_NOT_CONFIGURED", 503)
         _materialize_twin_projection(validated)
     elif validated["event_type"] == "event.matched.v1":
-        if _six_layer_eventing() and os.getenv("V2_L2_PROVIDER") != "azure":
+        if _six_layer_eventing() and os.getenv("SIX_LAYER_L2_PROVIDER") != "azure":
             raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _dispatch_match(validated)
     elif validated["event_type"] == "notification.requested.v1":
-        if _six_layer_eventing() and os.getenv("V2_L2_PROVIDER") != "azure":
+        if _six_layer_eventing() and os.getenv("SIX_LAYER_L2_PROVIDER") != "azure":
             raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _start_notification_workflow(validated)
     elif validated["event_type"] == "device.command.requested.v1":
-        if _six_layer_eventing() and os.getenv("V2_L1_PROVIDER") != "azure":
+        if _six_layer_eventing() and os.getenv("SIX_LAYER_L1_PROVIDER") != "azure":
             raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _deliver_device_command(validated)
     elif validated["event_type"] in {
@@ -636,7 +639,7 @@ def _consume(event: dict) -> None:
         "notification.workflow.outcome.v1",
         "device.command.outcome.v1",
     }:
-        if _six_layer_eventing() and os.getenv("V2_HOT_PROVIDER") != "azure":
+        if _six_layer_eventing() and os.getenv("SIX_LAYER_HOT_PROVIDER") != "azure":
             raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _store_outcome(validated)
     else:
@@ -652,20 +655,23 @@ def _consume_eventing_delivery(role: str, event: Mapping[str, Any]) -> None:
     validated = validate_canonical_event(event)
     kind = validated["event_type"]
     if role == "telemetry-processor":
-        if kind != "telemetry.received.v1" or os.getenv("V2_L2_PROVIDER") != "azure":
+        if (
+            kind != "telemetry.received.v1"
+            or os.getenv("SIX_LAYER_L2_PROVIDER") != "azure"
+        ):
             raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _process_received(validated)
     elif role == "control-router":
-        if kind == "event.matched.v1" and os.getenv("V2_L2_PROVIDER") == "azure":
+        if kind == "event.matched.v1" and os.getenv("SIX_LAYER_L2_PROVIDER") == "azure":
             _dispatch_match(validated)
         elif (
             kind == "notification.requested.v1"
-            and os.getenv("V2_L2_PROVIDER") == "azure"
+            and os.getenv("SIX_LAYER_L2_PROVIDER") == "azure"
         ):
             _start_notification_workflow(validated)
         elif (
             kind == "device.command.requested.v1"
-            and os.getenv("V2_L1_PROVIDER") == "azure"
+            and os.getenv("SIX_LAYER_L1_PROVIDER") == "azure"
         ):
             _deliver_device_command(validated)
         elif (
@@ -675,7 +681,7 @@ def _consume_eventing_delivery(role: str, event: Mapping[str, Any]) -> None:
                 "notification.workflow.outcome.v1",
                 "device.command.outcome.v1",
             }
-            and os.getenv("V2_HOT_PROVIDER") == "azure"
+            and os.getenv("SIX_LAYER_HOT_PROVIDER") == "azure"
         ):
             _store_outcome(validated)
         else:
@@ -683,15 +689,15 @@ def _consume_eventing_delivery(role: str, event: Mapping[str, Any]) -> None:
     elif kind != "telemetry.processed.v1":
         raise ContractError("EVENTING_CONSUMER_EVENT_MISMATCH")
     elif role == "historical-persistence":
-        if os.getenv("V2_HOT_PROVIDER") != "azure":
+        if os.getenv("SIX_LAYER_HOT_PROVIDER") != "azure":
             raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _write_raw_and_rollup(validated)
     elif role == "twin-state-update":
-        if os.getenv("V2_HOT_PROVIDER") != "azure":
+        if os.getenv("SIX_LAYER_HOT_PROVIDER") != "azure":
             raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _project_twin(validated)
     elif role == "rule-evaluator":
-        if os.getenv("V2_L2_PROVIDER") != "azure":
+        if os.getenv("SIX_LAYER_L2_PROVIDER") != "azure":
             raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _evaluate_rules(validated)
     elif role not in {"audit", "realtime-visualization"}:
@@ -755,7 +761,7 @@ def _poc_notification_result(event: Mapping[str, Any]) -> dict[str, Any]:
 
 if ACTION_ENDPOINT_ENABLED:
 
-    @app.function_name(name="v2-poc-extension-action")
+    @app.function_name(name="six-layer-poc-extension-action")
     @app.route(
         route="extension-action/v1",
         methods=["POST"],
@@ -779,7 +785,7 @@ if ACTION_ENDPOINT_ENABLED:
                 },
             )
 
-    @app.function_name(name="v2-poc-notification-delivery")
+    @app.function_name(name="six-layer-poc-notification-delivery")
     @app.route(
         route="notification-delivery/v1",
         methods=["POST"],
@@ -805,9 +811,9 @@ def _cosmos_container():
     global _COSMOS_CONTAINER
     if _COSMOS_CONTAINER is not None:
         return _COSMOS_CONTAINER
-    endpoint = os.getenv("V2_COSMOS_ENDPOINT", "")
-    database = os.getenv("V2_COSMOS_DATABASE", "")
-    container = os.getenv("V2_COSMOS_CONTAINER", "")
+    endpoint = os.getenv("SIX_LAYER_COSMOS_ENDPOINT", "")
+    database = os.getenv("SIX_LAYER_COSMOS_DATABASE", "")
+    container = os.getenv("SIX_LAYER_COSMOS_CONTAINER", "")
     if not endpoint or not database or not container:
         raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503)
     client = CosmosClient(endpoint, credential=_credential())
@@ -838,7 +844,7 @@ def _batch_statuses(exc: CosmosBatchOperationError) -> set[int]:
 
 def _storage_task_count() -> int:
     try:
-        value = int(os.getenv("V2_STORAGE_TASK_COUNT", "1"))
+        value = int(os.getenv("SIX_LAYER_STORAGE_TASK_COUNT", "1"))
     except ValueError as exc:
         raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503) from exc
     if value < 1:
@@ -856,7 +862,7 @@ def _write_raw_and_rollup(
     container = _cosmos_container()
     current_time = stored_at or datetime.now(timezone.utc)
     try:
-        hot_days = int(os.getenv("V2_HOT_BOUNDARY_DAYS", "0"))
+        hot_days = int(os.getenv("SIX_LAYER_HOT_BOUNDARY_DAYS", "0"))
     except ValueError as exc:
         raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503) from exc
     raw = raw_document(
@@ -902,11 +908,11 @@ def _write_raw_and_rollup(
 
 
 def _store_outcome(event: Mapping[str, Any], *, stored_at=None) -> None:
-    if os.getenv("V2_HOT_PROVIDER") != "azure":
+    if os.getenv("SIX_LAYER_HOT_PROVIDER") != "azure":
         _publish_control(event)
         return
     try:
-        hot_days = int(os.getenv("V2_HOT_BOUNDARY_DAYS", "0"))
+        hot_days = int(os.getenv("SIX_LAYER_HOT_BOUNDARY_DAYS", "0"))
     except ValueError as exc:
         raise ContractError("HOT_STORAGE_NOT_CONFIGURED", 503) from exc
     document = outcome_document(
@@ -937,7 +943,7 @@ def _adt_client():
     global _ADT_CLIENT
     if _ADT_CLIENT is not None:
         return _ADT_CLIENT
-    endpoint = os.getenv("V2_ADT_ENDPOINT", "")
+    endpoint = os.getenv("SIX_LAYER_ADT_ENDPOINT", "")
     if not endpoint:
         raise ContractError("TWIN_PROJECTION_TARGET_NOT_CONFIGURED", 503)
     _ADT_CLIENT = DigitalTwinsClient(endpoint, _credential())
@@ -973,13 +979,15 @@ def _materialize_twin_projection(event: Mapping[str, Any]) -> None:
     try:
         current = client.get_digital_twin(twin_id)
     except ResourceNotFoundError:
-        model_id = os.getenv("V2_ADT_MODEL_ID", "dtmi:twin2multicloud:poc:TwinNode;1")
+        model_id = os.getenv(
+            "SIX_LAYER_ADT_MODEL_ID", "dtmi:twin2multicloud:poc:TwinNode;1"
+        )
         client.upsert_digital_twin(
             twin_id,
             {
                 "$metadata": {"$model": model_id},
                 "nodeId": str(body.get("source_id") or twin_id),
-                "provider": os.getenv("V2_HOT_PROVIDER", "azure"),
+                "provider": os.getenv("SIX_LAYER_HOT_PROVIDER", "azure"),
                 "status": "active",
                 "lastUpdate": observed_at,
                 "sourceSequence": source_sequence,
@@ -1010,7 +1018,7 @@ def _materialize_twin_projection(event: Mapping[str, Any]) -> None:
 
 def _read_history(params: Mapping[str, Any]) -> dict[str, Any]:
     query, start, end = parse_raw_history_query(params)
-    hmac_key = os.getenv("V2_CURSOR_HMAC_KEY", "")
+    hmac_key = os.getenv("SIX_LAYER_CURSOR_HMAC_KEY", "")
     digest = raw_history_query_digest(query, start, end)
     continuation = decode_cursor(
         query["cursor"], hmac_key=hmac_key, query_digest=digest
@@ -1058,7 +1066,7 @@ def _raw_history_payload(params: Mapping[str, Any]) -> dict[str, Any]:
 
 if EVENTING_DELIVERY_ENDPOINT_ENABLED:
 
-    @app.function_name(name="v2-eventing-domain-delivery")
+    @app.function_name(name="six-layer-eventing-domain-delivery")
     @app.route(
         route="eventing-delivery/v1",
         methods=["POST"],
@@ -1104,11 +1112,11 @@ if EVENTING_DELIVERY_ENDPOINT_ENABLED:
 
 if REMOTE_TELEMETRY_ENABLED:
 
-    @app.function_name(name="v2-remote-telemetry-consumer")
+    @app.function_name(name="six-layer-remote-telemetry-consumer")
     @app.event_hub_message_trigger(
         arg_name="messages",
-        event_hub_name="%V2_REMOTE_TELEMETRY_HUB_NAME%",
-        connection="V2_REMOTE_TELEMETRY",
+        event_hub_name="%SIX_LAYER_REMOTE_TELEMETRY_HUB_NAME%",
+        connection="SIX_LAYER_REMOTE_TELEMETRY",
         cardinality="many",
         consumer_group="$Default",
     )
@@ -1124,7 +1132,7 @@ if REMOTE_TELEMETRY_ENABLED:
 
 if BRIDGE_TELEMETRY_ENABLED:
 
-    @app.function_name(name="v2-cross-cloud-telemetry-bridge")
+    @app.function_name(name="six-layer-cross-cloud-telemetry-bridge")
     @app.retry(
         strategy="exponential_backoff",
         max_retry_count="5",
@@ -1133,8 +1141,8 @@ if BRIDGE_TELEMETRY_ENABLED:
     )
     @app.event_hub_message_trigger(
         arg_name="messages",
-        event_hub_name="%V2_BRIDGE_TELEMETRY_HUB_NAME%",
-        connection="V2_BRIDGE_TELEMETRY",
+        event_hub_name="%SIX_LAYER_BRIDGE_TELEMETRY_HUB_NAME%",
+        connection="SIX_LAYER_BRIDGE_TELEMETRY",
         cardinality="many",
         consumer_group="$Default",
     )
@@ -1154,7 +1162,7 @@ if BRIDGE_TELEMETRY_ENABLED:
 
 if BRIDGE_EVENT_RECEIVED_ENABLED:
 
-    @app.function_name(name="v2-cross-cloud-event-received-bridge")
+    @app.function_name(name="six-layer-cross-cloud-event-received-bridge")
     @app.retry(
         strategy="exponential_backoff",
         max_retry_count="5",
@@ -1163,8 +1171,8 @@ if BRIDGE_EVENT_RECEIVED_ENABLED:
     )
     @app.event_hub_message_trigger(
         arg_name="messages",
-        event_hub_name="%V2_EVENTING_RECEIVED_HUB_NAME%",
-        connection="V2_EVENTING",
+        event_hub_name="%SIX_LAYER_EVENTING_RECEIVED_HUB_NAME%",
+        connection="SIX_LAYER_EVENTING",
         cardinality="many",
         consumer_group="bridge-received",
     )
@@ -1179,9 +1187,10 @@ if BRIDGE_EVENT_RECEIVED_ENABLED:
             attempt_count=_event_hub_delivery_attempt(context),
         )
 
+
 if BRIDGE_EVENT_PROCESSED_ENABLED:
 
-    @app.function_name(name="v2-cross-cloud-event-processed-bridge")
+    @app.function_name(name="six-layer-cross-cloud-event-processed-bridge")
     @app.retry(
         strategy="exponential_backoff",
         max_retry_count="5",
@@ -1190,8 +1199,8 @@ if BRIDGE_EVENT_PROCESSED_ENABLED:
     )
     @app.event_hub_message_trigger(
         arg_name="messages",
-        event_hub_name="%V2_EVENTING_PROCESSED_HUB_NAME%",
-        connection="V2_EVENTING",
+        event_hub_name="%SIX_LAYER_EVENTING_PROCESSED_HUB_NAME%",
+        connection="SIX_LAYER_EVENTING",
         cardinality="many",
         consumer_group="bridge-processed",
     )
@@ -1209,11 +1218,11 @@ if BRIDGE_EVENT_PROCESSED_ENABLED:
 
 if BRIDGE_CONTROL_ENABLED:
 
-    @app.function_name(name="v2-cross-cloud-control-bridge")
+    @app.function_name(name="six-layer-cross-cloud-control-bridge")
     @app.service_bus_queue_trigger(
         arg_name="message",
-        queue_name="%V2_BRIDGE_CONTROL_QUEUE_NAME%",
-        connection="V2_SERVICE_BUS",
+        queue_name="%SIX_LAYER_BRIDGE_CONTROL_QUEUE_NAME%",
+        connection="SIX_LAYER_SERVICE_BUS",
         is_sessions_enabled=True,
     )
     def cross_cloud_control_bridge(message: func.ServiceBusMessage) -> None:
@@ -1226,12 +1235,12 @@ if BRIDGE_CONTROL_ENABLED:
 
 if BRIDGE_EVENT_CONTROL_ENABLED:
 
-    @app.function_name(name="v2-cross-cloud-event-control-bridge")
+    @app.function_name(name="six-layer-cross-cloud-event-control-bridge")
     @app.service_bus_topic_trigger(
         arg_name="message",
-        topic_name="%V2_EVENTING_CONTROL_TOPIC_NAME%",
-        subscription_name="%V2_EVENTING_BRIDGE_CONTROL_SUBSCRIPTION_NAME%",
-        connection="V2_EVENTING_SERVICE_BUS",
+        topic_name="%SIX_LAYER_EVENTING_CONTROL_TOPIC_NAME%",
+        subscription_name="%SIX_LAYER_EVENTING_BRIDGE_CONTROL_SUBSCRIPTION_NAME%",
+        connection="SIX_LAYER_EVENTING_SERVICE_BUS",
         is_sessions_enabled=True,
     )
     def cross_cloud_event_control_bridge(
@@ -1244,11 +1253,11 @@ if BRIDGE_EVENT_CONTROL_ENABLED:
 
 if DOMAIN_CONSUMER_ENABLED:
 
-    @app.function_name(name="v2-domain-event-consumer")
+    @app.function_name(name="six-layer-domain-event-consumer")
     @app.service_bus_queue_trigger(
         arg_name="message",
-        queue_name="%V2_DOMAIN_QUEUE_NAME%",
-        connection="V2_SERVICE_BUS",
+        queue_name="%SIX_LAYER_DOMAIN_QUEUE_NAME%",
+        connection="SIX_LAYER_SERVICE_BUS",
         is_sessions_enabled=True,
     )
     def domain_event_consumer(message: func.ServiceBusMessage) -> None:
@@ -1262,11 +1271,11 @@ if DOMAIN_CONSUMER_ENABLED:
 
 if IOT_PROCESSOR_ENABLED:
 
-    @app.function_name(name="v2-iot-telemetry-adapter")
+    @app.function_name(name="six-layer-iot-telemetry-adapter")
     @app.event_hub_message_trigger(
         arg_name="messages",
-        event_hub_name="%V2_IOT_HUB_NAME%",
-        connection="V2_IOT_HUB",
+        event_hub_name="%SIX_LAYER_IOT_HUB_NAME%",
+        connection="SIX_LAYER_IOT_HUB",
         cardinality="many",
         consumer_group="$Default",
     )
@@ -1279,11 +1288,11 @@ if IOT_PROCESSOR_ENABLED:
                 event = build_ingress_event(
                     payload,
                     deployment_id=os.getenv("DEPLOYMENT_ID", "local-poc"),
-                    default_metric=os.getenv("V2_DEFAULT_METRIC", "temperature"),
+                    default_metric=os.getenv("SIX_LAYER_DEFAULT_METRIC", "temperature"),
                 )
                 if _six_layer_eventing():
                     _publish_eventing_stream(event)
-                elif os.getenv("V2_L2_PROVIDER") == "azure":
+                elif os.getenv("SIX_LAYER_L2_PROVIDER") == "azure":
                     _enqueue(event)
                 else:
                     _publish_telemetry(event)
@@ -1293,7 +1302,7 @@ if IOT_PROCESSOR_ENABLED:
 
 if RAW_HISTORY_ENABLED:
 
-    @app.function_name(name="v2-raw-history-reader")
+    @app.function_name(name="six-layer-raw-history-reader")
     @app.route(
         route="raw-history/v1",
         methods=["GET"],

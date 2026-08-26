@@ -13,8 +13,6 @@ abstract class _ReadinessStrings {
   static const notLoaded = 'Readiness has not been loaded yet.';
   static const checking = 'Checking required provider access...';
   static const neverChecked = 'Not checked';
-  static const expectedVersion = 'Expected';
-  static const suppliedVersion = 'Supplied';
   static const lastChecked = 'Last checked';
 }
 
@@ -215,16 +213,6 @@ class _ProviderDetails extends StatelessWidget {
           Text(
             provider.connectionDisplayName ?? 'No deployment connection',
             style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            '${_ReadinessStrings.expectedVersion}: '
-            '${provider.expectedPermissionSetVersion}  |  '
-            '${_ReadinessStrings.suppliedVersion}: '
-            '${provider.suppliedPermissionSetVersion ?? 'missing'}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           for (final check in provider.checks)

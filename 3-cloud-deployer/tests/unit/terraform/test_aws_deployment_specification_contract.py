@@ -26,17 +26,13 @@ def test_every_aws_lambda_memory_profile_is_specification_owned():
         assert _source(filename).count(f"memory_size   = {variable}") == expected_count
 
     storage = _source("aws_storage.tf")
-    assert storage.count(
-        "memory_size   = var.aws_hot_to_cool_mover_memory_mb"
-    ) == 1
-    assert storage.count(
-        "memory_size   = var.aws_cool_to_archive_mover_memory_mb"
-    ) == 1
+    assert storage.count("memory_size   = var.aws_hot_to_cool_mover_memory_mb") == 1
+    assert storage.count("memory_size   = var.aws_cool_to_archive_mover_memory_mb") == 1
 
     all_aws_source = "\n".join(
         _source(path.name)
         for path in sorted(TERRAFORM_ROOT.glob("aws_*.tf"))
-        if path.name != "aws_five_layer_v2.tf"
+        if path.name != "aws_six_layer.tf"
     )
     assert "memory_size   = 256" not in all_aws_source
     assert "memory_size   = 512" not in all_aws_source
@@ -53,9 +49,7 @@ def test_aws_storage_and_schedule_resources_use_specification_targets():
         "ARCHIVE_STORAGE_CLASS = local.l3_archive_aws_enabled ? "
         'var.aws_l3_archive_storage_class : ""'
     ) in source
-    assert (
-        "schedule_expression = var.aws_hot_to_cool_schedule_expression"
-    ) in source
+    assert ("schedule_expression = var.aws_hot_to_cool_schedule_expression") in source
     assert (
         "schedule_expression = var.aws_cool_to_archive_schedule_expression"
     ) in source
@@ -78,7 +72,7 @@ def test_transition_resources_are_owned_by_the_source_storage_provider():
         ("aws_lambda_permission", "l3_hot_to_cold"),
     ):
         marker = f'resource "{resource_type}" "{name}" {{'
-        block = source[source.index(marker):]
+        block = source[source.index(marker) :]
         assert "count" in block.split("}", 1)[0]
         assert "local.l3_hot_aws_enabled ? 1 : 0" in block.split("}", 1)[0]
 
@@ -89,7 +83,7 @@ def test_transition_resources_are_owned_by_the_source_storage_provider():
         ("aws_lambda_permission", "l3_cold_to_archive"),
     ):
         marker = f'resource "{resource_type}" "{name}" {{'
-        block = source[source.index(marker):]
+        block = source[source.index(marker) :]
         assert "count" in block.split("}", 1)[0]
         assert "local.l3_cold_aws_enabled ? 1 : 0" in block.split("}", 1)[0]
 
@@ -112,8 +106,8 @@ def test_aws_variables_fail_closed_to_contract_values():
     }
     for variable, allowed_value in expected_validations.items():
         marker = f'variable "{variable}" {{'
-        block = source[source.index(marker):]
-        block = block[:block.index("} }") + 3]
+        block = source[source.index(marker) :]
+        block = block[: block.index("} }") + 3]
         assert "default = null" in block
         assert f"var.{variable} == null" in block
         assert f"var.{variable} == {allowed_value}" in block

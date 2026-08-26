@@ -75,7 +75,7 @@ class LayerAccessPanel extends StatelessWidget {
       LayerAccessViewPhase.unsupported => const _Message(
         icon: Icons.info_outline,
         text:
-            'Layer links are unavailable for this historical five-layer profile. No access links were inferred.',
+            'Layer links are unavailable for this historical six-layer profile. No access links were inferred.',
       ),
       LayerAccessViewPhase.ready => _surfaceCards(context, compact: compact),
     };

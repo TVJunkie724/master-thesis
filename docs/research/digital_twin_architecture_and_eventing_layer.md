@@ -907,28 +907,22 @@ The agreed target is a closed-world model: runtime users select one of a small
 set of reviewed architecture profiles, while developers can extend the catalog
 through versioned code and data contracts.
 
-The thesis implementation uses three versioned profile roles, of which the two
-new profiles form the fair Event-Layer comparison:
+The thesis implementation uses one active cross-service profile and one
+Optimizer-only historical reproduction:
 
 ```text
 five-layer-baseline@1
-  immutable historical/paper-compatible evidence
-
-five-layer-baseline@2
-  five responsibilities with mandatory embedded
-  rule evaluation, event actions, notification workflows,
-  and device-command feedback
+  immutable Optimizer-only paper-compatible evidence
 
 six-layer-eventing@1
-  the same domain-event behavior plus explicit Eventing and Messaging
+  standalone runtime with mandatory domain behavior
+  plus explicit Eventing and Messaging
 ```
 
 The six-layer name is intentional. Eventing is modeled as an additional
 logical responsibility even though its edges are not a linear sixth step after
-L5. The scientific comparison is embedded event behavior in
-`five-layer-baseline@2` versus independently owned messaging behavior in
-`six-layer-eventing@1`; `five-layer-baseline@1` remains a separate historical
-reproduction.
+L5. The scientific evaluation measures the capability, topology, and cost of
+that explicit responsibility in `six-layer-eventing@1`.
 
 The user does not:
 
@@ -1129,30 +1123,16 @@ The direction is deliberately incremental.
 - Defer supervised cost-incurring live-cloud E2E until all planned architecture
   work and the manual UI audit are complete.
 
-The historical bachelor topology and the hardened five-layer baseline are
-different evidence objects. The former explains provenance. The latter is the
-executable comparison baseline. Hardening may merge implementation helpers that
-belong to one responsibility or replace an unsafe internal edge, provided that
-the five functional contracts, observable behavior, workload assumptions, and
-all resulting resource costs remain explicit.
-
-Any eventing infrastructure used only as a fixed internal support resource of
-`five-layer-baseline@2` is part of L1/L2 provider implementation and is not an
-independently optimized layer. Its rule evaluator, extension action,
-notification workflow, and device-command adapter are mandatory; a typed rule
-match determines invocation volume. The legacy booleans
+The historical bachelor topology explains provenance and remains reproducible
+inside the Optimizer only. It is not an executable cross-service comparison
+profile. In the standalone Six-layer profile, the rule evaluator, extension
+action, notification workflow, and device-command adapter are mandatory; a
+typed rule match determines invocation volume. The legacy booleans
 `useEventChecking`, `triggerNotificationWorkflow`, and
 `returnFeedbackToDevice` remain historical `five-layer-baseline@1` inputs only.
-When an L1/L2 responsibility edge crosses providers, the producing
-responsibility conditionally owns the reviewed durable source outbox and bridge
-forwarder. A same-provider placement has no bridge. This cross-cloud mechanism
-does not turn the support resource into an independently assignable sixth
-responsibility.
-
-`six-layer-eventing@1` is a separate experiment because it retains the same
-domain behavior while making routing, buffering, fan-out, retry/DLQ, replay,
-ordering, observability, and cross-cloud transport an explicit functional,
-deployable, and costed responsibility.
+Routing, buffering, fan-out, retry/DLQ, replay, ordering, observability, and
+cross-cloud transport are explicit functional, deployable, and costed Eventing
+responsibilities. A same-provider placement has no bridge.
 
 ### Stage 1: Paper-Compatible Layer Cost Optimization
 
@@ -1268,16 +1248,11 @@ failure domains, the architecture representation must also become richer.
 ## Current Research State
 
 The initial research review did not change an implementation contract. The
-subsequent Phase 8.0-8.8 work has now separated three exact profile roles:
+subsequent Phase 8 work has now separated two exact roles:
 
-- `five-layer-baseline@1` remains immutable historical/paper-compatible
-  evidence and retains its reviewed legacy event-check/feedback support and
-  omission decisions exactly as frozen;
-- `five-layer-baseline@2` is the approved fair-comparison control with
-  mandatory embedded rule evaluation, extension action, notification
-  workflow, and device-command feedback; and
-- `six-layer-eventing@1` provides the same domain-event behavior while adding
-  an independent nonlinear Eventing responsibility.
+- `five-layer-baseline@1` remains an immutable Optimizer-only reproduction; and
+- `six-layer-eventing@1` is the standalone runtime profile with mandatory
+  domain behavior and an independent nonlinear Eventing responsibility.
 
 Phase 8.8 approved `phase-08-eventing-decision@1` as an offline evidence
 package and exact non-executable Phase 8.9 blueprint. It selects one embedded
@@ -1293,10 +1268,8 @@ canonical envelope and route, obtains a short-lived destination credential,
 publishes through the destination broker's data-plane SDK, and acknowledges
 the source only after durable destination acceptance. Public
 function-to-function calls, a public ingestion endpoint, destination-owned
-pull, and static cloud keys are forbidden. The six route classes carry
-profile-specific bindings: embedded L1/L2 outboxes for
-`five-layer-baseline@2`, and independently owned Event-Layer brokers for
-`six-layer-eventing@1`.
+pull, and static cloud keys are forbidden. The six route classes bind directly
+to independently owned Event-Layer brokers for `six-layer-eventing@1`.
 
 GCP uses one complete bidirectional provider-hosted boundary rather than a
 split telemetry/command design: Apache BifroMQ `4.0.0-incubating` on GKE
@@ -1306,9 +1279,9 @@ backbone for commands and correlated outcomes. Reconnect ordering degradation,
 the selected image's 64-KiB capacity, and node/failure behavior remain explicit
 live-readiness gates.
 
-Phase 8.9 has since implemented and frozen the offline Five-layer v2 and
-Six-layer v1 profiles after the complete-service, Deployer, Flutter, and
-cross-stack gates. This is deliberately not a claim that Eventing is
+Phase 8.9 has since implemented and frozen the standalone offline Six-layer v1
+profile after the complete-service, Deployer, Flutter, and cross-stack gates.
+This is deliberately not a claim that Eventing is
 live-verified. All six directed workload-identity exchanges, the theoretical
 Large allocations, the GCP hosted BifroMQ device boundary, and interactive
 provider sign-in remain supervised-live gates. General topology optimization
@@ -1333,7 +1306,7 @@ Eventing decision alone cannot close:
    bridge;
 2. hot/cool/archive data movement uses finite source-owned scheduled jobs and
    direct destination object-store APIs;
-3. Five-layer v2 visualization uses a provider-local synchronous
+3. Six-layer visualization uses a provider-local synchronous
    L3-hot-to-L5 raw-history read, while selected state/model/relationship
    changes reach an independently placed L4 through `twin_projection.v1`.
 
@@ -1360,9 +1333,7 @@ generic Terraform outputs are not a credential or access contract. Exact
 feasibility and residual limitations are recorded in
 [`phase_08_layer_access_handoff.md`](../plans/phase_08_architecture_profiles_eventing/phase_08_layer_access_handoff.md).
 
-L4-to-L5 Twin context, 3D scenes, and the ADX migration are outside
-Five-layer v2. Six-layer v1 was subsequently activated only after the
-Five-layer L1-L5 evidence was frozen.
+L4-to-L5 Twin context, 3D scenes, and the ADX migration are outside the PoC.
 
 The comparison fixes AWS to `eu-central-1`, Azure to `westeurope`, and GCP to
 `europe-west1`; region selection is outside these profile versions. The new
@@ -1382,9 +1353,8 @@ pool without a failing capacity test that justifies them.
 
 The workload model distinguishes Twin entities, selected semantic
 materialization rates, aggregate workspace dashboard queries, and monthly
-Grafana seats. Five-layer v2 has no scene/3D workload fields. Raw telemetry is
+Grafana seats. The Six-layer PoC has no scene/3D workload fields. Raw telemetry is
 retained in the provider hot store; versioned semantic state/graph
 materialization prevents managed Twin graph APIs from becoming an accidental
 per-message ingestion bottleneck. Full details and current primary sources are
-in
-[`phase_08_service_bundle_evaluation.md`](phase_08_service_bundle_evaluation.md).
+in the `phase_08_service_bundles` evidence package.

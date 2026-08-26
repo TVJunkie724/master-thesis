@@ -16,7 +16,7 @@ Use `--scenario showcase`, `--scenario empty`, or `--scenario degraded` to
 inspect representative application states. Demo mutations remain in memory
 for the current process and are reset on restart.
 
-Five-layer v2 Demo runs preserve the native RTA v2/RDS v2/run/digest boundary
+Six-layer Demo runs preserve the native RTA v2/RDS v2/run/digest boundary
 and deterministic illustrative component costs. Their contract-fixture edge
 costs remain zero and are not thesis evaluation evidence; exact provider and
 cross-cloud costs come only from the local Management-to-Optimizer workflow.
@@ -56,29 +56,17 @@ a one-time polling exchange. Production tokens stay in process memory and are cl
 on logout or session expiry. Live UIBK activation still requires the institutional
 federation setup documented in the docs site.
 
-## Guided Deployment Access
+## PoC Deployment Access
 
-Settings and Prepare deployment share one Management-owned guided bootstrap
-flow. It renders provider preparation and permission-pack evidence, accepts the
-temporary bootstrap credential only for one execute request, and returns a
-bounded encrypted deployment CloudConnection. Resume, cancel, recheck,
-credential re-entry, and manual provider-cleanup acknowledgement use the same
-owner-scoped session.
-
-The local demo and integration runtime use deterministic AWS, Azure, and GCP
-adapters and create no cloud resource. Production adapters remain disabled and
-fail closed; the versioned external provider scripts plus secure import remain
-the supervised live-provider path.
-
-For the active GCP PoC boundary, the guide accepts one existing billing-enabled
-project only, presents `bootstrap.gcp.admin-v3` and the separate fixed
-19-service Phase 8 API baseline, and rejects organization/project creation.
-This is offline contract and UI evidence; no GCP API has been enabled by the
-application or its tests.
+Settings and Prepare deployment manage preconfigured CloudConnections. The
+operator supplies one administrator credential per provider through the
+write-only form; Flutter retains only non-secret metadata and validation state.
+Identity creation, permission packs, and credential rotation are outside the
+PoC.
 
 ## Post-Deployment Layer Access
 
-For deployed `five-layer-baseline@2` or `six-layer-eventing@1` evidence, Twin
+For deployed `six-layer-eventing@1` evidence, Twin
 Overview renders one typed L4 semantic Twin card and one typed L5 raw/rollup
 Grafana card. Links,
 provider-owned authentication, capabilities, limitations, and readiness come
@@ -88,9 +76,9 @@ uses IAP. GCP Grafana alone supports an explicit Viewer-password rotation and
 one-time reveal; Flutter does not persist the value.
 
 All nine L4/L5 provider pairs pass against an isolated local Management API for
-both active Phase 8 profiles. That gate creates no cloud resources. Five-layer
-v2 and Six-layer v1 are active for offline selection and evaluation; their
-explicit live-capacity gates still block deployment selection. Actual
+the active Phase 8 profile. That gate creates no cloud resources. Six-layer v1
+is active for offline selection and evaluation; its explicit live-capacity
+gates still block deployment selection. Actual
 provider-console browser sign-in remains a supervised live check.
 
 ## Quality Checks
@@ -116,15 +104,11 @@ revisioned Management preview and display only the invalidations returned by
 the server. Selected runs are reviewed through immutable resolved component,
 edge, tiering, bridge, cost, and digest DTOs.
 
-The real and demo catalogs expose active `five-layer-baseline@2` and
-`six-layer-eventing@1`; new Twins pin the selected exact digest. Historical
-Five-layer v1 data remains readable. The connected local stack calculates
-strict offline RTA/RDS evidence for both active profiles, and a result cannot
+The real and demo catalogs expose active `six-layer-eventing@1`; new Twins pin
+the selected exact digest. The connected local stack calculates strict offline
+RTA/RDS evidence for the active profile, and a result cannot
 be selected for deployment while a listed live-capacity gate remains. Demo
-mode exposes both profile definitions but intentionally fails closed when a
-Six-layer calculation is requested because it has no canonical Six-layer
-calculation fixture.
+mode exposes the profile definition and its canonical offline fixture.
 
-The deterministic Phase 8.10 thesis evaluation is generated outside Flutter.
-The UI presents only Management-owned, profile-local resolved results and does
-not derive a universal Five-versus-Six winner from the research evidence.
+The UI presents only Management-owned resolved results and does not derive a
+cross-profile winner from research evidence.

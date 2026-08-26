@@ -18,7 +18,6 @@ class CloudAccountsPanel extends StatelessWidget {
   final ValueChanged<CloudAccessEntry> onValidate;
   final ValueChanged<CloudAccessEntry> onSetDefault;
   final ValueChanged<CloudAccessEntry> onDelete;
-  final ValueChanged<CloudProvider>? onSetupDeployment;
 
   const CloudAccountsPanel({
     super.key,
@@ -32,7 +31,6 @@ class CloudAccountsPanel extends StatelessWidget {
     required this.onValidate,
     required this.onSetDefault,
     required this.onDelete,
-    this.onSetupDeployment,
   });
 
   @override
@@ -117,9 +115,6 @@ class CloudAccountsPanel extends StatelessWidget {
                           onValidate: onValidate,
                           onSetDefault: onSetDefault,
                           onDelete: (entry) => _confirmDelete(context, entry),
-                          onSetupDeployment: onSetupDeployment == null
-                              ? null
-                              : () => onSetupDeployment!(provider),
                         ),
                       );
                     })
@@ -186,7 +181,6 @@ class _ProviderAccessCard extends StatelessWidget {
   final ValueChanged<CloudAccessEntry> onValidate;
   final ValueChanged<CloudAccessEntry> onSetDefault;
   final ValueChanged<CloudAccessEntry> onDelete;
-  final VoidCallback? onSetupDeployment;
 
   const _ProviderAccessCard({
     required this.provider,
@@ -197,7 +191,6 @@ class _ProviderAccessCard extends StatelessWidget {
     required this.onValidate,
     required this.onSetDefault,
     required this.onDelete,
-    required this.onSetupDeployment,
   });
 
   @override
@@ -271,20 +264,11 @@ class _ProviderAccessCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: isCreating ? null : onSetupDeployment,
-                icon: const Icon(Icons.auto_awesome_outlined),
-                label: const Text('Set up deployment access'),
-              ),
-            ),
-            const Divider(height: AppSpacing.lg),
             ExpansionTile(
               tilePadding: EdgeInsets.zero,
               childrenPadding: EdgeInsets.zero,
               title: Text(
-                'Advanced: import existing access',
+                'Preconfigured PoC access',
                 style: Theme.of(context).textTheme.labelLarge,
               ),
               children: [
@@ -295,7 +279,7 @@ class _ProviderAccessCard extends StatelessWidget {
                         ? null
                         : () => onCreate(CloudConnectionPurpose.deployment),
                     icon: const Icon(Icons.key_outlined),
-                    label: const Text('Enter bounded deployment credential'),
+                    label: const Text('Enter administrator credential'),
                   ),
                 ),
               ],

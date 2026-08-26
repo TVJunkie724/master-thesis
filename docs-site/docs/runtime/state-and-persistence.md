@@ -43,7 +43,7 @@ Creating a newer run does not transfer the older selection. Flutter and deployme
 readiness therefore use the newest run for review, while the Deployer receives only
 the explicitly selected compatible run through the profile-matched manifest:
 v3 with RTA/RDS v1 for historical Five-layer v1, or v4 with RTA/RDS v2 for
-active Five-layer v2 and Six-layer v1. Manifest v2 remains read-only historical
+active Six-layer v1. Manifest v2 remains read-only historical
 compatibility.
 Flutter snapshots workload inputs, the result projection, and deployment run as one
 unit. Input changes invalidate that unit; discard restores the complete saved unit,

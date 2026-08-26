@@ -50,8 +50,8 @@ VALID_PHASE8_USER_CONFIG = json.dumps(
 )
 
 
-def _five_layer_v2_ref():
-    profile = ArchitectureProfileRegistry(profile_version="2").profile
+def _six_layer_ref():
+    profile = ArchitectureProfileRegistry().profile
     return {
         "id": profile["profile_id"],
         "version": profile["profile_version"],
@@ -96,7 +96,7 @@ def test_optimization_file_api_exposes_stable_unsupported_topology_error():
         "error_code": "UNSUPPORTED_ERROR_HANDLING_TOPOLOGY",
         "field": "integrateErrorHandling",
         "message": (
-            "The executable five-layer baseline does not deploy the "
+            "The executable Six-layer PoC does not deploy the "
             "requested error-handling topology"
         ),
     }
@@ -109,8 +109,8 @@ def test_phase8_user_config_editor_validation_uses_both_layer_providers():
     response = client.post(
         (
             "/validate/user-config?provider=gcp&"
-            "architecture_profile_id=five-layer-baseline&"
-            "architecture_profile_version=2&layer_4_provider=azure&"
+            "architecture_profile_id=six-layer-eventing&"
+            "architecture_profile_version=1&layer_4_provider=azure&"
             "layer_5_provider=gcp"
         ),
         files={
@@ -153,7 +153,7 @@ class TestDeployerCompleteValidation:
     @pytest.mark.parametrize(
         ("profile_ref", "eventing"),
         [
-            (_five_layer_v2_ref(), None),
+            (_six_layer_ref(), None),
             (_six_layer_eventing_ref(), "gcp"),
         ],
     )
@@ -214,7 +214,7 @@ class TestDeployerCompleteValidation:
                     "L5": "azure",
                 },
                 "optimizer_params": {},
-                "architecture_profile_ref": _five_layer_v2_ref(),
+                "architecture_profile_ref": _six_layer_ref(),
                 "user_config": VALID_PHASE8_USER_CONFIG,
             },
         )
@@ -245,7 +245,7 @@ class TestDeployerCompleteValidation:
                     "L5": "gcp",
                 },
                 "optimizer_params": {},
-                "architecture_profile_ref": _five_layer_v2_ref(),
+                "architecture_profile_ref": _six_layer_ref(),
                 "user_config": json.dumps(user_config),
             },
         )
@@ -308,7 +308,7 @@ class TestDeployerCompleteValidation:
                     "L5": "none",
                 },
                 "optimizer_params": {},
-                "architecture_profile_ref": _five_layer_v2_ref(),
+                "architecture_profile_ref": _six_layer_ref(),
             },
         )
 
@@ -336,7 +336,7 @@ class TestDeployerCompleteValidation:
                     "L5": "gcp",
                 },
                 "optimizer_params": {},
-                "architecture_profile_ref": _five_layer_v2_ref(),
+                "architecture_profile_ref": _six_layer_ref(),
             },
         )
 
@@ -401,7 +401,7 @@ class TestDeployerCompleteValidation:
         finding = next(
             error
             for error in response.json()["errors"]
-            if error["code"] == "INVALID_V2_RULE_SET"
+            if error["code"] == "INVALID_SIX_LAYER_RULE_SET"
         )
         assert finding["message"].startswith("six-layer-eventing@1 ")
 
@@ -425,7 +425,7 @@ class TestDeployerCompleteValidation:
                     "L5": "none",
                 },
                 "optimizer_params": {},
-                "architecture_profile_ref": _five_layer_v2_ref(),
+                "architecture_profile_ref": _six_layer_ref(),
             },
         )
 
@@ -433,7 +433,7 @@ class TestDeployerCompleteValidation:
             "code": "UNEXPECTED_EVENT_ACTION",
             "field": "event_action:alert-handler",
             "message": (
-                "five-layer-baseline@2 treats functionName/functionNameB as "
+                "six-layer-eventing@1 treats functionName/functionNameB as "
                 "logical action IDs and uses its fixed synthetic PoC action and "
                 "notification boundaries"
             ),
@@ -455,7 +455,7 @@ class TestDeployerCompleteValidation:
                 "L5": "none",
             },
             "optimizer_params": {},
-            "architecture_profile_ref": _five_layer_v2_ref(),
+            "architecture_profile_ref": _six_layer_ref(),
         }
 
         empty = client.post(
@@ -489,8 +489,10 @@ class TestDeployerCompleteValidation:
             },
         ).json()
 
-        assert "INVALID_V2_RULE_SET" in {error["code"] for error in empty["errors"]}
-        assert {"INVALID_V2_TYPED_RULE", "INVALID_V2_RULE_ID"} <= {
+        assert "INVALID_SIX_LAYER_RULE_SET" in {
+            error["code"] for error in empty["errors"]
+        }
+        assert {"INVALID_SIX_LAYER_TYPED_RULE", "INVALID_SIX_LAYER_RULE_ID"} <= {
             error["code"] for error in invalid["errors"]
         }
 
@@ -529,7 +531,7 @@ class TestDeployerCompleteValidation:
                     "L5": "none",
                 },
                 "optimizer_params": {},
-                "architecture_profile_ref": _five_layer_v2_ref(),
+                "architecture_profile_ref": _six_layer_ref(),
             },
         )
 
@@ -539,11 +541,11 @@ class TestDeployerCompleteValidation:
         assert "MISSING_EVENT_ACTION" not in codes
         assert "UNEXPECTED_EVENT_ACTION" not in codes
 
-    def test_v2_rejects_removed_optimizer_event_flags_even_when_false(self):
+    def test_six_layer_rejects_removed_optimizer_event_flags_even_when_false(self):
         response = client.post(
             "/validate/deployer-complete",
             json={
-                "architecture_profile_ref": _five_layer_v2_ref(),
+                "architecture_profile_ref": _six_layer_ref(),
                 "optimizer_params": {"useEventChecking": False},
             },
         )
@@ -552,13 +554,12 @@ class TestDeployerCompleteValidation:
             "code": "FORBIDDEN_PROFILE_FIELD",
             "field": "optimizer_params.useEventChecking",
             "message": (
-                "useEventChecking is not part of the selected Phase 8 "
-                "comparison profile"
+                "useEventChecking is not part of the Six-layer workload contract"
             ),
         } in response.json()["errors"]
 
     def test_profile_digest_mismatch_is_reported(self):
-        reference = _five_layer_v2_ref()
+        reference = _six_layer_ref()
         reference["digest"] = "sha256:" + "0" * 64
 
         response = client.post(
@@ -979,7 +980,7 @@ class TestDeployerCompleteValidation:
             "code": "UNSUPPORTED_ERROR_HANDLING_TOPOLOGY",
             "field": "optimizer_params.integrateErrorHandling",
             "message": (
-                "The executable five-layer baseline does not deploy the "
+                "The executable Six-layer PoC does not deploy the "
                 "requested error-handling topology"
             ),
         } in response.json()["errors"]

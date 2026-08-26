@@ -75,7 +75,9 @@ class DecisionPackageValidationTest(unittest.TestCase):
         artifacts = copy.deepcopy(self.artifacts)
         manifest = artifacts["implementation-component-manifest.json"]
         binding = manifest["bridge_route_classes"][0]["profile_bindings"][0]
-        binding["source_telemetry_component_ids"] = ["deployment.aws.event.kinesis"]
+        binding["source_telemetry_component_ids"] = [
+            "deployment.aws.embedded.bridge-kinesis"
+        ]
         errors: list[str] = []
         VALIDATOR.validate_manifest(artifacts, errors)
         self.assertTrue(
@@ -86,14 +88,12 @@ class DecisionPackageValidationTest(unittest.TestCase):
         artifacts = copy.deepcopy(self.artifacts)
         manifest = artifacts["implementation-component-manifest.json"]
         binding = manifest["bridge_route_classes"][0]["profile_bindings"][0]
-        binding["source_telemetry_component_ids"] = [
-            "deployment.aws.embedded.device-ingress"
-        ]
+        binding["source_telemetry_component_ids"] = ["deployment.aws.event.sns-fifo"]
         errors: list[str] = []
         VALIDATOR.validate_manifest(artifacts, errors)
         self.assertTrue(
             any(
-                "components differ from exact five-layer-baseline@2 binding" in error
+                "components differ from exact six-layer-eventing@1 binding" in error
                 for error in errors
             )
         )
@@ -105,7 +105,7 @@ class DecisionPackageValidationTest(unittest.TestCase):
             row
             for row in manifest["service_components"]
             if row["deployment_component_id"]
-            == "deployment.azure.embedded.direct-edge-transport"
+            == "deployment.azure.event.event-hubs-standard"
         )
         component["runtime_adapter_ids"].remove("adapter.azure.bridge@1")
         errors: list[str] = []

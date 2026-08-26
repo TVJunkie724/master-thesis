@@ -26,6 +26,7 @@ from src.providers.terraform.package_builder import build_all_packages
 from src.runtime_state import RuntimeStateStore
 from src.tfvars_generator import generate_tfvars
 from src.user_function_extensions.contracts import runtime as extension_runtime
+from tests.utils.deployment_specification import deployment_manifest
 
 
 def _archive() -> bytes:
@@ -39,20 +40,9 @@ def _archive() -> bytes:
     return buffer.getvalue()
 
 
-def _v3_archive() -> bytes:
-    manifest_path = (
-        Path(__file__).resolve().parents[2]
-        / "src"
-        / "contracts"
-        / "generated"
-        / "deployment-manifest"
-        / "v3"
-        / "fixtures"
-        / "valid"
-        / "all-aws.json"
-    )
-    manifest = json.loads(manifest_path.read_text("utf-8"))
-    manifest["twin"]["resource_name"] = "factory"
+def _six_layer_archive() -> bytes:
+    manifest = deployment_manifest(resource_name="factory")
+    manifest["twin"]["id"] = "22222222-2222-4222-8222-222222222222"
     extension_root = (
         Path(__file__).resolve().parents[2]
         / "src"
@@ -115,9 +105,7 @@ def _v3_archive() -> bytes:
         ],
     }
     extension_files = {
-        manifest_path_in_archive: extension_runtime.canonical_json(
-            extension_manifest
-        ),
+        manifest_path_in_archive: extension_runtime.canonical_json(extension_manifest),
         binding_index_path: extension_runtime.canonical_json(binding_index),
         **{
             f"{source_path_in_archive}/{path.name}": path.read_text("utf-8")
@@ -126,7 +114,7 @@ def _v3_archive() -> bytes:
         },
     }
     manifest["package"]["files"] = sorted(
-        {*manifest["package"]["files"], *extension_files}
+        {*manifest["package"]["files"], "config_user.json", *extension_files}
     )
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
@@ -149,7 +137,16 @@ def _v3_archive() -> bytes:
                         "aws_access_key_id": "test",
                         "aws_secret_access_key": "operation-secret",
                         "aws_region": "eu-central-1",
-                    }
+                    },
+                    "azure": {
+                        "azure_subscription_id": "subscription",
+                        "azure_client_id": "client",
+                        "azure_client_secret": "operation-secret",
+                        "azure_tenant_id": "tenant",
+                        "azure_region": "westeurope",
+                        "azure_region_iothub": "westeurope",
+                        "azure_region_digital_twin": "westeurope",
+                    },
                 }
             ),
         )
@@ -159,6 +156,21 @@ def _v3_archive() -> bytes:
         )
         archive.writestr("config_iot_devices.json", "[]")
         archive.writestr("config_events.json", "[]")
+        archive.writestr(
+            "config_user.json",
+            json.dumps(
+                {
+                    "admin_email": "researcher@example.test",
+                    "admin_first_name": "Thesis",
+                    "admin_last_name": "Researcher",
+                    "aws_layer_access_principal_intent": "existing",
+                    "azure_principal_object_id": (
+                        "11111111-1111-1111-1111-111111111111"
+                    ),
+                    "azure_principal_label": "researcher@example.test",
+                }
+            ),
+        )
         for path, content in extension_files.items():
             archive.writestr(path, content)
         archive.writestr("deployment_manifest.json", json.dumps(manifest))
@@ -235,7 +247,7 @@ def test_stage_rejects_invalid_contract_before_creating_package_root(
     assert not store.root.exists()
 
 
-def test_stage_v3_compiles_graph_and_returns_bounded_evidence(
+def test_stage_six_layer_compiles_graph_and_returns_bounded_evidence(
     monkeypatch,
     tmp_path,
 ):
@@ -245,32 +257,32 @@ def test_stage_v3_compiles_graph_and_returns_bounded_evidence(
     )
     store, _durable, _runtime_state_store = _store(tmp_path)
 
-    staged = store.stage("factory", _v3_archive())
+    staged = store.stage("factory", _six_layer_archive())
 
     assert staged.graph_evidence is not None
     assert staged.graph_evidence["graph_schema_version"] == (
         "resolved-deployment-graph.v1"
     )
-    assert staged.graph_evidence["node_count"] == 7
-    assert staged.graph_evidence["edge_count"] == 6
-    assert staged.graph_evidence["binding_count"] >= 21
+    assert staged.graph_evidence["node_count"] == 8
+    assert staged.graph_evidence["edge_count"] == 9
+    assert staged.graph_evidence["binding_count"] == 18
     metadata = json.loads(
         (store.root / staged.token / METADATA_FILE).read_text("utf-8")
     )
     assert metadata["graph_evidence"] == staged.graph_evidence
 
 
-def test_v3_operation_package_drives_real_graph_packages_and_tfvars(
+def test_six_layer_operation_package_drives_real_graph_packages_and_tfvars(
     monkeypatch,
     tmp_path,
 ):
-    """Exercise Manifest v3 through graph compilation, packages, and tfvars."""
+    """Exercise the Six-layer v4 manifest through packages and tfvars."""
     monkeypatch.setattr(
         "file_manager.validator.validate_project_zip",
         lambda _archive, **_kwargs: [],
     )
     store, _durable, _runtime_state_store = _store(tmp_path)
-    staged = store.stage("factory", _v3_archive())
+    staged = store.stage("factory", _six_layer_archive())
     terraform_dir = Path(__file__).resolve().parents[2] / "src" / "terraform"
 
     with store.acquire("factory", staged.token) as acquired:
@@ -295,16 +307,15 @@ def test_v3_operation_package_drives_real_graph_packages_and_tfvars(
             item["package_id"]
             for item in json.loads(
                 (
-                    acquired
-                    / ".twin2multicloud"
-                    / "graph"
-                    / "package-evidence.json"
+                    acquired / ".twin2multicloud" / "graph" / "package-evidence.json"
                 ).read_text("utf-8")
             )["built_packages"]
         }
         assert tfvars["layer_1_provider"] == "aws"
         assert tfvars["layer_5_provider"] == "aws"
-        assert tfvars["aws_l1_lambda_memory_mb"] == 256
+        assert tfvars["event_layer_provider"] == "azure"
+        assert tfvars["architecture_profile_id"] == "six-layer-eventing"
+        assert tfvars["architecture_profile_version"] == "1"
 
 
 def test_acquire_rejects_cross_project_and_concurrent_use(monkeypatch, tmp_path):

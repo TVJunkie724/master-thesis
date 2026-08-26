@@ -1,13 +1,7 @@
-"""Resolved deployment specification construction for optimizer winners."""
+"""Six-layer resolved deployment specification construction."""
 
-from .builder import (
-    DeploymentSpecificationBuildError,
-    build_resolved_deployment_specification,
-)
-from .five_layer_v2_builder import build_five_layer_v2_deployment_specification
+from .six_layer_builder import build_six_layer_eventing_v1_deployment_specification
 
 __all__ = [
-    "DeploymentSpecificationBuildError",
-    "build_resolved_deployment_specification",
-    "build_five_layer_v2_deployment_specification",
+    "build_six_layer_eventing_v1_deployment_specification",
 ]

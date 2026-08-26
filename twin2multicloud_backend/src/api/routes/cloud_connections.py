@@ -20,7 +20,6 @@ from src.services.cloud_credential_validation_service import (
     redact_validation_result,
 )
 from src.services.errors import CloudConnectionConflict
-from src.services.permission_sets import compare_permission_set_version
 from src.schemas.credential_security_event import (
     CredentialSecurityAction,
     CredentialSecurityEventDraft,
@@ -28,7 +27,9 @@ from src.schemas.credential_security_event import (
 )
 from src.security.rate_limit import CredentialRateClass, credential_rate_limit
 from src.security.request_context import current_request_id
-from src.services.credential_security_audit_service import CredentialSecurityAuditService
+from src.services.credential_security_audit_service import (
+    CredentialSecurityAuditService,
+)
 
 router = APIRouter(prefix="/cloud-connections", tags=["cloud-connections"])
 
@@ -77,7 +78,13 @@ async def create_cloud_connection(
         return service.create_connection(
             current_user.id,
             request,
-            _audit(current_user, CredentialSecurityAction.CONNECTION_CREATE, request.provider, request.purpose, 200),
+            _audit(
+                current_user,
+                CredentialSecurityAction.CONNECTION_CREATE,
+                request.provider,
+                request.purpose,
+                200,
+            ),
         )
     except CloudConnectionConflict as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
@@ -137,7 +144,13 @@ async def update_cloud_connection(
             connection,
             current_user.id,
             request,
-            _audit(current_user, CredentialSecurityAction.CONNECTION_UPDATE, connection.provider, connection.purpose, 200),
+            _audit(
+                current_user,
+                CredentialSecurityAction.CONNECTION_UPDATE,
+                connection.provider,
+                connection.purpose,
+                200,
+            ),
         )
     except CloudConnectionConflict as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
@@ -177,7 +190,13 @@ async def delete_cloud_connection(
         )
     service.delete_connection(
         connection,
-        _audit(current_user, CredentialSecurityAction.CONNECTION_DELETE, connection.provider, connection.purpose, 204),
+        _audit(
+            current_user,
+            CredentialSecurityAction.CONNECTION_DELETE,
+            connection.provider,
+            connection.purpose,
+            204,
+        ),
     )
 
 
@@ -208,7 +227,9 @@ async def validate_cloud_connection(
 
     optimizer_creds = service.build_optimizer_credentials(connection, current_user.id)
     if connection.purpose == "pricing":
-        result = await perform_optimizer_validation(connection.provider, optimizer_creds)
+        result = await perform_optimizer_validation(
+            connection.provider, optimizer_creds
+        )
         result = redact_validation_result(result, optimizer_creds)
     else:
         deployer_creds = service.build_deployer_credentials(connection, current_user.id)
@@ -283,14 +304,9 @@ async def preflight_cloud_connection(
         deployer_creds,
     )
     result = redact_validation_result(result, optimizer_creds, deployer_creds)
-    version_comparison = compare_permission_set_version(
-        connection.provider,
-        connection.permission_set_version,
-    )
     preflight = build_preflight_result(
         connection.provider,
         result,
-        version_comparison=version_comparison,
     )
     CredentialSecurityAuditService.commit_standalone(
         db,
@@ -311,9 +327,6 @@ async def preflight_cloud_connection(
     return CloudConnectionPreflightResponse(
         id=connection.id,
         provider=connection.provider,
-        expected_permission_set_version=version_comparison.expected_version,
-        supplied_permission_set_version=version_comparison.supplied_version,
-        permission_set_status=version_comparison.status,
         ready=preflight["ready"],
         summary=preflight["summary"],
         checks=preflight["checks"],

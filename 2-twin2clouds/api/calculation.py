@@ -14,36 +14,17 @@ from typing import Annotated, Literal, Union
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    StringConstraints,
-    field_validator,
-    model_validator,
-)
-from pydantic_core import PydanticCustomError
-
-from backend.executable_topology import (
-    ERROR_HANDLING_FIELD,
-    UNSUPPORTED_ERROR_HANDLING_MESSAGE,
-    UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
-    ensure_executable_error_handling_topology,
-)
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 from backend.architecture_profiles import (
     ArchitectureProfileRegistry,
     build_resolution_context,
-)
-from backend.architecture_profiles.five_layer_v2_optimizer import (
-    FiveLayerV2OptimizationResult,
-    optimize_five_layer_v2,
 )
 from backend.architecture_profiles.six_layer_optimizer import (
     SixLayerEventingV1OptimizationResult,
     optimize_six_layer_eventing_v1,
 )
-from backend.architecture_profiles.five_layer_v2_workload import (
-    resolve_five_layer_v2_workload,
+from backend.architecture_profiles.six_layer_workload import (
+    resolve_six_layer_workload,
 )
 from backend.architecture_profiles.activation import (
     architecture_profile_resolution_enabled,
@@ -191,201 +172,13 @@ class ExtensionBindingRequestRef(BaseModel):
 # --------------------------------------------------
 # Input model for calculation
 # --------------------------------------------------
-class CalcParams(BaseModel):
-    """
-    Defines the parameters for calculating the cost-optimized Digital Twin deployment.
-
-    Server-side validation ensures:
-    - Positive values for device counts, intervals, and sizes
-    - Storage duration ordering: Hot ≤ Cool ≤ Archive
-    - Non-negative values for editor/viewer counts and dashboard settings
-    """
-
-    calculationRunId: UUID = Field(
-        ...,
-        description="Management-owned immutable calculation run identity.",
-    )
-
-    # Core IoT parameters - must be positive
-    numberOfDevices: int = Field(
-        ..., gt=0, description="Number of IoT devices (must be > 0)"
-    )
-    deviceSendingIntervalInMinutes: float = Field(
-        ..., gt=0, description="Sending interval in minutes (must be > 0)"
-    )
-    averageSizeOfMessageInKb: float = Field(
-        ..., gt=0, description="Average message size in KB (must be > 0)"
-    )
-
-    # Storage durations - must be positive (ordering validated by model_validator)
-    hotStorageDurationInMonths: int = Field(
-        ..., ge=1, description="Hot storage duration (must be >= 1)"
-    )
-    coolStorageDurationInMonths: int = Field(
-        ..., ge=1, description="Cool storage duration (must be >= 1)"
-    )
-    archiveStorageDurationInMonths: int = Field(
-        ..., ge=6, description="Archive storage duration (must be >= 6)"
-    )
-
-    # 3D model settings
-    needs3DModel: bool
-    entityCount: int = Field(..., ge=0, description="Number of entities (must be >= 0)")
-
-    # Dashboard settings
-    amountOfActiveEditors: int = Field(
-        ..., ge=0, description="Number of active editors (must be >= 0)"
-    )
-    amountOfActiveViewers: int = Field(
-        ..., ge=0, description="Number of active viewers (must be >= 0)"
-    )
-    dashboardRefreshesPerHour: int = Field(
-        ..., ge=0, description="Dashboard refresh rate (must be >= 0)"
-    )
-    dashboardActiveHoursPerDay: int = Field(
-        ..., ge=0, le=24, description="Active hours per day (must be 0-24)"
-    )
-    currency: Literal["USD", "EUR"] = "USD"
-
-    # Parameters for supporter services
-    useEventChecking: bool = False
-    triggerNotificationWorkflow: bool = False
-    returnFeedbackToDevice: bool = False
-    integrateErrorHandling: bool = Field(
-        default=False,
-        strict=True,
-        description=(
-            "Legacy compatibility field. The executable five-layer baseline "
-            "accepts only false or omission."
-        ),
-        json_schema_extra={"const": False},
-    )
-
-    orchestrationActionsPerMessage: int = Field(default=3, ge=1)
-    eventsPerMessage: int = Field(default=1, ge=1)
-    apiCallsPerDashboardRefresh: int = Field(default=1, ge=1)
-    average3DModelSizeInMB: float = Field(default=100.0, gt=0)
-    averageDigitalTwinQueryUnitsPerQuery: float = Field(
-        default=1.0,
-        gt=0,
-        strict=True,
-        allow_inf_nan=False,
-        description="Estimated average Azure Digital Twins query units per logical query",
-    )
-    averageDigitalTwinQueryResponseSizeInKb: float = Field(
-        default=1.0,
-        gt=0,
-        strict=True,
-        allow_inf_nan=False,
-        description="Estimated average Azure Digital Twins query response size in KB",
-    )
-
-    # New parameters for enhanced cost calculation
-    numberOfDeviceTypes: int = Field(
-        default=1,
-        ge=1,
-        description="Number of distinct device types (each requires a processor)",
-    )
-    numberOfEventActions: int = Field(
-        default=0,
-        ge=0,
-        description="Number of event action handlers from config_events.json",
-    )
-    eventTriggerRate: float = Field(
-        default=0.1,
-        ge=0.0,
-        le=1.0,
-        description="Fraction of messages that trigger events (0.0-1.0)",
-    )
-
-    # GCP Self-Hosted Options (L4/L5)
-    # GCP lacks managed equivalents to AWS TwinMaker/Managed Grafana and Azure Digital Twins/Managed Grafana.
-    # These toggles allow users to include or exclude GCP's self-hosted Compute Engine alternatives.
-    # Default: False (GCP L4/L5 not implemented - future work)
-    allowGcpSelfHostedL4: bool = Field(
-        default=False,
-        description="Include GCP self-hosted L4 (Twin Management on Compute Engine) in optimization - NOT IMPLEMENTED",
-    )
-    allowGcpSelfHostedL5: bool = Field(
-        default=False,
-        description="Include GCP self-hosted L5 (Grafana on Compute Engine) in optimization - NOT IMPLEMENTED",
-    )
-
-    optimizationProfileId: str = Field(
-        default="cost_minimization_v1",
-        description="Executable optimization profile. Only cost_minimization_v1 is enabled.",
-    )
-    providerPricingCatalogs: PricingCatalogContext = Field(
-        description=(
-            "Exact reviewed AWS, Azure, and GCP provider-region catalog "
-            "references. Calculations never resolve a mutable latest snapshot."
-        ),
-    )
-    providerPricingContexts: ProviderPricingContexts = Field(
-        default_factory=ProviderPricingContexts,
-        description=(
-            "Management-injected provider account pricing observations. "
-            "Clients cannot infer an AWS TwinMaker plan."
-        ),
-    )
-    architectureProfile: ArchitectureProfileRequestRef | None = Field(
-        default=None,
-        description=(
-            "Management-injected exact profile reference. Accepted by the "
-            "default-on architecture resolver; an explicit false gate rejects it."
-        ),
-    )
-    extensionBindings: list[ExtensionBindingRequestRef] | None = Field(
-        default=None,
-        max_length=64,
-        description=(
-            "Management-injected immutable extension references. Rejected "
-            "when the architecture resolution rollback gate is explicitly false."
-        ),
-    )
-
-    @field_validator(ERROR_HANDLING_FIELD)
-    @classmethod
-    def validate_error_handling_topology(cls, value: bool) -> bool:
-        try:
-            ensure_executable_error_handling_topology(value)
-        except ValueError as exc:
-            raise PydanticCustomError(
-                UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
-                UNSUPPORTED_ERROR_HANDLING_MESSAGE,
-            ) from exc
-        return value
-
-    @model_validator(mode="after")
-    def validate_storage_duration_ordering(self) -> "CalcParams":
-        """Ensure storage durations follow logical ordering: Hot ≤ Cool ≤ Archive."""
-        if self.hotStorageDurationInMonths > self.coolStorageDurationInMonths:
-            raise ValueError(
-                f"Hot storage duration ({self.hotStorageDurationInMonths}) must be <= "
-                f"Cool storage duration ({self.coolStorageDurationInMonths})"
-            )
-        if self.coolStorageDurationInMonths > self.archiveStorageDurationInMonths:
-            raise ValueError(
-                f"Cool storage duration ({self.coolStorageDurationInMonths}) must be <= "
-                f"Archive storage duration ({self.archiveStorageDurationInMonths})"
-            )
-        if self.allowGcpSelfHostedL4 or self.allowGcpSelfHostedL5:
-            raise ValueError(
-                "GCP self-hosted L4/L5 cannot be enabled until the Deployer "
-                "implements and verifies those deployment paths"
-            )
-        return self
-
-    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
-
-
-class FiveLayerV2CalcParams(BaseModel):
-    """Closed-world workload-v2 request for active Five- or Six-layer profiles."""
+class SixLayerCalcParams(BaseModel):
+    """Closed-world workload request for the sole deployable architecture."""
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     calculationRunId: UUID
-    schemaVersion: Literal["five-layer-workload.v2"]
+    schemaVersion: Literal["six-layer-workload.v1"]
     numberOfDevices: int = Field(gt=0, strict=True)
     deviceSendingIntervalInMinutes: float = Field(gt=0, strict=True)
     averageSizeOfMessageInKb: float = Field(gt=0, strict=True)
@@ -428,15 +221,12 @@ class FiveLayerV2CalcParams(BaseModel):
         )
 
     @model_validator(mode="after")
-    def validate_frozen_scenario(self) -> "FiveLayerV2CalcParams":
-        resolve_five_layer_v2_workload(self.workload_payload())
+    def validate_frozen_scenario(self) -> "SixLayerCalcParams":
+        resolve_six_layer_workload(self.workload_payload())
         return self
 
 
-CalculationParams = Annotated[
-    Union[FiveLayerV2CalcParams, CalcParams],
-    Field(union_mode="left_to_right"),
-]
+CalculationParams = SixLayerCalcParams
 
 
 # --------------------------------------------------
@@ -456,7 +246,7 @@ CalculationParams = Annotated[
         "**How it works:**\n"
         "1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n"
         "2. Resolves the exact reviewed provider-region catalogs supplied in `providerPricingCatalogs`\n"
-        "3. Enumerates every executable assignment inside the selected Five-layer v2 or Six-layer v1 profile\n"
+        "3. Enumerates every executable assignment inside the Six-layer v1 profile\n"
         "4. Prices its reviewed direct, tiering, Twin-projection, and Cross-Cloud routes\n"
         "5. Scores complete layer and route totals and returns the deterministic winner\n"
         "6. Returns detailed cost, route, billing-pool, and immutable evidence context\n\n"
@@ -466,8 +256,8 @@ CalculationParams = Annotated[
         "- **L3 (Storage):** Hot/Cool/Archive storage tiers - each can be on different providers\n"
         "- **L4 (Management):** Digital Twin state and bounded relationship management\n"
         "- **L5 (Visualization):** Dashboards and user interfaces\n\n"
-        "Six-layer v1 keeps those responsibilities unchanged and adds one independently assigned "
-        "Eventing responsibility. Five-layer v2 embeds the same required event behavior in L1/L2.\n\n"
+        "Six-layer v1 keeps those responsibilities and adds one independently assigned "
+        "Eventing responsibility.\n\n"
         "**Important:** This is a calculation-only endpoint. It does not deploy any resources. "
         "Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure."
     ),
@@ -575,46 +365,10 @@ def calc(params: CalculationParams, request: Request):
             params.providerPricingCatalogs,
             require_fresh=True,
         )
-        if isinstance(params, FiveLayerV2CalcParams):
-            result = _calculate_five_layer_v2(
-                params,
-                resolved_catalogs=resolved_catalogs,
-            )
-        else:
-            # Use the historical component-level calculation engine (v2).
-            from backend.calculation_v2.engine import calculate_cheapest_costs
-
-            params_dict = params.model_dump(
-                exclude={
-                    "architectureProfile",
-                    "extensionBindings",
-                    "providerPricingCatalogs",
-                },
-            )
-            params_dict["calculationRunId"] = str(params.calculationRunId)
-            optimization_profile_id = params_dict.pop("optimizationProfileId")
-            params_dict["_assumption_sources"] = {
-                field: (
-                    "explicit_input"
-                    if field in params.model_fields_set
-                    else "compatibility_default"
-                )
-                for field in (
-                    "averageDigitalTwinQueryUnitsPerQuery",
-                    "averageDigitalTwinQueryResponseSizeInKb",
-                )
-            }
-            calculation_kwargs = {
-                "pricing": resolved_catalogs.detached_pricing(),
-                "pricing_catalog_context": resolved_catalogs.context,
-                "optimization_profile_id": optimization_profile_id,
-            }
-            if architecture_context is not None:
-                calculation_kwargs["architecture_context"] = architecture_context
-            result = calculate_cheapest_costs(
-                params_dict,
-                **calculation_kwargs,
-            )
+        result = _calculate_six_layer(
+            params,
+            resolved_catalogs=resolved_catalogs,
+        )
         result["pricingCatalogs"] = resolved_catalogs.context.to_http_dict()
         if architecture_context is not None:
             _log_architecture_resolution_success(
@@ -715,8 +469,8 @@ def calc(params: CalculationParams, request: Request):
         )
 
 
-def _calculate_five_layer_v2(
-    params: FiveLayerV2CalcParams,
+def _calculate_six_layer(
+    params: SixLayerCalcParams,
     *,
     resolved_catalogs,
 ) -> dict[str, object]:
@@ -734,22 +488,16 @@ def _calculate_five_layer_v2(
         }
         for provider, reference in resolved_catalogs.context.catalogs.items()
     }
-    optimization = (
-        optimize_six_layer_eventing_v1
-        if params.architectureProfile.profileId == "six-layer-eventing"
-        and params.architectureProfile.profileVersion == "1"
-        else optimize_five_layer_v2
-        if params.architectureProfile.profileId == "five-layer-baseline"
-        and params.architectureProfile.profileVersion == "2"
-        else None
-    )
-    if optimization is None:
+    if (
+        params.architectureProfile.profileId != "six-layer-eventing"
+        or params.architectureProfile.profileVersion != "1"
+    ):
         raise ArchitectureResolutionError(
             "ARCH_PROFILE_NOT_FOUND",
             "architectureProfile",
-            "Workload v2 supports only the active Five-layer v2 or Six-layer v1 profile",
+            "Only the Six-layer Eventing v1 profile is executable",
         )
-    optimized = optimization(
+    optimized = optimize_six_layer_eventing_v1(
         calculation_run_id=str(params.calculationRunId),
         architecture_profile=params.architectureProfile.model_dump(),
         extension_bindings=[item.model_dump() for item in params.extensionBindings],
@@ -758,12 +506,12 @@ def _calculate_five_layer_v2(
         pricing_by_provider=resolved_catalogs.detached_pricing(),
         resolution_status="offline_contract_fixture",
     )
-    return _five_layer_v2_http_result(params, optimized)
+    return _six_layer_http_result(params, optimized)
 
 
-def _five_layer_v2_http_result(
-    params: FiveLayerV2CalcParams,
-    optimized: FiveLayerV2OptimizationResult | SixLayerEventingV1OptimizationResult,
+def _six_layer_http_result(
+    params: SixLayerCalcParams,
+    optimized: SixLayerEventingV1OptimizationResult,
 ) -> dict[str, object]:
     assignments = {
         item["logical_component_id"]: item["provider"]

@@ -1,7 +1,7 @@
 {
   "compatibility": {
     "supported_contract_versions": [
-      "five-layer-workload.v2",
+      "six-layer-workload.v1",
       "resolved-deployment-specification.v2"
     ],
     "provider_implementation_schema_versions": [
@@ -194,8 +194,8 @@
       "observability_contract_id": "observability.eventing"
     }
   ],
-  "content_digest": "sha256:0ecbf18fdc54a479c81a81df114fc508983db7da1786836aa1774e03d1665066",
-  "description": "Five-layer v2 responsibilities with one independent Eventing and Messaging responsibility for durable routing, fan-out, retry, dead-letter, replay, observability, and cross-cloud transport.",
+  "content_digest": "sha256:5005e709b88026dc67570fd1cc93560628ddaf251e76506c5d78f66090fa0804",
+  "description": "Complete Six-layer Digital Twin profile with an independent Eventing and Messaging responsibility for durable routing, fan-out, retry, dead-letter, replay, observability, and cross-cloud transport.",
   "display_name": "Six-layer Eventing",
   "edges": [
     {
@@ -606,7 +606,7 @@
     },
     {
       "capability_id": "capability.eight-costed-optimization-slots",
-      "evidence": "Seven inherited slots plus Eventing",
+      "evidence": "Eight standalone Six-layer component slots",
       "required": true
     },
     {
@@ -712,12 +712,12 @@
     "pricing_registry_versions": [
       "1"
     ],
-    "workload_contract_id": "five-layer-workload",
-    "workload_contract_version": "2",
+    "workload_contract_id": "six-layer-workload",
+    "workload_contract_version": "1",
     "deployment_specification_versions": [
       "resolved-deployment-specification.v2"
     ],
-    "compatibility_digest": "sha256:a0c39dcae6c95c2cb25251389c6569a0f5ea4428a0403ccc4cf934541cda06f1"
+    "compatibility_digest": "sha256:9b9fdbbc21682ad9f486619e4290f76d2c3a567eff20e555c0063954c7e0d2cc"
   },
   "optimization_slot_ids": [
     "l1_ingestion",
@@ -859,8 +859,8 @@
   ],
   "schema_version": "architecture-profile.v2",
   "workload_contract_ref": {
-    "id": "five-layer-workload",
-    "version": "2",
-    "digest": "sha256:32fb431fb207e539bc85e6f22ce9bb3d7a9224e18722d41a7cda0339c80b9a95"
+    "id": "six-layer-workload",
+    "version": "1",
+    "digest": "sha256:51745c9efac65afd11fdd10c0a74b60c4443d0ba65a97a1647b736eadc01b7f5"
   }
 }

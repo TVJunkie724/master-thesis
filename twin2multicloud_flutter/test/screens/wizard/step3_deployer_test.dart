@@ -14,10 +14,10 @@ final class _MockManagementApi extends Mock implements ManagementApi {}
 
 void main() {
   Widget buildTask(ConfigurationTaskId taskId) {
-    final state = architectureReadyWizardState(profileId: 'five-layer-baseline')
+    final state = architectureReadyWizardState(profileId: 'six-layer-eventing')
         .copyWith(
-          calcParams: CalcParams.fiveLayerV2(
-            scenario: FiveLayerWorkloadScenario.small,
+          calcParams: CalcParams.sixLayer(
+            scenario: SixLayerWorkloadScenario.small,
           ),
           calcResult: null,
         );

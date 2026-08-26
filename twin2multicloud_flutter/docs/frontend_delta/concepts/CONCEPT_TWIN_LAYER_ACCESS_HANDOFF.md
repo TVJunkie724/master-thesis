@@ -10,7 +10,7 @@ version: "1.1"
 
 ## User Outcome
 
-After a successful Five-layer v2 deployment, the researcher can open and
+After a successful Six-layer deployment, the researcher can open and
 inspect both scientific presentation surfaces from Twin Overview:
 
 - L4 semantic Twin state and relationships;
@@ -98,7 +98,7 @@ dialog, and widget-tree ASCII specifications are binding in
 
 ## Acceptance
 
-- A deployed Five-layer v2 Twin shows exactly one L4 and one L5 card.
+- A deployed Six-layer Twin shows exactly one L4 and one L5 card.
 - All nine placements use the same UI contract; only provider/service/auth data
   changes.
 - External links are absolute HTTPS and opened only through the injected

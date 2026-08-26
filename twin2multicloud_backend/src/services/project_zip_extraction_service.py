@@ -106,11 +106,11 @@ class ProjectZipExtractionService:
             "skip_config_files": [],
         }
         from src.services.architecture_projection_service import (
-            compatibility_provider_for_component,
+            provider_for_component,
         )
 
-        l2 = compatibility_provider_for_component(twin, "component.processing")
-        l4 = compatibility_provider_for_component(twin, "component.twin-state")
+        l2 = provider_for_component(twin, "component.processing")
+        l4 = provider_for_component(twin, "component.twin-state")
         if l2:
             validation_context["l2_provider"] = l2
         if l4:

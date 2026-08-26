@@ -11,7 +11,7 @@
 # after Terraform provisions the ADT instance, as models are generated
 # dynamically from config_hierarchy.json.
 #
-# Canonical five-layer-baseline@1 update path:
+# Canonical six-layer-eventing@1 update path:
 #     L2 Persister (AWS, Azure, or GCP)
 #       -> authenticated HTTPS
 #       -> Azure L0 ADT Pusher

@@ -17,9 +17,9 @@
 # ==============================================================================
 
 locals {
-  l3_hot_aws_enabled     = var.layer_3_hot_provider == "aws" && !local.five_layer_v2_enabled
-  l3_cold_aws_enabled    = var.layer_3_cold_provider == "aws" && !local.five_layer_v2_enabled
-  l3_archive_aws_enabled = var.layer_3_archive_provider == "aws" && !local.five_layer_v2_enabled
+  l3_hot_aws_enabled     = var.layer_3_hot_provider == "aws" && !local.six_layer_enabled
+  l3_cold_aws_enabled    = var.layer_3_cold_provider == "aws" && !local.six_layer_enabled
+  l3_archive_aws_enabled = var.layer_3_archive_provider == "aws" && !local.six_layer_enabled
   l3_any_aws_enabled     = local.l3_hot_aws_enabled || local.l3_cold_aws_enabled || local.l3_archive_aws_enabled
 
   # Pre-built Lambda packages directory

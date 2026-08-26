@@ -195,13 +195,13 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
             ),
             _summaryRow(
               'Event processing',
-              state.usesPhase8ComparisonProfile
+              state.usesSixLayerProfile
                   ? 'Mandatory in the selected profile'
                   : params.useEventChecking
                   ? 'Enabled'
                   : 'Not required',
             ),
-            if (state.usesPhase8ComparisonProfile) ...[
+            if (state.usesSixLayerProfile) ...[
               _summaryRow('Twin entities', '${params.entityCount}'),
               _summaryRow(
                 'Dashboard refreshes',
@@ -252,7 +252,7 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
         Text(
           _taskDescription(
             widget.taskId,
-            usesPhase8Profile: state.usesPhase8ComparisonProfile,
+            usesPhase8Profile: state.usesSixLayerProfile,
           ),
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,

@@ -10,9 +10,7 @@ version: "2.2"
 - twin2multicloud_flutter/docs/configuration_workspace/CONCEPT_CONFIGURATION_WORKSPACE.md
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md
 - twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md
-- twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
-- twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md
-- docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
+- docs/plans/phase_08_architecture_profiles_eventing/README.md
 EXTRACTED: 2026-08-24 | VERSION: 2.2
 -->
 
@@ -27,9 +25,7 @@ adds focused tests, receives two code reviews, and is committed independently.
 - [Configuration Workspace](CONCEPT_CONFIGURATION_WORKSPACE.md) defines the
   shared task-oriented shell and dependency-aware journey.
 - [Architecture Profile Experiment](concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md)
-  defines the Five-layer v2/Six-layer v1 thesis comparison workflow.
-- [Guided Cloud Access Bootstrap](concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md)
-  defines request-scoped bootstrap authority and bounded CloudConnections.
+  defines the standalone Six-layer v1 thesis workflow.
 
 | Phase | Status | Scope | Completion gate |
 |---|---|---|---|
@@ -41,8 +37,7 @@ adds focused tests, receives two code reviews, and is committed independently.
 | 6 | Done | Review and preflight | Summary, actionable findings, centralized fail-closed readiness, and distributed server validation provide one completion path; 387 tests pass. |
 | 7 | Done | Quality and migration gate | Legacy navigation and visible step terminology are removed; analyzer, 380 tests, web release build, and macOS release build pass. |
 | 8 | Done | Immutable deployment selection review | Whole-run Management API selection, latest-run hydration, atomic invalidation/restore, fail-closed navigation, read-only primary/supporting resource summary, collapsed technical evidence, isolated demo parity, 706 tests, analyzer, architecture, Web/macOS, backend-contract, and docs gates pass. |
-| 8.1 | Done offline; Phase 8.10 evidence generated | [Architecture profile experiment](phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md), staged across Phase 8.7 UI infrastructure and the 8.9A/8.9B runtime activations | [Implementation](implementation/architecture_profile_experiment.md) exposes Five-layer v2 and Six-layer v1 through one Management-owned workflow; the latest Flutter gate passes 893 tests, Web/macOS builds, credential-free real-Management integration for both profiles, and two final review passes with zero unresolved findings. Phase 8.10 generates separate deterministic research evidence; supervised live-capacity evidence remains deliberately open. |
-| 9 | Done offline | [Guided cloud access bootstrap](phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) shared by Prepare deployment and Settings | [Implementation record](implementation/guided_cloud_access_bootstrap.md): strict guides/sessions, active AWS/Azure admin-v2 and GCP admin-v3 authority, separate fixed GCP API-baseline evidence, explicit AWS IAM-user and Azure service-principal identity bindings, write-only request credentials, deterministic AWS/Azure/GCP adapters, generated bounded CloudConnections, truthful disposal/revocation, real local-stack integration, and secret-persistence scans pass. Live provider adapters remain fail-closed. |
+| 8.1 | Re-scoped; offline verification pending | [Architecture profile experiment](phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md) | [Implementation](implementation/architecture_profile_experiment.md) exposes standalone Six-layer v1 through one Management-owned workflow. Previous two-profile evidence is historical; the reduced profile requires fresh offline verification and later supervised live-capacity evidence. |
 
 ## Cross-Phase Definition Of Done
 
@@ -63,9 +58,9 @@ adds focused tests, receives two code reviews, and is committed independently.
 - Draft creation, workload entry, calculation, and architecture review remain
   credential-free; the selected architecture determines which provider scopes
   require deployment access.
-- Bootstrap secrets are request-only. Local release, successful provider-side
-  revocation, manual cleanup, and an existing user-owned credential remaining
-  valid are distinct outcomes.
+- The PoC reuses externally provisioned, non-root administrator connections for
+  all required provider scopes. Credential creation and permission reduction
+  remain outside the implemented workflow.
 
 ## Compatibility Strategy
 
@@ -93,7 +88,7 @@ spread into new widgets.
 | Workload | Round-trip tests proving every `CalcParams` field survives task navigation and presets. |
 | Architecture | Tests for stale pricing, calculation errors, recalculation invalidation, and selected result restoration. |
 | Deployment selection | Strict specification parsing/digest tests, latest-run list/detail consistency, bounded selection retry, navigation gates, and responsive read-only summary coverage. |
-| Deployment preparation | Requirement-matrix tests across provider paths; scene/3D assets remain historical-profile compatibility only and are absent from Five-layer v2/Six-layer v1. |
+| Deployment preparation | Requirement-matrix tests across provider paths; scene/3D assets remain historical-profile compatibility only and are absent from Six-layer v1. |
 | Guided cloud access | Strict provider-guide/session models; GCP existing-project/API-baseline ownership and organization-mode rejection; request-secret non-persistence; duplicate suppression; restart/recheck; exact disposal/revocation outcomes; shared Settings/workspace result. |
 | Completion | Tests proving client readiness cannot bypass server validation or preflight. |
 | Accessibility | Semantic labels, keyboard traversal, focus recovery, and no overflow at supported desktop widths. |

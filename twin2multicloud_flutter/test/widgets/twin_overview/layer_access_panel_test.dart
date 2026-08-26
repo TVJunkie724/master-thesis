@@ -98,10 +98,7 @@ void main() {
       tester,
       state: LayerAccessViewState.fromSnapshot(_unsupported()),
     );
-    expect(
-      find.textContaining('historical five-layer profile'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('historical six-layer profile'), findsOneWidget);
     expect(find.text('Open Twin UI'), findsNothing);
     expect(find.text('Retry layer access'), findsNothing);
   });

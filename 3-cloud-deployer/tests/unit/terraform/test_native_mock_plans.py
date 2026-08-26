@@ -8,18 +8,14 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from src.providers.terraform.package_builder import (
-    build_all_packages,
-    build_aws_v2_graph_app,
-)
-from src.providers.terraform.package_builders.aws_v2 import (
+from src.providers.terraform.package_builders.aws_six_layer import (
     build_aws_six_layer_domain_app,
 )
 from src.providers.terraform.package_builders.aws_eventing import (
     build_aws_eventing_app,
 )
-from src.providers.terraform.package_builders.azure_v2 import (
-    build_azure_v2_graph_apps,
+from src.providers.terraform.package_builders.azure_six_layer import (
+    build_azure_six_layer_graph_apps,
 )
 
 
@@ -31,27 +27,6 @@ CREDENTIAL_ENV_PREFIXES = (
     "CLOUDSDK_",
     "GOOGLE_",
 )
-
-
-def _providers(
-    *,
-    l1: str,
-    l2: str,
-    hot: str,
-    cool: str,
-    archive: str,
-    l4: str,
-    l5: str,
-) -> dict[str, str]:
-    return {
-        "layer_1_provider": l1,
-        "layer_2_provider": l2,
-        "layer_3_hot_provider": hot,
-        "layer_3_cold_provider": cool,
-        "layer_3_archive_provider": archive,
-        "layer_4_provider": l4,
-        "layer_5_provider": l5,
-    }
 
 
 def _write_minimal_project(project_path: Path) -> None:
@@ -129,32 +104,11 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
     plugin_cache.mkdir()
     _write_minimal_project(project_path)
 
-    all_aws = _providers(
-        l1="aws",
-        l2="aws",
-        hot="aws",
-        cool="aws",
-        archive="aws",
-        l4="aws",
-        l5="aws",
-    )
-    gcp_storage = _providers(
-        l1="aws",
-        l2="aws",
-        hot="google",
-        cool="google",
-        archive="google",
-        l4="aws",
-        l5="aws",
-    )
-    build_all_packages(terraform_dir, project_path, all_aws)
-    build_all_packages(terraform_dir, project_path, gcp_storage)
-    build_aws_v2_graph_app(project_path)
     build_aws_six_layer_domain_app(project_path)
     build_aws_eventing_app(project_path)
-    build_azure_v2_graph_apps(
+    build_azure_six_layer_graph_apps(
         project_path,
-        ("five-layer-v2", "six-layer-domain", "six-layer-eventing"),
+        ("six-layer-domain", "six-layer-eventing"),
     )
 
     _run_terraform(
@@ -176,13 +130,13 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
         plugin_cache=plugin_cache,
     )
 
-    assert "Success! 20 passed, 0 failed." in result.stdout
+    assert "Success! 8 passed, 0 failed." in result.stdout
     assert not list(tmp_path.rglob("*.tfstate"))
     assert not list(tmp_path.rglob("*.tfplan"))
 
 
-def test_gcp_v2_workflow_reports_one_terminal_outcome_to_domain_consumer():
-    terraform_source = (TERRAFORM_SOURCE / "gcp_five_layer_v2.tf").read_text(
+def test_gcp_six_layer_workflow_reports_one_terminal_outcome_to_domain_consumer():
+    terraform_source = (TERRAFORM_SOURCE / "gcp_six_layer.tf").read_text(
         encoding="utf-8"
     )
 
@@ -195,34 +149,39 @@ def test_gcp_v2_workflow_reports_one_terminal_outcome_to_domain_consumer():
     )
 
 
-def test_aws_v2_storage_mover_uses_only_digest_input_and_exact_task_dimension():
-    terraform_source = (TERRAFORM_SOURCE / "aws_five_layer_v2.tf").read_text(
+def test_aws_six_layer_storage_mover_uses_only_digest_input_and_exact_task_dimension():
+    terraform_source = (TERRAFORM_SOURCE / "aws_six_layer.tf").read_text(
         encoding="utf-8"
     )
 
-    assert "image     = var.aws_v2_storage_mover_image" in terraform_source
+    assert "image     = var.aws_six_layer_storage_mover_image" in terraform_source
     assert (
         '"dimension.aws.aws.ecs-fargate-storage-mover.task_count"' in terraform_source
     )
     assert ":storage-mover-v1" not in terraform_source
 
 
-def test_azure_v2_storage_mover_uses_digest_and_explicit_exact_task_jobs():
-    terraform_source = (TERRAFORM_SOURCE / "azure_five_layer_v2.tf").read_text(
+def test_azure_six_layer_storage_mover_uses_digest_and_explicit_exact_task_jobs():
+    terraform_source = (TERRAFORM_SOURCE / "azure_six_layer.tf").read_text(
         encoding="utf-8"
     )
 
-    assert "image  = var.azure_v2_storage_mover_image" in terraform_source
+    assert "image  = var.azure_six_layer_storage_mover_image" in terraform_source
     assert (
         '"dimension.azure.azure.container-apps-scheduled-storage-job.task_count"'
         in terraform_source
     )
     assert (
         'resource "azurerm_container_app_job" '
-        '"azure_azure_container_apps_scheduled_storage_job"'
+        '"azure_azure_container_apps_scheduled_storage_job"' in terraform_source
+    )
+    assert (
+        "for_each                     = local.azure_six_layer_storage_schedule_tasks"
         in terraform_source
     )
-    assert "for_each                     = local.azure_v2_storage_schedule_tasks" in terraform_source
     assert "parallelism              = 1" in terraform_source
-    assert "contains([1, 4, 30], local.azure_v2_storage_task_count)" in terraform_source
+    assert (
+        "contains([1, 4, 30], local.azure_six_layer_storage_task_count)"
+        in terraform_source
+    )
     assert ":latest" not in terraform_source

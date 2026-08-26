@@ -1,4 +1,4 @@
-"""Inherited finite, idempotent Azure hot-to-cool exporter for Six-layer v1."""
+"""Finite, idempotent Azure hot-to-cool exporter for Six-layer v1."""
 
 from __future__ import annotations
 
@@ -20,9 +20,9 @@ WINDOW = timedelta(minutes=5)
 MAX_OBJECT_BYTES = 64 * 1024 * 1024
 MAX_TASK_INPUT_BYTES = 512 * 1024 * 1024
 MAX_MANIFEST_BYTES = 2 * 1024 * 1024
-ARTIFACT_SCHEMA = "five-layer-v2-storage-window.v1"
+ARTIFACT_SCHEMA = "six-layer-storage-window.v1"
 TRANSITION_SCHEMA = "storage_transition.v1"
-INDEX_SCHEMA = "five-layer-v2-storage-index.v1"
+INDEX_SCHEMA = "six-layer-storage-index.v1"
 SYSTEM_FIELDS = frozenset({"_rid", "_self", "_etag", "_attachments", "_ts"})
 
 
@@ -366,7 +366,13 @@ def main() -> None:
     blob_account_url = os.environ.get("BLOB_ACCOUNT_URL", "")
     blob_container_name = os.environ.get("BLOB_CONTAINER", "")
     if not all(
-        (cosmos_endpoint, database_name, container_name, blob_account_url, blob_container_name)
+        (
+            cosmos_endpoint,
+            database_name,
+            container_name,
+            blob_account_url,
+            blob_container_name,
+        )
     ):
         raise StorageTransitionError("STORAGE_TRANSITION_NOT_CONFIGURED")
     task_count = _positive_int("STORAGE_TASK_COUNT", "1")

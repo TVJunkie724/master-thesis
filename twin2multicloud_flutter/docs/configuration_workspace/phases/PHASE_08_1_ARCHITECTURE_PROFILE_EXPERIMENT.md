@@ -1,6 +1,6 @@
 ---
 title: "Phase 8.1: Architecture Profile Experiment"
-description: "Expose Five-layer v2 and Six-layer v1 as bounded, profile-local thesis experiments in the Configuration Workspace."
+description: "Expose standalone Six-layer v1 as a bounded thesis experiment in the Configuration Workspace."
 tags: [flutter, phase, architecture-profiles, optimizer, eventing]
 lastUpdated: "2026-08-14"
 version: "1.8"
@@ -9,18 +9,18 @@ version: "1.8"
 <!-- SOURCES:
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md
 - twin2multicloud_flutter/docs/configuration_workspace/ROADMAP_CONFIGURATION_WORKSPACE.md
-- docs/plans/phase_08_architecture_profiles_eventing/phase_08_7_flutter_profile_workflow.md
-- docs/plans/phase_08_architecture_profiles_eventing/phase_08_service_bundle_closure.md
-- docs/plans/phase_08_architecture_profiles_eventing/phase_08_9_six_layer_eventing_implementation.md
+- docs/plans/phase_08_architecture_profiles_eventing/README.md
+- docs/plans/phase_08_architecture_profiles_eventing/README.md
+- docs/plans/phase_08_architecture_profiles_eventing/README.md
 EXTRACTED: 2026-08-14 | VERSION: 1.8
 -->
 
 # Phase 8.1: Architecture Profile Experiment
 
 **Implementation status:** Phase 8.7 and the 8.9A/8.9B profile activations are
-implemented locally. The runtime and demo catalogs expose Five-layer v2 and
+implemented locally. The runtime and demo catalogs expose Six-layer and
 Six-layer v1 for offline selection; the connected local stack calculates both
-profiles, while Demo calculation remains a truthful Five-layer-only fixture.
+profiles, while Demo calculation remains a truthful Six-layer-only fixture.
 Live-capacity gates still block deployment. The final 8.9B audit is frozen
 after two credential-free review passes with zero unresolved findings. See the
 [implementation reference](../implementation/architecture_profile_experiment.md).
@@ -34,16 +34,16 @@ Phase 8.7 extends the Configuration Workspace with strict profile and resolved
 architecture DTOs, server-driven selection/review state, generic single-cloud
 and multicloud presentation fixtures, and historical read-only compatibility.
 It truthfully blocks new-profile work while the active catalog is empty.
-Phase 8.9A publishes Workload v2 and Five-layer v2; Phase 8.9B adds the
-Six-layer delta. Guided bootstrap and deployed L4/L5 access retain their own
-phases and integrate through the same selected architecture.
+Phase 8.9A publishes Workload v2 and Six-layer; Phase 8.9B adds the
+Six-layer delta. Provider credential provisioning is external to the PoC;
+deployed L4/L5 access integrates through the same selected architecture.
 
 ## Prerequisites
 
 - The Phase 8.6 graph resolver and staged binding preflight are committed and
   pass their offline gates.
 - The immutable complete-service decision package approves
-  `five-layer-baseline@2` and pins its provider/component manifests.
+  `six-layer-eventing@1` and pins its provider/component manifests.
 - The reviewed Phase 8.8 package pins the shared event scenarios and the
   `six-layer-eventing@1` Event Layer delta used by the completed 8.9B
   activation.
@@ -74,8 +74,8 @@ phases and integrate through the same selected architecture.
 ## Acceptance Criteria
 
 - Only profiles returned by the Management active catalog are selectable;
-  it now contains exactly Five-layer v2 and Six-layer v1, while
-  `five-layer-baseline@1` is historical and read-only.
+  it now contains exactly standalone Six-layer v1, while
+  `six-layer-eventing@1` is historical and read-only.
 - Phase 8.7 does not submit a new-profile calculation. The mandatory event
   scenario and exact immutable Small/Medium/Large Workload v2 mapping activate
   atomically in Phase 8.9A and are reused unchanged by Phase 8.9B.
@@ -88,7 +88,7 @@ phases and integrate through the same selected architecture.
   activation the empty catalog blocks it earlier.
 - Result review represents arbitrary registered components and edges without
   assuming five fixed slots.
-- Five-layer v2 review shows L3-hot/L5 co-location and independent L4 without a
+- Six-layer review shows L3-hot/L5 co-location and independent L4 without a
   L4-to-L5 edge.
 - Six-layer review adds the Eventing responsibility and bridge only where the
   resolved providers require it.

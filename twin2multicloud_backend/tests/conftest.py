@@ -15,7 +15,6 @@ os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("DEBUG", "true")
 os.environ.setdefault("DEV_AUTH_ENABLED", "true")
 os.environ.setdefault("DEV_AUTH_TOKEN", "dev-token")
-os.environ.setdefault("CLOUD_BOOTSTRAP_ADAPTER_MODE", "deterministic_fake")
 os.environ.setdefault("JWT_SECRET_KEY", "test-jwt-secret-with-at-least-32-characters")
 os.environ.setdefault(
     "ENCRYPTION_KEY",
@@ -77,9 +76,9 @@ def client(db_session):
     # Override only for this test
     app.dependency_overrides[get_db] = override_get_db
     Base.metadata.create_all(bind=test_engine)
-    
+
     yield TestClient(app)
-    
+
     # CRITICAL: Clean up override after test to not affect production
     Base.metadata.drop_all(bind=test_engine)
     app.dependency_overrides.clear()
@@ -103,6 +102,7 @@ def authenticated_client(client, auth_headers):
 # Test Data Fixtures
 # ============================================================
 
+
 @pytest.fixture
 def sample_twin_data():
     """Sample twin creation data."""
@@ -115,7 +115,7 @@ def sample_aws_credentials():
     return {
         "access_key_id": "AKIAIOSFODNN7EXAMPLE",
         "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-        "region": "eu-central-1"
+        "region": "eu-central-1",
     }
 
 
@@ -127,7 +127,7 @@ def sample_azure_credentials():
         "client_id": "client-12345678-1234-1234-1234-123456789abc",
         "client_secret": "secret-value-12345",
         "tenant_id": "tenant-12345678-1234-1234-1234-123456789abc",
-        "region": "westeurope"
+        "region": "westeurope",
     }
 
 
@@ -138,42 +138,32 @@ def sample_gcp_credentials():
         "project_id": "my-project-12345",
         "billing_account": "012345-6789AB-CDEF01",
         "service_account_json": '{"type":"service_account","project_id":"my-project-12345","client_email":"deployer@my-project-12345.iam.gserviceaccount.com","private_key":"-----BEGIN PRIVATE KEY-----\\nsecret\\n-----END PRIVATE KEY-----\\n"}',
-        "region": "europe-west1"
+        "region": "europe-west1",
     }
 
 
 @pytest.fixture
 def sample_calc_params():
-    """Sample optimizer calculation parameters."""
+    """Canonical Small workload for the active Six-layer profile."""
     return {
+        "schemaVersion": "six-layer-workload.v1",
         "numberOfDevices": 100,
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,
         "numberOfDeviceTypes": 1,
-        "useEventChecking": False,
-        "eventsPerMessage": 1,
-        "triggerNotificationWorkflow": False,
-        "orchestrationActionsPerMessage": 1,
-        "returnFeedbackToDevice": False,
-        "numberOfEventActions": 0,
-        "integrateErrorHandling": False,
         "hotStorageDurationInMonths": 1,
         "coolStorageDurationInMonths": 3,
         "archiveStorageDurationInMonths": 12,
-        "needs3DModel": False,
-        "entityCount": 0,
-        "average3DModelSizeInMB": 100,
-        "averageDigitalTwinQueryUnitsPerQuery": 1.0,
-        "averageDigitalTwinQueryResponseSizeInKb": 1.0,
-        "dashboardRefreshesPerHour": 2,
-        "apiCallsPerDashboardRefresh": 3,
-        "dashboardActiveHoursPerDay": 8,
-        "amountOfActiveEditors": 1,
-        "amountOfActiveViewers": 5,
-        "eventTriggerRate": 0.1,
-        "allowGcpSelfHostedL4": False,
-        "allowGcpSelfHostedL5": False,
-        "optimizationProfileId": "cost_minimization_v1",
+        "twinEntityCount": 100,
+        "aggregateDashboardRefreshesPerHour": 12,
+        "apiCallsPerAggregateDashboardRefresh": 1,
+        "dashboardActiveHoursPerDay": 1,
+        "monthlyEditorSeats": 2,
+        "monthlyViewerSeats": 1,
+        "twinStateMaterializationsPerSecond": 0.1,
+        "twinGraphUpdatesPerSecond": 0.01,
+        "eventingScenarioId": "eventing-small-v1",
+        "optimizationProfileId": "cost-minimization-v2",
         "currency": "USD",
     }
 
@@ -181,6 +171,7 @@ def sample_calc_params():
 # ============================================================
 # Helper Functions
 # ============================================================
+
 
 def create_test_twin(client, headers, name="Test Twin"):
     """Helper to create a twin and return its ID."""
@@ -193,30 +184,32 @@ def create_test_twin(client, headers, name="Test Twin"):
 # Fixture Aliases for state transition tests
 # ============================================================
 
+
 @pytest.fixture
 def auth_client(client, auth_headers):
     """Authenticated client for state transition tests.
-    
+
     Unlike authenticated_client, this returns a pre-configured TestClient
     with headers automatically included (uses custom request method).
     """
-    
+
     # First request triggers dev user creation
     client.get("/twins/", headers=auth_headers)
-    
+
     # Store headers on client for convenience
     original_request = client.request
+
     def auth_request(method, url, **kwargs):
         headers = kwargs.pop("headers", {})
         headers.update(auth_headers)
         return original_request(method, url, headers=headers, **kwargs)
-    
+
     client.request = auth_request
     client.get = lambda url, **kwargs: auth_request("GET", url, **kwargs)
     client.post = lambda url, **kwargs: auth_request("POST", url, **kwargs)
     client.put = lambda url, **kwargs: auth_request("PUT", url, **kwargs)
     client.delete = lambda url, **kwargs: auth_request("DELETE", url, **kwargs)
-    
+
     return client
 
 
@@ -231,20 +224,18 @@ def test_twin(auth_client, db):
     """Create a test twin owned by the dev user created by auth_client."""
     from src.models.twin import DigitalTwin, TwinState
     from src.models.user import User
-    
+
     # Get the dev user created by auth_client (first user in DB)
     user = db.query(User).first()
     if not user:
         raise RuntimeError("No user found - auth_client should have created one")
-    
+
     # Create twin owned by this user
     twin = DigitalTwin(
-        name=f"Test Twin {id(db)}",
-        user_id=user.id,
-        state=TwinState.DRAFT
+        name=f"Test Twin {id(db)}", user_id=user.id, state=TwinState.DRAFT
     )
     db.add(twin)
     db.commit()
     db.refresh(twin)
-    
+
     return twin

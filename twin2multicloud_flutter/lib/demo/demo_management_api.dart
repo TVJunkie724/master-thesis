@@ -8,7 +8,6 @@ import '../models/architecture_profile.dart';
 import '../models/calc_params.dart';
 import '../models/authentication.dart';
 import '../models/cloud_access_inventory.dart';
-import '../models/cloud_bootstrap.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
 import '../models/deployment_access.dart';
@@ -32,29 +31,7 @@ import '../services/management_api.dart';
 import 'demo_fixture_store.dart';
 
 class DemoManagementApi implements ManagementApi {
-  static const double _fiveLayerV2EurPerUsd = 0.865948;
-  static const List<String> _gcpPhase8ApiServices = [
-    'artifactregistry.googleapis.com',
-    'cloudbilling.googleapis.com',
-    'cloudbuild.googleapis.com',
-    'cloudresourcemanager.googleapis.com',
-    'cloudscheduler.googleapis.com',
-    'compute.googleapis.com',
-    'container.googleapis.com',
-    'firestore.googleapis.com',
-    'iam.googleapis.com',
-    'iamcredentials.googleapis.com',
-    'iap.googleapis.com',
-    'logging.googleapis.com',
-    'monitoring.googleapis.com',
-    'pubsub.googleapis.com',
-    'run.googleapis.com',
-    'serviceusage.googleapis.com',
-    'storage.googleapis.com',
-    'sts.googleapis.com',
-    'workflows.googleapis.com',
-  ];
-
+  static const double _sixLayerEurPerUsd = 0.865948;
   final DemoFixtureStore store;
   final Duration latency;
   String? _token = 'demo-token';
@@ -62,7 +39,6 @@ class DemoManagementApi implements ManagementApi {
   final Map<String, Map<String, dynamic>> _deploymentReadinessCache = {};
   final List<UserFunctionArtifact> _extensionArtifacts = [];
   final Map<String, TwinExtensionBinding> _extensionBindings = {};
-  final Map<String, Map<String, dynamic>> _bootstrapSessions = {};
   final Map<String, ResolvedTwinArchitectureRead> _resolvedArchitectures = {};
   final Map<String, TwinArchitectureSelection> _architectureSelections = {};
 
@@ -123,13 +99,9 @@ class DemoManagementApi implements ManagementApi {
   Future<List<ArchitectureProfileSummary>> listArchitectureProfiles() async {
     await _pause();
     return [
-      for (final profile in const [
-        ('five-layer-baseline', '2'),
-        ('six-layer-eventing', '1'),
-      ])
-        ArchitectureProfileSummary.fromJson(
-          _architectureProfileSummaryJson(profile.$1, profile.$2),
-        ),
+      ArchitectureProfileSummary.fromJson(
+        _architectureProfileSummaryJson('six-layer-eventing', '1'),
+      ),
     ];
   }
 
@@ -155,7 +127,7 @@ class DemoManagementApi implements ManagementApi {
     final twin = store.twin(twinId);
     final selectedAt = DateTime.parse(twin['created_at'].toString()).toUtc();
     final updatedAt = DateTime.parse(twin['updated_at'].toString()).toUtc();
-    final profile = store.fiveLayerV2Profile();
+    final profile = store.sixLayerProfile();
     return TwinArchitectureSelection(
       twinId: twinId,
       profileRef: PinnedArchitectureReference(
@@ -535,339 +507,6 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<CloudBootstrapGuide> getCloudBootstrapGuide(
-    CloudProvider provider,
-    CloudBootstrapTarget target,
-  ) async {
-    await _pause();
-    if (provider != target.provider) {
-      throw const DemoApiException(
-        'BOOTSTRAP_TARGET_INVALID',
-        'Bootstrap provider and target must match.',
-      );
-    }
-    if (provider == CloudProvider.gcp &&
-        target.values['mode'] == 'organization') {
-      throw const DemoApiException(
-        'BOOTSTRAP_SCOPE_UNSUPPORTED',
-        'The active GCP bootstrap v3 gate supports an existing project only.',
-      );
-    }
-    return CloudBootstrapGuide.fromJson(_demoBootstrapGuide(provider, target));
-  }
-
-  @override
-  Future<CloudBootstrapSession> createCloudBootstrapSession({
-    required CloudBootstrapGuide guide,
-    required CloudBootstrapEntryPoint entryPoint,
-    required String displayName,
-    String? twinId,
-    required String idempotencyKey,
-  }) async {
-    await _pause();
-    final replay = _bootstrapSessions.values.where(
-      (item) => item['_idempotency_key'] == idempotencyKey,
-    );
-    if (replay.isNotEmpty) {
-      return CloudBootstrapSession.fromJson(
-        _demoBootstrapResponse(replay.first),
-      );
-    }
-    final existing = _bootstrapSessions.values.where(
-      (item) =>
-          item['provider'] == guide.provider.apiValue &&
-          item['target'].toString() == guide.target.toJson().toString() &&
-          !{'ready', 'failed', 'cancelled', 'expired'}.contains(item['state']),
-    );
-    if (existing.isNotEmpty) {
-      return CloudBootstrapSession.fromJson(
-        _demoBootstrapResponse(existing.first),
-      );
-    }
-    if (entryPoint == CloudBootstrapEntryPoint.twinPrepare) {
-      if (twinId == null) {
-        throw const DemoApiException(
-          'BOOTSTRAP_TWIN_REQUIRED',
-          'Prepare deployment requires a Twin.',
-        );
-      }
-      store.twin(twinId);
-    }
-    final sequence = store.nextId('bootstrap').hashCode.abs().toString();
-    final id =
-        '00000000-0000-4000-8000-${sequence.padLeft(12, '0').substring(0, 12)}';
-    final now = store.clock().toUtc().toIso8601String();
-    final session = <String, dynamic>{
-      'schema_version': 'cloud-bootstrap-session.v1',
-      'id': id,
-      'provider': guide.provider.apiValue,
-      'target': guide.target.toJson(),
-      'entry_point': entryPoint.apiValue,
-      if (twinId != null) 'twin_id': twinId,
-      'display_name': displayName,
-      'revision': 1,
-      'state': 'draft',
-      'guide_digest': guide.guideDigest,
-      'bootstrap_authority_pack': _demoBootstrapPack(
-        guide.provider,
-        authority: true,
-        detailed: false,
-      ),
-      'generated_deployment_pack': _demoBootstrapPack(
-        guide.provider,
-        authority: false,
-        detailed: false,
-      ),
-      'command_permissions': ['execute', 'cancel'],
-      'created_at': now,
-      'updated_at': now,
-      '_idempotency_key': idempotencyKey,
-    };
-    _bootstrapSessions[id] = session;
-    return CloudBootstrapSession.fromJson(_demoBootstrapResponse(session));
-  }
-
-  @override
-  Future<List<CloudBootstrapSession>> listCloudBootstrapSessions({
-    CloudProvider? provider,
-    bool active = true,
-  }) async {
-    await _pause();
-    final terminal = {'ready', 'failed', 'cancelled', 'expired'};
-    return _bootstrapSessions.values
-        .where(
-          (item) =>
-              (provider == null || item['provider'] == provider.apiValue) &&
-              (active
-                  ? !terminal.contains(item['state'])
-                  : terminal.contains(item['state'])),
-        )
-        .map(
-          (item) =>
-              CloudBootstrapSession.fromJson(_demoBootstrapResponse(item)),
-        )
-        .toList(growable: false);
-  }
-
-  @override
-  Future<CloudBootstrapSession> getCloudBootstrapSession(
-    String sessionId,
-  ) async {
-    await _pause();
-    return _demoBootstrapSession(sessionId);
-  }
-
-  @override
-  Future<CloudBootstrapSession> executeCloudBootstrapSession(
-    String sessionId,
-    CloudBootstrapExecuteRequest request,
-  ) async {
-    await _pause();
-    final session = _bootstrapSessions[sessionId];
-    if (session == null) {
-      request.dispose();
-      throw const DemoApiException(
-        'BOOTSTRAP_SESSION_NOT_FOUND',
-        'Bootstrap session was not found.',
-      );
-    }
-    late final Map<String, dynamic> command;
-    try {
-      command = request.takeJson();
-    } finally {
-      request.dispose();
-    }
-    final expectedRevision = command['expected_revision'];
-    final idempotencyKey = command['idempotency_key']?.toString();
-    final origin = command['credential_origin'].toString();
-    final submittedCredential = command['credential'];
-    if (session['_execute_idempotency_key'] == idempotencyKey) {
-      if (submittedCredential is Map) submittedCredential.clear();
-      command.clear();
-      return _demoBootstrapSession(sessionId);
-    }
-    if (expectedRevision != session['revision']) {
-      if (submittedCredential is Map) submittedCredential.clear();
-      command.clear();
-      throw const DemoApiException(
-        'BOOTSTRAP_SESSION_CONFLICT',
-        'Bootstrap session changed; check the latest result.',
-      );
-    }
-    if (!(session['command_permissions'] as List).contains('execute') ||
-        submittedCredential is! Map) {
-      if (submittedCredential is Map) submittedCredential.clear();
-      command.clear();
-      throw const DemoApiException(
-        'BOOTSTRAP_SESSION_CONFLICT',
-        'Bootstrap execution is no longer available.',
-      );
-    }
-    final provider = CloudProvider.fromApiValue(session['provider'].toString());
-    final credential = Map<String, dynamic>.from(submittedCredential);
-    final target = Map<String, dynamic>.from(session['target'] as Map);
-    final safeIdentifier = _demoBootstrapSafeIdentifier(
-      provider,
-      target,
-      credential,
-    );
-    final failure = _demoBootstrapCredentialFailure(
-      provider,
-      target,
-      credential,
-    );
-    final manualCleanup = _demoBootstrapNeedsManualCleanup(
-      provider,
-      target,
-      safeIdentifier,
-    );
-    final hasProviderExpiry =
-        provider == CloudProvider.aws &&
-        credential['session_token'] != null &&
-        target['session_expires_at'] != null;
-    submittedCredential.clear();
-    credential.clear();
-    command.clear();
-    session['_execute_idempotency_key'] = idempotencyKey;
-    if (failure != null) {
-      final now = store.clock().toUtc().toIso8601String();
-      session
-        ..['revision'] = (session['revision'] as int) + 2
-        ..['state'] = 'credential_reentry_required'
-        ..['credential_origin'] = origin
-        ..['disposal_status'] = 'released_after_failure'
-        ..['safe_credential_identifier'] = safeIdentifier
-        ..['finding'] = {
-          'code': 'BOOTSTRAP_CREDENTIAL_INVALID',
-          'severity': 'error',
-          'title': 'Bootstrap could not complete',
-          'message': failure,
-          'blocking': true,
-          'action': 'Review the target and explicitly re-enter the credential.',
-        }
-        ..['command_permissions'] = ['execute', 'cancel']
-        ..['updated_at'] = now;
-      return _demoBootstrapSession(sessionId);
-    }
-    final connectionId = store.nextId('demo-${provider.apiValue}-bootstrap');
-    final now = store.clock().toUtc().toIso8601String();
-    final connection = <String, dynamic>{
-      'id': connectionId,
-      'provider': provider.apiValue,
-      'purpose': 'deployment',
-      'scope': 'user',
-      'is_default_for_pricing': false,
-      'display_name': session['display_name'],
-      'auth_type': _defaultAuthType(provider),
-      'permission_set_version': 'thesis-demo-v2',
-      'cloud_scope': Map<String, dynamic>.from(session['target'] as Map)
-        ..remove('provider'),
-      'payload_fingerprint': '$connectionId-fingerprint',
-      'payload_summary': {'generated_by': 'demo_bootstrap'},
-      'validation_status': 'valid',
-      'validation_message': 'Demo bootstrap validation passed.',
-      'last_validated_at': now,
-      'last_used_at': null,
-      'created_at': now,
-      'updated_at': now,
-    };
-    store.addCloudConnection(connection);
-    final disposable = origin == 'dedicated_disposable';
-    final disposalStatus = !disposable
-        ? 'not_retained_user_managed'
-        : hasProviderExpiry
-        ? 'expires_at_provider'
-        : manualCleanup
-        ? 'manual_revocation_required'
-        : 'revoked';
-    session
-      ..['revision'] = (session['revision'] as int) + 2
-      ..['state'] = disposalStatus == 'manual_revocation_required'
-          ? 'manual_revocation_required'
-          : 'ready'
-      ..['credential_origin'] = origin
-      ..['disposal_status'] = disposalStatus
-      ..['safe_credential_identifier'] = safeIdentifier
-      ..['credential_expires_at'] = hasProviderExpiry
-          ? target['session_expires_at']
-          : null
-      ..['finding'] = disposalStatus == 'manual_revocation_required'
-          ? {
-              'code': 'BOOTSTRAP_MANUAL_REVOCATION_REQUIRED',
-              'severity': 'error',
-              'title': 'Manual credential cleanup required',
-              'message':
-                  'Provider-side deletion of the displayed temporary credential was not durably confirmed.',
-              'blocking': true,
-              'action':
-                  'Delete the displayed credential in the provider console, then acknowledge the cleanup.',
-              'remediation_url': _demoBootstrapRemediationUrl(provider),
-            }
-          : null
-      ..['connection'] = {
-        'id': connectionId,
-        'provider': provider.apiValue,
-        'purpose': 'deployment',
-        'display_name': session['display_name'],
-        'cloud_scope': connection['cloud_scope'],
-        'permission_set_version': 'thesis-demo-v2',
-        'validation_status': 'valid',
-      }
-      ..['command_permissions'] = disposalStatus == 'manual_revocation_required'
-          ? ['acknowledge_manual_revocation']
-          : <String>[]
-      ..['updated_at'] = now;
-    return _demoBootstrapSession(sessionId);
-  }
-
-  @override
-  Future<CloudBootstrapSession> acknowledgeCloudBootstrapRevocation(
-    String sessionId,
-    int expectedRevision,
-  ) async {
-    await _pause();
-    final session = _bootstrapSessions[sessionId];
-    if (session == null ||
-        session['state'] != 'manual_revocation_required' ||
-        session['revision'] != expectedRevision) {
-      throw const DemoApiException(
-        'BOOTSTRAP_SESSION_CONFLICT',
-        'Bootstrap cleanup acknowledgement is no longer available.',
-      );
-    }
-    session
-      ..['revision'] = expectedRevision + 1
-      ..['state'] = 'ready'
-      ..['disposal_status'] = 'revoked'
-      ..['command_permissions'] = <String>[]
-      ..['updated_at'] = store.clock().toUtc().toIso8601String();
-    return _demoBootstrapSession(sessionId);
-  }
-
-  @override
-  Future<CloudBootstrapSession> cancelCloudBootstrapSession(
-    String sessionId,
-    int expectedRevision,
-  ) async {
-    await _pause();
-    final session = _bootstrapSessions[sessionId];
-    if (session == null ||
-        session['revision'] != expectedRevision ||
-        !(session['command_permissions'] as List).contains('cancel')) {
-      throw const DemoApiException(
-        'BOOTSTRAP_SESSION_CONFLICT',
-        'Bootstrap session changed before cancellation.',
-      );
-    }
-    session
-      ..['revision'] = expectedRevision + 1
-      ..['state'] = 'cancelled'
-      ..['command_permissions'] = ['start_new']
-      ..['updated_at'] = store.clock().toUtc().toIso8601String();
-    return _demoBootstrapSession(sessionId);
-  }
-
-  @override
   Future<CloudConnection> createCloudConnection(
     CloudConnectionCreateRequest request,
   ) async {
@@ -920,7 +559,6 @@ class DemoManagementApi implements ManagementApi {
       'is_default_for_pricing': request.isDefaultForPricing,
       'display_name': request.displayName.trim(),
       'auth_type': request.authType ?? _defaultAuthType(request.provider),
-      'permission_set_version': null,
       'cloud_scope': request.cloudScope,
       'payload_fingerprint': '$id-fingerprint',
       'payload_summary': payloadSummary,
@@ -1415,25 +1053,25 @@ class DemoManagementApi implements ManagementApi {
     store.twin(twinId);
     final selectedProfile = _architectureSelections[twinId]?.profileRef;
     if (selectedProfile != null &&
-        (selectedProfile.id != 'five-layer-baseline' ||
-            selectedProfile.version != '2')) {
+        (selectedProfile.id != 'six-layer-eventing' ||
+            selectedProfile.version != '1')) {
       throw const DemoApiException(
         'DEMO_PROFILE_CALCULATION_UNAVAILABLE',
         'Six-layer calculations require the connected local stack; demo mode '
             'currently provides profile comparison only.',
       );
     }
-    if (!params.isFiveLayerV2) {
+    if (!params.isSixLayer) {
       throw const DemoApiException(
         'ARCH_WORKLOAD_INCOMPATIBLE',
-        'New demo calculations require a frozen Five-layer v2 workload scenario.',
+        'New demo calculations require a frozen Six-layer workload scenario.',
       );
     }
     final paramsJson = params.toJson();
     final now = store.clock().toUtc();
     final runId = _nextDemoRunId();
     final scenario = params.scenario!.name;
-    final specification = store.fiveLayerV2DeploymentSpecification(scenario)
+    final specification = store.sixLayerDeploymentSpecification(scenario)
       ..['calculation_run_id'] = runId
       ..['currency'] = params.currency;
     _replaceCurrency(specification, params.currency);
@@ -1445,13 +1083,13 @@ class DemoManagementApi implements ManagementApi {
     if (parsedSpecification is! ResolvedDeploymentSpecificationV2) {
       throw const DemoApiException(
         'DEMO_DEPLOYMENT_SPECIFICATION_INVALID',
-        'The canonical Five-layer v2 demo specification is unsupported.',
+        'The canonical Six-layer demo specification is unsupported.',
       );
     }
 
-    final architecture = store.fiveLayerV2ResolvedArchitecture(scenario)
+    final architecture = store.sixLayerResolvedArchitecture(scenario)
       ..['calculation_run_id'] = runId;
-    _replaceCurrency(architecture, params.currency);
+    _convertSixLayerArchitectureCurrency(architecture, params.currency);
     final deploymentRef =
         _copyMap(architecture['deployment_specification_ref'] as Map)
           ..['calculation_run_id'] = runId
@@ -1461,14 +1099,9 @@ class DemoManagementApi implements ManagementApi {
     final result = configured?['result'] is Map
         ? _copyMap(configured!['result'] as Map)
         : _defaultCalculationResult(paramsJson);
-    final cheapestPath = _fiveLayerV2CheapestPath(architecture);
-    _reallocateDemoCosts(result, cheapestPath);
-    _convertFiveLayerV2DemoCurrency(result, params.currency);
-    final totalCostExact = _applyFiveLayerV2DemoArchitectureCosts(
-      architecture,
-      result,
-      params.currency,
-    );
+    final cheapestPath = _sixLayerCheapestPath(architecture);
+    final totalCostExact =
+        ((architecture['cost_summary'] as Map)['monthly_total']).toString();
     architecture['content_digest'] = ResolvedTwinArchitecture.calculateDigest(
       architecture,
     );
@@ -1491,7 +1124,7 @@ class DemoManagementApi implements ManagementApi {
       ..remove('gcpCosts')
       ..remove('inputParamsUsed')
       ..['cheapestPath'] = cheapestPath
-      ..['calculationResult'] = _fiveLayerV2CalculationResult(cheapestPath)
+      ..['calculationResult'] = _sixLayerCalculationResult(cheapestPath)
       ..['totalCost'] = double.parse(totalCostExact)
       ..['totalCostExact'] = totalCostExact
       ..['currency'] = params.currency
@@ -1551,11 +1184,7 @@ class DemoManagementApi implements ManagementApi {
   ) async {
     await _pause();
     store.twin(twinId);
-    var runs = store.optimizerRuns(twinId);
-    if (runs.isEmpty && store.optimizerConfig(twinId) != null) {
-      _seedExistingOptimizerRun(twinId);
-      runs = store.optimizerRuns(twinId);
-    }
+    final runs = store.optimizerRuns(twinId);
     if (runs.isEmpty) return null;
     runs.sort((left, right) {
       final leftCreated = DateTime.parse(left['created_at'].toString());
@@ -1596,7 +1225,7 @@ class DemoManagementApi implements ManagementApi {
         parsedSelectionSpecification.readiness.evaluationOnly) {
       throw const DemoApiException(
         'DEPLOYMENT_CAPACITY_EVIDENCE_PENDING',
-        'The Five-layer v2 result is evaluation-only until its live-capacity gates are evidenced.',
+        'The Six-layer result is evaluation-only until its live-capacity gates are evidenced.',
       );
     }
     final selectedAt = store.clock().toUtc().toIso8601String();
@@ -2278,14 +1907,6 @@ class DemoManagementApi implements ManagementApi {
         connection = null;
       }
     }
-    final expectedVersion = 'thesis-demo-v1';
-    final suppliedVersion = connection?['permission_set_version']?.toString();
-    final permissionStatus = suppliedVersion == null
-        ? 'missing'
-        : suppliedVersion == expectedVersion
-        ? 'matched'
-        : 'outdated';
-
     String failureCode;
     String failureMessage;
     String failureAction;
@@ -2314,11 +1935,6 @@ class DemoManagementApi implements ManagementApi {
       failureMessage =
           'Deployment preflight has not been run for this provider binding.';
       failureAction = 'Run deployment preflight before deploying this twin.';
-    } else if (permissionStatus != 'matched') {
-      failureCode = 'OUTDATED_PERMISSION_SET';
-      failureMessage =
-          'The deployment permission set does not match the active baseline.';
-      failureAction = 'Re-run provider bootstrap, then run preflight again.';
     } else {
       return {
         'provider': provider,
@@ -2327,9 +1943,6 @@ class DemoManagementApi implements ManagementApi {
         'ready': true,
         'status': 'ready',
         'summary': 'Cloud connection preflight passed',
-        'expected_permission_set_version': expectedVersion,
-        'supplied_permission_set_version': suppliedVersion,
-        'permission_set_status': permissionStatus,
         'checked_at': checkedAt,
         'checks': [
           _readinessCheck(
@@ -2357,9 +1970,6 @@ class DemoManagementApi implements ManagementApi {
       'ready': false,
       'status': executeChecks ? 'review_required' : 'not_checked',
       'summary': failureMessage,
-      'expected_permission_set_version': expectedVersion,
-      'supplied_permission_set_version': suppliedVersion,
-      'permission_set_status': permissionStatus,
       'checked_at': null,
       'checks': [
         _readinessCheck(
@@ -2692,26 +2302,6 @@ class DemoManagementApi implements ManagementApi {
     };
   }
 
-  void _seedExistingOptimizerRun(String twinId) {
-    final raw = store.optimizerConfig(twinId);
-    if (raw == null) return;
-    final runId = _nextDemoRunId();
-    final createdAt =
-        DateTime.tryParse(raw['calculated_at']?.toString() ?? '')?.toUtc() ??
-        store.clock().toUtc();
-    store.addOptimizerRun(twinId, {
-      'id': runId,
-      'twin_id': twinId,
-      'status': 'succeeded',
-      'deployment_compatibility_status': 'legacy_not_deployable',
-      'deployment_specification_digest': null,
-      'deployment_specification_version': null,
-      'resolved_deployment_specification': null,
-      'selected_for_deployment_at': null,
-      'created_at': createdAt.toIso8601String(),
-    });
-  }
-
   void _replaceCurrency(Object? value, String currency) {
     if (value is Map) {
       for (final entry in value.entries.toList()) {
@@ -2728,54 +2318,71 @@ class DemoManagementApi implements ManagementApi {
     }
   }
 
-  void _convertFiveLayerV2DemoCurrency(
-    Map<String, dynamic> result,
+  void _convertSixLayerArchitectureCurrency(
+    Map<String, dynamic> architecture,
     String currency,
   ) {
     final rate = switch (currency) {
       'USD' => 1.0,
-      'EUR' => _fiveLayerV2EurPerUsd,
+      'EUR' => _sixLayerEurPerUsd,
       _ => throw DemoApiException(
         'DEMO_CURRENCY_UNSUPPORTED',
-        'The Five-layer v2 demo currency "$currency" is unsupported.',
+        'The Six-layer demo currency "$currency" is unsupported.',
       ),
     };
-    double converted(Object? value) => (value as num).toDouble() * rate;
+    int convertedMicros(Object? value) =>
+        (double.parse(value.toString()) * rate * 1000000).round();
 
-    for (final providerKey in const ['awsCosts', 'azureCosts', 'gcpCosts']) {
-      final providerCosts = result[providerKey];
-      if (providerCosts is! Map) continue;
-      for (final rawLayer in providerCosts.values) {
-        if (rawLayer is! Map || rawLayer['cost'] is! num) continue;
-        rawLayer['cost'] = converted(rawLayer['cost']);
-        final components = rawLayer['components'];
-        if (components is Map) {
-          for (final entry in components.entries.toList()) {
-            if (entry.value is num) {
-              components[entry.key] = converted(entry.value);
-            }
-          }
+    _replaceCurrency(architecture, currency);
+    final componentMicros = <String, int>{};
+    final responsibilityMicros = <String, int>{};
+    for (final assignment in (architecture['component_assignments'] as List)) {
+      final item = assignment as Map;
+      final contribution = item['cost_contribution'] as Map;
+      final micros = convertedMicros(contribution['monthly_amount']);
+      contribution['monthly_amount'] = _demoMicrosText(micros);
+      componentMicros[item['logical_component_id'].toString()] = micros;
+      responsibilityMicros.update(
+        item['responsibility_id'].toString(),
+        (current) => current + micros,
+        ifAbsent: () => micros,
+      );
+    }
+    final edgeMicros = <String, int>{};
+    for (final edge in (architecture['resolved_edges'] as List)) {
+      final item = edge as Map;
+      final contribution = item['cost_contribution'] as Map;
+      final micros = convertedMicros(contribution['monthly_amount']);
+      contribution['monthly_amount'] = _demoMicrosText(micros);
+      edgeMicros[item['edge_id'].toString()] = micros;
+    }
+    final summary = architecture['cost_summary'] as Map;
+    for (final entry in {
+      'responsibility_totals': responsibilityMicros,
+      'component_totals': componentMicros,
+      'edge_totals': edgeMicros,
+    }.entries) {
+      final field = entry.key;
+      for (final item in (summary[field] as List)) {
+        final total = item as Map;
+        final micros = entry.value[total['item_id'].toString()];
+        if (micros == null) {
+          throw const DemoApiException(
+            'DEMO_SIX_LAYER_COST_INVALID',
+            'The canonical demo cost summary is incomplete.',
+          );
         }
+        total['monthly_amount'] = _demoMicrosText(micros);
       }
     }
-    if (result['totalCost'] is num) {
-      result['totalCost'] = converted(result['totalCost']);
-    }
-    final diagnostics = result['optimizationDiagnostics'];
-    if (diagnostics is Map) {
-      for (final key in const [
-        'winningLayerCost',
-        'winningTransferCost',
-        'winningScore',
-      ]) {
-        if (diagnostics[key] is num) {
-          diagnostics[key] = converted(diagnostics[key]);
-        }
-      }
-    }
+    final totalMicros = [
+      ...componentMicros.values,
+      ...edgeMicros.values,
+    ].fold<int>(0, (total, micros) => total + micros);
+    summary['monthly_total'] = _demoMicrosText(totalMicros);
   }
 
-  List<String> _fiveLayerV2CheapestPath(Map<String, dynamic> architecture) {
+  List<String> _sixLayerCheapestPath(Map<String, dynamic> architecture) {
     final providers = <String, String>{};
     for (final raw in (architecture['component_assignments'] as List)) {
       final assignment = Map<String, dynamic>.from(raw as Map);
@@ -2813,9 +2420,7 @@ class DemoManagementApi implements ManagementApi {
     ];
   }
 
-  Map<String, dynamic> _fiveLayerV2CalculationResult(
-    List<String> cheapestPath,
-  ) {
+  Map<String, dynamic> _sixLayerCalculationResult(List<String> cheapestPath) {
     String providerFor(String prefix) => cheapestPath
         .firstWhere((segment) => segment.startsWith(prefix))
         .split('_')
@@ -2833,135 +2438,11 @@ class DemoManagementApi implements ManagementApi {
     };
   }
 
-  String _applyFiveLayerV2DemoArchitectureCosts(
-    Map<String, dynamic> architecture,
-    Map<String, dynamic> result,
-    String currency,
-  ) {
-    const layerByComponent = {
-      'component.ingestion': 'L1',
-      'component.processing': 'L2',
-      'component.hot-storage': 'L3_hot',
-      'component.cool-storage': 'L3_cool',
-      'component.archive-storage': 'L3_archive',
-      'component.twin-state': 'L4',
-      'component.visualization': 'L5',
-    };
-    const costsByProvider = {
-      'aws': 'awsCosts',
-      'azure': 'azureCosts',
-      'gcp': 'gcpCosts',
-    };
-    final componentMicros = <String, int>{};
-    final responsibilityMicros = <String, int>{};
-    for (final raw in (architecture['component_assignments'] as List)) {
-      final assignment = raw as Map;
-      final componentId = assignment['logical_component_id'].toString();
-      final responsibilityId = assignment['responsibility_id'].toString();
-      final provider = assignment['provider'].toString();
-      final layer = layerByComponent[componentId];
-      final providerCosts = result[costsByProvider[provider]];
-      final layerCost = providerCosts is Map && layer != null
-          ? providerCosts[layer]
-          : null;
-      if (layerCost is! Map || layerCost['cost'] is! num) {
-        throw const DemoApiException(
-          'DEMO_FIVE_LAYER_V2_COST_INVALID',
-          'The demo result cannot be paired with its resolved architecture.',
-        );
-      }
-      final micros = ((layerCost['cost'] as num).toDouble() * 1000000).round();
-      componentMicros[componentId] = micros;
-      responsibilityMicros.update(
-        responsibilityId,
-        (current) => current + micros,
-        ifAbsent: () => micros,
-      );
-      final contribution = assignment['cost_contribution'] as Map;
-      contribution
-        ..['currency'] = currency
-        ..['monthly_amount'] = _demoMicrosText(micros);
-    }
-    for (final raw in (architecture['resolved_edges'] as List)) {
-      final contribution = (raw as Map)['cost_contribution'] as Map;
-      contribution
-        ..['currency'] = currency
-        ..['monthly_amount'] = '0';
-    }
-    final summary = architecture['cost_summary'] as Map;
-    summary['currency'] = currency;
-    void replaceTotals(String field, Map<String, int> amounts) {
-      for (final raw in (summary[field] as List)) {
-        final item = raw as Map;
-        final amount = amounts[item['item_id'].toString()];
-        if (amount == null) {
-          throw const DemoApiException(
-            'DEMO_FIVE_LAYER_V2_COST_INVALID',
-            'The demo cost summary contains an unresolved item.',
-          );
-        }
-        item['monthly_amount'] = _demoMicrosText(amount);
-      }
-    }
-
-    replaceTotals('component_totals', componentMicros);
-    replaceTotals('responsibility_totals', responsibilityMicros);
-    replaceTotals('edge_totals', {
-      for (final raw in (architecture['resolved_edges'] as List))
-        (raw as Map)['edge_id'].toString(): 0,
-    });
-    final totalMicros = componentMicros.values.fold<int>(0, (a, b) => a + b);
-    final total = _demoMicrosText(totalMicros);
-    summary['monthly_total'] = total;
-    return total;
-  }
-
   String _demoMicrosText(int micros) {
     final whole = micros ~/ 1000000;
     final fraction = (micros % 1000000).abs().toString().padLeft(6, '0');
     final trimmed = fraction.replaceFirst(RegExp(r'0+$'), '');
     return trimmed.isEmpty ? '$whole' : '$whole.$trimmed';
-  }
-
-  void _reallocateDemoCosts(
-    Map<String, dynamic> result,
-    List<String> cheapestPath,
-  ) {
-    const providerKeys = {
-      'aws': 'awsCosts',
-      'azure': 'azureCosts',
-      'gcp': 'gcpCosts',
-    };
-    final original = {
-      for (final entry in providerKeys.entries)
-        entry.key: result[entry.value] is Map
-            ? _copyMap(result[entry.value] as Map)
-            : <String, dynamic>{},
-    };
-    final reassigned = {
-      for (final provider in providerKeys.keys) provider: <String, dynamic>{},
-    };
-    for (final segment in cheapestPath) {
-      final separator = segment.lastIndexOf('_');
-      final layer = segment.substring(0, separator);
-      final provider = segment.substring(separator + 1).toLowerCase();
-      Map<String, dynamic>? layerCost;
-      for (final costs in original.values) {
-        if (costs[layer] is Map) {
-          layerCost = _copyMap(costs[layer] as Map);
-          break;
-        }
-      }
-      reassigned[provider]![layer] =
-          layerCost ??
-          {
-            'cost': 0.0,
-            'components': {'Five-layer v2 contract fixture': 0.0},
-          };
-    }
-    for (final entry in providerKeys.entries) {
-      result[entry.value] = reassigned[entry.key]!;
-    }
   }
 
   String _nextDemoRunId() {
@@ -2996,7 +2477,6 @@ class DemoManagementApi implements ManagementApi {
       'is_default_for_pricing': connection['is_default_for_pricing'] == true,
       'last_validated_at': connection['last_validated_at'],
       'last_used_at': connection['last_used_at'],
-      'permission_set_status': validationStatus,
       'bound_twin_count': bound.length,
       'bound_twin_labels': bound.map((item) => item['name']).toList(),
       'actions': ['validate', 'edit', 'delete'],
@@ -3323,225 +2803,6 @@ class DemoManagementApi implements ManagementApi {
       'calculationSource': 'fresh',
     };
   }
-
-  Map<String, dynamic> _demoBootstrapGuide(
-    CloudProvider provider,
-    CloudBootstrapTarget target,
-  ) {
-    return {
-      'schema_version': 'cloud-bootstrap-guide.v1',
-      'guide_digest': _demoBootstrapDigest('${provider.apiValue}-guide'),
-      'provider': provider.apiValue,
-      'execution_mode': 'deterministic_fake',
-      'target': target.toJson(),
-      'bootstrap_authority_pack': _demoBootstrapPack(
-        provider,
-        authority: true,
-        detailed: true,
-      ),
-      'api_baseline': provider == CloudProvider.gcp
-          ? {
-              'id': 'gcp.phase8-api-baseline.v1',
-              'digest': _demoBootstrapDigest('gcp-phase8-api-baseline-v1'),
-              'services': _gcpPhase8ApiServices,
-              'retain_enabled': true,
-              'mutation_summary':
-                  'Demo mode models the reviewed enable-only API baseline and creates no provider resource.',
-              'limitations': [
-                'Existing-project PoC path only.',
-                'Demo mode performs no API enablement.',
-              ],
-              'artifact_url': 'https://example.com/gcp/api-baseline',
-            }
-          : null,
-      'generated_deployment_pack': _demoBootstrapPack(
-        provider,
-        authority: false,
-        detailed: true,
-      ),
-      'credential_fields': switch (provider) {
-        CloudProvider.aws => [
-          _demoCredentialField('access_key_id', 'Access key ID', 'identifier'),
-          _demoCredentialField(
-            'secret_access_key',
-            'Secret access key',
-            'secret',
-          ),
-          _demoCredentialField(
-            'session_token',
-            'Session token',
-            'secret',
-            required: false,
-          ),
-        ],
-        CloudProvider.azure => [
-          _demoCredentialField('tenant_id', 'Tenant ID', 'identifier'),
-          _demoCredentialField(
-            'subscription_id',
-            'Subscription ID',
-            'identifier',
-          ),
-          _demoCredentialField('client_id', 'Client ID', 'identifier'),
-          _demoCredentialField('client_secret', 'Client secret', 'secret'),
-        ],
-        CloudProvider.gcp => [
-          _demoCredentialField(
-            'service_account_json',
-            'Service-account JSON',
-            'json',
-          ),
-        ],
-      },
-      'credential_origins': ['dedicated_disposable', 'existing_user_owned'],
-      'preparation_steps': [
-        {
-          'id': 'prepare_authority',
-          'title': 'Prepare temporary authority',
-          'description':
-              'Follow the provider instructions and create a dedicated short-lived bootstrap credential.',
-          'expected_outcome':
-              'The temporary authority is ready for one request.',
-          'official_url': 'https://example.com/${provider.apiValue}/bootstrap',
-        },
-      ],
-      'known_blockers': <Map<String, dynamic>>[],
-      'legacy_fallback_available': true,
-    };
-  }
-
-  Map<String, dynamic> _demoBootstrapPack(
-    CloudProvider provider, {
-    required bool authority,
-    required bool detailed,
-  }) {
-    final authorityVersion = provider == CloudProvider.gcp ? '3' : '2';
-    final version = authority ? authorityVersion : 'thesis-demo-v2';
-    return {
-      'id': authority
-          ? 'bootstrap.${provider.apiValue}.admin-v$authorityVersion'
-          : provider == CloudProvider.aws
-          ? 'aws.thesis-demo-v2.iam-user-v1'
-          : provider == CloudProvider.azure
-          ? 'azure.thesis-demo-v2.service-principal-v1'
-          : '${provider.apiValue}.thesis-demo-v2',
-      'version': version,
-      'digest': _demoBootstrapDigest('${provider.apiValue}-$version'),
-      if (detailed) ...{
-        'scope_summary': authority
-            ? 'Temporary demo bootstrap authority.'
-            : 'Bounded demo deployment identity.',
-        'limitations': ['Demo mode creates no provider resources.'],
-        'artifact_url': 'https://example.com/${provider.apiValue}/permissions',
-      },
-    };
-  }
-
-  Map<String, dynamic> _demoCredentialField(
-    String id,
-    String label,
-    String inputType, {
-    bool required = true,
-  }) {
-    return {
-      'id': id,
-      'label': label,
-      'input_type': inputType,
-      'required': required,
-      'redaction_rule': inputType == 'json'
-          ? 'private_key_document'
-          : inputType == 'secret'
-          ? 'secret'
-          : 'identifier',
-    };
-  }
-
-  String _demoBootstrapDigest(String value) =>
-      'sha256:${sha256.convert(utf8.encode(value))}';
-
-  String _demoBootstrapRemediationUrl(
-    CloudProvider provider,
-  ) => switch (provider) {
-    CloudProvider.aws =>
-      'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html',
-    CloudProvider.azure =>
-      'https://learn.microsoft.com/en-us/entra/identity-platform/howto-create-service-principal-portal',
-    CloudProvider.gcp => 'https://cloud.google.com/iam/docs/keys-create-delete',
-  };
-
-  CloudBootstrapSession _demoBootstrapSession(String sessionId) {
-    final session = _bootstrapSessions[sessionId];
-    if (session == null) {
-      throw const DemoApiException(
-        'BOOTSTRAP_SESSION_NOT_FOUND',
-        'Bootstrap session was not found.',
-      );
-    }
-    return CloudBootstrapSession.fromJson(_demoBootstrapResponse(session));
-  }
-
-  Map<String, dynamic> _demoBootstrapResponse(Map<dynamic, dynamic> session) {
-    return _copyMap(session)
-      ..remove('_idempotency_key')
-      ..remove('_execute_idempotency_key');
-  }
-
-  String _demoBootstrapSafeIdentifier(
-    CloudProvider provider,
-    Map<String, dynamic> target,
-    Map<String, dynamic> credential,
-  ) => switch (provider) {
-    CloudProvider.aws => credential['access_key_id']?.toString() ?? 'unknown',
-    CloudProvider.azure =>
-      target['bootstrap_credential_key_id']?.toString() ??
-          credential['client_id']?.toString() ??
-          'unknown',
-    CloudProvider.gcp => credential['private_key_id']?.toString() ?? 'unknown',
-  };
-
-  String? _demoBootstrapCredentialFailure(
-    CloudProvider provider,
-    Map<String, dynamic> target,
-    Map<String, dynamic> credential,
-  ) {
-    if (credential['provider'] != provider.apiValue) {
-      return 'The submitted credential provider does not match the target.';
-    }
-    return switch (provider) {
-      CloudProvider.aws
-          when !(credential['access_key_id']?.toString().startsWith('AKIA') ==
-                  true ||
-              credential['access_key_id']?.toString().startsWith('ASIA') ==
-                  true) =>
-        'The AWS access-key identifier has an unsupported shape.',
-      CloudProvider.aws
-          when credential['session_token'] != null &&
-              target['session_expires_at'] == null =>
-        'An AWS session credential requires its provider-issued expiry.',
-      CloudProvider.azure
-          when credential['tenant_id'] != target['tenant_id'] ||
-              credential['subscription_id'] != target['subscription_id'] =>
-        'The Azure credential scope does not match the selected tenant and subscription.',
-      CloudProvider.gcp
-          when credential['project_id'] !=
-              (target['project_id'] ?? target['bootstrap_project_id']) =>
-        'The GCP credential project does not match the selected bootstrap project.',
-      _ => null,
-    };
-  }
-
-  bool _demoBootstrapNeedsManualCleanup(
-    CloudProvider provider,
-    Map<String, dynamic> target,
-    String safeIdentifier,
-  ) => switch (provider) {
-    CloudProvider.aws => safeIdentifier.toUpperCase().contains('MANUAL'),
-    CloudProvider.azure =>
-      target['bootstrap_credential_key_id'] == null ||
-          (target['bootstrap_credential_key_id'] as String)
-              .toLowerCase()
-              .contains('manual'),
-    CloudProvider.gcp => safeIdentifier.toLowerCase().contains('manual'),
-  };
 
   static Map<String, dynamic> _copyMap(Map<dynamic, dynamic> value) {
     return Map<String, dynamic>.from(jsonDecode(jsonEncode(value)) as Map);

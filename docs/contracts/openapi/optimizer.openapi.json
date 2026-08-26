@@ -40,6 +40,36 @@
         "title": "AWSCredentialsRequest",
         "type": "object"
       },
+      "ArchitectureProfileRequestRef": {
+        "additionalProperties": false,
+        "description": "Management-owned exact architecture profile reference.",
+        "properties": {
+          "contentDigest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Contentdigest",
+            "type": "string"
+          },
+          "profileId": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Profileid",
+            "type": "string"
+          },
+          "profileVersion": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Profileversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profileId",
+          "profileVersion",
+          "contentDigest"
+        ],
+        "title": "ArchitectureProfileRequestRef",
+        "type": "object"
+      },
       "AwsTwinMakerBundle": {
         "additionalProperties": false,
         "properties": {
@@ -290,224 +320,6 @@
         "title": "AzureCredentialsRequest",
         "type": "object"
       },
-      "CalcParams": {
-        "additionalProperties": false,
-        "description": "Defines the parameters for calculating the cost-optimized Digital Twin deployment.\n\nServer-side validation ensures:\n- Positive values for device counts, intervals, and sizes\n- Storage duration ordering: Hot \u2264 Cool \u2264 Archive\n- Non-negative values for editor/viewer counts and dashboard settings",
-        "properties": {
-          "allowGcpSelfHostedL4": {
-            "default": false,
-            "description": "Include GCP self-hosted L4 (Twin Management on Compute Engine) in optimization - NOT IMPLEMENTED",
-            "title": "Allowgcpselfhostedl4",
-            "type": "boolean"
-          },
-          "allowGcpSelfHostedL5": {
-            "default": false,
-            "description": "Include GCP self-hosted L5 (Grafana on Compute Engine) in optimization - NOT IMPLEMENTED",
-            "title": "Allowgcpselfhostedl5",
-            "type": "boolean"
-          },
-          "amountOfActiveEditors": {
-            "description": "Number of active editors (must be >= 0)",
-            "minimum": 0.0,
-            "title": "Amountofactiveeditors",
-            "type": "integer"
-          },
-          "amountOfActiveViewers": {
-            "description": "Number of active viewers (must be >= 0)",
-            "minimum": 0.0,
-            "title": "Amountofactiveviewers",
-            "type": "integer"
-          },
-          "apiCallsPerDashboardRefresh": {
-            "default": 1,
-            "minimum": 1.0,
-            "title": "Apicallsperdashboardrefresh",
-            "type": "integer"
-          },
-          "archiveStorageDurationInMonths": {
-            "description": "Archive storage duration (must be >= 6)",
-            "minimum": 6.0,
-            "title": "Archivestoragedurationinmonths",
-            "type": "integer"
-          },
-          "average3DModelSizeInMB": {
-            "default": 100.0,
-            "exclusiveMinimum": 0.0,
-            "title": "Average3Dmodelsizeinmb",
-            "type": "number"
-          },
-          "averageDigitalTwinQueryResponseSizeInKb": {
-            "default": 1.0,
-            "description": "Estimated average Azure Digital Twins query response size in KB",
-            "exclusiveMinimum": 0.0,
-            "title": "Averagedigitaltwinqueryresponsesizeinkb",
-            "type": "number"
-          },
-          "averageDigitalTwinQueryUnitsPerQuery": {
-            "default": 1.0,
-            "description": "Estimated average Azure Digital Twins query units per logical query",
-            "exclusiveMinimum": 0.0,
-            "title": "Averagedigitaltwinqueryunitsperquery",
-            "type": "number"
-          },
-          "averageSizeOfMessageInKb": {
-            "description": "Average message size in KB (must be > 0)",
-            "exclusiveMinimum": 0.0,
-            "title": "Averagesizeofmessageinkb",
-            "type": "number"
-          },
-          "calculationRunId": {
-            "description": "Management-owned immutable calculation run identity.",
-            "format": "uuid",
-            "title": "Calculationrunid",
-            "type": "string"
-          },
-          "coolStorageDurationInMonths": {
-            "description": "Cool storage duration (must be >= 1)",
-            "minimum": 1.0,
-            "title": "Coolstoragedurationinmonths",
-            "type": "integer"
-          },
-          "currency": {
-            "default": "USD",
-            "enum": [
-              "USD",
-              "EUR"
-            ],
-            "title": "Currency",
-            "type": "string"
-          },
-          "dashboardActiveHoursPerDay": {
-            "description": "Active hours per day (must be 0-24)",
-            "maximum": 24.0,
-            "minimum": 0.0,
-            "title": "Dashboardactivehoursperday",
-            "type": "integer"
-          },
-          "dashboardRefreshesPerHour": {
-            "description": "Dashboard refresh rate (must be >= 0)",
-            "minimum": 0.0,
-            "title": "Dashboardrefreshesperhour",
-            "type": "integer"
-          },
-          "deviceSendingIntervalInMinutes": {
-            "description": "Sending interval in minutes (must be > 0)",
-            "exclusiveMinimum": 0.0,
-            "title": "Devicesendingintervalinminutes",
-            "type": "number"
-          },
-          "entityCount": {
-            "description": "Number of entities (must be >= 0)",
-            "minimum": 0.0,
-            "title": "Entitycount",
-            "type": "integer"
-          },
-          "eventTriggerRate": {
-            "default": 0.1,
-            "description": "Fraction of messages that trigger events (0.0-1.0)",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Eventtriggerrate",
-            "type": "number"
-          },
-          "eventsPerMessage": {
-            "default": 1,
-            "minimum": 1.0,
-            "title": "Eventspermessage",
-            "type": "integer"
-          },
-          "hotStorageDurationInMonths": {
-            "description": "Hot storage duration (must be >= 1)",
-            "minimum": 1.0,
-            "title": "Hotstoragedurationinmonths",
-            "type": "integer"
-          },
-          "integrateErrorHandling": {
-            "const": false,
-            "default": false,
-            "description": "Legacy compatibility field. The executable five-layer baseline accepts only false or omission.",
-            "title": "Integrateerrorhandling",
-            "type": "boolean"
-          },
-          "needs3DModel": {
-            "title": "Needs3Dmodel",
-            "type": "boolean"
-          },
-          "numberOfDeviceTypes": {
-            "default": 1,
-            "description": "Number of distinct device types (each requires a processor)",
-            "minimum": 1.0,
-            "title": "Numberofdevicetypes",
-            "type": "integer"
-          },
-          "numberOfDevices": {
-            "description": "Number of IoT devices (must be > 0)",
-            "exclusiveMinimum": 0.0,
-            "title": "Numberofdevices",
-            "type": "integer"
-          },
-          "numberOfEventActions": {
-            "default": 0,
-            "description": "Number of event action handlers from config_events.json",
-            "minimum": 0.0,
-            "title": "Numberofeventactions",
-            "type": "integer"
-          },
-          "optimizationProfileId": {
-            "default": "cost_minimization_v1",
-            "description": "Executable optimization profile. Only cost_minimization_v1 is enabled.",
-            "title": "Optimizationprofileid",
-            "type": "string"
-          },
-          "orchestrationActionsPerMessage": {
-            "default": 3,
-            "minimum": 1.0,
-            "title": "Orchestrationactionspermessage",
-            "type": "integer"
-          },
-          "providerPricingCatalogs": {
-            "$ref": "#/components/schemas/PricingCatalogContext",
-            "description": "Exact reviewed AWS, Azure, and GCP provider-region catalog references. Calculations never resolve a mutable latest snapshot."
-          },
-          "providerPricingContexts": {
-            "$ref": "#/components/schemas/ProviderPricingContexts",
-            "description": "Management-injected provider account pricing observations. Clients cannot infer an AWS TwinMaker plan."
-          },
-          "returnFeedbackToDevice": {
-            "default": false,
-            "title": "Returnfeedbacktodevice",
-            "type": "boolean"
-          },
-          "triggerNotificationWorkflow": {
-            "default": false,
-            "title": "Triggernotificationworkflow",
-            "type": "boolean"
-          },
-          "useEventChecking": {
-            "default": false,
-            "title": "Useeventchecking",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "calculationRunId",
-          "numberOfDevices",
-          "deviceSendingIntervalInMinutes",
-          "averageSizeOfMessageInKb",
-          "hotStorageDurationInMonths",
-          "coolStorageDurationInMonths",
-          "archiveStorageDurationInMonths",
-          "needs3DModel",
-          "entityCount",
-          "amountOfActiveEditors",
-          "amountOfActiveViewers",
-          "dashboardRefreshesPerHour",
-          "dashboardActiveHoursPerDay",
-          "providerPricingCatalogs"
-        ],
-        "title": "CalcParams",
-        "type": "object"
-      },
       "CapabilityAvailability": {
         "enum": [
           "available",
@@ -732,6 +544,49 @@
           "http_status"
         ],
         "title": "ErrorResponse",
+        "type": "object"
+      },
+      "ExtensionBindingRequestRef": {
+        "additionalProperties": false,
+        "description": "Management-owned immutable extension binding reference.",
+        "properties": {
+          "artifactDigest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Artifactdigest",
+            "type": "string"
+          },
+          "artifactId": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Artifactid",
+            "type": "string"
+          },
+          "configurationDigest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Configurationdigest",
+            "type": "string"
+          },
+          "slotId": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Slotid",
+            "type": "string"
+          },
+          "slotVersion": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Slotversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slotId",
+          "slotVersion",
+          "artifactId",
+          "artifactDigest",
+          "configurationDigest"
+        ],
+        "title": "ExtensionBindingRequestRef",
         "type": "object"
       },
       "FieldError": {
@@ -1570,6 +1425,164 @@
         "title": "ServiceProviderCapabilities",
         "type": "object"
       },
+      "SixLayerCalcParams": {
+        "additionalProperties": false,
+        "description": "Closed-world workload request for the sole deployable architecture.",
+        "properties": {
+          "aggregateDashboardRefreshesPerHour": {
+            "minimum": 0.0,
+            "title": "Aggregatedashboardrefreshesperhour",
+            "type": "integer"
+          },
+          "apiCallsPerAggregateDashboardRefresh": {
+            "minimum": 1.0,
+            "title": "Apicallsperaggregatedashboardrefresh",
+            "type": "integer"
+          },
+          "architectureProfile": {
+            "$ref": "#/components/schemas/ArchitectureProfileRequestRef"
+          },
+          "archiveStorageDurationInMonths": {
+            "minimum": 6.0,
+            "title": "Archivestoragedurationinmonths",
+            "type": "integer"
+          },
+          "averageSizeOfMessageInKb": {
+            "exclusiveMinimum": 0.0,
+            "title": "Averagesizeofmessageinkb",
+            "type": "number"
+          },
+          "calculationRunId": {
+            "format": "uuid",
+            "title": "Calculationrunid",
+            "type": "string"
+          },
+          "coolStorageDurationInMonths": {
+            "minimum": 1.0,
+            "title": "Coolstoragedurationinmonths",
+            "type": "integer"
+          },
+          "currency": {
+            "default": "USD",
+            "enum": [
+              "USD",
+              "EUR"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "dashboardActiveHoursPerDay": {
+            "maximum": 24.0,
+            "minimum": 0.0,
+            "title": "Dashboardactivehoursperday",
+            "type": "integer"
+          },
+          "deviceSendingIntervalInMinutes": {
+            "exclusiveMinimum": 0.0,
+            "title": "Devicesendingintervalinminutes",
+            "type": "number"
+          },
+          "eventingScenarioId": {
+            "enum": [
+              "eventing-small-v1",
+              "eventing-medium-v1",
+              "eventing-large-v1"
+            ],
+            "title": "Eventingscenarioid",
+            "type": "string"
+          },
+          "extensionBindings": {
+            "items": {
+              "$ref": "#/components/schemas/ExtensionBindingRequestRef"
+            },
+            "maxItems": 64,
+            "title": "Extensionbindings",
+            "type": "array"
+          },
+          "hotStorageDurationInMonths": {
+            "minimum": 1.0,
+            "title": "Hotstoragedurationinmonths",
+            "type": "integer"
+          },
+          "monthlyEditorSeats": {
+            "minimum": 0.0,
+            "title": "Monthlyeditorseats",
+            "type": "integer"
+          },
+          "monthlyViewerSeats": {
+            "minimum": 0.0,
+            "title": "Monthlyviewerseats",
+            "type": "integer"
+          },
+          "numberOfDeviceTypes": {
+            "minimum": 1.0,
+            "title": "Numberofdevicetypes",
+            "type": "integer"
+          },
+          "numberOfDevices": {
+            "exclusiveMinimum": 0.0,
+            "title": "Numberofdevices",
+            "type": "integer"
+          },
+          "optimizationProfileId": {
+            "const": "cost-minimization-v2",
+            "default": "cost-minimization-v2",
+            "title": "Optimizationprofileid",
+            "type": "string"
+          },
+          "providerPricingCatalogs": {
+            "$ref": "#/components/schemas/PricingCatalogContext"
+          },
+          "providerPricingContexts": {
+            "$ref": "#/components/schemas/ProviderPricingContexts"
+          },
+          "schemaVersion": {
+            "const": "six-layer-workload.v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "twinEntityCount": {
+            "minimum": 1.0,
+            "title": "Twinentitycount",
+            "type": "integer"
+          },
+          "twinGraphUpdatesPerSecond": {
+            "minimum": 0.0,
+            "title": "Twingraphupdatespersecond",
+            "type": "number"
+          },
+          "twinStateMaterializationsPerSecond": {
+            "minimum": 0.0,
+            "title": "Twinstatematerializationspersecond",
+            "type": "number"
+          }
+        },
+        "required": [
+          "calculationRunId",
+          "schemaVersion",
+          "numberOfDevices",
+          "deviceSendingIntervalInMinutes",
+          "averageSizeOfMessageInKb",
+          "numberOfDeviceTypes",
+          "hotStorageDurationInMonths",
+          "coolStorageDurationInMonths",
+          "archiveStorageDurationInMonths",
+          "twinEntityCount",
+          "aggregateDashboardRefreshesPerHour",
+          "apiCallsPerAggregateDashboardRefresh",
+          "dashboardActiveHoursPerDay",
+          "monthlyEditorSeats",
+          "monthlyViewerSeats",
+          "twinStateMaterializationsPerSecond",
+          "twinGraphUpdatesPerSecond",
+          "eventingScenarioId",
+          "providerPricingCatalogs",
+          "architectureProfile",
+          "extensionBindings"
+        ],
+        "title": "SixLayerCalcParams",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -1655,13 +1668,13 @@
   "paths": {
     "/calculate": {
       "put": {
-        "description": "**Purpose:** Computes the most cost-effective distribution of Digital Twin services across AWS, Azure, and GCP based on your scenario parameters and current cloud pricing.\n\n**When to use this endpoint:**\n- Before deploying a new Digital Twin to determine the cheapest provider configuration\n- When comparing costs across different scenario configurations\n- To understand cost breakdown by architectural layer\n\n**How it works:**\n1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n2. Resolves the exact reviewed provider-region catalogs supplied in `providerPricingCatalogs`\n3. Enumerates every executable complete Five-Layer provider assignment\n4. Prices all six approved layer-to-layer routes with aggregate transfer allowances\n5. Scores complete layer and route totals and returns the deterministic winner\n6. Returns detailed cost, route, billing-pool, and immutable evidence context\n\n**The 5 Architectural Layers:**\n- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n- **L2 (Processing):** Data processing, event detection, notifications\n- **L3 (Storage):** Hot/Cool/Archive storage tiers - each can be on different providers\n- **L4 (Management):** Digital Twin entity management and 3D modeling\n- **L5 (Visualization):** Dashboards and user interfaces\n\n**Important:** This is a calculation-only endpoint. It does not deploy any resources. Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure.",
+        "description": "**Purpose:** Computes the most cost-effective distribution of Digital Twin services across AWS, Azure, and GCP based on your scenario parameters and current cloud pricing.\n\n**When to use this endpoint:**\n- Before deploying a new Digital Twin to determine the cheapest provider configuration\n- When comparing costs across different scenario configurations\n- To understand cost breakdown by architectural layer\n\n**How it works:**\n1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n2. Resolves the exact reviewed provider-region catalogs supplied in `providerPricingCatalogs`\n3. Enumerates every executable assignment inside the Six-layer v1 profile\n4. Prices its reviewed direct, tiering, Twin-projection, and Cross-Cloud routes\n5. Scores complete layer and route totals and returns the deterministic winner\n6. Returns detailed cost, route, billing-pool, and immutable evidence context\n\n**The shared 5 architectural layers:**\n- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n- **L2 (Processing):** Data processing, event detection, notifications\n- **L3 (Storage):** Hot/Cool/Archive storage tiers - each can be on different providers\n- **L4 (Management):** Digital Twin state and bounded relationship management\n- **L5 (Visualization):** Dashboards and user interfaces\n\nSix-layer v1 keeps those responsibilities and adds one independently assigned Eventing responsibility.\n\n**Important:** This is a calculation-only endpoint. It does not deploy any resources. Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure.",
         "operationId": "calculateOptimalCloudDistribution",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CalcParams"
+                "$ref": "#/components/schemas/SixLayerCalcParams"
               }
             }
           },

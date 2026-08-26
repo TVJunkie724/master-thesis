@@ -2145,9 +2145,6 @@ DeploymentReadinessSnapshot _readiness({
             ? ProviderDeploymentReadinessStatus.ready
             : ProviderDeploymentReadinessStatus.notChecked,
         summary: check.message,
-        expectedPermissionSetVersion: 'thesis-demo-v1',
-        suppliedPermissionSetVersion: 'thesis-demo-v1',
-        permissionSetStatus: PermissionSetReadinessStatus.matched,
         checks: [check],
       ),
     ],

@@ -17,8 +17,8 @@ from .completeness import (
     validate_candidate_completeness,
 )
 from .diagnostics import ArchitectureResolutionError
-from .five_layer_v2_costing import FiveLayerV2CostEvaluation, FiveLayerV2CostedCandidate
-from .five_layer_v2_resolution_builder import FiveLayerV2ResolutionBuilder
+from .six_layer_costing import SixLayerCostEvaluation, SixLayerCostedCandidate
+from .six_layer_resolution_builder import SixLayerResolutionBuilder
 from .strategy import (
     ArchitectureProfileRef,
     ArchitectureResolutionContext,
@@ -29,7 +29,7 @@ from .strategy import (
 SIX_LAYER_EVENTING_V1_PROFILE_REF = ArchitectureProfileRef(
     profile_id="six-layer-eventing",
     profile_version="1",
-    content_digest="sha256:0ecbf18fdc54a479c81a81df114fc508983db7da1786836aa1774e03d1665066",
+    content_digest="sha256:5005e709b88026dc67570fd1cc93560628ddaf251e76506c5d78f66090fa0804",
 )
 SIX_LAYER_EVENTING_V1_BUNDLE_REF = OptimizationBundleRef(
     optimization_strategy_id="cost-minimization-v2",
@@ -40,7 +40,7 @@ SIX_LAYER_EVENTING_V1_BUNDLE_REF = OptimizationBundleRef(
     formula_set_version="1",
     scoring_strategy_id="profile-local-min-total-cost-v2",
     scoring_strategy_version="2",
-    compatibility_digest="sha256:a0c39dcae6c95c2cb25251389c6569a0f5ea4428a0403ccc4cf934541cda06f1",
+    compatibility_digest="sha256:9b9fdbbc21682ad9f486619e4290f76d2c3a567eff20e555c0063954c7e0d2cc",
 )
 EVENT_EDGE_IDS = {
     "edge.ingestion-to-eventing",
@@ -54,7 +54,7 @@ EVENT_EDGE_IDS = {
 @dataclass(frozen=True)
 class SixLayerEventingV1ResolutionWinner:
     candidate: CompleteArchitectureCandidate
-    costed_candidate: FiveLayerV2CostedCandidate
+    costed_candidate: SixLayerCostedCandidate
     deployment_specification: Mapping[str, Any]
     pricing_evidence_refs: Mapping[str, Mapping[str, str]]
 
@@ -137,10 +137,10 @@ class SixLayerEventingV1CandidateStrategy:
 
     def calculate_candidate(
         self,
-        candidate: FiveLayerV2CostedCandidate,
+        candidate: SixLayerCostedCandidate,
         context: ArchitectureResolutionContext,
-    ) -> FiveLayerV2CostedCandidate:
-        if not isinstance(candidate.evaluation, FiveLayerV2CostEvaluation):
+    ) -> SixLayerCostedCandidate:
+        if not isinstance(candidate.evaluation, SixLayerCostEvaluation):
             raise ArchitectureResolutionError(
                 "ARCH_NO_ADMISSIBLE_CANDIDATE",
                 candidate.candidate_id,
@@ -172,7 +172,7 @@ class SixLayerEventingV1CandidateStrategy:
                 "winner",
                 "Six-layer topology and cost winners differ",
             )
-        return FiveLayerV2ResolutionBuilder(
+        return SixLayerResolutionBuilder(
             expected_profile_id="six-layer-eventing",
             expected_profile_version="1",
             profile_label="Six-layer Eventing v1",

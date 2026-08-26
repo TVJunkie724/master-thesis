@@ -5,7 +5,15 @@ from __future__ import annotations
 from datetime import datetime
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 
 from src.models.database import Base
@@ -33,8 +41,6 @@ class DeploymentPreflightCache(Base):
     provider = Column(String, nullable=False, index=True)
     cloud_connection_id = Column(String, nullable=False, index=True)
     connection_payload_fingerprint = Column(String, nullable=False)
-    supplied_permission_set_version = Column(String, nullable=True)
-    expected_permission_set_version = Column(String, nullable=False)
     ready = Column(Boolean, nullable=False, default=False)
     summary = Column(String, nullable=False)
     checks_json = Column(Text, nullable=False, default="[]")

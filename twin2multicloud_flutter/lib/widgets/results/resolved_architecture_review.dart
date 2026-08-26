@@ -121,7 +121,7 @@ class ResolvedArchitectureReview extends StatelessWidget {
             style: Theme.of(context).textTheme.titleSmall,
           ),
           Text(
-            'Always-on event transport, delivery and bridge responsibility for the thesis comparison.',
+            'Always-on event transport, delivery and bridge responsibility for the validated Six-layer architecture.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           for (final assignment in eventLayer)

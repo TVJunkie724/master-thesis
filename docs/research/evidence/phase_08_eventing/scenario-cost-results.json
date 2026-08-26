@@ -2,15 +2,15 @@
   "$schema": "schemas/scenario-cost-results.schema.json",
   "calculation_scope": "embedded domain-event behavior and incremental Event-Layer/bridge costs only; no full-profile ranking",
   "input_digests": {
-    "bridge_decision": "sha256:c7ee17b672dc8a4b1c54a63de57922301de963cdb89c2864d9c31fe78a0e1a36",
-    "domain_event_flow_contract": "sha256:4fe96c424bcbafd24ab927d461052b2e6c34641d6e0c47f515268af49a8b4821",
+    "bridge_decision": "sha256:0fa06821d6c3a0f9f9c5f69a84c5f66eb606f47cea41d7d53801ebd9d4671262",
+    "domain_event_flow_contract": "sha256:994eceaa179e02344cf7323d2a63eb0710e079d4b4a9f71e02c4c8a15a2d7dbc",
     "formula_and_unit_ledger": "sha256:acf0b42bd2d2d5f0e8980f38f8ee03b5aa8661b07c5a96475406924fa315701a",
     "pricing_model_matrix": "sha256:827f68c0f55eeec1b79cfb20364f38d93349f70dbd37e208371935d908602954",
-    "provider_capability_matrix": "sha256:45aeb0fcecfb03efd9677c15a4330b8dc9dae0d7547310049f62de329835e9b9",
+    "provider_capability_matrix": "sha256:9751e48eba9ba56c959218c5cd86e0caee2ef4f2029ef742338b6620b104e943",
     "scenario_inputs": "sha256:3d43153f7ccd6b99916902a1ec99881602650df463da2c2c33858f66d746d8ec",
     "source_ledger": "sha256:d652fc3da7c8b3ee4bfcb48db30f896fecca9d48ef3541999a0a3818f19864c5"
   },
-  "result_digest": "sha256:eb145f809a9f3662c1572d7bd05cb00c1a97906732cd9442988f85c8f2b78781",
+  "result_digest": "sha256:06191b57423c95854e4848be47dccfd0d9dba18ba0260d08c8dfcb5e6dc3c43a",
   "result_set_id": "phase-08-eventing-cost-results@1",
   "scenarios": [
     {

@@ -46,7 +46,7 @@ live-provider E2E.
 | `/settings` | Demo identity, profile menu, theme, populated/empty Cloud Access, create/validate/default/delete dialogs, bootstrap guide, validation and manual-prerequisite states | Pass; Escape returns focus and secret fields remain empty after failure |
 | `/pricing-review` | AWS/Azure/GCP selection, ready/review-required/degraded states, refresh confirmation, candidate/evidence expansion, errors | Pass; evidence remains opt-in and provider changes do not leave stale state |
 | `/wizard` | New workspace shell, task selector/sidebar, loading/empty/error branches | Pass |
-| `/wizard/:twinId` | Five-layer v2 and Six-layer v1 profile selection, workload, user logic, cloud access, calculation result, tiering, architecture graph/compact edge list, profile-change invalidation, review | Pass; single-cloud and multi-cloud evidence remain explicit |
+| `/wizard/:twinId` | Standalone Six-layer v1 profile selection, workload, user logic, cloud access, calculation result, tiering, architecture graph/compact edge list, profile-change invalidation, review | Requires fresh reduced-scope verification; single-cloud and multi-cloud evidence remain explicit |
 | `/twins/:id/overview` | Configured/deployed/degraded states, readiness, deploy/destroy confirmation, logs, outputs, testing utilities, resolved configuration, L4/L5 access, GCP Viewer rotation/reveal | Pass; access actions and detail expanders have independent semantics |
 | Global overlays | App/profile menus, dialog cancellation, one-time reveal, code/log viewer, transient feedback, external-link handoff | Pass; no blank route, leaked secret, or post-dispose navigation observed |
 
@@ -55,7 +55,7 @@ The overlay/action inventory was checked explicitly:
 | Owner | Reachable overlays and platform handoffs |
 |---|---|
 | Dashboard | Profile/logout menu; Twin delete confirmation; view/edit route actions |
-| Settings | Profile menu; CloudConnection create, validate, set-default, and delete flows; guided bootstrap target, guide, simulated/manual-prerequisite, and failure states; provider documentation links |
+| Settings | Profile menu; CloudConnection create, validate, set-default, and delete flows for externally provisioned credentials; provider documentation links |
 | Pricing Review | Provider selector; refresh/account confirmation; run summary; candidate, trace, and evidence expanders |
 | Configuration Workspace | Compact task selector; profile-change invalidation confirmation; Save/Discard/Cancel exit handling; logical-graph zoom; JSON/code viewer; ZIP, JSON, GLB, and function-package file pickers |
 | Twin Overview | Deploy, destroy, and delete confirmations; log/trace panels; Terraform output and code viewers; simulator consent/save; GCP Viewer rotation and one-time reveal; L4/L5 external launcher |
@@ -105,7 +105,7 @@ foreground-automation limitation, not an application defect.
 | AUDT-01 | Major | Settings labelled every non-Google demo/development identity as UIBK | Closed provider-to-label mapping in `lib/screens/settings_screen.dart:350`; exact demo assertion in `test/screens/settings_screen_test.dart:89` | `85f5c39b` |
 | AUDT-02 | Major | Reusable code/log viewer exposed no semantic name for read-only content and retained local geometry/color literals | Named read-only semantics in `lib/widgets/code_viewer_dialog.dart:227`; tokens in `lib/theme/colors.dart:41` and `lib/theme/spacing.dart:162`; widget regression in `test/widgets/code_viewer_dialog_test.dart:30` | `85f5c39b` |
 | AUDT-03 | Major | L4/L5 detail expanders lost independent button roles in the Web semantics tree | Explicit semantic containers and expansion action in `lib/widgets/twin_overview/layer_access_panel.dart:168` and `:404`; semantic action assertions in `test/widgets/twin_overview/layer_access_panel_test.dart:211` | `85f5c39b`, `e45e7240` |
-| AUDT-04 | Minor | The plan required both 150 % and 200 % dense-surface evidence, but only the 200 % endpoint was automated | Parameterized both scales in `test/widgets/cloud_connections/cloud_bootstrap_flow_test.dart:190`, `test/widgets/results/resolved_architecture_review_test.dart:131`, and `test/widgets/twin_overview/layer_access_panel_test.dart:144` | `3d992066` |
+| AUDT-04 | Minor | The plan required both 150 % and 200 % dense-surface evidence, but only the 200 % endpoint was automated | Parameterized both scales in the retained architecture-review and Layer Access widget tests | `3d992066` |
 | AUDT-05 | Minor | Independent audit review found that the changed code viewer still created its base typography with a direct `TextStyle` | `lib/widgets/code_viewer_dialog.dart:241` now derives from `ThemeData.textTheme` and only applies the monospace/token overrides; analyzer and focused widget test pass | `c1a36d4c` |
 | AUDT-06 | Minor | Canonical docs still described #111 as next work and the report grouped overlays too broadly for a complete inventory | `docs-site/docs/architecture/refactoring-roadmap.md:189`, the finalization concept, and the explicit overlay/action matrix at this document's line 53 now agree on completion | `c1a36d4c` |
 
@@ -118,7 +118,7 @@ produced no additional finding.
 |---|---|
 | `./thesis.sh test frontend` | Pass: architecture self-tests and checker, formatting, analyzer, 911 Flutter tests, Web release, macOS debug |
 | `flutter build macos --release --dart-define-from-file=config/dev.example.json` | Pass: 56.9 MB release app; non-blocking upstream `objective_c` framework-name warning only |
-| `THESIS_DOCKER_CONTEXT=orbstack ./thesis.sh test frontend-integration` | Pass: Management readiness 10, Five-layer v2/Six-layer v1 profiles 2, user-function extension 1, guided bootstrap 3, isolated Layer Access 10 |
+| `THESIS_DOCKER_CONTEXT=orbstack ./thesis.sh test frontend-integration` | Historical pass before the PoC scope reduction; rerun evidence is required for the standalone Six-layer profile |
 | Static hygiene scan | Pass: no production `print`/`debugPrint`, TODO/FIXME/HACK, or direct ports 5003/5004 |
 | GitHub Actions run `31912569669` | Success on `master` at `876e4d53`: Quality/Web, macOS release, Windows release, Linux release |
 

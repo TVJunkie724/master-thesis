@@ -104,7 +104,7 @@
   "eventing_dependency": {
     "package_id": "phase-08-eventing-implementation@1",
     "decision_path": "docs/research/evidence/phase_08_eventing/decision.json",
-    "decision_byte_digest": "sha256:b2afdaff2793391f0bab0127c93e13b0ff281964d1184818090781234444be35",
+    "decision_byte_digest": "sha256:73b4ad1db073a1750c8efebc49b826e5f97014b6c3982f07d596f679fdedf75c",
     "scenario_ids": [
       "eventing-small-v1",
       "eventing-medium-v1",

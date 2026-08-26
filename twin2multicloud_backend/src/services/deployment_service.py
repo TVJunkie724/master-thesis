@@ -22,14 +22,11 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any, Mapping, Optional, Sequence, TYPE_CHECKING
 
+from pydantic import ValidationError as PydanticValidationError
+
 from src.clients.deployer_client import DeployerClient
 from src.config import settings
-from src.contracts.executable_topology import (
-    ERROR_HANDLING_FIELD,
-    UNSUPPORTED_ERROR_HANDLING_MESSAGE,
-    UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
-    ensure_executable_error_handling_topology,
-)
+from src.schemas.optimizer_calculation import OptimizerCalculationParams
 from src.repositories.deployment_repository import DeploymentRepository
 from src.services.credential_resolution_service import (
     CredentialResolutionService,
@@ -62,7 +59,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 DEPLOYMENT_MANIFEST_FILE = "deployment_manifest.json"
-DEPLOYMENT_MANIFEST_VERSION = "3.0"
 DEPLOYMENT_MANIFEST_V4_VERSION = "4.0"
 RESOLVED_GRAPH_VERSION = "resolved-deployment-graph.v1"
 PACKAGE_BUILDER_VERSION = "graph-package-builder.v1"
@@ -95,35 +91,13 @@ WORKSPACE_PATH_PATTERN = re.compile(
     r"(/[^\s:]+/twin2multicloud-deployer-workspaces/[^\s:]+)"
 )
 STAGE_COMPLETED_MARKER = "T2MC_STAGE_COMPLETED:"
-PHASE_8_COMPARISON_PROFILES = {
-    ("five-layer-baseline", "2"),
-    ("six-layer-eventing", "1"),
-}
-PHASE_8_FIXED_REGIONS = {
+SIX_LAYER_PROFILE = ("six-layer-eventing", "1")
+SIX_LAYER_FIXED_REGIONS = {
     "aws": "eu-central-1",
     "azure": "westeurope",
     "gcp": "europe-west1",
 }
-PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS = {
-    "allowGcpSelfHostedL4",
-    "allowGcpSelfHostedL5",
-    "amountOfActiveEditors",
-    "amountOfActiveViewers",
-    "apiCallsPerDashboardRefresh",
-    "average3DModelSizeInMB",
-    "dashboardRefreshesPerHour",
-    "entityCount",
-    "eventTriggerRate",
-    "eventsPerMessage",
-    "integrateErrorHandling",
-    "needs3DModel",
-    "numberOfEventActions",
-    "orchestrationActionsPerMessage",
-    "returnFeedbackToDevice",
-    "triggerNotificationWorkflow",
-    "useEventChecking",
-}
-PHASE_8_FORBIDDEN_DEPLOYER_FIELDS = (
+SIX_LAYER_DISALLOWED_DEPLOYER_FIELDS = (
     "event_action_contents",
     "event_action_requirements",
     "event_feedback_content",
@@ -260,9 +234,7 @@ def build_deploy_config(twin) -> dict:
             "l5": provider_config["layer_5_provider"],
         }
         if "event_layer_provider" in provider_config:
-            config["layers"]["eventing"] = provider_config[
-                "event_layer_provider"
-            ]
+            config["layers"]["eventing"] = provider_config["event_layer_provider"]
         if oc.result_json:
             config["optimizer_result"] = json.loads(oc.result_json)
 
@@ -813,7 +785,7 @@ def build_deployment_package(
         calculation_run_id=calculation_run_id,
     )
     optimizer_params = _validated_run_params(contracts.run)
-    _ensure_optimizer_params_are_executable(optimizer_params)
+    _validate_six_layer_optimizer_params(optimizer_params)
     providers = _build_providers_config(contracts.architecture)
     manifest_providers = _manifest_provider_projection(providers)
     _validate_architecture_specification_path(
@@ -831,7 +803,7 @@ def build_deployment_package(
         user_id,
         required_providers=required_providers,
     )
-    _validate_phase8_deployment_regions(
+    _validate_six_layer_deployment_regions(
         contracts.architecture,
         providers,
         deployment_credentials.config_credentials,
@@ -882,7 +854,7 @@ def _materialize_deployment_files(
     """Return the text/JSON files required by the Deployer package contract."""
     dc = twin.deployer_config
     oc = twin.optimizer_config
-    _validate_phase8_deployer_artifacts(dc, architecture_profile_ref)
+    _validate_six_layer_deployer_artifacts(dc, architecture_profile_ref)
     files: list[DeploymentPackageFile] = [
         DeploymentPackageFile(
             "config.json",
@@ -1464,22 +1436,14 @@ def _build_providers_config(
                 ],
             )
         providers[key] = provider_id_for_deployer_project(assignment.get("provider"))
-    baseline_keys = set(key_by_component.values()) - {"event_layer_provider"}
-    expected_keys = baseline_keys | (
-        {"event_layer_provider"}
-        if _architecture_profile_identity(
-            resolved_architecture.get("architecture_profile_ref")
-        )
-        == ("six-layer-eventing", "1")
-        else set()
-    )
-    if not baseline_keys <= set(providers) or set(providers) != expected_keys:
+    expected_keys = set(key_by_component.values())
+    if set(providers) != expected_keys:
         raise DeploymentPackageBuildFailed(
             "The selected architecture provider projection is incomplete",
             [
                 {
                     "field": "resolved_twin_architecture.component_assignments",
-                    "message": "Every baseline component must be assigned once",
+                    "message": "Every Six-layer component must be assigned once",
                 }
             ],
         )
@@ -1489,9 +1453,7 @@ def _build_providers_config(
 def _manifest_provider_projection(providers: Mapping[str, str]) -> dict[str, str]:
     """Keep DeploymentManifest providers on its frozen L1-L5 schema."""
     return {
-        key: value
-        for key, value in providers.items()
-        if key != "event_layer_provider"
+        key: value for key, value in providers.items() if key != "event_layer_provider"
     }
 
 
@@ -1601,11 +1563,6 @@ def _manifest_version_for_contracts(
         architecture.get("schema_version"),
         specification.get("schema_version"),
     )
-    if pair == (
-        "resolved-twin-architecture.v1",
-        "resolved-deployment-specification.v1",
-    ):
-        return DEPLOYMENT_MANIFEST_VERSION
     if pair == (
         "resolved-twin-architecture.v2",
         "resolved-deployment-specification.v2",
@@ -1737,29 +1694,12 @@ def _selected_deployment_contracts(
     )
 
 
-def _selected_deployment_specification(twin):
-    """Historical test/helper facade; executable packages use both contracts."""
-
-    return validate_persisted_run_deployment_specification(
-        _selected_deployment_contracts(twin).run
-    )
-
-
 def _validate_architecture_specification_path(
     providers: dict[str, Any],
     architecture: dict[str, Any],
     specification: dict[str, Any],
 ) -> None:
     expected_by_key: dict[str, str] = {}
-    deployer_key_by_slot = {
-        "l1_ingestion": "layer_1_provider",
-        "l2_processing": "layer_2_provider",
-        "l3_hot_storage": "layer_3_hot_provider",
-        "l3_cool_storage": "layer_3_cold_provider",
-        "l3_archive_storage": "layer_3_archive_provider",
-        "l4_twin_state": "layer_4_provider",
-        "l5_visualization": "layer_5_provider",
-    }
     deployer_key_by_logical = {
         "component.ingestion": "layer_1_provider",
         "component.processing": "layer_2_provider",
@@ -1770,24 +1710,8 @@ def _validate_architecture_specification_path(
         "component.visualization": "layer_5_provider",
         "component.eventing": "event_layer_provider",
     }
-    components = specification.get("components")
     component_selections = specification.get("component_selections")
-    if isinstance(components, list):
-        entries = (
-            (deployer_key_by_slot.get(component.get("slot_id")), component)
-            for component in components
-            if isinstance(component, Mapping)
-        )
-    elif isinstance(component_selections, list):
-        entries = (
-            (
-                deployer_key_by_logical.get(component.get("logical_component_id")),
-                component,
-            )
-            for component in component_selections
-            if isinstance(component, Mapping)
-        )
-    else:
+    if not isinstance(component_selections, list):
         raise DeploymentPackageBuildFailed(
             "The selected specification has no provider component projection",
             [
@@ -1797,6 +1721,14 @@ def _validate_architecture_specification_path(
                 }
             ],
         )
+    entries = (
+        (
+            deployer_key_by_logical.get(component.get("logical_component_id")),
+            component,
+        )
+        for component in component_selections
+        if isinstance(component, Mapping)
+    )
 
     for deployer_key, component in entries:
         if deployer_key is None:
@@ -1846,11 +1778,9 @@ def _component_catalog_ref(
             str(profile_ref.get("version") or ""),
         )
         if isinstance(profile_ref, dict)
-        else ("five-layer-baseline", "1")
+        else ("six-layer-eventing", "1")
     )
     catalog_families = {
-        ("five-layer-baseline", "1"): "baseline",
-        ("five-layer-baseline", "2"): "complete-service",
         ("six-layer-eventing", "1"): "six-layer-eventing",
     }
     catalog_family = catalog_families.get(profile_identity)
@@ -1957,13 +1887,7 @@ def _build_optimization_config(
     *,
     architecture_profile_ref: Mapping[str, Any] | None = None,
 ) -> dict:
-    """
-    Build config_optimization.json with the deployer-expected format.
-
-    The deployer reads: result.inputParamsUsed.{flag} via config_loader.load_optimization_flags()
-    These flags control which Terraform resources are conditionally created.
-    """
-    input_params = {}
+    """Build the empty feature-flag view required by the Six-layer Deployer."""
     if oc.params:
         params = _json_object_from_content(oc.params, "optimizer_config.params")
         return _build_optimization_config_from_params(
@@ -1971,7 +1895,7 @@ def _build_optimization_config(
             field_prefix="optimizer_config.params",
             architecture_profile_ref=architecture_profile_ref,
         )
-    return {"result": {"inputParamsUsed": input_params}}
+    return {"result": {"inputParamsUsed": {}}}
 
 
 def _build_optimization_config_from_params(
@@ -1980,31 +1904,17 @@ def _build_optimization_config_from_params(
     field_prefix: str = "cost_calculation_run.params_json",
     architecture_profile_ref: Mapping[str, Any] | None = None,
 ) -> dict[str, dict[str, dict[str, bool]]]:
-    """Project immutable calculation parameters into the Deployer flag contract."""
+    """Validate the Six-layer workload and emit no historical feature flags."""
 
-    _ensure_optimizer_params_are_executable(params, field_prefix=field_prefix)
+    _validate_six_layer_optimizer_params(params, field_prefix=field_prefix)
     profile = _architecture_profile_identity(architecture_profile_ref)
-    if profile in PHASE_8_COMPARISON_PROFILES:
-        forbidden = sorted(PHASE_8_FORBIDDEN_OPTIMIZER_FIELDS & params.keys())
-        if forbidden:
-            _raise_package_error(
-                field_prefix,
-                "FORBIDDEN_PROFILE_FIELD",
-                (
-                    "Phase 8 comparison profiles do not accept legacy feature "
-                    f"flags: {', '.join(forbidden)}"
-                ),
-            )
-        return {"result": {"inputParamsUsed": {}}}
-    input_params = {
-        "useEventChecking": params.get("useEventChecking") is True,
-        "triggerNotificationWorkflow": params.get("triggerNotificationWorkflow")
-        is True,
-        "returnFeedbackToDevice": params.get("returnFeedbackToDevice") is True,
-        "integrateErrorHandling": params.get("integrateErrorHandling") is True,
-        "needs3DModel": params.get("needs3DModel") is True,
-    }
-    return {"result": {"inputParamsUsed": input_params}}
+    if profile is not None and profile != SIX_LAYER_PROFILE:
+        _raise_package_error(
+            "resolved_twin_architecture.architecture_profile_ref",
+            "DEPLOYMENT_ARCHITECTURE_INVALID",
+            "Only six-layer-eventing@1 can produce a deployment package.",
+        )
+    return {"result": {"inputParamsUsed": {}}}
 
 
 def _architecture_profile_identity(
@@ -2033,19 +1943,18 @@ def _architecture_provider_ids(architecture: Mapping[str, Any]) -> set[str]:
     }
 
 
-def _validate_phase8_deployer_artifacts(
+def _validate_six_layer_deployer_artifacts(
     deployer_config: Any,
     architecture_profile_ref: Mapping[str, Any] | None,
 ) -> None:
     if (
-        _architecture_profile_identity(architecture_profile_ref)
-        not in PHASE_8_COMPARISON_PROFILES
+        _architecture_profile_identity(architecture_profile_ref) != SIX_LAYER_PROFILE
         or deployer_config is None
     ):
         return
     forbidden = [
         field
-        for field in PHASE_8_FORBIDDEN_DEPLOYER_FIELDS
+        for field in SIX_LAYER_DISALLOWED_DEPLOYER_FIELDS
         if bool(getattr(deployer_config, field, None))
     ]
     if forbidden:
@@ -2053,13 +1962,13 @@ def _validate_phase8_deployer_artifacts(
             "deployer_config",
             "FORBIDDEN_PROFILE_FIELD",
             (
-                "Phase 8 comparison profiles do not accept historical user "
+                "The Six-layer runtime does not accept embedded user "
                 f"logic or scene artifacts: {', '.join(forbidden)}"
             ),
         )
 
 
-def _validate_phase8_deployment_regions(
+def _validate_six_layer_deployment_regions(
     architecture: Mapping[str, Any],
     providers: Mapping[str, Any],
     credentials: Mapping[str, Any],
@@ -2068,7 +1977,7 @@ def _validate_phase8_deployment_regions(
 
     if (
         _architecture_profile_identity(architecture.get("architecture_profile_ref"))
-        not in PHASE_8_COMPARISON_PROFILES
+        != SIX_LAYER_PROFILE
     ):
         return
     selected = _architecture_provider_ids(architecture) | {
@@ -2081,19 +1990,19 @@ def _validate_phase8_deployment_regions(
         if not isinstance(payload, Mapping):
             continue
         field = f"{provider}_region"
-        expected = PHASE_8_FIXED_REGIONS[provider]
+        expected = SIX_LAYER_FIXED_REGIONS[provider]
         if payload.get(field) != expected:
             _raise_package_error(
                 f"config_credentials.{provider}.{field}",
                 "DEPLOYMENT_REGION_UNSUPPORTED",
                 (
                     f"{provider.upper()} is fixed to {expected} for the selected "
-                    "Phase 8 comparison profile."
+                    "Six-layer PoC profile."
                 ),
             )
     azure = credentials.get("azure")
     if isinstance(azure, Mapping) and providers.get("layer_1_provider") == "azure":
-        expected = PHASE_8_FIXED_REGIONS["azure"]
+        expected = SIX_LAYER_FIXED_REGIONS["azure"]
         if azure.get("azure_region_iothub") not in {None, "", expected}:
             _raise_package_error(
                 "config_credentials.azure.azure_region_iothub",
@@ -2101,7 +2010,7 @@ def _validate_phase8_deployment_regions(
                 f"Azure IoT Hub is fixed to {expected} for this profile.",
             )
     if isinstance(azure, Mapping) and providers.get("layer_4_provider") == "azure":
-        expected = PHASE_8_FIXED_REGIONS["azure"]
+        expected = SIX_LAYER_FIXED_REGIONS["azure"]
         if azure.get("azure_region_digital_twin") not in {None, "", expected}:
             _raise_package_error(
                 "config_credentials.azure.azure_region_digital_twin",
@@ -2126,45 +2035,19 @@ def _validated_run_params(run: Any) -> dict[str, Any]:
     )
 
 
-def _ensure_optimizer_topology_is_executable(
-    oc,
-    *,
-    params: dict[str, Any] | None = None,
-) -> None:
-    """Reject legacy optimizer state before package or credential processing."""
-    if oc is None or not oc.params:
-        return
-    resolved_params = (
-        params
-        if params is not None
-        else _json_object_from_content(
-            oc.params,
-            "optimizer_config.params",
-        )
-    )
-    try:
-        _ensure_optimizer_params_are_executable(
-            resolved_params,
-            field_prefix="optimizer_config.params",
-        )
-    except DeploymentPackageBuildFailed:
-        raise
-
-
-def _ensure_optimizer_params_are_executable(
+def _validate_six_layer_optimizer_params(
     params: dict[str, Any],
     *,
     field_prefix: str = "cost_calculation_run.params_json",
 ) -> None:
-    """Validate topology flags from one immutable or legacy parameter document."""
-
+    """Revalidate the immutable workload at the deployment trust boundary."""
     try:
-        ensure_executable_error_handling_topology(params.get(ERROR_HANDLING_FIELD))
-    except ValueError:
+        OptimizerCalculationParams.model_validate(params)
+    except PydanticValidationError:
         _raise_package_error(
-            f"{field_prefix}.{ERROR_HANDLING_FIELD}",
-            UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
-            UNSUPPORTED_ERROR_HANDLING_MESSAGE,
+            field_prefix,
+            "DEPLOYMENT_WORKLOAD_INVALID",
+            "The selected run does not contain a canonical Six-layer workload.",
         )
 
 

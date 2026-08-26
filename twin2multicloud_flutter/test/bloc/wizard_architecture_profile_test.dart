@@ -480,8 +480,8 @@ void main() {
     final architecture = Map<String, dynamic>.from(
       jsonDecode(
             File(
-              '../contracts/architecture-profiles/v1/fixtures/valid/'
-              'mixed-baseline-resolved-architecture.json',
+              '../contracts/architecture-profiles/v2/fixtures/valid/'
+              'six-layer-aws-azure-eventing-small-resolved.json',
             ).readAsStringSync(),
           )
           as Map,
@@ -492,7 +492,7 @@ void main() {
       'calculation_run_id': runId,
       'selected_for_deployment_at': '2026-08-03T10:00:00Z',
       'architecture_compatibility_status': 'ready',
-      'origin': 'reconstructed_v1',
+      'origin': 'native_v2',
       'architecture': architecture,
     });
     final profileRef = resolved.architecture.profileRef;
@@ -513,8 +513,8 @@ void main() {
     final deploymentSpecification =
         jsonDecode(
               File(
-                '../contracts/resolved-deployment-specification/v1/fixtures/valid/'
-                'mixed-providers.json',
+                '../contracts/resolved-deployment-specification/v2/fixtures/valid/'
+                'six-layer-aws-azure-eventing-small.json',
               ).readAsStringSync(),
             )
             as Map<String, dynamic>;
@@ -528,7 +528,7 @@ void main() {
           deploymentSpecification['schema_version'],
       'resolved_deployment_specification': deploymentSpecification,
       'created_at': '2026-08-03T09:59:00Z',
-      'selected_for_deployment_at': '2026-08-03T10:00:00Z',
+      'selected_for_deployment_at': null,
     });
     when(
       () => api.getRunResolvedArchitecture(runId),
@@ -563,15 +563,15 @@ void main() {
       CloudProvider.azure,
     });
     expect(state.unconfiguredProviders, {'AWS', 'AZURE'});
-    expect(state.warningMessage, contains('AWS, AZURE'));
+    expect(state.warningMessage, isNull);
   });
 
   test('resolved architecture with a different Twin fails closed', () async {
     final architecture = Map<String, dynamic>.from(
       jsonDecode(
             File(
-              '../contracts/architecture-profiles/v1/fixtures/valid/'
-              'mixed-baseline-resolved-architecture.json',
+              '../contracts/architecture-profiles/v2/fixtures/valid/'
+              'six-layer-aws-azure-eventing-small-resolved.json',
             ).readAsStringSync(),
           )
           as Map,
@@ -582,7 +582,7 @@ void main() {
       'calculation_run_id': runId,
       'selected_for_deployment_at': '2026-08-03T10:00:00Z',
       'architecture_compatibility_status': 'ready',
-      'origin': 'reconstructed_v1',
+      'origin': 'native_v2',
       'architecture': architecture,
     });
     final profileRef = resolved.architecture.profileRef;

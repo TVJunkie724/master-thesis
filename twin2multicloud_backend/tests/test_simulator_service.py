@@ -9,7 +9,6 @@ import pytest
 
 from src.clients.deployer_client import DeployerSimulatorArchive
 from src.models.deployer_config import DeployerConfiguration
-from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
@@ -105,7 +104,6 @@ async def test_download_fetches_deployer_archive_for_architecture_l1(db_session)
             twin_id=twin.id, deployer_digital_twin_name="simulator-project"
         )
     )
-    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="GCP"))
     db_session.commit()
     fetch_calls = []
 
@@ -139,7 +137,6 @@ async def test_download_normalizes_google_alias_for_deployer_api(db_session):
             twin_id=twin.id, deployer_digital_twin_name="simulator-project"
         )
     )
-    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="Google"))
     db_session.commit()
     fetch_calls = []
 
@@ -192,8 +189,6 @@ async def test_download_does_not_require_fixed_optimizer_l1(db_session):
 async def test_download_wraps_project_preparation_failure(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="AWS"))
-    db_session.commit()
 
     async def failing_preparer(_twin, _user_id):
         raise RuntimeError("project setup failed")
@@ -212,8 +207,6 @@ async def test_download_wraps_project_preparation_failure(db_session):
 async def test_download_hides_project_preparation_failure_details(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="AWS"))
-    db_session.commit()
 
     async def failing_preparer(_twin, _user_id):
         raise RuntimeError("aws_secret_access_key=SIMULATOR-SECRET-123")
@@ -246,8 +239,6 @@ async def test_download_uses_mock_archive_in_test_mode_without_optimizer(db_sess
 async def test_download_rejects_mismatched_deployer_provider_metadata(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="AWS"))
-    db_session.commit()
 
     async def fetcher(_resource_name, _provider):
         return _archive("gcp")
@@ -264,8 +255,6 @@ async def test_download_rejects_mismatched_deployer_provider_metadata(db_session
 async def test_download_rejects_mismatched_credential_class_metadata(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="AWS"))
-    db_session.commit()
 
     async def fetcher(_resource_name, _provider):
         archive = _archive("aws")

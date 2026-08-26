@@ -25,119 +25,103 @@ final _api = ApiService(baseUri: _apiUri, initialAuthToken: _authToken);
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets(
-    'evaluates active Five-layer v2 and keeps live deployment blocked',
-    (tester) async {
-      final catalog = await _api.listArchitectureProfiles();
-      expect(catalog, hasLength(2));
-      final fiveLayer = catalog.singleWhere(
-        (item) =>
-            item.ref.id == 'five-layer-baseline' && item.ref.version == '2',
-      );
-      final sixLayer = catalog.singleWhere(
-        (item) =>
-            item.ref.id == 'six-layer-eventing' && item.ref.version == '1',
-      );
+  testWidgets('evaluates active Six-layer and keeps live deployment blocked', (
+    tester,
+  ) async {
+    final catalog = await _api.listArchitectureProfiles();
+    expect(catalog, hasLength(1));
+    final sixLayer = catalog.singleWhere(
+      (item) => item.ref.id == 'six-layer-eventing' && item.ref.version == '1',
+    );
 
-      final fiveLayerProfile = await _api.getArchitectureProfile(
-        fiveLayer.ref.id,
-        fiveLayer.ref.version,
+    final sixLayerProfile = await _api.getArchitectureProfile(
+      sixLayer.ref.id,
+      sixLayer.ref.version,
+    );
+    expect(sixLayerProfile.summary.ref, sixLayer.ref);
+    expect(
+      sixLayerProfile.logicalComponents.map((item) => item.componentId),
+      contains('component.eventing'),
+    );
+
+    final twin = await _api.createTwin(
+      'Six-layer boundary ${DateTime.now().microsecondsSinceEpoch}',
+    );
+    try {
+      final selection = await _api.getTwinArchitectureSelection(twin.id);
+      expect(selection.twinId, twin.id);
+      expect(selection.profileRef.id, 'six-layer-eventing');
+      expect(selection.profileRef.version, '1');
+      expect(selection.revision, greaterThanOrEqualTo(1));
+      expect(sixLayer.ref, selection.profileRef);
+
+      await _bindProcessor(twin.id, filename: 'six-layer-processor.zip');
+
+      final run = await _requestOrFail(
+        'Six-layer optimizer run',
+        () => _api.createOptimizerRun(
+          twin.id,
+          CalcParams.sixLayer(scenario: SixLayerWorkloadScenario.small),
+        ),
       );
-      final sixLayerProfile = await _api.getArchitectureProfile(
-        sixLayer.ref.id,
-        sixLayer.ref.version,
-      );
-      expect(fiveLayerProfile.summary.ref, fiveLayer.ref);
-      expect(sixLayerProfile.summary.ref, sixLayer.ref);
+      expect(run.twinId, twin.id);
+      expect(run.currency, 'USD');
+      expect(run.totalMonthlyCost, greaterThanOrEqualTo(0));
+      expect(run.deploymentRun.compatibility, DeploymentCompatibility.ready);
       expect(
-        fiveLayerProfile.logicalComponents.map((item) => item.componentId),
-        isNot(contains('component.eventing')),
+        run.deploymentRun.specification,
+        isA<ResolvedDeploymentSpecificationV2>(),
+      );
+      final specification =
+          run.deploymentRun.specification! as ResolvedDeploymentSpecificationV2;
+      expect(specification.architectureProfileRef.id, 'six-layer-eventing');
+      expect(specification.architectureProfileRef.version, '1');
+      expect(specification.readiness.evaluationOnly, isTrue);
+      expect(specification.readiness.blockingGateIds, isNotEmpty);
+      expect(
+        specification.readiness.blockingGateIds,
+        everyElement(
+          anyOf(
+            startsWith('gate.live-capacity.'),
+            startsWith('gate.live-pricing.'),
+          ),
+        ),
       );
       expect(
-        sixLayerProfile.logicalComponents.map((item) => item.componentId),
-        contains('component.eventing'),
+        specification.readiness.blockingGateIds,
+        contains(startsWith('gate.live-capacity.')),
       );
 
-      final twin = await _api.createTwin(
-        'Five-layer v2 boundary ${DateTime.now().microsecondsSinceEpoch}',
+      final resolved = await _api.getRunResolvedArchitecture(run.id);
+      expect(resolved.twinId, twin.id);
+      expect(resolved.origin, ResolvedArchitectureOrigin.nativeV2);
+      expect(
+        resolved.architecture.schemaVersion,
+        ResolvedTwinArchitecture.v2SchemaVersion,
       );
-      try {
-        final selection = await _api.getTwinArchitectureSelection(twin.id);
-        expect(selection.twinId, twin.id);
-        expect(selection.profileRef.id, 'five-layer-baseline');
-        expect(selection.profileRef.version, '2');
-        expect(selection.revision, greaterThanOrEqualTo(1));
-        expect(fiveLayer.ref, selection.profileRef);
+      expect(
+        resolved.architecture.resolutionStatus,
+        'offline_contract_fixture',
+      );
+      expect(resolved.architecture.profileRef.id, 'six-layer-eventing');
+      expect(resolved.architecture.profileRef.version, '1');
 
-        await _bindProcessor(twin.id, filename: 'five-layer-v2-processor.zip');
+      final latest = await _api.getLatestOptimizerRun(twin.id);
+      expect(latest?.id, run.id);
+      expect(latest?.selectedForDeploymentAt, isNull);
 
-        final run = await _requestOrFail(
-          'Five-layer v2 optimizer run',
-          () => _api.createOptimizerRun(
-            twin.id,
-            CalcParams.fiveLayerV2(scenario: FiveLayerWorkloadScenario.small),
-          ),
-        );
-        expect(run.twinId, twin.id);
-        expect(run.currency, 'USD');
-        expect(run.totalMonthlyCost, greaterThanOrEqualTo(0));
-        expect(run.deploymentRun.compatibility, DeploymentCompatibility.ready);
-        expect(
-          run.deploymentRun.specification,
-          isA<ResolvedDeploymentSpecificationV2>(),
-        );
-        final specification =
-            run.deploymentRun.specification!
-                as ResolvedDeploymentSpecificationV2;
-        expect(specification.architectureProfileRef.id, 'five-layer-baseline');
-        expect(specification.architectureProfileRef.version, '2');
-        expect(specification.readiness.evaluationOnly, isTrue);
-        expect(specification.readiness.blockingGateIds, isNotEmpty);
-        expect(
-          specification.readiness.blockingGateIds,
-          everyElement(
-            anyOf(
-              startsWith('gate.live-capacity.'),
-              startsWith('gate.live-pricing.'),
-            ),
-          ),
-        );
-        expect(
-          specification.readiness.blockingGateIds,
-          contains(startsWith('gate.live-capacity.')),
-        );
-
-        final resolved = await _api.getRunResolvedArchitecture(run.id);
-        expect(resolved.twinId, twin.id);
-        expect(resolved.origin, ResolvedArchitectureOrigin.nativeV2);
-        expect(
-          resolved.architecture.schemaVersion,
-          ResolvedTwinArchitecture.v2SchemaVersion,
-        );
-        expect(
-          resolved.architecture.resolutionStatus,
-          'offline_contract_fixture',
-        );
-        expect(resolved.architecture.profileRef.id, 'five-layer-baseline');
-        expect(resolved.architecture.profileRef.version, '2');
-
-        final latest = await _api.getLatestOptimizerRun(twin.id);
-        expect(latest?.id, run.id);
-        expect(latest?.selectedForDeploymentAt, isNull);
-
-        await _expectArchitectureError(
-          'ARCH_PROFILE_NOT_ACTIVE',
-          () => _api.getArchitectureProfile('five-layer-baseline', '1'),
-        );
-        await _expectArchitectureError(
-          'DEPLOYMENT_CAPACITY_EVIDENCE_PENDING',
-          () => _api.selectOptimizerRunForDeployment(twin.id, run.id),
-        );
-      } finally {
-        await _api.deleteTwin(twin.id);
-      }
-    },
-  );
+      await _expectArchitectureError(
+        'ARCH_PROFILE_NOT_ACTIVE',
+        () => _api.getArchitectureProfile('six-layer-eventing', '2'),
+      );
+      await _expectArchitectureError(
+        'DEPLOYMENT_CAPACITY_EVIDENCE_PENDING',
+        () => _api.selectOptimizerRunForDeployment(twin.id, run.id),
+      );
+    } finally {
+      await _api.deleteTwin(twin.id);
+    }
+  });
 
   testWidgets(
     'evaluates active Six-layer v1 with an independent Eventing component',
@@ -154,7 +138,7 @@ void main() {
         final initialSelection = await _api.getTwinArchitectureSelection(
           twin.id,
         );
-        expect(initialSelection.profileRef.id, 'five-layer-baseline');
+        expect(initialSelection.profileRef.id, 'six-layer-eventing');
         expect(initialSelection.profileRef.version, '2');
 
         final preview = await _api.previewTwinArchitectureProfileChange(
@@ -183,7 +167,7 @@ void main() {
           'Six-layer v1 optimizer run',
           () => _api.createOptimizerRun(
             twin.id,
-            CalcParams.fiveLayerV2(scenario: FiveLayerWorkloadScenario.small),
+            CalcParams.sixLayer(scenario: SixLayerWorkloadScenario.small),
           ),
         );
         expect(run.deploymentRun.compatibility, DeploymentCompatibility.ready);

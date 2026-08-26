@@ -369,12 +369,10 @@ class WizardState extends Equatable {
 
   bool get hasActiveArchitectureProfile => selectedArchitectureSummary != null;
 
-  bool get usesPhase8ComparisonProfile {
+  bool get usesSixLayerProfile {
     if (!hasActiveArchitectureProfile) return false;
     final reference = architectureSelection!.profileRef;
-    return (reference.id == 'five-layer-baseline' &&
-            reference.version == '2') ||
-        (reference.id == 'six-layer-eventing' && reference.version == '1');
+    return reference.id == 'six-layer-eventing' && reference.version == '1';
   }
 
   bool get hasHistoricalArchitectureSelection =>
@@ -419,17 +417,13 @@ class WizardState extends Equatable {
             specification.digest) {
       return false;
     }
-    final architecture = resolved.architecture;
-    if (architecture.schemaVersion ==
-        ResolvedTwinArchitecture.v2SchemaVersion) {
-      if (specification is! ResolvedDeploymentSpecificationV2) return false;
-      final expectedStatus = specification.readiness.evaluationOnly
-          ? 'offline_contract_fixture'
-          : 'publishable';
-      return architecture.resolutionStatus == expectedStatus;
-    }
-    return specification is ResolvedDeploymentSpecificationV1 &&
-        architecture.schemaVersion == ResolvedTwinArchitecture.v1SchemaVersion;
+    if (specification is! ResolvedDeploymentSpecificationV2) return false;
+    final expectedStatus = specification.readiness.evaluationOnly
+        ? 'offline_contract_fixture'
+        : 'publishable';
+    return resolved.architecture.schemaVersion ==
+            ResolvedTwinArchitecture.v2SchemaVersion &&
+        resolved.architecture.resolutionStatus == expectedStatus;
   }
 
   ResolvedDeploymentReview get deploymentReview =>
@@ -641,7 +635,7 @@ class WizardState extends Equatable {
         layer5Provider: layer5Provider,
         deviceIds: deviceIds,
         eventActionNames: eventActionFunctionNames,
-        profileOwnsMandatoryEventBehavior: usesPhase8ComparisonProfile,
+        profileOwnsMandatoryEventBehavior: usesSixLayerProfile,
       );
 
   DeployerConfigReadiness get deployerReadiness =>
@@ -680,7 +674,7 @@ class WizardState extends Equatable {
   /// Get event action function names from validated config_events.json
   /// Handles both singular 'action' and plural 'actions' formats
   List<String> get eventActionFunctionNames {
-    if (usesPhase8ComparisonProfile) return [];
+    if (usesSixLayerProfile) return [];
     if (!configEventsValidated || configEventsJson == null) return [];
     if (calcParams?.useEventChecking != true) return [];
     try {
@@ -751,13 +745,13 @@ class WizardState extends Equatable {
 
   /// Should show feedback function input?
   bool get shouldShowFeedbackFunction =>
-      !usesPhase8ComparisonProfile &&
+      !usesSixLayerProfile &&
       configIotDevicesValidated &&
       (calcParams?.returnFeedbackToDevice ?? false);
 
   /// Should show state machine input?
   bool get shouldShowStateMachine =>
-      !usesPhase8ComparisonProfile &&
+      !usesSixLayerProfile &&
       configIotDevicesValidated &&
       (calcParams?.triggerNotificationWorkflow ?? false);
 

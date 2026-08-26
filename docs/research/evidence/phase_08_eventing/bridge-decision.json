@@ -5,16 +5,6 @@
   "status": "selected_documented_live_pending",
   "profile_ownership": [
     {
-      "profile_id": "five-layer-baseline@1",
-      "bridge_presence": "none",
-      "owner": "immutable_historical_profile"
-    },
-    {
-      "profile_id": "five-layer-baseline@2",
-      "bridge_presence": "remote_responsibility_edges_only",
-      "owner": "producing_five_layer_responsibility"
-    },
-    {
       "profile_id": "six-layer-eventing@1",
       "bridge_presence": "remote_event_routes_only",
       "owner": "eventing_responsibility"
@@ -66,17 +56,61 @@
     "max_serialized_event_bytes": 98304,
     "current_scenario_max_serialized_event_bytes": 66560,
     "required_fields": [
-      {"name": "schema_version", "type": "semantic_contract_version", "max_length": 32},
-      {"name": "event_id", "type": "uuid", "max_length": 36},
-      {"name": "event_type", "type": "closed_channel_id", "max_length": 128},
-      {"name": "deployment_id", "type": "bounded_identifier", "max_length": 256},
-      {"name": "source_id", "type": "bounded_identifier", "max_length": 128},
-      {"name": "source_sequence", "type": "bounded_identifier", "max_length": 256},
-      {"name": "occurred_at", "type": "rfc3339_utc", "max_length": 35},
-      {"name": "correlation_id", "type": "uuid", "max_length": 36},
-      {"name": "causation_id", "type": "uuid", "max_length": 36},
-      {"name": "producer", "type": "closed_component_id", "max_length": 128},
-      {"name": "payload", "type": "schema_bound_object", "max_length": 94208}
+      {
+        "name": "schema_version",
+        "type": "semantic_contract_version",
+        "max_length": 32
+      },
+      {
+        "name": "event_id",
+        "type": "uuid",
+        "max_length": 36
+      },
+      {
+        "name": "event_type",
+        "type": "closed_channel_id",
+        "max_length": 128
+      },
+      {
+        "name": "deployment_id",
+        "type": "bounded_identifier",
+        "max_length": 256
+      },
+      {
+        "name": "source_id",
+        "type": "bounded_identifier",
+        "max_length": 128
+      },
+      {
+        "name": "source_sequence",
+        "type": "bounded_identifier",
+        "max_length": 256
+      },
+      {
+        "name": "occurred_at",
+        "type": "rfc3339_utc",
+        "max_length": 35
+      },
+      {
+        "name": "correlation_id",
+        "type": "uuid",
+        "max_length": 36
+      },
+      {
+        "name": "causation_id",
+        "type": "uuid",
+        "max_length": 36
+      },
+      {
+        "name": "producer",
+        "type": "closed_component_id",
+        "max_length": 128
+      },
+      {
+        "name": "payload",
+        "type": "schema_bound_object",
+        "max_length": 94208
+      }
     ],
     "optional_fields": [],
     "routing_fields": [
@@ -116,7 +150,9 @@
       "arbitrary_http_headers"
     ],
     "unknown_event_type_or_schema": "terminal_schema_rejection_to_source_bridge_dlq",
-    "consumer_idempotency_key": ["event_id"]
+    "consumer_idempotency_key": [
+      "event_id"
+    ]
   },
   "delivery_contract": {
     "delivery_guarantee": "at_least_once",

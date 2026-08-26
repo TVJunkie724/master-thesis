@@ -21,10 +21,7 @@ from src.models.cost_calculation import CostCalculationResultItem, CostCalculati
 from src.models.optimizer_config import OptimizerConfiguration
 from src.models.user_function_extension import TwinExtensionBinding
 from src.repositories.twin_repository import TwinRepository
-from src.schemas.optimizer_calculation import (
-    FiveLayerV2OptimizerCalculationParams,
-    OptimizerCalculationParams,
-)
+from src.schemas.optimizer_calculation import OptimizerCalculationParams
 from src.schemas.pricing_catalog import PricingCatalogContext
 from src.services.aws_twinmaker_pricing_context_service import (
     OPTIMIZER_CONTEXT_COMPARABLE_FIELDS,
@@ -40,8 +37,8 @@ from src.services.errors import (
     PricingCatalogUnavailable,
     TwinNotFound,
 )
-from src.services.five_layer_v2_cost_ledger_service import (
-    validate_five_layer_v2_cost_ledger,
+from src.services.six_layer_cost_ledger_service import (
+    validate_six_layer_cost_ledger,
 )
 from src.services.pricing_catalog_context_service import (
     PricingCatalogContextService,
@@ -54,7 +51,6 @@ from src.services.optimizer_transfer_pricing_contract import (
     validate_optimizer_transfer_pricing_result,
 )
 from src.services.resolved_deployment_specification_service import (
-    LEGACY_NOT_DEPLOYABLE,
     READY,
     ResolvedDeploymentSpecificationError,
     ValidatedResolvedDeploymentSpecification,
@@ -62,10 +58,7 @@ from src.services.resolved_deployment_specification_service import (
     validate_resolved_deployment_specification,
 )
 from src.services.secret_redaction import SECRET_FIELD_NAMES, redact_secret_like_text
-from src.services.resolved_architecture_service import (
-    READY as ARCHITECTURE_READY,
-    ResolvedArchitectureService,
-)
+from src.services.resolved_architecture_service import ResolvedArchitectureService
 from src.services.architecture_errors import ArchitectureDomainError, architecture_error
 from src.services.architecture_profile_service import ArchitectureProfileService
 from src.services.user_function_extension_service import (
@@ -78,24 +71,16 @@ SUCCESS = "succeeded"
 FAILED = "failed"
 SELECTABLE_STATUSES = {SUCCESS}
 ENABLED_OPTIMIZATION_PROFILES = {
-    "cost_minimization_v1",
     "cost-minimization-v2",
 }
 SECRET_FIELD_PATTERN = re.compile(rf"(?i)^({SECRET_FIELD_NAMES})$")
 
 
 def _validate_profile_workload_pair(
-    params: OptimizerCalculationParams | FiveLayerV2OptimizerCalculationParams,
+    params: OptimizerCalculationParams,
     profile: Mapping[str, Any],
 ) -> None:
-    expected_profiles = (
-        {
-            ("five-layer-baseline", "2"),
-            ("six-layer-eventing", "1"),
-        }
-        if isinstance(params, FiveLayerV2OptimizerCalculationParams)
-        else {("five-layer-baseline", "1")}
-    )
+    expected_profiles = {("six-layer-eventing", "1")}
     selected_profile = (
         str(profile.get("profileId") or ""),
         str(profile.get("profileVersion") or ""),
@@ -144,7 +129,7 @@ class CostCalculationRunService:
         self,
         twin_id: str,
         user_id: str,
-        params: OptimizerCalculationParams | FiveLayerV2OptimizerCalculationParams,
+        params: OptimizerCalculationParams,
         *,
         pricing_evidence_version: str | None = None,
     ) -> CostCalculationRun:
@@ -152,10 +137,7 @@ class CostCalculationRunService:
         if not twin:
             raise TwinNotFound("Twin not found")
 
-        if (
-            isinstance(params, FiveLayerV2OptimizerCalculationParams)
-            and not self.architecture_resolution_enabled
-        ):
+        if not self.architecture_resolution_enabled:
             raise architecture_error(
                 "ARCH_PROFILE_NOT_ACTIVE",
                 "Phase 8 workload-v2 calculations require architecture profile resolution.",
@@ -238,37 +220,25 @@ class CostCalculationRunService:
                 if self.architecture_resolution_enabled
                 else None
             )
-            if isinstance(params, FiveLayerV2OptimizerCalculationParams):
-                if resolved_architecture is None:
-                    raise OptimizerContractError(
-                        "Optimizer response did not contain a resolved architecture",
-                        [
-                            {
-                                "field": "resolvedTwinArchitecture",
-                                "message": "Expected v2 object",
-                            }
-                        ],
-                    )
-                validated_ledger = validate_five_layer_v2_cost_ledger(
-                    result.get("costLedger"),
-                    specification=deployment_specification.specification,
-                    architecture=resolved_architecture,
-                    persisted_params=persisted_params,
-                    catalog_context=catalog_context,
-                    expected_total_exact=result.get("totalCostExact"),
+            if resolved_architecture is None:
+                raise OptimizerContractError(
+                    "Optimizer response did not contain a resolved architecture",
+                    [
+                        {
+                            "field": "resolvedTwinArchitecture",
+                            "message": "Expected v2 object",
+                        }
+                    ],
                 )
-                result_items = list(validated_ledger.result_items)
-            else:
-                transfer_pricing = validate_optimizer_transfer_pricing_result(
-                    result,
-                    catalog_context,
-                )
-                result_items = self._build_result_items(
-                    result,
-                    cheapest_path,
-                    contract["currency"],
-                    transfer_pricing,
-                )
+            validated_ledger = validate_six_layer_cost_ledger(
+                result.get("costLedger"),
+                specification=deployment_specification.specification,
+                architecture=resolved_architecture,
+                persisted_params=persisted_params,
+                catalog_context=catalog_context,
+                expected_total_exact=result.get("totalCostExact"),
+            )
+            result_items = list(validated_ledger.result_items)
         except Exception as exc:
             if failed_run is not None:
                 self._persist_failed_run(
@@ -318,23 +288,9 @@ class CostCalculationRunService:
                 config,
                 params=persisted_params,
                 result=result,
-                cheapest_path=None,
                 pricing_catalog_context=catalog_context,
                 calculated_at=now,
             )
-            if isinstance(params, FiveLayerV2OptimizerCalculationParams):
-                self._apply_cheapest_path(
-                    config,
-                    {
-                        "l1": None,
-                        "l2": None,
-                        "l3_hot": None,
-                        "l3_cool": None,
-                        "l3_archive": None,
-                        "l4": None,
-                        "l5": None,
-                    },
-                )
             try:
                 return self.persist_successful_run(
                     result,
@@ -406,7 +362,6 @@ class CostCalculationRunService:
                 config,
                 params=persisted_params,
                 result=result,
-                cheapest_path=cheapest_path,
                 pricing_catalog_context=catalog_context,
                 calculated_at=now,
             )
@@ -447,20 +402,16 @@ class CostCalculationRunService:
                 expected_result=result,
             )
             persisted_items = list(result_items or [])
-            is_v2 = deployment.schema_version == (
-                "resolved-deployment-specification.v2"
+            params = _json_loads(run.params_json) or {}
+            validated_ledger = validate_six_layer_cost_ledger(
+                result.get("costLedger"),
+                specification=deployment.specification,
+                architecture=resolved_twin_architecture,
+                persisted_params=params,
+                catalog_context=catalog_context,
+                expected_total_exact=result.get("totalCostExact"),
             )
-            if is_v2:
-                params = _json_loads(run.params_json) or {}
-                validated_ledger = validate_five_layer_v2_cost_ledger(
-                    result.get("costLedger"),
-                    specification=deployment.specification,
-                    architecture=resolved_twin_architecture,
-                    persisted_params=params,
-                    catalog_context=catalog_context,
-                    expected_total_exact=result.get("totalCostExact"),
-                )
-                persisted_items = list(validated_ledger.result_items)
+            persisted_items = list(validated_ledger.result_items)
             result["resolvedDeploymentSpecification"] = deployment.specification
             run.result_summary_json = _json_dumps(result)
             run.cheapest_path_json = _json_dumps(cheapest_path)
@@ -476,9 +427,8 @@ class CostCalculationRunService:
             ResolvedArchitectureService(self.db).persist(
                 run=run,
                 raw_architecture=resolved_twin_architecture,
-                origin="native_v2" if is_v2 else "native_v1",
+                origin="native_v2",
                 linked_documents=linked_architecture_documents,
-                apply_legacy_projection=not is_v2,
             )
             self._before_commit()
             self.db.commit()
@@ -542,8 +492,8 @@ class CostCalculationRunService:
             pricing_evidence_version=source.pricing_evidence_version,
             pricing_run_reference=source.pricing_run_reference,
             pricing_catalog_context_json=source.pricing_catalog_context_json,
-            deployment_compatibility_status=LEGACY_NOT_DEPLOYABLE,
-            architecture_compatibility_status="legacy_not_resolvable",
+            deployment_compatibility_status="unavailable",
+            architecture_compatibility_status="unavailable",
             created_at=source.created_at or datetime.now(timezone.utc),
             completed_at=datetime.now(timezone.utc),
             error_code=error_code,
@@ -907,8 +857,7 @@ class CostCalculationRunService:
             )
             _validate_selected_aws_context(run, result, current_context)
         architecture_service = ResolvedArchitectureService(self.db)
-        if run.architecture_compatibility_status == ARCHITECTURE_READY:
-            architecture_service.require_selectable(run)
+        architecture_service.require_selectable(run)
         now = datetime.now(timezone.utc)
         (
             self.db.query(CostCalculationRun)
@@ -920,10 +869,6 @@ class CostCalculationRunService:
         )
         run.selected_for_deployment_at = now
 
-        config = run.optimizer_config
-        if config:
-            cheapest_path = _json_loads(run.cheapest_path_json) or {}
-            self._apply_cheapest_path(config, cheapest_path)
         selection = architecture_service.repository.get_selection(
             twin_id,
             user_id,
@@ -932,11 +877,7 @@ class CostCalculationRunService:
             ArchitectureAuditEvent(
                 user_id=user_id,
                 action="run.selection",
-                outcome=(
-                    "succeeded"
-                    if run.architecture_compatibility_status == ARCHITECTURE_READY
-                    else "legacy-compatibility"
-                ),
+                outcome="succeeded",
                 profile_id=(selection.profile_id if selection is not None else None),
                 profile_version=(
                     selection.profile_version if selection is not None else None
@@ -947,11 +888,7 @@ class CostCalculationRunService:
                 twin_id=twin_id,
                 calculation_run_id=run.id,
                 resolution_digest=run.resolved_architecture_digest,
-                result_code=(
-                    None
-                    if run.architecture_compatibility_status == ARCHITECTURE_READY
-                    else "ARCH_LEGACY_NOT_RESOLVABLE"
-                ),
+                result_code=None,
                 correlation_id=current_request_id(),
             )
         )
@@ -1213,30 +1150,14 @@ class CostCalculationRunService:
         *,
         params: dict[str, Any],
         result: dict[str, Any],
-        cheapest_path: dict[str, Any] | None,
         pricing_catalog_context: PricingCatalogContext,
         calculated_at: datetime,
     ) -> None:
         config.params = _json_dumps(params)
         config.result_json = _json_dumps(result)
         config.pricing_catalog_context_json = pricing_catalog_context.canonical_json()
-        if cheapest_path is not None:
-            self._apply_cheapest_path(config, cheapest_path)
         config.calculated_at = calculated_at
         self.db.add(config)
-
-    def _apply_cheapest_path(
-        self,
-        config: OptimizerConfiguration,
-        cheapest_path: dict[str, Any],
-    ) -> None:
-        config.cheapest_l1 = cheapest_path.get("l1")
-        config.cheapest_l2 = cheapest_path.get("l2")
-        config.cheapest_l3_hot = cheapest_path.get("l3_hot")
-        config.cheapest_l3_cool = cheapest_path.get("l3_cool")
-        config.cheapest_l3_archive = cheapest_path.get("l3_archive")
-        config.cheapest_l4 = cheapest_path.get("l4")
-        config.cheapest_l5 = cheapest_path.get("l5")
 
     def _before_commit(self) -> None:
         """Test hook for rollback verification."""
@@ -1381,19 +1302,10 @@ def validate_persisted_run_deployment_specification(
     """Return a validated immutable run specification or a typed conflict."""
 
     if run.deployment_compatibility_status != READY:
-        error_code = (
-            "LEGACY_RUN_NOT_DEPLOYABLE"
-            if run.deployment_compatibility_status
-            in {
-                None,
-                LEGACY_NOT_DEPLOYABLE,
-            }
-            else "DEPLOYMENT_SPECIFICATION_NOT_READY"
-        )
         raise CostCalculationRunSelectionError(
             "This optimizer run has no deployment-compatible specification; "
             "run the optimizer again before deployment.",
-            error_code=error_code,
+            error_code="DEPLOYMENT_SPECIFICATION_NOT_READY",
         )
     stored_result = result or _json_loads(run.result_summary_json) or {}
     stored_context = catalog_context or _run_pricing_catalog_context(run)

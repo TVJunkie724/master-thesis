@@ -353,7 +353,7 @@ provider formula inputs
 The profile-neutral historical calculator supports AWS and Azure from L1
 through L5 and GCP from L1 through the three L3 storage tiers. Its public
 capability matrix therefore keeps generic GCP L4/L5 unsupported. The active
-Five-layer v2 strategy uses its separate reviewed provider-hosted GCP L4/L5
+Six-layer v1 strategy uses its separate reviewed provider-hosted GCP L4/L5
 profile. Both paths read registered capability state rather than treating an
 unsupported zero-cost result as a candidate.
 
@@ -391,7 +391,7 @@ Management calculationRunId
 
 Historical RDS v1 is built from canonical USD calculation state before display
 currency conversion, so USD/EUR presentation does not alter its physical
-selection or digest. Five-layer v2 instead pins the requested USD/EUR cost
+selection or digest. Six-layer v1 instead pins the requested USD/EUR cost
 evidence inside RTA v2/RDS v2: equivalent workload runs retain the same
 physical selections but have currency-specific monetary evidence and digests.
 No downstream service may reconstruct SKU, capacity, storage class, or runtime
@@ -437,7 +437,7 @@ AWS TwinMaker uses two distinct evidence scopes:
 The Optimizer validates Standard dimensions and Tiered Bundle tiers, while Management
 binds each successful account observation to the exact user-owned pricing connection,
 fingerprint, verified account, region, catalog digest, and refresh run. Basic is
-functionally incomplete for the current Five-Layer profile. Pending plan changes and
+functionally incomplete for the current Six-layer profile. Pending plan changes and
 Tiered Bundle plans without an explicit allocation policy are not comparable.
 
 Calculations retain the plan context even when AWS L4 does not win. Selecting an AWS L4

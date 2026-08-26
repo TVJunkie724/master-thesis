@@ -45,9 +45,9 @@ The current platform exposes all 21 provider-layer rows:
 
 This first table is the profile-neutral legacy capability endpoint used by the
 historical manual layer path. It intentionally does not promote GCP L4/L5
-globally. The closed-world Five-layer v2 provider profile below owns separate
+globally. The closed-world Six-layer v1 provider profile below owns separate
 GCP L4/L5 implementations; Deployer admits those only when an exact validated
-`five-layer-baseline@2` graph is present.
+`six-layer-eventing@1` graph is present.
 
 `available` means that both calculation and deployment implementations exist and have
 deterministic contract evidence. It does not mean that the path has passed the final
@@ -57,8 +57,8 @@ supervised live-cloud E2E gate.
 
 The following shared L1-L5 target has contract, calculation, package,
 Terraform, runtime, post-deployment evidence, and local integration
-implementations. Both active profiles use it unchanged for offline selection
-and cost/architecture evaluation. This does not mark the remaining supervised
+implementations. The active profile uses it for offline selection and
+cost/architecture evaluation. This does not mark the remaining supervised
 live-capacity gates complete:
 
 | Provider | L1 target | L3-hot/L5 target | Independent L4 target | Status |
@@ -67,9 +67,8 @@ live-capacity gates complete:
 | Azure | IoT Hub | Cosmos DB + typed local reader + Azure Managed Grafana | Azure Digital Twins | selectable for offline evaluation; deployment blocked by listed live gates |
 | GCP | BifroMQ on GKE + Pub/Sub | Firestore Native Standard edition + typed Cloud Run reader + one Grafana pod/Persistent Disk/TLS LoadBalancer on GKE with signed Infinity datasource | Cloud Run Twin API using the deployment's one Firestore Native database with separate L3/L4 collection contracts | selectable for offline evaluation; deployment blocked by listed live gates |
 
-`five-layer-baseline@2` embeds the required domain-event behavior in L1/L2.
-`six-layer-eventing@1` inherits the table above unchanged and adds exactly one
-independently assigned Eventing bundle:
+`six-layer-eventing@1` owns the L1-L5 table above and exactly one independently
+assigned Eventing bundle:
 
 | Provider | Six-layer Eventing bundle | Scenario capacity boundary |
 |---|---|---|
@@ -137,7 +136,7 @@ retry. No hard-coded fallback matrix is activated.
 
 Roadmap intent alone never makes a path selectable. Issue
 [#54](https://github.com/TVJunkie724/master-thesis/issues/54) still tracks
-profile-neutral GCP L4/L5 support; the active Five-layer v2 implementation is
+profile-neutral GCP L4/L5 support; the active Six-layer v1 implementation is
 the narrower closed-world exception documented above. The broader architecture
 audit remains tracked by
 [#112](https://github.com/TVJunkie724/master-thesis/issues/112).

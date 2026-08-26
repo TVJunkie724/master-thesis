@@ -6,7 +6,6 @@ import '../models/authentication.dart';
 import '../models/user.dart';
 import '../models/calc_params.dart';
 import '../models/cloud_access_inventory.dart';
-import '../models/cloud_bootstrap.dart';
 import '../models/cloud_connection.dart';
 import '../models/dashboard_stats.dart';
 import '../models/deployment_operations.dart';
@@ -72,43 +71,6 @@ abstract interface class CloudAccessApi {
   Future<void> deleteCloudConnection(String id);
 
   Future<CloudConnectionValidationResult> validateCloudConnection(String id);
-}
-
-abstract interface class CloudBootstrapApi {
-  Future<CloudBootstrapGuide> getCloudBootstrapGuide(
-    CloudProvider provider,
-    CloudBootstrapTarget target,
-  );
-
-  Future<CloudBootstrapSession> createCloudBootstrapSession({
-    required CloudBootstrapGuide guide,
-    required CloudBootstrapEntryPoint entryPoint,
-    required String displayName,
-    String? twinId,
-    required String idempotencyKey,
-  });
-
-  Future<List<CloudBootstrapSession>> listCloudBootstrapSessions({
-    CloudProvider? provider,
-    bool active = true,
-  });
-
-  Future<CloudBootstrapSession> getCloudBootstrapSession(String sessionId);
-
-  Future<CloudBootstrapSession> executeCloudBootstrapSession(
-    String sessionId,
-    CloudBootstrapExecuteRequest request,
-  );
-
-  Future<CloudBootstrapSession> acknowledgeCloudBootstrapRevocation(
-    String sessionId,
-    int expectedRevision,
-  );
-
-  Future<CloudBootstrapSession> cancelCloudBootstrapSession(
-    String sessionId,
-    int expectedRevision,
-  );
 }
 
 abstract interface class TwinApi {
@@ -343,7 +305,6 @@ abstract interface class ManagementApi
         AuthenticationApi,
         UserPreferencesApi,
         CloudAccessApi,
-        CloudBootstrapApi,
         TwinApi,
         PricingApi,
         PlatformCapabilityApi,

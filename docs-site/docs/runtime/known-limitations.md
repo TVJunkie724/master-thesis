@@ -24,8 +24,7 @@ conclusions.
 - migration, encryption, redaction, rate-limit, audit, and transport tests;
 - deterministic offline demo plus Web, macOS, Windows, and Linux build gates;
 - local credential-free Compose integration.
-- a digest-pinned Phase 8.10 offline profile-evaluation package covering the
-  historical v1 reconstruction, Five-layer v2 and Six-layer v1 S/M/L spaces,
+- digest-pinned Phase 8 offline evidence covering the Six-layer v1 S/M/L space,
   all active single-cloud cases, nine L3/L5-to-L4 placements, all six directed
   Event-provider pairs, and byte-identical regeneration.
 
@@ -48,18 +47,15 @@ development auth is deliberately not a production substitute.
 ### Credential Operations
 
 The shared in-app guide/session lifecycle, request-only credential boundary,
-generated encrypted deployment connection, disposal states, and deterministic
-AWS/Azure/GCP adapters are implemented. Those adapters are an offline
-simulation and create no provider identity or resource; production adapters
-remain disabled and fail closed. Versioned scripts plus encrypted import remain
-the supervised live-provider path. Encryption-key rotation requires explicit
-re-encryption tooling.
+encrypted CloudConnection storage, redaction, request-scoped forwarding, and
+provider validation are implemented. Automated identity provisioning,
+least-privilege policy generation, and credential rotation are outside the PoC.
+Encryption-key rotation requires explicit re-encryption tooling.
 
 ### Provider Permissions
 
-`thesis-demo-v1` baselines are reviewable and testable, but final least privilege is
-**verification pending** until all current provider operations pass supervised live
-deploy/verify/destroy without broader roles.
+The PoC deliberately uses preconfigured administrator credentials and makes no
+least-privilege claim. Supervised live deploy/verify/destroy remains pending.
 
 ### Pricing
 
@@ -173,7 +169,7 @@ selected state/model/relationship changes from L3 to L4 through a typed
 projection event. L4-to-L5 Twin context, 3D scenes, cross-provider raw
 visualization, historical Twin graph analysis, Spanner Graph, ADX migration,
 dedicated Grafana node pools, and storage-specific CDC/outbox/broker pipelines
-remain outside Five-layer v2 unless a later versioned requirement justifies
+remain outside Six-layer v1 unless a later versioned requirement justifies
 them.
 
 Azure retains Cosmos DB for L3 hot. Small and Medium select serverless; Large

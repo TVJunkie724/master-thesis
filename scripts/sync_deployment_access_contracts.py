@@ -48,10 +48,7 @@ SURFACE_MATRIX = {
     ("l5", "azure"): ("azure_managed_grafana", "azure_entra", "none"),
     ("l5", "gcp"): ("gcp_grafana_oss", "generated_viewer", "rotate"),
 }
-EVIDENCE_PROFILES = (
-    ("five-layer-baseline", "2"),
-    ("six-layer-eventing", "1"),
-)
+EVIDENCE_PROFILES = (("six-layer-eventing", "1"),)
 
 
 def _files(root: Path) -> list[Path]:
@@ -64,7 +61,9 @@ def _files(root: Path) -> list[Path]:
 
 
 def _documents(root: Path) -> dict[str, bytes]:
-    return {path.relative_to(root).as_posix(): path.read_bytes() for path in _files(root)}
+    return {
+        path.relative_to(root).as_posix(): path.read_bytes() for path in _files(root)
+    }
 
 
 def _tree_digest(documents: dict[str, bytes]) -> str:
@@ -90,9 +89,7 @@ def _schema_validators() -> dict[str, Draft202012Validator]:
     registry = Registry()
     for schema in schemas.values():
         Draft202012Validator.check_schema(schema)
-        registry = registry.with_resource(
-            schema["$id"], Resource.from_contents(schema)
-        )
+        registry = registry.with_resource(schema["$id"], Resource.from_contents(schema))
     return {
         name: Draft202012Validator(
             schema,
@@ -117,8 +114,15 @@ def validate_surface(surface: dict[str, Any]) -> None:
             f"identity={identity!r}, expected={expected!r}, actual={actual!r}"
         )
     parsed = urlsplit(str(surface.get("url", "")))
-    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
-        raise ValueError(f"Surface URL is not safe absolute HTTPS: {surface.get('url')!r}")
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+    ):
+        raise ValueError(
+            f"Surface URL is not safe absolute HTTPS: {surface.get('url')!r}"
+        )
 
 
 def validate_snapshot(
@@ -134,8 +138,12 @@ def validate_snapshot(
 
 def _placement_snapshots() -> list[dict[str, Any]]:
     surface_catalog = _load("fixtures/valid/surface-catalog.json")
-    if set(surface_catalog) != {f"{layer}:{provider}" for layer, provider in SURFACE_MATRIX}:
-        raise ValueError("Surface catalog does not contain the exact six provider/layer surfaces")
+    if set(surface_catalog) != {
+        f"{layer}:{provider}" for layer, provider in SURFACE_MATRIX
+    }:
+        raise ValueError(
+            "Surface catalog does not contain the exact six provider/layer surfaces"
+        )
     matrix = _load("fixtures/valid/placement-matrix.json")
     if matrix.get("schema_version") != "deployment-access-placement-fixtures.v1":
         raise ValueError("Placement fixture schema version mismatch")
@@ -144,14 +152,22 @@ def _placement_snapshots() -> list[dict[str, Any]]:
     fixture_ids: set[str] = set()
     for placement in matrix.get("placements", []):
         fixture_id = placement.get("fixture_id")
-        if not isinstance(fixture_id, str) or not fixture_id or fixture_id in fixture_ids:
-            raise ValueError("Placement fixture identifiers must be unique and non-empty")
+        if (
+            not isinstance(fixture_id, str)
+            or not fixture_id
+            or fixture_id in fixture_ids
+        ):
+            raise ValueError(
+                "Placement fixture identifiers must be unique and non-empty"
+            )
         fixture_ids.add(fixture_id)
         try:
             l4 = deepcopy(surface_catalog[placement["l4_surface"]])
             l5 = deepcopy(surface_catalog[placement["l5_surface"]])
         except (KeyError, TypeError) as exc:
-            raise ValueError(f"Placement fixture {fixture_id!r} has an unknown surface") from exc
+            raise ValueError(
+                f"Placement fixture {fixture_id!r} has an unknown surface"
+            ) from exc
         pairs.add((l4["provider"], l5["provider"]))
         snapshots.append(
             {
@@ -164,9 +180,13 @@ def _placement_snapshots() -> list[dict[str, Any]]:
                 "surfaces": [l4, l5],
             }
         )
-    expected_pairs = {(l4, l5) for l4 in ("aws", "azure", "gcp") for l5 in ("aws", "azure", "gcp")}
+    expected_pairs = {
+        (l4, l5) for l4 in ("aws", "azure", "gcp") for l5 in ("aws", "azure", "gcp")
+    }
     if pairs != expected_pairs or len(snapshots) != 9:
-        raise ValueError("Placement fixtures must cover each of the exact nine L4/L5 provider pairs")
+        raise ValueError(
+            "Placement fixtures must cover each of the exact nine L4/L5 provider pairs"
+        )
     return snapshots
 
 
@@ -187,7 +207,9 @@ def validate_source() -> str:
     present = {path.relative_to(SOURCE_ROOT).as_posix() for path in _files(SOURCE_ROOT)}
     missing = sorted(required - present)
     if missing:
-        raise ValueError(f"Missing canonical deployment-access files: {', '.join(missing)}")
+        raise ValueError(
+            f"Missing canonical deployment-access files: {', '.join(missing)}"
+        )
 
     validators = _schema_validators()
     access_validator = validators["deployment-access.schema.json"]
@@ -222,7 +244,9 @@ def validate_source() -> str:
     except ValueError:
         pass
     else:
-        raise ValueError("Provider/auth mismatch fixture unexpectedly passed semantic validation")
+        raise ValueError(
+            "Provider/auth mismatch fixture unexpectedly passed semantic validation"
+        )
     return _tree_digest(_documents(SOURCE_ROOT))
 
 
@@ -247,7 +271,10 @@ def check() -> str:
         if _documents(target) != source_files:
             failures.append(f"content drift in {target.relative_to(REPO_ROOT)}")
         digest_file = target / ".contract-sha256"
-        if not digest_file.is_file() or digest_file.read_text(encoding="utf-8").strip() != digest:
+        if (
+            not digest_file.is_file()
+            or digest_file.read_text(encoding="utf-8").strip() != digest
+        ):
             failures.append(f"digest drift in {target.relative_to(REPO_ROOT)}")
     if failures:
         raise ValueError("; ".join(failures))

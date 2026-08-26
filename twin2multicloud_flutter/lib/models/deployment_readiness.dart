@@ -39,23 +39,6 @@ enum ProviderDeploymentReadinessStatus {
   }
 }
 
-enum PermissionSetReadinessStatus {
-  matched('matched'),
-  missing('missing'),
-  outdated('outdated');
-
-  final String apiValue;
-
-  const PermissionSetReadinessStatus(this.apiValue);
-
-  static PermissionSetReadinessStatus parse(Object? value, String field) {
-    return values.firstWhere(
-      (candidate) => candidate.apiValue == value,
-      orElse: () => throw _contractError('$field contains an unknown status.'),
-    );
-  }
-}
-
 class DeploymentReadinessCheck extends Equatable {
   final String component;
   final DeploymentReadinessCheckStatus status;
@@ -120,9 +103,6 @@ class ProviderDeploymentReadiness extends Equatable {
   final bool ready;
   final ProviderDeploymentReadinessStatus status;
   final String summary;
-  final String expectedPermissionSetVersion;
-  final String? suppliedPermissionSetVersion;
-  final PermissionSetReadinessStatus permissionSetStatus;
   final DateTime? checkedAt;
   final List<DeploymentReadinessCheck> checks;
 
@@ -133,9 +113,6 @@ class ProviderDeploymentReadiness extends Equatable {
     required this.ready,
     required this.status,
     required this.summary,
-    required this.expectedPermissionSetVersion,
-    this.suppliedPermissionSetVersion,
-    required this.permissionSetStatus,
     this.checkedAt,
     required this.checks,
   });
@@ -149,17 +126,8 @@ class ProviderDeploymentReadiness extends Equatable {
       json['status'],
       '$path.status',
     );
-    final permissionStatus = PermissionSetReadinessStatus.parse(
-      json['permission_set_status'],
-      '$path.permission_set_status',
-    );
     if (ready != (status == ProviderDeploymentReadinessStatus.ready)) {
       throw _contractError('$path.ready and status are inconsistent.');
-    }
-    if (ready && permissionStatus != PermissionSetReadinessStatus.matched) {
-      throw _contractError(
-        '$path cannot be ready with an unmatched permission set.',
-      );
     }
     final checks = _requiredList(json, 'checks', path);
     if (checks.isEmpty || checks.length > 32) {
@@ -203,19 +171,6 @@ class ProviderDeploymentReadiness extends Equatable {
       ready: ready,
       status: status,
       summary: _boundedString(json, 'summary', path, maxLength: 2000),
-      expectedPermissionSetVersion: _boundedString(
-        json,
-        'expected_permission_set_version',
-        path,
-        maxLength: 80,
-      ),
-      suppliedPermissionSetVersion: _optionalBoundedString(
-        json,
-        'supplied_permission_set_version',
-        path,
-        maxLength: 80,
-      ),
-      permissionSetStatus: permissionStatus,
       checkedAt: checkedAt,
       checks: List.unmodifiable(parsedChecks),
     );
@@ -229,9 +184,6 @@ class ProviderDeploymentReadiness extends Equatable {
     ready,
     status,
     summary,
-    expectedPermissionSetVersion,
-    suppliedPermissionSetVersion,
-    permissionSetStatus,
     checkedAt,
     checks,
   ];

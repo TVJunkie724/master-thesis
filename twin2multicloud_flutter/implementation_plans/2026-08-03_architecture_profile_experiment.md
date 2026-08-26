@@ -21,12 +21,12 @@ the profile-aware Flutter boundary before runtime profile activation:
 
 - render only profiles returned as active by the Management catalog;
 - render the truthful blocking empty state while Phase 8.9A has not published
-  `five-layer-baseline@2`;
-- exercise future populated Five-layer v2 and Six-layer v1 states through
+  `six-layer-eventing@1`;
+- exercise the populated standalone Six-layer v1 state through
   strict contract, BLoC, widget, and visual fixtures only;
 - review generic logical components, provider services, supporting resources,
   edges, tiering, evidence, and cost without a fixed-slot UI;
-- retain historical `five-layer-baseline@1` as read-only compatibility.
+- retain historical `six-layer-eventing@1` as read-only compatibility.
 
 Workload v2, immutable event-scenario publication, new-profile optimizer-run
 creation, and the first real selectable profile belong to Phase 8.9A. The
@@ -47,8 +47,8 @@ Authority:
 
 - `docs/configuration_workspace/concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md`
 - `docs/configuration_workspace/phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md`
-- `../../docs/plans/phase_08_architecture_profiles_eventing/phase_08_7_flutter_profile_workflow.md`
-- `../../docs/plans/phase_08_architecture_profiles_eventing/phase_08_service_bundle_closure.md`
+- `../../docs/plans/phase_08_architecture_profiles_eventing/README.md`
+- `../../docs/plans/phase_08_architecture_profiles_eventing/README.md`
 
 The feature extends the existing Wizard BLoC and workspace shell. It does not
 introduce a second wizard, graph editor, direct service call, cloud console, or
@@ -65,7 +65,7 @@ cross-profile winner.
 | Tasks (280)            | Architecture profile                             |
 | [*] Profile            | Choose the reviewed experiment boundary.         |
 | [ ] Scenario           |                                                   |
-| [ ] Device traffic     | + Five-layer v2 ------------------ [Selected] --+ |
+| [ ] Device traffic     | + Six-layer ------------------ [Selected] --+ |
 | [ ] Processing         | | Events embedded in L1/L2; L3 hot = L5;       | |
 | [ ] Retention          | | independent L4; 9 supported placements.       | |
 | [ ] Twin activity      | | 5 responsibilities  View logical flow [v]     | |
@@ -110,7 +110,7 @@ cross-profile winner.
 | Describe workload / Profile        [v]   |
 |-------------------------------------------|
 | Architecture profile                      |
-| + Five-layer v2 ------------------------+ |
+| + Six-layer ------------------------+ |
 | | Events embedded | 5 responsibilities | |
 | | [Selected] [Logical flow v]           | |
 | +---------------------------------------+ |
@@ -430,7 +430,7 @@ No direct request to ports 5003 or 5004 is permitted.
 
 | # | Type | Test | Expected hard assertion |
 |---|---|---|---|
-| 1 | Happy | Parse Five-layer detail fixture | Exact nodes, edges, workload field IDs, extension slots, digest |
+| 1 | Happy | Parse Six-layer detail fixture | Exact nodes, edges, workload field IDs, extension slots, digest |
 | 2 | Happy | Parse Six-layer resolved mixed-provider fixture | Exact Event Layer, bridge, supporting resources and costs |
 | 3 | Unhappy | Unknown schema/version or wrong field type | `FormatException`, no partial value |
 | 4 | Unhappy | Duplicate IDs/unresolved edge/secret-like field | Fail closed with exact contract error |
@@ -480,7 +480,7 @@ rejected historical detail/profile-change targets; Flutter calculation and
 deployment blocked by the empty active catalog; ownership isolation; and
 absence of direct ports 5003/5004 in the Flutter client. Direct Management
 rejection/migration of legacy `@1` calculation is installed atomically with
-the selectable `five-layer-baseline@2` replacement in 8.9A. Populated Five-/Six-layer,
+the selectable `six-layer-eventing@1` replacement in 8.9A. Populated Five-/Six-layer,
 profile-change, and optimizer-run paths are contract/BLoC/widget fixtures in
 this phase. Their first real HTTP integration belongs to 8.9A/8.9B.
 

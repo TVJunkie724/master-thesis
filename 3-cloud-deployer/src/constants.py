@@ -1,4 +1,3 @@
-
 # ==========================================
 # 1. Configuration Filenames
 # ==========================================
@@ -11,12 +10,8 @@ CONFIG_PROVIDERS_FILE = "config_providers.json"
 CONFIG_OPTIMIZATION_FILE = "config_optimization.json"
 CONFIG_INTER_CLOUD_FILE = "config_inter_cloud.json"
 DEPLOYMENT_MANIFEST_FILE = "deployment_manifest.json"
-DEPLOYMENT_MANIFEST_VERSION = "3.0"
-SUPPORTED_DEPLOYMENT_MANIFEST_VERSIONS = (
-    "2.0",
-    DEPLOYMENT_MANIFEST_VERSION,
-    "4.0",
-)
+DEPLOYMENT_MANIFEST_VERSION = "4.0"
+SUPPORTED_DEPLOYMENT_MANIFEST_VERSIONS = (DEPLOYMENT_MANIFEST_VERSION,)
 
 # Twin Hierarchy Files (provider-specific, optional)
 TWIN_HIERARCHY_DIR_NAME = "twin_hierarchy"
@@ -28,25 +23,35 @@ REQUIRED_CONFIG_FILES = [
     CONFIG_IOT_DEVICES_FILE,
     CONFIG_EVENTS_FILE,
     CONFIG_CREDENTIALS_FILE,
-    CONFIG_PROVIDERS_FILE
+    CONFIG_PROVIDERS_FILE,
 ]
 
 # Optional config files (not required in zip validation)
 OPTIONAL_CONFIG_FILES = [
     CONFIG_OPTIMIZATION_FILE,
     CONFIG_INTER_CLOUD_FILE,
-    DEPLOYMENT_MANIFEST_FILE
+    DEPLOYMENT_MANIFEST_FILE,
 ]
 
 # Keys required in specific config files
 CONFIG_SCHEMAS = {
-    CONFIG_FILE: ["digital_twin_name", "hot_storage_size_in_days", "cold_storage_size_in_days", "mode"],
+    CONFIG_FILE: [
+        "digital_twin_name",
+        "hot_storage_size_in_days",
+        "cold_storage_size_in_days",
+        "mode",
+    ],
     CONFIG_IOT_DEVICES_FILE: ["id", "properties"],  # Matches template: id, properties
     CONFIG_EVENTS_FILE: ["condition", "action"],  # Matches template: condition, action
     CONFIG_OPTIMIZATION_FILE: ["result"],
-    CONFIG_CREDENTIALS_FILE: [], # Dynamic check based on provider
-    CONFIG_PROVIDERS_FILE: ["layer_1_provider", "layer_2_provider", "layer_3_hot_provider", "layer_4_provider"],
-    CONFIG_INTER_CLOUD_FILE: ["connections"]
+    CONFIG_CREDENTIALS_FILE: [],  # Dynamic check based on provider
+    CONFIG_PROVIDERS_FILE: [
+        "layer_1_provider",
+        "layer_2_provider",
+        "layer_3_hot_provider",
+        "layer_4_provider",
+    ],
+    CONFIG_INTER_CLOUD_FILE: ["connections"],
 }
 
 # Twin Hierarchy Validation Schemas (provider-specific)
@@ -55,15 +60,23 @@ AZURE_HIERARCHY_SCHEMA = {
     "header": ["fileVersion"],
     "models": ["@id", "@type", "@context"],
     "twins": ["$dtId", "$metadata"],
-    "relationships": ["$dtId", "$targetId", "$relationshipName"]
+    "relationships": ["$dtId", "$targetId", "$relationshipName"],
 }
 
 REQUIRED_CREDENTIALS_FIELDS = {
     "aws": ["aws_access_key_id", "aws_secret_access_key", "aws_region"],
-    "azure": ["azure_subscription_id", "azure_tenant_id", "azure_client_id", "azure_client_secret", "azure_region", "azure_region_iothub", "azure_region_digital_twin"],
+    "azure": [
+        "azure_subscription_id",
+        "azure_tenant_id",
+        "azure_client_id",
+        "azure_client_secret",
+        "azure_region",
+        "azure_region_iothub",
+        "azure_region_digital_twin",
+    ],
     # GCP: credentials_file and region are always required
     # Either gcp_project_id (private) OR gcp_billing_account (org) must be provided - validated in code
-    "gcp": ["gcp_credentials_file", "gcp_region"]
+    "gcp": ["gcp_credentials_file", "gcp_region"],
 }
 
 # ==========================================
@@ -79,13 +92,13 @@ AZURE_UNSUPPORTED_REGIONS_Y1_LINUX = [
 # Recommended Azure regions for Consumption Plan (Y1) with Linux
 # These regions have been verified to support Y1+Linux combination
 AZURE_RECOMMENDED_REGIONS_Y1_LINUX = [
-    "westeurope",          # Primary recommendation - full support, high capacity
-    "northeurope",         # Alternative - Dublin, Ireland
-    "francecentral",       # Alternative - Paris, France  
+    "westeurope",  # Primary recommendation - full support, high capacity
+    "northeurope",  # Alternative - Dublin, Ireland
+    "francecentral",  # Alternative - Paris, France
     "germanywestcentral",  # Alternative - Frankfurt, Germany
-    "uksouth",             # Alternative - London, UK
-    "eastus",              # Alternative - Virginia, USA
-    "westus2",             # Alternative - Washington, USA
+    "uksouth",  # Alternative - London, UK
+    "eastus",  # Alternative - Virginia, USA
+    "westus2",  # Alternative - Washington, USA
 ]
 
 
@@ -117,8 +130,8 @@ GOOGLE_STATE_MACHINE_FILE = "google_cloud_workflow.yaml"
 
 STATE_MACHINE_SIGNATURES = {
     AWS_STATE_MACHINE_FILE: ["StartAt", "States"],
-    AZURE_STATE_MACHINE_FILE: ["definition"], 
-    GOOGLE_STATE_MACHINE_FILE: ["main"]  # 'steps' is inside 'main', not top-level
+    AZURE_STATE_MACHINE_FILE: ["definition"],
+    GOOGLE_STATE_MACHINE_FILE: ["main"],  # 'steps' is inside 'main', not top-level
 }
 
 # Azure Logic App: Required keys INSIDE the "definition" block
@@ -134,14 +147,18 @@ DEFAULT_PROJECT_NAME = "template"
 # ==========================================
 # 5. AWS Policy ARNs
 # ==========================================
-AWS_POLICY_LAMBDA_BASIC_EXECUTION = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+AWS_POLICY_LAMBDA_BASIC_EXECUTION = (
+    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+)
 AWS_POLICY_LAMBDA_ROLE = "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
 AWS_POLICY_DYNAMODB_FULL_ACCESS = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess_v2"
 AWS_POLICY_DYNAMODB_READ_ONLY = "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
 AWS_POLICY_S3_FULL_ACCESS = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 AWS_POLICY_S3_READ_ONLY = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
 AWS_POLICY_LAMBDA_READ_ONLY = "arn:aws:iam::aws:policy/AWSLambda_ReadOnlyAccess"
-AWS_POLICY_STEP_FUNCTIONS_FULL_ACCESS = "arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess"
+AWS_POLICY_STEP_FUNCTIONS_FULL_ACCESS = (
+    "arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess"
+)
 AWS_POLICY_IOT_DATA_ACCESS = "arn:aws:iam::aws:policy/AWSIoTDataAccess"
 AWS_POLICY_ADMIN_ACCESS = "arn:aws:iam::aws:policy/AdministratorAccess"
 
@@ -168,10 +185,10 @@ AZURE_SCENE_CONFIG_FILE = "3DScenesConfiguration.json"
 SCENE_REQUIRED_FILES = {
     "aws": [
         f"{SCENE_ASSETS_DIR_NAME}/aws/{SCENE_GLB_FILE}",
-        f"{SCENE_ASSETS_DIR_NAME}/aws/{SCENE_JSON_FILE}"
+        f"{SCENE_ASSETS_DIR_NAME}/aws/{SCENE_JSON_FILE}",
     ],
     "azure": [
         f"{SCENE_ASSETS_DIR_NAME}/azure/{SCENE_GLB_FILE}",
-        f"{SCENE_ASSETS_DIR_NAME}/azure/{AZURE_SCENE_CONFIG_FILE}"
-    ]
+        f"{SCENE_ASSETS_DIR_NAME}/azure/{AZURE_SCENE_CONFIG_FILE}",
+    ],
 }

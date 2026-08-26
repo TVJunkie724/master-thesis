@@ -294,7 +294,7 @@ String _buildConfigOptimizationJson(WizardState state) {
 }
 
 Map<String, bool> _optimizationInputParams(WizardState state) {
-  if (state.usesPhase8ComparisonProfile) return const {};
+  if (state.usesSixLayerProfile) return const {};
   return {
     'useEventChecking': state.calcParams?.useEventChecking ?? false,
     'triggerNotificationWorkflow':

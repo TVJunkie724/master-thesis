@@ -1,7 +1,7 @@
 # Management API Development Guide
 
 This guide contains service-local engineering rules. Repository setup, thesis
-context, cloud bootstrap, and cross-project architecture belong in
+context, provider access, and cross-project architecture belong in
 `docs-site/`.
 
 ## Service Boundary
@@ -109,7 +109,7 @@ runtime database under `/var/lib/twin2multicloud-management/data/`.
 9. Persist exact immutable pricing references in Management; full public
    pricing catalogs remain in the Optimizer and require an explicit,
    size-bounded diagnostic read.
-10. Preserve the active Five-layer v2 profile/catalog/provider lifecycle as one
+10. Preserve the active Six-layer profile/catalog/provider lifecycle as one
     atomic contract. Offline fixtures remain evaluation evidence, and their
     unresolved live-capacity gates must never be bypassed for deployment.
 

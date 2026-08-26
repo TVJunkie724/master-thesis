@@ -88,7 +88,9 @@ async def perform_dual_validation(
 
     async def call_optimizer():
         try:
-            result = await optimizer_client.verify_permissions(provider, optimizer_creds)
+            result = await optimizer_client.verify_permissions(
+                provider, optimizer_creds
+            )
             is_valid = result.get("valid", False) or result.get("status") == "valid"
             return {
                 "valid": is_valid,
@@ -145,18 +147,23 @@ async def perform_dual_validation(
                 "message": "Deployer validation failed unexpectedly",
             }
 
-    optimizer_result, deployer_result = await asyncio.gather(call_optimizer(), call_deployer())
+    optimizer_result, deployer_result = await asyncio.gather(
+        call_optimizer(), call_deployer()
+    )
 
     result = {
         "provider": provider,
-        "valid": optimizer_result.get("valid", False) and deployer_result.get("valid", False),
+        "valid": optimizer_result.get("valid", False)
+        and deployer_result.get("valid", False),
         "optimizer": optimizer_result,
         "deployer": deployer_result,
     }
     return redact_validation_result(result, optimizer_creds, deployer_creds)
 
 
-def redact_validation_result(result: dict[str, Any], *credential_payloads: dict[str, Any]) -> dict[str, Any]:
+def redact_validation_result(
+    result: dict[str, Any], *credential_payloads: dict[str, Any]
+) -> dict[str, Any]:
     """Return a copy of a validation result with credential values removed."""
     sensitive_values = _collect_sensitive_values(*credential_payloads)
     return _redact_value(result, sensitive_values)
@@ -165,41 +172,20 @@ def redact_validation_result(result: dict[str, Any], *credential_payloads: dict[
 def build_preflight_result(
     provider: str,
     validation_result: dict[str, Any],
-    *,
-    version_comparison=None,
 ) -> dict[str, Any]:
     """Normalize raw Optimizer/Deployer validation into UI-actionable preflight checks."""
     checks = [
         _build_component_check("optimizer", validation_result.get("optimizer")),
         _build_component_check("deployer", validation_result.get("deployer")),
     ]
-    if version_comparison is not None and not version_comparison.matches:
-        checks.insert(0, _permission_set_check(version_comparison))
     ready = all(check["status"] == "passed" for check in checks)
     return {
         "provider": provider,
         "ready": ready,
-        "summary": "Cloud connection preflight passed" if ready else "Cloud connection preflight failed",
+        "summary": "Cloud connection preflight passed"
+        if ready
+        else "Cloud connection preflight failed",
         "checks": checks,
-    }
-
-
-def _permission_set_check(version_comparison) -> dict[str, Any]:
-    supplied = version_comparison.supplied_version or "missing"
-    return {
-        "component": "deployer",
-        "status": "failed",
-        "code": "OUTDATED_PERMISSION_SET",
-        "message": (
-            f"{version_comparison.provider.upper()} CloudConnection uses permission set "
-            f"'{supplied}', but the active baseline is "
-            f"'{version_comparison.expected_version}'."
-        ),
-        "action": (
-            "Re-run provider bootstrap or rotate/import the CloudConnection with "
-            f"permission_set_version={version_comparison.expected_version}."
-        ),
-        "permissions": [],
     }
 
 
@@ -232,7 +218,9 @@ def _build_component_check(component: str, raw_result: Any) -> dict[str, Any]:
     }
 
 
-def _classify_preflight_failure(message: str, permissions: list[str]) -> tuple[str, str]:
+def _classify_preflight_failure(
+    message: str, permissions: list[str]
+) -> tuple[str, str]:
     normalized = message.lower()
     if permissions:
         return (
@@ -272,7 +260,9 @@ def _collect_sensitive_values(*credential_payloads: dict[str, Any]) -> set[str]:
     return sensitive_values
 
 
-def _collect_from_mapping(value: Any, sensitive_values: set[str], parent_key: str = "") -> None:
+def _collect_from_mapping(
+    value: Any, sensitive_values: set[str], parent_key: str = ""
+) -> None:
     if isinstance(value, dict):
         for key, item in value.items():
             key_text = str(key)

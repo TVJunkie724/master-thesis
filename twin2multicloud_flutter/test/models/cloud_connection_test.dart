@@ -79,7 +79,7 @@ void main() {
       final payload = {
         'id': 'connection-aws',
         'provider': 'aws',
-        'purpose': 'bootstrap_admin',
+        'purpose': 'administrator',
         'display_name': 'Unsupported',
         'auth_type': 'access_key',
         'cloud_scope': <String, dynamic>{},

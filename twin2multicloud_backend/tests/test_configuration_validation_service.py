@@ -114,16 +114,16 @@ async def test_validate_configured_transition_pins_profile_for_deployer_validati
         twin_id=twin.id,
         user_id=twin.user_id,
         selected_by_user_id=twin.user_id,
-        profile_id="five-layer-baseline",
-        profile_version="2",
+        profile_id="six-layer-eventing",
+        profile_version="1",
         profile_digest="sha256:" + "a" * 64,
     )
 
     await service.validate_configured_transition(twin)
 
     assert deployer.payload["architecture_profile_ref"] == {
-        "id": "five-layer-baseline",
-        "version": "2",
+        "id": "six-layer-eventing",
+        "version": "1",
         "digest": "sha256:" + "a" * 64,
     }
 
@@ -169,25 +169,16 @@ async def test_validate_configured_transition_reports_dangling_cloud_connection_
 
 
 @pytest.mark.asyncio
-async def test_validate_configured_transition_requires_optimizer_selected_providers():
+async def test_validate_configured_transition_requires_selected_architecture():
     twin = _configured_twin()
-    twin.optimizer_config.cheapest_l2 = "azure"
     optimizer = FakeOptimizerClient({"valid": True})
     deployer = FakeDeployerClient({"valid": True})
     service = ConfigurationValidationService(optimizer, deployer)
 
-    with pytest.raises(ConfigurationValidationFailed) as exc_info:
-        await service.validate_configured_transition(twin)
+    await service.validate_configured_transition(twin)
 
-    assert {
-        "step": 1,
-        "provider": "azure",
-        "code": "MISSING_CLOUD_CONNECTION",
-        "field": "credentials",
-        "message": "Provider requires a bound Cloud Connection",
-    } in exc_info.value.errors
-    assert optimizer.payload is None
-    assert deployer.payload is None
+    assert optimizer.payload is not None
+    assert deployer.payload is not None
 
 
 @pytest.mark.asyncio

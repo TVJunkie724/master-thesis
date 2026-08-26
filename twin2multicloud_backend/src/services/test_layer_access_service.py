@@ -122,8 +122,8 @@ def _evidence(
 ) -> dict[str, Any]:
     return {
         "schema_version": "deployment-access-evidence.v1",
-        "profile_id": "five-layer-baseline",
-        "profile_version": "2",
+        "profile_id": "six-layer-eventing",
+        "profile_version": "1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "surfaces": [
             _surface(run_id, "l4", l4_provider, blocked=block_l4),
@@ -140,7 +140,7 @@ def _seed_twin(
     label: str,
     l4_provider: str = "aws",
     l5_provider: str = "aws",
-    profile_version: str = "2",
+    profile_version: str = "1",
     state: TwinState = TwinState.DEPLOYED,
     block_l4: bool = False,
     terraform_outputs: dict[str, Any] | None = None,
@@ -162,7 +162,7 @@ def _seed_twin(
         status="success",
         started_at=now,
         completed_at=now,
-        profile_id="five-layer-baseline",
+        profile_id="six-layer-eventing",
         profile_version=profile_version,
         graph_validation={
             "schema_version": "layer-access-test-graph.v1",
@@ -175,7 +175,7 @@ def _seed_twin(
                 l5_provider,
                 block_l4=block_l4,
             )
-            if profile_version == "2"
+            if profile_version == "1"
             else None
         ),
         terraform_outputs=terraform_outputs
@@ -217,12 +217,12 @@ def seed_layer_access_fixtures(
             )
             placements[key] = twin.id
 
-    historical = _seed_twin(
+    unsupported = _seed_twin(
         db,
         owner=owner,
         run_id=run_id,
-        label="historical-v1",
-        profile_version="1",
+        label="removed-profile-v2",
+        profile_version="2",
     )
     destroyed = _seed_twin(
         db,
@@ -261,7 +261,7 @@ def seed_layer_access_fixtures(
     return {
         "schema_version": "layer-access-test-fixtures.v1",
         "placements": placements,
-        "historical_twin_id": historical.id,
+        "unsupported_twin_id": unsupported.id,
         "destroyed_twin_id": destroyed.id,
         "blocked_twin_id": blocked.id,
         "foreign_owner_twin_id": foreign.id,

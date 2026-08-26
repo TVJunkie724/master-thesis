@@ -4,14 +4,8 @@
   "package_id": "phase-08-complete-service-bundles@1",
   "artifact_id": "common-functional-contract",
   "profile_targets": [
-    "five-layer-baseline@2",
     "six-layer-eventing@1"
   ],
-  "historical_profile": {
-    "profile_ref": "five-layer-baseline@1",
-    "mode": "read_verify_destroy_only",
-    "byte_digest": "sha256:af472446363f85fcd85cb1b0c0646f86e6f9193c50604514c5e2c1ed033f3b21"
-  },
   "mandatory_capabilities": [
     "authenticated_bidirectional_device_communication",
     "telemetry_ingestion_and_processing",

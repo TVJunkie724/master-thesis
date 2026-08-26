@@ -16,7 +16,6 @@ ProviderReadinessStatus = Literal[
     "not_checked",
     "stale",
 ]
-PermissionSetStatus = Literal["matched", "missing", "outdated"]
 SafePermission = Annotated[str, Field(min_length=1, max_length=300)]
 
 
@@ -32,13 +31,12 @@ class DeploymentReadinessCheck(BaseModel):
 class ProviderDeploymentReadiness(BaseModel):
     provider: CloudProvider
     connection_id: str | None = Field(default=None, min_length=1, max_length=160)
-    connection_display_name: str | None = Field(default=None, min_length=1, max_length=120)
+    connection_display_name: str | None = Field(
+        default=None, min_length=1, max_length=120
+    )
     ready: bool
     status: ProviderReadinessStatus
     summary: str = Field(min_length=1, max_length=2_000)
-    expected_permission_set_version: str = Field(min_length=1, max_length=80)
-    supplied_permission_set_version: str | None = Field(default=None, max_length=80)
-    permission_set_status: PermissionSetStatus
     checked_at: datetime | None = None
     checks: list[DeploymentReadinessCheck] = Field(min_length=1, max_length=32)
 
@@ -46,8 +44,6 @@ class ProviderDeploymentReadiness(BaseModel):
     def validate_consistency(self) -> Self:
         if self.ready != (self.status == "ready"):
             raise ValueError("ready and status must be consistent")
-        if self.ready and self.permission_set_status != "matched":
-            raise ValueError("ready providers require a matched permission set")
         if self.ready and (self.connection_id is None or self.checked_at is None):
             raise ValueError("ready providers require a connection and checked_at")
         if self.ready != all(check.status == "passed" for check in self.checks):
@@ -92,10 +88,14 @@ def _validate_aggregate_consistency(
 ) -> None:
     if len(set(response.required_providers)) != len(response.required_providers):
         raise ValueError("required_providers must not contain duplicates")
-    if [provider.provider for provider in response.providers] != response.required_providers:
+    if [
+        provider.provider for provider in response.providers
+    ] != response.required_providers:
         raise ValueError("providers must match required_providers in order")
-    aggregate_ready = bool(response.required_providers) and not response.issues and all(
-        provider.ready for provider in response.providers
+    aggregate_ready = (
+        bool(response.required_providers)
+        and not response.issues
+        and all(provider.ready for provider in response.providers)
     )
     if response.ready != aggregate_ready:
         raise ValueError("aggregate readiness is inconsistent")

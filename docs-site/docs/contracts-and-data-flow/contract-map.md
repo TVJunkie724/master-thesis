@@ -18,7 +18,7 @@ flowchart TB
     Management -->|"Calculation request<br/>run, workload, catalog context"| Optimizer
     Optimizer --> OptimizerState
     Optimizer -->|"Calculation response<br/>cost, traces, path, specification,<br/>resolved architecture, capabilities"| Management
-    Management -->|"Deployment package<br/>profile-matched Manifest v3/v4,<br/>architecture, specification,<br/>artifacts, command"| Deployer
+    Management -->|"Deployment package<br/>Six-layer Manifest v4,<br/>architecture, specification,<br/>artifacts, command"| Deployer
     Deployer --> DeployerState
     Deployer -->|"Operation response<br/>status, logs, outputs, capabilities"| Management
 ```
@@ -39,12 +39,11 @@ versioned contracts inside those payloads are listed below.
 | immutable provider-region catalog/reference | Optimizer catalog repository | Optimizer, then exact-reference verification by Management | calculation and diagnostics |
 | `cost-result.v1` and intent traces | Optimizer | Management API | persisted run and Flutter read model |
 | complete-path transfer and optimization contracts | Optimizer | Management API transfer/path validators | persisted result items and Flutter |
-| `resolved-deployment-specification.v1/v2` | repository root schema/registry; profile-matched object emitted by Optimizer | Optimizer, Management API, and Deployer | manifest builder and typed tfvars translator |
-| architecture-profile contract bundle v1 | repository root schemas, semantic registry, and generated definitions | all three service validators; Management owns profile selections and immutable resolution persistence | active Optimizer resolution, Management reads, and Deployer graph compilation |
-| `DeploymentManifest 3.0/4.0` | repository schemas; profile-matched object emitted by Management API | Deployer validates exact architecture/specification/catalog cross-links | v3 historical Five-layer v1 and v4 active Five-layer v2 or Six-layer v1 operation packages |
+| `resolved-deployment-specification.v2` | repository root schema/registry; Six-layer object emitted by Optimizer | Optimizer, Management API, and Deployer | manifest builder and typed tfvars translator |
+| architecture-profile contract bundle v2 | repository root schemas, semantic registry, and generated Six-layer definitions | all three service validators; Management owns profile selections and immutable resolution persistence | active Optimizer resolution, Management reads, and Deployer graph compilation |
+| `DeploymentManifest 4.0` | repository schema; Six-layer object emitted by Management API | Deployer validates exact architecture/specification/catalog cross-links | active Six-layer operation packages |
 | `ResolvedDeploymentGraph v1` | Deployer, deterministically compiled from the profile-matched manifest and pinned catalog | Deployer graph/package/tfvars preflight; bounded evidence persisted by Management | package builders, Terraform translator, retry/destroy checks |
 | `phase-08-profile-evaluation@1` | repository evaluation generator and frozen local inputs | strict offline schemas, semantic/digest checks, mutation tests, and byte-identical regeneration | research interpretation and Phase 8 documentation; never deployment input |
-| `DeploymentManifest 2.0` | historical Management API packages | Deployer historical reader only | inspection/frozen compatibility; never a fallback for a new operation |
 | one-use operation package | Deployer package store | Deployer | one deployment or destroy acquisition |
 | deployment status, logs, outputs | Deployer execution boundary | Management API | Flutter REST/SSE read models |
 

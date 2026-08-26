@@ -97,7 +97,7 @@ class ConfigurationValidationService:
             return errors
 
         required_providers = (
-            self.credential_resolution_service.required_providers_for_compatibility(
+            self.credential_resolution_service.required_providers_from_architecture(
                 twin
             )
         )

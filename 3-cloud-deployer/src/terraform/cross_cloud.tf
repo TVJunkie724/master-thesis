@@ -108,7 +108,7 @@ locals {
 resource "random_password" "inter_cloud_token" {
   # Historical v1 HTTP glue alone uses this predecessor shared-token path.
   # Phase 8 comparison profiles use only the graph-owned workload identities.
-  count   = !local.five_layer_v2_enabled && var.inter_cloud_token == "" ? 1 : 0
+  count   = !local.six_layer_enabled && var.inter_cloud_token == "" ? 1 : 0
   length  = 64
   special = false
 }

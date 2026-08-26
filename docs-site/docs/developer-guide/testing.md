@@ -26,10 +26,10 @@ scaling values downstream:
 
 ```text
 Optimizer formula/deployment selection
-  -> profile-matched ResolvedDeploymentSpecification v1/v2 + digest
-  -> profile-matched ResolvedTwinArchitecture v1/v2 + digest
+  -> ResolvedDeploymentSpecification v2 + digest
+  -> ResolvedTwinArchitecture v2 + digest
   -> Management validation and immutable persistence
-  -> DeploymentManifest v3/v4
+  -> DeploymentManifest v4
   -> Deployer allowlisted typed tfvars
   -> Terraform variable validation and resource attributes
 ```

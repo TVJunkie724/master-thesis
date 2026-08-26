@@ -20,7 +20,7 @@ version: "1.1"
 
 ## 1. Decision
 
-The hardened `five-layer-baseline@1` has exactly one executable path for
+The hardened `six-layer-eventing@1` has exactly one executable path for
 updating Azure Digital Twins:
 
 ```text

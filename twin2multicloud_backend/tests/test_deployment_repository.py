@@ -28,7 +28,7 @@ def _graph_evidence(digit: str = "1") -> dict:
         "calculation_run_id": f"run-{digit}",
         "graph_digest": "sha256:" + (digit * 64),
         "architecture_digest": "sha256:" + (digit * 64),
-        "profile_id": "five-layer-baseline",
+        "profile_id": "six-layer-eventing",
         "profile_version": "1",
         "catalog_id": "baseline-component-catalog",
         "catalog_version": "1",

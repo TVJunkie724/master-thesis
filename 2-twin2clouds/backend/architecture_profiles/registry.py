@@ -12,8 +12,6 @@ from . import contracts
 
 DEFINITIONS_ROOT = contracts.CONTRACT_ROOT.parent / "definitions"
 _PROFILE_DEFINITIONS = {
-    ("five-layer-baseline", "1"): ("baseline", "five-layer-baseline"),
-    ("five-layer-baseline", "2"): ("complete-service", "five-layer-baseline"),
     ("six-layer-eventing", "1"): ("six-layer-eventing", "six-layer-eventing"),
 }
 
@@ -29,9 +27,7 @@ def _read(path: Path) -> dict[str, Any]:
 
 def _freeze(value: Any) -> Any:
     if isinstance(value, dict):
-        return MappingProxyType(
-            {key: _freeze(item) for key, item in value.items()}
-        )
+        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
     if isinstance(value, list):
         return tuple(_freeze(item) for item in value)
     return value
@@ -46,32 +42,37 @@ class ArchitectureProfileRegistry:
         profile: Mapping[str, Any] | None = None,
         catalog: Mapping[str, Any] | None = None,
         providers: Mapping[str, Mapping[str, Any]] | None = None,
-        profile_id: str = "five-layer-baseline",
+        profile_id: str = "six-layer-eventing",
         profile_version: str = "1",
     ) -> None:
         definition = _PROFILE_DEFINITIONS.get((profile_id, profile_version))
         if definition is None:
             raise ValueError("Unsupported architecture profile reference")
         catalog_id, provider_profile_id = definition
-        profile = dict(profile) if profile is not None else _read(
-            DEFINITIONS_ROOT
-            / "profiles"
-            / profile_id
-            / profile_version
-            / "profile.json"
+        profile = (
+            dict(profile)
+            if profile is not None
+            else _read(
+                DEFINITIONS_ROOT
+                / "profiles"
+                / profile_id
+                / profile_version
+                / "profile.json"
+            )
         )
-        catalog = dict(catalog) if catalog is not None else _read(
-            DEFINITIONS_ROOT
-            / "component-catalogs"
-            / catalog_id
-            / "1"
-            / "catalog.json"
+        catalog = (
+            dict(catalog)
+            if catalog is not None
+            else _read(
+                DEFINITIONS_ROOT
+                / "component-catalogs"
+                / catalog_id
+                / "1"
+                / "catalog.json"
+            )
         )
         providers = (
-            {
-                provider: dict(document)
-                for provider, document in providers.items()
-            }
+            {provider: dict(document) for provider, document in providers.items()}
             if providers is not None
             else {
                 provider: _read(
@@ -85,9 +86,7 @@ class ArchitectureProfileRegistry:
                 for provider in ("aws", "azure", "gcp")
             }
         )
-        if set(providers) != {
-            document["provider"] for document in providers.values()
-        }:
+        if set(providers) != {document["provider"] for document in providers.values()}:
             raise contracts.ContractError(
                 "ARCH_REFERENCE_UNRESOLVED",
                 "providers",
@@ -96,14 +95,10 @@ class ArchitectureProfileRegistry:
         documents = (profile, *providers.values(), catalog)
         contracts.read_contract_bundle(documents)
         self._profile = _freeze(
-            contracts.read_contract(
-                profile, linked_documents=documents
-            ).document
+            contracts.read_contract(profile, linked_documents=documents).document
         )
         self._catalog = _freeze(
-            contracts.read_contract(
-                catalog, linked_documents=documents
-            ).document
+            contracts.read_contract(catalog, linked_documents=documents).document
         )
         self._providers = MappingProxyType(
             {

@@ -2,7 +2,7 @@
   "catalogs": {
     "aws": {
       "calculation_source": "reviewed_baseline",
-      "content_digest": "sha256:10c26d4e01340f0fbfe592a48baf5cd2b8cc827b294719811741c8adabed9822",
+      "content_digest": "sha256:121893d4bd57f0114a49f72ba928c21e31491ac29b4b39b7638e319c77045bf6",
       "contract_version": "2026.07.18",
       "fetched_at": "2026-08-25T16:58:12Z",
       "mapping_versions": [
@@ -16,12 +16,12 @@
       "registry_version": "2026.07.17",
       "review_status": "reviewed",
       "schema_version": "pricing-catalog-reference.v1",
-      "snapshot_id": "pcs_7595f7b70ecc0af389ade3d1f16a6d49f2afcf2f811240b45b8d534b0f2a7547",
+      "snapshot_id": "pcs_514d5d0e7796e2722ab4b848e9e1a72805e6cd8500c606ad79d87479c1ebecb9",
       "source": "reviewed_baseline"
     },
     "azure": {
       "calculation_source": "reviewed_baseline",
-      "content_digest": "sha256:4263b7a2a59b86d0501bab1dc2db0c24625c8a950bafd935f4f129d5d0f8bcc5",
+      "content_digest": "sha256:790a89d32263b460ed54b60bd491d78ad4a03173d87101d625fa567af7c79d06",
       "contract_version": "2026.07.18",
       "fetched_at": "2026-08-25T16:58:12Z",
       "mapping_versions": [
@@ -36,12 +36,12 @@
       "registry_version": "2026.07.17",
       "review_status": "reviewed",
       "schema_version": "pricing-catalog-reference.v1",
-      "snapshot_id": "pcs_1bc1d5d9a11bc9b780eab255e7b4849d863a8614c62974eb9df90ad05b3ea46d",
+      "snapshot_id": "pcs_adfbeca810853966b9dd11577a040469a0d49d4c6143bff97a4e145c8875be70",
       "source": "reviewed_baseline"
     },
     "gcp": {
       "calculation_source": "reviewed_baseline",
-      "content_digest": "sha256:92884a3c05f10e156a7c1e9ec60d6fde5e3e1d9051f6dfc3cd0a870fe50e2697",
+      "content_digest": "sha256:d498baca48d9e57db76bbbc005607abb502dd7475c2b1eb518f80ca842714b24",
       "contract_version": "2026.07.18",
       "fetched_at": "2026-08-25T16:58:12Z",
       "mapping_versions": [
@@ -55,7 +55,7 @@
       "registry_version": "2026.07.17",
       "review_status": "reviewed",
       "schema_version": "pricing-catalog-reference.v1",
-      "snapshot_id": "pcs_e0f7180a415dc53d5253008ac784de0d2c8bf78430e2140fc16dd304787331cd",
+      "snapshot_id": "pcs_5f5a1b13e5242ce80713cb3f39ca387b1474b760231bd3453b2402368e0e0194",
       "source": "reviewed_baseline"
     }
   },

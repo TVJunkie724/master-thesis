@@ -15,8 +15,7 @@ version: "2.2"
 - docs/plans/provider_access_pricing_review/phase_04_dashboard_pricing_health_row.md
 - docs/plans/provider_access_pricing_review/phase_06_pricing_review_center_ui.md
 - docs/plans/provider_access_pricing_review/phase_07_optimizer_step2_cleanup.md
-- docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
-- twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
+- docs/plans/phase_08_architecture_profiles_eventing/README.md
 - twin2multicloud_flutter/docs/frontend_delta/concepts/CONCEPT_POST_PHASE_08_FINALIZATION.md
 - twin2multicloud_flutter/lib/screens/dashboard_screen.dart
 - twin2multicloud_flutter/lib/screens/settings_screen.dart
@@ -44,7 +43,7 @@ the current god classes.
 | In scope ✅ | Out of scope ❌ |
 |---|---|
 | Flutter alignment with Management API contracts | Direct Flutter calls to Optimizer or Deployer |
-| User-visible credential purpose and provider access state | Persisting admin/bootstrap credentials |
+| User-visible credential purpose and provider access state | Creating credentials or deriving reduced permission sets |
 | Dashboard pricing readiness entry point | Live cloud deployment E2E in default verification |
 | Dedicated Pricing Review Center | Full pricing registry editor |
 | Wizard Step 1/2/3 cleanup | Rewriting optimizer formulas from Flutter |
@@ -54,9 +53,6 @@ the current god classes.
 
 ## Concepts
 
-- [Guided Cloud Access Bootstrap](../configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md)
-  turns request-scoped provider authority into a reusable bounded deployment
-  CloudConnection and resumes exact provider-owned manual prerequisites.
 - [Twin Layer Access Handoff](concepts/CONCEPT_TWIN_LAYER_ACCESS_HANDOFF.md)
   extends the existing Twin Overview with typed L4/L5 links, identity/readiness
   evidence, and one bounded GCP Viewer credential workflow.
@@ -70,7 +66,7 @@ Flutter App
 |       |-- pricing credentials: user-scoped, minimal, visible metadata
 |       |-- deployment credentials: user-owned, provider-target scoped,
 |       |   reusable and bound to Twins by ID
-|       `-- guided bootstrap: request-only authority -> bounded connection
+|       `-- provider setup: external prerequisite -> stored admin connection
 |
 |-- Dashboard
 |   |-- Platform Stat Cards
@@ -89,7 +85,7 @@ Flutter App
 |   |-- Describe workload
 |   |-- Choose architecture
 |   |-- Prepare deployment
-|   |   `-- select or bootstrap only the now-required provider access
+|   |   `-- select the externally provisioned admin connection
 |   `-- Review configuration and preflight
 |
 `-- Twin Overview
@@ -97,7 +93,7 @@ Flutter App
     |-- L4 semantic Twin and L5 raw/rollup access
     |-- structured logs and outputs
     |-- simulator/test utility diagnostics
-    `-- permission-set readiness visibility
+    `-- credential validation readiness
 ```
 
 ## Cross-Phase Rules
@@ -114,9 +110,8 @@ Flutter App
 - Draft creation, workload description, calculation, and architecture review
   do not require cloud credentials. Deployment access is selected or generated
   only after the architecture fixes the required provider scopes.
-- Bootstrap secrets are request-only and never restored. Local release,
-  provider-side revocation, required manual cleanup, and continued validity of
-  an existing user-owned credential remain visibly distinct.
+- The PoC reuses externally provisioned, non-root administrator connections;
+  credential creation and permission reduction remain outside the frontend.
 - Reviewed pricing decisions are persisted through the Management API database.
 - BLoC owns feature state and side effects; widgets render state.
 - Each implementation phase must receive an architect implementation plan before
@@ -126,15 +121,13 @@ Flutter App
 
 | Phase | Status | Document | Primary Area | Management API Dependency |
 |---|---|---|---|---|
-| 1 | Done | [PHASE_01_CONTRACT_BASELINE.md](phases/PHASE_01_CONTRACT_BASELINE.md) + [implementation plan](../../implementation_plans/2026-06-17_frontend_delta_phase_01_contract_baseline.md) | API contracts and DTO readiness | Implemented and typed for current workflows |
+| 1 | Done | [PHASE_01_CONTRACT_BASELINE.md](phases/PHASE_01_CONTRACT_BASELINE.md) | API contracts and DTO readiness | Implemented and typed for current workflows |
 | 2 | Done | [PHASE_02_PROFILE_CLOUD_ACCESS.md](phases/PHASE_02_PROFILE_CLOUD_ACCESS.md) | Settings/Profile | `GET /cloud-access` |
 | 3 | Done | [PHASE_03_DASHBOARD_PRICING_HEALTH.md](phases/PHASE_03_DASHBOARD_PRICING_HEALTH.md) | Dashboard | `GET /optimizer/pricing-health` |
 | 4 | Done | [PHASE_04_PRICING_REVIEW_CENTER.md](phases/PHASE_04_PRICING_REVIEW_CENTER.md) | Pricing Review | Pricing refresh/review contracts |
-| 5 | Superseded | [PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md](phases/PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md) | Legacy Wizard Step 1 | Replaced by the configuration-workspace roadmap |
 | 6 | Done | [PHASE_06_WIZARD_STEP2_OPTIMIZER_CLEANUP.md](phases/PHASE_06_WIZARD_STEP2_OPTIMIZER_CLEANUP.md) | Wizard Step 2 | Pricing readiness contract |
 | 7 | Done | [Configuration Workspace Roadmap](../configuration_workspace/ROADMAP_CONFIGURATION_WORKSPACE.md) | End-to-end configuration journey | Typed configuration, preflight, and deployment contracts |
-| 7.1 | Done offline | [Configuration Workspace Phase 9](../configuration_workspace/phases/PHASE_09_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) | Shared Settings and Prepare deployment cloud-access bootstrap | [FR-002](../feature-requests/FR_002_GUIDED_CLOUD_ACCESS_BOOTSTRAP.md) implemented with deterministic adapters; production disabled |
-| 8 | Done offline; v2 activation/live sign-in pending | [PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md](phases/PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md) + [operations plan](../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md) + [Layer Access plan](../../implementation_plans/2026-07-31_twin_layer_access_handoff.md) | Twin Overview | Existing operation contracts plus implemented [FR-001](../feature-requests/FR_001_DEPLOYMENT_LAYER_ACCESS_READ_MODEL.md) |
+| 8 | Done offline; live sign-in pending | [PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md](phases/PHASE_08_TWIN_OVERVIEW_DEPLOYMENT_OPERATIONS.md) + [Layer Access plan](../../implementation_plans/2026-07-31_twin_layer_access_handoff.md) | Twin Overview | Existing operation contracts plus implemented [FR-001](../feature-requests/FR_001_DEPLOYMENT_LAYER_ACCESS_READ_MODEL.md) |
 | 9 | Done | [PHASE_09_CROSS_CUTTING_QUALITY_GATE.md](phases/PHASE_09_CROSS_CUTTING_QUALITY_GATE.md) | Cross-cutting | All delivered contracts; residual issues tracked |
 | 9.1 | Local gates complete; platform CI pending | [Immutable Region-Scoped Pricing Catalogs](../../../2-twin2clouds/implementation_plans/2026-07-17_immutable_region_pricing_catalogs.md) | Pricing Review, calculation evidence, Twin Overview | Strict immutable references replace full pricing exports; compact evidence, honest legacy state, Web/macOS builds, and live local integration are verified |
 | 10 | Done | [PHASE_10_FINAL_MANUAL_VISUAL_AUDIT.md](phases/PHASE_10_FINAL_MANUAL_VISUAL_AUDIT.md) | Complete manual visual, interaction, accessibility, and release audit | No new Management API contract; deterministic demo/local data only |
@@ -154,9 +147,8 @@ The order is intentional:
 6. Keep pricing maintenance in its dedicated replacement surfaces.
 7. Preserve the typed optimizer and deployment contracts while reorganizing
    their inputs around user tasks.
-8. Keep the implemented Management-owned guided bootstrap contract and shared
-   Settings/workspace UI stable while Five-layer v2 activates generated
-   deployment connections.
+8. Keep the shared Settings/workspace CloudConnection selection stable while
+   Six-layer uses externally provisioned administrator credentials.
 9. Harden Twin Overview deployment operations after credential/preflight state
    is visible.
 10. Run cross-cutting quality and thesis-evidence gates.
@@ -183,7 +175,7 @@ complete. New product work still requires a dedicated implementation plan
 before Flutter code changes.
 
 Frontend Delta 8.6 is implemented and verified against a credential-free local
-Management API for every L4/L5 provider pair. Five-layer v2 and Six-layer v1
+Management API for every L4/L5 provider pair. Standalone Six-layer v1
 are now active for offline calculation; Phase 8.10 generates research evidence
 without adding frontend behavior. Provider-console browser sign-in remains a
 separate supervised-live boundary.

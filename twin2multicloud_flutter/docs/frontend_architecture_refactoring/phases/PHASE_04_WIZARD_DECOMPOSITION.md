@@ -9,7 +9,6 @@ version: "1.1"
 <!-- SOURCES:
 - twin2multicloud_flutter/docs/frontend_architecture_refactoring/ROADMAP_FRONTEND_ARCHITECTURE_REFACTORING.md
 - twin2multicloud_flutter/docs/wizard/ROADMAP_WIZARD.md
-- twin2multicloud_flutter/docs/frontend_delta/phases/PHASE_05_WIZARD_STEP1_CREDENTIAL_BOUNDARY.md
 - twin2multicloud_flutter/docs/frontend_delta/phases/PHASE_06_WIZARD_STEP2_OPTIMIZER_CLEANUP.md
 - twin2multicloud_flutter/docs/frontend_delta/phases/PHASE_07_WIZARD_STEP3_CONFIG_SCHEMA.md
 - twin2multicloud_flutter/lib/bloc/wizard/wizard_bloc.dart

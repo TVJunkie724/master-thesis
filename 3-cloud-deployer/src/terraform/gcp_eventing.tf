@@ -119,7 +119,7 @@ resource "terraform_data" "gcp_eventing_capacity_guard" {
   input = {
     worker_count             = local.gcp_event_resolved_worker_count
     local_worker_count       = local.gcp_event_local_worker_count
-    bridge_worker_count      = local.gcp_v2_bridge_worker_count
+    bridge_worker_count      = local.gcp_six_layer_bridge_worker_count
     telemetry_subscriptions  = length(local.gcp_event_worker_subscriptions)
     workers_per_subscription = local.gcp_event_workers_per_subscription
     retention_seconds        = local.gcp_event_retention_seconds
@@ -143,7 +143,7 @@ resource "terraform_data" "gcp_eventing_capacity_guard" {
           length(local.gcp_event_worker_subscriptions) > 0 &&
           local.gcp_event_workers_per_subscription == 21 &&
           local.gcp_event_resolved_worker_count == (
-            local.gcp_event_local_worker_count + local.gcp_v2_bridge_worker_count
+            local.gcp_event_local_worker_count + local.gcp_six_layer_bridge_worker_count
           )
         )
       )
@@ -254,7 +254,7 @@ resource "google_cloud_run_v2_service" "event_runtime" {
       error_message = "GCP Event Layer requires its validated content-addressed runtime image."
     }
     precondition {
-      condition     = startswith(var.gcp_event_runtime_image, local.gcp_v2_registry_prefix)
+      condition     = startswith(var.gcp_event_runtime_image, local.gcp_six_layer_registry_prefix)
       error_message = "GCP Event Layer runtime images must come from the deployment Artifact Registry repository."
     }
   }
@@ -418,33 +418,33 @@ locals {
     local.gcp_event_l1_local ? {
       ingress-received = {
         topic  = "received"
-        member = google_service_account.gcp_v2_runtime["ingress"].email
+        member = google_service_account.gcp_six_layer_runtime["ingress"].email
       }
       ingress-control = {
         topic  = "control"
-        member = google_service_account.gcp_v2_runtime["ingress"].email
+        member = google_service_account.gcp_six_layer_runtime["ingress"].email
       }
     } : {},
     local.gcp_event_l2_local ? {
       processor-processed = {
         topic  = "processed"
-        member = google_service_account.gcp_v2_runtime["processor"].email
+        member = google_service_account.gcp_six_layer_runtime["processor"].email
       }
       processor-control = {
         topic  = "control"
-        member = google_service_account.gcp_v2_runtime["processor"].email
+        member = google_service_account.gcp_six_layer_runtime["processor"].email
       }
     } : {},
     local.gcp_event_hot_local ? {
       persistence-control = {
         topic  = "control"
-        member = google_service_account.gcp_v2_runtime["persistence"].email
+        member = google_service_account.gcp_six_layer_runtime["persistence"].email
       }
     } : {},
     length(local.gcp_event_local_control_event_types) > 0 ? {
       domain-control = {
         topic  = "control"
-        member = google_service_account.gcp_v2_runtime["domain"].email
+        member = google_service_account.gcp_six_layer_runtime["domain"].email
       }
     } : {},
   )
@@ -466,7 +466,7 @@ resource "google_logging_project_bucket_config" "eventing" {
   retention_days = var.gcp_event_log_retention_days
   description    = "Bounded Six-layer Event Layer evidence logs"
 
-  depends_on = [terraform_data.gcp_v2_foundation_guard[0]]
+  depends_on = [terraform_data.gcp_six_layer_foundation_guard[0]]
 }
 
 resource "google_logging_project_sink" "eventing" {

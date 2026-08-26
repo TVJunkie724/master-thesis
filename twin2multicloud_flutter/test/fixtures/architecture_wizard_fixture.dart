@@ -15,12 +15,16 @@ WizardState architectureReadyWizardState({
   String twinId = 'twin-1',
   bool persisted = true,
   String profileId = 'fixture-profile',
+  String? profileVersion,
   String profileDigest = fixtureDigest,
 }) {
+  final resolvedProfileVersion =
+      profileVersion ?? (profileId == 'six-layer-eventing' ? '1' : '2');
   final summary = ArchitectureProfileSummary.fromJson(
     architectureProfileSummaryJson(
       withExtensionSlot: withExtensionSlot,
       profileId: profileId,
+      profileVersion: resolvedProfileVersion,
       profileDigest: profileDigest,
     ),
   );
@@ -28,6 +32,7 @@ WizardState architectureReadyWizardState({
     architectureProfileDetailJson(
       withExtensionSlot: withExtensionSlot,
       profileId: profileId,
+      profileVersion: resolvedProfileVersion,
       profileDigest: profileDigest,
     ),
   );
@@ -35,6 +40,7 @@ WizardState architectureReadyWizardState({
     architectureSelectionJson(
       twinId: twinId,
       profileId: profileId,
+      profileVersion: resolvedProfileVersion,
       profileDigest: profileDigest,
     ),
   );
@@ -56,22 +62,25 @@ ResolvedTwinArchitectureRead resolvedArchitectureFixture({
   String twinId = 'twin-1',
   CloudProvider? provider,
   String profileId = 'fixture-profile',
-  String profileVersion = '2',
+  String? profileVersion,
   String profileDigest = fixtureDigest,
 }) {
+  final resolvedProfileVersion =
+      profileVersion ?? (profileId == 'six-layer-eventing' ? '1' : '2');
   final architecture = Map<String, dynamic>.from(
     jsonDecode(
           File(
-            '../contracts/architecture-profiles/v1/fixtures/valid/'
-            'mixed-baseline-resolved-architecture.json',
+            '../contracts/architecture-profiles/v2/fixtures/valid/'
+            'six-layer-aws-azure-eventing-small-resolved.json',
           ).readAsStringSync(),
         )
         as Map,
   );
   architecture['calculation_run_id'] = runId;
+  architecture['resolution_status'] = 'publishable';
   architecture['architecture_profile_ref'] = {
     'id': profileId,
-    'version': profileVersion,
+    'version': resolvedProfileVersion,
     'digest': profileDigest,
   };
   final deploymentRef =
@@ -124,7 +133,7 @@ ResolvedTwinArchitectureRead resolvedArchitectureFixture({
     'calculation_run_id': runId,
     'selected_for_deployment_at': '2026-08-03T10:00:00Z',
     'architecture_compatibility_status': 'ready',
-    'origin': 'reconstructed_v1',
+    'origin': 'native_v2',
     'architecture': architecture,
   });
 }

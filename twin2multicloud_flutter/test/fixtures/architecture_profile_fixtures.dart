@@ -5,12 +5,13 @@ const fixtureDigestB =
 
 Map<String, dynamic> architectureProfileSummaryJson({
   String profileId = 'fixture-profile',
+  String profileVersion = '2',
   String profileDigest = fixtureDigest,
   bool withExtensionSlot = true,
   bool withFlow = false,
 }) => {
   'profile_id': profileId,
-  'profile_version': '2',
+  'profile_version': profileVersion,
   'profile_digest': profileDigest,
   'display_name': 'Fixture profile',
   'description': 'A strict populated profile used only by contract tests.',
@@ -72,12 +73,14 @@ Map<String, dynamic> architectureProfileSummaryJson({
 
 Map<String, dynamic> architectureProfileDetailJson({
   String profileId = 'fixture-profile',
+  String profileVersion = '2',
   String profileDigest = fixtureDigest,
   bool withExtensionSlot = true,
   bool withFlow = false,
 }) => {
   ...architectureProfileSummaryJson(
     profileId: profileId,
+    profileVersion: profileVersion,
     profileDigest: profileDigest,
     withExtensionSlot: withExtensionSlot,
     withFlow: withFlow,

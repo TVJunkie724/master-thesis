@@ -1,6 +1,6 @@
 ---
 title: "Architecture Profile Experiment"
-description: "A bounded Configuration Workspace experience for selecting, comparing, and deploying the Five-layer v2 and Six-layer v1 thesis profiles."
+description: "A bounded Configuration Workspace experience for selecting and reviewing the standalone Six-layer v1 thesis profile."
 tags: [flutter, configuration-workspace, architecture-profiles, eventing, thesis]
 lastUpdated: "2026-08-14"
 version: "1.6"
@@ -8,14 +8,14 @@ version: "1.6"
 
 <!-- SOURCES:
 - docs/plans/phase_08_architecture_profiles_eventing/README.md
-- docs/plans/phase_08_architecture_profiles_eventing/phase_08_7_flutter_profile_workflow.md
-- docs/plans/phase_08_architecture_profiles_eventing/phase_08_service_bundle_closure.md
-- docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md
+- docs/plans/phase_08_architecture_profiles_eventing/README.md
+- docs/plans/phase_08_architecture_profiles_eventing/README.md
+- docs/plans/phase_08_architecture_profiles_eventing/README.md
 - docs/plans/phase_08_architecture_profiles_eventing/phase_08_layer_access_handoff.md
 - twin2multicloud_flutter/docs/configuration_workspace/CONCEPT_CONFIGURATION_WORKSPACE.md
 - twin2multicloud_flutter/docs/configuration_workspace/RESOLVED_DEPLOYMENT_REVIEW.md
 - FRONTEND_ARCHITECTURE.md
-- User-approved Five-layer v2 and Six-layer v1 PoC boundaries from the 2026-08-03 planning conversation
+- User-approved standalone Six-layer v1 PoC boundary from the 2026-08-03 planning conversation
 EXTRACTED: 2026-08-14 | VERSION: 1.6
 -->
 
@@ -32,27 +32,27 @@ the selected result, and later opens the deployed L4 and L5 user surfaces.
 The completed experiment exposes two selectable profiles in staged runtime
 increments:
 
-- `five-layer-baseline@2`, where the agreed domain-event behavior is embedded
+- `six-layer-eventing@1`, where the agreed domain-event behavior is embedded
   in L1/L2 and no independent Event Layer is deployed;
 - `six-layer-eventing@1`, which inherits the same L1-L5 behavior and adds an
   independently costed Eventing responsibility.
 
-`five-layer-baseline@1` remains readable for historical Twins but is not
+`six-layer-eventing@1` remains readable for historical Twins but is not
 selectable for new calculations or deployments.
 
 Phase 8.7 installed the typed Flutter catalog, selection, visualization, and
 resolved-review workflow behind an initially empty catalog. Phase 8.9A
-published Five-layer v2 and Workload v2 for offline evaluation. Phase 8.9B now
+published Six-layer and Workload v2 for offline evaluation. Phase 8.9B now
 publishes Six-layer v1 through the same Management-owned workflow and adds no
 second wizard or Event feature flag.
 
 Current checkpoint: both reviewed profiles are active for offline selection
-and connected-local-stack calculation. Five-layer v2 and Six-layer v1 retain
+and connected-local-stack calculation. Six-layer v1 retains
 separate immutable RTA/RDS evidence and are compared only inside their own
 profile space. Deployment remains blocked whenever a resolved candidate lists
 an unsatisfied supervised live-capacity gate. Demo mode exposes both profile
-definitions for comparison; its calculation fixture remains Five-layer-only
-and fails closed for Six-layer rather than relabeling Five-layer evidence.
+definitions for comparison; its calculation fixture remains Six-layer-only
+and fails closed for Six-layer rather than relabeling Six-layer evidence.
 
 Phase 8.10 implements the comparison methodology as separate, reproducible
 research evidence. It does not introduce an Event feature flag, a third UI
@@ -64,7 +64,7 @@ Before the profile experiment, the Configuration Workspace presented legacy
 workload booleans, fixed five-slot assumptions, and an optimizer recommendation
 without a visible profile boundary. That would have made the thesis experiment
 scientifically ambiguous: a result could appear cheaper because it omitted
-required behavior, and Five-layer and Six-layer outcomes could be compared as
+required behavior, and Six-layer and Six-layer outcomes could be compared as
 if they were one optimization space.
 
 The target experience makes the experimental variable explicit while keeping
@@ -79,8 +79,8 @@ enterprise topology editor or cloud-governance product.
 | One shared core workload contract and one required immutable Small/Medium/Large event scenario | Event feature flags or user-authored event-rate combinations |
 | Profile-local calculation and comparison with functional completeness before cost | Cross-profile winner, automatic recommendation of Five vs Six layers, or using price to replace a reviewed provider service bundle |
 | Read-only logical profile flow and resolved provider/service assignments | Terraform values, raw resource identifiers, credentials, or direct cloud controls |
-| All nine Five-layer v2 placements and the valid Six-layer provider combinations, including single-cloud | Assumptions that one provider always owns only the source or destination side |
-| Guided request-scoped bootstrap after providers are known | Permanent storage of administrator credentials or an organization-wide IAM wizard |
+| All nine Six-layer placements and the valid Six-layer provider combinations, including single-cloud | Assumptions that one provider always owns only the source or destination side |
+| Reuse of preconfigured provider connections after providers are known | Credential creation, permission derivation, or an organization-wide IAM wizard |
 | Exactly one usable L4 and one usable L5 access surface after deployment | Embedded provider consoles, scene/3D authoring, or a L4-to-L5 query dependency |
 | Web and supported desktop platforms | Mobile targets and live paid cloud E2E in default verification |
 
@@ -115,7 +115,7 @@ Optimize and Review
     |
     v
 Deployment Review
-    |-- guided cloud bootstrap for missing selected-provider access
+    |-- select preconfigured provider access
     |-- data contracts
     |-- profile, workload, providers, services, edges, tiering, and readiness
     |-- profile-supported Twin assets only
@@ -152,7 +152,7 @@ scheduler, job, shard, checkpoint, or provider-lifecycle implementation knobs.
 
 The optimizer produces alternatives only after the selected profile's required
 capabilities have been satisfied. Results are grouped by that profile and may
-be compared by total estimated cost only within the group. Five-layer v2 and
+be compared by total estimated cost only within the group. Six-layer and
 Six-layer v1 are separate experimental runs; neither is labeled the universal
 winner.
 
@@ -164,7 +164,7 @@ The resolved review distinguishes:
 - finite tiering jobs and transfer ownership;
 - cost dimensions, evidence status, limitations, and unsupported candidates.
 
-For Five-layer v2, L3 hot and L5 are deliberately co-located while L4 remains
+For Six-layer, L3 hot and L5 are deliberately co-located while L4 remains
 independent. The UI therefore supports all nine L3/L5-to-L4 placements and
 does not imply that L4 feeds Grafana. For GCP, one named Firestore database may
 serve separately owned L3 and L4 collections when both responsibilities are on
@@ -174,7 +174,8 @@ GCP; this is shown as a resource-sharing fact, not as a merged logical layer.
 
 Draft creation, profile selection, workload entry, calculation, and review are
 credential-free. Once a deployment result is selected, the UI derives the
-required provider set and offers the shared guided bootstrap flow.
+required provider set and asks the researcher to select a preconfigured
+CloudConnection.
 
 The researcher may supply a short-lived or deliberately disposable
 administrator/bootstrap credential. The backend uses it only for the current
@@ -204,9 +205,9 @@ separate technical-evidence section.
 | Phase 8.6 graph resolver | Deterministic generic deployment graph and binding preflight |
 | Management architecture APIs | Strict profile summaries/details, server invalidation preview, selection revision, and resolved architecture |
 | Workload v2 and event scenario contracts | Profile-supported fields, fixed scenario IDs, validation, and deterministic digests |
-| Guided bootstrap APIs | Provider guides and request-scoped sessions that produce bounded CloudConnections |
+| CloudConnection APIs | Store, validate, select, and bind externally provisioned administrator credentials |
 | Deployment access API | Typed `deployment-access.v1` L4/L5 read model and GCP Viewer rotation |
-| Five-layer v2 implementation | Complete service bundles, storage tiering, readers, projection, permissions, Terraform, and cost formulas |
+| Six-layer implementation | Complete service bundles, storage tiering, readers, projection, permissions, Terraform, and cost formulas |
 | Six-layer v1 delta | Event Layer bundles and source-owned bridge across every directed provider pair |
 
 Flutter consumes all of these only through the Management API.
@@ -233,7 +234,6 @@ runtime-preflight facts; they do not change the bounded UX.
 ## Related Concepts
 
 - [Configuration Workspace](../CONCEPT_CONFIGURATION_WORKSPACE.md)
-- [Cloud Access Bootstrap](CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md)
 - [Resolved Deployment Review](../RESOLVED_DEPLOYMENT_REVIEW.md)
 - [Twin Layer Access Handoff](../../frontend_delta/concepts/CONCEPT_TWIN_LAYER_ACCESS_HANDOFF.md)
 

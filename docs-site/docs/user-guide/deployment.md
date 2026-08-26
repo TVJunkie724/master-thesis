@@ -33,8 +33,8 @@ Inspect:
 - data-flow verification phases where supported;
 - simulator controls only after required provider material exists.
 
-Layer Access is available from persisted `five-layer-baseline@2` or
-`six-layer-eventing@1` deployment evidence. Historical Five-layer v1 returns an
+Layer Access is available from persisted `six-layer-eventing@1` deployment
+evidence. Historical Five-layer v1 returns an
 explicit unsupported state, and destroyed Twins expose no active links. Open
 requires the provider resource and interactive binding to be ready; content
 and data-probe status are shown independently so one degraded layer never
@@ -59,7 +59,7 @@ live-cloud evidence.
 
 The Layer Access integration uses the same quarantine: a temporary local
 Management API and SQLite database exercise all nine L4/L5 provider pairs for
-both active profiles, owner isolation, redaction, destroy, and rotation
+the active profile, owner isolation, redaction, destroy, and rotation
 concurrency without starting Optimizer, Deployer, Terraform, or a provider API.
 
 The Phase 8.10 evaluation likewise stops at deterministic RTA/RDS and

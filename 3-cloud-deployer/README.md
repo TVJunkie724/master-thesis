@@ -55,7 +55,7 @@ consumed once. Request-body permission checks remain the canonical provider
 validation path.
 
 New profile-owned operations require `DeploymentManifest 3.0` for historical
-Five-layer v1 evidence or `DeploymentManifest 4.0` for active Five-layer v2
+Five-layer v1 evidence or `DeploymentManifest 4.0` for active Six-layer
 and Six-layer v1 evidence. Manifest v2 remains a historical inspection reader,
 never a fallback for a new operation. The Deployer recomputes the canonical
 architecture/specification digests, verifies the selected provider path and
@@ -189,7 +189,7 @@ binding to these internal routes.
 
 ## Further Documentation
 
-Architecture, setup, cloud bootstrap, provider permissions, deployment
+Architecture, setup, provider access, deployment
 internals, migration decisions, reference papers, and roadmaps are maintained
 under `docs-site/`. Historical implementation plans and provider policy
 references remain in this service as audit evidence where repository scripts

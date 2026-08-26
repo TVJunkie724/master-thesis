@@ -372,38 +372,38 @@ def network_ports(component_id: str) -> list[int]:
 def file_targets(provider: str, component_id: str) -> list[str]:
     exact = {
         "aws.ecr-if-container-selected": [
-            "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
+            "3-cloud-deployer/src/terraform/aws_six_layer.tf",
             "3-cloud-deployer/src/providers/terraform/aws_v2_image_publisher.py",
             "3-cloud-deployer/src/providers/terraform/package_builders/aws_v2.py",
         ],
         "aws.ecs-fargate-storage-mover": [
-            "3-cloud-deployer/src/terraform/aws_five_layer_v2.tf",
-            "3-cloud-deployer/src/providers/aws/lambda_functions/five-layer-v2/storage-mover",
+            "3-cloud-deployer/src/terraform/aws_six_layer.tf",
+            "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-domain/storage-mover",
         ],
         "azure.acr-basic-if-container-selected": [
-            "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
+            "3-cloud-deployer/src/terraform/azure_six_layer.tf",
             "3-cloud-deployer/src/providers/terraform/azure_v2_image_publisher.py",
             "3-cloud-deployer/src/providers/terraform/package_builders/azure_v2_container.py",
         ],
         "azure.container-apps-scheduled-storage-job": [
-            "3-cloud-deployer/src/terraform/azure_five_layer_v2.tf",
-            "3-cloud-deployer/src/providers/azure/azure_functions/five-layer-v2/storage-mover",
+            "3-cloud-deployer/src/terraform/azure_six_layer.tf",
+            "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-domain/storage-mover",
         ],
         "gcp.artifact-registry-if-container-selected": [
-            "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
+            "3-cloud-deployer/src/terraform/gcp_six_layer.tf",
             "3-cloud-deployer/src/providers/terraform/gcp_v2_image_publisher.py",
             "3-cloud-deployer/src/providers/terraform/package_builders/gcp_v2.py",
         ],
         "gcp.cloud-run-storage-job": [
-            "3-cloud-deployer/src/terraform/gcp_five_layer_v2.tf",
-            "3-cloud-deployer/src/providers/gcp/containers/five-layer-v2/storage-mover",
+            "3-cloud-deployer/src/terraform/gcp_six_layer.tf",
+            "3-cloud-deployer/src/providers/gcp/containers/six-layer-domain/storage-mover",
         ],
     }
     if component_id in exact:
         return exact[component_id]
     slug = component_id.replace(".", "_").replace("-", "_")
     return [
-        f"3-cloud-deployer/src/terraform/{provider}_five_layer_v2.tf",
+        f"3-cloud-deployer/src/terraform/{provider}_six_layer.tf",
         f"3-cloud-deployer/src/runtime_packages/{provider}/{slug}",
     ]
 
@@ -415,20 +415,18 @@ def flatten_components(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         region = provider["region"]
         groups: list[tuple[str, list[str], list[str]]] = []
         for layer, ids in provider["layers"].items():
-            groups.append(
-                (layer, ids, ["five-layer-baseline@2", "six-layer-eventing@1"])
-            )
+            groups.append((layer, ids, ["six-layer-eventing@1"]))
         groups.extend(
             [
                 (
                     "support",
                     provider["support_components"],
-                    ["five-layer-baseline@2", "six-layer-eventing@1"],
+                    ["six-layer-eventing@1"],
                 ),
                 (
                     "embedded_event",
                     provider["embedded_event_components"],
-                    ["five-layer-baseline@2"],
+                    ["six-layer-eventing@1"],
                 ),
                 (
                     "event_layer",
@@ -455,7 +453,6 @@ def flatten_components(bundle: dict[str, Any]) -> list[dict[str, Any]]:
                         ),
                         "runtime_state": "decision_frozen_not_implemented",
                         "pricing_owner_id": f"cost::{component_id}",
-                        "permission_set_refs": [f"{provider_id}_thesis_demo_v2"],
                         "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
                         "input_contracts": [],
                         "output_contracts": [],
@@ -517,7 +514,7 @@ def build_manifest(bundle: dict[str, Any], routes: dict[str, Any]) -> dict[str, 
         "artifact_id": "implementation-component-manifest",
         "bundle_digest": digest(bundle),
         "route_digest": digest(routes),
-        "profile_targets": ["five-layer-baseline@2", "six-layer-eventing@1"],
+        "profile_targets": ["six-layer-eventing@1"],
         "terraform_provider_requirements": TERRAFORM_PROVIDER_REQUIREMENTS,
         "terraform_apply_stages": [
             {
@@ -556,11 +553,6 @@ def build_manifest(bundle: dict[str, Any], routes: dict[str, Any]) -> dict[str, 
             "canonical-domain-event.v1",
         ],
         "route_classes": [item["route_class"] for item in routes["route_classes"]],
-        "permission_artifacts": [
-            "3-cloud-deployer/docs/references/permission_sets/aws_thesis_demo_v2.json",
-            "3-cloud-deployer/docs/references/permission_sets/azure_thesis_demo_v2.json",
-            "3-cloud-deployer/docs/references/permission_sets/gcp_thesis_demo_v2.json",
-        ],
         "runtime_target_roots": [
             "contracts/architecture-profiles/definitions",
             "2-twin2clouds/backend",

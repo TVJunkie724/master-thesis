@@ -1,4 +1,4 @@
-"""Fixed-path, immutable Phase 8.3 definition registry for the Deployer."""
+"""Fixed-path, immutable Six-layer definition registry for the Deployer."""
 
 from __future__ import annotations
 
@@ -12,8 +12,6 @@ from . import contracts
 
 DEFINITIONS_ROOT = contracts.CONTRACT_ROOT.parent / "definitions"
 _PROFILE_DEFINITIONS = {
-    ("five-layer-baseline", "1"): ("baseline", "five-layer-baseline"),
-    ("five-layer-baseline", "2"): ("complete-service", "five-layer-baseline"),
     ("six-layer-eventing", "1"): ("six-layer-eventing", "six-layer-eventing"),
 }
 
@@ -41,7 +39,7 @@ class ArchitectureProfileRegistry:
     def __init__(
         self,
         *,
-        profile_id: str = "five-layer-baseline",
+        profile_id: str = "six-layer-eventing",
         profile_version: str = "1",
     ) -> None:
         definition = _PROFILE_DEFINITIONS.get((profile_id, profile_version))

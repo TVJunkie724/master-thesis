@@ -51,9 +51,9 @@ must not silently enter cost calculation.
 
 ### Phase 8 profile offline publication
 
-The active Five-layer v2 and Six-layer v1 evaluation paths consume the same three immutable,
-content-addressed provider snapshots published from
-`five_layer_v2_rate_card_sources.v2.json`. The publisher validates exact
+The active Six-layer v1 path consumes three immutable, content-addressed
+provider snapshots published from `six_layer_rate_card_sources.v1.json`. The
+publisher validates exact
 provider/region/source/rate keys, official source hosts, observation time,
 non-negative rates, and one shared pinned USD-to-EUR conversion before it
 updates the canonical baseline. It also archives the predecessor baseline so
@@ -68,18 +68,11 @@ evidence. The RDS keeps
 the Cosmos request-charge and autoscale-capacity gates, and Management rejects
 deployment selection until supervised evidence satisfies them.
 
-Six-layer v1 keeps every L1-L5 price from that shared base and adds only the
-registered Eventing bundle, direct/bridge transfer, and destination-ingress
-dimensions from `six-layer-eventing-v1-cost-registry.json`. Its S/M/L Eventing
-scenario is paired with the same immutable core preset, so profile comparison
-does not silently change functional workload.
-
-The Phase 8.10 package evaluates each active profile locally and then produces
-27 matched-context deltas for the three sizes and nine admissible L3/L5-to-L4
-placements. It also covers all six directed Event-provider pairs. The generated
-summary must not be read as one cross-profile optimizer race: profile-local
-winners answer different bounded architecture questions, while only the
-matched inherited L1-L5 rows isolate the explicit Eventing treatment.
+Six-layer v1 prices the complete L1-L5 composition plus its registered Eventing
+bundle, direct/bridge transfer, and destination-ingress dimensions. Its S/M/L
+Eventing scenario is paired with the immutable core preset. The Phase 8
+evidence covers all nine admissible L3/L5-to-L4 placements and all six directed
+Event-provider pairs without claiming a cross-profile optimizer race.
 
 Rollup storage and rollup operations are different quantities. Storage holds
 at most one rollup item per device, metric, and hour (720 points across the
@@ -190,7 +183,7 @@ specifications. It also owns the selected architecture-profile reference and
 immutable resolved-architecture persistence. Phase 8.5 implements architecture
 emission, trusted Management enrichment, shared-contract validation, and
 atomic result/specification/architecture persistence. The active
-`five-layer-baseline@2` path is default-on; explicit `false` is a fail-closed
+`six-layer-eventing@1` path is default-on; explicit `false` is a fail-closed
 rollback. The public Management calculation schema cannot author the profile
 or extension references. Offline v2 evidence remains unselectable for
 deployment while any supervised live-capacity gate is listed. Flutter cannot

@@ -1,3 +1,9 @@
-# ResolvedDeploymentSpecification v2
+# Resolved Deployment Specification v2
 
-Generic component selections, typed dimensions, bindings, and immutable Five-layer v2 evidence references. Generated fixtures remain `offline_contract_fixture`, cover representative Single-, Two-, and Three-Cloud shapes, and list every blocking activation/live-capacity gate. The exhaustive placement/size matrix remains generated test evidence rather than duplicated fixture data. Azure Large offline evaluation uses the storage/operation-driven autoscale maximum as an explicit cost proxy; deployment still requires the supervised request-charge and autoscale capacity evidence gates. Generated; do not edit by hand.
+The v2 specification carries the selected Six-layer components, capacity
+dimensions, bindings, immutable evidence references, and deployment-readiness
+gates. The canonical fixture is offline evidence and does not claim that live
+cloud deployment has passed.
+
+Generated service copies are synchronized by
+`scripts/sync_six_layer_contracts.py`.

@@ -59,28 +59,20 @@ refresh reference for each provider, otherwise the reviewed baseline. It verifie
 each exact identity before formula execution; Flutter never exports or authors
 pricing evidence.
 
-## Credential Bootstrap And Use
+## PoC Credential Use
 
 ```text
-Flutter requests provider guide and creates safe owner-scoped session
-  -> user reviews provider preparation and both permission packs
-  -> one synchronous execute request carries the temporary credential
-  -> deterministic offline provider lifecycle creates synthetic scoped material
-  -> Management releases request material and encrypts CloudConnection
-  -> UI shows ready or exact cleanup/recheck action
+operator creates a non-root administrator credential outside the app
+  -> Flutter submits it through a write-only CloudConnection request
+  -> Management encrypts the CloudConnection and returns non-secret metadata
   -> validate/preflight by purpose
   -> bind deployment connection to twin
 ```
 
-Guided bootstrap/admin credentials cross exactly one sensitive application
-request boundary; they never enter durable session state, logs, retry payloads,
-responses, or Flutter BLoC state. Production provider adapters remain disabled,
-so this path is an offline PoC lifecycle and makes no cloud-mutation claim. The
-versioned script and secure import remain the supervised live fallback, where
-administrator credentials stay in the provider CLI. Both produce deployment
-credentials only. AWS and GCP pricing credentials are imported separately as
-user-level defaults; Azure pricing uses a public API. Deployment credentials
-can be bound to individual twins.
+Credentials never enter logs, retry payloads, responses, or Flutter BLoC state.
+The PoC may register the same preconfigured credential for pricing and
+deployment purposes. Azure pricing uses a public API. Deployment connections
+remain owner-scoped and are bound explicitly to Twins.
 
 ## Deployment
 

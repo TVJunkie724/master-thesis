@@ -1,62 +1,28 @@
 # Cloud Setup
 
-Cloud setup is intentionally split by purpose and privilege. A credential that can
-create identities is not the credential that should remain stored for normal pricing or
-deployment work.
+The supervised PoC uses one preconfigured administrator credential for each
+provider involved in pricing or deployment. Twin2MultiCloud does not create
+cloud identities, generate minimal credentials, or manage permission packs and
+rotation.
 
-## Credential Model
+## Safe sequence
 
-```text
-guided UI
-   -> safe provider guide and permission packs
-   -> one execute request with a transient bootstrap credential
-   -> deterministic provider adapter (offline PoC only)
-   -> encrypted generated deployment CloudConnection
+1. Create or select an isolated thesis account, subscription, or project.
+2. Enable billing and the provider services required by the selected
+   Six-layer deployment.
+3. Create a non-root administrator credential outside the application.
+4. In **Settings -> Cloud Accounts & Access**, register the credential through
+   the write-only form and verify the displayed provider scope.
+5. Validate it, assign pricing/deployment purpose as required, and bind the
+   deployment connection to the Twin.
+6. Run deployment preflight. Resolve only the concrete provider prerequisite
+   reported by the check.
+7. Run live deployment, verification, destroy, and credential revocation only
+   as an explicitly supervised E2E session.
 
-supervised live fallback
-   -> authenticated provider CLI
-   -> versioned bootstrap script, dry-run before apply
-   -> ignored local deployment CloudConnection JSON
-   -> secure Management import
-```
-
-Both paths are implemented. The in-app guide/session flow exercises the whole
-lifecycle with deterministic AWS, Azure, and GCP adapters; it does not create a
-provider identity or cloud resource. Production adapters fail closed. The
-versioned static script plus secure import therefore remains the current
-supervised live-provider path. Neither path persists administrator credentials.
-AWS and GCP pricing CloudConnections use a separate secure create/import path;
-Azure pricing uses the public Retail Prices API and needs no pricing credential.
-
-## Current Baseline
-
-Historical manual scripts use permission-set version `thesis-demo-v1`.
-Generated guided deployment connections use `thesis-demo-v2`, whose permission
-artifacts are already frozen for Five-layer v2. Both are reviewable thesis
-baselines, not final universal least-privilege guarantees. Supervised live
-deployment evidence is still required before finalizing provider policies.
-
-## Safe Sequence
-
-For the offline PoC, open **Settings -> Cloud Accounts & Access** or
-**Prepare deployment -> Cloud access**, review the server-owned guide and
-authority packs, submit the temporary credential once, and inspect the returned
-connection and disposal state. Resume, recheck, cancel, credential re-entry,
-and manual-revocation acknowledgement use the same owner-scoped session.
-
-For supervised live-provider setup:
-
-1. choose provider and target account/subscription/project;
-2. run the provider script without `--apply` and review planned mutations;
-3. authenticate the provider CLI through its normal secure mechanism;
-4. apply explicitly and write output only to an ignored private path;
-5. import the output as a CloudConnection;
-6. validate and inspect account/scope metadata;
-7. bind the deployment connection only after validation;
-8. rotate/revoke through explicit provider controls when retiring it.
-
-Never commit generated keys, pass administrator secrets as command-line arguments, or
-store bootstrap credentials in Flutter configuration.
+The application stores the CloudConnection encrypted and returns only
+non-secret metadata. Never use a root/break-glass credential, commit provider
+keys, or paste credentials into logs and issue bodies.
 
 - [AWS](aws.md)
 - [Azure](azure.md)

@@ -35,10 +35,8 @@ OPTIMIZATION_FLAGS = {
     "triggerNotificationWorkflow",
     "useEventChecking",
 }
-FIVE_LAYER_V2 = ("five-layer-baseline", "2")
-SIX_LAYER_EVENTING_V1 = ("six-layer-eventing", "1")
-PHASE_8_COMPARISON_PROFILES = {FIVE_LAYER_V2, SIX_LAYER_EVENTING_V1}
-V2_FORBIDDEN_OPTIMIZER_FIELDS = {
+SIX_LAYER_PROFILE = ("six-layer-eventing", "1")
+SIX_LAYER_FORBIDDEN_OPTIMIZER_FIELDS = {
     "allowGcpSelfHostedL4",
     "allowGcpSelfHostedL5",
     "amountOfActiveEditors",
@@ -62,8 +60,8 @@ UUID_PATTERN = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
     r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
-V2_CONDITION_PATTERN = re.compile(r"^\s*(\S+)\s*(<=|>=|==|!=|<|>)\s*(\S+)\s*$")
-V2_TYPED_OPERAND_PATTERN = re.compile(
+SIX_LAYER_CONDITION_PATTERN = re.compile(r"^\s*(\S+)\s*(<=|>=|==|!=|<|>)\s*(\S+)\s*$")
+SIX_LAYER_TYPED_OPERAND_PATTERN = re.compile(
     r"^(?:DOUBLE|INTEGER|STRING|BOOLEAN)\([^()\r\n]*\)$"
 )
 
@@ -106,10 +104,7 @@ def _validate_architecture_profile_ref(
     if reference is None:
         return None
     identity = (reference.id, reference.version)
-    if identity not in {
-        ("five-layer-baseline", "1"),
-        *PHASE_8_COMPARISON_PROFILES,
-    }:
+    if identity != SIX_LAYER_PROFILE:
         _add(
             errors,
             "ARCH_PROFILE_UNAVAILABLE",
@@ -136,14 +131,14 @@ def _validate_profile_optimizer_fields(
     params: dict | None,
     errors: list[ValidationError],
 ) -> None:
-    if profile not in PHASE_8_COMPARISON_PROFILES or not isinstance(params, dict):
+    if profile != SIX_LAYER_PROFILE or not isinstance(params, dict):
         return
-    for field in sorted(V2_FORBIDDEN_OPTIMIZER_FIELDS & params.keys()):
+    for field in sorted(SIX_LAYER_FORBIDDEN_OPTIMIZER_FIELDS & params.keys()):
         _add(
             errors,
             "FORBIDDEN_PROFILE_FIELD",
             f"optimizer_params.{field}",
-            f"{field} is not part of the selected Phase 8 comparison profile",
+            f"{field} is not part of the Six-layer workload contract",
         )
 
 
@@ -357,7 +352,7 @@ def _validate_processors(
     profile: tuple[str, str] | None,
     errors: list[ValidationError],
 ) -> None:
-    if profile in PHASE_8_COMPARISON_PROFILES:
+    if profile == SIX_LAYER_PROFILE:
         for device_id in sorted(processors):
             _add(
                 errors,
@@ -398,7 +393,7 @@ def _validate_processors(
 
 
 def _validate_hierarchy_and_scene(config, l4, params, profile, errors) -> None:
-    if profile in PHASE_8_COMPARISON_PROFILES:
+    if profile == SIX_LAYER_PROFILE:
         profile_label = f"{profile[0]}@{profile[1]}"
         for field, present in (
             ("hierarchy", bool(config.hierarchy)),
@@ -464,7 +459,7 @@ def _validate_hierarchy_and_scene(config, l4, params, profile, errors) -> None:
 
 
 def _validate_event_extensions(config, l2, params, profile, errors) -> None:
-    if profile in PHASE_8_COMPARISON_PROFILES:
+    if profile == SIX_LAYER_PROFILE:
         _validate_mandatory_v2_event_extensions(config, l2, profile, errors)
         return
     if params["returnFeedbackToDevice"]:
@@ -577,7 +572,7 @@ def _validate_v2_rules(content: str | None, profile_label: str, errors) -> None:
     if not 1 <= len(rules) <= 100:
         _add(
             errors,
-            "INVALID_V2_RULE_SET",
+            "INVALID_SIX_LAYER_RULE_SET",
             "config_events",
             f"{profile_label} requires between 1 and 100 typed rules",
         )
@@ -588,7 +583,7 @@ def _validate_v2_rules(content: str | None, profile_label: str, errors) -> None:
             continue
         condition = rule.get("condition")
         match = (
-            V2_CONDITION_PATTERN.fullmatch(condition)
+            SIX_LAYER_CONDITION_PATTERN.fullmatch(condition)
             if isinstance(condition, str)
             else None
         )
@@ -596,7 +591,7 @@ def _validate_v2_rules(content: str | None, profile_label: str, errors) -> None:
         typed_operands = [
             operand
             for operand in operands
-            if V2_TYPED_OPERAND_PATTERN.fullmatch(operand)
+            if SIX_LAYER_TYPED_OPERAND_PATTERN.fullmatch(operand)
         ]
         if (
             not match
@@ -605,7 +600,7 @@ def _validate_v2_rules(content: str | None, profile_label: str, errors) -> None:
         ):
             _add(
                 errors,
-                "INVALID_V2_TYPED_RULE",
+                "INVALID_SIX_LAYER_TYPED_RULE",
                 f"config_events[{index}].condition",
                 (
                     f"{profile_label} conditions require the bounded "
@@ -619,7 +614,7 @@ def _validate_v2_rules(content: str | None, profile_label: str, errors) -> None:
         if not isinstance(rule_id, str) or not rule_id or rule_id in seen_rule_ids:
             _add(
                 errors,
-                "INVALID_V2_RULE_ID",
+                "INVALID_SIX_LAYER_RULE_ID",
                 f"config_events[{index}].rule_id",
                 f"{profile_label} explicit rule IDs must be non-empty and unique",
             )
@@ -663,7 +658,7 @@ def _parse_action_names(content: str | None) -> list[str]:
 
 
 def _validate_user_config(content, l4, l5, profile, errors) -> None:
-    phase8 = profile in PHASE_8_COMPARISON_PROFILES
+    phase8 = profile == SIX_LAYER_PROFILE
     if not phase8 and l5 not in {"aws", "azure"}:
         return
     if not content:
@@ -807,7 +802,7 @@ def validate_phase8_user_config_content(
     profile: tuple[str, str],
 ) -> None:
     """Validate one user-config editor payload with its trusted profile context."""
-    if profile not in PHASE_8_COMPARISON_PROFILES:
+    if profile != SIX_LAYER_PROFILE:
         raise ValueError("Architecture profile is not an active Phase 8 profile")
     errors: list[ValidationError] = []
     _validate_user_config(content, l4_provider, l5_provider, profile, errors)

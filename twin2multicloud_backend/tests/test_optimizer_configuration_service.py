@@ -58,15 +58,15 @@ def test_update_params_persists_without_calculation(
     response = _service(db_session).update_params(
         twin.id,
         user.id,
-        OptimizerParamsUpdate(params={**sample_calc_params, "numberOfDevices": 250}),
+        OptimizerParamsUpdate(params=sample_calc_params),
     )
 
-    assert response.params == {**sample_calc_params, "numberOfDevices": 250}
+    assert response.params == sample_calc_params
     assert response.result is None
     assert response.cheapest_path is None
 
 
-def test_update_params_persists_compatibility_defaults(
+def test_update_params_persists_current_contract_defaults(
     db_session,
     sample_calc_params,
 ):
@@ -75,7 +75,7 @@ def test_update_params_persists_compatibility_defaults(
     params = {
         key: value
         for key, value in sample_calc_params.items()
-        if not key.startswith("averageDigitalTwinQuery")
+        if key not in {"optimizationProfileId", "currency"}
     }
 
     response = _service(db_session).update_params(
@@ -84,8 +84,8 @@ def test_update_params_persists_compatibility_defaults(
         OptimizerParamsUpdate(params=params),
     )
 
-    assert response.params["averageDigitalTwinQueryUnitsPerQuery"] == 1
-    assert response.params["averageDigitalTwinQueryResponseSizeInKb"] == 1
+    assert response.params["optimizationProfileId"] == "cost-minimization-v2"
+    assert response.params["currency"] == "USD"
 
 
 def test_get_cheapest_path_rejects_missing_result(db_session):

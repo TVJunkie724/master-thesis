@@ -12,20 +12,6 @@ USER_ID = "user-1"
 TWIN_ID = "twin-1"
 
 
-def _optimizer_config(**overrides):
-    values = {
-        "cheapest_l1": None,
-        "cheapest_l2": None,
-        "cheapest_l3_hot": None,
-        "cheapest_l3_cool": None,
-        "cheapest_l3_archive": None,
-        "cheapest_l4": None,
-        "cheapest_l5": None,
-    }
-    values.update(overrides)
-    return SimpleNamespace(**values)
-
-
 def _configuration(**overrides):
     values = {
         "aws_cloud_connection_id": None,
@@ -86,10 +72,11 @@ def test_cloud_connection_is_used_when_legacy_columns_are_still_populated():
             aws_access_key_id=encrypt("legacy-key", USER_ID, TWIN_ID),
             aws_secret_access_key=legacy_secret,
         ),
-        optimizer_config=_optimizer_config(cheapest_l1="AWS"),
     )
 
-    resolved = CredentialResolutionService().resolve_deployment_credentials(twin, USER_ID)
+    resolved = CredentialResolutionService().resolve_deployment_credentials(
+        twin, USER_ID
+    )
 
     assert resolved.providers == ("aws",)
     assert resolved.sources == {"aws": "cloud_connection"}
@@ -113,10 +100,11 @@ def test_gcp_deployment_credentials_use_service_account_file_boundary():
             gcp_cloud_connection_id="connection-gcp",
             gcp_cloud_connection=_cloud_connection("connection-gcp", "gcp", payload),
         ),
-        optimizer_config=_optimizer_config(cheapest_l1="GCP"),
     )
 
-    resolved = CredentialResolutionService().resolve_deployment_credentials(twin, USER_ID)
+    resolved = CredentialResolutionService().resolve_deployment_credentials(
+        twin, USER_ID
+    )
 
     assert resolved.config_credentials["gcp"] == {
         "gcp_project_id": "service-account-project",
@@ -127,21 +115,18 @@ def test_gcp_deployment_credentials_use_service_account_file_boundary():
     assert "private_key" not in str(resolved.config_credentials)
 
 
-def test_optimizer_selected_provider_with_legacy_credentials_uses_migration_fallback():
+def test_legacy_credential_columns_cannot_activate_stored_twin_credentials():
     twin = _twin(
         configuration=_configuration(
             aws_access_key_id=encrypt("AKIAIOSFODNN7EXAMPLE", USER_ID, TWIN_ID),
             aws_secret_access_key=encrypt("secret", USER_ID, TWIN_ID),
         ),
-        optimizer_config=_optimizer_config(cheapest_l1="AWS"),
     )
 
-    resolved = CredentialResolutionService().resolve_deployment_credentials(twin, USER_ID)
+    with pytest.raises(CredentialResolutionFailed) as rejected:
+        CredentialResolutionService().resolve_deployment_credentials(twin, USER_ID)
 
-    assert resolved.providers == ("aws",)
-    assert resolved.sources == {"aws": "legacy_twin_config"}
-    assert resolved.config_credentials["aws"]["aws_access_key_id"] == "AKIAIOSFODNN7EXAMPLE"
-    assert resolved.config_credentials["aws"]["aws_secret_access_key"] == "secret"
+    assert rejected.value.errors[0]["code"] == "NO_DEPLOYMENT_PROVIDERS"
 
 
 def test_dangling_cloud_connection_fails_closed_with_secret_safe_error():
@@ -152,7 +137,6 @@ def test_dangling_cloud_connection_fails_closed_with_secret_safe_error():
             aws_access_key_id=encrypt("legacy-key", USER_ID, TWIN_ID),
             aws_secret_access_key=encrypt("legacy-secret", USER_ID, TWIN_ID),
         ),
-        optimizer_config=_optimizer_config(cheapest_l1="AWS"),
     )
 
     with pytest.raises(CredentialResolutionFailed) as exc_info:
@@ -194,7 +178,6 @@ def test_invalid_gcp_service_account_json_returns_structured_error():
             gcp_cloud_connection_id="connection-gcp",
             gcp_cloud_connection=_cloud_connection("connection-gcp", "gcp", payload),
         ),
-        optimizer_config=_optimizer_config(cheapest_l1="GCP"),
     )
 
     with pytest.raises(CredentialResolutionFailed) as exc_info:
@@ -221,12 +204,17 @@ def test_plaintext_azure_credentials_use_canonical_region_fallbacks():
         region_digital_twin="northeurope",
     )
 
-    resolved = CredentialResolutionService().resolve_plaintext_credentials("azure", credentials)
+    resolved = CredentialResolutionService().resolve_plaintext_credentials(
+        "azure", credentials
+    )
 
     assert resolved.source == "plaintext"
     assert resolved.optimizer_payload["azure_region"] == "westeurope"
     assert resolved.deployer_validation_payload["azure_region_iothub"] == "westeurope"
-    assert resolved.deployer_validation_payload["azure_region_digital_twin"] == "northeurope"
+    assert (
+        resolved.deployer_validation_payload["azure_region_digital_twin"]
+        == "northeurope"
+    )
 
 
 def test_plaintext_gcp_credentials_extract_project_from_service_account():
@@ -243,10 +231,15 @@ def test_plaintext_gcp_credentials_extract_project_from_service_account():
         region="europe-west1",
     )
 
-    resolved = CredentialResolutionService().resolve_plaintext_credentials("gcp", credentials)
+    resolved = CredentialResolutionService().resolve_plaintext_credentials(
+        "gcp", credentials
+    )
 
     assert resolved.optimizer_payload["gcp_project_id"] == "service-account-project"
-    assert resolved.deployer_validation_payload["gcp_project_id"] == "service-account-project"
+    assert (
+        resolved.deployer_validation_payload["gcp_project_id"]
+        == "service-account-project"
+    )
     assert "private_key" not in str(resolved.deployer_config_payload)
 
 
@@ -264,7 +257,9 @@ def test_plaintext_google_alias_credentials_extract_project_from_service_account
         region="europe-west1",
     )
 
-    resolved = CredentialResolutionService().resolve_plaintext_credentials("Google", credentials)
+    resolved = CredentialResolutionService().resolve_plaintext_credentials(
+        "Google", credentials
+    )
 
     assert resolved.provider == "gcp"
     assert resolved.optimizer_payload["gcp_project_id"] == "alias-project"

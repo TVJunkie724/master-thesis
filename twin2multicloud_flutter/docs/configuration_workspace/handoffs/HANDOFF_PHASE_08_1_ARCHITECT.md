@@ -9,7 +9,7 @@ version: "1.1"
 <!-- SOURCES:
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md
 - twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md
-- docs/plans/phase_08_architecture_profiles_eventing/phase_08_7_flutter_profile_workflow.md
+- docs/plans/phase_08_architecture_profiles_eventing/README.md
 - .codex/skills/concept/references/handoff-protocol.md
 EXTRACTED: 2026-08-03 | VERSION: 1.1
 -->
@@ -31,7 +31,7 @@ EXTRACTED: 2026-08-03 | VERSION: 1.1
 Produce an executable Flutter implementation plan that extends the existing
 Configuration Workspace with strict server-driven profile selection and
 generic resolved review, while keeping the real/demo active catalog empty
-until Five-layer v2 activation in Phase 8.9A. Populated Five-/Six-layer states
+until Six-layer activation in Phase 8.9A. Populated Five-/Six-layer states
 are contract and widget fixtures, not early runtime publication.
 
 ## 3. Required Reading
@@ -45,9 +45,9 @@ are contract and widget fixtures, not early runtime publication.
 - `twin2multicloud_flutter/docs/configuration_workspace/ROADMAP_CONFIGURATION_WORKSPACE.md`
 - `twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md`
 - `twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md`
-- `docs/plans/phase_08_architecture_profiles_eventing/phase_08_7_flutter_profile_workflow.md`
-- `docs/plans/phase_08_architecture_profiles_eventing/phase_08_service_bundle_closure.md`
-- `docs/plans/phase_08_architecture_profiles_eventing/phase_08_guided_cloud_bootstrap.md`
+- `docs/plans/phase_08_architecture_profiles_eventing/README.md`
+- `docs/plans/phase_08_architecture_profiles_eventing/README.md`
+- `docs/plans/phase_08_architecture_profiles_eventing/README.md`
 - `docs/plans/phase_08_architecture_profiles_eventing/phase_08_layer_access_handoff.md`
 
 ## 4. Scope
@@ -58,7 +58,7 @@ presentation, activation seams for later workload/calculation contracts, and
 safe tests.
 
 Out of scope: a graph editor, provider resource authoring, direct cloud calls,
-direct Optimizer/Deployer calls, guided bootstrap implementation, deployed
+direct Optimizer/Deployer calls, provider identity provisioning, deployed
 layer-access implementation, mobile targets, and live cloud E2E. The latter
 two UI capabilities already have separate concepts/phases and must integrate
 without being folded into this plan.
@@ -68,7 +68,7 @@ without being folded into this plan.
 - Extend the implemented Configuration Workspace and its Wizard BLoC; do not
   restore or create a second three-step wizard.
 - Flutter talks only to the Management API.
-- `five-layer-baseline@1` is historical read-only.
+- `six-layer-eventing@1` is historical read-only.
 - Phase 8.7 exposes no selectable runtime/demo profile; Five v2 activates in
   8.9A and Six v1 only after its reviewed branch gate.
 - Events are mandatory in both selectable profiles. No legacy event flags.
@@ -77,7 +77,7 @@ without being folded into this plan.
 - Calculations and rankings are profile-local. No cross-profile winner.
 - The client never derives invalidation, functional completeness, resolved
   services, bridges, tiering jobs, or cost ownership.
-- Five-layer v2 has L3 hot equal to L5 placement, independent L4, and no
+- Six-layer has L3 hot equal to L5 placement, independent L4, and no
   L4-to-L5 edge.
 - New profile DTOs must be strict; raw nested maps are not an acceptable
   Flutter boundary.
@@ -103,9 +103,8 @@ without being folded into this plan.
   their Flutter adapters.
 - Complete-service decision and Six-layer Eventing manifest: determine catalog
   content; clients do not duplicate them.
-- Guided bootstrap Phase 9 was a separate deliverable and is now implemented
-  for the deterministic offline PoC; Twin layer access remains separately
-  planned.
+- Provider credentials are an external experiment prerequisite; Twin layer
+  access remains separately planned.
 
 ## 8. Open Questions
 

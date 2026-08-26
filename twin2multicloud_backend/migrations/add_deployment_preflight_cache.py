@@ -16,7 +16,9 @@ def resolve_sqlite_path(database_url: str | None = None) -> Path:
     if raw.startswith("sqlite:///"):
         raw = raw.removeprefix("sqlite:///")
     if raw.startswith("sqlite://"):
-        raise ValueError("Only file-backed sqlite:/// URLs are supported by this migration")
+        raise ValueError(
+            "Only file-backed sqlite:/// URLs are supported by this migration"
+        )
     return Path(raw)
 
 
@@ -33,8 +35,6 @@ def migrate(database_url: str | None = None) -> list[str]:
                 provider VARCHAR NOT NULL,
                 cloud_connection_id VARCHAR NOT NULL,
                 connection_payload_fingerprint VARCHAR NOT NULL,
-                supplied_permission_set_version VARCHAR,
-                expected_permission_set_version VARCHAR NOT NULL,
                 ready BOOLEAN NOT NULL DEFAULT 0,
                 summary VARCHAR NOT NULL,
                 checks_json TEXT NOT NULL DEFAULT '[]',

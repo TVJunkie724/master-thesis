@@ -57,9 +57,7 @@ router = APIRouter(prefix="/infrastructure")
     },
 )
 async def rotate_deployment_access_credential(
-    operation_token: Annotated[
-        str, Header(alias="X-Operation-Package", min_length=1)
-    ],
+    operation_token: Annotated[str, Header(alias="X-Operation-Package", min_length=1)],
     project_name: str = Query(..., description="Name of the project context"),
 ):
     operation_context = OperationContext.create(
@@ -122,7 +120,7 @@ def _prepare_deployment_context(
     if operation != "destroy" and context.resolved_deployment_graph is None:
         raise ValueError(
             "DEPLOYMENT_MANIFEST_VERSION_UNSUPPORTED: "
-            "new deployment operations require DeploymentManifest v3 or v4"
+            "new deployment operations require DeploymentManifest v4"
         )
     return DeploymentRequest(
         project_name=project_name, provider=normalized_provider

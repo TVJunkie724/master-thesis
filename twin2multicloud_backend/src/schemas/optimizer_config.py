@@ -24,6 +24,7 @@ class CheapestPathResponse(BaseModel):
     l3_archive: Optional[str] = None
     l4: Optional[str] = None
     l5: Optional[str] = None
+    eventing: Optional[str] = None
 
 
 class OptimizerConfigResponse(BaseModel):

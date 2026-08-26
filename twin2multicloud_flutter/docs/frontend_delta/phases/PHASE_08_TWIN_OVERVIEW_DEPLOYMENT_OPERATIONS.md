@@ -1,6 +1,6 @@
 ---
 title: "Phase 8: Twin Overview Deployment Operations"
-description: "Plan Twin Overview hardening for deploy, destroy, preflight, logs, outputs, and permission-set visibility."
+description: "Plan Twin Overview hardening for deploy, destroy, preflight, logs, outputs, and credential validation visibility."
 tags: [flutter, frontend-delta, twin-overview, deployment, preflight]
 lastUpdated: "2026-08-11"
 version: "1.5"
@@ -8,7 +8,7 @@ version: "1.5"
 
 <!-- SOURCES:
 - twin2multicloud_flutter/docs/frontend_delta/ROADMAP_FRONTEND_DELTA.md
-- docs/plans/2026-06-04_permission_set_version_contract.md
+- docs/plans/2026-08-26_poc_credentials.md
 - docs/plans/deployment-verification-architecture-v4.md
 - twin2multicloud_backend/src/api/routes/cloud_connections.py
 - twin2multicloud_flutter/lib/screens/twin_overview/twin_overview_screen.dart
@@ -19,13 +19,11 @@ EXTRACTED: 2026-06-13 | VERSION: 1.0
 # Phase 8: Twin Overview Deployment Operations
 
 **Status:** Subphases 8.1-8.5 and the credential-free implementation of 8.6
-Layer Access are done. Five-layer v2 is active for offline evaluation;
+Layer Access are done. Six-layer is active for offline evaluation;
 supervised cloud browser sign-in and capacity evidence remain separate live
 gates and prevent deployment selection.
 
-The binding implementation contract is
-[`2026-07-14_twin_overview_operations_hardening.md`](../../../implementation_plans/2026-07-14_twin_overview_operations_hardening.md).
-It divides this phase into five independently reviewed and committed subphases:
+The phase divides the work into five independently reviewed subphases:
 typed contracts/state, twin-scoped readiness, resilient logs, testing utilities,
 and the final responsive/accessibility quality gate.
 
@@ -45,7 +43,7 @@ session-scoped cursors, immutable output/download data, and stale-state clearing
 Verification used no live cloud resources.
 
 The 8.2 gate covers a persisted secret-free readiness cache, owner and provider
-binding checks, credential-fingerprint and permission-set invalidation, bounded
+binding checks, credential-fingerprint invalidation, bounded
 redacted evidence, explicit resource-free preflight, and server-side deployment
 enforcement. Flutter renders a compact readiness panel, keeps provider evidence
 collapsed when healthy, expands remediation when blocked, and independently
@@ -67,7 +65,7 @@ race-safe cancellation across deployment lifecycle changes. Simulator archives
 are assembled from provider allowlists and validated at both the Deployer and
 Management API boundaries. AWS uses exact client/topic permissions, Azure uses
 the device identity, and GCP uses a dedicated Pub/Sub topic-publisher identity;
-deployment, bootstrap, and CloudConnection credentials are never packaged.
+deployment and CloudConnection credentials are never packaged.
 Verification used synthetic credentials and no live cloud resources.
 
 The 8.5 gate replaces the former command-center aggregate with sibling
@@ -79,7 +77,7 @@ deployment-output snapshot remains intact from the Management API adapter to
 the UI. Verification used the offline demo and no live cloud resources.
 
 The 8.6 gate adds persisted secret-free deployment access evidence, exact L4
-and L5 surfaces for `five-layer-baseline@2`, historical-v1 unsupported state,
+and L5 surfaces for `six-layer-eventing@1`, historical-v1 unsupported state,
 independent readiness, safe external launching, and explicit one-time GCP
 Grafana Viewer rotation. Deployer evidence distinguishes resource,
 interactive binding, deterministic content, and data-probe readiness. A real
@@ -91,13 +89,13 @@ browser sign-in remains unverified.
 ## Summary
 
 Harden the Twin Overview deployment surface so deploy/destroy actions, preflight
-readiness, permission-set versions, logs, errors, and outputs are visible and
+readiness, credential validation, logs, errors, and outputs are visible and
 actionable.
 
 | In scope ✅ | Out of scope ❌ |
 |---|---|
 | Deployment preflight visibility | Creating cloud resources during tests |
-| Permission-set status display | Replacing the Deployer API |
+| Validated admin-connection status | Replacing the Deployer API |
 | Structured log and error UX | Direct Terraform workspace access |
 | Output persistence and copy/download behavior | Layer-by-layer redeployment |
 | Simulator/test message utilities | Treating test utilities as deployment success criteria |
@@ -107,7 +105,7 @@ actionable.
 ## Prerequisites
 
 - Phase 5 credential boundary is implemented.
-- CloudConnection preflight endpoint returns ready/checks/permission-set status.
+- CloudConnection preflight endpoint returns ready/checks for the selected admin connection.
 - Deployment SSE contract is stable.
 - If simulator/test utility Management API contracts are missing, Phase 1 must
   record them as backend gaps with approved implementation plans.
@@ -118,7 +116,7 @@ actionable.
 
 - Twin Overview operations concept.
 - Preflight card and failure action requirements.
-- Permission-set version visibility rules.
+- Admin-connection validation visibility rules.
 - Log viewing behavior for failed, running, completed, and reconnected sessions.
 - Output card requirements and residual-risk messaging.
 - Simulator/test utility requirements for deployed twins, including broken-state
@@ -133,7 +131,7 @@ actionable.
 Twin Overview
 |-- Deployment Readiness
 |   |-- preflight status
-|   |-- permission-set status
+|   |-- credential validation status
 |   `-- remediation actions
 |-- Layer Access
 |   |-- L4 Semantic Twin: provider/service/readiness/Open
@@ -167,7 +165,7 @@ Twin Overview
 ## Acceptance Criteria
 
 - Users can see why deploy is blocked before clicking Deploy.
-- Permission-set mismatches are visible and actionable.
+- Missing, stale, or invalid admin connections are visible and actionable.
 - Failed deployment logs are accessible from the error state.
 - Simulator/test message actions work for deployed twins or fail with a
   user-actionable error.
@@ -175,7 +173,7 @@ Twin Overview
 - Deploy/destroy SSE states are resilient to refresh and reconnect where the
   backend supports it.
 - Terraform/deployment outputs remain visible after successful deploy reload.
-- Every deployed Five-layer v2 Twin shows exactly one independently actionable
+- Every deployed Six-layer Twin shows exactly one independently actionable
   L4 card and one L5 card; historical/destroyed Twins show no fabricated links.
 - All nine L3/L4/L5 placements render from the same strict contract.
 - L4/L5 links are HTTPS, provider/auth modes are explained, and partial access
@@ -186,7 +184,7 @@ Twin Overview
 - BLoC tests cover deploy, destroy, reconnect, failure, simulator/test utility,
   output persistence, Layer Access refresh, stale-response, and one-time
   credential states.
-- Widget tests cover preflight pass/fail/outdated/missing permission-set states.
+- Widget tests cover preflight pass/fail/stale/missing admin-connection states.
 - Widget tests cover testing utility success, failure, running, and unavailable
   states.
 - `integration_test/twin_layer_access_flow_test.dart` passes ten hard-asserted

@@ -90,7 +90,7 @@ class _Summary extends StatelessWidget {
             'Storage retention': params == null
                 ? 'Not set'
                 : '${params.hotStorageDurationInMonths} / ${params.coolStorageDurationInMonths} / ${params.archiveStorageDurationInMonths} months',
-            if (state.usesPhase8ComparisonProfile) ...{
+            if (state.usesSixLayerProfile) ...{
               'Twin entities': '${params?.entityCount ?? 0}',
               'Dashboard refreshes':
                   '${params?.dashboardRefreshesPerHour ?? 0}/hour',

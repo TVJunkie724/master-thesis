@@ -28,12 +28,7 @@ INTERNAL_EVIDENCE_KEYS = frozenset(
         "data_probe_revision",
     }
 )
-SUPPORTED_DEPLOYMENT_ACCESS_PROFILES = frozenset(
-    {
-        ("five-layer-baseline", "2"),
-        ("six-layer-eventing", "1"),
-    }
-)
+SUPPORTED_DEPLOYMENT_ACCESS_PROFILES = frozenset({("six-layer-eventing", "1")})
 
 
 @dataclass(frozen=True)
@@ -159,7 +154,9 @@ def collect_deployment_access_runtime_evidence(
     ) not in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES:
         return None
     if not isinstance(outputs, dict):
-        raise DeploymentAccessRuntimeEvidenceError("Terraform outputs must be an object")
+        raise DeploymentAccessRuntimeEvidenceError(
+            "Terraform outputs must be an object"
+        )
     return DeploymentAccessRuntimeEvidence(
         surfaces=(
             surface_output_evidence("l4", _provider(context, "4"), outputs),

@@ -21,11 +21,6 @@ import logging
 from typing import Optional
 
 from logger import logger
-from src.api.permission_sets import (
-    ACTIVE_PERMISSION_SET_VERSION,
-    active_gcp_phase8_api_baseline,
-    deployment_permission_pack_for_version,
-)
 from src.core.observability import redact_sensitive
 
 # ==========================================
@@ -200,41 +195,6 @@ GCP_RESOURCE_SCOPED_PERMISSIONS = {
     "storage.buckets.get",
     "storage.buckets.update",
 }
-
-GCP_V2_PROJECT_TESTABLE_PERMISSIONS = {
-    "resourcemanager.projects.get",
-    "resourcemanager.projects.getIamPolicy",
-    "resourcemanager.projects.setIamPolicy",
-}
-GCP_V2_DIRECTLY_TESTED_PERMISSIONS = {"serviceusage.services.get"}
-GCP_V2_REGION = "europe-west1"
-
-
-def _gcp_permission_contract_for_version(
-    permission_set_version: str | None,
-) -> dict:
-    """Return the selected version's GCP custom-role permission contract."""
-
-    pack = deployment_permission_pack_for_version("gcp", permission_set_version)
-    if pack is None:
-        return REQUIRED_GCP_PERMISSIONS
-    permissions = pack.get("custom_role_inputs")
-    if (
-        not isinstance(permissions, list)
-        or not permissions
-        or any(
-            not isinstance(permission, str) or not permission or "*" in permission
-            for permission in permissions
-        )
-        or len(permissions) != len(set(permissions))
-    ):
-        raise ValueError("Active GCP deployment permission inputs are invalid")
-    return {
-        "thesis_demo_v2": {
-            "description": "Active Phase 8 GCP deployment permission pack",
-            "permissions": permissions,
-        }
-    }
 
 
 def _parse_service_account_json(credentials_input: str) -> tuple:
@@ -433,58 +393,6 @@ def _check_enabled_apis(project_id: str, credentials=None) -> dict:
         }
     except Exception as exc:
         return {"status": "error", "error": redact_sensitive(exc)}
-
-
-def _check_v2_api_baseline(
-    project_id: str,
-    credentials=None,
-) -> dict:
-    """Verify every pre-enabled Phase 8 API without listing or mutating services."""
-
-    baseline = active_gcp_phase8_api_baseline()
-    services = baseline["services"]
-    try:
-        from google.cloud import service_usage_v1
-
-        client = service_usage_v1.ServiceUsageClient(credentials=credentials)
-        enabled_state = getattr(service_usage_v1.State, "ENABLED", None)
-        present = []
-        missing = []
-        for service in services:
-            response = client.get_service(
-                name=f"projects/{project_id}/services/{service}"
-            )
-            state = getattr(response, "state", None)
-            enabled = (
-                state == enabled_state or getattr(state, "name", None) == "ENABLED"
-            )
-            (present if enabled else missing).append(service)
-        return {
-            "status": "checked",
-            "baseline_id": baseline["baseline_id"],
-            "baseline_owner": baseline["owner"],
-            "retain_enabled": baseline["retain_enabled"],
-            "required_permission": "serviceusage.services.get",
-            "by_layer": {
-                "phase8_api_baseline": {
-                    "status": "valid" if not missing else "invalid",
-                    "present_apis": present,
-                    "missing_apis": missing,
-                }
-            },
-        }
-    except ImportError:
-        return {
-            "status": "sdk_not_installed",
-            "baseline_id": baseline["baseline_id"],
-            "error": "google-cloud-service-usage not installed",
-        }
-    except Exception as exc:
-        return {
-            "status": "check_failed",
-            "baseline_id": baseline["baseline_id"],
-            "error": redact_sensitive(exc),
-        }
 
 
 def _get_all_required_gcp_permissions(
@@ -713,7 +621,7 @@ def _resolve_gcp_validation_project_id(
     explicit_project_id = credentials.get("gcp_project_id", "")
     if isinstance(explicit_project_id, str) and explicit_project_id.strip():
         return explicit_project_id.strip(), "existing_project"
-    return service_account_project_id, "bootstrap_service_account_project"
+    return service_account_project_id, "service_account_project"
 
 
 def check_gcp_credentials(credentials: dict) -> dict:
@@ -727,9 +635,6 @@ def check_gcp_credentials(credentials: dict) -> dict:
     Returns:
         Dict with status, caller_identity, and permission results
     """
-    active_v2 = (
-        credentials.get("permission_set_version") == ACTIVE_PERMISSION_SET_VERSION
-    )
     permission_contract = REQUIRED_GCP_PERMISSIONS
     result = {
         "status": "invalid",
@@ -740,7 +645,7 @@ def check_gcp_credentials(credentials: dict) -> dict:
         "api_status": None,
         "permission_status": None,
         "validation_project": None,
-        "required_roles": [] if active_v2 else REQUIRED_GCP_ROLES,
+        "required_roles": REQUIRED_GCP_ROLES,
         "required_permissions": permission_contract,
     }
 
@@ -775,18 +680,7 @@ def check_gcp_credentials(credentials: dict) -> dict:
         )
         return result
 
-    if active_v2 and (not has_project_id or has_billing_account):
-        result["message"] = (
-            "Active thesis-demo-v2 GCP deployment access supports one existing "
-            "project only. Organization, billing-account, and automatic project-"
-            "creation mode require a separate reviewed ownership contract."
-        )
-        return result
-
     try:
-        permission_contract = _gcp_permission_contract_for_version(
-            credentials.get("permission_set_version")
-        )
         result["required_permissions"] = permission_contract
 
         # Step 1: Parse and validate service account JSON (handles both file path and JSON content)
@@ -805,8 +699,8 @@ def check_gcp_credentials(credentials: dict) -> dict:
             return result
 
         # Use the explicit deployment target in private account mode. In
-        # organization/bootstrap mode, the final project may not exist yet, so the
-        # service account project is used only as a bootstrap validation target.
+        # If the final project is not available yet, the service-account project
+        # is used as the validation target for the preconfigured PoC credential.
         project_id, validation_mode = _resolve_gcp_validation_project_id(
             credentials,
             service_account_project_id=sa_info["project_id"],
@@ -867,28 +761,10 @@ def check_gcp_credentials(credentials: dict) -> dict:
         # Step 3: Validate region
         region = credentials.get("gcp_region", "")
         if region:
-            region_result = (
-                {
-                    "valid": region == GCP_V2_REGION,
-                    "region": region,
-                    "validation_source": "frozen_phase8_profile",
-                    **(
-                        {}
-                        if region == GCP_V2_REGION
-                        else {
-                            "error": (
-                                "Active thesis-demo-v2 profiles require GCP region "
-                                f"'{GCP_V2_REGION}'."
-                            )
-                        }
-                    ),
-                }
-                if active_v2
-                else _validate_gcp_region(
-                    project_id,
-                    region,
-                    credentials=gcp_credentials,
-                )
+            region_result = _validate_gcp_region(
+                project_id,
+                region,
+                credentials=gcp_credentials,
             )
             result["region_validation"] = {"gcp_region": region_result}
 
@@ -900,33 +776,10 @@ def check_gcp_credentials(credentials: dict) -> dict:
                 return result
 
         # Step 4: Check enabled APIs
-        if active_v2:
-            api_status = _check_v2_api_baseline(
-                project_id,
-                credentials=gcp_credentials,
-            )
-            if api_status["status"] != "checked":
-                result["api_status"] = api_status
-                result["status"] = "partial"
-                result["message"] = (
-                    "Credentials valid. The fixed Phase 8 API baseline could "
-                    "not be verified without mutation."
-                )
-                return result
-            missing_apis = api_status["by_layer"]["phase8_api_baseline"]["missing_apis"]
-            if missing_apis:
-                result["api_status"] = api_status
-                result["status"] = "invalid"
-                result["message"] = (
-                    "The short-lived bootstrap must enable every fixed Phase 8 "
-                    "API before generated deployment access is admitted."
-                )
-                return result
-        else:
-            api_status = _check_enabled_apis(
-                project_id,
-                credentials=gcp_credentials,
-            )
+        api_status = _check_enabled_apis(
+            project_id,
+            credentials=gcp_credentials,
+        )
         result["api_status"] = api_status
 
         if api_status["status"] == "sdk_not_installed":
@@ -948,9 +801,7 @@ def check_gcp_credentials(credentials: dict) -> dict:
             project_id,
             credentials=gcp_credentials,
             required_by_layer=permission_contract,
-            project_testable_permissions=(
-                GCP_V2_PROJECT_TESTABLE_PERMISSIONS if active_v2 else None
-            ),
+            project_testable_permissions=None,
         )
         result["permission_status"] = permission_status
 
@@ -962,43 +813,12 @@ def check_gcp_credentials(credentials: dict) -> dict:
             )
             return result
 
-        if active_v2:
-            directly_verified = GCP_V2_DIRECTLY_TESTED_PERMISSIONS
-            deferred = set(permission_status.get("deferred_permissions", []))
-            if not directly_verified.issubset(deferred):
-                result["status"] = "error"
-                result["message"] = (
-                    "GCP v2 permission coverage could not be reconciled safely."
-                )
-                return result
-            permission_status["deferred_permissions"] = sorted(
-                deferred - directly_verified
-            )
-            permission_status["directly_verified_permissions"] = sorted(
-                directly_verified
-            )
-            layer = permission_status.get("by_layer", {}).get("thesis_demo_v2")
-            summary = permission_status.get("summary")
-            if isinstance(layer, dict) and isinstance(summary, dict):
-                layer["valid"] = sorted(set(layer.get("valid", [])) | directly_verified)
-                summary["total_required"] += len(directly_verified)
-                summary["valid"] += len(directly_verified)
-
         missing_permissions = permission_status.get("summary", {}).get("missing", 0)
         if missing_permissions:
             result["status"] = "partial"
             result["message"] = (
                 f"Some required GCP permissions are missing: "
                 f"{missing_permissions} of {permission_status['summary']['total_required']}."
-            )
-            return result
-
-        if active_v2:
-            result["status"] = "valid"
-            result["message"] = (
-                "All project-testable thesis-demo-v2 permissions are present; "
-                "resource- and provider-operation-specific checks remain "
-                "explicit warnings."
             )
             return result
 

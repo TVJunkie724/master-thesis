@@ -15,7 +15,7 @@ Flutter-facing orchestration.
 | `src/core/` | context, paths, storage, registry, workspace, observability, secure files |
 | `src/providers/` | provider protocol and AWS/Azure/GCP implementations |
 | `src/providers/terraform/` | Terraform lifecycle, package builders, runtime outcomes |
-| `src/deployment_specification/` | Manifest v2 historical reader and strict Manifest v3/v4 validation |
+| `src/deployment_specification/` | strict Manifest v4 validation for the standalone Six-layer profile |
 | `src/architecture_profiles/` | deterministic nodes, edges, bindings, stages, and graph evidence |
 | `src/terraform_inputs/` | graph-based allowlisted Terraform input translation |
 | `src/configuration_validation/`, `src/validation/` | aggregate package/config validation |
@@ -31,9 +31,8 @@ Flutter-facing orchestration.
 The Management API sends one validated ZIP containing
 `deployment_manifest.json`, the frozen resolved architecture, the matching
 resolved deployment specification, and the exact generated/project artifacts
-for an operation. Historical Five-layer v1 packages use Manifest 3.0 with
-RTA v1/RDS v1; active Five-layer v2 and Six-layer v1 packages use Manifest 4.0
-with separate RTA v2/RDS v2 evidence. The Deployer:
+for an operation. The active Six-layer profile uses Manifest 4.0 with RTA v2/RDS
+v2 evidence. The Deployer:
 
 1. applies upload limits and safe archive policy;
 2. validates the archive inventory, both contract digests, run/profile/catalog
@@ -52,9 +51,8 @@ with separate RTA v2/RDS v2 evidence. The Deployer:
     completion markers.
 
 Legacy layer-specific endpoints and the interactive CLI are historical, not
-canonical application interfaces. Manifest v2 remains a historical reader
-only. A package must use the manifest version required by its frozen profile;
-invalid v3 or v4 data never falls back to another version.
+canonical application interfaces. New operations accept only Manifest 4.0;
+invalid data never falls back to another version or profile.
 
 The component list contains the seven fixed baseline slots, followed by exactly
 two source-owned storage transition runtimes and then any required
@@ -180,7 +178,7 @@ Archive bucket, including same-provider GCP paths.
 Local movers and cross-cloud destination writers receive the selected storage
 class through environment variables. A remote source mover does not require a
 local destination bucket or class. The historical generic GCP L4/L5 path
-remains unsupported. An exact validated Five-layer v2 graph instead selects
+remains unsupported. An exact validated Six-layer v1 graph instead selects
 the separately registered Cloud Run Twin API/Explorer and Grafana-on-GKE
 packages; no profile-neutral capability exception is inferred.
 
@@ -212,8 +210,8 @@ visible instead of being represented as equivalent deployment support.
 | L4 Twin | IoT TwinMaker | Azure Digital Twins | Cloud Run Twin API/Explorer backed by Firestore |
 | L5 visualization | Managed Grafana and typed Lambda reader | Managed Grafana and typed Functions reader | Grafana OSS on GKE and typed Cloud Run reader |
 
-These rows are selected only through the exact Five-layer v2 or Six-layer v1
-provider profiles and validated graph. Six-layer adds its registered Eventing
+These rows are selected only through the exact Six-layer v1
+provider profiles and validated graph. Six-layer includes its registered Eventing
 bundle and bridge bindings without changing these rows. Neither profile widens
 the historical generic capability matrix.
 
@@ -224,7 +222,7 @@ effects. See [Provider Capabilities](../architecture/provider-capabilities.md).
 
 ## Azure L4 Update Path
 
-The canonical five-layer baseline has one executable Azure Digital Twins update path
+The canonical Six-layer profile has one executable Azure Digital Twins update path
 for both same-cloud and cross-cloud assignments:
 
 ```text
@@ -319,8 +317,9 @@ trigger retry semantics remain intact.
 
 ## Preflight And Verification
 
-Provider permission sets are versioned and can be checked before deployment. Data-flow
-verification runs explicit phases/probes with outcomes rather than treating logs as
+The PoC checks whether the selected externally provisioned admin connection can
+perform the required preflight operations. Data-flow verification runs explicit
+phases/probes with outcomes rather than treating logs as
 proof. Safe unit/integration tests mock cloud boundaries; real provider proof remains
 an opt-in supervised E2E activity.
 
@@ -339,7 +338,7 @@ Coverage includes API contracts, archive attacks/limits, storage, operation toke
 workspace cleanup/sync, validation aggregation, Terraform lifecycles, providers,
 permission checks, logging/redaction, simulator sessions, status, and verification.
 
-The cross-stack no-apply gate additionally validates the full Manifest v3/v4 →
+The cross-stack no-apply gate additionally validates the full Manifest v4 →
 graph → extension/static package → tfvars chain, all registered allowlisted
 Terraform targets, all 27 hot/cool/archive provider triples, Azure IoT Hub
 F1/S1/S2/S3 capacity propagation, source-owned storage movers, receiver-owned

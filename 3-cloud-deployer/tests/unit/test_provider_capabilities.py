@@ -87,13 +87,13 @@ def test_supported_terraform_configuration_passes_capability_gate():
     )
 
 
-def test_five_layer_v2_graph_can_use_registered_gcp_l4_and_l5():
+def test_six_layer_graph_can_use_registered_gcp_l4_and_l5():
     validate_terraform_provider_capabilities(
         {
             "layer_4_provider": "gcp",
             "layer_5_provider": "google",
         },
-        architecture_profile=("five-layer-baseline", "2"),
+        architecture_profile=("six-layer-eventing", "1"),
     )
 
     with pytest.raises(ProviderCapabilityError):

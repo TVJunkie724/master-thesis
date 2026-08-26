@@ -146,8 +146,8 @@ class AwsTwinMakerPricingContextService:
     ) -> dict[str, Any]:
         """Validate Optimizer account evidence and add the Management binding."""
 
-        if connection.provider != "aws" or connection.purpose != "pricing":
-            raise ValueError("AWS pricing CloudConnection is required.")
+        if connection.provider != "aws":
+            raise ValueError("AWS CloudConnection is required.")
         raw_context = result.get(ACCOUNT_CONTEXT_KEY)
         observed = _ObservedAccountContext.model_validate(raw_context)
         active_reference = PricingCatalogReference.model_validate(
@@ -199,11 +199,7 @@ class AwsTwinMakerPricingContextService:
         connection = self._connections.get_default_pricing(user_id, "aws")
         if connection is None:
             return _unavailable(PLAN_UNOBSERVED)
-        if (
-            connection.validation_status != "valid"
-            or connection.provider != "aws"
-            or connection.purpose != "pricing"
-        ):
+        if connection.validation_status != "valid" or connection.provider != "aws":
             return _unavailable(PLAN_CONNECTION_CHANGED)
 
         run = (
@@ -303,9 +299,7 @@ def optimizer_aws_l4_selection_matches_context(
 
     calculation_result = result.get("calculationResult")
     selected = (
-        calculation_result.get("L4")
-        if isinstance(calculation_result, dict)
-        else None
+        calculation_result.get("L4") if isinstance(calculation_result, dict) else None
     )
     if not isinstance(selected, str) or selected.strip().lower() != "aws":
         return True

@@ -26,7 +26,7 @@ def _node(index, logical_component_id, provider):
     )
 
 
-def _graph(*extra_nodes, profile_id="five-layer-baseline"):
+def _graph(*extra_nodes, profile_id="six-layer-eventing"):
     nodes = [
         _node(index, logical_component_id, provider)
         for index, (logical_component_id, provider) in enumerate(BASE_COMPONENTS)

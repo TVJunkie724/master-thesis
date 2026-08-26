@@ -16,7 +16,6 @@ def _aws_request(display_name="AWS Deployment"):
     return {
         "provider": "aws",
         "display_name": display_name,
-        "permission_set_version": "thesis-demo-v2",
         "cloud_scope": {"account_id": "123456789012", "region": "eu-central-1"},
         "aws": {
             "access_key_id": "AKIAIOSFODNN7EXAMPLE",
@@ -30,7 +29,6 @@ def _gcp_request(display_name="GCP Deployment"):
     return {
         "provider": "gcp",
         "display_name": display_name,
-        "permission_set_version": "old-permission-set",
         "cloud_scope": {"project_id": "demo-project", "region": "europe-west1"},
         "gcp": {
             "project_id": "demo-project",
@@ -72,7 +70,6 @@ def test_cloud_access_inventory_returns_public_azure_and_missing_pricing(
         "is_default_for_pricing": True,
         "last_validated_at": None,
         "last_used_at": None,
-        "permission_set_status": None,
         "bound_twin_count": 0,
         "bound_twin_labels": [],
         "actions": [],
@@ -105,7 +102,6 @@ def test_cloud_access_inventory_lists_deployment_connections_without_secrets(
     assert entry["scope"] == "user"
     assert entry["identity_label"] == "AWS Deployment"
     assert entry["provider_account_id"] == "123456789012"
-    assert entry["permission_set_status"] == "matched"
     assert entry["bound_twin_count"] == 0
     assert entry["actions"] == ["validate", "delete", "review_validation"]
 
@@ -161,7 +157,7 @@ def test_cloud_access_inventory_is_user_scoped(authenticated_client, db_session)
     assert response.json()["providers"]["aws"]["deployment"] == []
 
 
-def test_cloud_access_inventory_reports_permission_set_status(authenticated_client):
+def test_cloud_access_inventory_lists_gcp_project(authenticated_client):
     client, headers = authenticated_client
     client.post("/cloud-connections/", json=_gcp_request(), headers=headers)
 
@@ -170,10 +166,6 @@ def test_cloud_access_inventory_reports_permission_set_status(authenticated_clie
     assert response.status_code == 200
     entry = response.json()["providers"]["gcp"]["deployment"][0]
     assert entry["provider_project_id"] == "demo-project"
-    assert entry["permission_set_status"] == "outdated"
-    assert (
-        entry["primary_message"] == "Deployment permission set needs review before use."
-    )
 
 
 def test_cloud_access_inventory_ignores_inactive_twin_bindings(
@@ -213,12 +205,12 @@ def test_cloud_access_inventory_exposes_pricing_default_and_options(
 ):
     client, headers = authenticated_client
     first_payload = _aws_request("AWS Pricing Primary")
-    first_payload.update({"purpose": "pricing", "permission_set_version": None})
+    first_payload.update({"purpose": "pricing"})
     first = client.post(
         "/cloud-connections/", json=first_payload, headers=headers
     ).json()
     second_payload = _aws_request("AWS Pricing Alternative")
-    second_payload.update({"purpose": "pricing", "permission_set_version": None})
+    second_payload.update({"purpose": "pricing"})
     second = client.post(
         "/cloud-connections/", json=second_payload, headers=headers
     ).json()
@@ -245,7 +237,7 @@ def test_cloud_access_inventory_does_not_substitute_pricing_option_without_defau
 ):
     client, headers = authenticated_client
     payload = _aws_request("AWS Pricing")
-    payload.update({"purpose": "pricing", "permission_set_version": None})
+    payload.update({"purpose": "pricing"})
     created = client.post("/cloud-connections/", json=payload, headers=headers).json()
     client.patch(
         f"/cloud-connections/{created['id']}",
@@ -267,7 +259,7 @@ def test_cloud_access_inventory_keeps_invalid_default_visible(
 ):
     client, headers = authenticated_client
     payload = _aws_request("Invalid AWS Pricing")
-    payload.update({"purpose": "pricing", "permission_set_version": None})
+    payload.update({"purpose": "pricing"})
     created = client.post("/cloud-connections/", json=payload, headers=headers).json()
     stored = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
     stored.validation_status = "invalid"
@@ -286,9 +278,9 @@ def test_cloud_access_inventory_keeps_invalid_default_visible(
 def test_deleting_pricing_default_does_not_promote_alternative(authenticated_client):
     client, headers = authenticated_client
     first_payload = _aws_request("Pricing One")
-    first_payload.update({"purpose": "pricing", "permission_set_version": None})
+    first_payload.update({"purpose": "pricing"})
     second_payload = _aws_request("Pricing Two")
-    second_payload.update({"purpose": "pricing", "permission_set_version": None})
+    second_payload.update({"purpose": "pricing"})
     first = client.post(
         "/cloud-connections/", json=first_payload, headers=headers
     ).json()

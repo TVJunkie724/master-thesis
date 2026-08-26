@@ -37,10 +37,14 @@ class DeploymentLifecycleMixin:
         self._prepare_shared_identity_capabilities(context)
         self._build_packages()
         self._generate_tfvars()
-        self._gcp_v2_image_foundation_required = self._prepare_gcp_v2_image_foundation()
-        self._aws_v2_image_foundation_required = self._prepare_aws_v2_image_foundation()
-        self._azure_v2_image_foundation_required = (
-            self._prepare_azure_v2_image_foundation()
+        self._gcp_six_layer_image_foundation_required = (
+            self._prepare_gcp_six_layer_image_foundation()
+        )
+        self._aws_six_layer_image_foundation_required = (
+            self._prepare_aws_six_layer_image_foundation()
+        )
+        self._azure_six_layer_image_foundation_required = (
+            self._prepare_azure_six_layer_image_foundation()
         )
 
     def _apply_infrastructure(self) -> None:
@@ -50,7 +54,7 @@ class DeploymentLifecycleMixin:
         if not targets:
             self.runner.apply(var_file=str(self.tfvars_path))
             return
-        gcp_required = getattr(self, "_gcp_v2_image_foundation_required", False)
+        gcp_required = getattr(self, "_gcp_six_layer_image_foundation_required", False)
         kubernetes_already_applied = (
             self._gcp_kubernetes_state_exists() if gcp_required else False
         )
@@ -58,16 +62,16 @@ class DeploymentLifecycleMixin:
             str(self.tfvars_path),
             targets,
         )
-        if getattr(self, "_aws_v2_image_foundation_required", False):
-            self._publish_aws_v2_images()
-        if getattr(self, "_azure_v2_image_foundation_required", False):
-            self._publish_azure_v2_images()
+        if getattr(self, "_aws_six_layer_image_foundation_required", False):
+            self._publish_aws_six_layer_images()
+        if getattr(self, "_azure_six_layer_image_foundation_required", False):
+            self._publish_azure_six_layer_images()
         if gcp_required:
-            self._publish_gcp_v2_images()
+            self._publish_gcp_six_layer_images()
         if not gcp_required or not kubernetes_already_applied:
             self.runner.apply(var_file=str(self.tfvars_path))
         if gcp_required:
-            self._merge_tfvars({"gcp_v2_kubernetes_stage_enabled": True})
+            self._merge_tfvars({"gcp_six_layer_kubernetes_stage_enabled": True})
             self.runner.apply(var_file=str(self.tfvars_path))
 
     def _record_applied_packages(self) -> int:
@@ -126,10 +130,14 @@ class DeploymentLifecycleMixin:
         self._build_packages()
         yield f"{STAGE_COMPLETED_MARKER}package"
         self._generate_tfvars()
-        self._gcp_v2_image_foundation_required = self._prepare_gcp_v2_image_foundation()
-        self._aws_v2_image_foundation_required = self._prepare_aws_v2_image_foundation()
-        self._azure_v2_image_foundation_required = (
-            self._prepare_azure_v2_image_foundation()
+        self._gcp_six_layer_image_foundation_required = (
+            self._prepare_gcp_six_layer_image_foundation()
+        )
+        self._aws_six_layer_image_foundation_required = (
+            self._prepare_aws_six_layer_image_foundation()
+        )
+        self._azure_six_layer_image_foundation_required = (
+            self._prepare_azure_six_layer_image_foundation()
         )
         yield f"{STAGE_COMPLETED_MARKER}preplan"
 
@@ -138,7 +146,9 @@ class DeploymentLifecycleMixin:
             yield line
         targets = self._image_foundation_targets()
         if targets:
-            gcp_required = getattr(self, "_gcp_v2_image_foundation_required", False)
+            gcp_required = getattr(
+                self, "_gcp_six_layer_image_foundation_required", False
+            )
             kubernetes_already_applied = (
                 await asyncio.to_thread(self._gcp_kubernetes_state_exists)
                 if gcp_required
@@ -151,18 +161,18 @@ class DeploymentLifecycleMixin:
             ):
                 yield line
             yield "[6/9] Publishing content-addressed provider images"
-            if getattr(self, "_aws_v2_image_foundation_required", False):
-                await asyncio.to_thread(self._publish_aws_v2_images)
-            if getattr(self, "_azure_v2_image_foundation_required", False):
-                await asyncio.to_thread(self._publish_azure_v2_images)
+            if getattr(self, "_aws_six_layer_image_foundation_required", False):
+                await asyncio.to_thread(self._publish_aws_six_layer_images)
+            if getattr(self, "_azure_six_layer_image_foundation_required", False):
+                await asyncio.to_thread(self._publish_azure_six_layer_images)
             if gcp_required:
-                await asyncio.to_thread(self._publish_gcp_v2_images)
+                await asyncio.to_thread(self._publish_gcp_six_layer_images)
             if not gcp_required or not kubernetes_already_applied:
                 yield "[7/9] Applying cloud-provider resources"
                 async for line in self.runner.apply_async(str(self.tfvars_path)):
                     yield line
             if gcp_required:
-                self._merge_tfvars({"gcp_v2_kubernetes_stage_enabled": True})
+                self._merge_tfvars({"gcp_six_layer_kubernetes_stage_enabled": True})
                 yield "[8/9] Applying post-cluster Kubernetes resources"
                 async for line in self.runner.apply_async(str(self.tfvars_path)):
                     yield line

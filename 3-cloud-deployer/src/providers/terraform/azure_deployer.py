@@ -70,7 +70,7 @@ def configure_azure_grafana(
     """Configure Azure Grafana datasources."""
     logger.info("  Configuring Azure Grafana...")
     from src.providers.azure.layers.layer_5_grafana import (
-        configure_five_layer_v2_grafana,
+        configure_six_layer_grafana,
         configure_grafana_datasource,
     )
 
@@ -94,7 +94,7 @@ def configure_azure_grafana(
                 "Azure visualization output is missing: " + ", ".join(missing)
             )
         device_id, metric = _default_v2_dashboard_series(context.config)
-        configure_five_layer_v2_grafana(
+        configure_six_layer_grafana(
             provider,
             workspace_name=str(bundle["workspace_name"]),
             grafana_url=str(bundle["workspace_url"]).rstrip("/"),

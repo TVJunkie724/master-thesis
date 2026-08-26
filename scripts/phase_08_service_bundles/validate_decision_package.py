@@ -15,7 +15,6 @@ from typing import Any, Iterable
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE_ROOT = REPOSITORY_ROOT / "docs/research/evidence/phase_08_service_bundles"
 SCHEMA_PATH = EVIDENCE_ROOT / "schemas/package-artifact.schema.json"
-PERMISSION_ROOT = REPOSITORY_ROOT / "3-cloud-deployer/docs/references/permission_sets"
 EXPECTED_ARTIFACTS = {
     "decision.json",
     "common-functional-contract.json",
@@ -504,97 +503,11 @@ def validate_sources(source_ledger: dict[str, Any], errors: list[str]) -> None:
                 errors.append(f"{source['source_id']}: local source digest changed")
 
 
-def validate_permissions(
-    decision: dict[str, Any], manifest: dict[str, Any], errors: list[str]
-) -> None:
-    permission_paths = decision["permission_artifact_byte_digests"]
-    for path_text, expected in permission_paths.items():
-        path = REPOSITORY_ROOT / path_text
-        if not path.is_file() or file_digest(path) != expected:
-            errors.append(f"permission artifact changed: {path_text}")
+def validate_immutable_inputs(decision: dict[str, Any], errors: list[str]) -> None:
     for path_text, expected in decision["immutable_input_byte_digests"].items():
         path = REPOSITORY_ROOT / path_text
         if not path.is_file() or file_digest(path) != expected:
             errors.append(f"immutable input changed: {path_text}")
-
-    for provider in sorted(PROVIDERS):
-        path = PERMISSION_ROOT / f"{provider}_thesis_demo_v2.json"
-        item = load_json(path)
-        if (
-            item["provider"] != provider
-            or item["permission_set_version"] != "thesis-demo-v2"
-        ):
-            errors.append(f"{provider}: invalid thesis-demo-v2 manifest identity")
-        if item["status"] != "frozen_offline_contract":
-            errors.append(f"{provider}: permission manifest overclaims offline status")
-        if provider == "gcp" and any(
-            "*" in value for value in item["custom_role_inputs"]
-        ):
-            errors.append("gcp: wildcard custom-role permission is forbidden")
-        if provider == "gcp":
-            required_iap = {
-                "iap.webServices.getIamPolicy",
-                "iap.webServices.setIamPolicy",
-            }
-            if not required_iap.issubset(item["custom_role_inputs"]):
-                errors.append("gcp: deployer is missing direct IAP policy permissions")
-            if "iap.webServiceVersions.accessViaIAP" in item["custom_role_inputs"]:
-                errors.append(
-                    "gcp: interactive IAP access must not be retained by the deployer"
-                )
-            required_image_publication = {
-                "artifactregistry.repositories.getIamPolicy",
-                "artifactregistry.repositories.setIamPolicy",
-                "cloudbuild.builds.create",
-                "cloudbuild.builds.get",
-                "storage.buckets.getIamPolicy",
-                "storage.buckets.setIamPolicy",
-            }
-            if not required_image_publication.issubset(item["custom_role_inputs"]):
-                errors.append(
-                    "gcp: deployment-owned image publication permissions are incomplete"
-                )
-        if provider == "aws":
-            actions = {
-                action for group in item["policy_inputs"] for action in group["actions"]
-            }
-            required_image_publication = {
-                "codebuild:CreateProject",
-                "codebuild:StartBuild",
-                "codebuild:BatchGetBuilds",
-                "ecr:DescribeImages",
-                "s3:PutObject",
-                "s3:GetObject",
-            }
-            if not required_image_publication.issubset(actions):
-                errors.append(
-                    "aws: deployment-owned image publication permissions are incomplete"
-                )
-            pass_role = next(
-                (
-                    condition
-                    for condition in item["conditions"]
-                    if condition.get("condition") == "iam:PassedToService"
-                ),
-                {},
-            )
-            if "codebuild.amazonaws.com" not in pass_role.get("values", []):
-                errors.append("aws: CodeBuild PassRole condition is missing")
-        scan_secrets(path.name, item, errors)
-        review = load_json(PERMISSION_ROOT / item["scope_review_ref"])
-        if review["findings"]:
-            errors.append(f"{provider}: scope review has unresolved findings")
-    expected_refs = {f"{provider}_thesis_demo_v2" for provider in PROVIDERS}
-    for component in manifest["components"]:
-        if set(component["permission_set_refs"]) != {
-            f"{component['provider']}_thesis_demo_v2"
-        }:
-            errors.append(f"{component['component_id']}: wrong permission manifest")
-    actual_refs = {
-        ref for item in manifest["components"] for ref in item["permission_set_refs"]
-    }
-    if actual_refs != expected_refs:
-        errors.append("component permission references do not cover all providers")
 
 
 def validate_plugins(bundle: dict[str, Any], errors: list[str]) -> None:
@@ -640,11 +553,7 @@ def validate() -> list[str]:
     validate_components(artifacts, errors)
     validate_workloads(artifacts, errors)
     validate_sources(artifacts["source-ledger.json"], errors)
-    validate_permissions(
-        artifacts["decision.json"],
-        artifacts["implementation-component-manifest.json"],
-        errors,
-    )
+    validate_immutable_inputs(artifacts["decision.json"], errors)
     validate_plugins(artifacts["complete-provider-bundles.json"], errors)
     decision = artifacts["decision.json"]
     if decision["decision_status"] != "approved":

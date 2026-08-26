@@ -13,7 +13,7 @@ sequenceDiagram
     Client->>API: Deploy configured twin
     API->>DB: Load selected immutable run, architecture, and specification
     API->>API: Revalidate cross-links and frozen run parameters
-    API->>API: Build profile-matched Manifest v3/v4 and canonical archive
+    API->>API: Build Six-layer Manifest v4 and canonical archive
     API->>Deployer: Stage archive
     Deployer->>Deployer: Compile and validate resolved deployment graph
     Deployer->>Deployer: Store bytes and issue one-use token
@@ -107,9 +107,9 @@ calculation run recorded by that evidence and reject architecture, specification
 catalog, graph, or package-selection drift with
 `DEPLOYMENT_GRAPH_RESUME_MISMATCH`.
 
-Manifest v2 is historical read compatibility only. Five-layer v1 operation
-evidence uses Manifest v3; Five-layer v2 and Six-layer v1 operation evidence
-use Manifest v4. Invalid data never falls back across versions.
+Six-layer v1 operation evidence uses Manifest v4. Historical Five-layer
+calculations are not deployment inputs, and invalid data never falls back
+across versions or profiles.
 
 The Management API persists lifecycle state and normalized operation records.
 Deployer logs cross the boundary as structured events and are redacted before public

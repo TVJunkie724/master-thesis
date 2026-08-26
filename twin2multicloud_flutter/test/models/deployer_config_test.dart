@@ -131,8 +131,8 @@ void main() {
 
     test('profile-owned event behavior excludes retired user artifacts', () {
       final requirements = DeployerConfigRequirements.fromContext(
-        calcParams: CalcParams.fiveLayerV2(
-          scenario: FiveLayerWorkloadScenario.small,
+        calcParams: CalcParams.sixLayer(
+          scenario: SixLayerWorkloadScenario.small,
         ),
         layer4Provider: 'AZURE',
         layer5Provider: 'GCP',

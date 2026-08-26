@@ -21,43 +21,41 @@ from src.core.executable_topology import (
 )
 from src.core.project_storage import ProjectStorage
 
+
 @pytest.fixture
 def sample_project_dir(tmp_path):
     """Create a temporary project directory with sample config files."""
     project_dir = tmp_path / "sample_project"
     project_dir.mkdir()
-    
+
     # config.json
     config_data = {
         "digital_twin_name": "test-twin",
         "hot_storage_size_in_days": 7,
         "cold_storage_size_in_days": 30,
-        "mode": "DEBUG"
+        "mode": "DEBUG",
     }
     (project_dir / "config.json").write_text(json.dumps(config_data))
-    
+
     # config_iot_devices.json
-    iot_data = {
-        "devices": [
-            {"id": "d1", "name": "device1"}
-        ]
-    }
+    iot_data = {"devices": [{"id": "d1", "name": "device1"}]}
     (project_dir / "config_iot_devices.json").write_text(json.dumps(iot_data))
-    
+
     # config_providers.json
     providers_data = {
         "layer_1_provider": "aws",
         "layer_2_provider": "azure",
-        "layer_4_provider": "aws"
+        "layer_4_provider": "aws",
     }
     (project_dir / "config_providers.json").write_text(json.dumps(providers_data))
-    
+
     return project_dir
+
 
 def test_load_project_config_success(sample_project_dir):
     """Test loading a valid project configuration."""
     config = load_project_config(sample_project_dir)
-    
+
     assert config.digital_twin_name == "test-twin"
     assert config.hot_storage_size_in_days == 7
     assert config.cold_storage_size_in_days == 30
@@ -146,11 +144,12 @@ def test_load_project_config_missing_required_file(sample_project_dir):
     """Test that missing required file raises ConfigurationError."""
     # Delete a required file
     (sample_project_dir / "config_iot_devices.json").unlink()
-    
+
     with pytest.raises(ConfigurationError) as exc:
         load_project_config(sample_project_dir)
-    
+
     assert "Required configuration file not found" in str(exc.value)
+
 
 def test_load_project_config_missing_required_field(sample_project_dir):
     """Test that missing required field in config.json raises ConfigurationError."""
@@ -158,32 +157,36 @@ def test_load_project_config_missing_required_field(sample_project_dir):
     config_data = {
         "digital_twin_name": "test-twin",
         # Missing storage fields
-        "mode": "DEBUG"
+        "mode": "DEBUG",
     }
     (sample_project_dir / "config.json").write_text(json.dumps(config_data))
-    
+
     with pytest.raises(ConfigurationError) as exc:
         load_project_config(sample_project_dir)
-    
+
     assert "Missing required field" in str(exc.value)
+
 
 def test_load_credentials(sample_project_dir):
     """Test loading credentials files."""
     # Create aws credentials
     aws_creds = {"aws_access_key_id": "123"}
-    (sample_project_dir / "config_credentials_aws.json").write_text(json.dumps(aws_creds))
-    
+    (sample_project_dir / "config_credentials_aws.json").write_text(
+        json.dumps(aws_creds)
+    )
+
     creds = load_credentials(sample_project_dir)
-    
+
     assert "aws" in creds
     assert creds["aws"] == aws_creds
     assert "azure" not in creds  # File not created
+
 
 def test_get_required_providers(sample_project_dir):
     """Test extracting required providers from config."""
     config = load_project_config(sample_project_dir)
     # config_providers.json has "aws" and "azure"
-    
+
     providers = get_required_providers(config)
     assert "aws" in providers
     assert "azure" in providers
@@ -193,10 +196,12 @@ def test_get_required_providers(sample_project_dir):
 def test_provider_alias_normalization_is_centralized():
     assert normalize_provider_name("google") == "gcp"
     assert normalize_provider_name("gcp") == "gcp"
-    assert normalize_provider_mapping({
-        "layer_1_provider": "google",
-        "layer_2_provider": "azure",
-    }) == {
+    assert normalize_provider_mapping(
+        {
+            "layer_1_provider": "google",
+            "layer_2_provider": "azure",
+        }
+    ) == {
         "layer_1_provider": "gcp",
         "layer_2_provider": "azure",
     }
@@ -204,12 +209,16 @@ def test_provider_alias_normalization_is_centralized():
 
 def test_load_project_config_normalizes_google_provider(sample_project_dir):
     providers_path = sample_project_dir / "config_providers.json"
-    providers_path.write_text(json.dumps({
-        "layer_1_provider": "google",
-        "layer_2_provider": "google",
-        "layer_3_hot_provider": "google",
-        "layer_4_provider": "google",
-    }))
+    providers_path.write_text(
+        json.dumps(
+            {
+                "layer_1_provider": "google",
+                "layer_2_provider": "google",
+                "layer_3_hot_provider": "google",
+                "layer_4_provider": "google",
+            }
+        )
+    )
 
     config = load_project_config(sample_project_dir)
 
@@ -219,25 +228,32 @@ def test_load_project_config_normalizes_google_provider(sample_project_dir):
 
 
 def test_project_config_loader_loads_bundle_through_project_storage(tmp_path):
-    specification = load_specification("mixed-providers.json")
+    specification = load_specification()
     providers = provider_config_for_specification(specification)
     providers = {
-        key: "google" if value == "gcp" else value
-        for key, value in providers.items()
+        key: "google" if value == "gcp" else value for key, value in providers.items()
     }
     project_dir = tmp_path / "upload" / "factory"
     project_dir.mkdir(parents=True)
-    (project_dir / "config.json").write_text(json.dumps({
-        "digital_twin_name": "factory",
-        "hot_storage_size_in_days": 7,
-        "cold_storage_size_in_days": 30,
-        "mode": "DEBUG",
-    }))
+    (project_dir / "config.json").write_text(
+        json.dumps(
+            {
+                "digital_twin_name": "factory",
+                "hot_storage_size_in_days": 7,
+                "cold_storage_size_in_days": 30,
+                "mode": "DEBUG",
+            }
+        )
+    )
     (project_dir / "config_iot_devices.json").write_text("[]")
     (project_dir / "config_providers.json").write_text(json.dumps(providers))
-    (project_dir / "config_credentials.json").write_text(json.dumps({
-        "aws": {"aws_access_key_id": "key"},
-    }))
+    (project_dir / "config_credentials.json").write_text(
+        json.dumps(
+            {
+                "aws": {"aws_access_key_id": "key"},
+            }
+        )
+    )
     (project_dir / "deployment_manifest.json").write_text(
         json.dumps(
             deployment_manifest(
@@ -252,7 +268,7 @@ def test_project_config_loader_loads_bundle_through_project_storage(tmp_path):
 
     assert bundle.project_name == "factory"
     assert bundle.project_path == project_dir
-    assert "gcp" in bundle.config.providers.values()
+    assert set(bundle.config.providers.values()) == {"aws", "azure"}
     assert bundle.credentials["aws"]["aws_access_key_id"] == "key"
-    assert bundle.deployment_manifest["manifest_version"] == "2.0"
+    assert bundle.deployment_manifest["manifest_version"] == "4.0"
     assert bundle.validated_deployment_manifest is not None

@@ -113,29 +113,6 @@ class DecisionPackageValidatorTest(unittest.TestCase):
             "JSON API support-end date must match current provider evidence", errors
         )
 
-    def test_gcp_permission_manifest_has_no_wildcards_or_bootstrap_authority(
-        self,
-    ) -> None:
-        permission = self.validator.load_json(
-            self.validator.PERMISSION_ROOT / "gcp_thesis_demo_v2.json"
-        )
-        self.assertFalse(any("*" in item for item in permission["custom_role_inputs"]))
-        self.assertTrue(
-            set(permission["forbidden_bootstrap_actions"]).isdisjoint(
-                permission["custom_role_inputs"]
-            )
-        )
-        self.assertTrue(
-            {
-                "artifactregistry.repositories.getIamPolicy",
-                "artifactregistry.repositories.setIamPolicy",
-                "cloudbuild.builds.create",
-                "cloudbuild.builds.get",
-                "storage.buckets.getIamPolicy",
-                "storage.buckets.setIamPolicy",
-            }.issubset(permission["custom_role_inputs"])
-        )
-
     def test_runtime_manifest_does_not_claim_implementation(self) -> None:
         manifest = self.validator.load_json(
             self.validator.EVIDENCE_ROOT / "implementation-component-manifest.json"
@@ -144,32 +121,6 @@ class DecisionPackageValidatorTest(unittest.TestCase):
             {component["runtime_state"] for component in manifest["components"]},
             {"decision_frozen_not_implemented"},
         )
-
-    def test_aws_image_publication_permissions_are_frozen(self) -> None:
-        permission = self.validator.load_json(
-            self.validator.PERMISSION_ROOT / "aws_thesis_demo_v2.json"
-        )
-        actions = {
-            action
-            for group in permission["policy_inputs"]
-            for action in group["actions"]
-        }
-        self.assertTrue(
-            {
-                "codebuild:CreateProject",
-                "codebuild:StartBuild",
-                "codebuild:BatchGetBuilds",
-                "ecr:DescribeImages",
-                "s3:PutObject",
-                "s3:GetObject",
-            }.issubset(actions)
-        )
-        pass_role = next(
-            item
-            for item in permission["conditions"]
-            if item["condition"] == "iam:PassedToService"
-        )
-        self.assertIn("codebuild.amazonaws.com", pass_role["values"])
 
     def test_exact_iac_boundaries_and_provider_upgrade_are_frozen(self) -> None:
         manifest = self.validator.load_json(

@@ -118,11 +118,11 @@ void main() {
   ) async {
     final phase8 =
         architectureReadyWizardState(
-          profileId: 'five-layer-baseline',
+          profileId: 'six-layer-eventing',
           withExtensionSlot: false,
         ).copyWith(
-          calcParams: CalcParams.fiveLayerV2(
-            scenario: FiveLayerWorkloadScenario.small,
+          calcParams: CalcParams.sixLayer(
+            scenario: SixLayerWorkloadScenario.small,
           ),
           calcResult: result(layer2: 'AWS', layer4: 'GCP', layer5: 'GCP'),
           configIotDevicesValidated: true,

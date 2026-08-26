@@ -32,7 +32,6 @@ from src.services.cloud_credential_validation_service import (
     redact_validation_result,
 )
 from src.services.credential_resolution_service import CredentialResolutionService
-from src.services.permission_sets import compare_permission_set_version
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import EntityNotFoundError, ValidationError
 
@@ -52,8 +51,6 @@ class _ProviderCandidate:
     connection_id: str
     connection_display_name: str
     payload_fingerprint: str
-    supplied_permission_set_version: str | None
-    expected_permission_set_version: str
     optimizer_credentials: dict[str, Any]
     deployer_credentials: dict[str, Any]
 
@@ -148,18 +145,12 @@ class DeploymentReadinessService:
                 self._cache_repository.delete(twin.id, provider)
                 continue
             try:
-                comparison = compare_permission_set_version(
-                    provider,
-                    connection.permission_set_version,
-                )
                 candidates.append(
                     _ProviderCandidate(
                         provider=provider,
                         connection_id=connection.id,
                         connection_display_name=connection.display_name,
                         payload_fingerprint=connection.payload_fingerprint,
-                        supplied_permission_set_version=connection.permission_set_version,
-                        expected_permission_set_version=comparison.expected_version,
                         optimizer_credentials=self._connection_service.build_optimizer_credentials(
                             connection,
                             user_id,
@@ -220,8 +211,6 @@ class DeploymentReadinessService:
                 provider=candidate.provider,
                 cloud_connection_id=candidate.connection_id,
                 connection_payload_fingerprint=candidate.payload_fingerprint,
-                supplied_permission_set_version=candidate.supplied_permission_set_version,
-                expected_permission_set_version=candidate.expected_permission_set_version,
                 ready=provider_result.ready,
                 summary=provider_result.summary,
                 checks_json=json.dumps(
@@ -305,10 +294,6 @@ class DeploymentReadinessService:
                 message="The bound deployment Cloud Connection is unavailable.",
                 action="Review the provider binding and run preflight again.",
             )
-        comparison = compare_permission_set_version(
-            provider,
-            connection.permission_set_version,
-        )
         cache = self._cache_repository.get(twin.id, provider)
         if cache is None:
             return self._provider_failure(
@@ -319,7 +304,7 @@ class DeploymentReadinessService:
                 connection=connection,
                 status="not_checked",
             )
-        if not self._cache_is_current(cache, connection, comparison.expected_version):
+        if not self._cache_is_current(cache, connection):
             return self._provider_failure(
                 provider,
                 code="PREFLIGHT_CACHE_STALE",
@@ -340,7 +325,7 @@ class DeploymentReadinessService:
                 status="stale",
                 checked_at=cache.checked_at,
             )
-        ready = bool(cache.ready) and comparison.matches
+        ready = bool(cache.ready)
         return ProviderDeploymentReadiness(
             provider=provider,
             connection_id=connection.id,
@@ -352,9 +337,6 @@ class DeploymentReadinessService:
                 fallback="Cached provider preflight is unavailable.",
                 max_length=2_000,
             ),
-            expected_permission_set_version=comparison.expected_version,
-            supplied_permission_set_version=comparison.supplied_version,
-            permission_set_status=comparison.status,
             checked_at=cache.checked_at,
             checks=checks,
         )
@@ -365,17 +347,12 @@ class DeploymentReadinessService:
         validation_result: dict[str, Any],
         checked_at: datetime,
     ) -> ProviderDeploymentReadiness:
-        comparison = compare_permission_set_version(
-            candidate.provider,
-            candidate.supplied_permission_set_version,
-        )
         raw = build_preflight_result(
             candidate.provider,
             validation_result,
-            version_comparison=comparison,
         )
         checks = [self._safe_check(check) for check in raw.get("checks", [])[:32]]
-        ready = bool(raw.get("ready")) and comparison.matches
+        ready = bool(raw.get("ready"))
         summary = redact_secret_like_text(
             str(raw.get("summary") or "Provider preflight failed"),
         )[:2_000]
@@ -386,9 +363,6 @@ class DeploymentReadinessService:
             ready=ready,
             status="ready" if ready else "review_required",
             summary=summary,
-            expected_permission_set_version=comparison.expected_version,
-            supplied_permission_set_version=comparison.supplied_version,
-            permission_set_status=comparison.status,
             checked_at=checked_at,
             checks=checks,
         )
@@ -447,18 +421,13 @@ class DeploymentReadinessService:
             connection
             and connection.id == candidate.connection_id
             and connection.payload_fingerprint == candidate.payload_fingerprint
-            and connection.permission_set_version
-            == candidate.supplied_permission_set_version
         )
 
-    def _cache_is_current(self, cache, connection, expected_version: str) -> bool:
+    def _cache_is_current(self, cache, connection) -> bool:
         cache_age = self._clock() - cache.checked_at
         return bool(
             cache.cloud_connection_id == connection.id
             and cache.connection_payload_fingerprint == connection.payload_fingerprint
-            and cache.supplied_permission_set_version
-            == connection.permission_set_version
-            and cache.expected_permission_set_version == expected_version
             and timedelta(0) <= cache_age <= self._max_age
         )
 
@@ -528,10 +497,6 @@ class DeploymentReadinessService:
         status: ProviderReadinessStatus = "review_required",
         checked_at: datetime | None = None,
     ) -> ProviderDeploymentReadiness:
-        comparison = compare_permission_set_version(
-            provider,
-            getattr(connection, "permission_set_version", None),
-        )
         check = DeploymentReadinessCheck(
             component="configuration",
             status="failed",
@@ -546,9 +511,6 @@ class DeploymentReadinessService:
             ready=False,
             status=status,
             summary=check.message,
-            expected_permission_set_version=comparison.expected_version,
-            supplied_permission_set_version=comparison.supplied_version,
-            permission_set_status=comparison.status,
             checked_at=checked_at,
             checks=[check],
         )
@@ -556,7 +518,7 @@ class DeploymentReadinessService:
     def _requirements(
         self, twin
     ) -> tuple[list[CloudProvider], list[DeploymentReadinessCheck]]:
-        raw = CredentialResolutionService.required_providers_for_compatibility(twin)
+        raw = CredentialResolutionService.required_providers_from_architecture(twin)
         required = [
             cast(CloudProvider, provider)
             for provider in sorted(raw)

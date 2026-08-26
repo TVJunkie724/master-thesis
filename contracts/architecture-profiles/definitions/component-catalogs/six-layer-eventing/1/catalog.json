@@ -60,14 +60,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.aws.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.aws.five-layer-v2",
+        "provider_runtime_id": "runtime.aws.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.aws.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.aws.five-layer-v2",
-        "package_layout_id": "package-layout.aws.five-layer-v2",
+        "trigger_adapter_id": "trigger.aws.six-layer-domain-v1",
+        "package_layout_id": "package-layout.aws.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -113,7 +113,7 @@
         }
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "pricing_model_refs": [
         "pricing.aws.ingestion.v2"
@@ -164,11 +164,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -244,14 +244,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.aws.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.aws.five-layer-v2",
+        "provider_runtime_id": "runtime.aws.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.aws.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.aws.five-layer-v2",
-        "package_layout_id": "package-layout.aws.five-layer-v2",
+        "trigger_adapter_id": "trigger.aws.six-layer-domain-v1",
+        "package_layout_id": "package-layout.aws.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -297,7 +297,7 @@
         }
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "pricing_model_refs": [
         "pricing.aws.processing.v2"
@@ -353,11 +353,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -450,14 +450,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.aws.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.aws.five-layer-v2",
+        "provider_runtime_id": "runtime.aws.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.aws.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.aws.five-layer-v2",
-        "package_layout_id": "package-layout.aws.five-layer-v2",
+        "trigger_adapter_id": "trigger.aws.six-layer-domain-v1",
+        "package_layout_id": "package-layout.aws.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -537,7 +537,7 @@
         }
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "pricing_model_refs": [
         "pricing.aws.hot-storage.v2"
@@ -603,11 +603,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -685,14 +685,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.aws.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.aws.five-layer-v2",
+        "provider_runtime_id": "runtime.aws.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.aws.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.aws.five-layer-v2",
-        "package_layout_id": "package-layout.aws.five-layer-v2",
+        "trigger_adapter_id": "trigger.aws.six-layer-domain-v1",
+        "package_layout_id": "package-layout.aws.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -738,7 +738,7 @@
         }
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "pricing_model_refs": [
         "pricing.aws.cool-storage.v2"
@@ -779,11 +779,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -843,14 +843,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.aws.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.aws.five-layer-v2",
+        "provider_runtime_id": "runtime.aws.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.aws.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.aws.five-layer-v2",
-        "package_layout_id": "package-layout.aws.five-layer-v2",
+        "trigger_adapter_id": "trigger.aws.six-layer-domain-v1",
+        "package_layout_id": "package-layout.aws.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -878,7 +878,7 @@
       ],
       "output_ports": [],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "pricing_model_refs": [
         "pricing.aws.archive-storage.v2"
@@ -904,11 +904,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -985,14 +985,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.aws.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.aws.five-layer-v2",
+        "provider_runtime_id": "runtime.aws.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.aws.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.aws.five-layer-v2",
-        "package_layout_id": "package-layout.aws.five-layer-v2",
+        "trigger_adapter_id": "trigger.aws.six-layer-domain-v1",
+        "package_layout_id": "package-layout.aws.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -1020,7 +1020,7 @@
       ],
       "output_ports": [],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "pricing_model_refs": [
         "pricing.aws.twin-state.v2"
@@ -1071,11 +1071,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -1145,14 +1145,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.aws.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.aws.five-layer-v2",
+        "provider_runtime_id": "runtime.aws.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.aws.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.aws.five-layer-v2",
-        "package_layout_id": "package-layout.aws.five-layer-v2",
+        "trigger_adapter_id": "trigger.aws.six-layer-domain-v1",
+        "package_layout_id": "package-layout.aws.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -1180,7 +1180,7 @@
       ],
       "output_ports": [],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "pricing_model_refs": [
         "pricing.aws.visualization.v2"
@@ -1221,11 +1221,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -1303,14 +1303,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.azure.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.azure.five-layer-v2",
+        "provider_runtime_id": "runtime.azure.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.azure.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.azure.five-layer-v2",
-        "package_layout_id": "package-layout.azure.five-layer-v2",
+        "trigger_adapter_id": "trigger.azure.six-layer-domain-v1",
+        "package_layout_id": "package-layout.azure.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -1356,7 +1356,7 @@
         }
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "pricing_model_refs": [
         "pricing.azure.ingestion.v2"
@@ -1402,11 +1402,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -1489,14 +1489,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.azure.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.azure.five-layer-v2",
+        "provider_runtime_id": "runtime.azure.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.azure.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.azure.five-layer-v2",
-        "package_layout_id": "package-layout.azure.five-layer-v2",
+        "trigger_adapter_id": "trigger.azure.six-layer-domain-v1",
+        "package_layout_id": "package-layout.azure.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -1542,7 +1542,7 @@
         }
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "pricing_model_refs": [
         "pricing.azure.processing.v2"
@@ -1598,11 +1598,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -1690,14 +1690,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.azure.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.azure.five-layer-v2",
+        "provider_runtime_id": "runtime.azure.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.azure.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.azure.five-layer-v2",
-        "package_layout_id": "package-layout.azure.five-layer-v2",
+        "trigger_adapter_id": "trigger.azure.six-layer-domain-v1",
+        "package_layout_id": "package-layout.azure.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -1777,7 +1777,7 @@
         }
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "pricing_model_refs": [
         "pricing.azure.hot-storage.v2"
@@ -1833,11 +1833,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -1908,14 +1908,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.azure.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.azure.five-layer-v2",
+        "provider_runtime_id": "runtime.azure.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.azure.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.azure.five-layer-v2",
-        "package_layout_id": "package-layout.azure.five-layer-v2",
+        "trigger_adapter_id": "trigger.azure.six-layer-domain-v1",
+        "package_layout_id": "package-layout.azure.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -1961,7 +1961,7 @@
         }
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "pricing_model_refs": [
         "pricing.azure.cool-storage.v2"
@@ -2002,11 +2002,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -2069,14 +2069,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.azure.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.azure.five-layer-v2",
+        "provider_runtime_id": "runtime.azure.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.azure.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.azure.five-layer-v2",
-        "package_layout_id": "package-layout.azure.five-layer-v2",
+        "trigger_adapter_id": "trigger.azure.six-layer-domain-v1",
+        "package_layout_id": "package-layout.azure.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -2104,7 +2104,7 @@
       ],
       "output_ports": [],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "pricing_model_refs": [
         "pricing.azure.archive-storage.v2"
@@ -2135,11 +2135,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -2220,14 +2220,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.azure.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.azure.five-layer-v2",
+        "provider_runtime_id": "runtime.azure.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.azure.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.azure.five-layer-v2",
-        "package_layout_id": "package-layout.azure.five-layer-v2",
+        "trigger_adapter_id": "trigger.azure.six-layer-domain-v1",
+        "package_layout_id": "package-layout.azure.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -2255,7 +2255,7 @@
       ],
       "output_ports": [],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "pricing_model_refs": [
         "pricing.azure.twin-state.v2"
@@ -2306,11 +2306,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -2381,14 +2381,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.azure.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.azure.five-layer-v2",
+        "provider_runtime_id": "runtime.azure.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.azure.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.azure.five-layer-v2",
-        "package_layout_id": "package-layout.azure.five-layer-v2",
+        "trigger_adapter_id": "trigger.azure.six-layer-domain-v1",
+        "package_layout_id": "package-layout.azure.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -2416,7 +2416,7 @@
       ],
       "output_ports": [],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "pricing_model_refs": [
         "pricing.azure.visualization.v2"
@@ -2462,11 +2462,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -2552,14 +2552,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.gcp.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.gcp.five-layer-v2",
+        "provider_runtime_id": "runtime.gcp.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.gcp.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.gcp.five-layer-v2",
-        "package_layout_id": "package-layout.gcp.five-layer-v2",
+        "trigger_adapter_id": "trigger.gcp.six-layer-domain-v1",
+        "package_layout_id": "package-layout.gcp.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -2605,7 +2605,7 @@
         }
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "pricing_model_refs": [
         "pricing.gcp.ingestion.v2"
@@ -2661,11 +2661,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -2744,14 +2744,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.gcp.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.gcp.five-layer-v2",
+        "provider_runtime_id": "runtime.gcp.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.gcp.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.gcp.five-layer-v2",
-        "package_layout_id": "package-layout.gcp.five-layer-v2",
+        "trigger_adapter_id": "trigger.gcp.six-layer-domain-v1",
+        "package_layout_id": "package-layout.gcp.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -2797,7 +2797,7 @@
         }
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "pricing_model_refs": [
         "pricing.gcp.processing.v2"
@@ -2853,11 +2853,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -2941,14 +2941,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.gcp.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.gcp.five-layer-v2",
+        "provider_runtime_id": "runtime.gcp.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.gcp.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.gcp.five-layer-v2",
-        "package_layout_id": "package-layout.gcp.five-layer-v2",
+        "trigger_adapter_id": "trigger.gcp.six-layer-domain-v1",
+        "package_layout_id": "package-layout.gcp.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -3028,7 +3028,7 @@
         }
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "pricing_model_refs": [
         "pricing.gcp.hot-storage.v2"
@@ -3084,11 +3084,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -3163,14 +3163,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.gcp.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.gcp.five-layer-v2",
+        "provider_runtime_id": "runtime.gcp.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.gcp.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.gcp.five-layer-v2",
-        "package_layout_id": "package-layout.gcp.five-layer-v2",
+        "trigger_adapter_id": "trigger.gcp.six-layer-domain-v1",
+        "package_layout_id": "package-layout.gcp.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -3216,7 +3216,7 @@
         }
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "pricing_model_refs": [
         "pricing.gcp.cool-storage.v2"
@@ -3262,11 +3262,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -3327,14 +3327,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.gcp.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.gcp.five-layer-v2",
+        "provider_runtime_id": "runtime.gcp.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.gcp.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.gcp.five-layer-v2",
-        "package_layout_id": "package-layout.gcp.five-layer-v2",
+        "trigger_adapter_id": "trigger.gcp.six-layer-domain-v1",
+        "package_layout_id": "package-layout.gcp.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -3362,7 +3362,7 @@
       ],
       "output_ports": [],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "pricing_model_refs": [
         "pricing.gcp.archive-storage.v2"
@@ -3393,11 +3393,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -3484,14 +3484,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.gcp.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.gcp.five-layer-v2",
+        "provider_runtime_id": "runtime.gcp.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.gcp.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.gcp.five-layer-v2",
-        "package_layout_id": "package-layout.gcp.five-layer-v2",
+        "trigger_adapter_id": "trigger.gcp.six-layer-domain-v1",
+        "package_layout_id": "package-layout.gcp.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -3519,7 +3519,7 @@
       ],
       "output_ports": [],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "pricing_model_refs": [
         "pricing.gcp.twin-state.v2"
@@ -3580,11 +3580,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -3670,14 +3670,14 @@
         "dependency_keys": []
       },
       "runtime_contract": {
-        "provider_runtime_id": "runtime.gcp.five-layer-v2",
-        "platform_handler_adapter_id": "adapter.gcp.five-layer-v2",
+        "provider_runtime_id": "runtime.gcp.six-layer-domain-v1",
+        "platform_handler_adapter_id": "adapter.gcp.six-layer-domain-v1",
         "timeout_seconds_min": 1,
         "timeout_seconds_max": 900,
         "memory_mb_min": 128,
         "memory_mb_max": 32768,
-        "trigger_adapter_id": "trigger.gcp.five-layer-v2",
-        "package_layout_id": "package-layout.gcp.five-layer-v2",
+        "trigger_adapter_id": "trigger.gcp.six-layer-domain-v1",
+        "package_layout_id": "package-layout.gcp.six-layer-domain-v1",
         "user_override_allowed": false
       },
       "configuration_schema_ref": {
@@ -3705,7 +3705,7 @@
       ],
       "output_ports": [],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "pricing_model_refs": [
         "pricing.gcp.visualization.v2"
@@ -3761,11 +3761,11 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "cleanup_contract_ref": {
-        "id": "cleanup.five-layer-v2",
+        "id": "cleanup.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -4021,7 +4021,7 @@
         }
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "pricing_model_refs": [
         "intent.aws.cloudwatch.ingestion",
@@ -4351,7 +4351,7 @@
         }
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "pricing_model_refs": [
         "intent.azure.event-hubs-dedicated.cu-hour",
@@ -4614,7 +4614,7 @@
         }
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "pricing_model_refs": [
         "intent.gcp.cloud-run-worker.cpu",
@@ -4748,7 +4748,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -4756,7 +4756,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -4826,7 +4826,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.cool-storage.v2"
@@ -4836,7 +4836,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -4910,7 +4910,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.cool-storage.v2"
@@ -4920,7 +4920,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -4994,7 +4994,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.cool-storage.v2"
@@ -5004,7 +5004,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -5078,7 +5078,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -5086,7 +5086,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -5156,7 +5156,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.cool-storage.v2"
@@ -5166,7 +5166,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -5240,7 +5240,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.cool-storage.v2"
@@ -5250,7 +5250,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -5324,7 +5324,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.cool-storage.v2"
@@ -5334,7 +5334,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -5408,7 +5408,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -5416,7 +5416,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -5486,7 +5486,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -5494,7 +5494,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -5564,7 +5564,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.hot-storage.v2"
@@ -5574,7 +5574,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -5648,7 +5648,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.hot-storage.v2"
@@ -5658,7 +5658,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -5732,7 +5732,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.hot-storage.v2"
@@ -5742,7 +5742,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -5816,7 +5816,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -5824,7 +5824,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -5894,7 +5894,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.hot-storage.v2"
@@ -5904,7 +5904,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -5978,7 +5978,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.hot-storage.v2"
@@ -5988,7 +5988,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -6062,7 +6062,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.hot-storage.v2"
@@ -6072,7 +6072,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -6146,7 +6146,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -6154,7 +6154,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -6224,7 +6224,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -6232,7 +6232,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -6302,7 +6302,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.hot-storage.v2"
@@ -6312,7 +6312,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -6386,7 +6386,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.hot-storage.v2"
@@ -6396,7 +6396,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -6470,7 +6470,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.hot-storage.v2"
@@ -6480,7 +6480,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -6554,7 +6554,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -6562,7 +6562,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -6632,7 +6632,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.hot-storage.v2"
@@ -6642,7 +6642,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -6716,7 +6716,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.hot-storage.v2"
@@ -6726,7 +6726,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -6800,7 +6800,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.hot-storage.v2"
@@ -6810,7 +6810,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -6884,7 +6884,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -6892,7 +6892,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -6962,7 +6962,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -6970,7 +6970,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -7040,7 +7040,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -7048,7 +7048,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -7118,7 +7118,7 @@
         "formula.phase-08-complete-service-bundles"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -7126,7 +7126,7 @@
         "version": "1"
       },
       "observability_contract_ref": {
-        "id": "observability.five-layer-v2",
+        "id": "observability.six-layer-domain-v1",
         "version": "1"
       },
       "compatibility": {
@@ -7196,7 +7196,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -7274,7 +7274,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -7352,7 +7352,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -7430,7 +7430,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -7508,7 +7508,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -7586,7 +7586,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.ingestion.v2"
@@ -7670,7 +7670,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.eventing.v1"
@@ -7754,7 +7754,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.processing.v2"
@@ -7838,7 +7838,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.eventing.v1"
@@ -7922,7 +7922,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.eventing.v1"
@@ -8006,7 +8006,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.ingestion.v2"
@@ -8090,7 +8090,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.eventing.v1"
@@ -8174,7 +8174,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.processing.v2"
@@ -8258,7 +8258,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.eventing.v1"
@@ -8342,7 +8342,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "aws_thesis_demo_v2"
+        "credential.aws.administrator"
       ],
       "glue_component_ids": [
         "deployment.aws.eventing.v1"
@@ -8426,7 +8426,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.ingestion.v2"
@@ -8510,7 +8510,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.eventing.v1"
@@ -8594,7 +8594,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.processing.v2"
@@ -8678,7 +8678,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.eventing.v1"
@@ -8762,7 +8762,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.eventing.v1"
@@ -8846,7 +8846,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -8924,7 +8924,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -9002,7 +9002,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -9080,7 +9080,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -9158,7 +9158,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -9236,7 +9236,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.ingestion.v2"
@@ -9320,7 +9320,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.eventing.v1"
@@ -9404,7 +9404,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.processing.v2"
@@ -9488,7 +9488,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.eventing.v1"
@@ -9572,7 +9572,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "azure_thesis_demo_v2"
+        "credential.azure.owner"
       ],
       "glue_component_ids": [
         "deployment.azure.eventing.v1"
@@ -9656,7 +9656,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.ingestion.v2"
@@ -9740,7 +9740,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.eventing.v1"
@@ -9824,7 +9824,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.processing.v2"
@@ -9908,7 +9908,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.eventing.v1"
@@ -9992,7 +9992,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.eventing.v1"
@@ -10076,7 +10076,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.ingestion.v2"
@@ -10160,7 +10160,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.eventing.v1"
@@ -10244,7 +10244,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.processing.v2"
@@ -10328,7 +10328,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.eventing.v1"
@@ -10412,7 +10412,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [
         "deployment.gcp.eventing.v1"
@@ -10496,7 +10496,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -10574,7 +10574,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -10652,7 +10652,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -10730,7 +10730,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -10808,7 +10808,7 @@
         "formula.phase-08-eventing"
       ],
       "required_permission_capabilities": [
-        "gcp_thesis_demo_v2"
+        "credential.gcp.owner"
       ],
       "glue_component_ids": [],
       "error_contract_ref": {
@@ -10866,9 +10866,9 @@
         "aws.step-functions-standard"
       ],
       "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-domain",
-      "platform_handler": "handler.aws.five-layer-v2",
+      "platform_handler": "handler.aws.six-layer-domain-v1",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:6696ae6ecb087604afb7ef9dffbdb68f4565600ef24a60ecbf17ac281c401761",
+      "source_digest": "sha256:a80413434475d7a8e01510f860f67227a98a74f5e7f9682031dbf764441aa8c0",
       "included_paths": [
         "bridge/Dockerfile",
         "bridge/constraints.txt",
@@ -10886,9 +10886,9 @@
           "version": "1"
         }
       ],
-      "builder_adapter_id": "builder.aws.five-layer-v2",
+      "builder_adapter_id": "builder.aws.six-layer-domain-v1",
       "supported_runtimes": [
-        "runtime.aws.five-layer-v2"
+        "runtime.aws.six-layer-domain-v1"
       ],
       "user_source_policy": "platform_only",
       "compatibility": {
@@ -10924,9 +10924,9 @@
         "azure.service-bus-standard"
       ],
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-domain",
-      "platform_handler": "handler.azure.five-layer-v2",
+      "platform_handler": "handler.azure.six-layer-domain-v1",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:4fe05668ac79e8f2f0618438c675f83c095d799f775e768f13f44020659533a7",
+      "source_digest": "sha256:3cb496950e4e1131edc3f86ca3876e60c4653195111e82db0e8fb64e2d18324e",
       "included_paths": [
         "core.py",
         "function_app.py",
@@ -10944,9 +10944,9 @@
           "version": "1"
         }
       ],
-      "builder_adapter_id": "builder.azure.five-layer-v2",
+      "builder_adapter_id": "builder.azure.six-layer-domain-v1",
       "supported_runtimes": [
-        "runtime.azure.five-layer-v2"
+        "runtime.azure.six-layer-domain-v1"
       ],
       "user_source_policy": "platform_only",
       "compatibility": {
@@ -10988,9 +10988,9 @@
         "grafana.yesoreyeram-infinity-datasource"
       ],
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/six-layer-domain",
-      "platform_handler": "handler.gcp.five-layer-v2",
+      "platform_handler": "handler.gcp.six-layer-domain-v1",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:5e0e98b4f8d4f6279d503aa8b4453dabb0716a94b186f096610beaf78ef79005",
+      "source_digest": "sha256:a247f7fed213aa3aaeb586a33d4250591bcc7e6c10c4967b799a41c095789199",
       "included_paths": [
         ".dockerignore",
         "Dockerfile",
@@ -11016,9 +11016,9 @@
           "version": "1"
         }
       ],
-      "builder_adapter_id": "builder.gcp.five-layer-v2",
+      "builder_adapter_id": "builder.gcp.six-layer-domain-v1",
       "supported_runtimes": [
-        "runtime.gcp.five-layer-v2"
+        "runtime.gcp.six-layer-domain-v1"
       ],
       "user_source_policy": "platform_only",
       "compatibility": {
@@ -11058,9 +11058,9 @@
       "dependency_artifact_refs": [],
       "builder_adapter_id": "builder.shared.phase8-bridge-runtime",
       "supported_runtimes": [
-        "runtime.aws.five-layer-v2",
-        "runtime.azure.five-layer-v2",
-        "runtime.gcp.five-layer-v2"
+        "runtime.aws.six-layer-domain-v1",
+        "runtime.azure.six-layer-domain-v1",
+        "runtime.gcp.six-layer-domain-v1"
       ],
       "user_source_policy": "platform_only",
       "compatibility": {
@@ -11124,7 +11124,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-eventing",
       "platform_handler": "function_app.app",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:abb77301ac87698dd336820a7920ca03ed3e4b6d40e1f137612434d15eea985c",
+      "source_digest": "sha256:2d3bead7c8b5fee3f25cde31e6f1ceeb885c6a06b8050cb654955d94d0a462e4",
       "included_paths": [
         "function_app.py",
         "host.json",
@@ -11209,5 +11209,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:e99bde162b10d648941109157910d6e5d4f29916b42b2ca23408715119a06b33"
+  "content_digest": "sha256:9c3b015df653fc90668b7159aaa350f81c4894dfbeb64bb11a3245e87460df79"
 }

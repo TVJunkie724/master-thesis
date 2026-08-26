@@ -13,7 +13,11 @@ from sqlalchemy.orm import Session
 
 from src.models.cloud_connection import CloudConnection
 from src.repositories.cloud_connection_repository import CloudConnectionRepository
-from src.schemas.cloud_connection import CloudConnectionCreate, CloudConnectionResponse, CloudConnectionUpdate
+from src.schemas.cloud_connection import (
+    CloudConnectionCreate,
+    CloudConnectionResponse,
+    CloudConnectionUpdate,
+)
 from src.schemas.credential_security_event import CredentialSecurityEventDraft
 from src.services.credential_security_audit_service import (
     CredentialAuditWriteFailed,
@@ -32,9 +36,14 @@ class CloudConnectionService:
         self._repo = CloudConnectionRepository(db)
 
     def list_connections(self, user_id: str) -> list[CloudConnectionResponse]:
-        return [self.to_response(connection, user_id) for connection in self._repo.list_for_user(user_id)]
+        return [
+            self.to_response(connection, user_id)
+            for connection in self._repo.list_for_user(user_id)
+        ]
 
-    def get_connection(self, connection_id: str, user_id: str) -> CloudConnection | None:
+    def get_connection(
+        self, connection_id: str, user_id: str
+    ) -> CloudConnection | None:
         return self._repo.get_for_user(connection_id, user_id)
 
     def create_connection(
@@ -46,7 +55,9 @@ class CloudConnectionService:
         make_pricing_default = False
         if request.purpose == "pricing":
             existing_default = self._repo.get_default_pricing(user_id, request.provider)
-            make_pricing_default = request.is_default_for_pricing or existing_default is None
+            make_pricing_default = (
+                request.is_default_for_pricing or existing_default is None
+            )
             if request.is_default_for_pricing:
                 self._repo.clear_pricing_defaults(user_id, request.provider)
 
@@ -61,26 +72,6 @@ class CloudConnectionService:
         self._db.refresh(connection)
         return self.to_response(connection, user_id)
 
-    def stage_deployment_connection(
-        self,
-        user_id: str,
-        request: CloudConnectionCreate,
-        audit: CredentialSecurityEventDraft | None = None,
-    ) -> CloudConnection:
-        """Stage a generated deployment connection in the caller transaction."""
-
-        if request.purpose != "deployment" or request.is_default_for_pricing:
-            raise ValueError("Bootstrap may stage only deployment Cloud Connections")
-        connection = self._new_connection(
-            user_id,
-            request,
-            make_pricing_default=False,
-        )
-        self._repo.add(connection)
-        self._append_audit(audit, resource_id=connection.id)
-        self._db.flush()
-        return connection
-
     def update_connection(
         self,
         connection: CloudConnection,
@@ -88,14 +79,12 @@ class CloudConnectionService:
         request: CloudConnectionUpdate,
         audit: CredentialSecurityEventDraft | None = None,
     ) -> CloudConnectionResponse:
-        if connection.purpose == "pricing" and request.permission_set_version is not None:
-            raise ValueError("permission_set_version is only supported for deployment Cloud Connections")
         if connection.purpose != "pricing" and request.is_default_for_pricing:
-            raise ValueError("Only pricing Cloud Connections may be selected as pricing default")
+            raise ValueError(
+                "Only pricing Cloud Connections may be selected as pricing default"
+            )
         if request.display_name is not None:
             connection.display_name = request.display_name
-        if request.permission_set_version is not None:
-            connection.permission_set_version = request.permission_set_version
         if request.cloud_scope is not None:
             cloud_scope = dict(request.cloud_scope)
             if connection.provider == "aws":
@@ -126,7 +115,9 @@ class CloudConnectionService:
             connection.cloud_scope = json.dumps(cloud_scope, sort_keys=True)
         if request.is_default_for_pricing is not None:
             if request.is_default_for_pricing:
-                self._repo.clear_pricing_defaults(connection.user_id, connection.provider)
+                self._repo.clear_pricing_defaults(
+                    connection.user_id, connection.provider
+                )
             connection.is_default_for_pricing = request.is_default_for_pricing
         connection.updated_at = datetime.utcnow()
 
@@ -184,14 +175,18 @@ class CloudConnectionService:
             ) from exc
         except SQLAlchemyError as exc:
             self._db.rollback()
-            raise CredentialAuditWriteFailed("Credential transaction could not be audited") from exc
+            raise CredentialAuditWriteFailed(
+                "Credential transaction could not be audited"
+            ) from exc
 
     def _commit_audited_change(self) -> None:
         try:
             self._db.commit()
         except SQLAlchemyError as exc:
             self._db.rollback()
-            raise CredentialAuditWriteFailed("Credential transaction could not be audited") from exc
+            raise CredentialAuditWriteFailed(
+                "Credential transaction could not be audited"
+            ) from exc
 
     def _append_audit(
         self,
@@ -208,7 +203,9 @@ class CloudConnectionService:
             )
         except SQLAlchemyError as exc:
             self._db.rollback()
-            raise CredentialAuditWriteFailed("Credential transaction could not be audited") from exc
+            raise CredentialAuditWriteFailed(
+                "Credential transaction could not be audited"
+            ) from exc
 
     def _new_connection(
         self,
@@ -230,13 +227,14 @@ class CloudConnectionService:
             display_name=request.display_name,
             cloud_scope=json.dumps(request.cloud_scope, sort_keys=True),
             auth_type=request.auth_type or self._default_auth_type(request.provider),
-            permission_set_version=request.permission_set_version,
             encrypted_payload=encrypt_scoped(payload_json, user_id, connection_id),
             payload_fingerprint=self.fingerprint_payload(request.provider, payload),
             validation_status="untested",
         )
 
-    def to_response(self, connection: CloudConnection, user_id: str) -> CloudConnectionResponse:
+    def to_response(
+        self, connection: CloudConnection, user_id: str
+    ) -> CloudConnectionResponse:
         payload = self.decrypt_payload(connection, user_id)
         return CloudConnectionResponse(
             id=connection.id,
@@ -246,7 +244,6 @@ class CloudConnectionService:
             is_default_for_pricing=bool(connection.is_default_for_pricing),
             display_name=connection.display_name,
             auth_type=connection.auth_type,
-            permission_set_version=connection.permission_set_version,
             cloud_scope=self._safe_json_dict(connection.cloud_scope),
             payload_fingerprint=connection.payload_fingerprint,
             payload_summary=self._payload_summary(connection.provider, payload),
@@ -258,21 +255,33 @@ class CloudConnectionService:
             updated_at=connection.updated_at,
         )
 
-    def decrypt_payload(self, connection: CloudConnection, user_id: str) -> dict[str, Any]:
+    def decrypt_payload(
+        self, connection: CloudConnection, user_id: str
+    ) -> dict[str, Any]:
         payload = decrypt_scoped(connection.encrypted_payload, user_id, connection.id)
         return self._safe_json_dict(payload)
 
-    def build_optimizer_credentials(self, connection: CloudConnection, user_id: str) -> dict[str, Any]:
+    def build_optimizer_credentials(
+        self, connection: CloudConnection, user_id: str
+    ) -> dict[str, Any]:
         payload = self.decrypt_payload(connection, user_id)
-        return CredentialResolutionService.build_optimizer_payload(connection.provider, payload)
+        return CredentialResolutionService.build_optimizer_payload(
+            connection.provider, payload
+        )
 
-    def build_deployer_credentials(self, connection: CloudConnection, user_id: str) -> dict[str, Any]:
+    def build_deployer_credentials(
+        self, connection: CloudConnection, user_id: str
+    ) -> dict[str, Any]:
         if connection.purpose != "deployment":
-            raise ValueError("Pricing Cloud Connections cannot provide deployment credentials")
+            raise ValueError(
+                "Pricing Cloud Connections cannot provide deployment credentials"
+            )
         payload = self.decrypt_payload(connection, user_id)
-        deployer_payload = CredentialResolutionService.build_deployer_validation_payload(connection.provider, payload)
-        if connection.permission_set_version:
-            deployer_payload["permission_set_version"] = connection.permission_set_version
+        deployer_payload = (
+            CredentialResolutionService.build_deployer_validation_payload(
+                connection.provider, payload
+            )
+        )
         return deployer_payload
 
     def fingerprint_payload(self, provider: str, payload: dict[str, Any]) -> str:
@@ -299,8 +308,10 @@ class CloudConnectionService:
                 "azure_client_secret": request.azure.client_secret,
                 "azure_tenant_id": request.azure.tenant_id,
                 "azure_region": request.azure.region,
-                "azure_region_iothub": request.azure.region_iothub or request.azure.region,
-                "azure_region_digital_twin": request.azure.region_digital_twin or request.azure.region,
+                "azure_region_iothub": request.azure.region_iothub
+                or request.azure.region,
+                "azure_region_digital_twin": request.azure.region_digital_twin
+                or request.azure.region,
             }
 
         if request.provider == "gcp" and request.gcp:
@@ -314,7 +325,9 @@ class CloudConnectionService:
 
         raise ValueError(f"Unsupported cloud connection provider: {request.provider}")
 
-    def _payload_summary(self, provider: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def _payload_summary(
+        self, provider: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         if provider == "aws":
             return {
                 "account_identity_configured": bool(payload.get("aws_access_key_id")),
@@ -354,10 +367,15 @@ class CloudConnectionService:
             if result.get("deployer") is None:
                 return "Optimizer pricing validation passed"
             return "Optimizer and Deployer validation passed"
-        optimizer = result.get("optimizer") if isinstance(result.get("optimizer"), dict) else {}
-        deployer = result.get("deployer") if isinstance(result.get("deployer"), dict) else {}
+        optimizer = (
+            result.get("optimizer") if isinstance(result.get("optimizer"), dict) else {}
+        )
+        deployer = (
+            result.get("deployer") if isinstance(result.get("deployer"), dict) else {}
+        )
         messages = [
-            message for message in [
+            message
+            for message in [
                 optimizer.get("message"),
                 deployer.get("message"),
             ]

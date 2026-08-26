@@ -41,9 +41,7 @@ def _create_twin(
 def test_export_twin_redacts_credentials_and_preserves_config_shape(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    db_session.add(
-        OptimizerConfiguration(twin_id=twin.id, cheapest_l1="AWS", cheapest_l2="AZURE")
-    )
+    db_session.add(OptimizerConfiguration(twin_id=twin.id))
     db_session.add(
         DeployerConfiguration(
             twin_id=twin.id,
@@ -111,15 +109,14 @@ def test_export_twin_redacts_credentials_and_preserves_config_shape(db_session):
 def test_export_twin_omits_legacy_flags_for_phase8_profile(
     db_session,
     monkeypatch,
+    sample_calc_params,
 ):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
     db_session.add(
         OptimizerConfiguration(
             twin_id=twin.id,
-            cheapest_l1="AWS",
-            cheapest_l2="AWS",
-            params=json.dumps({"numberOfDevices": 100}),
+            params=json.dumps(sample_calc_params),
         )
     )
     db_session.commit()

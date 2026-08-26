@@ -32,8 +32,8 @@
     "status": {"const": "selected_documented_live_pending"},
     "profile_ownership": {
       "type": "array",
-      "minItems": 3,
-      "maxItems": 3,
+      "minItems": 1,
+      "maxItems": 1,
       "items": {"$ref": "#/$defs/profileOwnership"}
     },
     "logical_shape": {"$ref": "#/$defs/logicalShape"},
@@ -108,11 +108,7 @@
       "required": ["profile_id", "bridge_presence", "owner"],
       "properties": {
         "profile_id": {
-          "enum": [
-            "five-layer-baseline@1",
-            "five-layer-baseline@2",
-            "six-layer-eventing@1"
-          ]
+          "const": "six-layer-eventing@1"
         },
         "bridge_presence": {"$ref": "#/$defs/nonEmptyString"},
         "owner": {"$ref": "#/$defs/nonEmptyString"}

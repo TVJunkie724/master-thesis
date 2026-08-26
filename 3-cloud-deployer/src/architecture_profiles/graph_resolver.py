@@ -38,17 +38,16 @@ def resolve_deployment_graph(
 ) -> ResolvedDeploymentGraph:
     """Resolve every architecture assignment and edge before side effects."""
 
-    if manifest.manifest_version not in {"3.0", "4.0"} or manifest.architecture is None:
+    if manifest.manifest_version != "4.0" or manifest.architecture is None:
         _fail(
             "DEPLOYMENT_MANIFEST_VERSION_UNSUPPORTED",
             "deployment_manifest.manifest_version",
-            "Graph resolution requires DeploymentManifest v3 or v4",
+            "Graph resolution requires DeploymentManifest v4",
         )
     architecture = manifest.architecture
     profile_ref = architecture["architecture_profile_ref"]
     registry = registry or ArchitectureProfileRegistry(
-        profile_id=str(profile_ref["id"]),
-        profile_version=str(profile_ref["version"])
+        profile_id=str(profile_ref["id"]), profile_version=str(profile_ref["version"])
     )
     catalog = DeploymentComponentCatalog(registry)
     specification = manifest.specification.specification

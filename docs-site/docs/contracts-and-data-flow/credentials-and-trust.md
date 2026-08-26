@@ -1,125 +1,41 @@
 # Credentials And Trust
 
-## Credential Categories
+Twin2MultiCloud uses preconfigured provider administrator credentials for the
+supervised proof of concept. It does not create cloud identities, calculate
+least-privilege permission packs, or manage credential rotation. The complete
+scope decision is recorded in the repository document
+`docs/plans/2026-08-26_poc_credentials.md`.
 
-```mermaid
-flowchart TB
-    subgraph RuntimeSecrets["Application runtime secrets"]
-        JWT["JWT signing key"]
-        Encryption["CloudConnection encryption key"]
-        IdentitySecret["OAuth or SAML secret/key"]
-    end
+## Runtime flow
 
-    subgraph GuidedBootstrap["Request-scoped guided boundary"]
-        Guide["Safe provider guide and session"]
-        Execute["One execute request<br/>with temporary authority"]
-        Adapter["Deterministic provider adapter<br/>offline PoC"]
-    end
-
-    subgraph ManualFallback["Supervised live fallback"]
-        Admin["Authenticated provider CLI<br/>admin session"]
-        Plan["Management bootstrap plan<br/>contains no admin secret"]
-        Script["Versioned static provider script<br/>dry-run before explicit apply"]
-        Generated["Ignored local deployment<br/>CloudConnection JSON"]
-    end
-
-    subgraph Durable["Durable user-owned cloud access"]
-        Import["Authenticated import/create boundary"]
-        Pricing["Pricing CloudConnection"]
-        Deployment["Deployment CloudConnection"]
-        Store[("Encrypted Management database payload")]
-    end
-
-    Guide --> Execute --> Adapter --> Import
-    Admin --> Script
-    Plan --> Script
-    Script -->|"creates scoped material"| Generated
-    Generated --> Import --> Deployment
-    Import -->|"separate AWS/GCP pricing import"| Pricing
-    Pricing --> Store
-    Deployment --> Store
-    Encryption --> Store
-    JWT -. "never grants cloud access" .-> Durable
-    IdentitySecret -. "never grants cloud access" .-> Durable
-```
-
-Application runtime secrets and cloud-provider credentials are different security
-domains. Neither may substitute for the other. The deterministic guided adapters and
-current bootstrap scripts create deployment identities only; AWS and GCP pricing
-connections are imported separately, while Azure pricing uses a public API.
-
-## Bootstrap And Reuse
-
-```mermaid
-sequenceDiagram
-    actor Operator
-    participant UI as Flutter guided flow
-    participant API as Management API
-    participant Adapter as Deterministic adapter
-    participant DB as Encrypted CloudConnection store
-
-    Operator->>UI: Choose provider and safe target
-    UI->>API: Request guide and create safe session
-    API-->>UI: Preparation, authority packs, fields, session
-    Operator->>UI: Enter temporary credential
-    UI->>API: One synchronous execute request
-    API->>Adapter: Use request-scoped authority
-    Adapter-->>API: Synthetic scoped identity and disposal result
-    API->>DB: Encrypt payload and append security audit event
-    API-->>UI: Non-secret connection/session result
-    UI-->>Operator: Ready or exact manual cleanup/recheck action
-```
-
-In the guided path, the Management API receives the bootstrap credential only in
-the synchronous execute request. It excludes it from session state, persistence,
-diagnostics, retry payloads, and responses. The reusable object is the generated
-scoped deployment CloudConnection, stored encrypted. Local integration scans
-Management logs and SQLite database/WAL/SHM files for the submitted sentinel.
-
-The offline adapter is deterministic and performs no cloud mutation. Production
-fails closed. In the supervised manual fallback, administrator authentication
-remains entirely in the provider CLI session and the generated local JSON must
-not be committed. See [Cloud Setup](../cloud-setup/index.md) for both sequences.
-
-## Purpose-Aware Runtime Resolution
-
-```mermaid
-flowchart LR
-    Store[("Encrypted CloudConnections")]
-    Resolver["Owner- and purpose-aware resolver"]
-    Pricing["Pricing request"]
-    Deployment["Twin deployment request"]
-    Optimizer["Optimizer"]
-    Deployer["Deployer"]
-    Workspace["Ephemeral operation workspace"]
-    Logs["Redacted logs and public errors"]
-
-    Store --> Resolver
-    Pricing --> Resolver
-    Deployment --> Resolver
-    Resolver -->|"pricing purpose and confirmed account"| Optimizer
-    Resolver -->|"deployment purpose and twin binding"| Deployer
-    Deployer -->|"runtime-local materialization"| Workspace
-    Optimizer --> Logs
-    Deployer --> Logs
-```
+1. The operator creates a credential in an isolated thesis cloud environment.
+2. The credential is submitted as a write-only CloudConnection payload.
+3. Management encrypts it at rest and returns only non-secret metadata.
+4. Pricing or deployment resolves the owner- and purpose-bound connection and
+   forwards the secret only for the current downstream request.
+5. Optimizer or Deployer performs the real provider validation required by the
+   selected operation. Readiness fails when the credential is absent or the
+   validation is missing, stale, or unsuccessful.
 
 AWS and GCP pricing refreshes require an explicitly confirmed pricing
-CloudConnection. Azure catalog pricing uses its public API path. Deployment
-connections are bound to twins and are not silently reused as pricing defaults.
+connection. Azure catalog pricing uses the public pricing API. For the PoC, an
+operator may register the same preconfigured credential for pricing and
+deployment purposes.
 
-## Secret Exit Rules
+## Secret exit rules
 
-| Boundary | Allowed to leave | Forbidden to leave |
+| Boundary | Allowed | Forbidden |
 |---|---|---|
-| bootstrap guide/session API | safe target, authority/deployment-pack metadata, findings, disposal state, generated connection summary | credential payload, secret-derived text, provider response payload |
-| bootstrap execute request | temporary credential in the request body only | durable session, log, trace, metric, retry, error, or response copies |
-| bootstrap plan API | provider/account metadata, permission-set version, static commands | admin credential plaintext |
-| external bootstrap script | ignored local scoped deployment credential | admin secrets as script arguments or committed output |
-| encrypted store | owner-safe CloudConnection metadata | decrypted payload |
-| Optimizer validation | typed status, safe error code/message | echoed credential fragments |
-| Deployer operation | structured redacted logs, status, allowlisted outputs | credential files, Terraform secret values |
-| Flutter API responses/state | labels, purpose, provider, account/project identity, validation/session/disposal state | submitted credential material |
+| CloudConnection API | provider, purpose, label, account/project identity, validation state | secret values in responses |
+| encrypted store | encrypted credential payload and owner-safe metadata | plaintext credential material |
+| downstream request | request-scoped credential payload | durable retry, trace, metric, or log copies |
+| Optimizer and Deployer | typed validation result and redacted diagnostic | echoed credential fragments |
+| Flutter | labels, purpose, provider identity, readiness | submitted credential material in state or diagnostics |
+
+Application signing/encryption secrets and cloud credentials remain separate
+security domains. Neither substitutes for the other. `root`, tenant-wide
+break-glass credentials, automated identity provisioning, rotation, and
+production credential lifecycle management are outside this thesis PoC.
 
 See [Security And Trust Boundaries](../architecture/security-boundaries.md) and
-[Cloud Accounts](../user-guide/cloud-accounts.md).
+[Cloud Accounts](../user-guide/cloud-accounts.md) for the operational boundary.

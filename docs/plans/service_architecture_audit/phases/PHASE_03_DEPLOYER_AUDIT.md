@@ -55,7 +55,7 @@ and logging responsibilities into implementable hardening slices.
 | 3.2 | Complete | [Provider Boundary Audit](subphases/PHASE_03_02_DEPLOYER_PROVIDER_BOUNDARY_AUDIT.md) |
 | 3.3 | Complete | [Terraform Workspace Audit](subphases/PHASE_03_03_DEPLOYER_TERRAFORM_WORKSPACE_AUDIT.md) |
 | 3.4 | Complete | [Logging Error Trace Audit](subphases/PHASE_03_04_DEPLOYER_LOGGING_ERROR_TRACE_AUDIT.md) |
-| 3.5 | Complete | [Permissions Preflight Audit](subphases/PHASE_03_05_DEPLOYER_PERMISSIONS_PREFLIGHT_AUDIT.md) |
+| 3.5 | Scope reduced | Externally provisioned admin credentials; see the PoC credential decision |
 | 3.6 | Complete | [Simulator Test Utility Audit](subphases/PHASE_03_06_DEPLOYER_SIMULATOR_TEST_UTILITY_AUDIT.md) |
 | 3.7 | Complete | [Test Matrix](subphases/PHASE_03_07_DEPLOYER_TEST_MATRIX.md) |
 

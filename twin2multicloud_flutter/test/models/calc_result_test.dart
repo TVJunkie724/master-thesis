@@ -7,62 +7,56 @@ import 'package:twin2multicloud_flutter/models/calc_result.dart';
 import '../fixtures/test_fixtures.dart';
 
 void main() {
-  test(
-    'projects a native Five-layer v2 result without legacy provider keys',
-    () {
-      final architecture =
-          jsonDecode(
-                File(
-                  'assets/demo/v1/resolved-twin-architecture-v2-large.json',
-                ).readAsStringSync(),
-              )
-              as Map<String, dynamic>;
-      final result = CalcResult.fromJson({
-        'totalCost': 0.0,
-        'totalCostExact': '0',
-        'currency': 'USD',
-        'resolvedTwinArchitecture': architecture,
-        'inputParamsUsed': <String, dynamic>{},
-      });
+  test('projects a native Six-layer result without legacy provider keys', () {
+    final architecture =
+        jsonDecode(
+              File(
+                'assets/demo/v1/resolved-twin-architecture-six-layer-v1.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+    final result = CalcResult.fromJson({
+      'totalCost': 166.6660612595,
+      'totalCostExact': '166.6660612595',
+      'currency': 'USD',
+      'resolvedTwinArchitecture': architecture,
+      'inputParamsUsed': <String, dynamic>{},
+    });
 
-      expect(result.totalCost, 0);
-      expect(result.cheapestPath, hasLength(7));
-      expect(result.cheapestPath.first, startsWith('L1_'));
-      expect(result.gcpCosts.l3Hot, isNotNull);
-      expect(result.transferCosts, hasLength(8));
-    },
-  );
+    expect(result.totalCost, 166.6660612595);
+    expect(result.cheapestPath, hasLength(7));
+    expect(result.cheapestPath.first, startsWith('L1_'));
+    expect(result.awsCosts.l3Hot, isNotNull);
+    expect(result.transferCosts, hasLength(9));
+  });
 
-  test(
-    'native Five-layer v2 architecture overrides legacy cost projections',
-    () {
-      final architecture =
-          jsonDecode(
-                File(
-                  'assets/demo/v1/resolved-twin-architecture-v2-large.json',
-                ).readAsStringSync(),
-              )
-              as Map<String, dynamic>;
-      final result = CalcResult.fromJson({
-        'totalCost': 0.0,
-        'totalCostExact': '0',
-        'currency': 'USD',
-        'resolvedTwinArchitecture': architecture,
-        'awsCosts': {
-          'L1': {
-            'cost': 999999,
-            'components': {'tampered': 999999},
-          },
+  test('native Six-layer architecture overrides legacy cost projections', () {
+    final architecture =
+        jsonDecode(
+              File(
+                'assets/demo/v1/resolved-twin-architecture-six-layer-v1.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+    final result = CalcResult.fromJson({
+      'totalCost': 166.6660612595,
+      'totalCostExact': '166.6660612595',
+      'currency': 'USD',
+      'resolvedTwinArchitecture': architecture,
+      'awsCosts': {
+        'L1': {
+          'cost': 999999,
+          'components': {'tampered': 999999},
         },
-        'cheapestPath': ['L1_GCP'],
-      });
+      },
+      'cheapestPath': ['L1_GCP'],
+    });
 
-      expect(result.totalCost, 0);
-      expect(result.cheapestPath, hasLength(7));
-      expect(result.cheapestPath.first, 'L1_AWS');
-      expect(result.awsCosts.l1?.cost, 0);
-    },
-  );
+    expect(result.totalCost, 166.6660612595);
+    expect(result.cheapestPath, hasLength(7));
+    expect(result.cheapestPath.first, 'L1_AWS');
+    expect(result.awsCosts.l1?.cost, 81.626861138);
+  });
 
   test(
     'projects Six-layer v1 while keeping Eventing out of the legacy L1-L5 path',
@@ -98,7 +92,7 @@ void main() {
     final architecture =
         jsonDecode(
               File(
-                'assets/demo/v1/resolved-twin-architecture-v2-small.json',
+                'assets/demo/v1/resolved-twin-architecture-six-layer-v1.json',
               ).readAsStringSync(),
             )
             as Map<String, dynamic>;

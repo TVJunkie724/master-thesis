@@ -119,7 +119,7 @@ flutter:
     - assets/images/logo_transparent_attempt.png
     - assets/demo/v1/
     - assets/contracts/user-function-extension/
-    - assets/contracts/five-layer-workload/
+    - assets/contracts/six-layer-workload/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

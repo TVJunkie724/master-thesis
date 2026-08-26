@@ -252,13 +252,12 @@ Map<String, dynamic> _profileV2CompatibilityProjection(
     architecture.profileRef.id,
     architecture.profileRef.version,
   )) {
-    ('five-layer-baseline', '2') => layerByLogicalComponent.keys.toSet(),
     ('six-layer-eventing', '1') => {
       ...layerByLogicalComponent.keys,
       eventingComponent,
     },
     _ => throw const FormatException(
-      'Invalid API contract: native v2 profile has no compatibility projection.',
+      'Invalid API contract: native Six-layer profile is unsupported.',
     ),
   };
   final actualLogicalComponents = architecture.componentAssignments
@@ -292,9 +291,7 @@ Map<String, dynamic> _profileV2CompatibilityProjection(
         'Invalid API contract: native v2 assignments do not cover each layer exactly once.',
       );
     }
-    final amount = _fiveLayerV2Amount(
-      assignment.costContribution.monthlyAmount,
-    );
+    final amount = _sixLayerAmount(assignment.costContribution.monthlyAmount);
     costs[provider]![layer] = {
       'cost': amount,
       'components': {assignment.deploymentComponentId: amount},
@@ -308,16 +305,16 @@ Map<String, dynamic> _profileV2CompatibilityProjection(
   }
   cheapestPath.sort(
     (left, right) =>
-        _fiveLayerV2LayerOrder(left).compareTo(_fiveLayerV2LayerOrder(right)),
+        _sixLayerLayerOrder(left).compareTo(_sixLayerLayerOrder(right)),
   );
 
   final transferCosts = <String, double>{};
   for (final edge in architecture.resolvedEdges) {
-    transferCosts[edge.edgeId] = _fiveLayerV2Amount(
+    transferCosts[edge.edgeId] = _sixLayerAmount(
       edge.costContribution.monthlyAmount,
     );
   }
-  final exactTotal = _fiveLayerV2Amount(architecture.costSummary.monthlyTotal);
+  final exactTotal = _sixLayerAmount(architecture.costSummary.monthlyTotal);
   final responseTotal = payload['totalCost'];
   if (responseTotal is! num ||
       !responseTotal.isFinite ||
@@ -344,7 +341,7 @@ Map<String, dynamic> _profileV2CompatibilityProjection(
   };
 }
 
-double _fiveLayerV2Amount(String value) {
+double _sixLayerAmount(String value) {
   final parsed = double.tryParse(value);
   if (parsed == null || !parsed.isFinite || parsed < 0) {
     throw const FormatException(
@@ -354,7 +351,7 @@ double _fiveLayerV2Amount(String value) {
   return parsed;
 }
 
-int _fiveLayerV2LayerOrder(String segment) {
+int _sixLayerLayerOrder(String segment) {
   const order = [
     'L1_',
     'L2_',

@@ -5,16 +5,12 @@
   "architecture_profile_ref": {
     "id": "six-layer-eventing",
     "version": "1",
-    "digest": "sha256:0ecbf18fdc54a479c81a81df114fc508983db7da1786836aa1774e03d1665066"
+    "digest": "sha256:5005e709b88026dc67570fd1cc93560628ddaf251e76506c5d78f66090fa0804"
   },
   "provider": "gcp",
   "lifecycle_status": "active",
   "region_policy_ref": {
-    "id": "region-policy.gcp.five-layer-v2",
-    "version": "1"
-  },
-  "permission_set_ref": {
-    "id": "permission-set.gcp.thesis-demo-v2",
+    "id": "region-policy.gcp.six-layer-domain-v1",
     "version": "1"
   },
   "supported": true,
@@ -589,5 +585,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:3b328646a741b44c7c142e042b4fbd144162db5784d78b769890d46374f44a4b"
+  "content_digest": "sha256:6cb928bca3c71f2b59b2ef319600a56b1081d51c8f9b5be6ce52d56c593f56b7"
 }

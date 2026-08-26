@@ -1,8 +1,4 @@
-"""Immutable architecture-profile contract reader for Optimizer resolution.
-
-The reader was introduced dark in Phase 8.2 and now validates both active
-Phase 8 profile calculation paths while retaining the historical v1 runtime.
-"""
+"""Immutable Six-layer architecture-contract reader for Optimizer resolution."""
 
 from __future__ import annotations
 
@@ -20,7 +16,7 @@ CONTRACT_BUNDLE_ROOT = (
     / "generated"
     / "architecture-profiles"
 )
-CONTRACT_ROOT = CONTRACT_BUNDLE_ROOT / "v1"
+CONTRACT_ROOT = CONTRACT_BUNDLE_ROOT / "v2"
 
 
 def _load_runtime(version: str) -> ModuleType:
@@ -39,23 +35,23 @@ def _load_runtime(version: str) -> ModuleType:
     return module
 
 
-_runtimes = {version: _load_runtime(version) for version in ("v1", "v2")}
-ValidatedContract = _runtimes["v1"].ValidatedContract
-calculate_digest = _runtimes["v1"].calculate_digest
-calculate_resolution_id = _runtimes["v1"].calculate_resolution_id
-canonical_json = _runtimes["v1"].canonical_json
+_runtime = _load_runtime("v2")
+ValidatedContract = _runtime.ValidatedContract
+calculate_digest = _runtime.calculate_digest
+calculate_resolution_id = _runtime.calculate_resolution_id
+canonical_json = _runtime.canonical_json
 
 
 def calculate_document_digest(document: Mapping[str, Any]) -> str:
     """Calculate a digest with the runtime matching the document version."""
 
-    return _runtimes[_version(document)].calculate_digest(document)
+    return _runtime.calculate_digest(document)
 
 
 def calculate_document_resolution_id(document: Mapping[str, Any]) -> str:
     """Calculate a resolution ID with the matching contract runtime."""
 
-    return _runtimes[_version(document)].calculate_resolution_id(document)
+    return _runtime.calculate_resolution_id(document)
 
 
 class ContractError(ValueError):
@@ -65,19 +61,6 @@ class ContractError(ValueError):
         super().__init__(message.replace("\n", " ")[:400])
         self.code = code
         self.path = path[:240]
-
-
-def _version(document: Mapping[str, Any]) -> str:
-    schema_version = str(document.get("schema_version", ""))
-    if (
-        schema_version == "architecture-profile.v2"
-        and str(document.get("profile_id", "")) == "five-layer-baseline"
-        and str(document.get("profile_version", "")) == "1"
-    ):
-        return "v1"
-    if schema_version.endswith(".v2"):
-        return "v2"
-    return "v1"
 
 
 def _translate(exc: Exception) -> ContractError:
@@ -96,18 +79,16 @@ def read_contract(
     correlation_id: str | None = None,
 ) -> Any:
     """Validate a document and return the generated immutable read model."""
-    version = _version(document)
-    runtime = _runtimes[version]
-    linked = tuple(item for item in linked_documents if _version(item) == version)
+    linked = tuple(linked_documents)
     try:
-        return runtime.validate_document(
+        return _runtime.validate_document(
             document,
-            bundle_root=CONTRACT_BUNDLE_ROOT / version,
+            bundle_root=CONTRACT_ROOT,
             linked_documents=linked,
             logger=logger,
             correlation_id=correlation_id,
         )
-    except runtime.ContractError as exc:
+    except _runtime.ContractError as exc:
         raise _translate(exc) from exc
 
 
@@ -137,19 +118,7 @@ def read_contract_bundle(
     documents: Iterable[Mapping[str, Any]],
 ) -> tuple[Any, ...]:
     copied = tuple(documents)
-    validated: list[Any] = []
-    for version in ("v1", "v2"):
-        selected = tuple(item for item in copied if _version(item) == version)
-        if not selected:
-            continue
-        runtime = _runtimes[version]
-        try:
-            validated.extend(
-                runtime.validate_bundle(
-                    selected,
-                    bundle_root=CONTRACT_BUNDLE_ROOT / version,
-                )
-            )
-        except runtime.ContractError as exc:
-            raise _translate(exc) from exc
-    return tuple(validated)
+    try:
+        return tuple(_runtime.validate_bundle(copied, bundle_root=CONTRACT_ROOT))
+    except _runtime.ContractError as exc:
+        raise _translate(exc) from exc

@@ -18,32 +18,7 @@ def _read(path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def test_optimizer_accepts_canonical_profile_without_runtime_selection():
-    profile = _read(
-        contracts.CONTRACT_ROOT
-        / "fixtures"
-        / "valid"
-        / "five-layer-baseline-profile.json"
-    )
-    validated = contracts.read_contract(profile)
-    assert validated.stable_id == "five-layer-baseline"
-    assert validated.content_digest == profile["content_digest"]
-
-
-def test_optimizer_reader_dispatches_five_layer_v2_contract():
-    profile = _read(
-        contracts.CONTRACT_ROOT.parent
-        / "v2"
-        / "fixtures"
-        / "valid"
-        / "five-layer-baseline-v2-profile.json"
-    )
-    validated = contracts.read_contract(profile)
-    assert validated.schema_version == "architecture-profile.v2"
-    assert validated.content_digest == profile["content_digest"]
-
-
-def test_optimizer_reader_dispatches_six_layer_profile_version_one_to_v2():
+def test_optimizer_reader_accepts_standalone_six_layer_profile():
     profile = _read(
         contracts.CONTRACT_ROOT.parent
         / "definitions"
@@ -59,10 +34,14 @@ def test_optimizer_reader_dispatches_six_layer_profile_version_one_to_v2():
 
 def test_optimizer_rejects_tampered_profile():
     wrapper = _read(
-        contracts.CONTRACT_ROOT / "fixtures" / "invalid" / "digest-tamper.json"
+        contracts.CONTRACT_ROOT
+        / "fixtures"
+        / "valid"
+        / "six-layer-aws-azure-eventing-small-resolved.json"
     )
+    wrapper["content_digest"] = "sha256:" + ("0" * 64)
     with pytest.raises(contracts.ContractError) as raised:
-        contracts.read_contract(wrapper["document"])
+        contracts.read_contract(wrapper)
     assert raised.value.code == "ARCH_DIGEST_MISMATCH"
 
 
@@ -71,16 +50,15 @@ def test_optimizer_registry_projects_fail_closed_provider_capabilities():
     aws = resolve_provider_capabilities("aws", registry=registry)
     gcp = resolve_provider_capabilities("gcp", registry=registry)
 
-    assert registry.profile["profile_id"] == "five-layer-baseline"
-    assert len(registry.profile["optimization_slot_ids"]) == 7
-    assert len(registry.profile["functional_completeness_rules"]) == 12
+    assert registry.profile["profile_id"] == "six-layer-eventing"
+    assert len(registry.profile["optimization_slot_ids"]) == 8
+    assert registry.profile["lifecycle_status"] == "active"
     assert aws.supported is True
     assert aws.missing_capability_ids == ()
     assert aws.reason_codes == ()
-    assert gcp.missing_capability_ids == (
-        "capability.twin-state",
-        "capability.visualization",
-    )
+    assert gcp.supported is True
+    assert gcp.missing_capability_ids == ()
+    assert gcp.reason_codes == ()
 
 
 def test_optimizer_registry_definitions_are_deeply_immutable():

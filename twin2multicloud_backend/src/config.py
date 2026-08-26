@@ -1,11 +1,9 @@
 import base64
 import binascii
 import ipaddress
-import os
 import re
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal
 from urllib.parse import urlparse
 
 from pydantic import Field, model_validator
@@ -89,7 +87,6 @@ class Settings(BaseSettings):
     CREDENTIAL_RATE_LIMIT_STORAGE_URI: str = "memory://"
     CREDENTIAL_WRITE_RATE_LIMIT: str = "10/minute"
     CREDENTIAL_VALIDATION_RATE_LIMIT: str = "6/minute"
-    CREDENTIAL_BOOTSTRAP_RATE_LIMIT: str = "20/minute"
 
     # Sensitive immutable source reads share the production credential limiter
     # storage while retaining a separate actor namespace and quota.
@@ -114,16 +111,6 @@ class Settings(BaseSettings):
     OPTIMIZER_URL: str = "http://master-thesis-2twin2clouds-1:8000"
     DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES: int = Field(default=1440, gt=0)
     ARCHITECTURE_PROFILE_RESOLUTION_ENABLED: bool = True
-    CLOUD_BOOTSTRAP_ADAPTER_MODE: Literal[
-        "disabled",
-        "deterministic_fake",
-        "supervised_live",
-    ] = "disabled"
-    CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS: str = ""
-    CLOUD_BOOTSTRAP_LEASE_TIMEOUT_SECONDS: int = Field(default=300, ge=30, le=3600)
-    # Thesis-only setup validation. This is independent from provider adapter
-    # selection and defaults closed in every environment.
-    CLOUD_BOOTSTRAP_SETUP_GATE_ENABLED: bool = False
 
     # GLB File Storage (for scene.glb uploads)
     UPLOAD_DIR: str = "./uploads"
@@ -151,21 +138,6 @@ class Settings(BaseSettings):
             )
         if self.SEED_DATA and self.APP_ENV not in non_production:
             raise ValueError("SEED_DATA is only allowed in development or test")
-        providers = self.cloud_bootstrap_supervised_providers
-        if len(providers) != len(set(providers)) or not set(providers).issubset(
-            {"aws", "azure", "gcp"}
-        ):
-            raise ValueError(
-                "CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS contains an unsupported or duplicate provider"
-            )
-        if providers and self.CLOUD_BOOTSTRAP_ADAPTER_MODE != "supervised_live":
-            raise ValueError(
-                "CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS requires supervised_live mode"
-            )
-        if self.CLOUD_BOOTSTRAP_SETUP_GATE_ENABLED and os.getenv(
-            "CI", ""
-        ).strip().lower() in {"1", "true", "yes"}:
-            raise ValueError("CLOUD_BOOTSTRAP_SETUP_GATE_ENABLED is forbidden in CI")
         if self.DEV_AUTH_ENABLED and not self.DEV_AUTH_TOKEN:
             raise ValueError("DEV_AUTH_TOKEN is required when DEV_AUTH_ENABLED is true")
 
@@ -277,7 +249,6 @@ class Settings(BaseSettings):
         for field_name in (
             "CREDENTIAL_WRITE_RATE_LIMIT",
             "CREDENTIAL_VALIDATION_RATE_LIMIT",
-            "CREDENTIAL_BOOTSTRAP_RATE_LIMIT",
             "AUTH_LOGIN_RATE_LIMIT",
             "AUTH_EXCHANGE_RATE_LIMIT",
             "USER_FUNCTION_SOURCE_DOWNLOAD_RATE_LIMIT",
@@ -331,14 +302,6 @@ class Settings(BaseSettings):
     def cors_origins(self) -> tuple[str, ...]:
         return tuple(
             value.strip() for value in self.CORS_ORIGINS.split(",") if value.strip()
-        )
-
-    @property
-    def cloud_bootstrap_supervised_providers(self) -> tuple[str, ...]:
-        return tuple(
-            value.strip().lower()
-            for value in self.CLOUD_BOOTSTRAP_SUPERVISED_PROVIDERS.split(",")
-            if value.strip()
         )
 
     @property

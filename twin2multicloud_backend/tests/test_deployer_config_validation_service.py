@@ -11,12 +11,18 @@ from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.deployer_config import ConfigValidationRequest
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
-from src.services.deployer_config_validation_service import DeployerConfigValidationService
+from src.services.deployer_config_validation_service import (
+    DeployerConfigValidationService,
+)
 from src.services.service_errors import EntityNotFoundError, ValidationError
 
 
 def _create_user(db) -> User:
-    user = User(email="deployer-validation-service@example.test", name="Deployer Validation", auth_provider="google")
+    user = User(
+        email="deployer-validation-service@example.test",
+        name="Deployer Validation",
+        auth_provider="google",
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -90,13 +96,17 @@ async def test_validate_section_two_persists_success_flag(db_session):
 async def test_validate_l2_does_not_persist_validation_state(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    deployer_client = _FakeDeployerClient(response={"message": "Code is valid for aws."})
+    deployer_client = _FakeDeployerClient(
+        response={"message": "Code is valid for aws."}
+    )
 
     result = await _service(db_session, deployer_client).validate_config(
         twin.id,
         user.id,
         "function-code",
-        ConfigValidationRequest(content="def handler(event, context): return {}", provider="aws"),
+        ConfigValidationRequest(
+            content="def handler(event, context): return {}", provider="aws"
+        ),
     )
 
     db_session.refresh(twin)
@@ -126,7 +136,9 @@ async def test_validate_state_machine_uses_yaml_upload_for_yaml_content(db_sessi
 async def test_validate_scene_config_includes_existing_hierarchy(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    db_session.add(DeployerConfiguration(twin_id=twin.id, hierarchy_content='{"root": []}'))
+    db_session.add(
+        DeployerConfiguration(twin_id=twin.id, hierarchy_content='{"root": []}')
+    )
     db_session.commit()
     db_session.refresh(twin)
     deployer_client = _FakeDeployerClient()
@@ -154,8 +166,8 @@ async def test_phase8_user_config_validation_uses_trusted_l4_l5_context(
         TwinArchitectureSelection(
             twin_id=twin.id,
             user_id=user.id,
-            profile_id="five-layer-baseline",
-            profile_version="2",
+            profile_id="six-layer-eventing",
+            profile_version="1",
             profile_digest="sha256:" + "a" * 64,
             revision=1,
             selected_by_user_id=user.id,
@@ -164,8 +176,7 @@ async def test_phase8_user_config_validation_uses_trusted_l4_l5_context(
     db_session.commit()
     db_session.refresh(twin)
     monkeypatch.setattr(
-        "src.services.deployer_config_validation_service."
-        "provider_by_logical_component",
+        "src.services.deployer_config_validation_service.provider_by_logical_component",
         lambda _twin: {
             "component.twin-state": "azure",
             "component.visualization": "gcp",
@@ -181,8 +192,8 @@ async def test_phase8_user_config_validation_uses_trusted_l4_l5_context(
     )
 
     assert deployer_client.calls[0]["context_params"] == {
-        "architecture_profile_id": "five-layer-baseline",
-        "architecture_profile_version": "2",
+        "architecture_profile_id": "six-layer-eventing",
+        "architecture_profile_version": "1",
         "layer_4_provider": "azure",
         "layer_5_provider": "gcp",
     }
@@ -282,7 +293,9 @@ async def test_validate_unavailable_returns_generic_message_without_secret(db_se
 
     assert result.valid is False
     assert "VALIDATION-SECRET-123" not in result.message
-    assert result.message == "Cannot connect to Deployer API. Is it running on port 5004?"
+    assert (
+        result.message == "Cannot connect to Deployer API. Is it running on port 5004?"
+    )
 
 
 @pytest.mark.asyncio

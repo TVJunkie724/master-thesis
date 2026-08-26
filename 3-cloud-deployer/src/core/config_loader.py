@@ -116,7 +116,7 @@ class ProjectConfigLoader:
             resolved_deployment_graph=(
                 resolve_deployment_graph(validated_manifest)
                 if validated_manifest is not None
-                and validated_manifest.manifest_version in {"3.0", "4.0"}
+                and validated_manifest.manifest_version == "4.0"
                 else None
             ),
         )

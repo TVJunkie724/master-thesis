@@ -86,20 +86,12 @@ class DemoFixtureStore {
     final raw = await source.loadString(path, cache: false);
     final decoded = jsonDecode(raw);
     const contractAssets = {
-      'profile': 'architecture-profile-five-layer-v2.json',
-      'provider.aws': 'provider-profile-five-layer-v2-aws.json',
-      'provider.azure': 'provider-profile-five-layer-v2-azure.json',
-      'provider.gcp': 'provider-profile-five-layer-v2-gcp.json',
-      'rds.small': 'resolved-deployment-specification-v2-small.json',
-      'rds.medium': 'resolved-deployment-specification-v2-medium.json',
-      'rds.large': 'resolved-deployment-specification-v2-large.json',
-      'rta.small': 'resolved-twin-architecture-v2-small.json',
-      'rta.medium': 'resolved-twin-architecture-v2-medium.json',
-      'rta.large': 'resolved-twin-architecture-v2-large.json',
-      'profile.six': 'architecture-profile-six-layer-v1.json',
-      'provider.six.aws': 'provider-profile-six-layer-v1-aws.json',
-      'provider.six.azure': 'provider-profile-six-layer-v1-azure.json',
-      'provider.six.gcp': 'provider-profile-six-layer-v1-gcp.json',
+      'profile': 'architecture-profile-six-layer-v1.json',
+      'provider.aws': 'provider-profile-six-layer-v1-aws.json',
+      'provider.azure': 'provider-profile-six-layer-v1-azure.json',
+      'provider.gcp': 'provider-profile-six-layer-v1-gcp.json',
+      'rds': 'resolved-deployment-specification-six-layer-v1.json',
+      'rta': 'resolved-twin-architecture-six-layer-v1.json',
     };
     final architectureContracts = <String, Map<String, dynamic>>{};
     for (final entry in contractAssets.entries) {
@@ -110,7 +102,7 @@ class DemoFixtureStore {
       final decodedContract = jsonDecode(contractRaw);
       if (decodedContract is! Map) {
         throw DemoApiException(
-          'DEMO_FIVE_LAYER_V2_CONTRACT_INVALID',
+          'DEMO_SIX_LAYER_CONTRACT_INVALID',
           'Demo contract "${entry.value}" must be a JSON object.',
         );
       }
@@ -150,55 +142,52 @@ class DemoFixtureStore {
 
   Map<String, dynamic> get pricingHealth => _copyMap(_map('pricing_health'));
 
-  Map<String, dynamic> fiveLayerV2Profile() => _fiveLayerV2Contract('profile');
+  Map<String, dynamic> sixLayerProfile() => _sixLayerContract('profile');
 
   Map<String, dynamic> architectureProfile(
     String profileId,
     String profileVersion,
   ) => switch ((profileId, profileVersion)) {
-    ('five-layer-baseline', '2') => _fiveLayerV2Contract('profile'),
-    ('six-layer-eventing', '1') => _fiveLayerV2Contract('profile.six'),
+    ('six-layer-eventing', '1') => _sixLayerContract('profile'),
     _ => throw DemoApiException(
       'ARCH_PROFILE_NOT_ACTIVE',
       'Architecture profile "$profileId@$profileVersion" is not active.',
     ),
   };
 
-  List<Map<String, dynamic>> fiveLayerV2ProviderProfiles() => [
+  List<Map<String, dynamic>> sixLayerProviderProfiles() => [
     for (final provider in const ['aws', 'azure', 'gcp'])
-      _fiveLayerV2Contract('provider.$provider'),
+      _sixLayerContract('provider.$provider'),
   ];
 
   List<Map<String, dynamic>> architectureProviderProfiles(
     String profileId,
     String profileVersion,
   ) {
-    final prefix = switch ((profileId, profileVersion)) {
-      ('five-layer-baseline', '2') => 'provider',
-      ('six-layer-eventing', '1') => 'provider.six',
-      _ => throw DemoApiException(
+    if ((profileId, profileVersion) != ('six-layer-eventing', '1')) {
+      throw DemoApiException(
         'ARCH_PROFILE_NOT_ACTIVE',
         'Architecture profile "$profileId@$profileVersion" is not active.',
-      ),
-    };
+      );
+    }
     return [
       for (final provider in const ['aws', 'azure', 'gcp'])
-        _fiveLayerV2Contract('$prefix.$provider'),
+        _sixLayerContract('provider.$provider'),
     ];
   }
 
-  Map<String, dynamic> fiveLayerV2DeploymentSpecification(String scenario) =>
-      _fiveLayerV2Contract('rds.$scenario');
+  Map<String, dynamic> sixLayerDeploymentSpecification(String scenario) =>
+      _sixLayerContract('rds');
 
-  Map<String, dynamic> fiveLayerV2ResolvedArchitecture(String scenario) =>
-      _fiveLayerV2Contract('rta.$scenario');
+  Map<String, dynamic> sixLayerResolvedArchitecture(String scenario) =>
+      _sixLayerContract('rta');
 
-  Map<String, dynamic> _fiveLayerV2Contract(String key) {
+  Map<String, dynamic> _sixLayerContract(String key) {
     final contract = _architectureContracts[key];
     if (contract == null) {
       throw DemoApiException(
-        'DEMO_FIVE_LAYER_V2_CONTRACT_MISSING',
-        'The canonical Five-layer v2 demo contract "$key" is unavailable.',
+        'DEMO_SIX_LAYER_CONTRACT_MISSING',
+        'The canonical Six-layer demo contract "$key" is unavailable.',
       );
     }
     return _copyMap(contract);

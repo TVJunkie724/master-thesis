@@ -54,7 +54,6 @@ FastAPI route
 | `/twins/{id}/optimizer-runs/{run_id}/pricing-evidence` | owner-scoped compact, field-level, and exact transfer-route calculation evidence |
 | `/twins/{id}/deployer` | deployment configuration and readiness |
 | `/cloud-connections` | reusable encrypted credentials, validation, binding/defaults |
-| `/cloud-bootstrap` | safe guides, owner-scoped session lifecycle, request-only execute, manual cleanup acknowledgement, and compatible manual plan/import |
 | `/cloud-access` | account-level capability inventory |
 | `/platform/provider-capabilities` | aggregate Optimizer/Deployer provider-layer capability contract |
 | `/optimizer/pricing-refresh` | provider refresh run lifecycle |
@@ -82,7 +81,6 @@ User
   |     +-- Deployment -- DeploymentLog
   |     +-- DeploymentPreflightCache
   +-- CloudConnection
-  +-- CloudBootstrapSession
 
 PricingRefreshRun
 PricingCandidateReport
@@ -97,18 +95,14 @@ deletion. Configuration edits can regress a previously configured twin to `draft
 
 ## Credential SSOT
 
-`CloudConnection` stores provider, purpose, scope metadata, permission-set version,
-validation status, a non-secret fingerprint, and an encrypted payload. API responses
+`CloudConnection` stores provider, purpose, scope metadata, validation status,
+a non-secret fingerprint, and an encrypted payload. API responses
 never return the decrypted payload. Purpose distinguishes deployment and pricing use;
 one user-level pricing default is enforced per provider.
 
-Credential mutation/validation/bootstrap operations are rate limited and audited.
-`CloudBootstrapSession` persists safe scope, pack, finding, disposal, revision,
-and connection-summary state only. Bootstrap credentials exist only in the
-sensitive execute request and are excluded from diagnostics and persistence.
-The deterministic offline adapters create no cloud resources; production
-provider adapters fail closed. Downstream validation messages are redacted
-before response or persistence.
+Credential mutation and validation operations are rate limited and audited.
+Downstream validation messages are redacted before response or persistence.
+The PoC does not create provider identities or permission packs.
 
 ## Provider Capability Aggregation
 
@@ -130,9 +124,8 @@ and recovery. A deployment record is separate from twin state, enabling operatio
 history and correlation by session/operation ID.
 
 Every new successful optimizer run contains one canonical, profile-matched
-resolved deployment specification and resolved architecture. Historical
-Five-layer v1 uses RDS/RTA v1; active Five-layer v2 and Six-layer v1 use
-separate RDS/RTA v2 evidence.
+resolved deployment specification and resolved architecture. The active
+Six-layer profile uses RDS/RTA v2 evidence.
 Management validates their schemas, closed-world component/dimension registry,
 run ID, provider path, strategy context, immutable pricing references, cross-links,
 and SHA-256 digests before committing any run state. The canonical JSON, digests,
@@ -145,9 +138,8 @@ index enforces this invariant in addition to the application transaction. Packag
 generation revalidates the stored object and requires its provider path to equal the
 persisted Optimizer projection before decrypting credentials or materializing files.
 
-The Management API builds the profile-matched `deployment_manifest.json`:
-version 3.0 for historical Five-layer v1 evidence and version 4.0 for active
-Five-layer v2 or Six-layer v1 evidence. It embeds the exact calculation run ID, immutable
+The Management API builds `deployment_manifest.json` version 4.0 for active
+Six-layer v1 evidence. It embeds the exact calculation run ID, immutable
 architecture and specification objects/digests, pinned catalog compatibility,
 derived provider projection, credential-source metadata, and immutable
 extension references. Storage durations and workload fields come from the
@@ -164,10 +156,9 @@ specification, catalog, graph, and package-selection digests. Destroy selects th
 recorded calculation run rather than the latest selection. Drift fails with
 `DEPLOYMENT_GRAPH_RESUME_MISMATCH`.
 
-Manifest v2 remains readable for historical compatibility only. An operation
-must use the manifest version owned by its frozen profile: v3 for historical
-Five-layer v1 evidence and v4 for active Five-layer v2 or Six-layer v1.
-Invalid packages never fall back across versions or to fixed fields.
+Historical calculations remain readable but not deployable. An operation must
+use Manifest v4 owned by the frozen Six-layer profile. Invalid packages never
+fall back across versions, profiles, or fixed fields.
 
 ## Database Startup And Migrations
 

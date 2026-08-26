@@ -1,94 +1,6 @@
 {
   "components": {
     "schemas": {
-      "AWSBootstrapCredential": {
-        "additionalProperties": false,
-        "properties": {
-          "access_key_id": {
-            "format": "password",
-            "maxLength": 128,
-            "minLength": 16,
-            "title": "Access Key Id",
-            "type": "string",
-            "writeOnly": true
-          },
-          "provider": {
-            "const": "aws",
-            "default": "aws",
-            "title": "Provider",
-            "type": "string"
-          },
-          "secret_access_key": {
-            "format": "password",
-            "maxLength": 256,
-            "minLength": 16,
-            "title": "Secret Access Key",
-            "type": "string",
-            "writeOnly": true
-          },
-          "session_token": {
-            "anyOf": [
-              {
-                "format": "password",
-                "maxLength": 4096,
-                "minLength": 16,
-                "type": "string",
-                "writeOnly": true
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Session Token"
-          }
-        },
-        "required": [
-          "access_key_id",
-          "secret_access_key"
-        ],
-        "title": "AWSBootstrapCredential",
-        "type": "object"
-      },
-      "AWSBootstrapTarget": {
-        "additionalProperties": false,
-        "properties": {
-          "account_id": {
-            "pattern": "^[0-9]{12}$",
-            "title": "Account Id",
-            "type": "string"
-          },
-          "provider": {
-            "const": "aws",
-            "default": "aws",
-            "title": "Provider",
-            "type": "string"
-          },
-          "region": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Region",
-            "type": "string"
-          },
-          "session_expires_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Session Expires At"
-          }
-        },
-        "required": [
-          "account_id",
-          "region"
-        ],
-        "title": "AWSBootstrapTarget",
-        "type": "object"
-      },
       "AWSCredentials": {
         "additionalProperties": false,
         "properties": {
@@ -933,105 +845,6 @@
         "title": "AuthStartResponse",
         "type": "object"
       },
-      "AzureBootstrapCredential": {
-        "additionalProperties": false,
-        "properties": {
-          "client_id": {
-            "format": "password",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Client Id",
-            "type": "string",
-            "writeOnly": true
-          },
-          "client_secret": {
-            "format": "password",
-            "maxLength": 4096,
-            "minLength": 8,
-            "title": "Client Secret",
-            "type": "string",
-            "writeOnly": true
-          },
-          "provider": {
-            "const": "azure",
-            "default": "azure",
-            "title": "Provider",
-            "type": "string"
-          },
-          "subscription_id": {
-            "format": "password",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Subscription Id",
-            "type": "string",
-            "writeOnly": true
-          },
-          "tenant_id": {
-            "format": "password",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Tenant Id",
-            "type": "string",
-            "writeOnly": true
-          }
-        },
-        "required": [
-          "tenant_id",
-          "subscription_id",
-          "client_id",
-          "client_secret"
-        ],
-        "title": "AzureBootstrapCredential",
-        "type": "object"
-      },
-      "AzureBootstrapTarget": {
-        "additionalProperties": false,
-        "properties": {
-          "bootstrap_credential_key_id": {
-            "anyOf": [
-              {
-                "maxLength": 160,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bootstrap Credential Key Id"
-          },
-          "provider": {
-            "const": "azure",
-            "default": "azure",
-            "title": "Provider",
-            "type": "string"
-          },
-          "region": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Region",
-            "type": "string"
-          },
-          "subscription_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Subscription Id",
-            "type": "string"
-          },
-          "tenant_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Tenant Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "tenant_id",
-          "subscription_id",
-          "region"
-        ],
-        "title": "AzureBootstrapTarget",
-        "type": "object"
-      },
       "AzureCredentials": {
         "additionalProperties": false,
         "properties": {
@@ -1342,6 +1155,17 @@
       "CheapestPathResponse": {
         "description": "Cheapest path for deployment.",
         "properties": {
+          "eventing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eventing"
+          },
           "l1": {
             "anyOf": [
               {
@@ -1493,22 +1317,6 @@
               }
             ],
             "title": "Last Validated At"
-          },
-          "permission_set_status": {
-            "anyOf": [
-              {
-                "enum": [
-                  "matched",
-                  "missing",
-                  "outdated"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Permission Set Status"
           },
           "primary_message": {
             "anyOf": [
@@ -1667,1070 +1475,6 @@
         "title": "CloudAccessProviderInventory",
         "type": "object"
       },
-      "CloudBootstrapApiBaseline": {
-        "additionalProperties": false,
-        "properties": {
-          "artifact_url": {
-            "pattern": "^https://",
-            "title": "Artifact Url",
-            "type": "string"
-          },
-          "digest": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Digest",
-            "type": "string"
-          },
-          "id": {
-            "const": "gcp.phase8-api-baseline.v1",
-            "title": "Id",
-            "type": "string"
-          },
-          "limitations": {
-            "items": {
-              "type": "string"
-            },
-            "minItems": 1,
-            "title": "Limitations",
-            "type": "array"
-          },
-          "mutation_summary": {
-            "minLength": 1,
-            "title": "Mutation Summary",
-            "type": "string"
-          },
-          "retain_enabled": {
-            "const": true,
-            "default": true,
-            "title": "Retain Enabled",
-            "type": "boolean"
-          },
-          "services": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 20,
-            "minItems": 1,
-            "title": "Services",
-            "type": "array"
-          }
-        },
-        "required": [
-          "id",
-          "digest",
-          "services",
-          "mutation_summary",
-          "limitations",
-          "artifact_url"
-        ],
-        "title": "CloudBootstrapApiBaseline",
-        "type": "object"
-      },
-      "CloudBootstrapConnectionSummary": {
-        "additionalProperties": false,
-        "properties": {
-          "cloud_scope": {
-            "additionalProperties": true,
-            "title": "Cloud Scope",
-            "type": "object"
-          },
-          "display_name": {
-            "title": "Display Name",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "permission_set_version": {
-            "title": "Permission Set Version",
-            "type": "string"
-          },
-          "provider": {
-            "enum": [
-              "aws",
-              "azure",
-              "gcp"
-            ],
-            "title": "Provider",
-            "type": "string"
-          },
-          "purpose": {
-            "const": "deployment",
-            "title": "Purpose",
-            "type": "string"
-          },
-          "validation_status": {
-            "enum": [
-              "valid",
-              "invalid",
-              "untested"
-            ],
-            "title": "Validation Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "provider",
-          "purpose",
-          "display_name",
-          "cloud_scope",
-          "permission_set_version",
-          "validation_status"
-        ],
-        "title": "CloudBootstrapConnectionSummary",
-        "type": "object"
-      },
-      "CloudBootstrapCredentialField": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "pattern": "^[a-z0-9_]+$",
-            "title": "Id",
-            "type": "string"
-          },
-          "input_type": {
-            "enum": [
-              "identifier",
-              "secret",
-              "json"
-            ],
-            "title": "Input Type",
-            "type": "string"
-          },
-          "label": {
-            "title": "Label",
-            "type": "string"
-          },
-          "redaction_rule": {
-            "enum": [
-              "identifier",
-              "secret",
-              "private_key_document"
-            ],
-            "title": "Redaction Rule",
-            "type": "string"
-          },
-          "required": {
-            "title": "Required",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "id",
-          "label",
-          "input_type",
-          "required",
-          "redaction_rule"
-        ],
-        "title": "CloudBootstrapCredentialField",
-        "type": "object"
-      },
-      "CloudBootstrapCredentialOrigin": {
-        "enum": [
-          "dedicated_disposable",
-          "existing_user_owned"
-        ],
-        "title": "CloudBootstrapCredentialOrigin",
-        "type": "string"
-      },
-      "CloudBootstrapDisposalStatus": {
-        "enum": [
-          "revoked",
-          "expires_at_provider",
-          "manual_revocation_required",
-          "not_retained_user_managed",
-          "released_after_failure"
-        ],
-        "title": "CloudBootstrapDisposalStatus",
-        "type": "string"
-      },
-      "CloudBootstrapEntryPoint": {
-        "enum": [
-          "settings",
-          "twin_prepare"
-        ],
-        "title": "CloudBootstrapEntryPoint",
-        "type": "string"
-      },
-      "CloudBootstrapExecuteRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "credential": {
-            "discriminator": {
-              "mapping": {
-                "aws": "#/components/schemas/AWSBootstrapCredential",
-                "azure": "#/components/schemas/AzureBootstrapCredential",
-                "gcp": "#/components/schemas/GCPBootstrapCredential"
-              },
-              "propertyName": "provider"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/AWSBootstrapCredential"
-              },
-              {
-                "$ref": "#/components/schemas/AzureBootstrapCredential"
-              },
-              {
-                "$ref": "#/components/schemas/GCPBootstrapCredential"
-              }
-            ],
-            "title": "Credential"
-          },
-          "credential_origin": {
-            "$ref": "#/components/schemas/CloudBootstrapCredentialOrigin"
-          },
-          "expected_revision": {
-            "minimum": 1.0,
-            "title": "Expected Revision",
-            "type": "integer"
-          },
-          "idempotency_key": {
-            "pattern": "^[A-Za-z0-9._:-]{16,128}$",
-            "title": "Idempotency Key",
-            "type": "string"
-          }
-        },
-        "required": [
-          "expected_revision",
-          "idempotency_key",
-          "credential_origin",
-          "credential"
-        ],
-        "title": "CloudBootstrapExecuteRequest",
-        "type": "object"
-      },
-      "CloudBootstrapFinding": {
-        "additionalProperties": false,
-        "properties": {
-          "action": {
-            "title": "Action",
-            "type": "string"
-          },
-          "blocking": {
-            "title": "Blocking",
-            "type": "boolean"
-          },
-          "code": {
-            "pattern": "^[A-Z0-9_]+$",
-            "title": "Code",
-            "type": "string"
-          },
-          "message": {
-            "title": "Message",
-            "type": "string"
-          },
-          "remediation_url": {
-            "anyOf": [
-              {
-                "pattern": "^https://",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Remediation Url"
-          },
-          "severity": {
-            "default": "error",
-            "enum": [
-              "info",
-              "warning",
-              "error"
-            ],
-            "title": "Severity",
-            "type": "string"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "code",
-          "title",
-          "message",
-          "blocking",
-          "action"
-        ],
-        "title": "CloudBootstrapFinding",
-        "type": "object"
-      },
-      "CloudBootstrapGuidePackReference": {
-        "additionalProperties": false,
-        "properties": {
-          "artifact_url": {
-            "pattern": "^https://",
-            "title": "Artifact Url",
-            "type": "string"
-          },
-          "digest": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Digest",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "limitations": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Limitations",
-            "type": "array"
-          },
-          "scope_summary": {
-            "title": "Scope Summary",
-            "type": "string"
-          },
-          "version": {
-            "title": "Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "version",
-          "digest",
-          "scope_summary",
-          "limitations",
-          "artifact_url"
-        ],
-        "title": "CloudBootstrapGuidePackReference",
-        "type": "object"
-      },
-      "CloudBootstrapGuideRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "target": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AWSBootstrapTarget"
-              },
-              {
-                "$ref": "#/components/schemas/AzureBootstrapTarget"
-              },
-              {
-                "$ref": "#/components/schemas/GCPExistingProjectBootstrapTarget"
-              },
-              {
-                "$ref": "#/components/schemas/GCPOrganizationBootstrapTarget"
-              }
-            ],
-            "title": "Target"
-          }
-        },
-        "required": [
-          "target"
-        ],
-        "title": "CloudBootstrapGuideRequest",
-        "type": "object"
-      },
-      "CloudBootstrapGuideResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "api_baseline": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/CloudBootstrapApiBaseline"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "bootstrap_authority_pack": {
-            "$ref": "#/components/schemas/CloudBootstrapGuidePackReference"
-          },
-          "credential_fields": {
-            "items": {
-              "$ref": "#/components/schemas/CloudBootstrapCredentialField"
-            },
-            "title": "Credential Fields",
-            "type": "array"
-          },
-          "credential_origins": {
-            "default": [
-              "dedicated_disposable",
-              "existing_user_owned"
-            ],
-            "maxItems": 2,
-            "minItems": 2,
-            "prefixItems": [
-              {
-                "const": "dedicated_disposable",
-                "type": "string"
-              },
-              {
-                "const": "existing_user_owned",
-                "type": "string"
-              }
-            ],
-            "title": "Credential Origins",
-            "type": "array"
-          },
-          "execution_mode": {
-            "enum": [
-              "disabled",
-              "deterministic_fake",
-              "supervised_live"
-            ],
-            "title": "Execution Mode",
-            "type": "string"
-          },
-          "generated_deployment_pack": {
-            "$ref": "#/components/schemas/CloudBootstrapGuidePackReference"
-          },
-          "guide_digest": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Guide Digest",
-            "type": "string"
-          },
-          "known_blockers": {
-            "items": {
-              "$ref": "#/components/schemas/CloudBootstrapFinding"
-            },
-            "title": "Known Blockers",
-            "type": "array"
-          },
-          "legacy_fallback_available": {
-            "const": true,
-            "default": true,
-            "title": "Legacy Fallback Available",
-            "type": "boolean"
-          },
-          "preparation_steps": {
-            "items": {
-              "$ref": "#/components/schemas/CloudBootstrapInstruction"
-            },
-            "title": "Preparation Steps",
-            "type": "array"
-          },
-          "provider": {
-            "enum": [
-              "aws",
-              "azure",
-              "gcp"
-            ],
-            "title": "Provider",
-            "type": "string"
-          },
-          "schema_version": {
-            "const": "cloud-bootstrap-guide.v1",
-            "default": "cloud-bootstrap-guide.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "target": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AWSBootstrapTarget"
-              },
-              {
-                "$ref": "#/components/schemas/AzureBootstrapTarget"
-              },
-              {
-                "$ref": "#/components/schemas/GCPExistingProjectBootstrapTarget"
-              },
-              {
-                "$ref": "#/components/schemas/GCPOrganizationBootstrapTarget"
-              }
-            ],
-            "title": "Target"
-          }
-        },
-        "required": [
-          "guide_digest",
-          "provider",
-          "execution_mode",
-          "target",
-          "bootstrap_authority_pack",
-          "generated_deployment_pack",
-          "api_baseline",
-          "credential_fields",
-          "preparation_steps",
-          "known_blockers"
-        ],
-        "title": "CloudBootstrapGuideResponse",
-        "type": "object"
-      },
-      "CloudBootstrapImportRequest": {
-        "additionalProperties": false,
-        "description": "Import generated bootstrap output as a CloudConnection.",
-        "properties": {
-          "connection": {
-            "$ref": "#/components/schemas/CloudConnectionCreate"
-          },
-          "source": {
-            "const": "bootstrap_script",
-            "default": "bootstrap_script",
-            "title": "Source",
-            "type": "string"
-          }
-        },
-        "required": [
-          "connection"
-        ],
-        "title": "CloudBootstrapImportRequest",
-        "type": "object"
-      },
-      "CloudBootstrapImportResponse": {
-        "properties": {
-          "connection": {
-            "$ref": "#/components/schemas/CloudConnectionResponse"
-          }
-        },
-        "required": [
-          "connection"
-        ],
-        "title": "CloudBootstrapImportResponse",
-        "type": "object"
-      },
-      "CloudBootstrapInstruction": {
-        "additionalProperties": false,
-        "properties": {
-          "description": {
-            "title": "Description",
-            "type": "string"
-          },
-          "expected_outcome": {
-            "title": "Expected Outcome",
-            "type": "string"
-          },
-          "id": {
-            "pattern": "^[a-z0-9_]+$",
-            "title": "Id",
-            "type": "string"
-          },
-          "official_url": {
-            "pattern": "^https://",
-            "title": "Official Url",
-            "type": "string"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "title",
-          "description",
-          "expected_outcome",
-          "official_url"
-        ],
-        "title": "CloudBootstrapInstruction",
-        "type": "object"
-      },
-      "CloudBootstrapPackReference": {
-        "additionalProperties": false,
-        "properties": {
-          "digest": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Digest",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "version": {
-            "title": "Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "version",
-          "digest"
-        ],
-        "title": "CloudBootstrapPackReference",
-        "type": "object"
-      },
-      "CloudBootstrapPlanRequest": {
-        "additionalProperties": false,
-        "description": "Request a safe manual bootstrap plan without sending admin credentials.",
-        "properties": {
-          "account_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Account Id"
-          },
-          "billing_account": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Billing Account"
-          },
-          "display_name": {
-            "default": "twin2mc-deployer",
-            "maxLength": 120,
-            "minLength": 1,
-            "title": "Display Name",
-            "type": "string"
-          },
-          "project_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Project Id"
-          },
-          "region": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Region"
-          },
-          "subscription_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subscription Id"
-          },
-          "tenant_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tenant Id"
-          }
-        },
-        "title": "CloudBootstrapPlanRequest",
-        "type": "object"
-      },
-      "CloudBootstrapPlanResponse": {
-        "properties": {
-          "apply_command": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Apply Command",
-            "type": "array"
-          },
-          "cloud_scope": {
-            "additionalProperties": true,
-            "title": "Cloud Scope",
-            "type": "object"
-          },
-          "creates": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Creates",
-            "type": "array"
-          },
-          "dry_run_command": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Dry Run Command",
-            "type": "array"
-          },
-          "mode": {
-            "const": "manual_static_script",
-            "default": "manual_static_script",
-            "title": "Mode",
-            "type": "string"
-          },
-          "output_auth_type": {
-            "title": "Output Auth Type",
-            "type": "string"
-          },
-          "permission_set_version": {
-            "title": "Permission Set Version",
-            "type": "string"
-          },
-          "provider": {
-            "enum": [
-              "aws",
-              "azure",
-              "gcp"
-            ],
-            "title": "Provider",
-            "type": "string"
-          },
-          "required_tool": {
-            "title": "Required Tool",
-            "type": "string"
-          },
-          "rotation_flag": {
-            "title": "Rotation Flag",
-            "type": "string"
-          },
-          "script_path": {
-            "title": "Script Path",
-            "type": "string"
-          },
-          "security_notes": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Security Notes",
-            "type": "array"
-          }
-        },
-        "required": [
-          "provider",
-          "script_path",
-          "required_tool",
-          "output_auth_type",
-          "permission_set_version",
-          "dry_run_command",
-          "apply_command",
-          "rotation_flag",
-          "cloud_scope",
-          "creates",
-          "security_notes"
-        ],
-        "title": "CloudBootstrapPlanResponse",
-        "type": "object"
-      },
-      "CloudBootstrapRevisionRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "expected_revision": {
-            "minimum": 1.0,
-            "title": "Expected Revision",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "expected_revision"
-        ],
-        "title": "CloudBootstrapRevisionRequest",
-        "type": "object"
-      },
-      "CloudBootstrapSessionCreateRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "bootstrap_authority_pack_digest": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Bootstrap Authority Pack Digest",
-            "type": "string"
-          },
-          "display_name": {
-            "maxLength": 120,
-            "minLength": 1,
-            "title": "Display Name",
-            "type": "string"
-          },
-          "entry_point": {
-            "$ref": "#/components/schemas/CloudBootstrapEntryPoint"
-          },
-          "generated_deployment_pack_digest": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Generated Deployment Pack Digest",
-            "type": "string"
-          },
-          "guide_digest": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Guide Digest",
-            "type": "string"
-          },
-          "idempotency_key": {
-            "pattern": "^[A-Za-z0-9._:-]{16,128}$",
-            "title": "Idempotency Key",
-            "type": "string"
-          },
-          "provider": {
-            "enum": [
-              "aws",
-              "azure",
-              "gcp"
-            ],
-            "title": "Provider",
-            "type": "string"
-          },
-          "target": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AWSBootstrapTarget"
-              },
-              {
-                "$ref": "#/components/schemas/AzureBootstrapTarget"
-              },
-              {
-                "$ref": "#/components/schemas/GCPExistingProjectBootstrapTarget"
-              },
-              {
-                "$ref": "#/components/schemas/GCPOrganizationBootstrapTarget"
-              }
-            ],
-            "title": "Target"
-          },
-          "twin_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Twin Id"
-          }
-        },
-        "required": [
-          "provider",
-          "target",
-          "entry_point",
-          "display_name",
-          "guide_digest",
-          "bootstrap_authority_pack_digest",
-          "generated_deployment_pack_digest",
-          "idempotency_key"
-        ],
-        "title": "CloudBootstrapSessionCreateRequest",
-        "type": "object"
-      },
-      "CloudBootstrapSessionListResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/CloudBootstrapSessionResponse"
-            },
-            "title": "Items",
-            "type": "array"
-          }
-        },
-        "required": [
-          "items"
-        ],
-        "title": "CloudBootstrapSessionListResponse",
-        "type": "object"
-      },
-      "CloudBootstrapSessionResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "bootstrap_authority_pack": {
-            "$ref": "#/components/schemas/CloudBootstrapPackReference"
-          },
-          "command_permissions": {
-            "items": {
-              "enum": [
-                "execute",
-                "recheck",
-                "acknowledge_manual_revocation",
-                "cancel",
-                "start_new"
-              ],
-              "type": "string"
-            },
-            "title": "Command Permissions",
-            "type": "array"
-          },
-          "connection": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/CloudBootstrapConnectionSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "credential_expires_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Credential Expires At"
-          },
-          "credential_origin": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/CloudBootstrapCredentialOrigin"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "display_name": {
-            "title": "Display Name",
-            "type": "string"
-          },
-          "disposal_status": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/CloudBootstrapDisposalStatus"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "entry_point": {
-            "$ref": "#/components/schemas/CloudBootstrapEntryPoint"
-          },
-          "finding": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/CloudBootstrapFinding"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "generated_deployment_pack": {
-            "$ref": "#/components/schemas/CloudBootstrapPackReference"
-          },
-          "guide_digest": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Guide Digest",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "provider": {
-            "enum": [
-              "aws",
-              "azure",
-              "gcp"
-            ],
-            "title": "Provider",
-            "type": "string"
-          },
-          "revision": {
-            "title": "Revision",
-            "type": "integer"
-          },
-          "safe_credential_identifier": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Safe Credential Identifier"
-          },
-          "schema_version": {
-            "const": "cloud-bootstrap-session.v1",
-            "default": "cloud-bootstrap-session.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "state": {
-            "$ref": "#/components/schemas/CloudBootstrapState"
-          },
-          "target": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AWSBootstrapTarget"
-              },
-              {
-                "$ref": "#/components/schemas/AzureBootstrapTarget"
-              },
-              {
-                "$ref": "#/components/schemas/GCPExistingProjectBootstrapTarget"
-              },
-              {
-                "$ref": "#/components/schemas/GCPOrganizationBootstrapTarget"
-              }
-            ],
-            "title": "Target"
-          },
-          "twin_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Twin Id"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "provider",
-          "target",
-          "entry_point",
-          "twin_id",
-          "display_name",
-          "revision",
-          "state",
-          "guide_digest",
-          "bootstrap_authority_pack",
-          "generated_deployment_pack",
-          "command_permissions",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "CloudBootstrapSessionResponse",
-        "type": "object"
-      },
-      "CloudBootstrapState": {
-        "enum": [
-          "draft",
-          "bootstrap_running",
-          "generated_connection_ready",
-          "disposal_running",
-          "manual_revocation_required",
-          "credential_reentry_required",
-          "ready",
-          "failed",
-          "cancelled",
-          "expired"
-        ],
-        "title": "CloudBootstrapState",
-        "type": "string"
-      },
       "CloudConnectionCreate": {
         "additionalProperties": false,
         "properties": {
@@ -2798,20 +1542,6 @@
             "title": "Is Default For Pricing",
             "type": "boolean"
           },
-          "permission_set_version": {
-            "anyOf": [
-              {
-                "maxLength": 80,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Versioned deployment permission-set baseline for this connection.",
-            "title": "Permission Set Version"
-          },
           "provider": {
             "enum": [
               "aws",
@@ -2853,21 +1583,8 @@
             "title": "Checks",
             "type": "array"
           },
-          "expected_permission_set_version": {
-            "title": "Expected Permission Set Version",
-            "type": "string"
-          },
           "id": {
             "title": "Id",
-            "type": "string"
-          },
-          "permission_set_status": {
-            "enum": [
-              "matched",
-              "missing",
-              "outdated"
-            ],
-            "title": "Permission Set Status",
             "type": "string"
           },
           "provider": {
@@ -2886,24 +1603,11 @@
           "summary": {
             "title": "Summary",
             "type": "string"
-          },
-          "supplied_permission_set_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Supplied Permission Set Version"
           }
         },
         "required": [
           "id",
           "provider",
-          "expected_permission_set_version",
-          "permission_set_status",
           "ready",
           "summary",
           "checks"
@@ -2971,17 +1675,6 @@
             "additionalProperties": true,
             "title": "Payload Summary",
             "type": "object"
-          },
-          "permission_set_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Permission Set Version"
           },
           "provider": {
             "enum": [
@@ -3082,19 +1775,6 @@
               }
             ],
             "title": "Is Default For Pricing"
-          },
-          "permission_set_version": {
-            "anyOf": [
-              {
-                "maxLength": 80,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Permission Set Version"
           }
         },
         "title": "CloudConnectionUpdate",
@@ -3428,16 +2108,8 @@
         "additionalProperties": false,
         "properties": {
           "params": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FiveLayerV2OptimizerCalculationParams"
-              },
-              {
-                "$ref": "#/components/schemas/OptimizerCalculationParams"
-              }
-            ],
-            "description": "Optimizer calculation parameters",
-            "title": "Params"
+            "$ref": "#/components/schemas/OptimizerCalculationParams",
+            "description": "Optimizer calculation parameters"
           },
           "pricing_evidence_version": {
             "anyOf": [
@@ -3462,7 +2134,7 @@
           "architecture_compatibility_status": {
             "enum": [
               "ready",
-              "legacy_not_resolvable"
+              "unavailable"
             ],
             "title": "Architecture Compatibility Status",
             "type": "string"
@@ -3514,7 +2186,7 @@
           "deployment_compatibility_status": {
             "enum": [
               "ready",
-              "legacy_not_deployable"
+              "unavailable"
             ],
             "title": "Deployment Compatibility Status",
             "type": "string"
@@ -3666,27 +2338,12 @@
           "resolved_deployment_specification": {
             "anyOf": [
               {
-                "discriminator": {
-                  "mapping": {
-                    "resolved-deployment-specification.v1": "#/components/schemas/ResolvedDeploymentSpecification",
-                    "resolved-deployment-specification.v2": "#/components/schemas/ResolvedDeploymentSpecificationV2"
-                  },
-                  "propertyName": "schema_version"
-                },
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/ResolvedDeploymentSpecification"
-                  },
-                  {
-                    "$ref": "#/components/schemas/ResolvedDeploymentSpecificationV2"
-                  }
-                ]
+                "$ref": "#/components/schemas/ResolvedDeploymentSpecificationV2"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Resolved Deployment Specification"
+            ]
           },
           "result_items": {
             "items": {
@@ -3766,22 +2423,7 @@
       "CostCalculationRunSelectResponse": {
         "properties": {
           "resolved_deployment_specification": {
-            "discriminator": {
-              "mapping": {
-                "resolved-deployment-specification.v1": "#/components/schemas/ResolvedDeploymentSpecification",
-                "resolved-deployment-specification.v2": "#/components/schemas/ResolvedDeploymentSpecificationV2"
-              },
-              "propertyName": "schema_version"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/ResolvedDeploymentSpecification"
-              },
-              {
-                "$ref": "#/components/schemas/ResolvedDeploymentSpecificationV2"
-              }
-            ],
-            "title": "Resolved Deployment Specification"
+            "$ref": "#/components/schemas/ResolvedDeploymentSpecificationV2"
           },
           "run": {
             "$ref": "#/components/schemas/CostCalculationRunSummaryResponse"
@@ -3805,7 +2447,7 @@
           "architecture_compatibility_status": {
             "enum": [
               "ready",
-              "legacy_not_resolvable"
+              "unavailable"
             ],
             "title": "Architecture Compatibility Status",
             "type": "string"
@@ -3857,7 +2499,7 @@
           "deployment_compatibility_status": {
             "enum": [
               "ready",
-              "legacy_not_deployable"
+              "unavailable"
             ],
             "title": "Deployment Compatibility Status",
             "type": "string"
@@ -4086,13 +2728,6 @@
           "cloud_connection.delete",
           "cloud_connection.validate",
           "cloud_connection.preflight",
-          "cloud_bootstrap.plan",
-          "cloud_bootstrap.import",
-          "cloud_bootstrap.guide",
-          "cloud_bootstrap.session_create",
-          "cloud_bootstrap.execute",
-          "cloud_bootstrap.acknowledge_revocation",
-          "cloud_bootstrap.cancel",
           "credentials.validate_inline",
           "credentials.validate_stored"
         ],
@@ -6166,138 +4801,6 @@
         "title": "FieldError",
         "type": "object"
       },
-      "FiveLayerV2OptimizerCalculationParams": {
-        "additionalProperties": false,
-        "description": "Closed S/M/L workload shared by both active Phase 8 comparison profiles.",
-        "properties": {
-          "aggregateDashboardRefreshesPerHour": {
-            "minimum": 0.0,
-            "title": "Aggregatedashboardrefreshesperhour",
-            "type": "integer"
-          },
-          "apiCallsPerAggregateDashboardRefresh": {
-            "minimum": 1.0,
-            "title": "Apicallsperaggregatedashboardrefresh",
-            "type": "integer"
-          },
-          "archiveStorageDurationInMonths": {
-            "minimum": 6.0,
-            "title": "Archivestoragedurationinmonths",
-            "type": "integer"
-          },
-          "averageSizeOfMessageInKb": {
-            "exclusiveMinimum": 0.0,
-            "title": "Averagesizeofmessageinkb",
-            "type": "number"
-          },
-          "coolStorageDurationInMonths": {
-            "minimum": 1.0,
-            "title": "Coolstoragedurationinmonths",
-            "type": "integer"
-          },
-          "currency": {
-            "default": "USD",
-            "enum": [
-              "USD",
-              "EUR"
-            ],
-            "title": "Currency",
-            "type": "string"
-          },
-          "dashboardActiveHoursPerDay": {
-            "maximum": 24.0,
-            "minimum": 0.0,
-            "title": "Dashboardactivehoursperday",
-            "type": "integer"
-          },
-          "deviceSendingIntervalInMinutes": {
-            "exclusiveMinimum": 0.0,
-            "title": "Devicesendingintervalinminutes",
-            "type": "number"
-          },
-          "eventingScenarioId": {
-            "enum": [
-              "eventing-small-v1",
-              "eventing-medium-v1",
-              "eventing-large-v1"
-            ],
-            "title": "Eventingscenarioid",
-            "type": "string"
-          },
-          "hotStorageDurationInMonths": {
-            "minimum": 1.0,
-            "title": "Hotstoragedurationinmonths",
-            "type": "integer"
-          },
-          "monthlyEditorSeats": {
-            "minimum": 0.0,
-            "title": "Monthlyeditorseats",
-            "type": "integer"
-          },
-          "monthlyViewerSeats": {
-            "minimum": 0.0,
-            "title": "Monthlyviewerseats",
-            "type": "integer"
-          },
-          "numberOfDeviceTypes": {
-            "minimum": 1.0,
-            "title": "Numberofdevicetypes",
-            "type": "integer"
-          },
-          "numberOfDevices": {
-            "exclusiveMinimum": 0.0,
-            "title": "Numberofdevices",
-            "type": "integer"
-          },
-          "optimizationProfileId": {
-            "const": "cost-minimization-v2",
-            "default": "cost-minimization-v2",
-            "title": "Optimizationprofileid",
-            "type": "string"
-          },
-          "schemaVersion": {
-            "const": "five-layer-workload.v2",
-            "title": "Schemaversion",
-            "type": "string"
-          },
-          "twinEntityCount": {
-            "minimum": 1.0,
-            "title": "Twinentitycount",
-            "type": "integer"
-          },
-          "twinGraphUpdatesPerSecond": {
-            "minimum": 0.0,
-            "title": "Twingraphupdatespersecond",
-            "type": "number"
-          },
-          "twinStateMaterializationsPerSecond": {
-            "minimum": 0.0,
-            "title": "Twinstatematerializationspersecond",
-            "type": "number"
-          }
-        },
-        "required": [
-          "schemaVersion",
-          "numberOfDevices",
-          "deviceSendingIntervalInMinutes",
-          "averageSizeOfMessageInKb",
-          "numberOfDeviceTypes",
-          "hotStorageDurationInMonths",
-          "coolStorageDurationInMonths",
-          "archiveStorageDurationInMonths",
-          "twinEntityCount",
-          "aggregateDashboardRefreshesPerHour",
-          "apiCallsPerAggregateDashboardRefresh",
-          "dashboardActiveHoursPerDay",
-          "monthlyEditorSeats",
-          "monthlyViewerSeats",
-          "twinStateMaterializationsPerSecond",
-          "twinGraphUpdatesPerSecond",
-          "eventingScenarioId"
-        ],
-        "title": "FiveLayerV2OptimizerCalculationParams",
-        "type": "object"
-      },
       "FunctionalCompletenessResponse": {
         "additionalProperties": false,
         "properties": {
@@ -6355,119 +4858,6 @@
         "title": "FunctionalCompletenessResponse",
         "type": "object"
       },
-      "GCPBootstrapCredential": {
-        "additionalProperties": false,
-        "properties": {
-          "auth_provider_x509_cert_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Auth Provider X509 Cert Url"
-          },
-          "auth_uri": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Auth Uri"
-          },
-          "client_email": {
-            "title": "Client Email",
-            "type": "string"
-          },
-          "client_id": {
-            "format": "password",
-            "maxLength": 256,
-            "minLength": 1,
-            "title": "Client Id",
-            "type": "string",
-            "writeOnly": true
-          },
-          "client_x509_cert_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Client X509 Cert Url"
-          },
-          "private_key": {
-            "format": "password",
-            "maxLength": 16384,
-            "minLength": 16,
-            "title": "Private Key",
-            "type": "string",
-            "writeOnly": true
-          },
-          "private_key_id": {
-            "format": "password",
-            "maxLength": 256,
-            "minLength": 1,
-            "title": "Private Key Id",
-            "type": "string",
-            "writeOnly": true
-          },
-          "project_id": {
-            "title": "Project Id",
-            "type": "string"
-          },
-          "provider": {
-            "const": "gcp",
-            "default": "gcp",
-            "title": "Provider",
-            "type": "string"
-          },
-          "token_uri": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Token Uri"
-          },
-          "type": {
-            "const": "service_account",
-            "title": "Type",
-            "type": "string"
-          },
-          "universe_domain": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Universe Domain"
-          }
-        },
-        "required": [
-          "type",
-          "project_id",
-          "private_key_id",
-          "private_key",
-          "client_email",
-          "client_id"
-        ],
-        "title": "GCPBootstrapCredential",
-        "type": "object"
-      },
       "GCPCredentials": {
         "additionalProperties": false,
         "properties": {
@@ -6511,98 +4901,6 @@
           }
         },
         "title": "GCPCredentials",
-        "type": "object"
-      },
-      "GCPExistingProjectBootstrapTarget": {
-        "additionalProperties": false,
-        "properties": {
-          "mode": {
-            "const": "existing_project",
-            "default": "existing_project",
-            "title": "Mode",
-            "type": "string"
-          },
-          "project_id": {
-            "pattern": "^[a-z][a-z0-9-]{4,28}[a-z0-9]$",
-            "title": "Project Id",
-            "type": "string"
-          },
-          "provider": {
-            "const": "gcp",
-            "default": "gcp",
-            "title": "Provider",
-            "type": "string"
-          },
-          "region": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Region",
-            "type": "string"
-          }
-        },
-        "required": [
-          "project_id",
-          "region"
-        ],
-        "title": "GCPExistingProjectBootstrapTarget",
-        "type": "object"
-      },
-      "GCPOrganizationBootstrapTarget": {
-        "additionalProperties": false,
-        "properties": {
-          "billing_account_id": {
-            "pattern": "^[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}$",
-            "title": "Billing Account Id",
-            "type": "string"
-          },
-          "bootstrap_project_id": {
-            "pattern": "^[a-z][a-z0-9-]{4,28}[a-z0-9]$",
-            "title": "Bootstrap Project Id",
-            "type": "string"
-          },
-          "folder_id": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]+$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Folder Id"
-          },
-          "mode": {
-            "const": "organization",
-            "default": "organization",
-            "title": "Mode",
-            "type": "string"
-          },
-          "organization_id": {
-            "pattern": "^[0-9]+$",
-            "title": "Organization Id",
-            "type": "string"
-          },
-          "provider": {
-            "const": "gcp",
-            "default": "gcp",
-            "title": "Provider",
-            "type": "string"
-          },
-          "region": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Region",
-            "type": "string"
-          }
-        },
-        "required": [
-          "bootstrap_project_id",
-          "organization_id",
-          "billing_account_id",
-          "region"
-        ],
-        "title": "GCPOrganizationBootstrapTarget",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -6907,56 +5205,22 @@
       },
       "OptimizerCalculationParams": {
         "additionalProperties": false,
-        "description": "Validated calculation inputs shared by every Management write path.",
+        "description": "Closed S/M/L workload for the active Six-layer profile.",
         "properties": {
-          "allowGcpSelfHostedL4": {
-            "default": false,
-            "title": "Allowgcpselfhostedl4",
-            "type": "boolean"
-          },
-          "allowGcpSelfHostedL5": {
-            "default": false,
-            "title": "Allowgcpselfhostedl5",
-            "type": "boolean"
-          },
-          "amountOfActiveEditors": {
+          "aggregateDashboardRefreshesPerHour": {
             "minimum": 0.0,
-            "title": "Amountofactiveeditors",
+            "title": "Aggregatedashboardrefreshesperhour",
             "type": "integer"
           },
-          "amountOfActiveViewers": {
-            "minimum": 0.0,
-            "title": "Amountofactiveviewers",
-            "type": "integer"
-          },
-          "apiCallsPerDashboardRefresh": {
-            "default": 1,
+          "apiCallsPerAggregateDashboardRefresh": {
             "minimum": 1.0,
-            "title": "Apicallsperdashboardrefresh",
+            "title": "Apicallsperaggregatedashboardrefresh",
             "type": "integer"
           },
           "archiveStorageDurationInMonths": {
             "minimum": 6.0,
             "title": "Archivestoragedurationinmonths",
             "type": "integer"
-          },
-          "average3DModelSizeInMB": {
-            "default": 100.0,
-            "exclusiveMinimum": 0.0,
-            "title": "Average3Dmodelsizeinmb",
-            "type": "number"
-          },
-          "averageDigitalTwinQueryResponseSizeInKb": {
-            "default": 1.0,
-            "exclusiveMinimum": 0.0,
-            "title": "Averagedigitaltwinqueryresponsesizeinkb",
-            "type": "number"
-          },
-          "averageDigitalTwinQueryUnitsPerQuery": {
-            "default": 1.0,
-            "exclusiveMinimum": 0.0,
-            "title": "Averagedigitaltwinqueryunitsperquery",
-            "type": "number"
           },
           "averageSizeOfMessageInKb": {
             "exclusiveMinimum": 0.0,
@@ -6983,52 +5247,36 @@
             "title": "Dashboardactivehoursperday",
             "type": "integer"
           },
-          "dashboardRefreshesPerHour": {
-            "minimum": 0.0,
-            "title": "Dashboardrefreshesperhour",
-            "type": "integer"
-          },
           "deviceSendingIntervalInMinutes": {
             "exclusiveMinimum": 0.0,
             "title": "Devicesendingintervalinminutes",
             "type": "number"
           },
-          "entityCount": {
-            "minimum": 0.0,
-            "title": "Entitycount",
-            "type": "integer"
-          },
-          "eventTriggerRate": {
-            "default": 0.1,
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Eventtriggerrate",
-            "type": "number"
-          },
-          "eventsPerMessage": {
-            "default": 1,
-            "minimum": 1.0,
-            "title": "Eventspermessage",
-            "type": "integer"
+          "eventingScenarioId": {
+            "enum": [
+              "eventing-small-v1",
+              "eventing-medium-v1",
+              "eventing-large-v1"
+            ],
+            "title": "Eventingscenarioid",
+            "type": "string"
           },
           "hotStorageDurationInMonths": {
             "minimum": 1.0,
             "title": "Hotstoragedurationinmonths",
             "type": "integer"
           },
-          "integrateErrorHandling": {
-            "const": false,
-            "default": false,
-            "description": "Legacy compatibility field. The executable five-layer baseline accepts only false or omission.",
-            "title": "Integrateerrorhandling",
-            "type": "boolean"
+          "monthlyEditorSeats": {
+            "minimum": 0.0,
+            "title": "Monthlyeditorseats",
+            "type": "integer"
           },
-          "needs3DModel": {
-            "title": "Needs3Dmodel",
-            "type": "boolean"
+          "monthlyViewerSeats": {
+            "minimum": 0.0,
+            "title": "Monthlyviewerseats",
+            "type": "integer"
           },
           "numberOfDeviceTypes": {
-            "default": 1,
             "minimum": 1.0,
             "title": "Numberofdevicetypes",
             "type": "integer"
@@ -7038,52 +5286,51 @@
             "title": "Numberofdevices",
             "type": "integer"
           },
-          "numberOfEventActions": {
-            "default": 0,
-            "minimum": 0.0,
-            "title": "Numberofeventactions",
-            "type": "integer"
-          },
           "optimizationProfileId": {
-            "default": "cost_minimization_v1",
+            "const": "cost-minimization-v2",
+            "default": "cost-minimization-v2",
             "title": "Optimizationprofileid",
             "type": "string"
           },
-          "orchestrationActionsPerMessage": {
-            "default": 3,
+          "schemaVersion": {
+            "const": "six-layer-workload.v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "twinEntityCount": {
             "minimum": 1.0,
-            "title": "Orchestrationactionspermessage",
+            "title": "Twinentitycount",
             "type": "integer"
           },
-          "returnFeedbackToDevice": {
-            "default": false,
-            "title": "Returnfeedbacktodevice",
-            "type": "boolean"
+          "twinGraphUpdatesPerSecond": {
+            "minimum": 0.0,
+            "title": "Twingraphupdatespersecond",
+            "type": "number"
           },
-          "triggerNotificationWorkflow": {
-            "default": false,
-            "title": "Triggernotificationworkflow",
-            "type": "boolean"
-          },
-          "useEventChecking": {
-            "default": false,
-            "title": "Useeventchecking",
-            "type": "boolean"
+          "twinStateMaterializationsPerSecond": {
+            "minimum": 0.0,
+            "title": "Twinstatematerializationspersecond",
+            "type": "number"
           }
         },
         "required": [
+          "schemaVersion",
           "numberOfDevices",
           "deviceSendingIntervalInMinutes",
           "averageSizeOfMessageInKb",
+          "numberOfDeviceTypes",
           "hotStorageDurationInMonths",
           "coolStorageDurationInMonths",
           "archiveStorageDurationInMonths",
-          "needs3DModel",
-          "entityCount",
-          "amountOfActiveEditors",
-          "amountOfActiveViewers",
-          "dashboardRefreshesPerHour",
-          "dashboardActiveHoursPerDay"
+          "twinEntityCount",
+          "aggregateDashboardRefreshesPerHour",
+          "apiCallsPerAggregateDashboardRefresh",
+          "dashboardActiveHoursPerDay",
+          "monthlyEditorSeats",
+          "monthlyViewerSeats",
+          "twinStateMaterializationsPerSecond",
+          "twinGraphUpdatesPerSecond",
+          "eventingScenarioId"
         ],
         "title": "OptimizerCalculationParams",
         "type": "object"
@@ -8938,21 +7185,6 @@
             ],
             "title": "Connection Id"
           },
-          "expected_permission_set_version": {
-            "maxLength": 80,
-            "minLength": 1,
-            "title": "Expected Permission Set Version",
-            "type": "string"
-          },
-          "permission_set_status": {
-            "enum": [
-              "matched",
-              "missing",
-              "outdated"
-            ],
-            "title": "Permission Set Status",
-            "type": "string"
-          },
           "provider": {
             "enum": [
               "aws",
@@ -8981,18 +7213,6 @@
             "minLength": 1,
             "title": "Summary",
             "type": "string"
-          },
-          "supplied_permission_set_version": {
-            "anyOf": [
-              {
-                "maxLength": 80,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Supplied Permission Set Version"
           }
         },
         "required": [
@@ -9000,8 +7220,6 @@
           "ready",
           "status",
           "summary",
-          "expected_permission_set_version",
-          "permission_set_status",
           "checks"
         ],
         "title": "ProviderDeploymentReadiness",
@@ -9434,28 +7652,10 @@
         "additionalProperties": false,
         "properties": {
           "architecture": {
-            "discriminator": {
-              "mapping": {
-                "resolved-twin-architecture.v1": "#/components/schemas/ResolvedTwinArchitectureContract",
-                "resolved-twin-architecture.v2": "#/components/schemas/ResolvedTwinArchitectureContractV2"
-              },
-              "propertyName": "schema_version"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/ResolvedTwinArchitectureContract"
-              },
-              {
-                "$ref": "#/components/schemas/ResolvedTwinArchitectureContractV2"
-              }
-            ],
-            "title": "Architecture"
+            "$ref": "#/components/schemas/ResolvedTwinArchitectureContractV2"
           },
           "architecture_compatibility_status": {
-            "enum": [
-              "ready",
-              "legacy_not_resolvable"
-            ],
+            "const": "ready",
             "title": "Architecture Compatibility Status",
             "type": "string"
           },
@@ -9464,11 +7664,7 @@
             "type": "string"
           },
           "origin": {
-            "enum": [
-              "native_v1",
-              "reconstructed_v1",
-              "native_v2"
-            ],
+            "const": "native_v2",
             "title": "Origin",
             "type": "string"
           },
@@ -9666,27 +7862,6 @@
         "title": "ResolvedCostSummary",
         "type": "object"
       },
-      "ResolvedDeploymentArchitectureProfile": {
-        "additionalProperties": false,
-        "properties": {
-          "profile_id": {
-            "const": "five-layer-baseline",
-            "title": "Profile Id",
-            "type": "string"
-          },
-          "profile_version": {
-            "const": "1",
-            "title": "Profile Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "profile_id",
-          "profile_version"
-        ],
-        "title": "ResolvedDeploymentArchitectureProfile",
-        "type": "object"
-      },
       "ResolvedDeploymentBindingV2": {
         "additionalProperties": false,
         "properties": {
@@ -9773,91 +7948,6 @@
         "title": "ResolvedDeploymentBindingV2",
         "type": "object"
       },
-      "ResolvedDeploymentCatalogReference": {
-        "additionalProperties": false,
-        "properties": {
-          "content_digest": {
-            "title": "Content Digest",
-            "type": "string"
-          },
-          "pricing_region": {
-            "title": "Pricing Region",
-            "type": "string"
-          },
-          "snapshot_id": {
-            "title": "Snapshot Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "snapshot_id",
-          "pricing_region",
-          "content_digest"
-        ],
-        "title": "ResolvedDeploymentCatalogReference",
-        "type": "object"
-      },
-      "ResolvedDeploymentComponent": {
-        "additionalProperties": false,
-        "properties": {
-          "component_id": {
-            "title": "Component Id",
-            "type": "string"
-          },
-          "dimensions": {
-            "items": {
-              "$ref": "#/components/schemas/ResolvedDeploymentDimension"
-            },
-            "maxItems": 16,
-            "minItems": 1,
-            "title": "Dimensions",
-            "type": "array"
-          },
-          "provider": {
-            "enum": [
-              "aws",
-              "azure",
-              "gcp"
-            ],
-            "title": "Provider",
-            "type": "string"
-          },
-          "required": {
-            "const": true,
-            "title": "Required",
-            "type": "boolean"
-          },
-          "service_id": {
-            "title": "Service Id",
-            "type": "string"
-          },
-          "slot_id": {
-            "enum": [
-              "l1_ingestion",
-              "l2_processing",
-              "l3_hot_storage",
-              "l3_cool_storage",
-              "l3_archive_storage",
-              "l4_twin_state",
-              "l5_visualization",
-              "transition_runtime",
-              "cross_cloud_glue"
-            ],
-            "title": "Slot Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "component_id",
-          "slot_id",
-          "provider",
-          "service_id",
-          "required",
-          "dimensions"
-        ],
-        "title": "ResolvedDeploymentComponent",
-        "type": "object"
-      },
       "ResolvedDeploymentComponentSelectionV2": {
         "additionalProperties": false,
         "properties": {
@@ -9924,78 +8014,6 @@
           "dimensions"
         ],
         "title": "ResolvedDeploymentComponentSelectionV2",
-        "type": "object"
-      },
-      "ResolvedDeploymentDimension": {
-        "additionalProperties": false,
-        "properties": {
-          "classification": {
-            "enum": [
-              "deployable_selection",
-              "usage_tier",
-              "account_scope",
-              "non_deployable_assumption"
-            ],
-            "title": "Classification",
-            "type": "string"
-          },
-          "dimension_id": {
-            "title": "Dimension Id",
-            "type": "string"
-          },
-          "evidence_reference": {
-            "title": "Evidence Reference",
-            "type": "string"
-          },
-          "formula_reference": {
-            "title": "Formula Reference",
-            "type": "string"
-          },
-          "terraform_target": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Terraform Target"
-          },
-          "unit": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Unit"
-          },
-          "value": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "integer"
-              },
-              {
-                "type": "boolean"
-              }
-            ],
-            "title": "Value"
-          }
-        },
-        "required": [
-          "dimension_id",
-          "classification",
-          "value",
-          "formula_reference",
-          "evidence_reference"
-        ],
-        "title": "ResolvedDeploymentDimension",
         "type": "object"
       },
       "ResolvedDeploymentDimensionV2": {
@@ -10159,53 +8177,6 @@
         "title": "ResolvedDeploymentFixedDimensionsV2",
         "type": "object"
       },
-      "ResolvedDeploymentOptimizationContext": {
-        "additionalProperties": false,
-        "properties": {
-          "calculation_strategy_id": {
-            "title": "Calculation Strategy Id",
-            "type": "string"
-          },
-          "catalog_references": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ResolvedDeploymentCatalogReference"
-            },
-            "title": "Catalog References",
-            "type": "object"
-          },
-          "formula_set_id": {
-            "title": "Formula Set Id",
-            "type": "string"
-          },
-          "optimization_profile_id": {
-            "title": "Optimization Profile Id",
-            "type": "string"
-          },
-          "optimization_profile_version": {
-            "title": "Optimization Profile Version",
-            "type": "string"
-          },
-          "pricing_registry_version": {
-            "title": "Pricing Registry Version",
-            "type": "string"
-          },
-          "workload_contract_id": {
-            "title": "Workload Contract Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "optimization_profile_id",
-          "optimization_profile_version",
-          "calculation_strategy_id",
-          "formula_set_id",
-          "workload_contract_id",
-          "pricing_registry_version",
-          "catalog_references"
-        ],
-        "title": "ResolvedDeploymentOptimizationContext",
-        "type": "object"
-      },
       "ResolvedDeploymentOptimizationContextV2": {
         "additionalProperties": false,
         "properties": {
@@ -10323,55 +8294,6 @@
           "blocking_gate_ids"
         ],
         "title": "ResolvedDeploymentReadinessV2",
-        "type": "object"
-      },
-      "ResolvedDeploymentSpecification": {
-        "additionalProperties": false,
-        "properties": {
-          "architecture_profile": {
-            "$ref": "#/components/schemas/ResolvedDeploymentArchitectureProfile"
-          },
-          "calculation_run_id": {
-            "title": "Calculation Run Id",
-            "type": "string"
-          },
-          "components": {
-            "items": {
-              "$ref": "#/components/schemas/ResolvedDeploymentComponent"
-            },
-            "maxItems": 64,
-            "minItems": 7,
-            "title": "Components",
-            "type": "array"
-          },
-          "currency": {
-            "const": "USD",
-            "title": "Currency",
-            "type": "string"
-          },
-          "digest": {
-            "title": "Digest",
-            "type": "string"
-          },
-          "optimization_context": {
-            "$ref": "#/components/schemas/ResolvedDeploymentOptimizationContext"
-          },
-          "schema_version": {
-            "const": "resolved-deployment-specification.v1",
-            "title": "Schema Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "schema_version",
-          "calculation_run_id",
-          "architecture_profile",
-          "optimization_context",
-          "currency",
-          "components",
-          "digest"
-        ],
-        "title": "ResolvedDeploymentSpecification",
         "type": "object"
       },
       "ResolvedDeploymentSpecificationReference": {
@@ -10589,114 +8511,6 @@
           "validation_contract_version"
         ],
         "title": "ResolvedExtensionBinding",
-        "type": "object"
-      },
-      "ResolvedTwinArchitectureContract": {
-        "additionalProperties": false,
-        "description": "Typed top-level v1 resolution; nested data stays contract-owned.",
-        "properties": {
-          "architecture_profile_ref": {
-            "$ref": "#/components/schemas/PinnedArchitectureReference"
-          },
-          "calculation_run_id": {
-            "title": "Calculation Run Id",
-            "type": "string"
-          },
-          "component_assignments": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Component Assignments",
-            "type": "array"
-          },
-          "content_digest": {
-            "title": "Content Digest",
-            "type": "string"
-          },
-          "cost_summary": {
-            "additionalProperties": true,
-            "title": "Cost Summary",
-            "type": "object"
-          },
-          "deployment_specification_ref": {
-            "additionalProperties": true,
-            "title": "Deployment Specification Ref",
-            "type": "object"
-          },
-          "extension_bindings": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Extension Bindings",
-            "type": "array"
-          },
-          "functional_completeness": {
-            "additionalProperties": true,
-            "title": "Functional Completeness",
-            "type": "object"
-          },
-          "optimization_bundle_ref": {
-            "additionalProperties": true,
-            "title": "Optimization Bundle Ref",
-            "type": "object"
-          },
-          "pricing_evidence_refs": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Pricing Evidence Refs",
-            "type": "array"
-          },
-          "provider_profile_refs": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Provider Profile Refs",
-            "type": "array"
-          },
-          "resolution_id": {
-            "title": "Resolution Id",
-            "type": "string"
-          },
-          "resolved_edges": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Resolved Edges",
-            "type": "array"
-          },
-          "schema_version": {
-            "const": "resolved-twin-architecture.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "workload_contract_ref": {
-            "$ref": "#/components/schemas/PinnedArchitectureReference"
-          }
-        },
-        "required": [
-          "schema_version",
-          "resolution_id",
-          "calculation_run_id",
-          "architecture_profile_ref",
-          "optimization_bundle_ref",
-          "provider_profile_refs",
-          "workload_contract_ref",
-          "pricing_evidence_refs",
-          "component_assignments",
-          "resolved_edges",
-          "extension_bindings",
-          "deployment_specification_ref",
-          "cost_summary",
-          "functional_completeness",
-          "content_digest"
-        ],
-        "title": "ResolvedTwinArchitectureContract",
         "type": "object"
       },
       "ResolvedTwinArchitectureContractV2": {
@@ -12647,916 +10461,6 @@
         ]
       }
     },
-    "/cloud-bootstrap/import": {
-      "post": {
-        "operationId": "importCloudBootstrapConnection",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CloudBootstrapImportRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CloudBootstrapImportResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request - The request was malformed or missing required parameters"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Validation Error - Request body failed schema validation"
-          }
-        },
-        "summary": "Import generated bootstrap output as a CloudConnection",
-        "tags": [
-          "cloud-bootstrap"
-        ]
-      }
-    },
-    "/cloud-bootstrap/sessions": {
-      "get": {
-        "operationId": "listCloudBootstrapSessions",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "provider",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Provider"
-            }
-          },
-          {
-            "in": "query",
-            "name": "active",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Active"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CloudBootstrapSessionListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List safe owner-scoped bootstrap sessions",
-        "tags": [
-          "cloud-bootstrap"
-        ]
-      },
-      "post": {
-        "operationId": "createCloudBootstrapSession",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CloudBootstrapSessionCreateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CloudBootstrapSessionResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "CONFLICT",
-                  "fix_suggestion": "Check the current state of the resource before performing this action",
-                  "http_status": 409,
-                  "message": "Resource already exists or state transition not allowed"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Conflict - The request conflicts with current resource state"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Validation Error - Request body failed schema validation"
-          }
-        },
-        "summary": "Create or resume one owner-scoped guided bootstrap session",
-        "tags": [
-          "cloud-bootstrap"
-        ]
-      }
-    },
-    "/cloud-bootstrap/sessions/{session_id}": {
-      "get": {
-        "operationId": "getCloudBootstrapSession",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "session_id",
-            "required": true,
-            "schema": {
-              "title": "Session Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CloudBootstrapSessionResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Read one safe owner-scoped bootstrap session",
-        "tags": [
-          "cloud-bootstrap"
-        ]
-      }
-    },
-    "/cloud-bootstrap/sessions/{session_id}/acknowledge-manual-revocation": {
-      "post": {
-        "operationId": "acknowledgeCloudBootstrapManualRevocation",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "session_id",
-            "required": true,
-            "schema": {
-              "title": "Session Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CloudBootstrapRevisionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CloudBootstrapSessionResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "CONFLICT",
-                  "fix_suggestion": "Check the current state of the resource before performing this action",
-                  "http_status": 409,
-                  "message": "Resource already exists or state transition not allowed"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Conflict - The request conflicts with current resource state"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Validation Error - Request body failed schema validation"
-          }
-        },
-        "summary": "Record explicit user acknowledgement of provider-side cleanup",
-        "tags": [
-          "cloud-bootstrap"
-        ]
-      }
-    },
-    "/cloud-bootstrap/sessions/{session_id}/cancel": {
-      "post": {
-        "operationId": "cancelCloudBootstrapSession",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "session_id",
-            "required": true,
-            "schema": {
-              "title": "Session Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CloudBootstrapRevisionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CloudBootstrapSessionResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "CONFLICT",
-                  "fix_suggestion": "Check the current state of the resource before performing this action",
-                  "http_status": 409,
-                  "message": "Resource already exists or state transition not allowed"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Conflict - The request conflicts with current resource state"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Validation Error - Request body failed schema validation"
-          }
-        },
-        "summary": "Cancel a bootstrap session that has no generated connection",
-        "tags": [
-          "cloud-bootstrap"
-        ]
-      }
-    },
-    "/cloud-bootstrap/sessions/{session_id}/execute": {
-      "post": {
-        "operationId": "executeCloudBootstrapSession",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "session_id",
-            "required": true,
-            "schema": {
-              "title": "Session Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CloudBootstrapExecuteRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CloudBootstrapSessionResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "CONFLICT",
-                  "fix_suggestion": "Check the current state of the resource before performing this action",
-                  "http_status": 409,
-                  "message": "Resource already exists or state transition not allowed"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Conflict - The request conflicts with current resource state"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Validation Error - Request body failed schema validation"
-          }
-        },
-        "summary": "Execute one synchronous request-scoped bootstrap command",
-        "tags": [
-          "cloud-bootstrap"
-        ]
-      }
-    },
-    "/cloud-bootstrap/{provider}/guide": {
-      "post": {
-        "operationId": "getCloudBootstrapGuide",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "provider",
-            "required": true,
-            "schema": {
-              "title": "Provider",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CloudBootstrapGuideRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CloudBootstrapGuideResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request - The request was malformed or missing required parameters"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Validation Error - Request body failed schema validation"
-          }
-        },
-        "summary": "Build safe provider-specific guided bootstrap instructions",
-        "tags": [
-          "cloud-bootstrap"
-        ]
-      }
-    },
-    "/cloud-bootstrap/{provider}/plan": {
-      "post": {
-        "operationId": "createCloudBootstrapPlan",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "provider",
-            "required": true,
-            "schema": {
-              "title": "Provider",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CloudBootstrapPlanRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CloudBootstrapPlanResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request - The request was malformed or missing required parameters"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Validation Error - Request body failed schema validation"
-          }
-        },
-        "summary": "Create a safe manual provider bootstrap plan",
-        "tags": [
-          "cloud-bootstrap"
-        ]
-      }
-    },
     "/cloud-connections/": {
       "get": {
         "operationId": "listCloudConnections",
@@ -14637,7 +11541,7 @@
     },
     "/optimizer/calculate": {
       "put": {
-        "description": "**Purpose:** Calculate the globally cheapest executable complete path for the closed Five-Layer Digital Twin baseline.\n\n**Prerequisites:** Call `getPricingStatus` first. If pricing is stale, refresh the affected provider before calculating.\n\n**Response includes:**\n- `awsCosts`, `azureCosts`, `gcpCosts`: Per-layer cost breakdowns\n- `cheapestPath`: Selected provider assignment across all seven slots\n- `transferPricingContext`: Exact six-route, tier, pool, and catalog evidence\n- `optimizationDiagnostics`: Bounded complete-path solver diagnostics\n\nManagement injects trusted catalog context and rejects route evidence that does not match that context or the selected complete path.",
+        "description": "**Purpose:** Calculate the globally cheapest executable complete path for the validated Six-layer Eventing architecture.\n\n**Prerequisites:** Call `getPricingStatus` first. If pricing is stale, refresh the affected provider before calculating.\n\n**Response includes:**\n- `awsCosts`, `azureCosts`, `gcpCosts`: Per-layer cost breakdowns\n- `cheapestPath`: Selected provider assignment across all eight components\n- `transferPricingContext`: Exact six-route, tier, pool, and catalog evidence\n- `optimizationDiagnostics`: Bounded complete-path solver diagnostics\n\nManagement injects trusted catalog context and rejects route evidence that does not match that context or the selected complete path.",
         "operationId": "calculateOptimalDistribution",
         "parameters": [
           {

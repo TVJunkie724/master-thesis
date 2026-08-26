@@ -3,7 +3,7 @@
 Event Hubs owns replayable telemetry and one consumer group per independent
 consumer. Service Bus owns ordered low-rate control delivery and its native
 dead-letter queue. The only HTTP hop is an authenticated same-cloud handoff to
-the inherited Azure domain runtime; cross-cloud traffic still lands on a
+the Azure Six-layer domain runtime; cross-cloud traffic still lands on a
 provider broker first.
 """
 

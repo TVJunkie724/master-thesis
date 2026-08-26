@@ -25,50 +25,20 @@ def _response_ref(path: str, method: str = "get") -> str | None:
 def test_management_json_contracts_have_response_models():
     """Stable Flutter-facing JSON endpoints expose explicit OpenAPI schemas."""
     expected_refs = {
-        ("/auth/providers/{provider}/login", "post"): "#/components/schemas/AuthStartResponse",
-        ("/auth/session/exchange", "post"): "#/components/schemas/AuthSessionExchangeResponse",
+        (
+            "/auth/providers/{provider}/login",
+            "post",
+        ): "#/components/schemas/AuthStartResponse",
+        (
+            "/auth/session/exchange",
+            "post",
+        ): "#/components/schemas/AuthSessionExchangeResponse",
         ("/auth/session/cancel", "post"): "#/components/schemas/MessageResponse",
         ("/auth/logout", "post"): "#/components/schemas/MessageResponse",
         ("/auth/me", "get"): "#/components/schemas/CurrentUserResponse",
         ("/auth/me", "patch"): "#/components/schemas/CurrentUserResponse",
         ("/auth/providers", "get"): "#/components/schemas/AuthProvidersResponse",
         ("/health", "get"): "#/components/schemas/HealthResponse",
-        (
-            "/cloud-bootstrap/{provider}/guide",
-            "post",
-        ): "#/components/schemas/CloudBootstrapGuideResponse",
-        (
-            "/cloud-bootstrap/sessions",
-            "post",
-        ): "#/components/schemas/CloudBootstrapSessionResponse",
-        (
-            "/cloud-bootstrap/sessions",
-            "get",
-        ): "#/components/schemas/CloudBootstrapSessionListResponse",
-        (
-            "/cloud-bootstrap/sessions/{session_id}",
-            "get",
-        ): "#/components/schemas/CloudBootstrapSessionResponse",
-        (
-            "/cloud-bootstrap/sessions/{session_id}/execute",
-            "post",
-        ): "#/components/schemas/CloudBootstrapSessionResponse",
-        (
-            "/cloud-bootstrap/sessions/{session_id}/setup-gate-receipt",
-            "get",
-        ): "#/components/schemas/CloudBootstrapSetupReceiptResponse",
-        (
-            "/cloud-bootstrap/sessions/{session_id}/setup-gate-cleanup",
-            "post",
-        ): "#/components/schemas/CloudBootstrapSetupCleanupResponse",
-        (
-            "/cloud-bootstrap/sessions/{session_id}/acknowledge-manual-revocation",
-            "post",
-        ): "#/components/schemas/CloudBootstrapSessionResponse",
-        (
-            "/cloud-bootstrap/sessions/{session_id}/cancel",
-            "post",
-        ): "#/components/schemas/CloudBootstrapSessionResponse",
         (
             "/twins/{twin_id}/can-redeploy",
             "get",
@@ -234,9 +204,9 @@ def test_downstream_client_contract_surface_is_explicit():
         "destroy_stream",
         "download_simulator",
         "extract_project_zip",
-            "get_provider_capabilities",
-            "rotate_gcp_grafana_viewer_credential",
-            "stage_operation_package",
+        "get_provider_capabilities",
+        "rotate_gcp_grafana_viewer_credential",
+        "stage_operation_package",
         "start_log_trace",
         "stream_log_trace",
         "validate_config_file",

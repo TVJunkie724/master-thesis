@@ -23,8 +23,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "twin2multicloud_backend"))
 sys.path.insert(0, str(ROOT / "2-twin2clouds"))
 
-from backend.architecture_profiles.five_layer_v2_pricing import (  # noqa: E402
-    FiveLayerV2CatalogCostLedgerResolver,
+from backend.architecture_profiles.six_layer_pricing import (  # noqa: E402
+    SixLayerCatalogCostLedgerResolver,
 )
 from backend.architecture_profiles.registry import (  # noqa: E402
     ArchitectureProfileRegistry,
@@ -117,7 +117,7 @@ def _optimize_cross_eventing(
         / "backend"
         / "contracts"
         / "generated"
-        / "five-layer-workload"
+        / "six-layer-workload"
         / "v2"
         / "fixtures"
         / "valid"
@@ -134,7 +134,7 @@ def _optimize_cross_eventing(
         }
         for provider in providers
     }
-    base_resolver = FiveLayerV2CatalogCostLedgerResolver(
+    base_resolver = SixLayerCatalogCostLedgerResolver(
         {provider: pricing[provider] for provider in providers}
     )
 
@@ -320,10 +320,8 @@ def _persist(optimized, workload: dict, registry, context: PricingCatalogContext
         if (
             len(persisted.resolved_architecture.components) != 8
             or len(persisted.resolved_architecture.edges) != 9
-            or {edge.logical_edge_id for edge in event_edges}
-            != EXPECTED_EVENT_EDGE_IDS
-            or {edge.mechanism for edge in event_edges}
-            != {"cross_provider_adapter"}
+            or {edge.logical_edge_id for edge in event_edges} != EXPECTED_EVENT_EDGE_IDS
+            or {edge.mechanism for edge in event_edges} != {"cross_provider_adapter"}
         ):
             raise RuntimeError("Persisted Six-layer graph is incomplete")
         return {

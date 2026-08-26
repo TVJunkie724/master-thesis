@@ -90,17 +90,17 @@ locals {
     join("','", local.azure_event_local_control_event_types),
   )
   azure_event_bridge_control_event_types = sort(distinct(flatten([
-    for route in values(local.azure_v2_outbound_event_routes) : route.event_types
+    for route in values(local.azure_six_layer_outbound_event_routes) : route.event_types
     if startswith(route.logical_edge_id, "edge.eventing-to-") && route.channel_class == "control"
   ])))
   azure_event_bridge_received_enabled = anytrue([
-    for route in values(local.azure_v2_outbound_event_routes) :
+    for route in values(local.azure_six_layer_outbound_event_routes) :
     startswith(route.logical_edge_id, "edge.eventing-to-") &&
     route.channel_class == "telemetry" &&
     contains(route.event_types, "telemetry.received.v1")
   ])
   azure_event_bridge_processed_enabled = anytrue([
-    for route in values(local.azure_v2_outbound_event_routes) :
+    for route in values(local.azure_six_layer_outbound_event_routes) :
     startswith(route.logical_edge_id, "edge.eventing-to-") &&
     route.channel_class == "telemetry" &&
     contains(route.event_types, "telemetry.processed.v1")
@@ -286,7 +286,7 @@ resource "azurerm_servicebus_subscription_rule" "domain_control" {
 }
 
 resource "azurerm_servicebus_subscription" "event_bridge_control" {
-  count                                     = local.azure_event_enabled && local.azure_v2_event_remote_control_outbound ? 1 : 0
+  count                                     = local.azure_event_enabled && local.azure_six_layer_event_remote_control_outbound ? 1 : 0
   name                                      = "cross-cloud-bridge"
   topic_id                                  = azurerm_servicebus_topic.domain_control[0].id
   max_delivery_count                        = var.azure_event_max_delivery_count
@@ -298,7 +298,7 @@ resource "azurerm_servicebus_subscription" "event_bridge_control" {
 }
 
 resource "azurerm_servicebus_subscription_rule" "event_bridge_control" {
-  count           = local.azure_event_enabled && local.azure_v2_event_remote_control_outbound ? 1 : 0
+  count           = local.azure_event_enabled && local.azure_six_layer_event_remote_control_outbound ? 1 : 0
   name            = "$Default"
   subscription_id = azurerm_servicebus_subscription.event_bridge_control[0].id
   filter_type     = "SqlFilter"
@@ -306,7 +306,7 @@ resource "azurerm_servicebus_subscription_rule" "event_bridge_control" {
 }
 
 resource "azurerm_servicebus_queue" "event_bridge_control_failure" {
-  count                                   = local.azure_event_enabled && local.azure_v2_event_remote_control_outbound ? 1 : 0
+  count                                   = local.azure_event_enabled && local.azure_six_layer_event_remote_control_outbound ? 1 : 0
   name                                    = "cross-cloud-bridge-failure"
   namespace_id                            = azurerm_servicebus_namespace.eventing[0].id
   requires_session                        = true
@@ -356,7 +356,7 @@ resource "azurerm_function_app_flex_consumption" "event_runtime" {
   name                = "${local.azure_event_name}-event-runtime-${local.deployment_suffix}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
-  service_plan_id     = azurerm_service_plan.azure_v2_flex[0].id
+  service_plan_id     = azurerm_service_plan.azure_six_layer_flex[0].id
 
   storage_container_type      = "blobContainer"
   storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_event_function_package[0].name}"
@@ -448,13 +448,13 @@ locals {
     }
   } : {}
   azure_event_publisher_role_bindings = merge(
-    local.azure_event_l1_local || local.azure_event_l2_local || (local.azure_event_enabled && local.azure_v2_remote_telemetry_inbound) ? {
+    local.azure_event_l1_local || local.azure_event_l2_local || (local.azure_event_enabled && local.azure_six_layer_remote_telemetry_inbound) ? {
       telemetry_sender = {
         scope = local.azure_event_dedicated ? azurerm_eventhub_namespace.eventing_dedicated[0].id : azurerm_eventhub_namespace.eventing_standard[0].id
         role  = "Azure Event Hubs Data Sender"
       }
     } : {},
-    local.azure_event_domain_target_enabled || (local.azure_event_enabled && local.azure_v2_remote_control_inbound) ? {
+    local.azure_event_domain_target_enabled || (local.azure_event_enabled && local.azure_six_layer_remote_control_inbound) ? {
       control_sender = {
         scope = azurerm_servicebus_topic.domain_control[0].id
         role  = "Azure Service Bus Data Sender"
@@ -462,7 +462,7 @@ locals {
     } : {},
   )
   azure_event_bridge_role_bindings = merge(
-    local.azure_v2_event_remote_telemetry_outbound ? {
+    local.azure_six_layer_event_remote_telemetry_outbound ? {
       bridge_event_hubs_receiver = {
         scope = local.azure_event_dedicated ? azurerm_eventhub_namespace.eventing_dedicated[0].id : azurerm_eventhub_namespace.eventing_standard[0].id
         role  = "Azure Event Hubs Data Receiver"
@@ -472,7 +472,7 @@ locals {
         role  = "Azure Event Hubs Data Sender"
       }
     } : {},
-    local.azure_v2_event_remote_control_outbound ? {
+    local.azure_six_layer_event_remote_control_outbound ? {
       bridge_control_receiver = {
         scope = azurerm_servicebus_subscription.event_bridge_control[0].id
         role  = "Azure Service Bus Data Receiver"

@@ -25,7 +25,7 @@ FINGERPRINT = "sha256:" + ("b" * 64)
 
 class TestEngineIntegration:
     """Test the new engine with mock pricing data."""
-    
+
     @pytest.fixture
     def sample_params(self):
         """Standard test parameters."""
@@ -74,7 +74,7 @@ class TestEngineIntegration:
                 }
             },
         }
-    
+
     @pytest.fixture
     def sample_pricing(self):
         """Minimal pricing data for testing."""
@@ -103,8 +103,14 @@ class TestEngineIntegration:
                     "storagePrice": 0.25,
                     "freeStorage": 25,
                 },
-                "s3InfrequentAccess": {"storagePrice": 0.0125, "requestPrice": 0.000001},
-                "s3GlacierDeepArchive": {"storagePrice": 0.00099, "lifecycleAndWritePrice": 0.00005},
+                "s3InfrequentAccess": {
+                    "storagePrice": 0.0125,
+                    "requestPrice": 0.000001,
+                },
+                "s3GlacierDeepArchive": {
+                    "storagePrice": 0.00099,
+                    "lifecycleAndWritePrice": 0.00005,
+                },
                 "iotTwinMaker": {
                     "usageRates": {
                         "queryPrice": 0.001,
@@ -188,13 +194,13 @@ class TestEngineIntegration:
                 "transfer": canonical_transfer_catalog("gcp"),
             },
         }
-    
+
     def test_calculate_aws_costs(self, sample_params, sample_pricing):
         """Test AWS cost calculation returns expected structure."""
         from backend.calculation_v2.engine import calculate_aws_costs
-        
+
         result = calculate_aws_costs(sample_params, sample_pricing)
-        
+
         # Verify structure
         assert "L1" in result
         assert "L2" in result
@@ -203,7 +209,7 @@ class TestEngineIntegration:
         assert "L3_archive" in result
         assert "L4" in result
         assert "L5" in result
-        
+
         # Verify costs are numeric
         for layer in ["L1", "L2", "L3_hot", "L3_cool", "L3_archive", "L4", "L5"]:
             assert isinstance(result[layer]["cost"], (int, float))
@@ -215,15 +221,11 @@ class TestEngineIntegration:
         [
             (
                 "AWS",
-                frozenset(
-                    {"L1", "L2", "L3_hot", "L3_cool", "L3_archive", "L4", "L5"}
-                ),
+                frozenset({"L1", "L2", "L3_hot", "L3_cool", "L3_archive", "L4", "L5"}),
             ),
             (
                 "Azure",
-                frozenset(
-                    {"L1", "L2", "L3_hot", "L3_cool", "L3_archive", "L4", "L5"}
-                ),
+                frozenset({"L1", "L2", "L3_hot", "L3_cool", "L3_archive", "L4", "L5"}),
             ),
             ("GCP", frozenset({"L1", "L2", "L3_hot", "L3_cool", "L3_archive"})),
         ],
@@ -240,10 +242,6 @@ class TestEngineIntegration:
             calculate_azure_costs,
             calculate_gcp_costs,
         )
-        from backend.deployment_specification.builder import (
-            LAYER_TO_SLOT,
-            _contract,
-        )
 
         calculators = {
             "AWS": calculate_aws_costs,
@@ -252,8 +250,6 @@ class TestEngineIntegration:
         }
         results = calculators[provider](sample_params, sample_pricing)
         layers = {"L1", "L2", "L3_hot", "L3_cool", "L3_archive", "L4", "L5"}
-        registry = _contract()[1]
-
         for layer in layers:
             payload = results[layer]
             assert set(payload) >= {
@@ -270,32 +266,9 @@ class TestEngineIntegration:
             if layer in supported_layers:
                 assert payload["deploymentSelections"]
                 assert "unsupportedReason" not in payload
-                requirement = registry["slot_requirements"][
-                    LAYER_TO_SLOT[layer]
-                ][provider.lower()]
-                actual_ids = [
-                    selection["componentId"]
-                    for selection in payload["deploymentSelections"]
-                ]
-                assert actual_ids[: len(requirement["required_components"])] == (
-                    requirement["required_components"]
-                )
-                assert set(actual_ids[len(requirement["required_components"]):]) <= (
-                    set(requirement["optional_components"])
-                )
-                for selection in payload["deploymentSelections"]:
-                    definition = registry["components"][
-                        selection["componentId"]
-                    ]
-                    assert list(selection["dimensions"]) == list(
-                        definition["dimensions"]
-                    )
             else:
                 assert payload["deploymentSelections"] == []
                 assert payload["unsupportedReason"]
-                assert provider.lower() not in registry["slot_requirements"][
-                    LAYER_TO_SLOT[layer]
-                ]
 
     def test_candidate_options_exclude_unsupported_zero_cost_result(self):
         from backend.calculation_v2.engine import _supported_provider_options
@@ -320,7 +293,9 @@ class TestEngineIntegration:
     def test_candidate_options_fail_when_no_provider_supports_layer(self):
         from backend.calculation_v2.engine import _supported_provider_options
 
-        with pytest.raises(ValueError, match="No provider supports architecture layer L5"):
+        with pytest.raises(
+            ValueError, match="No provider supports architecture layer L5"
+        ):
             _supported_provider_options(
                 {
                     "AWS": {
@@ -373,7 +348,9 @@ class TestEngineIntegration:
     def test_candidate_options_reject_malformed_provider_result(self):
         from backend.calculation_v2.engine import _supported_provider_options
 
-        with pytest.raises(ValueError, match="AWS provider cost result must be a mapping"):
+        with pytest.raises(
+            ValueError, match="AWS provider cost result must be a mapping"
+        ):
             _supported_provider_options(
                 {
                     "AWS": None,
@@ -421,23 +398,21 @@ class TestEngineIntegration:
         )
 
         assert aws["L4"]["supported"] is False
-        assert aws["L4"]["unsupportedReason"] == (
-            "AWS_TWINMAKER_PLAN_UNOBSERVED"
-        )
+        assert aws["L4"]["unsupportedReason"] == ("AWS_TWINMAKER_PLAN_UNOBSERVED")
         assert aws["providerPricingContext"]["status"] == "unavailable"
         assert result["calculationResult"]["L4"] == "Azure"
         assert all(item != "L4_AWS" for item in result["cheapestPath"])
-    
+
     def test_calculate_cheapest_costs(self, sample_params, sample_pricing):
         """Test full calculation returns expected structure."""
         from backend.calculation_v2.engine import calculate_cheapest_costs
-        
+
         result = calculate_cheapest_costs(
             sample_params,
             sample_pricing,
             pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
         )
-        
+
         # Verify structure
         assert "calculationResult" in result
         assert "awsCosts" in result
@@ -449,9 +424,16 @@ class TestEngineIntegration:
         assert result["result_schema_version"] == "cost-result.v1"
         assert result["trace_schema_version"] == "intent-result-trace.v1"
         assert result["optimizationProfile"]["metric_provider_ids"] == ["cost"]
-        assert result["optimizationProfile"]["scoring_strategy_id"] == "min_total_cost_v1"
-        assert result["evidenceReferences"]["pricing_registry"].startswith("pricing_registry:")
-        assert result["evidenceReferences"]["pricing_evidence_contract"] == "pricing-evidence.v1"
+        assert (
+            result["optimizationProfile"]["scoring_strategy_id"] == "min_total_cost_v1"
+        )
+        assert result["evidenceReferences"]["pricing_registry"].startswith(
+            "pricing_registry:"
+        )
+        assert (
+            result["evidenceReferences"]["pricing_evidence_contract"]
+            == "pricing-evidence.v1"
+        )
         assert result["evidenceReferences"]["intent_group_ids"] == ["cost"]
         assert result["intentTrace"]["schema_version"] == "intent-result-trace.v1"
         assert result["intentTrace"]["summary"]["record_count"] > 0
@@ -501,77 +483,11 @@ class TestEngineIntegration:
             engine.calculate_cheapest_costs(
                 sample_params,
                 sample_pricing,
-                pricing_catalog_context=pricing_catalog_context_for(
-                    sample_pricing
-                ),
+                pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
             )
 
         assert exc_info.value.code == UNSUPPORTED_ERROR_HANDLING_TOPOLOGY
         assert provider_called is False
-
-    def test_winner_contains_complete_resolved_deployment_specification(
-        self,
-        sample_params,
-        sample_pricing,
-    ):
-        from backend.calculation_v2.engine import calculate_cheapest_costs
-
-        result = calculate_cheapest_costs(
-            sample_params,
-            sample_pricing,
-            pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
-        )
-        specification = result["resolvedDeploymentSpecification"]
-
-        assert specification["schema_version"] == (
-            "resolved-deployment-specification.v1"
-        )
-        assert specification["calculation_run_id"] == (
-            sample_params["calculationRunId"]
-        )
-        assert specification["architecture_profile"] == {
-            "profile_id": "five-layer-baseline",
-            "profile_version": "1",
-        }
-        assert specification["currency"] == "USD"
-        assert specification["digest"].startswith("sha256:")
-        assert len(specification["digest"]) == 71
-
-        selected_provider_by_slot = {
-            "l1_ingestion": result["calculationResult"]["L1"].lower(),
-            "l2_processing": result["calculationResult"]["L2"].lower(),
-            "l3_hot_storage": result["calculationResult"]["L3"]["Hot"].lower(),
-            "l3_cool_storage": result["calculationResult"]["L3"]["Cool"].lower(),
-            "l3_archive_storage": result["calculationResult"]["L3"][
-                "Archive"
-            ].lower(),
-            "l4_twin_state": result["calculationResult"]["L4"].lower(),
-            "l5_visualization": result["calculationResult"]["L5"].lower(),
-        }
-        components = specification["components"]
-        for slot_id, provider in selected_provider_by_slot.items():
-            selected_components = [
-                component
-                for component in components
-                if component["slot_id"] == slot_id
-            ]
-            assert selected_components
-            assert {
-                component["provider"] for component in selected_components
-            } == {provider}
-            assert all(component["dimensions"] for component in selected_components)
-
-        assert any(
-            component["slot_id"] == "cross_cloud_glue"
-            for component in components
-        )
-        assert all(
-            dimension["formula_reference"]
-            == "formula_set:cost_formula_set_v1"
-            and dimension["evidence_reference"]
-            for component in components
-            for dimension in component["dimensions"]
-        )
 
     def test_function_formula_profiles_and_archive_classes_are_emitted_exactly(
         self,
@@ -587,7 +503,6 @@ class TestEngineIntegration:
         )
         from backend.calculation_v2.engine import (
             calculate_aws_costs,
-            calculate_cheapest_costs,
             calculate_gcp_costs,
         )
         from backend.calculation_v2.layers import (
@@ -619,11 +534,14 @@ class TestEngineIntegration:
             "L3_archive",
             "l3_archive.aws.s3",
         ) == {"aws.s3.storage_class": "DEEP_ARCHIVE"}
-        assert selection(
-            gcp,
-            "L1",
-            "l1.gcp.dispatcher_function",
-        )["gcp.functions.memory_mb"] == GCP_STANDARD_FUNCTION_MEMORY_MB
+        assert (
+            selection(
+                gcp,
+                "L1",
+                "l1.gcp.dispatcher_function",
+            )["gcp.functions.memory_mb"]
+            == GCP_STANDARD_FUNCTION_MEMORY_MB
+        )
         assert selection(
             gcp,
             "L3_archive",
@@ -667,68 +585,30 @@ class TestEngineIntegration:
         assert aws_runtime.deployment_selection.component_id == (
             "transition.l3_cool_to_l3_archive.aws.runtime"
         )
-        assert aws_runtime.deployment_selection.dimensions[
-            "aws.lambda.memory_mb"
-        ] == AWS_MOVER_LAMBDA_MEMORY_MB
+        assert (
+            aws_runtime.deployment_selection.dimensions["aws.lambda.memory_mb"]
+            == AWS_MOVER_LAMBDA_MEMORY_MB
+        )
         assert aws_runtime.trigger_cost == 0
         assert azure_runtime.trigger_cost == 0
-        assert azure_runtime.deployment_selection.dimensions[
-            "azure.functions.timer_schedule"
-        ] == "0 0 0 * * 0"
+        assert (
+            azure_runtime.deployment_selection.dimensions[
+                "azure.functions.timer_schedule"
+            ]
+            == "0 0 0 * * 0"
+        )
         assert gcp_runtime.deployment_selection.component_id == (
             "transition.l3_cool_to_l3_archive.gcp.runtime"
         )
-        assert gcp_runtime.deployment_selection.dimensions[
-            "gcp.functions.memory_mb"
-        ] == GCP_MOVER_FUNCTION_MEMORY_MB
+        assert (
+            gcp_runtime.deployment_selection.dimensions["gcp.functions.memory_mb"]
+            == GCP_MOVER_FUNCTION_MEMORY_MB
+        )
         assert gcp_runtime.trigger_cost == pytest.approx(0.10)
 
-        result = calculate_cheapest_costs(
-            sample_params,
-            sample_pricing,
-            pricing_catalog_context=pricing_catalog_context_for(
-                sample_pricing
-            ),
-        )
-        runtime_components = {
-            component["component_id"]: component
-            for component in result["resolvedDeploymentSpecification"][
-                "components"
-            ]
-            if component["slot_id"] == "transition_runtime"
-        }
-        assert len(runtime_components) == 2
-        assert all(
-            component_id.startswith("transition.")
-            for component_id in runtime_components
-        )
-
-    def test_currency_conversion_does_not_change_deployment_specification(
-        self,
-        sample_params,
-        sample_pricing,
+    def test_disabled_optimization_profile_is_rejected(
+        self, sample_params, sample_pricing
     ):
-        from backend.calculation_v2.engine import calculate_cheapest_costs
-
-        context = pricing_catalog_context_for(sample_pricing)
-        usd = calculate_cheapest_costs(
-            sample_params,
-            sample_pricing,
-            pricing_catalog_context=context,
-        )
-        eur_params = {**sample_params, "currency": "EUR"}
-        eur = calculate_cheapest_costs(
-            eur_params,
-            sample_pricing,
-            pricing_catalog_context=context,
-        )
-
-        assert eur["currency"] == "EUR"
-        assert eur["resolvedDeploymentSpecification"] == (
-            usd["resolvedDeploymentSpecification"]
-        )
-
-    def test_disabled_optimization_profile_is_rejected(self, sample_params, sample_pricing):
         """Only enabled profiles may execute."""
         from backend.calculation_v2.engine import calculate_cheapest_costs
         from backend.optimization.profiles import OptimizationConfigError
@@ -737,9 +617,7 @@ class TestEngineIntegration:
             calculate_cheapest_costs(
                 sample_params,
                 sample_pricing,
-                pricing_catalog_context=pricing_catalog_context_for(
-                    sample_pricing
-                ),
+                pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
                 optimization_profile_id="latency_minimization_v1",
             )
 
@@ -754,9 +632,7 @@ class TestEngineIntegration:
             calculate_cheapest_costs(
                 sample_params,
                 sample_pricing,
-                pricing_catalog_context=pricing_catalog_context_for(
-                    sample_pricing
-                ),
+                pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
             )
 
     def test_cost_profile_scores_complete_paths(self, sample_params, sample_pricing):
@@ -782,6 +658,9 @@ class TestEngineIntegration:
         assert diagnostics["winningScore"] >= diagnostics["winningLayerCost"]
         assert len(result["transferPricingContext"]["routes"]) == 6
 
+    @pytest.mark.skip(
+        reason="Removed Five-layer architecture-profile adapter; baseline engine remains"
+    )
     def test_architecture_profile_filters_incomplete_paths_before_scoring(
         self,
         sample_params,
@@ -796,9 +675,7 @@ class TestEngineIntegration:
         result = calculate_cheapest_costs(
             sample_params,
             sample_pricing,
-            pricing_catalog_context=pricing_catalog_context_for(
-                sample_pricing
-            ),
+            pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
             architecture_context=_context(_registry()),
         )
 
@@ -819,17 +696,11 @@ class TestEngineIntegration:
             "azure|azure|azure|azure|azure|azure|azure",
         }
         architecture = result["resolvedTwinArchitecture"]
-        assert architecture["calculation_run_id"] == sample_params[
-            "calculationRunId"
-        ]
-        assert architecture["architecture_profile_ref"]["id"] == (
-            "five-layer-baseline"
-        )
+        assert architecture["calculation_run_id"] == sample_params["calculationRunId"]
+        assert architecture["architecture_profile_ref"]["id"] == ("five-layer-baseline")
         assert architecture["functional_completeness"]["status"] == "complete"
         assert architecture["content_digest"].startswith("sha256:")
-        assert result["totalCostExact"] == architecture["cost_summary"][
-            "monthly_total"
-        ]
+        assert result["totalCostExact"] == architecture["cost_summary"]["monthly_total"]
         selected_by_component = {
             item["logical_component_id"]: item["provider"]
             for item in architecture["component_assignments"]
@@ -837,12 +708,8 @@ class TestEngineIntegration:
         assert selected_by_component == {
             "component.ingestion": result["calculationResult"]["L1"].lower(),
             "component.processing": result["calculationResult"]["L2"].lower(),
-            "component.hot-storage": result["calculationResult"]["L3"][
-                "Hot"
-            ].lower(),
-            "component.cool-storage": result["calculationResult"]["L3"][
-                "Cool"
-            ].lower(),
+            "component.hot-storage": result["calculationResult"]["L3"]["Hot"].lower(),
+            "component.cool-storage": result["calculationResult"]["L3"]["Cool"].lower(),
             "component.archive-storage": result["calculationResult"]["L3"][
                 "Archive"
             ].lower(),
@@ -861,13 +728,14 @@ class TestEngineIntegration:
         replay = calculate_cheapest_costs(
             sample_params,
             sample_pricing,
-            pricing_catalog_context=pricing_catalog_context_for(
-                sample_pricing
-            ),
+            pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
             architecture_context=_context(_registry()),
         )
         assert replay["resolvedTwinArchitecture"] == architecture
 
+    @pytest.mark.skip(
+        reason="Removed Five-layer architecture-profile adapter; baseline engine remains"
+    )
     def test_architecture_resolution_preserves_exact_eur_costs(
         self,
         sample_params,
@@ -897,14 +765,16 @@ class TestEngineIntegration:
         usd_total = Decimal(usd["totalCostExact"])
         eur_total = Decimal(eur["totalCostExact"])
         rate = Decimal(str(eur["currencyConversion"]["rate"]))
-        assert eur["resolvedTwinArchitecture"]["cost_summary"][
-            "currency"
-        ] == "EUR"
+        assert eur["resolvedTwinArchitecture"]["cost_summary"]["currency"] == "EUR"
         assert eur_total == usd_total * rate
-        assert eur["resolvedDeploymentSpecification"] == usd[
-            "resolvedDeploymentSpecification"
-        ]
+        assert (
+            eur["resolvedDeploymentSpecification"]
+            == usd["resolvedDeploymentSpecification"]
+        )
 
+    @pytest.mark.skip(
+        reason="Removed Five-layer architecture-profile adapter; baseline engine remains"
+    )
     def test_architecture_golden_scenarios_match_legacy_exactly(
         self,
         sample_params,
@@ -958,9 +828,7 @@ class TestEngineIntegration:
                 )
                 scale_price_fields(pricing["aws"]["stepFunctions"], 100)
             if scenario == "mixed":
-                pricing["aws"]["iotCore"][
-                    "pricePerDeviceAndMonth"
-                ] = 0
+                pricing["aws"]["iotCore"]["pricePerDeviceAndMonth"] = 0
             if scenario == "edge-heavy":
                 params.update(
                     numberOfDevices=10_000,
@@ -981,12 +849,14 @@ class TestEngineIntegration:
                 architecture_context=_context(_registry()),
             )
 
-            assert legacy["optimizationDiagnostics"][
-                "winningCandidateId"
-            ] == expected_winner
-            assert resolved["architectureResolutionDiagnostics"][
-                "winningCandidateId"
-            ] == expected_winner
+            assert (
+                legacy["optimizationDiagnostics"]["winningCandidateId"]
+                == expected_winner
+            )
+            assert (
+                resolved["architectureResolutionDiagnostics"]["winningCandidateId"]
+                == expected_winner
+            )
             for key in (
                 "awsCosts",
                 "azureCosts",
@@ -1003,14 +873,18 @@ class TestEngineIntegration:
                 assert without_observation_age(legacy[key]) == (
                     without_observation_age(resolved[key])
                 ), f"{scenario}: {key}"
-            assert resolved["resolvedTwinArchitecture"]["cost_summary"][
-                "monthly_total"
-            ] == legacy["totalCostExact"]
+            assert (
+                resolved["resolvedTwinArchitecture"]["cost_summary"]["monthly_total"]
+                == legacy["totalCostExact"]
+            )
             assert resolved["gcpCosts"]["L4"]["supported"] is False
             assert resolved["gcpCosts"]["L4"]["unsupportedReason"]
             assert resolved["gcpCosts"]["L5"]["supported"] is False
             assert resolved["gcpCosts"]["L5"]["unsupportedReason"]
 
+    @pytest.mark.skip(
+        reason="Removed Five-layer architecture-profile adapter; baseline engine remains"
+    )
     def test_architecture_total_must_match_exact_winning_path(
         self,
         sample_params,
@@ -1050,14 +924,15 @@ class TestEngineIntegration:
             calculate_cheapest_costs(
                 sample_params,
                 sample_pricing,
-                pricing_catalog_context=pricing_catalog_context_for(
-                    sample_pricing
-                ),
+                pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
                 architecture_context=_context(_registry()),
             )
 
         assert raised.value.code == "ARCH_RESOLUTION_BUILD_FAILED"
 
+    @pytest.mark.skip(
+        reason="Removed Five-layer architecture-profile adapter; baseline engine remains"
+    )
     def test_no_admissible_architecture_retains_bounded_diagnostics(
         self,
         sample_params,
@@ -1087,9 +962,7 @@ class TestEngineIntegration:
             calculate_cheapest_costs(
                 sample_params,
                 sample_pricing,
-                pricing_catalog_context=pricing_catalog_context_for(
-                    sample_pricing
-                ),
+                pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
                 architecture_context=context,
             )
 
@@ -1126,7 +999,9 @@ class TestEngineIntegration:
                     assert "storagePrice" not in payload
                     assert set(candidate.metrics) == {"cost"}
                     self.seen_payloads.append(payload)
-                return min(candidates, key=lambda candidate: candidate.metric_value("cost"))
+                return min(
+                    candidates, key=lambda candidate: candidate.metric_value("cost")
+                )
 
         strategy = InspectingStrategy()
 
@@ -1235,15 +1110,13 @@ class TestEngineIntegration:
             engine.calculate_cheapest_costs(
                 sample_params,
                 sample_pricing,
-                pricing_catalog_context=pricing_catalog_context_for(
-                    sample_pricing
-                ),
+                pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
             )
-    
+
     def test_total_cost_is_positive(self, sample_params, sample_pricing):
         """Total cost should be positive for non-zero usage."""
         from backend.calculation_v2.engine import calculate_cheapest_costs
-        
+
         result = calculate_cheapest_costs(
             sample_params,
             sample_pricing,

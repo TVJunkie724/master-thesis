@@ -31,8 +31,8 @@ class _Config:
 def _context(
     provider: str = "gcp",
     *,
-    profile_id: str = "five-layer-baseline",
-    profile_version: str = "2",
+    profile_id: str = "six-layer-eventing",
+    profile_version: str = "1",
 ) -> SimpleNamespace:
     return SimpleNamespace(
         config=_Config(provider),
@@ -109,27 +109,14 @@ def test_rotation_patches_only_viewer_secret_replaces_pod_and_reveals_once(
         "password": "fixture-viewer-password-123456",
         "issued_at": "2026-07-31T12:00:00Z",
     }
-    assert ("patch", "t2mc-grafana", "grafana-runtime", credential["password"]) in fake.calls
+    assert (
+        "patch",
+        "t2mc-grafana",
+        "grafana-runtime",
+        credential["password"],
+    ) in fake.calls
     assert ("delete", "t2mc-grafana", "grafana-old") in fake.calls
     assert ("ready", "t2mc-grafana", "app=grafana", {"old-uid"}) in fake.calls
-
-
-def test_rotation_is_available_for_inheriting_six_layer_profile(monkeypatch) -> None:
-    fake = _FakeClient()
-    monkeypatch.setattr(
-        "src.deployment_access.gcp_rotation._bearer_token", lambda _context: "token"
-    )
-
-    credential = rotate_gcp_grafana_viewer(
-        _context(profile_id="six-layer-eventing", profile_version="1"),
-        _outputs(),
-        client_factory=fake,
-        password_factory=lambda: "fixture-six-layer-password-1234",
-        sleep=lambda _seconds: None,
-    )
-
-    assert credential["provider"] == "gcp"
-    assert credential["password"] == "fixture-six-layer-password-1234"
 
 
 def test_rotation_rejects_non_gcp_l5_before_authorization(monkeypatch) -> None:
@@ -169,7 +156,7 @@ def test_generic_terraform_projection_redacts_internal_rotation_bundle() -> None
 
 
 def test_terraform_does_not_revert_a_rotated_viewer_password() -> None:
-    terraform = (TERRAFORM_ROOT / "gcp_five_layer_v2.tf").read_text("utf-8")
+    terraform = (TERRAFORM_ROOT / "gcp_six_layer.tf").read_text("utf-8")
     secret_start = terraform.index(
         'resource "kubernetes_secret_v1" "gcp_gcp_grafana_tls_load_balancer"'
     )
@@ -179,4 +166,4 @@ def test_terraform_does_not_revert_a_rotated_viewer_password() -> None:
     secret_resource = terraform[secret_start:deployment_start]
 
     assert 'ignore_changes = [data["viewer-password"]]' in secret_resource
-    assert 'ignore_changes = [data]' not in secret_resource
+    assert "ignore_changes = [data]" not in secret_resource

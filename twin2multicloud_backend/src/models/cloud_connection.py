@@ -21,7 +21,6 @@ class CloudConnection(Base):
     display_name = Column(String, nullable=False)
     cloud_scope = Column(Text, nullable=False, default="{}")
     auth_type = Column(String, nullable=False)
-    permission_set_version = Column(String, nullable=True, index=True)
     encrypted_payload = Column(Text, nullable=False)
     payload_fingerprint = Column(String, nullable=False, index=True)
     validation_status = Column(String, nullable=False, default="untested")
@@ -40,6 +39,8 @@ class CloudConnection(Base):
             "provider",
             unique=True,
             sqlite_where=text("purpose = 'pricing' AND is_default_for_pricing = 1"),
-            postgresql_where=text("purpose = 'pricing' AND is_default_for_pricing = true"),
+            postgresql_where=text(
+                "purpose = 'pricing' AND is_default_for_pricing = true"
+            ),
         ),
     )

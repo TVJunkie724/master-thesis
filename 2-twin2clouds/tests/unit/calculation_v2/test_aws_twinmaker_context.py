@@ -5,7 +5,11 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from api.calculation import CalcParams
+from api.calculation import SixLayerCalcParams
+from backend.architecture_profiles.registry import ArchitectureProfileRegistry
+from backend.architecture_profiles.six_layer_workload import (
+    CONTRACT_ROOT as SIX_LAYER_WORKLOAD_ROOT,
+)
 from backend.pricing_catalog_models import PricingCatalogContext
 from backend.pricing_catalog_repository import get_pricing_catalog_repository
 from backend.calculation_v2.components.aws.twinmaker import (
@@ -125,21 +129,26 @@ def _calc_params():
             for provider in ("aws", "azure", "gcp")
         }
     )
+    workload = json.loads(
+        (SIX_LAYER_WORKLOAD_ROOT / "fixtures" / "valid" / "core-small.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    registry = ArchitectureProfileRegistry(
+        profile_id="six-layer-eventing",
+        profile_version="1",
+    )
     return {
         "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
-        "numberOfDevices": 1,
-        "deviceSendingIntervalInMinutes": 1,
-        "averageSizeOfMessageInKb": 1,
-        "hotStorageDurationInMonths": 1,
-        "coolStorageDurationInMonths": 2,
-        "archiveStorageDurationInMonths": 6,
-        "needs3DModel": False,
-        "entityCount": 1,
-        "amountOfActiveEditors": 0,
-        "amountOfActiveViewers": 0,
-        "dashboardRefreshesPerHour": 0,
-        "dashboardActiveHoursPerDay": 0,
+        **workload,
+        "optimizationProfileId": "cost-minimization-v2",
         "providerPricingCatalogs": pricing_catalogs.to_http_dict(),
+        "architectureProfile": {
+            "profileId": registry.profile["profile_id"],
+            "profileVersion": registry.profile["profile_version"],
+            "contentDigest": registry.profile["content_digest"],
+        },
+        "extensionBindings": [],
     }
 
 
@@ -153,9 +162,7 @@ def test_standard_context_is_comparable_and_traces_each_contribution():
     assert result.components["twinmaker_entities"] == pytest.approx(0.525)
     assert result.details["pricingContext"]["status"] == "compatible"
     assert result.details["pricingContext"]["modeledMode"] == "STANDARD"
-    assert result.details["pricingContext"]["functionalCompatibility"] == (
-        "compatible"
-    )
+    assert result.details["pricingContext"]["functionalCompatibility"] == ("compatible")
     assert result.details["calculation"]["dimensions"][0] == {
         "intentId": "digital_twin.entity_month",
         "quantity": 10,
@@ -297,7 +304,7 @@ def test_context_diagnostics_are_json_safe_and_preserve_plan_state():
 
 
 def test_api_defaults_to_unavailable_context_instead_of_standard():
-    params = CalcParams(**_calc_params())
+    params = SixLayerCalcParams(**_calc_params())
 
     assert params.providerPricingContexts.awsTwinMaker.status == "unavailable"
 
@@ -306,7 +313,7 @@ def test_api_rejects_unknown_context_fields_and_naive_timestamps():
     context = _context()
     context["unexpected"] = "value"
     with pytest.raises(ValidationError):
-        CalcParams(
+        SixLayerCalcParams(
             **_calc_params(),
             providerPricingContexts={"awsTwinMaker": context},
         )
@@ -314,7 +321,7 @@ def test_api_rejects_unknown_context_fields_and_naive_timestamps():
     naive = deepcopy(_context())
     naive["observedAt"] = "2026-07-17T12:00:00"
     with pytest.raises(ValidationError, match="timezone-aware"):
-        CalcParams(
+        SixLayerCalcParams(
             **_calc_params(),
             providerPricingContexts={"awsTwinMaker": naive},
         )
@@ -336,7 +343,7 @@ def test_api_rejects_invalid_bundle_names(bundle_names):
     }
 
     with pytest.raises(ValidationError):
-        CalcParams(
+        SixLayerCalcParams(
             **_calc_params(),
             providerPricingContexts={"awsTwinMaker": context},
         )
@@ -344,7 +351,7 @@ def test_api_rejects_invalid_bundle_names(bundle_names):
 
 def test_api_rejects_invalid_unavailable_reason_code():
     with pytest.raises(ValidationError):
-        CalcParams(
+        SixLayerCalcParams(
             **_calc_params(),
             providerPricingContexts={
                 "awsTwinMaker": {

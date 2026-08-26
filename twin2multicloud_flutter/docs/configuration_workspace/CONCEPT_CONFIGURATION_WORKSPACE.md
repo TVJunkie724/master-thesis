@@ -11,7 +11,6 @@ version: "1.1"
 - integration_vision.md
 - twin2multicloud_flutter/docs/configuration_workspace/ROADMAP_CONFIGURATION_WORKSPACE.md
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md
-- twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_CLOUD_ACCESS_BOOTSTRAP.md
 - User-approved Master-thesis PoC boundary from the 2026-08-03 planning conversation
 EXTRACTED: 2026-08-03 | VERSION: 1.1
 -->

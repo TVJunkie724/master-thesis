@@ -29,7 +29,7 @@ locals {
       }
     },
     {
-      for channel in keys(local.aws_v2_event_bridge_streams) :
+      for channel in keys(local.aws_six_layer_event_bridge_streams) :
       "bridge-${channel}" => { stream = channel }
     },
   )
@@ -319,7 +319,7 @@ resource "aws_iam_role_policy" "event_runtime" {
       local.aws_event_hot_local ? [{
         Effect   = "Allow"
         Action   = ["lambda:InvokeFunction"]
-        Resource = aws_lambda_function.aws_v2_domain_consumer[0].arn
+        Resource = aws_lambda_function.aws_six_layer_domain_consumer[0].arn
       }] : [],
       local.aws_event_l1_local ? [{
         Effect = "Allow"
@@ -366,7 +366,7 @@ resource "aws_lambda_function" "event_runtime" {
       IOT_COMMANDS_ENDPOINT     = try(data.aws_iot_endpoint.main[0].endpoint_address, "")
       MAX_RECEIVE_COUNT         = tostring(var.aws_event_max_receive_count)
       PROCESSING_FUNCTION_NAME  = local.aws_event_l2_local ? aws_lambda_function.aws_aws_lambda[0].function_name : ""
-      HOT_FUNCTION_NAME         = local.aws_event_hot_local ? aws_lambda_function.aws_v2_domain_consumer[0].function_name : ""
+      HOT_FUNCTION_NAME         = local.aws_event_hot_local ? aws_lambda_function.aws_six_layer_domain_consumer[0].function_name : ""
     }
   }
 

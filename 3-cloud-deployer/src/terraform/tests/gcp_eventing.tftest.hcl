@@ -37,10 +37,10 @@ run "six_layer_single_cloud_gcp_adds_independent_event_bundle" {
     platform_user_last_name               = "Researcher"
     gcp_project_id                        = "phase8-poc-project"
     gcp_region                            = "europe-west1"
-    gcp_v2_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    gcp_v2_processor_extension_image      = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-    gcp_v2_storage_mover_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-    gcp_v2_grafana_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    gcp_six_layer_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    gcp_six_layer_processor_extension_image      = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    gcp_six_layer_storage_mover_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    gcp_six_layer_grafana_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     gcp_event_runtime_image               = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/event-runtime@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
     gcp_grafana_source_cidrs              = ["203.0.113.42/32"]
     enable_gcp_logging                    = false
@@ -88,7 +88,7 @@ run "six_layer_single_cloud_gcp_adds_independent_event_bundle" {
     condition = (
       toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["command"]) &&
       length(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics) == 0 &&
-      length(google_cloud_run_v2_service.gcp_v2_cross_cloud_bridge) == 0 &&
+      length(google_cloud_run_v2_service.gcp_six_layer_cross_cloud_bridge) == 0 &&
       one([
         for environment in google_cloud_run_v2_service.gcp_gcp_cloud_run_service[0].template[0].containers[0].env : environment.value
         if environment.name == "ARCHITECTURE_PROFILE"
@@ -120,10 +120,10 @@ run "six_layer_single_cloud_gcp_large_uses_six_fixed_worker_pools" {
     platform_user_last_name               = "Researcher"
     gcp_project_id                        = "phase8-poc-project"
     gcp_region                            = "europe-west1"
-    gcp_v2_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    gcp_v2_processor_extension_image      = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-    gcp_v2_storage_mover_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-    gcp_v2_grafana_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    gcp_six_layer_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    gcp_six_layer_processor_extension_image      = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    gcp_six_layer_storage_mover_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    gcp_six_layer_grafana_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     gcp_event_runtime_image               = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/event-runtime@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
     gcp_grafana_source_cidrs              = ["203.0.113.42/32"]
     enable_gcp_logging                    = false

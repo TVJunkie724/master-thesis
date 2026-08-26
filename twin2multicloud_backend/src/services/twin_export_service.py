@@ -15,8 +15,6 @@ from src.services import deployment_service
 from src.services.architecture_projection_service import (
     selected_architecture_document,
 )
-from src.services.optimizer_config_projection import cheapest_path_dict
-from src.services.provider_contract import provider_id_for_deployer_project
 from src.services.service_errors import EntityNotFoundError
 
 
@@ -50,7 +48,7 @@ class TwinExportService:
             providers = (
                 deployment_service._build_providers_config(architecture)
                 if architecture is not None
-                else self._historical_export_provider_projection(twin)
+                else {}
             )
             self._add_redacted_config_files(
                 archive,
@@ -84,29 +82,6 @@ class TwinExportService:
             content=zip_buffer,
             filename=f"{twin.name.lower().replace(' ', '-')}_config.zip",
         )
-
-    @staticmethod
-    def _historical_export_provider_projection(twin: DigitalTwin) -> dict[str, str]:
-        """Preserve non-executable export of pre-architecture Twin records."""
-
-        optimizer = twin.optimizer_config
-        if optimizer is None:
-            return {}
-        path = cheapest_path_dict(optimizer)
-        key_by_slot = {
-            "l1": "layer_1_provider",
-            "l2": "layer_2_provider",
-            "l3_hot": "layer_3_hot_provider",
-            "l3_cool": "layer_3_cold_provider",
-            "l3_archive": "layer_3_archive_provider",
-            "l4": "layer_4_provider",
-            "l5": "layer_5_provider",
-        }
-        return {
-            key_by_slot[slot]: provider_id_for_deployer_project(provider)
-            for slot, provider in path.items()
-            if provider
-        }
 
     def _load_twin(self, twin_id: str, user_id: str) -> DigitalTwin:
         twin = self.twin_repository.get_with_configs_for_user(twin_id, user_id)

@@ -56,10 +56,8 @@ class FiveLayerCompletePathStrategy:
 
     def __init__(self, profile: Mapping[str, Any]):
         if (
-            ArchitectureProfileRef.from_profile(profile)
-            != FIVE_LAYER_PROFILE_REF
-            or OptimizationBundleRef.from_profile(profile)
-            != FIVE_LAYER_BUNDLE_REF
+            ArchitectureProfileRef.from_profile(profile) != FIVE_LAYER_PROFILE_REF
+            or OptimizationBundleRef.from_profile(profile) != FIVE_LAYER_BUNDLE_REF
         ):
             raise RuntimeError(
                 "Five-layer strategy profile or optimization bundle drifted"
@@ -79,9 +77,7 @@ class FiveLayerCompletePathStrategy:
                 "componentCatalog",
                 "The compatible component catalog is not active",
             )
-        expected_slots = tuple(
-            slot_id for _, slot_id, _ in BASELINE_LAYER_COMPONENTS
-        )
+        expected_slots = tuple(slot_id for _, slot_id, _ in BASELINE_LAYER_COMPONENTS)
         if tuple(context.profile["optimization_slot_ids"]) != expected_slots:
             raise ArchitectureResolutionError(
                 "ARCH_PROFILE_BUNDLE_INCOMPATIBLE",
@@ -89,8 +85,7 @@ class FiveLayerCompletePathStrategy:
                 "The selected profile differs from the seven-slot baseline",
             )
         if not any(
-            profile["lifecycle_status"] == "active"
-            and profile["supported"] is True
+            profile["lifecycle_status"] == "active" and profile["supported"] is True
             for profile in context.provider_profiles.values()
         ):
             raise ArchitectureResolutionError(
@@ -176,10 +171,6 @@ def _build_strategy_registry(
         from .six_layer_strategy import SixLayerEventingV1CandidateStrategy
 
         strategy = SixLayerEventingV1CandidateStrategy(profile)
-    elif profile_ref == ("five-layer-baseline", "2"):
-        from .five_layer_v2_strategy import FiveLayerV2CandidateStrategy
-
-        strategy = FiveLayerV2CandidateStrategy(profile)
     else:
         strategy = FiveLayerCompletePathStrategy(profile)
     registry = ArchitectureStrategyRegistry()

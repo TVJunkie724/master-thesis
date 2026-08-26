@@ -23,7 +23,7 @@ This phase is an immutable inventory of predecessor behavior. Its
 `finding.l5-reader-binding-divergence`, public cross-cloud Function endpoints,
 and shared-token evidence are intentionally not edited away. They are resolved
 only for the new executable profiles by
-[`phase_08_service_bundle_closure.md`](phase_08_service_bundle_closure.md).
+[`README.md`](README.md).
 That successor makes the implemented L3-hot-to-L5 raw-history read explicit,
 couples L3 hot with L5, and places L4 independently through the typed
 L3-hot-to-L4 `twin_projection.v1` event route. It does not claim L4-to-L5 or
@@ -498,7 +498,7 @@ applied only until the Phase 8.1 cut. After the corrective immutable-snapshot
 interpretation above, the non-mutating gate authenticates snapshot commit
 `04295b76c2e32e9b2ede84d6c108052f0f242fb6`, the frozen inventory/source
 digests, references, evidence, and diagram IDs. It compares semantic mutation
-tests with that frozen matrix; it does not compare later Five-layer v2 or
+tests with that frozen matrix; it does not compare later Six-layer v1 or
 Six-layer v1 source with predecessor rows. Successor source reconciliation is
 owned by the versioned profile/catalog/RDS drift gates.
 

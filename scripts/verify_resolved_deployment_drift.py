@@ -43,10 +43,6 @@ OVERLAY_ENV_KEYS = (
     "THESIS_CLOUD_CREDENTIAL_OVERLAY",
     "WITH_CREDENTIALS",
 )
-SETUP_GATE_ENV_KEYS = (
-    "TWIN2MC_SETUP_GATE_ENABLED",
-    "TWIN2MC_SETUP_GATE_CONFIRMATION",
-)
 
 
 class VerificationConfigurationError(RuntimeError):
@@ -76,12 +72,6 @@ def validate_safety(environment: Mapping[str, str]) -> None:
             raise VerificationConfigurationError(
                 f"{key} enables a credential overlay and is forbidden."
             )
-    for key in SETUP_GATE_ENV_KEYS:
-        if environment.get(key, "").strip():
-            raise VerificationConfigurationError(
-                f"{key} is forbidden for the credential-free deployment contract gate."
-            )
-
     compose_files = environment.get("COMPOSE_FILE", "")
     if "compose.cloud.local" in compose_files:
         raise VerificationConfigurationError(
@@ -100,7 +90,6 @@ def sanitized_environment(
         key: value
         for key, value in environment.items()
         if key not in CREDENTIAL_ENV_KEYS
-        and key not in SETUP_GATE_ENV_KEYS
         and not key.startswith(CREDENTIAL_ENV_PREFIXES)
     }
     sanitized.update(
@@ -221,26 +210,6 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
             ),
         ),
         Stage(
-            "Phase 8 profile evaluation evidence",
-            _compose_run(
-                project,
-                "2twin2clouds",
-                "sh",
-                "-lc",
-                (
-                    "python scripts/phase_08_profile_evaluation/validate.py "
-                    "&& python -m pytest -q -p no:cacheprovider "
-                    "scripts/phase_08_profile_evaluation/tests "
-                    "&& ruff check scripts/phase_08_profile_evaluation "
-                    "&& ruff format --check scripts/phase_08_profile_evaluation"
-                ),
-                root_mount=True,
-                environment=(
-                    "RUFF_CACHE_DIR=/tmp/phase-8-profile-evaluation-ruff-cache",
-                ),
-            ),
-        ),
-        Stage(
             "Canonical contract and root tests",
             _compose_run(
                 project,
@@ -249,30 +218,23 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                 "-lc",
                 (
                     "python scripts/sync_resolved_deployment_contract.py --check "
-                    "&& python scripts/sync_architecture_profile_contracts.py --check "
                     "&& python scripts/sync_deployment_manifest_contract.py --check "
                     "&& python scripts/sync_user_function_extension_contracts.py --check "
-                    "&& python scripts/sync_cloud_bootstrap_contracts.py --check "
                     "&& python scripts/sync_deployment_access_contracts.py --check "
-                    "&& python scripts/sync_five_layer_workload_contract.py --check "
-                    "&& python scripts/sync_five_layer_v2_contracts.py --check "
+                    "&& python scripts/sync_six_layer_workload_contract.py --check "
+                    "&& python scripts/sync_six_layer_contracts.py --check "
                     "&& python scripts/sync_six_layer_eventing_contracts.py --check "
                     "&& python -m unittest "
                     "scripts.tests.test_resolved_deployment_contract_sync "
-                    "scripts.tests.test_architecture_profile_contract_sync "
                     "scripts.tests.test_user_function_extension_contract_sync "
-                    "scripts.tests.test_cloud_bootstrap_contract_sync "
                     "scripts.tests.test_deployment_access_contract_sync "
-                    "scripts.tests.test_five_layer_workload_contract "
-                    "scripts.tests.test_five_layer_v2_contracts "
+                    "scripts.tests.test_six_layer_workload_contract "
+                    "scripts.tests.test_six_layer_contracts "
                     "scripts.tests.test_six_layer_eventing_contracts "
                     "scripts.tests.test_verify_resolved_deployment_drift "
-                    "scripts.tests.test_setup_only_live_gate "
-                    "scripts.tests.test_materialize_deployment_policy "
                     "scripts.tests.test_thesis_entrypoint "
                     "&& python -m pytest -q -p no:cacheprovider "
-                    "scripts/tests/test_deployment_manifest_contract_sync.py "
-                    "scripts/tests/test_setup_only_runner.py"
+                    "scripts/tests/test_deployment_manifest_contract_sync.py"
                 ),
                 root_mount=True,
             ),

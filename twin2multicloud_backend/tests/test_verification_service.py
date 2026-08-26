@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
@@ -120,8 +119,6 @@ async def test_verify_infrastructure_returns_mock_result_in_test_mode(db_session
 async def test_verify_infrastructure_uses_architecture_provider(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="AZURE"))
-    db_session.commit()
     calls = []
 
     async def verifier(prepared_project, provider):
@@ -148,8 +145,6 @@ async def test_verify_infrastructure_normalizes_google_alias_for_deployer_api(
 ):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="Google"))
-    db_session.commit()
     calls = []
 
     async def verifier(prepared_project, provider):

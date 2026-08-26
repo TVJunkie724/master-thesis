@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import pytest
 
-from src.models.optimizer_config import OptimizerConfiguration
 from src.models.deployment import Deployment
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
@@ -120,8 +119,6 @@ async def test_deploy_sets_state_and_schedules_real_stream(db_session):
 async def test_deploy_normalizes_google_alias_for_deployer_api(db_session, monkeypatch):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)
-    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="Google"))
-    db_session.commit()
     stream_calls = []
 
     async def fake_run_real_deploy_stream(**kwargs):
@@ -163,7 +160,7 @@ def _graph_evidence(digit: str = "1") -> dict:
     return {
         "architecture_digest": "sha256:" + (digit * 64),
         "graph_digest": "sha256:" + (digit * 64),
-        "profile_id": "five-layer-baseline",
+        "profile_id": "six-layer-eventing",
         "profile_version": "1",
         "catalog_id": "baseline-component-catalog",
         "catalog_version": "1",

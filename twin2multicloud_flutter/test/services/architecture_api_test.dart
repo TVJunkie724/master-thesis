@@ -14,8 +14,8 @@ void main() {
     final architecture = Map<String, dynamic>.from(
       jsonDecode(
             File(
-              '../contracts/architecture-profiles/v1/fixtures/valid/'
-              'mixed-baseline-resolved-architecture.json',
+              '../contracts/architecture-profiles/v2/fixtures/valid/'
+              'six-layer-aws-azure-eventing-small-resolved.json',
             ).readAsStringSync(),
           )
           as Map,
@@ -26,7 +26,7 @@ void main() {
       'calculation_run_id': runId,
       'selected_for_deployment_at': '2026-08-03T10:00:00Z',
       'architecture_compatibility_status': 'ready',
-      'origin': 'native_v1',
+      'origin': 'native_v2',
       'architecture': architecture,
     };
     final requests = <RequestOptions>[];

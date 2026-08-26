@@ -23,9 +23,7 @@ from src.providers.azure.layers.function_bundler import (
 
 
 DEPLOYER_ROOT = Path(__file__).resolve().parents[3]
-AZURE_FUNCTIONS_ROOT = (
-    DEPLOYER_ROOT / "src/providers/azure/azure_functions"
-)
+AZURE_FUNCTIONS_ROOT = DEPLOYER_ROOT / "src/providers/azure/azure_functions"
 NON_HTTP_RUNTIMES = {
     "dispatcher": ("dispatcher", "event_grid_trigger"),
     "hot-to-cold-mover": ("hot_to_cold_mover", "timer_trigger"),
@@ -38,31 +36,6 @@ EXPECTED_NON_HTTP_TRIGGERS = {
     (directory, function_name, trigger)
     for directory, (function_name, trigger) in NON_HTTP_RUNTIMES.items()
 } | {
-    (
-        "five-layer-v2",
-        "remote_telemetry_consumer",
-        "event_hub_message_trigger",
-    ),
-    (
-        "five-layer-v2",
-        "domain_event_consumer",
-        "service_bus_queue_trigger",
-    ),
-    (
-        "five-layer-v2",
-        "iot_telemetry_adapter",
-        "event_hub_message_trigger",
-    ),
-    (
-        "five-layer-v2",
-        "cross_cloud_telemetry_bridge",
-        "event_hub_message_trigger",
-    ),
-    (
-        "five-layer-v2",
-        "cross_cloud_control_bridge",
-        "service_bus_queue_trigger",
-    ),
     (
         "six-layer-domain",
         "remote_telemetry_consumer",
@@ -169,9 +142,7 @@ def _load_runtime(
     monkeypatch.setenv("FUNCTION_APP_BASE_URL", "https://app.example.test")
     monkeypatch.setenv("L2_FUNCTION_KEY", "test-function-key")
     path = AZURE_FUNCTIONS_ROOT / directory / "function_app.py"
-    module_name = (
-        f"test_non_http_{directory.replace('-', '_')}_{id(monkeypatch)}"
-    )
+    module_name = f"test_non_http_{directory.replace('-', '_')}_{id(monkeypatch)}"
 
     _clear_shared_modules()
     sys.path.insert(0, str(AZURE_FUNCTIONS_ROOT))
@@ -292,9 +263,7 @@ def test_configuration_failures_use_stable_component_context(
     component,
 ):
     module = _load_runtime(monkeypatch, directory)
-    failure = module.MissingEnvironmentVariableError(
-        "SENSITIVE_SETTING is missing"
-    )
+    failure = module.MissingEnvironmentVariableError("SENSITIVE_SETTING is missing")
 
     with pytest.raises(module.MissingEnvironmentVariableError) as raised:
         _invoke_failure_boundary(module, directory, failure)
@@ -357,9 +326,7 @@ def test_dispatcher_forwards_normalized_payload_without_logging_it(
 
     module.dispatcher(event)
 
-    module.normalize_telemetry.assert_called_once_with(
-        {"temperature": payload_marker}
-    )
+    module.normalize_telemetry.assert_called_once_with({"temperature": payload_marker})
     module._invoke_function.assert_called_once_with("processor", normalized)
     assert payload_marker not in caplog.text
     assert "sensor-1" not in caplog.text
@@ -444,21 +411,17 @@ def test_non_http_trigger_inventory_is_closed_and_source_safe():
             if (
                 isinstance(node, ast.Call)
                 and isinstance(node.func, ast.Attribute)
-                and node.func.attr
-                in {"debug", "info", "warning", "error", "exception"}
+                and node.func.attr in {"debug", "info", "warning", "error", "exception"}
             ):
                 logged_names = {
-                    child.id
-                    for child in ast.walk(node)
-                    if isinstance(child, ast.Name)
+                    child.id for child in ast.walk(node) if isinstance(child, ast.Name)
                 }
                 assert not (logged_names & FORBIDDEN_LOG_NAMES), (
                     f"{path} logs forbidden runtime values: "
                     f"{sorted(logged_names & FORBIDDEN_LOG_NAMES)}"
                 )
                 assert not any(
-                    isinstance(child, ast.Attribute)
-                    and child.attr == "reason"
+                    isinstance(child, ast.Attribute) and child.attr == "reason"
                     for child in ast.walk(node)
                 ), f"{path} logs a provider/network reason"
 
@@ -493,11 +456,6 @@ def test_real_packages_include_non_http_observability_contract(
         source_name = f"{module_name}/function_app.py"
         assert source_name in sources
         source = sources[source_name]
-        assert (
-            "from _shared.http_errors import log_runtime_failure"
-            in source
-        )
-        assert source.count(
-            f'function_name(name="{function_name}")'
-        ) == 1
+        assert "from _shared.http_errors import log_runtime_failure" in source
+        assert source.count(f'function_name(name="{function_name}")') == 1
         ast.parse(source)

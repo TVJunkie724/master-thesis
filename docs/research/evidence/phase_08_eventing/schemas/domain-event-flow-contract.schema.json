@@ -19,7 +19,7 @@
     "schema_version": {"const": "domain-event-flow.v1"},
     "contract_id": {"const": "domain-event-flow@1"},
     "profiles": {
-      "const": ["five-layer-baseline@2", "six-layer-eventing@1"]
+      "const": ["six-layer-eventing@1"]
     },
     "components": {
       "type": "array",

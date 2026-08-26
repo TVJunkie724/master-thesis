@@ -17,6 +17,8 @@ SOURCE_ROOT = (
     / "azure_functions"
     / "six-layer-domain"
 )
+
+
 def _load_runtime(module_name: str):
     core_spec = importlib.util.spec_from_file_location(
         f"{module_name}_core",
@@ -64,7 +66,7 @@ def test_remote_event_layer_uses_azure_source_outboxes(monkeypatch):
     telemetry: list[dict[str, object]] = []
     control: list[dict[str, object]] = []
     monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
-    monkeypatch.setenv("V2_EVENT_LAYER_PROVIDER", "aws")
+    monkeypatch.setenv("SIX_LAYER_EVENT_LAYER_PROVIDER", "aws")
     monkeypatch.setattr(runtime, "_publish_telemetry", telemetry.append)
     monkeypatch.setattr(runtime, "_publish_control", control.append)
     processed = _processed_event()
@@ -95,7 +97,7 @@ def test_azure_l2_returns_processed_event_to_selected_event_layer(monkeypatch):
         "producer": "component.device-ingress",
     }
     monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
-    monkeypatch.setenv("V2_EVENT_LAYER_PROVIDER", "azure")
+    monkeypatch.setenv("SIX_LAYER_EVENT_LAYER_PROVIDER", "azure")
     monkeypatch.setattr(runtime, "_invoke_processor_extension", lambda _event: {})
     monkeypatch.setattr(
         runtime,
@@ -139,18 +141,24 @@ def test_event_bridge_registers_only_the_routed_telemetry_channel(
     processed_enabled,
 ):
     monkeypatch.setenv(
-        "V2_BRIDGE_EVENT_RECEIVED_ENABLED",
+        "SIX_LAYER_BRIDGE_EVENT_RECEIVED_ENABLED",
         str(received_enabled).lower(),
     )
     monkeypatch.setenv(
-        "V2_BRIDGE_EVENT_PROCESSED_ENABLED",
+        "SIX_LAYER_BRIDGE_EVENT_PROCESSED_ENABLED",
         str(processed_enabled).lower(),
     )
     name = f"azure_six_layer_domain_{received_enabled}_{processed_enabled}"
     selected_runtime = _load_runtime(name)
 
-    assert hasattr(selected_runtime, "cross_cloud_event_received_bridge") is received_enabled
-    assert hasattr(selected_runtime, "cross_cloud_event_processed_bridge") is processed_enabled
+    assert (
+        hasattr(selected_runtime, "cross_cloud_event_received_bridge")
+        is received_enabled
+    )
+    assert (
+        hasattr(selected_runtime, "cross_cloud_event_processed_bridge")
+        is processed_enabled
+    )
 
 
 @pytest.mark.parametrize(
@@ -169,9 +177,9 @@ def test_remote_processed_landing_runs_only_azure_responsibilities(
 ):
     calls: list[str] = []
     monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
-    monkeypatch.setenv("V2_EVENT_LAYER_PROVIDER", "aws")
-    monkeypatch.setenv("V2_HOT_PROVIDER", hot_provider)
-    monkeypatch.setenv("V2_L2_PROVIDER", l2_provider)
+    monkeypatch.setenv("SIX_LAYER_EVENT_LAYER_PROVIDER", "aws")
+    monkeypatch.setenv("SIX_LAYER_HOT_PROVIDER", hot_provider)
+    monkeypatch.setenv("SIX_LAYER_L2_PROVIDER", l2_provider)
     monkeypatch.setattr(
         runtime,
         "_persist_processed",
@@ -190,8 +198,8 @@ def test_remote_processed_landing_runs_only_azure_responsibilities(
 
 def test_local_event_layer_processed_roles_remain_provider_scoped(monkeypatch):
     event = _processed_event()
-    monkeypatch.setenv("V2_HOT_PROVIDER", "azure")
-    monkeypatch.setenv("V2_L2_PROVIDER", "gcp")
+    monkeypatch.setenv("SIX_LAYER_HOT_PROVIDER", "azure")
+    monkeypatch.setenv("SIX_LAYER_L2_PROVIDER", "gcp")
     persisted: list[str] = []
     monkeypatch.setattr(
         runtime,
