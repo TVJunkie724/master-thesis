@@ -217,11 +217,12 @@ class ApiService implements ManagementApi {
   }
 
   @override
-  Future<UserFunctionValidationResult> validateUserFunctionArtifact(
-    UserFunctionArtifactUpload upload,
+  Future<UserFunctionValidationResult> validateTwinUserFunction(
+    String twinId,
+    UserFunctionSourceUpload upload,
   ) async {
     final response = await _dio.post(
-      '/user-function-artifacts/validate',
+      '/twins/$twinId/user-functions/${upload.slot.slotId}/validate',
       data: _extensionMultipart(upload),
       options: Options(contentType: 'multipart/form-data'),
     );
@@ -231,112 +232,53 @@ class ApiService implements ManagementApi {
   }
 
   @override
-  Future<UserFunctionArtifact> createUserFunctionArtifact(
-    UserFunctionArtifactUpload upload,
+  Future<TwinUserFunction> saveTwinUserFunction(
+    String twinId,
+    UserFunctionSourceUpload upload,
   ) async {
-    final response = await _dio.post(
-      '/user-function-artifacts',
+    final response = await _dio.put(
+      '/twins/$twinId/user-functions/${upload.slot.slotId}',
       data: _extensionMultipart(upload),
       options: Options(contentType: 'multipart/form-data'),
     );
-    return UserFunctionArtifact.fromJson(
-      _contractMap(response.data, 'user-function artifact'),
+    return TwinUserFunction.fromJson(
+      _contractMap(response.data, 'Twin user function'),
     );
   }
 
   @override
-  Future<List<UserFunctionArtifact>> listUserFunctionArtifacts() async {
-    final response = await _dio.get('/user-function-artifacts');
-    final body = _contractMap(response.data, 'user-function artifacts');
+  Future<List<TwinUserFunction>> listTwinUserFunctions(String twinId) async {
+    final response = await _dio.get('/twins/$twinId/user-functions');
+    final body = _contractMap(response.data, 'Twin user functions');
     _requireContractFields(body, const {
       'schema_version',
       'items',
-      'total',
-      'limit',
-      'offset',
-    }, 'user-function artifacts');
-    if (body['schema_version'] != 'user-function-artifact-list.v1') {
+    }, 'Twin user functions');
+    if (body['schema_version'] != 'twin-user-function-list.v1') {
       throw const FormatException(
-        'Unsupported user-function artifact list schema version.',
+        'Unsupported Twin user-function list schema version.',
       );
     }
     final items = body['items'];
     if (items is! List) {
       throw const FormatException(
-        'Invalid API contract: user-function artifacts must be an array.',
+        'Invalid API contract: Twin user functions must be an array.',
       );
     }
     return List.unmodifiable(
       items.indexed.map(
-        (entry) => UserFunctionArtifact.fromJson(
-          _contractMap(entry.$2, 'user-function artifacts[${entry.$1}]'),
+        (entry) => TwinUserFunction.fromJson(
+          _contractMap(entry.$2, 'Twin user functions[${entry.$1}]'),
         ),
       ),
     );
   }
 
   @override
-  Future<List<TwinExtensionBinding>> listTwinExtensionBindings(
-    String twinId,
-  ) async {
-    final response = await _dio.get('/twins/$twinId/extension-bindings');
-    final body = _contractMap(response.data, 'extension bindings');
-    _requireContractFields(body, const {
-      'schema_version',
-      'items',
-    }, 'extension bindings');
-    if (body['schema_version'] != 'twin-extension-binding-list.v1') {
-      throw const FormatException(
-        'Unsupported extension-binding list schema version.',
-      );
-    }
-    final items = body['items'];
-    if (items is! List) {
-      throw const FormatException(
-        'Invalid API contract: extension bindings must be an array.',
-      );
-    }
-    return List.unmodifiable(
-      items.indexed.map(
-        (entry) => TwinExtensionBinding.fromJson(
-          _contractMap(entry.$2, 'extension bindings[${entry.$1}]'),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Future<TwinExtensionBinding> bindTwinExtensionArtifact(
-    String twinId,
-    ExtensionSlot slot,
-    String artifactId, {
-    int? expectedRevision,
-  }) async {
-    final response = await _dio.put(
-      '/twins/$twinId/extension-bindings/${slot.slotId}',
-      data: {
-        'artifact_id': artifactId,
-        'slot_version': slot.slotVersion,
-        if (expectedRevision != null) 'expected_revision': expectedRevision,
-      },
-    );
-    return TwinExtensionBinding.fromJson(
-      _contractMap(response.data, 'extension binding'),
-    );
-  }
-
-  @override
-  Future<void> unbindTwinExtensionArtifact(
-    String twinId,
-    ExtensionSlot slot, {
-    int? expectedRevision,
-  }) async {
+  Future<void> deleteTwinUserFunction(String twinId, ExtensionSlot slot) async {
     await _dio.delete(
-      '/twins/$twinId/extension-bindings/${slot.slotId}',
-      queryParameters: {
-        'slot_version': slot.slotVersion,
-        if (expectedRevision != null) 'expected_revision': expectedRevision,
-      },
+      '/twins/$twinId/user-functions/${slot.slotId}',
+      queryParameters: {'slot_version': slot.slotVersion},
     );
   }
 
@@ -1103,7 +1045,7 @@ Map<String, dynamic> _responseMap(Object? value) {
   return Map<String, dynamic>.from(value);
 }
 
-FormData _extensionMultipart(UserFunctionArtifactUpload upload) {
+FormData _extensionMultipart(UserFunctionSourceUpload upload) {
   return FormData.fromMap({
     'metadata': MultipartFile.fromBytes(
       upload.metadataBytes,

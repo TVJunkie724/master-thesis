@@ -170,10 +170,11 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     on<WizardZipUploadRequested>(_onZipUploadRequested);
 
     // === User-function extension contract ===
-    on<WizardExtensionCatalogLoadRequested>(_onExtensionCatalogLoadRequested);
+    on<WizardUserFunctionsLoadRequested>(_onUserFunctionsLoadRequested);
     on<WizardExtensionSourceSelected>(_onExtensionSourceSelected);
     on<WizardExtensionConfigurationChanged>(_onExtensionConfigurationChanged);
     on<WizardExtensionValidationRequested>(_onExtensionValidationRequested);
-    on<WizardExtensionBindRequested>(_onExtensionBindRequested);
+    on<WizardExtensionSaveRequested>(_onExtensionSaveRequested);
+    on<WizardExtensionDeleteRequested>(_onExtensionDeleteRequested);
   }
 }

@@ -57,7 +57,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
   _WorkspaceExitDestination? _pendingExitDestination;
   Timer? _notificationTimer;
   String? _canonicalArchitectureContext;
-  int? _extensionCatalogRevision;
+  int? _userFunctionsRevision;
 
   @override
   void dispose() {
@@ -88,12 +88,12 @@ class _WizardViewState extends ConsumerState<WizardView> {
         }
         final architectureRevision = state.architectureSelection?.revision;
         if (state.architectureWorkflowReady &&
-            _extensionCatalogRevision != architectureRevision) {
-          _extensionCatalogRevision = architectureRevision;
+            _userFunctionsRevision != architectureRevision) {
+          _userFunctionsRevision = architectureRevision;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               context.read<WizardBloc>().add(
-                const WizardExtensionCatalogLoadRequested(),
+                const WizardUserFunctionsLoadRequested(),
               );
             }
           });
@@ -274,7 +274,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
     if (!state.architectureWorkflowReady) {
       return 'Verify the canonical six-layer-eventing@1 contract first';
     }
-    if (!state.architectureExtensionBindingsReady) {
+    if (!state.architectureUserFunctionsReady) {
       return 'Bind and validate the required user logic first';
     }
     if (!state.isCalcFormValid) return 'Fix form errors before calculating';

@@ -115,8 +115,9 @@ Future<void> _bindProcessor(String twinId, {required String filename}) async {
   final processorSlot = slots.singleWhere(
     (slot) => slot.slotId == 'processor.telemetry',
   );
-  final artifact = await _api.createUserFunctionArtifact(
-    UserFunctionArtifactUpload(
+  final userFunction = await _api.saveTwinUserFunction(
+    twinId,
+    UserFunctionSourceUpload(
       slot: processorSlot,
       draft: UserFunctionSourceDraft(
         filename: filename,
@@ -125,14 +126,8 @@ Future<void> _bindProcessor(String twinId, {required String filename}) async {
       ),
     ),
   );
-  expect(artifact.isValid, isTrue);
-  final binding = await _api.bindTwinExtensionArtifact(
-    twinId,
-    processorSlot,
-    artifact.artifactId,
-  );
-  expect(binding.slotId, 'processor.telemetry');
-  expect(binding.artifactDigest, artifact.artifactDigest);
+  expect(userFunction.slotId, 'processor.telemetry');
+  expect(userFunction.artifactDigest, startsWith('sha256:'));
 }
 
 Uint8List _processorSourceArchive() {

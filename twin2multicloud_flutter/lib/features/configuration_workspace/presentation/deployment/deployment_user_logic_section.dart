@@ -23,14 +23,14 @@ class DeploymentUserLogicSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final children = <Widget>[
-      if (state.extensionCatalogLoading)
+      if (state.userFunctionsLoading)
         const Center(
           child: Padding(
             padding: EdgeInsets.all(AppSpacing.lg),
             child: CircularProgressIndicator(),
           ),
         )
-      else if (state.extensionErrors['_catalog'] case final message?)
+      else if (state.extensionErrors['_sources'] case final message?)
         Step3InfoCards.dependencyInfo(context, message)
       else if (state.extensionSlots.isEmpty)
         Step3InfoCards.emptyState(
@@ -39,10 +39,6 @@ class DeploymentUserLogicSection extends StatelessWidget {
         )
       else
         ExtensionSlotList(state: state, onEvent: onEvent),
-      if (state.extensionArtifacts.any((artifact) => artifact.isLegacy)) ...[
-        const SizedBox(height: AppSpacing.md),
-        const LegacyArtifactNotice(),
-      ],
     ];
     _addStateMachine(children);
     return Column(
@@ -96,28 +92,6 @@ class DeploymentUserLogicSection extends StatelessWidget {
             );
           },
           autoValidateOnUpload: true,
-        ),
-      ),
-    );
-  }
-}
-
-class LegacyArtifactNotice extends StatelessWidget {
-  const LegacyArtifactNotice({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: 'Legacy user-function migration notice',
-      child: Card(
-        child: ListTile(
-          leading: const Icon(Icons.history),
-          title: const Text('Legacy user logic is read-only'),
-          subtitle: const Text(
-            'Stored provider-specific source remains available for migration, '
-            'but it cannot be selected for a new deployment. Choose and '
-            'validate a provider-neutral v1 source archive above.',
-          ),
         ),
       ),
     );

@@ -33,8 +33,7 @@ class DemoManagementApi implements ManagementApi {
   final Duration latency;
   static const _token = 'demo-token';
   final Map<String, Map<String, dynamic>> _deploymentReadinessCache = {};
-  final List<UserFunctionArtifact> _extensionArtifacts = [];
-  final Map<String, TwinExtensionBinding> _extensionBindings = {};
+  final Map<String, TwinUserFunction> _twinUserFunctions = {};
   final Map<String, ResolvedTwinArchitectureRead> _resolvedArchitectures = {};
   final Map<String, List<TelemetryVerificationRecord>> _telemetryVerifications =
       {};
@@ -163,31 +162,33 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<UserFunctionValidationResult> validateUserFunctionArtifact(
-    UserFunctionArtifactUpload upload,
+  Future<UserFunctionValidationResult> validateTwinUserFunction(
+    String twinId,
+    UserFunctionSourceUpload upload,
   ) async {
     await _pause();
+    store.twin(twinId);
     _validateExtensionUpload(upload);
     return _extensionValidation(upload);
   }
 
   @override
-  Future<UserFunctionArtifact> createUserFunctionArtifact(
-    UserFunctionArtifactUpload upload,
+  Future<TwinUserFunction> saveTwinUserFunction(
+    String twinId,
+    UserFunctionSourceUpload upload,
   ) async {
     await _pause();
+    store.twin(twinId);
     _validateExtensionUpload(upload);
     final validation = _extensionValidation(upload);
-    final existing = _extensionArtifacts
-        .where((item) => item.artifactDigest == validation.artifactDigest)
-        .firstOrNull;
-    if (existing != null) return existing;
-    final sequence = _extensionArtifacts.length + 1;
-    final artifact = UserFunctionArtifact(
-      schemaVersion: 'user-function-artifact.v1',
-      artifactId:
-          '00000000-0000-4000-8000-${sequence.toString().padLeft(12, '0')}',
-      artifactState: 'valid',
+    final key = '$twinId:${upload.slot.slotId}';
+    final existing = _twinUserFunctions[key];
+    final now = store.clock().toUtc();
+    final userFunction = TwinUserFunction(
+      functionId:
+          existing?.functionId ??
+          '00000000-0000-4000-8000-${(_twinUserFunctions.length + 1).toString().padLeft(12, '0')}',
+      twinId: twinId,
       artifactDigest: validation.artifactDigest,
       slotId: upload.slot.slotId,
       slotVersion: upload.slot.slotVersion,
@@ -196,105 +197,40 @@ class DemoManagementApi implements ManagementApi {
       declaredCapabilities: upload.slot.permissionCapabilities,
       validatorVersion: 'user-function-validator.v1',
       sourceFiles: validation.sourceFiles,
-      dependencyCount: validation.dependencies.length,
-      createdAt: store.clock().toUtc(),
+      dependencies: validation.dependencies,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
     );
-    _extensionArtifacts.add(artifact);
-    return artifact;
+    _twinUserFunctions[key] = userFunction;
+    return userFunction;
   }
 
   @override
-  Future<List<UserFunctionArtifact>> listUserFunctionArtifacts() async {
-    await _pause();
-    return List.unmodifiable(_extensionArtifacts);
-  }
-
-  @override
-  Future<List<TwinExtensionBinding>> listTwinExtensionBindings(
-    String twinId,
-  ) async {
+  Future<List<TwinUserFunction>> listTwinUserFunctions(String twinId) async {
     await _pause();
     store.twin(twinId);
     return List.unmodifiable(
-      _extensionBindings.values.where(
-        (binding) => binding.twinId == twinId && binding.active,
-      ),
+      _twinUserFunctions.values.where((item) => item.twinId == twinId),
     );
   }
 
   @override
-  Future<TwinExtensionBinding> bindTwinExtensionArtifact(
-    String twinId,
-    ExtensionSlot slot,
-    String artifactId, {
-    int? expectedRevision,
-  }) async {
+  Future<void> deleteTwinUserFunction(String twinId, ExtensionSlot slot) async {
     await _pause();
     store.twin(twinId);
-    final artifact = _extensionArtifacts
-        .where(
-          (item) =>
-              item.artifactId == artifactId &&
-              item.slotId == slot.slotId &&
-              item.slotVersion == slot.slotVersion &&
-              item.isValid,
-        )
-        .firstOrNull;
-    if (artifact == null) {
+    final key = '$twinId:${slot.slotId}';
+    final current = _twinUserFunctions[key];
+    if (current == null || current.slotVersion != slot.slotVersion) {
       throw const DemoApiException(
         'EXTENSION_BINDING_UNRESOLVED',
-        'The validated artifact is unavailable for this slot.',
+        'No current Twin function exists for this slot.',
       );
     }
-    final key = '$twinId:${slot.slotId}:${slot.slotVersion}';
-    final current = _extensionBindings[key];
-    if (expectedRevision != null && current?.revision != expectedRevision) {
-      throw const DemoApiException(
-        'EXTENSION_BINDING_UNRESOLVED',
-        'The extension binding revision is stale.',
-      );
-    }
-    final revision = (current?.revision ?? 0) + 1;
-    final binding = TwinExtensionBinding(
-      bindingId:
-          '10000000-0000-4000-8000-${revision.toString().padLeft(12, '0')}',
-      twinId: twinId,
-      slotId: slot.slotId,
-      slotVersion: slot.slotVersion,
-      artifactId: artifact.artifactId,
-      artifactDigest: artifact.artifactDigest,
-      bindingDigest:
-          'sha256:${sha256.convert(utf8.encode('$key:${artifact.artifactDigest}'))}',
-      active: true,
-      revision: revision,
-      createdAt: store.clock().toUtc(),
-      unboundAt: null,
-    );
-    _extensionBindings[key] = binding;
-    return binding;
-  }
-
-  @override
-  Future<void> unbindTwinExtensionArtifact(
-    String twinId,
-    ExtensionSlot slot, {
-    int? expectedRevision,
-  }) async {
-    await _pause();
-    final key = '$twinId:${slot.slotId}:${slot.slotVersion}';
-    final current = _extensionBindings[key];
-    if (current == null ||
-        (expectedRevision != null && current.revision != expectedRevision)) {
-      throw const DemoApiException(
-        'EXTENSION_BINDING_UNRESOLVED',
-        'The extension binding revision is stale.',
-      );
-    }
-    _extensionBindings.remove(key);
+    _twinUserFunctions.remove(key);
   }
 
   UserFunctionValidationResult _extensionValidation(
-    UserFunctionArtifactUpload upload,
+    UserFunctionSourceUpload upload,
   ) {
     final digest = sha256.convert([
       ...upload.metadataBytes,
@@ -322,7 +258,7 @@ class DemoManagementApi implements ManagementApi {
     );
   }
 
-  void _validateExtensionUpload(UserFunctionArtifactUpload upload) {
+  void _validateExtensionUpload(UserFunctionSourceUpload upload) {
     if (!upload.draft.filename.toLowerCase().endsWith('.zip') ||
         upload.draft.bytes.isEmpty ||
         upload.draft.bytes.length > 10 * 1024 * 1024) {

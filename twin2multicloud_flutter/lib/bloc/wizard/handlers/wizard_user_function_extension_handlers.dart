@@ -1,47 +1,51 @@
 part of '../wizard_bloc.dart';
 
 extension _WizardUserFunctionExtensionHandlers on WizardBloc {
-  Future<void> _onExtensionCatalogLoadRequested(
-    WizardExtensionCatalogLoadRequested event,
+  Future<void> _onUserFunctionsLoadRequested(
+    WizardUserFunctionsLoadRequested event,
     Emitter<WizardState> emit,
   ) async {
-    await _loadExtensionCatalog(emit);
+    await _loadUserFunctions(emit);
   }
 
-  Future<void> _loadExtensionCatalog(Emitter<WizardState> emit) async {
+  Future<void> _loadUserFunctions(Emitter<WizardState> emit) async {
     emit(
       state.copyWith(
-        extensionCatalogLoading: true,
-        extensionErrors: {...state.extensionErrors}..remove('_catalog'),
+        userFunctionsLoading: true,
+        extensionErrors: {...state.extensionErrors}..remove('_sources'),
       ),
     );
     try {
       final slots = await _api.listExtensionSlots();
-      final artifacts = await _api.listUserFunctionArtifacts();
       final twinId = state.twinId;
-      final bindings = twinId == null
-          ? const <TwinExtensionBinding>[]
-          : await _api.listTwinExtensionBindings(twinId);
+      final userFunctions = twinId == null
+          ? const <TwinUserFunction>[]
+          : await _api.listTwinUserFunctions(twinId);
       emit(
         state.copyWith(
-          extensionCatalogLoading: false,
+          userFunctionsLoading: false,
           extensionSlots: slots,
-          extensionArtifacts: artifacts,
-          extensionBindings: bindings,
+          twinUserFunctions: userFunctions,
           extensionPhases: {
-            ...state.extensionPhases,
-            for (final binding in bindings)
-              binding.slotId: UserFunctionWorkflowPhase.bound,
+            for (final slot in slots)
+              slot.slotId:
+                  userFunctions.any(
+                    (userFunction) => userFunction.slotId == slot.slotId,
+                  )
+                  ? UserFunctionWorkflowPhase.saved
+                  : state.extensionDraft(slot.slotId) == null
+                  ? UserFunctionWorkflowPhase.draft
+                  : state.extensionPhase(slot.slotId),
           },
         ),
       );
     } catch (error) {
       emit(
         state.copyWith(
-          extensionCatalogLoading: false,
+          userFunctionsLoading: false,
           extensionErrors: {
             ...state.extensionErrors,
-            '_catalog': ApiErrorHandler.extractMessage(error),
+            '_sources': ApiErrorHandler.extractMessage(error),
           },
         ),
       );
@@ -124,12 +128,15 @@ extension _WizardUserFunctionExtensionHandlers on WizardBloc {
     WizardExtensionValidationRequested event,
     Emitter<WizardState> emit,
   ) async {
+    final twinId = state.twinId;
     final upload = _extensionUpload(event.slotId);
-    if (upload == null) {
+    if (upload == null || twinId == null) {
       emit(
         _extensionFailure(
           event.slotId,
-          'Choose a source ZIP and complete all required configuration fields.',
+          twinId == null
+              ? 'Save the Digital Twin before validating its function source.'
+              : 'Choose a source ZIP and complete all required configuration fields.',
           UserFunctionWorkflowPhase.invalid,
         ),
       );
@@ -137,7 +144,7 @@ extension _WizardUserFunctionExtensionHandlers on WizardBloc {
     }
     emit(_extensionPhase(event.slotId, UserFunctionWorkflowPhase.validating));
     try {
-      final result = await _api.validateUserFunctionArtifact(upload);
+      final result = await _api.validateTwinUserFunction(twinId, upload);
       if (state.extensionDraft(event.slotId) != upload.draft) return;
       emit(
         state.copyWith(
@@ -164,8 +171,8 @@ extension _WizardUserFunctionExtensionHandlers on WizardBloc {
     }
   }
 
-  Future<void> _onExtensionBindRequested(
-    WizardExtensionBindRequested event,
+  Future<void> _onExtensionSaveRequested(
+    WizardExtensionSaveRequested event,
     Emitter<WizardState> emit,
   ) async {
     final upload = _extensionUpload(event.slotId);
@@ -177,58 +184,41 @@ extension _WizardUserFunctionExtensionHandlers on WizardBloc {
         _extensionFailure(
           event.slotId,
           twinId == null
-              ? 'Save the Digital Twin before binding an extension artifact.'
-              : 'Validate the current source archive before binding it.',
+              ? 'Save the Digital Twin before saving its function source.'
+              : 'Validate the current source archive before saving it.',
           UserFunctionWorkflowPhase.error,
         ),
       );
       return;
     }
-    emit(_extensionPhase(event.slotId, UserFunctionWorkflowPhase.binding));
+    emit(_extensionPhase(event.slotId, UserFunctionWorkflowPhase.saving));
     try {
-      final artifact = await _api.createUserFunctionArtifact(upload);
-      final current = state.extensionBinding(event.slotId);
-      final binding = await _api.bindTwinExtensionArtifact(
-        twinId,
-        upload.slot,
-        artifact.artifactId,
-        expectedRevision: current?.revision,
-      );
+      final userFunction = await _api.saveTwinUserFunction(twinId, upload);
       final draftChanged = state.extensionDraft(event.slotId) != upload.draft;
       emit(
         state.copyWith(
-          extensionArtifacts: [
-            ...state.extensionArtifacts.where(
-              (item) => item.artifactId != artifact.artifactId,
+          twinUserFunctions: [
+            ...state.twinUserFunctions.where(
+              (item) => item.slotId != userFunction.slotId,
             ),
-            artifact,
-          ],
-          extensionBindings: [
-            ...state.extensionBindings.where(
-              (item) =>
-                  item.slotId != binding.slotId ||
-                  item.slotVersion != binding.slotVersion,
-            ),
-            binding,
+            userFunction,
           ],
           extensionPhases: {
             ...state.extensionPhases,
             event.slotId: draftChanged
                 ? UserFunctionWorkflowPhase.stale
-                : UserFunctionWorkflowPhase.bound,
+                : UserFunctionWorkflowPhase.saved,
           },
           extensionErrors: draftChanged
               ? {
                   ...state.extensionErrors,
                   event.slotId:
-                      'The previous draft was bound. Validate the current '
+                      'The previous draft was saved. Validate the current '
                       'source before replacing it.',
                 }
               : ({...state.extensionErrors}..remove(event.slotId)),
           hasUnsavedChanges: true,
-          successMessage: draftChanged
-              ? null
-              : 'Validated extension artifact bound',
+          successMessage: draftChanged ? null : 'Validated Twin function saved',
           clearSuccess: draftChanged,
         ),
       );
@@ -247,7 +237,44 @@ extension _WizardUserFunctionExtensionHandlers on WizardBloc {
     }
   }
 
-  UserFunctionArtifactUpload? _extensionUpload(String slotId) {
+  Future<void> _onExtensionDeleteRequested(
+    WizardExtensionDeleteRequested event,
+    Emitter<WizardState> emit,
+  ) async {
+    final twinId = state.twinId;
+    final slot = state.extensionSlot(event.slotId);
+    if (twinId == null || slot == null) return;
+    emit(_extensionPhase(event.slotId, UserFunctionWorkflowPhase.saving));
+    try {
+      await _api.deleteTwinUserFunction(twinId, slot);
+      emit(
+        state.copyWith(
+          twinUserFunctions: state.twinUserFunctions
+              .where((item) => item.slotId != event.slotId)
+              .toList(growable: false),
+          extensionValidationResults: {...state.extensionValidationResults}
+            ..remove(event.slotId),
+          extensionPhases: {
+            ...state.extensionPhases,
+            event.slotId: UserFunctionWorkflowPhase.draft,
+          },
+          extensionErrors: {...state.extensionErrors}..remove(event.slotId),
+          hasUnsavedChanges: true,
+          successMessage: 'Twin function removed',
+        ),
+      );
+    } catch (error) {
+      emit(
+        _extensionFailure(
+          event.slotId,
+          ApiErrorHandler.extractMessage(error),
+          UserFunctionWorkflowPhase.error,
+        ),
+      );
+    }
+  }
+
+  UserFunctionSourceUpload? _extensionUpload(String slotId) {
     final slot = state.extensionSlot(slotId);
     final draft = state.extensionDraft(slotId);
     if (slot == null ||
@@ -260,7 +287,7 @@ extension _WizardUserFunctionExtensionHandlers on WizardBloc {
         )) {
       return null;
     }
-    return UserFunctionArtifactUpload(slot: slot, draft: draft);
+    return UserFunctionSourceUpload(slot: slot, draft: draft);
   }
 
   WizardState _extensionPhase(String slotId, UserFunctionWorkflowPhase phase) {

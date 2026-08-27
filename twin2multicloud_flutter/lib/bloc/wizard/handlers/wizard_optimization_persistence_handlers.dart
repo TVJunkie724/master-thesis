@@ -174,7 +174,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
       );
       return;
     }
-    if (!state.architectureExtensionBindingsReady) {
+    if (!state.architectureUserFunctionsReady) {
       emit(
         state.copyWith(
           errorMessage:

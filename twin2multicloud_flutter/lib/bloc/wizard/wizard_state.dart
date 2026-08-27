@@ -188,10 +188,9 @@ class WizardState extends Equatable {
   eventActionRequirements; // functionName -> requirements.txt
   final String? stateMachineContent; // AWS/Azure/GCP workflow JSON/YAML
   final bool stateMachineValidated;
-  final bool extensionCatalogLoading;
+  final bool userFunctionsLoading;
   final List<ExtensionSlot> extensionSlots;
-  final List<UserFunctionArtifact> extensionArtifacts;
-  final List<TwinExtensionBinding> extensionBindings;
+  final List<TwinUserFunction> twinUserFunctions;
   final Map<String, UserFunctionSourceDraft> extensionDrafts;
   final Map<String, UserFunctionValidationResult> extensionValidationResults;
   final Map<String, UserFunctionWorkflowPhase> extensionPhases;
@@ -285,10 +284,9 @@ class WizardState extends Equatable {
     this.eventActionRequirements = const {},
     this.stateMachineContent,
     this.stateMachineValidated = false,
-    this.extensionCatalogLoading = false,
+    this.userFunctionsLoading = false,
     this.extensionSlots = const [],
-    this.extensionArtifacts = const [],
-    this.extensionBindings = const [],
+    this.twinUserFunctions = const [],
     this.extensionDrafts = const {},
     this.extensionValidationResults = const {},
     this.extensionPhases = const {},
@@ -416,38 +414,38 @@ class WizardState extends Equatable {
 
   UserFunctionWorkflowPhase extensionPhase(String slotId) =>
       extensionPhases[slotId] ??
-      (extensionBinding(slotId) == null
+      (twinUserFunction(slotId) == null
           ? UserFunctionWorkflowPhase.draft
-          : UserFunctionWorkflowPhase.bound);
+          : UserFunctionWorkflowPhase.saved);
 
-  TwinExtensionBinding? extensionBinding(String slotId) {
-    for (final binding in extensionBindings) {
-      if (binding.slotId == slotId && binding.active) return binding;
+  TwinUserFunction? twinUserFunction(String slotId) {
+    for (final userFunction in twinUserFunctions) {
+      if (userFunction.slotId == slotId) return userFunction;
     }
     return null;
   }
 
   bool get extensionContractActive =>
-      extensionCatalogLoading ||
-      extensionErrors.containsKey('_catalog') ||
+      userFunctionsLoading ||
+      extensionErrors.containsKey('_sources') ||
       extensionSlots.isNotEmpty;
 
-  bool get extensionBindingsReady =>
+  bool get userFunctionsReady =>
       extensionSlots.isNotEmpty &&
       extensionSlots.every(
         (slot) =>
-            extensionPhase(slot.slotId) == UserFunctionWorkflowPhase.bound &&
-            extensionBinding(slot.slotId) != null,
+            extensionPhase(slot.slotId) == UserFunctionWorkflowPhase.saved &&
+            twinUserFunction(slot.slotId) != null,
       );
 
-  bool get architectureExtensionBindingsReady {
+  bool get architectureUserFunctionsReady {
     final requiredSlots = architectureProfileDetail?.summary.extensionSlots;
     if (requiredSlots == null) return false;
     if (requiredSlots.isEmpty) return true;
     return requiredSlots.every(
       (required) =>
-          extensionPhase(required.slotId) == UserFunctionWorkflowPhase.bound &&
-          extensionBinding(required.slotId)?.slotVersion ==
+          extensionPhase(required.slotId) == UserFunctionWorkflowPhase.saved &&
+          twinUserFunction(required.slotId)?.slotVersion ==
               required.slotVersion,
     );
   }
@@ -464,7 +462,7 @@ class WizardState extends Equatable {
       calcParams != null &&
       isCalcFormValid &&
       architectureWorkflowReady &&
-      architectureExtensionBindingsReady &&
+      architectureUserFunctionsReady &&
       !isCalculating &&
       !isSelectingDeploymentRun;
 
@@ -537,7 +535,7 @@ class WizardState extends Equatable {
       resolvedArchitectureReadyForSelectedRun &&
       unconfiguredProviders.isEmpty &&
       deployerReadiness.ready &&
-      architectureExtensionBindingsReady &&
+      architectureUserFunctionsReady &&
       !step3Invalidated;
 
   DeployerConfigData get deployerConfigData => DeployerConfigData(
@@ -780,10 +778,9 @@ class WizardState extends Equatable {
     Map<String, String>? eventActionRequirements,
     String? stateMachineContent,
     bool? stateMachineValidated,
-    bool? extensionCatalogLoading,
+    bool? userFunctionsLoading,
     List<ExtensionSlot>? extensionSlots,
-    List<UserFunctionArtifact>? extensionArtifacts,
-    List<TwinExtensionBinding>? extensionBindings,
+    List<TwinUserFunction>? twinUserFunctions,
     Map<String, UserFunctionSourceDraft>? extensionDrafts,
     Map<String, UserFunctionValidationResult>? extensionValidationResults,
     Map<String, UserFunctionWorkflowPhase>? extensionPhases,
@@ -936,11 +933,9 @@ class WizardState extends Equatable {
           : (stateMachineContent ?? this.stateMachineContent),
       stateMachineValidated:
           stateMachineValidated ?? this.stateMachineValidated,
-      extensionCatalogLoading:
-          extensionCatalogLoading ?? this.extensionCatalogLoading,
+      userFunctionsLoading: userFunctionsLoading ?? this.userFunctionsLoading,
       extensionSlots: extensionSlots ?? this.extensionSlots,
-      extensionArtifacts: extensionArtifacts ?? this.extensionArtifacts,
-      extensionBindings: extensionBindings ?? this.extensionBindings,
+      twinUserFunctions: twinUserFunctions ?? this.twinUserFunctions,
       extensionDrafts: extensionDrafts ?? this.extensionDrafts,
       extensionValidationResults:
           extensionValidationResults ?? this.extensionValidationResults,
@@ -1039,10 +1034,9 @@ class WizardState extends Equatable {
     eventActionRequirements,
     stateMachineContent,
     stateMachineValidated,
-    extensionCatalogLoading,
+    userFunctionsLoading,
     extensionSlots,
-    extensionArtifacts,
-    extensionBindings,
+    twinUserFunctions,
     extensionDrafts,
     extensionValidationResults,
     extensionPhases,

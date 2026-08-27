@@ -162,30 +162,19 @@ abstract interface class DeploymentConfigurationApi {
 abstract interface class UserFunctionExtensionApi {
   Future<List<ExtensionSlot>> listExtensionSlots();
 
-  Future<UserFunctionValidationResult> validateUserFunctionArtifact(
-    UserFunctionArtifactUpload upload,
+  Future<UserFunctionValidationResult> validateTwinUserFunction(
+    String twinId,
+    UserFunctionSourceUpload upload,
   );
 
-  Future<UserFunctionArtifact> createUserFunctionArtifact(
-    UserFunctionArtifactUpload upload,
+  Future<TwinUserFunction> saveTwinUserFunction(
+    String twinId,
+    UserFunctionSourceUpload upload,
   );
 
-  Future<List<UserFunctionArtifact>> listUserFunctionArtifacts();
+  Future<List<TwinUserFunction>> listTwinUserFunctions(String twinId);
 
-  Future<List<TwinExtensionBinding>> listTwinExtensionBindings(String twinId);
-
-  Future<TwinExtensionBinding> bindTwinExtensionArtifact(
-    String twinId,
-    ExtensionSlot slot,
-    String artifactId, {
-    int? expectedRevision,
-  });
-
-  Future<void> unbindTwinExtensionArtifact(
-    String twinId,
-    ExtensionSlot slot, {
-    int? expectedRevision,
-  });
+  Future<void> deleteTwinUserFunction(String twinId, ExtensionSlot slot);
 }
 
 abstract interface class DeploymentLifecycleApi {

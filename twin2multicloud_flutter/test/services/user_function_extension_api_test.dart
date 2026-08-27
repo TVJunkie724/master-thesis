@@ -17,44 +17,53 @@ void main() {
             'schema_version': 'user-function-extension-slot-list.v1',
             'slots': [_slotJson()],
           }),
-          '/user-function-artifacts/validate' => _json(_validationJson()),
-          '/twins/twin-1/extension-bindings/processor.telemetry' => _json(
-            _bindingJson(),
+          '/twins/twin-1/user-functions/processor.telemetry/validate' => _json(
+            _validationJson(),
           ),
+          '/twins/twin-1/user-functions/processor.telemetry' =>
+            request.method == 'DELETE'
+                ? ResponseBody.fromString('', 204)
+                : _json(_userFunctionJson()),
+          '/twins/twin-1/user-functions' => _json({
+            'schema_version': 'twin-user-function-list.v1',
+            'items': [_userFunctionJson()],
+          }),
           _ => _json({}, statusCode: 404),
         };
       }),
     );
 
     final slot = (await api.listExtensionSlots()).single;
-    final validation = await api.validateUserFunctionArtifact(
-      UserFunctionArtifactUpload(
-        slot: slot,
-        draft: UserFunctionSourceDraft(
-          filename: 'processor.zip',
-          bytes: Uint8List.fromList([1, 2, 3]),
-          configuration: const {'scale_factor': 1},
-        ),
+    final upload = UserFunctionSourceUpload(
+      slot: slot,
+      draft: UserFunctionSourceDraft(
+        filename: 'processor.zip',
+        bytes: Uint8List.fromList([1, 2, 3]),
+        configuration: const {'scale_factor': 1},
       ),
     );
-    final binding = await api.bindTwinExtensionArtifact(
-      'twin-1',
-      slot,
-      '00000000-0000-4000-8000-000000000001',
-    );
+    final validation = await api.validateTwinUserFunction('twin-1', upload);
+    final userFunction = await api.saveTwinUserFunction('twin-1', upload);
+    final current = await api.listTwinUserFunctions('twin-1');
+    await api.deleteTwinUserFunction('twin-1', slot);
 
     expect(validation.slotId, slot.slotId);
-    expect(binding.revision, 1);
+    expect(userFunction.twinId, 'twin-1');
+    expect(current, [userFunction]);
     final multipart = requests[1].data as FormData;
     expect(multipart.files.map((entry) => entry.key), {
       'metadata',
       'source_archive',
     });
     expect(requests[2].method, 'PUT');
-    expect(requests[2].data, {
-      'artifact_id': '00000000-0000-4000-8000-000000000001',
-      'slot_version': '1',
+    final savedMultipart = requests[2].data as FormData;
+    expect(savedMultipart.files.map((entry) => entry.key), {
+      'metadata',
+      'source_archive',
     });
+    expect(requests[3].method, 'GET');
+    expect(requests[4].method, 'DELETE');
+    expect(requests[4].queryParameters, {'slot_version': '1'});
   });
 
   test('fails closed on an unknown list schema version', () async {
@@ -138,19 +147,21 @@ Map<String, dynamic> _validationJson() => {
   'checks': ['schema_valid'],
 };
 
-Map<String, dynamic> _bindingJson() => {
-  'schema_version': 'twin-extension-binding.v1',
-  'binding_id': '10000000-0000-4000-8000-000000000001',
+Map<String, dynamic> _userFunctionJson() => {
+  'schema_version': 'twin-user-function.v1',
+  'function_id': '10000000-0000-4000-8000-000000000001',
   'twin_id': 'twin-1',
   'slot_id': 'processor.telemetry',
   'slot_version': '1',
-  'artifact_id': '00000000-0000-4000-8000-000000000001',
   'artifact_digest': 'sha256:${List.filled(64, 'a').join()}',
-  'binding_digest': 'sha256:${List.filled(64, 'b').join()}',
-  'active': true,
-  'revision': 1,
+  'runtime_id': 'python311',
+  'configuration': {'scale_factor': 1},
+  'declared_capabilities': ['capability.telemetry.process'],
+  'validator_version': 'user-function-validator.v1',
+  'source_files': ['process.py', 'requirements.lock'],
+  'dependencies': <String>[],
   'created_at': '2026-07-19T00:00:00Z',
-  'unbound_at': null,
+  'updated_at': '2026-07-19T00:00:00Z',
 };
 
 Dio _dio(ResponseBody Function(RequestOptions) callback) {

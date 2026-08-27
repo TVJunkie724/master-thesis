@@ -246,13 +246,13 @@ class ConfigurationJourney {
         ? ConfigurationTaskStatus.blocked
         : !profileHasUserLogic
         ? ConfigurationTaskStatus.notRequired
-        : state.architectureExtensionBindingsReady
+        : state.architectureUserFunctionsReady
         ? ConfigurationTaskStatus.complete
         : extensionNeedsAttention
         ? ConfigurationTaskStatus.attention
         : ConfigurationTaskStatus.available;
     final optimizerInputsReady =
-        workloadComplete && state.architectureExtensionBindingsReady;
+        workloadComplete && state.architectureUserFunctionsReady;
     final calculationReady = state.calcResult != null;
     final calculationStatus = !optimizerInputsReady
         ? ConfigurationTaskStatus.blocked
@@ -306,7 +306,7 @@ class ConfigurationJourney {
         deploymentSelectionReady &&
         requiredProvidersConfigured &&
         readiness.ready &&
-        state.architectureExtensionBindingsReady &&
+        state.architectureUserFunctionsReady &&
         !state.step3Invalidated;
     final reviewStatus = !calculationReady
         ? ConfigurationTaskStatus.blocked

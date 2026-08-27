@@ -48,53 +48,43 @@ void main() {
     );
   });
 
-  test('parses validation, artifact, and binding evidence without source', () {
-    final validation = UserFunctionValidationResult.fromJson({
-      'schema_version': 'user-function-validation-result.v1',
-      'valid': true,
-      'artifact_digest': 'sha256:${List.filled(64, 'a').join()}',
-      'slot_id': 'processor.telemetry',
-      'slot_version': '1',
-      'runtime_id': 'python311',
-      'source_files': ['process.py', 'requirements.lock'],
-      'dependencies': ['requests'],
-      'checks': ['schema_valid'],
-    });
-    final artifact = UserFunctionArtifact.fromJson({
-      'schema_version': 'user-function-artifact.v1',
-      'artifact_id': '00000000-0000-4000-8000-000000000001',
-      'artifact_state': 'valid',
-      'artifact_digest': validation.artifactDigest,
-      'slot_id': validation.slotId,
-      'slot_version': validation.slotVersion,
-      'runtime_id': validation.runtimeId,
-      'configuration': {'scale_factor': 1},
-      'declared_capabilities': ['capability.telemetry.process'],
-      'validator_version': 'user-function-validator.v1',
-      'source_files': validation.sourceFiles,
-      'dependency_count': 1,
-      'created_at': '2026-07-19T00:00:00Z',
-    });
-    final binding = TwinExtensionBinding.fromJson({
-      'schema_version': 'twin-extension-binding.v1',
-      'binding_id': '10000000-0000-4000-8000-000000000001',
-      'twin_id': '20000000-0000-4000-8000-000000000001',
-      'slot_id': artifact.slotId,
-      'slot_version': artifact.slotVersion,
-      'artifact_id': artifact.artifactId,
-      'artifact_digest': artifact.artifactDigest,
-      'binding_digest': 'sha256:${List.filled(64, 'b').join()}',
-      'active': true,
-      'revision': 1,
-      'created_at': '2026-07-19T00:00:00Z',
-      'unbound_at': null,
-    });
+  test(
+    'parses validation and current Twin function evidence without source',
+    () {
+      final validation = UserFunctionValidationResult.fromJson({
+        'schema_version': 'user-function-validation-result.v1',
+        'valid': true,
+        'artifact_digest': 'sha256:${List.filled(64, 'a').join()}',
+        'slot_id': 'processor.telemetry',
+        'slot_version': '1',
+        'runtime_id': 'python311',
+        'source_files': ['process.py', 'requirements.lock'],
+        'dependencies': ['requests'],
+        'checks': ['schema_valid'],
+      });
+      final userFunction = TwinUserFunction.fromJson({
+        'schema_version': 'twin-user-function.v1',
+        'function_id': '00000000-0000-4000-8000-000000000001',
+        'twin_id': '20000000-0000-4000-8000-000000000001',
+        'artifact_digest': validation.artifactDigest,
+        'slot_id': validation.slotId,
+        'slot_version': validation.slotVersion,
+        'runtime_id': validation.runtimeId,
+        'configuration': {'scale_factor': 1},
+        'declared_capabilities': ['capability.telemetry.process'],
+        'validator_version': 'user-function-validator.v1',
+        'source_files': validation.sourceFiles,
+        'dependencies': ['requests'],
+        'created_at': '2026-07-19T00:00:00Z',
+        'updated_at': '2026-07-19T00:01:00Z',
+      });
 
-    expect(artifact.isValid, isTrue);
-    expect(artifact.sourceFiles, ['process.py', 'requirements.lock']);
-    expect(binding.artifactDigest, validation.artifactDigest);
-    expect(artifact.toString(), isNot(contains('def process')));
-  });
+      expect(userFunction.dependencies, ['requests']);
+      expect(userFunction.sourceFiles, ['process.py', 'requirements.lock']);
+      expect(userFunction.artifactDigest, validation.artifactDigest);
+      expect(userFunction.toString(), isNot(contains('def process')));
+    },
+  );
 
   test('same-sized source drafts remain distinct immutable inputs', () {
     final first = UserFunctionSourceDraft(
@@ -109,28 +99,21 @@ void main() {
     expect(first, isNot(replacement));
   });
 
-  test('artifact and binding readers reject additional platform fields', () {
+  test('Twin function reader rejects additional platform fields', () {
     expect(
-      () => UserFunctionArtifact.fromJson({
-        ..._artifactJson(),
+      () => TwinUserFunction.fromJson({
+        ..._userFunctionJson(),
         'source': 'def process(): pass',
-      }),
-      throwsFormatException,
-    );
-    expect(
-      () => TwinExtensionBinding.fromJson({
-        ..._bindingJson(),
-        'terraform_address': 'aws_lambda_function.user',
       }),
       throwsFormatException,
     );
   });
 }
 
-Map<String, dynamic> _artifactJson() => {
-  'schema_version': 'user-function-artifact.v1',
-  'artifact_id': '00000000-0000-4000-8000-000000000001',
-  'artifact_state': 'valid',
+Map<String, dynamic> _userFunctionJson() => {
+  'schema_version': 'twin-user-function.v1',
+  'function_id': '00000000-0000-4000-8000-000000000001',
+  'twin_id': '20000000-0000-4000-8000-000000000001',
   'artifact_digest': 'sha256:${List.filled(64, 'a').join()}',
   'slot_id': 'processor.telemetry',
   'slot_version': '1',
@@ -139,23 +122,9 @@ Map<String, dynamic> _artifactJson() => {
   'declared_capabilities': ['capability.telemetry.process'],
   'validator_version': 'user-function-validator.v1',
   'source_files': ['process.py', 'requirements.lock'],
-  'dependency_count': 0,
+  'dependencies': <String>[],
   'created_at': '2026-07-19T00:00:00Z',
-};
-
-Map<String, dynamic> _bindingJson() => {
-  'schema_version': 'twin-extension-binding.v1',
-  'binding_id': '10000000-0000-4000-8000-000000000001',
-  'twin_id': '20000000-0000-4000-8000-000000000001',
-  'slot_id': 'processor.telemetry',
-  'slot_version': '1',
-  'artifact_id': '00000000-0000-4000-8000-000000000001',
-  'artifact_digest': 'sha256:${List.filled(64, 'a').join()}',
-  'binding_digest': 'sha256:${List.filled(64, 'b').join()}',
-  'active': true,
-  'revision': 1,
-  'created_at': '2026-07-19T00:00:00Z',
-  'unbound_at': null,
+  'updated_at': '2026-07-19T00:00:00Z',
 };
 
 Map<String, dynamic> _slotJson() => {
