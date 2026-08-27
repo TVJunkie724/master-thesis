@@ -653,33 +653,6 @@ class ApiService implements ManagementApi {
   }
 
   @override
-  Future<List<ArchitectureProfileSummary>> listArchitectureProfiles() async {
-    final response = await _dio.get('/architecture-profiles');
-    final data = response.data;
-    if (data is! List) {
-      throw const FormatException(
-        'Invalid API contract: architecture profiles must be an array.',
-      );
-    }
-    final profiles = data.indexed
-        .map(
-          (entry) => ArchitectureProfileSummary.fromJson(
-            _contractMap(entry.$2, 'architecture profiles[${entry.$1}]'),
-          ),
-        )
-        .toList(growable: false);
-    final identities = profiles
-        .map((item) => '${item.profileId}@${item.profileVersion}')
-        .toSet();
-    if (identities.length != profiles.length) {
-      throw const FormatException(
-        'Invalid API contract: architecture profile versions must be unique.',
-      );
-    }
-    return List.unmodifiable(profiles);
-  }
-
-  @override
   Future<ArchitectureProfileDetail> getArchitectureProfile(
     String profileId,
     String profileVersion,
@@ -713,50 +686,6 @@ class ApiService implements ManagementApi {
       );
     }
     return selection;
-  }
-
-  @override
-  Future<ArchitectureProfileChangePreview> previewTwinArchitectureProfileChange(
-    String twinId,
-    ArchitectureProfileChangePreviewRequest request,
-  ) async {
-    final response = await _dio.post(
-      '/twins/$twinId/architecture-profile/change-preview',
-      data: request.toJson(),
-    );
-    final preview = ArchitectureProfileChangePreview.fromJson(
-      _contractMap(response.data, 'architecture profile change preview'),
-    );
-    if (preview.target.id != request.profileId ||
-        preview.target.version != request.profileVersion ||
-        preview.expectedRevision != request.expectedRevision) {
-      throw const FormatException(
-        'Invalid API contract: architecture change preview context differs.',
-      );
-    }
-    return preview;
-  }
-
-  @override
-  Future<ArchitectureProfileSelectionResult> selectTwinArchitectureProfile(
-    String twinId,
-    ArchitectureProfileSelectRequest request,
-  ) async {
-    final response = await _dio.put(
-      '/twins/$twinId/architecture-profile',
-      data: request.toJson(),
-    );
-    final result = ArchitectureProfileSelectionResult.fromJson(
-      _contractMap(response.data, 'architecture profile selection result'),
-    );
-    if (result.selection.twinId != twinId ||
-        result.selection.profileRef.id != request.profileId ||
-        result.selection.profileRef.version != request.profileVersion) {
-      throw const FormatException(
-        'Invalid API contract: architecture selection result context differs.',
-      );
-    }
-    return result;
   }
 
   @override

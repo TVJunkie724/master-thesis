@@ -14,20 +14,12 @@ WizardState architectureReadyWizardState({
   bool withExtensionSlot = false,
   String twinId = 'twin-1',
   bool persisted = true,
-  String profileId = 'fixture-profile',
+  String profileId = 'six-layer-eventing',
   String? profileVersion,
   String profileDigest = fixtureDigest,
 }) {
   final resolvedProfileVersion =
       profileVersion ?? (profileId == 'six-layer-eventing' ? '1' : '2');
-  final summary = ArchitectureProfileSummary.fromJson(
-    architectureProfileSummaryJson(
-      withExtensionSlot: withExtensionSlot,
-      profileId: profileId,
-      profileVersion: resolvedProfileVersion,
-      profileDigest: profileDigest,
-    ),
-  );
   final detail = ArchitectureProfileDetail.fromJson(
     architectureProfileDetailJson(
       withExtensionSlot: withExtensionSlot,
@@ -48,12 +40,9 @@ WizardState architectureReadyWizardState({
     status: WizardStatus.ready,
     twinId: persisted ? twinId : null,
     twinName: 'Factory twin',
-    architectureCatalogPhase: ArchitectureCatalogPhase.ready,
-    architectureProfiles: [summary],
     architectureSelection: selection,
     architectureDetailPhase: ArchitectureDetailPhase.ready,
     architectureProfileDetail: detail,
-    architectureDetailAcknowledged: true,
   );
 }
 
@@ -61,7 +50,7 @@ ResolvedTwinArchitectureRead resolvedArchitectureFixture({
   String runId = 'run-123',
   String twinId = 'twin-1',
   CloudProvider? provider,
-  String profileId = 'fixture-profile',
+  String profileId = 'six-layer-eventing',
   String? profileVersion,
   String profileDigest = fixtureDigest,
 }) {

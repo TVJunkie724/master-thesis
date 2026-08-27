@@ -119,7 +119,7 @@ class _Summary extends StatelessWidget {
             const WizardDeploymentRunSelectionRequested(),
           ),
           onRecalculateArchitecture: () =>
-              onOpenTask(ConfigurationTaskId.calculateAlternatives),
+              onOpenTask(ConfigurationTaskId.calculateCostAllocation),
           architecturePhase: state.resolvedArchitecturePhase,
           resolvedArchitecture: state.resolvedArchitecture,
           resolvedArchitectureError: state.resolvedArchitectureError,
@@ -281,7 +281,7 @@ List<_Finding> _buildFindings(WizardState state) {
       const _Finding(
         'Resolved architecture needs confirmation',
         'Verify or recalculate the latest optimizer recommendation.',
-        ConfigurationTaskId.compareAndSelect,
+        ConfigurationTaskId.reviewImmutableResult,
       ),
     );
   }
@@ -290,7 +290,7 @@ List<_Finding> _buildFindings(WizardState state) {
       const _Finding(
         'Architecture changes require review',
         'Review the current recommendation before continuing.',
-        ConfigurationTaskId.compareAndSelect,
+        ConfigurationTaskId.reviewImmutableResult,
       ),
     );
   }

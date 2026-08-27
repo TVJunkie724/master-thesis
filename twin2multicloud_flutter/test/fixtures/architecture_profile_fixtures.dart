@@ -194,38 +194,3 @@ Map<String, dynamic> architectureSelectionJson({
   'updated_at': '2026-08-03T10:00:00Z',
   'selected_by_user_id': 'user-1',
 };
-
-Map<String, dynamic> architecturePreviewJson({int revision = 1}) => {
-  'current': {
-    'id': 'historical-profile',
-    'version': '1',
-    'digest': fixtureDigestB,
-  },
-  'target': {'id': 'fixture-profile', 'version': '2', 'digest': fixtureDigest},
-  'expected_revision': revision,
-  'incompatible_workload_fields': [
-    {'field_id': 'legacy.field', 'display_label': 'Legacy field'},
-  ],
-  'incompatible_extension_bindings': [
-    {
-      'slot_id': 'legacy.slot',
-      'slot_version': '1',
-      'artifact_id': 'artifact-1',
-    },
-  ],
-  'selected_calculation_run_id': 'run-old',
-  'deployment_readiness_sections': ['architecture', 'cloud_access'],
-  'invalidation_digest': fixtureDigestB,
-};
-
-Map<String, dynamic> architectureSelectionResultJson({
-  String twinId = 'twin-1',
-  int revision = 2,
-}) => {
-  'selection': architectureSelectionJson(twinId: twinId, revision: revision),
-  'revision': revision,
-  'invalidated_calculation_run_id': 'run-old',
-  'unbound_extension_slot_ids': ['legacy.slot'],
-  'cleared_workload_field_ids': ['legacy.field'],
-  'deployment_readiness_state': 'invalidated',
-};

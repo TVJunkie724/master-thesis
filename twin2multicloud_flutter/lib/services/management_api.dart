@@ -158,24 +158,12 @@ abstract interface class OptimizationApi {
 }
 
 abstract interface class ArchitectureApi {
-  Future<List<ArchitectureProfileSummary>> listArchitectureProfiles();
-
   Future<ArchitectureProfileDetail> getArchitectureProfile(
     String profileId,
     String profileVersion,
   );
 
   Future<TwinArchitectureSelection> getTwinArchitectureSelection(String twinId);
-
-  Future<ArchitectureProfileChangePreview> previewTwinArchitectureProfileChange(
-    String twinId,
-    ArchitectureProfileChangePreviewRequest request,
-  );
-
-  Future<ArchitectureProfileSelectionResult> selectTwinArchitectureProfile(
-    String twinId,
-    ArchitectureProfileSelectRequest request,
-  );
 
   Future<ResolvedTwinArchitectureRead> getSelectedResolvedArchitecture(
     String twinId,

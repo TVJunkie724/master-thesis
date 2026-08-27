@@ -111,36 +111,6 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
   // STEP 2 HANDLERS
   // ============================================================
 
-  Future<void> _onPricingHealthLoadRequested(
-    WizardPricingHealthLoadRequested event,
-    Emitter<WizardState> emit,
-  ) async {
-    if (state.isPricingHealthLoading) return;
-    emit(
-      state.copyWith(
-        isPricingHealthLoading: true,
-        clearPricingHealthError: true,
-      ),
-    );
-    try {
-      final health = await _api.getPricingHealth();
-      emit(
-        state.copyWith(
-          pricingHealth: health,
-          isPricingHealthLoading: false,
-          clearPricingHealthError: true,
-        ),
-      );
-    } catch (error) {
-      emit(
-        state.copyWith(
-          isPricingHealthLoading: false,
-          pricingHealthError: ApiErrorHandler.extractMessage(error),
-        ),
-      );
-    }
-  }
-
   void _onCalcParamsChanged(
     WizardCalcParamsChanged event,
     Emitter<WizardState> emit,
@@ -204,15 +174,6 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
       );
       return;
     }
-    if (state.architectureInvalidatedWorkloadFieldIds.isNotEmpty) {
-      emit(
-        state.copyWith(
-          errorMessage:
-              'Review the workload fields invalidated by the profile change before calculating.',
-        ),
-      );
-      return;
-    }
     if (!state.architectureExtensionBindingsReady) {
       emit(
         state.copyWith(
@@ -222,16 +183,6 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
       );
       return;
     }
-    if (!state.pricingCanCalculate) {
-      emit(
-        state.copyWith(
-          errorMessage:
-              'Pricing data is not ready for calculation. Retry pricing readiness.',
-        ),
-      );
-      return;
-    }
-
     final requestedParams = state.calcParams!;
     emit(
       state.copyWith(

@@ -1,59 +1,61 @@
 part of '../wizard_bloc.dart';
 
 extension _WizardArchitectureProfileHandlers on WizardBloc {
-  Future<void> _onArchitectureProfilesLoadRequested(
-    WizardArchitectureProfilesLoadRequested event,
+  static const _canonicalProfileId = 'six-layer-eventing';
+  static const _canonicalProfileVersion = '1';
+
+  Future<void> _onCanonicalArchitectureLoadRequested(
+    WizardCanonicalArchitectureLoadRequested event,
     Emitter<WizardState> emit,
   ) async {
-    final generation = ++_architectureCatalogGeneration;
+    final generation = ++_architectureDetailGeneration;
     emit(
       state.copyWith(
-        architectureCatalogPhase: ArchitectureCatalogPhase.loading,
-        clearArchitectureCatalogError: true,
+        architectureDetailPhase: ArchitectureDetailPhase.loading,
+        clearArchitectureProfileDetail: true,
+        clearArchitectureDetailError: true,
       ),
     );
 
     try {
-      final profiles = await _api.listArchitectureProfiles();
-      if (generation != _architectureCatalogGeneration) return;
+      final detail = await _api.getArchitectureProfile(
+        _canonicalProfileId,
+        _canonicalProfileVersion,
+      );
+      if (generation != _architectureDetailGeneration) return;
+      final canonicalRef = detail.summary.ref;
+      if (canonicalRef.id != _canonicalProfileId ||
+          canonicalRef.version != _canonicalProfileVersion) {
+        throw const AppException(
+          'Invalid API contract: the canonical architecture detail reference differs.',
+          code: 'ARCH_CANONICAL_CONTRACT_MISMATCH',
+        );
+      }
 
-      TwinArchitectureSelection? selection = state.architectureSelection;
+      TwinArchitectureSelection? selection;
       final twinId = state.twinId;
       if (twinId != null) {
         selection = await _api.getTwinArchitectureSelection(twinId);
-        if (generation != _architectureCatalogGeneration) return;
+        if (generation != _architectureDetailGeneration) return;
+        if (!_architectureRefsMatch(selection.profileRef, canonicalRef)) {
+          throw const AppException(
+            'This Twin does not use the canonical six-layer-eventing@1 architecture contract.',
+            code: 'ARCH_CANONICAL_SELECTION_MISMATCH',
+          );
+        }
       }
 
-      final selectedProfile = _profileForRef(profiles, selection?.profileRef);
       emit(
         state.copyWith(
-          architectureCatalogPhase: profiles.isEmpty
-              ? ArchitectureCatalogPhase.empty
-              : ArchitectureCatalogPhase.ready,
-          architectureProfiles: List.unmodifiable(profiles),
+          architectureDetailPhase: ArchitectureDetailPhase.ready,
+          architectureProfileDetail: detail,
           architectureSelection: selection,
           clearArchitectureSelection: selection == null,
-          architectureDetailPhase: selectedProfile == null
-              ? ArchitectureDetailPhase.idle
-              : ArchitectureDetailPhase.loading,
-          architectureDetailAcknowledged:
-              selectedProfile != null &&
-                  state.architectureProfileDetail != null &&
-                  _architectureRefsMatch(
-                    state.architectureProfileDetail!.summary.ref,
-                    selectedProfile.ref,
-                  )
-              ? state.architectureDetailAcknowledged
-              : false,
-          clearArchitectureProfileDetail: selectedProfile == null,
           clearArchitectureDetailError: true,
-          clearArchitectureCatalogError: true,
+          clearError: true,
         ),
       );
 
-      if (selectedProfile != null) {
-        add(WizardArchitectureProfileDetailLoadRequested(selectedProfile.ref));
-      }
       final selectedRun = state.deploymentReview.ready
           ? state.deploymentRun
           : null;
@@ -62,312 +64,17 @@ extension _WizardArchitectureProfileHandlers on WizardBloc {
         add(WizardResolvedArchitectureLoadRequested(runId: selectedRun.id));
       }
     } catch (error) {
-      if (generation != _architectureCatalogGeneration) return;
-      emit(
-        state.copyWith(
-          architectureCatalogPhase: ArchitectureCatalogPhase.error,
-          architectureCatalogError: ApiErrorHandler.extractMessage(error),
-        ),
-      );
-    }
-  }
-
-  Future<void> _onArchitectureProfileDetailLoadRequested(
-    WizardArchitectureProfileDetailLoadRequested event,
-    Emitter<WizardState> emit,
-  ) async {
-    if (_profileForRef(state.architectureProfiles, event.profileRef) == null) {
+      if (generation != _architectureDetailGeneration) return;
+      final message = ApiErrorHandler.extractMessage(error);
       emit(
         state.copyWith(
           architectureDetailPhase: ArchitectureDetailPhase.error,
-          architectureDetailError:
-              'This architecture profile is not active and cannot be opened.',
+          architectureDetailError: message,
+          errorMessage: 'Canonical architecture unavailable: $message',
           clearArchitectureProfileDetail: true,
+          clearArchitectureSelection: true,
         ),
       );
-      return;
-    }
-
-    final generation = ++_architectureDetailGeneration;
-    final retainsAcknowledgement =
-        state.architectureProfileDetail != null &&
-        _architectureRefsMatch(
-          state.architectureProfileDetail!.summary.ref,
-          event.profileRef,
-        );
-    emit(
-      state.copyWith(
-        architectureDetailPhase: ArchitectureDetailPhase.loading,
-        architectureDetailAcknowledged: retainsAcknowledgement
-            ? state.architectureDetailAcknowledged
-            : false,
-        clearArchitectureProfileDetail: !retainsAcknowledgement,
-        clearArchitectureDetailError: true,
-      ),
-    );
-
-    try {
-      final detail = await _api.getArchitectureProfile(
-        event.profileRef.id,
-        event.profileRef.version,
-      );
-      if (generation != _architectureDetailGeneration) return;
-      if (!_architectureRefsMatch(detail.summary.ref, event.profileRef)) {
-        throw const FormatException(
-          'Invalid API contract: architecture profile detail reference differs.',
-        );
-      }
-      emit(
-        state.copyWith(
-          architectureDetailPhase: ArchitectureDetailPhase.ready,
-          architectureProfileDetail: detail,
-          clearArchitectureDetailError: true,
-        ),
-      );
-    } catch (error) {
-      if (generation != _architectureDetailGeneration) return;
-      emit(
-        state.copyWith(
-          architectureDetailPhase: ArchitectureDetailPhase.error,
-          architectureDetailError: ApiErrorHandler.extractMessage(error),
-          clearArchitectureProfileDetail: true,
-        ),
-      );
-    }
-  }
-
-  void _onArchitectureUnderstandingAcknowledged(
-    WizardArchitectureUnderstandingAcknowledged event,
-    Emitter<WizardState> emit,
-  ) {
-    final selected = state.architectureSelection?.profileRef;
-    final detail = state.architectureProfileDetail?.summary.ref;
-    if (state.architectureDetailPhase != ArchitectureDetailPhase.ready ||
-        selected == null ||
-        detail == null ||
-        !_architectureRefsMatch(selected, detail) ||
-        state.architectureDetailAcknowledged) {
-      return;
-    }
-    emit(state.copyWith(architectureDetailAcknowledged: true));
-  }
-
-  Future<void> _onArchitectureProfileSelected(
-    WizardArchitectureProfileSelected event,
-    Emitter<WizardState> emit,
-  ) async {
-    final target = _profileForRef(state.architectureProfiles, event.profileRef);
-    final current = state.architectureSelection;
-    final twinId = state.twinId;
-    if (target == null) {
-      emit(
-        state.copyWith(
-          architectureChangePhase: ArchitectureChangePhase.error,
-          architectureChangeError:
-              'This architecture profile is not active and cannot be selected.',
-          clearArchitectureChangePreview: true,
-        ),
-      );
-      return;
-    }
-    if (current != null &&
-        _architectureRefsMatch(current.profileRef, event.profileRef)) {
-      return;
-    }
-    if ({
-      ArchitectureChangePhase.previewing,
-      ArchitectureChangePhase.awaitingConfirmation,
-      ArchitectureChangePhase.submitting,
-    }.contains(state.architectureChangePhase)) {
-      return;
-    }
-    if (twinId == null || current == null) {
-      emit(
-        state.copyWith(
-          architectureChangePhase: ArchitectureChangePhase.error,
-          architectureChangeError:
-              'Save the Twin draft before selecting an architecture profile.',
-          clearArchitectureChangePreview: true,
-        ),
-      );
-      return;
-    }
-
-    emit(
-      state.copyWith(
-        architectureChangePhase: ArchitectureChangePhase.previewing,
-        clearArchitectureChangePreview: true,
-        clearArchitectureChangeError: true,
-      ),
-    );
-    try {
-      final preview = await _api.previewTwinArchitectureProfileChange(
-        twinId,
-        ArchitectureProfileChangePreviewRequest(
-          profileId: target.profileId,
-          profileVersion: target.profileVersion,
-          expectedRevision: current.revision,
-        ),
-      );
-      if (!_architectureRefsMatch(preview.current, current.profileRef) ||
-          !_architectureRefsMatch(preview.target, target.ref) ||
-          preview.expectedRevision != current.revision) {
-        throw const FormatException(
-          'Invalid API contract: architecture profile preview differs.',
-        );
-      }
-      emit(
-        state.copyWith(
-          architectureChangePhase: ArchitectureChangePhase.awaitingConfirmation,
-          architectureChangePreview: preview,
-          clearArchitectureChangeError: true,
-        ),
-      );
-    } catch (error) {
-      if (_isArchitectureConflict(error)) {
-        await _reloadArchitectureSelectionAfterConflict(emit);
-        return;
-      }
-      emit(
-        state.copyWith(
-          architectureChangePhase: ArchitectureChangePhase.error,
-          architectureChangeError: ApiErrorHandler.extractMessage(error),
-          clearArchitectureChangePreview: true,
-        ),
-      );
-    }
-  }
-
-  Future<void> _onArchitectureProfileChangeConfirmed(
-    WizardArchitectureProfileChangeConfirmed event,
-    Emitter<WizardState> emit,
-  ) async {
-    final preview = state.architectureChangePreview;
-    final twinId = state.twinId;
-    if (preview == null ||
-        twinId == null ||
-        state.architectureChangePhase !=
-            ArchitectureChangePhase.awaitingConfirmation) {
-      return;
-    }
-
-    emit(
-      state.copyWith(
-        architectureChangePhase: ArchitectureChangePhase.submitting,
-        clearArchitectureChangeError: true,
-      ),
-    );
-    try {
-      final result = await _api.selectTwinArchitectureProfile(
-        twinId,
-        ArchitectureProfileSelectRequest.fromPreview(preview),
-      );
-      if (!_architectureRefsMatch(
-        result.selection.profileRef,
-        preview.target,
-      )) {
-        throw const FormatException(
-          'Invalid API contract: selected architecture profile differs.',
-        );
-      }
-
-      final unbound = result.unboundExtensionSlotIds.toSet();
-      final invalidatedRunIsSelected =
-          result.invalidatedCalculationRunId != null &&
-          result.invalidatedCalculationRunId == state.deploymentRun?.id;
-      _resolvedArchitectureGeneration++;
-      emit(
-        state.copyWith(
-          architectureSelection: result.selection,
-          architectureDetailPhase: ArchitectureDetailPhase.loading,
-          architectureDetailAcknowledged: false,
-          architectureChangePhase: ArchitectureChangePhase.idle,
-          architectureInvalidatedWorkloadFieldIds: Set.unmodifiable(
-            result.clearedWorkloadFieldIds,
-          ),
-          extensionBindings: state.extensionBindings
-              .where((binding) => !unbound.contains(binding.slotId))
-              .toList(growable: false),
-          extensionPhases: {
-            ...state.extensionPhases,
-            for (final slotId in unbound)
-              slotId: UserFunctionWorkflowPhase.draft,
-          },
-          clearArchitectureChangePreview: true,
-          clearArchitectureChangeError: true,
-          clearArchitectureProfileDetail: true,
-          clearArchitectureDetailError: true,
-          clearCalcResult: invalidatedRunIsSelected,
-          clearOptimizationResultData: invalidatedRunIsSelected,
-          clearDeploymentRun: invalidatedRunIsSelected,
-          clearDeploymentRunSelectionError: invalidatedRunIsSelected,
-          resolvedArchitecturePhase: ResolvedArchitecturePhase.idle,
-          clearResolvedArchitecture: true,
-          clearResolvedArchitectureError: true,
-          step3Invalidated:
-              result.deploymentReadinessState == 'invalidated' ||
-              state.step3Invalidated,
-          hasUnsavedChanges: true,
-          warningMessage: _profileChangeWarning(result),
-        ),
-      );
-      add(
-        WizardArchitectureProfileDetailLoadRequested(
-          result.selection.profileRef,
-        ),
-      );
-    } catch (error) {
-      if (_isArchitectureConflict(error)) {
-        await _reloadArchitectureSelectionAfterConflict(emit);
-        return;
-      }
-      emit(
-        state.copyWith(
-          architectureChangePhase: ArchitectureChangePhase.error,
-          architectureChangeError: ApiErrorHandler.extractMessage(error),
-        ),
-      );
-    }
-  }
-
-  void _onArchitectureProfileChangeCancelled(
-    WizardArchitectureProfileChangeCancelled event,
-    Emitter<WizardState> emit,
-  ) {
-    emit(
-      state.copyWith(
-        architectureChangePhase: ArchitectureChangePhase.idle,
-        clearArchitectureChangePreview: true,
-        clearArchitectureChangeError: true,
-      ),
-    );
-  }
-
-  Future<void> _reloadArchitectureSelectionAfterConflict(
-    Emitter<WizardState> emit,
-  ) async {
-    final twinId = state.twinId;
-    emit(
-      state.copyWith(
-        architectureChangePhase: ArchitectureChangePhase.conflict,
-        architectureChangeError:
-            'The architecture selection changed. Review a fresh preview before confirming again.',
-        clearArchitectureChangePreview: true,
-      ),
-    );
-    if (twinId == null) return;
-    try {
-      final selection = await _api.getTwinArchitectureSelection(twinId);
-      emit(state.copyWith(architectureSelection: selection));
-      final active = _profileForRef(
-        state.architectureProfiles,
-        selection.profileRef,
-      );
-      if (active != null) {
-        add(WizardArchitectureProfileDetailLoadRequested(active.ref));
-      }
-    } catch (_) {
-      // Preserve the conflict. A catalog retry remains the recovery action.
     }
   }
 
@@ -460,22 +167,6 @@ extension _WizardArchitectureProfileHandlers on WizardBloc {
     }
   }
 
-  ArchitectureProfileSummary? _profileForRef(
-    List<ArchitectureProfileSummary> profiles,
-    PinnedArchitectureReference? ref,
-  ) {
-    if (ref == null) return null;
-    for (final profile in profiles) {
-      if (_architectureRefsMatch(profile.ref, ref)) return profile;
-    }
-    return null;
-  }
-
-  bool _isArchitectureConflict(Object error) => {
-    'ARCH_SELECTION_REVISION_CONFLICT',
-    'ARCH_SELECTION_INVALIDATION_STALE',
-  }.contains(_architectureErrorCode(error));
-
   String? _architectureErrorCode(Object error) {
     if (error is CodedUserFacingException) return error.code;
     if (error is AppException) return error.code;
@@ -491,19 +182,6 @@ extension _WizardArchitectureProfileHandlers on WizardBloc {
       }
     }
     return null;
-  }
-
-  String _profileChangeWarning(ArchitectureProfileSelectionResult result) {
-    final categories = <String>[
-      if (result.clearedWorkloadFieldIds.isNotEmpty) 'workload fields',
-      if (result.unboundExtensionSlotIds.isNotEmpty) 'user-function bindings',
-      if (result.invalidatedCalculationRunId != null) 'the selected run',
-      if (result.deploymentReadinessState == 'invalidated')
-        'deployment readiness',
-    ];
-    return categories.isEmpty
-        ? 'Architecture profile changed.'
-        : 'Architecture profile changed and invalidated ${categories.join(', ')}.';
   }
 
   List<String> _unconfiguredResolvedProviders(

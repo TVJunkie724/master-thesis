@@ -42,7 +42,6 @@ class DemoManagementApi implements ManagementApi {
   final List<UserFunctionArtifact> _extensionArtifacts = [];
   final Map<String, TwinExtensionBinding> _extensionBindings = {};
   final Map<String, ResolvedTwinArchitectureRead> _resolvedArchitectures = {};
-  final Map<String, TwinArchitectureSelection> _architectureSelections = {};
   final Map<String, List<TelemetryVerificationRecord>> _telemetryVerifications =
       {};
 
@@ -100,16 +99,6 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<List<ArchitectureProfileSummary>> listArchitectureProfiles() async {
-    await _pause();
-    return [
-      ArchitectureProfileSummary.fromJson(
-        _architectureProfileSummaryJson('six-layer-eventing', '1'),
-      ),
-    ];
-  }
-
-  @override
   Future<ArchitectureProfileDetail> getArchitectureProfile(
     String profileId,
     String profileVersion,
@@ -126,8 +115,6 @@ class DemoManagementApi implements ManagementApi {
     String twinId,
   ) async {
     await _pause();
-    final existing = _architectureSelections[twinId];
-    if (existing != null) return existing;
     final twin = store.twin(twinId);
     final selectedAt = DateTime.parse(twin['created_at'].toString()).toUtc();
     final updatedAt = DateTime.parse(twin['updated_at'].toString()).toUtc();
@@ -144,71 +131,6 @@ class DemoManagementApi implements ManagementApi {
       updatedAt: updatedAt,
       selectedByUserId: store.user['id'].toString(),
     );
-  }
-
-  @override
-  Future<ArchitectureProfileChangePreview> previewTwinArchitectureProfileChange(
-    String twinId,
-    ArchitectureProfileChangePreviewRequest request,
-  ) async {
-    await _pause();
-    store.twin(twinId);
-    final current = await getTwinArchitectureSelection(twinId);
-    final target = _profileReference(request.profileId, request.profileVersion);
-    if (request.expectedRevision != current.revision) {
-      throw const DemoApiException(
-        'ARCH_SELECTION_REVISION_CONFLICT',
-        'The architecture selection revision is stale.',
-      );
-    }
-    return ArchitectureProfileChangePreview.fromJson(
-      _architecturePreviewJson(current, target),
-    );
-  }
-
-  @override
-  Future<ArchitectureProfileSelectionResult> selectTwinArchitectureProfile(
-    String twinId,
-    ArchitectureProfileSelectRequest request,
-  ) async {
-    await _pause();
-    store.twin(twinId);
-    final current = await getTwinArchitectureSelection(twinId);
-    final target = _profileReference(request.profileId, request.profileVersion);
-    final preview = _architecturePreviewJson(current, target);
-    if (request.expectedRevision != current.revision) {
-      throw const DemoApiException(
-        'ARCH_SELECTION_REVISION_CONFLICT',
-        'The architecture selection revision is stale.',
-      );
-    }
-    if (request.invalidationDigest != preview['invalidation_digest']) {
-      throw const DemoApiException(
-        'ARCH_SELECTION_INVALIDATION_STALE',
-        'The profile-change preview is stale.',
-      );
-    }
-    final unchanged = current.profileRef == target;
-    final now = store.clock().toUtc();
-    final selection = unchanged
-        ? current
-        : TwinArchitectureSelection(
-            twinId: twinId,
-            profileRef: target,
-            revision: current.revision + 1,
-            selectedAt: now,
-            updatedAt: now,
-            selectedByUserId: store.user['id'].toString(),
-          );
-    _architectureSelections[twinId] = selection;
-    return ArchitectureProfileSelectionResult.fromJson({
-      'selection': _architectureSelectionJson(selection),
-      'revision': selection.revision,
-      'invalidated_calculation_run_id': null,
-      'unbound_extension_slot_ids': <String>[],
-      'cleared_workload_field_ids': <String>[],
-      'deployment_readiness_state': 'unchanged',
-    });
   }
 
   @override
@@ -1185,16 +1107,6 @@ class DemoManagementApi implements ManagementApi {
   ) async {
     await _pause();
     store.twin(twinId);
-    final selectedProfile = _architectureSelections[twinId]?.profileRef;
-    if (selectedProfile != null &&
-        (selectedProfile.id != 'six-layer-eventing' ||
-            selectedProfile.version != '1')) {
-      throw const DemoApiException(
-        'DEMO_PROFILE_CALCULATION_UNAVAILABLE',
-        'Six-layer calculations require the connected local stack; demo mode '
-            'currently provides profile comparison only.',
-      );
-    }
     if (!params.isSixLayer) {
       throw const DemoApiException(
         'ARCH_WORKLOAD_INCOMPATIBLE',
@@ -2427,64 +2339,6 @@ class DemoManagementApi implements ManagementApi {
             : '${part.substring(0, 1).toUpperCase()}${part.substring(1)}',
       )
       .join(' ');
-
-  Map<String, dynamic> _architectureSelectionJson(
-    TwinArchitectureSelection selection,
-  ) => {
-    'twin_id': selection.twinId,
-    'profile_id': selection.profileRef.id,
-    'profile_version': selection.profileRef.version,
-    'profile_digest': selection.profileRef.digest,
-    'revision': selection.revision,
-    'selected_at': selection.selectedAt.toIso8601String(),
-    'updated_at': selection.updatedAt.toIso8601String(),
-    'selected_by_user_id': selection.selectedByUserId,
-  };
-
-  PinnedArchitectureReference _profileReference(
-    String profileId,
-    String profileVersion,
-  ) {
-    final profile = store.architectureProfile(profileId, profileVersion);
-    return PinnedArchitectureReference(
-      id: profileId,
-      version: profileVersion,
-      digest: profile['content_digest'].toString(),
-    );
-  }
-
-  Map<String, dynamic> _architecturePreviewJson(
-    TwinArchitectureSelection selection,
-    PinnedArchitectureReference target,
-  ) {
-    final currentReference = {
-      'id': selection.profileRef.id,
-      'version': selection.profileRef.version,
-      'digest': selection.profileRef.digest,
-    };
-    final targetReference = {
-      'id': target.id,
-      'version': target.version,
-      'digest': target.digest,
-    };
-    final digestSeed = jsonEncode({
-      'profile_ref': targetReference,
-      'expected_revision': selection.revision,
-      'incompatible_workload_fields': <String>[],
-      'incompatible_extension_bindings': <String>[],
-    });
-    return {
-      'current': currentReference,
-      'target': targetReference,
-      'expected_revision': selection.revision,
-      'incompatible_workload_fields': <Map<String, dynamic>>[],
-      'incompatible_extension_bindings': <Map<String, dynamic>>[],
-      'selected_calculation_run_id': null,
-      'deployment_readiness_sections': <String>[],
-      'invalidation_digest':
-          'sha256:${sha256.convert(utf8.encode(digestSeed))}',
-    };
-  }
 
   void _replaceCurrency(Object? value, String currency) {
     if (value is Map) {

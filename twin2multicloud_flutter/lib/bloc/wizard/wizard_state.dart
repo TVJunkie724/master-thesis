@@ -13,7 +13,6 @@ import '../../models/cloud_connection.dart';
 import '../../models/deployer_artifact_validation.dart';
 import '../../models/deployer_config.dart';
 import '../../models/optimizer_config.dart';
-import '../../models/pricing_health.dart';
 import '../../models/provider_capability.dart';
 import '../../models/resolved_deployment_specification.dart';
 import '../../models/resolved_twin_architecture.dart';
@@ -32,18 +31,7 @@ enum WizardStatus { initial, loading, ready, saving, error }
 
 enum SceneGlbCommandPhase { idle, uploading, deleting }
 
-enum ArchitectureCatalogPhase { initial, loading, ready, empty, error }
-
 enum ArchitectureDetailPhase { idle, loading, ready, error }
-
-enum ArchitectureChangePhase {
-  idle,
-  previewing,
-  awaitingConfirmation,
-  submitting,
-  conflict,
-  error,
-}
 
 enum ResolvedArchitecturePhase { idle, loading, ready, incompatible, error }
 
@@ -115,7 +103,6 @@ class SceneGlbCommandState extends Equatable {
 
 /// Immutable state for the wizard BLoC
 class WizardState extends Equatable {
-  static const requiredPricingProviders = {'aws', 'azure', 'gcp'};
   // === Mode & Navigation ===
   final WizardMode mode;
   final int currentStep; // 0, 1, 2
@@ -156,26 +143,15 @@ class WizardState extends Equatable {
   final OptimizerDeploymentRunData? savedDeploymentRun;
   final bool isSelectingDeploymentRun;
   final String? deploymentRunSelectionError;
-  final PricingHealthResponse? pricingHealth;
-  final bool isPricingHealthLoading;
-  final String? pricingHealthError;
   final PlatformProviderCapabilities? providerCapabilities;
   final bool providerCapabilitiesLoading;
   final String? providerCapabilitiesError;
 
   // === Architecture profile workflow ===
-  final ArchitectureCatalogPhase architectureCatalogPhase;
-  final List<ArchitectureProfileSummary> architectureProfiles;
-  final String? architectureCatalogError;
   final TwinArchitectureSelection? architectureSelection;
   final ArchitectureDetailPhase architectureDetailPhase;
   final ArchitectureProfileDetail? architectureProfileDetail;
   final String? architectureDetailError;
-  final bool architectureDetailAcknowledged;
-  final ArchitectureChangePhase architectureChangePhase;
-  final ArchitectureProfileChangePreview? architectureChangePreview;
-  final String? architectureChangeError;
-  final Set<String> architectureInvalidatedWorkloadFieldIds;
   final ResolvedArchitecturePhase resolvedArchitecturePhase;
   final ResolvedTwinArchitectureRead? resolvedArchitecture;
   final String? resolvedArchitectureError;
@@ -277,24 +253,13 @@ class WizardState extends Equatable {
     this.savedDeploymentRun,
     this.isSelectingDeploymentRun = false,
     this.deploymentRunSelectionError,
-    this.pricingHealth,
-    this.isPricingHealthLoading = false,
-    this.pricingHealthError,
     this.providerCapabilities,
     this.providerCapabilitiesLoading = false,
     this.providerCapabilitiesError,
-    this.architectureCatalogPhase = ArchitectureCatalogPhase.initial,
-    this.architectureProfiles = const [],
-    this.architectureCatalogError,
     this.architectureSelection,
     this.architectureDetailPhase = ArchitectureDetailPhase.idle,
     this.architectureProfileDetail,
     this.architectureDetailError,
-    this.architectureDetailAcknowledged = false,
-    this.architectureChangePhase = ArchitectureChangePhase.idle,
-    this.architectureChangePreview,
-    this.architectureChangeError,
-    this.architectureInvalidatedWorkloadFieldIds = const {},
     this.resolvedArchitecturePhase = ResolvedArchitecturePhase.idle,
     this.resolvedArchitecture,
     this.resolvedArchitectureError,
@@ -358,16 +323,15 @@ class WizardState extends Equatable {
       twinName?.trim().isNotEmpty == true &&
       architectureWorkflowReady;
 
-  ArchitectureProfileSummary? get selectedArchitectureSummary {
+  bool get hasActiveArchitectureProfile {
     final selected = architectureSelection?.profileRef;
-    if (selected == null) return null;
-    for (final profile in architectureProfiles) {
-      if (_sameArchitectureRef(profile.ref, selected)) return profile;
-    }
-    return null;
+    final detail = architectureProfileDetail?.summary.ref;
+    return selected != null &&
+        detail != null &&
+        _sameArchitectureRef(selected, detail) &&
+        selected.id == 'six-layer-eventing' &&
+        selected.version == '1';
   }
-
-  bool get hasActiveArchitectureProfile => selectedArchitectureSummary != null;
 
   bool get usesSixLayerProfile {
     if (!hasActiveArchitectureProfile) return false;
@@ -375,17 +339,15 @@ class WizardState extends Equatable {
     return reference.id == 'six-layer-eventing' && reference.version == '1';
   }
 
-  bool get hasHistoricalArchitectureSelection =>
-      architectureSelection != null && !hasActiveArchitectureProfile;
-
   bool get architectureWorkflowReady {
     final selected = architectureSelection?.profileRef;
     final detail = architectureProfileDetail?.summary.ref;
-    return architectureCatalogPhase == ArchitectureCatalogPhase.ready &&
+    return architectureDetailPhase == ArchitectureDetailPhase.ready &&
         selected != null &&
         detail != null &&
         _sameArchitectureRef(selected, detail) &&
-        architectureDetailAcknowledged;
+        selected.id == 'six-layer-eventing' &&
+        selected.version == '1';
   }
 
   Set<String> get architectureWorkloadFieldIds => Set.unmodifiable(
@@ -498,34 +460,13 @@ class WizardState extends Equatable {
     )..remove(artifactId),
   );
 
-  bool get pricingCanCalculate {
-    if (isPricingHealthLoading || pricingHealthError != null) return false;
-    final health = pricingHealth;
-    if (health?.schemaVersion != PricingHealthResponse.supportedSchemaVersion) {
-      return false;
-    }
-    final providers = health?.providers;
-    if (providers == null) return false;
-    return requiredPricingProviders.every(
-      (provider) => providers[provider]?.canCalculate == true,
-    );
-  }
-
-  List<String> get pricingBlockingProviders => requiredPricingProviders
-      .where(
-        (provider) => pricingHealth?.providers[provider]?.canCalculate != true,
-      )
-      .toList(growable: false);
-
   bool get canRequestCalculation =>
       calcParams != null &&
       isCalcFormValid &&
       architectureWorkflowReady &&
-      architectureInvalidatedWorkloadFieldIds.isEmpty &&
       architectureExtensionBindingsReady &&
       !isCalculating &&
-      !isSelectingDeploymentRun &&
-      pricingCanCalculate;
+      !isSelectingDeploymentRun;
 
   PlatformLayerCapability? providerCapability(String? provider, String layer) {
     if (provider == null || providerCapabilitiesError != null) return null;
@@ -801,32 +742,17 @@ class WizardState extends Equatable {
     OptimizerDeploymentRunData? savedDeploymentRun,
     bool? isSelectingDeploymentRun,
     String? deploymentRunSelectionError,
-    PricingHealthResponse? pricingHealth,
-    bool? isPricingHealthLoading,
-    String? pricingHealthError,
-    bool clearPricingHealthError = false,
     PlatformProviderCapabilities? providerCapabilities,
     bool? providerCapabilitiesLoading,
     String? providerCapabilitiesError,
     bool clearProviderCapabilitiesError = false,
-    ArchitectureCatalogPhase? architectureCatalogPhase,
-    List<ArchitectureProfileSummary>? architectureProfiles,
-    String? architectureCatalogError,
-    bool clearArchitectureCatalogError = false,
     TwinArchitectureSelection? architectureSelection,
     bool clearArchitectureSelection = false,
     ArchitectureDetailPhase? architectureDetailPhase,
     ArchitectureProfileDetail? architectureProfileDetail,
     String? architectureDetailError,
-    bool? architectureDetailAcknowledged,
     bool clearArchitectureProfileDetail = false,
     bool clearArchitectureDetailError = false,
-    ArchitectureChangePhase? architectureChangePhase,
-    ArchitectureProfileChangePreview? architectureChangePreview,
-    String? architectureChangeError,
-    Set<String>? architectureInvalidatedWorkloadFieldIds,
-    bool clearArchitectureChangePreview = false,
-    bool clearArchitectureChangeError = false,
     ResolvedArchitecturePhase? resolvedArchitecturePhase,
     ResolvedTwinArchitectureRead? resolvedArchitecture,
     String? resolvedArchitectureError,
@@ -946,24 +872,12 @@ class WizardState extends Equatable {
       deploymentRunSelectionError: clearDeploymentRunSelectionError
           ? null
           : (deploymentRunSelectionError ?? this.deploymentRunSelectionError),
-      pricingHealth: pricingHealth ?? this.pricingHealth,
-      isPricingHealthLoading:
-          isPricingHealthLoading ?? this.isPricingHealthLoading,
-      pricingHealthError: clearPricingHealthError
-          ? null
-          : (pricingHealthError ?? this.pricingHealthError),
       providerCapabilities: providerCapabilities ?? this.providerCapabilities,
       providerCapabilitiesLoading:
           providerCapabilitiesLoading ?? this.providerCapabilitiesLoading,
       providerCapabilitiesError: clearProviderCapabilitiesError
           ? null
           : (providerCapabilitiesError ?? this.providerCapabilitiesError),
-      architectureCatalogPhase:
-          architectureCatalogPhase ?? this.architectureCatalogPhase,
-      architectureProfiles: architectureProfiles ?? this.architectureProfiles,
-      architectureCatalogError: clearArchitectureCatalogError
-          ? null
-          : (architectureCatalogError ?? this.architectureCatalogError),
       architectureSelection: clearArchitectureSelection
           ? null
           : (architectureSelection ?? this.architectureSelection),
@@ -975,19 +889,6 @@ class WizardState extends Equatable {
       architectureDetailError: clearArchitectureDetailError
           ? null
           : (architectureDetailError ?? this.architectureDetailError),
-      architectureDetailAcknowledged:
-          architectureDetailAcknowledged ?? this.architectureDetailAcknowledged,
-      architectureChangePhase:
-          architectureChangePhase ?? this.architectureChangePhase,
-      architectureChangePreview: clearArchitectureChangePreview
-          ? null
-          : (architectureChangePreview ?? this.architectureChangePreview),
-      architectureChangeError: clearArchitectureChangeError
-          ? null
-          : (architectureChangeError ?? this.architectureChangeError),
-      architectureInvalidatedWorkloadFieldIds:
-          architectureInvalidatedWorkloadFieldIds ??
-          this.architectureInvalidatedWorkloadFieldIds,
       resolvedArchitecturePhase:
           resolvedArchitecturePhase ?? this.resolvedArchitecturePhase,
       resolvedArchitecture: clearResolvedArchitecture
@@ -1106,24 +1007,13 @@ class WizardState extends Equatable {
     savedDeploymentRun,
     isSelectingDeploymentRun,
     deploymentRunSelectionError,
-    pricingHealth,
-    isPricingHealthLoading,
-    pricingHealthError,
     providerCapabilities,
     providerCapabilitiesLoading,
     providerCapabilitiesError,
-    architectureCatalogPhase,
-    architectureProfiles,
-    architectureCatalogError,
     architectureSelection,
     architectureDetailPhase,
     architectureProfileDetail,
     architectureDetailError,
-    architectureDetailAcknowledged,
-    architectureChangePhase,
-    architectureChangePreview,
-    architectureChangeError,
-    architectureInvalidatedWorkloadFieldIds,
     resolvedArchitecturePhase,
     resolvedArchitecture,
     resolvedArchitectureError,

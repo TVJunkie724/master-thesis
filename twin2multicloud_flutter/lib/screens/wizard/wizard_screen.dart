@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../bloc/wizard/wizard.dart';
 import '../../features/configuration_workspace/domain/configuration_journey.dart';
-import '../../features/configuration_workspace/presentation/architecture_profile_task.dart';
 import '../../features/configuration_workspace/presentation/cloud_access_task.dart';
 import '../../features/configuration_workspace/presentation/configuration_alert_stack.dart';
 import '../../features/configuration_workspace/presentation/configuration_navigation_bar.dart';
@@ -58,7 +57,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
   ConfigurationTaskId? _currentTaskId;
   _WorkspaceExitDestination? _pendingExitDestination;
   Timer? _notificationTimer;
-  String? _architectureCatalogContext;
+  String? _canonicalArchitectureContext;
   int? _extensionCatalogRevision;
 
   @override
@@ -77,13 +76,13 @@ class _WizardViewState extends ConsumerState<WizardView> {
       listener: _handleStateSideEffects,
       builder: (context, state) {
         final catalogContext = state.twinId ?? 'unpersisted';
-        if (_architectureCatalogContext != catalogContext &&
+        if (_canonicalArchitectureContext != catalogContext &&
             state.status == WizardStatus.ready) {
-          _architectureCatalogContext = catalogContext;
+          _canonicalArchitectureContext = catalogContext;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               context.read<WizardBloc>().add(
-                const WizardArchitectureProfilesLoadRequested(),
+                const WizardCanonicalArchitectureLoadRequested(),
               );
             }
           });
@@ -239,7 +238,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
           ? null
           : () => _handleTaskBack(context, state, journey),
       showCalculation:
-          journey.currentTaskId == ConfigurationTaskId.calculateAlternatives,
+          journey.currentTaskId == ConfigurationTaskId.calculateCostAllocation,
       isCalculating: state.isCalculating,
       calculationDisabledReason: _calculationDisabledReason(state),
       onCalculate: !commandInProgress && state.canRequestCalculation
@@ -276,25 +275,10 @@ class _WizardViewState extends ConsumerState<WizardView> {
       return 'Deployment selection verification in progress';
     }
     if (!state.architectureWorkflowReady) {
-      return 'Select and load an active architecture profile first';
-    }
-    if (state.architectureInvalidatedWorkloadFieldIds.isNotEmpty) {
-      return 'Review workload fields invalidated by the profile change';
+      return 'Verify the canonical six-layer-eventing@1 contract first';
     }
     if (!state.architectureExtensionBindingsReady) {
       return 'Bind and validate the required user logic first';
-    }
-    if (state.isPricingHealthLoading) return 'Checking pricing readiness';
-    if (state.pricingHealthError != null) {
-      return 'Retry pricing readiness before calculating';
-    }
-    if (!state.pricingCanCalculate) {
-      final providers = state.pricingBlockingProviders
-          .map((provider) => provider.toUpperCase())
-          .join(', ');
-      return providers.isEmpty
-          ? 'Pricing readiness is unavailable'
-          : 'Pricing unavailable for $providers';
     }
     if (!state.isCalcFormValid) return 'Fix form errors before calculating';
     if (state.calcParams == null) return 'Configure parameters first';
@@ -319,17 +303,16 @@ class _WizardViewState extends ConsumerState<WizardView> {
 
   Widget _buildTaskContent(BuildContext context, ConfigurationTaskId taskId) {
     return switch (taskId) {
-      ConfigurationTaskId.selectProfile ||
-      ConfigurationTaskId.understandArchitecture => ArchitectureProfileTask(
-        taskId: taskId,
-        onOpenTask: (target) => _selectTask(context, target),
-      ),
       ConfigurationTaskId.cloudAccess => const CloudAccessTask(),
       ConfigurationTaskId.scenarioAndCurrency ||
       ConfigurationTaskId.deviceTraffic ||
       ConfigurationTaskId.processing ||
       ConfigurationTaskId.retention ||
       ConfigurationTaskId.twinCapabilities => Step2Optimizer(taskId: taskId),
+      ConfigurationTaskId.calculateCostAllocation ||
+      ConfigurationTaskId.reviewImmutableResult => Step2Optimizer(
+        taskId: taskId,
+      ),
       ConfigurationTaskId.dataContracts ||
       ConfigurationTaskId.userLogic ||
       ConfigurationTaskId.twinAssets => Step3Deployer(taskId: taskId),
@@ -352,9 +335,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
       state.status == WizardStatus.loading ||
       state.status == WizardStatus.saving ||
       state.isCalculating ||
-      state.isSelectingDeploymentRun ||
-      state.architectureChangePhase == ArchitectureChangePhase.previewing ||
-      state.architectureChangePhase == ArchitectureChangePhase.submitting;
+      state.isSelectingDeploymentRun;
 
   Future<void> _requestExit(
     BuildContext context,

@@ -8,7 +8,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
-    'demo exposes the active Six-layer profile and pinned selection',
+    'demo exposes the canonical Six-layer contract and pinned selection',
     () async {
       final store = await DemoFixtureStore.load(
         DemoScenario.showcase,
@@ -16,19 +16,15 @@ void main() {
       );
       final api = DemoManagementApi(store: store, latency: Duration.zero);
 
-      final profiles = await api.listArchitectureProfiles();
-      expect(profiles, hasLength(1));
-      final sixLayer = profiles.singleWhere(
-        (profile) => profile.profileId == 'six-layer-eventing',
-      );
-      expect(sixLayer.availableProviders, hasLength(3));
-      expect(sixLayer.unsupportedProviders, isEmpty);
-      expect(sixLayer.profileVersion, '1');
-      expect(sixLayer.responsibilities, hasLength(6));
       final sixLayerDetail = await api.getArchitectureProfile(
         'six-layer-eventing',
         '1',
       );
+      final sixLayer = sixLayerDetail.summary;
+      expect(sixLayer.availableProviders, hasLength(3));
+      expect(sixLayer.unsupportedProviders, isEmpty);
+      expect(sixLayer.profileVersion, '1');
+      expect(sixLayer.responsibilities, hasLength(6));
       expect(sixLayerDetail.logicalComponents, hasLength(8));
       expect(sixLayerDetail.logicalEdges, hasLength(9));
       expect(

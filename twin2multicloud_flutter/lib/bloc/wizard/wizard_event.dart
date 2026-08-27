@@ -5,7 +5,6 @@ import 'dart:typed_data';
 
 import 'package:equatable/equatable.dart';
 
-import '../../models/architecture_profile.dart';
 import '../../models/calc_params.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/deployer_artifact_validation.dart';
@@ -38,38 +37,8 @@ class WizardProviderCapabilitiesLoadRequested extends WizardEvent {
   const WizardProviderCapabilitiesLoadRequested();
 }
 
-class WizardArchitectureProfilesLoadRequested extends WizardEvent {
-  const WizardArchitectureProfilesLoadRequested();
-}
-
-class WizardArchitectureProfileDetailLoadRequested extends WizardEvent {
-  final PinnedArchitectureReference profileRef;
-
-  const WizardArchitectureProfileDetailLoadRequested(this.profileRef);
-
-  @override
-  List<Object?> get props => [profileRef];
-}
-
-class WizardArchitectureUnderstandingAcknowledged extends WizardEvent {
-  const WizardArchitectureUnderstandingAcknowledged();
-}
-
-class WizardArchitectureProfileSelected extends WizardEvent {
-  final PinnedArchitectureReference profileRef;
-
-  const WizardArchitectureProfileSelected(this.profileRef);
-
-  @override
-  List<Object?> get props => [profileRef];
-}
-
-class WizardArchitectureProfileChangeConfirmed extends WizardEvent {
-  const WizardArchitectureProfileChangeConfirmed();
-}
-
-class WizardArchitectureProfileChangeCancelled extends WizardEvent {
-  const WizardArchitectureProfileChangeCancelled();
+class WizardCanonicalArchitectureLoadRequested extends WizardEvent {
+  const WizardCanonicalArchitectureLoadRequested();
 }
 
 class WizardResolvedArchitectureLoadRequested extends WizardEvent {
@@ -226,10 +195,6 @@ class WizardCloudConnectionDeleteRequested extends WizardEvent {
 // ============================================================
 // STEP 2: OPTIMIZER EVENTS
 // ============================================================
-
-class WizardPricingHealthLoadRequested extends WizardEvent {
-  const WizardPricingHealthLoadRequested();
-}
 
 /// Calculation parameters were changed
 class WizardCalcParamsChanged extends WizardEvent {

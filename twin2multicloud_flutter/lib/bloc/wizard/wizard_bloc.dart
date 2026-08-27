@@ -51,7 +51,6 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   final AppLogger _logger;
   final int _maxSceneGlbBytes;
   final int _maxProjectZipBytes;
-  int _architectureCatalogGeneration = 0;
   int _architectureDetailGeneration = 0;
   int _resolvedArchitectureGeneration = 0;
 
@@ -80,21 +79,8 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     on<WizardProviderCapabilitiesLoadRequested>(
       _onProviderCapabilitiesLoadRequested,
     );
-    on<WizardArchitectureProfilesLoadRequested>(
-      _onArchitectureProfilesLoadRequested,
-    );
-    on<WizardArchitectureProfileDetailLoadRequested>(
-      _onArchitectureProfileDetailLoadRequested,
-    );
-    on<WizardArchitectureUnderstandingAcknowledged>(
-      _onArchitectureUnderstandingAcknowledged,
-    );
-    on<WizardArchitectureProfileSelected>(_onArchitectureProfileSelected);
-    on<WizardArchitectureProfileChangeConfirmed>(
-      _onArchitectureProfileChangeConfirmed,
-    );
-    on<WizardArchitectureProfileChangeCancelled>(
-      _onArchitectureProfileChangeCancelled,
+    on<WizardCanonicalArchitectureLoadRequested>(
+      _onCanonicalArchitectureLoadRequested,
     );
     on<WizardResolvedArchitectureLoadRequested>(
       _onResolvedArchitectureLoadRequested,
@@ -122,7 +108,6 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     on<WizardCloudConnectionDeleteRequested>(_onCloudConnectionDeleteRequested);
 
     // === Step 2: Optimizer ===
-    on<WizardPricingHealthLoadRequested>(_onPricingHealthLoadRequested);
     on<WizardCalcParamsChanged>(_onCalcParamsChanged);
     on<WizardCalcFormValidChanged>(_onCalcFormValidChanged);
     on<WizardCalculateRequested>(_onCalculateRequested);

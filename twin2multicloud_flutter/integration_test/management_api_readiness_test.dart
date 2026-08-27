@@ -56,24 +56,6 @@ void main() {
       expect(_apiUri.fragment, isEmpty);
     });
 
-    testWidgets('decodes dashboard statistics with valid invariants', (
-      tester,
-    ) async {
-      final stats = await _readOrFail(
-        '/dashboard/stats',
-        _api.getDashboardStats,
-      );
-
-      expect(stats.totalTwins, greaterThanOrEqualTo(0));
-      expect(stats.deployedCount, greaterThanOrEqualTo(0));
-      expect(stats.draftCount, greaterThanOrEqualTo(0));
-      expect(stats.estimatedMonthlyCost, greaterThanOrEqualTo(0));
-      expect(
-        stats.totalTwins,
-        greaterThanOrEqualTo(stats.deployedCount + stats.draftCount),
-      );
-    });
-
     testWidgets('decodes canonical twin and configuration read models', (
       tester,
     ) async {

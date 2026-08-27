@@ -63,24 +63,5 @@ void main() {
         throwsFormatException,
       );
     });
-
-    test('round-trips exact revision-bound change commands', () {
-      final preview = ArchitectureProfileChangePreview.fromJson(
-        architecturePreviewJson(),
-      );
-      final request = ArchitectureProfileSelectRequest.fromPreview(preview);
-      final result = ArchitectureProfileSelectionResult.fromJson(
-        architectureSelectionResultJson(),
-      );
-
-      expect(request.toJson(), {
-        'profile_id': 'fixture-profile',
-        'profile_version': '2',
-        'expected_revision': 1,
-        'invalidation_digest': fixtureDigestB,
-      });
-      expect(result.revision, 2);
-      expect(result.clearedWorkloadFieldIds, ['legacy.field']);
-    });
   });
 }

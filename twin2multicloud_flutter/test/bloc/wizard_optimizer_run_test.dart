@@ -8,7 +8,6 @@ import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
 import 'package:twin2multicloud_flutter/core/app_logger.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/optimizer_config.dart';
-import 'package:twin2multicloud_flutter/models/pricing_health.dart';
 import 'package:twin2multicloud_flutter/models/resolved_deployment_specification.dart';
 import 'package:twin2multicloud_flutter/models/resolved_twin_architecture.dart';
 import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
@@ -35,7 +34,6 @@ void main() {
   });
   setUp(() {
     api = _MockApiService();
-    when(() => api.getPricingHealth()).thenAnswer((_) async => _health());
     when(() => api.getRunResolvedArchitecture(any())).thenAnswer((invocation) {
       final runId = invocation.positionalArguments.single as String;
       return Future.value(
@@ -306,7 +304,18 @@ void main() {
     await _prepare(bloc);
 
     bloc.add(const WizardCalculateRequested());
-    await bloc.stream.firstWhere((state) => state.deploymentReview.ready);
+    final resolvedState = await bloc.stream.firstWhere(
+      (state) =>
+          state.resolvedArchitecturePhase == ResolvedArchitecturePhase.ready ||
+          state.resolvedArchitecturePhase ==
+              ResolvedArchitecturePhase.incompatible ||
+          state.resolvedArchitecturePhase == ResolvedArchitecturePhase.error,
+    );
+    expect(
+      resolvedState.resolvedArchitectureReadyForSelectedRun,
+      isTrue,
+      reason: resolvedState.resolvedArchitectureError,
+    );
     bloc.add(const WizardGoToStep(2));
     await bloc.stream.firstWhere((state) => state.currentStep == 2);
 
@@ -337,7 +346,19 @@ void main() {
       await _prepare(bloc);
 
       bloc.add(const WizardCalculateRequested());
-      await bloc.stream.firstWhere((state) => state.deploymentReview.ready);
+      final resolvedState = await bloc.stream.firstWhere(
+        (state) =>
+            state.resolvedArchitecturePhase ==
+                ResolvedArchitecturePhase.ready ||
+            state.resolvedArchitecturePhase ==
+                ResolvedArchitecturePhase.incompatible ||
+            state.resolvedArchitecturePhase == ResolvedArchitecturePhase.error,
+      );
+      expect(
+        resolvedState.resolvedArchitectureReadyForSelectedRun,
+        isTrue,
+        reason: resolvedState.resolvedArchitectureError,
+      );
       final originalParams = bloc.state.calcParams!;
       bloc.add(const WizardNextStep());
       await bloc.stream.firstWhere((state) => state.currentStep == 1);
@@ -559,13 +580,9 @@ Future<void> _prepare(
 }) async {
   bloc
     ..add(WizardTwinNameChanged(twinName))
-    ..add(WizardCalcParamsChanged(params ?? CalcParams.defaultParams()))
-    ..add(const WizardPricingHealthLoadRequested());
+    ..add(WizardCalcParamsChanged(params ?? CalcParams.defaultParams()));
   await bloc.stream.firstWhere(
-    (state) =>
-        state.twinName == twinName &&
-        state.calcParams != null &&
-        state.pricingHealth != null,
+    (state) => state.twinName == twinName && state.calcParams != null,
   );
 }
 
@@ -616,28 +633,3 @@ ResolvedTwinArchitectureRead _sixLayerResolvedArchitecture() {
 
 Map<String, dynamic> _jsonFixture(String path) =>
     jsonDecode(File(path).readAsStringSync()) as Map<String, dynamic>;
-
-PricingHealthResponse _health() => PricingHealthResponse.fromJson({
-  'schema_version': 'pricing-health.v1',
-  'providers': {
-    for (final provider in const ['aws', 'azure', 'gcp'])
-      provider: {
-        'provider': provider,
-        'state': 'fresh',
-        'severity': 'success',
-        'review_required': false,
-        'can_calculate': true,
-        'calculation_source': 'fresh',
-        'pricing_freshness': 'fresh',
-        'source_label': '${provider.toUpperCase()} source',
-        'credential_summary': {
-          'provider': provider,
-          'purpose': 'pricing',
-          'scope': 'user',
-          'identity_label': '${provider.toUpperCase()} pricing',
-          'status': 'active',
-        },
-        'primary_message': '$provider pricing is ready',
-      },
-  },
-});

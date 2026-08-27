@@ -11,7 +11,6 @@ import '../../widgets/results/layer_cost_card.dart';
 import '../../widgets/results/optimization_warning.dart';
 import '../../widgets/results/cheapest_path_visualization.dart';
 import '../../widgets/results/deployment_selection_status.dart';
-import '../../widgets/pricing/pricing_readiness_summary.dart';
 import '../../features/configuration_workspace/domain/configuration_journey.dart';
 
 /// Step 2: Optimizer - BLoC version
@@ -35,7 +34,6 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     super.initState();
 
     final state = context.read<WizardBloc>().state;
-    _loadPricingHealthIfNeeded();
     // Auto-scroll to results if they're already present (edit mode resume)
     if (state.calcResult != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -50,26 +48,6 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
         });
       });
     }
-  }
-
-  @override
-  void didUpdateWidget(covariant Step2Optimizer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.taskId != widget.taskId) {
-      _loadPricingHealthIfNeeded();
-    }
-  }
-
-  void _loadPricingHealthIfNeeded() {
-    if (_isWorkloadTask(widget.taskId)) return;
-    final bloc = context.read<WizardBloc>();
-    final state = bloc.state;
-    if (state.pricingHealth != null ||
-        state.isPricingHealthLoading ||
-        state.pricingHealthError != null) {
-      return;
-    }
-    bloc.add(const WizardPricingHealthLoadRequested());
   }
 
   void _onCalcParamsChanged(CalcParams params) {
@@ -120,23 +98,16 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     BuildContext context,
     WizardState state,
   ) => switch (widget.taskId) {
-    ConfigurationTaskId.pricingReadiness => [
-      _buildPricingReadiness(context, state),
-    ],
-    ConfigurationTaskId.calculateAlternatives => [
-      _buildPricingReadiness(context, state),
-      const SizedBox(height: 32),
+    ConfigurationTaskId.calculateCostAllocation => [
       _buildCalculationSummary(context, state),
     ],
-    ConfigurationTaskId.compareAndSelect => [
+    ConfigurationTaskId.reviewImmutableResult => [
       if (state.calcResult != null)
         Container(key: _resultsKey, child: _buildResultsSection(context, state))
       else
         const Center(child: Text('Calculate an architecture first.')),
     ],
     _ => [
-      _buildPricingReadiness(context, state),
-      const SizedBox(height: 32),
       _buildCalculationSection(context, state),
       if (state.calcResult != null) ...[
         const SizedBox(height: 64),
@@ -147,16 +118,6 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
       ],
     ],
   };
-
-  Widget _buildPricingReadiness(BuildContext context, WizardState state) =>
-      PricingReadinessSummary(
-        health: state.pricingHealth,
-        isLoading: state.isPricingHealthLoading,
-        error: state.pricingHealthError,
-        onRetry: () => context.read<WizardBloc>().add(
-          const WizardPricingHealthLoadRequested(),
-        ),
-      );
 
   Widget _buildCalculationSummary(BuildContext context, WizardState state) {
     final params = state.calcParams;

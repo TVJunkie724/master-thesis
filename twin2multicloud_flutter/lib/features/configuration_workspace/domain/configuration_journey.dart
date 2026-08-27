@@ -2,30 +2,20 @@ import '../../../bloc/wizard/wizard_state.dart';
 import '../../../models/deployer_config.dart';
 import '../../../models/user_function_extension.dart';
 
-enum ConfigurationPhaseId {
-  defineTwin,
-  architecture,
-  workload,
-  userLogic,
-  optimizeAndReview,
-  deploymentReview,
-}
+enum ConfigurationPhaseId { scenario, optimize, prepare, review }
 
 enum ConfigurationTaskId {
   defineTwin,
-  selectProfile,
-  understandArchitecture,
   scenarioAndCurrency,
   deviceTraffic,
   processing,
   retention,
   twinCapabilities,
-  pricingReadiness,
-  calculateAlternatives,
-  compareAndSelect,
+  userLogic,
+  calculateCostAllocation,
+  reviewImmutableResult,
   cloudAccess,
   dataContracts,
-  userLogic,
   twinAssets,
   summary,
   readinessFindings,
@@ -90,17 +80,14 @@ class ConfigurationPhase {
 class ConfigurationJourney {
   static const orderedTaskIds = <ConfigurationTaskId>[
     ConfigurationTaskId.defineTwin,
-    ConfigurationTaskId.selectProfile,
-    ConfigurationTaskId.understandArchitecture,
     ConfigurationTaskId.scenarioAndCurrency,
     ConfigurationTaskId.deviceTraffic,
     ConfigurationTaskId.processing,
     ConfigurationTaskId.retention,
     ConfigurationTaskId.twinCapabilities,
     ConfigurationTaskId.userLogic,
-    ConfigurationTaskId.pricingReadiness,
-    ConfigurationTaskId.calculateAlternatives,
-    ConfigurationTaskId.compareAndSelect,
+    ConfigurationTaskId.calculateCostAllocation,
+    ConfigurationTaskId.reviewImmutableResult,
     ConfigurationTaskId.cloudAccess,
     ConfigurationTaskId.dataContracts,
     ConfigurationTaskId.twinAssets,
@@ -131,7 +118,6 @@ class ConfigurationJourney {
     final current = requested?.isNavigable == true
         ? requestedTaskId!
         : recommended;
-
     final tasks = {
       for (final entry in baseTasks.entries)
         entry.key: entry.key == current
@@ -147,46 +133,29 @@ class ConfigurationJourney {
 
     return ConfigurationJourney(
       phases: [
-        _phase(ConfigurationPhaseId.defineTwin, 'Define twin', tasks, const [
+        _phase(ConfigurationPhaseId.scenario, 'Scenario', tasks, const [
           ConfigurationTaskId.defineTwin,
-        ]),
-        _phase(ConfigurationPhaseId.architecture, 'Architecture', tasks, const [
-          ConfigurationTaskId.selectProfile,
-          ConfigurationTaskId.understandArchitecture,
-        ]),
-        _phase(ConfigurationPhaseId.workload, 'Workload', tasks, const [
           ConfigurationTaskId.scenarioAndCurrency,
           ConfigurationTaskId.deviceTraffic,
           ConfigurationTaskId.processing,
           ConfigurationTaskId.retention,
           ConfigurationTaskId.twinCapabilities,
-        ]),
-        _phase(ConfigurationPhaseId.userLogic, 'User Logic', tasks, const [
           ConfigurationTaskId.userLogic,
         ]),
-        _phase(
-          ConfigurationPhaseId.optimizeAndReview,
-          'Optimize and review',
-          tasks,
-          const [
-            ConfigurationTaskId.pricingReadiness,
-            ConfigurationTaskId.calculateAlternatives,
-            ConfigurationTaskId.compareAndSelect,
-          ],
-        ),
-        _phase(
-          ConfigurationPhaseId.deploymentReview,
-          'Deployment review',
-          tasks,
-          const [
-            ConfigurationTaskId.cloudAccess,
-            ConfigurationTaskId.dataContracts,
-            ConfigurationTaskId.twinAssets,
-            ConfigurationTaskId.summary,
-            ConfigurationTaskId.readinessFindings,
-            ConfigurationTaskId.validationAndPreflight,
-          ],
-        ),
+        _phase(ConfigurationPhaseId.optimize, 'Optimize', tasks, const [
+          ConfigurationTaskId.calculateCostAllocation,
+          ConfigurationTaskId.reviewImmutableResult,
+        ]),
+        _phase(ConfigurationPhaseId.prepare, 'Prepare', tasks, const [
+          ConfigurationTaskId.cloudAccess,
+          ConfigurationTaskId.dataContracts,
+          ConfigurationTaskId.twinAssets,
+        ]),
+        _phase(ConfigurationPhaseId.review, 'Review', tasks, const [
+          ConfigurationTaskId.summary,
+          ConfigurationTaskId.readinessFindings,
+          ConfigurationTaskId.validationAndPreflight,
+        ]),
       ],
       currentTaskId: current,
       recommendedTaskId: recommended,
@@ -222,18 +191,15 @@ class ConfigurationJourney {
   }
 
   static int legacyStepFor(ConfigurationTaskId taskId) => switch (taskId) {
-    ConfigurationTaskId.defineTwin ||
-    ConfigurationTaskId.selectProfile ||
-    ConfigurationTaskId.understandArchitecture => 0,
+    ConfigurationTaskId.defineTwin => 0,
     ConfigurationTaskId.scenarioAndCurrency ||
     ConfigurationTaskId.deviceTraffic ||
     ConfigurationTaskId.processing ||
     ConfigurationTaskId.retention ||
     ConfigurationTaskId.twinCapabilities ||
     ConfigurationTaskId.userLogic ||
-    ConfigurationTaskId.pricingReadiness ||
-    ConfigurationTaskId.calculateAlternatives ||
-    ConfigurationTaskId.compareAndSelect => 1,
+    ConfigurationTaskId.calculateCostAllocation ||
+    ConfigurationTaskId.reviewImmutableResult => 1,
     ConfigurationTaskId.cloudAccess ||
     ConfigurationTaskId.dataContracts ||
     ConfigurationTaskId.twinAssets ||
@@ -245,48 +211,25 @@ class ConfigurationJourney {
   static Map<ConfigurationTaskId, ConfigurationTask> _projectTasks(
     WizardState state,
   ) {
-    final hasName = state.twinName?.trim().isNotEmpty == true;
-    final twinPersisted = hasName && state.twinId != null;
-    final architectureSelected = state.hasActiveArchitectureProfile;
-    final architectureDetailLoaded =
-        architectureSelected &&
-        state.architectureDetailPhase == ArchitectureDetailPhase.ready &&
-        state.architectureProfileDetail != null;
-    final architectureReady = state.architectureWorkflowReady;
-    final selectProfileStatus = !twinPersisted
-        ? ConfigurationTaskStatus.blocked
-        : state.architectureCatalogPhase == ArchitectureCatalogPhase.error ||
-              state.architectureCatalogPhase == ArchitectureCatalogPhase.empty
-        ? ConfigurationTaskStatus.attention
-        : architectureSelected
-        ? ConfigurationTaskStatus.complete
-        : ConfigurationTaskStatus.available;
-    final understandArchitectureStatus = !architectureSelected
-        ? ConfigurationTaskStatus.blocked
-        : state.architectureDetailPhase == ArchitectureDetailPhase.error
-        ? ConfigurationTaskStatus.attention
-        : architectureReady
-        ? ConfigurationTaskStatus.complete
-        : architectureDetailLoaded
-        ? ConfigurationTaskStatus.available
-        : ConfigurationTaskStatus.available;
-    final architectureBlocker = !twinPersisted
-        ? 'Save the Twin draft first'
-        : !architectureSelected
-        ? 'Select an active architecture profile first'
-        : null;
+    final twinPersisted =
+        state.twinName?.trim().isNotEmpty == true && state.twinId != null;
+    final canonicalReady = state.architectureWorkflowReady;
+    final canonicalFailed =
+        state.architectureDetailPhase == ArchitectureDetailPhase.error;
     final workloadPresent = state.calcParams != null;
     final workloadComplete = workloadPresent && state.isCalcFormValid;
-    final workloadStatus = !architectureReady
+    final scenarioBlocker = !twinPersisted
+        ? 'Save the Twin draft first'
+        : !canonicalReady
+        ? 'The canonical six-layer-eventing@1 contract must be verified first'
+        : null;
+    final workloadStatus = scenarioBlocker != null
         ? ConfigurationTaskStatus.blocked
         : workloadComplete
         ? ConfigurationTaskStatus.complete
         : workloadPresent
         ? ConfigurationTaskStatus.attention
         : ConfigurationTaskStatus.available;
-    final workloadBlocker = architectureReady
-        ? null
-        : 'Select and understand an active architecture profile first';
 
     final profileHasUserLogic =
         state.architectureProfileDetail?.summary.extensionSlots.isNotEmpty ==
@@ -299,7 +242,7 @@ class ConfigurationJourney {
               phase == UserFunctionWorkflowPhase.stale ||
               phase == UserFunctionWorkflowPhase.error;
         });
-    final userLogicStatus = !architectureReady
+    final userLogicStatus = !canonicalReady
         ? ConfigurationTaskStatus.blocked
         : !profileHasUserLogic
         ? ConfigurationTaskStatus.notRequired
@@ -309,17 +252,7 @@ class ConfigurationJourney {
         ? ConfigurationTaskStatus.attention
         : ConfigurationTaskStatus.available;
     final optimizerInputsReady =
-        workloadComplete &&
-        state.architectureExtensionBindingsReady &&
-        state.architectureInvalidatedWorkloadFieldIds.isEmpty;
-
-    final pricingStatus = !optimizerInputsReady
-        ? ConfigurationTaskStatus.blocked
-        : state.isPricingHealthLoading
-        ? ConfigurationTaskStatus.available
-        : state.pricingHealthError != null || !state.pricingCanCalculate
-        ? ConfigurationTaskStatus.attention
-        : ConfigurationTaskStatus.complete;
+        workloadComplete && state.architectureExtensionBindingsReady;
     final calculationReady = state.calcResult != null;
     final calculationStatus = !optimizerInputsReady
         ? ConfigurationTaskStatus.blocked
@@ -328,10 +261,10 @@ class ConfigurationJourney {
         : ConfigurationTaskStatus.available;
     final optimizerBlocker = optimizerInputsReady
         ? null
-        : 'Complete workload and required user logic first';
+        : 'Complete the scenario and required user logic first';
     final deploymentSelectionReady =
         calculationReady && state.canProceedToStep3;
-    final recommendationStatus = !calculationReady
+    final resultStatus = !calculationReady
         ? ConfigurationTaskStatus.blocked
         : deploymentSelectionReady
         ? ConfigurationTaskStatus.complete
@@ -345,9 +278,9 @@ class ConfigurationJourney {
         ? ConfigurationTaskStatus.complete
         : ConfigurationTaskStatus.attention;
     final deploymentBlocker = !calculationReady
-        ? 'Calculate an architecture first'
+        ? 'Calculate the cost allocation first'
         : !deploymentSelectionReady
-        ? 'Confirm the resolved architecture first'
+        ? 'Verify the immutable optimization result first'
         : null;
 
     final readiness = state.deployerReadiness;
@@ -402,35 +335,17 @@ class ConfigurationJourney {
       blockingReason: blocker,
     );
 
-    const define = ConfigurationPhaseId.defineTwin;
-    const architecture = ConfigurationPhaseId.architecture;
-    const workload = ConfigurationPhaseId.workload;
-    const userLogic = ConfigurationPhaseId.userLogic;
-    const optimization = ConfigurationPhaseId.optimizeAndReview;
-    const deployment = ConfigurationPhaseId.deploymentReview;
-
     return {
       ConfigurationTaskId.defineTwin: task(
         ConfigurationTaskId.defineTwin,
-        define,
-        'Identity and mode',
-        twinPersisted
+        ConfigurationPhaseId.scenario,
+        'Define Twin',
+        canonicalFailed
+            ? ConfigurationTaskStatus.attention
+            : twinPersisted
             ? ConfigurationTaskStatus.complete
             : ConfigurationTaskStatus.available,
-      ),
-      ConfigurationTaskId.selectProfile: task(
-        ConfigurationTaskId.selectProfile,
-        architecture,
-        'Select profile',
-        selectProfileStatus,
-        blocker: twinPersisted ? null : 'Save the Twin draft first',
-      ),
-      ConfigurationTaskId.understandArchitecture: task(
-        ConfigurationTaskId.understandArchitecture,
-        architecture,
-        'Understand architecture',
-        understandArchitectureStatus,
-        blocker: architectureBlocker,
+        blocker: canonicalFailed ? state.architectureDetailError : null,
       ),
       for (final entry in const {
         ConfigurationTaskId.scenarioAndCurrency: 'Scenario and currency',
@@ -441,42 +356,44 @@ class ConfigurationJourney {
       }.entries)
         entry.key: task(
           entry.key,
-          workload,
+          ConfigurationPhaseId.scenario,
           entry.value,
           workloadStatus,
-          blocker: workloadBlocker,
+          blocker: scenarioBlocker,
         ),
-      ConfigurationTaskId.pricingReadiness: task(
-        ConfigurationTaskId.pricingReadiness,
-        optimization,
-        'Pricing readiness',
-        pricingStatus,
-        blocker: optimizerBlocker,
+      ConfigurationTaskId.userLogic: task(
+        ConfigurationTaskId.userLogic,
+        ConfigurationPhaseId.scenario,
+        'User logic',
+        userLogicStatus,
+        blocker: canonicalReady ? null : scenarioBlocker,
       ),
-      ConfigurationTaskId.calculateAlternatives: task(
-        ConfigurationTaskId.calculateAlternatives,
-        optimization,
-        'Calculate alternatives',
+      ConfigurationTaskId.calculateCostAllocation: task(
+        ConfigurationTaskId.calculateCostAllocation,
+        ConfigurationPhaseId.optimize,
+        'Calculate cost allocation',
         calculationStatus,
         blocker: optimizerBlocker,
       ),
-      ConfigurationTaskId.compareAndSelect: task(
-        ConfigurationTaskId.compareAndSelect,
-        optimization,
-        'Review recommendation',
-        recommendationStatus,
-        blocker: optimizerBlocker,
+      ConfigurationTaskId.reviewImmutableResult: task(
+        ConfigurationTaskId.reviewImmutableResult,
+        ConfigurationPhaseId.optimize,
+        'Review immutable result',
+        resultStatus,
+        blocker: calculationReady
+            ? null
+            : 'Calculate the cost allocation first',
       ),
       ConfigurationTaskId.cloudAccess: task(
         ConfigurationTaskId.cloudAccess,
-        deployment,
+        ConfigurationPhaseId.prepare,
         'Cloud access',
         cloudAccessStatus,
         blocker: deploymentBlocker,
       ),
       ConfigurationTaskId.dataContracts: task(
         ConfigurationTaskId.dataContracts,
-        deployment,
+        ConfigurationPhaseId.prepare,
         'Data contracts',
         deploymentStatus(config) == ConfigurationTaskStatus.complete &&
                 deploymentStatus(payloads) == ConfigurationTaskStatus.complete
@@ -488,39 +405,30 @@ class ConfigurationJourney {
             : deploymentStatus(config),
         blocker: deploymentBlocker,
       ),
-      ConfigurationTaskId.userLogic: task(
-        ConfigurationTaskId.userLogic,
-        userLogic,
-        'Bind user logic',
-        userLogicStatus,
-        blocker: architectureReady
-            ? null
-            : 'Select and understand an active architecture profile first',
-      ),
       ConfigurationTaskId.twinAssets: task(
         ConfigurationTaskId.twinAssets,
-        deployment,
+        ConfigurationPhaseId.prepare,
         'Twin assets',
         deploymentStatus(assets),
         blocker: deploymentBlocker,
       ),
       ConfigurationTaskId.summary: task(
         ConfigurationTaskId.summary,
-        deployment,
-        'Configuration summary',
+        ConfigurationPhaseId.review,
+        'Summary',
         reviewStatus,
         blocker: deploymentBlocker,
       ),
       ConfigurationTaskId.readinessFindings: task(
         ConfigurationTaskId.readinessFindings,
-        deployment,
+        ConfigurationPhaseId.review,
         'Readiness findings',
         readinessStatus,
         blocker: deploymentBlocker,
       ),
       ConfigurationTaskId.validationAndPreflight: task(
         ConfigurationTaskId.validationAndPreflight,
-        deployment,
+        ConfigurationPhaseId.review,
         'Validation and preflight',
         allReady
             ? ConfigurationTaskStatus.complete
@@ -537,8 +445,10 @@ class ConfigurationJourney {
   ) {
     for (final id in orderedTaskIds) {
       final status = tasks[id]!.status;
-      if (status == ConfigurationTaskStatus.attention) return id;
-      if (status == ConfigurationTaskStatus.available) return id;
+      if (status == ConfigurationTaskStatus.attention ||
+          status == ConfigurationTaskStatus.available) {
+        return id;
+      }
     }
     return ConfigurationTaskId.summary;
   }
