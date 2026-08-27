@@ -18,16 +18,22 @@ import logging
 import re
 import zipfile
 from dataclasses import dataclass
-from pathlib import Path
 from datetime import datetime, timezone
-from typing import Any, Mapping, Optional, Sequence, TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
 
 from pydantic import ValidationError as PydanticValidationError
 
 from src.clients.deployer_client import DeployerClient
 from src.config import settings
-from src.schemas.optimizer_calculation import OptimizerCalculationParams
 from src.repositories.deployment_repository import DeploymentRepository
+from src.schemas.optimizer_calculation import OptimizerCalculationParams
+from src.services.architecture_contract_service import (
+    calculate_digest as calculate_architecture_digest,
+)
+from src.services.cost_calculation_run_service import (
+    validate_persisted_run_deployment_specification,
+)
 from src.services.credential_resolution_service import (
     CredentialResolutionService,
     DeploymentCredentials,
@@ -37,12 +43,6 @@ from src.services.errors import (
     DeploymentPackageBuildFailed,
     ExternalServiceError,
     ExternalServiceUnavailable,
-)
-from src.services.cost_calculation_run_service import (
-    validate_persisted_run_deployment_specification,
-)
-from src.services.architecture_contract_service import (
-    calculate_digest as calculate_architecture_digest,
 )
 from src.services.provider_contract import (
     normalize_provider_id,
@@ -357,23 +357,26 @@ async def run_real_deploy_stream(
         provider: Cloud provider (aws, azure, gcp)
     """
     # Late imports to avoid circular dependencies
-    from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
     from src.models.twin import DigitalTwin
+    from src.services.deployment_stream_service import get_session
 
     session = await get_session(session_id)
     if not session:
         return
 
     db = SessionLocal()
-    DeploymentRepository(db).create_running(
-        twin_id=twin_id,
-        session_id=session_id,
-        operation_type="deploy",
-        graph_evidence=graph_evidence,
-    )
-    db.commit()
-    db.close()
+    try:
+        deployment = DeploymentRepository(db).get_by_session_id(session_id)
+        if deployment is None or deployment.status != "running":
+            raise RuntimeError("Persisted deploy operation is unavailable")
+        if graph_evidence is not None:
+            DeploymentRepository.assert_graph_compatible(
+                deployment,
+                graph_evidence,
+            )
+    finally:
+        db.close()
 
     terraform_outputs = {}
     deployment_access_evidence = None
@@ -468,7 +471,7 @@ async def run_real_deploy_stream(
         session.on_complete(
             success=deploy_success,
             message=error_message,
-            outputs=terraform_outputs,
+            outputs=None,
             operation_id=terminal_result.operation_id if terminal_result else None,
             error_code=None
             if deploy_success
@@ -528,7 +531,7 @@ async def run_real_deploy_stream(
         session.on_complete(
             success=deploy_success,
             message=safe_error if not deploy_success else "Deployment complete",
-            outputs=terraform_outputs if deploy_success else {},
+            outputs=None,
             operation_id=terminal_result.operation_id if terminal_result else None,
             error_code=None
             if deploy_success
@@ -559,23 +562,26 @@ async def run_real_destroy_stream(
         provider: Cloud provider (aws, azure, gcp)
     """
     # Late imports to avoid circular dependencies
-    from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
     from src.models.twin import DigitalTwin
+    from src.services.deployment_stream_service import get_session
 
     session = await get_session(session_id)
     if not session:
         return
 
     db = SessionLocal()
-    DeploymentRepository(db).create_running(
-        twin_id=twin_id,
-        session_id=session_id,
-        operation_type="destroy",
-        graph_evidence=graph_evidence,
-    )
-    db.commit()
-    db.close()
+    try:
+        deployment = DeploymentRepository(db).get_by_session_id(session_id)
+        if deployment is None or deployment.status != "running":
+            raise RuntimeError("Persisted destroy operation is unavailable")
+        if graph_evidence is not None:
+            DeploymentRepository.assert_graph_compatible(
+                deployment,
+                graph_evidence,
+            )
+    finally:
+        db.close()
 
     terminal_result: DeployerStreamResult | None = None
     current_event_type: str | None = None

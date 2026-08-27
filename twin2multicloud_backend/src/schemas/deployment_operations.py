@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 
 from src.models.twin import TwinState
 
-
 DeploymentOperationStatus = Literal["pending", "running", "success", "failed"]
 DeploymentOperationType = Literal["deploy", "destroy", "test"]
 
@@ -19,6 +18,7 @@ class ActiveDeploymentSessionResponse(BaseModel):
 class DeploymentOperationSummaryResponse(BaseModel):
     id: str
     session_id: str
+    idempotency_key: str | None = None
     operation_id: str | None = None
     operation_type: DeploymentOperationType
     status: DeploymentOperationStatus

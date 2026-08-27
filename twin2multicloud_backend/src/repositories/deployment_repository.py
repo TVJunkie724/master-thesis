@@ -12,6 +12,7 @@ class DeploymentRepository:
     """Centralizes deployment history and status persistence queries."""
 
     _GRAPH_STAGE_ORDER = ("package", "preplan", "terraform", "postapply")
+    _MAX_TERMINAL_OPERATIONS_PER_TWIN = 100
 
     def __init__(self, db: Session):
         self._db = db
@@ -23,6 +24,7 @@ class DeploymentRepository:
         operation_type: str,
         description: str | None = None,
         operation_id: str | None = None,
+        idempotency_key: str | None = None,
         graph_evidence: dict[str, Any] | None = None,
     ) -> Deployment:
         evidence = dict(graph_evidence or {})
@@ -31,6 +33,7 @@ class DeploymentRepository:
             session_id=session_id,
             operation_type=operation_type,
             operation_id=operation_id,
+            idempotency_key=idempotency_key,
             status="running",
             description=description,
             architecture_digest=evidence.get("architecture_digest"),
@@ -43,7 +46,65 @@ class DeploymentRepository:
             graph_validation=evidence or None,
         )
         self._db.add(deployment)
+        self._db.flush()
+        self.prune_terminal_history(twin_id)
         return deployment
+
+    def get_by_idempotency_key(
+        self,
+        twin_id: str,
+        operation_type: str,
+        idempotency_key: str,
+    ) -> Deployment | None:
+        """Return the authoritative result of a previously accepted command."""
+
+        return (
+            self._db.query(Deployment)
+            .filter(
+                Deployment.twin_id == twin_id,
+                Deployment.operation_type == operation_type,
+                Deployment.idempotency_key == idempotency_key,
+            )
+            .first()
+        )
+
+    def get_active_for_twin(self, twin_id: str) -> Deployment | None:
+        """Return a persisted active mutation independently of SSE process state."""
+
+        return (
+            self._db.query(Deployment)
+            .filter(
+                Deployment.twin_id == twin_id,
+                Deployment.operation_type.in_(["deploy", "destroy", "test"]),
+                Deployment.status.in_(["pending", "running"]),
+            )
+            .order_by(Deployment.started_at.desc())
+            .first()
+        )
+
+    def prune_terminal_history(self, twin_id: str) -> None:
+        """Bound retained operation and progress evidence per Twin."""
+
+        from src.models.deployment_log import DeploymentLog
+
+        stale = (
+            self._db.query(Deployment)
+            .filter(
+                Deployment.twin_id == twin_id,
+                Deployment.status.in_(["success", "failed"]),
+            )
+            .order_by(Deployment.started_at.desc())
+            .offset(self._MAX_TERMINAL_OPERATIONS_PER_TWIN)
+            .all()
+        )
+        if not stale:
+            return
+        session_ids = [deployment.session_id for deployment in stale]
+        self._db.query(DeploymentLog).filter(
+            DeploymentLog.session_id.in_(session_ids)
+        ).delete(synchronize_session=False)
+        for deployment in stale:
+            self._db.delete(deployment)
 
     def mark_completed_stage(
         self,

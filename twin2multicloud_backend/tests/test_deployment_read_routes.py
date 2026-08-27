@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 
 from src.models.deployment import Deployment
 from src.models.twin import TwinState
-from src.services.simulator_service import SimulatorDownload
 from src.services.service_errors import ValidationError
+from src.services.simulator_service import SimulatorDownload
 
 
 def test_deployment_status_route_returns_current_twin_state(auth_client, test_twin):
@@ -17,7 +17,9 @@ def test_deployment_status_route_returns_current_twin_state(auth_client, test_tw
     assert response.json()["active_session"] is None
 
 
-def test_outputs_route_returns_empty_payload_without_successful_deployment(auth_client, test_twin):
+def test_outputs_route_returns_empty_payload_without_successful_deployment(
+    auth_client, test_twin
+):
     response = auth_client.get(f"/twins/{test_twin.id}/outputs")
 
     assert response.status_code == 200
@@ -77,10 +79,14 @@ def test_deployments_route_returns_limited_history(auth_client, db, test_twin):
     response = auth_client.get(f"/twins/{test_twin.id}/deployments?limit=1")
 
     assert response.status_code == 200
-    assert [item["session_id"] for item in response.json()["deployments"]] == ["route-second"]
+    assert [item["session_id"] for item in response.json()["deployments"]] == [
+        "route-second"
+    ]
 
 
-def test_deployment_command_route_delegates_to_orchestrator(auth_client, test_twin, monkeypatch):
+def test_deployment_command_route_delegates_to_orchestrator(
+    auth_client, test_twin, monkeypatch
+):
     calls = []
 
     class FakeReadinessService:
@@ -90,7 +96,14 @@ def test_deployment_command_route_delegates_to_orchestrator(auth_client, test_tw
     class FakeOrchestrator:
         async def deploy_twin(self, **kwargs):
             calls.append(kwargs)
-            return {"session_id": "route-deploy", "sse_url": "/sse/deploy/route-deploy"}
+            return {
+                "session_id": "route-deploy",
+                "sse_url": "/sse/deploy/route-deploy",
+                "operation_record_id": "operation-route-deploy",
+                "idempotency_key": "route-command-0001",
+                "reused": False,
+                "status_url": f"/twins/{test_twin.id}/deployment-status",
+            }
 
     monkeypatch.setattr(
         "src.api.routes.twin_operations._deployment_orchestrator",
@@ -111,7 +124,9 @@ def test_deployment_command_route_delegates_to_orchestrator(auth_client, test_tw
     assert "test_stream_runner" not in calls[1]
 
 
-def test_deployment_command_route_does_not_bypass_readiness(auth_client, test_twin, monkeypatch):
+def test_deployment_command_route_does_not_bypass_readiness(
+    auth_client, test_twin, monkeypatch
+):
     class BlockedReadinessService:
         def require_ready(self, _twin_id, _user_id):
             raise ValidationError("Deployment preflight is required.")
@@ -131,7 +146,49 @@ def test_deployment_command_route_does_not_bypass_readiness(auth_client, test_tw
     assert response.json() == {"detail": "Deployment preflight is required."}
 
 
-def test_deployment_verification_route_delegates_to_orchestrator(auth_client, test_twin, monkeypatch):
+def test_deployment_retry_returns_accepted_command_without_rechecking_readiness(
+    auth_client,
+    test_twin,
+    db_session,
+    monkeypatch,
+):
+    db_session.add(
+        Deployment(
+            twin_id=test_twin.id,
+            session_id="accepted-session",
+            operation_type="deploy",
+            status="running",
+            idempotency_key="accepted-command-0001",
+        )
+    )
+    db_session.commit()
+
+    monkeypatch.setattr(
+        "src.api.routes.twin_operations._deployment_readiness_service",
+        lambda _db: (_ for _ in ()).throw(
+            AssertionError("accepted command must not re-run readiness")
+        ),
+    )
+    monkeypatch.setattr(
+        "src.api.routes.twin_operations._deployment_orchestrator",
+        lambda _db: (_ for _ in ()).throw(
+            AssertionError("accepted command must not schedule another mutation")
+        ),
+    )
+
+    response = auth_client.post(
+        f"/twins/{test_twin.id}/deploy",
+        headers={"Idempotency-Key": "accepted-command-0001"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["session_id"] == "accepted-session"
+    assert response.json()["reused"] is True
+
+
+def test_deployment_verification_route_delegates_to_orchestrator(
+    auth_client, test_twin, monkeypatch
+):
     calls = []
 
     class FakeOrchestrator:
@@ -148,10 +205,14 @@ def test_deployment_verification_route_delegates_to_orchestrator(auth_client, te
 
     assert response.status_code == 200
     assert response.json()["summary"]["healthy"] is True
-    assert calls == [{"twin_id": test_twin.id, "user_id": test_twin.user_id, "test_mode": False}]
+    assert calls == [
+        {"twin_id": test_twin.id, "user_id": test_twin.user_id, "test_mode": False}
+    ]
 
 
-def test_simulator_route_streams_archive_from_orchestrator(auth_client, test_twin, monkeypatch):
+def test_simulator_route_streams_archive_from_orchestrator(
+    auth_client, test_twin, monkeypatch
+):
     calls = []
 
     class FakeOrchestrator:
@@ -173,8 +234,16 @@ def test_simulator_route_streams_archive_from_orchestrator(auth_client, test_twi
 
     assert response.status_code == 200
     assert response.content == b"zip"
-    assert response.headers["content-disposition"] == 'attachment; filename="simulator.zip"'
+    assert (
+        response.headers["content-disposition"]
+        == 'attachment; filename="simulator.zip"'
+    )
     assert response.headers["cache-control"] == "no-store"
     assert response.headers["x-twin2multicloud-provider"] == "aws"
-    assert response.headers["x-twin2multicloud-credential-class"] == "aws_iot_device_certificate"
-    assert calls == [{"twin_id": test_twin.id, "user_id": test_twin.user_id, "test_mode": False}]
+    assert (
+        response.headers["x-twin2multicloud-credential-class"]
+        == "aws_iot_device_certificate"
+    )
+    assert calls == [
+        {"twin_id": test_twin.id, "user_id": test_twin.user_id, "test_mode": False}
+    ]

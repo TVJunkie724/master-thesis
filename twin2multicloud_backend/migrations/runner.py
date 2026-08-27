@@ -94,6 +94,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "031_drop_file_versions",
         "migrations.drop_file_versions",
     ),
+    Migration(
+        "032_durable_operation_idempotency",
+        "migrations.add_durable_operation_idempotency",
+    ),
 )
 
 

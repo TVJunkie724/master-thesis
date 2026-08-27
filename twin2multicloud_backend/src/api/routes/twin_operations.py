@@ -13,7 +13,7 @@ import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -24,6 +24,7 @@ from src.config import settings
 from src.models.database import get_db
 from src.models.twin import TwinState
 from src.models.user import User
+from src.repositories.deployment_repository import DeploymentRepository
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.deployment_access import (
     DeploymentAccessCredential,
@@ -47,6 +48,7 @@ from src.schemas.management_contracts import (
 from src.services.architecture_projection_service import required_providers
 from src.services.deployment_access_service import DeploymentAccessService
 from src.services.deployment_log_read_service import DeploymentLogReadService
+from src.services.deployment_operation_service import DeploymentOperationService
 from src.services.deployment_orchestrator import DeploymentOrchestrator
 from src.services.deployment_readiness_service import DeploymentReadinessService
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
@@ -216,18 +218,37 @@ async def rotate_deployment_access_credential(
 )
 async def deploy_twin(
     twin_id: str,
+    idempotency_key: str | None = Header(
+        default=None,
+        alias="Idempotency-Key",
+        min_length=8,
+        max_length=128,
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     try:
-        _deployment_readiness_service(db).require_ready(
-            twin_id,
-            current_user.id,
-        )
+        accepted = None
+        if idempotency_key is not None:
+            twin = TwinRepository(db).get_active_for_user(twin_id, current_user.id)
+            if twin is None:
+                raise EntityNotFoundError("Twin not found")
+            accepted = DeploymentRepository(db).get_by_idempotency_key(
+                twin_id,
+                "test" if TEST_MODE else "deploy",
+                idempotency_key,
+            )
+        if accepted is not None:
+            return DeploymentOperationService.operation_response(
+                accepted,
+                reused=True,
+            )
+        _deployment_readiness_service(db).require_ready(twin_id, current_user.id)
         return await _deployment_orchestrator(db).deploy_twin(
             twin_id=twin_id,
             user_id=current_user.id,
             test_mode=TEST_MODE,
+            idempotency_key=idempotency_key,
         )
     except (
         ConflictError,
@@ -256,6 +277,12 @@ async def deploy_twin(
 )
 async def destroy_twin_infrastructure(
     twin_id: str,
+    idempotency_key: str | None = Header(
+        default=None,
+        alias="Idempotency-Key",
+        min_length=8,
+        max_length=128,
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -264,6 +291,7 @@ async def destroy_twin_infrastructure(
             twin_id=twin_id,
             user_id=current_user.id,
             test_mode=TEST_MODE,
+            idempotency_key=idempotency_key,
         )
     except (
         ConflictError,

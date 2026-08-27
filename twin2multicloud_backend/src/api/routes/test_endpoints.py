@@ -8,24 +8,29 @@ creating cloud resources. They are gated by ENABLE_TEST_ENDPOINTS=true.
 Consolidated from twins.py to keep production code clean and test code separate.
 """
 
+import asyncio
 import json
 import logging
 import secrets
-import asyncio
 from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from src.api.dependencies import get_current_user
+from src.api.routes.error_models import ERROR_RESPONSES
+from src.config import settings
 from src.models.database import get_db
 from src.models.twin import DigitalTwin
 from src.models.user import User
-from src.config import settings
-from src.api.dependencies import get_current_user
-from src.api.routes.error_models import ERROR_RESPONSES
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_orchestrator import DeploymentOrchestrator
-from src.services.service_errors import ConflictError, EntityNotFoundError, ValidationError
+from src.services.service_errors import (
+    ConflictError,
+    EntityNotFoundError,
+    ValidationError,
+)
 from src.services.test_deployment_service import TestDeploymentService
 from src.services.test_layer_access_service import (
     seed_layer_access_fixtures,
@@ -332,24 +337,13 @@ async def _run_test_deploy_stream(
     Background task that simulates Terraform deployment and streams logs via SSE.
     Creates its own DB session to avoid session scoping issues.
     """
-    from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
     from src.models.deployment import Deployment
+    from src.services.deployment_stream_service import get_session
     
     session = await get_session(session_id)
     if not session:
         return
-    
-    db = SessionLocal()
-    deployment = Deployment(
-        twin_id=twin_id,
-        session_id=session_id,
-        operation_type="deploy",
-        status="running"
-    )
-    db.add(deployment)
-    db.commit()
-    db.close()
     
     def _get_mock_terraform_outputs(name: str) -> dict:
         """Generate comprehensive mock terraform outputs matching outputs.tf"""
@@ -541,7 +535,7 @@ async def _run_test_deploy_stream(
         session.on_complete(
             success=True,
             message="Deployment complete (test mode)",
-            outputs=_get_mock_terraform_outputs(twin_name)
+            outputs=None,
         )
         
     except Exception as e:
@@ -581,24 +575,13 @@ async def _run_test_destroy_stream(
     """
     Background task that simulates Terraform destruction and streams logs via SSE.
     """
-    from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
     from src.models.deployment import Deployment
+    from src.services.deployment_stream_service import get_session
     
     session = await get_session(session_id)
     if not session:
         return
-    
-    db = SessionLocal()
-    deployment = Deployment(
-        twin_id=twin_id,
-        session_id=session_id,
-        operation_type="destroy",
-        status="running"
-    )
-    db.add(deployment)
-    db.commit()
-    db.close()
     
     try:
         steps = [

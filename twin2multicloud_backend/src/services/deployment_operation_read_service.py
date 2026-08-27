@@ -15,7 +15,6 @@ from src.schemas.deployment_operations import (
     DeploymentStatusResponse,
 )
 
-
 SECRET_KEY_PARTS = (
     "secret",
     "token",
@@ -78,6 +77,7 @@ def deployment_summary(
     return DeploymentOperationSummaryResponse(
         id=deployment.id,
         session_id=deployment.session_id,
+        idempotency_key=deployment.idempotency_key,
         operation_id=deployment.operation_id,
         operation_type=cast(DeploymentOperationType, deployment.operation_type),
         status=cast(DeploymentOperationStatus, deployment.status),

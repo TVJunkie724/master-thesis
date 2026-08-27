@@ -1,9 +1,12 @@
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, JSON
-from sqlalchemy.orm import relationship
-from datetime import datetime
-import uuid
 import enum
+import uuid
+from datetime import datetime
+
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, String, Text
+from sqlalchemy.orm import relationship
+
 from src.models.database import Base
+
 
 class Deployment(Base):
     """
@@ -17,6 +20,7 @@ class Deployment(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     twin_id = Column(String, ForeignKey("digital_twins.id"), nullable=False)
     session_id = Column(String, unique=True, nullable=False)  # Links to DeploymentLog
+    idempotency_key = Column(String(128), nullable=True)
     operation_type = Column(String, default="deploy")  # "deploy", "destroy", "test"
     operation_id = Column(String, nullable=True)  # Deployer operation id for log correlation
     status = Column(String, default="running")  # "running", "success", "failed"
@@ -41,6 +45,16 @@ class Deployment(Base):
     
     # Relationships
     twin = relationship("DigitalTwin", back_populates="deployments")
+
+    __table_args__ = (
+        Index(
+            "ux_deployments_twin_operation_idempotency",
+            "twin_id",
+            "operation_type",
+            "idempotency_key",
+            unique=True,
+        ),
+    )
 
 
 class DeploymentStatus(str, enum.Enum):

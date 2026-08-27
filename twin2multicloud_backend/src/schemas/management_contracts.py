@@ -27,6 +27,10 @@ class OperationSessionResponse(BaseModel):
 
     session_id: str
     sse_url: str
+    operation_record_id: str
+    idempotency_key: str
+    reused: bool = False
+    status_url: str
 
 
 class ActiveDeploymentSessionResponse(BaseModel):

@@ -183,6 +183,7 @@ async def test_orchestrator_delegates_deploy_and_destroy(orchestrator):
                 "test_mode": True,
                 "test_stream_runner": runner,
                 "skip_state_validation": False,
+                "idempotency_key": None,
             },
         ),
         (
@@ -193,6 +194,7 @@ async def test_orchestrator_delegates_deploy_and_destroy(orchestrator):
                 "test_mode": False,
                 "test_stream_runner": None,
                 "skip_state_validation": False,
+                "idempotency_key": None,
             },
         ),
     ]
@@ -308,6 +310,7 @@ async def test_orchestrator_uses_configured_test_runners_when_route_does_not_ove
                 "test_mode": True,
                 "test_stream_runner": deploy_runner,
                 "skip_state_validation": True,
+                "idempotency_key": None,
             },
         ),
         (
@@ -318,6 +321,7 @@ async def test_orchestrator_uses_configured_test_runners_when_route_does_not_ove
                 "test_mode": True,
                 "test_stream_runner": destroy_runner,
                 "skip_state_validation": True,
+                "idempotency_key": None,
             },
         ),
     ]

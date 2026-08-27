@@ -10,6 +10,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session, joinedload
 
+from src.models.deployment import Deployment
 from src.models.twin import DigitalTwin, TwinState
 from src.repositories.deployment_repository import DeploymentRepository
 from src.repositories.twin_repository import TwinRepository
@@ -75,11 +76,22 @@ class DeploymentOperationService:
         test_mode: bool,
         test_stream_runner: Callable[..., Awaitable[Any]] | None = None,
         skip_state_validation: bool = False,
-    ) -> dict[str, str]:
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
         """Start deployment and return the SSE session location."""
         if test_mode and test_stream_runner is None:
             raise ValidationError("Test deployment runner is not configured")
         twin = self._require_active_twin(twin_id, user_id)
+        operation_type = "test" if test_mode else "deploy"
+        command_key = self._command_key(idempotency_key)
+        existing = DeploymentRepository(self.db).get_by_idempotency_key(
+            twin_id,
+            operation_type,
+            command_key,
+        )
+        if existing is not None:
+            return self.operation_response(existing, reused=True)
+        self._require_no_persisted_active_operation(twin_id)
         previous_state = twin.state
         self._start_deploy(twin, skip_state_validation=skip_state_validation)
         try:
@@ -103,6 +115,12 @@ class DeploymentOperationService:
 
         if test_mode:
             session_id = str(uuid.uuid4())
+            deployment = self._create_running_operation(
+                twin_id=twin_id,
+                session_id=session_id,
+                operation_type=operation_type,
+                idempotency_key=command_key,
+            )
             operation = test_stream_runner(
                 session_id=session_id,
                 twin_id=twin_id,
@@ -113,13 +131,14 @@ class DeploymentOperationService:
             await self._create_session_and_schedule(
                 twin=twin,
                 previous_state=previous_state,
+                deployment=deployment,
                 session_id=session_id,
-                operation_type="test",
+                operation_type=operation_type,
                 operation=operation,
                 rollback=self.lifecycle_service.rollback_deploy_start,
                 failure_detail="Failed to start deployment session",
             )
-            return {"session_id": session_id, "sse_url": f"/sse/deploy/{session_id}"}
+            return self.operation_response(deployment)
 
         twin = self._reload_for_deployment(twin_id, user_id)
         try:
@@ -157,6 +176,13 @@ class DeploymentOperationService:
 
         provider = prepared_project.provider
         session_id = str(uuid.uuid4())
+        deployment = self._create_running_operation(
+            twin_id=twin_id,
+            session_id=session_id,
+            operation_type=operation_type,
+            idempotency_key=command_key,
+            graph_evidence=prepared_project.graph_evidence,
+        )
         operation = run_real_deploy_stream(
             session_id=session_id,
             twin_id=twin_id,
@@ -168,13 +194,14 @@ class DeploymentOperationService:
         await self._create_session_and_schedule(
             twin=twin,
             previous_state=previous_state,
+            deployment=deployment,
             session_id=session_id,
             operation_type="deploy",
             operation=operation,
             rollback=self.lifecycle_service.rollback_deploy_start,
             failure_detail="Failed to start deployment session",
         )
-        return {"session_id": session_id, "sse_url": f"/sse/deploy/{session_id}"}
+        return self.operation_response(deployment)
 
     async def destroy_twin(
         self,
@@ -184,11 +211,21 @@ class DeploymentOperationService:
         test_mode: bool,
         test_stream_runner: Callable[..., Awaitable[Any]] | None = None,
         skip_state_validation: bool = False,
-    ) -> dict[str, str]:
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
         """Start infrastructure destroy and return the SSE session location."""
         if test_mode and test_stream_runner is None:
             raise ValidationError("Test destroy runner is not configured")
         twin = self._require_active_twin(twin_id, user_id)
+        command_key = self._command_key(idempotency_key)
+        existing = DeploymentRepository(self.db).get_by_idempotency_key(
+            twin_id,
+            "destroy",
+            command_key,
+        )
+        if existing is not None:
+            return self.operation_response(existing, reused=True)
+        self._require_no_persisted_active_operation(twin_id)
         previous_state = twin.state
         self._start_destroy(twin, skip_state_validation=skip_state_validation)
         try:
@@ -212,6 +249,12 @@ class DeploymentOperationService:
 
         if test_mode:
             session_id = str(uuid.uuid4())
+            deployment = self._create_running_operation(
+                twin_id=twin_id,
+                session_id=session_id,
+                operation_type="destroy",
+                idempotency_key=command_key,
+            )
             operation = test_stream_runner(
                 session_id=session_id,
                 twin_id=twin_id,
@@ -222,13 +265,14 @@ class DeploymentOperationService:
             await self._create_session_and_schedule(
                 twin=twin,
                 previous_state=previous_state,
+                deployment=deployment,
                 session_id=session_id,
                 operation_type="destroy",
                 operation=operation,
                 rollback=self.lifecycle_service.rollback_destroy_start,
                 failure_detail="Failed to start destroy session",
             )
-            return {"session_id": session_id, "sse_url": f"/sse/deploy/{session_id}"}
+            return self.operation_response(deployment)
 
         twin = self._reload_for_deployment(twin_id, user_id)
         try:
@@ -297,6 +341,13 @@ class DeploymentOperationService:
 
         provider = prepared_project.provider
         session_id = str(uuid.uuid4())
+        deployment = self._create_running_operation(
+            twin_id=twin_id,
+            session_id=session_id,
+            operation_type="destroy",
+            idempotency_key=command_key,
+            graph_evidence=prepared_project.graph_evidence,
+        )
         operation = run_real_destroy_stream(
             session_id=session_id,
             twin_id=twin_id,
@@ -308,19 +359,21 @@ class DeploymentOperationService:
         await self._create_session_and_schedule(
             twin=twin,
             previous_state=previous_state,
+            deployment=deployment,
             session_id=session_id,
             operation_type="destroy",
             operation=operation,
             rollback=self.lifecycle_service.rollback_destroy_start,
             failure_detail="Failed to start destroy session",
         )
-        return {"session_id": session_id, "sse_url": f"/sse/deploy/{session_id}"}
+        return self.operation_response(deployment)
 
     async def _create_session_and_schedule(
         self,
         *,
         twin: DigitalTwin,
         previous_state: TwinState,
+        deployment: Deployment,
         session_id: str,
         operation_type: str,
         operation: Awaitable[Any],
@@ -344,11 +397,66 @@ class DeploymentOperationService:
                     type(cleanup_exc).__name__,
                 )
             rollback(twin, previous_state=previous_state)
+            DeploymentRepository(self.db).mark_failed(
+                deployment,
+                error_message=failure_detail,
+                error_code="OPERATION_START_FAILED",
+            )
             self.db.commit()
             raise DownstreamServiceError(
                 status_code=500,
                 public_detail=failure_detail,
             ) from exc
+
+    def _create_running_operation(
+        self,
+        *,
+        twin_id: str,
+        session_id: str,
+        operation_type: str,
+        idempotency_key: str,
+        graph_evidence: dict[str, Any] | None = None,
+    ) -> Deployment:
+        """Persist command acceptance before its provider task can start."""
+
+        deployment = DeploymentRepository(self.db).create_running(
+            twin_id=twin_id,
+            session_id=session_id,
+            operation_type=operation_type,
+            idempotency_key=idempotency_key,
+            graph_evidence=graph_evidence,
+        )
+        self.db.commit()
+        return deployment
+
+    def _require_no_persisted_active_operation(self, twin_id: str) -> None:
+        active = DeploymentRepository(self.db).get_active_for_twin(twin_id)
+        if active is not None:
+            raise ConflictError(
+                "Deployment operation already in progress for this twin"
+            )
+
+    @staticmethod
+    def _command_key(value: str | None) -> str:
+        key = (value or str(uuid.uuid4())).strip()
+        if not 8 <= len(key) <= 128:
+            raise ValidationError("Idempotency-Key must contain 8 to 128 characters")
+        return key
+
+    @staticmethod
+    def operation_response(
+        deployment: Deployment,
+        *,
+        reused: bool = False,
+    ) -> dict[str, Any]:
+        return {
+            "session_id": deployment.session_id,
+            "sse_url": f"/sse/deploy/{deployment.session_id}",
+            "operation_record_id": deployment.id,
+            "idempotency_key": deployment.idempotency_key,
+            "reused": reused,
+            "status_url": f"/twins/{deployment.twin_id}/deployment-status",
+        }
 
     def _require_active_twin(self, twin_id: str, user_id: str) -> DigitalTwin:
         twin = self.twin_repository.get_active_for_user(twin_id, user_id)

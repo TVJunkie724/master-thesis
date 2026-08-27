@@ -55,6 +55,18 @@ class DeploymentReadService:
                     "operation_type": session.operation_type,
                 }
 
+        if active_session is None and twin.state in (
+            TwinState.DEPLOYING,
+            TwinState.DESTROYING,
+        ):
+            persisted = self.deployment_repository.get_active_for_twin(twin_id)
+            if persisted is not None:
+                active_session = {
+                    "session_id": persisted.session_id,
+                    "sse_url": f"/sse/deploy/{persisted.session_id}",
+                    "operation_type": persisted.operation_type,
+                }
+
         latest_deployment = self.deployment_repository.get_latest_for_twin(twin_id)
 
         return build_deployment_status_response(
