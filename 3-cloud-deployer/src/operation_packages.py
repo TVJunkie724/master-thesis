@@ -48,6 +48,69 @@ class StagedOperationPackage:
     graph_evidence: dict[str, object] | None = None
 
 
+@dataclass(frozen=True)
+class DeploymentRequirementsInspection:
+    """Secret-free result of resolving one package without staging it."""
+
+    project_name: str
+    warnings: tuple[str, ...]
+    graph_evidence: dict[str, object]
+    requirements: tuple[dict[str, object], ...]
+
+
+def inspect_deployment_requirements(
+    project_name: str,
+    archive: bytes,
+    *,
+    project_storage: ProjectStorage | None = None,
+) -> DeploymentRequirementsInspection:
+    """Resolve graph prerequisites in a private disposable workspace.
+
+    The operation validates the exact package accepted by deployment, performs
+    no provider call, persists no project or credential, and returns only the
+    bounded graph evidence plus the secret-free requirement contracts.
+    """
+
+    storage = project_storage or ProjectStorage()
+    safe_name = storage.context(project_name).project_name
+    warnings = file_manager.validate_deployment_operation_archive(archive)
+    inspection_path = Path(
+        tempfile.mkdtemp(prefix="twin2multicloud-requirements-")
+    ).resolve()
+    inspection_path.chmod(0o700)
+    try:
+        file_manager.extract_operation_archive(
+            safe_name,
+            archive,
+            inspection_path,
+            prevalidated=True,
+        )
+        from src.architecture_profiles import graph_evidence
+        from src.core.config_loader import ProjectConfigLoader
+        from src.terraform_inputs import translate_graph_inputs
+
+        bundle = ProjectConfigLoader().load_bundle_from_path(
+            safe_name,
+            inspection_path,
+        )
+        graph = bundle.resolved_deployment_graph
+        if graph is None:
+            raise OperationPackageError(
+                "Deployment package does not resolve a deployment graph"
+            )
+        translate_graph_inputs(graph)
+        return DeploymentRequirementsInspection(
+            project_name=safe_name,
+            warnings=tuple(sorted(set(warnings))),
+            graph_evidence=graph_evidence(graph),
+            requirements=tuple(
+                requirement.to_contract() for requirement in graph.requirements
+            ),
+        )
+    finally:
+        shutil.rmtree(inspection_path, ignore_errors=True)
+
+
 class OperationPackageStore:
     """Stages credential-bearing project packages outside durable project storage."""
 

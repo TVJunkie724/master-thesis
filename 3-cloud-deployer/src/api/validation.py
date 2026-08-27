@@ -14,6 +14,7 @@ from src.api.validation_complete import (
 )
 from src.api.validation_extract import router as extraction_router
 from src.api.validation_payloads import router as payload_validation_router
+from src.api.validation_requirements import router as requirements_validation_router
 from src.api.validation_twin import router as twin_validation_router
 
 
@@ -28,6 +29,7 @@ router = APIRouter()
 router.include_router(archive_validation_router)
 router.include_router(artifact_validation_router)
 router.include_router(payload_validation_router)
+router.include_router(requirements_validation_router)
 router.include_router(twin_validation_router)
 router.include_router(extraction_router)
 router.include_router(complete_validation_router)
@@ -39,4 +41,3 @@ __all__ = [
     "ValidationError",
     "router",
 ]
-

@@ -21,6 +21,7 @@ from src.operation_packages import (
     METADATA_FILE,
     OperationPackageError,
     OperationPackageStore,
+    inspect_deployment_requirements,
 )
 from src.providers.terraform.package_builder import build_all_packages
 from src.runtime_state import RuntimeStateStore
@@ -270,6 +271,48 @@ def test_stage_six_layer_compiles_graph_and_returns_bounded_evidence(
         (store.root / staged.token / METADATA_FILE).read_text("utf-8")
     )
     assert metadata["graph_evidence"] == staged.graph_evidence
+
+
+def test_requirement_inspection_is_secret_free_and_leaves_no_workspace(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.setattr(
+        "file_manager.validator.validate_project_zip",
+        lambda _archive, **_kwargs: [],
+    )
+    created = tmp_path / "inspection"
+
+    def make_inspection_directory(**_kwargs):
+        created.mkdir()
+        return str(created)
+
+    monkeypatch.setattr(
+        "src.operation_packages.tempfile.mkdtemp",
+        make_inspection_directory,
+    )
+
+    inspection = inspect_deployment_requirements(
+        "factory",
+        _six_layer_archive(),
+        project_storage=ProjectStorage(project_root=tmp_path / "projects"),
+    )
+
+    assert inspection.graph_evidence["requirements_digest"].startswith("sha256:")
+    assert inspection.graph_evidence["requirement_count"] == len(
+        inspection.requirements
+    )
+    assert {item["provider"] for item in inspection.requirements} == {
+        "aws",
+        "azure",
+    }
+    assert "operation-secret" not in json.dumps(
+        {
+            "graph_evidence": inspection.graph_evidence,
+            "requirements": inspection.requirements,
+        }
+    )
+    assert not created.exists()
 
 
 def test_six_layer_operation_package_drives_real_graph_packages_and_tfvars(
