@@ -63,7 +63,7 @@ def _raise_service_http_error(exc: Exception) -> None:
     response_model=List[TwinResponse],
     operation_id="listDigitalTwins",
     summary="List all digital twins for current user",
-    description="Returns all active Digital Twins owned by the authenticated user for dashboard and overview screens.",
+    description="Returns all active Digital Twins owned by the authenticated user for selection and lifecycle workflows.",
     responses={401: ERROR_RESPONSES[401]},
 )
 async def list_twins(

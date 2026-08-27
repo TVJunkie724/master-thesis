@@ -29,7 +29,6 @@ from src.api.routes.optimizer_config import router as optimizer_config_router
 from src.api.routes.optimizer_runs import router as optimizer_runs_router
 from src.api.routes.pricing_refresh import router as pricing_refresh_router
 from src.api.routes.pricing_review import router as pricing_review_router
-from src.api.routes.dashboard import router as dashboard_router
 from src.api.routes.deployer import router as deployer_router
 from src.api.routes.sse import router as sse_router
 from src.services.deployment_stream_service import start_reaper
@@ -271,7 +270,6 @@ app.include_router(optimizer_config_router)
 app.include_router(optimizer_runs_router)
 app.include_router(pricing_refresh_router)
 app.include_router(pricing_review_router)
-app.include_router(dashboard_router)
 app.include_router(deployer_router)
 app.include_router(sse_router)
 app.include_router(user_function_extensions.router)
