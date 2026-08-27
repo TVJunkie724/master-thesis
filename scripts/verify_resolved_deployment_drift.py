@@ -215,7 +215,7 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                     "&& python scripts/sync_six_layer_workload_contract.py --check "
                     "&& python scripts/sync_six_layer_contracts.py --check "
                     "&& python scripts/validate_live_evaluation_plan.py "
-                    "&& python -m pytest -q "
+                    "&& python -m pytest -q -p no:cacheprovider "
                     "scripts/tests/test_user_function_extension_contract_sync.py "
                     "scripts/tests/test_deployment_access_contract_sync.py "
                     "scripts/tests/test_six_layer_workload_contract.py "
