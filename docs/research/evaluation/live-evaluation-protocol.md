@@ -108,3 +108,36 @@ Each executed scenario must produce a secret-free evidence directory with:
 
 An unresolved provider blocker is a valid result. Offline or mocked success is
 never substituted for missing live evidence.
+
+### Existing evidence sources
+
+The supervised operator collects the evidence from the normal owner-scoped
+Twin workflow; there is no second product-like evaluation orchestrator:
+
+| Evidence | Canonical source |
+|---|---|
+| Input, workload, pricing, allocation, cost trace, RTA and RDS | candidate pack plus the selected Optimizer run and its pricing-evidence response |
+| Account scopes | secret-free CloudConnection metadata; never the imported credential payload |
+| Graph-derived readiness | `deployment-preflight` response and cached `deployment-readiness` response |
+| Reviewed account changes | digest-bound `deployment-preparation` request and response |
+| Apply/Destroy correlation and replay | deployment history, bounded persisted logs, and the owner-scoped SSE stream with `Last-Event-ID` |
+| L4/L5 access | secret-free `deployment-access` response; any one-time credential value is excluded |
+| Telemetry roundtrip | persisted data-flow verification record |
+| Cleanup and residuals | terminal Destroy operation and its typed `cleanup-evidence.v1` output |
+| Observed cost | separately exported provider billing evidence after Destroy |
+
+Apply and Destroy are initiated only from their distinct confirmed UI actions
+during the supervised run. The API operation and stream IDs are retained as
+the correlation evidence; screenshots are optional supporting evidence, not a
+substitute for the persisted operation result.
+
+### Phase 8 boundary
+
+The application already owns read-only provider preflight and reviewed account
+preparation. It deliberately does not own a generic cross-provider identity
+laboratory. The six minimal federation probes are therefore a supervised
+evaluation activity against the exact Terraform/runtime identity contracts,
+performed before the full scenarios and immediately cleaned up. Each probe
+records provider-native success or an explicit blocker plus residual-resource
+evidence. A full Twin deployment must not be used to relabel a missing
+standalone prerequisite probe as successful.
