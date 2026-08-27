@@ -16,7 +16,7 @@ an explicit responsibility.
 | Architecture | fixed `six-layer-eventing@1` contract | real regional service capacity |
 | Optimization | cost-only strategy with full trace | sensitivity interpretation against live observations |
 | Pricing | frozen, cited, hashed snapshots | no live refresh is part of the PoC |
-| Credentials | encrypted deployment CloudConnections, graph readiness, bounded repair | real account permissions and external prerequisites |
+| Credentials | encrypted deployment CloudConnections, graph readiness, bounded preparation services | Flutter confirmation/repair closure, real account permissions and external prerequisites |
 | Deployment | immutable operations, packages, SSE replay, verification and cleanup contracts | provider Apply/Destroy results |
 | Evaluation | deterministic fixtures and coverage design | three local plus six directed multi-cloud Small runs |
 

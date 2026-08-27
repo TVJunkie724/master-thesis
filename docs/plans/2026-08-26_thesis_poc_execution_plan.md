@@ -3,12 +3,12 @@ title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
 lastUpdated: "2026-08-27"
-version: "1.1"
+version: "1.2"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
 
-Status: active execution source; offline phases implemented, supervised live
+Status: active execution source; offline closure in progress, supervised live
 evaluation pending
 
 ## 1. Purpose
@@ -29,7 +29,10 @@ The canonical scope is defined by:
 
 | Phase | Status on 2026-08-27 | Evidence boundary |
 |---|---|---|
-| 0–6 | Implemented offline | code, contracts, deterministic service and Flutter suites |
+| 0–2 | Implemented offline | standalone contracts, cost-only path, graph-derived deployment evidence |
+| 3 | Backend/Deployer implemented; Flutter closure pending | connection selection and preflight exist; preparation confirmation and repair UI remain |
+| 4–5 | Implemented offline | bounded Twin interchange, durable operations, access and verification contracts |
+| 6 | In progress | removed product surfaces; bounded readiness/repair presentation remains |
 | 7 | In progress | active documentation and repository-wide offline gate |
 | 8 | Pending supervision | real principals, provider readiness, identity and image probes |
 | 9 | Pending supervision | nine cost-controlled Small deployments |
@@ -193,9 +196,9 @@ concept and short code comments at the retained strategy boundary.
 - Separate identity probes from graph-derived deployment readiness.
 - Produce exact, non-mutating readiness results and a digest-bound preparation
   plan.
-- Implement only bounded confirmed preparation: Azure provider registration,
-  GCP API enablement, and the reviewed AWS outbound identity capability where
-  an idempotent provider API exists.
+- Implement only bounded confirmed preparation: Azure provider registration
+  and GCP API enablement. Keep AWS outbound-identity account enablement manual
+  until a reviewed, idempotent provider operation is proven live.
 - Add typed manual instructions and connection replacement for billing,
   quotas, policy, consent, capacity, and unsupported authority.
 - Re-run readiness after preparation and expose partial failure honestly.

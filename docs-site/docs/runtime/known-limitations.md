@@ -16,6 +16,8 @@
 - one single-user/single-node PoC runtime;
 - pre-existing deployment administrator credentials;
 - bounded confirmed preparation, not general account administration;
+- provider preflight is visible in Flutter, while preparation confirmation and
+  repair presentation remain an offline UI-closure task;
 - typed Twin interchange and bounded user functions, not arbitrary projects;
 - immutable deployed definitions, no update/migration/rollback;
 - access links and one telemetry roundtrip, no dashboard administration;

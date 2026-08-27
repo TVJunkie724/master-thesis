@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud PoC Credential, Readiness, and Repair Concept"
 description: "Bounded credential and provider-preparation contract for the supervised thesis proof of concept."
 tags: [security, credentials, readiness, repair, thesis-scope]
-lastUpdated: "2026-08-26"
-version: "2.0"
+lastUpdated: "2026-08-27"
+version: "2.1"
 ---
 
 # PoC credential, readiness, and repair concept
@@ -234,30 +234,40 @@ The bundle never contains the selected deployment administrator secret.
 
 ## 13. Current-state findings
 
-The repository audit found that the current setup documentation and preflight
-cannot yet serve as the final contract:
+The offline implementation now provides the intended service boundary:
 
-- provider discovery is based on legacy layer fields and does not consistently
-  include the resolved Eventing provider;
-- AWS, Azure, and GCP readiness still use broad fixed permission/API sets
-  instead of requirements derived from the selected graph;
-- the current GCP Six-layer path computes required APIs but does not own their
-  enablement consistently, while the Azure provider disables automatic
-  resource-provider registration;
-- Azure subscription authorization is checked without fully proving the
-  separate Microsoft Graph authority required for Entra objects;
-- AWS dashboard and outbound-identity prerequisites contain distinct regional
-  decisions that are not modeled as graph requirements today;
-- normalized preflight output can suggest actions, but there is no bounded,
-  idempotent repair executor; and
-- some Azure and GCP setup pages still reference removed bootstrap scripts and
-  therefore cannot be treated as executable instructions.
+- the resolved deployment graph projects provider scope, regions, exact APIs
+  and Azure resource providers, permissions, quota probes, workload-identity
+  routes, runtime-access prerequisites, and verification probes;
+- a user can store multiple encrypted, named CloudConnections and bind one per
+  required provider to a Twin;
+- Management separates connection validation from graph-bound readiness,
+  caches only redacted evidence, and invalidates stale graph or connection
+  results;
+- Deployer emits a deterministic preparation plan and executes only confirmed
+  Azure resource-provider registration and GCP API enablement;
+- partial preparation is reported action by action, remains retry-safe, and is
+  followed by a readiness rerun; and
+- AWS IAM Identity Center, regional outbound identity, and Azure Microsoft
+  Graph authority are modeled separately from ordinary subscription or account
+  permissions.
 
-These findings do not justify preserving every manual step. They establish the
-inventory that Phase 2 must convert into graph requirements and that Phase 3
-must classify as automatic preparation, manual action, or unsupported. Setup
-documentation is rewritten only after those behaviors are implemented and
-tested.
+The remaining boundary is deliberately visible:
+
+- AWS outbound-identity account enablement remains `manual_action`; the PoC has
+  no reviewed automatic executor for it;
+- external billing, quota, organization-policy, tenant-consent, Marketplace,
+  and IAP OAuth steps remain manual or unsupported;
+- a manual acknowledgement records the supervised operator decision but is not
+  substituted for a provider probe where a non-mutating probe exists;
+- provider-console links are not yet a structured cross-provider contract; and
+- Flutter currently exposes connection selection and provider preflight, but
+  the exact preparation-plan confirmation and repair actions still require the
+  bounded Phase 6 UI closure.
+
+No live provider behavior is inferred from these offline contracts. Real
+permissions, regional availability, quotas, API registration, partial-failure
+behavior, and repeatability remain Phase 8 supervised evidence.
 
 ## 14. Verification boundary
 
@@ -276,10 +286,11 @@ supervised PoC. It does not evaluate an identity-provisioning product.
 
 ## 15. Implementation dependency
 
-This concept is planned now but implemented only after the standalone
-Six-layer architecture and resolved deployment graph have become the active
-cross-service source of truth. Otherwise readiness would encode another fixed
-legacy permission pack and immediately require rework.
+The standalone Six-layer graph is now the cross-service source of truth, and
+the Management/Deployer readiness and account-preparation contracts are
+implemented and covered offline. Completion still requires the bounded Flutter
+confirmation/repair surface and supervised provider validation. This section
+must not be read as live-cloud readiness evidence.
 
 ## 16. Provider references for implementation review
 

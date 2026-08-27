@@ -35,10 +35,10 @@
     "docs/research/evidence/phase_08_service_bundles/workload-scenarios.json": "sha256:a1475ab2561b49650907349bf8e92db15e56551ad18ce7fd4cceb40cfb45f476"
   },
   "immutable_input_byte_digests": {
-    "docs/research/evidence/phase_08_eventing/decision.json": "sha256:73b4ad1db073a1750c8efebc49b826e5f97014b6c3982f07d596f679fdedf75c",
+    "docs/research/evidence/phase_08_eventing/decision.json": "sha256:84050a44ff3387dc64ed5518b6ae45a77316f043e2c24c9076df2ed9f9d567b4",
     "docs/research/evidence/phase_08_eventing/source-ledger.json": "sha256:c64311e931f32213b366a2bdbe0d85da59972a94b666b39bb60ae5e2c0c7b0ee"
   },
-  "package_digest": "sha256:49eca5bda7941d697bf272988f65ae3d6cc1eaa25c10b091325a5aa59813b0c4",
+  "package_digest": "sha256:18bf6d92031c7345eb20ba3ebd076457f271e9fed7ea93a2bbdd7a4ebc816078",
   "reviews": [
     {
       "review_id": "six-layer-architecture",

@@ -23,8 +23,9 @@ and GCP service-account JSON. Files are parsed as credential input, not stored
 as portable Twin artifacts.
 
 Readiness may reveal missing permissions or external provider prerequisites.
-Confirm only bounded preparation shown by the application; otherwise follow
-the typed manual instruction or replace the connection.
+The Management/Deployer preparation contract is bounded and confirmation-
+gated, but its complete Flutter confirmation and repair surface is still open.
+Do not invoke live preparation by bypassing that UI boundary.
 
 Twin2MultiCloud does not create, minimize, rotate, or revoke the provider
 administrator. Revoke it directly with the provider after the experiment.

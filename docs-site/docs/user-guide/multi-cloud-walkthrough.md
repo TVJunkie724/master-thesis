@@ -35,9 +35,11 @@ Choose one existing named CloudConnection for every provider used by the
 result. Add or import a new connection only when needed. Credential values are
 write-only.
 
-Run identity validation and graph-derived readiness. Review and confirm only
-the bounded preparation actions shown by the system. For external blockers,
-follow the manual instruction or replace the connection, then rerun readiness.
+Run identity validation and graph-derived readiness. The current Flutter
+overview displays provider checks, but the explicit preparation-plan and repair
+dialog is not yet exposed. Do not bypass that missing confirmation surface for
+a live run; complete the bounded UI closure first. External blockers remain a
+manual provider action or require a replacement connection.
 
 ## 5. Optional supervised deployment
 

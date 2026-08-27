@@ -2752,11 +2752,11 @@
       "purpose": "Normalize mandatory shared event workload fields without legacy flags."
     },
     {
-      "path": "twin2multicloud_backend/src/services/optimizer_calculation_service.py",
+      "path": "twin2multicloud_backend/src/services/cost_calculation_run_service.py",
       "operation": "modify",
       "slice": "shared",
       "owner": "management",
-      "purpose": "Validate profile-bound Eventing requests and immutable result digests."
+      "purpose": "Validate profile-bound Six-layer requests and immutable result digests."
     },
     {
       "path": "twin2multicloud_backend/src/clients/deployer_client.py",

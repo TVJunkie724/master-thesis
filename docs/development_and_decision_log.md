@@ -3,7 +3,7 @@ title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
 lastUpdated: "2026-08-27"
-version: "1.0"
+version: "1.1"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -164,10 +164,28 @@ reviewed against the research scope, deterministic tests and static gates run
 before handoff, and live or empirical claims require recorded provider
 evidence. AI output is never treated as a source for scientific facts.
 
+## D-11 — Profile-bound startup without external application login
+
+**Decision:** The PoC retains one owner profile for Twin and CloudConnection
+ownership but uses a configured static local bearer instead of an interactive
+identity provider.
+
+**Rationale:** Google OAuth, Microsoft login, university SAML, JWT issuance,
+roles, and multi-tenant session lifecycle do not contribute evidence for the
+research questions. Ownership of encrypted provider credentials still requires
+an explicit profile boundary.
+
+**Consequence:** External application-login implementations and dependencies
+are removed. The login page remains compiled but dormant and unrouted so a
+future authentication adapter can reuse the presentation boundary. Cloud
+workload identity and provider-owned access login remain separate Six-layer
+deployment concerns.
+
 ## Current implementation checkpoint
 
-As of 2026-08-27, the standalone contract, graph boundary, bounded credential
-workflow, immutable interchange, durable operations, access handoff, cost-only
-Optimizer, frozen pricing snapshots, and narrowed Flutter/Management contracts
-are implemented and pass offline suites. Live prerequisite probes and the nine
-supervised Small scenarios remain empirical work and are not claimed complete.
+As of 2026-08-27, the standalone contract, graph boundary, credential services,
+immutable interchange, durable operations, access handoff, cost-only Optimizer,
+frozen pricing snapshots, and narrowed Flutter/Management contracts are
+implemented and pass their offline suites. The bounded Flutter confirmation and
+repair surface, live prerequisite probes, and the nine supervised Small
+scenarios remain open and are not claimed complete.

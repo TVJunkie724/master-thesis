@@ -3,7 +3,7 @@ title: "Twin2MultiCloud Thesis PoC Target Concept"
 description: "Research-question-driven target scope for the final Twin2MultiCloud proof of concept."
 tags: [architecture, thesis-scope, six-layer, evaluation]
 lastUpdated: "2026-08-27"
-version: "1.1"
+version: "1.2"
 ---
 
 # Twin2MultiCloud Thesis PoC Target Concept
@@ -85,6 +85,16 @@ errors, and operation history. The Optimizer owns pricing, formulas,
 admissibility, cost scoring, and resolved deployment decisions. The Deployer
 owns graph validation, packages, provider preparation, Terraform execution,
 runtime verification, and cleanup.
+
+The PoC retains one local owner profile so Twins and encrypted
+CloudConnections have an explicit user boundary. Startup binds a configured
+static local bearer to that profile; it does not expose interactive application
+login. Google OAuth, Microsoft login, university SAML, JWT issuance, roles, and
+multi-tenant session management are outside the runtime. The existing login
+screen remains dormant and unrouted as a possible adapter boundary, not as a
+supported capability. Provider-owned Entra, IAM Identity Center, IAP, OIDC, or
+SAML mechanisms used by deployed cloud resources are separate from application
+authentication and remain where the Six-layer graph requires them.
 
 ## 3. Supported user journey
 
@@ -184,7 +194,8 @@ the exact account capabilities required by the selected deployment:
 
 - register required Azure resource providers;
 - enable required Google Cloud APIs;
-- enable AWS outbound identity federation for a selected AWS-to-Azure route;
+- identify AWS outbound-identity prerequisites for a selected cross-cloud
+  route and present the supervised manual action;
 - create Twin-scoped runtime identities, roles, trust objects, service
   accounts, managed identities, and role assignments through the deployment.
 
@@ -336,7 +347,8 @@ the archive.
 - general architecture-profile registration or inheritance;
 - arbitrary topology and service selection;
 - multi-objective optimization;
-- production authentication, RBAC, multi-tenancy, or identity governance;
+- Google, Microsoft, or university-SAML application login, JWT issuance,
+  production authentication, RBAC, multi-tenancy, or identity governance;
 - provider account creation and billing onboarding;
 - automatic quota or organization-policy administration;
 - arbitrary deployment projects and executable ZIP layouts;

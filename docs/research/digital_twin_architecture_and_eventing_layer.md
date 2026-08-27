@@ -1287,10 +1287,12 @@ Large allocations, the GCP hosted BifroMQ device boundary, and interactive
 provider sign-in remain supervised-live gates. General topology optimization
 remains a separate future research direction.
 
-Phase 8.10 evaluates the frozen profiles with functional and theoretical-
+The frozen standalone profile is evaluated with functional and theoretical-
 capacity gates before cost. Its method, bounded interpretation, and evidence
-index are documented in
-[`phase_08_profile_evaluation_method_and_results.md`](phase_08_profile_evaluation_method_and_results.md).
+index are documented in the
+[`phase_08_eventing`](evidence/phase_08_eventing/README.md) and
+[`phase_08_service_bundles`](evidence/phase_08_service_bundles/README.md)
+packages.
 
 The thesis does not need to catalogue every potentially relevant provider
 service. It evaluates one bounded, justified composition per provider.
@@ -1330,8 +1332,9 @@ Managed Grafana, Azure uses ADT Explorer and Managed Grafana, and GCP adds a
 bounded IAP-protected Cloud Run Twin Explorer beside Grafana OSS. Interactive
 browser identities are preflighted independently from deployment credentials;
 generic Terraform outputs are not a credential or access contract. Exact
-feasibility and residual limitations are recorded in
-[`phase_08_layer_access_handoff.md`](../plans/phase_08_architecture_profiles_eventing/phase_08_layer_access_handoff.md).
+feasibility and residual limitations are recorded in the
+[`phase_08_service_bundles`](evidence/phase_08_service_bundles/README.md)
+evidence package.
 
 L4-to-L5 Twin context, 3D scenes, and the ADX migration are outside the PoC.
 

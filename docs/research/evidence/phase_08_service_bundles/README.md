@@ -134,8 +134,9 @@ deterministic default gate.
 
 ## Review Record
 
-1. Architecture/service review: zero unresolved findings after covering both
-   profiles, all single-/multicloud placements and routes, service reuse,
+1. Architecture/service review: zero unresolved findings after covering the
+   standalone Six-layer runtime boundary, its single-/multicloud placements and
+   routes, the separate historical Optimizer baseline context, service reuse,
    tiering, access, current plugin facts, and PoC non-goals.
 2. Builder/evidence review: zero unresolved findings after pinning formulas,
    artifacts, byte digests, permission inventories, source references,
@@ -146,7 +147,8 @@ deterministic default gate.
 4. Contract-integration review: zero unresolved findings after splitting the
    managed-Grafana plugin ownership, making capacity dimensions atomic,
    omitting remote-only Eventing services in single-cloud resolutions, and
-   validating all 729 admissible Five-layer layer assignments.
+   validating all 729 assignments of the Optimizer-only Five-layer baseline
+   used by that pre-activation comparison.
 5. Provider image/tiering implementation-support review: zero unresolved
    contract findings after binding CodeBuild, ACR Tasks, and Cloud Build
    publication, digest-only runtime images, five-minute storage batches, and

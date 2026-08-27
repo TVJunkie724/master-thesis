@@ -9,7 +9,7 @@ The workspace presents one dependency-aware Twin workflow.
 | Workload | scenario, devices, traffic, processing, retention and Twin inputs |
 | User logic | bounded processor/rule/feedback extensions |
 | Optimize and review | cost calculation, exclusions, assumptions, trace and immutable selection |
-| Deployment preparation | connection binding, readiness, repair, plan review and validation |
+| Deployment preparation | connection binding and readiness; plan confirmation and repair UI pending |
 
 ## Dependency order
 
@@ -19,7 +19,8 @@ Twin identity
   -> workload + required bounded functions valid
   -> calculation and immutable review
   -> required deployment CloudConnections selected
-  -> graph readiness and repair complete
+  -> graph readiness complete
+  -> bounded preparation/repair confirmation (UI closure pending)
   -> deployment confirmation
 ```
 

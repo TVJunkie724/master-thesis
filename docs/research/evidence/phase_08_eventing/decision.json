@@ -13,7 +13,7 @@
     "bridge_decision": "sha256:0fa06821d6c3a0f9f9c5f69a84c5f66eb606f47cea41d7d53801ebd9d4671262",
     "domain_event_flow_contract": "sha256:994eceaa179e02344cf7323d2a63eb0710e079d4b4a9f71e02c4c8a15a2d7dbc",
     "formula_and_unit_ledger": "sha256:acf0b42bd2d2d5f0e8980f38f8ee03b5aa8661b07c5a96475406924fa315701a",
-    "implementation_component_manifest": "sha256:966084d70f40bcf41239b030fed485542b3b61175d9c3ecf3e4738e8584e5771",
+    "implementation_component_manifest": "sha256:dfb24ff1a3cc307c0d6d4322654cf043ff1e8b74d967a4d35e5a96bd3d3bb173",
     "mandatory_capabilities": "sha256:e2caf5d62e95016b3c63ba620865b4586bf93982a0f4dec8d5c900ed28d42f55",
     "pricing_model_matrix": "sha256:9cb3ac4ea4a3ee690ae68131b7975c1cff43bbdf83435fea6020b45bf168e16b",
     "profile_parity_decision": "sha256:3c871851be203120b447d47b4befc9c000add54ef662dd8bbca0bcf313d73f60",

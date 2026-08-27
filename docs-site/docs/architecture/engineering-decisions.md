@@ -14,6 +14,7 @@ outcomes are summarized here.
 | immutable deployed Twins | typed Duplicate/Export/Import rather than update/migration/rollback |
 | durable Deploy/Destroy | idempotent commands, persisted progress, SSE replay, verification and cleanup evidence |
 | access handoff | provider-accurate URL/identity information and telemetry proof; no embedded dashboard administration |
+| profile-bound startup | one owner profile and static local bearer; no Google, Microsoft, or university-SAML application login |
 
 Patterns are retained where they make a real seam testable. For example, the
 cost scorer implements a strategy boundary, but only one runtime strategy is
