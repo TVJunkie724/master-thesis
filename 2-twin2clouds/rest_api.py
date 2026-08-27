@@ -1,7 +1,7 @@
 """
 Twin2Clouds REST API
 
-FastAPI application serving the cost optimization platform for Digital Twin deployments.
+FastAPI application serving the thesis PoC cost optimizer.
 API endpoints are organized into separate router modules in the api/ directory.
 """
 from contextlib import asynccontextmanager
@@ -54,15 +54,10 @@ app = FastAPI(
     title="twin2clouds REST API",
     version="1.2",
     description=(
-        "API backend for **Twin2Clouds**, a cost-optimization platform for engineering "
-        "digital twins across multiple cloud providers (AWS, Azure, Google). "
-        "This API serves both the web UI and the computational engine that calculates "
-        "the most cost-efficient provider setup for each architectural layer."
-        "<h3>🔗 Useful Links</h3>"
-        "<h4>🖥️ Web Interface</h4>"
-        "<ul><li><a href=\"/ui\" target=\"_blank\"><strong>Open Web UI</strong></a></br>"
-        "  The graphical Twin2Clouds interface for configuring scenarios.</li></ul>"
-        "<h4>📘 Documentation</h4>"
+        "Internal cost-optimization service for the Twin2MultiCloud thesis PoC. "
+        "It evaluates the fixed Six-layer Eventing contract across AWS, Azure, "
+        "and Google Cloud using pinned thesis pricing evidence."
+        "<h3>Documentation</h3>"
         "<ul><li><a href=\"/documentation/docs-overview.html\" target=\"_blank\"><strong>Documentation Overview</strong></a></li></ul>"
     ),
     openapi_tags=[
@@ -82,11 +77,6 @@ app = FastAPI(
 # Static File Mounts
 # =============================================================================
 
-# Web UI assets (from webui/ folder)
-app.mount("/js", StaticFiles(directory="webui/js"), name="js")
-app.mount("/css", StaticFiles(directory="webui/css"), name="css")
-app.mount("/json", StaticFiles(directory="json"), name="static-json")
-
 # Documentation (including its css, js, and references subdirectories)
 app.mount("/documentation", StaticFiles(directory="docs"), name="docs")
 
@@ -98,23 +88,6 @@ app.mount("/documentation", StaticFiles(directory="docs"), name="docs")
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return FileResponse("docs/references/favicon.ico")
-
-
-@app.get(
-    "/ui",
-    tags=["WebUI"],
-    summary="Serve the Web Interface",
-    description=(
-        "Returns the main **index.html** file that serves as the graphical interface "
-        "for Twin2Clouds. This page allows users to configure digital twin scenarios "
-        "and trigger cloud cost calculations through the API."
-    ),
-    response_description="The index.html web interface file.",
-    include_in_schema=False
-)
-def serve_ui():
-    return FileResponse("webui/index.html")
-
 
 # =============================================================================
 # Include Routers
