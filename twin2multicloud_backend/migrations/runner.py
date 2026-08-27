@@ -42,8 +42,6 @@ MIGRATIONS: tuple[Migration, ...] = (
         "012_deployment_operation_state",
         "migrations.add_deployment_operation_state_columns",
     ),
-    Migration("013_pricing_refresh_runs", "migrations.add_pricing_refresh_runs"),
-    Migration("014_pricing_review", "migrations.add_pricing_review_tables"),
     Migration("015_cost_calculation_runs", "migrations.add_cost_calculation_runs"),
     Migration(
         "016_disable_legacy_credentials", "migrations.disable_legacy_twin_credentials"

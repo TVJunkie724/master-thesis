@@ -1,7 +1,7 @@
-from datetime import datetime
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, String, Text, text
+from sqlalchemy import Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
 from src.models.database import Base
@@ -17,7 +17,6 @@ class CloudConnection(Base):
     provider = Column(String, nullable=False, index=True)
     purpose = Column(String, nullable=False, default="deployment", index=True)
     scope = Column(String, nullable=False, default="user", index=True)
-    is_default_for_pricing = Column(Boolean, nullable=False, default=False)
     display_name = Column(String, nullable=False)
     cloud_scope = Column(Text, nullable=False, default="{}")
     auth_type = Column(String, nullable=False)
@@ -31,16 +30,3 @@ class CloudConnection(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     owner = relationship("User", back_populates="cloud_connections")
-
-    __table_args__ = (
-        Index(
-            "uq_cloud_connections_pricing_default",
-            "user_id",
-            "provider",
-            unique=True,
-            sqlite_where=text("purpose = 'pricing' AND is_default_for_pricing = 1"),
-            postgresql_where=text(
-                "purpose = 'pricing' AND is_default_for_pricing = true"
-            ),
-        ),
-    )

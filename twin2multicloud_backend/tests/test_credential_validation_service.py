@@ -1,4 +1,4 @@
-"""Tests for credential validation service boundaries."""
+"""Tests for the Deployer-owned credential validation boundary."""
 
 from __future__ import annotations
 
@@ -8,15 +8,28 @@ from src.models.twin import DigitalTwin, TwinState
 from src.models.twin_config import TwinConfiguration
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
-from src.schemas.twin_config import AWSCredentials, GCPCredentials, InlineValidationRequest
+from src.schemas.cloud_connection import CloudConnectionCreate
+from src.schemas.twin_config import (
+    AWSCredentials,
+    GCPCredentials,
+    InlineValidationRequest,
+)
+from src.services.cloud_connection_service import CloudConnectionService
 from src.services.credential_validation_service import CredentialValidationService
-from src.services.secret_redaction import redact_secret_like_text, redact_validation_message, redact_validation_payload
+from src.services.secret_redaction import (
+    redact_secret_like_text,
+    redact_validation_message,
+    redact_validation_payload,
+)
 from src.services.service_errors import EntityNotFoundError, ValidationError
-from src.utils.crypto import encrypt
 
 
 def _create_user(db) -> User:
-    user = User(email="credential-validation-service@example.test", name="Credential Validation", auth_provider="google")
+    user = User(
+        email="credential-validation-service@example.test",
+        name="Credential Validation",
+        auth_provider="google",
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -24,20 +37,55 @@ def _create_user(db) -> User:
 
 
 def _create_twin(db, user: User) -> DigitalTwin:
-    twin = DigitalTwin(name="Credential Validation Twin", user_id=user.id, state=TwinState.DRAFT)
+    twin = DigitalTwin(
+        name="Credential Validation Twin",
+        user_id=user.id,
+        state=TwinState.DRAFT,
+    )
     db.add(twin)
     db.commit()
     db.refresh(twin)
     return twin
 
 
-def _service(db, *, optimizer_validator=None, deployer_validator=None) -> CredentialValidationService:
+def _service(db, *, deployer_validator=None, deployer_client=None):
     return CredentialValidationService(
         db=db,
         twin_repository=TwinRepository(db),
-        optimizer_validator=optimizer_validator,
         deployer_validator=deployer_validator,
+        deployer_client=deployer_client,
     )
+
+
+def _bind_aws_connection(
+    db,
+    twin: DigitalTwin,
+    user: User,
+    *,
+    secret: str = "AWS-SECRET-VALUE",
+) -> TwinConfiguration:
+    connection = CloudConnectionService(db).create_connection(
+        user.id,
+        CloudConnectionCreate.model_validate(
+            {
+                "provider": "aws",
+                "display_name": "AWS deployment",
+                "aws": {
+                    "access_key_id": "AKIAIOSFODNN7EXAMPLE",
+                    "secret_access_key": secret,
+                    "region": "eu-central-1",
+                },
+            }
+        ),
+    )
+    config = TwinConfiguration(
+        twin_id=twin.id,
+        aws_cloud_connection_id=connection.id,
+    )
+    db.add(config)
+    db.commit()
+    db.refresh(config)
+    return config
 
 
 class _FakePermissionClient:
@@ -50,24 +98,13 @@ class _FakePermissionClient:
         return self.result
 
 
-def _add_aws_config(db, twin: DigitalTwin, user: User, *, secret: str = "AWS-SECRET-VALUE") -> TwinConfiguration:
-    config = TwinConfiguration(
-        twin_id=twin.id,
-        aws_access_key_id=encrypt("AKIAIOSFODNN7EXAMPLE", user.id, twin.id),
-        aws_secret_access_key=encrypt(secret, user.id, twin.id),
-        aws_region="eu-central-1",
-    )
-    db.add(config)
-    db.commit()
-    db.refresh(config)
-    return config
-
-
 @pytest.mark.asyncio
-async def test_validate_stored_with_deployer_decrypts_and_persists_flag(db_session):
+async def test_validate_stored_with_deployer_decrypts_connection_and_persists_flag(
+    db_session,
+):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    config = _add_aws_config(db_session, twin, user)
+    config = _bind_aws_connection(db_session, twin, user)
     calls = []
 
     async def deployer(provider, credentials):
@@ -78,19 +115,26 @@ async def test_validate_stored_with_deployer_decrypts_and_persists_flag(db_sessi
             "missing_permissions": [f"needs {credentials['aws_secret_access_key']}"],
         }
 
-    result = await _service(db_session, deployer_validator=deployer).validate_stored_with_deployer(
-        twin_id=twin.id,
-        user_id=user.id,
-        provider="aws",
-    )
+    result = await _service(
+        db_session,
+        deployer_validator=deployer,
+    ).validate_stored_with_deployer(twin.id, user.id, "aws")
 
     db_session.refresh(config)
     assert result.valid is True
     assert result.message == "accepted [REDACTED]"
     assert result.permissions == ["needs [REDACTED]"]
     assert config.aws_validated is True
-    assert calls[0][0] == "aws"
-    assert calls[0][1]["aws_secret_access_key"] == "AWS-SECRET-VALUE"
+    assert calls == [
+        (
+            "aws",
+            {
+                "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+                "aws_secret_access_key": "AWS-SECRET-VALUE",
+                "aws_region": "eu-central-1",
+            },
+        )
+    ]
 
 
 @pytest.mark.asyncio
@@ -104,7 +148,10 @@ async def test_validate_inline_with_deployer_redacts_message_and_permissions(db_
             "permissions": [f"secret seen: {credentials['aws_secret_access_key']}"],
         }
 
-    result = await _service(db_session, deployer_validator=deployer).validate_inline_with_deployer(
+    result = await _service(
+        db_session,
+        deployer_validator=deployer,
+    ).validate_inline_with_deployer(
         InlineValidationRequest(
             provider="aws",
             aws=AWSCredentials(
@@ -116,57 +163,20 @@ async def test_validate_inline_with_deployer_redacts_message_and_permissions(db_
     )
 
     assert result.valid is False
-    assert secret not in result.message
     assert result.message == "failure echoed [REDACTED]"
     assert result.permissions == ["secret seen: [REDACTED]"]
 
 
 @pytest.mark.asyncio
-async def test_validate_inline_dual_combines_results_and_redacts(db_session):
-    secret = "DUAL-SECRET-VALUE"
-
-    async def optimizer(_provider, credentials):
-        return {"valid": True, "message": f"optimizer ok {credentials['aws_secret_access_key']}"}
-
-    async def deployer(_provider, credentials):
-        return {"valid": False, "message": f"deployer denied {credentials['aws_secret_access_key']}"}
-
-    result = await _service(
-        db_session,
-        optimizer_validator=optimizer,
-        deployer_validator=deployer,
-    ).validate_inline_dual(
-        InlineValidationRequest(
-            provider="aws",
-            aws=AWSCredentials(
-                access_key_id="AKIAIOSFODNN7EXAMPLE",
-                secret_access_key=secret,
-                region="eu-central-1",
-            ),
-        )
-    )
-
-    assert result["valid"] is False
-    assert result["optimizer"]["valid"] is True
-    assert result["deployer"]["valid"] is False
-    assert secret not in str(result)
-    assert result["optimizer"]["message"] == "optimizer ok [REDACTED]"
-    assert result["deployer"]["message"] == "deployer denied [REDACTED]"
-
-
-@pytest.mark.asyncio
-async def test_validate_inline_dual_default_path_uses_typed_clients(db_session):
-    optimizer_client = _FakePermissionClient({"valid": True, "message": "optimizer ok"})
+async def test_inline_default_path_uses_only_typed_deployer_client(db_session):
     deployer_client = _FakePermissionClient(
         {"valid": True, "message": "deployer ok", "missing_permissions": []}
     )
 
-    result = await CredentialValidationService(
-        db=db_session,
-        twin_repository=TwinRepository(db_session),
-        optimizer_client=optimizer_client,
+    result = await _service(
+        db_session,
         deployer_client=deployer_client,
-    ).validate_inline_dual(
+    ).validate_inline_with_deployer(
         InlineValidationRequest(
             provider="aws",
             aws=AWSCredentials(
@@ -177,101 +187,28 @@ async def test_validate_inline_dual_default_path_uses_typed_clients(db_session):
         )
     )
 
-    assert result["valid"] is True
-    assert optimizer_client.calls[0][0] == "aws"
+    assert result.valid is True
     assert deployer_client.calls[0][0] == "aws"
-    assert optimizer_client.calls[0][1]["aws_secret_access_key"] == "DEFAULT-PATH-SECRET"
-    assert deployer_client.calls[0][1]["aws_secret_access_key"] == "DEFAULT-PATH-SECRET"
-
-
-@pytest.mark.asyncio
-async def test_validate_inline_dual_normalizes_google_alias_for_typed_clients(db_session):
-    service_account_json = (
-        '{"type":"service_account","project_id":"alias-project",'
-        '"client_email":"sa@alias-project.iam.gserviceaccount.com","private_key":"secret"}'
-    )
-    optimizer_client = _FakePermissionClient({"valid": True, "message": "optimizer ok"})
-    deployer_client = _FakePermissionClient(
-        {"valid": True, "message": "deployer ok", "missing_permissions": []}
+    assert (
+        deployer_client.calls[0][1]["aws_secret_access_key"]
+        == "DEFAULT-PATH-SECRET"
     )
 
-    result = await CredentialValidationService(
-        db=db_session,
-        twin_repository=TwinRepository(db_session),
-        optimizer_client=optimizer_client,
-        deployer_client=deployer_client,
-    ).validate_inline_dual(
-        InlineValidationRequest(
-            provider="Google",
-            gcp=GCPCredentials(
-                project_id="alias-project",
-                service_account_json=service_account_json,
-                region="europe-west1",
-            ),
-        )
-    )
-
-    assert result["valid"] is True
-    assert optimizer_client.calls[0][0] == "gcp"
-    assert deployer_client.calls[0][0] == "gcp"
-
 
 @pytest.mark.asyncio
-async def test_validate_stored_dual_persists_combined_validity(db_session):
-    user = _create_user(db_session)
-    twin = _create_twin(db_session, user)
-    config = _add_aws_config(db_session, twin, user)
-
-    async def valid(_provider, _credentials):
-        return {"valid": True, "message": "ok"}
-
-    result = await _service(
-        db_session,
-        optimizer_validator=valid,
-        deployer_validator=valid,
-    ).validate_stored_dual(twin_id=twin.id, user_id=user.id, provider="aws")
-
-    db_session.refresh(config)
-    assert result["valid"] is True
-    assert config.aws_validated is True
-
-
-@pytest.mark.asyncio
-async def test_validate_stored_rejects_missing_twin(db_session):
-    user = _create_user(db_session)
-
-    with pytest.raises(EntityNotFoundError):
-        await _service(db_session).validate_stored_dual("missing", user.id, "aws")
-
-
-@pytest.mark.asyncio
-async def test_validate_stored_rejects_missing_config(db_session):
-    user = _create_user(db_session)
-    twin = _create_twin(db_session, user)
-
-    with pytest.raises(ValidationError):
-        await _service(db_session).validate_stored_dual(twin.id, user.id, "aws")
-
-
-@pytest.mark.asyncio
-async def test_validate_inline_gcp_dual_uses_explicit_project_for_both_services(db_session):
+async def test_inline_google_alias_normalizes_for_deployer(db_session):
     calls = []
 
-    async def optimizer(provider, credentials):
-        calls.append(("optimizer", provider, credentials))
-        return {"valid": True, "message": "ok"}
-
     async def deployer(provider, credentials):
-        calls.append(("deployer", provider, credentials))
+        calls.append((provider, credentials))
         return {"valid": True, "message": "ok"}
 
     result = await _service(
         db_session,
-        optimizer_validator=optimizer,
         deployer_validator=deployer,
-    ).validate_inline_dual(
+    ).validate_inline_with_deployer(
         InlineValidationRequest(
-            provider="gcp",
+            provider="Google",
             gcp=GCPCredentials(
                 project_id="deployment-project",
                 service_account_json='{"private_key": "GCP-PRIVATE-KEY"}',
@@ -280,16 +217,42 @@ async def test_validate_inline_gcp_dual_uses_explicit_project_for_both_services(
         )
     )
 
-    assert result["valid"] is True
-    assert calls[0][2]["gcp_project_id"] == "deployment-project"
-    assert calls[1][2]["gcp_project_id"] == "deployment-project"
+    assert result.valid is True
+    assert calls[0][0] == "gcp"
+    assert calls[0][1]["gcp_project_id"] == "deployment-project"
+
+
+@pytest.mark.asyncio
+async def test_validate_stored_rejects_missing_twin(db_session):
+    user = _create_user(db_session)
+
+    with pytest.raises(EntityNotFoundError):
+        await _service(db_session).validate_stored_with_deployer(
+            "missing", user.id, "aws"
+        )
+
+
+@pytest.mark.asyncio
+async def test_validate_stored_rejects_missing_config(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+
+    with pytest.raises(ValidationError):
+        await _service(db_session).validate_stored_with_deployer(
+            twin.id, user.id, "aws"
+        )
 
 
 def test_redact_validation_helpers_handle_nested_payloads():
     credentials = {"aws_secret_access_key": "NESTED-SECRET"}
 
-    assert redact_validation_message("leak NESTED-SECRET", credentials) == "leak [REDACTED]"
-    assert redact_validation_payload({"items": ["NESTED-SECRET"]}, credentials) == {"items": ["[REDACTED]"]}
+    assert (
+        redact_validation_message("leak NESTED-SECRET", credentials)
+        == "leak [REDACTED]"
+    )
+    assert redact_validation_payload(
+        {"items": ["NESTED-SECRET"]}, credentials
+    ) == {"items": ["[REDACTED]"]}
 
 
 def test_redact_secret_like_text_handles_common_secret_shapes():

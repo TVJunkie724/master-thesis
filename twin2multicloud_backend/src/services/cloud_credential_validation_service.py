@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from typing import Any
 
 from src.clients.deployer_client import DeployerClient
-from src.clients.optimizer_client import OptimizerClient
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 
 _SENSITIVE_KEY_PARTS = (
@@ -28,143 +26,54 @@ _REDACTION = "[REDACTED]"
 logger = logging.getLogger(__name__)
 
 
-async def perform_optimizer_validation(
+async def perform_deployer_validation(
     provider: str,
-    optimizer_creds: dict,
-    *,
-    optimizer_client: OptimizerClient | None = None,
-) -> dict:
-    """Validate pricing access through the Optimizer boundary only."""
-    optimizer_client = optimizer_client or OptimizerClient()
-    try:
-        raw = await optimizer_client.verify_permissions(provider, optimizer_creds)
-        optimizer = {
-            "valid": raw.get("valid", False) or raw.get("status") == "valid",
-            "message": raw.get("message", "Validation complete"),
-        }
-    except ExternalServiceUnavailable:
-        optimizer = {
-            "valid": False,
-            "message": "Cannot connect to Optimizer API (port 5003)",
-        }
-    except ExternalServiceError as exc:
-        optimizer = {
-            "valid": False,
-            "message": f"Optimizer API error: {exc.upstream_status_code or 502}",
-        }
-    except Exception as exc:  # noqa: BLE001 - external adapter boundary
-        logger.error(
-            "Unexpected Optimizer credential validation failure for %s (%s)",
-            provider,
-            type(exc).__name__,
-        )
-        optimizer = {
-            "valid": False,
-            "message": "Optimizer validation failed unexpectedly",
-        }
-
-    return redact_validation_result(
-        {
-            "provider": provider,
-            "valid": optimizer["valid"],
-            "optimizer": optimizer,
-            "deployer": None,
-        },
-        optimizer_creds,
-    )
-
-
-async def perform_dual_validation(
-    provider: str,
-    optimizer_creds: dict,
     deployer_creds: dict,
     *,
-    optimizer_client: OptimizerClient | None = None,
     deployer_client: DeployerClient | None = None,
 ) -> dict:
-    """Validate credentials against Optimizer and Deployer without persisting secrets."""
-    optimizer_client = optimizer_client or OptimizerClient()
+    """Validate admin credentials at the sole cloud-mutating service boundary."""
     deployer_client = deployer_client or DeployerClient()
-
-    async def call_optimizer():
-        try:
-            result = await optimizer_client.verify_permissions(
-                provider, optimizer_creds
-            )
-            is_valid = result.get("valid", False) or result.get("status") == "valid"
-            return {
-                "valid": is_valid,
-                "message": result.get("message", "Validation complete"),
-            }
-        except ExternalServiceUnavailable:
-            return {
-                "valid": False,
-                "message": "Cannot connect to Optimizer API (port 5003)",
-            }
-        except ExternalServiceError as exc:
-            return {
-                "valid": False,
-                "message": f"Optimizer API error: {exc.upstream_status_code or 502}",
-            }
-        except Exception as exc:  # noqa: BLE001 - external adapter boundary
-            logger.error(
-                "Unexpected Optimizer credential validation failure for %s (%s)",
-                provider,
-                type(exc).__name__,
-            )
-            return {
-                "valid": False,
-                "message": "Optimizer validation failed unexpectedly",
-            }
-
-    async def call_deployer():
-        try:
-            result = await deployer_client.verify_permissions(provider, deployer_creds)
-            is_valid = (
+    try:
+        result = await deployer_client.verify_permissions(provider, deployer_creds)
+        deployer_result = {
+            "valid": (
                 bool(result.get("valid"))
                 or bool(result.get("ready"))
                 or result.get("status") in {"valid", "passed"}
-            )
-            return {
-                "valid": is_valid,
-                "message": result.get("summary")
-                or result.get("message", "Validation complete"),
-                "checks": result.get("checks") or [],
-                "permissions": result.get("missing_permissions") or [],
-            }
-        except ExternalServiceUnavailable:
-            return {
-                "valid": False,
-                "message": "Cannot connect to Deployer API (port 5004)",
-            }
-        except ExternalServiceError as exc:
-            return {
-                "valid": False,
-                "message": f"Deployer API error: {exc.upstream_status_code or 502}",
-            }
-        except Exception as exc:  # noqa: BLE001 - external adapter boundary
-            logger.error(
-                "Unexpected Deployer credential validation failure for %s (%s)",
-                provider,
-                type(exc).__name__,
-            )
-            return {
-                "valid": False,
-                "message": "Deployer validation failed unexpectedly",
-            }
-
-    optimizer_result, deployer_result = await asyncio.gather(
-        call_optimizer(), call_deployer()
-    )
+            ),
+            "message": result.get("summary")
+            or result.get("message", "Validation complete"),
+            "checks": result.get("checks") or [],
+            "permissions": result.get("missing_permissions") or [],
+        }
+    except ExternalServiceUnavailable:
+        deployer_result = {
+            "valid": False,
+            "message": "Cannot connect to Deployer API (port 5004)",
+        }
+    except ExternalServiceError as exc:
+        deployer_result = {
+            "valid": False,
+            "message": f"Deployer API error: {exc.upstream_status_code or 502}",
+        }
+    except Exception as exc:  # noqa: BLE001 - external adapter boundary
+        logger.error(
+            "Unexpected Deployer credential validation failure for %s (%s)",
+            provider,
+            type(exc).__name__,
+        )
+        deployer_result = {
+            "valid": False,
+            "message": "Deployer validation failed unexpectedly",
+        }
 
     result = {
         "provider": provider,
-        "valid": optimizer_result.get("valid", False)
-        and deployer_result.get("valid", False),
-        "optimizer": optimizer_result,
+        "valid": deployer_result.get("valid", False),
         "deployer": deployer_result,
     }
-    return redact_validation_result(result, optimizer_creds, deployer_creds)
+    return redact_validation_result(result, deployer_creds)
 
 
 def redact_validation_result(
@@ -179,8 +88,8 @@ def build_preflight_result(
     provider: str,
     validation_result: dict[str, Any],
 ) -> dict[str, Any]:
-    """Normalize raw Optimizer/Deployer validation into UI-actionable preflight checks."""
-    checks = [_build_component_check("optimizer", validation_result.get("optimizer"))]
+    """Normalize Deployer validation into UI-actionable preflight checks."""
+    checks = []
     deployer = validation_result.get("deployer")
     detailed = deployer.get("checks") if isinstance(deployer, dict) else None
     if isinstance(detailed, list) and detailed:

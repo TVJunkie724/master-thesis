@@ -7,7 +7,6 @@ from src.services.credential_resolution_service import CredentialResolutionServi
 from src.services.errors import CredentialResolutionFailed
 from src.utils.crypto import encrypt, encrypt_scoped
 
-
 USER_ID = "user-1"
 TWIN_ID = "twin-1"
 
@@ -209,7 +208,7 @@ def test_plaintext_azure_credentials_use_canonical_region_fallbacks():
     )
 
     assert resolved.source == "plaintext"
-    assert resolved.optimizer_payload["azure_region"] == "westeurope"
+    assert resolved.deployer_validation_payload["azure_region"] == "westeurope"
     assert resolved.deployer_validation_payload["azure_region_iothub"] == "westeurope"
     assert (
         resolved.deployer_validation_payload["azure_region_digital_twin"]
@@ -234,7 +233,6 @@ def test_plaintext_gcp_credentials_keep_explicit_deployment_project():
         "gcp", credentials
     )
 
-    assert resolved.optimizer_payload["gcp_project_id"] == "deployment-target"
     assert resolved.deployer_validation_payload["gcp_project_id"] == "deployment-target"
     assert "private_key" not in str(resolved.deployer_config_payload)
 
@@ -257,7 +255,10 @@ def test_plaintext_google_alias_credentials_keep_explicit_project():
     )
 
     assert resolved.provider == "gcp"
-    assert resolved.optimizer_payload["gcp_project_id"] == "alias-deployment-target"
+    assert (
+        resolved.deployer_validation_payload["gcp_project_id"]
+        == "alias-deployment-target"
+    )
 
 
 def test_plaintext_gcp_credentials_require_service_account_json():

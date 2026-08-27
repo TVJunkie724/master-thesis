@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from src.schemas.twin_config import AWSCredentials, AzureCredentials, GCPCredentials
 
 CloudProvider = Literal["aws", "azure", "gcp"]
-CloudConnectionPurpose = Literal["pricing", "deployment"]
+CloudConnectionPurpose = Literal["deployment"]
 CloudConnectionScope = Literal["user"]
 CloudAuthType = Literal[
     "access_key",
@@ -24,7 +24,6 @@ class CloudConnectionCreate(BaseModel):
     provider: CloudProvider
     purpose: CloudConnectionPurpose = "deployment"
     scope: CloudConnectionScope = "user"
-    is_default_for_pricing: bool = False
     display_name: str = Field(..., min_length=1, max_length=120)
     auth_type: CloudAuthType | None = None
     cloud_scope: dict[str, Any] = Field(default_factory=dict)
@@ -76,13 +75,6 @@ class CloudConnectionCreate(BaseModel):
                     )
                 cloud_scope["account_id"] = normalized_account_id
             self.cloud_scope = cloud_scope
-        if self.purpose == "pricing":
-            if self.provider == "azure":
-                raise ValueError("Azure pricing uses the public Retail Prices API")
-        elif self.is_default_for_pricing:
-            raise ValueError(
-                "Only pricing Cloud Connections may be selected as pricing default"
-            )
         return self
 
 
@@ -123,7 +115,6 @@ class CloudConnectionUpdate(BaseModel):
 
     display_name: str | None = Field(default=None, min_length=1, max_length=120)
     cloud_scope: dict[str, Any] | None = None
-    is_default_for_pricing: bool | None = None
 
 
 class CloudConnectionResponse(BaseModel):
@@ -133,7 +124,6 @@ class CloudConnectionResponse(BaseModel):
     provider: CloudProvider
     purpose: CloudConnectionPurpose
     scope: CloudConnectionScope
-    is_default_for_pricing: bool
     display_name: str
     auth_type: str
     cloud_scope: dict[str, Any]
@@ -153,12 +143,11 @@ class CloudConnectionValidationResponse(BaseModel):
     valid: bool
     validation_status: str
     message: str
-    optimizer: dict[str, Any] | None = None
     deployer: dict[str, Any] | None = None
 
 
 class CloudPreflightCheck(BaseModel):
-    component: Literal["optimizer", "deployer"]
+    component: str = Field(pattern=r"^deployer(?:\.[A-Za-z0-9_.-]+)?$")
     status: Literal["passed", "failed"]
     code: str
     message: str

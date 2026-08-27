@@ -6,12 +6,10 @@ import sqlite3
 
 from migrations.ensure_current_schema_columns import resolve_sqlite_path
 
-
 TABLE_NAME = "cloud_connections"
 COLUMNS: tuple[tuple[str, str], ...] = (
     ("purpose", "VARCHAR NOT NULL DEFAULT 'deployment'"),
     ("scope", "VARCHAR NOT NULL DEFAULT 'user'"),
-    ("is_default_for_pricing", "BOOLEAN NOT NULL DEFAULT 0"),
     ("last_used_at", "DATETIME"),
 )
 
@@ -39,11 +37,6 @@ def migrate(database_url: str | None = None) -> list[str]:
         connection.execute(
             "CREATE INDEX IF NOT EXISTS ix_cloud_connections_scope "
             "ON cloud_connections (scope)"
-        )
-        connection.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS uq_cloud_connections_pricing_default "
-            "ON cloud_connections (user_id, provider) "
-            "WHERE purpose = 'pricing' AND is_default_for_pricing = 1"
         )
         connection.commit()
         actions.append("ensured: cloud connection purpose indexes")

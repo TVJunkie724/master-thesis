@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 import json
 
 import pytest
@@ -21,13 +20,12 @@ from src.schemas.optimizer_calculation import (
 )
 from src.services.architecture_contract_service import (
     calculate_digest as calculate_architecture_digest,
+)
+from src.services.architecture_contract_service import (
     calculate_resolution_id,
 )
 from src.services.architecture_errors import ArchitectureDomainError
 from src.services.architecture_profile_service import ArchitectureProfileService
-from src.services.aws_twinmaker_pricing_context_service import (
-    ResolvedAwsTwinMakerPricingContext,
-)
 from src.services.cost_calculation_run_service import (
     CostCalculationRunService,
     _validate_profile_workload_pair,
@@ -66,16 +64,6 @@ class FakeSixLayerOptimizerClient:
             for provider in providers
         ]
 
-        aws_context = copy.deepcopy(params["providerPricingContexts"]["awsTwinMaker"])
-        if aws_context.get("status") == "available":
-            aws_context["status"] = "compatible"
-        else:
-            specification["readiness"]["blocking_gate_ids"].append(
-                "gate.live-pricing.aws.twinmaker-account-plan"
-            )
-            specification["readiness"]["blocking_gate_ids"] = sorted(
-                set(specification["readiness"]["blocking_gate_ids"])
-            )
         specification["digest"] = calculate_digest(specification)
 
         architecture["calculation_run_id"] = run_id
@@ -145,7 +133,6 @@ class FakeSixLayerOptimizerClient:
             "evidenceReferences": {
                 "pricing_registry": "phase-08-complete-service-pricing@1"
             },
-            "providerPricingContexts": {"awsTwinMaker": aws_context},
             "pricingCatalogs": params["providerPricingCatalogs"],
             "costLedger": ledger,
             "resolvedTwinArchitecture": architecture,
@@ -164,40 +151,6 @@ class FakeSixLayerOptimizerClient:
     ):
         reference = catalog_reference(provider)
         return {"reference": reference.to_http_dict(), "isFresh": True}
-
-
-class FakeAwsTwinMakerContextService:
-    def __init__(self, payload, source_refresh_run_id):
-        self.payload = payload
-        self.source_refresh_run_id = source_refresh_run_id
-
-    async def resolve(self, _user_id, _aws_catalog_reference):
-        return ResolvedAwsTwinMakerPricingContext(
-            payload=self.payload,
-            source_refresh_run_id=self.source_refresh_run_id,
-        )
-
-
-def _available_aws_context():
-    return {
-        "schemaVersion": "aws-twinmaker-account-pricing-context.v1",
-        "status": "available",
-        "sourceRefreshRunId": "aws-refresh-1",
-        "connectionFingerprint": "sha256:" + ("a" * 64),
-        "providerAccountId": "123456789012",
-        "pricingRegion": "eu-central-1",
-        "catalogSnapshotDigest": catalog_reference("aws").content_digest,
-        "observedAt": "2026-07-17T12:00:00Z",
-        "currentPlan": {
-            "mode": "STANDARD",
-            "billableEntityCount": 10,
-            "effectiveAt": None,
-            "updatedAt": None,
-            "updateReason": None,
-            "bundle": None,
-        },
-        "pendingPlan": None,
-    }
 
 
 def _params() -> OptimizerCalculationParams:
@@ -267,14 +220,10 @@ def _twin_state(db_session):
     return user, twin
 
 
-def _service(db_session, optimizer, aws_context=None):
+def _service(db_session, optimizer):
     return CostCalculationRunService(
         db_session,
         optimizer_client=optimizer,
-        aws_twinmaker_contexts=FakeAwsTwinMakerContextService(
-            aws_context or _available_aws_context(),
-            "aws-refresh-1" if aws_context is None else None,
-        ),
         architecture_resolution_enabled=True,
     )
 
@@ -319,26 +268,6 @@ async def test_run_persists_complete_six_layer_evaluation_evidence(db_session):
             run.id,
         )
     assert rejected.value.error_code == "DEPLOYMENT_CAPACITY_EVIDENCE_PENDING"
-
-
-@pytest.mark.asyncio
-async def test_unobserved_aws_plan_is_an_explicit_offline_gate(db_session):
-    user, twin = _twin_state(db_session)
-    unavailable = {
-        "status": "unavailable",
-        "reasonCode": "AWS_TWINMAKER_PLAN_UNOBSERVED",
-    }
-
-    run = await _service(
-        db_session,
-        FakeSixLayerOptimizerClient(),
-        unavailable,
-    ).create_run(twin.id, user.id, _params())
-
-    readiness = json.loads(run.deployment_specification_json)["readiness"]
-    assert (
-        "gate.live-pricing.aws.twinmaker-account-plan" in readiness["blocking_gate_ids"]
-    )
 
 
 @pytest.mark.asyncio

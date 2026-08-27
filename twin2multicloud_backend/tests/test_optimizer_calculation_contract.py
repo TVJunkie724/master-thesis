@@ -1,7 +1,7 @@
 """Cross-route contracts for the closed Six-layer workload."""
 
-from copy import deepcopy
 import json
+from copy import deepcopy
 
 import pytest
 from pydantic import TypeAdapter
@@ -98,7 +98,6 @@ def test_removed_product_fields_are_rejected(removed_field):
 @pytest.mark.parametrize(
     ("method", "path", "body_factory"),
     [
-        ("put", "/optimizer/calculate", lambda params: params),
         (
             "put",
             "/twins/unused/optimizer-config/params",
@@ -150,7 +149,6 @@ def test_openapi_reuses_closed_workload_for_all_write_paths(authenticated_client
     client, headers = authenticated_client
     schema = client.get("/openapi.json", headers=headers).json()
     paths = (
-        "/optimizer/calculate",
         "/twins/{twin_id}/optimizer-config/params",
         "/twins/{twin_id}/optimizer-runs/",
         "/twins/{twin_id}/config/",

@@ -84,13 +84,6 @@ def test_management_json_contracts_have_response_models():
             "/twins/{twin_id}/deployments",
             "get",
         ): "#/components/schemas/DeploymentHistoryResponse",
-        ("/twins/{twin_id}/config/validate-stored/{provider}", "post"): (
-            "#/components/schemas/DualCredentialValidationResponse"
-        ),
-        (
-            "/config/validate-dual",
-            "post",
-        ): "#/components/schemas/DualCredentialValidationResponse",
         (
             "/twins/{twin_id}/optimizer-config/cheapest-path",
             "get",
@@ -162,24 +155,6 @@ def test_twin_routes_keep_openapi_summaries_and_descriptions():
     assert missing == []
 
 
-def test_documented_raw_payload_exceptions_remain_unmodeled():
-    """Streaming, downloads, and dynamic downstream payloads stay explicitly raw."""
-    raw_json_paths = [
-        ("/optimizer/calculate", "put"),
-        (
-            "/optimizer/pricing/catalogs/{provider}/{pricing_region}/"
-            "snapshots/{snapshot_id}",
-            "get",
-        ),
-        ("/optimizer/pricing-status", "get"),
-        ("/optimizer/regions-status", "get"),
-        ("/optimizer/refresh-pricing/{provider}", "post"),
-    ]
-
-    for path, method in raw_json_paths:
-        assert _response_ref(path, method) is None
-
-
 def _public_client_methods(client_cls) -> set[str]:
     return {
         name
@@ -194,16 +169,9 @@ def test_downstream_client_contract_surface_is_explicit():
     assert _public_client_methods(OptimizerClient) == {
         "calculate",
         "get_exact_pricing_catalog_reference",
-        "get_exact_pricing_catalog_snapshot",
-        "get_cache_status",
         "get_pricing_catalog_baseline",
         "get_provider_capabilities",
-        "refresh_pricing",
-        "refresh_azure_pricing",
-        "refresh_pricing_with_credentials",
-        "stream_pricing_refresh",
         "validate_optimizer_config",
-        "verify_permissions",
     }
     assert _public_client_methods(DeployerClient) == {
         "deploy_stream",

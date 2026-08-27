@@ -162,13 +162,11 @@ def _create_twin(
     return twin, connections
 
 
-async def _successful_validator(provider, optimizer_credentials, deployer_credentials):
-    assert optimizer_credentials
+async def _successful_validator(provider, deployer_credentials):
     assert deployer_credentials
     return {
         "provider": provider,
         "valid": True,
-        "optimizer": {"valid": True, "message": "Optimizer access passed"},
         "deployer": {
             "valid": True,
             "message": "Deployer access passed",
@@ -271,11 +269,10 @@ async def test_three_provider_preflight_is_deterministic_cached_and_secret_free(
     twin, _ = _create_twin(db_session, user, ("gcp", "aws", "azure"))
     calls = []
 
-    async def validator(provider, optimizer_credentials, deployer_credentials):
+    async def validator(provider, deployer_credentials):
         calls.append(provider)
         return await _successful_validator(
             provider,
-            optimizer_credentials,
             deployer_credentials,
         )
 
@@ -359,9 +356,8 @@ async def test_graph_api_requirement_is_preparable_when_provider_reports_it_miss
             },
         }
 
-    async def validator(_provider, _optimizer, _deployer):
+    async def validator(_provider, _deployer):
         return {
-            "optimizer": {"valid": True, "message": "Pricing access passed."},
             "deployer": {
                 "valid": False,
                 "message": "GCP deployment preflight failed",
@@ -652,13 +648,10 @@ async def test_secret_echo_from_validator_is_redacted_in_response_and_cache(db_s
     user = _create_user(db_session)
     twin, _ = _create_twin(db_session, user, ("aws",))
 
-    async def leaking_validator(
-        provider, _optimizer_credentials, _deployer_credentials
-    ):
+    async def leaking_validator(provider, _deployer_credentials):
         return {
             "provider": provider,
             "valid": False,
-            "optimizer": {"valid": False, "message": f"Rejected {_AWS_SECRET}"},
             "deployer": {"valid": False, "message": f"Rejected {_AWS_SECRET}"},
         }
 
@@ -675,33 +668,23 @@ async def test_secret_echo_from_validator_is_redacted_in_response_and_cache(db_s
 
 
 @pytest.mark.asyncio
-async def test_missing_and_wrong_purpose_connections_fail_closed(db_session):
+async def test_missing_connections_fail_closed(db_session):
     user = _create_user(db_session)
 
     missing_twin, _ = _create_twin(db_session, user, ("aws",))
     missing_twin.configuration.aws_cloud_connection_id = None
-    wrong_twin, _ = _create_twin(
-        db_session,
-        user,
-        ("aws",),
-        purposes={"aws": "pricing"},
-    )
     db_session.commit()
     calls = []
 
-    async def validator(provider, optimizer_credentials, deployer_credentials):
+    async def validator(provider, deployer_credentials):
         calls.append(provider)
-        return await _successful_validator(
-            provider, optimizer_credentials, deployer_credentials
-        )
+        return await _successful_validator(provider, deployer_credentials)
 
     service = DeploymentReadinessService(db_session, validator=validator)
     missing = await service.run_preflight(missing_twin.id, user.id)
-    wrong = await service.run_preflight(wrong_twin.id, user.id)
 
     assert missing.providers[0].checks[0].code == "CLOUD_CONNECTION_MISSING"
-    assert wrong.providers[0].checks[0].code == "CLOUD_CONNECTION_PURPOSE_INVALID"
-    assert missing.ready is wrong.ready is False
+    assert missing.ready is False
     assert calls == []
 
 
@@ -740,12 +723,10 @@ async def test_binding_change_during_preflight_discards_result(db_session):
     user = _create_user(db_session)
     twin, _ = _create_twin(db_session, user, ("aws",))
 
-    async def changing_validator(provider, optimizer_credentials, deployer_credentials):
+    async def changing_validator(provider, deployer_credentials):
         twin.configuration.aws_cloud_connection_id = None
         db_session.commit()
-        return await _successful_validator(
-            provider, optimizer_credentials, deployer_credentials
-        )
+        return await _successful_validator(provider, deployer_credentials)
 
     response = await DeploymentReadinessService(
         db_session,

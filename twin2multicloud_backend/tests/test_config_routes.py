@@ -9,6 +9,7 @@ Tests credential management including:
 
 import json
 
+from src.schemas.twin_config import CredentialValidationResult
 from tests.conftest import create_test_twin
 
 
@@ -584,9 +585,9 @@ class TestConfigRoutes:
 
         assert response.status_code == 400
 
-    def test_update_config_rejects_pricing_cloud_connection(self, authenticated_client):
+    def test_cloud_connection_contract_rejects_pricing_purpose(self, authenticated_client):
         client, headers = authenticated_client
-        connection = client.post(
+        response = client.post(
             "/cloud-connections/",
             json={
                 "provider": "aws",
@@ -599,17 +600,9 @@ class TestConfigRoutes:
                 },
             },
             headers=headers,
-        ).json()
-        twin_id = create_test_twin(client, headers)
-
-        response = client.put(
-            f"/twins/{twin_id}/config/",
-            json={"cloud_connections": {"aws": connection["id"]}},
-            headers=headers,
         )
 
-        assert response.status_code == 400
-        assert "cannot be bound" in response.json()["detail"]
+        assert response.status_code == 422
 
     def test_update_config_rejects_unowned_cloud_connection(self, authenticated_client, db_session):
         """A twin cannot bind to another user's CloudConnection."""
@@ -646,8 +639,10 @@ class TestConfigRoutes:
 
         assert response.status_code == 404
 
-    def test_validate_stored_dual_uses_bound_cloud_connection(self, authenticated_client, monkeypatch):
-        """Stored dual validation should read credentials from the bound CloudConnection."""
+    def test_validate_stored_credentials_uses_deployer_boundary(
+        self, authenticated_client, monkeypatch
+    ):
+        """Stored validation delegates to the Deployer-owned validation service."""
         client, headers = authenticated_client
         connection = client.post(
             "/cloud-connections/",
@@ -670,31 +665,31 @@ class TestConfigRoutes:
         )
         seen = {}
 
-        async def fake_dual_validation(provider, optimizer_creds, deployer_creds):
-            seen["provider"] = provider
-            seen["optimizer_creds"] = optimizer_creds
-            seen["deployer_creds"] = deployer_creds
-            return {
-                "provider": provider,
-                "valid": True,
-                "optimizer": {"valid": True, "message": "optimizer ok"},
-                "deployer": {"valid": True, "message": "deployer ok", "permissions": []},
-            }
+        async def fake_validate(_service, twin_id, user_id, provider):
+            seen.update(twin_id=twin_id, user_id=user_id, provider=provider)
+            return CredentialValidationResult(
+                provider=provider,
+                valid=True,
+                message="deployer ok",
+                permissions=[],
+            )
 
         monkeypatch.setattr(
-            "src.api.routes.config._perform_dual_validation",
-            fake_dual_validation,
+            "src.services.credential_validation_service."
+            "CredentialValidationService.validate_stored_with_deployer",
+            fake_validate,
         )
 
-        response = client.post(f"/twins/{twin_id}/config/validate-stored/aws", headers=headers)
+        response = client.post(
+            f"/twins/{twin_id}/config/validate/aws", headers=headers
+        )
 
         assert response.status_code == 200
         assert response.json()["valid"] is True
         assert seen["provider"] == "aws"
-        assert seen["optimizer_creds"]["aws_access_key_id"] == "AKIAIOSFODNN7EXAMPLE"
-        assert seen["deployer_creds"]["aws_secret_access_key"] == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+        assert seen["twin_id"] == twin_id
 
-    def test_validate_stored_gcp_cloud_connection_uses_resolver_without_placeholder(
+    def test_validate_stored_gcp_uses_canonical_provider_route(
         self,
         authenticated_client,
         monkeypatch,
@@ -728,32 +723,30 @@ class TestConfigRoutes:
         )
         seen = {}
 
-        async def fake_dual_validation(provider, optimizer_creds, deployer_creds):
-            seen["provider"] = provider
-            seen["optimizer_creds"] = optimizer_creds
-            seen["deployer_creds"] = deployer_creds
-            return {
-                "provider": provider,
-                "valid": True,
-                "optimizer": {"valid": True, "message": "optimizer ok"},
-                "deployer": {"valid": True, "message": "deployer ok", "permissions": []},
-            }
+        async def fake_validate(_service, twin_id, user_id, provider):
+            seen.update(twin_id=twin_id, user_id=user_id, provider=provider)
+            return CredentialValidationResult(
+                provider=provider,
+                valid=True,
+                message="deployer ok",
+                permissions=[],
+            )
 
         monkeypatch.setattr(
-            "src.api.routes.config._perform_dual_validation",
-            fake_dual_validation,
+            "src.services.credential_validation_service."
+            "CredentialValidationService.validate_stored_with_deployer",
+            fake_validate,
         )
 
-        response = client.post(f"/twins/{twin_id}/config/validate-stored/gcp", headers=headers)
+        response = client.post(
+            f"/twins/{twin_id}/config/validate/gcp", headers=headers
+        )
 
         assert response.status_code == 200
         assert response.json()["valid"] is True
         assert seen["provider"] == "gcp"
-        assert seen["optimizer_creds"]["gcp_project_id"] == "deployment-target"
-        assert seen["deployer_creds"]["gcp_project_id"] == "deployment-target"
-        assert "placeholder-project" not in str(seen)
 
-    def test_validate_dual_gcp_plaintext_uses_resolver_without_placeholder(
+    def test_validate_inline_gcp_uses_deployer_only_contract(
         self,
         authenticated_client,
         monkeypatch,
@@ -767,24 +760,24 @@ class TestConfigRoutes:
         }
         seen = {}
 
-        async def fake_dual_validation(provider, optimizer_creds, deployer_creds):
-            seen["provider"] = provider
-            seen["optimizer_creds"] = optimizer_creds
-            seen["deployer_creds"] = deployer_creds
-            return {
-                "provider": provider,
-                "valid": True,
-                "optimizer": {"valid": True, "message": "optimizer ok"},
-                "deployer": {"valid": True, "message": "deployer ok", "permissions": []},
-            }
+        async def fake_validate(_service, request):
+            seen["provider"] = request.provider
+            seen["project_id"] = request.gcp.project_id
+            return CredentialValidationResult(
+                provider="gcp",
+                valid=True,
+                message="deployer ok",
+                permissions=[],
+            )
 
         monkeypatch.setattr(
-            "src.api.routes.config._perform_dual_validation",
-            fake_dual_validation,
+            "src.services.credential_validation_service."
+            "CredentialValidationService.validate_inline_with_deployer",
+            fake_validate,
         )
 
         response = client.post(
-            "/config/validate-dual",
+            "/config/validate-inline",
             json={
                 "provider": "gcp",
                 "gcp": {
@@ -799,9 +792,7 @@ class TestConfigRoutes:
         assert response.status_code == 200
         assert response.json()["valid"] is True
         assert seen["provider"] == "gcp"
-        assert seen["optimizer_creds"]["gcp_project_id"] == "deployment-target"
-        assert seen["deployer_creds"]["gcp_project_id"] == "deployment-target"
-        assert "placeholder-project" not in str(seen)
+        assert seen["project_id"] == "deployment-target"
 
     def test_validate_inline_gcp_plaintext_missing_service_account_returns_structured_error(
         self,

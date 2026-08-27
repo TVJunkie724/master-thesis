@@ -1,33 +1,18 @@
-import pytest
-from fastapi.testclient import TestClient
-from src.main import app
-from src.models.database import Base, engine
-
-client = TestClient(app)
-HEADERS = {"Authorization": "Bearer dev-token"}
-
-
-@pytest.fixture(autouse=True)
-def setup_db():
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-    client.get("/twins/", headers=HEADERS)
-
-
-def test_get_config_creates_default():
+def test_get_config_creates_default(authenticated_client):
     """GET config should auto-create if missing."""
-    twin_resp = client.post("/twins/", json={"name": "Test"}, headers=HEADERS)
+    client, headers = authenticated_client
+    twin_resp = client.post("/twins/", json={"name": "Test"}, headers=headers)
     twin_id = twin_resp.json()["id"]
     
-    config_resp = client.get(f"/twins/{twin_id}/config/", headers=HEADERS)
+    config_resp = client.get(f"/twins/{twin_id}/config/", headers=headers)
     assert config_resp.status_code == 200
     assert config_resp.json()["aws_configured"] is False
 
 
-def test_direct_twin_credentials_are_rejected():
+def test_direct_twin_credentials_are_rejected(authenticated_client):
     """Direct per-twin credential storage is disabled."""
-    
-    twin_resp = client.post("/twins/", json={"name": "Test"}, headers=HEADERS)
+    client, headers = authenticated_client
+    twin_resp = client.post("/twins/", json={"name": "Test"}, headers=headers)
     twin_id = twin_resp.json()["id"]
     response = client.put(f"/twins/{twin_id}/config/",
         json={"aws": {
@@ -35,16 +20,17 @@ def test_direct_twin_credentials_are_rejected():
             "secret_access_key": "wJalrXUtnFEMI/K7MDENG",
             "region": "us-east-1"
         }},
-        headers=HEADERS
+        headers=headers
     )
 
     assert response.status_code == 400
     assert "Cloud Connection" in response.json()["detail"]
 
 
-def test_response_never_exposes_credentials():
+def test_response_never_exposes_credentials(authenticated_client):
     """API response should never contain actual credentials."""
-    twin_resp = client.post("/twins/", json={"name": "Test"}, headers=HEADERS)
+    client, headers = authenticated_client
+    twin_resp = client.post("/twins/", json={"name": "Test"}, headers=headers)
     twin_id = twin_resp.json()["id"]
     
     response = client.put(f"/twins/{twin_id}/config/",
@@ -53,11 +39,11 @@ def test_response_never_exposes_credentials():
             "secret_access_key": "wJalrXUtnFEMI/K7MDENG",
             "region": "us-east-1"
         }},
-        headers=HEADERS
+        headers=headers
     )
     assert response.status_code == 400
     
-    config_resp = client.get(f"/twins/{twin_id}/config/", headers=HEADERS)
+    config_resp = client.get(f"/twins/{twin_id}/config/", headers=headers)
     data = config_resp.json()
     
     assert "aws_configured" in data

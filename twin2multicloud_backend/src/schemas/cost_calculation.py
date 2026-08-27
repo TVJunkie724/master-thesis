@@ -59,7 +59,6 @@ class CostCalculationRunSummaryResponse(BaseModel):
     calculation_model_version: Optional[str] = None
     pricing_registry_version: Optional[str] = None
     pricing_evidence_version: Optional[str] = None
-    pricing_run_reference: Optional[str] = None
     pricing_catalog_context: Optional[PricingCatalogContext] = None
     deployment_specification_digest: Optional[str] = None
     deployment_specification_version: Optional[str] = None

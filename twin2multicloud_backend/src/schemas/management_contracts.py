@@ -84,20 +84,3 @@ class SceneGlbUploadResponse(BaseModel):
 
     message: str
     size_mb: float
-
-
-class ValidationBranchResultResponse(BaseModel):
-    """Single downstream branch result in dual credential validation."""
-
-    valid: bool
-    message: str
-    permissions: Any | None = None
-
-
-class DualCredentialValidationResponse(BaseModel):
-    """Combined Optimizer and Deployer credential validation response."""
-
-    provider: str
-    valid: bool
-    optimizer: ValidationBranchResultResponse
-    deployer: ValidationBranchResultResponse

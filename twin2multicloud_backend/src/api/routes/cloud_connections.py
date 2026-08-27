@@ -15,15 +15,6 @@ from src.schemas.cloud_connection import (
     CloudConnectionUpdate,
     CloudConnectionValidationResponse,
 )
-from src.services.cloud_connection_service import CloudConnectionService
-from src.services.cloud_connection_import_service import parse_cloud_connection_import
-from src.services.cloud_credential_validation_service import (
-    build_preflight_result,
-    perform_dual_validation,
-    perform_optimizer_validation,
-    redact_validation_result,
-)
-from src.services.errors import CloudConnectionConflict
 from src.schemas.credential_security_event import (
     CredentialSecurityAction,
     CredentialSecurityEventDraft,
@@ -31,9 +22,17 @@ from src.schemas.credential_security_event import (
 )
 from src.security.rate_limit import CredentialRateClass, credential_rate_limit
 from src.security.request_context import current_request_id
+from src.services.cloud_connection_import_service import parse_cloud_connection_import
+from src.services.cloud_connection_service import CloudConnectionService
+from src.services.cloud_credential_validation_service import (
+    build_preflight_result,
+    perform_deployer_validation,
+    redact_validation_result,
+)
 from src.services.credential_security_audit_service import (
     CredentialSecurityAuditService,
 )
+from src.services.errors import CloudConnectionConflict
 
 router = APIRouter(prefix="/cloud-connections", tags=["cloud-connections"])
 
@@ -263,7 +262,7 @@ async def delete_cloud_connection(
     "/{connection_id}/validate",
     response_model=CloudConnectionValidationResponse,
     operation_id="validateCloudConnection",
-    summary="Validate a stored cloud connection at its purpose-specific boundaries",
+    summary="Validate a stored deployment-administrator connection",
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
@@ -284,20 +283,12 @@ async def validate_cloud_connection(
     if not connection:
         raise HTTPException(status_code=404, detail="Cloud connection not found")
 
-    optimizer_creds = service.build_optimizer_credentials(connection, current_user.id)
-    if connection.purpose == "pricing":
-        result = await perform_optimizer_validation(
-            connection.provider, optimizer_creds
-        )
-        result = redact_validation_result(result, optimizer_creds)
-    else:
-        deployer_creds = service.build_deployer_credentials(connection, current_user.id)
-        result = await perform_dual_validation(
-            connection.provider,
-            optimizer_creds,
-            deployer_creds,
-        )
-        result = redact_validation_result(result, optimizer_creds, deployer_creds)
+    deployer_creds = service.build_deployer_credentials(connection, current_user.id)
+    result = await perform_deployer_validation(
+        connection.provider,
+        deployer_creds,
+    )
+    result = redact_validation_result(result, deployer_creds)
     service.record_validation_result(
         connection,
         result,
@@ -320,7 +311,6 @@ async def validate_cloud_connection(
         valid=result.get("valid", False),
         validation_status=connection.validation_status,
         message=connection.validation_message or "Validation complete",
-        optimizer=result.get("optimizer"),
         deployer=result.get("deployer"),
     )
 
@@ -349,20 +339,12 @@ async def preflight_cloud_connection(
     connection = service.get_connection(connection_id, current_user.id)
     if not connection:
         raise HTTPException(status_code=404, detail="Cloud connection not found")
-    if connection.purpose != "deployment":
-        raise HTTPException(
-            status_code=400,
-            detail="Pricing Cloud Connections cannot run deployment preflight.",
-        )
-
-    optimizer_creds = service.build_optimizer_credentials(connection, current_user.id)
     deployer_creds = service.build_deployer_credentials(connection, current_user.id)
-    result = await perform_dual_validation(
+    result = await perform_deployer_validation(
         connection.provider,
-        optimizer_creds,
         deployer_creds,
     )
-    result = redact_validation_result(result, optimizer_creds, deployer_creds)
+    result = redact_validation_result(result, deployer_creds)
     preflight = build_preflight_result(
         connection.provider,
         result,

@@ -7,7 +7,7 @@ from src.models.user import User
 from src.services.cloud_connection_service import CloudConnectionService
 from src.services.cloud_credential_validation_service import (
     build_preflight_result,
-    perform_dual_validation,
+    perform_deployer_validation,
 )
 from src.services.errors import ExternalServiceError
 
@@ -16,7 +16,6 @@ def test_preflight_preserves_typed_deployer_repair_checks():
     result = build_preflight_result(
         "gcp",
         {
-            "optimizer": {"valid": True, "message": "Pricing access passed."},
             "deployer": {
                 "valid": False,
                 "message": "GCP deployment preflight failed",
@@ -35,7 +34,7 @@ def test_preflight_preserves_typed_deployer_repair_checks():
     )
 
     assert result["ready"] is False
-    assert result["checks"][1] == {
+    assert result["checks"][0] == {
         "component": "deployer.enabled_apis",
         "status": "failed",
         "code": "MISSING_APIS",
@@ -90,7 +89,6 @@ def test_create_cloud_connection_masks_secret_response(
     assert data["provider"] == "aws"
     assert data["purpose"] == "deployment"
     assert data["scope"] == "user"
-    assert data["is_default_for_pricing"] is False
     assert data["display_name"] == "AWS Dev"
     assert data["auth_type"] == "access_key"
     assert data["validation_status"] == "untested"
@@ -252,15 +250,7 @@ def test_gcp_cloud_connection_requires_explicit_deployment_project(
 
 
 @pytest.mark.asyncio
-async def test_cloud_credential_dual_validation_uses_typed_clients():
-    class FakeOptimizerClient:
-        def __init__(self):
-            self.calls = []
-
-        async def verify_permissions(self, provider, credentials):
-            self.calls.append((provider, credentials))
-            return {"valid": True, "message": "optimizer ok"}
-
+async def test_cloud_credential_validation_uses_typed_deployer_client():
     class FakeDeployerClient:
         def __init__(self):
             self.calls = []
@@ -269,33 +259,24 @@ async def test_cloud_credential_dual_validation_uses_typed_clients():
             self.calls.append((provider, credentials))
             return {"valid": True, "message": "deployer ok", "missing_permissions": []}
 
-    optimizer_client = FakeOptimizerClient()
     deployer_client = FakeDeployerClient()
 
-    result = await perform_dual_validation(
+    result = await perform_deployer_validation(
         "aws",
         {"aws_region": "eu-central-1"},
-        {"aws_region": "eu-central-1"},
-        optimizer_client=optimizer_client,
         deployer_client=deployer_client,
     )
 
     assert result["valid"] is True
-    assert result["optimizer"]["message"] == "optimizer ok"
     assert result["deployer"]["permissions"] == []
-    assert optimizer_client.calls == [("aws", {"aws_region": "eu-central-1"})]
     assert deployer_client.calls == [
         ("aws", {"aws_region": "eu-central-1"}),
     ]
 
 
 @pytest.mark.asyncio
-async def test_cloud_credential_dual_validation_redacts_unexpected_client_errors():
+async def test_cloud_credential_validation_redacts_deployer_errors():
     secret = "CLOUD-VALIDATION-SECRET"
-
-    class FailingOptimizerClient:
-        async def verify_permissions(self, provider, credentials):
-            raise RuntimeError(f"client_secret={secret}")
 
     class FailingDeployerClient:
         async def verify_permissions(self, provider, credentials):
@@ -305,17 +286,14 @@ async def test_cloud_credential_dual_validation_redacts_unexpected_client_errors
                 public_detail=f"client_secret={secret}",
             )
 
-    result = await perform_dual_validation(
+    result = await perform_deployer_validation(
         "aws",
         {"aws_secret_access_key": secret},
-        {"aws_secret_access_key": secret},
-        optimizer_client=FailingOptimizerClient(),
         deployer_client=FailingDeployerClient(),
     )
 
     assert result["valid"] is False
     assert secret not in str(result)
-    assert result["optimizer"]["message"] == "Optimizer validation failed unexpectedly"
     assert result["deployer"]["message"] == "Deployer API error: 500"
 
 
@@ -427,115 +405,6 @@ def test_rejects_persisted_azure_pricing_connection(
     assert response.status_code == 422
 
 
-def test_first_pricing_connection_becomes_default_and_explicit_replacement_is_atomic(
-    authenticated_client,
-    db_session,
-):
-    client, headers = authenticated_client
-    first_payload = _aws_request("Pricing One")
-    first_payload.update({"purpose": "pricing"})
-    second_payload = _aws_request("Pricing Two")
-    second_payload.update(
-        {
-            "purpose": "pricing",
-            "is_default_for_pricing": True,
-        }
-    )
-
-    first = client.post(
-        "/cloud-connections/", json=first_payload, headers=headers
-    ).json()
-    second = client.post(
-        "/cloud-connections/", json=second_payload, headers=headers
-    ).json()
-
-    assert first["is_default_for_pricing"] is True
-    assert second["is_default_for_pricing"] is True
-    defaults = (
-        db_session.query(CloudConnection)
-        .filter_by(
-            user_id=db_session.query(User).first().id,
-            provider="aws",
-            purpose="pricing",
-            is_default_for_pricing=True,
-        )
-        .all()
-    )
-    assert [connection.id for connection in defaults] == [second["id"]]
-
-
-def test_patch_selects_pricing_default_and_demotes_previous(authenticated_client):
-    client, headers = authenticated_client
-    first_payload = _aws_request("Pricing One")
-    first_payload.update({"purpose": "pricing"})
-    second_payload = _aws_request("Pricing Two")
-    second_payload.update({"purpose": "pricing"})
-    first = client.post(
-        "/cloud-connections/", json=first_payload, headers=headers
-    ).json()
-    second = client.post(
-        "/cloud-connections/", json=second_payload, headers=headers
-    ).json()
-
-    response = client.patch(
-        f"/cloud-connections/{second['id']}",
-        json={"is_default_for_pricing": True},
-        headers=headers,
-    )
-    refreshed_first = client.get(f"/cloud-connections/{first['id']}", headers=headers)
-
-    assert response.status_code == 200
-    assert response.json()["is_default_for_pricing"] is True
-    assert refreshed_first.json()["is_default_for_pricing"] is False
-
-
-def test_pricing_connection_validation_calls_optimizer_only(
-    authenticated_client, monkeypatch
-):
-    client, headers = authenticated_client
-    payload = _aws_request("AWS Pricing")
-    payload.update({"purpose": "pricing"})
-    created = client.post("/cloud-connections/", json=payload, headers=headers).json()
-    calls = []
-
-    async def fake_optimizer(provider, credentials):
-        calls.append((provider, credentials))
-        return {
-            "provider": provider,
-            "valid": True,
-            "optimizer": {"valid": True, "message": "pricing ok"},
-            "deployer": None,
-        }
-
-    monkeypatch.setattr(
-        "src.api.routes.cloud_connections.perform_optimizer_validation",
-        fake_optimizer,
-    )
-
-    response = client.post(
-        f"/cloud-connections/{created['id']}/validate", headers=headers
-    )
-
-    assert response.status_code == 200
-    assert response.json()["message"] == "Optimizer pricing validation passed"
-    assert response.json()["deployer"] is None
-    assert len(calls) == 1
-
-
-def test_pricing_connection_cannot_run_deployment_preflight(authenticated_client):
-    client, headers = authenticated_client
-    payload = _aws_request("AWS Pricing")
-    payload.update({"purpose": "pricing"})
-    created = client.post("/cloud-connections/", json=payload, headers=headers).json()
-
-    response = client.post(
-        f"/cloud-connections/{created['id']}/preflight", headers=headers
-    )
-
-    assert response.status_code == 400
-    assert "cannot run deployment preflight" in response.json()["detail"]
-
-
 def test_gcp_summary_extracts_service_account_email(authenticated_client):
     client, headers = authenticated_client
 
@@ -560,19 +429,17 @@ def test_validate_cloud_connection_updates_status(
     ).json()
     seen = {}
 
-    async def fake_validate(provider, optimizer_creds, deployer_creds):
+    async def fake_validate(provider, deployer_creds):
         seen["provider"] = provider
-        seen["optimizer_creds"] = optimizer_creds
         seen["deployer_creds"] = deployer_creds
         return {
             "provider": provider,
             "valid": True,
-            "optimizer": {"valid": True, "message": "optimizer ok"},
             "deployer": {"valid": True, "message": "deployer ok", "permissions": []},
         }
 
     monkeypatch.setattr(
-        "src.api.routes.cloud_connections.perform_dual_validation",
+        "src.api.routes.cloud_connections.perform_deployer_validation",
         fake_validate,
     )
 
@@ -584,9 +451,8 @@ def test_validate_cloud_connection_updates_status(
     data = response.json()
     assert data["valid"] is True
     assert data["validation_status"] == "valid"
-    assert data["message"] == "Optimizer and Deployer validation passed"
+    assert data["message"] == "Deployer validation passed"
     assert seen["provider"] == "aws"
-    assert seen["optimizer_creds"]["aws_access_key_id"] == "AKIAIOSFODNN7EXAMPLE"
     assert (
         seen["deployer_creds"]["aws_secret_access_key"]
         == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
@@ -605,11 +471,10 @@ def test_validate_cloud_connection_persists_invalid_status(
         "/cloud-connections/", json=_aws_request(), headers=headers
     ).json()
 
-    async def fake_validate(provider, optimizer_creds, deployer_creds):
+    async def fake_validate(provider, deployer_creds):
         return {
             "provider": provider,
             "valid": False,
-            "optimizer": {"valid": True, "message": "optimizer ok"},
             "deployer": {
                 "valid": False,
                 "message": "missing permission",
@@ -618,7 +483,7 @@ def test_validate_cloud_connection_persists_invalid_status(
         }
 
     monkeypatch.setattr(
-        "src.api.routes.cloud_connections.perform_dual_validation",
+        "src.api.routes.cloud_connections.perform_deployer_validation",
         fake_validate,
     )
 
@@ -630,7 +495,7 @@ def test_validate_cloud_connection_persists_invalid_status(
     data = response.json()
     assert data["valid"] is False
     assert data["validation_status"] == "invalid"
-    assert data["message"] == "optimizer ok | missing permission"
+    assert data["message"] == "missing permission"
 
 
 def test_validate_cloud_connection_redacts_downstream_secret_echo(
@@ -642,23 +507,22 @@ def test_validate_cloud_connection_redacts_downstream_secret_echo(
         "/cloud-connections/", json=_aws_request(), headers=headers
     ).json()
 
-    async def fake_validate(provider, optimizer_creds, deployer_creds):
+    async def fake_validate(provider, deployer_creds):
         return {
             "provider": provider,
             "valid": False,
-            "optimizer": {
-                "valid": False,
-                "message": f"bad credential {optimizer_creds['aws_access_key_id']}",
-            },
             "deployer": {
                 "valid": False,
-                "message": f"bad secret {secret}",
+                "message": (
+                    f"bad credential {deployer_creds['aws_access_key_id']} "
+                    f"and secret {secret}"
+                ),
                 "echoed_secret": secret,
             },
         }
 
     monkeypatch.setattr(
-        "src.api.routes.cloud_connections.perform_dual_validation",
+        "src.api.routes.cloud_connections.perform_deployer_validation",
         fake_validate,
     )
 
@@ -685,11 +549,10 @@ def test_preflight_cloud_connection_returns_actionable_checks(
         "/cloud-connections/", json=_aws_request(), headers=headers
     ).json()
 
-    async def fake_validate(provider, optimizer_creds, deployer_creds):
+    async def fake_validate(provider, deployer_creds):
         return {
             "provider": provider,
             "valid": False,
-            "optimizer": {"valid": True, "message": "optimizer ok"},
             "deployer": {
                 "valid": False,
                 "message": "missing permission",
@@ -698,7 +561,7 @@ def test_preflight_cloud_connection_returns_actionable_checks(
         }
 
     monkeypatch.setattr(
-        "src.api.routes.cloud_connections.perform_dual_validation",
+        "src.api.routes.cloud_connections.perform_deployer_validation",
         fake_validate,
     )
 
@@ -711,14 +574,6 @@ def test_preflight_cloud_connection_returns_actionable_checks(
     assert data["ready"] is False
     assert data["summary"] == "Cloud connection preflight failed"
     assert data["checks"] == [
-        {
-            "component": "optimizer",
-            "status": "passed",
-            "code": "OK",
-            "message": "optimizer ok",
-            "action": "No action required.",
-            "permissions": [],
-        },
         {
             "component": "deployer",
             "status": "failed",
@@ -742,19 +597,21 @@ def test_preflight_cloud_connection_redacts_secret_echo(
         "/cloud-connections/", json=_aws_request(), headers=headers
     ).json()
 
-    async def fake_validate(provider, optimizer_creds, deployer_creds):
+    async def fake_validate(provider, deployer_creds):
         return {
             "provider": provider,
             "valid": False,
-            "optimizer": {
+            "deployer": {
                 "valid": False,
-                "message": f"bad key {optimizer_creds['aws_access_key_id']}",
+                "message": (
+                    f"bad key {deployer_creds['aws_access_key_id']} "
+                    f"and secret {secret}"
+                ),
             },
-            "deployer": {"valid": False, "message": f"bad secret {secret}"},
         }
 
     monkeypatch.setattr(
-        "src.api.routes.cloud_connections.perform_dual_validation",
+        "src.api.routes.cloud_connections.perform_deployer_validation",
         fake_validate,
     )
 

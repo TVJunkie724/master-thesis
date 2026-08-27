@@ -45,7 +45,6 @@ def migrate():
             calculation_model_version VARCHAR,
             pricing_registry_version VARCHAR,
             pricing_evidence_version VARCHAR,
-            pricing_run_reference VARCHAR,
             created_at DATETIME,
             completed_at DATETIME,
             selected_for_deployment_at DATETIME,
@@ -106,4 +105,3 @@ def migrate():
 
 if __name__ == "__main__":
     migrate()
-

@@ -33,7 +33,7 @@ from src.schemas.deployment_readiness import (
 from src.services.cloud_connection_service import CloudConnectionService
 from src.services.cloud_credential_validation_service import (
     build_preflight_result,
-    perform_dual_validation,
+    perform_deployer_validation,
     redact_validation_result,
 )
 from src.services.credential_resolution_service import CredentialResolutionService
@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 
 PreflightValidator = Callable[
-    [str, dict[str, Any], dict[str, Any]],
+    [str, dict[str, Any]],
     Awaitable[dict[str, Any]],
 ]
 GraphRequirementsResolver = Callable[[Any, str], Awaitable[dict[str, Any]]]
@@ -57,7 +57,6 @@ class _ProviderCandidate:
     connection_id: str
     connection_display_name: str
     payload_fingerprint: str
-    optimizer_credentials: dict[str, Any]
     deployer_credentials: dict[str, Any]
 
 
@@ -78,7 +77,7 @@ class DeploymentReadinessService:
         self._twin_repository = TwinRepository(db)
         self._connection_service = CloudConnectionService(db)
         self._cache_repository = DeploymentPreflightRepository(db)
-        self._validator = validator or perform_dual_validation
+        self._validator = validator or perform_deployer_validation
         self._requirements_resolver = (
             requirements_resolver or self._resolve_graph_requirements
         )
@@ -182,10 +181,6 @@ class DeploymentReadinessService:
                         connection_id=connection.id,
                         connection_display_name=connection.display_name,
                         payload_fingerprint=connection.payload_fingerprint,
-                        optimizer_credentials=self._connection_service.build_optimizer_credentials(
-                            connection,
-                            user_id,
-                        ),
                         deployer_credentials=self._connection_service.build_deployer_credentials(
                             connection,
                             user_id,
@@ -482,7 +477,6 @@ class DeploymentReadinessService:
         try:
             result = await self._validator(
                 candidate.provider,
-                candidate.optimizer_credentials,
                 candidate.deployer_credentials,
             )
         except Exception as exc:  # noqa: BLE001 - provider adapter boundary
@@ -494,10 +488,6 @@ class DeploymentReadinessService:
             result = {
                 "provider": candidate.provider,
                 "valid": False,
-                "optimizer": {
-                    "valid": False,
-                    "message": "Provider validation failed unexpectedly.",
-                },
                 "deployer": {
                     "valid": False,
                     "message": "Provider validation failed unexpectedly.",
@@ -505,7 +495,6 @@ class DeploymentReadinessService:
             }
         return redact_validation_result(
             result,
-            candidate.optimizer_credentials,
             candidate.deployer_credentials,
         )
 

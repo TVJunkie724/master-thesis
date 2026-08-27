@@ -36,7 +36,6 @@ from src.services.errors import (
     TwinNotFound,
 )
 
-
 router = APIRouter(prefix="/twins/{twin_id}/optimizer-runs", tags=["optimizer-runs"])
 
 
@@ -277,7 +276,6 @@ def _run_summary_response(run: CostCalculationRun) -> CostCalculationRunSummaryR
         calculation_model_version=run.calculation_model_version,
         pricing_registry_version=run.pricing_registry_version,
         pricing_evidence_version=run.pricing_evidence_version,
-        pricing_run_reference=run.pricing_run_reference,
         pricing_catalog_context=safe_pricing_catalog_context(
             run.pricing_catalog_context_json
         ),

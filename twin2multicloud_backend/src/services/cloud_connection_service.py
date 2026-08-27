@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import hashlib
 import json
 import uuid
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -19,11 +19,11 @@ from src.schemas.cloud_connection import (
     CloudConnectionUpdate,
 )
 from src.schemas.credential_security_event import CredentialSecurityEventDraft
+from src.services.credential_resolution_service import CredentialResolutionService
 from src.services.credential_security_audit_service import (
     CredentialAuditWriteFailed,
     CredentialSecurityAuditService,
 )
-from src.services.credential_resolution_service import CredentialResolutionService
 from src.services.errors import CloudConnectionConflict
 from src.utils.crypto import decrypt_scoped, encrypt_scoped
 
@@ -52,23 +52,10 @@ class CloudConnectionService:
         request: CloudConnectionCreate,
         audit: CredentialSecurityEventDraft | None = None,
     ) -> CloudConnectionResponse:
-        make_pricing_default = False
-        if request.purpose == "pricing":
-            existing_default = self._repo.get_default_pricing(user_id, request.provider)
-            make_pricing_default = (
-                request.is_default_for_pricing or existing_default is None
-            )
-            if request.is_default_for_pricing:
-                self._repo.clear_pricing_defaults(user_id, request.provider)
-
-        connection = self._new_connection(
-            user_id,
-            request,
-            make_pricing_default=make_pricing_default,
-        )
+        connection = self._new_connection(user_id, request)
         self._repo.add(connection)
         self._append_audit(audit, resource_id=connection.id)
-        self._commit_default_change()
+        self._commit_change()
         self._db.refresh(connection)
         return self.to_response(connection, user_id)
 
@@ -79,10 +66,6 @@ class CloudConnectionService:
         request: CloudConnectionUpdate,
         audit: CredentialSecurityEventDraft | None = None,
     ) -> CloudConnectionResponse:
-        if connection.purpose != "pricing" and request.is_default_for_pricing:
-            raise ValueError(
-                "Only pricing Cloud Connections may be selected as pricing default"
-            )
         if request.display_name is not None:
             connection.display_name = request.display_name
         if request.cloud_scope is not None:
@@ -113,16 +96,10 @@ class CloudConnectionService:
                 connection.validation_message = None
                 connection.last_validated_at = None
             connection.cloud_scope = json.dumps(cloud_scope, sort_keys=True)
-        if request.is_default_for_pricing is not None:
-            if request.is_default_for_pricing:
-                self._repo.clear_pricing_defaults(
-                    connection.user_id, connection.provider
-                )
-            connection.is_default_for_pricing = request.is_default_for_pricing
         connection.updated_at = datetime.utcnow()
 
         self._append_audit(audit, resource_id=connection.id)
-        self._commit_default_change()
+        self._commit_change()
         self._db.refresh(connection)
         return self.to_response(connection, user_id)
 
@@ -165,13 +142,13 @@ class CloudConnectionService:
         connection.last_used_at = datetime.utcnow()
         connection.updated_at = datetime.utcnow()
 
-    def _commit_default_change(self) -> None:
+    def _commit_change(self) -> None:
         try:
             self._db.commit()
         except IntegrityError as exc:
             self._db.rollback()
             raise CloudConnectionConflict(
-                "Another pricing default was selected concurrently; reload and retry."
+                "The cloud connection changed concurrently; reload and retry."
             ) from exc
         except SQLAlchemyError as exc:
             self._db.rollback()
@@ -211,8 +188,6 @@ class CloudConnectionService:
         self,
         user_id: str,
         request: CloudConnectionCreate,
-        *,
-        make_pricing_default: bool,
     ) -> CloudConnection:
         connection_id = str(uuid.uuid4())
         payload = self._normalize_payload(request)
@@ -221,9 +196,8 @@ class CloudConnectionService:
             id=connection_id,
             user_id=user_id,
             provider=request.provider,
-            purpose=request.purpose,
+            purpose="deployment",
             scope=request.scope,
-            is_default_for_pricing=make_pricing_default,
             display_name=request.display_name,
             cloud_scope=json.dumps(request.cloud_scope, sort_keys=True),
             auth_type=request.auth_type or self._default_auth_type(request.provider),
@@ -241,7 +215,6 @@ class CloudConnectionService:
             provider=connection.provider,
             purpose=connection.purpose,
             scope=connection.scope,
-            is_default_for_pricing=bool(connection.is_default_for_pricing),
             display_name=connection.display_name,
             auth_type=connection.auth_type,
             cloud_scope=self._safe_json_dict(connection.cloud_scope),
@@ -261,21 +234,9 @@ class CloudConnectionService:
         payload = decrypt_scoped(connection.encrypted_payload, user_id, connection.id)
         return self._safe_json_dict(payload)
 
-    def build_optimizer_credentials(
-        self, connection: CloudConnection, user_id: str
-    ) -> dict[str, Any]:
-        payload = self.decrypt_payload(connection, user_id)
-        return CredentialResolutionService.build_optimizer_payload(
-            connection.provider, payload
-        )
-
     def build_deployer_credentials(
         self, connection: CloudConnection, user_id: str
     ) -> dict[str, Any]:
-        if connection.purpose != "deployment":
-            raise ValueError(
-                "Pricing Cloud Connections cannot provide deployment credentials"
-            )
         payload = self.decrypt_payload(connection, user_id)
         deployer_payload = (
             CredentialResolutionService.build_deployer_validation_payload(
@@ -361,24 +322,11 @@ class CloudConnectionService:
     @staticmethod
     def _validation_message(result: dict[str, Any]) -> str:
         if result.get("valid"):
-            if result.get("deployer") is None:
-                return "Optimizer pricing validation passed"
-            return "Optimizer and Deployer validation passed"
-        optimizer = (
-            result.get("optimizer") if isinstance(result.get("optimizer"), dict) else {}
-        )
+            return "Deployer validation passed"
         deployer = (
             result.get("deployer") if isinstance(result.get("deployer"), dict) else {}
         )
-        messages = [
-            message
-            for message in [
-                optimizer.get("message"),
-                deployer.get("message"),
-            ]
-            if message
-        ]
-        return " | ".join(messages) or "Validation failed"
+        return str(deployer.get("message") or "Validation failed")
 
     @staticmethod
     def _default_auth_type(provider: str) -> str:

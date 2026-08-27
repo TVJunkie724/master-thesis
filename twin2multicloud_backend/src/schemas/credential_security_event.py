@@ -34,7 +34,7 @@ class CredentialSecurityEventDraft(BaseModel):
     resource_type: str = Field(min_length=1, max_length=64)
     resource_id: str | None = Field(default=None, max_length=128)
     provider: str | None = Field(default=None, pattern="^(aws|azure|gcp)$")
-    purpose: str | None = Field(default=None, pattern="^(deployment|pricing)$")
+    purpose: str | None = Field(default=None, pattern="^deployment$")
     http_status: int = Field(ge=100, le=599)
     request_id: str = Field(min_length=1, max_length=64)
 

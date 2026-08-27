@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     CheckConstraint,
@@ -11,9 +11,9 @@ from sqlalchemy import (
     String,
     Text,
     event,
+    inspect,
     text,
 )
-from sqlalchemy import inspect
 from sqlalchemy.orm import relationship
 
 from src.models.database import Base
@@ -72,7 +72,6 @@ class CostCalculationRun(Base):
     calculation_model_version = Column(String, nullable=True)
     pricing_registry_version = Column(String, nullable=True)
     pricing_evidence_version = Column(String, nullable=True)
-    pricing_run_reference = Column(String, nullable=True)
     pricing_catalog_context_json = Column(Text, nullable=True)
     deployment_specification_json = Column(Text, nullable=True)
     deployment_specification_digest = Column(String(71), nullable=True)

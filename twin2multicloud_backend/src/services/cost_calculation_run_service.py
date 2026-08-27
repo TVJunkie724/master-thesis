@@ -26,12 +26,6 @@ from src.schemas.pricing_catalog import PricingCatalogContext
 from src.security.request_context import current_request_id
 from src.services.architecture_errors import ArchitectureDomainError, architecture_error
 from src.services.architecture_profile_service import ArchitectureProfileService
-from src.services.aws_twinmaker_pricing_context_service import (
-    OPTIMIZER_CONTEXT_COMPARABLE_FIELDS,
-    AwsTwinMakerPricingContextService,
-    ResolvedAwsTwinMakerPricingContext,
-    optimizer_aws_l4_selection_matches_context,
-)
 from src.services.errors import (
     CostCalculationRunSelectionError,
     ExternalServiceError,
@@ -100,7 +94,6 @@ class CostCalculationRunService:
         self,
         db: Session,
         optimizer_client: OptimizerClient | None = None,
-        aws_twinmaker_contexts: AwsTwinMakerPricingContextService | None = None,
         pricing_catalog_contexts: PricingCatalogContextService | None = None,
         architecture_resolution_enabled: bool | None = None,
         linked_architecture_documents: tuple[Mapping[str, Any], ...] | None = None,
@@ -108,13 +101,9 @@ class CostCalculationRunService:
         self.db = db
         self.optimizer_client = optimizer_client or OptimizerClient()
         self.twin_repository = TwinRepository(db)
-        self.aws_twinmaker_contexts = (
-            aws_twinmaker_contexts or AwsTwinMakerPricingContextService(db)
-        )
         self.pricing_catalog_contexts = (
             pricing_catalog_contexts
             or PricingCatalogContextService(
-                db,
                 optimizer_client=self.optimizer_client,
             )
         )
@@ -164,15 +153,8 @@ class CostCalculationRunService:
         persisted_params = params.to_persisted_payload()
         run_id = str(uuid.uuid4())
         optimizer_params["calculationRunId"] = run_id
-        catalog_context = await self.pricing_catalog_contexts.resolve_for_user(user_id)
+        catalog_context = await self.pricing_catalog_contexts.resolve()
         optimizer_params["providerPricingCatalogs"] = catalog_context.to_http_dict()
-        aws_context = await self.aws_twinmaker_contexts.resolve(
-            user_id,
-            catalog_context.catalogs["aws"],
-        )
-        optimizer_params["providerPricingContexts"] = {
-            "awsTwinMaker": aws_context.payload
-        }
         failed_run = None
         if trusted_architecture_request is not None:
             optimizer_params.update(trusted_architecture_request)
@@ -182,7 +164,6 @@ class CostCalculationRunService:
                 user_id=user_id,
                 persisted_params=persisted_params,
                 catalog_context=catalog_context,
-                aws_context=aws_context,
                 pricing_evidence_version=pricing_evidence_version,
             )
 
@@ -212,7 +193,6 @@ class CostCalculationRunService:
             result = self._extract_optimizer_result(optimizer_payload)
             contract = self._validate_optimizer_result(result)
             _validate_optimizer_pricing_catalog_context(result, catalog_context)
-            _validate_optimizer_aws_selection_context(result, aws_context)
             cheapest_path = self._extract_cheapest_path(result)
             deployment_specification = _validate_optimizer_deployment_specification(
                 result,
@@ -285,7 +265,6 @@ class CostCalculationRunService:
                 calculation_model_version=contract["calculation_model_version"],
                 pricing_registry_version=contract["pricing_registry_version"],
                 pricing_evidence_version=pricing_evidence_version,
-                pricing_run_reference=aws_context.source_refresh_run_id,
                 pricing_catalog_context_json=catalog_context.canonical_json(),
                 created_at=now,
             )
@@ -346,7 +325,6 @@ class CostCalculationRunService:
                 calculation_model_version=contract["calculation_model_version"],
                 pricing_registry_version=contract["pricing_registry_version"],
                 pricing_evidence_version=pricing_evidence_version,
-                pricing_run_reference=aws_context.source_refresh_run_id,
                 pricing_catalog_context_json=catalog_context.canonical_json(),
                 deployment_specification_json=(deployment_specification.canonical_json),
                 deployment_specification_digest=deployment_specification.digest,
@@ -495,7 +473,6 @@ class CostCalculationRunService:
             calculation_model_version=source.calculation_model_version,
             pricing_registry_version=source.pricing_registry_version,
             pricing_evidence_version=source.pricing_evidence_version,
-            pricing_run_reference=source.pricing_run_reference,
             pricing_catalog_context_json=source.pricing_catalog_context_json,
             deployment_compatibility_status="unavailable",
             architecture_compatibility_status="unavailable",
@@ -639,7 +616,6 @@ class CostCalculationRunService:
         user_id: str,
         persisted_params: dict[str, Any],
         catalog_context: PricingCatalogContext,
-        aws_context: ResolvedAwsTwinMakerPricingContext,
         pricing_evidence_version: str | None,
     ) -> CostCalculationRun:
         selection = ResolvedArchitectureService(self.db).repository.get_selection(
@@ -665,7 +641,6 @@ class CostCalculationRunService:
             scoring_strategy_id=bundle["scoring_strategy_id"],
             calculation_model_version=bundle["calculation_strategy_version"],
             pricing_evidence_version=pricing_evidence_version,
-            pricing_run_reference=aws_context.source_refresh_run_id,
             pricing_catalog_context_json=catalog_context.canonical_json(),
             created_at=datetime.now(timezone.utc),
         )
@@ -852,10 +827,8 @@ class CostCalculationRunService:
                 error_code="PRICING_CATALOG_CONTEXT_MISMATCH",
             )
         try:
-            verified_catalog_context = (
-                await self.pricing_catalog_contexts.verify_context(
-                    persisted_catalog_context
-                )
+            await self.pricing_catalog_contexts.verify_context(
+                persisted_catalog_context
             )
         except PricingCatalogUnavailable as exc:
             raise CostCalculationRunSelectionError(
@@ -863,12 +836,6 @@ class CostCalculationRunService:
                 "the optimizer again before deployment.",
                 error_code=exc.error_code,
             ) from exc
-        if _selected_l4_provider(result) == "aws":
-            current_context = await self.aws_twinmaker_contexts.resolve(
-                user_id,
-                verified_catalog_context.catalogs["aws"],
-            )
-            _validate_selected_aws_context(run, result, current_context)
         architecture_service = ResolvedArchitectureService(self.db)
         architecture_service.require_selectable(run)
         now = datetime.now(timezone.utc)
@@ -1174,96 +1141,6 @@ class CostCalculationRunService:
 
     def _before_commit(self) -> None:
         """Test hook for rollback verification."""
-
-
-def _selected_l4_provider(result: dict[str, Any]) -> str | None:
-    calculation_result = result.get("calculationResult")
-    if not isinstance(calculation_result, dict):
-        return None
-    provider = calculation_result.get("L4")
-    if not isinstance(provider, str):
-        return None
-    return provider.strip().lower() or None
-
-
-def _validate_selected_aws_context(
-    run: CostCalculationRun,
-    result: dict[str, Any],
-    current: ResolvedAwsTwinMakerPricingContext,
-) -> None:
-    if not current.available:
-        reason = str(
-            current.payload.get("reasonCode") or "AWS_TWINMAKER_PLAN_UNOBSERVED"
-        )
-        raise CostCalculationRunSelectionError(
-            "AWS TwinMaker pricing context is no longer deployable; "
-            "refresh pricing and run the optimizer again.",
-            error_code=reason,
-        )
-
-    provider_contexts = result.get("providerPricingContexts")
-    stored = (
-        provider_contexts.get("awsTwinMaker")
-        if isinstance(provider_contexts, dict)
-        else None
-    )
-    expected = current.payload
-    if (
-        not isinstance(stored, dict)
-        or stored.get("status") != "compatible"
-        or run.pricing_run_reference != current.source_refresh_run_id
-        or any(
-            stored.get(field) != expected.get(field)
-            for field in OPTIMIZER_CONTEXT_COMPARABLE_FIELDS
-        )
-    ):
-        raise CostCalculationRunSelectionError(
-            "AWS TwinMaker pricing context changed after this calculation; "
-            "run the optimizer again before deployment.",
-            error_code="AWS_TWINMAKER_PLAN_CONNECTION_CHANGED",
-        )
-
-
-def _validate_optimizer_aws_selection_context(
-    result: dict[str, Any],
-    expected: ResolvedAwsTwinMakerPricingContext,
-) -> None:
-    if _selected_l4_provider(result) != "aws":
-        return
-    if not optimizer_aws_l4_selection_matches_context(result, expected):
-        specification = result.get("resolvedDeploymentSpecification")
-        readiness = (
-            specification.get("readiness")
-            if isinstance(specification, Mapping)
-            else None
-        )
-        provider_contexts = result.get("providerPricingContexts")
-        stored = (
-            provider_contexts.get("awsTwinMaker")
-            if isinstance(provider_contexts, Mapping)
-            else None
-        )
-        explicitly_blocked_offline_v2 = (
-            result.get("optimization_profile_id") == "cost-minimization-v2"
-            and not expected.available
-            and stored == expected.payload
-            and isinstance(readiness, Mapping)
-            and readiness.get("status") == "offline_contract_fixture"
-            and "gate.live-pricing.aws.twinmaker-account-plan"
-            in readiness.get("blocking_gate_ids", [])
-        )
-        if explicitly_blocked_offline_v2:
-            return
-        raise OptimizerContractError(
-            "Optimizer selected AWS TwinMaker without the trusted account "
-            "pricing context supplied by Management.",
-            [
-                {
-                    "field": "providerPricingContexts.awsTwinMaker",
-                    "message": "AWS L4 selection is not bound to trusted context",
-                }
-            ],
-        )
 
 
 def _validate_optimizer_pricing_catalog_context(
