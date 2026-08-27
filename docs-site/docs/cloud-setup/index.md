@@ -1,30 +1,20 @@
 # Cloud Setup
 
-The supervised PoC uses one preconfigured administrator credential for each
-provider involved in pricing or deployment. Twin2MultiCloud does not create
-cloud identities, generate minimal credentials, or manage permission packs and
-rotation.
+Cloud setup is intentionally small. The operator provides an existing isolated
+AWS account, Azure subscription, or GCP project with billing already usable and
+a pre-existing non-root administrator credential.
 
-## Safe sequence
+1. Add/import the credential as a named deployment CloudConnection.
+2. Review the detected identity and target scope.
+3. Bind it only to a Twin whose resolved graph uses that provider.
+4. Run identity validation and graph-derived readiness.
+5. Review and explicitly confirm any supported bounded preparation.
+6. Complete external prerequisites manually and rerun readiness.
 
-1. Create or select an isolated thesis account, subscription, or project.
-2. Enable billing and the provider services required by the selected
-   Six-layer deployment.
-3. Create a non-root administrator credential outside the application.
-4. In **Settings -> Cloud Accounts & Access**, register the credential through
-   the write-only form and verify the displayed provider scope.
-5. Validate it, assign pricing/deployment purpose as required, and bind the
-   deployment connection to the Twin.
-6. Run deployment preflight. Resolve only the concrete provider prerequisite
-   reported by the check.
-7. Run live deployment, verification, destroy, and credential revocation only
-   as an explicitly supervised E2E session.
+The PoC does not create cloud accounts/subscriptions/projects, repair billing,
+approve quotas, override organization policy, grant tenant-wide consent,
+accept legal terms, or manage credential lifecycle.
 
-The application stores the CloudConnection encrypted and returns only
-non-secret metadata. Never use a root/break-glass credential, commit provider
-keys, or paste credentials into logs and issue bodies.
-
-- [AWS](aws.md)
-- [Azure](azure.md)
-- [Google Cloud](gcp.md)
-- [Provider Links](provider-links.md)
+See [AWS](aws.md), [Azure](azure.md), [Google Cloud](gcp.md), and the official
+[Provider Links](provider-links.md). Provider commands are not run as part of
+ordinary documentation verification.

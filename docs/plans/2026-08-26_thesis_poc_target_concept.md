@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Thesis PoC Target Concept"
 description: "Research-question-driven target scope for the final Twin2MultiCloud proof of concept."
 tags: [architecture, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-08-26"
-version: "1.0"
+lastUpdated: "2026-08-27"
+version: "1.1"
 ---
 
 # Twin2MultiCloud Thesis PoC Target Concept
@@ -318,8 +318,13 @@ The active repository retains:
 - focused architecture and security concepts;
 - research method and evidence documentation;
 - one development and decision log explaining important design rationale;
-- current user/developer documentation and concise component READMEs;
-- one bounded future-work concept per retained extension theme.
+- focused future-work concepts without delivery promises; and
+- minimal current component and operating documentation.
+
+The durable rationale is recorded in
+`docs/development_and_decision_log.md`. Superseded plans, handoffs, and product
+roadmaps remain recoverable from Git history rather than being presented as
+active project state.
 
 Implementation handoffs, superseded phase plans, duplicate TODO lists, product
 roadmaps, and documentation for removed behavior are deleted after their

@@ -1,6 +1,6 @@
-# Operations And Logging
+# Operations and Logging
 
-## Daily Commands
+## Local commands
 
 ```bash
 ./thesis.sh up --no-flutter
@@ -11,49 +11,34 @@
 ./thesis.sh down
 ```
 
-Use `--build` after dependency or Dockerfile changes. `--skip-smoke` is a diagnostic
-escape hatch, not the normal startup path.
+These commands operate the local stack. They do not authorize provider
+mutations.
 
-## Log Ownership
+## Operation evidence
 
-| Log type | Owner | Access |
+Deploy and Destroy are durable Management operations. Each has an idempotency
+key, correlation ID, bounded persisted progress, replay cursor, and one
+authoritative terminal result. Flutter reads persisted history before resuming
+SSE, so reconnect does not repeat a provider action.
+
+| Evidence | Owner | User access |
 |---|---|---|
-| application/container logs | each service | `thesis.sh logs` / Docker logs |
-| deployment progress | Deployer, relayed/persisted by Management API | Flutter SSE and deployment history |
-| pricing refresh progress | Optimizer, relayed as run state | Flutter pricing review |
-| credential security events | Management API | owner-scoped audit API/profile UI |
-| data-flow verification results | Deployer, persisted/projected by Management API | twin overview verification UI |
+| application logs | each service | local container logs |
+| provider mutation progress | Deployer, persisted by Management | Flutter operation history and SSE |
+| verification result | Deployer, persisted by Management | Twin overview |
+| cleanup inventory and residual failures | Deployer, persisted by Management | Destroy result |
+| credential security events | Management | owner-scoped diagnostic read |
 
-Structured operation contexts include request/session/operation and phase identifiers.
-Secrets must be redacted before logs cross a service boundary. A raw provider response
-is pricing evidence only when stored through the evidence contract, not an excuse to
-log credentials or arbitrary request bodies.
+Logs are bounded and redacted before crossing a service boundary. Provider
+responses, payloads, signed URLs, credential values, and stack traces do not
+belong in public errors or operation history.
 
-Azure Function HTTP failures return a stable code and, for server-side failures, a
-`correlation_id`. Search container/provider runtime logs for that exact identifier.
-The matching log contains a bounded redacted diagnostic; the response deliberately
-does not expose provider bodies, stack traces, signed URLs, or configuration values.
+## Health versus evidence
 
-Event Grid and timer-triggered Azure Functions cannot return an HTTP error.
-Their failure records contain only component and phase, exception type, a UUID
-correlation identifier, and `diagnostic=<suppressed>`. Application logs omit
-payload, device, object, endpoint, and traceback details. The original
-exception is re-raised unchanged so the Azure host retains its configured
-retry behavior.
-
-## Health Versus Readiness
-
-A running process does not prove cloud readiness. Distinguish:
-
-- service health: API responds;
-- configuration readiness: required twin inputs exist and validate;
-- credential preflight: selected connection satisfies expected provider checks;
-- deployment readiness: manifest/artifacts/preflight are current;
-- live verification: deployed provider resources and data paths pass probes.
-
-## Recovery
-
-The Management API records operation state independently from twin state. On a failed
-deploy/destroy, inspect the operation history, correlated logs, last structured error,
-and retained Terraform state before retrying. Do not delete runtime state merely to
-make the UI appear ready.
+- service health proves only that a process responds;
+- configuration validation proves only typed local input;
+- identity validation proves the submitted principal and scope;
+- graph readiness proves current deployment prerequisites;
+- Terraform success proves resources were applied;
+- telemetry verification proves the defined functional roundtrip;
+- cleanup evidence proves what was removed, retained as shared, or residual.

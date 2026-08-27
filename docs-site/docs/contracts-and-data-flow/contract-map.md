@@ -1,89 +1,43 @@
 # Cross-Project Contract Map
 
-## Contract Production And Consumption
-
-```mermaid
-flowchart TB
-    Flutter["Flutter<br/>typed public commands and read models"]
-    Management["Management API<br/>public trust boundary and durable orchestration"]
-    ManagementState[("Users, twins, profile selections,<br/>runs, architectures, operations")]
-    Optimizer["Optimizer<br/>pricing, calculation, path selection"]
-    OptimizerState[("Pricing registry and<br/>immutable regional catalogs")]
-    Deployer["Deployer<br/>package validation and execution"]
-    DeployerState[("Operation packages,<br/>runtime state and outputs")]
-
-    Flutter -->|"Typed command<br/>workload, twin, pricing, deployment"| Management
-    Management -->|"Public read model and SSE"| Flutter
-    Management --> ManagementState
-    Management -->|"Calculation request<br/>run, workload, catalog context"| Optimizer
-    Optimizer --> OptimizerState
-    Optimizer -->|"Calculation response<br/>cost, traces, path, specification,<br/>resolved architecture, capabilities"| Management
-    Management -->|"Deployment package<br/>Six-layer Manifest v4,<br/>architecture, specification,<br/>artifacts, command"| Deployer
-    Deployer --> DeployerState
-    Deployer -->|"Operation response<br/>status, logs, outputs, capabilities"| Management
+```text
+Twin intent
+   |
+   v
+Management ---- exact calculation request ----> Optimizer
+   |                                             |
+   |<-- result + cost trace + immutable graph ---+
+   |
+   +---- readiness/package/operation ----------> Deployer
+   |                                             |
+   |<-- progress + verification + cleanup -------+
+   |
+   v
+Flutter read models and confirmations
 ```
 
-Arrow direction expresses contract production and consumption. Optimizer artifacts
-return through the Management API; Flutter never receives an internal service payload
-directly. Labels ending in `response` describe grouped HTTP payload content; the
-versioned contracts inside those payloads are listed below.
-
-## Material Contract Inventory
-
-| Contract | Producer / SSOT | Validator and durable owner | Consumer |
+| Contract | Owner | Required consumers | Purpose |
 |---|---|---|---|
-| public Management API OpenAPI/Pydantic schemas | Management API | Management API route/service boundary | Flutter |
-| `provider-service-capabilities.v1` | Optimizer and Deployer independently | Management API aggregate service | Management API |
-| `platform-provider-capabilities.v1` | Management API | Management API | Flutter |
-| pricing registry YAML contracts | `2-twin2clouds/pricing_registry` | Optimizer startup and validation gates | pricing refresh and calculation |
-| immutable provider-region catalog/reference | Optimizer catalog repository | Optimizer, then exact-reference verification by Management | calculation and diagnostics |
-| `cost-result.v1` and intent traces | Optimizer | Management API | persisted run and Flutter read model |
-| complete-path transfer and optimization contracts | Optimizer | Management API transfer/path validators | persisted result items and Flutter |
-| `resolved-deployment-specification.v2` | repository root schema/registry; Six-layer object emitted by Optimizer | Optimizer, Management API, and Deployer | manifest builder and typed tfvars translator |
-| architecture-profile contract bundle v2 | repository root schemas, semantic registry, and generated Six-layer definitions | all three service validators; Management owns profile selections and immutable resolution persistence | active Optimizer resolution, Management reads, and Deployer graph compilation |
-| `DeploymentManifest 4.0` | repository schema; Six-layer object emitted by Management API | Deployer validates exact architecture/specification/catalog cross-links | active Six-layer operation packages |
-| `ResolvedDeploymentGraph v1` | Deployer, deterministically compiled from the profile-matched manifest and pinned catalog | Deployer graph/package/tfvars preflight; bounded evidence persisted by Management | package builders, Terraform translator, retry/destroy checks |
-| `phase-08-profile-evaluation@1` | repository evaluation generator and frozen local inputs | strict offline schemas, semantic/digest checks, mutation tests, and byte-identical regeneration | research interpretation and Phase 8 documentation; never deployment input |
-| one-use operation package | Deployer package store | Deployer | one deployment or destroy acquisition |
-| deployment status, logs, outputs | Deployer execution boundary | Management API | Flutter REST/SSE read models |
+| `six-layer-eventing@1` definition | shared repository source | Optimizer, Management, Deployer, Flutter | fixed responsibilities, components and edges |
+| Six-layer workload v1 | shared repository source | Flutter, Management, Optimizer | typed comparable experiment input |
+| pricing snapshots and formula registry | Optimizer | Optimizer; Management verifies references | reproducible cost input and trace |
+| resolved architecture v2 | Optimizer, validated by Management | Management, Deployer, Flutter | immutable placement and edge evidence |
+| resolved deployment specification v2 | Optimizer, validated by Management | Deployer, Flutter | exact deployable dimensions and readiness gates |
+| deployment manifest v4 | Management | Deployer | package identity and integrity |
+| deployment access v1 | shared repository source | Management, Deployer, Flutter | provider-accurate L4/L5 handoff |
+| cleanup evidence v1 | Deployer, persisted by Management | Flutter and evaluation | removed, retained-shared, and residual resources |
 
-## Shared Contract Propagation
+Generated copies are synchronized into service-specific runtime locations and
+checked for digest drift. Schema version numbers do not imply multiple
+user-selectable architectures.
 
-```mermaid
-flowchart LR
-    Canonical["Repository canonical contracts<br/>resolved deployment + architecture profiles"]
-    Sync["deterministic contract sync scripts"]
-    OptimizerCopy["Optimizer generated copy"]
-    ManagementCopy["Management generated copy"]
-    DeployerCopy["Deployer generated copy"]
-    DriftGate["SHA-256 identity and semantic drift gate"]
+## Boundary rules
 
-    Canonical --> Sync
-    Sync --> OptimizerCopy
-    Sync --> ManagementCopy
-    Sync --> DeployerCopy
-    OptimizerCopy --> DriftGate
-    ManagementCopy --> DriftGate
-    DeployerCopy --> DriftGate
-    Canonical --> DriftGate
-```
-
-Generated copies are never edited by hand. The canonical synchronization and
-deployment drift gate is:
-
-```bash
-./thesis.sh test deployment-contract
-```
-
-Architecture-profile boundaries, version rules, and current active/historical status
-are documented in [Architecture Profile Contracts](architecture-profiles.md).
-
-## Versioning Rule
-
-Durable contract versions identify wire semantics, not application release numbers.
-Backward-compatible additive fields may be accepted by existing readers. Removed,
-renamed, or semantically changed required fields need a coordinated new contract
-version or an explicit migration path. Historical results may remain readable while
-being marked non-deployable.
-
-See [API And Contracts](../developer-guide/contracts.md) for detailed invariants.
+- `architectureProfile` fields inside internal evidence identify the fixed
+  contract; they are not a public choice.
+- `providerPricingContexts` and account-specific pricing plans are not part of
+  calculation requests.
+- credentials are absent from all portable and persisted cross-service
+  evidence.
+- a deployment package is valid only for the exact calculation, graph,
+  connection bindings, and readiness digest for which it was created.

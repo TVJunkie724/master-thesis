@@ -1,41 +1,35 @@
-# Credentials And Trust
+# Credentials and Trust
 
-Twin2MultiCloud uses preconfigured provider administrator credentials for the
-supervised proof of concept. It does not create cloud identities, calculate
-least-privilege permission packs, or manage credential rotation. The complete
-scope decision is recorded in the repository document
-`docs/plans/2026-08-26_poc_credentials.md`.
+Twin2MultiCloud accepts pre-existing, non-root deployment administrator
+credentials for isolated thesis accounts, subscriptions, or projects. It does
+not create, minimize, rotate, or revoke that authority.
 
 ## Runtime flow
 
-1. The operator creates a credential in an isolated thesis cloud environment.
-2. The credential is submitted as a write-only CloudConnection payload.
-3. Management encrypts it at rest and returns only non-secret metadata.
-4. Pricing or deployment resolves the owner- and purpose-bound connection and
-   forwards the secret only for the current downstream request.
-5. Optimizer or Deployer performs the real provider validation required by the
-   selected operation. Readiness fails when the credential is absent or the
-   validation is missing, stale, or unsuccessful.
-
-AWS and GCP pricing refreshes require an explicitly confirmed pricing
-connection. Azure catalog pricing uses the public pricing API. For the PoC, an
-operator may register the same preconfigured credential for pricing and
-deployment purposes.
+1. The operator enters or imports AWS access-key CSV, Azure service-principal
+   JSON, or GCP service-account JSON through a write-only request.
+2. Management validates the file shape, encrypts the payload, and returns only
+   non-secret identity/scope metadata.
+3. The user may keep several named connections per provider and explicitly
+   bind the required ones to a Twin.
+4. An identity probe verifies the principal and target scope.
+5. Graph-derived readiness sends the secret only to the Deployer for the
+   current request.
+6. Missing preparable capabilities produce a reviewed, digest-bound plan;
+   external blockers produce typed manual instructions or a connection
+   replacement path.
 
 ## Secret exit rules
 
 | Boundary | Allowed | Forbidden |
 |---|---|---|
-| CloudConnection API | provider, purpose, label, account/project identity, validation state | secret values in responses |
-| encrypted store | encrypted credential payload and owner-safe metadata | plaintext credential material |
-| downstream request | request-scoped credential payload | durable retry, trace, metric, or log copies |
-| Optimizer and Deployer | typed validation result and redacted diagnostic | echoed credential fragments |
-| Flutter | labels, purpose, provider identity, readiness | submitted credential material in state or diagnostics |
+| CloudConnection response | provider, label, auth kind, account/project metadata, validation state | credential values |
+| encrypted store | ciphertext and owner-safe metadata | plaintext persistence |
+| Deployer request | request-scoped typed credential | retry/event/log copies |
+| archives and evidence | connection IDs/fingerprints where needed | secrets, tokens, private keys |
+| Flutter state | labels, scope, readiness and repair guidance | submitted credential material |
 
-Application signing/encryption secrets and cloud credentials remain separate
-security domains. Neither substitutes for the other. `root`, tenant-wide
-break-glass credentials, automated identity provisioning, rotation, and
-production credential lifecycle management are outside this thesis PoC.
-
-See [Security And Trust Boundaries](../architecture/security-boundaries.md) and
-[Cloud Accounts](../user-guide/cloud-accounts.md) for the operational boundary.
+Supported preparation may register required Azure resource providers and enable
+required GCP APIs after confirmation. Other account-level changes remain
+manual. A Twin Destroy removes Twin-owned resources but does not undo shared
+provider capabilities or revoke the administrator credential.

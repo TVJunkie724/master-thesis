@@ -1,32 +1,25 @@
 # User Guide
 
-Start with [Sign In](sign-in.md), then use the dashboard to create or open a
-twin. The remaining pages follow the main account, configuration, pricing, and
-deployment workflows.
-
-Twin2MultiCloud separates account-level cloud readiness from twin-specific design and
-deployment. The main user journey is:
+The supported research workflow is:
 
 ```text
 sign in
-  -> maintain cloud accounts
-  -> review provider pricing readiness
-  -> create/configure a twin
-  -> calculate and select architecture
-  -> validate deployment readiness
-  -> deploy, inspect logs/outputs, verify, destroy
+  -> create/import/duplicate a Twin draft
+  -> configure typed scenario and bounded functions
+  -> calculate and review cost-only Six-layer evidence
+  -> select existing deployment CloudConnections
+  -> run readiness and repair
+  -> confirm immutable deployment
+  -> verify telemetry and open L4/L5 access links
+  -> confirm Destroy and inspect cleanup evidence
 ```
 
-The offline demo exposes the same screens with deterministic data. Production login
-is capability-driven; live UIBK activation remains institutionally gated. Local
-development uses an explicit development sign-in.
+Start with [Dashboard and Twins](dashboard-and-twins.md), then continue through
+[Configuration Workspace](configuration-workspace.md),
+[Cloud Accounts](cloud-accounts.md),
+[Deployment and Verification](deployment.md), and the
+[Multi-Cloud Walkthrough](multi-cloud-walkthrough.md).
 
-- [Sign In](sign-in.md)
-- [Dashboard and Twins](dashboard-and-twins.md)
-- [Cloud Accounts](cloud-accounts.md)
-- [Configuration Workspace](configuration-workspace.md)
-- [User-Function Extensions](user-function-extensions.md)
-- [Pricing Review](pricing-review.md)
-- [Deployment and Verification](deployment.md)
-- [Multi-Cloud Walkthrough](multi-cloud-walkthrough.md)
-- [Offline Demo](demo.md)
+The offline demo presents deterministic examples of this workflow without
+cloud credentials or cost. It is useful for UI review but does not prove live
+provider functionality.

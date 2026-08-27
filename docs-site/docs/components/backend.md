@@ -1,320 +1,47 @@
 # Management API
 
-`twin2multicloud_backend` is the application and orchestration boundary. It is the only
-backend Flutter may call and the only service that owns users, twins, durable workflow
-history, CloudConnections, and lifecycle transitions.
+The Management API is the only application backend visible to Flutter. It owns
+authentication, users, Twins, encrypted deployment CloudConnections,
+configuration, immutable calculation evidence, readiness/repair, deployment
+operations, verification, cleanup, and public errors.
 
-## Responsibilities
+## Main public surfaces
 
-- authenticate users and enforce owner scope;
-- persist twins, configuration, file versions, calculation runs, reviews, deployments, and logs;
-- persist revisioned architecture-profile selections and immutable resolved architectures;
-- encrypt and manage reusable CloudConnections;
-- validate configuration and deployment readiness;
-- call Optimizer and Deployer through typed clients;
-- build canonical deployment archives/manifests;
-- expose operation state, outputs, history, audit events, and SSE streams.
-
-Provider SDK logic and cost formulas do not belong here.
-
-## Layering
-
-```text
-FastAPI route
-   -> schema + dependency/auth boundary
-   -> application/domain service
-   -> repository ----------> SQLAlchemy/SQLite
-   -> typed client ---------> Optimizer or Deployer
-```
-
-| Path | Responsibility |
+| Surface | Responsibility |
 |---|---|
-| `src/api/routes/` | thin HTTP adapters and status/error mapping |
-| `src/schemas/` | Pydantic request/response contracts and schema versions |
-| `src/services/` | workflows, validation, lifecycle, projections, orchestration |
-| `src/repositories/` | owner-scoped persistence access |
-| `src/clients/` | typed downstream HTTP contracts and response validation |
-| `src/models/` | SQLAlchemy persistence model |
-| `src/security/` | transport, request IDs, rate limiting |
-| `migrations/` | idempotent SQLite schema upgrades |
+| `/twins` | draft lifecycle, Duplicate, typed Export/Import, explicit deletion |
+| `/architecture-contract` | read the fixed Six-layer contract |
+| `/twins/{id}/architecture-contract` | read the Twin's immutable contract pin |
+| `/optimizer-runs` | create, inspect, and select immutable cost calculations |
+| `/cloud-connections` | named write-only deployment credential records and identity validation |
+| Twin deployment-readiness routes | graph-derived checks, confirmed preparation, repair evidence |
+| Twin operation routes and `/sse` | Deploy/Destroy state, replay, resume, verification and cleanup |
+| resolved architecture/specification reads | owner-scoped immutable evidence |
 
-## Main API Areas
+There are no public Optimizer proxy routes, pricing review/refresh APIs,
+architecture catalog/selection APIs, or generic provider command endpoints.
 
-| Area | Purpose |
-|---|---|
-| `/auth` | provider capabilities, durable OAuth/SAML login, session exchange/revocation, current user/profile |
-| `/twins` | CRUD, lifecycle, assets, operations, history, status, outputs |
-| `/twins/{id}/config` | configuration workspace persistence and validation |
-| `/twins/{id}/optimizer-config` | typed optimization inputs and projections |
-| `/twins/{id}/optimizer-runs` | durable calculation execution/results |
-| `/architecture-profiles` | active reviewed profile summaries and detail |
-| `/twins/{id}/architecture-profile` | pinned selection, invalidation preview, and revisioned profile change |
-| `/twins/{id}/resolved-architecture` | immutable architecture of the selected run |
-| `/optimizer-runs/{run_id}/resolved-architecture` | owner-scoped immutable run architecture |
-| `/twins/{id}/optimizer-runs/{run_id}/pricing-evidence` | owner-scoped compact, field-level, and exact transfer-route calculation evidence |
-| `/twins/{id}/deployer` | deployment configuration and readiness |
-| `/cloud-connections` | reusable encrypted credentials, validation, binding/defaults |
-| `/cloud-access` | account-level capability inventory |
-| `/platform/provider-capabilities` | aggregate Optimizer/Deployer provider-layer capability contract |
-| `/optimizer/pricing-refresh` | provider refresh run lifecycle |
-| `/optimizer/pricing-review` | health, candidates, evidence, decisions |
-| `/optimizer/pricing-status`, `/optimizer/pricing-health` | owner-scoped status of the exact immutable catalogs used for calculation |
-| `/optimizer/pricing/catalogs/{provider}/{region}/snapshots/{id}` | authenticated, size-bounded inspection of one exact catalog |
-| `/credential-security-events` | owner-scoped credential audit history |
-| `/sse` | server-sent operation/log streams |
+## Internal clients
 
-Use live OpenAPI at `http://localhost:5005/docs` for exact fields.
+`OptimizerClient` sends exact calculation metadata, validates the returned
+pricing references, and retrieves only read-only capability/reference data.
+`DeployerClient` owns credential identity checks, graph readiness, bounded
+preparation, package staging, provider execution, probes, and cleanup.
 
-## Data Model
+Secrets are decrypted only for the current Deployer call and are never placed
+in durable operation events, HTTP responses, logs, portable archives, or
+Optimizer requests.
 
-```text
-User
-  +-- ExternalIdentity
-  +-- AuthSession
-  +-- DigitalTwin
-  |     +-- TwinConfiguration
-  |     +-- OptimizerConfiguration -- CostCalculationRun -- ResultItem
-  |     |                              +-- ResolvedTwinArchitecture
-  |     +-- TwinArchitectureSelection
-  |     +-- DeployerConfiguration
-  |     +-- FileVersion
-  |     +-- Deployment -- DeploymentLog
-  |     +-- DeploymentPreflightCache
-  +-- CloudConnection
+## Persistence and immutability
 
-PricingRefreshRun
-PricingCandidateReport
-PricingReviewDecision
-CredentialSecurityEvent
-AuthLoginTransaction
-AuthenticationEvent
-```
+Management uses SQLAlchemy and SQLite for the single-node PoC. A successful
+calculation atomically persists the result, trace, resolved deployment
+specification, and resolved architecture. A deployed Twin cannot be edited in
+place; its definition is reproduced through a new draft.
 
-Twins are soft-deleted to `inactive`. CloudConnection references are checked before
-deletion. Configuration edits can regress a previously configured twin to `draft`.
+## Safe verification
 
-## Credential SSOT
-
-`CloudConnection` stores provider, purpose, scope metadata, validation status,
-a non-secret fingerprint, and an encrypted payload. API responses
-never return the decrypted payload. Purpose distinguishes deployment and pricing use;
-one user-level pricing default is enforced per provider.
-
-Credential mutation and validation operations are rate limited and audited.
-Downstream validation messages are redacted before response or persistence.
-The PoC does not create provider identities or permission packs.
-
-## Provider Capability Aggregation
-
-`ProviderCapabilityService` concurrently loads the Optimizer calculation matrix and
-Deployer provisioning matrix, validates both strict versioned contracts, and derives
-one complete platform response. Drift, malformed payloads, and source outages produce
-sanitized typed `502`/`503` errors; the service never guesses or returns a partial
-selectable matrix. Configuration validation preserves a Deployer
-`CAPABILITY_UNAVAILABLE` error with provider/layer context.
-
-See [Provider Capabilities](../architecture/provider-capabilities.md) for the matrix and
-extension sequence.
-
-## Deployment Orchestration
-
-`DeploymentOrchestrator` and deployment services coordinate readiness, lifecycle,
-archive generation, package staging, stream handling, result persistence, rollback,
-and recovery. A deployment record is separate from twin state, enabling operation
-history and correlation by session/operation ID.
-
-Every new successful optimizer run contains one canonical, profile-matched
-resolved deployment specification and resolved architecture. The active
-Six-layer profile uses RDS/RTA v2 evidence.
-Management validates their schemas, closed-world component/dimension registry,
-run ID, provider path, strategy context, immutable pricing references, cross-links,
-and SHA-256 digests before committing any run state. The canonical JSON, digests,
-versions, and compatibility statuses are immutable after insertion. Historical
-runs remain readable as `legacy_not_deployable`; they are never upgraded by
-guessing provider settings from legacy cheapest-layer columns.
-
-Exactly one compatible run may be selected per twin/user. A partial unique database
-index enforces this invariant in addition to the application transaction. Package
-generation revalidates the stored object and requires its provider path to equal the
-persisted Optimizer projection before decrypting credentials or materializing files.
-
-The Management API builds `deployment_manifest.json` version 4.0 for active
-Six-layer v1 evidence. It embeds the exact calculation run ID, immutable
-architecture and specification objects/digests, pinned catalog compatibility,
-derived provider projection, credential-source metadata, and immutable
-extension references. Storage durations and workload fields come from the
-selected run's immutable `params_json`, not the currently editable Optimizer
-configuration. Fixed `cheapest_l*` columns are historical projections and
-cannot influence executable packages.
-
-It submits exact archive bytes to the Deployer, receives an operation-package token
-and bounded graph evidence, validates that evidence, and persists it with the
-deployment. The Deployer compiles the graph and revalidates packages/tfvars before
-Terraform. Management records monotonic graph-stage completion from the stream.
-Retry and destroy compare the complete frozen evidence, including architecture,
-specification, catalog, graph, and package-selection digests. Destroy selects the
-recorded calculation run rather than the latest selection. Drift fails with
-`DEPLOYMENT_GRAPH_RESUME_MISMATCH`.
-
-Historical calculations remain readable but not deployable. An operation must
-use Manifest v4 owned by the frozen Six-layer profile. Invalid packages never
-fall back across versions, profiles, or fixed fields.
-
-## Database Startup And Migrations
-
-Startup calls `Base.metadata.create_all()` for missing tables and then the explicit
-idempotent migration runner for existing SQLite databases. Migrations cover Cloud
-Connections, purpose/version fields, pricing reviews, calculation runs, deployment
-lifecycle/operation state, credential audit events, immutable pricing-catalog
-references, and legacy credential disablement. Migration `019` adds the compact
-three-provider context and backfills it only when a historical Optimizer result
-contains a complete, internally valid exact reference set.
-Migration `020` adds the immutable resolved-deployment columns, classifies existing
-runs as `legacy_not_deployable`, normalizes any historical duplicate selections, and
-adds digest, status, immutability, and single-selection database guards.
-Migration `022` adds pinned Twin architecture selections, immutable canonical
-run resolutions and derived component/edge projections, conservatively
-classifies legacy runs, deselects non-resolvable history, and installs
-immutability and append-only audit guards.
-Migration `023_deployment_graph_evidence` adds bounded graph/profile/catalog/stage
-evidence to operation records without inventing evidence for history.
-
-SQLite is the local single-node storage choice. A production multi-replica deployment would
-require a managed relational database and a migration framework appropriate to it.
-
-## Pricing Catalog Trust Boundary
-
-The Management API resolves the catalog context before every calculation:
-
-```text
-owner-scoped successful refresh reference
-  -> exact reference verification in Optimizer
-  -> fallback to committed reviewed baseline when no owner reference is usable
-  -> strict AWS + Azure + GCP reference set
-  -> calculation request
-  -> result must return the identical set
-  -> compact references persisted with run and optimizer projection
-```
-
-`PricingCatalogReference` validates provider, canonical region, versions, UTC
-fetch time, digest, review/publication state, calculation source, and the derived
-snapshot identity. A run cannot be selected for deployment when any referenced
-catalog is missing, stale, malformed, or different from the Optimizer's exact
-read result.
-
-For route-aware results, Management additionally validates
-`complete-path-transfer-pricing.v1` and `complete-path-optimization.v1` before
-returning or persisting a calculation. The gate requires exactly the six
-baseline segments and checks their endpoints, selected providers, regions,
-route classes, provider network tiers, pool identities, source snapshot IDs,
-tier arithmetic and continuous marginal quantity coverage, aggregate
-bytes/cost, currency, and winning candidate against the server-resolved catalog
-context. The non-persisting diagnostic calculation proxy and the durable run
-workflow share this one validation service.
-
-The same trust boundary requires `baseline-transition-runtime.v1` with exactly
-the hot-to-cool and cool-to-archive edges in canonical order. It proves that
-each mover runtime belongs to its selected source storage provider, that a
-destination writer exists only for cross-provider movement, and that runtime,
-writer, egress, diagnostics, and flat cost fields reconcile. Manipulated
-provider ownership, component IDs, invocation bases, arithmetic, or route
-evidence fail before any calculation run is committed.
-
-`POST /twins/{id}/optimizer-runs` is the only application command that may
-persist an optimizer result and its deployment-path projection. Management
-resolves the trusted pricing context, invokes the Optimizer, validates the
-returned contracts and resolved deployment specification, derives the path from
-`calculationResult`, and commits the run, result items, immutable deployment
-specification, and `OptimizerConfiguration` projection atomically. Generic
-twin updates and optimizer-parameter drafts cannot carry a result or cheapest
-path. `GET /twins/{id}/optimizer-config` retains a read-only result projection
-for configuration, validation, and deployment compatibility.
-
-The Management database does not store full public pricing catalogs. Existing
-legacy snapshot/timestamp columns are outside the live contract and do not make
-pricing calculable. Full pricing remains in the Optimizer's immutable regional
-catalog store and is returned only through the explicit authenticated diagnostic
-route. The client enforces an 8 MiB response limit.
-
-For AWS TwinMaker, the user/account observation remains separate from the public
-catalog reference. Region and content digest must agree before calculation, and
-an AWS L4 result must return the exact Management-injected account context.
-
-## Persisted Pricing Trace
-
-Cost-calculation result JSON is an immutable snapshot of the Optimizer response. The
-pricing-evidence detail endpoint projects three calculation-evidence levels plus
-the immutable catalog context from that snapshot:
-
-- `intent_trace` for the compact selected-path explanation;
-- `field_trace_records` plus `field_trace_schema_version` for provider-field audit
-  details;
-- `transfer_pricing_context` plus `optimization_diagnostics` for all exact
-  baseline routes, provider billing pools, tier contributions, assumptions,
-  and bounded path-selection diagnostics;
-- `transition_runtime_context`, `transition_runtime_costs`, and
-  `transition_runtime_trace` for the two source-owned storage movers and their
-  optional destination writers;
-- `pricing_catalog_context` for the exact AWS, Azure, and GCP catalog identities;
-- explicit availability flags and compatibility warnings for historical runs.
-
-Management creates one queryable transfer result item per baseline edge from
-the validated route contract. Each item stores source provider, monthly byte
-quantity, cost, evidence ID, and the bounded route detail. It never trusts or
-persists a competing downstream or client-authored transfer item when the exact
-route contract is present.
-
-The service applies recursive secret and local-path redaction before returning either
-trace. Malformed field or transfer evidence is omitted with a warning instead
-of making an entire historical run unreadable. A historical run without the
-new transfer contract remains readable with
-`transfer_pricing_context_available=false`; Management does not reconstruct or
-invent missing evidence. No separate trace table or migration is required
-because the durable run result and existing result-item columns already
-represent the bounded metadata.
-
-## Security And Errors
-
-- settings fail startup on weak/missing/duplicated runtime secrets;
-- dev auth, seeding, and test routes are forbidden in production;
-- production HTTPS and trusted proxy rules are explicit;
-- external login uses durable one-time transactions, Google PKCE, SAML request
-  correlation, and server-side revocable sessions;
-- identity ownership is keyed by provider subject; email collisions require
-  explicit future account linking rather than implicit merge;
-- authentication and credential operations use separate fail-closed rate limits;
-- structured service errors map to stable HTTP status/error codes;
-- request IDs correlate errors and credential audit events;
-- required credential security-control outages return `503` and fail closed;
-- downstream response shapes are validated at client boundaries;
-- sensitive messages and outputs are redacted.
-
-## Tests
-
-```bash
-./thesis.sh test backend
-```
-
-Tests cover routes, services, repositories, migrations, security controls, client
-contracts, lifecycle transitions, credentials, pricing review, configuration, and
-deployment orchestration. Tests under E2E boundaries are excluded by default.
-
-## Extension Points
-
-- add a schema, service use case, repository method if persistence is needed, then a thin route;
-- extend `OptimizerClient`/`DeployerClient` before consuming new downstream contracts;
-- keep lifecycle changes in `TwinLifecycleService`;
-- add schema-versioned responses for new durable/public result types;
-- add an idempotent migration for every existing-database schema change;
-- add demo adapter support when a new API is visible in Flutter.
-
-## Evolution And Gaps
-
-The first integration concentrated queries, state transitions, downstream HTTP calls,
-and archive construction in large route modules. The current structure separates
-repositories, lifecycle/application services, typed clients, and orchestration.
-
-The production authentication implementation is complete, while live UIBK activation
-remains externally gated by institutional federation registration and configuration.
-Encryption-key rotation is explicit future operational work. SQLite remains a bounded
-deployment choice, not a claim of horizontally scalable production persistence.
+The default pytest suite uses isolated SQLite databases and fake downstream
+clients. It covers ownership, strict schemas, redaction, readiness drift,
+operation idempotency/replay, archive roundtrips, verification, and cleanup
+without contacting a provider.

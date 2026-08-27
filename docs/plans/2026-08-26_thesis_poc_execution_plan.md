@@ -2,13 +2,14 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-08-26"
-version: "1.0"
+lastUpdated: "2026-08-27"
+version: "1.1"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
 
-Status: active planning source; implementation not authorized by this document
+Status: active execution source; offline phases implemented, supervised live
+evaluation pending
 
 ## 1. Purpose
 
@@ -23,6 +24,18 @@ The canonical scope is defined by:
 3. `docs/plans/2026-08-26_poc_credentials.md`; and
 4. the approved Six-layer evidence under
    `docs/research/evidence/phase_08_eventing/`.
+
+## Current phase status
+
+| Phase | Status on 2026-08-27 | Evidence boundary |
+|---|---|---|
+| 0–6 | Implemented offline | code, contracts, deterministic service and Flutter suites |
+| 7 | In progress | active documentation and repository-wide offline gate |
+| 8 | Pending supervision | real principals, provider readiness, identity and image probes |
+| 9 | Pending supervision | nine cost-controlled Small deployments |
+| 10 | Pending live evidence | RQ analysis, limitations, final thesis evidence and cleanup |
+
+No row in this table upgrades offline fixtures or mocks to live-cloud evidence.
 
 ## 2. Dependency order
 

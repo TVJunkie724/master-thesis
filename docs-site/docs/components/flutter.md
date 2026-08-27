@@ -1,216 +1,48 @@
 # Flutter UI
 
-`twin2multicloud_flutter` is the user-facing application for Web, macOS, Windows,
-and Linux. It owns
-presentation, local interaction state, navigation, and runtime adapter composition.
-It does not own business persistence, cloud credentials, pricing semantics, or
-deployment execution.
+Flutter presents the research workflow and calls only the Management API. It
+does not calculate costs, infer provider topology, validate credentials itself,
+or contact Optimizer/Deployer ports.
 
-## Boundary
+## User responsibilities
 
-```text
-widgets/screens -> feature state -> ManagementApi interface -> Management API
-                                      |
-                                      +-> DemoManagementApi (demo only)
-```
+The current UI groups four information responsibilities, which may span more
+than four routes:
 
-Direct Flutter calls to Optimizer or Deployer are architecture defects. Network code
-is contained behind `ManagementApi`; SSE uses a separately injected `LogStreamClient`.
+1. Twin scenario and typed bounded configuration;
+2. cost result, exclusions, assumptions, trace, and immutable review;
+3. deployment CloudConnection selection, readiness, confirmed preparation,
+   and repair;
+4. Deploy/Destroy operation progress, access handoff, verification, and
+   cleanup evidence.
 
-## Entrypoints And Structure
+The architecture screen reads one canonical contract. It has no profile or
+objective selector. Pricing snapshots are calculation evidence, not an
+administration workspace.
 
-| Path | Responsibility |
-|---|---|
-| `lib/main.dart` | load runtime composition and start `ProviderScope` |
-| `lib/app.dart` | Material app, GoRouter, route guards |
-| `lib/config/` | fail-closed runtime profile and composition |
-| `lib/providers/` | Riverpod application composition and simple global queries/commands |
-| `lib/bloc/` | multi-step feature workflows with explicit events and states |
-| `lib/features/configuration_workspace/` | task model, sidebar, workspace shell, review/deployment presentation |
-| `lib/screens/` | route-level UI entrypoints |
-| `lib/widgets/` | reusable presentation and form components |
-| `lib/models/` | typed Management API contracts |
-| `lib/services/` | network adapter, API interface, SSE/log adapter |
-| `lib/demo/` | deterministic in-memory repository adapters and fixtures |
+## State ownership
 
-## State Management Decision
+Riverpod composes application dependencies and simple global state. Route- or
+feature-scoped BLoCs own multi-step commands, retry behavior, concurrent
+response protection, operation replay, and one-time secret consumption. A
+mutable concern has one state owner.
 
-The application deliberately uses both Riverpod and BLoC, with separate ownership:
+## Credential behavior
 
-| Tool | Owns | Examples |
-|---|---|---|
-| Riverpod | app composition, runtime dependencies, theme/auth, simple global async resources | `appRuntimeProvider`, `apiServiceProvider`, `authProvider`, twins/dashboard/pricing health |
-| BLoC | feature workflows with multiple commands, transitions, retries, and partial results | configuration wizard, pricing review, twin overview, cloud access, deployment verification |
+CloudConnection entry/import is write-only. Flutter retains only the returned
+label, provider, scope, auth kind, and validation/readiness state. Users may
+select among multiple named deployment connections. Repair presents typed
+manual guidance or replacement-connection actions when automation is not safe.
 
-This is not interchangeable duplication. A feature should not expose the same mutable
-state through both systems. Riverpod injects dependencies; a route-level `BlocProvider`
-owns the workflow lifecycle.
+## Deployment behavior
 
-## Navigation And Screens
+The client catches up persisted operation events before reconnecting SSE. A
+refresh cannot trigger a second provider command. Access cards open real
+provider-managed L4/L5 URLs and show the required identity/authentication
+method. Only a service-local one-time Viewer value may enter transient state.
 
-GoRouter defines login, dashboard, settings/profile, pricing review, twin overview,
-and create/edit configuration routes. Auth state drives redirects. The primary flow is:
+## Safe verification
 
-```text
-login -> dashboard -> create/edit twin -> configuration workspace
-                       |                   |
-                       |                   +-> intent / optimizer / deployment tasks
-                       +-> pricing review
-                       +-> twin overview -> deploy/destroy/status/logs/verification
-```
-
-The configuration experience is task-oriented. Global stages provide orientation;
-the sidebar exposes smaller tasks so large forms are not presented as one uninterrupted
-page. Provider pricing moved out of the optimizer step and into a dashboard-level
-review workspace because pricing readiness is account-level, not twin configuration.
-
-`WizardBloc` also owns the architecture-profile state machine. It loads only
-active Management catalog entries, keeps historical selections read-only,
-guards late detail/resolution responses with request generations, applies only
-server-returned invalidations, and requires a fresh confirmation after revision
-or digest conflicts. Opening **Understand architecture** acknowledges the
-loaded profile before workload and user-logic tasks unlock. Generic resolved
-review widgets render assignments, supporting resources, tiering, local or
-cross-cloud edges, costs, and pinned digests without importing fixed L1-L5
-presentation models.
-
-The logical profile flow has two read-only projections: responsibilities and
-components. At 720 logical pixels and above it uses a bounded Sugiyama canvas
-with zoom/reset controls; below 720 it uses a labeled vertical projection that
-shows only edges declared by the typed profile. No graph widget derives or
-edits provider topology.
-
-## Runtime Adapters
-
-`AppRuntimeConfig` accepts only `development`, `production`, or `demo`.
-`runtime_composition.dart` chooses adapters before UI construction:
-
-- development/production: network `ApiService` and SSE/log client;
-- demo: `DemoManagementApi`, fixture identity, and `DemoLogStreamClient`.
-
-Demo mode uses the same `ManagementApi` interface and screens. Its fixture store
-supports `showcase`, `empty`, and `degraded`; requesting network dependencies fails.
-
-The deployment workspace loads `platform-provider-capabilities.v1` through
-`ManagementApi`. L4/L5 editors are selectable only when the aggregate contract permits
-the provider-layer row. Loading errors are visible and retryable; saved configuration
-remains readable. Production and demo adapters expose the same complete matrix, and
-widgets contain no provider-name capability exceptions.
-
-Optimizer results also preserve each layer result's `supported` and
-`unsupportedReason` fields. Cost cards and service details render unsupported rows as
-unavailable with their reason; they never present an unsupported zero-cost result as a
-valid alternative.
-
-Calculation results keep trace diagnostics compact by default. The first level shows
-publishability and record counts. `Trace details` reveals the compact intent path; a
-nested `Field-level audit` groups typed records by provider and then by service. Users
-can inspect intent, formula, source, verification, result scope, evidence, alternatives,
-and rejected evidence counts without exposing raw provider catalog rows.
-
-The Optimization task creates a durable, server-owned calculation run through
-`POST /twins/{id}/optimizer-runs`. In create mode, Flutter creates and retains
-the draft twin before starting that run, so a retry cannot create a duplicate
-twin. Flutter never submits an optimizer result, cheapest path, transfer cost,
-or catalog reference. Save Draft persists only user-authored configuration.
-
-A successful calculation returns a typed immutable
-`ResolvedDeploymentSpecification`. Flutter immediately selects that whole run
-through the Management API verification endpoint. Selection verifies run/twin
-identity, compatibility, schema version, digest, specification identity, and
-pricing/account context. A selection failure preserves the cost result but blocks
-all navigation into deployment preparation. Edit mode loads the newest run and
-never inherits selection state from an older run.
-
-`DeploymentSelectionStatus` keeps the recommendation task concise.
-`ResolvedDeploymentSummary` lists every primary and supporting component in the
-final review, while technical evidence remains collapsed. The widgets receive an
-immutable `ResolvedDeploymentReview`; they cannot edit dimensions or call HTTP.
-Known v1 payloads parse strictly and fail closed. Unknown future versions remain
-readable as unsupported metadata and require recalculation with a compatible app.
-Changing a workload input clears the result and deployment run atomically. Late
-calculation or selection responses are ignored, and calculate/select/save/finish
-commands cannot overlap.
-
-Historical records without the newer selection/scope fields remain readable and are
-labelled with compatibility defaults. Shared diagnostic amounts are explicitly marked
-non-additive. The detail layout stacks labels at constrained widths and is covered in
-light and dark themes.
-
-Pricing evidence is also a typed read-only boundary. Flutter validates the exact
-three-provider catalog context, canonical provider/region metadata, UTC timestamp,
-review/publication state, content digest, and the derived cross-runtime snapshot ID.
-It does not export or persist full pricing payloads after a calculation. The
-Management API resolves and verifies trusted references; Flutter shows compact rows
-in Latest Refresh, Calculation Trace, and Twin Overview, with full IDs and versions
-behind nested technical details. Legacy saved results show explicit unavailable
-provider rows and expose no pricing JSON artifact action.
-
-Current route-aware results also expose the exact six baseline transfer edges
-under one collapsed `Transfer route evidence` section. Solver diagnostics,
-provider billing pools, native GB/GiB tier contributions, network tiers,
-regions, source snapshot IDs, costs, and assumptions remain read-only and
-collapsed until requested. Historical results without this additive contract
-remain readable and are labelled as lacking exact route evidence.
-
-Production sign-in is capability-driven. `AuthNotifier` creates a login transaction,
-opens a system browser, polls the one-time Management API exchange, retains the access
-token in memory, and clears identity/token state after logout or any authenticated
-`401`. Web reserves its popup synchronously before the API call to satisfy browser
-popup-blocking rules; desktop opens the external system browser. Provider callbacks
-and secrets never enter Flutter routes or URL parameters.
-
-## Error And Logging Behavior
-
-- `Result` and typed models keep expected API failures out of widget parsing;
-- `ApiErrorHandler` exposes only structured transport messages or explicitly marked
-  `UserFacingException` messages; arbitrary exception details are neutralized;
-- feature BLoCs preserve retryable workflow state rather than dropping the screen;
-- `AppLogger` is the application logging boundary;
-- deployment and pricing streams are rendered as operation output, not application logs;
-- secret material must never enter snackbars, debug logs, or raw JSON viewers.
-
-The centralized notification experience is still evolving; pages must therefore keep
-errors close to the affected task and preserve actionable recovery controls.
-
-## Tests And Quality Gates
-
-```bash
-./thesis.sh test frontend
-./thesis.sh test frontend-integration
-```
-
-The frontend gate checks architecture constraints, formatting, analysis, unit/widget
-tests, demo behavior, and local Web/current-host builds. Native CI builds Web,
-macOS, Windows, and Linux. The integration gate is read-only against the
-credential-free stack. It must not refresh provider pricing, validate real cloud
-access, deploy, destroy, or run cloud simulator operations.
-
-The central runtime platform classifier rejects Android, iOS, and Fuchsia
-before repositories or authentication state are composed. Platform
-prerequisites and distribution boundaries are defined under
-[Supported Platforms](../getting-started/supported-platforms.md).
-
-## Extension Points
-
-- add a route in `app.dart`, then a route-level screen with injected dependencies;
-- extend `ManagementApi` first, then implement both network and demo adapters;
-- use Riverpod for composition/simple global resources and BLoC for stateful workflows;
-- add typed request/response models rather than parsing raw maps in widgets;
-- extend `ConfigurationJourney` for a new task while preserving navigation invariants;
-- add deterministic fixture coverage for every new user-visible screen or state.
-
-`scripts/check_flutter_architecture.py` enforces important boundaries. Extension TODOs
-in state/composition entrypoints identify where future developers must register new
-strategy-backed functionality.
-
-## Evolution And Gaps
-
-The original integrated UI grew as three large wizard pages with direct service calls,
-long forms, raw JSON, and mixed state concerns. It was decomposed into typed adapters,
-Riverpod composition, workflow BLoCs, reusable controls, and the task-oriented
-configuration workspace. Pricing review became a first-class account workflow.
-
-Remaining gaps include live institutional UIBK activation, selected simulator defects, and
-continued consolidation of cross-screen notifications. These are not reasons to bypass
-the Management API or introduce mock-only production paths.
+`flutter analyze`, the full widget/unit suite, the architecture checker, and
+Web/native release builds are ordinary offline gates. The deterministic demo
+uses the same interfaces but is not live-cloud evidence.

@@ -1,267 +1,56 @@
-# API And Contracts
+# API and Contracts
 
-## Contract Direction
-
-```text
-Flutter models/ManagementApi
-          |
-          v
-Management API Pydantic schemas
-      |                   |
-      v                   v
-OptimizerClient       DeployerClient
-      |                   |
-Optimizer OpenAPI     Deployer OpenAPI
-```
-
-The Management API adapts internal service contracts into stable user-facing contracts.
-Flutter must not mirror internal provider payloads directly.
-
-## Versioning
-
-Schema versions appear on durable/result contracts such as deployment status/outputs,
-pricing registry/evidence, optimization results, and the deployment manifest. A version
-change requires compatibility behavior or an explicit coordinated migration.
-
-Provider support uses two internal `provider-service-capabilities.v1` contracts and the
-public `platform-provider-capabilities.v1` aggregate. Flutter consumes only the public
-Management API contract. See
-[Provider Capabilities](../architecture/provider-capabilities.md).
-
-Pricing calculation traceability uses two additive result contracts:
-
-| Contract | Role | Compatibility rule |
-|---|---|---|
-| `intent-result-trace.v1` | compact selected path and publishability envelope | may exist without field trace on historical runs |
-| `intent-to-result-trace.v1` | provider-field calculation audit | new semantics are additive; missing fields use explicit legacy defaults |
-
-The Optimizer constructs both contracts, the Management API persists and redacts the
-immutable result, and Flutter only renders typed read models. A contribution amount is
-not additive unless its record explicitly proves that property. Alternative providers
-and rejected pricing rows are different concepts and must remain separate fields.
-
-The public Management calculation input and the internal Optimizer input intentionally
-differ by three server-owned fields. `calculationRunId` is the Management-owned UUID
-that binds the result to its durable run. `providerPricingCatalogs` is the mandatory
-exact public-catalog context; `providerPricingContexts` carries optional owner-scoped
-account observations. Flutter supplies none of them. The Management API resolves and
-injects them, and the live integration gate compares every remaining workload field
-exactly.
-
-### Resolved Deployment Specification
-
-`ResolvedDeploymentSpecification v1/v2` are the repository contracts that
-bind a profile-specific cost-model winner to its eventual infrastructure
-settings. Their sources of truth are:
+## Direction
 
 ```text
-contracts/resolved-deployment-specification/v1/
-  schema.json
-  deployment-dimensions.json
-  verification-matrix.schema.json
-  verification-matrix.json
-  fixtures/
-
-contracts/resolved-deployment-specification/v2/
-  schema.json
-  deployment-dimensions.json
-  fixtures/
+Flutter typed models
+       |
+       v
+Management Pydantic API
+       |             |
+       v             v
+Optimizer client   Deployer client
 ```
 
-Each schema fixes its wire shape. The v1 dimension registry remains the
-closed-world historical `five-layer-baseline@1` mapping. RDS v2 represents the
-active `six-layer-eventing@1` component selections, exact dimensions,
-bindings, optimization evidence, and readiness gates without coercing them
-into v1 enums. Both versions bind each provider's immutable catalog snapshot
-ID, pricing region, and content digest. Cross-cloud support components are
-required exactly where the selected route crosses providers and forbidden for
-a local path. Generated copies below the Optimizer, Management API, and
-Deployer build contexts are never edited by hand.
+Flutter must not mirror internal provider payloads or call internal services.
+Management adapts them into stable owner-scoped, redacted contracts.
 
-The verification matrix is test evidence rather than a runtime registry. It
-contains independent expected values for 31 deployable components, 54
-component-to-target bindings, 50 unique Terraform targets, four representative
-provider paths, four Azure IoT Hub tier cases, and both storage transitions.
-Tests additionally generate all 27 hot/cool/archive provider triples. Runtime
-code cannot read this matrix, so expected results do not pass through the same
-production function as the values under test.
+## Canonical evidence chain
 
-The two storage lifecycle transitions have explicit runtime ownership.
-Hot-to-cool executes beside the selected hot-storage provider;
-cool-to-archive executes beside the selected cool-storage provider. A
-cross-provider edge additionally requires the destination provider's registered
-writer/glue component. The source mover and destination writer are separate
-cost, evidence, deployment, and verification records; neither may be inferred
-from the destination storage slot.
+```text
+Twin + workload + fixed architecture pin
+  -> calculationRunId + exact frozen pricing refs
+  -> cost result + trace + RTA v2 + RDS v2
+  -> Management cross-link and digest validation
+  -> Manifest v4 package
+  -> graph readiness + operation
+  -> verification + cleanup evidence
+```
+
+The public calculation request cannot author the server-owned run ID, pricing
+references, architecture pin, extension bindings, resolved assignments, or
+Terraform values. Account-specific pricing contexts are not part of the
+contract.
+
+## Change rules
+
+- update canonical source, generated copies, fixtures, and every affected
+  consumer together;
+- use explicit schema versions and canonical SHA-256 digests for durable
+  evidence;
+- reject unknown fields and secret-like content;
+- add positive and fail-closed negative tests;
+- never synthesize missing provider values from defaults downstream;
+- keep offline and live evidence labels distinct.
+
+Representative synchronization commands include:
 
 ```bash
+python scripts/sync_six_layer_contracts.py --sync --check
 python scripts/sync_resolved_deployment_contract.py --sync --check
+python scripts/sync_deployment_manifest_contract.py --sync --check
+python scripts/sync_deployment_access_contracts.py --sync --check
 ```
 
-The command validates JSON Schema Draft 2020-12, semantic component
-cardinality, canonical ordering, provider support, value bounds, cross-field
-combinations, units,
-secret-like fields, canonical SHA-256 digests, positive fixtures, negative
-fixtures, and byte identity of all generated copies. Run it after every
-contract edit.
-
-Every dimension belongs to exactly one semantic class:
-
-| Classification | Meaning | May become a Terraform variable |
-|---|---|---|
-| `deployable_selection` | exact SKU, plan, storage class, capacity, or runtime setting | yes, through its allowlisted target |
-| `usage_tier` | progressive billing or metering behavior | no |
-| `account_scope` | provider-account state not owned by one twin | no |
-| `non_deployable_assumption` | formula input that the selected resource cannot enforce directly | no |
-
-Function bundles must disclose the memory and duration consumed by their cost
-formula. Enforceable memory settings are deployment selections; provider
-runtime or duration values that Terraform cannot guarantee remain explicit
-non-deployable assumptions. They are still mandatory evidence and may never be
-reconstructed from calculator defaults downstream.
-
-To extend the existing baseline, update the canonical registry and all affected
-formula/provider adapters, regenerate fixtures and copies, and pass the
-cross-service contract tests. A new architecture topology is not added to this
-registry; it requires a versioned architecture profile and a new contract
-version. The Optimizer emits the complete specification from the selected
-route-aware winner and rejects incomplete or contradictory component mappings.
-The Management API is the trust boundary for the emitted object. It preallocates
-the calculation run ID, validates the complete specification and digest, persists
-canonical JSON atomically with the result, exposes it read-only, and permits
-selection only while its catalog/account context remains current. Existing runs
-without v1 remain inspectable but have compatibility status
-`legacy_not_deployable`.
-
-New operations use Manifest v4 with Six-layer RTA/RDS v2 evidence. Historical
-Five-layer calculations remain inspectable but are not deployable. The Deployer validates the matching generated
-contract before creating an operation workspace, verifies the exact
-provider/component/dimension binding, and translates only allowlisted
-`deployable_selection` `terraform_target` dimensions. The translation is pure
-and deterministic; usage tiers, account-scope state, and non-deployable
-assumptions produce no Terraform variables. Missing, stale, conflicting, or
-unknown mappings fail with stable redacted errors. No downstream component may
-synthesize missing dimensions from calculator or Terraform defaults.
-
-### Architecture Profile Contracts
-
-The repository also contains the Phase 8 architecture-profile v1 bundle:
-
-```text
-contracts/architecture-profiles/v1/
-```
-
-It separates logical `ArchitectureProfile`, provider-specific
-`ProviderImplementationProfile`, deployable `DeploymentComponentCatalog`, and
-immutable `ResolvedTwinArchitecture` records. All three backend services expose
-the same validator. Phase 8.3 adds exact generated AWS/Azure/GCP definitions;
-Phase 8.4 adds Management profile selection, migration, immutable persistence,
-and safe read APIs. Optimizer calculation output, deployment, Terraform, and
-Flutter activation remain later phase boundaries.
-
-The shared local-only validator enforces canonical digests, closed versions,
-reference and cycle integrity, capability completeness, size bounds, and
-secret-like data rejection with stable `ARCH_*` codes. Generated service
-copies are byte-identical and drift-gated:
-
-```bash
-python scripts/sync_architecture_profile_contracts.py --check
-python scripts/check_architecture_profile_catalog.py
-```
-
-See
-[Architecture Contract Development](architecture-profile-contracts.md) before
-changing a schema, profile version, provider mapping, or catalog entry.
-
-AWS, Azure, and GCP have completed provider resource binding. AWS deployable values
-reach Lambda memory, DynamoDB billing mode, S3 storage classes, and transition
-schedules. Azure deployable values reach IoT Hub SKU/capacity, Function plans,
-Cosmos mode, storage replication/access tiers, transition timers, and Managed
-Grafana. GCP deployable values reach Cloud Function memory/scaling, Firestore
-mode, Nearline/Archive classes, transition schedules, and cross-cloud writer
-settings. Progressive usage meters, account-scoped plans, and runtime values a
-provider cannot pin remain evidence rather than Terraform variables. Source
-tests and credential-free Terraform plans assert this distinction.
-
-The canonical executable verification command is:
-
-```bash
-./thesis.sh test deployment-contract
-```
-
-Use `--focused` only for fast field-level diagnosis. It is also the CI drift
-gate. The full command remains the release/handoff evidence because it adds all
-safe service, Flutter, documentation, static, and security checks.
-
-### Transfer Pricing Catalog
-
-Every provider-region pricing snapshot contains one
-`transfer-pricing-catalog.v1` object. The calculation contract requires its
-route class, source region/geography, destination geographies, network tier,
-billing scope, native billing unit, byte divisor, currency, evidence ID,
-aggregation semantics, and contiguous explicit tier ranges. Unknown,
-missing, gapped, overlapping, unit-inconsistent, or non-terminal data fails
-before a transfer value can enter scoring.
-
-AWS and Azure use decimal GB; GCP uses GiB. The common comparison quantity is
-bytes. No API adapter, Management service, or Flutter model may reconstruct a
-scalar transfer rate or substitute a default when the catalog is unavailable.
-Aggregate pool allocation and complete-path selection are owned by
-`calculation_v2/path_optimizer.py`, not by clients. The Optimizer evaluates all
-executable combinations of the seven baseline slots and all six approved
-directed edges before the active scoring strategy selects a winner. Clients may
-display `complete-path-transfer-pricing.v1` and
-`complete-path-optimization.v1`; they must not recalculate pools, infer missing
-routes, or replace exact catalog references.
-
-The Management API is the trust boundary for these two result contracts. Its
-shared transfer-pricing validator compares route endpoints and regions with the
-server-owned catalog context, checks provider policy and pool/tier arithmetic,
-requires marginal tier intervals to cover the provider pool's normalized byte
-quantity without gaps, and binds the diagnostic winner to
-`calculationResult`. Numeric strings and booleans are not coerced. Only
-validated route objects become persisted transfer result items, and
-client-supplied transfer result items are ignored. Historical results without
-these additive contracts remain readable but are explicitly unavailable for
-route evidence.
-
-### Calculation Result Ownership
-
-```text
-Flutter workload parameters
-  -> POST /twins/{id}/optimizer-runs
-  -> Management resolves exact catalog context
-  -> Optimizer calculates result and route evidence
-  -> Optimizer resolves exact deployment components and dimensions
-  -> Management validates all result/specification contracts
-  -> one transaction persists run, items, result, path, and canonical specification
-  -> Flutter receives a read-only typed result
-```
-
-The durable run command is the sole application writer for optimizer results.
-`TwinConfigUpdate` has no `optimizer_result` field, and
-`PUT /twins/{id}/optimizer-config/result` does not exist. The parameter-draft
-endpoint may store only typed workload inputs. The read-only optimizer config
-projection remains available to configuration validation and deployment
-consumers. A client must never derive or submit provider assignments, catalog
-identities, transfer totals, cheapest-path columns, or deployment dimensions.
-
-## Errors
-
-Public errors should provide stable code, safe message, actionable suggestion where
-possible, HTTP status, and request ID. Downstream exception strings are not public
-contracts and must pass redaction/shaping.
-
-## Discover Exact APIs
-
-Start services and use OpenAPI:
-
-| Contract | URL | Intended client |
-|---|---|---|
-| Management API | `http://localhost:5005/openapi.json` | Flutter/external application client |
-| Optimizer | `http://localhost:5003/openapi.json` | Management API/developer diagnostics |
-| Deployer | `http://localhost:5004/openapi.json` | Management API/developer diagnostics |
-
-When adding an endpoint, test both serialization and the consuming typed adapter.
-Avoid duplicating exhaustive field tables in prose because generated schemas are more
-reliable; document semantics, invariants, ownership, and examples here.
+OpenAPI snapshots under `docs/contracts/openapi/` are regenerated from the
+current applications and checked for removed public surfaces.

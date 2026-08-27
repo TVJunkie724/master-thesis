@@ -1,127 +1,66 @@
 # Management API Development Guide
 
-This guide contains service-local engineering rules. Repository setup, thesis
-context, provider access, and cross-project architecture belong in
-`docs-site/`.
+The Management API is the application boundary. Flutter calls only this
+service; Optimizer and Deployer are internal dependencies.
 
-## Service Boundary
+## Ownership rules
 
-The Management API is the application-facing orchestration and persistence
-boundary:
+- route modules perform transport/authentication and delegate;
+- repositories own database queries;
+- application services own lifecycle and transaction boundaries;
+- typed clients own internal HTTP adaptation;
+- public errors are bounded, stable and redacted;
+- encrypted CloudConnections contain deployment credentials only;
+- the Optimizer never receives deployment credential material;
+- a successful calculation atomically persists result, trace, resolved graph
+  and deployment specification;
+- deployment readiness and packages bind to exact graph/connection digests;
+- deployed Twin definitions are immutable.
 
-```text
-Flutter
-  -> FastAPI route adapter
-  -> application service / DeploymentOrchestrator
-  -> repository or typed downstream client
-  -> SQLite/PostgreSQL, Optimizer, or Deployer
-```
+## Canonical architecture
 
-- Flutter calls only the Management API, never Optimizer or Deployer directly.
-- Routes own HTTP parsing, authentication, response models, and typed error
-  mapping. Business workflows belong in services.
-- Repositories own persistence queries. Services must not duplicate ownership
-  filters or persistence policy in route modules.
-- `OptimizerClient` and `DeployerClient` are the only HTTP boundaries to the
-  internal services.
-- `PricingCatalogContextService` is the sole resolver for calculation,
-  pricing-health, persisted evidence, and deployment-selection catalog
-  references. Do not infer readiness from legacy snapshot blobs or timestamps.
-- Architecture-aware calculation is default-on through
-  `ARCHITECTURE_PROFILE_RESOLUTION_ENABLED`; explicit `false` is the rollback.
-  Only the Twin-owned optimizer-run
-  service may enrich the internal request from the persisted profile selection
-  and active immutable extension bindings. Public calculation schemas must not
-  accept those fields.
-- When the architecture gate is enabled, a successful calculation atomically
-  persists the result, deployment specification, and validated
-  `ResolvedTwinArchitecture`. Invalid or missing architecture evidence creates
-  only a bounded failed run; it must never fall back to a legacy successful
-  run.
-- Reusable cloud credentials live only in encrypted, user-owned
-  `CloudConnection` records.
-- Credential-bearing deployment packages are staged for one Deployer operation
-  and represented inside Management by an opaque `PreparedDeploymentProject`.
+New Twins receive one automatic `six-layer-eventing@1` digest pin. Public API
+reads expose the canonical contract and a Twin's pin; there is no profile
+catalog, selector, preview, mutation, inheritance, or registration boundary.
 
-## Local Workflow
+## Local workflow
 
 From the repository root:
 
 ```bash
-docker compose build management-api
-docker compose up management-api
-docker compose run --rm --no-deps management-api python -m pytest -q tests
+./thesis.sh up --setup
+./thesis.sh test backend
 ```
 
-The repository entrypoint starts the complete development application:
+Or run the isolated service suite:
 
 ```bash
-./thesis.sh app
+cd twin2multicloud_backend
+APP_ENV=test PYTHONPATH=. python -m pytest -q
 ```
 
-The development Compose profile mounts source and stores SQLite data under
-`twin2multicloud_backend/data/`. Production images use the owner-only runtime
-paths under `/var/lib/twin2multicloud-management/` and run as UID/GID `10002`.
+Use an isolated SQLite database and test-only application secrets. Ordinary
+tests must not read provider credentials or run provider commands.
 
-## Quality Gate
+## Contract rules
 
-Before committing behavioral changes, run:
+1. Public request models reject unknown fields.
+2. Flutter-authored configuration never becomes calculation/deployment
+   evidence without server validation.
+3. Pricing values remain in the Optimizer; Management persists exact immutable
+   references.
+4. Credential values are absent from responses, events, logs, archives and
+   durable retry payloads.
+5. Operation commands are idempotent and one mutation is active per Twin.
+6. Verification and cleanup results remain distinguishable from operation
+   transport success.
+7. OpenAPI snapshots are regenerated after public contract changes.
 
-```bash
-ruff check src tests
-python -m bandit -q -r src
-python -m compileall -q src
-python -m pip check
-pytest -q tests
-```
+## Upload and interchange safety
 
-Run these commands in the development image or an isolated container with the
-current worktree mounted at `/app`. Do not use a long-running container as test
-evidence unless its mount points are known to reference the active worktree.
+Typed Twin archives and individual configuration/user-function uploads use
+bounded size, path, type and schema checks. They cannot contain credentials,
+Terraform state, arbitrary executable project structures, or secret outputs.
 
-For production-image changes, additionally run:
-
-```bash
-docker build --target production \
-  -t twin2multicloud-management:production \
-  ./twin2multicloud_backend
-```
-
-Verify the image starts as the non-root `management` user, contains no tests,
-databases, uploads, environment files, or credentials, and can create its
-runtime database under `/var/lib/twin2multicloud-management/data/`.
-
-## Engineering Rules
-
-1. Use Pydantic response models for stable Flutter-facing JSON contracts.
-2. Validate and bound multipart uploads and downstream binary/JSON responses
-   before materializing them in memory.
-3. Preserve safe downstream `4xx` statuses; map unavailable services and
-   unexpected upstream failures to typed `5xx` service errors.
-4. Redact secret-like values before logging, persistence, or API responses.
-5. Keep deployment state changes and session creation compensating: failed
-   preparation or scheduling must not leave twins in transitional states.
-6. Schema changes require an idempotent migration and regression coverage.
-7. New dependencies belong in the correct production/development requirement
-   file and must remain compatible with `requirements.lock`.
-8. Track new actionable work in GitHub Issues; do not add Markdown TODO or
-   future-work trackers.
-9. Persist exact immutable pricing references in Management; full public
-   pricing catalogs remain in the Optimizer and require an explicit,
-   size-bounded diagnostic read.
-10. Preserve the active Six-layer profile/catalog/provider lifecycle as one
-    atomic contract. Offline fixtures remain evaluation evidence, and their
-    unresolved live-capacity gates must never be bypassed for deployment.
-
-## Upload And Runtime Safety
-
-- Project ZIP and GLB request bodies are read through the bounded upload helper.
-- GLB files must pass the GLB 2.0 header, chunk, and JSON metadata contract
-  before persistence.
-- Deployer ZIP-extraction responses use a strict credential-free schema and a
-  bounded response body.
-- `.dockerignore` excludes runtime databases, uploads, tests, caches,
-  environment files, keys, and credential-shaped files from production images.
-
-Live cloud deployment tests can create billable resources. They are never part
-of the default Management API test gate and require explicit user intent.
+Live deployment tests can create billable resources. They are never part of
+the default Management test gate and require separate supervision.

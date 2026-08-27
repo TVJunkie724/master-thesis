@@ -1,155 +1,76 @@
-# Project Vision: Twin2MultiCloud
+# Twin2MultiCloud Integration Vision
 
-Planning status: this document still describes the current integrated system.
-The binding final-thesis scope is the
-[Thesis PoC Target Concept](docs/plans/2026-08-26_thesis_poc_target_concept.md),
-implemented in the order defined by the
-[Thesis PoC Execution Plan](docs/plans/2026-08-26_thesis_poc_execution_plan.md).
-Capabilities scheduled for removal remain current-state descriptions until
-their implementation phase and documentation cleanup are complete.
+Status: current thesis-PoC boundary
 
-## 1. The Core Vision
-**Twin2MultiCloud** is a unified application designed to bridge the gap between theoretical cost optimization and practical multi-cloud infrastructure deployment.
+## Research objective
 
-It is not merely an integration of scripts, but a cohesive platform with two interfaces:
--   **CLI**: For automated pipelines and power users.
--   **Flutter Frontend**: For interactive scenario modeling and visualization.
+Twin2MultiCloud demonstrates how a theoretical layer-based cost model can be
+operationalized as a functionally gated, traceable and reproducibly deployable
+Digital Twin across AWS, Azure and Google Cloud.
 
-## 2. Theoretical Foundation
-The project is strictly based on the scientific framework defined in the paper:
-> **EDT_25__CloudDT_engineering.pdf**
+The contribution is not a general cloud-management product. It is the method
+and evidence chain used to answer:
 
-This paper establishes:
-1.  **The 5-Layer Architecture**: The standard structure for a cloud-based Digital Twin (Data Acquisition, Processing, Storage, Management, Visualization).
-2.  **Cost Formulas**: The mathematical models used to calculate and predict costs across AWS, Azure, and GCP.
-3.  **Optimization Logic**: The algorithms for determining the most cost-effective provider distribution.
+- how typed Twin intent becomes a cloud deployment and verification result;
+- how provider implementations can be compared under the same functional
+  responsibilities;
+- how provider-local and multi-cloud placement affects estimated cost; and
+- how Eventing topology, delivery responsibility and cost become explicit.
 
-## 3. System Architecture
+## Canonical architecture
 
-The runtime consists of four distinct, interconnected projects:
+The original five responsibilities—acquisition, processing, storage, Twin
+management and visualization/access—remain. `six-layer-eventing@1` adds
+Eventing as an independent responsibility because it owns placement, trust,
+delivery semantics, directed cross-cloud edges, verification and cost.
 
-### A. The Client: `twin2multicloud_flutter`
+This is the only deployable architecture. Five-layer v1 remains an isolated
+Optimizer-side offline baseline.
 
-*   **Role**: Interactive Web and desktop user interface.
-*   **Boundary**: Calls only the Management API. Direct calls to the Optimizer
-    or Deployer are architecture defects.
-*   **State ownership**: Riverpod owns runtime/API composition; feature BLoCs
-    own complex workflows and transitions.
+## Integrated system
 
-### B. The Orchestrator: `twin2multicloud_backend`
+```text
+Flutter
+   |
+   v
+Management API
+   |--------------------|
+   v                    v
+Cost Optimizer      Cloud Deployer
+   |                    |
+   +---- immutable -----+
+        result, graph,
+        operation and evidence
+```
 
-*   **Role**: Public Management API and durable application boundary.
-*   **Responsibility**: Owns users, twins, configuration, cloud connections,
-    immutable calculation/deployment evidence, lifecycle orchestration, and
-    public contract shaping.
-*   **Boundary**: Calls the Optimizer and Deployer through typed internal
-    clients. Provider formula implementation and Terraform execution remain
-    outside this service.
+Management owns users, Twins, encrypted deployment connections, immutable
+calculation evidence, readiness, operations, verification, cleanup and public
+errors. Optimizer owns frozen pricing/formulas, capability admission, monetary
+ranking and graph resolution. Deployer owns provider readiness, bounded
+preparation, packages, Terraform/provider execution and probes.
 
-### C. The Brain: `2-twin2clouds`
+## Supported workflow
 
-*   **Role**: Pricing, formula, and cost-optimization engine.
-*   **Input**: Trusted workload, pricing context, and versioned architecture
-    references supplied by the Management API.
-*   **Output**: Traceable cost results and immutable resolved deployment
-    decisions for functionally complete supported paths.
+1. Create, import or duplicate a unique Twin draft.
+2. Configure typed workload and bounded university user functions.
+3. Calculate one cost-only result from exact frozen pricing snapshots.
+4. Review placement, exclusions, assumptions, trace and immutable graph.
+5. Select existing named deployment CloudConnections.
+6. Run graph readiness and confirmed bounded preparation or manual repair.
+7. Confirm Deploy and follow durable/replayable progress.
+8. Verify the telemetry roundtrip and open provider-owned L4/L5 surfaces.
+9. Confirm Destroy and record post-destroy inventory/residual evidence.
 
-### D. The Muscle: `3-cloud-deployer`
+Deployed definitions are immutable; a changed experiment becomes a new draft.
 
-*   **Role**: Infrastructure execution engine.
-*   **Input**: A validated deployment manifest produced by the Management API.
-*   **Output**: Deterministic packages, typed Terraform inputs, operation
-    evidence, and a deployed Digital Twin for supported paths.
+## Evaluation boundary
 
-## 4. The Workflow
+Offline suites prove deterministic contracts and logic. Live evaluation first
+uses low-cost identity/API/capacity/image probes, then three provider-local and
+six directed multi-cloud Small scenarios. Every live run has budget/duration
+guardrails, immediate verification, a guaranteed Destroy attempt and residual
+inventory.
 
-1.  **Define**: The user defines a Twin and workload in Flutter or another
-    supported Management API client.
-2.  **Optimize**: The Management API validates and enriches the request, then
-    calls the Optimizer.
-3.  **Persist and review**: The Management API validates and atomically stores
-    the result and its immutable evidence; Flutter renders typed read models.
-4.  **Deploy**: The user selects a complete run and asks the Management API to
-    deploy it.
-5.  **Execute**: The Management API builds the deployment package and invokes
-    the Deployer. Status and logs return through the Management API.
-
-## 5. The Management Platform
-
-The Flutter application is the command center for the supported Digital Twin
-lifecycle, while the Management API is the public runtime and persistence
-boundary.
-
-### 5.1. Architecture: The Management API
-
-*   **Database:** Stores users, twins, configuration, owner-scoped cloud
-    connections, immutable calculation evidence, and deployment state.
-*   **Authentication:** Handles development authentication and configured
-    external identity providers.
-*   **Orchestration:** Wraps the Deployer and Optimizer through typed internal
-    clients.
-*   **Streaming:** Exposes one-way operation updates to Flutter through SSE.
-
-### 5.2. User Workflow
-1.  **Configuration & Optimization:**
-    *   User inputs requirements (data frequency, retention, etc.).
-    *   **Data Fetching:** System fetches current cloud pricing and region mappings.
-        *   **Live Logs:** App displays real-time status of price fetching (e.g., "Fetching AWS us-east-1 pricing...", "Updating Azure regions...").
-    *   **Cost Optimizer** runs and proposes a multi-cloud architecture (e.g., "L1 in AWS, L2 in Azure").
-    *   User reviews and selects a complete calculation run. Manual provider
-        override remains separate backlog work and is not an implicit current
-        capability.
-2.  **Deployment:**
-    *   User deploys the selected complete run through the Management API.
-    *   **Live Logs:** The app receives one-way deployment logs through
-        Management API SSE.
-3.  **Operation & Monitoring:**
-    *   **Twin List:** User sees all deployed twins.
-    *   **Dashboard:** Selecting a twin shows:
-        *   **Live Status:** Health of each layer.
-        *   **Error/Warning Log:** Real-time feed of system errors (e.g., "L2 Connector Timeout", "L1 Sensor Offline").
-        *   **Visualization:** Embedded Grafana view or link.
-        *   **Management:** Supported lifecycle operations for the complete
-            deployment.
-        *   **Cost evidence:** Frozen estimated calculation evidence; observed
-            billing reconciliation remains out of scope.
-        *   **Specifications:** Full list of all specifications/configs made by the user for the twin.
-
-### 5.3. Error Handling Strategy
-Errors must be captured at every layer and surfaced to the user.
-*   **Sources:**
-    *   **Ingestion (L1):** Malformed data, device disconnects.
-    *   **Processing (L2):** Validation failures, cross-cloud connector timeouts.
-    *   **Storage (L3):** Write failures, quota exceeded.
-*   **Reporting:**
-    *   Current operations propagate structured, bounded errors and correlation
-        evidence through the Management API.
-    *   Event routing belongs to the independently owned Event Layer of the
-        standalone Six-layer profile and its reviewed provider/deployment contracts.
-
-## 6. Current Architecture Program And Remaining Evaluation
-
--   **Architecture profiles:** `six-layer-eventing@1` is the only active,
-    deployable closed-world profile. The original Five-layer calculation is an
-    Optimizer-only historical baseline.
--   **Functional completeness:** Incomplete provider paths are rejected before
-    profile-local cost ranking.
--   **Remaining paper validation:** Phase 8.10 compares reproducible estimated
-    costs and records separately approved observed/live evidence without
-    treating the latter as a prerequisite for offline thesis evaluation.
--   **Final E2E:** Keep cost-incurring provider execution supervised and
-    explicitly approved.
-
-## 7. References
-
-For detailed technical information, please refer to the project documentation:
-
-### 2-twin2clouds (Optimizer)
--   **[Documentation Overview](2-twin2clouds/docs/docs-overview.html)**
--   **[Architecture](2-twin2clouds/docs/docs-architecture.html)**
--   **[Cost Formulas](2-twin2clouds/docs/docs-formulas.html)**
-
-### 3-cloud-deployer (Deployer)
--   **[Documentation Overview](3-cloud-deployer/docs/docs-overview.html)**
--   **[Architecture](3-cloud-deployer/docs/docs-architecture.html)**
--   **[Integration Guide](3-cloud-deployer/docs/docs-twin2clouds-integration.html)**
+Results must distinguish estimated cost, contract-tested functionality and
+live-verified behavior. Limitations, sensitivity, threats to validity and the
+distance to product maturity are first-class thesis outputs.

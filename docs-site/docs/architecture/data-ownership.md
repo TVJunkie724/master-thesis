@@ -1,60 +1,29 @@
-# Responsibilities And Data Ownership
-
-## Ownership Matrix
+# Responsibilities and Data Ownership
 
 | Concern | System of record | Consumers |
 |---|---|---|
-| users and identities | Management API database | Flutter, audit workflows |
-| twin identity and lifecycle | Management API database | Flutter, orchestration |
-| reusable cloud credentials | encrypted Management API `cloud_connections` | validation, pricing, deployment |
-| wizard/configuration state | Management API configuration tables and file versions | Flutter, Optimizer, Deployer |
-| pricing intent and mappings | Optimizer `pricing_registry/*.yaml` | fetch, review, calculation |
-| price-free transfer route policy | Optimizer `pricing_registry/transfer_routes.yaml` | route classification and exact immutable-catalog resolution |
-| immutable public pricing catalogs | Optimizer regional catalog store | Management API exact-reference verification, calculations, authenticated diagnostics |
-| pricing refresh/review history | Management API database | Flutter pricing workspace |
-| cost calculation history, exact catalog references, and immutable resolved deployment specifications | Management API database | Flutter twin/configuration views, deployment selection, manifest generation |
-| deployment package definition | Management API generated archive and manifest | Deployer operation-package store |
-| Terraform/runtime state | Deployer runtime project storage | destroy, status, simulator, verification |
-| deployment operation history and logs | Management API database | Flutter via REST/SSE |
-| user/developer documentation | `docs-site/docs` | users, operators, developers |
-| research notes | `docs/research` | research reasoning and later thesis synthesis |
-| final thesis | `twin2multicloud-latex` | submitted academic document |
+| users, Twin identity and lifecycle | Management database | Flutter and orchestration |
+| canonical architecture pin | Management database plus repository contract digest | calculation, deployment, evidence reads |
+| typed Twin configuration | Management database and allowlisted files | Optimizer and Deployer |
+| deployment CloudConnections | encrypted Management records | Deployer request boundary only |
+| frozen price snapshots and formula contracts | Optimizer repository | calculation and exact-reference checks |
+| calculation result and immutable resolved graph | Management database | Flutter, readiness, package generation |
+| operation history, replay cursor, verification and cleanup | Management database | Flutter REST/SSE reads |
+| Terraform/runtime state | Deployer runtime storage | status and explicit Destroy |
+| research method and evidence | `docs/research` | thesis analysis |
 
-## State Boundaries
+## Invariants
 
-```text
-editable source                  generated/durable state
----------------                  -----------------------
-pricing_registry/*.yaml  ----->  immutable regional pricing catalogs
-Optimizer winner         ----->  immutable resolved deployment specification
-deployer template        ----->  deployment archive + manifest
-Management API config    ----->  staged package -> ephemeral workspace
-                                        |
-                                        +-> allowlisted runtime outputs
-```
+- Flutter cannot author calculation, cost, graph, verification, or cleanup
+  evidence.
+- Management stores exact pricing references rather than editable price
+  copies.
+- A Twin pin always identifies the one canonical contract; it is not a
+  user-selectable profile.
+- The Deployer workspace may change during one operation, but only allowlisted
+  outputs and typed evidence return to Management.
+- Secret values do not enter responses, logs, archives, events, or retry state.
 
-Generated pricing evidence may be inspected but must not become editable pricing
-truth. The Management API stores exact catalog references, not duplicated pricing
-payloads. It stores the selected deployment specification as canonical immutable
-run evidence, not as mutable twin configuration or client-authored provider fields.
-A Deployer workspace may be mutated during an operation, but only
-allowlisted outputs are synchronized back to durable runtime storage.
-
-## Twin Lifecycle
-
-```text
- draft --validated configuration--> configured --deploy--> deploying
-   ^                                      ^                    |
-   | config changed                       | retry              v
-   +--------------------------------------+---- error <---- deployed
-                                                  |             |
-                                                  | destroy     | destroy
-                                                  v             v
-                                             destroying ----> destroyed
-
- any non-removed workflow state --soft delete--> inactive
-```
-
-`TwinLifecycleService` owns transitions. Routes and Flutter may request actions but
-must not invent state changes. `deploying` and `destroying` are transient operation
-states; deployment history is recorded separately.
+Deployed Twin definitions are immutable. A changed experiment becomes a new
+draft through Duplicate or typed Import, with an independent calculation and
+lifecycle.

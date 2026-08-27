@@ -1,51 +1,25 @@
-# Contracts And Data Flow
+# Contracts and Data Flow
 
-This section visualizes the implemented cross-project contracts and runtime data
-flows of Twin2MultiCloud. It is developer documentation for the current system, not
-a proposed architecture and not a thesis evaluation.
+This section describes the implemented thesis-PoC boundaries.
 
-## Reading Order
+1. [System Boundaries](system-boundaries.md)
+2. [Cross-Project Contract Map](contract-map.md)
+3. [Canonical Architecture Contract](canonical-architecture-contract.md)
+4. [Pricing and Cost Optimization](pricing-optimization.md)
+5. [User-Function Extensions](user-function-extensions.md)
+6. [Deployment Lifecycle](deployment-lifecycle.md)
+7. [Credentials and Trust](credentials-and-trust.md)
+8. [State Ownership](state-ownership.md)
 
-1. [System Boundaries](system-boundaries.md) identifies the projects, external
-   systems, persistence boundaries, and allowed network direction.
-2. [Cross-Project Contract Map](contract-map.md) shows which project produces and
-   consumes each material contract.
-3. [Pricing And Optimization](pricing-optimization.md) follows pricing evidence
-   from acquisition through formulas, scoring, and deployment selection.
-4. [Deployment Lifecycle](deployment-lifecycle.md) follows the selected optimizer
-   run through the operation package, Terraform, status, logs, and outputs.
-5. [User-Function Extension Contract](user-function-extensions.md) follows
-   owner-scoped source through validation, binding, packaging, wrappers, and
-   Terraform reference.
-6. [Credentials And Trust](credentials-and-trust.md) shows how bootstrap,
-   pricing, and deployment credentials cross trust boundaries.
-7. [State Ownership](state-ownership.md) identifies the system of record for
-   editable definitions, durable application state, and generated runtime state.
+Flutter communicates only with Management. Exact calculation evidence flows
+from Optimizer to Management; immutable operation evidence flows from Deployer
+to Management. Credentials flow only from Management to Deployer for the
+current request.
 
-## Diagram Conventions
+Schema versions identify durable wire formats. They do not imply multiple
+selectable architectures or objectives. Contract diagrams show ownership and
+data direction, not permission for a new direct network dependency.
 
-| Shape or line | Meaning |
-|---|---|
-| rectangle | service, adapter, process, or contract transformation |
-| cylinder | durable state or versioned artifact store |
-| solid arrow | implemented production/consumption or runtime call |
-| dashed arrow | non-runtime relation, explicit exclusion, or documented limitation |
-| subgraph | ownership or trust boundary |
-
-Diagram arrows show data or contract direction. They do not grant direct network
-access. In particular, Flutter communicates only with the Management API; the
-Optimizer and Deployer remain internal services.
-
-## Status And Scope
-
-The diagrams cover the current standalone Six-layer profile and its v2/v4
-contracts. The Five-layer baseline is historical Optimizer evidence only. Whenever
-the executable contracts change, update this section in the same change and run:
-
-```bash
-docker compose --profile docs run --rm docs mkdocs build --strict
-```
-
-The prose-oriented architecture pages remain available under
-[Architecture](../architecture/index.md). This section is intentionally a separate
-visual contract reference rather than a replacement for those pages.
+After changing a shared contract, synchronize all generated copies and run the
+repository contract/deployment gates. Those gates are offline and do not
+constitute live provider evidence.

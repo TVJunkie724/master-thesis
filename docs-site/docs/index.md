@@ -1,62 +1,55 @@
 # Twin2MultiCloud Documentation
 
-Twin2MultiCloud is an integrated thesis PoC for configuring, cost-optimizing,
-deploying, and inspecting a standalone Six-layer Digital Twin across AWS, Azure,
-and Google Cloud. The original Five-layer calculation remains an Optimizer-only
-historical baseline. This site is the canonical human-readable description of the application.
+Twin2MultiCloud is a thesis proof of concept for configuring, cost-optimizing,
+deploying, and verifying one standalone Six-layer Digital Twin architecture
+across AWS, Azure, and Google Cloud.
 
-## Choose Your Path
+It is intentionally not a general cloud-management product. The implemented
+scope exists to produce traceable evidence for operationalization, functional
+provider comparability, cost effects, provider-local baselines, and Eventing as
+an explicit responsibility.
 
-| You want to... | Start with |
-|---|---|
-| run a clean clone or the offline demo | [Getting Started](getting-started/index.md) |
-| use the UI and understand its workflows | [User Guide](user-guide/index.md) |
-| understand the platform and its data flows | [Architecture](architecture/index.md) |
-| work on a particular service | [Components](components/flutter.md) |
-| configure credentials or a cloud provider | [Cloud Setup](cloud-setup/index.md) |
-| operate, test, or troubleshoot the stack | [Runtime](runtime/index.md) and [Developer Guide](developer-guide/index.md) |
-| understand what changed from the original projects and why | [Original to Current State](architecture/evolution.md) |
+## Current boundary
 
-## Current Capability Status
-
-| Area | Status | Meaning |
+| Area | Implemented offline | Still requires supervised live evidence |
 |---|---|---|
-| Local integrated runtime | **Implemented** | One root script starts the credential-free backend and Flutter client. |
-| Offline UI demonstration | **Implemented** | Deterministic in-memory adapters exercise the UI without Docker or cloud access. |
-| Cost optimization | **Implemented** | Cost is enabled; other objectives are explicit extension declarations. |
-| Provider pricing review | **Implemented** | Refresh, evidence, candidate review, and persisted decisions use the Management API. |
-| Deployment orchestration | **Implemented** | Manifest-backed operation packages and isolated workspaces drive deployment. |
-| Production credential controls | **Implemented** | Encryption, ownership, transport checks, rate limits, redaction, and audit events exist. |
-| UIBK production login | **Externally gated** | Final SAML registration requires the UIBK/ACOnet identity team. |
-| Provider least privilege | **Verification pending** | Versioned baselines exist; final live-cloud evidence remains supervised work. |
-| Live-cloud E2E proof | **Verification pending** | Excluded from safe default tests because it may create billable resources. |
+| Architecture | fixed `six-layer-eventing@1` contract | real regional service capacity |
+| Optimization | cost-only strategy with full trace | sensitivity interpretation against live observations |
+| Pricing | frozen, cited, hashed snapshots | no live refresh is part of the PoC |
+| Credentials | encrypted deployment CloudConnections, graph readiness, bounded repair | real account permissions and external prerequisites |
+| Deployment | immutable operations, packages, SSE replay, verification and cleanup contracts | provider Apply/Destroy results |
+| Evaluation | deterministic fixtures and coverage design | three local plus six directed multi-cloud Small runs |
 
-Status labels are used consistently throughout this site:
+The historical Five-layer calculation remains Optimizer-only comparison
+evidence. It cannot be selected or deployed.
 
-- **Implemented**: present in code and covered by safe verification.
-- **Externally gated**: completion requires an external administrator or system.
-- **Verification pending**: code exists, but final supervised evidence is outstanding.
-- **Planned**: not implemented and tracked in GitHub.
-- **Historical**: retained to explain provenance, not current behavior.
+## Choose a path
 
-## Canonical Boundary
+| Goal | Start here |
+|---|---|
+| run a safe local stack or offline demo | [Getting Started](getting-started/index.md) |
+| perform the supported workflow | [User Guide](user-guide/index.md) |
+| understand ownership and boundaries | [Architecture](architecture/index.md) |
+| change one service | [Components](components/flutter.md) |
+| inspect contracts and evidence flow | [Contracts & Data Flow](contracts-and-data-flow/index.md) |
+| prepare supervised provider access | [Cloud Setup](cloud-setup/index.md) |
+| test or troubleshoot | [Runtime](runtime/index.md) and [Developer Guide](developer-guide/index.md) |
+
+## Service boundary
 
 ```text
 Flutter UI
     |
     | HTTP(S) + SSE
     v
-Management API  --------->  Optimizer
+Management API  --------->  Cost Optimizer
     |
-    +-------------------->  Deployer  -----> AWS / Azure / GCP
+    +-------------------->  Cloud Deployer  -----> AWS / Azure / GCP
 ```
 
-Flutter talks only to the Management API. The Management API owns users, twins,
-configuration, durable workflow state, and orchestration. The Optimizer owns
-pricing and calculation semantics. The Deployer owns provider execution.
+Flutter calls only Management. Management owns user/Twin state and durable
+workflow evidence. The Optimizer owns cost semantics and the immutable
+resolution. The Deployer owns provider readiness, execution, verification, and
+cleanup.
 
-## Documentation Truth
-
-Current code, schemas, configuration, migrations, and tests take precedence over
-older prose. The original HTML pages remain historical sources; their use is summarized
-in the [Source Provenance Appendix](references/source-provenance.md).
+Offline tests, mocks, and fixtures never count as live-cloud validation.

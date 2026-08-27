@@ -1,45 +1,21 @@
-# Original To Current State
+# Project Lineage
 
-Twin2MultiCloud did not begin as one application. The Optimizer (`2-twin2clouds`) and
-Deployer (`3-cloud-deployer`) originated as separate Bachelor-project codebases with
-standalone assumptions, file-oriented workflows, independent documentation, and
-direct operational entrypoints. The integrated platform introduced the Management API
-and Flutter UI, then progressively replaced accidental coupling with explicit contracts.
+Twin2MultiCloud integrates an original cost Optimizer, a cloud Deployer, a
+Management API, and a Flutter client. The current PoC preserves the scientific
+idea of layer-based provider placement while placing each concern behind an
+explicit service and evidence boundary.
 
-## Material Transformations
+| Earlier characteristic | Current research-PoC boundary |
+|---|---|
+| standalone services and direct clients | Flutter calls only Management |
+| shared mutable deployment folders | immutable packages and isolated operation workspaces |
+| workspace credential copies | encrypted owner-scoped deployment CloudConnections |
+| loosely coupled cost keys and formulas | exact frozen references, typed formulas, and traceable contributions |
+| hidden Eventing/provider glue | independent sixth responsibility and directed edges |
+| mutable deployment projects | typed Twin drafts, bounded extensions, Duplicate and portable interchange |
+| transient mutation logs | durable operations with replay, verification, and cleanup evidence |
 
-| Original state | Problem identified | Current state | Why it changed |
-|---|---|---|---|
-| Standalone services and direct UI/service calls | no stable application boundary | Flutter calls only the Management API | one authorization, lifecycle, persistence, and error boundary |
-| Interactive CLI and legacy layer endpoints | multiple competing deployment paths | canonical manifest-backed operation API | deterministic validation and one auditable workflow |
-| mutable `upload/template` used as template and runtime project | source and runtime data could contaminate each other | protected template, runtime project storage, operation packages, ephemeral workspaces | reproducibility, concurrency, and credential safety |
-| cloud credentials copied across workspace/files/containers | duplicated plaintext and unclear ownership | encrypted user-scoped CloudConnections plus external manual bootstrap with secure import | reusable SSOT, redaction, ownership, auditability |
-| per-twin credential blobs | duplication and difficult account reuse | twin binds connection IDs; pricing uses user defaults | account-level reuse without exposing secrets |
-| pricing selected through fragile strings/keywords | provider catalog drift could silently choose wrong rows | editable intent/mapping registry, evidence, deterministic candidates, review decisions, publication gates | traceability and explicit ambiguity handling |
-| cost formulas loosely coupled to fetched keys | fetch, units, formulas, and optimization could drift | optimization bundle binds metric, intents, provider contracts, formula set, model, and scoring | executable consistency across the whole cost path |
-| only cost hard-coded into orchestration | difficult future metric extension | enabled cost profile plus disabled typed extension declarations | current behavior stays bounded while architecture remains extensible |
-| route handlers owned DB queries and orchestration | large god routes and inconsistent errors | repositories, application services, typed clients, lifecycle/orchestrator services | testability and separation of concerns |
-| Flutter god screens and ad-hoc API access | long forms, duplicated state, fragile workflows | runtime adapters, Riverpod composition, workflow BLoCs, typed models, configuration workspace | clear state ownership and testable UX |
-| scattered HTML documentation | stale, duplicated, disconnected from integrated system | central MkDocs site with provenance register | one usable handbook while retaining research history |
-
-## What Was Preserved
-
-- the five-layer Digital Twin model;
-- provider-specific infrastructure implementations and user functions where still valid;
-- the core idea of cost-aware cross-provider placement;
-- the original papers, diagrams, and historical implementation explanations;
-- Terraform as the declarative infrastructure execution mechanism.
-
-Preservation does not mean verbatim reuse. Provider behavior, permissions, pricing,
-and deployment contracts are revalidated against the current implementation.
-
-## What Remains Open
-
-The current architecture is substantially cleaner, but several claims still require
-external or live evidence: production UIBK authentication, final provider-specific
-least privilege, and full cloud deployment verification. Provider feature parity also
-varies, especially for cross-cloud functions and managed Digital Twin equivalents.
-
-The [Source Provenance Appendix](../references/source-provenance.md) explains how the
-historical sources were evaluated. The
-[Refactoring Roadmap](refactoring-roadmap.md) links active and completed work.
+The original Five-layer calculation is preserved only as an offline
+Optimizer-side baseline. The deployable runtime is the standalone Six-layer
+contract. Detailed superseded plans and implementation handoffs are available
+from Git history rather than presented as current work.

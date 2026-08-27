@@ -1,201 +1,68 @@
-# Multi-Cloud Digital Twin Deployer
+# Twin2MultiCloud Cloud Deployer
 
-The Deployer is the infrastructure execution service of Twin2MultiCloud. It
-validates a materialized deployment project, builds provider packages and
-Terraform variables, executes Terraform, and exposes deployment status,
-verification, logs, and user-function operations through an internal FastAPI
-API.
+The Deployer translates one immutable Six-layer deployment graph into
+graph-derived readiness, bounded account preparation, isolated Terraform and
+provider operations, runtime verification, access handoff, and cleanup
+evidence.
 
-The Management API is the application-facing boundary. Flutter must not call
-the Deployer directly.
+It is an internal service. Flutter calls it only through the Management API.
 
-## Canonical Flow
+## Scope
 
-```text
-Flutter
-  -> Management API
-       -> resolves user-owned CloudConnections
-       -> validates the Twin configuration
-       -> creates an immutable DeploymentManifest
-       -> stages one private, short-lived operation package
-       -> Deployer API
-            -> consumes the package through an opaque one-shot token
-            -> restores protected Terraform/runtime state
-            -> validates profile-matched Manifest v3/v4 + frozen RTA/RDS
-            -> builds provider function packages
-            -> generates allowlisted typed Terraform variables
-            -> runs Terraform through TerraformRunner
-            -> persists allowlisted runtime outputs outside project storage
-            -> destroys the credential-bearing operation package
-            -> emits structured operation events
-       -> persists deployment state and safe evidence
-```
+- validate request-scoped deployment administrator credentials;
+- derive exact APIs, resource providers, permissions, quotas, identities,
+  packages, Terraform inputs, probes and cleanup expectations from the graph;
+- return a non-mutating readiness result;
+- execute only reviewed, confirmed, idempotent account preparation;
+- stage one-use immutable operation packages;
+- Deploy and Destroy in isolated workspaces;
+- report typed progress, verification and cleanup results;
+- expose provider-accurate L4/L5 access metadata.
 
-## Ownership Boundaries
+The Deployer does not own users, Twin lifecycle, cost calculation, credential
+persistence, arbitrary deployment projects, architecture selection, or a
+provider administration console.
 
-| Concern | Source of truth |
-|---|---|
-| User and Twin configuration | Management API database |
-| Reusable cloud credentials | Encrypted Management API CloudConnections |
-| Deployment intent | Versioned `DeploymentManifest` |
-| Deployable service settings | Profile-matched frozen `ResolvedDeploymentSpecification v1/v2` |
-| Provider prerequisites and verification probes | Immutable `ResolvedDeploymentGraph` requirements |
-| Read-only project template | `templates/digital-twin/` |
-| Durable secret-free project definition | `upload/<project>/` |
-| Credential-bearing operation package | Private temporary package store |
-| Infrastructure/runtime state | `/var/lib/twin2multicloud-deployer/runtime-state/` |
-| Product and thesis documentation | `docs-site/` |
-| Planned work | GitHub Issues and repository roadmap |
+## Input boundary
 
-Credentials are never committed, baked into the image, or retained in durable
-project storage. The Management API stages each generated package through
-`POST /projects/{project_name}/operation-package`; the returned opaque token is
-required as `X-Operation-Package` for deployment, destruction, verification,
-logs, and simulator operations. Tokens are project-bound, expire, and are
-consumed once. Request-body permission checks remain the canonical provider
-validation path.
+The canonical operation package is bound to:
 
-New profile-owned operations require `DeploymentManifest 3.0` for historical
-Five-layer v1 evidence or `DeploymentManifest 4.0` for active Six-layer
-and Six-layer v1 evidence. Manifest v2 remains a historical inspection reader,
-never a fallback for a new operation. The Deployer recomputes the canonical
-architecture/specification digests, verifies the selected provider path and
-every registered component, edge, port, package, and dimension, and rejects
-legacy, incomplete, stale, or contradictory packages before runtime side
-effects. Only dimensions classified as `deployable_selection` may become
-Terraform variables; usage tiers, account-level state, and formula assumptions
-remain evidence only. Provider scopes, regions, control planes, permissions,
-quotas, runtime identities, access prerequisites, and verification probes are
-projected from the same graph nodes and directed edges. Their digest is part of
-the graph contract, so stale readiness or deployment evidence cannot remain
-valid after an architecture change.
+- calculation run and architecture/specification digests;
+- exact component and directed-edge assignments;
+- allowlisted typed Twin configuration and bounded extensions;
+- selected CloudConnection fingerprints and current readiness evidence;
+- Deployment Manifest v4 integrity.
 
-## Runtime Architecture
+Unknown project layouts, secret-bearing portable evidence, and downstream
+reconstruction of missing graph values fail closed.
 
-The API routes delegate infrastructure changes to the canonical Terraform
-facade:
+## Provider preparation
 
-```text
-FastAPI route
-  -> request validation and OperationContext
-  -> DeploymentContext factory
-  -> TerraformDeployerStrategy
-       -> provider package builder
-       -> tfvars generator
-       -> TerraformRunner
-  -> structured response / SSE events
-```
+Readiness is non-mutating. Supported preparation may register exact Azure
+resource providers and enable exact GCP APIs after explicit confirmation.
+External billing, quota, organization policy, consent, legal, capacity, and
+credential-lifecycle tasks remain typed manual blockers.
 
-AWS, Azure, and GCP implementations live under `src/providers/`. Provider
-runtime functions share provider-local communication helpers so deployed
-packages do not depend on the Deployer process.
+Twin Destroy removes Twin-owned resources. Shared account capabilities remain
+recorded as retained prerequisites.
 
-## Start
+## Operation model
 
-From the repository root:
+Management creates and persists the operation; the Deployer performs the
+provider work. Reconnect/replay is handled through Management so a UI transport
+failure cannot duplicate Apply or Destroy.
+
+Terraform source templates are protected. Each operation receives an isolated
+workspace, exact packages, and graph-derived tfvars. Only allowlisted outputs,
+verification results, access metadata, and cleanup evidence leave it.
+
+## Safe verification
 
 ```bash
-./thesis.sh app
+cd 3-cloud-deployer
+PYTHONPATH=. python -m pytest -q
 ```
 
-The local Deployer API is available at
-`http://localhost:${THESIS_DEPLOYER_PORT:-5004}`. OpenAPI is exposed at
-`/docs` and `/openapi.json`. The complete project documentation is served by
-the separate docs profile:
-
-```bash
-./thesis.sh docs
-```
-
-For service-only development:
-
-```bash
-docker compose up --build 3cloud-deployer
-```
-
-Compose builds the `development` stage. The Dockerfile's `production` stage is
-non-root and excludes pytest, Ruff, Bandit, Moto, and HTTP test clients.
-
-## Quality Gates
-
-The default suite excludes live cloud tests and is safe to run without cloud
-credentials:
-
-```bash
-./thesis.sh test deployment-contract
-```
-
-This mounts the repository artifacts required by the architecture-inventory
-tests and runs the credential-free cross-project deployment-contract gate. Use
-`./thesis.sh test deployment-contract --focused` only for contract diagnosis.
-Live E2E tests require explicit opt-in and provider credentials:
-
-```bash
-docker compose run --rm --no-deps -e RUN_E2E_TESTS=1 3cloud-deployer \
-  pytest -m live tests/e2e
-```
-
-Live tests can create billable cloud resources. They are not part of the
-default quality gate.
-
-## Project Layout
-
-```text
-3-cloud-deployer/
-|- rest_api.py                 FastAPI composition root
-|- src/api/                    HTTP adapters and transport contracts
-|- src/core/                   contexts, storage, errors, observability
-|- src/providers/              AWS, Azure, GCP and Terraform implementations
-|- src/validation/             project and configuration validation
-|- templates/digital-twin/     versioned read-only project template
-|- upload/                     ignored secret-free project definitions
-|- src/operation_packages.py  private one-shot credential package lifecycle
-|- src/runtime_state.py       protected durable Terraform/runtime state
-|- tests/                      unit, integration and explicit E2E suites
-|- requirements.txt            production dependencies
-|- requirements-dev.txt        test and quality dependencies
-`- requirements.lock           reproducible dependency constraints
-```
-
-## Security Properties
-
-- Terraform commands use a fixed executable and an allowlisted argument
-  contract; shell execution is not used.
-- Simulator entrypoints are resolved beneath an allowlisted source root.
-- Inter-cloud runtime calls accept only absolute HTTPS URLs without embedded
-  user credentials.
-- Runtime diagnostics are bounded and redact credential-like values.
-- The canonical template is read-only and cannot resolve to runtime credential
-  files.
-- Credential-bearing packages use owner-only files and are destroyed after one
-  operation, including failed or interrupted streams.
-- Terraform state and generated device credentials live in an owner-only named
-  volume outside user-visible project storage.
-- Generated variables, runtime uploads, and credential files are excluded from
-  image and Git contexts.
-- Terraform downloads are verified against architecture-specific SHA-256
-  checksums.
-
-## API Contract
-
-The generated OpenAPI document is the authoritative endpoint inventory. The
-principal route groups are:
-
-- `/projects`: project import, inspection, files, versions, and cleanup
-- `/validation`: project and configuration validation
-- `/permissions`: provider permission checks and normalized preflight
-- `/infrastructure`: deploy, destroy, status, verification, and SSE operations
-- `/functions`: user-function discovery and updates
-- `/logs`: provider logs and operation diagnostics
-- `/simulator`: simulator package and execution operations
-
-Application integrations should use the Management API contract instead of
-binding to these internal routes.
-
-## Further Documentation
-
-Architecture, setup, provider access, deployment
-internals, migration decisions, reference papers, and roadmaps are maintained
-under `docs-site/`. Historical implementation plans and provider policy
-references remain in this service as audit evidence where repository scripts
-or bootstrap tooling still consume them.
+Unit/contract tests and credential-free Terraform validation create no cloud
+resources. Live E2E is opt-in, supervised, budgeted, and followed by explicit
+Destroy plus residual inventory.

@@ -1,33 +1,30 @@
 # Cloud Accounts
 
-Cloud Accounts are encrypted, user-scoped CloudConnections. The UI shows only
-non-secret metadata: provider, display name, purpose, account/project scope,
-validation status, and last use/validation.
+Cloud Accounts are encrypted, user-scoped deployment CloudConnections. The UI
+shows only provider, display name, authentication kind, account/project scope,
+and validation/readiness metadata.
 
-## Purposes
+Users may keep several named connections per provider and select the suitable
+one for each Twin. There is no pricing-purpose connection or default pricing
+credential.
 
-| Purpose | Used for |
-|---|---|
-| deployment | provider preflight and infrastructure deployment for a bound Twin |
-| pricing | account-level AWS/GCP price refresh; one default per user/provider |
-
-For the PoC, the same preconfigured administrator credential may be registered
-for both purposes. Azure catalog pricing uses the public pricing API.
-
-## Register a connection
+## Add a connection
 
 1. Create a non-root administrator credential in an isolated thesis cloud
-   environment outside the application.
-2. Choose provider and purpose in **Settings -> Cloud Accounts & Access**.
-3. Submit the credential through the write-only form and verify the displayed
-   provider scope.
-4. Validate the stored connection.
-5. Set it as the pricing default or bind it to a Twin.
+   scope outside the application.
+2. Enter it in the write-only form or import the supported provider file.
+3. Review the detected provider identity and target scope.
+4. Run identity validation.
+5. Bind the connection to a Twin only when its resolved graph needs that
+   provider.
 
-The API returns metadata and validation results, never the stored plaintext
-payload. Secret values must not be copied into logs, issue bodies, screenshots,
-or committed configuration.
+Supported file shapes are AWS access-key CSV, Azure service-principal JSON,
+and GCP service-account JSON. Files are parsed as credential input, not stored
+as portable Twin artifacts.
 
-Twin2MultiCloud does not create identities, derive permission packs, or rotate
-credentials. Revoke or replace the credential directly with the provider after
-the supervised deploy/verify/destroy experiment.
+Readiness may reveal missing permissions or external provider prerequisites.
+Confirm only bounded preparation shown by the application; otherwise follow
+the typed manual instruction or replace the connection.
+
+Twin2MultiCloud does not create, minimize, rotate, or revoke the provider
+administrator. Revoke it directly with the provider after the experiment.

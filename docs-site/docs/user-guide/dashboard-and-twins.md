@@ -1,33 +1,28 @@
-# Dashboard And Twins
+# Dashboard and Twins
 
-The dashboard is the operational entrypoint. It summarizes twin state and pricing
-health, then lists the user's active twins. Pricing readiness appears here because it
-is an account/provider concern rather than a field inside one twin.
+The dashboard lists the user's active Twins and their lifecycle state. It is
+not a pricing or provider-administration dashboard.
 
-## Twin Actions
+## Twin actions
 
-- create a new draft twin;
-- open an existing twin overview;
-- edit configuration when lifecycle rules permit;
-- soft-delete a twin after confirmation;
-- open the global Pricing Review workspace.
+- create a new draft with a unique name;
+- import a typed secret-free Twin archive under a new name;
+- open an existing Twin;
+- duplicate a Twin into an independent draft;
+- edit a draft configuration;
+- explicitly Deploy or Destroy when the relevant gates permit it;
+- remove an inactive local record after confirmation.
 
-Twin names are unique per user among active twins. Deletion changes state to
-`inactive`; it does not erase deployment history opportunistically.
+All Twins use the same canonical Six-layer contract. There is no architecture
+profile or optimization-objective selector.
 
-## State Meaning
+## Immutability
 
-| State | User meaning |
-|---|---|
-| `draft` | configuration is incomplete or was invalidated by edits |
-| `configured` | required configuration is valid and deployment can be prepared |
-| `deploying` | one deployment operation is active |
-| `deployed` | latest deploy completed successfully |
-| `destroying` | one destroy operation is active |
-| `destroyed` | infrastructure was torn down successfully |
-| `error` | latest operation failed; inspect history before retry |
-| `inactive` | soft-deleted and absent from the normal dashboard |
+A deployed Twin cannot be edited in place. Duplicate it, change the new draft,
+run a new calculation, and deploy it independently. The source Twin remains
+active until the user explicitly destroys it; the application never removes it
+as a side effect of duplication.
 
-The twin overview is the read/operate surface: configuration summary, selected
-architecture, readiness, deployment actions, operation history, logs, outputs,
-verification, and developer/test utilities when explicitly enabled.
+The Twin overview shows the configuration summary, immutable cost/graph
+evidence, connection/readiness state, operations, verification, access bundle,
+and cleanup result relevant to that Twin.

@@ -1,53 +1,35 @@
 # System Context
 
-The platform implements the five-layer model from the
-[EDTConf'25 engineering paper](../references/EDT_25__CloudDT_engineering.pdf):
-data acquisition, processing, storage, Digital Twin management, and visualization.
-
-![Five-layer architecture](../references/diagrams/layer_architecture_overview_1763755975125.png)
-
-## Containers And External Systems
+The runtime operationalizes six responsibilities: acquisition, processing,
+storage, Twin management, visualization/access, and independently placed
+Eventing. The sixth responsibility makes delivery behavior, trust, directed
+cross-cloud routes, verification, and cost explicit.
 
 ```text
                          external identity provider
                                    |
-                                   | OAuth/SAML (production)
                                    v
 +----------------+        +----------------------+        +----------------+
 | Flutter client |------->| Management API :5005 |------->| Optimizer :5003|
-| Web/all desktop| HTTP   | durable orchestration| HTTP   | pricing + cost |
+| Web + desktop  | HTTP   | durable orchestration| HTTP   | cost + graph   |
 +----------------+ + SSE  +----------+-----------+        +----------------+
                                      |
-                                     | manifest/archive + operation requests
+                                     | immutable package + operation
                                      v
                           +----------------------+
                           | Deployer :5004       |
-                          | Terraform/providers  |
+                          | readiness + Terraform|
                           +----+---------+-------+
                                |         |
-                         SDK/API|         |Terraform/API
                                v         v
                          AWS / Azure / Google Cloud
 ```
 
-The documentation container is operationally separate and serves only the MkDocs
-site. The LaTeX source is intentionally outside this application architecture.
+## Public and internal boundaries
 
-## Runtime Topology
+The Management API is the application API. Optimizer and Deployer schemas are
+internal service contracts and diagnostics. Flutter must never call their
+ports directly.
 
-| Runtime | Location | Persistence |
-|---|---|---|
-| Flutter | host process | no application database; auth token held in memory |
-| Management API | Compose container | SQLite bind mount and upload directory |
-| Optimizer | Compose container | versioned YAML registry and fetched JSON artifacts in project bind mount |
-| Deployer | Compose container | source bind mount plus dedicated runtime-state volume |
-| Docs | optional Compose profile | source bind mount; no runtime state |
-
-Compose uses one bridge network. Internal calls use service names, while Flutter
-uses the host-published Management API port.
-
-## Public And Internal Boundaries
-
-The Management API is the application API. Optimizer and Deployer OpenAPI schemas
-are internal service contracts and developer diagnostics. Exposing them on local
-ports does not make them valid Flutter dependencies.
+The MkDocs and LaTeX sources are documentation/research artifacts, not runtime
+components. Ordinary CI is credential-free and performs no provider mutation.
