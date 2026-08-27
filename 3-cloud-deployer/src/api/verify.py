@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 import json
 import time
+from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException, Query
@@ -12,6 +12,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 
 from logger import logger
+from src.api.operation_context import operation_project_path
 from src.core.config_loader import ProjectConfigLoader
 from src.core.exceptions import DeploymentError
 from src.core.observability import redact_sensitive
@@ -21,7 +22,6 @@ from src.runtime_outputs import load_terraform_outputs
 from src.verification.contracts import VerificationContext
 from src.verification.events import display_timestamp, sse_event
 from src.verification.orchestrator import DataFlowVerificationOrchestrator
-from src.api.operation_context import operation_project_path
 
 router = APIRouter(tags=["Verification"])
 
@@ -73,10 +73,11 @@ class _StreamProgress:
                 f"Phase {failed[0]} - {failed[1]}" if failed else "Verification runtime"
             )
         )
+        pass_count = min(statuses.count("pass"), 2)
         return {
-            "pass_count": statuses.count("pass"),
-            "fail_count": statuses.count("fail") + (1 if running else 0),
-            "skip_count": statuses.count("skip"),
+            "pass_count": pass_count,
+            "fail_count": 1,
+            "skip_count": 2 - pass_count,
             "failed_phase": failed_phase,
         }
 
@@ -171,9 +172,13 @@ async def _safe_event_stream(
         yield sse_event(
             "done",
             {
+                "schema_version": "telemetry-verification.v1",
+                "trace_id": getattr(orchestrator, "trace_id", None)
+                or "VERIFY-00000000",
+                "status": "fail",
                 **summary,
                 "total_time": round(time.monotonic() - started, 1),
-                "hints": [],
+                "evidence": [],
             },
         )
 
@@ -184,7 +189,7 @@ async def _safe_event_stream(
     summary="Verify deployed data flow with trace-correlated evidence",
     description=(
         "Sends one bounded test message and streams phase results for message "
-        "delivery, hot storage, digital-twin readiness, and event flow."
+        "delivery, hot storage, and trace-correlated digital-twin projection."
     ),
     responses={
         200: {"description": "SSE stream with verification results"},

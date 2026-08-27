@@ -45,6 +45,11 @@ from src.schemas.deployment_readiness import (
 from src.schemas.management_contracts import (
     OperationSessionResponse,
 )
+from src.schemas.telemetry_verification import (
+    TelemetryVerificationHistoryResponse,
+    TelemetryVerificationRecordResponse,
+    TelemetryVerificationStartResponse,
+)
 from src.services.architecture_projection_service import required_providers
 from src.services.deployment_access_service import DeploymentAccessService
 from src.services.deployment_log_read_service import DeploymentLogReadService
@@ -681,6 +686,7 @@ async def verify_infrastructure(
 
 @router.post(
     "/{twin_id}/verify/dataflow",
+    response_model=TelemetryVerificationStartResponse,
     operation_id="verifyDataFlow",
     summary="Verify deployed data flow",
     description="Starts end-to-end dataflow verification for a deployed twin and returns the SSE session contract.",
@@ -688,6 +694,7 @@ async def verify_infrastructure(
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
+        409: {"description": "Telemetry verification already in progress"},
         503: {"description": "Deployer API unavailable"},
     },
 )
@@ -704,7 +711,66 @@ async def verify_dataflow(
             body=body,
             test_mode=TEST_MODE,
         )
-    except (DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
+    except (
+        ConflictError,
+        DownstreamServiceError,
+        EntityNotFoundError,
+        ValidationError,
+    ) as exc:
+        _raise_service_http_error(exc)
+
+
+@router.get(
+    "/{twin_id}/verify/dataflow",
+    response_model=TelemetryVerificationHistoryResponse,
+    operation_id="listDataFlowVerifications",
+    summary="List persisted telemetry verifications",
+    description="Returns bounded, newest-first Six-layer telemetry evidence.",
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    },
+)
+def list_dataflow_verifications(
+    twin_id: str,
+    limit: int = Query(default=25, ge=1, le=25),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return _deployment_orchestrator(db).list_dataflow_verifications(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            limit=limit,
+        )
+    except (EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
+
+
+@router.get(
+    "/{twin_id}/verify/dataflow/{verification_id}",
+    response_model=TelemetryVerificationRecordResponse,
+    operation_id="getDataFlowVerification",
+    summary="Get persisted telemetry verification",
+    description="Returns one authoritative, trace-correlated telemetry result.",
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    },
+)
+def get_dataflow_verification(
+    twin_id: str,
+    verification_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return _deployment_orchestrator(db).get_dataflow_verification(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            verification_id=verification_id,
+        )
+    except (EntityNotFoundError, ValidationError) as exc:
         _raise_service_http_error(exc)
 
 

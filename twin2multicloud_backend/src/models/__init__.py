@@ -22,6 +22,7 @@ from src.models.deployment_preflight import DeploymentPreflightCache
 from src.models.optimizer_config import OptimizerConfiguration
 from src.models.pricing_refresh_run import PricingRefreshRun
 from src.models.pricing_review import PricingCandidateReport, PricingReviewDecision
+from src.models.telemetry_verification import TelemetryVerification
 from src.models.twin import DigitalTwin, TwinState
 from src.models.twin_config import TwinConfiguration
 from src.models.user import User
@@ -41,6 +42,7 @@ __all__ = [
     "DigitalTwin",
     "TwinState",
     "TwinConfiguration",
+    "TelemetryVerification",
     "OptimizerConfiguration",
     "DeployerConfiguration",
     "Deployment",

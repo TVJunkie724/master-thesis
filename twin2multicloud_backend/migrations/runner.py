@@ -98,6 +98,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "032_durable_operation_idempotency",
         "migrations.add_durable_operation_idempotency",
     ),
+    Migration(
+        "033_telemetry_verifications",
+        "migrations.add_telemetry_verifications",
+    ),
 )
 
 

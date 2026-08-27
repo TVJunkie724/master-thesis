@@ -607,7 +607,7 @@ def check_adt_twin(
                     success=True,
                     elapsed=round(time.monotonic() - started, 1),
                     evidence={
-                        "kind": "twin_presence",
+                        "kind": "azure_twin_projection",
                         "twin_id": twin.get("$dtId", device_id),
                         "correlation": (
                             "source_sequence"

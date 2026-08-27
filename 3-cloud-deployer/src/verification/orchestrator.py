@@ -59,11 +59,13 @@ class DataFlowVerificationOrchestrator:
     ) -> None:
         self.context = context
         self.send_message = send_message
+        self.trace_id: str | None = None
 
     async def stream(self, payload: dict) -> AsyncIterator[str]:
         started = time.monotonic()
         summary = VerificationSummary()
         trace_id = f"VERIFY-{uuid.uuid4().hex[:8].upper()}"
+        self.trace_id = trace_id
         sent_at = datetime.now(timezone.utc)
         metric, value = self._verification_measurement(payload)
         send_payload = {
@@ -152,7 +154,7 @@ class DataFlowVerificationOrchestrator:
                     evidence={
                         "phase": 1,
                         "kind": "message_accepted",
-                        "provider": provider,
+                        "provider": self._evidence_provider(provider),
                     },
                 )
             )
@@ -231,7 +233,7 @@ class DataFlowVerificationOrchestrator:
                     evidence={
                         "phase": 2,
                         "kind": "trace_correlated_hot_record",
-                        "provider": provider,
+                        "provider": self._evidence_provider(provider),
                         "record_count": result.evidence.get("record_count", 1),
                     },
                 )
@@ -252,7 +254,7 @@ class DataFlowVerificationOrchestrator:
             outcome=PhaseOutcome(
                 status="fail",
                 failed=1,
-                failed_phase="Phase 2 - Pipeline",
+                failed_phase="Phase 2 - Pipeline to Hot Storage",
             )
         )
 
@@ -319,7 +321,7 @@ class DataFlowVerificationOrchestrator:
                     evidence={
                         "phase": 3,
                         "kind": result.evidence.get("kind", "twin_projection"),
-                        "provider": provider,
+                        "provider": self._evidence_provider(provider),
                         "correlation": result.evidence.get("correlation"),
                     },
                 )
@@ -440,9 +442,12 @@ class DataFlowVerificationOrchestrator:
                 "total_time": round(time.monotonic() - started, 1),
                 "failed_phase": summary.failed_phase,
                 "evidence": summary.evidence,
-                "hints": [],
             },
         )
+
+    @staticmethod
+    def _evidence_provider(provider: str) -> str:
+        return "gcp" if provider == "google" else provider
 
     @staticmethod
     def _verification_measurement(payload: dict) -> tuple[str, float]:
