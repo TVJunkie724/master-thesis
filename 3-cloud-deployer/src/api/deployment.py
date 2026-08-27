@@ -246,9 +246,6 @@ def destroy_all(
     1. Runs `terraform destroy` to remove all infrastructure
     2. Cleans up SDK-managed resources (IoT devices, Digital Twin entities)
 
-    **If destruction fails for AWS TwinMaker:**
-    Use `DELETE /projects/{name}/cleanup/aws-twinmaker` to manually clean entities first.
-
     **Note:** This operation cannot be undone. All data will be lost.
     """
     operation_context = OperationContext.create(

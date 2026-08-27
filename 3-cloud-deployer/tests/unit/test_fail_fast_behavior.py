@@ -245,9 +245,7 @@ class TestValidatorUnknownFunctionFailFast(unittest.TestCase):
         self.assertEqual(result, "azure")
 
 
-# Note: TestAPIHierarchyProviderValidation was removed - the /info/config_hierarchy
-# endpoint has been deprecated and migrated to /projects/{name}/config/{type}.
-# Provider validation is now tested via unit tests on _load_hierarchy_for_provider.
+# Hierarchy-provider validation is exercised directly at the validator boundary.
 
 
 if __name__ == "__main__":
