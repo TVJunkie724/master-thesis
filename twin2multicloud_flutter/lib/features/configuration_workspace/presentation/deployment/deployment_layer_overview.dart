@@ -111,7 +111,6 @@ class DeploymentLayerOverview extends StatelessWidget {
           isValid: state.payloadsValidated ? true : null,
           showEditBadge: true,
           initiallyExpanded: !state.payloadsValidated,
-          forceCollapsed: state.forceCollapseSections,
           child: FileEditorBlock(
             showHeader: false,
             filename: 'payloads.json',
@@ -225,7 +224,6 @@ class DeploymentLayerOverview extends StatelessWidget {
             isValid: state.userConfigValidated ? true : null,
             showEditBadge: true,
             initiallyExpanded: !state.userConfigValidated,
-            forceCollapsed: state.forceCollapseSections,
             copyContent: state.userConfigContent,
             child: FileEditorBlock(
               showHeader: false,
@@ -307,7 +305,6 @@ class _SceneEditor extends StatelessWidget {
           isValid: state.sceneConfigValidated ? true : null,
           showEditBadge: true,
           initiallyExpanded: !state.sceneConfigValidated,
-          forceCollapsed: state.forceCollapseSections,
           copyContent: state.sceneConfigContent,
           child: FileEditorBlock(
             showHeader: false,

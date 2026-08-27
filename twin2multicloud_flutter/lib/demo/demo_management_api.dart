@@ -1004,53 +1004,6 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<Map<String, dynamic>> uploadProjectZip(
-    String twinId,
-    Uint8List fileBytes,
-    String filename,
-  ) async {
-    await _pause();
-    store.twin(twinId);
-    if (!filename.toLowerCase().endsWith('.zip') || _bytes(fileBytes).isEmpty) {
-      throw const DemoApiException(
-        'DEMO_ZIP_INVALID',
-        'A non-empty ZIP file is required.',
-      );
-    }
-    return {
-      'success': true,
-      'validation_errors': <String>[],
-      'warnings': <String>[],
-      'files': {
-        'config.json': {
-          'exists': true,
-          'content': '{"digital_twin_name":"demo-import"}',
-          'validation_error': null,
-        },
-        'config_events.json': {
-          'exists': true,
-          'content': '{}',
-          'validation_error': null,
-        },
-        'config_iot_devices.json': {
-          'exists': true,
-          'content': '{"devices":[]}',
-          'validation_error': null,
-        },
-        'iot_device_simulator/payloads.json': {
-          'exists': true,
-          'content': '{}',
-          'validation_error': null,
-        },
-      },
-      'functions': <String, dynamic>{},
-      'assets': {
-        'scene_glb': {'exists': false, 'saved': false},
-      },
-    };
-  }
-
-  @override
   Future<Result<TwinConfigData>> getTwinConfigResult(String twinId) async {
     try {
       return Success(await getTwinConfig(twinId));

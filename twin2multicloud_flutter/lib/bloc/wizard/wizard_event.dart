@@ -463,44 +463,6 @@ class WizardL4CleanupRequested extends WizardEvent {
 }
 
 // ============================================================
-// STEP 3: ZIP UPLOAD EVENTS
-// ============================================================
-
-/// Upload a transient project ZIP after presentation-side confirmation.
-class WizardZipUploadRequested extends WizardEvent {
-  final Uint8List fileBytes;
-  final String fileName;
-
-  const WizardZipUploadRequested({
-    required this.fileBytes,
-    required this.fileName,
-  });
-
-  @override
-  List<Object?> get props => [fileName];
-}
-
-/// Zip upload and extraction completed successfully
-class WizardZipUploadSuccess extends WizardEvent {
-  final Map<String, dynamic> extractionResult;
-  const WizardZipUploadSuccess(this.extractionResult);
-  @override
-  List<Object?> get props => [extractionResult];
-}
-
-/// Zip upload failed with validation errors
-class WizardZipUploadFailure extends WizardEvent {
-  final List<String> errors;
-  final List<String> warnings;
-  const WizardZipUploadFailure({
-    required this.errors,
-    this.warnings = const [],
-  });
-  @override
-  List<Object?> get props => [errors, warnings];
-}
-
-// ============================================================
 // USER-FUNCTION EXTENSION EVENTS
 // ============================================================
 

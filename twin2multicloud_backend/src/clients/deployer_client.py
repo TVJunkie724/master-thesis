@@ -1,7 +1,6 @@
 """Typed Deployer API client."""
 
 import io
-import json
 import re
 import zipfile
 from collections.abc import AsyncIterator
@@ -16,7 +15,6 @@ from src.config import settings
 from src.services.errors import ExternalServiceError
 
 MAX_SIMULATOR_ARCHIVE_BYTES = 32 * 1024 * 1024
-MAX_PROJECT_EXTRACTION_RESPONSE_BYTES = 192 * 1024 * 1024
 MAX_REQUIREMENTS_RESPONSE_BYTES = 2 * 1024 * 1024
 _SAFE_SIMULATOR_FILENAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,191}\.zip$")
 _SAFE_OPERATION_TOKEN = re.compile(r"^[A-Za-z0-9_-]{32,128}$")
@@ -277,30 +275,6 @@ class DeployerClient(ExternalServiceClient):
             expected_plan_digest=expected_plan_digest,
         )
 
-    async def extract_project_zip(
-        self,
-        content: bytes,
-        validation_context: dict[str, Any],
-    ) -> dict[str, Any]:
-        response = await self._request_bounded_response(
-            "POST",
-            "/validate/zip/extract",
-            max_bytes=MAX_PROJECT_EXTRACTION_RESPONSE_BYTES,
-            size_error_detail="Deployer project extraction response is too large.",
-            files={"file": ("project.zip", content, "application/zip")},
-            params={
-                "validation_context": _json_dumps_compact(validation_context),
-                "include_credentials": False,
-            },
-            timeout=120.0,
-        )
-        return self._json_object(response)
-
-
-def _json_dumps_compact(value: dict[str, Any]) -> str:
-    """Encode query JSON without whitespace to keep request URLs deterministic."""
-    return json.dumps(value, separators=(",", ":"))
-
 
 def _validate_operation_package_response(
     payload: dict[str, Any],
@@ -400,8 +374,7 @@ def _graph_evidence_is_valid(graph_evidence: object) -> bool:
         or not isinstance(graph_evidence.get("calculation_run_id"), str)
         or not graph_evidence["calculation_run_id"]
         or not all(
-            isinstance(graph_evidence.get(field), str)
-            and bool(graph_evidence[field])
+            isinstance(graph_evidence.get(field), str) and bool(graph_evidence[field])
             for field in (
                 "graph_id",
                 "profile_id",

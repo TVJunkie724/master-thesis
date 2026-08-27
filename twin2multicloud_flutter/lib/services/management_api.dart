@@ -151,12 +151,6 @@ abstract interface class DeploymentConfigurationApi {
   );
 
   Future<void> deleteSceneGlb(String twinId);
-
-  Future<Map<String, dynamic>> uploadProjectZip(
-    String twinId,
-    Uint8List fileBytes,
-    String filename,
-  );
 }
 
 abstract interface class UserFunctionExtensionApi {

@@ -715,37 +715,6 @@ class ApiService implements ManagementApi {
   }
 
   // ============================================================
-  // Zip Upload and Extraction (Step 3 Auto-Population)
-  // ============================================================
-
-  /// Upload project.zip and extract contents for wizard auto-population.
-  ///
-  /// Returns extracted config files, function code, and assets.
-  /// GLB files are automatically saved to the server if present.
-  ///
-  /// Validation errors are aggregated (not fail-fast) to provide
-  /// maximum feedback on first upload.
-  @override
-  Future<Map<String, dynamic>> uploadProjectZip(
-    String twinId,
-    Uint8List fileBytes,
-    String filename,
-  ) async {
-    final formData = FormData.fromMap({
-      'file': MultipartFile.fromBytes(fileBytes, filename: filename),
-    });
-    final response = await _dio.post(
-      '/twins/$twinId/deployer/upload-zip',
-      data: formData,
-      options: Options(
-        sendTimeout: const Duration(seconds: 120),
-        receiveTimeout: const Duration(seconds: 120),
-      ),
-    );
-    return response.data;
-  }
-
-  // ============================================================
   // Result-Returning Methods (Type-Safe Error Handling)
   // ============================================================
 

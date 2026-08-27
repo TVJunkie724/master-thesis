@@ -60,7 +60,6 @@ class DeploymentUserLogicSection extends StatelessWidget {
         isValid: state.stateMachineValidated ? true : null,
         showEditBadge: true,
         initiallyExpanded: !state.stateMachineValidated,
-        forceCollapsed: state.forceCollapseSections,
         child: FileEditorBlock(
           showHeader: false,
           filename: filename,

@@ -472,14 +472,6 @@ void main() {
         (await api.getDeployerConfig('demo-draft'))?.sceneGlbUploaded,
         isFalse,
       );
-      expect(
-        (await api.uploadProjectZip(
-          'demo-draft',
-          Uint8List.fromList([1]),
-          'project.zip',
-        ))['success'],
-        isTrue,
-      );
     });
 
     test('deploys, exposes evidence, verifies, and destroys', () async {

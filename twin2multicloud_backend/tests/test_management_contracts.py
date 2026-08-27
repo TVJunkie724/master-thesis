@@ -85,10 +85,6 @@ def test_management_json_contracts_have_response_models():
             "/twins/{twin_id}/deployer/upload-glb",
             "delete",
         ): "#/components/schemas/MessageResponse",
-        (
-            "/twins/{twin_id}/deployer/upload-zip",
-            "post",
-        ): "#/components/schemas/ProjectZipExtractionContract",
     }
 
     for (path, method), expected_ref in expected_refs.items():
@@ -153,7 +149,6 @@ def test_downstream_client_contract_surface_is_explicit():
         "deploy_stream",
         "destroy_stream",
         "download_simulator",
-        "extract_project_zip",
         "get_provider_capabilities",
         "inspect_deployment_requirements",
         "prepare_deployment_account",

@@ -1,51 +1,45 @@
 """Deployer Configuration API endpoints.
 
-Manages deployer config for digital twins, including config validation,
-GLB file uploads, and project.zip extraction for wizard auto-population.
+Manages deployer config for digital twins, including config validation and
+bounded GLB file uploads.
 
 **Key endpoints:**
 - GET/PUT /config: Deployer configuration CRUD
 - POST /validate/{type}: Validate config via Deployer API
 - POST /upload-glb: Upload 3D scene file
-- POST /upload-zip: Extract project.zip for wizard
 """
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from src.models.database import get_db
-from src.models.user import User
 from src.api.dependencies import get_current_user
+from src.api.routes.error_models import ERROR_RESPONSES
 from src.api.upload_limits import UploadLimitExceeded, read_upload_bounded
 from src.config import settings
+from src.models.database import get_db
+from src.models.user import User
+from src.repositories.twin_repository import TwinRepository
 from src.schemas.deployer_config import (
-    DeployerConfigUpdate,
-    DeployerConfigResponse,
-    DeployerConfigReadModelResponse,
     ConfigValidationRequest,
     ConfigValidationResponse,
+    DeployerConfigReadModelResponse,
+    DeployerConfigResponse,
+    DeployerConfigUpdate,
 )
 from src.schemas.management_contracts import (
     MessageResponse,
     SceneGlbUploadResponse,
 )
-from src.schemas.project_zip_extraction import ProjectZipExtractionContract
-from src.repositories.twin_repository import TwinRepository
 from src.services.deployer_config_validation_service import (
     DeployerConfigValidationService,
 )
 from src.services.deployer_configuration_service import DeployerConfigurationService
-from src.services.project_zip_extraction_service import (
-    MAX_PROJECT_ZIP_SIZE_BYTES,
-    ProjectZipExtractionService,
-)
 from src.services.scene_glb_service import SceneGlbService
 from src.services.service_errors import (
     EntityNotFoundError,
     StorageError,
     ValidationError,
 )
-from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/twins/{twin_id}/deployer", tags=["deployer"])
 
@@ -63,16 +57,6 @@ def _deployer_config_validation_service(db: Session) -> DeployerConfigValidation
 def _scene_glb_service(db: Session) -> SceneGlbService:
     """Build the scene GLB storage service for this request."""
     return SceneGlbService(db=db, twin_repository=TwinRepository(db))
-
-
-def _project_zip_extraction_service(db: Session) -> ProjectZipExtractionService:
-    """Build the project ZIP extraction service for this request."""
-    twin_repository = TwinRepository(db)
-    return ProjectZipExtractionService(
-        db=db,
-        twin_repository=twin_repository,
-        scene_glb_service=SceneGlbService(db=db, twin_repository=twin_repository),
-    )
 
 
 def _raise_service_http_error(exc: Exception) -> None:
@@ -342,65 +326,3 @@ async def delete_scene_glb(
         )
     except (EntityNotFoundError, StorageError) as exc:
         _raise_service_http_error(exc)
-
-
-# ==========================================
-# Zip Upload and Extraction for Wizard
-# ==========================================
-@router.post(
-    "/upload-zip",
-    response_model=ProjectZipExtractionContract,
-    operation_id="uploadProjectZip",
-    summary="Upload project.zip for wizard auto-population",
-    description=(
-        "**Purpose:** Upload and extract project.zip to auto-populate Step 3 fields.\n\n"
-        "**When to call:** User clicks 'Upload Project Zip' button in Step 3.\n\n"
-        "**Flow:**\n"
-        "1. Validates zip structure against optimizer's cheapest_path\n"
-        "2. Extracts code files, configs, and optional scene.glb\n"
-        "3. Returns content for UI fields (NOT persisted - BLoC handles save)\n\n"
-        "**Response fields per provider:**\n"
-        "- `functionCode`, `stateMachine`, `config`: Content strings\n"
-        "- `valid`: Boolean validation status\n"
-        "- `errors`: Validation errors if any\n\n"
-        "**Max size:** 100MB"
-    ),
-    responses={
-        401: ERROR_RESPONSES[401],
-        404: ERROR_RESPONSES[404],
-        413: {"description": "File too large (max 100MB)"},
-    },
-)
-async def upload_project_zip(
-    twin_id: str,
-    file: UploadFile = File(..., description="Project zip file to extract"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Upload and extract project.zip for Step 3 wizard auto-population.
-
-    1. Builds ValidationContext from twin's saved optimizer config
-    2. Proxies to Deployer /validate/zip/extract
-    3. If GLB exists in response, saves via existing upload logic
-    4. Returns extracted content for Flutter to populate fields
-    """
-    try:
-        zip_content = await read_upload_bounded(
-            file,
-            max_bytes=MAX_PROJECT_ZIP_SIZE_BYTES,
-        )
-        return await _project_zip_extraction_service(db).upload_project_zip(
-            twin_id=twin_id,
-            user_id=current_user.id,
-            zip_content=zip_content,
-        )
-    except UploadLimitExceeded as exc:
-        raise HTTPException(
-            status_code=413,
-            detail="File too large. Maximum allowed size is 100MB",
-        ) from exc
-    except EntityNotFoundError as exc:
-        _raise_service_http_error(exc)
-    except ValidationError as exc:
-        raise HTTPException(status_code=413, detail=str(exc)) from exc

@@ -3,7 +3,6 @@ import zipfile
 
 import httpx
 import pytest
-
 import src.clients.deployer_client as deployer_client_module
 from src.clients.deployer_client import DeployerClient
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
@@ -679,55 +678,6 @@ async def test_stage_operation_package_rejects_invalid_downstream_contract(paylo
 
     assert exc_info.value.public_detail == (
         "Deployer returned an invalid operation package contract."
-    )
-
-
-@pytest.mark.asyncio
-async def test_extract_project_zip_sends_validation_context_without_credentials():
-    seen = {}
-
-    async def handler(request: httpx.Request) -> httpx.Response:
-        seen["method"] = request.method
-        seen["url"] = str(request.url)
-        seen["content_type"] = request.headers["content-type"]
-        return httpx.Response(200, json={"success": True, "files": {}})
-
-    response = await _client_with_handler(handler).extract_project_zip(
-        b"zip",
-        {"skip_credentials": True, "l2_provider": "aws"},
-    )
-
-    assert response == {"success": True, "files": {}}
-    assert seen["method"] == "POST"
-    assert seen["url"] == (
-        "http://deployer.test/validate/zip/extract?"
-        "validation_context=%7B%22skip_credentials%22%3Atrue%2C%22l2_provider%22%3A%22aws%22%7D"
-        "&include_credentials=false"
-    )
-    assert seen["content_type"].startswith("multipart/form-data")
-
-
-@pytest.mark.asyncio
-async def test_extract_project_zip_rejects_oversized_downstream_response(monkeypatch):
-    import src.clients.deployer_client as deployer_client_module
-
-    monkeypatch.setattr(
-        deployer_client_module,
-        "MAX_PROJECT_EXTRACTION_RESPONSE_BYTES",
-        8,
-    )
-
-    async def handler(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"success": True, "files": {}})
-
-    with pytest.raises(ExternalServiceError) as exc_info:
-        await _client_with_handler(handler).extract_project_zip(
-            b"zip",
-            {"skip_credentials": True},
-        )
-
-    assert exc_info.value.public_detail == (
-        "Deployer project extraction response is too large."
     )
 
 

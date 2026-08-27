@@ -4,7 +4,6 @@ import '../../../../bloc/wizard/wizard.dart';
 import '../../../../theme/spacing.dart';
 import '../../../../widgets/architecture_layer_builder.dart';
 import '../../../../widgets/file_inputs/collapsible_section.dart';
-import '../../../../widgets/step3/step3_layout_widgets.dart';
 import '../../domain/configuration_journey.dart';
 import 'deployment_config_section.dart';
 import 'deployment_contracts.dart';
@@ -17,7 +16,6 @@ class DeploymentTaskContent extends StatelessWidget {
   final WizardState state;
   final ConfigurationTaskId? taskId;
   final WizardEventSink onEvent;
-  final Widget zipUploadBlock;
   final VoidCallback onUploadGlb;
   final VoidCallback onDeleteGlb;
 
@@ -26,7 +24,6 @@ class DeploymentTaskContent extends StatelessWidget {
     required this.state,
     required this.taskId,
     required this.onEvent,
-    required this.zipUploadBlock,
     required this.onUploadGlb,
     required this.onDeleteGlb,
   });
@@ -49,7 +46,6 @@ class DeploymentTaskContent extends StatelessWidget {
         state: state,
         layerBuilder: layerBuilder,
         onEvent: onEvent,
-        zipUploadBlock: zipUploadBlock,
         onUploadGlb: onUploadGlb,
         onDeleteGlb: onDeleteGlb,
       );
@@ -59,7 +55,6 @@ class DeploymentTaskContent extends StatelessWidget {
       layerBuilder: layerBuilder,
       focus: _focus,
       onEvent: onEvent,
-      zipUploadBlock: zipUploadBlock,
       onUploadGlb: onUploadGlb,
       onDeleteGlb: onDeleteGlb,
     );
@@ -71,7 +66,6 @@ class _FocusedDeploymentTask extends StatelessWidget {
   final ArchitectureLayerBuilder layerBuilder;
   final DeploymentTaskFocus focus;
   final WizardEventSink onEvent;
-  final Widget zipUploadBlock;
   final VoidCallback onUploadGlb;
   final VoidCallback onDeleteGlb;
 
@@ -80,7 +74,6 @@ class _FocusedDeploymentTask extends StatelessWidget {
     required this.layerBuilder,
     required this.focus,
     required this.onEvent,
-    required this.zipUploadBlock,
     required this.onUploadGlb,
     required this.onDeleteGlb,
   });
@@ -99,10 +92,6 @@ class _FocusedDeploymentTask extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (focus == DeploymentTaskFocus.dataContracts) ...[
-                Step3QuickUploadSection(uploadBlock: zipUploadBlock),
-                const SizedBox(height: AppSpacing.lg),
-                const Step3ManualSeparator(),
-                const SizedBox(height: AppSpacing.lg),
                 DeploymentConfigSection(
                   state: state,
                   layerBuilder: layerBuilder,
@@ -143,7 +132,6 @@ class _LayerAlignedDeploymentTask extends StatelessWidget {
   final WizardState state;
   final ArchitectureLayerBuilder layerBuilder;
   final WizardEventSink onEvent;
-  final Widget zipUploadBlock;
   final VoidCallback onUploadGlb;
   final VoidCallback onDeleteGlb;
 
@@ -151,7 +139,6 @@ class _LayerAlignedDeploymentTask extends StatelessWidget {
     required this.state,
     required this.layerBuilder,
     required this.onEvent,
-    required this.zipUploadBlock,
     required this.onUploadGlb,
     required this.onDeleteGlb,
   });
@@ -168,10 +155,6 @@ class _LayerAlignedDeploymentTask extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Step3QuickUploadSection(uploadBlock: zipUploadBlock),
-              const SizedBox(height: AppSpacing.xl),
-              const Step3ManualSeparator(),
-              const SizedBox(height: AppSpacing.lg),
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(
@@ -186,7 +169,6 @@ class _LayerAlignedDeploymentTask extends StatelessWidget {
                     initiallyExpanded:
                         state.mode == WizardMode.edit && !state.isSection2Valid,
                     isValid: state.isSection2Valid,
-                    forceCollapsed: state.forceCollapseSections,
                     child: DeploymentConfigSection(
                       state: state,
                       layerBuilder: layerBuilder,
@@ -215,7 +197,6 @@ class _LayerAlignedDeploymentTask extends StatelessWidget {
                         state.mode == WizardMode.edit && !state.isSection3Valid,
                     collapsedMaxWidth: AppSpacing.maxContentWidthMedium,
                     isValid: state.isSection3Valid,
-                    forceCollapsed: state.forceCollapseSections,
                     infoHint:
                         'Inputs here depend on Section 1 configuration files (config_events.json, config_iot_devices.json)',
                     child: DeploymentLayerOverview(

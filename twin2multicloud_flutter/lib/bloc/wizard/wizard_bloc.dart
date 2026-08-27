@@ -24,7 +24,6 @@ import 'helpers/helpers.dart';
 import 'services/wizard_deployer_validation_service.dart';
 import 'services/wizard_glb_cleanup_service.dart';
 import 'services/wizard_init_service.dart';
-import 'services/wizard_zip_service.dart';
 import 'wizard_event.dart';
 import 'wizard_state.dart';
 
@@ -44,34 +43,28 @@ part 'handlers/wizard_user_function_extension_handlers.dart';
 /// - Create vs Edit mode distinction
 class WizardBloc extends Bloc<WizardEvent, WizardState> {
   final WizardInitService _initService;
-  final WizardZipService _zipService;
   final WizardGlbCleanupService _glbCleanupService;
   final WizardDeployerValidationService _deployerValidationService;
   final ManagementApi _api;
   final AppLogger _logger;
   final int _maxSceneGlbBytes;
-  final int _maxProjectZipBytes;
   int _architectureDetailGeneration = 0;
   int _resolvedArchitectureGeneration = 0;
 
   WizardBloc({
     required ManagementApi api,
     WizardInitService? initService,
-    WizardZipService? zipService,
     WizardGlbCleanupService? glbCleanupService,
     AppLogger logger = const AppLogger(),
     int maxSceneGlbBytes = 100 * 1024 * 1024,
-    int maxProjectZipBytes = 100 * 1024 * 1024,
     WizardState initialState = const WizardState(),
   }) : _api = api,
        _initService = initService ?? WizardInitService(),
-       _zipService = zipService ?? WizardZipService(),
        _glbCleanupService =
            glbCleanupService ?? WizardGlbCleanupService(api: api),
        _deployerValidationService = WizardDeployerValidationService(api: api),
        _logger = logger,
        _maxSceneGlbBytes = maxSceneGlbBytes,
-       _maxProjectZipBytes = maxProjectZipBytes,
        super(initialState) {
     // === Initialization ===
     on<WizardInitCreate>(_onInitCreate);
@@ -165,9 +158,6 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
 
     // === Step 3: L4 Cleanup ===
     on<WizardL4CleanupRequested>(_onL4CleanupRequested);
-
-    // === Step 3: Zip Upload ===
-    on<WizardZipUploadRequested>(_onZipUploadRequested);
 
     // === User-function extension contract ===
     on<WizardUserFunctionsLoadRequested>(_onUserFunctionsLoadRequested);

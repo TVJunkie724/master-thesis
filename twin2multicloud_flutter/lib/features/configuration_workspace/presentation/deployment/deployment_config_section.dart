@@ -63,7 +63,6 @@ class DeploymentConfigSection extends StatelessWidget {
             showEditBadge: true,
             autoBadge: 'Generated',
             initiallyExpanded: !state.configJsonValidated,
-            forceCollapsed: state.forceCollapseSections,
             child: ConfigJsonVisualizationBlock(
               showHeader: false,
               twinName: state.deployerDigitalTwinName,
@@ -94,7 +93,6 @@ class DeploymentConfigSection extends StatelessWidget {
             isValid: state.configEventsValidated ? true : null,
             showEditBadge: true,
             initiallyExpanded: !state.configEventsValidated,
-            forceCollapsed: state.forceCollapseSections,
             child: FileEditorBlock(
               showHeader: false,
               filename: 'config_events.json',
@@ -125,7 +123,6 @@ class DeploymentConfigSection extends StatelessWidget {
             isValid: state.configIotDevicesValidated ? true : null,
             showEditBadge: true,
             initiallyExpanded: !state.configIotDevicesValidated,
-            forceCollapsed: state.forceCollapseSections,
             child: FileEditorBlock(
               showHeader: false,
               filename: 'config_iot_devices.json',
@@ -187,7 +184,6 @@ class _HierarchyEditor extends StatelessWidget {
       subtitle: description,
       icon: Icons.account_tree,
       initiallyExpanded: !state.hierarchyValidated,
-      forceCollapsed: state.forceCollapseSections,
       copyContent: state.hierarchyContent,
       child: FileEditorBlock(
         showHeader: false,

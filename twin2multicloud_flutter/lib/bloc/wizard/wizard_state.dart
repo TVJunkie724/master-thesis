@@ -210,11 +210,6 @@ class WizardState extends Equatable {
   final String? userConfigContent; // config_user.json content
   final bool userConfigValidated;
 
-  // === Zip Upload State ===
-  final bool zipUploadInProgress; // True during upload/extraction
-  final bool
-  forceCollapseSections; // Triggers section collapse after zip success
-
   // === State Tracking ===
   final bool hasUnsavedChanges;
   final bool step3Invalidated; // True when new calc invalidates Section 3 data
@@ -300,9 +295,6 @@ class WizardState extends Equatable {
     this.sceneConfigValidated = false,
     this.userConfigContent,
     this.userConfigValidated = false,
-    // Zip upload state
-    this.zipUploadInProgress = false,
-    this.forceCollapseSections = false,
     this.hasUnsavedChanges = false,
     this.step3Invalidated = false,
   });
@@ -813,9 +805,6 @@ class WizardState extends Equatable {
     bool clearHierarchyContent = false,
     bool clearSceneConfigContent = false,
     bool clearUserConfigContent = false,
-    // Zip upload fields
-    bool? zipUploadInProgress,
-    bool? forceCollapseSections,
   }) {
     return WizardState(
       mode: mode ?? this.mode,
@@ -956,9 +945,6 @@ class WizardState extends Equatable {
           ? null
           : (userConfigContent ?? this.userConfigContent),
       userConfigValidated: userConfigValidated ?? this.userConfigValidated,
-      zipUploadInProgress: zipUploadInProgress ?? this.zipUploadInProgress,
-      forceCollapseSections:
-          forceCollapseSections ?? this.forceCollapseSections,
       hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
       step3Invalidated: step3Invalidated ?? this.step3Invalidated,
     );
@@ -1050,8 +1036,6 @@ class WizardState extends Equatable {
     sceneConfigValidated,
     userConfigContent,
     userConfigValidated,
-    zipUploadInProgress,
-    forceCollapseSections,
     hasUnsavedChanges,
     step3Invalidated,
   ];

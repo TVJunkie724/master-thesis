@@ -79,7 +79,6 @@ void main() {
             state: wizardState ?? state,
             taskId: taskId,
             onEvent: onEvent ?? (_) {},
-            zipUploadBlock: const Text('ZIP upload control'),
             onUploadGlb: () {},
             onDeleteGlb: () {},
           ),
@@ -88,7 +87,7 @@ void main() {
     );
   }
 
-  testWidgets('data-contract task composes upload, config, and payload views', (
+  testWidgets('data-contract task composes config and payload views', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -103,8 +102,7 @@ void main() {
       find.byKey(const ValueKey('deployment-config-section')),
       findsOneWidget,
     );
-    expect(find.text('Quick Upload'), findsOneWidget);
-    expect(find.text('ZIP upload control'), findsOneWidget);
+    expect(find.text('Quick Upload'), findsNothing);
     expect(find.text('payloads.json'), findsWidgets);
     expect(
       find.byKey(const ValueKey('deployment-user-logic-section')),
