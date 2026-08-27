@@ -7,6 +7,7 @@ import '../bloc/deployment_verification/deployment_verification.dart';
 import '../models/deployment_verification.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
+import 'twin_overview/telemetry_evidence_panel.dart';
 
 class DeploymentVerificationCard extends StatefulWidget {
   final String? payloadsJson;
@@ -270,10 +271,16 @@ class _DataFlowSection extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           _TerminalOutput(logs: state.dataFlowLogs, controller: terminalScroll),
         ],
-        if (state.dataFlowSummary != null) ...[
-          const SizedBox(height: AppSpacing.md),
-          _DataFlowSummaryCard(summary: state.dataFlowSummary!),
-        ],
+        const SizedBox(height: AppSpacing.md),
+        TelemetryEvidencePanel(
+          isLoading: state.isLoadingHistory,
+          isRunning: state.isRunningDataFlow,
+          historyError: state.historyError,
+          activeVerificationId: state.activeVerificationId,
+          terminalEvidence: state.terminalEvidence,
+          latestRecord: state.latestDataFlowRecord,
+          history: state.verificationHistory,
+        ),
       ],
     );
   }
@@ -689,72 +696,6 @@ class _LogLine extends StatelessWidget {
         style: theme.textTheme.bodySmall?.copyWith(
           fontFamily: 'monospace',
           color: theme.colorScheme.onInverseSurface,
-        ),
-      ),
-    );
-  }
-}
-
-class _DataFlowSummaryCard extends StatelessWidget {
-  final DataFlowVerificationSummary summary;
-
-  const _DataFlowSummaryCard({required this.summary});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = summary.allPass ? AppColors.success : AppColors.error;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(AppSpacing.borderRadiusSm),
-        border: Border.all(color: color),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  summary.allPass ? Icons.check_circle : Icons.cancel,
-                  color: color,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    '${summary.passCount} passed, ${summary.failCount} failed'
-                    '${summary.skipCount > 0 ? ', ${summary.skipCount} skipped' : ''}'
-                    ' - ${summary.totalTime}s',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            if (summary.failedPhase != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text('First failure: ${summary.failedPhase}'),
-            ],
-            for (final hint in summary.hints) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.lightbulb_outline,
-                    size: AppSpacing.iconSm,
-                    color: AppColors.warning,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(child: Text(hint)),
-                ],
-              ),
-            ],
-          ],
         ),
       ),
     );
