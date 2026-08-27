@@ -111,10 +111,7 @@ PROJECT_TEMPLATES_DIR_NAME = "templates"
 DEFAULT_TEMPLATE_DIR_NAME = "digital-twin"
 STATE_MACHINES_DIR_NAME = "state_machines"
 
-# Project metadata and versioning
-PROJECT_INFO_FILE = "project_info.json"
 PAYLOADS_FILE = "payloads.json"
-PROJECT_VERSIONS_DIR_NAME = "versions"
 IOT_DEVICE_SIMULATOR_DIR_NAME = "iot_device_simulator"
 
 AWS_CORE_LAMBDA_DIR_NAME = "src/providers/aws/lambda_functions"
