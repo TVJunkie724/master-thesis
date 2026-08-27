@@ -49,7 +49,9 @@ class FakeRegistryService:
             "formula_set_id": "cost_formula_set_v1",
             "workload_contract_id": "digital_twin_workload_v1",
             "pricing_contract_group": "cost_provider_pricing_contracts_v1",
-            "provider_pricing_contract_ids": ["aws.functions_request.pricing_contract.v1"],
+            "provider_pricing_contract_ids": [
+                "aws.functions_request.pricing_contract.v1"
+            ],
             "scoring_strategy_id": "min_total_cost_v1",
             "result_schema_version": "cost-result.v1",
         }
@@ -96,8 +98,18 @@ class FakeRegistryService:
 
     def get_provider_pricing_contract_for_field(self, provider, field):
         formula_by_field = {
-            "functions.request": ("request_unit_cost", "functions", ["monthly_function_requests"], "per_request"),
-            "transfer.egress_gb": ("transfer_tier_cost", "transfer", ["monthly_egress_gb"], "per_gb"),
+            "functions.request": (
+                "request_unit_cost",
+                "functions",
+                ["monthly_function_requests"],
+                "per_request",
+            ),
+            "transfer.egress_gb": (
+                "transfer_tier_cost",
+                "transfer",
+                ["monthly_egress_gb"],
+                "per_gb",
+            ),
             "digital_twin.query_unit": (
                 "query_unit_cost",
                 "digital_twin",
@@ -105,7 +117,9 @@ class FakeRegistryService:
                 "per_query_unit",
             ),
         }
-        formula_ref, component, workload_fields, normalization_rule = formula_by_field[field]
+        formula_ref, component, workload_fields, normalization_rule = formula_by_field[
+            field
+        ]
         source_type = (
             "not_applicable"
             if provider == "gcp" and field == "digital_twin.query_unit"
@@ -308,7 +322,9 @@ def test_missing_provider_report_fails_validation():
     )
 
     assert summary["status"] == FAILED
-    assert any("Missing provider evidence report" in error for error in summary["errors"])
+    assert any(
+        "Missing provider evidence report" in error for error in summary["errors"]
+    )
 
 
 def test_missing_intent_evidence_fails_validation():
@@ -326,7 +342,9 @@ def test_missing_intent_evidence_fails_validation():
     )
 
     assert summary["status"] == FAILED
-    assert any("Missing provider intent evidence" in error for error in summary["errors"])
+    assert any(
+        "Missing provider intent evidence" in error for error in summary["errors"]
+    )
 
 
 def test_fallback_static_is_never_publishable():
@@ -337,7 +355,9 @@ def test_fallback_static_is_never_publishable():
     )
 
     assert summary["status"] == FAILED
-    assert any("fallback_static is not publishable" in error for error in summary["errors"])
+    assert any(
+        "fallback_static is not publishable" in error for error in summary["errors"]
+    )
 
 
 def test_review_required_fails_publishable_validation():
@@ -446,16 +466,13 @@ def test_review_required_non_applicability_is_not_publishable():
     )
 
 
-def test_invalid_profile_fails_validation():
-    summary = build_cross_provider_cost_validation(
-        _reports(),
-        pricing_registry_service=FakeRegistryService(),
-        calculation_result=_calculation_result(),
-        optimization_profile_id="weighted_multi_objective_v1",
-    )
+def test_validation_contract_has_no_runtime_objective_selection():
+    from inspect import signature
 
-    assert summary["status"] == FAILED
-    assert any("weighted_multi_objective_v1" in error for error in summary["errors"])
+    parameters = signature(build_cross_provider_cost_validation).parameters
+
+    assert "optimization_profile_id" not in parameters
+    assert "profile_registry" not in parameters
 
 
 def test_calculation_result_metadata_is_required_for_run_store_compatibility():

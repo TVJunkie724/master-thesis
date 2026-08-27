@@ -78,7 +78,10 @@ from backend.calculation_v2.transfer_pricing import (
 )
 from backend.executable_topology import ensure_executable_error_handling_topology
 from backend.optimization.context import OptimizationMetricContext
-from backend.optimization.profiles import build_default_profile_registry
+from backend.optimization.cost_runtime import (
+    CostOptimizationRuntime,
+    build_default_cost_runtime,
+)
 from backend.optimization.scoring import OptimizationCandidate
 from backend.pricing_catalog_models import PricingCatalogContext
 from backend.pricing_registry_service import PricingRegistryService
@@ -266,12 +269,12 @@ def _calculate_derived_params(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _ensure_supported_result_profile(
+def _ensure_supported_cost_result(
     result_schema_version: str,
     metric_provider_ids: tuple[str, ...],
     primary_metric_id: str,
 ) -> None:
-    """Fail fast when a profile exceeds this engine's executable contract."""
+    """Fail fast when collaborators exceed the cost engine contract."""
     if result_schema_version != "cost-result.v1":
         raise ValueError(
             "calculate_cheapest_costs currently supports only cost-result.v1. "
@@ -279,8 +282,8 @@ def _ensure_supported_result_profile(
         )
     if primary_metric_id not in metric_provider_ids:
         raise ValueError(
-            "Scoring strategy primary metric must be declared by the active "
-            f"profile: {primary_metric_id!r}"
+            "Scoring strategy primary metric must match the cost runtime: "
+            f"{primary_metric_id!r}"
         )
 
 
@@ -622,8 +625,8 @@ def calculate_cheapest_costs(
     pricing: Dict[str, Any],
     *,
     pricing_catalog_context: PricingCatalogContext,
-    optimization_profile_id: str | None = None,
     pricing_registry_service: PricingRegistryService | None = None,
+    cost_runtime: CostOptimizationRuntime | None = None,
     architecture_context: ArchitectureResolutionContext | None = None,
 ) -> Dict[str, Any]:
     """
@@ -639,7 +642,7 @@ def calculate_cheapest_costs(
         params: Input parameters from the API
         pricing: Exact resolved pricing data for all providers
         pricing_catalog_context: Exact immutable catalog references and regions
-        optimization_profile_id: Optional executable optimization profile.
+        cost_runtime: Optional internal test seam for the fixed cost strategy.
 
     Returns:
         Dictionary with:
@@ -659,32 +662,27 @@ def calculate_cheapest_costs(
     if not isinstance(pricing_catalog_context, PricingCatalogContext):
         raise TypeError("pricing_catalog_context must be a PricingCatalogContext")
 
-    registry_service = pricing_registry_service or PricingRegistryService()
-    pricing_registry = registry_service.load()
-    profile_registry = (
-        build_default_profile_registry(registry_service)
-        if pricing_registry_service is not None
-        else build_default_profile_registry()
+    registry_service = pricing_registry_service or (
+        cost_runtime.pricing_registry_service
+        if cost_runtime is not None
+        else PricingRegistryService()
     )
+    pricing_registry = registry_service.load()
+    runtime = cost_runtime or build_default_cost_runtime(registry_service)
     execution_context = resolve_calculation_strategy_execution_context(
-        optimization_profile_id=optimization_profile_id,
-        profile_registry=profile_registry,
+        cost_runtime=runtime,
         pricing_registry_service=registry_service,
         publishable_mode=True,
     )
-    optimization_profile = profile_registry.select_profile(optimization_profile_id)
-    cost_metric_provider = profile_registry.get_metric_provider("cost")
-    scoring_strategy = profile_registry.get_scoring_strategy(
-        optimization_profile.scoring_strategy_id
-    )
-    _ensure_supported_result_profile(
-        optimization_profile.result_schema_version,
-        tuple(optimization_profile.metric_provider_ids),
+    optimization_definition = runtime.definition
+    cost_metric_provider = runtime.metric_provider
+    scoring_strategy = runtime.scoring_strategy
+    _ensure_supported_cost_result(
+        optimization_definition.result_schema_version,
+        (optimization_definition.metric_provider_id,),
         scoring_strategy.primary_metric_id,
     )
-    optimization_metadata = profile_registry.build_result_metadata(
-        optimization_profile.profile_id
-    )
+    optimization_metadata = runtime.build_result_metadata()
     pricing_registry_reference = (
         f"pricing_registry:{optimization_metadata['pricing_registry_version']}"
     )
@@ -932,9 +930,9 @@ def calculate_cheapest_costs(
     ]
 
     result_payload = {
-        "optimization_profile_id": optimization_profile.profile_id,
+        "optimization_profile_id": optimization_definition.optimization_id,
         "calculation_strategy_id": execution_context.calculation_strategy_id,
-        "result_schema_version": optimization_profile.result_schema_version,
+        "result_schema_version": optimization_definition.result_schema_version,
         "trace_schema_version": TRACE_SCHEMA_VERSION,
         "optimizationProfile": optimization_metadata,
         "calculationStrategy": execution_context.to_result_metadata(),

@@ -1,4 +1,5 @@
 """Scoring strategy contracts for optimization candidates."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -30,8 +31,7 @@ class OptimizationCandidate:
             value = Decimal(str(self.metric_value(metric_id)))
         if not value.is_finite():
             raise ValueError(
-                f"Candidate {self.candidate_id!r} has a non-finite "
-                f"metric {metric_id!r}"
+                f"Candidate {self.candidate_id!r} has a non-finite metric {metric_id!r}"
             )
         return value
 
@@ -52,11 +52,13 @@ class ScoringStrategy(Protocol):
     compatible_metric_provider_ids: tuple[str, ...]
     primary_metric_id: str
 
-    def rank(self, candidates: list[OptimizationCandidate]) -> list[OptimizationCandidate]:
-        ...
+    def rank(
+        self, candidates: list[OptimizationCandidate]
+    ) -> list[OptimizationCandidate]: ...
 
-    def select_best(self, candidates: list[OptimizationCandidate]) -> OptimizationCandidate:
-        ...
+    def select_best(
+        self, candidates: list[OptimizationCandidate]
+    ) -> OptimizationCandidate: ...
 
 
 @dataclass(frozen=True)
@@ -68,44 +70,24 @@ class CostOnlyScoringStrategy:
     compatible_metric_provider_ids: tuple[str, ...] = ("cost",)
     primary_metric_id: str = "cost"
 
-    def rank(self, candidates: list[OptimizationCandidate]) -> list[OptimizationCandidate]:
+    def rank(
+        self, candidates: list[OptimizationCandidate]
+    ) -> list[OptimizationCandidate]:
         if not candidates:
             raise ValueError("At least one optimization candidate is required")
         return sorted(
             candidates,
             key=lambda candidate: (
                 candidate.exact_metric_value(self.primary_metric_id),
-                candidate.canonical_tie_break_key
-                or (candidate.candidate_id,),
+                candidate.canonical_tie_break_key or (candidate.candidate_id,),
             ),
         )
 
-    def select_best(self, candidates: list[OptimizationCandidate]) -> OptimizationCandidate:
+    def select_best(
+        self, candidates: list[OptimizationCandidate]
+    ) -> OptimizationCandidate:
         return self.rank(candidates)[0]
 
-
-@dataclass(frozen=True)
-class ScoringStrategyDeclaration:
-    strategy_id: str
-    enabled: bool
-    compatible_metric_provider_ids: tuple[str, ...]
-    status: str = "ready"
-    description: str = ""
-
-
-DEFAULT_SCORING_STRATEGY_DECLARATIONS: dict[str, ScoringStrategyDeclaration] = {
-    "min_total_cost_v1": ScoringStrategyDeclaration(
-        strategy_id="min_total_cost_v1",
-        enabled=True,
-        compatible_metric_provider_ids=("cost",),
-        description="Selects the candidate with the lowest monthly cost.",
-    ),
-}
-
-
-DEFAULT_SCORING_STRATEGIES: dict[str, ScoringStrategy] = {
-    "min_total_cost_v1": CostOnlyScoringStrategy(),
-}
 
 # The strategy protocol remains the extension pattern; only monetary cost has
 # a runtime declaration and implementation in this thesis PoC.

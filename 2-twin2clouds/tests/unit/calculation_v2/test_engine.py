@@ -5,19 +5,17 @@ Test Engine Integration
 Integration tests for the new calculation engine.
 """
 
+import copy
+import json
 from datetime import datetime, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
-import copy
-import json
 import pytest
-
 from tests.unit.pricing.transfer_fixtures import (
     canonical_transfer_catalog,
     pricing_catalog_context_for,
 )
-
 
 DIGEST = "sha256:" + ("a" * 64)
 FINGERPRINT = "sha256:" + ("b" * 64)
@@ -606,20 +604,16 @@ class TestEngineIntegration:
         )
         assert gcp_runtime.trigger_cost == pytest.approx(0.10)
 
-    def test_disabled_optimization_profile_is_rejected(
-        self, sample_params, sample_pricing
-    ):
-        """Only enabled profiles may execute."""
-        from backend.calculation_v2.engine import calculate_cheapest_costs
-        from backend.optimization.profiles import OptimizationConfigError
+    def test_optimizer_has_no_runtime_objective_selection(self):
+        """The thesis runtime exposes no public objective selector."""
+        from inspect import signature
 
-        with pytest.raises(OptimizationConfigError):
-            calculate_cheapest_costs(
-                sample_params,
-                sample_pricing,
-                pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
-                optimization_profile_id="latency_minimization_v1",
-            )
+        from backend.calculation_v2.engine import calculate_cheapest_costs
+
+        assert (
+            "optimization_profile_id"
+            not in signature(calculate_cheapest_costs).parameters
+        )
 
     def test_unimplemented_gcp_self_hosted_paths_fail_closed(
         self, sample_params, sample_pricing
@@ -1005,26 +999,18 @@ class TestEngineIntegration:
 
         strategy = InspectingStrategy()
 
-        class FakeProfileRegistry:
-            def select_profile(self, profile_id=None):
-                return SimpleNamespace(
-                    profile_id="cost_minimization_v1",
-                    metric_provider_ids=("cost",),
-                    scoring_strategy_id="min_total_cost_v1",
-                    optimization_bundle_id="cost_minimization_v1",
-                    result_schema_version="cost-result.v1",
-                )
+        class FakeCostRuntime:
+            definition = SimpleNamespace(
+                optimization_id="cost_minimization_v1",
+                metric_provider_id="cost",
+                scoring_strategy_id="min_total_cost_v1",
+                optimization_bundle_id="cost_minimization_v1",
+                result_schema_version="cost-result.v1",
+            )
+            metric_provider = CostMetricProvider()
+            scoring_strategy = strategy
 
-            def get_metric_provider(self, metric_id):
-                assert metric_id == "cost"
-                return CostMetricProvider()
-
-            def get_scoring_strategy(self, strategy_id):
-                assert strategy_id == "min_total_cost_v1"
-                return strategy
-
-            def build_result_metadata(self, profile_id):
-                assert profile_id == "cost_minimization_v1"
+            def build_result_metadata(self):
                 return {
                     "config_version": "optimization-config.v1",
                     "pricing_registry_version": "test-registry.v1",
@@ -1043,8 +1029,8 @@ class TestEngineIntegration:
 
         monkeypatch.setattr(
             engine,
-            "build_default_profile_registry",
-            lambda: FakeProfileRegistry(),
+            "build_default_cost_runtime",
+            lambda _service: FakeCostRuntime(),
         )
 
         result = engine.calculate_cheapest_costs(
@@ -1056,40 +1042,37 @@ class TestEngineIntegration:
         assert result["optimization_profile_id"] == "cost_minimization_v1"
         assert len(strategy.seen_payloads) >= 7
 
-    def test_profile_primary_metric_mismatch_fails_fast(
+    def test_cost_strategy_primary_metric_mismatch_fails_fast(
         self,
         sample_params,
         sample_pricing,
         monkeypatch,
     ):
-        """Enabled profiles may not mix scoring metrics outside the profile contract."""
+        """The cost strategy may not score a metric outside its fixed contract."""
         from backend.calculation_v2 import engine
         from backend.optimization.metrics import CostMetricProvider
 
         class MismatchedStrategy:
+            strategy_id = "min_total_cost_v1"
+            enabled = True
+            compatible_metric_provider_ids = ("cost",)
             primary_metric_id = "latency"
 
             def select_best(self, candidates):
                 return candidates[0]
 
-        class FakeProfileRegistry:
-            def select_profile(self, profile_id=None):
-                return SimpleNamespace(
-                    profile_id="cost_minimization_v1",
-                    metric_provider_ids=("cost",),
-                    scoring_strategy_id="min_total_cost_v1",
-                    optimization_bundle_id="cost_minimization_v1",
-                    result_schema_version="cost-result.v1",
-                )
+        class FakeCostRuntime:
+            definition = SimpleNamespace(
+                optimization_id="cost_minimization_v1",
+                metric_provider_id="cost",
+                scoring_strategy_id="min_total_cost_v1",
+                optimization_bundle_id="cost_minimization_v1",
+                result_schema_version="cost-result.v1",
+            )
+            metric_provider = CostMetricProvider()
+            scoring_strategy = MismatchedStrategy()
 
-            def get_metric_provider(self, metric_id):
-                assert metric_id == "cost"
-                return CostMetricProvider()
-
-            def get_scoring_strategy(self, strategy_id):
-                return MismatchedStrategy()
-
-            def build_result_metadata(self, profile_id):
+            def build_result_metadata(self):
                 return {
                     "pricing_registry_version": "test-registry.v1",
                     "profile_id": "cost_minimization_v1",
@@ -1102,8 +1085,8 @@ class TestEngineIntegration:
 
         monkeypatch.setattr(
             engine,
-            "build_default_profile_registry",
-            lambda: FakeProfileRegistry(),
+            "build_default_cost_runtime",
+            lambda _service: FakeCostRuntime(),
         )
 
         with pytest.raises(ValueError, match="primary metric"):

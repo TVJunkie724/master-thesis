@@ -80,7 +80,7 @@ Canonical endpoints include:
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `PUT` | `/calculate` | Execute the enabled cost optimization profile |
+| `PUT` | `/calculate` | Execute the fixed cost-optimization runtime |
 | `POST` | `/fetch_pricing_with_credentials/{provider}` | Refresh provider pricing with explicit credential context |
 | `POST` | `/stream/fetch_pricing/{provider}` | Stream one operation-scoped refresh |
 | `GET` | `/pricing/source_inventory` | Read pricing source governance |
@@ -124,7 +124,7 @@ The response also includes:
   winning complete path,
 - bounded complete-path diagnostics with evaluated and rejected candidate
   counts,
-- optimization profile and strategy identifiers,
+- fixed cost-runtime and strategy trace identifiers,
 - registry/evidence references,
 - bounded `intentTrace` and `resultTrace` diagnostics,
 - one schema-valid `resolvedDeploymentSpecification` with exact component,
@@ -212,7 +212,7 @@ a provider invoice or live-capacity result.
 | `api/` | FastAPI transport adapters |
 | `backend/architecture_profiles/` | Fixed Six-layer candidate/completeness strategy, diagnostics, and resolution builder; historical Five-layer adapter |
 | `backend/calculation_v2/` | Calculation engine, formulas, layer contracts, traceability |
-| `backend/optimization/` | Metrics, profiles, scoring, and extension points |
+| `backend/optimization/` | Fixed cost metric/model/scoring runtime and extension boundaries |
 | `backend/fetch_data/` | Provider pricing adapters and refresh orchestration |
 | `pricing_registry/` | Versioned pricing and optimization contracts |
 | `json/pricing_catalog_baselines/` | Pinned reviewed regional pricing seed snapshots |

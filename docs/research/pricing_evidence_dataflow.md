@@ -91,17 +91,17 @@ fields:
 This is the shared boundary between providers. Providers may price services
 differently, but they must consume workload fields from the same contract.
 
-## Step 3: Optimization Profile
+## Step 3: Fixed Cost Runtime
 
-The optimization profile is the compatibility boundary. It prevents callers
-from mixing unrelated metric providers, calculation strategies, formula sets,
-source classifications, and scoring logic.
+The thesis runtime has exactly one executable objective: monetary cost. Its
+validated metric, calculation-model, formula, source-classification, evidence,
+and scoring boundaries prevent internal drift. Callers cannot select or combine
+optimization objectives.
 
 Example:
 
 ```text
-optimization_profile: cost_minimization_v1
-enabled: true
+cost_runtime_trace_id: cost_minimization_v1
 metric_provider: cost
 calculation_strategy: cost_calculation_v2
 formula_set: cost_formula_set_v1
@@ -112,9 +112,9 @@ workload_contract: digital_twin_workload_v1
 scoring_strategy: min_total_cost_v1
 ```
 
-Future profiles such as latency minimization or weighted multi-objective
-optimization may exist as disabled declarations, but they must not emit fake
-scores.
+Latency, sustainability, and weighted multi-objective optimization are Future
+Work concepts only. They have no declarations or executable selection path in
+the PoC runtime.
 
 ## Step 4: Pricing Model Classification
 
@@ -283,7 +283,7 @@ formula_refs:
 ```
 
 This prevents a provider calculator from silently choosing a formula that does
-not belong to the active optimization profile.
+not belong to the fixed cost runtime.
 
 ## Step 8: Evidence Resolution
 
@@ -313,7 +313,7 @@ bundle is internally consistent.
 
 Validation checks:
 
-- the optimization profile is enabled
+- the fixed cost runtime and its evidence bundle are internally consistent
 - workload fields required by the provider contract exist
 - pricing model classification exists and is publishable
 - every price/model field has an allowed source classification
@@ -384,8 +384,9 @@ input_metric: usd_per_month
 ranking: ascending total monthly cost
 ```
 
-Future multi-objective strategies must be added as explicit disabled profiles
-until their metrics, formula sets, and validation rules are implemented.
+Future multi-objective strategies would need their own evidence-backed metrics,
+formula sets, validation rules, and explicit runtime integration. They are not
+predeclared by this PoC.
 
 ## Step 12: Result Trace
 
@@ -396,7 +397,7 @@ Trace fields:
 
 - business intent
 - workload input values
-- optimization profile
+- fixed cost-runtime trace id
 - calculation strategy
 - formula set
 - provider pricing contract

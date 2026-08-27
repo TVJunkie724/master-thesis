@@ -1,13 +1,14 @@
 """Cross-provider validation for the evidence-backed cost optimizer path."""
+
 from __future__ import annotations
 
 from collections import Counter
 from typing import Any, Iterable
 
-from backend.optimization.profiles import (
-    OptimizationConfigError,
-    OptimizationProfileRegistry,
-    build_default_profile_registry,
+from backend.optimization.cost_runtime import (
+    CostOptimizationConfigError,
+    CostOptimizationRuntime,
+    build_default_cost_runtime,
 )
 from backend.pricing_contract_validation import PricingContractValidationService
 from backend.pricing_evidence import (
@@ -18,7 +19,6 @@ from backend.pricing_evidence import (
 )
 from backend.pricing_registry import SUPPORTED_PROVIDERS
 from backend.pricing_registry_service import PricingRegistryService
-
 
 CROSS_PROVIDER_COST_VALIDATION_SCHEMA_VERSION = "cross-provider-cost-validation.v1"
 REQUIRED_COST_PROFILE_ID = "cost_minimization_v1"
@@ -35,21 +35,23 @@ def build_cross_provider_cost_validation(
     evidence_reports: dict[str, dict[str, Any]],
     *,
     pricing_registry_service: PricingRegistryService | None = None,
-    profile_registry: OptimizationProfileRegistry | None = None,
+    cost_runtime: CostOptimizationRuntime | None = None,
     calculation_result: dict[str, Any] | None = None,
-    optimization_profile_id: str = REQUIRED_COST_PROFILE_ID,
     providers: Iterable[str] = SUPPORTED_PROVIDERS,
     publishable: bool = True,
 ) -> dict[str, Any]:
     """Validate cost evidence coverage and optimizer metadata across providers."""
-    registry_service = pricing_registry_service or PricingRegistryService()
+    registry_service = pricing_registry_service or (
+        cost_runtime.pricing_registry_service
+        if cost_runtime is not None
+        else PricingRegistryService()
+    )
     provider_ids = tuple(provider.lower() for provider in providers)
     summary: dict[str, Any] = {
         "schema_version": CROSS_PROVIDER_COST_VALIDATION_SCHEMA_VERSION,
         "status": FAILED,
         "publishable": False,
         "required_profile_id": REQUIRED_COST_PROFILE_ID,
-        "requested_profile_id": optimization_profile_id,
         "providers": list(provider_ids),
         "pricing_registry_version": _safe_registry_version(registry_service),
         "optimization_profile": None,
@@ -61,10 +63,9 @@ def build_cross_provider_cost_validation(
         "management_run_compatibility": None,
     }
 
-    profile_errors, profile_metadata = _validate_cost_profile(
+    profile_errors, profile_metadata = _validate_cost_runtime(
         registry_service=registry_service,
-        profile_registry=profile_registry,
-        optimization_profile_id=optimization_profile_id,
+        cost_runtime=cost_runtime,
     )
     summary["optimization_profile"] = profile_metadata
     summary["errors"].extend(profile_errors)
@@ -83,7 +84,9 @@ def build_cross_provider_cost_validation(
             "intent_id": intent_id,
             "description": intent.get("description"),
             "normalized_unit": intent.get("normalized_unit"),
-            "expected_providers": list(intent.get("expected_providers") or provider_ids),
+            "expected_providers": list(
+                intent.get("expected_providers") or provider_ids
+            ),
             "providers": {},
             "status": PUBLISHABLE,
             "errors": [],
@@ -146,38 +149,38 @@ def evidence_id_for_record(provider: str, record: dict[str, Any]) -> str:
     return f"{provider}:{record.get('intent_id')}:{candidate_id}"
 
 
-def _validate_cost_profile(
+def _validate_cost_runtime(
     *,
     registry_service: PricingRegistryService,
-    profile_registry: OptimizationProfileRegistry | None,
-    optimization_profile_id: str,
+    cost_runtime: CostOptimizationRuntime | None,
 ) -> tuple[list[str], dict[str, Any] | None]:
     errors: list[str] = []
     metadata: dict[str, Any] | None = None
     try:
-        registry = profile_registry or build_default_profile_registry(registry_service)
-        profile = registry.select_profile(optimization_profile_id)
-        metadata = registry.build_result_metadata(profile.profile_id)
-    except OptimizationConfigError as exc:
+        runtime = cost_runtime or build_default_cost_runtime(registry_service)
+        definition = runtime.definition
+        metadata = runtime.build_result_metadata()
+    except CostOptimizationConfigError as exc:
         return list(exc.errors), metadata
 
-    if profile.profile_id != REQUIRED_COST_PROFILE_ID:
+    if definition.optimization_id != REQUIRED_COST_PROFILE_ID:
         errors.append(
-            f"Unsupported optimization profile for publishable cost validation: "
-            f"{profile.profile_id}"
+            "Unsupported optimization runtime for publishable cost validation: "
+            f"{definition.optimization_id}"
         )
-    if REQUIRED_COST_INTENT_GROUP not in profile.intent_group_ids:
+    if definition.intent_group_id != REQUIRED_COST_INTENT_GROUP:
         errors.append(
-            f"Optimization profile {profile.profile_id} is not compatible with cost intents"
+            f"Optimization runtime {definition.optimization_id} is not compatible "
+            "with cost intents"
         )
-    if profile.result_schema_version != REQUIRED_COST_RESULT_SCHEMA_VERSION:
+    if definition.result_schema_version != REQUIRED_COST_RESULT_SCHEMA_VERSION:
         errors.append(
-            f"Optimization profile {profile.profile_id} has incompatible result schema "
-            f"{profile.result_schema_version}"
+            f"Optimization runtime {definition.optimization_id} has incompatible "
+            f"result schema {definition.result_schema_version}"
         )
-    if set(profile.metric_provider_ids) != {"cost"}:
+    if definition.metric_provider_id != "cost":
         errors.append(
-            f"Optimization profile {profile.profile_id} must use only the cost metric"
+            f"Optimization runtime {definition.optimization_id} must use the cost metric"
         )
     return errors, metadata
 
@@ -192,11 +195,15 @@ def _validate_provider_intent(
     publishable: bool,
 ) -> dict[str, Any]:
     if evidence_index is None:
-        return _provider_status(provider, intent_id, MISSING, ["Missing provider evidence report"])
+        return _provider_status(
+            provider, intent_id, MISSING, ["Missing provider evidence report"]
+        )
 
     record = evidence_index.get(intent_id)
     if record is None:
-        return _provider_status(provider, intent_id, MISSING, ["Missing provider intent evidence"])
+        return _provider_status(
+            provider, intent_id, MISSING, ["Missing provider intent evidence"]
+        )
 
     errors = validate_evidence_record(record)
     source_type = record.get("source_type")
@@ -249,8 +256,7 @@ def _validate_provider_intent(
         "rejected_count": len(record.get("rejected_rows") or []),
         "contract_validation": contract_validation,
         "verification_gates": [
-            gate_report
-            for gate_report in contract_validation.get("gates", {}).values()
+            gate_report for gate_report in contract_validation.get("gates", {}).values()
         ],
         "errors": errors,
     }
@@ -279,7 +285,9 @@ def _validate_management_run_compatibility(
     if calculation_result is None:
         if publishable:
             result["status"] = FAILED
-            result["errors"].append("Calculation result is required for publishable validation")
+            result["errors"].append(
+                "Calculation result is required for publishable validation"
+            )
         else:
             result["status"] = REVIEW_REQUIRED
         return result
@@ -290,24 +298,37 @@ def _validate_management_run_compatibility(
 
     profile = calculation_result.get("optimizationProfile") or {}
     if calculation_result.get("optimization_profile_id") != REQUIRED_COST_PROFILE_ID:
-        result["errors"].append("Calculation result uses incompatible optimization profile")
-    if calculation_result.get("result_schema_version") != REQUIRED_COST_RESULT_SCHEMA_VERSION:
+        result["errors"].append(
+            "Calculation result uses incompatible optimization profile"
+        )
+    if (
+        calculation_result.get("result_schema_version")
+        != REQUIRED_COST_RESULT_SCHEMA_VERSION
+    ):
         result["errors"].append("Calculation result uses incompatible result schema")
     if REQUIRED_COST_INTENT_GROUP not in (profile.get("intent_group_ids") or []):
-        result["errors"].append("Calculation result profile is missing cost intent group")
+        result["errors"].append(
+            "Calculation result profile is missing cost intent group"
+        )
 
     evidence_references = calculation_result.get("evidenceReferences")
     if not isinstance(evidence_references, dict):
-        result["errors"].append("Calculation result evidenceReferences must be an object")
+        result["errors"].append(
+            "Calculation result evidenceReferences must be an object"
+        )
     elif not evidence_references.get("pricing_registry"):
-        result["errors"].append("Calculation result missing pricing registry evidence reference")
+        result["errors"].append(
+            "Calculation result missing pricing registry evidence reference"
+        )
 
     if result["errors"]:
         result["status"] = FAILED
     return result
 
 
-def _index_evidence_report(report: dict[str, Any] | None) -> dict[str, dict[str, Any]] | None:
+def _index_evidence_report(
+    report: dict[str, Any] | None,
+) -> dict[str, dict[str, Any]] | None:
     if not isinstance(report, dict):
         return None
     records = report.get("records")
@@ -320,7 +341,9 @@ def _index_evidence_report(report: dict[str, Any] | None) -> dict[str, dict[str,
     }
 
 
-def _unit_compatible(record: dict[str, Any], expected_unit: str) -> tuple[bool, str | None]:
+def _unit_compatible(
+    record: dict[str, Any], expected_unit: str
+) -> tuple[bool, str | None]:
     normalization = record.get("normalization") or {}
     actual_unit = normalization.get("target_unit")
     if actual_unit is None:
@@ -368,15 +391,14 @@ def _provider_status(
 
 def _contract_error_strings(contract_validation: dict[str, Any]) -> list[str]:
     return [
-        (
-            f"{error['gate']}:{error['error_code']}: "
-            f"{error['message']}"
-        )
+        (f"{error['gate']}:{error['error_code']}: {error['message']}")
         for error in contract_validation.get("errors") or []
     ]
 
 
-def _selected_row_identity(selected_row: dict[str, Any] | None) -> dict[str, Any] | None:
+def _selected_row_identity(
+    selected_row: dict[str, Any] | None,
+) -> dict[str, Any] | None:
     if not isinstance(selected_row, dict):
         return None
     keys = (

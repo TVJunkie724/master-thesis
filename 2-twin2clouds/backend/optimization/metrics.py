@@ -1,4 +1,5 @@
 """Metric provider contracts for optimization."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -14,16 +15,6 @@ ALLOWED_EVIDENCE_LEVELS = {
     "model_assumption",
     "tbd",
 }
-
-
-@dataclass(frozen=True)
-class MetricProviderDeclaration:
-    metric_id: str
-    enabled: bool
-    evidence_level: str
-    required_inputs: tuple[str, ...]
-    status: str = "ready"
-    description: str = ""
 
 
 @dataclass(frozen=True)
@@ -58,8 +49,7 @@ class MetricProvider(Protocol):
     evidence_level: str
     required_inputs: tuple[str, ...]
 
-    def compute(self, context: OptimizationMetricContext) -> MetricResult:
-        ...
+    def compute(self, context: OptimizationMetricContext) -> MetricResult: ...
 
 
 @dataclass(frozen=True)
@@ -72,7 +62,9 @@ class CostMetricProvider:
     required_inputs: tuple[str, ...] = ("cost",)
 
     def compute(self, context: OptimizationMetricContext) -> MetricResult:
-        missing = [key for key in self.required_inputs if key not in context.metric_inputs]
+        missing = [
+            key for key in self.required_inputs if key not in context.metric_inputs
+        ]
         if missing:
             raise ValueError(
                 f"Missing metric inputs for {self.metric_id}: {', '.join(missing)}"
@@ -89,21 +81,6 @@ class CostMetricProvider:
             metadata=dict(context.metadata),
         )
 
-
-DEFAULT_METRIC_DECLARATIONS: dict[str, MetricProviderDeclaration] = {
-    "cost": MetricProviderDeclaration(
-        metric_id="cost",
-        enabled=True,
-        evidence_level="api_backed",
-        required_inputs=("cost",),
-        description="Monthly cost derived from evidence-backed provider pricing.",
-    ),
-}
-
-
-DEFAULT_METRIC_PROVIDERS: dict[str, MetricProvider] = {
-    "cost": CostMetricProvider(),
-}
 
 # Future metrics can implement this contract once they have evidence-backed
 # values; they are not predeclared in the thesis runtime.

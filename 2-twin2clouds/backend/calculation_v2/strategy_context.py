@@ -1,12 +1,13 @@
 """Calculation strategy execution context for cost calculation v2."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
 
-from backend.optimization.profiles import (
-    OptimizationProfileRegistry,
-    build_default_profile_registry,
+from backend.optimization.cost_runtime import (
+    CostOptimizationRuntime,
+    build_default_cost_runtime,
 )
 from backend.pricing_registry_service import (
     PricingRegistryLookupError,
@@ -83,7 +84,10 @@ class CalculationStrategyExecutionContext:
 
     def ensure_provider_context(self, provider: str) -> None:
         provider_id = provider.lower()
-        if not any(key_provider == provider_id for key_provider, _ in self.provider_field_contracts):
+        if not any(
+            key_provider == provider_id
+            for key_provider, _ in self.provider_field_contracts
+        ):
             raise CalculationStrategyExecutionError(
                 MISSING_PROVIDER_PRICING_CONTRACT,
                 f"Missing provider pricing contracts for {provider_id}.",
@@ -108,15 +112,18 @@ class CalculationStrategyExecutionContext:
 
 def resolve_calculation_strategy_execution_context(
     *,
-    optimization_profile_id: str | None = None,
-    profile_registry: OptimizationProfileRegistry | None = None,
+    cost_runtime: CostOptimizationRuntime | None = None,
     pricing_registry_service: PricingRegistryService | None = None,
     publishable_mode: bool = True,
 ) -> CalculationStrategyExecutionContext:
-    registry_service = pricing_registry_service or PricingRegistryService()
-    registry = profile_registry or build_default_profile_registry(registry_service)
-    profile = registry.select_profile(optimization_profile_id)
-    bundle_id = profile.optimization_bundle_id or profile.profile_id
+    if cost_runtime is None:
+        registry_service = pricing_registry_service or PricingRegistryService()
+        runtime = build_default_cost_runtime(registry_service)
+    else:
+        runtime = cost_runtime
+        registry_service = pricing_registry_service or runtime.pricing_registry_service
+    definition = runtime.definition
+    bundle_id = definition.optimization_bundle_id
     bundle = registry_service.get_optimization_bundle(bundle_id)
     strategy = _get_calculation_strategy(registry_service, bundle)
     formula_set = _get_formula_set(registry_service, strategy)
@@ -140,18 +147,24 @@ def resolve_calculation_strategy_execution_context(
         for contract in provider_contracts
     }
     return CalculationStrategyExecutionContext(
-        optimization_profile_id=profile.profile_id,
+        optimization_profile_id=definition.optimization_id,
         calculation_strategy_id=strategy["id"],
         formula_set_id=formula_set["id"],
         workload_contract_id=workload_contract["id"],
         pricing_contract_group_id=strategy["pricing_contract_group"],
-        pricing_model_classification_group_id=strategy["pricing_model_classification_group"],
-        price_source_classification_group_id=strategy["price_source_classification_group"],
-        scoring_strategy_id=profile.scoring_strategy_id,
-        result_schema_version=profile.result_schema_version,
+        pricing_model_classification_group_id=strategy[
+            "pricing_model_classification_group"
+        ],
+        price_source_classification_group_id=strategy[
+            "price_source_classification_group"
+        ],
+        scoring_strategy_id=definition.scoring_strategy_id,
+        result_schema_version=definition.result_schema_version,
         publishable_mode=publishable_mode,
         formula_refs=formula_refs,
-        provider_pricing_contract_ids=tuple(contract["id"] for contract in provider_contracts),
+        provider_pricing_contract_ids=tuple(
+            contract["id"] for contract in provider_contracts
+        ),
         provider_field_contracts=provider_field_contracts,
     )
 
@@ -211,7 +224,9 @@ def _get_provider_contracts(
     contracts = []
     for contract_id in bundle.get("provider_pricing_contract_ids") or []:
         try:
-            contracts.append(registry_service.get_provider_pricing_contract_by_id(contract_id))
+            contracts.append(
+                registry_service.get_provider_pricing_contract_by_id(contract_id)
+            )
         except PricingRegistryLookupError as exc:
             raise CalculationStrategyExecutionError(
                 MISSING_PROVIDER_PRICING_CONTRACT,

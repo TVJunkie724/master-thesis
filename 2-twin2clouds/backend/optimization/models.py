@@ -1,4 +1,5 @@
 """Calculation model declarations for optimization profiles."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,13 +16,11 @@ class CalculationModel:
     description: str = ""
 
 
-DEFAULT_CALCULATION_MODELS: dict[str, CalculationModel] = {
-    "cost_model_v1": CalculationModel(
-        model_id="cost_model_v1",
-        enabled=True,
-        compatible_metric_provider_ids=("cost",),
-        compatible_intent_group_ids=("cost",),
-        result_schema_version="cost-result.v1",
-        description="Current monthly cost calculation model.",
-    ),
-}
+COST_CALCULATION_MODEL = CalculationModel(
+    model_id="cost_model_v1",
+    enabled=True,
+    compatible_metric_provider_ids=("cost",),
+    compatible_intent_group_ids=("cost",),
+    result_schema_version="cost-result.v1",
+    description="Current monthly cost calculation model.",
+)
