@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 SIX_LAYER_SEED_ROOT_ID = "twin2multicloud-poc-root"
 SIX_LAYER_SEED_DEVICE_ID = "twin2multicloud-poc-device"
-SIX_LAYER_SEED_COMPONENT_NAME = "Twin2MultiCloudPoCDevice"
+SIX_LAYER_SEED_COMPONENT_NAME = "telemetry"
 
 
 def _is_active_phase8_profile(context: "DeploymentContext") -> bool:
@@ -149,17 +149,22 @@ def _six_layer_seed(context: "DeploymentContext") -> dict:
     """Return the deterministic minimal TwinMaker graph used by the thesis PoC."""
     configured_devices = getattr(context.config, "iot_devices", [])
     devices = configured_devices if isinstance(configured_devices, list) else []
-    first_device = devices[0] if devices and isinstance(devices[0], dict) else {}
-    source_device_id = str(
-        first_device.get("id") or first_device.get("device_id") or "poc-device-001"
-    )
+    device_ids = [
+        str(device.get("id") or device.get("device_id"))
+        for device in devices
+        if isinstance(device, dict)
+        and isinstance(device.get("id") or device.get("device_id"), str)
+        and str(device.get("id") or device.get("device_id")).strip()
+    ]
+    if not device_ids:
+        device_ids = [SIX_LAYER_SEED_DEVICE_ID]
     return {
         "type": "entity",
         "id": SIX_LAYER_SEED_ROOT_ID,
         "children": [
             {
                 "type": "entity",
-                "id": SIX_LAYER_SEED_DEVICE_ID,
+                "id": device_id,
                 "children": [
                     {
                         "type": "component",
@@ -167,22 +172,20 @@ def _six_layer_seed(context: "DeploymentContext") -> dict:
                         "componentTypeId": SIX_LAYER_SEED_COMPONENT_NAME,
                         "properties": [
                             {"name": "value", "dataType": "DOUBLE"},
+                            {"name": "metric", "dataType": "STRING"},
+                            {"name": "sourceSequence", "dataType": "STRING"},
                         ],
                         "constProperties": [
                             {
-                                "name": "sourceDeviceId",
+                                "name": "schemaVersion",
                                 "dataType": "STRING",
-                                "value": source_device_id,
-                            },
-                            {
-                                "name": "status",
-                                "dataType": "STRING",
-                                "value": "awaiting-telemetry",
-                            },
+                                "value": "twin-state.v1",
+                            }
                         ],
                     }
                 ],
             }
+            for device_id in dict.fromkeys(device_ids)
         ],
     }
 
@@ -192,6 +195,7 @@ def _probe_six_layer_seed(
     *,
     workspace_id: str,
     twin_name: str,
+    device_id: str,
 ) -> None:
     """Read back the bounded seed graph through the deployed TwinMaker API."""
     component_type_id = f"{twin_name}-{SIX_LAYER_SEED_COMPONENT_NAME}"
@@ -216,7 +220,7 @@ def _probe_six_layer_seed(
     def read_device() -> None:
         response = twinmaker.get_entity(
             workspaceId=workspace_id,
-            entityId=SIX_LAYER_SEED_DEVICE_ID,
+            entityId=device_id,
         )
         if response.get("parentEntityId") != SIX_LAYER_SEED_ROOT_ID:
             raise RuntimeError("TwinMaker seed relationship is not readable")
@@ -228,7 +232,7 @@ def _probe_six_layer_seed(
 
     run.attempt(component_type_id, read_component_type)
     run.attempt(SIX_LAYER_SEED_ROOT_ID, read_root)
-    run.attempt(SIX_LAYER_SEED_DEVICE_ID, read_device)
+    run.attempt(device_id, read_device)
     run.raise_if_failed()
 
 
@@ -288,10 +292,14 @@ def create_twinmaker_entities(
         )
     run.raise_if_failed()
     if _is_active_phase8_profile(context):
+        seed = _six_layer_seed(context)
+        seed_devices = seed.get("children", [])
+        first_seed_device = seed_devices[0].get("id", SIX_LAYER_SEED_DEVICE_ID)
         _probe_six_layer_seed(
             twinmaker,
             workspace_id=str(workspace_id),
             twin_name=twin_name,
+            device_id=str(first_seed_device),
         )
 
 

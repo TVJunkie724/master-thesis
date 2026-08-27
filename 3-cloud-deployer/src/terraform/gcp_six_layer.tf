@@ -2485,6 +2485,15 @@ output "gcp_component_twin_state_output" {
   } : null
 }
 
+output "gcp_component_hot_storage_output" {
+  description = "Safe Six-layer GCP L3 verification coordinates"
+  value = local.gcp_six_layer_hot_enabled ? {
+    project_id      = local.gcp_project_id
+    database_name   = google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup[0].name
+    collection_name = "telemetry"
+  } : null
+}
+
 output "gcp_component_visualization_output" {
   description = "Safe Six-layer GCP L5 browser access and deterministic dashboard evidence"
   value = local.gcp_six_layer_l5_enabled ? {

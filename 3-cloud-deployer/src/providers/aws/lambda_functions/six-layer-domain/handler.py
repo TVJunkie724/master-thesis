@@ -7,20 +7,19 @@ raw-history reader. Each Lambda selects an explicit handler entry point.
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal, InvalidOperation
 import hashlib
 import hmac
 import json
 import math
 import os
 import re
-from typing import Any, Iterable, Mapping
 import uuid
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
+from typing import Any, Iterable, Mapping
 
 import boto3
 from botocore.exceptions import ClientError
-
 
 PROFILE = "six-layer-eventing@1"
 MAX_POINTS = 1000
@@ -340,16 +339,28 @@ def _materialize_twin_projection(payload: Mapping[str, Any]) -> None:
     if not isinstance(state_patch, Mapping) or not state_patch:
         raise ContractError("INVALID_TWIN_STATE_PATCH")
     observed_at = _parse_time(body.get("observed_at") or body.get("stored_at"))
+    if len(state_patch) != 1:
+        raise ContractError("INVALID_TWIN_STATE_PATCH")
+    metric, value = next(iter(state_patch.items()))
+    if (
+        not isinstance(metric, str)
+        or not metric
+        or isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+    ):
+        raise ContractError("INVALID_TWIN_STATE_PATCH")
+    source_sequence = _required_text(
+        body.get("source_sequence"), code="INVALID_TWIN_STATE_PATCH"
+    )
+    entity_id = _required_text(body.get("twin_id"), code="INVALID_TWIN_ID")
+    properties = {
+        "metric": {"stringValue": metric},
+        "value": {"doubleValue": float(value)},
+        "sourceSequence": {"stringValue": source_sequence},
+    }
     entries = []
-    for property_name, value in state_patch.items():
-        if (
-            not isinstance(property_name, str)
-            or not property_name
-            or isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or not math.isfinite(value)
-        ):
-            raise ContractError("INVALID_TWIN_STATE_PATCH")
+    for property_name, property_value in properties.items():
         entries.append(
             {
                 "entryId": str(
@@ -359,18 +370,14 @@ def _materialize_twin_projection(payload: Mapping[str, Any]) -> None:
                     )
                 ),
                 "entityPropertyReference": {
-                    "entityId": _required_text(
-                        body.get("twin_id"), code="INVALID_TWIN_ID"
-                    ),
+                    "entityId": entity_id,
                     "componentName": "telemetry",
-                    "propertyName": _required_text(
-                        property_name, code="INVALID_METRIC"
-                    ),
+                    "propertyName": property_name,
                 },
                 "propertyValues": [
                     {
                         "timestamp": observed_at,
-                        "value": {"doubleValue": float(value)},
+                        "value": property_value,
                     }
                 ],
             }

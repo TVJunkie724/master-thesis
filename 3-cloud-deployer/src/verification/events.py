@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import json
+from datetime import datetime
+
 from src.core.observability import redact_structure
 
 

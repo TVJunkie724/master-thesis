@@ -69,3 +69,27 @@ def test_unknown_log_provider_fails_without_cloud_access():
 
     assert result.success is False
     assert result.error == "Unsupported provider: unsupported"
+
+
+def test_hot_storage_trace_dispatches_gcp_alias(monkeypatch):
+    captured = {}
+
+    def check(*args):
+        captured["args"] = args
+        return probes.ProbeResult(success=True)
+
+    monkeypatch.setattr(probes, "_check_gcp_hot_storage_trace", check)
+
+    result = probes.check_hot_storage_trace(
+        "google",
+        "device-1",
+        "VERIFY-1234ABCD",
+        {},
+        {"gcp": {}},
+        Path("/tmp/project"),
+        1,
+        0,
+    )
+
+    assert result.success is True
+    assert captured["args"][0:2] == ("device-1", "VERIFY-1234ABCD")

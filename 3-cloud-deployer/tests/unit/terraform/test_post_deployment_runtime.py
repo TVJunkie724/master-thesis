@@ -6,10 +6,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.providers.terraform import aws_deployer, azure_deployer
 from src.providers.aws.layers import layer_5_grafana as aws_layer_5_grafana
-from src.providers.azure.layers import layer_5_grafana
-from src.providers.azure.layers import layer_4_adt
+from src.providers.azure.layers import layer_4_adt, layer_5_grafana
+from src.providers.terraform import aws_deployer, azure_deployer
 from src.providers.terraform.runtime_outcome import ProviderRuntimeError, RuntimeRun
 
 
@@ -197,10 +196,10 @@ def test_active_profile_creates_and_reads_back_deterministic_aws_seed(
         },
     )
 
-    assert entities[aws_deployer.SIX_LAYER_SEED_DEVICE_ID]["parentEntityId"] == (
+    assert entities["sensor-1"]["parentEntityId"] == (
         aws_deployer.SIX_LAYER_SEED_ROOT_ID
     )
-    component = entities[aws_deployer.SIX_LAYER_SEED_DEVICE_ID]["components"][
+    component = entities["sensor-1"]["components"][
         aws_deployer.SIX_LAYER_SEED_COMPONENT_NAME
     ]
     assert component["componentTypeId"] == (

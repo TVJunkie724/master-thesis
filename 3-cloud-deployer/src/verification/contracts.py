@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-
 PhaseStatus = Literal["pass", "fail", "skip", "partial"]
 
 
@@ -36,6 +35,7 @@ class PhaseOutcome:
     failed: int = 0
     skipped: int = 0
     failed_phase: str | None = None
+    evidence: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -50,6 +50,7 @@ class VerificationSummary:
     failed: int = 0
     skipped: int = 0
     failed_phase: str | None = None
+    evidence: list[dict] = field(default_factory=list)
 
     def include(self, outcome: PhaseOutcome) -> None:
         self.passed += outcome.passed
@@ -57,3 +58,5 @@ class VerificationSummary:
         self.skipped += outcome.skipped
         if self.failed_phase is None and outcome.failed_phase:
             self.failed_phase = outcome.failed_phase
+        if outcome.evidence:
+            self.evidence.append(dict(outcome.evidence))

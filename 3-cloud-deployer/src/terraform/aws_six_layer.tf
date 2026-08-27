@@ -1586,8 +1586,8 @@ output "aws_component_twin_state_output" {
         aws_ssoadmin_permission_set.aws_aws_iam_identity_center_layer_access[0].arn,
         aws_ssoadmin_account_assignment.aws_aws_iam_identity_center_layer_access[0].id,
       ]
-      artifact_refs       = ["Twin2MultiCloudPoCDevice"]
-      content_revision    = "aws-l4-seed.v1"
+      artifact_refs       = ["telemetry"]
+      content_revision    = "aws-l4-seed.v2"
       data_probe_revision = "aws-twinmaker-readback.v1"
     }
   } : null

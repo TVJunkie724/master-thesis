@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
-from io import BytesIO
 import json
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-
 
 SOURCE = (
     Path(__file__).resolve().parents[3]
@@ -666,8 +665,20 @@ def test_projection_candidate_updates_local_twin_with_observation_time(monkeypat
     )
 
     assert twinmaker.entries[0]["workspaceId"] == "workspace-1"
-    value = twinmaker.entries[0]["entries"][0]["propertyValues"][0]
+    entries = {
+        entry["entityPropertyReference"]["propertyName"]: entry
+        for entry in twinmaker.entries[0]["entries"]
+    }
+    assert set(entries) == {"metric", "value", "sourceSequence"}
+    value = entries["value"]["propertyValues"][0]
     assert runtime._iso(value["timestamp"]) == "2026-08-05T00:00:00.000000Z"
+    assert value["value"] == {"doubleValue": 20.5}
+    assert entries["metric"]["propertyValues"][0]["value"] == {
+        "stringValue": "temperature"
+    }
+    assert entries["sourceSequence"]["propertyValues"][0]["value"] == {
+        "stringValue": "event-projection-1"
+    }
 
 
 def test_projection_candidate_emits_closed_remote_projection_contract(monkeypatch):
