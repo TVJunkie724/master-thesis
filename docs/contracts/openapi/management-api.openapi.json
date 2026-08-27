@@ -50,6 +50,82 @@
         "title": "AWSCredentials",
         "type": "object"
       },
+      "AccountPreparationAction": {
+        "properties": {
+          "action_id": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Action Id",
+            "type": "string"
+          },
+          "action_type": {
+            "enum": [
+              "register_resource_provider",
+              "enable_project_api"
+            ],
+            "title": "Action Type",
+            "type": "string"
+          },
+          "capability_id": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Capability Id",
+            "type": "string"
+          },
+          "destructive": {
+            "const": false,
+            "title": "Destructive",
+            "type": "boolean"
+          },
+          "persistent_after_destroy": {
+            "const": true,
+            "title": "Persistent After Destroy",
+            "type": "boolean"
+          },
+          "provider": {
+            "enum": [
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "requirement_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Requirement Ids",
+            "type": "array"
+          },
+          "scope": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action_id",
+          "provider",
+          "action_type",
+          "capability_id",
+          "scope",
+          "requirement_ids",
+          "reason",
+          "persistent_after_destroy",
+          "destructive"
+        ],
+        "title": "AccountPreparationAction",
+        "type": "object"
+      },
       "ActiveDeploymentSessionResponse": {
         "properties": {
           "operation_type": {
@@ -923,6 +999,26 @@
         "title": "Body_createUserFunctionArtifact",
         "type": "object"
       },
+      "Body_importCloudConnection": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "metadata": {
+            "maxLength": 4096,
+            "title": "Metadata",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "file"
+        ],
+        "title": "Body_importCloudConnection",
+        "type": "object"
+      },
       "Body_importLegacyUserFunctionArtifact": {
         "properties": {
           "metadata": {
@@ -943,6 +1039,28 @@
           "source_archive"
         ],
         "title": "Body_importLegacyUserFunctionArtifact",
+        "type": "object"
+      },
+      "Body_importPortableDigitalTwin": {
+        "properties": {
+          "archive": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Portable .twin.zip archive",
+            "title": "Archive",
+            "type": "string"
+          },
+          "new_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "New Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "new_name",
+          "archive"
+        ],
+        "title": "Body_importPortableDigitalTwin",
         "type": "object"
       },
       "Body_uploadProjectZip": {
@@ -1247,232 +1365,104 @@
         "title": "CheapestPathResponse",
         "type": "object"
       },
-      "CloudAccessEntry": {
+      "CleanupEvidence": {
+        "additionalProperties": false,
+        "description": "Authoritative terminal result accepted from the Deployer.",
         "properties": {
-          "actions": {
+          "providers": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/ProviderCleanupEvidence"
             },
-            "title": "Actions",
+            "maxItems": 3,
+            "title": "Providers",
             "type": "array"
           },
-          "bound_twin_count": {
-            "default": 0,
-            "title": "Bound Twin Count",
-            "type": "integer"
-          },
-          "bound_twin_labels": {
+          "residual_failures": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/CleanupResidualFailure"
             },
-            "title": "Bound Twin Labels",
+            "maxItems": 8,
+            "title": "Residual Failures",
             "type": "array"
           },
-          "connection_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Connection Id"
+          "retained_shared_prerequisites": {
+            "items": {
+              "$ref": "#/components/schemas/RetainedSharedPrerequisite"
+            },
+            "maxItems": 100,
+            "title": "Retained Shared Prerequisites",
+            "type": "array"
           },
-          "identity_label": {
-            "title": "Identity Label",
-            "type": "string"
-          },
-          "is_default_for_pricing": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Default For Pricing"
-          },
-          "last_used_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Used At"
-          },
-          "last_validated_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Validated At"
-          },
-          "primary_message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Primary Message"
-          },
-          "provider": {
-            "enum": [
-              "aws",
-              "azure",
-              "gcp"
-            ],
-            "title": "Provider",
-            "type": "string"
-          },
-          "provider_account_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Account Id"
-          },
-          "provider_project_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Project Id"
-          },
-          "provider_subscription_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Subscription Id"
-          },
-          "purpose": {
-            "enum": [
-              "pricing",
-              "deployment"
-            ],
-            "title": "Purpose",
-            "type": "string"
-          },
-          "scope": {
-            "enum": [
-              "user",
-              "twin",
-              "public"
-            ],
-            "title": "Scope",
+          "schema_version": {
+            "const": "cleanup-evidence.v1",
+            "title": "Schema Version",
             "type": "string"
           },
           "status": {
             "enum": [
-              "active",
-              "missing",
-              "needs_validation",
-              "invalid",
-              "stale",
-              "disabled"
+              "complete",
+              "incomplete",
+              "dry_run"
             ],
             "title": "Status",
             "type": "string"
+          },
+          "terraform": {
+            "$ref": "#/components/schemas/TerraformCleanupEvidence"
           }
         },
         "required": [
-          "provider",
-          "purpose",
-          "scope",
-          "identity_label",
-          "status"
+          "schema_version",
+          "status",
+          "terraform"
         ],
-        "title": "CloudAccessEntry",
+        "title": "CleanupEvidence",
         "type": "object"
       },
-      "CloudAccessInventoryResponse": {
+      "CleanupResidualFailure": {
+        "additionalProperties": false,
         "properties": {
-          "providers": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/CloudAccessProviderInventory"
-            },
-            "propertyNames": {
-              "enum": [
-                "aws",
-                "azure",
-                "gcp"
-              ]
-            },
-            "title": "Providers",
-            "type": "object"
-          },
-          "schema_version": {
-            "default": "cloud-access-inventory.v1",
-            "title": "Schema Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "providers"
-        ],
-        "title": "CloudAccessInventoryResponse",
-        "type": "object"
-      },
-      "CloudAccessProviderInventory": {
-        "properties": {
-          "deployment": {
-            "items": {
-              "$ref": "#/components/schemas/CloudAccessEntry"
-            },
-            "title": "Deployment",
-            "type": "array"
-          },
-          "pricing": {
-            "$ref": "#/components/schemas/CloudAccessEntry"
-          },
-          "pricing_options": {
-            "items": {
-              "$ref": "#/components/schemas/CloudAccessEntry"
-            },
-            "title": "Pricing Options",
-            "type": "array"
-          },
           "provider": {
-            "enum": [
-              "aws",
-              "azure",
-              "gcp"
+            "anyOf": [
+              {
+                "enum": [
+                  "aws",
+                  "azure",
+                  "gcp"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "Provider",
+            "title": "Provider"
+          },
+          "reason": {
+            "enum": [
+              "resources_remain",
+              "inspection_failed",
+              "cleanup_failed",
+              "context_unavailable"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "terraform_state",
+              "provider_cleanup",
+              "provider_inventory"
+            ],
+            "title": "Scope",
             "type": "string"
           }
         },
         "required": [
-          "provider",
-          "pricing"
+          "scope",
+          "reason"
         ],
-        "title": "CloudAccessProviderInventory",
+        "title": "CleanupResidualFailure",
         "type": "object"
       },
       "CloudConnectionCreate": {
@@ -1537,11 +1527,6 @@
               }
             ]
           },
-          "is_default_for_pricing": {
-            "default": false,
-            "title": "Is Default For Pricing",
-            "type": "boolean"
-          },
           "provider": {
             "enum": [
               "aws",
@@ -1552,11 +1537,8 @@
             "type": "string"
           },
           "purpose": {
+            "const": "deployment",
             "default": "deployment",
-            "enum": [
-              "pricing",
-              "deployment"
-            ],
             "title": "Purpose",
             "type": "string"
           },
@@ -1639,10 +1621,6 @@
             "title": "Id",
             "type": "string"
           },
-          "is_default_for_pricing": {
-            "title": "Is Default For Pricing",
-            "type": "boolean"
-          },
           "last_used_at": {
             "anyOf": [
               {
@@ -1686,10 +1664,7 @@
             "type": "string"
           },
           "purpose": {
-            "enum": [
-              "pricing",
-              "deployment"
-            ],
+            "const": "deployment",
             "title": "Purpose",
             "type": "string"
           },
@@ -1724,7 +1699,6 @@
           "provider",
           "purpose",
           "scope",
-          "is_default_for_pricing",
           "display_name",
           "auth_type",
           "cloud_scope",
@@ -1764,17 +1738,6 @@
               }
             ],
             "title": "Display Name"
-          },
-          "is_default_for_pricing": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Default For Pricing"
           }
         },
         "title": "CloudConnectionUpdate",
@@ -1801,18 +1764,6 @@
           "message": {
             "title": "Message",
             "type": "string"
-          },
-          "optimizer": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Optimizer"
           },
           "provider": {
             "enum": [
@@ -1853,10 +1804,7 @@
             "type": "string"
           },
           "component": {
-            "enum": [
-              "optimizer",
-              "deployer"
-            ],
+            "pattern": "^deployer(?:\\.[A-Za-z0-9_.-]+)?$",
             "title": "Component",
             "type": "string"
           },
@@ -2302,17 +2250,6 @@
             ],
             "title": "Pricing Registry Version"
           },
-          "pricing_run_reference": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pricing Run Reference"
-          },
           "resolved_architecture_digest": {
             "anyOf": [
               {
@@ -2609,17 +2546,6 @@
               }
             ],
             "title": "Pricing Registry Version"
-          },
-          "pricing_run_reference": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pricing Run Reference"
           },
           "resolved_architecture_digest": {
             "anyOf": [
@@ -2948,35 +2874,6 @@
           "google_linked"
         ],
         "title": "CurrentUserResponse",
-        "type": "object"
-      },
-      "DashboardStats": {
-        "description": "Dashboard statistics response.",
-        "properties": {
-          "deployed_count": {
-            "title": "Deployed Count",
-            "type": "integer"
-          },
-          "draft_count": {
-            "title": "Draft Count",
-            "type": "integer"
-          },
-          "estimated_monthly_cost": {
-            "title": "Estimated Monthly Cost",
-            "type": "number"
-          },
-          "total_twins": {
-            "title": "Total Twins",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "deployed_count",
-          "draft_count",
-          "total_twins",
-          "estimated_monthly_cost"
-        ],
-        "title": "DashboardStats",
         "type": "object"
       },
       "DeployerConfigArtifact": {
@@ -4113,6 +4010,16 @@
       },
       "DeploymentOperationSummaryResponse": {
         "properties": {
+          "cleanup_evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CleanupEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "completed_at": {
             "anyOf": [
               {
@@ -4150,6 +4057,17 @@
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
           },
           "operation_id": {
             "anyOf": [
@@ -4271,6 +4189,18 @@
             ],
             "title": "Checked At"
           },
+          "graph_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Graph Digest"
+          },
           "issues": {
             "items": {
               "$ref": "#/components/schemas/DeploymentReadinessCheck"
@@ -4278,6 +4208,16 @@
             "maxItems": 16,
             "title": "Issues",
             "type": "array"
+          },
+          "preparation_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeploymentPreparationPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "providers": {
             "items": {
@@ -4303,6 +4243,18 @@
             "maxItems": 3,
             "title": "Required Providers",
             "type": "array"
+          },
+          "requirements_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirements Digest"
           },
           "schema_version": {
             "const": "deployment-preflight.v1",
@@ -4331,6 +4283,190 @@
           "providers"
         ],
         "title": "DeploymentPreflightResponse",
+        "type": "object"
+      },
+      "DeploymentPreparationPlan": {
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/AccountPreparationAction"
+            },
+            "maxItems": 4096,
+            "title": "Actions",
+            "type": "array"
+          },
+          "graph_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Graph Digest",
+            "type": "string"
+          },
+          "manual_requirements": {
+            "items": {
+              "$ref": "#/components/schemas/ManualPreparationRequirement"
+            },
+            "maxItems": 4096,
+            "title": "Manual Requirements",
+            "type": "array"
+          },
+          "plan_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Plan Digest",
+            "type": "string"
+          },
+          "requirements_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Requirements Digest",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "graph-account-preparation.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "graph_digest",
+          "requirements_digest",
+          "plan_digest",
+          "actions",
+          "manual_requirements"
+        ],
+        "title": "DeploymentPreparationPlan",
+        "type": "object"
+      },
+      "DeploymentPreparationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "manual_requirement_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4096,
+            "title": "Manual Requirement Ids",
+            "type": "array"
+          },
+          "plan_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Plan Digest",
+            "type": "string"
+          },
+          "requirements_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Requirements Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan_digest",
+          "requirements_digest",
+          "confirmed"
+        ],
+        "title": "DeploymentPreparationRequest",
+        "type": "object"
+      },
+      "DeploymentPreparationResponse": {
+        "properties": {
+          "acknowledged_manual_requirement_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4096,
+            "title": "Acknowledged Manual Requirement Ids",
+            "type": "array"
+          },
+          "completed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/PreparationActionResult"
+            },
+            "maxItems": 4096,
+            "title": "Completed Actions",
+            "type": "array"
+          },
+          "failed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/PreparationActionResult"
+            },
+            "maxItems": 4096,
+            "title": "Failed Actions",
+            "type": "array"
+          },
+          "pending_manual_requirement_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4096,
+            "title": "Pending Manual Requirement Ids",
+            "type": "array"
+          },
+          "plan_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Plan Digest",
+            "type": "string"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/DeploymentPreflightResponse"
+          },
+          "remaining_action_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4096,
+            "title": "Remaining Action Ids",
+            "type": "array"
+          },
+          "requirements_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Requirements Digest",
+            "type": "string"
+          },
+          "retry_safe": {
+            "const": true,
+            "title": "Retry Safe",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "deployment-preparation.v1",
+            "default": "deployment-preparation.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "partial",
+              "failed",
+              "manual_action"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "twin_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Twin Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "twin_id",
+          "plan_digest",
+          "requirements_digest",
+          "status",
+          "completed_actions",
+          "failed_actions",
+          "remaining_action_ids",
+          "acknowledged_manual_requirement_ids",
+          "pending_manual_requirement_ids",
+          "retry_safe",
+          "readiness"
+        ],
+        "title": "DeploymentPreparationResponse",
         "type": "object"
       },
       "DeploymentReadinessCheck": {
@@ -4402,6 +4538,18 @@
             ],
             "title": "Checked At"
           },
+          "graph_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Graph Digest"
+          },
           "issues": {
             "items": {
               "$ref": "#/components/schemas/DeploymentReadinessCheck"
@@ -4409,6 +4557,16 @@
             "maxItems": 16,
             "title": "Issues",
             "type": "array"
+          },
+          "preparation_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeploymentPreparationPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "providers": {
             "items": {
@@ -4434,6 +4592,18 @@
             "maxItems": 3,
             "title": "Required Providers",
             "type": "array"
+          },
+          "requirements_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirements Digest"
           },
           "schema_version": {
             "const": "deployment-readiness.v1",
@@ -4462,6 +4632,104 @@
           "providers"
         ],
         "title": "DeploymentReadinessResponse",
+        "type": "object"
+      },
+      "DeploymentRequirementReadiness": {
+        "properties": {
+          "action": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Action",
+            "type": "string"
+          },
+          "capability_id": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Capability Id",
+            "type": "string"
+          },
+          "mandatory": {
+            "default": true,
+            "title": "Mandatory",
+            "type": "boolean"
+          },
+          "message": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "preparation_mode": {
+            "enum": [
+              "none",
+              "confirmed_account",
+              "manual_external",
+              "terraform"
+            ],
+            "title": "Preparation Mode",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "requirement_id": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Requirement Id",
+            "type": "string"
+          },
+          "requirement_type": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Requirement Type",
+            "type": "string"
+          },
+          "source_edge_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 512,
+            "title": "Source Edge Ids",
+            "type": "array"
+          },
+          "source_node_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 512,
+            "title": "Source Node Ids",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "preparable",
+              "manual_action",
+              "replace_connection",
+              "transient",
+              "unsupported"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requirement_id",
+          "requirement_type",
+          "provider",
+          "capability_id",
+          "preparation_mode",
+          "status",
+          "message",
+          "action"
+        ],
+        "title": "DeploymentRequirementReadiness",
         "type": "object"
       },
       "DeploymentStatusResponse": {
@@ -4534,33 +4802,6 @@
           "state"
         ],
         "title": "DeploymentStatusResponse",
-        "type": "object"
-      },
-      "DualCredentialValidationResponse": {
-        "description": "Combined Optimizer and Deployer credential validation response.",
-        "properties": {
-          "deployer": {
-            "$ref": "#/components/schemas/ValidationBranchResultResponse"
-          },
-          "optimizer": {
-            "$ref": "#/components/schemas/ValidationBranchResultResponse"
-          },
-          "provider": {
-            "title": "Provider",
-            "type": "string"
-          },
-          "valid": {
-            "title": "Valid",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "provider",
-          "valid",
-          "optimizer",
-          "deployer"
-        ],
-        "title": "DualCredentialValidationResponse",
         "type": "object"
       },
       "ErrorResponse": {
@@ -5102,6 +5343,45 @@
         "title": "LayerAccessReadiness",
         "type": "object"
       },
+      "ManualPreparationRequirement": {
+        "properties": {
+          "capability_id": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Capability Id",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "requirement_id": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Requirement Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requirement_id",
+          "provider",
+          "capability_id",
+          "reason"
+        ],
+        "title": "ManualPreparationRequirement",
+        "type": "object"
+      },
       "MessageResponse": {
         "description": "Simple command acknowledgement.",
         "properties": {
@@ -5119,6 +5399,19 @@
       "OperationSessionResponse": {
         "description": "Response for operations that continue through the deployment SSE channel.",
         "properties": {
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "operation_record_id": {
+            "title": "Operation Record Id",
+            "type": "string"
+          },
+          "reused": {
+            "default": false,
+            "title": "Reused",
+            "type": "boolean"
+          },
           "session_id": {
             "title": "Session Id",
             "type": "string"
@@ -5126,11 +5419,18 @@
           "sse_url": {
             "title": "Sse Url",
             "type": "string"
+          },
+          "status_url": {
+            "title": "Status Url",
+            "type": "string"
           }
         },
         "required": [
           "session_id",
-          "sse_url"
+          "sse_url",
+          "operation_record_id",
+          "idempotency_key",
+          "status_url"
         ],
         "title": "OperationSessionResponse",
         "type": "object"
@@ -5598,113 +5898,24 @@
         "title": "PlatformProviderCapability",
         "type": "object"
       },
-      "PricingAiSuggestion": {
+      "PreparationActionResult": {
         "properties": {
-          "candidate_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Candidate Id"
-          },
-          "enabled": {
-            "default": false,
-            "title": "Enabled",
-            "type": "boolean"
-          },
-          "rationale": {
-            "default": "AI review is disabled for this environment.",
-            "title": "Rationale",
-            "type": "string"
-          }
-        },
-        "title": "PricingAiSuggestion",
-        "type": "object"
-      },
-      "PricingCandidateReportListResponse": {
-        "properties": {
-          "provider": {
-            "enum": [
-              "aws",
-              "azure",
-              "gcp"
-            ],
-            "title": "Provider",
+          "action_id": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Action Id",
             "type": "string"
           },
-          "refresh_run_id": {
-            "title": "Refresh Run Id",
+          "capability_id": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Capability Id",
             "type": "string"
           },
-          "reports": {
-            "items": {
-              "$ref": "#/components/schemas/PricingCandidateReportResponse"
-            },
-            "title": "Reports",
-            "type": "array"
-          },
-          "schema_version": {
-            "default": "pricing-candidate-report-list.v1",
-            "title": "Schema Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "provider",
-          "refresh_run_id",
-          "reports"
-        ],
-        "title": "PricingCandidateReportListResponse",
-        "type": "object"
-      },
-      "PricingCandidateReportResponse": {
-        "properties": {
-          "ai_suggestion": {
-            "$ref": "#/components/schemas/PricingAiSuggestion"
-          },
-          "candidates": {
-            "items": {
-              "$ref": "#/components/schemas/PricingReviewCandidate"
-            },
-            "title": "Candidates",
-            "type": "array"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "deterministic_selection": {
-            "$ref": "#/components/schemas/PricingCandidateSelection"
-          },
-          "expected_model": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expected Model"
-          },
-          "expected_unit": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expected Unit"
-          },
-          "intent_id": {
-            "title": "Intent Id",
+          "message": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Message",
             "type": "string"
           },
           "provider": {
@@ -5716,91 +5927,23 @@
             "title": "Provider",
             "type": "string"
           },
-          "refresh_run_id": {
-            "title": "Refresh Run Id",
-            "type": "string"
-          },
-          "rejected_candidates": {
-            "items": {
-              "$ref": "#/components/schemas/PricingRejectedCandidate"
-            },
-            "title": "Rejected Candidates",
-            "type": "array"
-          },
-          "report_id": {
-            "title": "Report Id",
-            "type": "string"
-          },
-          "review_state": {
+          "status": {
             "enum": [
               "ready",
-              "needs_review",
-              "evidence_unavailable"
+              "failed"
             ],
-            "title": "Review State",
+            "title": "Status",
             "type": "string"
-          },
-          "schema_version": {
-            "default": "pricing-candidate-report.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "source_status": {
-            "title": "Source Status",
-            "type": "string"
-          },
-          "source_warning": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Warning"
           }
         },
         "required": [
-          "report_id",
+          "action_id",
           "provider",
-          "refresh_run_id",
-          "intent_id",
-          "deterministic_selection",
-          "review_state",
-          "source_status",
-          "created_at"
+          "capability_id",
+          "status",
+          "message"
         ],
-        "title": "PricingCandidateReportResponse",
-        "type": "object"
-      },
-      "PricingCandidateSelection": {
-        "properties": {
-          "candidate_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Candidate Id"
-          },
-          "confidence_label": {
-            "title": "Confidence Label",
-            "type": "string"
-          },
-          "selectable": {
-            "title": "Selectable",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "selectable",
-          "confidence_label"
-        ],
-        "title": "PricingCandidateSelection",
+        "title": "PreparationActionResult",
         "type": "object"
       },
       "PricingCatalogContext": {
@@ -5939,93 +6082,6 @@
           "calculationSource"
         ],
         "title": "PricingCatalogReference",
-        "type": "object"
-      },
-      "PricingCredentialSummary": {
-        "properties": {
-          "connection_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Connection Id"
-          },
-          "identity_label": {
-            "title": "Identity Label",
-            "type": "string"
-          },
-          "provider": {
-            "enum": [
-              "aws",
-              "azure",
-              "gcp"
-            ],
-            "title": "Provider",
-            "type": "string"
-          },
-          "provider_account_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Account Id"
-          },
-          "provider_project_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Project Id"
-          },
-          "provider_subscription_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Subscription Id"
-          },
-          "purpose": {
-            "const": "pricing",
-            "title": "Purpose",
-            "type": "string"
-          },
-          "scope": {
-            "enum": [
-              "user",
-              "public"
-            ],
-            "title": "Scope",
-            "type": "string"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "provider",
-          "purpose",
-          "scope",
-          "identity_label",
-          "status"
-        ],
-        "title": "PricingCredentialSummary",
         "type": "object"
       },
       "PricingEvidenceDetailResponse": {
@@ -6237,698 +6293,6 @@
         "title": "PricingEvidenceReference",
         "type": "object"
       },
-      "PricingHealthResponse": {
-        "properties": {
-          "providers": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ProviderPricingHealth"
-            },
-            "propertyNames": {
-              "enum": [
-                "aws",
-                "azure",
-                "gcp"
-              ]
-            },
-            "title": "Providers",
-            "type": "object"
-          },
-          "schema_version": {
-            "default": "pricing-health.v1",
-            "title": "Schema Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "providers"
-        ],
-        "title": "PricingHealthResponse",
-        "type": "object"
-      },
-      "PricingRefreshCredentialSummary": {
-        "properties": {
-          "connection_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Connection Id"
-          },
-          "identity_label": {
-            "title": "Identity Label",
-            "type": "string"
-          },
-          "provider_account_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Account Id"
-          },
-          "provider_project_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Project Id"
-          },
-          "provider_subscription_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Subscription Id"
-          },
-          "scope": {
-            "enum": [
-              "user",
-              "public"
-            ],
-            "title": "Scope",
-            "type": "string"
-          }
-        },
-        "required": [
-          "identity_label",
-          "scope"
-        ],
-        "title": "PricingRefreshCredentialSummary",
-        "type": "object"
-      },
-      "PricingRefreshRunResponse": {
-        "properties": {
-          "completed_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Completed At"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "credential_summary": {
-            "$ref": "#/components/schemas/PricingRefreshCredentialSummary"
-          },
-          "error_code": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Error Code"
-          },
-          "error_message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Error Message"
-          },
-          "force": {
-            "title": "Force",
-            "type": "boolean"
-          },
-          "provider": {
-            "enum": [
-              "aws",
-              "azure",
-              "gcp"
-            ],
-            "title": "Provider",
-            "type": "string"
-          },
-          "refresh_run_id": {
-            "title": "Refresh Run Id",
-            "type": "string"
-          },
-          "result_summary": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Result Summary"
-          },
-          "schema_version": {
-            "default": "pricing-refresh-run.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "sse_url": {
-            "title": "Sse Url",
-            "type": "string"
-          },
-          "started_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Started At"
-          },
-          "status": {
-            "enum": [
-              "running",
-              "succeeded",
-              "failed"
-            ],
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "refresh_run_id",
-          "provider",
-          "status",
-          "credential_summary",
-          "force",
-          "sse_url",
-          "created_at"
-        ],
-        "title": "PricingRefreshRunResponse",
-        "type": "object"
-      },
-      "PricingRefreshStartRequest": {
-        "properties": {
-          "force": {
-            "default": true,
-            "description": "When true, request a fresh provider fetch instead of using cached pricing.",
-            "title": "Force",
-            "type": "boolean"
-          },
-          "pricing_connection_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "User-owned CloudConnection explicitly confirmed for this refresh. Required for AWS/GCP until dedicated pricing-purpose credentials exist.",
-            "title": "Pricing Connection Id"
-          }
-        },
-        "title": "PricingRefreshStartRequest",
-        "type": "object"
-      },
-      "PricingRejectedCandidate": {
-        "properties": {
-          "candidate_id": {
-            "title": "Candidate Id",
-            "type": "string"
-          },
-          "reasons": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Reasons",
-            "type": "array"
-          },
-          "selected_row": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Selected Row"
-          }
-        },
-        "required": [
-          "candidate_id"
-        ],
-        "title": "PricingRejectedCandidate",
-        "type": "object"
-      },
-      "PricingReviewCandidate": {
-        "properties": {
-          "candidate_id": {
-            "title": "Candidate Id",
-            "type": "string"
-          },
-          "currency": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Currency"
-          },
-          "evidence_status": {
-            "title": "Evidence Status",
-            "type": "string"
-          },
-          "field": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Field"
-          },
-          "field_path": {
-            "title": "Field Path",
-            "type": "string"
-          },
-          "selected_row": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Selected Row"
-          },
-          "service": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Service"
-          },
-          "source_label": {
-            "title": "Source Label",
-            "type": "string"
-          },
-          "source_type": {
-            "title": "Source Type",
-            "type": "string"
-          },
-          "unit": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Unit"
-          },
-          "value": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Value"
-          }
-        },
-        "required": [
-          "candidate_id",
-          "source_type",
-          "field_path",
-          "source_label",
-          "evidence_status"
-        ],
-        "title": "PricingReviewCandidate",
-        "type": "object"
-      },
-      "PricingReviewDecisionCreate": {
-        "properties": {
-          "decision": {
-            "enum": [
-              "approve",
-              "select_alternative",
-              "reject",
-              "defer"
-            ],
-            "title": "Decision",
-            "type": "string"
-          },
-          "rationale": {
-            "anyOf": [
-              {
-                "maxLength": 2000,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rationale"
-          },
-          "report_id": {
-            "title": "Report Id",
-            "type": "string"
-          },
-          "selected_candidate_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Selected Candidate Id"
-          }
-        },
-        "required": [
-          "report_id",
-          "decision"
-        ],
-        "title": "PricingReviewDecisionCreate",
-        "type": "object"
-      },
-      "PricingReviewDecisionListResponse": {
-        "properties": {
-          "decisions": {
-            "items": {
-              "$ref": "#/components/schemas/PricingReviewDecisionResponse"
-            },
-            "title": "Decisions",
-            "type": "array"
-          },
-          "schema_version": {
-            "default": "pricing-review-decision-list.v1",
-            "title": "Schema Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "decisions"
-        ],
-        "title": "PricingReviewDecisionListResponse",
-        "type": "object"
-      },
-      "PricingReviewDecisionResponse": {
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "decision": {
-            "enum": [
-              "approve",
-              "select_alternative",
-              "reject",
-              "defer"
-            ],
-            "title": "Decision",
-            "type": "string"
-          },
-          "decision_id": {
-            "title": "Decision Id",
-            "type": "string"
-          },
-          "intent_id": {
-            "title": "Intent Id",
-            "type": "string"
-          },
-          "provider": {
-            "enum": [
-              "aws",
-              "azure",
-              "gcp"
-            ],
-            "title": "Provider",
-            "type": "string"
-          },
-          "rationale": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rationale"
-          },
-          "report_id": {
-            "title": "Report Id",
-            "type": "string"
-          },
-          "schema_version": {
-            "default": "pricing-review-decision.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "selected_candidate_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Selected Candidate Id"
-          }
-        },
-        "required": [
-          "decision_id",
-          "report_id",
-          "provider",
-          "intent_id",
-          "decision",
-          "created_at"
-        ],
-        "title": "PricingReviewDecisionResponse",
-        "type": "object"
-      },
-      "PricingReviewReason": {
-        "properties": {
-          "errors": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Errors",
-            "type": "array"
-          },
-          "intent_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Intent Id"
-          },
-          "missing_keys": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Missing Keys",
-            "type": "array"
-          },
-          "reason": {
-            "title": "Reason",
-            "type": "string"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "status",
-          "reason"
-        ],
-        "title": "PricingReviewReason",
-        "type": "object"
-      },
-      "PricingReviewStateResponse": {
-        "properties": {
-          "providers": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ProviderPricingReviewState"
-            },
-            "title": "Providers",
-            "type": "object"
-          },
-          "schema_version": {
-            "default": "pricing-review-state.v1",
-            "title": "Schema Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "providers"
-        ],
-        "title": "PricingReviewStateResponse",
-        "type": "object"
-      },
-      "PricingTraceResponse": {
-        "properties": {
-          "close_candidates": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Close Candidates",
-            "type": "array"
-          },
-          "formula_ref": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Formula Ref"
-          },
-          "hard_checks": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Hard Checks",
-            "type": "array"
-          },
-          "intent": {
-            "additionalProperties": true,
-            "title": "Intent",
-            "type": "object"
-          },
-          "normalization": {
-            "additionalProperties": true,
-            "title": "Normalization",
-            "type": "object"
-          },
-          "provider": {
-            "enum": [
-              "aws",
-              "azure",
-              "gcp"
-            ],
-            "title": "Provider",
-            "type": "string"
-          },
-          "query_scope": {
-            "additionalProperties": true,
-            "title": "Query Scope",
-            "type": "object"
-          },
-          "rejected_candidates": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Rejected Candidates",
-            "type": "array"
-          },
-          "report_id": {
-            "title": "Report Id",
-            "type": "string"
-          },
-          "sanitization": {
-            "$ref": "#/components/schemas/PricingTraceSanitization"
-          },
-          "schema_version": {
-            "default": "pricing-trace.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "selected_candidate": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Selected Candidate"
-          }
-        },
-        "required": [
-          "report_id",
-          "provider",
-          "intent",
-          "query_scope",
-          "sanitization"
-        ],
-        "title": "PricingTraceResponse",
-        "type": "object"
-      },
-      "PricingTraceSanitization": {
-        "properties": {
-          "bounded": {
-            "title": "Bounded",
-            "type": "boolean"
-          },
-          "omitted_raw_rows": {
-            "title": "Omitted Raw Rows",
-            "type": "integer"
-          },
-          "secret_free": {
-            "title": "Secret Free",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "bounded",
-          "secret_free",
-          "omitted_raw_rows"
-        ],
-        "title": "PricingTraceSanitization",
-        "type": "object"
-      },
       "ProjectAssetExtraction": {
         "additionalProperties": false,
         "description": "Extracted binary assets allowed to cross the Deployer boundary.",
@@ -7116,6 +6480,81 @@
         "title": "ProjectZipExtractionContract",
         "type": "object"
       },
+      "ProviderCleanupEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "cleanup_status": {
+            "enum": [
+              "completed",
+              "failed",
+              "not_run"
+            ],
+            "title": "Cleanup Status",
+            "type": "string"
+          },
+          "discovered_during_cleanup_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discovered During Cleanup Count"
+          },
+          "discovered_resource_kinds": {
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9 /._()-]+$",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Discovered Resource Kinds",
+            "type": "array"
+          },
+          "post_destroy_inventory": {
+            "enum": [
+              "empty",
+              "residual",
+              "inspection_failed",
+              "not_run"
+            ],
+            "title": "Post Destroy Inventory",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "residual_resource_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Residual Resource Count"
+          }
+        },
+        "required": [
+          "provider",
+          "cleanup_status",
+          "post_destroy_inventory"
+        ],
+        "title": "ProviderCleanupEvidence",
+        "type": "object"
+      },
       "ProviderDeploymentReadiness": {
         "properties": {
           "checked_at": {
@@ -7165,6 +6604,18 @@
             ],
             "title": "Connection Id"
           },
+          "graph_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Graph Digest"
+          },
           "provider": {
             "enum": [
               "aws",
@@ -7177,6 +6628,26 @@
           "ready": {
             "title": "Ready",
             "type": "boolean"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/DeploymentRequirementReadiness"
+            },
+            "maxItems": 4096,
+            "title": "Requirements",
+            "type": "array"
+          },
+          "requirements_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirements Digest"
           },
           "status": {
             "enum": [
@@ -7203,263 +6674,6 @@
           "checks"
         ],
         "title": "ProviderDeploymentReadiness",
-        "type": "object"
-      },
-      "ProviderPricingHealth": {
-        "properties": {
-          "actions": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Actions",
-            "type": "array"
-          },
-          "age": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Age"
-          },
-          "calculation_source": {
-            "enum": [
-              "fresh",
-              "stale",
-              "last_known_good",
-              "reviewed_baseline",
-              "fallback_static",
-              "unavailable"
-            ],
-            "title": "Calculation Source",
-            "type": "string"
-          },
-          "can_calculate": {
-            "title": "Can Calculate",
-            "type": "boolean"
-          },
-          "credential_summary": {
-            "$ref": "#/components/schemas/PricingCredentialSummary"
-          },
-          "last_fetched_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Fetched At"
-          },
-          "pricing_freshness": {
-            "enum": [
-              "fresh",
-              "stale",
-              "last_known_good",
-              "unavailable"
-            ],
-            "title": "Pricing Freshness",
-            "type": "string"
-          },
-          "primary_message": {
-            "title": "Primary Message",
-            "type": "string"
-          },
-          "provider": {
-            "enum": [
-              "aws",
-              "azure",
-              "gcp"
-            ],
-            "title": "Provider",
-            "type": "string"
-          },
-          "review_required": {
-            "title": "Review Required",
-            "type": "boolean"
-          },
-          "severity": {
-            "enum": [
-              "success",
-              "warning",
-              "error",
-              "info"
-            ],
-            "title": "Severity",
-            "type": "string"
-          },
-          "source_label": {
-            "title": "Source Label",
-            "type": "string"
-          },
-          "state": {
-            "enum": [
-              "fresh",
-              "stale",
-              "review_required",
-              "missing",
-              "failed"
-            ],
-            "title": "State",
-            "type": "string"
-          }
-        },
-        "required": [
-          "provider",
-          "state",
-          "severity",
-          "review_required",
-          "can_calculate",
-          "calculation_source",
-          "pricing_freshness",
-          "source_label",
-          "credential_summary",
-          "primary_message"
-        ],
-        "title": "ProviderPricingHealth",
-        "type": "object"
-      },
-      "ProviderPricingReviewState": {
-        "properties": {
-          "actions": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Actions",
-            "type": "array"
-          },
-          "age": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Age"
-          },
-          "calculation_source": {
-            "enum": [
-              "fresh",
-              "stale",
-              "last_known_good",
-              "reviewed_baseline",
-              "fallback_static",
-              "unavailable"
-            ],
-            "title": "Calculation Source",
-            "type": "string"
-          },
-          "can_calculate": {
-            "title": "Can Calculate",
-            "type": "boolean"
-          },
-          "is_fresh": {
-            "default": false,
-            "title": "Is Fresh",
-            "type": "boolean"
-          },
-          "last_known_good_updated_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Known Good Updated At"
-          },
-          "missing_keys": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Missing Keys",
-            "type": "array"
-          },
-          "optimizer": {
-            "additionalProperties": true,
-            "title": "Optimizer",
-            "type": "object"
-          },
-          "pricing_freshness": {
-            "enum": [
-              "fresh",
-              "stale",
-              "last_known_good",
-              "unavailable"
-            ],
-            "title": "Pricing Freshness",
-            "type": "string"
-          },
-          "provider": {
-            "enum": [
-              "aws",
-              "azure",
-              "gcp"
-            ],
-            "title": "Provider",
-            "type": "string"
-          },
-          "review_reasons": {
-            "items": {
-              "$ref": "#/components/schemas/PricingReviewReason"
-            },
-            "title": "Review Reasons",
-            "type": "array"
-          },
-          "review_required": {
-            "title": "Review Required",
-            "type": "boolean"
-          },
-          "state": {
-            "enum": [
-              "fresh",
-              "stale",
-              "review_required",
-              "missing",
-              "failed"
-            ],
-            "title": "State",
-            "type": "string"
-          },
-          "status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Status"
-          },
-          "threshold_days": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Threshold Days"
-          }
-        },
-        "required": [
-          "provider",
-          "state",
-          "review_required",
-          "can_calculate",
-          "calculation_source",
-          "pricing_freshness"
-        ],
-        "title": "ProviderPricingReviewState",
         "type": "object"
       },
       "ProviderProfileReference": {
@@ -7494,25 +6708,6 @@
           "provider"
         ],
         "title": "ProviderProfileReference",
-        "type": "object"
-      },
-      "RedeployReadinessResponse": {
-        "description": "Redeployment cooldown status.",
-        "properties": {
-          "ready": {
-            "title": "Ready",
-            "type": "boolean"
-          },
-          "remaining_seconds": {
-            "title": "Remaining Seconds",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "ready",
-          "remaining_seconds"
-        ],
-        "title": "RedeployReadinessResponse",
         "type": "object"
       },
       "ResolvedArchitectureEdgeResponse": {
@@ -8597,6 +7792,56 @@
         "title": "ResolvedTwinArchitectureContractV2",
         "type": "object"
       },
+      "RetainedSharedPrerequisite": {
+        "additionalProperties": false,
+        "properties": {
+          "capability_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._/-]+$",
+            "title": "Capability Id",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "reason": {
+            "const": "persistent_account_prerequisite",
+            "title": "Reason",
+            "type": "string"
+          },
+          "requirement_type": {
+            "enum": [
+              "resource_provider",
+              "api"
+            ],
+            "title": "Requirement Type",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "subscription",
+              "project"
+            ],
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "requirement_type",
+          "capability_id",
+          "scope",
+          "reason"
+        ],
+        "title": "RetainedSharedPrerequisite",
+        "type": "object"
+      },
       "SceneGlbUploadResponse": {
         "description": "Scene GLB upload acknowledgement.",
         "properties": {
@@ -8614,6 +7859,396 @@
           "size_mb"
         ],
         "title": "SceneGlbUploadResponse",
+        "type": "object"
+      },
+      "TelemetryPhaseEvidence": {
+        "additionalProperties": false,
+        "description": "One allowlisted, secret-free successful phase observation.",
+        "properties": {
+          "correlation": {
+            "anyOf": [
+              {
+                "const": "source_sequence",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correlation"
+          },
+          "kind": {
+            "enum": [
+              "message_accepted",
+              "trace_correlated_hot_record",
+              "twinmaker_property_projection",
+              "azure_twin_projection",
+              "gcp_twin_projection"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "phase": {
+            "enum": [
+              1,
+              2,
+              3
+            ],
+            "title": "Phase",
+            "type": "integer"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "record_count": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Count"
+          }
+        },
+        "required": [
+          "phase",
+          "kind",
+          "provider"
+        ],
+        "title": "TelemetryPhaseEvidence",
+        "type": "object"
+      },
+      "TelemetryVerificationEvidence": {
+        "additionalProperties": false,
+        "description": "Authoritative terminal result accepted from the Deployer.",
+        "properties": {
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/TelemetryPhaseEvidence"
+            },
+            "maxItems": 3,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "fail_count": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Fail Count",
+            "type": "integer"
+          },
+          "failed_phase": {
+            "anyOf": [
+              {
+                "enum": [
+                  "Phase 1 - Message Delivery",
+                  "Phase 2 - Pipeline to Hot Storage",
+                  "Phase 3 - Twin Projection",
+                  "Verification runtime"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Phase"
+          },
+          "pass_count": {
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Pass Count",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "telemetry-verification.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "skip_count": {
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Skip Count",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total_time": {
+            "maximum": 900.0,
+            "minimum": 0.0,
+            "title": "Total Time",
+            "type": "number"
+          },
+          "trace_id": {
+            "pattern": "^VERIFY-[0-9A-F]{8}$",
+            "title": "Trace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "trace_id",
+          "status",
+          "pass_count",
+          "fail_count",
+          "skip_count",
+          "total_time",
+          "evidence"
+        ],
+        "title": "TelemetryVerificationEvidence",
+        "type": "object"
+      },
+      "TelemetryVerificationHistoryResponse": {
+        "properties": {
+          "schema_version": {
+            "const": "telemetry-verification-history.v1",
+            "default": "telemetry-verification-history.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "verifications": {
+            "items": {
+              "$ref": "#/components/schemas/TelemetryVerificationRecordResponse"
+            },
+            "title": "Verifications",
+            "type": "array"
+          }
+        },
+        "required": [
+          "verifications"
+        ],
+        "title": "TelemetryVerificationHistoryResponse",
+        "type": "object"
+      },
+      "TelemetryVerificationRecordResponse": {
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "requested_at": {
+            "format": "date-time",
+            "title": "Requested At",
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TelemetryVerificationEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "pass",
+              "fail",
+              "not_run"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "trace_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trace Id"
+          },
+          "twin_id": {
+            "title": "Twin Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "twin_id",
+          "deployment_id",
+          "session_id",
+          "device_id",
+          "status",
+          "trace_id",
+          "result",
+          "error_code",
+          "error_message",
+          "requested_at",
+          "completed_at"
+        ],
+        "title": "TelemetryVerificationRecordResponse",
+        "type": "object"
+      },
+      "TelemetryVerificationStartResponse": {
+        "properties": {
+          "schema_version": {
+            "const": "telemetry-verification-session.v1",
+            "default": "telemetry-verification-session.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "sse_url": {
+            "title": "Sse Url",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "pass",
+              "fail",
+              "not_run"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "status_url": {
+            "title": "Status Url",
+            "type": "string"
+          },
+          "verification_id": {
+            "title": "Verification Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "verification_id",
+          "session_id",
+          "sse_url",
+          "status_url",
+          "status"
+        ],
+        "title": "TelemetryVerificationStartResponse",
+        "type": "object"
+      },
+      "TerraformCleanupEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "destroy_status": {
+            "enum": [
+              "completed",
+              "failed",
+              "dry_run"
+            ],
+            "title": "Destroy Status",
+            "type": "string"
+          },
+          "observed_before_resource_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Before Resource Count"
+          },
+          "post_destroy_inventory": {
+            "enum": [
+              "empty",
+              "residual",
+              "inspection_failed",
+              "not_run"
+            ],
+            "title": "Post Destroy Inventory",
+            "type": "string"
+          },
+          "residual_resource_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Residual Resource Count"
+          }
+        },
+        "required": [
+          "destroy_status",
+          "post_destroy_inventory"
+        ],
+        "title": "TerraformCleanupEvidence",
         "type": "object"
       },
       "TwinArchitectureSelectionResponse": {
@@ -9063,8 +8698,11 @@
         "type": "object"
       },
       "TwinCreate": {
+        "additionalProperties": false,
         "properties": {
           "name": {
+            "maxLength": 120,
+            "minLength": 1,
             "title": "Name",
             "type": "string"
           }
@@ -9073,6 +8711,22 @@
           "name"
         ],
         "title": "TwinCreate",
+        "type": "object"
+      },
+      "TwinDuplicateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "TwinDuplicateRequest",
         "type": "object"
       },
       "TwinExtensionBindingListResponse": {
@@ -9296,10 +8950,13 @@
         "type": "string"
       },
       "TwinUpdate": {
+        "additionalProperties": false,
         "properties": {
           "name": {
             "anyOf": [
               {
+                "maxLength": 120,
+                "minLength": 1,
                 "type": "string"
               },
               {
@@ -9307,16 +8964,6 @@
               }
             ],
             "title": "Name"
-          },
-          "state": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TwinState"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "title": "TwinUpdate",
@@ -9538,34 +9185,6 @@
           }
         },
         "title": "UserPreferencesUpdate",
-        "type": "object"
-      },
-      "ValidationBranchResultResponse": {
-        "description": "Single downstream branch result in dual credential validation.",
-        "properties": {
-          "message": {
-            "title": "Message",
-            "type": "string"
-          },
-          "permissions": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Permissions"
-          },
-          "valid": {
-            "title": "Valid",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "valid",
-          "message"
-        ],
-        "title": "ValidationBranchResultResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -10371,71 +9990,6 @@
         ]
       }
     },
-    "/cloud-access": {
-      "get": {
-        "operationId": "getCloudAccessInventory",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CloudAccessInventoryResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get the current user's secret-free cloud access inventory",
-        "tags": [
-          "cloud-access"
-        ]
-      }
-    },
     "/cloud-connections/": {
       "get": {
         "operationId": "listCloudConnections",
@@ -10606,6 +10160,101 @@
           }
         },
         "summary": "Create a user-scoped cloud connection",
+        "tags": [
+          "cloud-connections"
+        ]
+      }
+    },
+    "/cloud-connections/import": {
+      "post": {
+        "description": "Accepts one AWS credential CSV, Azure Service Principal JSON, or GCP Service Account JSON. The original file is never retained.",
+        "operationId": "importCloudConnection",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_importCloudConnection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudConnectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "413": {
+            "description": "Credential file exceeds 128 KiB"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import one allowlisted provider credential file",
         "tags": [
           "cloud-connections"
         ]
@@ -11070,101 +10719,9 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Validate a stored cloud connection at its purpose-specific boundaries",
+        "summary": "Validate a stored deployment-administrator connection",
         "tags": [
           "cloud-connections"
-        ]
-      }
-    },
-    "/config/validate-dual": {
-      "post": {
-        "description": "**Purpose:** Validate credentials against BOTH Optimizer and Deployer APIs in parallel.\n\n**Why two APIs?** Each service has different permission requirements:\n- **Optimizer:** Checks pricing API access (e.g., AWS Pricing API, GCP Cloud Billing API)\n- **Deployer:** Checks infrastructure permissions (e.g., create Lambda, Terraform apply)\n\n**When to call:** On Step 1 Validate button click to show dual validation status.\n\n**Response fields:**\n- `valid`: Boolean - true only if BOTH APIs pass\n- `optimizer`: {valid, message} - Optimizer-specific result\n- `deployer`: {valid, message, permissions} - Deployer-specific result with missing permissions",
-        "operationId": "validateCredentialsDual",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/InlineValidationRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DualCredentialValidationResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request - The request was malformed or missing required parameters"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Validate against both Optimizer and Deployer APIs",
-        "tags": [
-          "configuration"
         ]
       }
     },
@@ -11332,72 +10889,6 @@
         ]
       }
     },
-    "/dashboard/stats": {
-      "get": {
-        "description": "**Purpose:** Retrieve overview statistics for the dashboard home screen.\n\n**When to call:** When loading the dashboard main page to populate summary cards.\n\n**Response fields:**\n- `deployed_count`: Number of twins currently in DEPLOYED state\n- `draft_count`: Number of twins in DRAFT state\n- `total_twins`: Total active twins (excludes INACTIVE)\n- `estimated_monthly_cost`: USD sum of costs from deployed twins' cheapest paths\n\n**Cost calculation:** Sums layer costs from each deployed twin's optimizer result that match their stored cheapest_path selection.",
-        "operationId": "getDashboardStats",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DashboardStats"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get aggregated dashboard statistics",
-        "tags": [
-          "dashboard"
-        ]
-      }
-    },
     "/health": {
       "get": {
         "description": "Returns API and database connection status.",
@@ -11511,1550 +11002,6 @@
         "summary": "Get the immutable architecture of one owner-scoped calculation run",
         "tags": [
           "architecture-profiles"
-        ]
-      }
-    },
-    "/optimizer/calculate": {
-      "put": {
-        "description": "**Purpose:** Calculate the globally cheapest executable complete path for the validated Six-layer Eventing architecture.\n\n**Prerequisites:** Call `getPricingStatus` first. If pricing is stale, refresh the affected provider before calculating.\n\n**Response includes:**\n- `awsCosts`, `azureCosts`, `gcpCosts`: Per-layer cost breakdowns\n- `cheapestPath`: Selected provider assignment across all eight components\n- `transferPricingContext`: Exact six-route, tier, pool, and catalog evidence\n- `optimizationDiagnostics`: Bounded complete-path solver diagnostics\n\nManagement injects trusted catalog context and rejects route evidence that does not match that context or the selected complete path.",
-        "operationId": "calculateOptimalDistribution",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OptimizerCalculationParams"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "VALIDATION_ERROR",
-                  "field_errors": [
-                    {
-                      "field": "numberOfDevices",
-                      "message": "Must be positive",
-                      "received_value": "0"
-                    }
-                  ],
-                  "fix_suggestion": "Check field_errors for specific issues and correct the values",
-                  "http_status": 422,
-                  "message": "Request validation failed"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Validation Error - Request body failed schema validation"
-          },
-          "503": {
-            "description": "Cannot connect to Optimizer service"
-          }
-        },
-        "summary": "Proxy calculation request to Optimizer",
-        "tags": [
-          "optimizer"
-        ]
-      }
-    },
-    "/optimizer/pricing-health": {
-      "get": {
-        "operationId": "getPricingHealth",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PricingHealthResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "502": {
-            "description": "Optimizer service request failed"
-          },
-          "503": {
-            "description": "Cannot connect to Optimizer service"
-          },
-          "504": {
-            "description": "Optimizer service timed out"
-          }
-        },
-        "summary": "Get dashboard-ready pricing health for all providers",
-        "tags": [
-          "optimizer"
-        ]
-      }
-    },
-    "/optimizer/pricing-refresh/runs/{refresh_run_id}": {
-      "get": {
-        "operationId": "getPricingRefreshRun",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "refresh_run_id",
-            "required": true,
-            "schema": {
-              "title": "Refresh Run Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PricingRefreshRunResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get a typed provider pricing refresh run",
-        "tags": [
-          "optimizer"
-        ]
-      }
-    },
-    "/optimizer/pricing-refresh/runs/{refresh_run_id}/stream": {
-      "get": {
-        "operationId": "streamPricingRefreshRun",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "refresh_run_id",
-            "required": true,
-            "schema": {
-              "title": "Refresh Run Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Stream the current state of a typed provider pricing refresh run",
-        "tags": [
-          "optimizer"
-        ]
-      }
-    },
-    "/optimizer/pricing-refresh/{provider}": {
-      "post": {
-        "operationId": "startPricingRefreshRun",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "provider",
-            "required": true,
-            "schema": {
-              "title": "Provider",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PricingRefreshStartRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PricingRefreshRunResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request - The request was malformed or missing required parameters"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Start a typed provider pricing refresh run",
-        "tags": [
-          "optimizer"
-        ]
-      }
-    },
-    "/optimizer/pricing-review-state": {
-      "get": {
-        "description": "**Purpose:** Expose pricing quality/freshness as typed state for UI and calculation guards.\n\n**When to call:** Before calculation and after pricing refresh.\n\n**Response fields per provider:**\n- `state`: `fresh`, `stale`, `review_required`, `missing`, or `failed`\n- `review_required`: true when user-visible review/action is needed\n- `can_calculate`: true only when an exact published catalog is fresh\n- `calculation_source`: immutable catalog source or `unavailable`\n- `review_reasons`: structured reasons such as missing keys or failed Optimizer status",
-        "operationId": "getPricingReviewState",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PricingReviewStateResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "502": {
-            "description": "Optimizer contract or request failed"
-          },
-          "503": {
-            "description": "Cannot connect to Optimizer service"
-          },
-          "504": {
-            "description": "Optimizer service timed out"
-          }
-        },
-        "summary": "Get typed pricing review state for all providers",
-        "tags": [
-          "optimizer"
-        ]
-      }
-    },
-    "/optimizer/pricing-review/candidate-reports/{report_id}": {
-      "get": {
-        "operationId": "getPricingCandidateReport",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "report_id",
-            "required": true,
-            "schema": {
-              "title": "Report Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PricingCandidateReportResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get one secret-free pricing candidate report",
-        "tags": [
-          "optimizer"
-        ]
-      }
-    },
-    "/optimizer/pricing-review/candidate-reports/{report_id}/trace": {
-      "get": {
-        "operationId": "getPricingCandidateReportTrace",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "report_id",
-            "required": true,
-            "schema": {
-              "title": "Report Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PricingTraceResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get the sanitized pricing intent-to-result trace for one report",
-        "tags": [
-          "optimizer"
-        ]
-      }
-    },
-    "/optimizer/pricing-review/decisions": {
-      "get": {
-        "operationId": "listPricingReviewDecisions",
-        "parameters": [
-          {
-            "description": "Optional provider filter",
-            "in": "query",
-            "name": "provider",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Optional provider filter",
-              "title": "Provider"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PricingReviewDecisionListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request - The request was malformed or missing required parameters"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List user-reviewed pricing candidate decisions",
-        "tags": [
-          "optimizer"
-        ]
-      },
-      "post": {
-        "operationId": "createPricingReviewDecision",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PricingReviewDecisionCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PricingReviewDecisionResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request - The request was malformed or missing required parameters"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Persist a user-reviewed pricing candidate decision",
-        "tags": [
-          "optimizer"
-        ]
-      }
-    },
-    "/optimizer/pricing-review/{provider}/candidate-reports": {
-      "get": {
-        "operationId": "listPricingCandidateReports",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "provider",
-            "required": true,
-            "schema": {
-              "title": "Provider",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Pricing refresh run id",
-            "in": "query",
-            "name": "refresh_run_id",
-            "required": true,
-            "schema": {
-              "description": "Pricing refresh run id",
-              "title": "Refresh Run Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PricingCandidateReportListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request - The request was malformed or missing required parameters"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List secret-free pricing candidate reports for a refresh run",
-        "tags": [
-          "optimizer"
-        ]
-      }
-    },
-    "/optimizer/pricing-status": {
-      "get": {
-        "description": "**Purpose:** Check the exact immutable catalog selected for each provider before calculations.\n\n**When to call:** Before `calculateOptimalDistribution` to decide if `refreshPricing` is needed.\n\n**Response fields per provider:**\n- `age`: Human-readable age (e.g., '3 days')\n- `is_fresh`: Boolean, true only while the catalog is calculation-eligible\n- `active_reference`: Exact provider, region, version, timestamp, and digest identity",
-        "operationId": "getPricingStatus",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "502": {
-            "description": "Optimizer contract or request failed"
-          },
-          "503": {
-            "description": "Cannot connect to Optimizer service"
-          },
-          "504": {
-            "description": "Optimizer service timed out"
-          }
-        },
-        "summary": "Get active pricing catalog status for all providers",
-        "tags": [
-          "optimizer"
-        ]
-      }
-    },
-    "/optimizer/pricing/catalogs/{provider}/{pricing_region}/snapshots/{snapshot_id}": {
-      "get": {
-        "description": "Returns one explicitly identified, size-bounded provider-region snapshot for authenticated diagnostics. Calculations and persistence use references only.",
-        "operationId": "getExactPricingCatalogSnapshot",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "provider",
-            "required": true,
-            "schema": {
-              "title": "Provider",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "pricing_region",
-            "required": true,
-            "schema": {
-              "title": "Pricing Region",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "snapshot_id",
-            "required": true,
-            "schema": {
-              "title": "Snapshot Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request - The request was malformed or missing required parameters"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "description": "Exact pricing catalog does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "502": {
-            "description": "Optimizer contract or request failed"
-          },
-          "503": {
-            "description": "Cannot connect to Optimizer service"
-          },
-          "504": {
-            "description": "Optimizer service timed out"
-          }
-        },
-        "summary": "Inspect one exact immutable pricing catalog snapshot",
-        "tags": [
-          "optimizer"
-        ]
-      }
-    },
-    "/optimizer/refresh-pricing/{provider}": {
-      "post": {
-        "description": "**Purpose:** Fetch fresh pricing data from cloud provider APIs using a bound CloudConnection.\n\n**Prerequisites:**\n- AWS: Requires an AWS CloudConnection bound to the twin\n- Azure: No credentials needed (uses public Retail Prices API)\n- GCP: Requires a GCP CloudConnection bound to the twin\n\n**When to call:** When `getPricingStatus` shows `is_fresh: false`.\n\n**Query parameter:** `twin_id` - The twin whose credentials to use",
-        "operationId": "refreshPricing",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "provider",
-            "required": true,
-            "schema": {
-              "title": "Provider",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Twin ID to get credentials from",
-            "in": "query",
-            "name": "twin_id",
-            "required": true,
-            "schema": {
-              "description": "Twin ID to get credentials from",
-              "title": "Twin Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request - The request was malformed or missing required parameters"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "503": {
-            "description": "Cannot connect to Optimizer service"
-          }
-        },
-        "summary": "Refresh pricing using a bound CloudConnection",
-        "tags": [
-          "optimizer"
-        ]
-      }
-    },
-    "/optimizer/regions-status": {
-      "get": {
-        "description": "**Purpose:** Check freshness of cached region/location data.\n\n**When to call:** Before calculations if region availability matters.\n\n**Response fields per provider:**\n- `age`: Human-readable age\n- `is_fresh`: Boolean (AWS/Azure: 7 days, GCP: 30 days threshold)",
-        "operationId": "getRegionsStatus",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "503": {
-            "description": "Cannot connect to Optimizer service"
-          }
-        },
-        "summary": "Get regions cache status for all providers",
-        "tags": [
-          "optimizer"
-        ]
-      }
-    },
-    "/optimizer/stream/refresh-pricing/{provider}": {
-      "get": {
-        "description": "**Purpose:** Same as `refreshPricing` but with real-time progress via Server-Sent Events.\n\n**Event types:**\n- `log`: Progress message (e.g., 'Loading credentials...', 'Calling AWS API...')\n- `complete`: Final success message\n- `error`: Error occurred, includes error details\n\n**When to use:** When UI needs live progress feedback during 30-60 second refresh operation.",
-        "operationId": "streamRefreshPricing",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "provider",
-            "required": true,
-            "schema": {
-              "title": "Provider",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Twin ID to get credentials from",
-            "in": "query",
-            "name": "twin_id",
-            "required": true,
-            "schema": {
-              "description": "Twin ID to get credentials from",
-              "title": "Twin Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request - The request was malformed or missing required parameters"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "SSE stream for pricing refresh with real-time logs",
-        "tags": [
-          "optimizer"
         ]
       }
     },
@@ -13208,7 +11155,7 @@
     },
     "/twins/": {
       "get": {
-        "description": "Returns all active Digital Twins owned by the authenticated user for dashboard and overview screens.",
+        "description": "Returns all active Digital Twins owned by the authenticated user for selection and lifecycle workflows.",
         "operationId": "listDigitalTwins",
         "parameters": [
           {
@@ -13364,6 +11311,101 @@
           }
         },
         "summary": "Create a new digital twin",
+        "tags": [
+          "twins"
+        ]
+      }
+    },
+    "/twins/import": {
+      "post": {
+        "description": "Validates a versioned credential-free .twin.zip archive and creates a new DRAFT Twin. Cloud Connections, optimizer results, deployments, and history are never imported.",
+        "operationId": "importPortableDigitalTwin",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_importPortableDigitalTwin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwinResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "409": {
+            "description": "Twin with this name already exists"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import a portable Twin definition",
         "tags": [
           "twins"
         ]
@@ -13549,7 +11591,7 @@
         ]
       },
       "put": {
-        "description": "Updates twin name and/or lifecycle state. Transitioning to CONFIGURED runs distributed Optimizer and Deployer validation before persisting the state change.",
+        "description": "Renames an editable draft Twin. Lifecycle state is controlled by explicit operations.",
         "operationId": "updateDigitalTwin",
         "parameters": [
           {
@@ -13967,100 +12009,6 @@
         ]
       }
     },
-    "/twins/{twin_id}/can-redeploy": {
-      "get": {
-        "description": "Checks deployment cooldown readiness, including the GCP Firestore cooldown rule, before a destroyed twin is redeployed.",
-        "operationId": "checkRedeploymentCooldown",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "twin_id",
-            "required": true,
-            "schema": {
-              "title": "Twin Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RedeployReadinessResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "503": {
-            "description": "Deployer API unavailable"
-          }
-        },
-        "summary": "Check if twin can be redeployed",
-        "tags": [
-          "twins"
-        ]
-      }
-    },
     "/twins/{twin_id}/config/": {
       "get": {
         "description": "**Purpose:** Retrieve the secret-free twin configuration, Cloud Connection bindings, and validation status.\n\n**When to call:** When loading the configuration workspace or a configuration review.\n\n**Response fields:**\n- Provider `*_configured`, `*_validated`, region, and Cloud Connection summary fields\n- `debug_mode`: Whether debug logging is enabled\n- `highest_step_reached`: Configuration progress indicator\n- `optimizer_params`: Optional user-authored parameter draft\n- `optimizer_result`: Read-only result from the latest server-owned optimizer run\n\n**Security:** Credential payloads and secret values are never returned.",
@@ -14280,122 +12228,6 @@
         ]
       }
     },
-    "/twins/{twin_id}/config/validate-stored/{provider}": {
-      "post": {
-        "description": "**Purpose:** Same as `validateCredentialsDual` but uses credentials already stored in database.\n\n**When to call:** When user clicks Validate and credentials are masked (already saved previously).\n\n**Path parameter:** provider = 'aws', 'azure', or 'gcp'\n\n**Flow:**\n1. Decrypts stored credentials using user+twin-specific key\n2. Validates against Optimizer API (pricing permissions)\n3. Validates against Deployer API (infrastructure permissions)\n4. Updates `{provider}_validated` flag based on combined result\n\n**Response:**\n- `valid`: true only if BOTH APIs pass\n- `optimizer`: {valid, message}\n- `deployer`: {valid, message, permissions}",
-        "operationId": "validateStoredCredentialsDual",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "twin_id",
-            "required": true,
-            "schema": {
-              "title": "Twin Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "provider",
-            "required": true,
-            "schema": {
-              "title": "Provider",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DualCredentialValidationResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "BAD_REQUEST",
-                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
-                  "http_status": 400,
-                  "message": "Missing required parameter: provider"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request - The request was malformed or missing required parameters"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Validate stored credentials against both APIs",
-        "tags": [
-          "configuration"
-        ]
-      }
-    },
     "/twins/{twin_id}/config/validate/{provider}": {
       "post": {
         "description": "**Purpose:** Validate credentials that were previously saved to the twin configuration.\n\n**When to call:** When user clicks Validate button and credentials are already saved (masked in UI).\n\n**Path parameter:** provider = 'aws', 'azure', or 'gcp'\n\n**Flow:**\n1. Decrypts stored credentials using user+twin-specific key\n2. Forwards to Deployer's `/permissions/verify/{provider}` endpoint\n3. Updates `{provider}_validated` flag in database\n4. Returns validation result (credentials never exposed to client)\n\n**Response fields:**\n- `valid`: Boolean - whether credentials can access required cloud resources\n- `message`: Human-readable validation result\n- `permissions`: List of missing permissions (if any)",
@@ -14512,9 +12344,116 @@
         ]
       }
     },
+    "/twins/{twin_id}/configure": {
+      "post": {
+        "description": "Runs the distributed configuration validation and transitions an editable draft Twin to CONFIGURED. Deployment and destroy states cannot be set by clients.",
+        "operationId": "configureDigitalTwin",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwinResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate and configure a draft Twin",
+        "tags": [
+          "twins"
+        ]
+      }
+    },
     "/twins/{twin_id}/deploy": {
       "post": {
-        "description": "Starts deployment for a configured, destroyed, or error-state twin and returns the SSE session contract for real-time deployment logs.",
+        "description": "Starts the first deployment for a configured Twin (or retries a pre-deployment error) and returns the SSE session contract for real-time deployment logs.",
         "operationId": "deployDigitalTwin",
         "parameters": [
           {
@@ -14524,6 +12463,24 @@
             "schema": {
               "title": "Twin Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 8,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
             }
           },
           {
@@ -15657,6 +13614,129 @@
         ]
       }
     },
+    "/twins/{twin_id}/deployment-preparation": {
+      "post": {
+        "description": "Applies only the reviewed Azure resource-provider and GCP API actions, records explicit manual confirmations, and reruns non-mutating preflight.",
+        "operationId": "prepareDigitalTwinDeploymentAccount",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentPreparationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentPreparationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "502": {
+            "description": "Deployer account preparation failed"
+          },
+          "503": {
+            "description": "Deployer unavailable"
+          }
+        },
+        "summary": "Confirm and apply graph-derived account preparation",
+        "tags": [
+          "twins"
+        ]
+      }
+    },
     "/twins/{twin_id}/deployment-readiness": {
       "get": {
         "description": "Returns owner-scoped cached provider readiness for the currently selected architecture. This read endpoint never contacts a cloud provider.",
@@ -15960,6 +14040,24 @@
           },
           {
             "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 8,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
             "name": "authorization",
             "required": false,
             "schema": {
@@ -16054,9 +14152,129 @@
         ]
       }
     },
+    "/twins/{twin_id}/duplicate": {
+      "post": {
+        "description": "Copies authored Twin inputs and the optional scene under a required new name. Same-owner Cloud Connection selections are retained, while validation evidence, optimizer results, operations, and deployment history are reset.",
+        "operationId": "duplicateDigitalTwin",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwinDuplicateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwinResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "BAD_REQUEST",
+                  "fix_suggestion": "Include 'provider' parameter with value 'aws', 'azure', or 'gcp'",
+                  "http_status": 400,
+                  "message": "Missing required parameter: provider"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request - The request was malformed or missing required parameters"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "409": {
+            "description": "Twin with this name already exists"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Duplicate a Twin as a new draft",
+        "tags": [
+          "twins"
+        ]
+      }
+    },
     "/twins/{twin_id}/export": {
       "get": {
-        "description": "Downloads a ZIP archive containing the twin configuration and generated deployer inputs with credentials redacted.",
+        "description": "Downloads a strict .twin.zip archive containing only portable authored inputs and the optional scene. Credentials, Cloud Connection IDs, derived optimizer results, operations, and deployment history are excluded.",
         "operationId": "exportTwinConfiguration",
         "parameters": [
           {
@@ -16138,7 +14356,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Export redacted twin configuration",
+        "summary": "Export a portable Twin definition",
         "tags": [
           "twins"
         ]
@@ -17800,6 +16018,107 @@
       }
     },
     "/twins/{twin_id}/verify/dataflow": {
+      "get": {
+        "description": "Returns bounded, newest-first Six-layer telemetry evidence.",
+        "operationId": "listDataFlowVerifications",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 25,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryVerificationHistoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List persisted telemetry verifications",
+        "tags": [
+          "twins"
+        ]
+      },
       "post": {
         "description": "Starts end-to-end dataflow verification for a deployed twin and returns the SSE session contract.",
         "operationId": "verifyDataFlow",
@@ -17846,7 +16165,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryVerificationStartResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -17899,6 +16220,9 @@
             },
             "description": "Not Found - The requested resource does not exist"
           },
+          "409": {
+            "description": "Telemetry verification already in progress"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -17914,6 +16238,106 @@
           }
         },
         "summary": "Verify deployed data flow",
+        "tags": [
+          "twins"
+        ]
+      }
+    },
+    "/twins/{twin_id}/verify/dataflow/{verification_id}": {
+      "get": {
+        "description": "Returns one authoritative, trace-correlated telemetry result.",
+        "operationId": "getDataFlowVerification",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "verification_id",
+            "required": true,
+            "schema": {
+              "title": "Verification Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryVerificationRecordResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get persisted telemetry verification",
         "tags": [
           "twins"
         ]
