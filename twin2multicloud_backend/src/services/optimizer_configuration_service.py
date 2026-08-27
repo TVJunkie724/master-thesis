@@ -17,6 +17,7 @@ from src.services.optimizer_config_projection import (
     to_json,
 )
 from src.services.service_errors import EntityNotFoundError
+from src.services.twin_immutability import require_mutable_twin_definition
 
 
 class OptimizerConfigurationService:
@@ -48,6 +49,7 @@ class OptimizerConfigurationService:
     ) -> OptimizerConfigResponse:
         """Persist calculation parameters without running a calculation."""
         twin = self._require_twin(twin_id, user_id)
+        require_mutable_twin_definition(twin)
         config = self._ensure_config(twin_id, twin, commit=False)
 
         if update.params:

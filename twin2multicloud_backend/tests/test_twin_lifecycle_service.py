@@ -10,7 +10,11 @@ from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
 from src.services.errors import InvalidTwinStateTransition, OperationAlreadyInProgress
-from src.services.service_errors import ConflictError, EntityNotFoundError, ValidationError
+from src.services.service_errors import (
+    ConflictError,
+    EntityNotFoundError,
+    ValidationError,
+)
 from src.services.twin_lifecycle_service import TwinLifecycleService, TwinReadService
 
 
@@ -61,12 +65,12 @@ def test_rename_blocks_deployment_owned_states(state):
     with pytest.raises(InvalidTwinStateTransition) as exc_info:
         TwinLifecycleService().rename(twin, "Renamed Twin")
 
-    assert exc_info.value.message == f"Cannot rename twin in '{state.value}' state"
+    assert "immutable" in exc_info.value.message
     assert twin.name == "Factory Twin"
 
 
-@pytest.mark.parametrize("state", [TwinState.CONFIGURED, TwinState.DESTROYED, TwinState.ERROR])
-def test_start_deploy_allows_configured_destroyed_and_error(state):
+@pytest.mark.parametrize("state", [TwinState.CONFIGURED, TwinState.ERROR])
+def test_start_deploy_allows_configured_and_pre_deployment_error(state):
     twin = _memory_twin(state)
     twin.last_error = "old error"
 
@@ -84,7 +88,16 @@ def test_regress_to_draft_after_config_change_marks_twin_draft():
     assert twin.state == TwinState.DRAFT
 
 
-@pytest.mark.parametrize("state", [TwinState.DRAFT, TwinState.DEPLOYED, TwinState.DESTROYING, TwinState.INACTIVE])
+@pytest.mark.parametrize(
+    "state",
+    [
+        TwinState.DRAFT,
+        TwinState.DEPLOYED,
+        TwinState.DESTROYING,
+        TwinState.DESTROYED,
+        TwinState.INACTIVE,
+    ],
+)
 def test_start_deploy_rejects_invalid_states(state):
     twin = _memory_twin(state)
 
@@ -92,7 +105,7 @@ def test_start_deploy_rejects_invalid_states(state):
         TwinLifecycleService().start_deploy(twin)
 
     assert exc_info.value.message == (
-        f"Cannot deploy twin in '{state.value}' state. Must be configured, destroyed, or error."
+        f"Cannot deploy twin in '{state.value}' state. Must be configured or a pre-deployment error."
     )
     assert twin.state == state
 
@@ -239,7 +252,7 @@ def test_create_twin_reuses_inactive_name(db_session):
 
 
 @pytest.mark.asyncio
-async def test_update_twin_renames_and_sets_state(db_session):
+async def test_update_twin_renames_and_configures_through_validated_transition(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, "Original")
 
@@ -247,12 +260,12 @@ async def test_update_twin_renames_and_sets_state(db_session):
         twin_id=twin.id,
         user_id=user.id,
         name="Renamed",
-        state=TwinState.ERROR,
+        state=TwinState.CONFIGURED,
         configured_validator=_noop_configured_validator,
     )
 
     assert result.name == "Renamed"
-    assert result.state == TwinState.ERROR
+    assert result.state == TwinState.CONFIGURED
 
 
 @pytest.mark.asyncio
@@ -260,7 +273,7 @@ async def test_update_twin_blocks_rename_for_deployed_twin(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, "Original", TwinState.DEPLOYED)
 
-    with pytest.raises(ValidationError, match="Cannot rename twin"):
+    with pytest.raises(ValidationError, match="immutable"):
         await _lifecycle(db_session).update_twin(
             twin_id=twin.id,
             user_id=user.id,
@@ -268,6 +281,14 @@ async def test_update_twin_blocks_rename_for_deployed_twin(db_session):
             state=None,
             configured_validator=_noop_configured_validator,
         )
+
+
+def test_previously_deployed_error_cannot_be_deployed_again():
+    twin = _memory_twin(TwinState.ERROR)
+    twin.deployed_at = datetime.now(timezone.utc)
+
+    with pytest.raises(InvalidTwinStateTransition, match="cannot be deployed again"):
+        TwinLifecycleService().start_deploy(twin)
 
 
 @pytest.mark.asyncio

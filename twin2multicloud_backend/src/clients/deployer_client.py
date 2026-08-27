@@ -94,21 +94,6 @@ class DeployerClient(ExternalServiceClient):
             timeout=30.0,
         )
 
-    async def check_cooldown(
-        self,
-        destroyed_at: datetime,
-        uses_gcp_firestore: bool,
-    ) -> dict[str, Any]:
-        return await self._request_json(
-            "GET",
-            "/infrastructure/cooldown-check",
-            params={
-                "destroyed_at": f"{destroyed_at.isoformat()}Z",
-                "uses_gcp_firestore": str(uses_gcp_firestore).lower(),
-            },
-            timeout=10.0,
-        )
-
     async def rotate_gcp_grafana_viewer_credential(
         self,
         project_name: str,

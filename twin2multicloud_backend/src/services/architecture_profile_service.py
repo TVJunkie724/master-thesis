@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import re
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError
@@ -43,7 +43,7 @@ from src.services.architecture_contract_service import (
     canonical_json,
 )
 from src.services.architecture_errors import architecture_error
-
+from src.services.twin_immutability import is_twin_definition_immutable
 
 DEFINITIONS_ROOT = (
     Path(__file__).resolve().parents[1]
@@ -62,11 +62,6 @@ RUNTIME_SELECTABLE_PROFILE_REFS: frozenset[tuple[str, str]] = frozenset(
 MAX_ACTIVE_PROFILE_VERSIONS = 32
 PROFILE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$")
 PROFILE_VERSION_PATTERN = re.compile(r"^[1-9][0-9]*$")
-MUTATION_BLOCKED_STATES = {
-    TwinState.DEPLOYED,
-    TwinState.DEPLOYING,
-    TwinState.DESTROYING,
-}
 MUTATION_REGRESS_STATES = {
     TwinState.CONFIGURED,
     TwinState.ERROR,
@@ -340,7 +335,7 @@ class ArchitectureProfileService:
                 "ARCH_SELECTION_FORBIDDEN",
                 "The architecture selection cannot be changed.",
             )
-        if twin.state in MUTATION_BLOCKED_STATES:
+        if is_twin_definition_immutable(twin):
             self._audit_rejection(
                 selection,
                 code="ARCH_SELECTION_FORBIDDEN",
@@ -348,7 +343,7 @@ class ArchitectureProfileService:
             )
             raise architecture_error(
                 "ARCH_SELECTION_FORBIDDEN",
-                "The architecture selection cannot change during a deployment.",
+                "A deployed Twin's architecture is immutable; duplicate the Twin to change it.",
             )
         if selection.revision != expected_revision:
             self._audit_rejection(

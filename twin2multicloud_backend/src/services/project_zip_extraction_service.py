@@ -14,10 +14,10 @@ from src.clients.deployer_client import DeployerClient
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.project_zip_extraction import ProjectZipExtractionContract
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
-from src.services.secret_redaction import redact_secret_like_text
 from src.services.scene_glb_service import SceneGlbService
+from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import EntityNotFoundError, ValidationError
-
+from src.services.twin_immutability import require_mutable_twin_definition
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,7 @@ class ProjectZipExtractionService:
         twin = self.twin_repository.get_for_user(twin_id, user_id)
         if not twin:
             raise EntityNotFoundError("Twin not found")
+        require_mutable_twin_definition(twin)
         if len(zip_content) > MAX_PROJECT_ZIP_SIZE_BYTES:
             raise ValidationError(
                 "File too large. Maximum allowed size is 100MB, "

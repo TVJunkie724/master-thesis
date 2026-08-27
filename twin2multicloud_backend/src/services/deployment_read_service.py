@@ -9,13 +9,12 @@ from src.clients.deployer_client import DeployerClient
 from src.models.twin import DigitalTwin, TwinState
 from src.repositories.deployment_repository import DeploymentRepository
 from src.repositories.twin_repository import TwinRepository
-from src.services.provider_contract import is_gcp_provider
-from src.services.service_errors import EntityNotFoundError
 from src.services.deployment_operation_read_service import (
     build_deployment_history_response,
     build_deployment_outputs_response,
     build_deployment_status_response,
 )
+from src.services.service_errors import EntityNotFoundError
 
 ActiveSessionProvider = Callable[[str], Awaitable[list[Any]]]
 
@@ -32,19 +31,6 @@ class DeploymentReadService:
         self.twin_repository = twin_repository
         self.deployment_repository = deployment_repository
         self.deployer_client = deployer_client or DeployerClient()
-
-    async def can_redeploy(self, twin_id: str, user_id: str) -> dict[str, Any]:
-        """Return redeploy readiness for a twin."""
-        twin = self._require_twin(twin_id, user_id)
-        uses_gcp_firestore = self._uses_gcp_firestore(twin)
-
-        if not twin.destroyed_at or not uses_gcp_firestore:
-            return {"ready": True, "remaining_seconds": 0}
-
-        return await self.deployer_client.check_cooldown(
-            destroyed_at=twin.destroyed_at,
-            uses_gcp_firestore=uses_gcp_firestore,
-        )
 
     async def get_status(
         self,
@@ -116,11 +102,3 @@ class DeploymentReadService:
         if not twin:
             raise EntityNotFoundError("Twin not found")
         return twin
-
-    @staticmethod
-    def _uses_gcp_firestore(twin: DigitalTwin) -> bool:
-        from src.services.architecture_projection_service import (
-            provider_for_component,
-        )
-
-        return is_gcp_provider(provider_for_component(twin, "component.hot-storage"))

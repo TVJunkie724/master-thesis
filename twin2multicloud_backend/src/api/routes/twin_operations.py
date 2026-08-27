@@ -43,7 +43,6 @@ from src.schemas.deployment_readiness import (
 )
 from src.schemas.management_contracts import (
     OperationSessionResponse,
-    RedeployReadinessResponse,
 )
 from src.services.architecture_projection_service import required_providers
 from src.services.deployment_access_service import DeploymentAccessService
@@ -199,39 +198,13 @@ async def rotate_deployment_access_credential(
         _raise_service_http_error(exc)
 
 
-@router.get(
-    "/{twin_id}/can-redeploy",
-    response_model=RedeployReadinessResponse,
-    operation_id="checkRedeploymentCooldown",
-    summary="Check if twin can be redeployed",
-    description=(
-        "Checks deployment cooldown readiness, including the GCP Firestore cooldown rule, "
-        "before a destroyed twin is redeployed."
-    ),
-    responses={
-        401: ERROR_RESPONSES[401],
-        404: ERROR_RESPONSES[404],
-        503: {"description": "Deployer API unavailable"},
-    },
-)
-async def can_redeploy(
-    twin_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    try:
-        return await _deployment_orchestrator(db).can_redeploy(twin_id, current_user.id)
-    except (EntityNotFoundError, DownstreamServiceError) as exc:
-        _raise_service_http_error(exc)
-
-
 @router.post(
     "/{twin_id}/deploy",
     response_model=OperationSessionResponse,
     operation_id="deployDigitalTwin",
     summary="Deploy twin infrastructure",
     description=(
-        "Starts deployment for a configured, destroyed, or error-state twin and returns the SSE "
+        "Starts the first deployment for a configured Twin (or retries a pre-deployment error) and returns the SSE "
         "session contract for real-time deployment logs."
     ),
     responses={

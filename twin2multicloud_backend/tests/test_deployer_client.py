@@ -1,6 +1,5 @@
 import io
 import zipfile
-from datetime import datetime, timezone
 
 import httpx
 import pytest
@@ -231,27 +230,6 @@ async def test_validate_config_file_forwards_trusted_context_params():
         "architecture_profile_id=six-layer-eventing&"
         "architecture_profile_version=2&layer_4_provider=azure&"
         "layer_5_provider=gcp&provider=gcp"
-    )
-
-
-@pytest.mark.asyncio
-async def test_check_cooldown_sends_expected_query_params():
-    seen = {}
-    destroyed_at = datetime(2026, 4, 26, 10, 15, tzinfo=timezone.utc)
-
-    async def handler(request: httpx.Request) -> httpx.Response:
-        seen["url"] = str(request.url)
-        return httpx.Response(200, json={"ready": False, "remaining_seconds": 120})
-
-    response = await _client_with_handler(handler).check_cooldown(
-        destroyed_at,
-        uses_gcp_firestore=True,
-    )
-
-    assert response == {"ready": False, "remaining_seconds": 120}
-    assert seen["url"] == (
-        "http://deployer.test/infrastructure/cooldown-check?"
-        "destroyed_at=2026-04-26T10%3A15%3A00%2B00%3A00Z&uses_gcp_firestore=true"
     )
 
 

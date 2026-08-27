@@ -13,9 +13,14 @@ from src.models.architecture_profile import ArchitectureAuditEvent
 from src.models.twin import DigitalTwin, TwinState
 from src.repositories.twin_repository import TwinRepository
 from src.security.request_context import current_request_id
-from src.services.errors import InvalidTwinStateTransition, OperationAlreadyInProgress
 from src.services.architecture_profile_service import ArchitectureProfileService
-from src.services.service_errors import ConflictError, EntityNotFoundError, ValidationError
+from src.services.errors import InvalidTwinStateTransition, OperationAlreadyInProgress
+from src.services.service_errors import (
+    ConflictError,
+    EntityNotFoundError,
+    ValidationError,
+)
+from src.services.twin_immutability import require_mutable_twin_definition
 
 ConfiguredTransitionValidator = Callable[[DigitalTwin, Session], Awaitable[None]]
 
@@ -41,9 +46,8 @@ class TwinReadService:
 class TwinLifecycleService:
     """Write-side twin lifecycle workflows and pure transition helpers."""
 
-    BLOCKED_RENAME_STATES = {TwinState.DEPLOYED, TwinState.DEPLOYING, TwinState.DESTROYING}
-    DEPLOY_ALLOWED_STATES = {TwinState.CONFIGURED, TwinState.DESTROYED, TwinState.ERROR}
-    DESTROY_ALLOWED_STATES = {TwinState.DEPLOYED, TwinState.ERROR}
+    DEPLOY_ALLOWED_STATES = frozenset({TwinState.CONFIGURED, TwinState.ERROR})
+    DESTROY_ALLOWED_STATES = frozenset({TwinState.DEPLOYED, TwinState.ERROR})
 
     def __init__(
         self,
@@ -111,11 +115,14 @@ class TwinLifecycleService:
             self._validate_rename(twin, user_id, name)
             twin.name = name
 
-        if state is not None and state == TwinState.CONFIGURED:
-            await configured_validator(twin, self.db)
-
         if state is not None:
-            twin.state = state
+            if state != TwinState.CONFIGURED:
+                raise ValidationError(
+                    "Twin state is controlled by configure, deploy, and destroy operations."
+                )
+            require_mutable_twin_definition(twin)
+            await configured_validator(twin, self.db)
+            twin.state = TwinState.CONFIGURED
 
         self.db.commit()
         self.twin_repository.refresh(twin)
@@ -125,6 +132,14 @@ class TwinLifecycleService:
         """Soft-delete a twin and clean up its uploaded scene asset if present."""
         self._require_dependencies()
         twin = self._require_twin(twin_id, user_id)
+        if twin.state in {
+            TwinState.DEPLOYING,
+            TwinState.DEPLOYED,
+            TwinState.DESTROYING,
+        } or (twin.deployed_at is not None and twin.state != TwinState.DESTROYED):
+            raise ValidationError(
+                "Destroy deployed infrastructure successfully before deleting the Twin record."
+            )
 
         glb_path = Path(settings.UPLOAD_DIR) / twin_id / "scene.glb"
         glb_path.unlink(missing_ok=True)
@@ -141,8 +156,10 @@ class TwinLifecycleService:
         """Pure state helper for renaming already-loaded twins."""
         if new_name == twin.name:
             return twin
-        if twin.state in self.BLOCKED_RENAME_STATES:
-            raise InvalidTwinStateTransition(f"Cannot rename twin in '{twin.state.value}' state")
+        try:
+            require_mutable_twin_definition(twin)
+        except ValidationError as exc:
+            raise InvalidTwinStateTransition(str(exc)) from exc
         twin.name = new_name
         return twin
 
@@ -164,7 +181,11 @@ class TwinLifecycleService:
             raise OperationAlreadyInProgress("Deployment already in progress")
         if twin.state not in self.DEPLOY_ALLOWED_STATES:
             raise InvalidTwinStateTransition(
-                f"Cannot deploy twin in '{twin.state.value}' state. Must be configured, destroyed, or error."
+                f"Cannot deploy twin in '{twin.state.value}' state. Must be configured or a pre-deployment error."
+            )
+        if twin.deployed_at is not None:
+            raise InvalidTwinStateTransition(
+                "A previously deployed Twin cannot be deployed again; duplicate it under a new name."
             )
         twin.state = TwinState.DEPLOYING
         twin.last_error = None
@@ -257,8 +278,7 @@ class TwinLifecycleService:
         return twin
 
     def _validate_rename(self, twin: DigitalTwin, user_id: str, name: str) -> None:
-        if twin.state in self.BLOCKED_RENAME_STATES:
-            raise ValidationError(f"Cannot rename twin in '{twin.state.value}' state")
+        require_mutable_twin_definition(twin)
 
         existing = self.twin_repository.find_active_by_name(
             user_id=user_id,

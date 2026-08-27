@@ -29,13 +29,6 @@ class OperationSessionResponse(BaseModel):
     sse_url: str
 
 
-class RedeployReadinessResponse(BaseModel):
-    """Redeployment cooldown status."""
-
-    ready: bool
-    remaining_seconds: int
-
-
 class ActiveDeploymentSessionResponse(BaseModel):
     """Reconnect metadata for an active deployment stream."""
 

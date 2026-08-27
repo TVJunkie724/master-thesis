@@ -8,7 +8,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from src.models.deployer_config import DeployerConfiguration
-from src.models.twin import TwinState
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.deployer_config import (
     DeployerConfigReadModelResponse,
@@ -19,16 +18,6 @@ from src.services.service_errors import EntityNotFoundError, ValidationError
 from src.services.wizard_configuration_service import WizardConfigurationService
 
 
-BLOCKED_DEPLOYER_CONFIG_STATES = {
-    TwinState.DEPLOYED,
-    TwinState.DEPLOYING,
-    TwinState.DESTROYING,
-}
-REGRESS_DEPLOYER_CONFIG_STATES = {
-    TwinState.CONFIGURED,
-    TwinState.ERROR,
-    TwinState.DESTROYED,
-}
 class DeployerConfigurationService:
     """Owns Step-3 deployer configuration persistence and response shaping."""
 

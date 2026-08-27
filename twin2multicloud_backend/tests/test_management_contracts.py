@@ -40,10 +40,6 @@ def test_management_json_contracts_have_response_models():
         ("/auth/providers", "get"): "#/components/schemas/AuthProvidersResponse",
         ("/health", "get"): "#/components/schemas/HealthResponse",
         (
-            "/twins/{twin_id}/can-redeploy",
-            "get",
-        ): "#/components/schemas/RedeployReadinessResponse",
-        (
             "/twins/{twin_id}/deployment-access",
             "get",
         ): "#/components/schemas/DeploymentAccessSnapshot",
@@ -129,7 +125,7 @@ def test_twin_routes_keep_openapi_summaries_and_descriptions():
         ("/twins/{twin_id}", "get"),
         ("/twins/{twin_id}", "put"),
         ("/twins/{twin_id}", "delete"),
-        ("/twins/{twin_id}/can-redeploy", "get"),
+        ("/twins/{twin_id}/configure", "post"),
         ("/twins/{twin_id}/deploy", "post"),
         ("/twins/{twin_id}/destroy", "post"),
         ("/twins/{twin_id}/deployment-readiness", "get"),
@@ -199,12 +195,13 @@ def test_downstream_client_contract_surface_is_explicit():
         "verify_permissions",
     }
     assert _public_client_methods(DeployerClient) == {
-        "check_cooldown",
         "deploy_stream",
         "destroy_stream",
         "download_simulator",
         "extract_project_zip",
         "get_provider_capabilities",
+        "inspect_deployment_requirements",
+        "prepare_deployment_account",
         "rotate_gcp_grafana_viewer_credential",
         "stage_operation_package",
         "start_log_trace",

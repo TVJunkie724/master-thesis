@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
 import hashlib
 import hmac
 import json
-from math import isfinite
 import re
-from typing import Any
 import uuid
+from collections.abc import Mapping
+from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
+from math import isfinite
+from typing import Any
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -23,6 +23,9 @@ from src.models.user_function_extension import TwinExtensionBinding
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.optimizer_calculation import OptimizerCalculationParams
 from src.schemas.pricing_catalog import PricingCatalogContext
+from src.security.request_context import current_request_id
+from src.services.architecture_errors import ArchitectureDomainError, architecture_error
+from src.services.architecture_profile_service import ArchitectureProfileService
 from src.services.aws_twinmaker_pricing_context_service import (
     OPTIMIZER_CONTEXT_COMPARABLE_FIELDS,
     AwsTwinMakerPricingContextService,
@@ -37,19 +40,17 @@ from src.services.errors import (
     PricingCatalogUnavailable,
     TwinNotFound,
 )
-from src.services.six_layer_cost_ledger_service import (
-    validate_six_layer_cost_ledger,
+from src.services.optimizer_transfer_pricing_contract import (
+    EXPECTED_EDGES,
+    ValidatedOptimizerTransferPricing,
+    validate_optimizer_transfer_pricing_result,
 )
 from src.services.pricing_catalog_context_service import (
     PricingCatalogContextService,
     parse_pricing_catalog_context,
     pricing_catalog_contexts_match,
 )
-from src.services.optimizer_transfer_pricing_contract import (
-    EXPECTED_EDGES,
-    ValidatedOptimizerTransferPricing,
-    validate_optimizer_transfer_pricing_result,
-)
+from src.services.resolved_architecture_service import ResolvedArchitectureService
 from src.services.resolved_deployment_specification_service import (
     READY,
     ResolvedDeploymentSpecificationError,
@@ -58,14 +59,13 @@ from src.services.resolved_deployment_specification_service import (
     validate_resolved_deployment_specification,
 )
 from src.services.secret_redaction import SECRET_FIELD_NAMES, redact_secret_like_text
-from src.services.resolved_architecture_service import ResolvedArchitectureService
-from src.services.architecture_errors import ArchitectureDomainError, architecture_error
-from src.services.architecture_profile_service import ArchitectureProfileService
+from src.services.six_layer_cost_ledger_service import (
+    validate_six_layer_cost_ledger,
+)
+from src.services.twin_immutability import is_twin_definition_immutable
 from src.services.user_function_extension_service import (
     runtime as extension_contract,
 )
-from src.security.request_context import current_request_id
-
 
 SUCCESS = "succeeded"
 FAILED = "failed"
@@ -136,6 +136,11 @@ class CostCalculationRunService:
         twin = self.twin_repository.get_with_configs_for_user(twin_id, user_id)
         if not twin:
             raise TwinNotFound("Twin not found")
+        if is_twin_definition_immutable(twin):
+            raise architecture_error(
+                "ARCH_SELECTION_FORBIDDEN",
+                "A deployed Twin is immutable; duplicate it before running another optimizer calculation.",
+            )
 
         if not self.architecture_resolution_enabled:
             raise architecture_error(
@@ -817,6 +822,14 @@ class CostCalculationRunService:
         user_id: str,
         run_id: str,
     ) -> CostCalculationRun:
+        twin = self.twin_repository.get_with_configs_for_user(twin_id, user_id)
+        if not twin:
+            raise TwinNotFound("Twin not found")
+        if is_twin_definition_immutable(twin):
+            raise architecture_error(
+                "ARCH_SELECTION_FORBIDDEN",
+                "A deployed Twin is immutable; duplicate it before selecting another architecture.",
+            )
         run = self.get_run(twin_id, user_id, run_id)
         if run.status not in SELECTABLE_STATUSES:
             raise CostCalculationRunSelectionError(

@@ -16,17 +16,6 @@ from src.services.deployment_read_service import DeploymentReadService
 from src.services.service_errors import EntityNotFoundError
 
 
-class FakeDeployerClient:
-    """Test double for cooldown checks without network calls."""
-
-    def __init__(self):
-        self.calls = []
-
-    async def check_cooldown(self, destroyed_at, uses_gcp_firestore):
-        self.calls.append((destroyed_at, uses_gcp_firestore))
-        return {"ready": False, "remaining_seconds": 123}
-
-
 def _create_user(db, email: str = "reader@example.test") -> User:
     user = User(email=email, name="Reader", auth_provider="google")
     db.add(user)
@@ -49,34 +38,6 @@ def _service(db, deployer_client=None) -> DeploymentReadService:
         deployment_repository=DeploymentRepository(db),
         deployer_client=deployer_client,
     )
-
-
-@pytest.mark.asyncio
-async def test_can_redeploy_skips_deployer_for_non_gcp_twin(db_session):
-    user = _create_user(db_session)
-    twin = _create_twin(db_session, user)
-    fake_client = FakeDeployerClient()
-
-    result = await _service(db_session, fake_client).can_redeploy(twin.id, user.id)
-
-    assert result == {"ready": True, "remaining_seconds": 0}
-    assert fake_client.calls == []
-
-
-@pytest.mark.asyncio
-async def test_can_redeploy_without_selected_architecture_skips_gcp_cooldown(
-    db_session,
-):
-    user = _create_user(db_session)
-    twin = _create_twin(db_session, user, state=TwinState.DESTROYED)
-    twin.destroyed_at = datetime.utcnow() - timedelta(minutes=1)
-    db_session.commit()
-    fake_client = FakeDeployerClient()
-
-    result = await _service(db_session, fake_client).can_redeploy(twin.id, user.id)
-
-    assert result == {"ready": True, "remaining_seconds": 0}
-    assert fake_client.calls == []
 
 
 @pytest.mark.asyncio

@@ -6,41 +6,40 @@ This module provides REST API endpoints for infrastructure operations.
 """
 
 import asyncio
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
+
 from fastapi import APIRouter, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from src.api.dependencies import validate_provider, check_template_protection
+
+import src.providers.deployer as core_deployer
+from logger import logger
+from src.api.dependencies import check_template_protection, validate_provider
 from src.api.models.deployment import (
-    DeploymentOperation,
     DeploymentAccessCredentialResult,
+    DeploymentOperation,
     DeploymentRequest,
     DeploymentResult,
     DeploymentStreamEvent,
     DestroyResult,
 )
-from src.deployment_access import (
-    GcpViewerRotationError,
-    project_deployment_access_evidence,
-    rotate_gcp_grafana_viewer,
-)
+from src.api.operation_context import operation_project_path
+from src.core.config_loader import ProjectConfigLoader
 from src.core.deployment_errors import (
     DeploymentBoundaryError,
     DeploymentErrorCode,
     client_error_payload,
 )
+from src.core.factory import create_context
 from src.core.observability import OperationContext, operation_step
 from src.core.project_storage import get_project_storage
-from src.core.config_loader import ProjectConfigLoader
-from src.api.operation_context import operation_project_path
-from src.validation.directory_validator import validate_project_directory
+from src.deployment_access import (
+    GcpViewerRotationError,
+    project_deployment_access_evidence,
+    rotate_gcp_grafana_viewer,
+)
 from src.runtime_outputs import load_terraform_outputs
-from logger import logger
-
-import src.providers.deployer as core_deployer
-from src.core.factory import create_context
-
+from src.validation.directory_validator import validate_project_directory
 
 router = APIRouter(prefix="/infrastructure")
 
@@ -143,63 +142,6 @@ def _raise_structured_http_error(
         fallback_message=str(exc.detail),
     )
     raise HTTPException(status_code=exc.status_code, detail=detail)
-
-
-# --------- Cooldown Check ----------
-@router.get(
-    "/cooldown-check",
-    tags=["Infrastructure"],
-    summary="Check GCP Firestore deployment cooldown",
-    responses={200: {"description": "Cooldown status returned"}},
-)
-def check_cooldown(
-    destroyed_at: Optional[str] = Query(
-        None, description="ISO timestamp of last destroy"
-    ),
-    uses_gcp_firestore: bool = Query(
-        True, description="Whether deployment uses GCP Firestore"
-    ),
-):
-    """
-    Check if redeployment is allowed (GCP Firestore 5-min cooldown).
-
-    **Zero cloud costs:** Pure calculation with hardcoded 5-min limit. No cloud API calls.
-
-    Args:
-        destroyed_at: ISO timestamp from Management API
-        uses_gcp_firestore: Whether deployment uses GCP as L3-Hot provider
-
-    Returns:
-        ready: True if deployment can proceed
-        remaining_seconds: Seconds until ready (0 if ready)
-    """
-    FIRESTORE_COOLDOWN = 300  # 5 minutes
-
-    # No cooldown needed if not using GCP Firestore
-    if not uses_gcp_firestore:
-        return {"ready": True, "remaining_seconds": 0}
-
-    # No prior destroy = first deployment
-    if not destroyed_at:
-        return {"ready": True, "remaining_seconds": 0}
-
-    try:
-        # Parse ISO timestamp (handle Z suffix)
-        destroy_time = datetime.fromisoformat(destroyed_at.replace("Z", "+00:00"))
-        elapsed = (datetime.now(timezone.utc) - destroy_time).total_seconds()
-
-        if elapsed >= FIRESTORE_COOLDOWN:
-            return {"ready": True, "remaining_seconds": 0}
-        else:
-            remaining = int(FIRESTORE_COOLDOWN - elapsed)
-            return {
-                "ready": False,
-                "remaining_seconds": remaining,
-                "reason": f"GCP Firestore cooldown: {remaining}s remaining",
-            }
-    except (ValueError, TypeError):
-        # Malformed timestamp - safe fallback
-        return {"ready": True, "remaining_seconds": 0}
 
 
 # --------- Core Deploy/Destroy ----------

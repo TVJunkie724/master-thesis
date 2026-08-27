@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import importlib.util
 import json
-from pathlib import Path
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 from types import ModuleType
 
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -31,7 +31,7 @@ from src.schemas.user_function_extension import (
     UserFunctionArtifactResponse,
     UserFunctionValidationResponse,
 )
-
+from src.services.twin_immutability import is_twin_definition_immutable
 
 CONTRACT_ROOT = (
     Path(__file__).resolve().parents[1]
@@ -40,11 +40,6 @@ CONTRACT_ROOT = (
     / "user-function-extension"
     / "v1"
 )
-MUTATION_BLOCKED_STATES = {
-    TwinState.DEPLOYED,
-    TwinState.DEPLOYING,
-    TwinState.DESTROYING,
-}
 MUTATION_REGRESS_STATES = {
     TwinState.CONFIGURED,
     TwinState.ERROR,
@@ -720,11 +715,11 @@ class UserFunctionExtensionService:
 
     def _require_mutable_twin(self, user_id: str, twin_id: str):
         twin = self._require_twin(user_id, twin_id)
-        if twin.state in MUTATION_BLOCKED_STATES:
+        if is_twin_definition_immutable(twin):
             raise ExtensionContractError(
                 "EXTENSION_BINDING_UNRESOLVED",
                 "twin_id",
-                "Extension bindings cannot change during an active deployment.",
+                "A deployed Twin's function bindings are immutable; duplicate the Twin to change them.",
             )
         return twin
 

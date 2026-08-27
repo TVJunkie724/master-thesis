@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import json
 import struct
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,7 @@ from src.services.service_errors import (
     StorageError,
     ValidationError,
 )
+from src.services.twin_immutability import require_mutable_twin_definition
 
 
 class SceneGlbService:
@@ -40,6 +41,7 @@ class SceneGlbService:
     ) -> dict[str, float | str]:
         """Persist a scene.glb file and mark the twin's deployer config as uploaded."""
         twin = self._require_twin(twin_id, user_id)
+        require_mutable_twin_definition(twin)
         max_size = self.max_size_mb * 1024 * 1024
         if len(content) > max_size:
             raise ValidationError(f"File exceeds {self.max_size_mb}MB limit")
@@ -112,6 +114,7 @@ class SceneGlbService:
     def delete_scene_glb(self, twin_id: str, user_id: str) -> dict[str, str]:
         """Delete the scene.glb file and clear the uploaded flag when a config exists."""
         twin = self._require_twin(twin_id, user_id)
+        require_mutable_twin_definition(twin)
         glb_path = self.upload_dir / twin_id / "scene.glb"
 
         try:

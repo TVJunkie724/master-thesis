@@ -14,9 +14,10 @@ from src.models.twin_config import TwinConfiguration
 from src.schemas.deployer_config import DeployerConfigUpdate
 from src.schemas.twin_config import TwinConfigUpdate
 from src.services.cloud_connection_service import CloudConnectionService
+from src.services.service_errors import ValidationError as ServiceValidationError
+from src.services.twin_immutability import require_mutable_twin_definition
 from src.services.twin_lifecycle_service import TwinLifecycleService
 
-BLOCKED_EDIT_STATES = {TwinState.DEPLOYED, TwinState.DEPLOYING, TwinState.DESTROYING}
 REGRESS_TO_DRAFT_STATES = {TwinState.CONFIGURED, TwinState.ERROR, TwinState.DESTROYED}
 LEGACY_CREDENTIAL_WRITE_DISABLED_DETAIL = (
     "Direct per-twin credential storage is disabled. "
@@ -91,11 +92,10 @@ class WizardConfigurationService:
         return config
 
     def _assert_twin_editable(self, twin: DigitalTwin) -> None:
-        if twin.state in BLOCKED_EDIT_STATES:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot modify twin in '{twin.state.value}' state",
-            )
+        try:
+            require_mutable_twin_definition(twin)
+        except ServiceValidationError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     def _ensure_twin_config(self, twin: DigitalTwin) -> TwinConfiguration:
         if twin.configuration:

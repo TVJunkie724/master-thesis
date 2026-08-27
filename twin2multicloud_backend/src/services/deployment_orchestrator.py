@@ -79,10 +79,6 @@ class DeploymentOrchestrator:
             test_destroy_stream_runner=test_destroy_stream_runner,
         )
 
-    async def can_redeploy(self, twin_id: str, user_id: str) -> dict[str, Any]:
-        """Return deployment cooldown readiness."""
-        return await self.read_service.can_redeploy(twin_id, user_id)
-
     async def deploy_twin(
         self,
         twin_id: str,

@@ -8,10 +8,11 @@ Tests CRUD operations for digital twins including:
 """
 
 from datetime import datetime, timezone
-from tests.conftest import create_test_twin
+
 from src.models.deployment import Deployment
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
+from tests.conftest import create_test_twin
 
 
 class TestTwinsRoutes:
@@ -75,21 +76,19 @@ class TestTwinsRoutes:
         assert response.status_code == 200
         assert response.json()["name"] == "Updated Name"
 
-    def test_update_twin_state(self, authenticated_client):
-        """PUT /twins/{id} updates twin state (non-configured states)."""
+    def test_update_twin_rejects_direct_state_mutation(self, authenticated_client):
+        """PUT /twins/{id} cannot bypass explicit lifecycle operations."""
         client, headers = authenticated_client
         
         twin_id = create_test_twin(client, headers)
         
-        # Setting to 'error' doesn't require validation (unlike 'configured')
         response = client.put(
             f"/twins/{twin_id}",
             json={"state": "error"},
             headers=headers
         )
         
-        assert response.status_code == 200
-        assert response.json()["state"] == "error"
+        assert response.status_code == 422
 
     def test_delete_twin(self, authenticated_client):
         """DELETE /twins/{id} soft-deletes (sets inactive)."""

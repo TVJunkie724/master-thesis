@@ -101,7 +101,7 @@ def test_update_config_blocks_immutable_states(db_session, blocked_state):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, blocked_state)
 
-    with pytest.raises(ValidationError, match=f"Cannot modify twin in '{blocked_state.value}' state"):
+    with pytest.raises(ValidationError, match="immutable"):
         _service(db_session).update_config(
             twin.id,
             user.id,

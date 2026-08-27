@@ -10,14 +10,19 @@ from sqlalchemy.orm import Session
 from src.api.dependencies import get_current_user
 from src.api.routes.error_models import ERROR_RESPONSES
 from src.models.database import get_db
-from src.models.twin import DigitalTwin
+from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.management_contracts import MessageResponse
 from src.schemas.twin import TwinCreate, TwinResponse, TwinUpdate
 from src.services.configuration_validation_service import ConfigurationValidationService
 from src.services.errors import ConfigurationValidationFailed
-from src.services.service_errors import ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError
+from src.services.service_errors import (
+    ConflictError,
+    DownstreamServiceError,
+    EntityNotFoundError,
+    ValidationError,
+)
 from src.services.twin_lifecycle_service import TwinLifecycleService, TwinReadService
 
 router = APIRouter(prefix="/twins", tags=["twins"])
@@ -111,10 +116,7 @@ async def get_twin(
     response_model=TwinResponse,
     operation_id="updateDigitalTwin",
     summary="Update a digital twin",
-    description=(
-        "Updates twin name and/or lifecycle state. Transitioning to CONFIGURED runs distributed "
-        "Optimizer and Deployer validation before persisting the state change."
-    ),
+    description="Renames an editable draft Twin. Lifecycle state is controlled by explicit operations.",
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -128,16 +130,48 @@ async def update_twin(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Update twin name and/or lifecycle state."""
+    """Rename an editable draft Twin."""
     try:
         return await _twin_lifecycle_service(db).update_twin(
             twin_id=twin_id,
             user_id=current_user.id,
             name=update.name,
-            state=update.state,
+            state=None,
             configured_validator=_validate_configured_transition,
         )
     except (ConflictError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
+
+
+@router.post(
+    "/{twin_id}/configure",
+    response_model=TwinResponse,
+    operation_id="configureDigitalTwin",
+    summary="Validate and configure a draft Twin",
+    description=(
+        "Runs the distributed configuration validation and transitions an editable draft "
+        "Twin to CONFIGURED. Deployment and destroy states cannot be set by clients."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    },
+)
+async def configure_twin(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return await _twin_lifecycle_service(db).update_twin(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            name=None,
+            state=TwinState.CONFIGURED,
+            configured_validator=_validate_configured_transition,
+        )
+    except (EntityNotFoundError, ValidationError) as exc:
         _raise_service_http_error(exc)
 
 
@@ -175,5 +209,5 @@ async def delete_twin(
     """Soft-delete a twin and clean up its uploaded scene file."""
     try:
         return _twin_lifecycle_service(db).delete_twin(twin_id, current_user.id)
-    except EntityNotFoundError as exc:
+    except (EntityNotFoundError, ValidationError) as exc:
         _raise_service_http_error(exc)
