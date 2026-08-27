@@ -27,10 +27,7 @@ void main() {
   testWidgets('evaluates active Six-layer and keeps live deployment blocked', (
     tester,
   ) async {
-    final sixLayerProfile = await _api.getArchitectureProfile(
-      'six-layer-eventing',
-      '1',
-    );
+    final sixLayerProfile = await _api.getCanonicalArchitectureContract();
     final sixLayer = sixLayerProfile.summary;
     expect(
       sixLayerProfile.logicalComponents.map((item) => item.componentId),
@@ -41,7 +38,7 @@ void main() {
       'Six-layer boundary ${DateTime.now().microsecondsSinceEpoch}',
     );
     try {
-      final selection = await _api.getTwinArchitectureSelection(twin.id);
+      final selection = await _api.getTwinArchitectureContract(twin.id);
       expect(selection.twinId, twin.id);
       expect(selection.profileRef.id, 'six-layer-eventing');
       expect(selection.profileRef.version, '1');
@@ -103,10 +100,6 @@ void main() {
       expect(latest?.id, run.id);
       expect(latest?.selectedForDeploymentAt, isNull);
 
-      await _expectArchitectureError(
-        'ARCH_PROFILE_NOT_ACTIVE',
-        () => _api.getArchitectureProfile('six-layer-eventing', '2'),
-      );
       await _expectArchitectureError(
         'DEPLOYMENT_CAPACITY_EVIDENCE_PENDING',
         () => _api.selectOptimizerRunForDeployment(twin.id, run.id),

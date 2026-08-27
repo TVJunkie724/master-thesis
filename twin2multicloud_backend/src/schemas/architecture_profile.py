@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 class PinnedArchitectureReference(BaseModel):
@@ -250,62 +250,6 @@ class TwinArchitectureSelectionResponse(BaseModel):
     selected_at: datetime
     updated_at: datetime
     selected_by_user_id: str
-
-
-class ArchitectureProfileChangeRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    profile_id: str = Field(
-        pattern=r"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
-        max_length=128,
-    )
-    profile_version: str = Field(pattern=r"^[1-9][0-9]*$", max_length=32)
-    expected_revision: int = Field(ge=1)
-
-
-class ArchitectureProfileSelectionRequest(ArchitectureProfileChangeRequest):
-    invalidation_digest: str = Field(
-        pattern=r"^sha256:[0-9a-f]{64}$",
-    )
-
-
-class IncompatibleWorkloadField(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    field_id: str
-    display_label: str
-
-
-class IncompatibleExtensionBinding(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    slot_id: str
-    slot_version: str
-    artifact_id: str
-
-
-class ArchitectureProfileChangePreviewResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    current: PinnedArchitectureReference
-    target: PinnedArchitectureReference
-    expected_revision: int
-    incompatible_workload_fields: list[IncompatibleWorkloadField]
-    incompatible_extension_bindings: list[IncompatibleExtensionBinding]
-    selected_calculation_run_id: str | None
-    deployment_readiness_sections: list[str]
-    invalidation_digest: str
-
-
-class ArchitectureProfileSelectionResult(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    selection: TwinArchitectureSelectionResponse
-    revision: int
-    invalidated_calculation_run_id: str | None
-    unbound_extension_slot_ids: list[str]
-    cleared_workload_field_ids: list[str]
-    deployment_readiness_state: Literal["unchanged", "invalidated"]
 
 
 class ResolvedTwinArchitectureContractV2(BaseModel):

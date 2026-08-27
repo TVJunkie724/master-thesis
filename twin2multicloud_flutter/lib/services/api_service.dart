@@ -534,32 +534,27 @@ class ApiService implements ManagementApi {
   }
 
   @override
-  Future<ArchitectureProfileDetail> getArchitectureProfile(
-    String profileId,
-    String profileVersion,
-  ) async {
-    final response = await _dio.get(
-      '/architecture-profiles/$profileId/versions/$profileVersion',
-    );
+  Future<ArchitectureProfileDetail> getCanonicalArchitectureContract() async {
+    final response = await _dio.get('/architecture-contract');
     final detail = ArchitectureProfileDetail.fromJson(
-      _contractMap(response.data, 'architecture profile detail'),
+      _contractMap(response.data, 'canonical architecture contract'),
     );
-    if (detail.summary.profileId != profileId ||
-        detail.summary.profileVersion != profileVersion) {
+    if (detail.summary.profileId != 'six-layer-eventing' ||
+        detail.summary.profileVersion != '1') {
       throw const FormatException(
-        'Invalid API contract: architecture profile identity differs.',
+        'Invalid API contract: canonical architecture identity differs.',
       );
     }
     return detail;
   }
 
   @override
-  Future<TwinArchitectureSelection> getTwinArchitectureSelection(
+  Future<TwinArchitectureSelection> getTwinArchitectureContract(
     String twinId,
   ) async {
-    final response = await _dio.get('/twins/$twinId/architecture-profile');
+    final response = await _dio.get('/twins/$twinId/architecture-contract');
     final selection = TwinArchitectureSelection.fromJson(
-      _contractMap(response.data, 'Twin architecture selection'),
+      _contractMap(response.data, 'Twin architecture contract'),
     );
     if (selection.twinId != twinId) {
       throw const FormatException(

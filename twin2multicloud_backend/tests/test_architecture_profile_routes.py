@@ -1,4 +1,4 @@
-"""Authenticated architecture APIs, redaction, ownership, and OpenAPI tests."""
+"""Canonical architecture API, redaction, ownership, and OpenAPI tests."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from tests.architecture_test_data import linked_architecture_fixture_documents
 from tests.test_resolved_architecture_service import _state
 
 
-def test_profile_routes_expose_only_active_six_layer_profile(
+def test_canonical_contract_routes_expose_one_fixed_six_layer_contract(
     authenticated_client,
     db_session,
 ):
@@ -27,32 +27,47 @@ def test_profile_routes_expose_only_active_six_layer_profile(
     assert created.status_code == 200
     twin_id = created.json()["id"]
 
-    listed = client.get("/architecture-profiles", headers=headers)
-    detail = client.get(
-        "/architecture-profiles/six-layer-eventing/versions/1",
-        headers=headers,
-    )
-    active_detail = client.get(
-        "/architecture-profiles/six-layer-eventing/versions/2",
-        headers=headers,
-    )
-    selection = client.get(
-        f"/twins/{twin_id}/architecture-profile",
+    detail = client.get("/architecture-contract", headers=headers)
+    pin = client.get(
+        f"/twins/{twin_id}/architecture-contract",
         headers=headers,
     )
 
-    assert listed.status_code == 200
-    assert [
-        (item["profile_id"], item["profile_version"]) for item in listed.json()
-    ] == [
-        ("six-layer-eventing", "1"),
-    ]
     assert detail.status_code == 200
+    assert detail.json()["profile_id"] == "six-layer-eventing"
     assert detail.json()["profile_version"] == "1"
-    assert active_detail.status_code in {404, 409}
-    assert selection.status_code == 200
-    assert selection.json()["revision"] == 1
-    assert selection.json()["profile_version"] == "1"
+    assert len(detail.json()["responsibilities"]) == 6
+    assert pin.status_code == 200
+    assert pin.json()["profile_id"] == "six-layer-eventing"
+    assert pin.json()["profile_version"] == "1"
+    assert pin.json()["revision"] == 1
+
+    # Catalog, version selection, preview, and mutation are not PoC capabilities.
+    assert client.get("/architecture-profiles", headers=headers).status_code == 404
+    assert (
+        client.get(
+            "/architecture-profiles/six-layer-eventing/versions/1",
+            headers=headers,
+        ).status_code
+        == 404
+    )
+    assert (
+        client.post(
+            f"/twins/{twin_id}/architecture-profile/change-preview",
+            headers=headers,
+            json={},
+        ).status_code
+        == 404
+    )
+    assert (
+        client.put(
+            f"/twins/{twin_id}/architecture-profile",
+            headers=headers,
+            json={},
+        ).status_code
+        == 404
+    )
+
     db_session.expire_all()
     default_audit = (
         db_session.query(ArchitectureAuditEvent)
@@ -64,17 +79,6 @@ def test_profile_routes_expose_only_active_six_layer_profile(
     )
     assert default_audit.outcome == "defaulted"
 
-    preview = client.post(
-        f"/twins/{twin_id}/architecture-profile/change-preview",
-        headers=headers,
-        json={
-            "profile_id": "six-layer-eventing",
-            "profile_version": "1",
-            "expected_revision": 1,
-        },
-    )
-    assert preview.status_code == 200
-
     unresolved = client.get(
         f"/twins/{twin_id}/resolved-architecture",
         headers=headers,
@@ -83,62 +87,12 @@ def test_profile_routes_expose_only_active_six_layer_profile(
     assert unresolved.json()["error_code"] == "ARCH_RESOLUTION_NOT_SELECTED"
 
 
-def test_profile_routes_require_auth_and_reject_client_authored_state(
-    client,
-    auth_headers,
-):
-    assert client.get("/architecture-profiles").status_code == 401
-    twin = client.post(
-        "/twins/",
-        json={"name": "Strict Request Twin"},
-        headers=auth_headers,
-    )
-    assert twin.status_code == 200
-    twin_id = twin.json()["id"]
-
-    preview = client.post(
-        f"/twins/{twin_id}/architecture-profile/change-preview",
-        headers=auth_headers,
-        json={
-            "profile_id": "six-layer-eventing",
-            "profile_version": "1",
-            "expected_revision": 1,
-            "profile_digest": "sha256:" + ("0" * 64),
-        },
-    )
-    select = client.put(
-        f"/twins/{twin_id}/architecture-profile",
-        headers=auth_headers,
-        json={
-            "profile_id": "six-layer-eventing",
-            "profile_version": "1",
-            "expected_revision": 1,
-            "invalidation_digest": "sha256:" + ("0" * 64),
-            "components": [{"provider": "aws"}],
-        },
-    )
-    traversal = client.post(
-        f"/twins/{twin_id}/architecture-profile/change-preview",
-        headers=auth_headers,
-        json={
-            "profile_id": "../provider-implementations",
-            "profile_version": "1",
-            "expected_revision": 1,
-        },
-    )
-    unknown = client.get(
-        "/architecture-profiles/unknown-profile/versions/1",
-        headers=auth_headers,
-    )
-
-    assert preview.status_code == 422
-    assert select.status_code == 422
-    assert traversal.status_code == 422
-    assert unknown.status_code == 404
-    assert unknown.json()["error_code"] == "ARCH_PROFILE_NOT_FOUND"
+def test_canonical_contract_routes_require_auth(client):
+    assert client.get("/architecture-contract").status_code == 401
+    assert client.get("/twins/unknown/architecture-contract").status_code == 401
 
 
-def test_profile_routes_hide_cross_owner_resources(
+def test_twin_contract_route_hides_cross_owner_resources(
     authenticated_client,
     db_session,
 ):
@@ -153,8 +107,8 @@ def test_profile_routes_hide_cross_owner_resources(
     db_session.add_all([other, twin])
     db_session.commit()
 
-    selection = client.get(
-        f"/twins/{twin.id}/architecture-profile",
+    pin = client.get(
+        f"/twins/{twin.id}/architecture-contract",
         headers=headers,
     )
     resolution = client.get(
@@ -163,7 +117,7 @@ def test_profile_routes_hide_cross_owner_resources(
     )
 
     assert current_user.id != other.id
-    assert selection.status_code == 404
+    assert pin.status_code == 404
     assert resolution.status_code == 404
 
 
@@ -205,23 +159,25 @@ def test_resolved_architecture_read_routes_return_same_safe_contract(
     assert "terraform" not in selected.text.lower()
 
 
-def test_architecture_openapi_contract_is_strict(client):
+def test_architecture_openapi_contract_is_fixed_and_read_only(client):
     openapi = client.get("/openapi.json").json()
     paths = openapi["paths"]
 
-    assert "/architecture-profiles" in paths
-    assert "/architecture-profiles/{profile_id}/versions/{profile_version}" in paths
-    assert "/twins/{twin_id}/architecture-profile" in paths
+    assert "/architecture-contract" in paths
+    assert set(paths["/architecture-contract"]) == {"get"}
+    assert "/twins/{twin_id}/architecture-contract" in paths
+    assert set(paths["/twins/{twin_id}/architecture-contract"]) == {"get"}
     assert "/twins/{twin_id}/resolved-architecture" in paths
     assert "/optimizer-runs/{run_id}/resolved-architecture" in paths
+    assert "/architecture-profiles" not in paths
+    assert "/architecture-profiles/{profile_id}/versions/{profile_version}" not in paths
+    assert "/twins/{twin_id}/architecture-profile/change-preview" not in paths
+    assert "/twins/{twin_id}/architecture-profile" not in paths
 
     schemas = openapi["components"]["schemas"]
-    preview_request = schemas["ArchitectureProfileChangeRequest"]
-    selection_request = schemas["ArchitectureProfileSelectionRequest"]
+    assert "ArchitectureProfileChangeRequest" not in schemas
+    assert "ArchitectureProfileSelectionRequest" not in schemas
     resolution = schemas["ResolvedTwinArchitectureContractV2"]
-    assert preview_request["additionalProperties"] is False
-    assert selection_request["additionalProperties"] is False
-    assert "invalidation_digest" in selection_request["required"]
     assert {
         "schema_version",
         "resolution_id",
@@ -229,8 +185,4 @@ def test_architecture_openapi_contract_is_strict(client):
         "resolved_edges",
         "content_digest",
     }.issubset(resolution["required"])
-    conflict_schema = paths["/twins/{twin_id}/architecture-profile"]["put"][
-        "responses"
-    ]["409"]["content"]["application/json"]["schema"]
-    assert conflict_schema["$ref"].endswith("/ArchitectureErrorResponse")
     assert "request_id" in schemas["ArchitectureErrorResponse"]["required"]

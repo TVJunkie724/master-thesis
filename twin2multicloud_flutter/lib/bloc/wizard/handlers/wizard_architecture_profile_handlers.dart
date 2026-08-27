@@ -18,10 +18,7 @@ extension _WizardArchitectureProfileHandlers on WizardBloc {
     );
 
     try {
-      final detail = await _api.getArchitectureProfile(
-        _canonicalProfileId,
-        _canonicalProfileVersion,
-      );
+      final detail = await _api.getCanonicalArchitectureContract();
       if (generation != _architectureDetailGeneration) return;
       final canonicalRef = detail.summary.ref;
       if (canonicalRef.id != _canonicalProfileId ||
@@ -35,7 +32,7 @@ extension _WizardArchitectureProfileHandlers on WizardBloc {
       TwinArchitectureSelection? selection;
       final twinId = state.twinId;
       if (twinId != null) {
-        selection = await _api.getTwinArchitectureSelection(twinId);
+        selection = await _api.getTwinArchitectureContract(twinId);
         if (generation != _architectureDetailGeneration) return;
         if (!_architectureRefsMatch(selection.profileRef, canonicalRef)) {
           throw const AppException(

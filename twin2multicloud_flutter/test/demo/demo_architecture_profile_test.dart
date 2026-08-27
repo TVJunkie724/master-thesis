@@ -16,10 +16,7 @@ void main() {
       );
       final api = DemoManagementApi(store: store, latency: Duration.zero);
 
-      final sixLayerDetail = await api.getArchitectureProfile(
-        'six-layer-eventing',
-        '1',
-      );
+      final sixLayerDetail = await api.getCanonicalArchitectureContract();
       final sixLayer = sixLayerDetail.summary;
       expect(sixLayer.availableProviders, hasLength(3));
       expect(sixLayer.unsupportedProviders, isEmpty);
@@ -33,21 +30,11 @@ void main() {
         ),
         isTrue,
       );
-      final selection = await api.getTwinArchitectureSelection('demo-draft');
+      final selection = await api.getTwinArchitectureContract('demo-draft');
       expect(selection.profileRef.id, 'six-layer-eventing');
       expect(selection.profileRef.version, '1');
       expect(selection.profileRef.digest, sixLayer.profileDigest);
 
-      await expectLater(
-        api.getArchitectureProfile('six-layer-eventing', '2'),
-        throwsA(
-          isA<DemoApiException>().having(
-            (error) => error.code,
-            'code',
-            'ARCH_PROFILE_NOT_ACTIVE',
-          ),
-        ),
-      );
       final run = await api.createOptimizerRun(
         'demo-draft',
         CalcParams.sixLayer(scenario: SixLayerWorkloadScenario.small),

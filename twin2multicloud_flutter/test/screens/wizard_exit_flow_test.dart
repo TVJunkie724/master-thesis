@@ -147,7 +147,7 @@ Future<_WizardHarness> _pumpWizard(
   WidgetTester tester,
   _MockApiService api,
 ) async {
-  when(() => api.getArchitectureProfile('six-layer-eventing', '1')).thenAnswer(
+  when(() => api.getCanonicalArchitectureContract()).thenAnswer(
     (_) async => ArchitectureProfileDetail.fromJson(
       architectureProfileDetailJson(
         profileId: 'six-layer-eventing',

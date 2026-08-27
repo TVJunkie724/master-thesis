@@ -35,13 +35,13 @@ void main() {
         dio: _dio((request) {
           requests.add(request);
           return switch ('${request.method} ${request.path}') {
-            'GET /architecture-profiles/six-layer-eventing/versions/1' => _json(
+            'GET /architecture-contract' => _json(
               architectureProfileDetailJson(
                 profileId: 'six-layer-eventing',
                 profileVersion: '1',
               ),
             ),
-            'GET /twins/twin-1/architecture-profile' => _json(
+            'GET /twins/twin-1/architecture-contract' => _json(
               architectureSelectionJson(
                 profileId: 'six-layer-eventing',
                 profileVersion: '1',
@@ -58,11 +58,8 @@ void main() {
         }),
       );
 
-      final detail = await api.getArchitectureProfile(
-        'six-layer-eventing',
-        '1',
-      );
-      final selection = await api.getTwinArchitectureSelection('twin-1');
+      final detail = await api.getCanonicalArchitectureContract();
+      final selection = await api.getTwinArchitectureContract('twin-1');
       final twinResolved = await api.getSelectedResolvedArchitecture('twin-1');
       final runResolved = await api.getRunResolvedArchitecture(runId);
 
@@ -73,8 +70,8 @@ void main() {
       );
       expect(runResolved, twinResolved);
       expect(requests.map((item) => '${item.method} ${item.path}'), [
-        'GET /architecture-profiles/six-layer-eventing/versions/1',
-        'GET /twins/twin-1/architecture-profile',
+        'GET /architecture-contract',
+        'GET /twins/twin-1/architecture-contract',
         'GET /twins/twin-1/resolved-architecture',
         'GET /optimizer-runs/$runId/resolved-architecture',
       ]);
@@ -94,7 +91,7 @@ void main() {
     );
 
     await expectLater(
-      api.getArchitectureProfile('six-layer-eventing', '1'),
+      api.getCanonicalArchitectureContract(),
       throwsFormatException,
     );
   });

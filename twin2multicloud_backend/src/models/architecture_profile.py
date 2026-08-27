@@ -1,4 +1,4 @@
-"""Architecture-profile selection and immutable resolved-architecture records."""
+"""Canonical architecture pins and immutable resolved-architecture records."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def _now() -> datetime:
 
 
 class TwinArchitectureSelection(Base):
-    """Pinned repository profile selected for one Digital Twin."""
+    """Immutable canonical architecture-contract pin for one Digital Twin."""
 
     __tablename__ = "twin_architecture_selections"
     __table_args__ = (

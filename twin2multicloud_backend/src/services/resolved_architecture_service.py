@@ -206,7 +206,7 @@ class ResolvedArchitectureService:
             linked_documents
             or (
                 profile,
-                *_provider_documents(profile_id, profile_version),
+                *_provider_documents(),
                 *_catalog_documents(),
             )
         )

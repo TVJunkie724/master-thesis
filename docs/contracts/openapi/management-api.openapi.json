@@ -212,98 +212,6 @@
         "title": "ArchitectureExtensionSlotSummary",
         "type": "object"
       },
-      "ArchitectureProfileChangePreviewResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "current": {
-            "$ref": "#/components/schemas/PinnedArchitectureReference"
-          },
-          "deployment_readiness_sections": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Deployment Readiness Sections",
-            "type": "array"
-          },
-          "expected_revision": {
-            "title": "Expected Revision",
-            "type": "integer"
-          },
-          "incompatible_extension_bindings": {
-            "items": {
-              "$ref": "#/components/schemas/IncompatibleExtensionBinding"
-            },
-            "title": "Incompatible Extension Bindings",
-            "type": "array"
-          },
-          "incompatible_workload_fields": {
-            "items": {
-              "$ref": "#/components/schemas/IncompatibleWorkloadField"
-            },
-            "title": "Incompatible Workload Fields",
-            "type": "array"
-          },
-          "invalidation_digest": {
-            "title": "Invalidation Digest",
-            "type": "string"
-          },
-          "selected_calculation_run_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Selected Calculation Run Id"
-          },
-          "target": {
-            "$ref": "#/components/schemas/PinnedArchitectureReference"
-          }
-        },
-        "required": [
-          "current",
-          "target",
-          "expected_revision",
-          "incompatible_workload_fields",
-          "incompatible_extension_bindings",
-          "selected_calculation_run_id",
-          "deployment_readiness_sections",
-          "invalidation_digest"
-        ],
-        "title": "ArchitectureProfileChangePreviewResponse",
-        "type": "object"
-      },
-      "ArchitectureProfileChangeRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "expected_revision": {
-            "minimum": 1.0,
-            "title": "Expected Revision",
-            "type": "integer"
-          },
-          "profile_id": {
-            "maxLength": 128,
-            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
-            "title": "Profile Id",
-            "type": "string"
-          },
-          "profile_version": {
-            "maxLength": 32,
-            "pattern": "^[1-9][0-9]*$",
-            "title": "Profile Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "profile_id",
-          "profile_version",
-          "expected_revision"
-        ],
-        "title": "ArchitectureProfileChangeRequest",
-        "type": "object"
-      },
       "ArchitectureProfileDetailResponse": {
         "additionalProperties": false,
         "properties": {
@@ -408,180 +316,6 @@
           "visualization"
         ],
         "title": "ArchitectureProfileDetailResponse",
-        "type": "object"
-      },
-      "ArchitectureProfileSelectionRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "expected_revision": {
-            "minimum": 1.0,
-            "title": "Expected Revision",
-            "type": "integer"
-          },
-          "invalidation_digest": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Invalidation Digest",
-            "type": "string"
-          },
-          "profile_id": {
-            "maxLength": 128,
-            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
-            "title": "Profile Id",
-            "type": "string"
-          },
-          "profile_version": {
-            "maxLength": 32,
-            "pattern": "^[1-9][0-9]*$",
-            "title": "Profile Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "profile_id",
-          "profile_version",
-          "expected_revision",
-          "invalidation_digest"
-        ],
-        "title": "ArchitectureProfileSelectionRequest",
-        "type": "object"
-      },
-      "ArchitectureProfileSelectionResult": {
-        "additionalProperties": false,
-        "properties": {
-          "cleared_workload_field_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Cleared Workload Field Ids",
-            "type": "array"
-          },
-          "deployment_readiness_state": {
-            "enum": [
-              "unchanged",
-              "invalidated"
-            ],
-            "title": "Deployment Readiness State",
-            "type": "string"
-          },
-          "invalidated_calculation_run_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Invalidated Calculation Run Id"
-          },
-          "revision": {
-            "title": "Revision",
-            "type": "integer"
-          },
-          "selection": {
-            "$ref": "#/components/schemas/TwinArchitectureSelectionResponse"
-          },
-          "unbound_extension_slot_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Unbound Extension Slot Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "selection",
-          "revision",
-          "invalidated_calculation_run_id",
-          "unbound_extension_slot_ids",
-          "cleared_workload_field_ids",
-          "deployment_readiness_state"
-        ],
-        "title": "ArchitectureProfileSelectionResult",
-        "type": "object"
-      },
-      "ArchitectureProfileSummaryResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "available_providers": {
-            "items": {
-              "$ref": "#/components/schemas/ArchitectureProviderSummary"
-            },
-            "title": "Available Providers",
-            "type": "array"
-          },
-          "capability_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Capability Ids",
-            "type": "array"
-          },
-          "description": {
-            "title": "Description",
-            "type": "string"
-          },
-          "display_name": {
-            "title": "Display Name",
-            "type": "string"
-          },
-          "extension_slots": {
-            "items": {
-              "$ref": "#/components/schemas/ArchitectureExtensionSlotSummary"
-            },
-            "title": "Extension Slots",
-            "type": "array"
-          },
-          "lifecycle_status": {
-            "const": "active",
-            "title": "Lifecycle Status",
-            "type": "string"
-          },
-          "profile_digest": {
-            "title": "Profile Digest",
-            "type": "string"
-          },
-          "profile_id": {
-            "title": "Profile Id",
-            "type": "string"
-          },
-          "profile_version": {
-            "title": "Profile Version",
-            "type": "string"
-          },
-          "responsibilities": {
-            "items": {
-              "$ref": "#/components/schemas/ArchitectureResponsibilitySummary"
-            },
-            "title": "Responsibilities",
-            "type": "array"
-          },
-          "unsupported_providers": {
-            "items": {
-              "$ref": "#/components/schemas/ArchitectureProviderSummary"
-            },
-            "title": "Unsupported Providers",
-            "type": "array"
-          },
-          "workload_contract_ref": {
-            "$ref": "#/components/schemas/PinnedArchitectureReference"
-          }
-        },
-        "required": [
-          "profile_id",
-          "profile_version",
-          "profile_digest",
-          "display_name",
-          "description",
-          "lifecycle_status",
-          "responsibilities",
-          "capability_ids",
-          "workload_contract_ref",
-          "available_providers",
-          "unsupported_providers",
-          "extension_slots"
-        ],
-        "title": "ArchitectureProfileSummaryResponse",
         "type": "object"
       },
       "ArchitectureProviderSummary": {
@@ -5162,49 +4896,6 @@
         "title": "HealthResponse",
         "type": "object"
       },
-      "IncompatibleExtensionBinding": {
-        "additionalProperties": false,
-        "properties": {
-          "artifact_id": {
-            "title": "Artifact Id",
-            "type": "string"
-          },
-          "slot_id": {
-            "title": "Slot Id",
-            "type": "string"
-          },
-          "slot_version": {
-            "title": "Slot Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "slot_id",
-          "slot_version",
-          "artifact_id"
-        ],
-        "title": "IncompatibleExtensionBinding",
-        "type": "object"
-      },
-      "IncompatibleWorkloadField": {
-        "additionalProperties": false,
-        "properties": {
-          "display_label": {
-            "title": "Display Label",
-            "type": "string"
-          },
-          "field_id": {
-            "title": "Field Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "field_id",
-          "display_label"
-        ],
-        "title": "IncompatibleWorkloadField",
-        "type": "object"
-      },
       "InlineValidationRequest": {
         "description": "Request for validating credentials without storing.",
         "properties": {
@@ -9271,97 +8962,10 @@
         "summary": "Root"
       }
     },
-    "/architecture-profiles": {
+    "/architecture-contract": {
       "get": {
-        "operationId": "listArchitectureProfiles",
+        "operationId": "getCanonicalArchitectureContract",
         "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ArchitectureProfileSummaryResponse"
-                  },
-                  "title": "Response Listarchitectureprofiles",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List active reviewed architecture profile versions",
-        "tags": [
-          "architecture-profiles"
-        ]
-      }
-    },
-    "/architecture-profiles/{profile_id}/versions/{profile_version}": {
-      "get": {
-        "operationId": "getArchitectureProfileVersion",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "profile_id",
-            "required": true,
-            "schema": {
-              "title": "Profile Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "profile_version",
-            "required": true,
-            "schema": {
-              "title": "Profile Version",
-              "type": "string"
-            }
-          },
           {
             "in": "header",
             "name": "authorization",
@@ -9437,9 +9041,9 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get one active reviewed architecture profile version",
+        "summary": "Get the fixed Six-layer architecture contract",
         "tags": [
-          "architecture-profiles"
+          "architecture-contract"
         ]
       }
     },
@@ -11001,7 +10605,7 @@
         },
         "summary": "Get the immutable architecture of one owner-scoped calculation run",
         "tags": [
-          "architecture-profiles"
+          "architecture-contract"
         ]
       }
     },
@@ -11709,9 +11313,9 @@
         ]
       }
     },
-    "/twins/{twin_id}/architecture-profile": {
+    "/twins/{twin_id}/architecture-contract": {
       "get": {
-        "operationId": "getTwinArchitectureProfile",
+        "operationId": "getTwinArchitectureContract",
         "parameters": [
           {
             "in": "path",
@@ -11787,225 +11391,9 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get the pinned architecture profile selected for a Twin",
+        "summary": "Get the canonical architecture contract pinned to a Twin",
         "tags": [
-          "architecture-profiles"
-        ]
-      },
-      "put": {
-        "operationId": "selectTwinArchitectureProfile",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "twin_id",
-            "required": true,
-            "schema": {
-              "title": "Twin Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ArchitectureProfileSelectionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ArchitectureProfileSelectionResult"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
-                }
-              }
-            },
-            "description": "The architecture selection cannot be changed in its current state"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
-                }
-              }
-            },
-            "description": "The owner-scoped architecture resource was not found"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
-                }
-              }
-            },
-            "description": "The architecture state conflicts with the requested operation"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Select an active profile using revision and preview digest",
-        "tags": [
-          "architecture-profiles"
-        ]
-      }
-    },
-    "/twins/{twin_id}/architecture-profile/change-preview": {
-      "post": {
-        "operationId": "previewTwinArchitectureProfileChange",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "twin_id",
-            "required": true,
-            "schema": {
-              "title": "Twin Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ArchitectureProfileChangeRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ArchitectureProfileChangePreviewResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
-                }
-              }
-            },
-            "description": "The owner-scoped architecture resource was not found"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ArchitectureErrorResponse"
-                }
-              }
-            },
-            "description": "The architecture state conflicts with the requested operation"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Preview exact server-derived profile-change invalidations",
-        "tags": [
-          "architecture-profiles"
+          "architecture-contract"
         ]
       }
     },
@@ -15904,7 +15292,7 @@
         },
         "summary": "Get the immutable architecture of the selected calculation run",
         "tags": [
-          "architecture-profiles"
+          "architecture-contract"
         ]
       }
     },

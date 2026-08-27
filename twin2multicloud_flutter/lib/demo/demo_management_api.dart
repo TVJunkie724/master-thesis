@@ -94,19 +94,16 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<ArchitectureProfileDetail> getArchitectureProfile(
-    String profileId,
-    String profileVersion,
-  ) async {
+  Future<ArchitectureProfileDetail> getCanonicalArchitectureContract() async {
     await _pause();
-    store.architectureProfile(profileId, profileVersion);
+    store.architectureProfile('six-layer-eventing', '1');
     return ArchitectureProfileDetail.fromJson(
-      _architectureProfileDetailJson(profileId, profileVersion),
+      _architectureProfileDetailJson('six-layer-eventing', '1'),
     );
   }
 
   @override
-  Future<TwinArchitectureSelection> getTwinArchitectureSelection(
+  Future<TwinArchitectureSelection> getTwinArchitectureContract(
     String twinId,
   ) async {
     await _pause();

@@ -34,10 +34,10 @@ void main() {
     'loads and verifies the one canonical contract for a persisted Twin',
     () async {
       when(
-        () => api.getArchitectureProfile('six-layer-eventing', '1'),
+        () => api.getCanonicalArchitectureContract(),
       ).thenAnswer((_) async => canonicalDetail);
       when(
-        () => api.getTwinArchitectureSelection('twin-1'),
+        () => api.getTwinArchitectureContract('twin-1'),
       ).thenAnswer((_) async => canonicalSelection);
       final bloc = WizardBloc(
         api: api,
@@ -65,7 +65,7 @@ void main() {
 
   test('loads contract metadata before a new Twin is persisted', () async {
     when(
-      () => api.getArchitectureProfile('six-layer-eventing', '1'),
+      () => api.getCanonicalArchitectureContract(),
     ).thenAnswer((_) async => canonicalDetail);
     final bloc = WizardBloc(
       api: api,
@@ -85,7 +85,7 @@ void main() {
     expect(state.architectureProfileDetail, canonicalDetail);
     expect(state.architectureSelection, isNull);
     expect(state.architectureWorkflowReady, isFalse);
-    verifyNever(() => api.getTwinArchitectureSelection(any()));
+    verifyNever(() => api.getTwinArchitectureContract(any()));
   });
 
   test('rejects a Twin pinned to a different profile', () async {
@@ -93,10 +93,10 @@ void main() {
       architectureSelectionJson(),
     );
     when(
-      () => api.getArchitectureProfile('six-layer-eventing', '1'),
+      () => api.getCanonicalArchitectureContract(),
     ).thenAnswer((_) async => canonicalDetail);
     when(
-      () => api.getTwinArchitectureSelection('twin-1'),
+      () => api.getTwinArchitectureContract('twin-1'),
     ).thenAnswer((_) async => incompatible);
     final bloc = WizardBloc(
       api: api,
@@ -129,10 +129,10 @@ void main() {
       ),
     );
     when(
-      () => api.getArchitectureProfile('six-layer-eventing', '1'),
+      () => api.getCanonicalArchitectureContract(),
     ).thenAnswer((_) async => canonicalDetail);
     when(
-      () => api.getTwinArchitectureSelection('twin-1'),
+      () => api.getTwinArchitectureContract('twin-1'),
     ).thenAnswer((_) async => mismatched);
     final bloc = WizardBloc(
       api: api,
@@ -155,7 +155,7 @@ void main() {
 
   test('fails closed when canonical detail cannot be loaded', () async {
     when(
-      () => api.getArchitectureProfile('six-layer-eventing', '1'),
+      () => api.getCanonicalArchitectureContract(),
     ).thenThrow(Exception('offline'));
     final bloc = WizardBloc(
       api: api,

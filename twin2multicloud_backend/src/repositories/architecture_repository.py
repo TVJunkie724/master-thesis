@@ -1,4 +1,4 @@
-"""Thin persistence queries for architecture selections and resolutions."""
+"""Thin persistence queries for canonical architecture pins and resolutions."""
 
 from __future__ import annotations
 
