@@ -8,13 +8,12 @@ architecture, provider prerequisites, and thesis context belong in `docs-site/`.
 - Run the service through the repository `compose.yaml`.
 - Use the Management API for application workflows.
 - Keep `templates/digital-twin/` read-only.
-- Keep `upload/<project>/` limited to durable, secret-free project definitions.
+- Materialize one bounded operation package from the owner-scoped Twin; do not
+  accept arbitrary deployment project layouts.
 - Materialize credentials only through `OperationPackageStore`; operation
   routes must require and consume an `X-Operation-Package` token.
-- Require the profile-matched manifest and frozen resolved evidence before
-  deployment, destruction, or credential-backed drift operations: v3 with
-  RTA/RDS v1 for historical Five-layer v1, or v4 with RTA/RDS v2 for active
-  Six-layer v1. Manifest v2 is a historical reader only.
+- Require DeploymentManifest v4 with frozen RTA/RDS v2 evidence before
+  deployment, destruction, or credential-backed drift operations.
 - Add deployment variables only through the canonical generated dimension
   registry and pure translator. Never infer specification-owned values from
   Terraform defaults.
@@ -42,9 +41,10 @@ docker compose run --rm --no-deps 3cloud-deployer \
   pytest -q tests/unit/terraform/test_function_bundler.py
 ```
 
-The default pytest configuration excludes `tests/e2e`. Live tests require both
-`RUN_E2E_TESTS=1` and an explicit E2E path or marker. They may create billable
-resources and must never run as an incidental collection side effect.
+Service-local tests are credential-free. Supervised billable evaluation is a
+cross-stack research protocol defined in
+`docs/research/evaluation/live-evaluation-protocol.md`; it is never collected
+by the Deployer test command.
 
 ## Change Rules
 

@@ -12,7 +12,8 @@ This module is shared by both:
 
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
-from botocore.session import get_session as get_botocore_session
+from botocore.loaders import create_loader
+from botocore.regions import EndpointResolver
 import json
 import logging
 import os
@@ -284,7 +285,7 @@ def _create_session(credentials: dict) -> boto3.Session:
 
 def _regional_sts_endpoint(region: str) -> str:
     """Resolve the partition-correct regional STS endpoint without a network call."""
-    resolver = get_botocore_session().get_component("endpoint_resolver")
+    resolver = EndpointResolver(create_loader().load_data("endpoints"))
     endpoint = resolver.construct_endpoint("sts", region)
     hostname = endpoint.get("hostname") if endpoint else None
     if not hostname or region not in hostname:

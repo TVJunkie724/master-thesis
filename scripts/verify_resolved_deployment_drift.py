@@ -61,12 +61,8 @@ def _is_truthy(value: str | None) -> bool:
 
 
 def validate_safety(environment: Mapping[str, str]) -> None:
-    """Reject explicit live/E2E modes before starting any subprocess."""
+    """Reject credential-bearing modes before starting any subprocess."""
 
-    if _is_truthy(environment.get("RUN_E2E_TESTS")):
-        raise VerificationConfigurationError(
-            "RUN_E2E_TESTS must be disabled for the deployment contract gate."
-        )
     for key in OVERLAY_ENV_KEYS:
         if _is_truthy(environment.get(key)):
             raise VerificationConfigurationError(
@@ -84,7 +80,7 @@ def sanitized_environment(
     *,
     runtime_secrets_dir: Path,
 ) -> dict[str, str]:
-    """Return an environment without provider credentials or live-test flags."""
+    """Return an environment without provider credentials or cloud overlays."""
 
     sanitized = {
         key: value
@@ -94,7 +90,6 @@ def sanitized_environment(
     }
     sanitized.update(
         {
-            "RUN_E2E_TESTS": "0",
             "THESIS_RUNTIME_SECRETS_DIR": str(runtime_secrets_dir),
             "TF_IN_AUTOMATION": "1",
             "TF_INPUT": "0",
@@ -220,6 +215,7 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                     "&& python scripts/sync_deployment_access_contracts.py --check "
                     "&& python scripts/sync_six_layer_workload_contract.py --check "
                     "&& python scripts/sync_six_layer_contracts.py --check "
+                    "&& python scripts/validate_live_evaluation_plan.py "
                     "&& python -m unittest "
                     "scripts.tests.test_user_function_extension_contract_sync "
                     "scripts.tests.test_deployment_access_contract_sync "
@@ -361,7 +357,7 @@ def full_stages(project: str) -> tuple[Stage, ...]:
                 "sh",
                 "-lc",
                 (
-                    "python -m pytest tests --ignore=tests/e2e -q "
+                    "python -m pytest tests -q "
                     "&& ruff check src migrations scripts tests "
                     "&& python -m bandit -q -r src migrations scripts "
                     "&& python -m compileall -q src migrations scripts "

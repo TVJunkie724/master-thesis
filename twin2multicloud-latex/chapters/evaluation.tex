@@ -1,8 +1,10 @@
 \chapter{\label{chap:evaluation}Evaluation}
 
-% This chapter validates the system's correctness and reliability through
-% automated end-to-end testing across 11 multi-cloud deployment scenarios.
-% SOURCE: 3-cloud-deployer/tests/e2e/E2E_PROGRESS.md — scenarios, coverage, bug fixes
+% This chapter reports the offline gates and the supervised Six-layer live
+% evaluation. Live results must be written only from the secret-free evidence
+% records produced by the approved protocol.
+% SOURCE: docs/research/evaluation/small-scenario-matrix.json
+% SOURCE: docs/research/evaluation/live-evaluation-protocol.md
 % TARGET: ~12–18 pages
 
 \section{Experimental Setup}
@@ -13,39 +15,32 @@
 
 \section{E2E Test Framework}
 \label{sec:eval-framework}
-% Test architecture: pytest + scenario configs + deployment phases
-% What each test validates: deployment success, data flow, event pipeline, storage movers
-% 19 test cases per scenario, organized in 4 phases
-% How tests are executed (Docker, pytest, helper scripts)
+% Separate deterministic offline contract/integration gates from supervised
+% provider execution. Describe readiness, immutable trace, Apply, telemetry
+% roundtrip, Destroy, inventory reconciliation and cost evidence.
 
 \section{Scenario Coverage}
 \label{sec:eval-scenarios}
-% The 11 provider configurations tested (8 cross-cloud + 3 same-cloud)
-% Provider configuration table (11 rows × 5 layers)
-% Cross-cloud boundary coverage matrix (100% coverage)
-% Which boundaries each scenario exercises
+% Nine Small scenarios: three provider-local baselines plus six directed
+% multi-cloud focus cases. Report provider directions and the four required
+% edge contracts. Raw-history queries remain provider-local because the
+% architecture requires hot-storage/visualization co-location. Do not imply
+% exhaustive permutation coverage.
 
 \section{Results}
 \label{sec:eval-results}
-% Pass/fail per scenario (all 11 passing as of latest test run)
-% Resource counts provisioned per scenario
-% Qualitative note on deployment times: 6–48 min per scenario,
-% dominated by cloud-side resource initialization (Azure SCM: 2–5 min,
-% Terraform provider downloads, GCP Firestore cooldown: 5 min),
-% not platform logic — therefore not reported as performance metrics.
+% Populate only after supervised execution. A provider blocker is a result;
+% mocks and the retired predecessor test harness are not live evidence.
 
 \section{Deployment Challenges Discovered}
 \label{sec:eval-bugs}
-% 5–8 most interesting bugs/challenges as "lessons learned"
-% Each: what happened, root cause, fix, affected provider(s)
-% Examples: IAM policy mismatches, bucket naming collisions,
-% GCP soft-deleted custom roles, Azure SCM cold-start timing,
-% cross-cloud token validation failures
-% This section directly addresses RQ3.
+% Classify observed implementation defects, provider blockers, cost-model
+% deviations and operational limitations. Link every claim to an evidence
+% record and state which RQ it affects.
 
 \section{Threats to Validity}
 \label{sec:eval-validity}
 % Internal: single test environment, Docker vs. production differences
 % External: single user, no concurrent deployments, limited twin configs
-% Construct: GCP L4/L5 not implemented, cost model not E2E validated,
-%   pricing cache not live during tests
+% Construct: curated Small workload, one region set, selected focus edges,
+% frozen price snapshots, and no claim of exhaustive architecture coverage.

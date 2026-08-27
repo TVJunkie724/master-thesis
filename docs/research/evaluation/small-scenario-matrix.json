@@ -1,0 +1,186 @@
+{
+  "schema_version": "six-layer-live-evaluation-plan.v1",
+  "status": "planned_not_executed",
+  "execution_enabled": false,
+  "architecture_profile": "six-layer-eventing@1",
+  "workload_fixture": "contracts/six-layer-workload/v1/fixtures/valid/core-small.json",
+  "candidate_selection": "evaluation_only_explicit_candidate_with_cost_trace",
+  "guardrails": {
+    "one_active_scenario": true,
+    "maximum_runtime_minutes": 60,
+    "destroy_attempt_required": true,
+    "post_destroy_inventory_required": true,
+    "stop_after_residual_resource": true,
+    "stop_after_unexplained_cost_deviation": true
+  },
+  "scenarios": [
+    {
+      "scenario_id": "small-local-aws",
+      "kind": "provider_local_baseline",
+      "focus": {"provider": "aws"},
+      "assignments": {
+        "component.ingestion": "aws",
+        "component.eventing": "aws",
+        "component.processing": "aws",
+        "component.hot-storage": "aws",
+        "component.cool-storage": "aws",
+        "component.archive-storage": "aws",
+        "component.twin-state": "aws",
+        "component.visualization": "aws"
+      },
+      "budget_cap_usd": null
+    },
+    {
+      "scenario_id": "small-local-azure",
+      "kind": "provider_local_baseline",
+      "focus": {"provider": "azure"},
+      "assignments": {
+        "component.ingestion": "azure",
+        "component.eventing": "azure",
+        "component.processing": "azure",
+        "component.hot-storage": "azure",
+        "component.cool-storage": "azure",
+        "component.archive-storage": "azure",
+        "component.twin-state": "azure",
+        "component.visualization": "azure"
+      },
+      "budget_cap_usd": null
+    },
+    {
+      "scenario_id": "small-local-gcp",
+      "kind": "provider_local_baseline",
+      "focus": {"provider": "gcp"},
+      "assignments": {
+        "component.ingestion": "gcp",
+        "component.eventing": "gcp",
+        "component.processing": "gcp",
+        "component.hot-storage": "gcp",
+        "component.cool-storage": "gcp",
+        "component.archive-storage": "gcp",
+        "component.twin-state": "gcp",
+        "component.visualization": "gcp"
+      },
+      "budget_cap_usd": null
+    },
+    {
+      "scenario_id": "small-focus-aws-to-azure",
+      "kind": "directed_multicloud_focus",
+      "focus": {
+        "source_provider": "aws",
+        "destination_provider": "azure",
+        "edge_id": "edge.ingestion-to-eventing"
+      },
+      "assignments": {
+        "component.ingestion": "aws",
+        "component.eventing": "azure",
+        "component.processing": "azure",
+        "component.hot-storage": "azure",
+        "component.cool-storage": "azure",
+        "component.archive-storage": "azure",
+        "component.twin-state": "azure",
+        "component.visualization": "azure"
+      },
+      "budget_cap_usd": null
+    },
+    {
+      "scenario_id": "small-focus-azure-to-aws",
+      "kind": "directed_multicloud_focus",
+      "focus": {
+        "source_provider": "azure",
+        "destination_provider": "aws",
+        "edge_id": "edge.eventing-to-processing"
+      },
+      "assignments": {
+        "component.ingestion": "azure",
+        "component.eventing": "azure",
+        "component.processing": "aws",
+        "component.hot-storage": "aws",
+        "component.cool-storage": "aws",
+        "component.archive-storage": "aws",
+        "component.twin-state": "aws",
+        "component.visualization": "aws"
+      },
+      "budget_cap_usd": null
+    },
+    {
+      "scenario_id": "small-focus-aws-to-gcp",
+      "kind": "directed_multicloud_focus",
+      "focus": {
+        "source_provider": "aws",
+        "destination_provider": "gcp",
+        "edge_id": "edge.hot-storage-to-twin-state"
+      },
+      "assignments": {
+        "component.ingestion": "aws",
+        "component.eventing": "aws",
+        "component.processing": "aws",
+        "component.hot-storage": "aws",
+        "component.cool-storage": "aws",
+        "component.archive-storage": "aws",
+        "component.twin-state": "gcp",
+        "component.visualization": "aws"
+      },
+      "budget_cap_usd": null
+    },
+    {
+      "scenario_id": "small-focus-gcp-to-aws",
+      "kind": "directed_multicloud_focus",
+      "focus": {
+        "source_provider": "gcp",
+        "destination_provider": "aws",
+        "edge_id": "edge.processing-to-eventing"
+      },
+      "assignments": {
+        "component.ingestion": "gcp",
+        "component.eventing": "aws",
+        "component.processing": "gcp",
+        "component.hot-storage": "gcp",
+        "component.cool-storage": "gcp",
+        "component.archive-storage": "gcp",
+        "component.twin-state": "gcp",
+        "component.visualization": "gcp"
+      },
+      "budget_cap_usd": null
+    },
+    {
+      "scenario_id": "small-focus-azure-to-gcp",
+      "kind": "directed_multicloud_focus",
+      "focus": {
+        "source_provider": "azure",
+        "destination_provider": "gcp",
+        "edge_id": "edge.hot-to-cool-storage"
+      },
+      "assignments": {
+        "component.ingestion": "azure",
+        "component.eventing": "azure",
+        "component.processing": "azure",
+        "component.hot-storage": "azure",
+        "component.cool-storage": "gcp",
+        "component.archive-storage": "gcp",
+        "component.twin-state": "azure",
+        "component.visualization": "azure"
+      },
+      "budget_cap_usd": null
+    },
+    {
+      "scenario_id": "small-focus-gcp-to-azure",
+      "kind": "directed_multicloud_focus",
+      "focus": {
+        "source_provider": "gcp",
+        "destination_provider": "azure",
+        "edge_id": "edge.cool-to-archive-storage"
+      },
+      "assignments": {
+        "component.ingestion": "gcp",
+        "component.eventing": "gcp",
+        "component.processing": "gcp",
+        "component.hot-storage": "gcp",
+        "component.cool-storage": "gcp",
+        "component.archive-storage": "azure",
+        "component.twin-state": "gcp",
+        "component.visualization": "gcp"
+      },
+      "budget_cap_usd": null
+    }
+  ]
+}

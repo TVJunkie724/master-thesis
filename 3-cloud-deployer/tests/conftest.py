@@ -1,29 +1,15 @@
 import os
-import pytest
 import sys
 
-
-def pytest_ignore_collect(collection_path, config):
-    """Keep every live-cloud E2E module opt-in, even for `pytest tests`."""
-    del config
-    if "e2e" not in collection_path.parts:
-        return False
-    return os.environ.get("RUN_E2E_TESTS") != "1"
+import pytest
 
 # Set PYTHONPATH to include src and root if not already there
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 @pytest.fixture(scope="function", autouse=True)
-def mock_env_vars(request, monkeypatch):
-    """Set mock environment variables to prevent accidental cloud calls.
-    
-    Note: This fixture is skipped for E2E tests which need real credentials.
-    """
-    # Skip for E2E tests - they need real credentials for actual cloud operations
-    if "e2e" in str(request.fspath):
-        return
-    
+def mock_env_vars(monkeypatch):
+    """Set mock environment variables to prevent accidental cloud calls."""
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
     monkeypatch.setenv("AWS_SECURITY_TOKEN", "testing")
@@ -60,13 +46,6 @@ def mock_project_config():
     )
 
 @pytest.fixture(autouse=True)
-def mock_sleep(request, monkeypatch):
-    """Skip time.sleep calls to speed up unit tests.
-    
-    Note: This fixture is skipped for E2E tests which need real timing.
-    """
-    # Skip for E2E tests - they need real sleep for cloud propagation
-    if "e2e" in str(request.fspath):
-        return
-    
+def mock_sleep(monkeypatch):
+    """Skip time.sleep calls to speed up offline tests."""
     monkeypatch.setattr("time.sleep", lambda x: None)

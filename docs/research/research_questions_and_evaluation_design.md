@@ -637,13 +637,17 @@ values require a later contract version and are not mislabeled as frozen v1
 evidence.
 
 The Eventing bridge and storage-transition job are separate evaluated
-components. Three provider-local L3-hot/L5 raw-visualization bundles combine
-with three independent L4 providers, yielding three single-cloud and six
-`L3-hot == L5 != L4` placements. Every `L3-hot != L5` assignment remains an
-explicit negative candidate. The L5 contract measures only bounded raw-
-history reads from L3 hot; selected state/model/relationship changes reach L4
-through `twin_projection.v1`. L4-to-L5 Twin context and 3D scenes are outside
-the PoC and require a later versioned capability decision.
+components. The supervised Small set contains three provider-local baselines
+and six multi-cloud cases, one for every directed AWS/Azure/GCP provider pair.
+The six focus edges jointly exercise the cross-cloud-capable
+`canonical-domain-event.v1`, `storage_transition.v1`, and
+`twin_projection.v1` contracts. The three provider-local baselines exercise
+`raw_history_query.v1`; `L3-hot != L5` remains an explicit negative offline
+candidate. The cases do not enumerate every valid assignment. Incidental
+additional edges are recorded from the resolved graph but do not create
+redundant scenarios. The checked assignments live in
+`evaluation/small-scenario-matrix.json`; their safe execution order and
+evidence boundary live in `evaluation/live-evaluation-protocol.md`.
 
 ## Scope Decisions
 
@@ -690,7 +694,8 @@ Before these questions become final thesis text:
 - [ ] Add stable bibliography keys to the LaTeX bibliography.
 - [ ] Execute the deferred manual UI audit.
 - [ ] Execute supervised live-cloud end-to-end evaluation only after the
-      implementation is frozen.
+      implementation is frozen, budget caps are approved, and the checked
+      evaluation matrix is enabled.
 - [ ] Write explicit answers to every RQ in Discussion and Conclusion.
 
 ## Working Decision

@@ -25,6 +25,11 @@ The canonical scope is defined by:
 4. the approved Six-layer evidence under
    `docs/research/evidence/phase_08_eventing/`.
 
+The canonical supervised evaluation inputs are the
+[`small-scenario-matrix.json`](../research/evaluation/small-scenario-matrix.json)
+and the
+[`live-evaluation-protocol.md`](../research/evaluation/live-evaluation-protocol.md).
+
 ## Current phase status
 
 | Phase | Status on 2026-08-27 | Evidence boundary |
@@ -33,7 +38,7 @@ The canonical scope is defined by:
 | 3 | Implemented offline | connection selection, graph-bound preflight, confirmed preparation, manual acknowledgement, and retry-safe repair |
 | 4–5 | Implemented offline | bounded Twin interchange, durable operations, access and verification contracts |
 | 6 | Implemented offline | product surfaces removed; bounded readiness and repair presentation connected to the existing overview |
-| 7 | In progress | active documentation and repository-wide offline gate |
+| 7 | Implemented on host | active documentation and repository-wide offline gate; identical container replay pending an available Docker daemon |
 | 8 | Pending supervision | real principals, provider readiness, identity and image probes |
 | 9 | Pending supervision | nine cost-controlled Small deployments |
 | 10 | Pending live evidence | RQ analysis, limitations, final thesis evidence and cleanup |
@@ -370,10 +375,12 @@ full Twin and stop on the first unresolved provider blocker.
 - six multi-cloud scenarios covering each directed provider pair exactly once
   on a required cross-cloud Eventing or Twin-projection boundary.
 
-The concrete layer allocation is generated only after the graph edge classes
-are enumerated. A coverage matrix must show which architecture edge and
-provider direction each scenario covers. Redundant permutations are not added
-without a specific RQ or risk justification.
+The concrete assignments and their primary edge focus are frozen in
+`docs/research/evaluation/small-scenario-matrix.json`. The checked matrix shows
+which architecture edge, edge-contract class, and provider direction each
+scenario covers. Redundant permutations are not added without a specific RQ
+or risk justification. The matrix remains non-executable until every numerical
+budget cap and candidate trace has been reviewed.
 
 ### Cost guardrails
 

@@ -26,6 +26,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "scripts/sync_six_layer_contracts.py",
             "scripts/sync_six_layer_workload_contract.py",
             "scripts/sync_user_function_extension_contracts.py",
+            "scripts/validate_live_evaluation_plan.py",
             "scripts/verify_six_layer_management_boundary.py",
         )
 
@@ -37,9 +38,8 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
                     f"{path} must trigger both push and pull-request gates",
                 )
 
-    def test_rejects_e2e_and_cloud_overlay_modes(self) -> None:
+    def test_rejects_cloud_overlay_modes(self) -> None:
         unsafe_environments = (
-            {"RUN_E2E_TESTS": "1"},
             {"THESIS_WITH_CREDENTIALS": "true"},
             {"THESIS_CLOUD_CREDENTIAL_OVERLAY": "yes"},
             {"WITH_CREDENTIALS": "on"},
@@ -60,7 +60,6 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "GCP_SERVICE_ACCOUNT_JSON": "not-used",
             "GOOGLE_APPLICATION_CREDENTIALS": "/tmp/not-used.json",
             "TF_VAR_cloud_secret": "not-used",
-            "RUN_E2E_TESTS": "false",
         }
         runtime_secrets = Path("/tmp/runtime-secrets")
 
@@ -70,7 +69,6 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         )
 
         self.assertEqual(result["PATH"], environment["PATH"])
-        self.assertEqual(result["RUN_E2E_TESTS"], "0")
         self.assertEqual(
             result["THESIS_RUNTIME_SECRETS_DIR"],
             str(runtime_secrets),
@@ -137,6 +135,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "scripts/sync_deployment_access_contracts.py --check",
             rendered,
         )
+        self.assertIn("scripts/validate_live_evaluation_plan.py", rendered)
         self.assertIn(
             "scripts.tests.test_deployment_access_contract_sync",
             rendered,
@@ -227,7 +226,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
                 "Repository static checks",
             ],
         )
-        self.assertIn("--ignore=tests/e2e", rendered)
+        self.assertNotIn("--ignore=tests/e2e", rendered)
         self.assertIn("thesis.sh test frontend", rendered)
         self.assertIn("mkdocs build --strict", rendered)
         self.assertIn("verify_runtime_images.py --project contract-test", rendered)

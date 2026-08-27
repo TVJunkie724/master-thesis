@@ -316,6 +316,11 @@ Before execution, a generated coverage matrix must prove that the nine
 scenarios cover the required provider directions and graph edge classes. A
 scenario is not added merely to enumerate redundant layer assignments.
 
+The checked scenario set and execution safeguards are defined by
+`docs/research/evaluation/small-scenario-matrix.json` and
+`docs/research/evaluation/live-evaluation-protocol.md`. They are plans, not
+live-result evidence.
+
 Every live run uses cost guardrails: reviewed Small inputs, no Large/preview
 capacity, an explicit maximum duration, immediate verification, guaranteed
 Destroy attempt, post-destroy inventory, and recorded residual-resource check.

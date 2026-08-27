@@ -1,2 +1,0 @@
-# Add custom dependencies here
-azure-iot-hub

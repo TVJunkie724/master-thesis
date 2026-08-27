@@ -10,7 +10,7 @@
 | Flutter | `./thesis.sh test frontend` | no |
 | Flutter integration | `./thesis.sh test frontend-integration` | no; read-only local stack |
 | Optimizer | container `pytest tests/ -v` | no live refresh by default |
-| Deployer | container `pytest tests/ --ignore=tests/e2e -v` | no |
+| Deployer | container `pytest tests/ -v` | no |
 | Documentation | strict MkDocs build + link checks | no |
 
 Current suites contain route/contract, unit, integration, security, migration, widget,
@@ -39,9 +39,9 @@ Deployer, and native Terraform drift suites. The no-argument command then runs
 the full safe suites, Ruff, Bandit, dependency/compile checks, Flutter analysis,
 tests and host builds, strict MkDocs, Compose, and repository static checks.
 
-The command refuses `RUN_E2E_TESTS=1`, credential-overlay environment switches,
-and `compose.cloud.local.yaml`. Provider credential variables are removed from
-all child processes. Temporary Management runtime secrets and Compose resources
+The command refuses credential-overlay environment switches and
+`compose.cloud.local.yaml`. Provider credential variables are removed from all
+child processes. Temporary Management runtime secrets and Compose resources
 live under isolated operating-system/Docker namespaces and are removed whether
 the gate succeeds or fails. Terraform tests use mock providers and never call
 `apply`. The canonical Deployer root module versions its

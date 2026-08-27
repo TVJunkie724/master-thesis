@@ -471,14 +471,17 @@ def test_inter_cloud_retry_logs_never_expose_downstream_diagnostics(
             "safe_urlopen",
             MagicMock(side_effect=error),
         )
-        with pytest.raises(urllib.error.HTTPError):
-            inter_cloud.post_to_remote(
-                url="https://remote.example.test/ingestion",
-                token="expected-token",
-                payload={"device_id": "sensor-1"},
-                target_layer="L2",
-                max_retries=0,
-            )
+        try:
+            with pytest.raises(urllib.error.HTTPError):
+                inter_cloud.post_to_remote(
+                    url="https://remote.example.test/ingestion",
+                    token="expected-token",
+                    payload={"device_id": "sensor-1"},
+                    target_layer="L2",
+                    max_retries=0,
+                )
+        finally:
+            error.close()
     finally:
         sys.path.remove(str(AZURE_FUNCTIONS_ROOT))
         _clear_shared_modules()

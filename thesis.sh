@@ -76,7 +76,7 @@ App commands:
   logs [service]     Follow Docker logs. Service examples: management-api,
                      2twin2clouds, 3cloud-deployer.
   down               Stop app/docs containers for this compose project.
-  test backend       Run Management API tests without tests/e2e.
+  test backend       Run the credential-free Management API tests.
   test frontend      Run static architecture, analysis, unit/widget, and build gates.
   test frontend-integration
                      Run read-only Flutter contracts against credential-free
@@ -487,7 +487,7 @@ EOF
 run_backend_tests() {
   require_docker
   bootstrap_local_runtime_secrets
-  compose_cmd run --rm --no-deps management-api python -m pytest tests/ --ignore=tests/e2e -q
+  compose_cmd run --rm --no-deps management-api python -m pytest tests/ -q
 }
 
 run_frontend_tests() {
