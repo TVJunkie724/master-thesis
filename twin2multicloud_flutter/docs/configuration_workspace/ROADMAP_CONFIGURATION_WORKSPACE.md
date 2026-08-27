@@ -3,7 +3,7 @@ title: "Configuration Workspace Roadmap"
 description: "Incremental migration from the legacy three-step wizard to the dependency-aware configuration workspace."
 tags: [flutter, roadmap, configuration, wizard]
 lastUpdated: "2026-08-27"
-version: "2.3"
+version: "2.4"
 ---
 
 <!-- SOURCES:
@@ -43,7 +43,7 @@ adds focused tests, receives two code reviews, and is committed independently.
 | 7 | Done | Quality and migration gate | Legacy navigation and visible step terminology are removed; analyzer, 380 tests, web release build, and macOS release build pass. |
 | 8 | Done | Immutable deployment selection review | Whole-run Management API selection, latest-run hydration, atomic invalidation/restore, fail-closed navigation, read-only primary/supporting resource summary, collapsed technical evidence, isolated demo parity, 706 tests, analyzer, architecture, Web/macOS, backend-contract, and docs gates pass. |
 | 8.1 | Re-scoped; offline verification pending | [Architecture profile experiment](phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md) | [Implementation](implementation/architecture_profile_experiment.md) exposes standalone Six-layer v1 through one Management-owned workflow. Previous two-profile evidence is historical; the reduced profile requires fresh offline verification and later supervised live-capacity evidence. |
-| 9 | Approved | [Thesis research workflow consolidation](phases/PHASE_09_THESIS_RESEARCH_WORKFLOW_CONSOLIDATION.md) | Removes product-oriented pricing/profile surfaces, adds bounded Twin portability, and exposes persisted telemetry and cleanup evidence for the standalone Six-layer PoC. |
+| 9 | Done | [Thesis research workflow consolidation](phases/PHASE_09_THESIS_RESEARCH_WORKFLOW_CONSOLIDATION.md) | Fixed Six-layer workflow, bounded Twin portability, deployment-administrator imports, persisted telemetry/cleanup evidence, analyzer, architecture gate, 812 tests, and Web/macOS release builds pass. |
 
 ## Cross-Phase Definition Of Done
 
