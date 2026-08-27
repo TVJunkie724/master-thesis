@@ -2,16 +2,18 @@
 title: "Configuration Workspace Roadmap"
 description: "Incremental migration from the legacy three-step wizard to the dependency-aware configuration workspace."
 tags: [flutter, roadmap, configuration, wizard]
-lastUpdated: "2026-08-24"
-version: "2.2"
+lastUpdated: "2026-08-27"
+version: "2.3"
 ---
 
 <!-- SOURCES:
 - twin2multicloud_flutter/docs/configuration_workspace/CONCEPT_CONFIGURATION_WORKSPACE.md
 - twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md
 - twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md
+- twin2multicloud_flutter/docs/configuration_workspace/concepts/CONCEPT_THESIS_RESEARCH_WORKFLOW.md
+- twin2multicloud_flutter/docs/configuration_workspace/phases/PHASE_09_THESIS_RESEARCH_WORKFLOW_CONSOLIDATION.md
 - docs/plans/phase_08_architecture_profiles_eventing/README.md
-EXTRACTED: 2026-08-24 | VERSION: 2.2
+EXTRACTED: 2026-08-27 | VERSION: 2.3
 -->
 
 # Configuration Workspace Roadmap
@@ -26,6 +28,9 @@ adds focused tests, receives two code reviews, and is committed independently.
   shared task-oriented shell and dependency-aware journey.
 - [Architecture Profile Experiment](concepts/CONCEPT_ARCHITECTURE_PROFILE_EXPERIMENT.md)
   defines the standalone Six-layer v1 thesis workflow.
+- [Thesis Research Workflow Consolidation](concepts/CONCEPT_THESIS_RESEARCH_WORKFLOW.md)
+  supersedes the selectable-profile product workflow with the fixed
+  `six-layer-eventing@1` research path.
 
 | Phase | Status | Scope | Completion gate |
 |---|---|---|---|
@@ -38,6 +43,7 @@ adds focused tests, receives two code reviews, and is committed independently.
 | 7 | Done | Quality and migration gate | Legacy navigation and visible step terminology are removed; analyzer, 380 tests, web release build, and macOS release build pass. |
 | 8 | Done | Immutable deployment selection review | Whole-run Management API selection, latest-run hydration, atomic invalidation/restore, fail-closed navigation, read-only primary/supporting resource summary, collapsed technical evidence, isolated demo parity, 706 tests, analyzer, architecture, Web/macOS, backend-contract, and docs gates pass. |
 | 8.1 | Re-scoped; offline verification pending | [Architecture profile experiment](phases/PHASE_08_1_ARCHITECTURE_PROFILE_EXPERIMENT.md) | [Implementation](implementation/architecture_profile_experiment.md) exposes standalone Six-layer v1 through one Management-owned workflow. Previous two-profile evidence is historical; the reduced profile requires fresh offline verification and later supervised live-capacity evidence. |
+| 9 | Approved | [Thesis research workflow consolidation](phases/PHASE_09_THESIS_RESEARCH_WORKFLOW_CONSOLIDATION.md) | Removes product-oriented pricing/profile surfaces, adds bounded Twin portability, and exposes persisted telemetry and cleanup evidence for the standalone Six-layer PoC. |
 
 ## Cross-Phase Definition Of Done
 
