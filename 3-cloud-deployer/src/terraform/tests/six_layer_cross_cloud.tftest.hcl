@@ -1,3 +1,7 @@
+variable "project_path" {
+  type = string
+}
+
 mock_provider "archive" {}
 mock_provider "azapi" {}
 mock_provider "aws" {}
@@ -27,38 +31,38 @@ run "six_layer_aws_azure_gcp_routes_event_targets_without_hidden_landing" {
   }
 
   variables {
-    digital_twin_name                     = "route-test-a"
-    architecture_profile_id               = "six-layer-eventing"
-    architecture_profile_version          = "1"
-    layer_1_provider                      = "aws"
-    event_layer_provider                  = "azure"
-    layer_2_provider                      = "google"
-    layer_3_hot_provider                  = "google"
-    layer_3_cold_provider                 = "google"
-    layer_3_archive_provider              = "google"
-    layer_4_provider                      = "google"
-    layer_5_provider                      = "google"
-    layer_3_hot_to_cold_interval_days     = 30
-    layer_3_cold_to_archive_interval_days = 90
-    layer_3_archive_expiry_interval_days  = 365
-    platform_user_email                   = "researcher@example.test"
-    platform_user_first_name              = "Thesis"
-    platform_user_last_name               = "Researcher"
-    gcp_project_id                        = "phase8-poc-project"
-    gcp_region                            = "europe-west1"
-    gcp_six_layer_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    gcp_six_layer_processor_extension_image      = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-    gcp_six_layer_storage_mover_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/storage@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-    gcp_six_layer_grafana_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-    gcp_grafana_source_cidrs              = ["203.0.113.42/32"]
-    aws_six_layer_bridge_image                   = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
-    aws_outbound_identity_required        = true
-    aws_outbound_identity_destinations    = ["azure"]
-    aws_outbound_identity_issuer          = "https://token.actions.githubusercontent.com"
-    azure_event_hubs_throughput_units     = 1
-    enable_aws_logging                    = false
-    enable_azure_logging                  = false
-    enable_gcp_logging                    = false
+    digital_twin_name                       = "route-test-a"
+    architecture_profile_id                 = "six-layer-eventing"
+    architecture_profile_version            = "1"
+    layer_1_provider                        = "aws"
+    event_layer_provider                    = "azure"
+    layer_2_provider                        = "google"
+    layer_3_hot_provider                    = "google"
+    layer_3_cold_provider                   = "google"
+    layer_3_archive_provider                = "google"
+    layer_4_provider                        = "google"
+    layer_5_provider                        = "google"
+    layer_3_hot_to_cold_interval_days       = 30
+    layer_3_cold_to_archive_interval_days   = 90
+    layer_3_archive_expiry_interval_days    = 365
+    platform_user_email                     = "researcher@example.test"
+    platform_user_first_name                = "Thesis"
+    platform_user_last_name                 = "Researcher"
+    gcp_project_id                          = "phase8-poc-project"
+    gcp_region                              = "europe-west1"
+    gcp_six_layer_platform_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    gcp_six_layer_processor_extension_image = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    gcp_six_layer_storage_mover_image       = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/storage@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    gcp_six_layer_grafana_image             = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    gcp_grafana_source_cidrs                = ["203.0.113.42/32"]
+    aws_six_layer_bridge_image              = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    aws_outbound_identity_required          = true
+    aws_outbound_identity_destinations      = ["azure"]
+    aws_outbound_identity_issuer            = "https://token.actions.githubusercontent.com"
+    azure_event_hubs_throughput_units       = 1
+    enable_aws_logging                      = false
+    enable_azure_logging                    = false
+    enable_gcp_logging                      = false
     resolved_component_dimensions = {
       "dimension.azure.azure.event-hubs-standard-small-medium.throughput_unit_hours" = "0"
       "dimension.azure.azure.event-hubs-standard-small-medium.capacity_unit_hours"   = "0"
@@ -271,13 +275,13 @@ run "six_layer_azure_gcp_aws_routes_cover_remaining_directed_pairs" {
     platform_user_last_name               = "Researcher"
     gcp_project_id                        = "phase8-poc-project"
     gcp_region                            = "europe-west1"
-    gcp_six_layer_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    gcp_six_layer_storage_mover_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/storage@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-    gcp_six_layer_grafana_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/grafana@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    gcp_six_layer_platform_image          = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    gcp_six_layer_storage_mover_image     = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/storage@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    gcp_six_layer_grafana_image           = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/grafana@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     gcp_event_runtime_image               = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/event@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     gcp_grafana_source_cidrs              = ["203.0.113.42/32"]
-    aws_six_layer_bridge_image                   = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
-    aws_six_layer_storage_mover_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test-storage@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    aws_six_layer_bridge_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    aws_six_layer_storage_mover_image     = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test-storage@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
     enable_aws_logging                    = false
     enable_azure_logging                  = false
     enable_gcp_logging                    = false
@@ -481,11 +485,11 @@ run "six_layer_azure_domains_aws_eventing_use_exact_source_consumers" {
     azure_layer_access_principal_object_id = "11111111-1111-1111-1111-111111111111"
     azure_layer_access_principal_label     = "researcher@example.test"
     aws_event_kinesis_shards               = 1
-    aws_six_layer_bridge_image                    = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    aws_six_layer_bridge_image             = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     aws_outbound_identity_required         = true
     aws_outbound_identity_destinations     = ["azure"]
     aws_outbound_identity_issuer           = "https://token.actions.githubusercontent.com"
-    azure_six_layer_storage_mover_image           = "routetestcv2mock.azurecr.io/storage-mover@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    azure_six_layer_storage_mover_image    = "routetestcv2mock.azurecr.io/storage-mover@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     enable_aws_logging                     = false
     enable_azure_logging                   = false
     resolved_component_dimensions = {

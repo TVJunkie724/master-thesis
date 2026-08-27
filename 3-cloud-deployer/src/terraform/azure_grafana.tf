@@ -82,7 +82,7 @@ resource "azurerm_role_assignment" "grafana_admin" {
   role_definition_name = "Grafana Admin"
 
   # Use shared platform_user_object_id from azure_user.tf
-  principal_id = local.platform_user_object_id
+  principal_id = local.platform_user_role_principal_id
 
   # Ensure user is created before role assignment
   depends_on = [azuread_user.platform_user]

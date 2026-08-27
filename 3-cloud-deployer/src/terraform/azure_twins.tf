@@ -139,7 +139,7 @@ resource "azurerm_role_assignment" "adt_user_owner" {
 
   # Descriptive prefix + shared deployment suffix to avoid conflicts on re-deploy
   name         = uuidv5("dns", "${var.platform_user_email}-adt-owner-${local.deployment_suffix}")
-  principal_id = local.platform_user_object_id
+  principal_id = local.platform_user_role_principal_id
 
   depends_on = [azuread_user.platform_user]
 }
@@ -157,7 +157,7 @@ resource "azurerm_role_assignment" "scenes_user_contributor" {
 
   # Descriptive prefix + shared deployment suffix to avoid conflicts on re-deploy
   name         = uuidv5("dns", "${var.platform_user_email}-scenes-contributor-${local.deployment_suffix}")
-  principal_id = local.platform_user_object_id
+  principal_id = local.platform_user_role_principal_id
 
   depends_on = [azuread_user.platform_user]
 }

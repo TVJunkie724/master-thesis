@@ -149,6 +149,31 @@ def test_gcp_six_layer_workflow_reports_one_terminal_outcome_to_domain_consumer(
     )
 
 
+def test_disabled_azure_platform_user_assignments_remain_provider_valid():
+    user_source = (TERRAFORM_SOURCE / "azure_user.tf").read_text(encoding="utf-8")
+    grafana_source = (TERRAFORM_SOURCE / "azure_grafana.tf").read_text(
+        encoding="utf-8"
+    )
+    twins_source = (TERRAFORM_SOURCE / "azure_twins.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert "platform_user_role_principal_id = coalesce(" in user_source
+    assert '"00000000-0000-0000-0000-000000000000"' in user_source
+    assert (
+        grafana_source.count(
+            "principal_id = local.platform_user_role_principal_id"
+        )
+        == 1
+    )
+    assert (
+        twins_source.count(
+            "principal_id = local.platform_user_role_principal_id"
+        )
+        == 2
+    )
+
+
 def test_aws_six_layer_storage_mover_uses_only_digest_input_and_exact_task_dimension():
     terraform_source = (TERRAFORM_SOURCE / "aws_six_layer.tf").read_text(
         encoding="utf-8"

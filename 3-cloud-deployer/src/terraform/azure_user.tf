@@ -79,4 +79,13 @@ locals {
     local.existing_platform_user_object_id,
     try(azuread_user.platform_user[0].object_id, null)
   ) : null
+
+  # Provider schema validation still inspects required arguments on resources
+  # whose count is zero. The placeholder is therefore used only while the
+  # platform-user assignments are disabled; an enabled assignment resolves the
+  # real existing or newly created Entra object id above.
+  platform_user_role_principal_id = coalesce(
+    local.platform_user_object_id,
+    "00000000-0000-0000-0000-000000000000"
+  )
 }

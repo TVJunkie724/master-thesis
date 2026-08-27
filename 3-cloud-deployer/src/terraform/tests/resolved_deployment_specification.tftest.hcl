@@ -1,3 +1,7 @@
+variable "project_path" {
+  type = string
+}
+
 mock_provider "archive" {}
 mock_provider "azapi" {}
 mock_provider "aws" {}
@@ -62,7 +66,7 @@ run "six_layer_single_cloud_aws_adds_independent_event_bundle" {
     aws_layer_access_principal_intent     = "invite_builtin"
     enable_aws_logging                    = false
     aws_event_kinesis_shards              = 1
-    aws_six_layer_storage_mover_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-six-images@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    aws_six_layer_storage_mover_image     = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-six-images@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     resolved_component_dimensions = {
       "dimension.aws.aws.ecs-fargate-storage-mover.task_count"   = "1"
       "dimension.aws.aws.kinesis-data-streams.shards_per_stream" = "1"
@@ -144,7 +148,7 @@ run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
     azure_event_hubs_throughput_units      = 1
     azure_event_partitions                 = 4
     azure_event_retention_hours            = 24
-    azure_six_layer_storage_mover_image           = "drifttestv2mock.azurecr.io/storage-mover@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    azure_six_layer_storage_mover_image    = "drifttestv2mock.azurecr.io/storage-mover@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     resolved_component_dimensions = {
       "dimension.azure.azure.container-apps-scheduled-storage-job.task_count"        = "1"
       "dimension.azure.azure.event-hubs-standard-small-medium.throughput_unit_hours" = "730"
@@ -205,32 +209,32 @@ run "six_layer_single_cloud_gcp_adds_independent_event_bundle" {
   command = plan
 
   variables {
-    digital_twin_name                     = "drift-test"
-    architecture_profile_id               = "six-layer-eventing"
-    architecture_profile_version          = "1"
-    event_layer_provider                  = "google"
-    layer_1_provider                      = "google"
-    layer_2_provider                      = "google"
-    layer_3_hot_provider                  = "google"
-    layer_3_cold_provider                 = "google"
-    layer_3_archive_provider              = "google"
-    layer_4_provider                      = "google"
-    layer_5_provider                      = "google"
-    layer_3_hot_to_cold_interval_days     = 30
-    layer_3_cold_to_archive_interval_days = 90
-    layer_3_archive_expiry_interval_days  = 365
-    platform_user_email                   = "researcher@example.test"
-    platform_user_first_name              = "Thesis"
-    platform_user_last_name               = "Researcher"
-    gcp_project_id                        = "phase8-poc-project"
-    gcp_region                            = "europe-west1"
-    gcp_six_layer_platform_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    gcp_six_layer_processor_extension_image      = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-    gcp_six_layer_storage_mover_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-    gcp_six_layer_grafana_image                  = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-    gcp_event_runtime_image               = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/event-runtime@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
-    gcp_grafana_source_cidrs              = ["203.0.113.42/32"]
-    enable_gcp_logging                    = false
+    digital_twin_name                       = "drift-test"
+    architecture_profile_id                 = "six-layer-eventing"
+    architecture_profile_version            = "1"
+    event_layer_provider                    = "google"
+    layer_1_provider                        = "google"
+    layer_2_provider                        = "google"
+    layer_3_hot_provider                    = "google"
+    layer_3_cold_provider                   = "google"
+    layer_3_archive_provider                = "google"
+    layer_4_provider                        = "google"
+    layer_5_provider                        = "google"
+    layer_3_hot_to_cold_interval_days       = 30
+    layer_3_cold_to_archive_interval_days   = 90
+    layer_3_archive_expiry_interval_days    = 365
+    platform_user_email                     = "researcher@example.test"
+    platform_user_first_name                = "Thesis"
+    platform_user_last_name                 = "Researcher"
+    gcp_project_id                          = "phase8-poc-project"
+    gcp_region                              = "europe-west1"
+    gcp_six_layer_platform_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    gcp_six_layer_processor_extension_image = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    gcp_six_layer_storage_mover_image       = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    gcp_six_layer_grafana_image             = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    gcp_event_runtime_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/event-runtime@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    gcp_grafana_source_cidrs                = ["203.0.113.42/32"]
+    enable_gcp_logging                      = false
     resolved_component_dimensions = {
       "dimension.gcp.gcp.cloud-run-storage-job.task_count"                  = "1"
       "dimension.gcp.gcp.pubsub-separated-event-layer-topics.publish_bytes" = "1029376000"
