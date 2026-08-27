@@ -37,6 +37,19 @@ The normal application continues to deploy only the cost-selected candidate.
 Explicit candidate selection is evaluation-only and must not become a public
 profile or provider-override feature.
 
+Before any live authorization, one planned candidate can be reproduced from
+the pinned catalogs without provider access:
+
+```bash
+python scripts/materialize_live_evaluation_candidate.py \
+  small-focus-aws-to-azure --output /tmp/candidate.json
+```
+
+The output contains the exact candidate, cost ledger, RTA and RDS and is marked
+`offline_planned_candidate`. It is an input to budget review, not deployment or
+live evidence. The strict public workload model rejects an
+`evaluationCandidateId`; only the repository evaluation utility can bind it.
+
 ## Cost-efficient order
 
 For each required provider and directed route:

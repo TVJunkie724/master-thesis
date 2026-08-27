@@ -26,6 +26,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "scripts/sync_six_layer_contracts.py",
             "scripts/sync_six_layer_workload_contract.py",
             "scripts/sync_user_function_extension_contracts.py",
+            "scripts/materialize_live_evaluation_candidate.py",
             "scripts/validate_live_evaluation_plan.py",
             "scripts/verify_six_layer_management_boundary.py",
         )
@@ -120,6 +121,10 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         )
         self.assertIn(
             "tests/unit/calculation_v2/test_deployment_drift_matrix.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/tests/test_materialize_live_evaluation_candidate.py",
             rendered,
         )
         self.assertNotIn("sync_architecture_profile_contracts.py", rendered)

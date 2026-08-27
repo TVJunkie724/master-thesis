@@ -239,7 +239,9 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                     "&& python -m pytest -q "
                     "tests/unit/calculation_v2/"
                     "test_deployment_drift_matrix.py "
-                    "tests/unit/test_resolved_deployment_contract.py"
+                    "tests/unit/test_resolved_deployment_contract.py "
+                    "/workspace/scripts/tests/"
+                    "test_materialize_live_evaluation_candidate.py"
                 ),
                 root_mount=True,
                 environment=("PRICING_CATALOG_STORE_ROOT=/tmp/pricing-catalogs",),

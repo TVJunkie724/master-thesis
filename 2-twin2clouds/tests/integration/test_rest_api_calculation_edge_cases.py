@@ -137,6 +137,7 @@ def test_six_layer_request_has_a_distinct_strict_shape():
     ("field", "value"),
     [
         ("useEventChecking", True),
+        ("evaluationCandidateId", "aws|aws|aws|aws|aws|aws|aws|aws"),
         ("numberOfDevices", "100"),
         ("unknownField", True),
     ],

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Literal, Mapping
 
 from backend.deployment_specification.six_layer_builder import (
     build_six_layer_eventing_v1_deployment_specification,
@@ -72,10 +72,19 @@ class SixLayerEventingV1OptimizationResult:
     deployment_specification: Mapping[str, Any]
     cost_evaluation: SixLayerCostEvaluation
     cost_ledger: Mapping[str, Any]
-    winning_candidate_id: str
+    selected_candidate_id: str
+    selection_kind: Literal["cost_winner", "evaluation_candidate"]
     enumerated_candidate_count: int
     costed_candidate_count: int
     rejected_by_error_code: tuple[tuple[str, int], ...]
+
+    @property
+    def winning_candidate_id(self) -> str:
+        """Expose winner terminology only for the normal cost-selected path."""
+
+        if self.selection_kind != "cost_winner":
+            raise RuntimeError("An evaluation candidate is not the cost winner")
+        return self.selected_candidate_id
 
 
 def _validate_eventing_decision_manifest(
@@ -135,8 +144,15 @@ def optimize_six_layer_eventing_v1(
     azure_large_autoscale_ru_per_second: int | None = None,
     azure_large_autoscale_evidence_digest: str | None = None,
     registry: ArchitectureProfileRegistry | None = None,
+    evaluation_candidate_id: str | None = None,
 ) -> SixLayerEventingV1OptimizationResult:
-    """Resolve, cost, rank, and materialize one Six-layer architecture."""
+    """Resolve, cost, rank, and materialize one Six-layer architecture.
+
+    ``evaluation_candidate_id`` is an internal research hook. It materializes
+    one already enumerated and fully costed candidate for the supervised
+    evaluation. The HTTP calculation path never binds this argument and
+    therefore always returns the deterministic cost winner.
+    """
 
     if (cost_ledger_resolver is None) == (pricing_by_provider is None):
         raise ArchitectureResolutionError(
@@ -282,16 +298,37 @@ def optimize_six_layer_eventing_v1(
             enumerated_candidate_count=len(candidates),
             diagnostics=rejections.freeze(),
         )
-    winner = select_lowest_cost_six_layer_candidate(tuple(costed_candidates))
-    specification = specifications[winner.candidate_id]
-    resolved_architecture = resolved_architectures[winner.candidate_id]
+    if evaluation_candidate_id is None:
+        selected = select_lowest_cost_six_layer_candidate(tuple(costed_candidates))
+        selection_kind = "cost_winner"
+    else:
+        selected = next(
+            (
+                candidate
+                for candidate in costed_candidates
+                if candidate.candidate_id == evaluation_candidate_id
+            ),
+            None,
+        )
+        if selected is None:
+            raise ArchitectureResolutionError(
+                "ARCH_NO_ADMISSIBLE_CANDIDATE",
+                "evaluationCandidateId",
+                "Requested evaluation candidate is not fully costed and admissible",
+                enumerated_candidate_count=len(candidates),
+                diagnostics=rejections.freeze(),
+            )
+        selection_kind = "evaluation_candidate"
+    specification = specifications[selected.candidate_id]
+    resolved_architecture = resolved_architectures[selected.candidate_id]
     frozen_rejections = rejections.freeze()
     return SixLayerEventingV1OptimizationResult(
         resolved_architecture=resolved_architecture,
         deployment_specification=specification,
-        cost_evaluation=winner.evaluation,
-        cost_ledger=cost_ledgers[winner.candidate_id],
-        winning_candidate_id=winner.candidate_id,
+        cost_evaluation=selected.evaluation,
+        cost_ledger=cost_ledgers[selected.candidate_id],
+        selected_candidate_id=selected.candidate_id,
+        selection_kind=selection_kind,
         enumerated_candidate_count=len(candidates),
         costed_candidate_count=len(costed_candidates),
         rejected_by_error_code=frozen_rejections.rejected_by_error_code,

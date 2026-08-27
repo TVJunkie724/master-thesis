@@ -368,6 +368,49 @@ def test_optimizer_rejects_cheapest_candidate_when_resolution_is_not_materializa
     assert dict(result.rejected_by_error_code)["ARCH_RESOLUTION_BUILD_FAILED"] > 0
 
 
+def test_evaluation_hook_materializes_an_admissible_costed_candidate_without_calling_it_winner():
+    pricing, evidence = _pricing()
+    registry = _registry()
+    candidate_id = "aws|azure|azure|azure|azure|azure|azure|azure"
+
+    result = optimize_six_layer_eventing_v1(
+        calculation_run_id=RUN_ID,
+        architecture_profile=_profile_ref(registry),
+        extension_bindings=_extension_bindings(),
+        workload=_workload("small"),
+        pricing_evidence_refs=evidence,
+        pricing_by_provider=pricing,
+        registry=registry,
+        evaluation_candidate_id=candidate_id,
+    )
+
+    assert result.selection_kind == "evaluation_candidate"
+    assert result.selected_candidate_id == candidate_id
+    assert result.cost_evaluation.monthly_total > 0
+    with pytest.raises(RuntimeError, match="not the cost winner"):
+        _ = result.winning_candidate_id
+
+
+def test_evaluation_hook_rejects_a_candidate_outside_the_admissible_set():
+    pricing, evidence = _pricing()
+    registry = _registry()
+
+    with pytest.raises(
+        ArchitectureResolutionError,
+        match="not fully costed and admissible",
+    ):
+        optimize_six_layer_eventing_v1(
+            calculation_run_id=RUN_ID,
+            architecture_profile=_profile_ref(registry),
+            extension_bindings=_extension_bindings(),
+            workload=_workload("small"),
+            pricing_evidence_refs=evidence,
+            pricing_by_provider=pricing,
+            registry=registry,
+            evaluation_candidate_id=("aws|aws|aws|aws|aws|aws|azure|aws"),
+        )
+
+
 def test_optimizer_materializes_source_owned_event_bridges_in_rta():
     pricing, evidence = _pricing()
     registry = _registry()
