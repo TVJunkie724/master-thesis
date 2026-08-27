@@ -5,12 +5,6 @@ from src.models.architecture_profile import (
     ResolvedTwinArchitectureRecord,
     TwinArchitectureSelection,
 )
-from src.models.authentication import (
-    AuthenticationEvent,
-    AuthLoginTransaction,
-    AuthSession,
-    ExternalIdentity,
-)
 from src.models.cloud_connection import CloudConnection
 from src.models.cost_calculation import CostCalculationResultItem, CostCalculationRun
 from src.models.credential_security_event import CredentialSecurityEvent
@@ -62,8 +56,4 @@ __all__ = [
     "ResolvedArchitectureComponentAssignment",
     "ResolvedArchitectureEdge",
     "ArchitectureAuditEvent",
-    "AuthenticationEvent",
-    "AuthLoginTransaction",
-    "AuthSession",
-    "ExternalIdentity",
 ]

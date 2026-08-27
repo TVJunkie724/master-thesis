@@ -59,7 +59,7 @@ _APPROVED_RUNTIME_FILES = {
     "twin2multicloud_flutter/config/production.example.json",
 }
 _RUNTIME_MARKER = re.compile(
-    r"API_BASE_URL|DOCS_BASE_URL|DEV_AUTH_TOKEN|http://localhost:(?:5005|5010)\b"
+    r"API_BASE_URL|DOCS_BASE_URL|POC_AUTH_TOKEN|http://localhost:(?:5005|5010)\b"
 )
 
 

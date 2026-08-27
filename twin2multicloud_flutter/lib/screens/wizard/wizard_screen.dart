@@ -16,7 +16,6 @@ import '../../features/configuration_workspace/presentation/configuration_worksp
 import '../../features/configuration_workspace/presentation/configuration_workspace_header.dart';
 import '../../features/configuration_workspace/presentation/configuration_workspace_scaffold.dart';
 import '../../features/configuration_workspace/presentation/configuration_workspace_shell.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/twins_provider.dart';
 import 'step1_configuration.dart';
@@ -106,8 +105,6 @@ class _WizardViewState extends ConsumerState<WizardView> {
           onToggleTheme: () => ref.read(themeProvider.notifier).toggle(),
           onOpenSettings: () =>
               _requestExit(context, state, _WorkspaceExitDestination.settings),
-          onLogout: () =>
-              _requestExit(context, state, _WorkspaceExitDestination.logout),
         );
         if (state.status == WizardStatus.loading) {
           return ConfigurationWorkspaceScaffold(
@@ -447,10 +444,8 @@ class _WizardViewState extends ConsumerState<WizardView> {
         context.go('/dashboard');
       case _WorkspaceExitDestination.settings:
         context.go('/settings');
-      case _WorkspaceExitDestination.logout:
-        await ref.read(authProvider.notifier).logout();
     }
   }
 }
 
-enum _WorkspaceExitDestination { dashboard, settings, logout }
+enum _WorkspaceExitDestination { dashboard, settings }

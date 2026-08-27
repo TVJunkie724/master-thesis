@@ -248,7 +248,6 @@ async def seed_if_needed() -> None:
             id=str(uuid.uuid4()),
             email=SEED_USER_EMAIL,
             name="Seed User",
-            auth_provider="seed",
         )
         db.add(user)
         db.flush()

@@ -15,7 +15,7 @@ THESIS_MANAGEMENT_API_PORT="${THESIS_MANAGEMENT_API_PORT:-5005}"
 THESIS_LAYER_ACCESS_TEST_PORT="${THESIS_LAYER_ACCESS_TEST_PORT:-5515}"
 THESIS_DOCS_PORT="${THESIS_DOCS_PORT:-5010}"
 THESIS_API_BASE_URL="${THESIS_API_BASE_URL:-http://localhost:${THESIS_MANAGEMENT_API_PORT}}"
-THESIS_DEV_AUTH_TOKEN="${THESIS_DEV_AUTH_TOKEN:-dev-token}"
+THESIS_POC_AUTH_TOKEN="${THESIS_POC_AUTH_TOKEN:-dev-token}"
 THESIS_FLUTTER_DEVICE="${THESIS_FLUTTER_DEVICE:-}"
 THESIS_DEMO_SCENARIO="${THESIS_DEMO_SCENARIO:-showcase}"
 THESIS_DOCKER_CONTEXT="${THESIS_DOCKER_CONTEXT:-}"
@@ -123,7 +123,7 @@ Environment:
                                Isolated test-only Management API port. Default: 5515.
   THESIS_DOCS_PORT             Host port for MkDocs. Default: 5010.
   THESIS_API_BASE_URL          Flutter API URL. Default: http://localhost:${THESIS_MANAGEMENT_API_PORT}.
-  THESIS_DEV_AUTH_TOKEN        Flutter dev auth token. Default: dev-token.
+  THESIS_POC_AUTH_TOKEN        Local profile bearer. Default: dev-token.
   THESIS_FLUTTER_DEVICE        Optional Flutter target override. By default the
                                native macOS, Windows, or Linux host is selected.
   THESIS_DEMO_SCENARIO         Offline fixture scenario. Default: showcase.
@@ -351,7 +351,7 @@ write_flutter_config() {
   ensure_python_command
   mkdir -p "$FLUTTER_CONFIG_DIR"
   THESIS_API_BASE_URL="$THESIS_API_BASE_URL" \
-  THESIS_DEV_AUTH_TOKEN="$THESIS_DEV_AUTH_TOKEN" \
+  THESIS_POC_AUTH_TOKEN="$THESIS_POC_AUTH_TOKEN" \
   "$PYTHON_COMMAND" - "$FLUTTER_DEV_CONFIG" <<'PY'
 import json
 import os
@@ -362,7 +362,7 @@ path = Path(sys.argv[1])
 payload = {
     "APP_MODE": "development",
     "API_BASE_URL": os.environ["THESIS_API_BASE_URL"],
-    "DEV_AUTH_TOKEN": os.environ["THESIS_DEV_AUTH_TOKEN"],
+    "POC_AUTH_TOKEN": os.environ["THESIS_POC_AUTH_TOKEN"],
 }
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -603,7 +603,7 @@ run_frontend_integration_tests() {
       -d "$host_device" \
       --dart-define="APP_MODE=development" \
       --dart-define="API_BASE_URL=http://127.0.0.1:${THESIS_LAYER_ACCESS_TEST_PORT}" \
-      --dart-define="DEV_AUTH_TOKEN=${THESIS_DEV_AUTH_TOKEN}")
+      --dart-define="POC_AUTH_TOKEN=${THESIS_POC_AUTH_TOKEN}")
 
     if docker_cmd logs "$layer_access_container" 2>&1 | grep -Fq "fixture-viewer-"; then
       fail "A one-time Layer Access test credential was found in API logs."

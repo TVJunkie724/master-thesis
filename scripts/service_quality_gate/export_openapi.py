@@ -16,9 +16,6 @@ from typing import Mapping
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CONTRACT_JWT_KEY = hashlib.sha256(
-    b"twin2multicloud-openapi-jwt"
-).hexdigest()
 CONTRACT_ENCRYPTION_KEY = base64.urlsafe_b64encode(
     hashlib.sha256(b"twin2multicloud-openapi-encryption").digest()
 ).decode("ascii")
@@ -41,7 +38,7 @@ SERVICES: dict[str, ServiceSpec] = {
             "ENABLE_TEST_ENDPOINTS": "false",
             "SEED_DATA": "false",
             "DEBUG": "false",
-            "JWT_SECRET_KEY": CONTRACT_JWT_KEY,
+            "POC_AUTH_TOKEN": "contract-poc-token",
             "ENCRYPTION_KEY": CONTRACT_ENCRYPTION_KEY,
         },
     ),
@@ -58,10 +55,14 @@ SERVICES: dict[str, ServiceSpec] = {
 
 def parse_app_import(import_path: str) -> tuple[str, str]:
     if ":" not in import_path:
-        raise ValueError(f"Invalid app import '{import_path}'. Expected '<module>:<attribute>'.")
+        raise ValueError(
+            f"Invalid app import '{import_path}'. Expected '<module>:<attribute>'."
+        )
     module_name, app_name = import_path.split(":", 1)
     if not module_name or not app_name:
-        raise ValueError(f"Invalid app import '{import_path}'. Expected '<module>:<attribute>'.")
+        raise ValueError(
+            f"Invalid app import '{import_path}'. Expected '<module>:<attribute>'."
+        )
     return module_name, app_name
 
 
@@ -92,7 +93,9 @@ def export_schema(service: str, output: Path) -> None:
     output = output if output.is_absolute() else Path.cwd() / output
     schema = load_openapi(SERVICES[service])
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(schema, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    output.write_text(
+        json.dumps(schema, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:

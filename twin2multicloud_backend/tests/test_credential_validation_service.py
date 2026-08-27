@@ -28,7 +28,6 @@ def _create_user(db) -> User:
     user = User(
         email="credential-validation-service@example.test",
         name="Credential Validation",
-        auth_provider="google",
     )
     db.add(user)
     db.commit()
@@ -138,7 +137,9 @@ async def test_validate_stored_with_deployer_decrypts_connection_and_persists_fl
 
 
 @pytest.mark.asyncio
-async def test_validate_inline_with_deployer_redacts_message_and_permissions(db_session):
+async def test_validate_inline_with_deployer_redacts_message_and_permissions(
+    db_session,
+):
     secret = "INLINE-SECRET-VALUE"
 
     async def deployer(_provider, credentials):
@@ -189,10 +190,7 @@ async def test_inline_default_path_uses_only_typed_deployer_client(db_session):
 
     assert result.valid is True
     assert deployer_client.calls[0][0] == "aws"
-    assert (
-        deployer_client.calls[0][1]["aws_secret_access_key"]
-        == "DEFAULT-PATH-SECRET"
-    )
+    assert deployer_client.calls[0][1]["aws_secret_access_key"] == "DEFAULT-PATH-SECRET"
 
 
 @pytest.mark.asyncio
@@ -250,9 +248,9 @@ def test_redact_validation_helpers_handle_nested_payloads():
         redact_validation_message("leak NESTED-SECRET", credentials)
         == "leak [REDACTED]"
     )
-    assert redact_validation_payload(
-        {"items": ["NESTED-SECRET"]}, credentials
-    ) == {"items": ["[REDACTED]"]}
+    assert redact_validation_payload({"items": ["NESTED-SECRET"]}, credentials) == {
+        "items": ["[REDACTED]"]
+    }
 
 
 def test_redact_secret_like_text_handles_common_secret_shapes():

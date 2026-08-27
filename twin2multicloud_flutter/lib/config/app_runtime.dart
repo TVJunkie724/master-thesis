@@ -6,18 +6,18 @@ class AppRuntimeConfig {
   final AppMode mode;
   final DemoScenario demoScenario;
   final Uri? managementApiBaseUri;
-  final String? _developmentAuthToken;
+  final String? _pocAuthToken;
 
   const AppRuntimeConfig._({
     required this.mode,
     required this.demoScenario,
     required this.managementApiBaseUri,
-    required String? developmentAuthToken,
-  }) : _developmentAuthToken = developmentAuthToken;
+    required String? pocAuthToken,
+  }) : _pocAuthToken = pocAuthToken;
 
   factory AppRuntimeConfig.development({
     required Uri managementApiBaseUri,
-    required String developmentAuthToken,
+    required String pocAuthToken,
   }) {
     return AppRuntimeConfig._(
       mode: AppMode.development,
@@ -26,11 +26,14 @@ class AppRuntimeConfig {
         managementApiBaseUri,
         requireHttps: false,
       ),
-      developmentAuthToken: _validateDevelopmentToken(developmentAuthToken),
+      pocAuthToken: _validatePocToken(pocAuthToken),
     );
   }
 
-  factory AppRuntimeConfig.production({required Uri managementApiBaseUri}) {
+  factory AppRuntimeConfig.production({
+    required Uri managementApiBaseUri,
+    required String pocAuthToken,
+  }) {
     return AppRuntimeConfig._(
       mode: AppMode.production,
       demoScenario: DemoScenario.showcase,
@@ -38,19 +41,19 @@ class AppRuntimeConfig {
         managementApiBaseUri,
         requireHttps: true,
       ),
-      developmentAuthToken: null,
+      pocAuthToken: _validatePocToken(pocAuthToken),
     );
   }
 
   const AppRuntimeConfig.demo({this.demoScenario = DemoScenario.showcase})
     : mode = AppMode.demo,
       managementApiBaseUri = null,
-      _developmentAuthToken = null;
+      _pocAuthToken = null;
 
   factory AppRuntimeConfig.fromEnvironment() {
     const modeValue = String.fromEnvironment('APP_MODE');
     const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
-    const devAuthToken = String.fromEnvironment('DEV_AUTH_TOKEN');
+    const pocAuthToken = String.fromEnvironment('POC_AUTH_TOKEN');
     const scenarioValue = String.fromEnvironment(
       'DEMO_SCENARIO',
       defaultValue: 'showcase',
@@ -59,7 +62,7 @@ class AppRuntimeConfig {
     return AppRuntimeConfig.fromValues(
       appMode: modeValue,
       apiBaseUrl: apiBaseUrl,
-      devAuthToken: devAuthToken,
+      pocAuthToken: pocAuthToken,
       demoScenario: scenarioValue,
     );
   }
@@ -67,22 +70,22 @@ class AppRuntimeConfig {
   factory AppRuntimeConfig.fromValues({
     required String appMode,
     String apiBaseUrl = '',
-    String devAuthToken = '',
+    String pocAuthToken = '',
     String demoScenario = 'showcase',
   }) {
     final mode = parseMode(appMode);
     return switch (mode) {
       AppMode.development => AppRuntimeConfig.development(
         managementApiBaseUri: _parseBaseUri(apiBaseUrl),
-        developmentAuthToken: devAuthToken,
+        pocAuthToken: pocAuthToken,
       ),
-      AppMode.production => _productionFromValues(
-        apiBaseUrl: apiBaseUrl,
-        devAuthToken: devAuthToken,
+      AppMode.production => AppRuntimeConfig.production(
+        managementApiBaseUri: _parseBaseUri(apiBaseUrl),
+        pocAuthToken: pocAuthToken,
       ),
       AppMode.demo => _demoFromValues(
         apiBaseUrl: apiBaseUrl,
-        devAuthToken: devAuthToken,
+        pocAuthToken: pocAuthToken,
         scenario: demoScenario,
       ),
     };
@@ -90,8 +93,7 @@ class AppRuntimeConfig {
 
   bool get isDemo => mode == AppMode.demo;
 
-  String? get initialAuthToken =>
-      mode == AppMode.development ? _developmentAuthToken : null;
+  String? get initialAuthToken => _pocAuthToken;
 
   static AppMode parseMode(String value) {
     final normalized = value.trim().toLowerCase();
@@ -121,26 +123,14 @@ class AppRuntimeConfig {
     };
   }
 
-  static AppRuntimeConfig _productionFromValues({
-    required String apiBaseUrl,
-    required String devAuthToken,
-  }) {
-    if (devAuthToken.isNotEmpty) {
-      throw StateError('DEV_AUTH_TOKEN is forbidden in production.');
-    }
-    return AppRuntimeConfig.production(
-      managementApiBaseUri: _parseBaseUri(apiBaseUrl),
-    );
-  }
-
   static AppRuntimeConfig _demoFromValues({
     required String apiBaseUrl,
-    required String devAuthToken,
+    required String pocAuthToken,
     required String scenario,
   }) {
-    if (apiBaseUrl.isNotEmpty || devAuthToken.isNotEmpty) {
+    if (apiBaseUrl.isNotEmpty || pocAuthToken.isNotEmpty) {
       throw StateError(
-        'API_BASE_URL and DEV_AUTH_TOKEN are forbidden in demo mode.',
+        'API_BASE_URL and POC_AUTH_TOKEN are forbidden in demo mode.',
       );
     }
     return AppRuntimeConfig.demo(demoScenario: parseScenario(scenario));
@@ -178,13 +168,13 @@ class AppRuntimeConfig {
     return uri.replace(path: '');
   }
 
-  static String _validateDevelopmentToken(String value) {
+  static String _validatePocToken(String value) {
     if (value.isEmpty) {
-      throw StateError('DEV_AUTH_TOKEN is required in development.');
+      throw StateError('POC_AUTH_TOKEN is required in networked modes.');
     }
     if (RegExp(r'[\x00-\x20\x7F]').hasMatch(value)) {
       throw StateError(
-        'DEV_AUTH_TOKEN must not contain whitespace or control characters.',
+        'POC_AUTH_TOKEN must not contain whitespace or control characters.',
       );
     }
     return value;

@@ -1,33 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/profile_bootstrap_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/wizard/wizard_screen.dart';
 import 'screens/twin_overview/twin_overview_screen.dart';
-import 'providers/auth_provider.dart';
+import 'providers/profile_provider.dart';
 import 'providers/runtime_providers.dart';
 import 'providers/theme_provider.dart';
 import 'widgets/demo_mode_banner.dart';
 
 // Router configuration
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
-  final runtime = ref.watch(appRuntimeProvider);
-
   final router = GoRouter(
-    initialLocation: runtime.isDemo ? '/dashboard' : '/login',
-    redirect: (context, state) {
-      final isLoggedIn = authState.isAuthenticated;
-      final isLoggingIn = state.matchedLocation == '/login';
-
-      if (!isLoggedIn && !isLoggingIn) return '/login';
-      if (isLoggedIn && isLoggingIn) return '/dashboard';
-      return null;
-    },
+    initialLocation: '/dashboard',
     routes: [
-      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/dashboard',
         builder: (context, state) => const DashboardScreen(),
@@ -64,6 +52,7 @@ class Twin2MultiCloudApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     final runtime = ref.watch(appRuntimeProvider);
+    final profileState = ref.watch(profileProvider);
 
     // Simple Material theme - uses Material 3 defaults with blue primary
     const Color primaryBlue = Color(0xFF1976D2);
@@ -94,8 +83,21 @@ class Twin2MultiCloudApp extends ConsumerWidget {
       themeMode: ref.watch(themeProvider),
       routerConfig: router,
       builder: (context, child) {
-        if (!runtime.isDemo || child == null) return child ?? const SizedBox();
-        return DemoModeBanner(scenario: runtime.demoScenario, child: child);
+        Widget content = child ?? const SizedBox();
+        if (!profileState.isAvailable) {
+          content = ProfileBootstrapScreen(
+            isLoading: profileState.isLoading,
+            errorMessage: profileState.errorMessage,
+            onRetry: () => ref.read(profileProvider.notifier).loadProfile(),
+          );
+        }
+        if (runtime.isDemo) {
+          content = DemoModeBanner(
+            scenario: runtime.demoScenario,
+            child: content,
+          );
+        }
+        return content;
       },
     );
   }

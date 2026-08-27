@@ -279,9 +279,7 @@ void main() {
     expect(dismissed, 2);
   });
 
-  testWidgets('profile menu emits settings and logout callbacks', (
-    tester,
-  ) async {
+  testWidgets('profile menu emits settings callback only', (tester) async {
     final invoked = <String>[];
     await tester.pumpWidget(
       _app(
@@ -290,7 +288,6 @@ void main() {
             isDarkMode: false,
             onToggleTheme: () => invoked.add('theme'),
             onOpenSettings: () => invoked.add('settings'),
-            onLogout: () => invoked.add('logout'),
           ),
         ),
       ),
@@ -301,10 +298,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Profile menu'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Logout'));
-    expect(invoked, ['theme', 'settings', 'logout']);
+    expect(find.text('Logout'), findsNothing);
+    expect(invoked, ['theme', 'settings']);
   });
 
   testWidgets('profile navigation is disabled while a command is active', (
@@ -318,7 +313,6 @@ void main() {
             navigationEnabled: false,
             onToggleTheme: () {},
             onOpenSettings: () => fail('Settings must stay disabled'),
-            onLogout: () => fail('Logout must stay disabled'),
           ),
         ),
       ),
@@ -423,5 +417,4 @@ PreferredSizeWidget _appBar() => ConfigurationWorkspaceAppBar(
   isDarkMode: false,
   onToggleTheme: () {},
   onOpenSettings: () {},
-  onLogout: () {},
 );

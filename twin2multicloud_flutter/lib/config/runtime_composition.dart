@@ -44,7 +44,10 @@ class RuntimeComposition {
     if (baseUri == null) {
       throw StateError('A networked runtime requires a Management API origin.');
     }
-    final managementApi = ApiService(baseUri: baseUri);
+    final managementApi = ApiService(
+      baseUri: baseUri,
+      initialAuthToken: config.initialAuthToken,
+    );
     return RuntimeComposition(
       config: config,
       managementApi: managementApi,

@@ -35,7 +35,7 @@ implemented through adapters, not scattered UI conditionals.
 
 ## State ownership
 
-- Riverpod composes runtime configuration, authentication, theme, API/log
+- Riverpod composes runtime configuration, the local PoC profile, theme, API/log
   adapters, and simple global async resources.
 - BLoC owns feature workflows with commands, concurrent responses, retries,
   partial results, replay cursors, and destructive confirmations.

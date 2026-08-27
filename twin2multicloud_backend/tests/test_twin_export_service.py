@@ -25,7 +25,7 @@ from src.services.twin_export_service import (
 
 
 def _create_user(db, email: str) -> User:
-    user = User(email=email, name="Twin Transfer", auth_provider="google")
+    user = User(email=email, name="Twin Transfer")
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -187,11 +187,14 @@ def test_import_rejects_manifest_digest_tampering(db_session, tmp_path):
     service = TwinExportService(db_session, upload_dir=tmp_path)
     original = service.export_twin(source.id, owner.id).content.getvalue()
     tampered = io.BytesIO()
-    with zipfile.ZipFile(io.BytesIO(original)) as source_zip, zipfile.ZipFile(
-        tampered,
-        "w",
-        zipfile.ZIP_DEFLATED,
-    ) as target_zip:
+    with (
+        zipfile.ZipFile(io.BytesIO(original)) as source_zip,
+        zipfile.ZipFile(
+            tampered,
+            "w",
+            zipfile.ZIP_DEFLATED,
+        ) as target_zip,
+    ):
         for name in source_zip.namelist():
             value = source_zip.read(name)
             if name == DEFINITION_PATH:

@@ -48,9 +48,10 @@ state and is discarded after use; provider administrator secrets never do.
 ## Runtime configuration
 
 `config/dev.example.json` and `config/production.example.json` document the
-supported runtime shape. Missing or invalid mode/origin/authentication values
-fail bootstrap. Demo mode uses a tracked secret-free configuration and
-in-memory adapters behind the same interfaces.
+supported runtime shape. Networked modes require the local PoC profile bearer;
+missing or invalid mode/origin/token values fail bootstrap. The dormant login
+screen is deliberately not routed. Demo mode uses a tracked secret-free
+configuration and in-memory adapters behind the same interfaces.
 
 ## Verification
 

@@ -38,41 +38,6 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "sqlite:///./data/app.db"
 
-    # JWT
-    JWT_SECRET_KEY: str = ""
-    JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRE_MINUTES: int = 60
-    JWT_ISSUER: str = "twin2multicloud-management-api"
-    JWT_AUDIENCE: str = "twin2multicloud-client"
-
-    # Durable external authentication transactions and abuse controls.
-    AUTH_TRANSACTION_TTL_SECONDS: int = Field(default=600, ge=60, le=1800)
-    AUTH_POLL_INTERVAL_MS: int = Field(default=1000, ge=500, le=5000)
-    AUTH_RATE_LIMIT_ENABLED: bool = True
-    AUTH_RATE_LIMIT_STORAGE_URI: str = ""
-    AUTH_LOGIN_RATE_LIMIT: str = "20/minute"
-    AUTH_EXCHANGE_RATE_LIMIT: str = "120/minute"
-
-    # Google OAuth
-    GOOGLE_CLIENT_ID: str = ""
-    GOOGLE_CLIENT_SECRET: str = ""
-    GOOGLE_REDIRECT_URI: str = ""
-
-    # UIBK SAML Configuration
-    # Enable after ACOnet registration is complete
-    SAML_ENABLED: bool = False
-    SAML_SP_ENTITY_ID: str = "http://localhost:5005"  # Local dev default
-    SAML_ACS_URL: str = (
-        "http://localhost:5005/auth/uibk/callback"  # Assertion Consumer Service URL
-    )
-    SAML_SP_CERT: str = ""  # Base64 encoded SP certificate
-    SAML_SP_KEY: str = ""  # Base64 encoded SP private key
-
-    # IdP Settings (configurable for mock IdP vs real UIBK)
-    SAML_IDP_ENTITY_ID: str = "https://idp.uibk.ac.at/idp/shibboleth"
-    SAML_IDP_SSO_URL: str = "https://idp.uibk.ac.at/idp/profile/SAML2/Redirect/SSO"
-    SAML_IDP_CERT: str = ""  # From IdP metadata
-
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8080"
 
@@ -98,9 +63,10 @@ class Settings(BaseSettings):
     REQUIRE_HTTPS: bool | None = None
     TRUSTED_PROXY_CIDRS: str = ""
 
-    # Explicit local/test authentication capability. Never infer this from DEBUG.
-    DEV_AUTH_ENABLED: bool = False
-    DEV_AUTH_TOKEN: str = ""
+    # Explicit single-user PoC profile. This is not production authentication.
+    POC_AUTH_TOKEN: str = ""
+    POC_USER_EMAIL: str = "research-user@example.invalid"
+    POC_USER_NAME: str = "Research User"
 
     # Credential Encryption (Fernet key - 32 bytes base64)
     # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
@@ -130,64 +96,47 @@ class Settings(BaseSettings):
     def validate_security_boundary(self) -> "Settings":
         """Reject unsafe capabilities and invalid runtime secrets."""
         non_production = {AppEnvironment.DEVELOPMENT, AppEnvironment.TEST}
-        if self.DEV_AUTH_ENABLED and self.APP_ENV not in non_production:
-            raise ValueError("DEV_AUTH_ENABLED is only allowed in development or test")
         if self.ENABLE_TEST_ENDPOINTS and self.APP_ENV not in non_production:
             raise ValueError(
                 "ENABLE_TEST_ENDPOINTS is only allowed in development or test"
             )
         if self.SEED_DATA and self.APP_ENV not in non_production:
             raise ValueError("SEED_DATA is only allowed in development or test")
-        if self.DEV_AUTH_ENABLED and not self.DEV_AUTH_TOKEN:
-            raise ValueError("DEV_AUTH_TOKEN is required when DEV_AUTH_ENABLED is true")
-
-        if self.JWT_ALGORITHM not in {"HS256", "HS384", "HS512"}:
-            raise ValueError("JWT_ALGORITHM must be HS256, HS384, or HS512")
-        if not self.JWT_ISSUER.strip() or not self.JWT_AUDIENCE.strip():
-            raise ValueError("JWT_ISSUER and JWT_AUDIENCE must be non-empty")
-
-        google_values = (
-            self.GOOGLE_CLIENT_ID,
-            self.GOOGLE_CLIENT_SECRET,
-            self.GOOGLE_REDIRECT_URI,
-        )
-        if any(google_values) and not all(google_values):
-            raise ValueError("Google authentication configuration must be complete")
-
-        saml_values = (
-            self.SAML_SP_ENTITY_ID,
-            self.SAML_ACS_URL,
-            self.SAML_SP_CERT,
-            self.SAML_SP_KEY,
-            self.SAML_IDP_ENTITY_ID,
-            self.SAML_IDP_SSO_URL,
-            self.SAML_IDP_CERT,
-        )
-        if self.SAML_ENABLED and not all(saml_values):
+        if not self.POC_AUTH_TOKEN:
+            raise ValueError("POC_AUTH_TOKEN is required for the single-user PoC")
+        if self.POC_AUTH_TOKEN != self.POC_AUTH_TOKEN.strip() or any(
+            ord(character) < 33 or ord(character) == 127
+            for character in self.POC_AUTH_TOKEN
+        ):
             raise ValueError(
-                "SAML authentication configuration must be complete when enabled"
+                "POC_AUTH_TOKEN must be an opaque value without whitespace"
             )
-
-        if len(self.JWT_SECRET_KEY) < 32:
-            raise ValueError("JWT_SECRET_KEY must contain at least 32 characters")
+        if (
+            self.POC_USER_EMAIL != self.POC_USER_EMAIL.strip()
+            or self.POC_USER_EMAIL.count("@") != 1
+            or any(
+                ord(character) < 33 or ord(character) == 127
+                for character in self.POC_USER_EMAIL
+            )
+        ):
+            raise ValueError("POC_USER_EMAIL must be one valid opaque email address")
+        if (
+            not self.POC_USER_NAME.strip()
+            or self.POC_USER_NAME != self.POC_USER_NAME.strip()
+        ):
+            raise ValueError("POC_USER_NAME must be a non-empty trimmed display name")
         if len(self.ENCRYPTION_KEY) < 32:
             raise ValueError("ENCRYPTION_KEY must contain at least 32 characters")
-        if self.JWT_SECRET_KEY != self.JWT_SECRET_KEY.strip():
-            raise ValueError("JWT_SECRET_KEY contains surrounding whitespace")
         if self.ENCRYPTION_KEY != self.ENCRYPTION_KEY.strip():
             raise ValueError("ENCRYPTION_KEY contains surrounding whitespace")
         if any(
             ord(character) < 32 or ord(character) == 127
-            for value in (self.JWT_SECRET_KEY, self.ENCRYPTION_KEY)
+            for value in (self.ENCRYPTION_KEY,)
             for character in value
         ):
             raise ValueError("Runtime secrets must not contain control characters")
-        if self.JWT_SECRET_KEY in KNOWN_INSECURE_SECRET_VALUES:
-            raise ValueError("JWT_SECRET_KEY uses a known insecure placeholder")
         if self.ENCRYPTION_KEY in KNOWN_INSECURE_SECRET_VALUES:
             raise ValueError("ENCRYPTION_KEY uses a known insecure placeholder")
-        if self.JWT_SECRET_KEY == self.ENCRYPTION_KEY:
-            raise ValueError("JWT_SECRET_KEY and ENCRYPTION_KEY must be different")
         if re.fullmatch(r"[A-Za-z0-9_-]+={0,2}", self.ENCRYPTION_KEY) is None:
             raise ValueError("ENCRYPTION_KEY must be a URL-safe base64 value")
         try:
@@ -214,14 +163,6 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "CREDENTIAL_RATE_LIMIT_STORAGE_URI must use redis:// or rediss:// in production"
                 )
-            if not self.AUTH_RATE_LIMIT_ENABLED:
-                raise ValueError("AUTH_RATE_LIMIT_ENABLED must be true in production")
-            if not self.auth_rate_limit_storage_uri.startswith(
-                ("redis://", "rediss://")
-            ):
-                raise ValueError(
-                    "AUTH_RATE_LIMIT_STORAGE_URI must use redis:// or rediss:// in production"
-                )
             if not self.USER_FUNCTION_RATE_LIMIT_ENABLED:
                 raise ValueError(
                     "USER_FUNCTION_RATE_LIMIT_ENABLED must be true in production"
@@ -233,13 +174,6 @@ class Settings(BaseSettings):
                     "User-function rate-limit storage must use redis:// or rediss:// "
                     "in production"
                 )
-            if (
-                all(google_values)
-                and urlparse(self.GOOGLE_REDIRECT_URI).scheme != "https"
-            ):
-                raise ValueError("GOOGLE_REDIRECT_URI must use HTTPS in production")
-            if self.SAML_ENABLED and urlparse(self.SAML_ACS_URL).scheme != "https":
-                raise ValueError("SAML_ACS_URL must use HTTPS in production")
 
         if self.REQUIRE_HTTPS is None:
             self.REQUIRE_HTTPS = self.APP_ENV == AppEnvironment.PRODUCTION
@@ -249,8 +183,6 @@ class Settings(BaseSettings):
         for field_name in (
             "CREDENTIAL_WRITE_RATE_LIMIT",
             "CREDENTIAL_VALIDATION_RATE_LIMIT",
-            "AUTH_LOGIN_RATE_LIMIT",
-            "AUTH_EXCHANGE_RATE_LIMIT",
             "USER_FUNCTION_SOURCE_DOWNLOAD_RATE_LIMIT",
         ):
             if (
@@ -302,18 +234,6 @@ class Settings(BaseSettings):
     def cors_origins(self) -> tuple[str, ...]:
         return tuple(
             value.strip() for value in self.CORS_ORIGINS.split(",") if value.strip()
-        )
-
-    @property
-    def google_auth_enabled(self) -> bool:
-        return all(
-            (self.GOOGLE_CLIENT_ID, self.GOOGLE_CLIENT_SECRET, self.GOOGLE_REDIRECT_URI)
-        )
-
-    @property
-    def auth_rate_limit_storage_uri(self) -> str:
-        return (
-            self.AUTH_RATE_LIMIT_STORAGE_URI or self.CREDENTIAL_RATE_LIMIT_STORAGE_URI
         )
 
     @property

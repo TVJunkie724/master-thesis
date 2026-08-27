@@ -43,15 +43,14 @@ the Management API URL and a local development token and is ignored by Git.
 Tracked example files define development, demo and fail-closed deployment
 shapes without containing secrets.
 
-The Management API requires two local runtime keys:
+The Management API requires one local runtime encryption key:
 
 ```text
-.secrets/runtime/JWT_SECRET_KEY
 .secrets/runtime/ENCRYPTION_KEY
 ```
 
-The root script creates them with restricted permissions and never prints or
-rotates existing values. The encryption key protects stored CloudConnections;
+The root script creates it with restricted permissions and never prints or
+rotates an existing value. The encryption key protects stored CloudConnections;
 deleting it can make local encrypted records unreadable.
 
 Provider credentials are a separate boundary. The default stack does not need

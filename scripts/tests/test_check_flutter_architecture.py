@@ -148,7 +148,7 @@ class FlutterArchitectureCheckTest(unittest.TestCase):
     def test_runtime_keys_are_owned_only_by_explicit_profile_sources(self) -> None:
         self.write(
             "twin2multicloud_flutter/lib/config/app_runtime.dart",
-            "const key = 'DEV_AUTH_TOKEN';\n",
+            "const key = 'POC_AUTH_TOKEN';\n",
         )
         self.write(
             "twin2multicloud_flutter/config/production.example.json",
@@ -156,7 +156,7 @@ class FlutterArchitectureCheckTest(unittest.TestCase):
         )
         self.write(
             "twin2multicloud_flutter/lib/services/defaults.dart",
-            "const unsafe = 'DEV_AUTH_TOKEN';\n",
+            "const unsafe = 'POC_AUTH_TOKEN';\n",
         )
 
         self.assertEqual(

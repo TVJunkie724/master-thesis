@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "scenario": "empty",
-  "user": {"id": "demo-empty-user", "email": "empty-demo@twin2multicloud.local", "name": "New Demo User", "picture_url": null, "auth_provider": "demo", "uibk_linked": false, "google_linked": false, "theme_preference": "light"},
+  "user": {"id": "demo-empty-user", "email": "empty-demo@twin2multicloud.local", "name": "New Demo User", "theme_preference": "light"},
   "twins": [],
   "cloud_connections": [],
   "twin_configs": {},

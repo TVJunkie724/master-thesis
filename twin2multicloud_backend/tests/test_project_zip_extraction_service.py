@@ -32,7 +32,6 @@ def _create_user(db) -> User:
     user = User(
         email="project-zip-service@example.test",
         name="Project ZIP",
-        auth_provider="google",
     )
     db.add(user)
     db.commit()

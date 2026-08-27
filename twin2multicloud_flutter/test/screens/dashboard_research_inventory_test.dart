@@ -6,7 +6,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/models/twin.dart';
 import 'package:twin2multicloud_flutter/models/twin_transfer.dart';
-import 'package:twin2multicloud_flutter/providers/auth_provider.dart';
+import 'package:twin2multicloud_flutter/models/user.dart';
 import 'package:twin2multicloud_flutter/providers/runtime_providers.dart';
 import 'package:twin2multicloud_flutter/screens/dashboard_screen.dart';
 import 'package:twin2multicloud_flutter/services/management_api.dart';
@@ -129,7 +129,9 @@ Future<void> _pumpDashboard(
           AppRuntimeConfig.demo(demoScenario: DemoScenario.empty),
         ),
         apiServiceProvider.overrideWithValue(api),
-        initialUserProvider.overrideWithValue(developmentUser),
+        initialUserProvider.overrideWithValue(
+          User(id: 'demo-user', email: 'demo@example.test'),
+        ),
       ],
       child: MaterialApp.router(
         builder: (context, child) => MediaQuery(

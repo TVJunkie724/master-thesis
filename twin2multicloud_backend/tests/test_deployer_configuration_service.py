@@ -15,7 +15,7 @@ from src.services.service_errors import EntityNotFoundError, ValidationError
 
 
 def _create_user(db) -> User:
-    user = User(email="deployer-config-service@example.test", name="Deployer Config", auth_provider="google")
+    user = User(email="deployer-config-service@example.test", name="Deployer Config")
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -96,7 +96,9 @@ def test_update_config_regresses_configured_twin_to_draft(db_session):
     assert result["twin_state"] == "draft"
 
 
-@pytest.mark.parametrize("blocked_state", [TwinState.DEPLOYED, TwinState.DEPLOYING, TwinState.DESTROYING])
+@pytest.mark.parametrize(
+    "blocked_state", [TwinState.DEPLOYED, TwinState.DEPLOYING, TwinState.DESTROYING]
+)
 def test_update_config_blocks_immutable_states(db_session, blocked_state):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, blocked_state)
@@ -113,7 +115,9 @@ def test_update_config_rejects_too_long_deployer_name(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
 
-    with pytest.raises(ValidationError, match="Digital twin name exceeds 15 characters"):
+    with pytest.raises(
+        ValidationError, match="Digital twin name exceeds 15 characters"
+    ):
         _service(db_session).update_config(
             twin.id,
             user.id,

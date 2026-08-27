@@ -17,7 +17,6 @@ def _create_user(db) -> User:
     user = User(
         email="twin-config-service@example.test",
         name="Twin Config",
-        auth_provider="google",
     )
     db.add(user)
     db.commit()

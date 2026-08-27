@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 
 import '../models/twin.dart';
 import '../models/twin_transfer.dart';
-import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/twins_provider.dart';
 import '../theme/spacing.dart';
@@ -86,46 +85,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             tooltip: 'Toggle theme',
           ),
           const SizedBox(width: 8),
-          PopupMenuButton<String>(
-            offset: const Offset(0, 56),
-            tooltip: 'Profile menu',
-            onSelected: (value) async {
-              switch (value) {
-                case 'settings':
-                  context.go('/settings');
-                  break;
-                case 'logout':
-                  await ref.read(authProvider.notifier).logout();
-                  break;
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings, size: 20),
-                    SizedBox(width: 12),
-                    Text('Settings'),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, size: 20, color: Colors.red),
-                    const SizedBox(width: 12),
-                    Text('Logout', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8),
-              child: CircleAvatar(child: Icon(Icons.person)),
-            ),
+          IconButton(
+            onPressed: () => context.go('/settings'),
+            icon: const Icon(Icons.person),
+            tooltip: 'Open profile and CloudConnections',
           ),
           const SizedBox(width: 8),
         ],

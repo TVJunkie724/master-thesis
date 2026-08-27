@@ -21,7 +21,6 @@ def _create_user(db) -> User:
     user = User(
         email="test-deployment-service@example.test",
         name="Test Service",
-        auth_provider="google",
     )
     db.add(user)
     db.commit()

@@ -11,7 +11,7 @@
 | `THESIS_MANAGEMENT_API_PORT` | `5005` | local Management port |
 | `THESIS_DOCS_PORT` | `5010` | documentation port |
 | `THESIS_API_BASE_URL` | derived | Flutter Management origin |
-| `THESIS_DEV_AUTH_TOKEN` | `dev-token` | local single-user bearer |
+| `THESIS_POC_AUTH_TOKEN` | `dev-token` | local profile bearer |
 | `THESIS_FLUTTER_DEVICE` | detected desktop | Flutter target |
 | `THESIS_RUNTIME_SECRETS_DIR` | `.secrets/runtime` | ignored signing/encryption keys |
 

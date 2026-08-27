@@ -36,11 +36,10 @@ void main() {
       expect(capabilities.capability('gcp', 'l5').selectable, isFalse);
     });
 
-    test('updates session state and user preferences in memory', () async {
-      api.setToken('session-token');
+    test('exposes its fixed transport token and updates preferences', () async {
       final user = await api.updateUserPreferences(themePreference: 'light');
 
-      expect(await api.getAuthToken(), 'session-token');
+      expect(await api.getAuthToken(), 'demo-token');
       expect(user['theme_preference'], 'light');
       expect(store.user['theme_preference'], 'light');
       await expectLater(

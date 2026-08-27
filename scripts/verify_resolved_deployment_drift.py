@@ -110,7 +110,6 @@ def create_ephemeral_runtime_secrets(directory: Path) -> None:
 
     directory.mkdir(mode=0o700, parents=True, exist_ok=False)
     values = {
-        "JWT_SECRET_KEY": secrets.token_urlsafe(64),
         "ENCRYPTION_KEY": base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(
             "ascii"
         ),

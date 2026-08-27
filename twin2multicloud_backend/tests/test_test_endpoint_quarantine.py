@@ -18,10 +18,7 @@ def test_test_endpoints_are_not_registered_by_default(authenticated_client):
     assert "/twins/{twin_id}/test-log-trace/start" not in route_paths
     assert "/twins/{twin_id}/simulator/test-download" not in route_paths
     assert "/twins/test-fixtures/layer-access" not in route_paths
-    assert (
-        "/twins/{twin_id}/test-fixtures/layer-access-rotation"
-        not in route_paths
-    )
+    assert "/twins/{twin_id}/test-fixtures/layer-access-rotation" not in route_paths
 
     response = client.post("/twins/not-a-real-twin/test-deploy", headers=headers)
     assert response.status_code == 404
@@ -30,7 +27,7 @@ def test_test_endpoints_are_not_registered_by_default(authenticated_client):
 @pytest.mark.asyncio
 async def test_test_deploy_endpoint_delegates_to_orchestrator(monkeypatch, db):
     calls = []
-    user = User(email="test-endpoint-orchestrator@example.test", name="Test Endpoint", auth_provider="google")
+    user = User(email="test-endpoint-orchestrator@example.test", name="Test Endpoint")
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -38,10 +35,15 @@ async def test_test_deploy_endpoint_delegates_to_orchestrator(monkeypatch, db):
     class FakeOrchestrator:
         async def deploy_twin(self, **kwargs):
             calls.append(kwargs)
-            return {"session_id": "test-deploy-session", "sse_url": "/sse/deploy/test-deploy-session"}
+            return {
+                "session_id": "test-deploy-session",
+                "sse_url": "/sse/deploy/test-deploy-session",
+            }
 
     monkeypatch.setattr(test_endpoints, "TEST_ENDPOINTS_ENABLED", True)
-    monkeypatch.setattr(test_endpoints, "_deployment_orchestrator", lambda _db: FakeOrchestrator())
+    monkeypatch.setattr(
+        test_endpoints, "_deployment_orchestrator", lambda _db: FakeOrchestrator()
+    )
 
     result = await test_endpoints.test_deploy_twin(
         twin_id="twin-1",
@@ -62,7 +64,7 @@ async def test_test_deploy_endpoint_delegates_to_orchestrator(monkeypatch, db):
 @pytest.mark.asyncio
 async def test_test_destroy_endpoint_delegates_to_orchestrator(monkeypatch, db):
     calls = []
-    user = User(email="test-destroy-orchestrator@example.test", name="Test Destroy", auth_provider="google")
+    user = User(email="test-destroy-orchestrator@example.test", name="Test Destroy")
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -70,10 +72,15 @@ async def test_test_destroy_endpoint_delegates_to_orchestrator(monkeypatch, db):
     class FakeOrchestrator:
         async def destroy_twin(self, **kwargs):
             calls.append(kwargs)
-            return {"session_id": "test-destroy-session", "sse_url": "/sse/deploy/test-destroy-session"}
+            return {
+                "session_id": "test-destroy-session",
+                "sse_url": "/sse/deploy/test-destroy-session",
+            }
 
     monkeypatch.setattr(test_endpoints, "TEST_ENDPOINTS_ENABLED", True)
-    monkeypatch.setattr(test_endpoints, "_deployment_orchestrator", lambda _db: FakeOrchestrator())
+    monkeypatch.setattr(
+        test_endpoints, "_deployment_orchestrator", lambda _db: FakeOrchestrator()
+    )
 
     result = await test_endpoints.test_destroy_twin(
         twin_id="twin-1",

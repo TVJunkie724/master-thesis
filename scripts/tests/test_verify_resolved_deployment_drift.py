@@ -95,15 +95,13 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
                 stat.S_IMODE(directory.stat().st_mode),
                 0o700,
             )
-            jwt_secret = (
-                (directory / "JWT_SECRET_KEY").read_text(encoding="utf-8").strip()
-            )
             encryption_key = (
                 (directory / "ENCRYPTION_KEY").read_text(encoding="utf-8").strip()
             )
-            self.assertGreaterEqual(len(jwt_secret), 64)
             self.assertEqual(len(encryption_key), 44)
-            self.assertNotEqual(jwt_secret, encryption_key)
+            self.assertEqual(
+                {path.name for path in directory.iterdir()}, {"ENCRYPTION_KEY"}
+            )
             for path in directory.iterdir():
                 self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
 
@@ -165,23 +163,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "scripts/phase_08_service_bundles/freeze_decision.py",
             rendered,
         )
-        self.assertIn(
-            "scripts/phase_08_profile_evaluation/validate.py",
-            rendered,
-        )
-        self.assertIn(
-            "scripts/phase_08_profile_evaluation/tests",
-            rendered,
-        )
-        self.assertIn(
-            "ruff format --check scripts/phase_08_profile_evaluation",
-            rendered,
-        )
         self.assertIn("-p no:cacheprovider", rendered)
-        self.assertIn(
-            "RUFF_CACHE_DIR=/tmp/phase-8-profile-evaluation-ruff-cache",
-            rendered,
-        )
         self.assertIn("tests/test_deployment_drift_matrix.py", rendered)
         self.assertIn(
             "tests/unit/terraform/test_build_all_packages.py",

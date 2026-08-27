@@ -20,7 +20,7 @@ from src.services.service_errors import (
 
 
 def _create_user(db, email: str = "operation@example.test") -> User:
-    user = User(email=email, name="Operation", auth_provider="google")
+    user = User(email=email, name="Operation")
     db.add(user)
     db.commit()
     db.refresh(user)

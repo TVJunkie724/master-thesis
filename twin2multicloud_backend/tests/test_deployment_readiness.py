@@ -75,7 +75,7 @@ def _selected_architecture_provider_projection(monkeypatch):
 
 
 def _create_user(db, email: str = "readiness@example.test") -> User:
-    user = User(email=email, name="Readiness", auth_provider="google")
+    user = User(email=email, name="Readiness")
     db.add(user)
     db.commit()
     db.refresh(user)

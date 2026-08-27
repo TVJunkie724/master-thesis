@@ -7,7 +7,6 @@ import 'package:crypto/crypto.dart';
 import '../core/result.dart';
 import '../models/architecture_profile.dart';
 import '../models/calc_params.dart';
-import '../models/authentication.dart';
 import '../models/cloud_connection.dart';
 import '../models/deployment_access.dart';
 import '../models/deployment_operations.dart';
@@ -32,7 +31,7 @@ class DemoManagementApi implements ManagementApi {
   static const double _sixLayerEurPerUsd = 0.865948;
   final DemoFixtureStore store;
   final Duration latency;
-  String? _token = 'demo-token';
+  static const _token = 'demo-token';
   final Map<String, Map<String, dynamic>> _deploymentReadinessCache = {};
   final List<UserFunctionArtifact> _extensionArtifacts = [];
   final Map<String, TwinExtensionBinding> _extensionBindings = {};
@@ -46,32 +45,12 @@ class DemoManagementApi implements ManagementApi {
   });
 
   @override
-  void setToken(String? token) => _token = token;
-
-  @override
   void setUnauthorizedHandler(void Function()? handler) {}
 
   @override
   Future<String?> getAuthToken() async => _token;
 
   @override
-  Future<List<AuthProviderCapability>> getAuthProviders() async => const [];
-
-  @override
-  Future<AuthLoginTransaction> startExternalLogin(IdentityProvider provider) =>
-      throw StateError('External authentication is unavailable in demo mode.');
-
-  @override
-  Future<AuthExchangeResult> exchangeAuthSession(
-    AuthLoginTransaction transaction,
-  ) => throw StateError('External authentication is unavailable in demo mode.');
-
-  @override
-  Future<void> cancelAuthSession(AuthLoginTransaction transaction) async {}
-
-  @override
-  Future<void> logoutSession() async {}
-
   @override
   Future<User> getCurrentUser() async => User.fromJson(store.user);
 

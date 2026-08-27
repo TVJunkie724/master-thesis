@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:twin2multicloud_flutter/app.dart';
 import 'package:twin2multicloud_flutter/config/app_runtime.dart';
-import 'package:twin2multicloud_flutter/providers/auth_provider.dart';
+import 'package:twin2multicloud_flutter/models/user.dart';
 import 'package:twin2multicloud_flutter/providers/runtime_providers.dart';
 
 void main() {
@@ -13,7 +13,9 @@ void main() {
         appRuntimeProvider.overrideWithValue(
           AppRuntimeConfig.demo(demoScenario: DemoScenario.empty),
         ),
-        initialUserProvider.overrideWithValue(developmentUser),
+        initialUserProvider.overrideWithValue(
+          User(id: 'demo-user', email: 'demo@example.test'),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -27,13 +29,13 @@ void main() {
         .toList(growable: false);
 
     expect(paths, [
-      '/login',
       '/dashboard',
       '/settings',
       '/wizard',
       '/wizard/:twinId',
       '/twins/:id/overview',
     ]);
+    expect(paths, isNot(contains('/login')));
     expect(paths, isNot(contains('/pricing-review')));
   });
 }

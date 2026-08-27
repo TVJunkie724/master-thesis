@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../theme/colors.dart';
 import '../../../theme/spacing.dart';
 import '../../../widgets/branded_app_bar.dart';
 
@@ -10,7 +9,6 @@ class ConfigurationWorkspaceAppBar extends StatelessWidget
   final bool navigationEnabled;
   final VoidCallback onToggleTheme;
   final VoidCallback onOpenSettings;
-  final VoidCallback onLogout;
 
   const ConfigurationWorkspaceAppBar({
     super.key,
@@ -18,7 +16,6 @@ class ConfigurationWorkspaceAppBar extends StatelessWidget
     this.navigationEnabled = true,
     required this.onToggleTheme,
     required this.onOpenSettings,
-    required this.onLogout,
   });
 
   @override
@@ -45,8 +42,6 @@ class ConfigurationWorkspaceAppBar extends StatelessWidget
             switch (action) {
               case _WorkspaceProfileAction.settings:
                 onOpenSettings();
-              case _WorkspaceProfileAction.logout:
-                onLogout();
             }
           },
           itemBuilder: (context) => const [
@@ -57,21 +52,6 @@ class ConfigurationWorkspaceAppBar extends StatelessWidget
                   Icon(Icons.settings, size: AppSpacing.iconMd),
                   SizedBox(width: AppSpacing.md - AppSpacing.xs),
                   Text('Settings'),
-                ],
-              ),
-            ),
-            PopupMenuDivider(),
-            PopupMenuItem(
-              value: _WorkspaceProfileAction.logout,
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.logout,
-                    size: AppSpacing.iconMd,
-                    color: AppColors.error,
-                  ),
-                  SizedBox(width: AppSpacing.md - AppSpacing.xs),
-                  Text('Logout', style: TextStyle(color: AppColors.error)),
                 ],
               ),
             ),
@@ -87,4 +67,4 @@ class ConfigurationWorkspaceAppBar extends StatelessWidget
   }
 }
 
-enum _WorkspaceProfileAction { settings, logout }
+enum _WorkspaceProfileAction { settings }

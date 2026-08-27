@@ -72,7 +72,7 @@ class FakeSimulatorService:
 
 
 def _create_user(db, email: str = "deployment-orchestrator@example.test") -> User:
-    user = User(email=email, name="Deployment Orchestrator", auth_provider="google")
+    user = User(email=email, name="Deployment Orchestrator")
     db.add(user)
     db.commit()
     db.refresh(user)

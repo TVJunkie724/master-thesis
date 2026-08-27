@@ -9,7 +9,7 @@ from src.repositories.twin_repository import TwinRepository
 
 
 def _create_user(db, email: str = "repo-owner@example.test") -> User:
-    user = User(email=email, name=email, auth_provider="google")
+    user = User(email=email, name=email)
     db.add(user)
     db.commit()
     db.refresh(user)

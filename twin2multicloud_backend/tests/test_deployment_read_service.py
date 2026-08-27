@@ -17,7 +17,7 @@ from src.services.service_errors import EntityNotFoundError
 
 
 def _create_user(db, email: str = "reader@example.test") -> User:
-    user = User(email=email, name="Reader", auth_provider="google")
+    user = User(email=email, name="Reader")
     db.add(user)
     db.commit()
     db.refresh(user)

@@ -186,11 +186,6 @@ Future<_WizardHarness> _pumpWizard(
         builder: (context, state) =>
             const Scaffold(body: Text('Settings destination')),
       ),
-      GoRoute(
-        path: '/login',
-        builder: (context, state) =>
-            const Scaffold(body: Text('Login destination')),
-      ),
     ],
   );
   addTearDown(router.dispose);
@@ -200,6 +195,7 @@ Future<_WizardHarness> _pumpWizard(
         appRuntimeProvider.overrideWithValue(
           AppRuntimeConfig.production(
             managementApiBaseUri: Uri.parse('https://management.test'),
+            pocAuthToken: 'local-token',
           ),
         ),
         apiServiceProvider.overrideWithValue(api),

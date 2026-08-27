@@ -24,6 +24,7 @@ void main() {
         appRuntimeProvider.overrideWithValue(
           AppRuntimeConfig.production(
             managementApiBaseUri: Uri.parse('https://management.test'),
+            pocAuthToken: 'local-token',
           ),
         ),
         apiServiceProvider.overrideWithValue(api),
@@ -53,7 +54,7 @@ void main() {
     verify(() => api.listCloudConnections()).called(1);
   });
 
-  testWidgets('labels an offline demo identity without claiming UIBK login', (
+  testWidgets('shows the profile without identity-provider claims', (
     tester,
   ) async {
     final api = MockApiService();
@@ -63,6 +64,7 @@ void main() {
         appRuntimeProvider.overrideWithValue(
           AppRuntimeConfig.production(
             managementApiBaseUri: Uri.parse('https://management.test'),
+            pocAuthToken: 'local-token',
           ),
         ),
         apiServiceProvider.overrideWithValue(api),
@@ -71,7 +73,6 @@ void main() {
             id: 'demo-user',
             email: 'demo@example.test',
             name: 'Demo Operator',
-            authProvider: 'demo',
           ),
         ),
       ],
@@ -86,8 +87,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Demo identity'), findsOneWidget);
+    expect(find.text('Demo Operator'), findsOneWidget);
     expect(find.textContaining('UIBK Account'), findsNothing);
+    expect(find.textContaining('Google Account'), findsNothing);
   });
 }
 
