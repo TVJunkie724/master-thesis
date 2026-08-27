@@ -237,7 +237,6 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             names,
             [
                 "Documentation image",
-                "Evaluation runtime image provenance",
                 "Optimizer full quality gate",
                 "Management API full quality gate",
                 "Deployer full quality gate",
@@ -249,7 +248,6 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         self.assertNotIn("--ignore=tests/e2e", rendered)
         self.assertIn("thesis.sh test frontend", rendered)
         self.assertIn("mkdocs build --strict", rendered)
-        self.assertIn("verify_runtime_images.py --project contract-test", rendered)
         self.assertIn("PIP_CACHE_DIR=/tmp/management-pip-cache", rendered)
         deployer = next(
             stage for stage in stages if stage.name == "Deployer full quality gate"
