@@ -82,13 +82,12 @@ void main() {
         ),
       );
 
-      expect(connection.purpose, CloudConnectionPurpose.deployment);
+      expect(connection.provider, CloudProvider.gcp);
       expect(captured?.path, '/cloud-connections/import');
       final form = captured?.data as FormData;
       expect(form.fields.single.key, 'metadata');
       expect(jsonDecode(form.fields.single.value), {
         'provider': 'gcp',
-        'purpose': 'deployment',
         'display_name': 'GCP thesis',
         'region': 'europe-west1',
         'target_scope_id': 'project-1',

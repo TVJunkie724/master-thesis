@@ -5,13 +5,6 @@ import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
-const _serverOwnedOptimizerFields = {
-  'calculationRunId',
-  'providerPricingCatalogs',
-  'providerPricingContexts',
-  'architectureProfile',
-  'extensionBindings',
-};
 const _forbiddenPayloadKeys = {
   'access_key_id',
   'secret_access_key',
@@ -28,13 +21,6 @@ final _apiUri =
 final _authToken =
     _runtime.initialAuthToken ??
     (throw StateError('Integration tests require the development profile.'));
-const _optimizerApiBaseUrl = String.fromEnvironment(
-  'TEST_OPTIMIZER_API_BASE_URL',
-);
-final _optimizerApiUri = _validatedTestOrigin(
-  _optimizerApiBaseUrl,
-  'TEST_OPTIMIZER_API_BASE_URL',
-);
 final _api = ApiService(baseUri: _apiUri, initialAuthToken: _authToken);
 
 void main() {
@@ -132,88 +118,51 @@ void main() {
       for (final connection in connections) {
         expect(connection.id, isNotEmpty);
         expect(CloudProvider.values, contains(connection.provider));
-        expect(CloudConnectionPurpose.values, contains(connection.purpose));
         expect(connection.displayName, isNotEmpty);
         expect(connection.authType, isNotEmpty);
-        expect(connection.scope, isNotEmpty);
       }
     });
 
     testWidgets('keeps readiness payloads free of credential keys', (
       tester,
     ) async {
-      for (final endpoint in ['/cloud-access', '/optimizer/pricing-health']) {
-        final payload = await _authenticatedJsonRequest(endpoint);
-        expect(
-          _containsForbiddenKey(payload),
-          isFalse,
-          reason: '$endpoint must expose credential metadata only',
-        );
-      }
+      final twins = await _readOrFail('/twins/', _api.getTwins);
+      if (twins.isEmpty) return;
+      final endpoint = '/twins/${twins.first.id}/deployment-readiness';
+      final payload = await _authenticatedJsonRequest(endpoint);
+      expect(
+        _containsForbiddenKey(payload),
+        isFalse,
+        reason: '$endpoint must expose credential metadata only',
+      );
     });
 
-    testWidgets('publishes one canonical optimizer workload contract', (
+    testWidgets('publishes one bounded calculation and pricing contract', (
       tester,
     ) async {
       final managementOpenApi = await _authenticatedJsonRequest(
-        '/openapi.json',
-      );
-      final optimizerOpenApi = await _publicJsonRequest(
-        _optimizerApiUri,
         '/openapi.json',
       );
       final managementContract = _openApiSchema(
         managementOpenApi,
         'OptimizerCalculationParams',
       );
-      final optimizerContract = _openApiSchema(optimizerOpenApi, 'CalcParams');
 
       expect(managementContract['additionalProperties'], isFalse);
-      expect(optimizerContract['additionalProperties'], isFalse);
       final managementProperties = managementContract['properties'] as Map;
-      final optimizerProperties = optimizerContract['properties'] as Map;
-      expect(
-        optimizerProperties.keys
-            .map((key) => key.toString())
-            .toSet()
-            .difference(
-              managementProperties.keys.map((key) => key.toString()).toSet(),
-            ),
-        _serverOwnedOptimizerFields,
-        reason: 'Only documented server-owned optimizer fields may differ.',
-      );
-      for (final field in _serverOwnedOptimizerFields) {
+      for (final field in const {
+        'calculationRunId',
+        'providerPricingCatalogs',
+        'providerPricingContexts',
+        'architectureProfile',
+        'extensionBindings',
+      }) {
         expect(
           managementProperties,
           isNot(contains(field)),
           reason: 'Clients must not supply trusted $field evidence.',
         );
-        expect(
-          optimizerProperties,
-          contains(field),
-          reason: 'Management must own and inject $field downstream.',
-        );
       }
-      expect(
-        optimizerContract['required'],
-        contains('providerPricingCatalogs'),
-      );
-      expect(optimizerContract['required'], contains('calculationRunId'));
-      expect(
-        (optimizerProperties['calculationRunId'] as Map)['format'],
-        'uuid',
-      );
-      expect(
-        optimizerContract['required'],
-        isNot(contains('providerPricingContexts')),
-      );
-      expect(
-        _contractProjection(managementContract),
-        _contractProjection(
-          optimizerContract,
-          excludedProperties: _serverOwnedOptimizerFields,
-        ),
-      );
 
       for (final field in [
         'averageDigitalTwinQueryUnitsPerQuery',
@@ -223,6 +172,19 @@ void main() {
         expect(contract, isNotNull, reason: 'Missing $field');
         expect(contract!['exclusiveMinimum'], 0);
         expect(contract['default'], 1.0);
+      }
+
+      final paths = (managementOpenApi as Map)['paths'] as Map;
+      for (final removedPath in const {
+        '/cloud-access',
+        '/optimizer/pricing-health',
+        '/optimizer/calculate',
+        '/optimizer/calculate/stream',
+        '/optimizer/status',
+        '/pricing-refresh/runs',
+        '/pricing-review/status',
+      }) {
+        expect(paths, isNot(contains(removedPath)));
       }
     });
 
@@ -297,23 +259,6 @@ Future<Object?> _authenticatedJsonRequest(String endpoint) async {
   }
 }
 
-Future<Object?> _publicJsonRequest(Uri baseUri, String endpoint) async {
-  final dio = Dio(
-    BaseOptions(
-      baseUrl: baseUri.toString(),
-      validateStatus: (status) => status != null && status < 400,
-    ),
-  );
-  try {
-    final response = await dio.get<Object?>(endpoint);
-    return response.data;
-  } on DioException catch (error) {
-    fail(_safeDioFailureForBase(endpoint, error, baseUri: baseUri));
-  } finally {
-    dio.close(force: true);
-  }
-}
-
 Map _openApiSchema(Object? openApi, String schemaName) {
   expect(openApi, isA<Map>());
   final components =
@@ -324,65 +269,11 @@ Map _openApiSchema(Object? openApi, String schemaName) {
   return contract!;
 }
 
-Map<String, Object?> _contractProjection(
-  Map contract, {
-  Set<String> excludedProperties = const {},
-}) {
-  const contractKeywords = {
-    'type',
-    'default',
-    'minimum',
-    'maximum',
-    'exclusiveMinimum',
-    'exclusiveMaximum',
-    'enum',
-  };
-  final properties = contract['properties'] as Map;
-  return {
-    'required': ((contract['required'] as List?) ?? const [])
-        .map((value) => value.toString())
-        .where((value) => !excludedProperties.contains(value))
-        .toSet(),
-    'properties': {
-      for (final entry in properties.entries)
-        if (!excludedProperties.contains(entry.key.toString()))
-          entry.key.toString(): {
-            for (final keyword in contractKeywords)
-              if ((entry.value as Map).containsKey(keyword))
-                keyword: entry.value[keyword],
-          },
-    },
-  };
-}
-
 String _safeDioFailure(String endpoint, DioException error) {
-  return _safeDioFailureForBase(endpoint, error, baseUri: _apiUri);
-}
-
-String _safeDioFailureForBase(
-  String endpoint,
-  DioException error, {
-  required Uri baseUri,
-}) {
   final status = error.response?.statusCode?.toString() ?? 'none';
-  return 'Read-only API request failed at $baseUri$endpoint; '
+  return 'Read-only API request failed at $_apiUri$endpoint; '
       'type=${error.type.name}; status=$status. '
       'Response content and headers were suppressed.';
-}
-
-Uri _validatedTestOrigin(String value, String variable) {
-  final uri = Uri.tryParse(value);
-  if (uri == null ||
-      !uri.isAbsolute ||
-      uri.host.isEmpty ||
-      !{'http', 'https'}.contains(uri.scheme) ||
-      uri.userInfo.isNotEmpty ||
-      uri.hasQuery ||
-      uri.hasFragment ||
-      (uri.path.isNotEmpty && uri.path != '/')) {
-    throw StateError('$variable must be an absolute HTTP(S) origin.');
-  }
-  return uri.replace(path: '');
 }
 
 bool _containsForbiddenKey(Object? value) {

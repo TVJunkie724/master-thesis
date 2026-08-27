@@ -20,11 +20,10 @@ void main() {
 
   setUp(() => api = MockApiService());
 
-  test('loads only deployment administrator connections fail-closed', () async {
+  test('loads the deployment administrator list from Management', () async {
     when(() => api.listCloudConnections()).thenAnswer(
       (_) async => [
         _connection(id: 'aws-deploy'),
-        _connection(id: 'aws-pricing', purpose: CloudConnectionPurpose.pricing),
         _connection(id: 'azure-deploy', provider: CloudProvider.azure),
       ],
     );
@@ -36,16 +35,6 @@ void main() {
       'aws-deploy',
       'azure-deploy',
     ]);
-    expect(
-      bloc.state.connections,
-      everyElement(
-        isA<CloudConnection>().having(
-          (item) => item.purpose,
-          'purpose',
-          CloudConnectionPurpose.deployment,
-        ),
-      ),
-    );
     await bloc.close();
   });
 
@@ -167,11 +156,9 @@ CloudConnectionImportRequest _importRequest() => CloudConnectionImportRequest(
 CloudConnection _connection({
   required String id,
   CloudProvider provider = CloudProvider.aws,
-  CloudConnectionPurpose purpose = CloudConnectionPurpose.deployment,
 }) => CloudConnection(
   id: id,
   provider: provider,
-  purpose: purpose,
   displayName: id,
   authType: 'administrator',
   cloudScope: const {},

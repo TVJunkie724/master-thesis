@@ -107,10 +107,7 @@ class CloudAccountsPanel extends StatelessWidget {
                           provider: provider,
                           connections: connections
                               .where(
-                                (connection) =>
-                                    connection.provider == provider &&
-                                    connection.purpose ==
-                                        CloudConnectionPurpose.deployment,
+                                (connection) => connection.provider == provider,
                               )
                               .toList(growable: false),
                           busyConnectionIds: busyConnectionIds,

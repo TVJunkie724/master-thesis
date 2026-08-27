@@ -110,11 +110,7 @@ extension _WizardInitializationCloudAccessHandlers on WizardBloc {
       final grouped = <CloudProvider, List<CloudConnection>>{
         for (final provider in CloudProvider.values)
           provider: connections
-              .where(
-                (connection) =>
-                    connection.provider == provider &&
-                    connection.purpose == CloudConnectionPurpose.deployment,
-              )
+              .where((connection) => connection.provider == provider)
               .toList(growable: false),
       };
       emit(

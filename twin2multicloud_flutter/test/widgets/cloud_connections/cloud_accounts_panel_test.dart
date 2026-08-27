@@ -155,7 +155,6 @@ CloudConnection _connection(
 }) => CloudConnection(
   id: name.toLowerCase().replaceAll(' ', '-'),
   provider: provider,
-  purpose: CloudConnectionPurpose.deployment,
   displayName: name,
   authType: 'administrator',
   cloudScope: const {'account_id': '123456789012'},

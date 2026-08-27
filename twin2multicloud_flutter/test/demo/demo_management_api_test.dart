@@ -63,7 +63,7 @@ void main() {
         ),
       );
 
-      expect(created.purpose, CloudConnectionPurpose.deployment);
+      expect(created.provider, CloudProvider.aws);
       expect(
         await api.listCloudConnections(provider: CloudProvider.aws),
         hasLength(2),
@@ -108,7 +108,7 @@ void main() {
         ),
       );
 
-      expect(created.purpose, CloudConnectionPurpose.deployment);
+      expect(created.provider, CloudProvider.aws);
       expect(created.payloadSummary['credential_source'], 'aws_csv');
       expect(
         store.cloudConnection(created.id).toString(),

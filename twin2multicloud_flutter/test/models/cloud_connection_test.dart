@@ -30,7 +30,6 @@ void main() {
 
       expect(connection.id, 'connection-aws');
       expect(connection.provider, CloudProvider.aws);
-      expect(connection.purpose, CloudConnectionPurpose.deployment);
       expect(connection.lastUsedAt, DateTime.parse('2026-05-01T11:00:00Z'));
       expect(connection.displayName, 'AWS thesis dev');
       expect(connection.payloadSummary['region'], 'eu-central-1');
@@ -52,18 +51,19 @@ void main() {
       final json = request.toJson();
 
       expect(json['provider'], 'aws');
-      expect(json['purpose'], 'deployment');
-      expect(json['scope'], 'user');
+      expect(json.containsKey('purpose'), false);
+      expect(json.containsKey('scope'), false);
       expect(json['aws'], isA<Map<String, dynamic>>());
       expect(json.containsKey('azure'), false);
       expect(json.containsKey('gcp'), false);
     });
 
-    test('rejects unknown explicit purpose instead of misclassifying it', () {
+    test('rejects a legacy pricing connection at the response boundary', () {
       final payload = {
         'id': 'connection-aws',
         'provider': 'aws',
-        'purpose': 'administrator',
+        'purpose': 'pricing',
+        'scope': 'user',
         'display_name': 'Unsupported',
         'auth_type': 'access_key',
         'cloud_scope': <String, dynamic>{},
@@ -74,7 +74,7 @@ void main() {
         'updated_at': '2026-07-12T10:00:00Z',
       };
 
-      expect(() => CloudConnection.fromJson(payload), throwsArgumentError);
+      expect(() => CloudConnection.fromJson(payload), throwsFormatException);
     });
 
     test('GCP create request requires service account JSON', () {
@@ -89,21 +89,19 @@ void main() {
   });
 
   group('CloudConnectionValidationResult', () {
-    test('parses nested optimizer and deployer status', () {
+    test('parses the Deployer-owned validation status', () {
       final result = CloudConnectionValidationResult.fromJson({
         'id': 'connection-aws',
         'provider': 'aws',
         'valid': false,
         'validation_status': 'invalid',
         'message': 'Validation failed',
-        'optimizer': {'valid': true, 'message': 'ok'},
         'deployer': {'valid': false, 'message': 'missing permission'},
       });
 
       expect(result.id, 'connection-aws');
       expect(result.provider, CloudProvider.aws);
       expect(result.valid, false);
-      expect(result.optimizer?['valid'], true);
       expect(result.deployer?['message'], 'missing permission');
     });
   });
@@ -123,7 +121,6 @@ void main() {
 
       expect(jsonDecode(request.metadataJson), {
         'provider': 'azure',
-        'purpose': 'deployment',
         'display_name': 'Azure thesis',
         'region': 'westeurope',
         'target_scope_id': 'subscription-1',

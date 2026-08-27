@@ -16,12 +16,9 @@ void main() {
     tester,
   ) async {
     final api = MockApiService();
-    when(() => api.listCloudConnections()).thenAnswer(
-      (_) async => [
-        _connection('aws-deploy', CloudConnectionPurpose.deployment),
-        _connection('aws-pricing', CloudConnectionPurpose.pricing),
-      ],
-    );
+    when(
+      () => api.listCloudConnections(),
+    ).thenAnswer((_) async => [_connection('aws-deploy')]);
     final container = ProviderContainer(
       overrides: [
         appRuntimeProvider.overrideWithValue(
@@ -94,17 +91,15 @@ void main() {
   });
 }
 
-CloudConnection _connection(String id, CloudConnectionPurpose purpose) =>
-    CloudConnection(
-      id: id,
-      provider: CloudProvider.aws,
-      purpose: purpose,
-      displayName: id,
-      authType: 'administrator',
-      cloudScope: const {},
-      payloadFingerprint: 'opaque',
-      payloadSummary: const {},
-      validationStatus: 'valid',
-      createdAt: DateTime.utc(2026, 8, 27),
-      updatedAt: DateTime.utc(2026, 8, 27),
-    );
+CloudConnection _connection(String id) => CloudConnection(
+  id: id,
+  provider: CloudProvider.aws,
+  displayName: id,
+  authType: 'administrator',
+  cloudScope: const {},
+  payloadFingerprint: 'opaque',
+  payloadSummary: const {},
+  validationStatus: 'valid',
+  createdAt: DateTime.utc(2026, 8, 27),
+  updatedAt: DateTime.utc(2026, 8, 27),
+);

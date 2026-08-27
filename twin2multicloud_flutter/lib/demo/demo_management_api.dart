@@ -421,7 +421,7 @@ class DemoManagementApi implements ManagementApi {
     final value = <String, dynamic>{
       'id': id,
       'provider': request.provider.apiValue,
-      'purpose': CloudConnectionPurpose.deployment.apiValue,
+      'purpose': 'deployment',
       'scope': 'user',
       'display_name': request.displayName.trim(),
       'auth_type': request.authType ?? _defaultAuthType(request.provider),
@@ -470,7 +470,7 @@ class DemoManagementApi implements ManagementApi {
     final value = <String, dynamic>{
       'id': id,
       'provider': request.provider.apiValue,
-      'purpose': CloudConnectionPurpose.deployment.apiValue,
+      'purpose': 'deployment',
       'scope': 'user',
       'display_name': request.displayName,
       'auth_type': _defaultAuthType(request.provider),

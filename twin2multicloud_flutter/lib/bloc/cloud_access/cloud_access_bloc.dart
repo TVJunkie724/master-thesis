@@ -192,10 +192,6 @@ class CloudAccessBloc extends Bloc<CloudAccessEvent, CloudAccessState> {
 
   Future<List<CloudConnection>> _loadDeploymentConnections() async {
     final connections = await _api.listCloudConnections();
-    return List.unmodifiable(
-      connections.where(
-        (connection) => connection.purpose == CloudConnectionPurpose.deployment,
-      ),
-    );
+    return List.unmodifiable(connections);
   }
 }

@@ -26,35 +26,9 @@ enum CloudProvider {
   }
 }
 
-enum CloudConnectionPurpose {
-  pricing,
-  deployment;
-
-  String get apiValue => name;
-
-  String get label => switch (this) {
-    CloudConnectionPurpose.pricing => 'Pricing access',
-    CloudConnectionPurpose.deployment => 'Deployment access',
-  };
-
-  static CloudConnectionPurpose fromApiValue(String value) {
-    return switch (value.toLowerCase()) {
-      'pricing' => CloudConnectionPurpose.pricing,
-      'deployment' => CloudConnectionPurpose.deployment,
-      _ => throw ArgumentError.value(
-        value,
-        'value',
-        'Unknown Cloud Connection purpose',
-      ),
-    };
-  }
-}
-
 class CloudConnection extends Equatable {
   final String id;
   final CloudProvider provider;
-  final CloudConnectionPurpose purpose;
-  final String scope;
   final String displayName;
   final String authType;
   final Map<String, dynamic> cloudScope;
@@ -70,8 +44,6 @@ class CloudConnection extends Equatable {
   const CloudConnection({
     required this.id,
     required this.provider,
-    this.purpose = CloudConnectionPurpose.deployment,
-    this.scope = 'user',
     required this.displayName,
     required this.authType,
     required this.cloudScope,
@@ -86,13 +58,11 @@ class CloudConnection extends Equatable {
   });
 
   factory CloudConnection.fromJson(Map<String, dynamic> json) {
+    _requireExactValue(json, 'purpose', 'deployment');
+    _requireExactValue(json, 'scope', 'user');
     return CloudConnection(
       id: json['id'].toString(),
       provider: CloudProvider.fromApiValue(json['provider'].toString()),
-      purpose: CloudConnectionPurpose.fromApiValue(
-        json['purpose']?.toString() ?? 'deployment',
-      ),
-      scope: json['scope']?.toString() ?? 'user',
       displayName: json['display_name']?.toString() ?? '',
       authType: json['auth_type']?.toString() ?? '',
       cloudScope: _mapFromJson(json['cloud_scope']),
@@ -117,8 +87,6 @@ class CloudConnection extends Equatable {
   List<Object?> get props => [
     id,
     provider,
-    purpose,
-    scope,
     displayName,
     authType,
     cloudScope,
@@ -159,8 +127,6 @@ class CloudConnectionCreateRequest extends Equatable {
 
     return {
       'provider': provider.apiValue,
-      'purpose': CloudConnectionPurpose.deployment.apiValue,
-      'scope': 'user',
       'display_name': displayName,
       if (authType != null) 'auth_type': authType,
       'cloud_scope': cloudScope,
@@ -223,7 +189,6 @@ class CloudConnectionImportRequest extends Equatable {
 
   String get metadataJson => jsonEncode({
     'provider': provider.apiValue,
-    'purpose': CloudConnectionPurpose.deployment.apiValue,
     'display_name': displayName,
     'region': region,
     if (targetScopeId != null) 'target_scope_id': targetScopeId,
@@ -280,7 +245,6 @@ class CloudConnectionValidationResult extends Equatable {
   final bool valid;
   final String validationStatus;
   final String message;
-  final Map<String, dynamic>? optimizer;
   final Map<String, dynamic>? deployer;
 
   const CloudConnectionValidationResult({
@@ -289,7 +253,6 @@ class CloudConnectionValidationResult extends Equatable {
     required this.valid,
     required this.validationStatus,
     required this.message,
-    this.optimizer,
     this.deployer,
   });
 
@@ -300,7 +263,6 @@ class CloudConnectionValidationResult extends Equatable {
       valid: json['valid'] == true,
       validationStatus: json['validation_status']?.toString() ?? 'invalid',
       message: json['message']?.toString() ?? 'Validation complete',
-      optimizer: _nullableMapFromJson(json['optimizer']),
       deployer: _nullableMapFromJson(json['deployer']),
     );
   }
@@ -312,9 +274,21 @@ class CloudConnectionValidationResult extends Equatable {
     valid,
     validationStatus,
     message,
-    optimizer,
     deployer,
   ];
+}
+
+void _requireExactValue(
+  Map<String, dynamic> json,
+  String field,
+  String expected,
+) {
+  final actual = json[field];
+  if (actual != expected) {
+    throw FormatException(
+      'Invalid Cloud Connection contract: $field must be $expected.',
+    );
+  }
 }
 
 Map<String, dynamic> _mapFromJson(dynamic value) {
