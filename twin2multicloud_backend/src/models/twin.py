@@ -1,9 +1,12 @@
-from sqlalchemy import Column, String, DateTime, ForeignKey, Enum, UniqueConstraint
-from sqlalchemy.orm import relationship
-from datetime import datetime
-import uuid
 import enum
+import uuid
+from datetime import datetime
+
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, UniqueConstraint
+from sqlalchemy.orm import relationship
+
 from src.models.database import Base
+
 
 class TwinState(str, enum.Enum):
     DRAFT = "draft"
@@ -37,7 +40,6 @@ class DigitalTwin(Base):
     
     # Relationships
     owner = relationship("User", back_populates="twins")
-    file_versions = relationship("FileVersion", back_populates="twin")
     deployments = relationship("Deployment", back_populates="twin")
     configuration = relationship("TwinConfiguration", back_populates="twin", uselist=False)
     optimizer_config = relationship(

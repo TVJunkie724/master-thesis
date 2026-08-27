@@ -90,6 +90,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "030_graph_bound_deployment_preflight",
         "migrations.bind_preflight_to_graph_requirements",
     ),
+    Migration(
+        "031_drop_file_versions",
+        "migrations.drop_file_versions",
+    ),
 )
 
 
