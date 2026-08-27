@@ -52,7 +52,7 @@ async def perform_optimizer_validation(
             "valid": False,
             "message": f"Optimizer API error: {exc.upstream_status_code or 502}",
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - external adapter boundary
         logger.error(
             "Unexpected Optimizer credential validation failure for %s (%s)",
             provider,
@@ -106,7 +106,7 @@ async def perform_dual_validation(
                 "valid": False,
                 "message": f"Optimizer API error: {exc.upstream_status_code or 502}",
             }
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - external adapter boundary
             logger.error(
                 "Unexpected Optimizer credential validation failure for %s (%s)",
                 provider,
@@ -120,11 +120,17 @@ async def perform_dual_validation(
     async def call_deployer():
         try:
             result = await deployer_client.verify_permissions(provider, deployer_creds)
-            is_valid = result.get("valid", False) or result.get("status") == "valid"
+            is_valid = (
+                bool(result.get("valid"))
+                or bool(result.get("ready"))
+                or result.get("status") in {"valid", "passed"}
+            )
             return {
                 "valid": is_valid,
-                "message": result.get("message", "Validation complete"),
-                "permissions": result.get("missing_permissions"),
+                "message": result.get("summary")
+                or result.get("message", "Validation complete"),
+                "checks": result.get("checks") or [],
+                "permissions": result.get("missing_permissions") or [],
             }
         except ExternalServiceUnavailable:
             return {
@@ -136,7 +142,7 @@ async def perform_dual_validation(
                 "valid": False,
                 "message": f"Deployer API error: {exc.upstream_status_code or 502}",
             }
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - external adapter boundary
             logger.error(
                 "Unexpected Deployer credential validation failure for %s (%s)",
                 provider,
@@ -174,10 +180,17 @@ def build_preflight_result(
     validation_result: dict[str, Any],
 ) -> dict[str, Any]:
     """Normalize raw Optimizer/Deployer validation into UI-actionable preflight checks."""
-    checks = [
-        _build_component_check("optimizer", validation_result.get("optimizer")),
-        _build_component_check("deployer", validation_result.get("deployer")),
-    ]
+    checks = [_build_component_check("optimizer", validation_result.get("optimizer"))]
+    deployer = validation_result.get("deployer")
+    detailed = deployer.get("checks") if isinstance(deployer, dict) else None
+    if isinstance(detailed, list) and detailed:
+        checks.extend(
+            _build_deployer_check(item)
+            for item in detailed[:32]
+            if isinstance(item, dict)
+        )
+    else:
+        checks.append(_build_component_check("deployer", deployer))
     ready = all(check["status"] == "passed" for check in checks)
     return {
         "provider": provider,
@@ -186,6 +199,22 @@ def build_preflight_result(
         if ready
         else "Cloud connection preflight failed",
         "checks": checks,
+    }
+
+
+def _build_deployer_check(raw: dict[str, Any]) -> dict[str, Any]:
+    status = str(raw.get("status") or "failed")
+    permissions = raw.get("permissions") or []
+    apis = raw.get("apis") or []
+    return {
+        "component": f"deployer.{(raw.get('name') or 'provider')!s}",
+        "status": "passed" if status in {"passed", "warning", "skipped"} else "failed",
+        "code": str(raw.get("code") or "VALIDATION_FAILED"),
+        "message": str(raw.get("message") or "Provider validation failed."),
+        "action": str(raw.get("action") or "Review provider access and retry."),
+        "permissions": [
+            str(item) for item in [*permissions, *apis] if str(item).strip()
+        ],
     }
 
 

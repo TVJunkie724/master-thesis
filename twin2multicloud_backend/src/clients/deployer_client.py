@@ -70,7 +70,7 @@ class DeployerClient(ExternalServiceClient):
     ) -> dict[str, Any]:
         return await self._request_json(
             "POST",
-            f"/permissions/verify/{provider}",
+            f"/permissions/preflight/{provider}",
             json=credentials,
             timeout=30.0,
         )

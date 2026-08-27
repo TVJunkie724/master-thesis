@@ -171,7 +171,7 @@ async def test_verify_permissions_posts_exact_provider_endpoint_and_payload():
     assert response == {"valid": True}
     assert seen == {
         "method": "POST",
-        "url": "http://deployer.test/permissions/verify/azure",
+        "url": "http://deployer.test/permissions/preflight/azure",
         "payload": '{"azure_region":"westeurope"}',
     }
 

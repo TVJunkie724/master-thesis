@@ -4,9 +4,45 @@ import pytest
 
 from src.models.cloud_connection import CloudConnection
 from src.models.user import User
-from src.services.cloud_credential_validation_service import perform_dual_validation
 from src.services.cloud_connection_service import CloudConnectionService
+from src.services.cloud_credential_validation_service import (
+    build_preflight_result,
+    perform_dual_validation,
+)
 from src.services.errors import ExternalServiceError
+
+
+def test_preflight_preserves_typed_deployer_repair_checks():
+    result = build_preflight_result(
+        "gcp",
+        {
+            "optimizer": {"valid": True, "message": "Pricing access passed."},
+            "deployer": {
+                "valid": False,
+                "message": "GCP deployment preflight failed",
+                "checks": [
+                    {
+                        "name": "enabled_apis",
+                        "status": "failed",
+                        "code": "MISSING_APIS",
+                        "message": "One graph-required API is disabled.",
+                        "action": "Review and enable the API.",
+                        "apis": ["run.googleapis.com"],
+                    }
+                ],
+            },
+        },
+    )
+
+    assert result["ready"] is False
+    assert result["checks"][1] == {
+        "component": "deployer.enabled_apis",
+        "status": "failed",
+        "code": "MISSING_APIS",
+        "message": "One graph-required API is disabled.",
+        "action": "Review and enable the API.",
+        "permissions": ["run.googleapis.com"],
+    }
 
 
 def _aws_request(display_name="AWS Dev"):
