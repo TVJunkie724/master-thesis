@@ -84,6 +84,23 @@ void main() {
     listener.close();
   });
 
+  test('coalesces duplicate Twin requests while the first is active', () async {
+    final request = TwinDuplicateRequest(name: 'Twin copy');
+    final completion = Completer<Twin>();
+    when(
+      () => api.duplicateTwin('twin-1', request),
+    ).thenAnswer((_) => completion.future);
+
+    final controller = container.read(twinCommandProvider.notifier);
+    final first = controller.duplicateTwin('twin-1', request);
+    final duplicate = await controller.duplicateTwin('twin-1', request);
+
+    expect(duplicate, isNull);
+    verify(() => api.duplicateTwin('twin-1', request)).called(1);
+    completion.complete(_twin(id: 'twin-copy', name: 'Twin copy'));
+    expect((await first)?.id, 'twin-copy');
+  });
+
   test('imports a typed portable archive once while busy', () async {
     final request = TwinImportRequest(
       newName: 'Imported Twin',

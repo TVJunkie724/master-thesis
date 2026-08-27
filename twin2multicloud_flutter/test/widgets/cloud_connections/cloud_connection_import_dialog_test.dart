@@ -1,7 +1,6 @@
-import 'dart:typed_data';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/widgets/cloud_connections/cloud_connection_import_dialog.dart';
@@ -111,6 +110,48 @@ void main() {
     expect(find.text('GCP Administrator'), findsOneWidget);
     expect(captured, isNull);
   });
+
+  testWidgets('Escape cancels import and restores invoking focus', (
+    tester,
+  ) async {
+    final triggerFocus = FocusNode();
+    addTearDown(triggerFocus.dispose);
+    CloudConnectionImportRequest? captured;
+    await _pumpLauncher(
+      tester,
+      provider: CloudProvider.aws,
+      pickFile: (_) async => null,
+      onResult: (request) => captured = request,
+      triggerFocus: triggerFocus,
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CloudConnectionImportDialog), findsNothing);
+    expect(captured, isNull);
+    expect(triggerFocus.hasFocus, isTrue);
+  });
+
+  for (final textScale in [1.5, 2.0]) {
+    testWidgets(
+      'dialog remains reachable at compact ${(textScale * 100).toInt()} percent text',
+      (tester) async {
+        await _pumpLauncher(
+          tester,
+          provider: CloudProvider.azure,
+          pickFile: (_) async => null,
+          onResult: (_) {},
+          width: 640,
+          textScale: textScale,
+        );
+
+        expect(find.text('Import Azure administrator'), findsOneWidget);
+        expect(find.text('Select JSON credential file'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 Future<void> _pumpLauncher(
@@ -118,12 +159,25 @@ Future<void> _pumpLauncher(
   required CloudProvider provider,
   required CloudCredentialFilePicker pickFile,
   required ValueChanged<CloudConnectionImportRequest?> onResult,
+  double width = 1200,
+  double textScale = 1,
+  FocusNode? triggerFocus,
 }) async {
+  tester.view.physicalSize = Size(width, 1200);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       home: Builder(
         builder: (context) => Scaffold(
           body: FilledButton(
+            focusNode: triggerFocus,
             onPressed: () async {
               final result = await showDialog<CloudConnectionImportRequest>(
                 context: context,
@@ -140,6 +194,10 @@ Future<void> _pumpLauncher(
       ),
     ),
   );
+  if (triggerFocus != null) {
+    triggerFocus.requestFocus();
+    await tester.pump();
+  }
   await tester.tap(find.text('Open'));
   await tester.pumpAndSettle();
 }

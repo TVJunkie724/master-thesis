@@ -67,12 +67,37 @@ void main() {
     await tester.tap(find.text('Retention'));
     expect(selected, ConfigurationTaskId.retention);
   });
+
+  for (final textScale in [1.5, 2.0]) {
+    testWidgets(
+      'compact selector remains reachable at ${(textScale * 100).toInt()} percent text',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(640, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          _app(_journey(architectureReady: true), textScale: textScale),
+        );
+
+        expect(find.byType(ConfigurationTaskSelector), findsOneWidget);
+        expect(find.text('Scenario'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 Widget _app(
   ConfigurationJourney journey, {
   ValueChanged<ConfigurationTaskId>? onSelected,
+  double textScale = 1,
 }) => MaterialApp(
+  builder: (context, child) => MediaQuery(
+    data: MediaQuery.of(
+      context,
+    ).copyWith(textScaler: TextScaler.linear(textScale)),
+    child: child!,
+  ),
   home: Scaffold(
     body: ConfigurationWorkspaceShell(
       journey: journey,

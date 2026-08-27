@@ -100,15 +100,44 @@ void main() {
       findsOneWidget,
     );
   });
+
+  for (final textScale in [1.5, 2.0]) {
+    testWidgets(
+      'keeps cleanup proof readable at compact ${(textScale * 100).toInt()} percent text',
+      (tester) async {
+        await _pump(
+          tester,
+          evidence: CleanupEvidence.fromJson(_completeEvidence()),
+          width: 640,
+          textScale: textScale,
+        );
+
+        expect(find.text('COMPLETE'), findsOneWidget);
+        expect(find.text('Terraform state'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 Future<void> _pump(
   WidgetTester tester, {
   required CleanupEvidence? evidence,
   String? errorMessage,
+  double width = 1200,
+  double textScale = 1,
 }) async {
+  tester.view.physicalSize = Size(width, 1200);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       home: Scaffold(
         body: SingleChildScrollView(
           child: CleanupEvidencePanel(

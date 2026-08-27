@@ -3,17 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../providers/twins_provider.dart';
-import '../providers/theme_provider.dart';
-import '../providers/auth_provider.dart';
+
+import '../models/twin.dart';
 import '../models/twin_transfer.dart';
+import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/twins_provider.dart';
 import '../theme/spacing.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/file_download_utils.dart';
 import '../utils/twin_state_utils.dart';
 import '../widgets/branded_app_bar.dart';
 import '../widgets/selectable_scaffold.dart';
-import '../models/twin.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -493,44 +494,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         DataCell(Text(_formatDate(twin.lastDeployedAt))),
         // Actions
         DataCell(
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (twin.state != 'draft')
-                IconButton(
-                  icon: const Icon(Icons.open_in_new, size: 20),
-                  onPressed: () => _openTwin(context, twin),
-                  tooltip: 'Open',
-                ),
-              if (twin.state == 'draft')
-                IconButton(
-                  icon: const Icon(Icons.open_in_new, size: 20),
-                  onPressed: () => _openTwin(context, twin),
-                  tooltip: 'Open',
-                ),
-              IconButton(
-                icon: const Icon(Icons.copy_outlined, size: 20),
-                onPressed: ref.watch(twinCommandProvider).isLoading
-                    ? null
-                    : () => _handleDuplicate(context, ref, twin),
-                tooltip: 'Duplicate',
-              ),
-              IconButton(
-                icon: const Icon(Icons.download_outlined, size: 20),
-                onPressed: ref.watch(twinCommandProvider).isLoading
-                    ? null
-                    : () => _handleExport(context, ref, twin),
-                tooltip: 'Export',
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, size: 20),
-                onPressed: () => _handleDelete(context, ref, twin),
-                tooltip: twin.isDeployed ? 'Destroy resources first' : 'Delete',
-                color: twin.isDeployed
-                    ? Colors.grey.shade500
-                    : Colors.red.shade400,
-              ),
-            ],
+          _TwinActions(
+            twin: twin,
+            isBusy: ref.watch(twinCommandProvider).isLoading,
+            onOpen: () => _openTwin(context, twin),
+            onDuplicate: () => _handleDuplicate(context, ref, twin),
+            onExport: () => _handleExport(context, ref, twin),
+            onDelete: () => _handleDelete(context, ref, twin),
           ),
         ),
       ],
@@ -636,44 +606,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     required String title,
     required String actionLabel,
     String initialName = '',
-  }) async {
-    final controller = TextEditingController(text: initialName);
-    final formKey = GlobalKey<FormState>();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            autofocus: true,
-            maxLength: 120,
-            decoration: const InputDecoration(labelText: 'Twin name'),
-            validator: (value) => value == null || value.trim().isEmpty
-                ? 'Enter a Twin name.'
-                : null,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() == true) {
-                Navigator.pop(dialogContext, controller.text.trim());
-              }
-            },
-            child: Text(actionLabel),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    return result;
-  }
+  }) => showDialog<String>(
+    context: context,
+    builder: (dialogContext) => _TwinNameDialog(
+      title: title,
+      actionLabel: actionLabel,
+      initialName: initialName,
+    ),
+  );
 
   void _showError(BuildContext context, String prefix, Object error) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -714,6 +654,123 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   String _formatDate(DateTime? date) {
     if (date == null) return '—';
     return DateFormat('MMM d, yyyy').format(date);
+  }
+}
+
+class _TwinNameDialog extends StatefulWidget {
+  final String title;
+  final String actionLabel;
+  final String initialName;
+
+  const _TwinNameDialog({
+    required this.title,
+    required this.actionLabel,
+    required this.initialName,
+  });
+
+  @override
+  State<_TwinNameDialog> createState() => _TwinNameDialogState();
+}
+
+class _TwinNameDialogState extends State<_TwinNameDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(widget.title),
+    content: Form(
+      key: _formKey,
+      child: TextFormField(
+        controller: _controller,
+        autofocus: true,
+        maxLength: 120,
+        decoration: const InputDecoration(labelText: 'Twin name'),
+        validator: (value) =>
+            value == null || value.trim().isEmpty ? 'Enter a Twin name.' : null,
+        onFieldSubmitted: (_) => _submit(),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(onPressed: _submit, child: Text(widget.actionLabel)),
+    ],
+  );
+
+  void _submit() {
+    if (_formKey.currentState?.validate() == true) {
+      Navigator.pop(context, _controller.text.trim());
+    }
+  }
+}
+
+class _TwinActions extends StatelessWidget {
+  final Twin twin;
+  final bool isBusy;
+  final VoidCallback onOpen;
+  final VoidCallback onDuplicate;
+  final VoidCallback onExport;
+  final VoidCallback onDelete;
+
+  const _TwinActions({
+    required this.twin,
+    required this.isBusy,
+    required this.onOpen,
+    required this.onDuplicate,
+    required this.onExport,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final openLabel = twin.state == 'draft' ? 'Edit' : 'Open';
+    return Semantics(
+      label: 'Actions for ${twin.name}',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.open_in_new, size: AppSpacing.iconMd),
+            onPressed: isBusy ? null : onOpen,
+            tooltip: '$openLabel ${twin.name}',
+          ),
+          IconButton(
+            icon: const Icon(Icons.copy_outlined, size: AppSpacing.iconMd),
+            onPressed: isBusy ? null : onDuplicate,
+            tooltip: 'Duplicate ${twin.name}',
+          ),
+          IconButton(
+            icon: const Icon(Icons.download_outlined, size: AppSpacing.iconMd),
+            onPressed: isBusy ? null : onExport,
+            tooltip: 'Export ${twin.name}',
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: AppSpacing.iconMd),
+            onPressed: isBusy ? null : onDelete,
+            tooltip: twin.isDeployed
+                ? 'Destroy resources before deleting ${twin.name}'
+                : 'Delete ${twin.name}',
+            color: twin.isDeployed ? colors.outline : colors.error,
+          ),
+        ],
+      ),
+    );
   }
 }
 

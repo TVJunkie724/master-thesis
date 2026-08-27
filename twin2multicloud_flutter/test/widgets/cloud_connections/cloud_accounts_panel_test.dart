@@ -128,22 +128,25 @@ void main() {
     expect(find.textContaining('contents are never previewed'), findsOneWidget);
   });
 
-  testWidgets('keeps controls reachable at 640 px and 200 percent text', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(640, 1200));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      buildWidget(
-        connections: [_connection('AWS Administrator')],
-        textScale: 2,
-      ),
-    );
+  for (final textScale in [1.5, 2.0]) {
+    testWidgets(
+      'keeps controls reachable at 640 px and ${(textScale * 100).toInt()} percent text',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(640, 1200));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          buildWidget(
+            connections: [_connection('AWS Administrator')],
+            textScale: textScale,
+          ),
+        );
 
-    expect(find.text('Import CSV'), findsOneWidget);
-    expect(find.text('Enter manually'), findsWidgets);
-    expect(tester.takeException(), isNull);
-  });
+        expect(find.text('Import CSV'), findsOneWidget);
+        expect(find.text('Enter manually'), findsWidgets);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 CloudConnection _connection(
