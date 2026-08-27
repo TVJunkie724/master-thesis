@@ -3,6 +3,7 @@
 from fastapi.testclient import TestClient
 
 import rest_api
+from src.account_preparation import AccountPreparationResult
 from src.operation_packages import DeploymentRequirementsInspection
 
 
@@ -38,6 +39,14 @@ def test_inspection_returns_only_digest_bound_requirement_contract(monkeypatch):
                     "attributes": {"target_type": "account"},
                 },
             ),
+            preparation_plan={
+                "schema_version": "graph-account-preparation.v1",
+                "graph_digest": "sha256:" + "1" * 64,
+                "requirements_digest": "sha256:" + "2" * 64,
+                "plan_digest": "sha256:" + "3" * 64,
+                "actions": [],
+                "manual_requirements": [],
+            },
         )
 
     monkeypatch.setattr(
@@ -76,6 +85,14 @@ def test_inspection_returns_only_digest_bound_requirement_contract(monkeypatch):
                 "attributes": {"target_type": "account"},
             }
         ],
+        "preparation_plan": {
+            "schema_version": "graph-account-preparation.v1",
+            "graph_digest": "sha256:" + "1" * 64,
+            "requirements_digest": "sha256:" + "2" * 64,
+            "plan_digest": "sha256:" + "3" * 64,
+            "actions": [],
+            "manual_requirements": [],
+        },
     }
 
 
@@ -95,3 +112,40 @@ def test_inspection_rejects_invalid_package(monkeypatch):
 
     assert response.status_code == 400
     assert "DEPLOYMENT_MANIFEST_REQUIRED" in response.json()["detail"]
+
+
+def test_account_preparation_requires_and_forwards_confirmation(monkeypatch):
+    seen = {}
+    plan_digest = "sha256:" + "3" * 64
+
+    def prepare(project_name, content, **kwargs):
+        seen.update(project_name=project_name, content=content, **kwargs)
+        return AccountPreparationResult(
+            project_name=project_name,
+            plan_digest=plan_digest,
+            requirements_digest="sha256:" + "2" * 64,
+            status="ready",
+            completed_actions=(),
+            failed_actions=(),
+            remaining_actions=(),
+        )
+
+    monkeypatch.setattr(
+        "src.api.validation_requirements.execute_account_preparation",
+        prepare,
+    )
+
+    response = client.post(
+        "/infrastructure/account-preparation?project_name=factory",
+        data={"expected_plan_digest": plan_digest, "confirmed": "true"},
+        files={"file": ("deployment.zip", b"archive", "application/zip")},
+    )
+
+    assert response.status_code == 200
+    assert seen == {
+        "project_name": "factory",
+        "content": b"archive",
+        "expected_plan_digest": plan_digest,
+        "confirmed": True,
+    }
+    assert response.json()["retry_safe"] is True

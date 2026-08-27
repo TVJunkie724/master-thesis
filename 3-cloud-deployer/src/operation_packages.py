@@ -56,6 +56,7 @@ class DeploymentRequirementsInspection:
     warnings: tuple[str, ...]
     graph_evidence: dict[str, object]
     requirements: tuple[dict[str, object], ...]
+    preparation_plan: dict[str, object] | None = None
 
 
 def inspect_deployment_requirements(
@@ -99,13 +100,22 @@ def inspect_deployment_requirements(
                 "Deployment package does not resolve a deployment graph"
             )
         translate_graph_inputs(graph)
-        return DeploymentRequirementsInspection(
+        inspection = DeploymentRequirementsInspection(
             project_name=safe_name,
             warnings=tuple(sorted(set(warnings))),
             graph_evidence=graph_evidence(graph),
             requirements=tuple(
                 requirement.to_contract() for requirement in graph.requirements
             ),
+        )
+        from src.account_preparation import build_account_preparation_plan
+
+        return DeploymentRequirementsInspection(
+            project_name=inspection.project_name,
+            warnings=inspection.warnings,
+            graph_evidence=inspection.graph_evidence,
+            requirements=inspection.requirements,
+            preparation_plan=build_account_preparation_plan(inspection),
         )
     finally:
         shutil.rmtree(inspection_path, ignore_errors=True)
