@@ -170,6 +170,39 @@ void main() {
         DeploymentOperationType.deploy,
       );
     });
+
+    test('restores persisted cleanup evidence from an operation summary', () {
+      final summary = DeploymentOperationSummary.fromJson({
+        ...operationJson(),
+        'operation_type': 'destroy',
+        'status': 'success',
+        'cleanup_evidence': {
+          'schema_version': 'cleanup-evidence.v1',
+          'status': 'complete',
+          'terraform': {
+            'destroy_status': 'completed',
+            'observed_before_resource_count': 4,
+            'post_destroy_inventory': 'empty',
+            'residual_resource_count': 0,
+          },
+          'providers': [
+            {
+              'provider': 'aws',
+              'cleanup_status': 'completed',
+              'discovered_during_cleanup_count': 2,
+              'discovered_resource_kinds': ['Lambda'],
+              'post_destroy_inventory': 'empty',
+              'residual_resource_count': 0,
+            },
+          ],
+          'retained_shared_prerequisites': <Object>[],
+          'residual_failures': <Object>[],
+        },
+      });
+
+      expect(summary.cleanupEvidence?.status.apiValue, 'complete');
+      expect(summary.cleanupEvidence?.providers.single.provider, 'aws');
+    });
   });
 
   group('deployment log page', () {

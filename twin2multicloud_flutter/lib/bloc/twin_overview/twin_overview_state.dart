@@ -2,6 +2,7 @@
 // State classes for the twin overview BLoC
 
 import 'package:equatable/equatable.dart';
+import '../../models/cleanup_evidence.dart';
 import '../../models/deployment_access.dart';
 import '../../models/deployment_readiness.dart';
 import '../../models/deployment_operations.dart';
@@ -471,6 +472,10 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final DeploymentOutputsSnapshot? deploymentOutputs;
   final String? outputsError;
 
+  // Persisted proof from the latest destroy operation.
+  final CleanupEvidence? cleanupEvidence;
+  final String? cleanupEvidenceError;
+
   const TwinOverviewLoaded({
     required this.twinId,
     required this.projectName,
@@ -494,6 +499,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
     this.infoMessage,
     this.deploymentOutputs,
     this.outputsError,
+    this.cleanupEvidence,
+    this.cleanupEvidenceError,
   });
 
   bool get isDeploying =>
@@ -534,12 +541,16 @@ class TwinOverviewLoaded extends TwinOverviewState {
     String? infoMessage,
     DeploymentOutputsSnapshot? deploymentOutputs,
     String? outputsError,
+    CleanupEvidence? cleanupEvidence,
+    String? cleanupEvidenceError,
     bool clearSuccess = false,
     bool clearError = false,
     bool clearInfo = false,
     bool clearOutputsError = false,
     bool clearLastError = false,
     bool clearDeploymentOutputs = false,
+    bool clearCleanupEvidence = false,
+    bool clearCleanupEvidenceError = false,
   }) {
     return TwinOverviewLoaded(
       twinId: twinId ?? this.twinId,
@@ -570,6 +581,12 @@ class TwinOverviewLoaded extends TwinOverviewState {
       outputsError: clearOutputsError
           ? null
           : (outputsError ?? this.outputsError),
+      cleanupEvidence: clearCleanupEvidence
+          ? null
+          : (cleanupEvidence ?? this.cleanupEvidence),
+      cleanupEvidenceError: clearCleanupEvidenceError
+          ? null
+          : (cleanupEvidenceError ?? this.cleanupEvidenceError),
     );
   }
 
@@ -597,5 +614,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     infoMessage,
     deploymentOutputs,
     outputsError,
+    cleanupEvidence,
+    cleanupEvidenceError,
   ];
 }

@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/app_logger.dart';
 import '../../core/result.dart';
+import '../../models/cleanup_evidence.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/deployment_access.dart';
 import '../../models/deployment_operations.dart';
@@ -131,6 +132,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         deployerConfig: deployerConfig,
         deploymentOutputs: deploymentOutputs,
         outputsError: outputsError,
+        cleanupEvidence: deploymentStatus.latestDeployment?.cleanupEvidence,
         deploymentReadiness: deploymentReadiness,
         layerAccess: layerAccess,
       );
@@ -249,6 +251,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
           deployerConfig: deployerConfig,
           deploymentOutputs: deploymentOutputs,
           outputsError: outputsError,
+          cleanupEvidence: deploymentStatus.latestDeployment?.cleanupEvidence,
           deploymentReadiness: deploymentReadiness,
           deploymentOperation: deploymentOperation,
           layerAccess: layerAccess,
@@ -335,6 +338,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         clearDeploymentOutputs: true,
         layerAccess: const LayerAccessViewState(),
         clearOutputsError: true,
+        clearCleanupEvidence: true,
+        clearCleanupEvidenceError: true,
         clearLastError: true,
         clearSuccess: true,
         clearError: true,
@@ -461,6 +466,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         trace: trace,
         simulatorDownload: simulator,
         layerAccess: const LayerAccessViewState(),
+        clearCleanupEvidence: true,
+        clearCleanupEvidenceError: true,
         clearSuccess: true,
         clearError: true,
         clearInfo: true,
@@ -548,6 +555,23 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
 
     // Clear outputs on destroy, store on deploy
     final isDestroy = event.newState == 'destroyed';
+    CleanupEvidence? cleanupEvidence;
+    String? cleanupEvidenceError;
+    if (isDestroy && event.outputs?.containsKey('cleanup_evidence') == true) {
+      try {
+        final value = event.outputs!['cleanup_evidence'];
+        if (value is! Map) {
+          throw const FormatException(
+            'Invalid cleanup evidence contract: cleanup_evidence must be an object.',
+          );
+        }
+        cleanupEvidence = CleanupEvidence.fromJson(
+          Map<String, dynamic>.from(value),
+        );
+      } on FormatException catch (error) {
+        cleanupEvidenceError = error.message;
+      }
+    }
 
     // First emit state update that PRESERVES terminal logs so they stay visible
     final newState = event.newState ?? (event.success ? 'deployed' : 'error');
@@ -592,9 +616,11 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         canDelete: perms['canDelete'],
         lastError: failureMessage,
         clearLastError: event.success,
-        successMessage: event.success ? event.message : null,
-        errorMessage: failureMessage,
-        clearError: event.success,
+        successMessage: event.success && cleanupEvidenceError == null
+            ? event.message
+            : null,
+        errorMessage: cleanupEvidenceError ?? failureMessage,
+        clearError: event.success && cleanupEvidenceError == null,
         // Store typed, defensively copied outputs until the canonical refresh.
         deploymentOutputs: isDestroy || !hasCurrentOutputs
             ? null
@@ -608,6 +634,10 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
               }),
         clearDeploymentOutputs: !hasCurrentOutputs,
         clearOutputsError: true,
+        cleanupEvidence: cleanupEvidence,
+        cleanupEvidenceError: cleanupEvidenceError,
+        clearCleanupEvidence: isDestroy && cleanupEvidence == null,
+        clearCleanupEvidenceError: cleanupEvidenceError == null,
         layerAccess: isDestroy
             ? const LayerAccessViewState()
             : (event.success
@@ -1454,6 +1484,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     DeployerConfigData? deployerConfig,
     DeploymentOutputsSnapshot? deploymentOutputs,
     String? outputsError,
+    CleanupEvidence? cleanupEvidence,
     required DeploymentReadinessViewState deploymentReadiness,
     LayerAccessViewState layerAccess = const LayerAccessViewState(),
     DeploymentOperationViewState deploymentOperation =
@@ -1480,6 +1511,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       // Terraform outputs
       deploymentOutputs: deploymentOutputs,
       outputsError: outputsError,
+      cleanupEvidence: cleanupEvidence,
     );
   }
 

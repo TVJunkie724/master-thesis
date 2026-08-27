@@ -4,6 +4,7 @@ import '../../bloc/twin_overview/twin_overview_state.dart';
 import '../../models/deployment_access.dart';
 import '../../theme/spacing.dart';
 import '../terraform_outputs_card.dart';
+import 'cleanup_evidence_panel.dart';
 import 'deployment_operations_panel.dart';
 import 'deployment_readiness_panel.dart';
 import 'layer_access_panel.dart';
@@ -139,6 +140,15 @@ class TwinOverviewContent extends StatelessWidget {
                 ],
                 if (deploymentVerification != null) ...[
                   deploymentVerification!,
+                  const SizedBox(height: AppSpacing.lg),
+                ],
+                if (state.cleanupEvidence != null ||
+                    state.cleanupEvidenceError != null ||
+                    state.twinState == 'destroyed') ...[
+                  CleanupEvidencePanel(
+                    evidence: state.cleanupEvidence,
+                    errorMessage: state.cleanupEvidenceError,
+                  ),
                   const SizedBox(height: AppSpacing.lg),
                 ],
                 TwinOverviewConfigurationReview(

@@ -8,6 +8,7 @@ import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_bloc.da
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_event.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.dart';
 import 'package:twin2multicloud_flutter/core/result.dart';
+import 'package:twin2multicloud_flutter/models/cleanup_evidence.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/deployment_access.dart';
 import 'package:twin2multicloud_flutter/models/deployment_operations.dart';
@@ -673,6 +674,116 @@ void main() {
       ],
       tearDown: streams.dispose,
     );
+  });
+
+  group('TwinOverviewBloc cleanup evidence', () {
+    late MockApiService api;
+
+    setUp(() => api = MockApiService());
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'restores persisted cleanup evidence from the latest operation',
+      setUp: () => _stubLoad(
+        api,
+        status: DeploymentStatusSnapshot(
+          schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+          state: DeploymentTwinState.destroyed,
+          latestDeployment: DeploymentOperationSummary(
+            id: 'deployment-1',
+            sessionId: 'session-1',
+            operationType: DeploymentOperationType.destroy,
+            status: DeploymentOperationStatus.success,
+            cleanupEvidence: CleanupEvidence.fromJson(_cleanupEvidenceJson()),
+          ),
+        ),
+        readiness: _readiness(ready: true),
+      ),
+      build: () => _buildBloc(api),
+      act: (bloc) => bloc.add(const TwinOverviewLoad('test-id')),
+      expect: () => [
+        isA<TwinOverviewLoading>(),
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.cleanupEvidence?.status,
+              'cleanup status',
+              CleanupEvidenceStatus.complete,
+            )
+            .having(
+              (state) => state.cleanupEvidence?.providers.single.provider,
+              'provider',
+              'aws',
+            ),
+      ],
+    );
+
+    test('exposes strict Destroy terminal evidence before refresh', () async {
+      _stubConfiguredLoad(api);
+      when(() => api.destroyTwin('test-id')).thenAnswer(
+        (_) async => const OperationSession(
+          sessionId: 'session-1',
+          sseUrl: '/sse/destroy/session-1',
+        ),
+      );
+      _stubEmptyLogPage(api);
+      final streams = ControlledLogStreamFactory();
+      final bloc = _buildBloc(api, streams: streams);
+
+      await _loadConfigured(bloc);
+      bloc.add(const TwinOverviewDestroy());
+      await pumpEventQueue(times: 20);
+      streams.clients.single.controller.add(
+        SseLogEvent(
+          id: 1,
+          type: 'complete',
+          message: 'Resources destroyed.',
+          outputs: {'cleanup_evidence': _cleanupEvidenceJson()},
+        ),
+      );
+      await pumpEventQueue(times: 20);
+
+      final loaded = bloc.state as TwinOverviewLoaded;
+      expect(loaded.twinState, 'destroyed');
+      expect(loaded.cleanupEvidence?.status, CleanupEvidenceStatus.complete);
+      expect(loaded.cleanupEvidenceError, isNull);
+      await bloc.close();
+      await streams.dispose();
+    });
+
+    test('keeps malformed terminal evidence visible as an error', () async {
+      _stubConfiguredLoad(api);
+      when(() => api.destroyTwin('test-id')).thenAnswer(
+        (_) async => const OperationSession(
+          sessionId: 'session-1',
+          sseUrl: '/sse/destroy/session-1',
+        ),
+      );
+      _stubEmptyLogPage(api);
+      final streams = ControlledLogStreamFactory();
+      final bloc = _buildBloc(api, streams: streams);
+
+      await _loadConfigured(bloc);
+      bloc.add(const TwinOverviewDestroy());
+      await pumpEventQueue(times: 20);
+      streams.clients.single.controller.add(
+        const SseLogEvent(
+          id: 1,
+          type: 'complete',
+          message: 'Resources destroyed.',
+          outputs: {
+            'cleanup_evidence': {'schema_version': 'cleanup-evidence.v1'},
+          },
+        ),
+      );
+      await pumpEventQueue(times: 20);
+
+      final loaded = bloc.state as TwinOverviewLoaded;
+      expect(loaded.cleanupEvidence, isNull);
+      expect(loaded.cleanupEvidenceError, contains('fields do not match'));
+      expect(loaded.successMessage, isNull);
+      expect(loaded.deploymentOperation.logs, isEmpty);
+      await bloc.close();
+      await streams.dispose();
+    });
   });
 
   group('TwinOverviewBloc messages and permissions', () {
@@ -2018,6 +2129,29 @@ DeploymentOperationViewState _operation({
     showLogs: showLogs,
   );
 }
+
+Map<String, dynamic> _cleanupEvidenceJson() => {
+  'schema_version': 'cleanup-evidence.v1',
+  'status': 'complete',
+  'terraform': {
+    'destroy_status': 'completed',
+    'observed_before_resource_count': 9,
+    'post_destroy_inventory': 'empty',
+    'residual_resource_count': 0,
+  },
+  'providers': [
+    {
+      'provider': 'aws',
+      'cleanup_status': 'completed',
+      'discovered_during_cleanup_count': 4,
+      'discovered_resource_kinds': ['Cloud Functions'],
+      'post_destroy_inventory': 'empty',
+      'residual_resource_count': 0,
+    },
+  ],
+  'retained_shared_prerequisites': <Object>[],
+  'residual_failures': <Object>[],
+};
 
 DeploymentLogEntry _log(
   int eventId, {
