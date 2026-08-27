@@ -15,12 +15,23 @@ void main() {
     final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
     dio.httpClientAdapter = CallbackAdapter((options) {
       seen.add('${options.method} ${options.path}');
+      if (options.path == '/twins/twin-1/deployment-preparation') {
+        expect(options.data, {
+          'plan_digest': _planDigest,
+          'requirements_digest': _requirementsDigest,
+          'confirmed': true,
+          'manual_requirement_ids': <String>[],
+        });
+      }
       return switch (options.path) {
         '/twins/twin-1/deployment-readiness' => jsonResponse(
           readinessResponse(DeploymentReadinessSnapshot.cachedSchemaVersion),
         ),
         '/twins/twin-1/deployment-preflight' => jsonResponse(
           readinessResponse(DeploymentReadinessSnapshot.preflightSchemaVersion),
+        ),
+        '/twins/twin-1/deployment-preparation' => jsonResponse(
+          preparationResponse(),
         ),
         '/twins/twin-1/deploy' || '/twins/twin-1/destroy' => jsonResponse({
           'session_id': 'session-1',
@@ -88,6 +99,14 @@ void main() {
       (await api.runDeploymentPreflight('twin-1')).source,
       DeploymentReadinessSource.preflight,
     );
+    final preparationRequest = DeploymentPreparationRequest(
+      planDigest: _planDigest,
+      requirementsDigest: _requirementsDigest,
+    );
+    expect(
+      (await api.prepareDeployment('twin-1', preparationRequest)).status,
+      DeploymentPreparationStatus.ready,
+    );
     expect((await api.deployTwin('twin-1')).sessionId, 'session-1');
     expect((await api.destroyTwin('twin-1')).sseUrl, '/sse/deploy/session-1');
     expect(
@@ -125,6 +144,7 @@ void main() {
     expect(seen, [
       'GET /twins/twin-1/deployment-readiness',
       'POST /twins/twin-1/deployment-preflight',
+      'POST /twins/twin-1/deployment-preparation',
       'POST /twins/twin-1/deploy',
       'POST /twins/twin-1/destroy',
       'GET /twins/twin-1/deployment-status',
@@ -424,6 +444,8 @@ Map<String, dynamic> readinessResponse(String schemaVersion) {
         'status': 'ready',
         'summary': 'Cloud connection preflight passed',
         'checked_at': '2026-07-14T09:00:00Z',
+        'graph_digest': _graphDigest,
+        'requirements_digest': _requirementsDigest,
         'checks': [
           {
             'component': 'optimizer',
@@ -434,12 +456,61 @@ Map<String, dynamic> readinessResponse(String schemaVersion) {
             'permissions': <String>[],
           },
         ],
+        'requirements': [_readyRequirement],
       },
     ],
     'checked_at': '2026-07-14T09:00:00Z',
+    'graph_digest': _graphDigest,
+    'requirements_digest': _requirementsDigest,
+    'preparation_plan': {
+      'schema_version': DeploymentPreparationPlan.schemaVersion,
+      'graph_digest': _graphDigest,
+      'requirements_digest': _requirementsDigest,
+      'plan_digest': _planDigest,
+      'actions': <Object>[],
+      'manual_requirements': <Object>[],
+    },
     'issues': <Object>[],
   };
 }
+
+Map<String, dynamic> preparationResponse() => {
+  'schema_version': DeploymentPreparationResponse.schemaVersion,
+  'twin_id': 'twin-1',
+  'plan_digest': _planDigest,
+  'requirements_digest': _requirementsDigest,
+  'status': 'ready',
+  'completed_actions': <Object>[],
+  'failed_actions': <Object>[],
+  'remaining_action_ids': <String>[],
+  'acknowledged_manual_requirement_ids': <String>[],
+  'pending_manual_requirement_ids': <String>[],
+  'retry_safe': true,
+  'readiness': readinessResponse(
+    DeploymentReadinessSnapshot.preflightSchemaVersion,
+  ),
+};
+
+const _graphDigest =
+    'sha256:1111111111111111111111111111111111111111111111111111111111111111';
+const _requirementsDigest =
+    'sha256:2222222222222222222222222222222222222222222222222222222222222222';
+const _planDigest =
+    'sha256:3333333333333333333333333333333333333333333333333333333333333333';
+
+const _readyRequirement = {
+  'requirement_id': 'aws:provider_scope',
+  'requirement_type': 'provider_scope',
+  'provider': 'aws',
+  'capability_id': 'aws:provider_scope',
+  'preparation_mode': 'none',
+  'mandatory': true,
+  'status': 'ready',
+  'message': 'Provider scope is ready.',
+  'action': 'No action required.',
+  'source_node_ids': <String>[],
+  'source_edge_ids': <String>[],
+};
 
 Map<String, dynamic> deploymentAccessResponse() => {
   'schema_version': 'deployment-access.v1',

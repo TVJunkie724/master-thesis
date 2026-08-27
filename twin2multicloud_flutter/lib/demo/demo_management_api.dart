@@ -29,6 +29,12 @@ import 'demo_fixture_store.dart';
 
 class DemoManagementApi implements ManagementApi {
   static const double _sixLayerEurPerUsd = 0.865948;
+  static const _demoGraphDigest =
+      'sha256:1111111111111111111111111111111111111111111111111111111111111111';
+  static const _demoRequirementsDigest =
+      'sha256:2222222222222222222222222222222222222222222222222222222222222222';
+  static const _demoPreparationDigest =
+      'sha256:3333333333333333333333333333333333333333333333333333333333333333';
   final DemoFixtureStore store;
   final Duration latency;
   static const _token = 'demo-token';
@@ -1104,6 +1110,48 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
+  Future<DeploymentPreparationResponse> prepareDeployment(
+    String twinId,
+    DeploymentPreparationRequest request,
+  ) async {
+    await _pause();
+    store.twin(twinId);
+    if (request.planDigest != _demoPreparationDigest ||
+        request.requirementsDigest != _demoRequirementsDigest) {
+      throw const DemoApiException(
+        'DEMO_DEPLOYMENT_PREPARATION_STALE',
+        'Run deployment preflight again before confirming preparation.',
+      );
+    }
+    final readiness = _buildDeploymentReadiness(twinId, executeChecks: true);
+    _deploymentReadinessCache[twinId] = {
+      ..._copyMap(readiness),
+      'schema_version': DeploymentReadinessSnapshot.cachedSchemaVersion,
+    };
+    readiness['schema_version'] =
+        DeploymentReadinessSnapshot.preflightSchemaVersion;
+    final response = {
+      'schema_version': DeploymentPreparationResponse.schemaVersion,
+      'twin_id': twinId,
+      'plan_digest': request.planDigest,
+      'requirements_digest': request.requirementsDigest,
+      'status': readiness['ready'] == true ? 'ready' : 'failed',
+      'completed_actions': <Map<String, dynamic>>[],
+      'failed_actions': <Map<String, dynamic>>[],
+      'remaining_action_ids': <String>[],
+      'acknowledged_manual_requirement_ids': request.manualRequirementIds,
+      'pending_manual_requirement_ids': <String>[],
+      'retry_safe': true,
+      'readiness': readiness,
+    };
+    return DeploymentPreparationResponse.fromJson(
+      response,
+      expectedTwinId: twinId,
+      expectedRequest: request,
+    );
+  }
+
+  @override
   Future<OperationSession> destroyTwin(String twinId) async {
     await _pause();
     final twin = store.twin(twinId);
@@ -1493,6 +1541,12 @@ class DemoManagementApi implements ManagementApi {
 
     final config = store.twinConfig(twinId) ?? const <String, dynamic>{};
     final checkedAt = store.clock().toIso8601String();
+    final graphDigest = executeChecks && requiredProviders.isNotEmpty
+        ? _demoGraphDigest
+        : null;
+    final requirementsDigest = executeChecks && requiredProviders.isNotEmpty
+        ? _demoRequirementsDigest
+        : null;
     final providers = requiredProviders
         .map(
           (provider) => _buildProviderReadiness(
@@ -1500,6 +1554,8 @@ class DemoManagementApi implements ManagementApi {
             config['${provider}_cloud_connection_id']?.toString(),
             executeChecks: executeChecks,
             checkedAt: checkedAt,
+            graphDigest: graphDigest,
+            requirementsDigest: requirementsDigest,
           ),
         )
         .toList(growable: false);
@@ -1525,6 +1581,18 @@ class DemoManagementApi implements ManagementApi {
       'required_providers': requiredProviders,
       'providers': providers,
       'checked_at': checkedProviders.isEmpty ? null : checkedAt,
+      'graph_digest': graphDigest,
+      'requirements_digest': requirementsDigest,
+      'preparation_plan': graphDigest == null
+          ? null
+          : {
+              'schema_version': DeploymentPreparationPlan.schemaVersion,
+              'graph_digest': graphDigest,
+              'requirements_digest': requirementsDigest,
+              'plan_digest': _demoPreparationDigest,
+              'actions': <Map<String, dynamic>>[],
+              'manual_requirements': <Map<String, dynamic>>[],
+            },
       'issues': issues,
     };
   }
@@ -1534,6 +1602,8 @@ class DemoManagementApi implements ManagementApi {
     String? connectionId, {
     required bool executeChecks,
     required String checkedAt,
+    required String? graphDigest,
+    required String? requirementsDigest,
   }) {
     Map<String, dynamic>? connection;
     if (connectionId != null) {
@@ -1580,6 +1650,8 @@ class DemoManagementApi implements ManagementApi {
         'status': 'ready',
         'summary': 'Cloud connection preflight passed',
         'checked_at': checkedAt,
+        'graph_digest': graphDigest,
+        'requirements_digest': requirementsDigest,
         'checks': [
           _readinessCheck(
             component: 'optimizer',
@@ -1596,6 +1668,7 @@ class DemoManagementApi implements ManagementApi {
             action: 'No action required.',
           ),
         ],
+        'requirements': [_demoProviderRequirement(provider, status: 'ready')],
       };
     }
 
@@ -1607,6 +1680,8 @@ class DemoManagementApi implements ManagementApi {
       'status': executeChecks ? 'review_required' : 'not_checked',
       'summary': failureMessage,
       'checked_at': null,
+      'graph_digest': graphDigest,
+      'requirements_digest': requirementsDigest,
       'checks': [
         _readinessCheck(
           component: 'configuration',
@@ -1615,6 +1690,37 @@ class DemoManagementApi implements ManagementApi {
           action: failureAction,
         ),
       ],
+      'requirements': executeChecks
+          ? [
+              _demoProviderRequirement(
+                provider,
+                status: 'replace_connection',
+                message: failureMessage,
+                action: failureAction,
+              ),
+            ]
+          : <Map<String, dynamic>>[],
+    };
+  }
+
+  Map<String, dynamic> _demoProviderRequirement(
+    String provider, {
+    required String status,
+    String message = 'Provider scope is ready for the resolved graph.',
+    String action = 'No action required.',
+  }) {
+    return {
+      'requirement_id': '$provider:provider_scope',
+      'requirement_type': 'provider_scope',
+      'provider': provider,
+      'capability_id': '$provider:provider_scope',
+      'preparation_mode': 'none',
+      'mandatory': true,
+      'status': status,
+      'message': message,
+      'action': action,
+      'source_node_ids': <String>[],
+      'source_edge_ids': <String>[],
     };
   }
 

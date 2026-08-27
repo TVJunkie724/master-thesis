@@ -8,6 +8,7 @@ import '../../theme/spacing.dart';
 abstract class _ReadinessStrings {
   static const title = 'Deployment readiness';
   static const runPreflight = 'Run preflight';
+  static const reviewPreparation = 'Review preparation';
   static const cloudAccounts = 'Cloud accounts';
   static const details = 'Provider details';
   static const notLoaded = 'Readiness has not been loaded yet.';
@@ -19,12 +20,14 @@ abstract class _ReadinessStrings {
 class DeploymentReadinessPanel extends StatelessWidget {
   final DeploymentReadinessViewState state;
   final VoidCallback onRunPreflight;
+  final VoidCallback onReviewPreparation;
   final VoidCallback onOpenCloudAccounts;
 
   const DeploymentReadinessPanel({
     super.key,
     required this.state,
     required this.onRunPreflight,
+    required this.onReviewPreparation,
     required this.onOpenCloudAccounts,
   });
 
@@ -33,6 +36,7 @@ class DeploymentReadinessPanel extends StatelessWidget {
     final snapshot = state.snapshot;
     final isLoading = state.phase == DeploymentReadinessViewPhase.loading;
     final isBlocking = !state.isDeployable;
+    final canReviewPreparation = snapshot?.preparationPlan?.needsReview == true;
     final summary = _summary(snapshot);
 
     return Semantics(
@@ -83,7 +87,9 @@ class DeploymentReadinessPanel extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               _Actions(
                 isLoading: isLoading,
+                canReviewPreparation: canReviewPreparation,
                 onRunPreflight: onRunPreflight,
+                onReviewPreparation: onReviewPreparation,
                 onOpenCloudAccounts: onOpenCloudAccounts,
               ),
             ],
@@ -217,7 +223,52 @@ class _ProviderDetails extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           for (final check in provider.checks)
             _CheckRow(check: check, providerLabel: provider.provider.label),
+          for (final requirement in provider.requirements)
+            _RequirementRow(requirement: requirement),
         ],
+      ),
+    );
+  }
+}
+
+class _RequirementRow extends StatelessWidget {
+  final DeploymentRequirementReadiness requirement;
+
+  const _RequirementRow({required this.requirement});
+
+  @override
+  Widget build(BuildContext context) {
+    final visual = _requirementVisual(requirement.status);
+    final needsAction =
+        requirement.status != DeploymentRequirementReadinessStatus.ready;
+    return Semantics(
+      label:
+          '${requirement.provider.label} ${requirement.capabilityId}: '
+          '${requirement.message}',
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(visual.icon, color: visual.color, size: AppSpacing.iconMd),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${requirement.capabilityId}: ${requirement.message}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  if (needsAction) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(requirement.action),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -277,12 +328,16 @@ class _CheckRow extends StatelessWidget {
 
 class _Actions extends StatelessWidget {
   final bool isLoading;
+  final bool canReviewPreparation;
   final VoidCallback onRunPreflight;
+  final VoidCallback onReviewPreparation;
   final VoidCallback onOpenCloudAccounts;
 
   const _Actions({
     required this.isLoading,
+    required this.canReviewPreparation,
     required this.onRunPreflight,
+    required this.onReviewPreparation,
     required this.onOpenCloudAccounts,
   });
 
@@ -315,26 +370,72 @@ class _Actions extends StatelessWidget {
             label: const Text(_ReadinessStrings.cloudAccounts),
           ),
         );
+        final preparation = canReviewPreparation
+            ? SizedBox(
+                height: AppSpacing.actionButtonHeight,
+                child: FilledButton.tonalIcon(
+                  key: const Key('review-deployment-preparation'),
+                  onPressed: isLoading ? null : onReviewPreparation,
+                  icon: const Icon(Icons.admin_panel_settings_outlined),
+                  label: const Text(_ReadinessStrings.reviewPreparation),
+                ),
+              )
+            : null;
+        final actions = [
+          preflight,
+          if (preparation != null) preparation,
+          accounts,
+        ];
         if (compact) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              preflight,
-              const SizedBox(height: AppSpacing.sm),
-              accounts,
+              for (var index = 0; index < actions.length; index += 1) ...[
+                if (index > 0) const SizedBox(height: AppSpacing.sm),
+                actions[index],
+              ],
             ],
           );
         }
-        return Row(
-          children: [
-            preflight,
-            const SizedBox(width: AppSpacing.sm),
-            accounts,
-          ],
+        return Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: actions,
         );
       },
     );
   }
+}
+
+({IconData icon, Color color}) _requirementVisual(
+  DeploymentRequirementReadinessStatus status,
+) {
+  return switch (status) {
+    DeploymentRequirementReadinessStatus.ready => (
+      icon: Icons.check_circle_outline,
+      color: AppColors.success,
+    ),
+    DeploymentRequirementReadinessStatus.preparable => (
+      icon: Icons.settings_suggest_outlined,
+      color: AppColors.warning,
+    ),
+    DeploymentRequirementReadinessStatus.manualAction => (
+      icon: Icons.open_in_new,
+      color: AppColors.warning,
+    ),
+    DeploymentRequirementReadinessStatus.replaceConnection => (
+      icon: Icons.key_off_outlined,
+      color: AppColors.error,
+    ),
+    DeploymentRequirementReadinessStatus.transient => (
+      icon: Icons.sync_problem_outlined,
+      color: AppColors.warning,
+    ),
+    DeploymentRequirementReadinessStatus.unsupported => (
+      icon: Icons.block_outlined,
+      color: AppColors.error,
+    ),
+  };
 }
 
 ({IconData icon, Color color, String label}) _phaseVisual(

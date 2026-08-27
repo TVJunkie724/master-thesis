@@ -10,6 +10,7 @@ import '../../models/cleanup_evidence.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/deployment_access.dart';
 import '../../models/deployment_operations.dart';
+import '../../models/deployment_readiness.dart';
 import '../../models/deployer_config.dart';
 import '../../models/optimizer_config.dart';
 import '../../models/twin.dart';
@@ -55,6 +56,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     on<TwinOverviewLoad>(_onLoad);
     on<TwinOverviewRefresh>(_onRefresh);
     on<TwinOverviewRunDeploymentPreflight>(_onRunDeploymentPreflight);
+    on<TwinOverviewPrepareDeployment>(_onPrepareDeployment);
     on<TwinOverviewRetryLayerAccess>(_onRetryLayerAccess);
     on<TwinOverviewRotateGcpGrafanaViewerCredential>(
       _onRotateGcpGrafanaViewerCredential,
@@ -434,6 +436,114 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
             'Preflight failed: ${ApiErrorHandler.extractMessage(error)}',
             previous: previous,
           ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _onPrepareDeployment(
+    TwinOverviewPrepareDeployment event,
+    Emitter<TwinOverviewState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded ||
+        currentState.deploymentReadiness.phase ==
+            DeploymentReadinessViewPhase.loading) {
+      return;
+    }
+
+    final plan = currentState.deploymentReadiness.snapshot?.preparationPlan;
+    if (plan == null ||
+        plan.planDigest != event.request.planDigest ||
+        plan.requirementsDigest != event.request.requirementsDigest) {
+      emit(
+        currentState.copyWith(
+          errorMessage:
+              'Preparation evidence changed. Run deployment preflight again.',
+          clearSuccess: true,
+          clearInfo: true,
+        ),
+      );
+      return;
+    }
+
+    final previous = currentState.deploymentReadiness.snapshot;
+    emit(
+      currentState.copyWith(
+        deploymentReadiness: DeploymentReadinessViewState.loading(
+          previous: previous,
+        ),
+        clearSuccess: true,
+        clearError: true,
+        clearInfo: true,
+      ),
+    );
+    try {
+      final response = await _api.prepareDeployment(
+        currentState.twinId,
+        event.request,
+      );
+      final activeState = state;
+      if (activeState is! TwinOverviewLoaded ||
+          activeState.twinId != currentState.twinId) {
+        return;
+      }
+      final readiness = DeploymentReadinessViewState.fromSnapshot(
+        response.readiness,
+      );
+      switch (response.status) {
+        case DeploymentPreparationStatus.ready:
+          emit(
+            activeState.copyWith(
+              deploymentReadiness: readiness,
+              successMessage: response.summary,
+              clearError: true,
+              clearInfo: true,
+            ),
+          );
+        case DeploymentPreparationStatus.partial:
+        case DeploymentPreparationStatus.manualAction:
+          emit(
+            activeState.copyWith(
+              deploymentReadiness: readiness,
+              infoMessage: response.summary,
+              clearSuccess: true,
+              clearError: true,
+            ),
+          );
+        case DeploymentPreparationStatus.failed:
+          final detail = response.failedActions
+              .take(3)
+              .map((action) => action.message)
+              .join(' ');
+          emit(
+            activeState.copyWith(
+              deploymentReadiness: readiness,
+              errorMessage: detail.isEmpty
+                  ? response.summary
+                  : '${response.summary} $detail',
+              clearSuccess: true,
+              clearInfo: true,
+            ),
+          );
+      }
+    } catch (error) {
+      final activeState = state;
+      if (activeState is! TwinOverviewLoaded ||
+          activeState.twinId != currentState.twinId) {
+        return;
+      }
+      final message =
+          'Preparation failed: ${ApiErrorHandler.extractMessage(error)}';
+      emit(
+        activeState.copyWith(
+          deploymentReadiness: DeploymentReadinessViewState.failed(
+            message,
+            previous: previous,
+          ),
+          errorMessage: message,
+          clearSuccess: true,
+          clearInfo: true,
         ),
       );
     }

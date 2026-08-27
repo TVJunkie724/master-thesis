@@ -176,6 +176,11 @@ abstract interface class DeploymentLifecycleApi {
 
   Future<DeploymentReadinessSnapshot> runDeploymentPreflight(String twinId);
 
+  Future<DeploymentPreparationResponse> prepareDeployment(
+    String twinId,
+    DeploymentPreparationRequest request,
+  );
+
   Future<OperationSession> deployTwin(String twinId);
 
   Future<OperationSession> destroyTwin(String twinId);

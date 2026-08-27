@@ -761,6 +761,22 @@ class ApiService implements ManagementApi {
     );
   }
 
+  @override
+  Future<DeploymentPreparationResponse> prepareDeployment(
+    String twinId,
+    DeploymentPreparationRequest request,
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/deployment-preparation',
+      data: request.toJson(),
+    );
+    return DeploymentPreparationResponse.fromJson(
+      _responseMap(response.data),
+      expectedTwinId: twinId,
+      expectedRequest: request,
+    );
+  }
+
   /// Deploy a twin's infrastructure
   @override
   Future<OperationSession> deployTwin(String twinId) async {

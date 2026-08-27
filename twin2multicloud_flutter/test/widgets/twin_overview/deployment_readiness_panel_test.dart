@@ -9,6 +9,7 @@ void main() {
   Widget buildWidget(
     DeploymentReadinessViewState state, {
     VoidCallback? onRunPreflight,
+    VoidCallback? onReviewPreparation,
     VoidCallback? onOpenCloudAccounts,
     double width = 1000,
   }) {
@@ -20,6 +21,7 @@ void main() {
             child: DeploymentReadinessPanel(
               state: state,
               onRunPreflight: onRunPreflight ?? () {},
+              onReviewPreparation: onReviewPreparation ?? () {},
               onOpenCloudAccounts: onOpenCloudAccounts ?? () {},
             ),
           ),
@@ -97,6 +99,95 @@ void main() {
     expect(find.text('Readiness service unavailable.'), findsOneWidget);
     expect(find.text('Unavailable'), findsOneWidget);
   });
+
+  testWidgets('shows graph requirements and opens bounded preparation review', (
+    tester,
+  ) async {
+    var reviews = 0;
+    await tester.pumpWidget(
+      buildWidget(
+        DeploymentReadinessViewState.fromSnapshot(_preparableSnapshot()),
+        onReviewPreparation: () => reviews += 1,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Review preparation'), findsOneWidget);
+    expect(find.textContaining('project API can be enabled'), findsOneWidget);
+    await tester.tap(find.text('Review preparation'));
+    expect(reviews, 1);
+  });
+}
+
+DeploymentReadinessSnapshot _preparableSnapshot() {
+  const graphDigest =
+      'sha256:1111111111111111111111111111111111111111111111111111111111111111';
+  const requirementsDigest =
+      'sha256:2222222222222222222222222222222222222222222222222222222222222222';
+  const planDigest =
+      'sha256:3333333333333333333333333333333333333333333333333333333333333333';
+  const requirement = DeploymentRequirementReadiness(
+    requirementId: 'gcp:serviceusage.googleapis.com',
+    requirementType: 'provider_api',
+    provider: CloudProvider.gcp,
+    capabilityId: 'serviceusage.googleapis.com',
+    preparationMode: DeploymentPreparationMode.confirmedAccount,
+    mandatory: true,
+    status: DeploymentRequirementReadinessStatus.preparable,
+    message: 'The project API can be enabled automatically.',
+    action: 'Confirm the provider preparation.',
+    sourceNodeIds: ['l1'],
+    sourceEdgeIds: [],
+  );
+  const check = DeploymentReadinessCheck(
+    component: 'deployer',
+    status: DeploymentReadinessCheckStatus.passed,
+    code: 'OK',
+    message: 'Connection access passed.',
+    action: 'No action required.',
+    permissions: [],
+  );
+  const action = AccountPreparationAction(
+    actionId: 'gcp:enable:serviceusage.googleapis.com',
+    provider: CloudProvider.gcp,
+    actionType: 'enable_project_api',
+    capabilityId: 'serviceusage.googleapis.com',
+    scope: 'project',
+    requirementIds: ['gcp:serviceusage.googleapis.com'],
+    reason: 'Required by the resolved graph.',
+  );
+  return const DeploymentReadinessSnapshot(
+    schemaVersion: DeploymentReadinessSnapshot.preflightSchemaVersion,
+    source: DeploymentReadinessSource.preflight,
+    twinId: 'twin-1',
+    ready: false,
+    summary: 'Provider preparation is required.',
+    requiredProviders: [CloudProvider.gcp],
+    providers: [
+      ProviderDeploymentReadiness(
+        provider: CloudProvider.gcp,
+        connectionId: 'connection-1',
+        connectionDisplayName: 'GCP deployment',
+        ready: false,
+        status: ProviderDeploymentReadinessStatus.reviewRequired,
+        summary: 'One project API must be enabled.',
+        graphDigest: graphDigest,
+        requirementsDigest: requirementsDigest,
+        checks: [check],
+        requirements: [requirement],
+      ),
+    ],
+    graphDigest: graphDigest,
+    requirementsDigest: requirementsDigest,
+    preparationPlan: DeploymentPreparationPlan(
+      graphDigest: graphDigest,
+      requirementsDigest: requirementsDigest,
+      planDigest: planDigest,
+      actions: [action],
+      manualRequirements: [],
+    ),
+    issues: [],
+  );
 }
 
 DeploymentReadinessSnapshot _snapshot({required bool ready}) {

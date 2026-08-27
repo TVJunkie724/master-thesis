@@ -339,6 +339,7 @@ Future<void> _pumpOverview(
           onEdit: () {},
           onDelete: () {},
           onRunPreflight: () {},
+          onReviewPreparation: () {},
           onOpenCloudAccounts: () {},
           onDeploy: () {},
           onDestroy: () {},

@@ -969,6 +969,56 @@ void main() {
       ],
       verify: (_) => verifyNever(() => api.deployTwin(any())),
     );
+
+    final preparable = _preparableReadiness();
+    final request = DeploymentPreparationRequest(
+      planDigest: preparable.preparationPlan!.planDigest,
+      requirementsDigest: preparable.preparationPlan!.requirementsDigest,
+    );
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'confirms graph-bound preparation and replaces readiness evidence',
+      seed: () => _loaded(readiness: preparable),
+      setUp: () =>
+          when(() => api.prepareDeployment('test-id', request)).thenAnswer(
+            (_) async => DeploymentPreparationResponse(
+              twinId: 'test-id',
+              planDigest: request.planDigest,
+              requirementsDigest: request.requirementsDigest,
+              status: DeploymentPreparationStatus.ready,
+              completedActions: const [],
+              failedActions: const [],
+              remainingActionIds: const [],
+              acknowledgedManualRequirementIds: const [],
+              pendingManualRequirementIds: const [],
+              readiness: _readiness(
+                ready: true,
+                source: DeploymentReadinessSource.preflight,
+              ),
+            ),
+          ),
+      build: () => _buildBloc(api),
+      act: (bloc) => bloc.add(TwinOverviewPrepareDeployment(request)),
+      expect: () => [
+        isA<TwinOverviewLoaded>().having(
+          (state) => state.deploymentReadiness.phase,
+          'loading',
+          DeploymentReadinessViewPhase.loading,
+        ),
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.deploymentReadiness.phase,
+              'ready',
+              DeploymentReadinessViewPhase.ready,
+            )
+            .having(
+              (state) => state.successMessage,
+              'success message',
+              contains('completed'),
+            ),
+      ],
+      verify: (_) =>
+          verify(() => api.prepareDeployment('test-id', request)).called(1),
+    );
   });
 
   group('TwinOverviewBloc resilient deployment stream', () {
@@ -1983,6 +2033,7 @@ TwinOverviewBloc _buildBloc(
 TwinOverviewLoaded _loaded({
   String twinState = 'deploying',
   bool readinessReady = true,
+  DeploymentReadinessSnapshot? readiness,
   DeploymentOperationViewState operation = const DeploymentOperationViewState(),
   TraceViewState trace = const TraceViewState(),
   String? lastError,
@@ -2002,7 +2053,7 @@ TwinOverviewLoaded _loaded({
     canEdit: canEdit,
     canDelete: canEdit,
     deploymentReadiness: DeploymentReadinessViewState.fromSnapshot(
-      _readiness(ready: readinessReady),
+      readiness ?? _readiness(ready: readinessReady),
     ),
     deploymentOperation: operation,
     trace: trace,
@@ -2010,6 +2061,78 @@ TwinOverviewLoaded _loaded({
     deploymentOutputs: deploymentOutputs,
     simulatorDownload: simulator,
     layerAccess: layerAccess,
+  );
+}
+
+DeploymentReadinessSnapshot _preparableReadiness() {
+  const graphDigest =
+      'sha256:1111111111111111111111111111111111111111111111111111111111111111';
+  const requirementsDigest =
+      'sha256:2222222222222222222222222222222222222222222222222222222222222222';
+  const planDigest =
+      'sha256:3333333333333333333333333333333333333333333333333333333333333333';
+  const check = DeploymentReadinessCheck(
+    component: 'deployer',
+    status: DeploymentReadinessCheckStatus.passed,
+    code: 'OK',
+    message: 'Connection access passed.',
+    action: 'No action required.',
+    permissions: [],
+  );
+  const requirement = DeploymentRequirementReadiness(
+    requirementId: 'gcp:serviceusage.googleapis.com',
+    requirementType: 'provider_api',
+    provider: CloudProvider.gcp,
+    capabilityId: 'serviceusage.googleapis.com',
+    preparationMode: DeploymentPreparationMode.confirmedAccount,
+    mandatory: true,
+    status: DeploymentRequirementReadinessStatus.preparable,
+    message: 'The project API can be enabled automatically.',
+    action: 'Confirm the account-level preparation.',
+    sourceNodeIds: ['l1'],
+    sourceEdgeIds: [],
+  );
+  const action = AccountPreparationAction(
+    actionId: 'gcp:enable:serviceusage.googleapis.com',
+    provider: CloudProvider.gcp,
+    actionType: 'enable_project_api',
+    capabilityId: 'serviceusage.googleapis.com',
+    scope: 'project',
+    requirementIds: ['gcp:serviceusage.googleapis.com'],
+    reason: 'Required by the resolved deployment graph.',
+  );
+  const plan = DeploymentPreparationPlan(
+    graphDigest: graphDigest,
+    requirementsDigest: requirementsDigest,
+    planDigest: planDigest,
+    actions: [action],
+    manualRequirements: [],
+  );
+  return DeploymentReadinessSnapshot(
+    schemaVersion: DeploymentReadinessSnapshot.preflightSchemaVersion,
+    source: DeploymentReadinessSource.preflight,
+    twinId: 'test-id',
+    ready: false,
+    summary: 'Provider preparation is required.',
+    requiredProviders: const [CloudProvider.gcp],
+    providers: const [
+      ProviderDeploymentReadiness(
+        provider: CloudProvider.gcp,
+        connectionId: 'connection-1',
+        connectionDisplayName: 'GCP deployment',
+        ready: false,
+        status: ProviderDeploymentReadinessStatus.reviewRequired,
+        summary: 'One project API must be enabled.',
+        graphDigest: graphDigest,
+        requirementsDigest: requirementsDigest,
+        checks: [check],
+        requirements: [requirement],
+      ),
+    ],
+    graphDigest: graphDigest,
+    requirementsDigest: requirementsDigest,
+    preparationPlan: plan,
+    issues: const [],
   );
 }
 

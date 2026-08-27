@@ -16,6 +16,7 @@ import '../../providers/runtime_providers.dart'
     show externalAuthLauncherProvider;
 import '../../providers/theme_provider.dart';
 import '../../models/deployment_access.dart';
+import '../../models/deployment_readiness.dart';
 import '../../services/external_auth_launcher.dart';
 import '../../theme/spacing.dart';
 import '../../utils/file_download_utils.dart';
@@ -26,6 +27,7 @@ import '../../widgets/deployment_verification_card.dart';
 import '../../widgets/twin_overview/twin_overview_code_artifact.dart';
 import '../../widgets/twin_overview/twin_overview_content.dart';
 import '../../widgets/twin_overview/twin_overview_operation_dialogs.dart';
+import '../../widgets/twin_overview/deployment_preparation_dialog.dart';
 
 /// Twin Overview Screen - Entry point with BlocProvider
 class TwinOverviewScreen extends ConsumerWidget {
@@ -398,6 +400,7 @@ class TwinOverviewView extends ConsumerWidget {
       onRunPreflight: () => context.read<TwinOverviewBloc>().add(
         const TwinOverviewRunDeploymentPreflight(),
       ),
+      onReviewPreparation: () => _reviewDeploymentPreparation(context, state),
       onOpenCloudAccounts: () => context.go('/settings'),
       onDeploy: () => _confirmDeploy(context, state),
       onDestroy: () => _confirmDestroy(context),
@@ -424,6 +427,24 @@ class TwinOverviewView extends ConsumerWidget {
       onDownloadArtifact: (artifact) =>
           _downloadCodeArtifact(context, artifact),
     );
+  }
+
+  Future<void> _reviewDeploymentPreparation(
+    BuildContext context,
+    TwinOverviewLoaded state,
+  ) async {
+    final plan = state.deploymentReadiness.snapshot?.preparationPlan;
+    if (plan == null || !plan.needsReview) return;
+    final request = await showDialog<DeploymentPreparationRequest>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => DeploymentPreparationDialog(plan: plan),
+    );
+    if (request != null && context.mounted) {
+      context.read<TwinOverviewBloc>().add(
+        TwinOverviewPrepareDeployment(request),
+      );
+    }
   }
 
   void _openLayerAccess(

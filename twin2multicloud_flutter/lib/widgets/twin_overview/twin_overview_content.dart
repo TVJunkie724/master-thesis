@@ -20,6 +20,7 @@ class TwinOverviewContent extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onRunPreflight;
+  final VoidCallback onReviewPreparation;
   final VoidCallback onOpenCloudAccounts;
   final VoidCallback onDeploy;
   final VoidCallback onDestroy;
@@ -42,6 +43,7 @@ class TwinOverviewContent extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onRunPreflight,
+    required this.onReviewPreparation,
     required this.onOpenCloudAccounts,
     required this.onDeploy,
     required this.onDestroy,
@@ -88,6 +90,7 @@ class TwinOverviewContent extends StatelessWidget {
                 DeploymentReadinessPanel(
                   state: state.deploymentReadiness,
                   onRunPreflight: onRunPreflight,
+                  onReviewPreparation: onReviewPreparation,
                   onOpenCloudAccounts: onOpenCloudAccounts,
                 ),
                 if (isDeployed) ...[

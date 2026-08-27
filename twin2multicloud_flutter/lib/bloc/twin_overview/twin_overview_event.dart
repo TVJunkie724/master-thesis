@@ -3,6 +3,8 @@
 
 import 'package:equatable/equatable.dart';
 
+import '../../models/deployment_readiness.dart';
+
 abstract class TwinOverviewEvent extends Equatable {
   const TwinOverviewEvent();
 
@@ -28,6 +30,16 @@ class TwinOverviewRefresh extends TwinOverviewEvent {
 /// Explicitly validate the currently required deployment provider access.
 class TwinOverviewRunDeploymentPreflight extends TwinOverviewEvent {
   const TwinOverviewRunDeploymentPreflight();
+}
+
+/// Confirm the graph-bound, non-destructive provider preparation plan.
+class TwinOverviewPrepareDeployment extends TwinOverviewEvent {
+  final DeploymentPreparationRequest request;
+
+  const TwinOverviewPrepareDeployment(this.request);
+
+  @override
+  List<Object?> get props => [request];
 }
 
 /// Retry the independently loaded L4/L5 access read model.
