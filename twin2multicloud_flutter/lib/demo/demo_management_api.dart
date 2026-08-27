@@ -34,6 +34,7 @@ class DemoManagementApi implements ManagementApi {
   static const _token = 'demo-token';
   final Map<String, Map<String, dynamic>> _deploymentReadinessCache = {};
   final Map<String, TwinUserFunction> _twinUserFunctions = {};
+  final Map<String, Map<String, String>> _twinUserFunctionSources = {};
   final Map<String, ResolvedTwinArchitectureRead> _resolvedArchitectures = {};
   final Map<String, List<TelemetryVerificationRecord>> _telemetryVerifications =
       {};
@@ -185,9 +186,7 @@ class DemoManagementApi implements ManagementApi {
     final existing = _twinUserFunctions[key];
     final now = store.clock().toUtc();
     final userFunction = TwinUserFunction(
-      functionId:
-          existing?.functionId ??
-          '00000000-0000-4000-8000-${(_twinUserFunctions.length + 1).toString().padLeft(12, '0')}',
+      functionId: existing?.functionId ?? _nextUserFunctionId(),
       twinId: twinId,
       artifactDigest: validation.artifactDigest,
       slotId: upload.slot.slotId,
@@ -202,6 +201,9 @@ class DemoManagementApi implements ManagementApi {
       updatedAt: now,
     );
     _twinUserFunctions[key] = userFunction;
+    _twinUserFunctionSources[key] = _decodeUserFunctionSource(
+      upload.draft.bytes,
+    );
     return userFunction;
   }
 
@@ -227,11 +229,13 @@ class DemoManagementApi implements ManagementApi {
       );
     }
     _twinUserFunctions.remove(key);
+    _twinUserFunctionSources.remove(key);
   }
 
   UserFunctionValidationResult _extensionValidation(
     UserFunctionSourceUpload upload,
   ) {
+    final sourceFiles = _decodeUserFunctionSource(upload.draft.bytes);
     final digest = sha256.convert([
       ...upload.metadataBytes,
       ...upload.draft.bytes,
@@ -241,7 +245,7 @@ class DemoManagementApi implements ManagementApi {
       slotId: upload.slot.slotId,
       slotVersion: upload.slot.slotVersion,
       runtimeId: upload.slot.runtimeId,
-      sourceFiles: const ['process.py', 'requirements.lock'],
+      sourceFiles: sourceFiles.keys.toList(growable: false)..sort(),
       dependencies: const [],
       checks: const [
         'archive_safe',
@@ -288,6 +292,7 @@ class DemoManagementApi implements ManagementApi {
         'Secret material is forbidden in user-function v1.',
       );
     }
+    _decodeUserFunctionSource(upload.draft.bytes);
   }
 
   @override
@@ -518,6 +523,7 @@ class DemoManagementApi implements ManagementApi {
     if (sourceDeployer != null) {
       store.setDeployerConfig(created.id, sourceDeployer);
     }
+    _copyTwinUserFunctions(twinId, created.id);
     return Twin.fromJson(store.twin(created.id));
   }
 
@@ -553,6 +559,7 @@ class DemoManagementApi implements ManagementApi {
     if (definition['deployer'] case final Map deployer) {
       store.setDeployerConfig(created.id, _copyMap(deployer));
     }
+    _importTwinUserFunctions(created.id, definition['user_functions']);
     return Twin.fromJson(store.twin(created.id));
   }
 
@@ -577,6 +584,7 @@ class DemoManagementApi implements ManagementApi {
       },
       'optimizer_params': optimizer?['params'],
       'deployer': store.deployerConfig(twinId),
+      'user_functions': _portableTwinUserFunctions(twinId),
     };
     final safeName = twin['name'].toString().trim().replaceAll(
       RegExp(r'[^A-Za-z0-9._-]+'),
@@ -633,6 +641,10 @@ class DemoManagementApi implements ManagementApi {
     }
     store.removeTwin(twinId);
     _deploymentReadinessCache.remove(twinId);
+    _twinUserFunctions.removeWhere((_, value) => value.twinId == twinId);
+    _twinUserFunctionSources.removeWhere(
+      (key, _) => key.startsWith('$twinId:'),
+    );
   }
 
   @override
@@ -2285,6 +2297,116 @@ class DemoManagementApi implements ManagementApi {
     };
   }
 
+  void _copyTwinUserFunctions(String sourceTwinId, String targetTwinId) {
+    final sources =
+        _twinUserFunctions.values
+            .where((item) => item.twinId == sourceTwinId)
+            .toList(growable: false)
+          ..sort((left, right) => left.slotId.compareTo(right.slotId));
+    for (final source in sources) {
+      final sourceKey = '$sourceTwinId:${source.slotId}';
+      final targetKey = '$targetTwinId:${source.slotId}';
+      final sourceFiles = _twinUserFunctionSources[sourceKey];
+      if (sourceFiles == null) {
+        throw const DemoApiException(
+          'EXTENSION_SOURCE_MISSING',
+          'The saved demo Twin function has no portable source.',
+        );
+      }
+      final now = store.clock().toUtc();
+      _twinUserFunctions[targetKey] = TwinUserFunction(
+        functionId: _nextUserFunctionId(),
+        twinId: targetTwinId,
+        artifactDigest: source.artifactDigest,
+        slotId: source.slotId,
+        slotVersion: source.slotVersion,
+        runtimeId: source.runtimeId,
+        configuration: _copyMap(source.configuration),
+        declaredCapabilities: List.of(source.declaredCapabilities),
+        validatorVersion: source.validatorVersion,
+        sourceFiles: List.of(source.sourceFiles),
+        dependencies: List.of(source.dependencies),
+        createdAt: now,
+        updatedAt: now,
+      );
+      _twinUserFunctionSources[targetKey] = Map.of(sourceFiles);
+    }
+  }
+
+  void _importTwinUserFunctions(String twinId, Object? rawDefinitions) {
+    final definitions = _portableUserFunctionDefinitions(rawDefinitions);
+    for (final definition in definitions) {
+      final slotId = definition['slot_id']! as String;
+      final sourceFiles = Map<String, String>.from(
+        definition['source_files']! as Map,
+      );
+      final now = store.clock().toUtc();
+      final key = '$twinId:$slotId';
+      final digest = sha256.convert(utf8.encode(jsonEncode(definition)));
+      _twinUserFunctions[key] = TwinUserFunction(
+        functionId: _nextUserFunctionId(),
+        twinId: twinId,
+        artifactDigest: 'sha256:$digest',
+        slotId: slotId,
+        slotVersion: definition['slot_version']! as String,
+        runtimeId: definition['runtime_id']! as String,
+        configuration: _copyMap(definition['configuration']! as Map),
+        declaredCapabilities: List<String>.from(
+          definition['declared_capabilities']! as List,
+        ),
+        validatorVersion: 'user-function-validator.v1',
+        sourceFiles: sourceFiles.keys.toList(growable: false)..sort(),
+        dependencies: const [],
+        createdAt: now,
+        updatedAt: now,
+      );
+      _twinUserFunctionSources[key] = sourceFiles;
+    }
+  }
+
+  List<Map<String, dynamic>> _portableTwinUserFunctions(String twinId) {
+    final functions =
+        _twinUserFunctions.values
+            .where((item) => item.twinId == twinId)
+            .toList(growable: false)
+          ..sort((left, right) => left.slotId.compareTo(right.slotId));
+    return functions
+        .map((function) {
+          final sourceFiles =
+              _twinUserFunctionSources['$twinId:${function.slotId}'];
+          if (sourceFiles == null) {
+            throw const DemoApiException(
+              'EXTENSION_SOURCE_MISSING',
+              'The saved demo Twin function has no portable source.',
+            );
+          }
+          return <String, dynamic>{
+            'slot_id': function.slotId,
+            'slot_version': function.slotVersion,
+            'runtime_id': function.runtimeId,
+            'configuration': function.configuration,
+            'declared_capabilities': function.declaredCapabilities,
+            'source_files': Map<String, String>.fromEntries(
+              sourceFiles.entries.toList()
+                ..sort((left, right) => left.key.compareTo(right.key)),
+            ),
+          };
+        })
+        .toList(growable: false);
+  }
+
+  String _nextUserFunctionId() {
+    var sequence = _twinUserFunctions.length + 1;
+    while (true) {
+      final id =
+          '00000000-0000-4000-8000-${sequence.toString().padLeft(12, '0')}';
+      if (_twinUserFunctions.values.every((item) => item.functionId != id)) {
+        return id;
+      }
+      sequence += 1;
+    }
+  }
+
   static Map<String, dynamic> _copyMap(Map<dynamic, dynamic> value) {
     return Map<String, dynamic>.from(jsonDecode(jsonEncode(value)) as Map);
   }
@@ -2307,6 +2429,134 @@ Uint8List _encodePortableTwinDefinition(Map<String, dynamic> definition) {
     ..addFile(ArchiveFile.bytes('manifest.json', manifestBytes))
     ..addFile(ArchiveFile.bytes('twin-definition.json', definitionBytes));
   return ZipEncoder().encodeBytes(archive, modified: DateTime.utc(2026));
+}
+
+Map<String, String> _decodeUserFunctionSource(Uint8List bytes) {
+  try {
+    final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+    if (archive.length < 2 || archive.length > 64) {
+      throw const FormatException('Unexpected source archive size.');
+    }
+    final sourceFiles = <String, String>{};
+    var totalBytes = 0;
+    for (final file in archive) {
+      final path = file.name.replaceAll('\\', '/');
+      if (!file.isFile ||
+          file.isSymbolicLink ||
+          path != file.name ||
+          path.startsWith('/') ||
+          path.split('/').any((part) => part.isEmpty || part == '..') ||
+          sourceFiles.containsKey(path)) {
+        throw const FormatException('Unsafe source archive member.');
+      }
+      final content = file.readBytes();
+      if (content == null) {
+        throw const FormatException('Unreadable source archive member.');
+      }
+      totalBytes += content.length;
+      if (totalBytes > 2 * 1024 * 1024) {
+        throw const FormatException('Source archive exceeds its size limit.');
+      }
+      sourceFiles[path] = utf8.decode(content);
+    }
+    _validatePortableSourceFiles(sourceFiles);
+    return Map.unmodifiable(sourceFiles);
+  } catch (_) {
+    throw const DemoApiException(
+      'EXTENSION_ARCHIVE_UNSAFE',
+      'Choose a safe UTF-8 source ZIP with process.py and requirements.lock.',
+    );
+  }
+}
+
+List<Map<String, dynamic>> _portableUserFunctionDefinitions(Object? value) {
+  if (value == null) return const [];
+  if (value is! List || value.length > 4) {
+    throw const FormatException(
+      'Portable user functions must be a bounded list.',
+    );
+  }
+  final definitions = <Map<String, dynamic>>[];
+  final slots = <String>{};
+  for (final raw in value) {
+    if (raw is! Map) {
+      throw const FormatException('Portable user function must be an object.');
+    }
+    final definition = Map<String, dynamic>.from(raw);
+    const fields = {
+      'slot_id',
+      'slot_version',
+      'runtime_id',
+      'configuration',
+      'declared_capabilities',
+      'source_files',
+    };
+    if (definition.keys.toSet().difference(fields).isNotEmpty ||
+        !definition.keys.toSet().containsAll(fields) ||
+        definition['slot_id'] != 'processor.telemetry' ||
+        definition['slot_version'] != '1' ||
+        definition['runtime_id'] != 'python311' ||
+        definition['configuration'] is! Map ||
+        definition['declared_capabilities'] is! List ||
+        definition['source_files'] is! Map) {
+      throw const FormatException(
+        'Portable user function contract is invalid.',
+      );
+    }
+    final capabilities = definition['declared_capabilities']! as List;
+    if (capabilities.length != 1 ||
+        capabilities.single != 'capability.telemetry.process') {
+      throw const FormatException(
+        'Portable function capabilities are invalid.',
+      );
+    }
+    final configuration = Map<String, dynamic>.from(
+      definition['configuration']! as Map,
+    );
+    if (configuration.keys.any(
+      (key) => RegExp(
+        r'(secret|password|token|credential|private_key|api_key)',
+      ).hasMatch(key.toLowerCase()),
+    )) {
+      throw const FormatException('Portable function configuration is unsafe.');
+    }
+    final sourceFiles = Map<String, String>.from(
+      definition['source_files']! as Map,
+    );
+    _validatePortableSourceFiles(sourceFiles);
+    final slotKey = '${definition['slot_id']}:${definition['slot_version']}';
+    if (!slots.add(slotKey)) {
+      throw const FormatException('Portable function slots must be unique.');
+    }
+    definitions.add({
+      ...definition,
+      'configuration': configuration,
+      'declared_capabilities': List<String>.from(capabilities),
+      'source_files': sourceFiles,
+    });
+  }
+  return definitions;
+}
+
+void _validatePortableSourceFiles(Map<String, String> sourceFiles) {
+  if (sourceFiles.length < 2 ||
+      sourceFiles.length > 64 ||
+      !sourceFiles.containsKey('process.py') ||
+      !sourceFiles.containsKey('requirements.lock') ||
+      !RegExp(r'(^|\n)def process\s*\(').hasMatch(sourceFiles['process.py']!)) {
+    throw const FormatException('Portable function sources are invalid.');
+  }
+  var totalBytes = 0;
+  for (final entry in sourceFiles.entries) {
+    final path = entry.key.replaceAll('\\', '/');
+    totalBytes += utf8.encode(entry.value).length;
+    if (path != entry.key ||
+        path.startsWith('/') ||
+        path.split('/').any((part) => part.isEmpty || part == '..') ||
+        totalBytes > 2 * 1024 * 1024) {
+      throw const FormatException('Portable function sources are unsafe.');
+    }
+  }
 }
 
 Map<String, dynamic> _decodePortableTwinDefinition(Uint8List bytes) {
@@ -2335,6 +2585,7 @@ Map<String, dynamic> _decodePortableTwinDefinition(Uint8List bytes) {
         definitionValue['provider_settings'] is! Map) {
       throw const FormatException('Portable Twin archive contract is invalid.');
     }
+    _portableUserFunctionDefinitions(definitionValue['user_functions']);
     return Map<String, dynamic>.from(definitionValue);
   } on DemoApiException {
     rethrow;

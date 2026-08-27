@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 ContentDigest = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
 PortableText = Annotated[str, Field(max_length=2_000_000)]
@@ -56,6 +56,19 @@ class PortableDeployerDefinition(BaseModel):
     user_config_content: PortableText | None = None
 
 
+class PortableUserFunction(BaseModel):
+    """Provider-neutral source for one reviewed Twin function slot."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    slot_id: str = Field(min_length=1, max_length=128)
+    slot_version: str = Field(pattern=r"^[1-9][0-9]*$")
+    runtime_id: Literal["python311"]
+    configuration: dict[str, Any]
+    declared_capabilities: list[str] = Field(max_length=64)
+    source_files: dict[str, PortableText] = Field(min_length=2, max_length=64)
+
+
 class PortableTwinDefinition(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -67,6 +80,10 @@ class PortableTwinDefinition(BaseModel):
     )
     optimizer_params: dict[str, Any] | None = None
     deployer: PortableDeployerDefinition | None = None
+    user_functions: list[PortableUserFunction] = Field(
+        default_factory=list,
+        max_length=4,
+    )
 
     @field_validator("optimizer_params")
     @classmethod
@@ -84,11 +101,20 @@ class PortableTwinDefinition(BaseModel):
                 for key, nested in item.items():
                     normalized = str(key).lower()
                     if any(fragment in normalized for fragment in secret_fragments):
-                        raise ValueError("optimizer parameters contain a secret-like field")
+                        raise ValueError(
+                            "optimizer parameters contain a secret-like field"
+                        )
                     pending.append(nested)
             elif isinstance(item, list):
                 pending.extend(item)
         return value
+
+    @model_validator(mode="after")
+    def require_unique_user_function_slots(self) -> PortableTwinDefinition:
+        slots = [(item.slot_id, item.slot_version) for item in self.user_functions]
+        if len(slots) != len(set(slots)):
+            raise ValueError("portable user-function slots must be unique")
+        return self
 
 
 class TwinDuplicateRequest(BaseModel):

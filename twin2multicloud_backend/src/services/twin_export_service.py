@@ -26,10 +26,18 @@ from src.schemas.twin_transfer import (
     PortableProviderSettings,
     PortableTwinDefinition,
     PortableTwinManifest,
+    PortableUserFunction,
 )
 from src.services.scene_glb_service import SceneGlbService
 from src.services.service_errors import EntityNotFoundError, ValidationError
 from src.services.twin_lifecycle_service import TwinLifecycleService
+from src.services.user_function_extension_service import (
+    ExtensionContractError,
+    UserFunctionExtensionService,
+)
+from src.services.user_function_extension_service import (
+    runtime as user_function_runtime,
+)
 
 PORTABLE_SCHEMA_VERSION = "twin2multicloud-portable.v1"
 MANIFEST_PATH = "manifest.json"
@@ -71,9 +79,16 @@ class TwinExportService:
             db=db,
             twin_repository=self.twin_repository,
         )
+        self.user_functions = UserFunctionExtensionService(
+            db=db,
+            twin_repository=self.twin_repository,
+        )
 
     def export_twin(self, twin_id: str, user_id: str) -> TwinExportArchive:
-        """Export authored inputs and an optional scene, never credentials or history."""
+        """Export authored inputs and an optional scene.
+
+        Credentials and deployment history are never portable.
+        """
         twin = self._load_twin(twin_id, user_id)
         definition = self._definition_from_twin(twin)
         members = {
@@ -84,7 +99,9 @@ class TwinExportService:
             members[SCENE_PATH] = scene
         manifest = PortableTwinManifest(
             schema_version=PORTABLE_SCHEMA_VERSION,
-            files={path: self._digest(content) for path, content in sorted(members.items())},
+            files={
+                path: self._digest(content) for path, content in sorted(members.items())
+            },
         )
 
         output = io.BytesIO()
@@ -145,6 +162,10 @@ class TwinExportService:
         connection_source: TwinConfiguration | None,
     ) -> DigitalTwin:
         new_name = self._validated_name(new_name)
+        validated_user_functions = self._validate_user_functions(
+            definition.user_functions,
+            user_id=user_id,
+        )
         created_scene: Path | None = None
         try:
             twin = self.lifecycle.create_twin(new_name, user_id, commit=False)
@@ -200,6 +221,12 @@ class TwinExportService:
                 self.db.add(deployer)
                 twin.deployer_config = deployer
 
+            for result in validated_user_functions:
+                self.user_functions.add_validated_source(
+                    twin_id=twin.id,
+                    result=result,
+                )
+
             self.db.flush()
             if scene is not None:
                 self._validate_scene_size(scene)
@@ -235,7 +262,9 @@ class TwinExportService:
                 if not infos or len(infos) > MAX_ARCHIVE_MEMBERS:
                     raise ValidationError("Portable Twin archive has too many files")
                 if len(names) != len(set(names)) or not set(names) <= ALLOWED_PATHS:
-                    raise ValidationError("Portable Twin archive contains unsupported files")
+                    raise ValidationError(
+                        "Portable Twin archive contains unsupported files"
+                    )
                 if MANIFEST_PATH not in names or DEFINITION_PATH not in names:
                     raise ValidationError("Portable Twin archive is incomplete")
                 for info in infos:
@@ -254,7 +283,9 @@ class TwinExportService:
                 manifest = PortableTwinManifest.model_validate_json(manifest_bytes)
                 expected_member_names = set(names) - {MANIFEST_PATH}
                 if set(manifest.files) != expected_member_names:
-                    raise ValidationError("Portable Twin manifest does not match archive files")
+                    raise ValidationError(
+                        "Portable Twin manifest does not match archive files"
+                    )
                 members = {DEFINITION_PATH: definition_bytes}
                 scene = None
                 if SCENE_PATH in expected_member_names:
@@ -307,7 +338,58 @@ class TwinExportService:
             ),
             optimizer_params=optimizer_params,
             deployer=deployer,
+            user_functions=[
+                PortableUserFunction(
+                    slot_id=user_function.slot_id,
+                    slot_version=user_function.slot_version,
+                    runtime_id=user_function.runtime_id,
+                    configuration=json.loads(user_function.configuration_json),
+                    declared_capabilities=json.loads(
+                        user_function.declared_capabilities_json
+                    ),
+                    source_files={
+                        item.relative_path: item.content_text
+                        for item in sorted(
+                            user_function.files,
+                            key=lambda source: source.relative_path,
+                        )
+                    },
+                )
+                for user_function in sorted(
+                    twin.user_functions,
+                    key=lambda source: (source.slot_id, source.slot_version),
+                )
+            ],
         )
+
+    def _validate_user_functions(
+        self,
+        definitions: list[PortableUserFunction],
+        *,
+        user_id: str,
+    ) -> list[Any]:
+        results = []
+        try:
+            for definition in definitions:
+                metadata = definition.model_dump(exclude={"source_files"})
+                results.append(
+                    user_function_runtime.validate_source_archive(
+                        metadata=metadata,
+                        archive_bytes=self._source_archive(definition.source_files),
+                        created_by=user_id,
+                    )
+                )
+        except ExtensionContractError as exc:
+            raise ValidationError("Portable Twin user function is invalid") from exc
+        return results
+
+    @classmethod
+    def _source_archive(cls, files: dict[str, str]) -> bytes:
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+            for path, content in sorted(files.items()):
+                cls._write_member(archive, path, content.encode("utf-8"))
+        return output.getvalue()
 
     def _load_twin(self, twin_id: str, user_id: str) -> DigitalTwin:
         twin = self.twin_repository.get_with_configs_for_user(twin_id, user_id)
@@ -328,7 +410,9 @@ class TwinExportService:
     @staticmethod
     def _validate_scene_size(content: bytes) -> None:
         if not content or len(content) > settings.MAX_GLB_SIZE_MB * 1024 * 1024:
-            raise ValidationError("Portable Twin scene exceeds the configured size limit")
+            raise ValidationError(
+                "Portable Twin scene exceeds the configured size limit"
+            )
         SceneGlbService._validate_glb(content)
 
     @staticmethod
@@ -373,7 +457,9 @@ class TwinExportService:
     @staticmethod
     def _validate_member(info: zipfile.ZipInfo) -> None:
         if info.is_dir() or info.flag_bits & 0x1:
-            raise ValidationError("Portable Twin archive entries must be unencrypted files")
+            raise ValidationError(
+                "Portable Twin archive entries must be unencrypted files"
+            )
         if stat.S_ISLNK(info.external_attr >> 16):
             raise ValidationError("Portable Twin archive links are forbidden")
         if info.file_size < 0 or info.file_size > MAX_ARCHIVE_BYTES:

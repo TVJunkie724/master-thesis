@@ -15,6 +15,7 @@ from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin, TwinState
 from src.models.twin_config import TwinConfiguration
 from src.models.user import User
+from src.models.user_function_extension import TwinUserFunction
 from src.services.service_errors import EntityNotFoundError, ValidationError
 from src.services.twin_export_service import (
     DEFINITION_PATH,
@@ -22,6 +23,7 @@ from src.services.twin_export_service import (
     SCENE_PATH,
     TwinExportService,
 )
+from src.services.user_function_extension_service import UserFunctionExtensionService
 
 
 def _create_user(db, email: str) -> User:
@@ -43,12 +45,24 @@ def _valid_glb() -> bytes:
     )
 
 
+def _user_function_archive() -> bytes:
+    processor_source = (
+        "def process(payload, configuration, context):\n"
+        '    return {"value": payload["value"] * '
+        'configuration["scale_factor"], "quality": "accepted"}\n'
+    )
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("process.py", processor_source)
+        archive.writestr("requirements.lock", "\n")
+    return output.getvalue()
+
+
 def _source_twin(db, user: User, upload_dir) -> DigitalTwin:
     twin = DigitalTwin(
         name="Portable Factory",
         user_id=user.id,
-        state=TwinState.DEPLOYED,
-        deployed_at=datetime.now(timezone.utc),
+        state=TwinState.DRAFT,
     )
     db.add(twin)
     db.flush()
@@ -92,6 +106,25 @@ def _source_twin(db, user: User, upload_dir) -> DigitalTwin:
     (scene_dir / "scene.glb").write_bytes(_valid_glb())
     db.commit()
     db.refresh(twin)
+    UserFunctionExtensionService(db).save(
+        user_id=user.id,
+        twin_id=twin.id,
+        slot_id="processor.telemetry",
+        metadata_bytes=json.dumps(
+            {
+                "slot_id": "processor.telemetry",
+                "slot_version": "1",
+                "runtime_id": "python311",
+                "configuration": {"scale_factor": 1},
+                "declared_capabilities": ["capability.telemetry.process"],
+            }
+        ).encode(),
+        archive_bytes=_user_function_archive(),
+    )
+    twin.state = TwinState.DEPLOYED
+    twin.deployed_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(twin)
     return twin
 
 
@@ -132,6 +165,24 @@ def test_export_is_deterministic_portable_and_contains_no_credentials(
         }
         assert definition["deployer"]["state_machine_content"] == '{"StartAt":"Done"}'
         assert "config_iot_devices_validated" not in definition["deployer"]
+        assert definition["user_functions"] == [
+            {
+                "configuration": {"scale_factor": 1},
+                "declared_capabilities": ["capability.telemetry.process"],
+                "runtime_id": "python311",
+                "slot_id": "processor.telemetry",
+                "slot_version": "1",
+                "source_files": {
+                    "process.py": (
+                        "def process(payload, configuration, context):\n"
+                        '    return {"value": payload["value"] * '
+                        'configuration["scale_factor"], '
+                        '"quality": "accepted"}\n'
+                    ),
+                    "requirements.lock": "\n",
+                },
+            }
+        ]
 
 
 def test_duplicate_of_deployed_twin_is_new_mutable_draft_without_derived_state(
@@ -152,6 +203,9 @@ def test_duplicate_of_deployed_twin_is_new_mutable_draft_without_derived_state(
     assert duplicate.optimizer_config.result_json is None
     assert duplicate.deployer_config.config_iot_devices_validated is False
     assert duplicate.deployer_config.scene_glb_uploaded is True
+    assert len(duplicate.user_functions) == 1
+    assert duplicate.user_functions[0].slot_id == "processor.telemetry"
+    assert duplicate.user_functions[0].id != source.user_functions[0].id
     assert (tmp_path / duplicate.id / "scene.glb").read_bytes() == _valid_glb()
     db_session.refresh(source)
     assert source.state == TwinState.DEPLOYED
@@ -179,6 +233,13 @@ def test_import_creates_credential_unbound_draft_for_another_user(
     assert imported.configuration.azure_client_secret is None
     assert imported.configuration.gcp_service_account_json is None
     assert imported.optimizer_config.result_json is None
+    imported_function = (
+        db_session.query(TwinUserFunction)
+        .filter(TwinUserFunction.twin_id == imported.id)
+        .one()
+    )
+    assert imported_function.slot_id == "processor.telemetry"
+    assert imported_function.files[0].content_text.startswith("def process")
 
 
 def test_import_rejects_manifest_digest_tampering(db_session, tmp_path):
@@ -203,6 +264,31 @@ def test_import_rejects_manifest_digest_tampering(db_session, tmp_path):
 
     with pytest.raises(ValidationError, match="digest mismatch"):
         service.import_twin(tampered.getvalue(), owner.id, "Tampered")
+
+
+def test_import_revalidates_embedded_user_function_source(db_session, tmp_path):
+    owner = _create_user(db_session, "function-tamper@example.test")
+    source = _source_twin(db_session, owner, tmp_path)
+    service = TwinExportService(db_session, upload_dir=tmp_path)
+    original = service.export_twin(source.id, owner.id).content.getvalue()
+
+    with zipfile.ZipFile(io.BytesIO(original)) as source_zip:
+        members = {name: source_zip.read(name) for name in source_zip.namelist()}
+    definition = json.loads(members[DEFINITION_PATH])
+    definition["user_functions"][0]["source_files"]["process.py"] = (
+        "def unrelated():\n    return None\n"
+    )
+    members[DEFINITION_PATH] = service._canonical_json(definition)
+    manifest = json.loads(members[MANIFEST_PATH])
+    manifest["files"][DEFINITION_PATH] = service._digest(members[DEFINITION_PATH])
+    members[MANIFEST_PATH] = service._canonical_json(manifest)
+    tampered = io.BytesIO()
+    with zipfile.ZipFile(tampered, "w", zipfile.ZIP_DEFLATED) as target_zip:
+        for name, value in sorted(members.items()):
+            service._write_member(target_zip, name, value)
+
+    with pytest.raises(ValidationError, match="user function is invalid"):
+        service.import_twin(tampered.getvalue(), owner.id, "Tampered Function")
 
 
 def test_export_rejects_missing_or_inactive_twin(db_session, tmp_path):

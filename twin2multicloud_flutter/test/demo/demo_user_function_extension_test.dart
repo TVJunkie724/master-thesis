@@ -1,10 +1,24 @@
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/demo/demo_fixture_store.dart';
 import 'package:twin2multicloud_flutter/demo/demo_management_api.dart';
 import 'package:twin2multicloud_flutter/models/user_function_extension.dart';
+
+Uint8List _sourceArchive() {
+  final archive = Archive()
+    ..addFile(
+      ArchiveFile.string(
+        'process.py',
+        'def process(payload, configuration, context):\n'
+            '    return payload\n',
+      ),
+    )
+    ..addFile(ArchiveFile.string('requirements.lock', '\n'));
+  return ZipEncoder().encodeBytes(archive, modified: DateTime.utc(2026));
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +35,7 @@ void main() {
       slot: slot,
       draft: UserFunctionSourceDraft(
         filename: 'processor.zip',
-        bytes: Uint8List.fromList([1, 2, 3]),
+        bytes: _sourceArchive(),
         configuration: const {'scale_factor': 1},
       ),
     );
@@ -43,7 +57,7 @@ void main() {
       slot: slot,
       draft: UserFunctionSourceDraft(
         filename: 'processor.zip',
-        bytes: Uint8List.fromList([1]),
+        bytes: _sourceArchive(),
         configuration: const {
           'scale_factor': 1,
           'api_token': 'must-not-appear',

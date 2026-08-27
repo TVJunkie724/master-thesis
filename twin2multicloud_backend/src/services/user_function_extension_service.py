@@ -135,56 +135,32 @@ class UserFunctionExtensionService:
                 current.created_at.isoformat() if current is not None else None
             ),
         )
+        user_function = current or self.add_validated_source(
+            twin_id=twin_id,
+            result=result,
+        )
+        if current is not None:
+            user_function.files.clear()
+            user_function.dependencies.clear()
+            self.db.flush()
+            self._apply_validated_source(user_function, result)
+        self._regress_twin(twin)
+        self.db.commit()
+        self.db.refresh(user_function)
+        return self._response(user_function)
+
+    def add_validated_source(self, *, twin_id: str, result) -> TwinUserFunction:
+        """Attach already contract-validated source inside the caller's transaction."""
         manifest = dict(result.manifest)
-        user_function = current or TwinUserFunction(
+        user_function = TwinUserFunction(
             id=manifest["artifact_id"],
             twin_id=twin_id,
             slot_id=manifest["slot_id"],
             slot_version=manifest["slot_version"],
         )
-        if current is None:
-            self.db.add(user_function)
-        else:
-            user_function.files.clear()
-            user_function.dependencies.clear()
-            self.db.flush()
-
-        user_function.artifact_digest = manifest["artifact_digest"]
-        user_function.runtime_id = manifest["runtime_id"]
-        user_function.manifest_json = runtime.canonical_json(manifest)
-        user_function.configuration_json = runtime.canonical_json(
-            manifest["configuration"]
-        )
-        user_function.declared_capabilities_json = runtime.canonical_json(
-            manifest["declared_capabilities"]
-        )
-        user_function.validator_version = manifest["validation"]["validator_version"]
-        user_function.updated_at = _now()
-        source_metadata = {
-            item["relative_path"]: item for item in manifest["source"]["files"]
-        }
-        user_function.files = [
-            TwinUserFunctionFile(
-                relative_path=path,
-                content_text=content,
-                content_digest=source_metadata[path]["content_digest"],
-                size_bytes=source_metadata[path]["size_bytes"],
-            )
-            for path, content in result.files.items()
-        ]
-        user_function.dependencies = [
-            TwinUserFunctionDependency(
-                name=item["name"],
-                version=item["version"],
-                hashes_json=runtime.canonical_json(item["hashes"]),
-                policy_result=item["policy_result"],
-            )
-            for item in manifest["dependencies"]
-        ]
-        self._regress_twin(twin)
-        self.db.commit()
-        self.db.refresh(user_function)
-        return self._response(user_function)
+        self._apply_validated_source(user_function, result)
+        self.db.add(user_function)
+        return user_function
 
     def list_for_twin(
         self,
@@ -264,7 +240,8 @@ class UserFunctionExtensionService:
             raise ExtensionContractError(
                 "EXTENSION_BINDING_UNRESOLVED",
                 "twin_id",
-                "A deployed Twin's user functions are immutable; duplicate the Twin to change them.",
+                "A deployed Twin's user functions are immutable; "
+                "duplicate the Twin to change them.",
             )
         return twin
 
@@ -288,6 +265,42 @@ class UserFunctionExtensionService:
     def _regress_twin(twin) -> None:
         if twin.state in MUTATION_REGRESS_STATES:
             twin.state = TwinState.DRAFT
+
+    @staticmethod
+    def _apply_validated_source(user_function: TwinUserFunction, result) -> None:
+        manifest = dict(result.manifest)
+        user_function.artifact_digest = manifest["artifact_digest"]
+        user_function.runtime_id = manifest["runtime_id"]
+        user_function.manifest_json = runtime.canonical_json(manifest)
+        user_function.configuration_json = runtime.canonical_json(
+            manifest["configuration"]
+        )
+        user_function.declared_capabilities_json = runtime.canonical_json(
+            manifest["declared_capabilities"]
+        )
+        user_function.validator_version = manifest["validation"]["validator_version"]
+        user_function.updated_at = _now()
+        source_metadata = {
+            item["relative_path"]: item for item in manifest["source"]["files"]
+        }
+        user_function.files = [
+            TwinUserFunctionFile(
+                relative_path=path,
+                content_text=content,
+                content_digest=source_metadata[path]["content_digest"],
+                size_bytes=source_metadata[path]["size_bytes"],
+            )
+            for path, content in result.files.items()
+        ]
+        user_function.dependencies = [
+            TwinUserFunctionDependency(
+                name=item["name"],
+                version=item["version"],
+                hashes_json=runtime.canonical_json(item["hashes"]),
+                policy_result=item["policy_result"],
+            )
+            for item in manifest["dependencies"]
+        ]
 
     @staticmethod
     def _response(user_function: TwinUserFunction) -> TwinUserFunctionResponse:

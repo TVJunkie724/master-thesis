@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/demo/demo_fixture_store.dart';
@@ -9,7 +10,21 @@ import 'package:twin2multicloud_flutter/models/deployment_access.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/resolved_deployment_specification.dart';
 import 'package:twin2multicloud_flutter/models/twin_transfer.dart';
+import 'package:twin2multicloud_flutter/models/user_function_extension.dart';
 import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
+
+Uint8List _sourceArchive() {
+  final archive = Archive()
+    ..addFile(
+      ArchiveFile.string(
+        'process.py',
+        'def process(payload, configuration, context):\n'
+            '    return payload\n',
+      ),
+    )
+    ..addFile(ArchiveFile.string('requirements.lock', '\n'));
+  return ZipEncoder().encodeBytes(archive, modified: DateTime.utc(2026));
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -169,6 +184,18 @@ void main() {
     });
 
     test('duplicates and round-trips a portable Twin archive', () async {
+      final slot = (await api.listExtensionSlots()).single;
+      await api.saveTwinUserFunction(
+        'demo-configured',
+        UserFunctionSourceUpload(
+          slot: slot,
+          draft: UserFunctionSourceDraft(
+            filename: 'processor.zip',
+            bytes: _sourceArchive(),
+            configuration: const {'scale_factor': 1},
+          ),
+        ),
+      );
       final duplicate = await api.duplicateTwin(
         'demo-configured',
         TwinDuplicateRequest(name: 'Configured copy'),
@@ -180,6 +207,7 @@ void main() {
         duplicateConfig.provider(CloudProvider.aws).cloudConnectionId,
         'demo-aws-deployment',
       );
+      expect(await api.listTwinUserFunctions(duplicate.id), hasLength(1));
 
       final archive = await api.exportTwin('demo-configured');
       final imported = await api.importTwin(
@@ -196,6 +224,7 @@ void main() {
         importedConfig.provider(CloudProvider.aws).cloudConnectionId,
         isNull,
       );
+      expect(await api.listTwinUserFunctions(imported.id), hasLength(1));
     });
   });
 
