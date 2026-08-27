@@ -1,6 +1,6 @@
 ---
 name: onboarding
-description: Use this project-specific Twin2MultiCloud skill when starting or resuming work in the master-thesis repository. It loads current repository context, branch rules, roadmap sources, project boundaries, credential safety rules, and safe verification commands before code or docs changes.
+description: Use this project-specific Twin2MultiCloud skill when starting or resuming work in the master-thesis repository. It loads current repository context, thesis scope sources, project boundaries, credential safety rules, and safe verification commands before code or docs changes.
 metadata:
   project: master-thesis
   source: .agent/workflows/onboarding.md
@@ -33,11 +33,14 @@ Branch rules:
 
 ## 2. Source Of Truth
 
-- `ASSESSMENT.md` is the architecture-debt roadmap.
-- GitHub Issues and Milestones are the active backlog.
-- `docs/plans/` contains approved concepts and implementation plans.
+- `docs/plans/2026-08-26_thesis_poc_target_concept.md` defines the PoC scope.
+- `docs/research/research_questions_and_evaluation_design.md` defines the evaluation.
+- `docs/plans/2026-08-26_thesis_poc_execution_plan.md` tracks unfinished phases.
+- `docs/development_and_decision_log.md` holds durable rationale.
+- GitHub Issues and Milestones are used only when the user requests issue tracking.
 - `docs-site/` is the canonical published documentation source once bootstrapped.
-- Imported TODO/future-work files are historical inputs, not active parallel backlogs.
+- Git history preserves completed plans and handoffs; do not recreate parallel
+  roadmap or TODO trees.
 
 ## 3. Project Map
 
@@ -57,10 +60,10 @@ Architecture rule: Flutter calls only the Management API. Direct Flutter calls t
 Read only task-relevant context:
 
 - `integration_vision.md`
-- `ASSESSMENT.md`
+- the active target, evaluation design and execution plan listed above
 - `FRONTEND_ARCHITECTURE.md` for Flutter work
-- relevant plans under `docs/plans/` or `<project>/implementation_plans/`
-- docs-site plans for repository hygiene and documentation work
+- one task-specific concept or implementation plan only when it still governs
+  unfinished work
 
 For Flutter UI work, also use `frontend-onboarding` and the UI planning/building skills as appropriate.
 
@@ -117,4 +120,6 @@ cd twin2multicloud_flutter && flutter analyze && flutter test
 - Prefer `rg` / `rg --files` for search.
 - Use `apply_patch` for manual edits.
 - Preserve user changes in dirty worktrees.
-- Keep implementation slices aligned with the active GitHub milestone and issue.
+- Keep implementation slices aligned with the active thesis phase and its exit criteria.
+- After completion, migrate durable rationale to current documentation and
+  remove superseded implementation plans or handoffs from the active tree.

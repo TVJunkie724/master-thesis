@@ -4,7 +4,7 @@ Read and apply ALL guardrails before any UI work. These rules are project-specif
 
 ## 1. Project Identity
 
-- **App**: `twin2multicloud_flutter` — the Flutter UI of the Twin2MultiCloud platform (the "Orchestrator" front-end in the 5-Layer Digital-Twin architecture).
+- **App**: `twin2multicloud_flutter` — the Flutter research UI for the fixed Six-layer Eventing PoC.
 - **Targets**: Desktop (Linux, macOS, Windows) and Web. **Mobile is NOT supported** — see commit `f135bac` (`drop mobile support`). Do not add Android/iOS code paths.
 - **Companion projects** (do NOT touch from a UI task):
   - `2-twin2clouds` — cost optimizer (port 5003)
@@ -16,7 +16,7 @@ Read and apply ALL guardrails before any UI work. These rules are project-specif
 | Document | Why |
 |----------|-----|
 | `FRONTEND_ARCHITECTURE.md` | Architecture, screen wireframes, twin states, BLoC layout |
-| `integration_vision.md` | 5-Layer Architecture, cross-project responsibilities |
+| `integration_vision.md` | Six-layer architecture and cross-project responsibilities |
 | `twin2multicloud_flutter/README.md` | Project-local conventions |
 | `ONBOARDING.md` | Cross-project onboarding |
 
@@ -38,7 +38,7 @@ lib/bloc/
 | **Events in, States out** — never call methods on a BLoC from a dumb widget | Keeps presentation reusable and testable |
 | **Immutable state with `copyWith()`** | Prevents mutation bugs, enables `Equatable` comparison |
 | **Always handle loading / data / error / empty** | Users must never see a blank screen |
-| **Dispose subscriptions** in `close()` | Memory leaks are production defects |
+| **Dispose subscriptions** in `close()` | Prevent leaks and unstable long-running evaluation sessions |
 
 ## 4. Architectural Layers
 
@@ -120,9 +120,9 @@ Integration tests use the **real HTTP API**. No mocking the dio client at the in
 
 ## 11. Git Workflow
 
-- All UI work happens on the `ai/dev` branch (see `onboarding` skill — Step 0).
+- Continue on the current task branch. For new work, use `codex/<task>` from `master` unless the user requests another branch.
 - Commit format: `[AI-MMDD-xxxx] <type>: <description>` (e.g. `[AI-0413-skil] feat(flutter): add dashboard stat cards`).
-- Never push — the user pushes themselves.
+- Push only when the user explicitly requests it.
 - Merges into `master`: merge commits only, no rebase.
 
 ## 12. Files / Folders You Must NOT Touch from a UI Task
@@ -148,7 +148,7 @@ Integration tests use the **real HTTP API**. No mocking the dio client at the in
 | Direct widget-to-service calls | Always go through a BLoC |
 | New widget without checking `lib/widgets/` first | Reuse before creating |
 
-## 14. Quality Gate (Pre-Handoff)
+## 14. Quality Gate (Before Completion)
 
 Before reporting any UI work as complete:
 

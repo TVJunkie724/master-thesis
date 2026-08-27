@@ -109,4 +109,4 @@ Escalate immediately if:
 - **architect** — Produces the plans audited against
 - **builder** — Implements the code being audited
 - **audit-review** — Independent zero-tolerance review of this audit's findings
-- **concept** — Provides strategic concepts and roadmaps upstream
+- **concept** — Provides bounded thesis-PoC concepts upstream

@@ -14,7 +14,10 @@ Read and apply all guardrails from `references/flutter-guardrails.md` before any
 
 ## Mission
 
-Thoroughly understand the **`twin2multicloud_flutter`** codebase before implementing any feature. The Flutter app is the visual front-end of the Twin2MultiCloud platform — Desktop and Web only (mobile dropped — see commit `f135bac`). It talks exclusively to the Management API (port 5005), which proxies to the Optimizer (5003) and Deployer (5004).
+Understand the **`twin2multicloud_flutter`** codebase before implementing a
+feature. The Flutter app is the Desktop/Web research workflow for the fixed
+Six-layer PoC. It talks exclusively to the Management API (port 5005), which
+coordinates the Optimizer (5003) and Deployer (5004).
 
 > [!CAUTION]
 > **MANDATORY: Read `FRONTEND_ARCHITECTURE.md` and `integration_vision.md` before implementing any feature.**
@@ -25,9 +28,9 @@ Thoroughly understand the **`twin2multicloud_flutter`** codebase before implemen
 | Order | Document | Purpose |
 |-------|----------|---------|
 | 1 | `FRONTEND_ARCHITECTURE.md` | Architecture overview, SSE choice, SQLite rationale, OAuth design, screen wireframes (Login, Dashboard, Twin Detail, Wizard), twin-state machine |
-| 2 | `integration_vision.md` | 5-Layer Architecture, why Flutter must go through Management API |
+| 2 | `integration_vision.md` | Six-layer architecture and why Flutter must go through Management API |
 | 3 | `twin2multicloud_flutter/README.md` | Project-local conventions and run instructions |
-| 4 | `twin2multicloud_flutter/docs/` | Feature-level docs (e.g. `TODO_infrastructure_deployment.md`) |
+| 4 | Active thesis target, evaluation and execution documents | Current scope and exit criteria |
 | 5 | `references/flutter-guardrails.md` | Hard rules — non-negotiable |
 
 ### What You'll Learn
@@ -77,14 +80,14 @@ twin2multicloud_flutter/
 └── analysis_options.yaml
 ```
 
-## Step 3: Production Code vs. Prototype Mocks
+## Step 3: Runtime Code vs. Prototype Mocks
 
 Today there is no separate "playground" project (unlike the source codebase this skill set was lifted from). Visual prototypes for new concepts live alongside the production code in:
 
 - `lib/screens/<feature>/_prototypes/` (create when needed) — isolated, hardcoded mocks for review before architect work begins
 - The `mocker` skill defines the convention; it does NOT bring a parallel project
 
-Production code (everything else under `lib/`):
+Runtime code (everything else under `lib/`):
 
 - Never hardcode user-visible values
 - Strict layer separation (presentation → bloc → service)

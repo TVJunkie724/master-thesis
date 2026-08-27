@@ -1,63 +1,35 @@
-# Pillar-Based Frontend Documentation Structure
+# Active planning lifecycle
 
-## Directory Layout
+Twin2MultiCloud keeps a small active documentation set instead of permanent
+per-feature roadmap, phase and handoff trees.
 
-Each major area (pillar) of `twin2multicloud_flutter` gets its own subfolder under `twin2multicloud_flutter/docs/`. Every pillar subfolder contains `concepts/` and `phases/`:
+## Durable documents
 
-```
-twin2multicloud_flutter/docs/
-├── README.md                          # Index of pillars (create when ≥ 1 pillar exists)
-├── feature-requests/                  # Central FR tracker (cross-pillar)
-├── bugs/                              # Central bug tracker (cross-pillar)
-│
-├── [pillar-a]/                        # One subfolder per pillar (e.g. wizard, dashboard)
-│   ├── ROADMAP_[PILLAR_A].md          # Roadmap = anchor point
-│   ├── concepts/
-│   │   ├── CONCEPT_[NAME].md
-│   │   └── ...
-│   ├── phases/
-│   │   ├── PHASE_[NUMBER]_[NAME].md
-│   │   └── ...
-│   └── handoffs/
-│       └── HANDOFF_[PHASE]_[TARGET].md
-│
-├── [pillar-b]/
-│   ├── ROADMAP_[PILLAR_B].md
-│   ├── concepts/
-│   ├── phases/
-│   └── handoffs/
-│
-└── ...
-```
+- the thesis PoC target concept;
+- the research questions and evaluation design;
+- the current execution plan while empirical work is unfinished;
+- the credential/security concept;
+- current architecture, user and developer documentation; and
+- the development and decision log.
 
-There are **no** top-level `concepts/` or `phases/` folders. Every concept and phase belongs to exactly one pillar. Cross-cutting concerns (routing, theme, error handling, accessibility) live in a `cross_cutting` pillar.
+Add a focused future-work concept only when it explains a scientifically
+relevant extension boundary. Do not label it as committed or planned runtime
+functionality.
 
-Existing top-level docs (`twin2multicloud_flutter/docs/TODO_infrastructure_deployment.md`, etc.) can stay where they are — folder them under a pillar only when their content stabilizes into a concept.
+## Temporary documents
 
-## The Roadmap is the Anchor
+A material implementation may use one bounded concept and one implementation
+plan. They must state scope, exclusions, dependencies, acceptance evidence and
+the affected research/safety responsibility. Avoid nested pillar roadmaps,
+phase trackers, handoff files and duplicate TODO lists.
 
-Every pillar MUST have a roadmap file. The roadmap is the **single anchor point** that:
+After implementation and verification:
 
-- Lists all concepts with links to their concept documents
-- Lists all phases with links to their phase documents
-- Defines the order of execution
-- Tracks status (⬜ Planned, 🔄 In Progress, ✅ Complete)
-- Notes Management API dependencies for each phase (link to FR if missing)
+1. migrate durable rationale to `docs/development_and_decision_log.md`;
+2. update current architecture/user/developer documentation;
+3. update the active execution status;
+4. remove the temporary concept/plan if it no longer guides unfinished work;
+5. rely on Git history for the detailed implementation sequence.
 
-## Phase Numbering — NO Renumbering
-
-**Phases are NEVER renumbered.** Once a phase has a number, it keeps that number forever.
-
-When inserting a new phase between two existing phases:
-
-| Situation | Solution | Example |
-|-----------|----------|---------|
-| New phase between 1.2 and 1.3 | Use extended numbering | `1.21` or `1.2a` |
-| New phase between 3 and 4 | Use extended numbering | `3.1` |
-| New sub-phase of 2.1 | Use deeper numbering | `2.1.1`, `2.1.2` |
-
-**Why?** Renumbering breaks every reference to a phase across all documents, conversations, and agent contexts. Extended numbering preserves all existing references — including handoffs already in flight.
-
-## Pillars vs. Code Folders
-
-Pillars in documentation do NOT have to mirror folders in `lib/` 1:1. A pillar is a *planning unit*, a folder in `lib/` is a *code unit*. Example: the pillar `wizard` may produce code across `lib/screens/wizard/`, `lib/bloc/wizard/`, and `lib/widgets/wizard/`. The roadmap of a pillar should call out which code folders it touches.
+Current truth must never depend on a completed handoff or historical phase
+file.

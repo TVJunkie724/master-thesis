@@ -42,7 +42,7 @@ Do the numbers (test counts, baselines, percentages) match reality? Does the doc
 - **Reuse-first** — does the concept reference existing widgets in `lib/widgets/` before proposing new ones?
 - **Tokens** — does it call out the design tokens it relies on (or list the tokens it requires to be added)?
 - **Management API only** — does every backend interaction go through the Management API? Any hint of a direct call to Optimizer (5003) / Deployer (5004) is a finding.
-- **ASCII layouts** — for every UI element described, is there at least one ASCII layout / widget tree sketch (or an explicit handoff note that the architect will produce them)?
+- **ASCII layouts** — for every UI element described, is there at least one ASCII layout / widget tree sketch, or is that work explicitly assigned to the architect in the current task?
 - **Desktop + Web** — does the concept consider both targets, or is it implicitly mobile / single-platform?
 
 ## Output Format
@@ -59,7 +59,7 @@ For **each finding**:
 ## Process
 
 1. Read the concept document fully.
-2. Read all referenced documents (concepts, roadmaps, phases, `FRONTEND_ARCHITECTURE.md`, `integration_vision.md`).
+2. Read the referenced current concept, active thesis scope/evaluation sources, `FRONTEND_ARCHITECTURE.md`, and `integration_vision.md`.
 3. Verify referenced API endpoints exist (`docker ps`, hit `/openapi.json` on the Management API when available).
 4. Check against all 4 (or 5) criteria.
 5. Produce the finding list.

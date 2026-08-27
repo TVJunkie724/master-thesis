@@ -153,4 +153,4 @@ See `references/build-failure-protocol.md` for handling build / analysis failure
 - **architect** — Produces the implementation plans executed here
 - **plan-review** — Must approve the plan before this skill runs
 - **auditor** — Audits the implementation against the plan
-- **concept** — Provides strategic concepts and roadmaps upstream
+- **concept** — Provides bounded thesis-PoC concepts upstream
