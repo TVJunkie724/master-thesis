@@ -8,12 +8,16 @@ import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
 import 'package:twin2multicloud_flutter/config/app_runtime.dart';
+import 'package:twin2multicloud_flutter/models/architecture_profile.dart';
+import 'package:twin2multicloud_flutter/models/provider_capability.dart';
+import 'package:twin2multicloud_flutter/models/twin_config.dart';
 import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
 import 'package:twin2multicloud_flutter/providers/runtime_providers.dart';
 import 'package:twin2multicloud_flutter/screens/wizard/wizard_screen.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
-import 'package:twin2multicloud_flutter/models/twin_config.dart';
 
+import '../fixtures/architecture_profile_fixtures.dart';
+import '../fixtures/provider_capability_fixture.dart';
 import '../fixtures/typed_api_fixtures.dart';
 
 final class _MockApiService extends Mock implements ApiService {}
@@ -143,11 +147,28 @@ Future<_WizardHarness> _pumpWizard(
   WidgetTester tester,
   _MockApiService api,
 ) async {
+  when(() => api.getArchitectureProfile('six-layer-eventing', '1')).thenAnswer(
+    (_) async => ArchitectureProfileDetail.fromJson(
+      architectureProfileDetailJson(
+        profileId: 'six-layer-eventing',
+        profileVersion: '1',
+        withExtensionSlot: false,
+      ),
+    ),
+  );
+  when(() => api.getProviderCapabilities()).thenAnswer(
+    (_) async => PlatformProviderCapabilities.fromJson(
+      platformProviderCapabilitiesJson(),
+    ),
+  );
+  when(() => api.listCloudConnections()).thenAnswer((_) async => const []);
   tester.view.physicalSize = const Size(1200, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final bloc = WizardBloc(api: api);
   addTearDown(bloc.close);
+  bloc.add(const WizardInitCreate());
+  await bloc.stream.firstWhere((state) => state.status == WizardStatus.ready);
   bloc.add(const WizardTwinNameChanged('Factory twin'));
   await bloc.stream.firstWhere((state) => state.twinName == 'Factory twin');
 
@@ -190,6 +211,12 @@ Future<_WizardHarness> _pumpWizard(
     ),
   );
   await tester.pump();
+  await _pumpUntil(
+    tester,
+    () => bloc.state.architectureDetailPhase == ArchitectureDetailPhase.ready,
+    'canonical architecture load',
+    diagnostic: () => bloc.state.toString(),
+  );
   return _WizardHarness(bloc);
 }
 

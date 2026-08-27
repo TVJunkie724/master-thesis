@@ -17,11 +17,13 @@ void main() {
 
     expect(find.byType(ConfigurationTaskSidebar), findsOneWidget);
     expect(find.byType(ConfigurationTaskSelector), findsNothing);
-    expect(find.text('Define twin'), findsOneWidget);
-    expect(find.text('Architecture'), findsOneWidget);
-    expect(find.text('Workload'), findsOneWidget);
-    expect(find.text('Identity and mode'), findsOneWidget);
-    expect(find.text('Device traffic'), findsNothing);
+    expect(find.text('Scenario'), findsOneWidget);
+    expect(find.text('Optimize'), findsOneWidget);
+    expect(find.text('Prepare'), findsOneWidget);
+    expect(find.text('Review'), findsOneWidget);
+    expect(find.text('Define Twin'), findsOneWidget);
+    expect(find.text('Scenario and currency'), findsOneWidget);
+    expect(find.text('Device traffic'), findsOneWidget);
   });
 
   testWidgets('uses a compact task selector on narrow layouts', (tester) async {
@@ -32,7 +34,8 @@ void main() {
 
     expect(find.byType(ConfigurationTaskSelector), findsOneWidget);
     expect(find.byType(ConfigurationTaskSidebar), findsNothing);
-    expect(find.text('Identity and mode'), findsOneWidget);
+    expect(find.text('Scenario'), findsOneWidget);
+    expect(find.text('Define Twin'), findsOneWidget);
   });
 
   testWidgets('navigates available tasks and keeps blocked tasks disabled', (
@@ -46,7 +49,7 @@ void main() {
       _app(_journey(named: true), onSelected: (value) => selected = value),
     );
 
-    await tester.tap(find.text('Architecture'));
+    await tester.tap(find.text('Scenario and currency'));
     await tester.pump();
     expect(selected, isNull);
 

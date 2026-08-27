@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../theme/spacing.dart';
 import '../domain/configuration_journey.dart';
 import 'configuration_task_selector.dart';
 import 'configuration_task_sidebar.dart';
 
 class ConfigurationWorkspaceShell extends StatelessWidget {
-  static const sidebarBreakpoint = 960.0;
-  static const sidebarWidth = 300.0;
-
   final ConfigurationJourney journey;
   final ValueChanged<ConfigurationTaskId> onTaskSelected;
   final Widget child;
@@ -23,7 +21,7 @@ class ConfigurationWorkspaceShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < sidebarBreakpoint) {
+        if (constraints.maxWidth < AppSpacing.workspaceSidebarBreakpoint) {
           return Column(
             children: [
               ConfigurationTaskSelector(
@@ -40,7 +38,7 @@ class ConfigurationWorkspaceShell extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SizedBox(
-              width: sidebarWidth,
+              width: AppSpacing.workspaceSidebarWidth,
               child: ConfigurationTaskSidebar(
                 journey: journey,
                 onTaskSelected: onTaskSelected,
