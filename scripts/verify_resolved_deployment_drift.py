@@ -5,17 +5,16 @@ from __future__ import annotations
 
 import argparse
 import base64
-from dataclasses import dataclass
 import os
-from pathlib import Path
 import secrets
 import shlex
 import subprocess
 import sys
 import tempfile
 import time
-from typing import Mapping, Sequence
-
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE_FILE = ROOT / "compose.yaml"
@@ -221,6 +220,7 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                     "scripts.tests.test_deployment_access_contract_sync "
                     "scripts.tests.test_six_layer_workload_contract "
                     "scripts.tests.test_six_layer_contracts "
+                    "scripts.tests.test_validate_live_evaluation_plan "
                     "scripts.tests.test_verify_resolved_deployment_drift "
                     "scripts.tests.test_thesis_entrypoint"
                 ),

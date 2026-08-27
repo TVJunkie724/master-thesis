@@ -33,6 +33,18 @@ scenario:
 6. explicit Apply and Destroy confirmations; and
 7. an external timer plus a named operator responsible for residual cleanup.
 
+The checked matrix is validated in its current non-executable state with:
+
+```bash
+python scripts/validate_live_evaluation_plan.py --require-state planned
+```
+
+After all nine numerical budget caps have been reviewed, the tracked plan must
+record `status: approved_for_supervised_execution` and
+`execution_enabled: true`. Before any provider action, the operator then runs
+the same validator with `--require-state ready`. This transition validates the
+plan only; it never replaces the distinct Apply and Destroy confirmations.
+
 The normal application continues to deploy only the cost-selected candidate.
 Explicit candidate selection is evaluation-only and must not become a public
 profile or provider-override feature.

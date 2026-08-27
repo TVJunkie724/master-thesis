@@ -1,7 +1,8 @@
-"""Validate the bounded, non-executable Six-layer live-evaluation plan."""
+"""Validate the bounded Six-layer live-evaluation plan without executing it."""
 
 from __future__ import annotations
 
+import argparse
 import json
 from itertools import permutations
 from pathlib import Path
@@ -24,7 +25,7 @@ def _read(path: Path) -> dict[str, Any]:
     return value
 
 
-def validate() -> dict[str, Any]:
+def validate(*, required_state: str = "planned") -> dict[str, Any]:
     plan = _read(PLAN_PATH)
     profile = _read(PROFILE_PATH)
     scenarios = plan.get("scenarios")
@@ -32,8 +33,8 @@ def validate() -> dict[str, Any]:
         raise RuntimeError("Live evaluation must contain exactly nine scenarios")
     if plan.get("architecture_profile") != "six-layer-eventing@1":
         raise RuntimeError("Live evaluation must pin six-layer-eventing@1")
-    if plan.get("status") != "planned_not_executed":
-        raise RuntimeError("Unexecuted plan must retain its explicit status")
+    if required_state not in {"planned", "ready"}:
+        raise ValueError(f"Unsupported required state: {required_state}")
 
     workload_path = ROOT / str(plan.get("workload_fixture", ""))
     workload = _read(workload_path)
@@ -66,9 +67,7 @@ def validate() -> dict[str, Any]:
             raise RuntimeError(
                 f"{scenario_id}: hot storage and visualization must be co-located"
             )
-        covered_contracts.update(
-            edge["edge_contract_id"] for edge in edges.values()
-        )
+        covered_contracts.update(edge["edge_contract_id"] for edge in edges.values())
 
         kind = scenario.get("kind")
         focus = scenario.get("focus")
@@ -132,8 +131,22 @@ def validate() -> dict[str, Any]:
     missing_budgets = [
         item["scenario_id"] for item in scenarios if item.get("budget_cap_usd") is None
     ]
-    if plan.get("execution_enabled") is not False or not missing_budgets:
-        raise RuntimeError("Plan must remain disabled while budget caps are pending")
+    if required_state == "planned":
+        if plan.get("status") != "planned_not_executed":
+            raise RuntimeError("Unexecuted plan must retain its explicit status")
+        if plan.get("execution_enabled") is not False or not missing_budgets:
+            raise RuntimeError(
+                "Plan must remain disabled while budget caps are pending"
+            )
+    else:
+        if plan.get("status") != "approved_for_supervised_execution":
+            raise RuntimeError(
+                "Ready plan must record approved_for_supervised_execution"
+            )
+        if plan.get("execution_enabled") is not True or missing_budgets:
+            raise RuntimeError(
+                "Ready plan requires execution_enabled and nine budget caps"
+            )
     return {
         "scenario_count": len(scenarios),
         "local_provider_count": len(local_providers),
@@ -141,18 +154,29 @@ def validate() -> dict[str, Any]:
         "edge_contract_count": len(covered_contracts),
         "cross_cloud_edge_contract_count": len(focused_contracts),
         "missing_budget_caps": missing_budgets,
+        "required_state": required_state,
     }
 
 
 def main() -> int:
-    result = validate()
+    parser = argparse.ArgumentParser(
+        description="Validate the bounded live-evaluation matrix without cloud calls."
+    )
+    parser.add_argument(
+        "--require-state",
+        choices=("planned", "ready"),
+        default="planned",
+        help="Require the checked non-executable or approved supervised state.",
+    )
+    arguments = parser.parse_args()
+    result = validate(required_state=arguments.require_state)
     print(
         "live-evaluation-plan: OK "
         f"({result['scenario_count']} scenarios, "
         f"{result['directed_pair_count']} directed pairs, "
         f"{result['edge_contract_count']} edge contracts "
         f"({result['cross_cloud_edge_contract_count']} cross-cloud); "
-        "execution disabled)"
+        f"state={result['required_state']})"
     )
     return 0
 
