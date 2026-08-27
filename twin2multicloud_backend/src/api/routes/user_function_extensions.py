@@ -2,7 +2,16 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+)
+from fastapi import status as http_status
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
@@ -32,9 +41,9 @@ def _service(db: Session) -> UserFunctionExtensionService:
 
 def _raise_contract_error(exc: ExtensionContractError) -> None:
     status = {
-        "EXTENSION_BINDING_UNRESOLVED": 409,
-        "EXTENSION_ARCHIVE_UNSAFE": 400,
-        "EXTENSION_SECRET_MATERIAL_DETECTED": 400,
+        "EXTENSION_BINDING_UNRESOLVED": http_status.HTTP_409_CONFLICT,
+        "EXTENSION_ARCHIVE_UNSAFE": http_status.HTTP_400_BAD_REQUEST,
+        "EXTENSION_SECRET_MATERIAL_DETECTED": http_status.HTTP_400_BAD_REQUEST,
     }.get(exc.code, 422)
     raise HTTPException(status_code=status, detail=exc.as_dict()) from exc
 

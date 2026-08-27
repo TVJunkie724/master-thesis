@@ -52,9 +52,12 @@ remain untracked.
 ## Python Security/Quality
 
 Service images include development requirements for pytest and static/security checks.
-Bandit and Ruff findings must be evaluated in context; suppressions require a local,
-specific reason. Secret-redaction tests deliberately inject secret-like values into
-downstream messages and prove they do not persist or return.
+Ruff enforces the shared Python 3.11 critical-correctness baseline (`E4`, `E7`,
+`E9`, and `F`) in all three services. Broader modernization rules are not part
+of the thesis gate. Bandit findings must be evaluated in context; suppressions
+require a local, specific reason. Secret-redaction tests deliberately inject
+secret-like values into downstream messages and prove they do not persist or
+return.
 
 ## Flutter Gate
 
