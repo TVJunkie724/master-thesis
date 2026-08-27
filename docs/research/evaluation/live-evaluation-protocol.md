@@ -75,6 +75,33 @@ and `candidate-pack-manifest.json`, including the calculated monthly totals
 used for the separate budget review. The totals are estimates, not approved
 Apply caps, and materialization still performs no provider or Deployer call.
 
+Create the non-overwriting, not-started evidence index beside the future
+evidence files:
+
+```bash
+python scripts/manage_live_evaluation_evidence.py create \
+  --candidate-pack /tmp/six-layer-live-candidates \
+  --output /tmp/six-layer-live-evidence/evidence-index.json
+```
+
+After recording only redacted artifacts from the supervised workflow, validate
+the index and every referenced file digest with:
+
+```bash
+python scripts/manage_live_evaluation_evidence.py validate \
+  --candidate-pack /tmp/six-layer-live-candidates \
+  --record /tmp/six-layer-live-evidence/evidence-index.json
+```
+
+The evaluation-only schema is
+`schemas/live-evaluation-evidence.schema.json`. It fixes three provider checks,
+all six directed identity exchanges, and the nine scenario records. A completed
+scenario cannot validate without readiness, Terraform plan, Apply, replay,
+access, telemetry, Destroy, cleanup, and provider-cost artifacts. A blocker is
+valid only when it is explicit and evidence-backed; an Apply followed by a
+blocker still requires Destroy and cleanup evidence. This index references the
+normal application outputs and does not execute an operation itself.
+
 ## Cost-efficient order
 
 For each required provider and directed route:

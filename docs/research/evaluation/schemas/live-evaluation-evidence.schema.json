@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/research/live-evaluation-evidence.v1.schema.json",
+  "title": "Twin2MultiCloud supervised live-evaluation evidence index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "plan_digest",
+    "candidate_pack_manifest_digest",
+    "operator_label",
+    "cleanup_timer_owner_label",
+    "started_at",
+    "completed_at",
+    "phase_8",
+    "scenarios"
+  ],
+  "properties": {
+    "schema_version": {"const": "six-layer-live-evaluation-evidence.v1"},
+    "status": {
+      "enum": [
+        "planned_not_executed",
+        "prerequisites_complete",
+        "in_progress",
+        "completed",
+        "completed_with_blockers"
+      ]
+    },
+    "plan_digest": {"$ref": "#/$defs/digest"},
+    "candidate_pack_manifest_digest": {"$ref": "#/$defs/digest"},
+    "operator_label": {"$ref": "#/$defs/nullableLabel"},
+    "cleanup_timer_owner_label": {"$ref": "#/$defs/nullableLabel"},
+    "started_at": {"$ref": "#/$defs/nullableTimestamp"},
+    "completed_at": {"$ref": "#/$defs/nullableTimestamp"},
+    "phase_8": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider_checks", "identity_exchanges"],
+      "properties": {
+        "provider_checks": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/providerCheck"}
+        },
+        "identity_exchanges": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {"$ref": "#/$defs/identityExchange"}
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {"$ref": "#/$defs/scenario"}
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "provider": {"enum": ["aws", "azure", "gcp"]},
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@ -]*$"
+    },
+    "nullableLabel": {
+      "oneOf": [{"$ref": "#/$defs/label"}, {"type": "null"}]
+    },
+    "nullableTimestamp": {
+      "oneOf": [
+        {"type": "string", "format": "date-time"},
+        {"type": "null"}
+      ]
+    },
+    "nullableCode": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        {"type": "null"}
+      ]
+    },
+    "evidenceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "digest"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "providerCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "region",
+        "account_scope_label",
+        "principal_label",
+        "status",
+        "evidence_refs",
+        "blocker_code"
+      ],
+      "properties": {
+        "provider": {"$ref": "#/$defs/provider"},
+        "region": {"$ref": "#/$defs/label"},
+        "account_scope_label": {"$ref": "#/$defs/nullableLabel"},
+        "principal_label": {"$ref": "#/$defs/nullableLabel"},
+        "status": {"enum": ["not_started", "ready", "blocked"]},
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {"$ref": "#/$defs/evidenceReference"}
+        },
+        "blocker_code": {"$ref": "#/$defs/nullableCode"}
+      }
+    },
+    "identityExchange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_provider",
+        "destination_provider",
+        "status",
+        "cleanup_status",
+        "evidence_refs",
+        "blocker_code"
+      ],
+      "properties": {
+        "source_provider": {"$ref": "#/$defs/provider"},
+        "destination_provider": {"$ref": "#/$defs/provider"},
+        "status": {"enum": ["not_started", "succeeded", "blocked"]},
+        "cleanup_status": {
+          "enum": ["not_started", "clean", "residual"]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {"$ref": "#/$defs/evidenceReference"}
+        },
+        "blocker_code": {"$ref": "#/$defs/nullableCode"}
+      }
+    },
+    "scenarioArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "digest"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "readiness",
+            "account_preparation",
+            "terraform_plan",
+            "apply_operation",
+            "replay",
+            "access",
+            "telemetry",
+            "destroy_operation",
+            "cleanup",
+            "provider_cost",
+            "limitation"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "candidate_evidence_digest",
+        "estimated_monthly_total_usd",
+        "budget_cap_usd",
+        "budget_reviewed",
+        "status",
+        "started_at",
+        "completed_at",
+        "artifacts",
+        "blocker_code"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^small-(?:local|focus)-[a-z-]+$"
+        },
+        "candidate_evidence_digest": {"$ref": "#/$defs/digest"},
+        "estimated_monthly_total_usd": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+        },
+        "budget_cap_usd": {
+          "oneOf": [
+            {"type": "number", "exclusiveMinimum": 0},
+            {"type": "null"}
+          ]
+        },
+        "budget_reviewed": {"type": "boolean"},
+        "status": {
+          "enum": ["not_started", "running", "completed", "blocked"]
+        },
+        "started_at": {"$ref": "#/$defs/nullableTimestamp"},
+        "completed_at": {"$ref": "#/$defs/nullableTimestamp"},
+        "artifacts": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {"$ref": "#/$defs/scenarioArtifact"}
+        },
+        "blocker_code": {"$ref": "#/$defs/nullableCode"}
+      }
+    }
+  }
+}
