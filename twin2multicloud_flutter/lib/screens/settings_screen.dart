@@ -181,25 +181,26 @@ class _SettingsContent extends StatelessWidget {
                   );
                 },
                 builder: (context, state) => CloudAccountsPanel(
-                  inventory: state.inventory,
+                  connections: state.connections,
                   isLoading: state.isLoading,
                   loadError: state.loadError,
                   busyConnectionIds: state.busyConnectionIds,
                   isCreating: state.isCreating,
+                  isImporting: state.isImporting,
                   onRetry: () => context.read<CloudAccessBloc>().add(
                     const CloudAccessReloadRequested(),
                   ),
                   onCreate: (request) => context.read<CloudAccessBloc>().add(
                     CloudAccessCreateRequested(request),
                   ),
-                  onValidate: (entry) => context.read<CloudAccessBloc>().add(
-                    CloudAccessValidateRequested(entry.connectionId!),
+                  onImport: (request) => context.read<CloudAccessBloc>().add(
+                    CloudAccessImportRequested(request),
                   ),
-                  onSetDefault: (entry) => context.read<CloudAccessBloc>().add(
-                    CloudAccessDefaultRequested(entry.connectionId!),
-                  ),
-                  onDelete: (entry) => context.read<CloudAccessBloc>().add(
-                    CloudAccessDeleteRequested(entry.connectionId!),
+                  onValidate: (connection) => context
+                      .read<CloudAccessBloc>()
+                      .add(CloudAccessValidateRequested(connection.id)),
+                  onDelete: (connection) => context.read<CloudAccessBloc>().add(
+                    CloudAccessDeleteRequested(connection.id),
                   ),
                 ),
               ),

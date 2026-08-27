@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../models/cloud_connection.dart';
 import '../../services/management_api.dart';
 import '../../utils/api_error_handler.dart';
 import 'cloud_access_event.dart';
@@ -12,8 +13,8 @@ class CloudAccessBloc extends Bloc<CloudAccessEvent, CloudAccessState> {
     on<CloudAccessStarted>(_onLoad);
     on<CloudAccessReloadRequested>(_onLoad);
     on<CloudAccessCreateRequested>(_onCreate);
+    on<CloudAccessImportRequested>(_onImport);
     on<CloudAccessValidateRequested>(_onValidate);
-    on<CloudAccessDefaultRequested>(_onSetDefault);
     on<CloudAccessDeleteRequested>(_onDelete);
     on<CloudAccessFeedbackCleared>(
       (_, emit) => emit(state.copyWith(clearFeedback: true)),
@@ -26,10 +27,10 @@ class CloudAccessBloc extends Bloc<CloudAccessEvent, CloudAccessState> {
   ) async {
     emit(state.copyWith(isLoading: true, clearLoadError: true));
     try {
-      final inventory = await _api.getCloudAccessInventory();
+      final connections = await _loadDeploymentConnections();
       emit(
         state.copyWith(
-          inventory: inventory,
+          connections: connections,
           isLoading: false,
           clearLoadError: true,
         ),
@@ -49,19 +50,55 @@ class CloudAccessBloc extends Bloc<CloudAccessEvent, CloudAccessState> {
     Emitter<CloudAccessState> emit,
   ) async {
     if (state.isCreating) return;
+    if (event.request.purpose != CloudConnectionPurpose.deployment) {
+      emit(
+        state.copyWith(
+          feedback: CloudAccessFeedback.error(
+            'Only deployment administrator connections are supported.',
+          ),
+        ),
+      );
+      return;
+    }
     emit(state.copyWith(isCreating: true, clearFeedback: true));
     try {
       await _api.createCloudConnection(event.request);
       await _reloadAfterMutation(
         emit,
         successMessage:
-            '${event.request.provider.label} ${event.request.purpose.label.toLowerCase()} created.',
+            '${event.request.provider.label} deployment administrator created.',
         isCreating: false,
       );
     } catch (error) {
       emit(
         state.copyWith(
           isCreating: false,
+          feedback: CloudAccessFeedback.error(
+            ApiErrorHandler.extractMessage(error),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _onImport(
+    CloudAccessImportRequested event,
+    Emitter<CloudAccessState> emit,
+  ) async {
+    if (state.isImporting) return;
+    emit(state.copyWith(isImporting: true, clearFeedback: true));
+    try {
+      await _api.importCloudConnection(event.request);
+      await _reloadAfterMutation(
+        emit,
+        successMessage:
+            '${event.request.provider.label} deployment administrator imported.',
+        isImporting: false,
+      );
+    } catch (error) {
+      emit(
+        state.copyWith(
+          isImporting: false,
           feedback: CloudAccessFeedback.error(
             ApiErrorHandler.extractMessage(error),
           ),
@@ -79,21 +116,6 @@ class CloudAccessBloc extends Bloc<CloudAccessEvent, CloudAccessState> {
       emit,
       command: () => _api.validateCloudConnection(event.connectionId),
       successMessage: 'Cloud access validation completed.',
-    );
-  }
-
-  Future<void> _onSetDefault(
-    CloudAccessDefaultRequested event,
-    Emitter<CloudAccessState> emit,
-  ) {
-    return _runConnectionCommand(
-      event.connectionId,
-      emit,
-      command: () => _api.updateCloudConnection(
-        event.connectionId,
-        isDefaultForPricing: true,
-      ),
-      successMessage: 'Default pricing access updated.',
     );
   }
 
@@ -147,16 +169,18 @@ class CloudAccessBloc extends Bloc<CloudAccessEvent, CloudAccessState> {
     required String successMessage,
     String? completedConnectionId,
     bool? isCreating,
+    bool? isImporting,
   }) async {
     final busy = {...state.busyConnectionIds};
     if (completedConnectionId != null) busy.remove(completedConnectionId);
     try {
-      final inventory = await _api.getCloudAccessInventory();
+      final connections = await _loadDeploymentConnections();
       emit(
         state.copyWith(
-          inventory: inventory,
+          connections: connections,
           busyConnectionIds: busy,
           isCreating: isCreating,
+          isImporting: isImporting,
           clearLoadError: true,
           feedback: CloudAccessFeedback.success(successMessage),
         ),
@@ -166,12 +190,22 @@ class CloudAccessBloc extends Bloc<CloudAccessEvent, CloudAccessState> {
         state.copyWith(
           busyConnectionIds: busy,
           isCreating: isCreating,
+          isImporting: isImporting,
           loadError: ApiErrorHandler.extractMessage(error),
           feedback: CloudAccessFeedback.success(
-            '$successMessage Refresh cloud access to update this view.',
+            '$successMessage Refresh deployment connections to update this view.',
           ),
         ),
       );
     }
+  }
+
+  Future<List<CloudConnection>> _loadDeploymentConnections() async {
+    final connections = await _api.listCloudConnections();
+    return List.unmodifiable(
+      connections.where(
+        (connection) => connection.purpose == CloudConnectionPurpose.deployment,
+      ),
+    );
   }
 }

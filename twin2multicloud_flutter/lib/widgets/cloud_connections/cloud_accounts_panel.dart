@@ -1,35 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../models/cloud_access_inventory.dart';
 import '../../models/cloud_connection.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import 'cloud_connection_create_dialog.dart';
+import 'cloud_connection_import_dialog.dart';
 
 class CloudAccountsPanel extends StatelessWidget {
-  final CloudAccessInventory? inventory;
+  final List<CloudConnection> connections;
   final bool isLoading;
   final String? loadError;
   final Set<String> busyConnectionIds;
   final bool isCreating;
+  final bool isImporting;
   final VoidCallback onRetry;
   final ValueChanged<CloudConnectionCreateRequest> onCreate;
-  final ValueChanged<CloudAccessEntry> onValidate;
-  final ValueChanged<CloudAccessEntry> onSetDefault;
-  final ValueChanged<CloudAccessEntry> onDelete;
+  final ValueChanged<CloudConnectionImportRequest> onImport;
+  final ValueChanged<CloudConnection> onValidate;
+  final ValueChanged<CloudConnection> onDelete;
 
   const CloudAccountsPanel({
     super.key,
-    required this.inventory,
+    required this.connections,
     required this.isLoading,
     required this.loadError,
     required this.busyConnectionIds,
     required this.isCreating,
+    required this.isImporting,
     required this.onRetry,
     required this.onCreate,
+    required this.onImport,
     required this.onValidate,
-    required this.onSetDefault,
     required this.onDelete,
   });
 
@@ -45,12 +47,12 @@ class CloudAccountsPanel extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Cloud accounts & access',
+                    'Deployment administrators',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Pricing and deployment identities available to your account.',
+                    'Reusable administrator credentials for PoC preflight, preparation, deployment, and cleanup.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -58,7 +60,7 @@ class CloudAccountsPanel extends StatelessWidget {
                 ],
               ),
             ),
-            if (isLoading && inventory != null)
+            if (isLoading && connections.isNotEmpty)
               const Padding(
                 padding: EdgeInsets.only(right: AppSpacing.sm),
                 child: SizedBox.square(
@@ -69,29 +71,28 @@ class CloudAccountsPanel extends StatelessWidget {
             IconButton(
               onPressed: isLoading ? null : onRetry,
               icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh cloud access',
+              tooltip: 'Refresh deployment administrators',
             ),
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-        if (inventory != null && loadError != null) ...[
-          _LoadError(message: loadError, onRetry: onRetry),
+        if (loadError != null) ...[
+          _LoadError(message: loadError!, onRetry: onRetry),
           const SizedBox(height: AppSpacing.md),
         ],
-        if (inventory == null && isLoading)
+        if (isLoading && connections.isEmpty)
           const Center(
             child: Padding(
               padding: EdgeInsets.all(AppSpacing.xl),
               child: CircularProgressIndicator(),
             ),
           )
-        else if (inventory == null)
-          _LoadError(message: loadError, onRetry: onRetry)
         else
           LayoutBuilder(
             builder: (context, constraints) {
               final stack =
-                  constraints.maxWidth < AppSpacing.pricingReviewCardBreakpoint;
+                  constraints.maxWidth <
+                  AppSpacing.configurationWorkloadCompactBreakpoint;
               final width = stack
                   ? constraints.maxWidth
                   : (constraints.maxWidth - (AppSpacing.md * 2)) / 3;
@@ -99,25 +100,30 @@ class CloudAccountsPanel extends StatelessWidget {
                 spacing: AppSpacing.md,
                 runSpacing: AppSpacing.md,
                 children: CloudProvider.values
-                    .map((provider) {
-                      final providerInventory =
-                          inventory!.providers[provider.apiValue] ??
-                          _missingProvider(provider);
-                      return SizedBox(
+                    .map(
+                      (provider) => SizedBox(
                         width: width,
-                        child: _ProviderAccessCard(
+                        child: _ProviderDeploymentCard(
                           provider: provider,
-                          inventory: providerInventory,
+                          connections: connections
+                              .where(
+                                (connection) =>
+                                    connection.provider == provider &&
+                                    connection.purpose ==
+                                        CloudConnectionPurpose.deployment,
+                              )
+                              .toList(growable: false),
                           busyConnectionIds: busyConnectionIds,
                           isCreating: isCreating,
-                          onCreate: (purpose) =>
-                              _openCreateDialog(context, provider, purpose),
+                          isImporting: isImporting,
+                          onCreate: () => _openCreateDialog(context, provider),
+                          onImport: () => _openImportDialog(context, provider),
                           onValidate: onValidate,
-                          onSetDefault: onSetDefault,
-                          onDelete: (entry) => _confirmDelete(context, entry),
+                          onDelete: (connection) =>
+                              _confirmDelete(context, connection),
                         ),
-                      );
-                    })
+                      ),
+                    )
                     .toList(growable: false),
               );
             },
@@ -129,28 +135,38 @@ class CloudAccountsPanel extends StatelessWidget {
   Future<void> _openCreateDialog(
     BuildContext context,
     CloudProvider provider,
-    CloudConnectionPurpose purpose,
   ) async {
     final request = await showDialog<CloudConnectionCreateRequest>(
       context: context,
-      builder: (context) =>
-          CloudConnectionCreateDialog(provider: provider, purpose: purpose),
+      builder: (context) => CloudConnectionCreateDialog(
+        provider: provider,
+        purpose: CloudConnectionPurpose.deployment,
+      ),
     );
     if (request != null) onCreate(request);
   }
 
+  Future<void> _openImportDialog(
+    BuildContext context,
+    CloudProvider provider,
+  ) async {
+    final request = await showDialog<CloudConnectionImportRequest>(
+      context: context,
+      builder: (context) => CloudConnectionImportDialog(provider: provider),
+    );
+    if (request != null) onImport(request);
+  }
+
   Future<void> _confirmDelete(
     BuildContext context,
-    CloudAccessEntry entry,
+    CloudConnection connection,
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete cloud access?'),
+        title: const Text('Delete deployment administrator?'),
         content: Text(
-          entry.purpose == 'pricing' && entry.isDefaultForPricing == true
-              ? 'Delete ${entry.identityLabel}? Pricing refresh stays disabled until another default is selected.'
-              : 'Delete ${entry.identityLabel}? This cannot be undone.',
+          'Delete ${connection.displayName}? Connections bound to a Twin are rejected by the server and remain visible.',
         ),
         actions: [
           TextButton(
@@ -168,55 +184,46 @@ class CloudAccountsPanel extends StatelessWidget {
         ],
       ),
     );
-    if (confirmed == true) onDelete(entry);
+    if (confirmed == true) onDelete(connection);
   }
 }
 
-class _ProviderAccessCard extends StatelessWidget {
+class _ProviderDeploymentCard extends StatelessWidget {
   final CloudProvider provider;
-  final CloudAccessProviderInventory inventory;
+  final List<CloudConnection> connections;
   final Set<String> busyConnectionIds;
   final bool isCreating;
-  final ValueChanged<CloudConnectionPurpose> onCreate;
-  final ValueChanged<CloudAccessEntry> onValidate;
-  final ValueChanged<CloudAccessEntry> onSetDefault;
-  final ValueChanged<CloudAccessEntry> onDelete;
+  final bool isImporting;
+  final VoidCallback onCreate;
+  final VoidCallback onImport;
+  final ValueChanged<CloudConnection> onValidate;
+  final ValueChanged<CloudConnection> onDelete;
 
-  const _ProviderAccessCard({
+  const _ProviderDeploymentCard({
     required this.provider,
-    required this.inventory,
+    required this.connections,
     required this.busyConnectionIds,
     required this.isCreating,
+    required this.isImporting,
     required this.onCreate,
+    required this.onImport,
     required this.onValidate,
-    required this.onSetDefault,
     required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
     final color = AppColors.getProviderColor(provider.apiValue);
-    final entries = <CloudAccessEntry>[
-      if (inventory.pricingOptions.isEmpty) inventory.pricing,
-      ...inventory.pricingOptions,
-      ...inventory.deployment,
-    ];
-
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          AppSpacing.md,
-          AppSpacing.md,
-          AppSpacing.sm,
-        ),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.cloud_outlined, color: color),
+                Icon(Icons.admin_panel_settings_outlined, color: color),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
@@ -224,88 +231,49 @@ class _ProviderAccessCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
-                if (provider != CloudProvider.azure)
-                  PopupMenuButton<CloudConnectionPurpose>(
-                    enabled: !isCreating,
-                    tooltip: 'Add ${provider.label} pricing access',
-                    icon: const Icon(Icons.add),
-                    onSelected: onCreate,
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: CloudConnectionPurpose.pricing,
-                        child: ListTile(
-                          leading: Icon(Icons.price_check_outlined),
-                          title: Text('Pricing access'),
-                        ),
-                      ),
-                    ],
-                  ),
+                Chip(
+                  label: Text('${connections.length}'),
+                  visualDensity: VisualDensity.compact,
+                ),
               ],
             ),
-            const SizedBox(height: AppSpacing.sm),
-            _MetricLine(
-              label: 'Pricing',
-              value: _statusLabel(inventory.pricing.status),
-              color: _statusColor(inventory.pricing.status),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            _MetricLine(
-              label: 'Deployment',
-              value: '${inventory.deployment.length}',
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              _identitySummary(inventory.pricing),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
             const SizedBox(height: AppSpacing.md),
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: EdgeInsets.zero,
-              title: Text(
-                'Preconfigured PoC access',
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
               children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: isCreating
-                        ? null
-                        : () => onCreate(CloudConnectionPurpose.deployment),
-                    icon: const Icon(Icons.key_outlined),
-                    label: const Text('Enter administrator credential'),
+                OutlinedButton.icon(
+                  onPressed: isCreating ? null : onCreate,
+                  icon: const Icon(Icons.key_outlined),
+                  label: const Text('Enter manually'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: isImporting ? null : onImport,
+                  icon: const Icon(Icons.upload_file_outlined),
+                  label: Text(
+                    provider == CloudProvider.aws
+                        ? 'Import CSV'
+                        : 'Import JSON',
                   ),
                 ),
               ],
             ),
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: EdgeInsets.zero,
-              title: Text(
-                'Access details (${entries.length})',
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-              children: [
-                for (var index = 0; index < entries.length; index++) ...[
-                  _AccessRow(
-                    entry: entries[index],
-                    isBusy:
-                        entries[index].connectionId != null &&
-                        busyConnectionIds.contains(entries[index].connectionId),
-                    onValidate: onValidate,
-                    onSetDefault: onSetDefault,
-                    onDelete: onDelete,
-                  ),
-                  if (index != entries.length - 1) const Divider(height: 1),
-                ],
+            const SizedBox(height: AppSpacing.md),
+            if (connections.isEmpty)
+              Text(
+                'No ${provider.label} deployment administrator stored.',
+                style: Theme.of(context).textTheme.bodySmall,
+              )
+            else
+              for (var index = 0; index < connections.length; index++) ...[
+                if (index > 0) const Divider(),
+                _ConnectionRow(
+                  connection: connections[index],
+                  isBusy: busyConnectionIds.contains(connections[index].id),
+                  onValidate: onValidate,
+                  onDelete: onDelete,
+                ),
               ],
-            ),
           ],
         ),
       ),
@@ -313,171 +281,95 @@ class _ProviderAccessCard extends StatelessWidget {
   }
 }
 
-class _MetricLine extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-
-  const _MetricLine({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: Text(label)),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(color: color),
-        ),
-      ],
-    );
-  }
-}
-
-class _AccessRow extends StatelessWidget {
-  final CloudAccessEntry entry;
+class _ConnectionRow extends StatelessWidget {
+  final CloudConnection connection;
   final bool isBusy;
-  final ValueChanged<CloudAccessEntry> onValidate;
-  final ValueChanged<CloudAccessEntry> onSetDefault;
-  final ValueChanged<CloudAccessEntry> onDelete;
+  final ValueChanged<CloudConnection> onValidate;
+  final ValueChanged<CloudConnection> onDelete;
 
-  const _AccessRow({
-    required this.entry,
+  const _ConnectionRow({
+    required this.connection,
     required this.isBusy,
     required this.onValidate,
-    required this.onSetDefault,
     required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
-    final canValidate =
-        entry.connectionId != null && entry.actions.contains('validate');
-    final canSetDefault =
-        entry.connectionId != null &&
-        entry.actions.contains('set_pricing_default');
-    final canDelete =
-        entry.connectionId != null && entry.actions.contains('delete');
-    final deleteBlocked = entry.actions.contains('delete_blocked');
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            entry.purpose == 'pricing'
-                ? Icons.price_check_outlined
-                : Icons.rocket_launch_outlined,
-            size: AppSpacing.iconMd,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        entry.identityLabel,
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                    ),
-                    if (entry.isDefaultForPricing == true)
-                      const Padding(
-                        padding: EdgeInsets.only(left: AppSpacing.xs),
-                        child: Text('Default'),
-                      ),
-                  ],
+    final statusColor = switch (connection.validationStatus) {
+      'valid' => AppColors.success,
+      'invalid' => AppColors.error,
+      _ => AppColors.warning,
+    };
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.circle, color: statusColor, size: AppSpacing.iconXs),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                connection.displayName,
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                _connectionSummary(connection),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
+              ),
+              if (connection.lastValidatedAt != null) ...[
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  _entrySummary(entry),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                  'Validated ${DateFormat.yMMMd().format(connection.lastValidatedAt!.toLocal())}',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
-                if (entry.lastValidatedAt != null) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Validated ${DateFormat.yMMMd().format(entry.lastValidatedAt!.toLocal())}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
-          if (isBusy)
-            const Padding(
-              padding: EdgeInsets.all(AppSpacing.sm),
-              child: SizedBox.square(
-                dimension: AppSpacing.iconMd,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
-          else if (canValidate || canSetDefault || canDelete || deleteBlocked)
-            PopupMenuButton<String>(
-              tooltip: 'Actions for ${entry.identityLabel}',
-              onSelected: (action) {
-                switch (action) {
-                  case 'validate':
-                    onValidate(entry);
-                  case 'default':
-                    onSetDefault(entry);
-                  case 'delete':
-                    onDelete(entry);
-                }
-              },
-              itemBuilder: (context) => [
-                if (canValidate)
-                  const PopupMenuItem(
-                    value: 'validate',
-                    child: ListTile(
-                      leading: Icon(Icons.verified_outlined),
-                      title: Text('Validate'),
-                    ),
-                  ),
-                if (canSetDefault)
-                  const PopupMenuItem(
-                    value: 'default',
-                    child: ListTile(
-                      leading: Icon(Icons.check_circle_outline),
-                      title: Text('Use for pricing'),
-                    ),
-                  ),
-                if (canDelete)
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: ListTile(
-                      leading: Icon(Icons.delete_outline),
-                      title: Text('Delete'),
-                    ),
-                  ),
-                if (deleteBlocked)
-                  const PopupMenuItem(
-                    enabled: false,
-                    child: ListTile(
-                      leading: Icon(Icons.lock_outline),
-                      title: Text('Used by a twin'),
-                    ),
-                  ),
-              ],
+        ),
+        if (isBusy)
+          const Padding(
+            padding: EdgeInsets.all(AppSpacing.sm),
+            child: SizedBox.square(
+              dimension: AppSpacing.iconMd,
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
-        ],
-      ),
+          )
+        else
+          PopupMenuButton<String>(
+            tooltip: 'Actions for ${connection.displayName}',
+            onSelected: (action) {
+              if (action == 'validate') onValidate(connection);
+              if (action == 'delete') onDelete(connection);
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'validate',
+                child: ListTile(
+                  leading: Icon(Icons.verified_outlined),
+                  title: Text('Validate'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                child: ListTile(
+                  leading: Icon(Icons.delete_outline),
+                  title: Text('Delete'),
+                ),
+              ),
+            ],
+          ),
+      ],
     );
   }
 }
 
 class _LoadError extends StatelessWidget {
-  final String? message;
+  final String message;
   final VoidCallback onRetry;
 
   const _LoadError({required this.message, required this.onRetry});
@@ -488,7 +380,7 @@ class _LoadError extends StatelessWidget {
       children: [
         Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error),
         const SizedBox(width: AppSpacing.sm),
-        Expanded(child: Text(message ?? 'Cloud access could not be loaded.')),
+        Expanded(child: Text(message)),
         TextButton.icon(
           onPressed: onRetry,
           icon: const Icon(Icons.refresh),
@@ -499,49 +391,14 @@ class _LoadError extends StatelessWidget {
   }
 }
 
-CloudAccessProviderInventory _missingProvider(CloudProvider provider) {
-  return CloudAccessProviderInventory(
-    provider: provider.apiValue,
-    pricing: CloudAccessEntry(
-      provider: provider.apiValue,
-      purpose: 'pricing',
-      scope: 'user',
-      identityLabel: '${provider.label} pricing access unavailable',
-      status: 'missing',
-    ),
-  );
-}
-
-String _identitySummary(CloudAccessEntry entry) {
-  return entry.providerAccountId ??
-      entry.providerProjectId ??
-      entry.providerSubscriptionId ??
-      entry.identityLabel;
-}
-
-String _entrySummary(CloudAccessEntry entry) {
-  final binding = entry.boundTwinCount > 0
-      ? 'Used by ${entry.boundTwinLabels.join(', ')}'
-      : null;
+String _connectionSummary(CloudConnection connection) {
+  final scope =
+      connection.cloudScope['account_id'] ??
+      connection.cloudScope['subscription_id'] ??
+      connection.cloudScope['project_id'];
   return [
-    entry.purpose == 'pricing' ? 'Pricing' : 'Deployment',
-    _statusLabel(entry.status),
-    binding,
-  ].whereType<String>().join(' - ');
+    connection.validationStatus.replaceAll('_', ' '),
+    if (scope != null) scope.toString(),
+    connection.authType,
+  ].where((value) => value.isNotEmpty).join(' · ');
 }
-
-String _statusLabel(String status) => switch (status) {
-  'active' => 'Active',
-  'invalid' => 'Invalid',
-  'needs_validation' => 'Needs validation',
-  'stale' => 'Stale',
-  'disabled' => 'Disabled',
-  _ => 'Missing',
-};
-
-Color _statusColor(String status) => switch (status) {
-  'active' => AppColors.success,
-  'invalid' || 'disabled' => AppColors.error,
-  'needs_validation' || 'stale' => AppColors.warning,
-  _ => AppColors.warning,
-};

@@ -26,19 +26,19 @@ class CloudAccessCreateRequested extends CloudAccessEvent {
   List<Object?> get props => [request];
 }
 
+class CloudAccessImportRequested extends CloudAccessEvent {
+  final CloudConnectionImportRequest request;
+
+  const CloudAccessImportRequested(this.request);
+
+  @override
+  List<Object?> get props => [request];
+}
+
 class CloudAccessValidateRequested extends CloudAccessEvent {
   final String connectionId;
 
   const CloudAccessValidateRequested(this.connectionId);
-
-  @override
-  List<Object?> get props => [connectionId];
-}
-
-class CloudAccessDefaultRequested extends CloudAccessEvent {
-  final String connectionId;
-
-  const CloudAccessDefaultRequested(this.connectionId);
 
   @override
   List<Object?> get props => [connectionId];

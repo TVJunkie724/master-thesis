@@ -1,10 +1,10 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:twin2multicloud_flutter/bloc/cloud_access/cloud_access.dart';
 import 'package:twin2multicloud_flutter/core/result.dart';
-import 'package:twin2multicloud_flutter/models/cloud_access_inventory.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
@@ -15,141 +15,151 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(_createRequest());
+    registerFallbackValue(_importRequest());
   });
 
   setUp(() => api = MockApiService());
 
-  test('loads purpose-aware cloud access inventory', () async {
-    when(
-      () => api.getCloudAccessInventory(),
-    ).thenAnswer((_) async => _inventory());
+  test('loads only deployment administrator connections fail-closed', () async {
+    when(() => api.listCloudConnections()).thenAnswer(
+      (_) async => [
+        _connection(id: 'aws-deploy'),
+        _connection(id: 'aws-pricing', purpose: CloudConnectionPurpose.pricing),
+        _connection(id: 'azure-deploy', provider: CloudProvider.azure),
+      ],
+    );
     final bloc = CloudAccessBloc(api)..add(const CloudAccessStarted());
 
-    await bloc.stream.firstWhere((state) => state.inventory != null);
+    await bloc.stream.firstWhere((state) => !state.isLoading);
 
+    expect(bloc.state.connections.map((item) => item.id), [
+      'aws-deploy',
+      'azure-deploy',
+    ]);
     expect(
-      bloc.state.inventory?.pricingFor('aws')?.connectionId,
-      'aws-pricing',
+      bloc.state.connections,
+      everyElement(
+        isA<CloudConnection>().having(
+          (item) => item.purpose,
+          'purpose',
+          CloudConnectionPurpose.deployment,
+        ),
+      ),
     );
-    expect(bloc.state.loadError, isNull);
     await bloc.close();
   });
 
-  test('preserves inventory when reload fails', () async {
+  test('preserves deployment list when reload fails', () async {
     var calls = 0;
-    when(() => api.getCloudAccessInventory()).thenAnswer((_) async {
-      if (calls++ == 0) return _inventory();
+    when(() => api.listCloudConnections()).thenAnswer((_) async {
+      if (calls++ == 0) return [_connection(id: 'aws-deploy')];
       throw Exception('Management API unavailable');
     });
     final bloc = CloudAccessBloc(api)..add(const CloudAccessStarted());
-    await bloc.stream.firstWhere((state) => state.inventory != null);
+    await bloc.stream.firstWhere((state) => state.connections.isNotEmpty);
 
     bloc.add(const CloudAccessReloadRequested());
     await bloc.stream.firstWhere((state) => state.loadError != null);
 
-    expect(bloc.state.inventory, isNotNull);
-    expect(bloc.state.loadError, 'An unexpected error occurred');
+    expect(bloc.state.connections.single.id, 'aws-deploy');
     await bloc.close();
   });
 
-  test('creates access and reloads inventory', () async {
+  test('creates deployment access and reloads the list', () async {
     when(
       () => api.createCloudConnection(any()),
-    ).thenAnswer((_) async => _connection());
+    ).thenAnswer((_) async => _connection(id: 'aws-deploy'));
     when(
-      () => api.getCloudAccessInventory(),
-    ).thenAnswer((_) async => _inventory());
+      () => api.listCloudConnections(),
+    ).thenAnswer((_) async => [_connection(id: 'aws-deploy')]);
     final bloc = CloudAccessBloc(api);
 
     bloc.add(CloudAccessCreateRequested(_createRequest()));
     await bloc.stream.firstWhere((state) => state.feedback?.isError == false);
 
     verify(() => api.createCloudConnection(any())).called(1);
-    verify(() => api.getCloudAccessInventory()).called(1);
+    verify(() => api.listCloudConnections()).called(1);
+    expect(bloc.state.connections.single.id, 'aws-deploy');
     expect(bloc.state.isCreating, isFalse);
     await bloc.close();
   });
 
-  test('sets pricing default and reloads inventory', () async {
-    when(
-      () => api.updateCloudConnection('aws-pricing', isDefaultForPricing: true),
-    ).thenAnswer((_) async => _connection());
-    when(
-      () => api.getCloudAccessInventory(),
-    ).thenAnswer((_) async => _inventory());
+  test('rejects pricing creation before API I/O', () async {
     final bloc = CloudAccessBloc(api);
+    bloc.add(
+      const CloudAccessCreateRequested(
+        CloudConnectionCreateRequest(
+          provider: CloudProvider.aws,
+          purpose: CloudConnectionPurpose.pricing,
+          displayName: 'Pricing',
+          credentials: {'access_key_id': 'x'},
+        ),
+      ),
+    );
+    await bloc.stream.firstWhere((state) => state.feedback != null);
 
-    bloc.add(const CloudAccessDefaultRequested('aws-pricing'));
-    await bloc.stream.firstWhere((state) => state.feedback?.isError == false);
-
-    verify(
-      () => api.updateCloudConnection('aws-pricing', isDefaultForPricing: true),
-    ).called(1);
+    expect(bloc.state.feedback?.isError, isTrue);
+    verifyNever(() => api.createCloudConnection(any()));
     await bloc.close();
   });
 
-  test('mutation failure keeps inventory and clears busy state', () async {
+  test('imports once while busy and reloads deployment connections', () async {
+    final completion = Completer<CloudConnection>();
     when(
-      () => api.getCloudAccessInventory(),
-    ).thenAnswer((_) async => _inventory());
-    when(
-      () => api.deleteCloudConnection('aws-pricing'),
-    ).thenThrow(const AppException('Connection is still in use'));
-    final bloc = CloudAccessBloc(api)..add(const CloudAccessStarted());
-    await bloc.stream.firstWhere((state) => state.inventory != null);
-
-    bloc.add(const CloudAccessDeleteRequested('aws-pricing'));
-    await bloc.stream.firstWhere((state) => state.feedback?.isError == true);
-
-    expect(bloc.state.inventory, isNotNull);
-    expect(bloc.state.busyConnectionIds, isEmpty);
-    expect(bloc.state.feedback?.message, contains('still in use'));
-    await bloc.close();
-  });
-
-  test(
-    'reports successful mutation accurately when only reload fails',
-    () async {
-      when(
-        () => api.deleteCloudConnection('aws-pricing'),
-      ).thenAnswer((_) async {});
-      when(
-        () => api.getCloudAccessInventory(),
-      ).thenThrow(Exception('Inventory reload unavailable'));
-      final bloc = CloudAccessBloc(api);
-
-      bloc.add(const CloudAccessDeleteRequested('aws-pricing'));
-      await bloc.stream.firstWhere((state) => state.feedback != null);
-
-      expect(bloc.state.feedback?.isError, isFalse);
-      expect(bloc.state.feedback?.message, contains('deleted'));
-      expect(bloc.state.feedback?.message, contains('Refresh cloud access'));
-      expect(bloc.state.loadError, 'An unexpected error occurred');
-      expect(bloc.state.busyConnectionIds, isEmpty);
-      await bloc.close();
-    },
-  );
-
-  test('ignores duplicate command for the same connection', () async {
-    final completion = Completer<CloudConnectionValidationResult>();
-    when(
-      () => api.validateCloudConnection('aws-pricing'),
+      () => api.importCloudConnection(any()),
     ).thenAnswer((_) => completion.future);
     when(
-      () => api.getCloudAccessInventory(),
-    ).thenAnswer((_) async => _inventory());
+      () => api.listCloudConnections(),
+    ).thenAnswer((_) async => [_connection(id: 'aws-imported')]);
     final bloc = CloudAccessBloc(api);
 
-    bloc.add(const CloudAccessValidateRequested('aws-pricing'));
-    await bloc.stream.firstWhere(
-      (state) => state.busyConnectionIds.contains('aws-pricing'),
-    );
-    bloc.add(const CloudAccessValidateRequested('aws-pricing'));
+    bloc.add(CloudAccessImportRequested(_importRequest()));
+    await bloc.stream.firstWhere((state) => state.isImporting);
+    bloc.add(CloudAccessImportRequested(_importRequest()));
     await Future<void>.delayed(Duration.zero);
-    completion.complete(_validation());
-    await bloc.stream.firstWhere((state) => state.feedback?.isError == false);
+    verify(() => api.importCloudConnection(any())).called(1);
 
-    verify(() => api.validateCloudConnection('aws-pricing')).called(1);
+    completion.complete(_connection(id: 'aws-imported'));
+    await bloc.stream.firstWhere((state) => state.feedback?.isError == false);
+    expect(bloc.state.isImporting, isFalse);
+    expect(bloc.state.connections.single.id, 'aws-imported');
+    await bloc.close();
+  });
+
+  test('bound delete conflict keeps the row and clears busy state', () async {
+    when(
+      () => api.listCloudConnections(),
+    ).thenAnswer((_) async => [_connection(id: 'aws-deploy')]);
+    when(
+      () => api.deleteCloudConnection('aws-deploy'),
+    ).thenThrow(const AppException('Connection is bound to Factory Twin'));
+    final bloc = CloudAccessBloc(api)..add(const CloudAccessStarted());
+    await bloc.stream.firstWhere((state) => state.connections.isNotEmpty);
+
+    bloc.add(const CloudAccessDeleteRequested('aws-deploy'));
+    await bloc.stream.firstWhere((state) => state.feedback?.isError == true);
+
+    expect(bloc.state.connections.single.id, 'aws-deploy');
+    expect(bloc.state.busyConnectionIds, isEmpty);
+    expect(bloc.state.feedback?.message, contains('Factory Twin'));
+    await bloc.close();
+  });
+
+  test('reports successful mutation if only the list reload fails', () async {
+    when(
+      () => api.deleteCloudConnection('aws-deploy'),
+    ).thenAnswer((_) async {});
+    when(
+      () => api.listCloudConnections(),
+    ).thenThrow(Exception('List unavailable'));
+    final bloc = CloudAccessBloc(api);
+
+    bloc.add(const CloudAccessDeleteRequested('aws-deploy'));
+    await bloc.stream.firstWhere((state) => state.feedback != null);
+
+    expect(bloc.state.feedback?.isError, isFalse);
+    expect(bloc.state.feedback?.message, contains('Refresh deployment'));
+    expect(bloc.state.busyConnectionIds, isEmpty);
     await bloc.close();
   });
 }
@@ -157,8 +167,8 @@ void main() {
 CloudConnectionCreateRequest _createRequest() =>
     const CloudConnectionCreateRequest(
       provider: CloudProvider.aws,
-      purpose: CloudConnectionPurpose.pricing,
-      displayName: 'AWS Pricing',
+      purpose: CloudConnectionPurpose.deployment,
+      displayName: 'AWS Administrator',
       credentials: {
         'access_key_id': 'TEST_ACCESS_KEY',
         'secret_access_key': 'TEST_SECRET_KEY',
@@ -166,46 +176,28 @@ CloudConnectionCreateRequest _createRequest() =>
       },
     );
 
-CloudConnection _connection() => CloudConnection(
-  id: 'aws-pricing',
+CloudConnectionImportRequest _importRequest() => CloudConnectionImportRequest(
   provider: CloudProvider.aws,
-  purpose: CloudConnectionPurpose.pricing,
-  displayName: 'AWS Pricing',
-  authType: 'access_key',
-  cloudScope: const {'account_id': '123456789012'},
+  displayName: 'AWS Imported Administrator',
+  region: 'eu-central-1',
+  filename: 'credentials.csv',
+  bytes: Uint8List.fromList([1, 2, 3]),
+);
+
+CloudConnection _connection({
+  required String id,
+  CloudProvider provider = CloudProvider.aws,
+  CloudConnectionPurpose purpose = CloudConnectionPurpose.deployment,
+}) => CloudConnection(
+  id: id,
+  provider: provider,
+  purpose: purpose,
+  displayName: id,
+  authType: 'administrator',
+  cloudScope: const {},
   payloadFingerprint: 'opaque',
   payloadSummary: const {},
   validationStatus: 'valid',
-  createdAt: DateTime.utc(2026, 7, 12),
-  updatedAt: DateTime.utc(2026, 7, 12),
+  createdAt: DateTime.utc(2026, 8, 27),
+  updatedAt: DateTime.utc(2026, 8, 27),
 );
-
-CloudConnectionValidationResult _validation() =>
-    const CloudConnectionValidationResult(
-      id: 'aws-pricing',
-      provider: CloudProvider.aws,
-      valid: true,
-      validationStatus: 'valid',
-      message: 'Pricing access validated',
-    );
-
-CloudAccessInventory _inventory() => CloudAccessInventory.fromJson({
-  'schema_version': 'cloud-access-inventory.v1',
-  'providers': {
-    'aws': {
-      'provider': 'aws',
-      'pricing': {
-        'connection_id': 'aws-pricing',
-        'provider': 'aws',
-        'purpose': 'pricing',
-        'scope': 'user',
-        'identity_label': 'AWS Pricing',
-        'status': 'active',
-        'is_default_for_pricing': true,
-        'actions': ['validate', 'delete', 'refresh_pricing'],
-      },
-      'pricing_options': [],
-      'deployment': [],
-    },
-  },
-});
