@@ -9,6 +9,8 @@ from unittest.mock import Mock, patch, MagicMock
 import json
 
 from src.api.credentials_checker import (
+    _check_identity_center_region,
+    _create_regional_sts_client,
     check_aws_credentials,
     check_aws_credentials_from_config,
     _get_all_required_permissions,
@@ -17,6 +19,42 @@ from src.api.credentials_checker import (
     _extract_permissions,
     REQUIRED_AWS_PERMISSIONS,
 )
+
+
+def test_regional_sts_client_uses_explicit_partition_endpoint():
+    session = Mock()
+
+    _create_regional_sts_client(session, "eu-central-1")
+
+    session.client.assert_called_once_with(
+        "sts",
+        region_name="eu-central-1",
+        endpoint_url="https://sts.eu-central-1.amazonaws.com",
+    )
+
+
+def test_identity_center_primary_region_is_checked_without_returning_instance_ids():
+    session = Mock()
+    sso_admin = session.client.return_value
+    sso_admin.list_instances.return_value = {
+        "Instances": [
+            {
+                "InstanceArn": "arn:aws:sso:::instance/ssoins-sensitive",
+                "IdentityStoreId": "d-sensitive",
+            }
+        ]
+    }
+
+    result = _check_identity_center_region(session, "eu-west-1")
+
+    session.client.assert_called_once_with("sso-admin", region_name="eu-west-1")
+    sso_admin.list_instances.assert_called_once_with(MaxResults=1)
+    assert result == {
+        "status": "ready",
+        "region": "eu-west-1",
+        "instance_count": 1,
+        "message": "IAM Identity Center is available in the configured primary Region.",
+    }
 
 
 class TestRequiredPermissions:

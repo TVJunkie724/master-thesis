@@ -16,6 +16,7 @@ from src.models.user import User
 from src.schemas.cloud_connection import CloudConnectionCreate
 from src.schemas.deployment_readiness import (
     DeploymentPreparationRequest,
+    DeploymentReadinessCheck,
     DeploymentReadinessResponse,
 )
 from src.services.cloud_connection_service import CloudConnectionService
@@ -558,6 +559,34 @@ async def test_unautomated_graph_prerequisite_remains_explicit_manual_action(
     assert prepared.acknowledged_manual_requirement_ids == [
         "requirement.access.azure.graph"
     ]
+
+
+def test_identity_center_authority_check_resolves_manual_graph_requirement(db_session):
+    requirement = {
+        "requirement_id": "requirement.access.aws.identity-center",
+        "requirement_type": "access_prerequisite",
+        "provider": "aws",
+        "capability_id": "aws.iam-identity-center.primary-region",
+        "preparation_mode": "manual_external",
+        "mandatory": True,
+        "source_node_ids": ["node.twin-state"],
+        "source_edge_ids": [],
+    }
+    check = DeploymentReadinessCheck(
+        component="deployer.identity_center_primary_region",
+        status="passed",
+        code="IDENTITY_CENTER_PRIMARY_REGION_READY",
+        message="Identity Center primary Region verified.",
+        action="No action required.",
+    )
+
+    projected = DeploymentReadinessService(db_session)._project_requirement_readiness(
+        requirement,
+        [check],
+    )
+
+    assert projected.status == "ready"
+    assert projected.action == "No action required."
 
 
 @pytest.mark.asyncio

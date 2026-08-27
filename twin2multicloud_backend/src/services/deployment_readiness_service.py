@@ -886,6 +886,17 @@ class DeploymentReadinessService:
             status = "ready"
             message = "The immutable deployment graph contains this Terraform-managed contract."
             action = "No account preparation is required before apply."
+        elif preparation_mode == "manual_external" and relevant is not None:
+            status = self._failure_requirement_status(relevant)
+            message = relevant.message
+            action = relevant.action
+        elif preparation_mode == "manual_external" and self._manual_requirement_verified(
+            capability,
+            checks,
+        ):
+            status = "ready"
+            message = "The provider authority check passed for this external prerequisite."
+            action = "No action required."
         elif preparation_mode == "manual_external":
             status = "manual_action"
             message = "This provider prerequisite cannot be changed safely by the PoC."
@@ -1003,7 +1014,28 @@ class DeploymentReadinessService:
                 "SUBSCRIPTION_NOT_ENABLED",
             }:
                 return failure
+            if capability == "aws.iam-identity-center.primary-region" and failure.code in {
+                "IDENTITY_CENTER_PRIMARY_REGION_NOT_FOUND",
+                "IDENTITY_CENTER_INSPECTION_DENIED",
+                "IDENTITY_CENTER_CHECK_FAILED",
+            }:
+                return failure
         return None
+
+    @staticmethod
+    def _manual_requirement_verified(
+        capability: str,
+        checks: list[DeploymentReadinessCheck],
+    ) -> bool:
+        expected_code = {
+            "aws.iam-identity-center.primary-region": (
+                "IDENTITY_CENTER_PRIMARY_REGION_READY"
+            ),
+            "azure.microsoft-graph.authority": "MICROSOFT_GRAPH_AUTHORITY_READY",
+        }.get(capability)
+        return bool(expected_code) and any(
+            check.status == "passed" and check.code == expected_code for check in checks
+        )
 
     @staticmethod
     def _failure_requirement_status(
@@ -1011,7 +1043,11 @@ class DeploymentReadinessService:
     ) -> str:
         if failure is None:
             return "unsupported"
-        if failure.code in {"DOWNSTREAM_SERVICE_UNAVAILABLE", "DOWNSTREAM_API_ERROR"}:
+        if failure.code in {
+            "DOWNSTREAM_SERVICE_UNAVAILABLE",
+            "DOWNSTREAM_API_ERROR",
+            "IDENTITY_CENTER_CHECK_FAILED",
+        }:
             return "transient"
         if failure.code in {
             "MISSING_PERMISSIONS",
@@ -1021,6 +1057,7 @@ class DeploymentReadinessService:
             "PROJECT_ACCESS_DENIED",
             "PROJECT_NOT_FOUND",
             "CREDENTIAL_EXPIRED",
+            "IDENTITY_CENTER_INSPECTION_DENIED",
         }:
             return "replace_connection"
         if failure.code in {
@@ -1029,6 +1066,8 @@ class DeploymentReadinessService:
             "PROJECT_NOT_ACTIVE",
             "SUBSCRIPTION_NOT_ENABLED",
             "REGION_NOT_SUPPORTED",
+            "REGIONAL_STS_UNAVAILABLE",
+            "IDENTITY_CENTER_PRIMARY_REGION_NOT_FOUND",
         }:
             return "manual_action"
         return "unsupported"

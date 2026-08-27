@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch
 
 import rest_api
+from src.api.preflight import build_provider_preflight
 
 client = TestClient(rest_api.app)
 
@@ -48,6 +49,33 @@ def test_aws_preflight_passes_when_checker_is_valid(mock_check):
     assert data["ready"] is True
     assert data["status"] == "passed"
     assert data["checks"][0]["code"] == "AWS_READY"
+
+
+def test_aws_preflight_preserves_regional_sts_and_identity_center_checks():
+    data = build_provider_preflight(
+        "aws",
+        {
+            "status": "valid",
+            "message": "ready",
+            "sts_region_validation": {
+                "status": "ready",
+                "region": "eu-central-1",
+                "endpoint_mode": "regional",
+            },
+            "identity_center_region": {
+                "status": "not_configured",
+                "region": "eu-west-1",
+                "instance_count": 0,
+            },
+        },
+    )
+
+    assert data.ready is False
+    assert {check.code for check in data.checks} == {
+        "AWS_READY",
+        "REGIONAL_STS_READY",
+        "IDENTITY_CENTER_PRIMARY_REGION_NOT_FOUND",
+    }
 
 
 @patch("src.api.credentials.check_aws_credentials")

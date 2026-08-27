@@ -12,6 +12,7 @@ This module is shared by both:
 
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
+from botocore.session import get_session as get_botocore_session
 import json
 import logging
 import os
@@ -266,32 +267,12 @@ def _get_all_required_permissions(required_by_layer: dict | None = None) -> dict
 
 
 def _create_session(credentials: dict) -> boto3.Session:
-    """
-    Create boto3 session for credential validation.
-
-    IMPORTANT: We ALWAYS use 'us-east-1' as the session region, regardless of
-    the user-provided region. This is intentional and necessary because:
-
-    1. AWS STS endpoint URLs are region-based (e.g., sts.eu-central-1.amazonaws.com)
-    2. If the user provides an invalid region (e.g., "eu-central" instead of
-       "eu-central-1"), boto3 constructs an invalid endpoint URL
-    3. This causes a connection error BEFORE we can validate credentials:
-       "Could not connect to endpoint URL: https://sts.eu-central.amazonaws.com/"
-
-    Solution: Use a known-valid region (us-east-1) for authentication, then
-    validate the user's actual region in a separate step using EC2.describe_regions().
-    STS authentication is region-independent - the same credentials work globally.
-
-    The user's actual region is validated later via _validate_aws_region().
-
-    Note: This AWS-specific issue does NOT affect Azure or GCP, which use global
-    authentication endpoints (login.microsoftonline.com, oauth2.googleapis.com).
-    """
+    """Create a session bound to the requested deployment Region."""
+    region = str(credentials.get("aws_region") or "").strip()
     session_kwargs = {
         "aws_access_key_id": credentials.get("aws_access_key_id"),
         "aws_secret_access_key": credentials.get("aws_secret_access_key"),
-        # Always use us-east-1 for auth - user's region is validated separately
-        "region_name": "us-east-1",
+        "region_name": region,
     }
 
     # Optional session token for temporary credentials
@@ -299,6 +280,71 @@ def _create_session(credentials: dict) -> boto3.Session:
         session_kwargs["aws_session_token"] = credentials["aws_session_token"]
 
     return boto3.Session(**session_kwargs)
+
+
+def _regional_sts_endpoint(region: str) -> str:
+    """Resolve the partition-correct regional STS endpoint without a network call."""
+    resolver = get_botocore_session().get_component("endpoint_resolver")
+    endpoint = resolver.construct_endpoint("sts", region)
+    hostname = endpoint.get("hostname") if endpoint else None
+    if not hostname or region not in hostname:
+        raise ValueError(f"AWS Region '{region}' has no regional STS endpoint")
+    return f"https://{hostname}"
+
+
+def _create_regional_sts_client(session, region: str):
+    endpoint_url = _regional_sts_endpoint(region)
+    return session.client("sts", region_name=region, endpoint_url=endpoint_url)
+
+
+def _check_identity_center_region(session, sso_region: str | None) -> dict:
+    """Verify the configured IAM Identity Center primary Region, without mutation."""
+    region = str(sso_region or "").strip()
+    if not region:
+        return {
+            "status": "not_requested",
+            "region": None,
+            "message": "IAM Identity Center is not required by this credential check.",
+        }
+
+    try:
+        client = session.client("sso-admin", region_name=region)
+        response = client.list_instances(MaxResults=1)
+        instance_count = len(response.get("Instances") or [])
+        if instance_count:
+            return {
+                "status": "ready",
+                "region": region,
+                "instance_count": instance_count,
+                "message": "IAM Identity Center is available in the configured primary Region.",
+            }
+        return {
+            "status": "not_configured",
+            "region": region,
+            "instance_count": 0,
+            "message": (
+                "No IAM Identity Center instance is visible in the configured primary Region."
+            ),
+        }
+    except ClientError as exc:
+        code = str(exc.response.get("Error", {}).get("Code") or "")
+        if code in {"AccessDenied", "AccessDeniedException", "UnauthorizedException"}:
+            return {
+                "status": "access_denied",
+                "region": region,
+                "message": "The credential cannot inspect IAM Identity Center instances.",
+            }
+        return {
+            "status": "check_failed",
+            "region": region,
+            "message": f"IAM Identity Center Region check failed ({code or 'AWS API error'}).",
+        }
+    except Exception as exc:
+        return {
+            "status": "check_failed",
+            "region": region,
+            "message": f"IAM Identity Center Region check failed: {redact_sensitive(exc)}",
+        }
 
 
 def _get_caller_identity(sts_client) -> dict:
@@ -757,6 +803,8 @@ def check_aws_credentials(credentials: dict) -> dict:
         "message": "",
         "caller_identity": None,
         "region_validation": None,
+        "sts_region_validation": None,
+        "identity_center_region": None,
         "can_list_policies": False,
         "missing_check_permission": None,
         "by_layer": {},
@@ -774,9 +822,28 @@ def check_aws_credentials(credentials: dict) -> dict:
         return result
 
     try:
-        # Create session
-        session = _create_session(credentials)
-        sts_client = session.client("sts")
+        region = str(credentials.get("aws_region") or "").strip()
+        if not region:
+            result["message"] = "Missing required credential setting: aws_region"
+            return result
+
+        # Resolve the regional STS endpoint before attempting authentication. This
+        # prevents a silent fallback to the legacy global STS endpoint.
+        try:
+            session = _create_session(credentials)
+            sts_client = _create_regional_sts_client(session, region)
+            result["sts_region_validation"] = {
+                "status": "ready",
+                "region": region,
+                "endpoint_mode": "regional",
+            }
+        except ValueError as exc:
+            result["sts_region_validation"] = {
+                "status": "invalid_region",
+                "region": region,
+            }
+            result["message"] = str(exc)
+            return result
         iam_client = session.client("iam")
 
         # Step 1: Validate credentials with GetCallerIdentity
@@ -806,7 +873,6 @@ def check_aws_credentials(credentials: dict) -> dict:
             return result
 
         # Step 2: Validate region
-        region = credentials.get("aws_region", "us-east-1")
         region_result = _validate_aws_region(session, region)
         result["region_validation"] = {"aws_region": region_result}
 
@@ -829,6 +895,14 @@ def check_aws_credentials(credentials: dict) -> dict:
             )
             return result
         # Note: "skipped" and "active" statuses proceed normally
+
+        # Step 2.6: Verify the explicitly configured IAM Identity Center primary
+        # Region. The check is read-only; missing setup/authority remains a manual
+        # prerequisite in the graph-derived readiness contract.
+        result["identity_center_region"] = _check_identity_center_region(
+            session,
+            credentials.get("aws_sso_region"),
+        )
 
         # Step 3: Get permissions from attached policies
         available_permissions, check_error = _get_attached_permissions(

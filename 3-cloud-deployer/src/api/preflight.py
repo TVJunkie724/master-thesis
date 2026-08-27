@@ -84,16 +84,84 @@ def _aws_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
     status = result.get("status")
     checks: list[ProviderPreflightCheck] = []
 
+    checks.extend(_region_checks(result.get("region_validation"), "aws_region"))
+
+    sts_region = _safe_dict(result.get("sts_region_validation"))
+    if sts_region.get("status") == "ready":
+        checks.append(
+            _passed(
+                "regional_sts",
+                "REGIONAL_STS_READY",
+                "AWS caller identity was verified through the deployment Region's STS endpoint.",
+            )
+        )
+    elif sts_region:
+        checks.append(
+            _failed(
+                "regional_sts",
+                "REGIONAL_STS_UNAVAILABLE",
+                result.get("message") or "Regional AWS STS validation failed.",
+                "Choose an enabled AWS Region with a regional STS endpoint and rerun preflight.",
+                details={"region": sts_region.get("region")},
+            )
+        )
+
+    identity_center = _safe_dict(result.get("identity_center_region"))
+    identity_status = identity_center.get("status")
+    if identity_status == "ready":
+        checks.append(
+            _passed(
+                "identity_center_primary_region",
+                "IDENTITY_CENTER_PRIMARY_REGION_READY",
+                identity_center.get("message")
+                or "IAM Identity Center is available in the configured primary Region.",
+            )
+        )
+    elif identity_status == "not_configured":
+        checks.append(
+            _failed(
+                "identity_center_primary_region",
+                "IDENTITY_CENTER_PRIMARY_REGION_NOT_FOUND",
+                identity_center.get("message")
+                or "IAM Identity Center is not available in the configured Region.",
+                "Select the IAM Identity Center primary Region or configure the service there.",
+                details={"region": identity_center.get("region")},
+            )
+        )
+    elif identity_status == "access_denied":
+        checks.append(
+            _failed(
+                "identity_center_primary_region",
+                "IDENTITY_CENTER_INSPECTION_DENIED",
+                identity_center.get("message")
+                or "IAM Identity Center instances cannot be inspected.",
+                "Grant sso-admin:ListInstances to the PoC credential and rerun preflight.",
+                permissions=["sso-admin:ListInstances"],
+                details={"region": identity_center.get("region")},
+            )
+        )
+    elif identity_status == "check_failed":
+        checks.append(
+            _failed(
+                "identity_center_primary_region",
+                "IDENTITY_CENTER_CHECK_FAILED",
+                identity_center.get("message")
+                or "IAM Identity Center Region inspection failed.",
+                "Retry the read-only Region inspection before deployment.",
+                details={"region": identity_center.get("region")},
+            )
+        )
+
     if status == "valid":
-        return [
+        checks.insert(
+            0,
             _passed(
                 "credentials",
                 "AWS_READY",
                 result.get("message") or "AWS credentials are ready.",
-            )
-        ]
-
-    checks.extend(_region_checks(result.get("region_validation"), "aws_region"))
+            ),
+        )
+        return checks
 
     account_status = _safe_dict(result.get("account_status"))
     if account_status.get("status") == "suspended":
