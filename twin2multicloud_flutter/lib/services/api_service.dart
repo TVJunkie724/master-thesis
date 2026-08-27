@@ -11,6 +11,7 @@ import '../models/dashboard_stats.dart';
 import '../models/deployment_access.dart';
 import '../models/deployment_operations.dart';
 import '../models/deployment_readiness.dart';
+import '../models/deployment_verification.dart';
 import '../models/deployer_config.dart';
 import '../models/optimizer_config.dart';
 import '../models/pricing_candidate_review.dart';
@@ -1287,19 +1288,58 @@ class ApiService implements ManagementApi {
     return response.data as Map<String, dynamic>;
   }
 
-  /// Start data flow verification with SSE streaming.
-  /// Returns {session_id, sse_url} for connecting to SSE.
+  /// Start one persisted data-flow verification with SSE streaming.
   @override
-  Future<Map<String, dynamic>> verifyDataFlow(
+  Future<TelemetryVerificationStart> verifyDataFlow(
     String twinId,
     Map<String, dynamic> payload,
   ) async {
+    final id = _managementPathSegment(twinId, 'Twin ID');
     final response = await _dio.post(
-      '/twins/$twinId/verify/dataflow',
+      '/twins/$id/verify/dataflow',
       data: {'payload': payload},
       options: Options(receiveTimeout: const Duration(seconds: 30)),
     );
-    return response.data as Map<String, dynamic>;
+    return TelemetryVerificationStart.fromJson(
+      _contractMap(response.data, 'telemetry verification session'),
+    );
+  }
+
+  @override
+  Future<TelemetryVerificationHistory> listDataFlowVerifications(
+    String twinId, {
+    int limit = 25,
+  }) async {
+    _validateRange(
+      'Telemetry verification history limit',
+      limit,
+      minimum: 1,
+      maximum: 25,
+    );
+    final id = _managementPathSegment(twinId, 'Twin ID');
+    final response = await _dio.get(
+      '/twins/$id/verify/dataflow',
+      queryParameters: {'limit': limit},
+    );
+    return TelemetryVerificationHistory.fromJson(
+      _contractMap(response.data, 'telemetry verification history'),
+    );
+  }
+
+  @override
+  Future<TelemetryVerificationRecord> getDataFlowVerification(
+    String twinId,
+    String verificationId,
+  ) async {
+    final id = _managementPathSegment(twinId, 'Twin ID');
+    final recordId = _managementPathSegment(
+      verificationId,
+      'Telemetry verification ID',
+    );
+    final response = await _dio.get('/twins/$id/verify/dataflow/$recordId');
+    return TelemetryVerificationRecord.fromJson(
+      _contractMap(response.data, 'telemetry verification record'),
+    );
   }
 
   /// Download IoT simulator package (L1 provider determined by backend).

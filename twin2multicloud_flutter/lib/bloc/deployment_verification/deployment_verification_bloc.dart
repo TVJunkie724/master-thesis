@@ -17,18 +17,50 @@ class DeploymentVerificationBloc
   final LogStreamClientFactory _logStreamClientFactory;
   LogStreamClient? _logStreamClient;
   StreamSubscription<SseLogEvent>? _sseSubscription;
+  int _historyGeneration = 0;
 
   DeploymentVerificationBloc({
     required this.twinId,
     required VerificationApi api,
     required LogStreamClientFactory logStreamClientFactory,
+    bool loadHistory = true,
   }) : _api = api,
        _logStreamClientFactory = logStreamClientFactory,
        super(const DeploymentVerificationState()) {
+    on<DeploymentVerificationHistoryRequested>(_onHistory);
     on<DeploymentVerificationInfrastructureRequested>(_onInfrastructure);
     on<DeploymentVerificationDataFlowRequested>(_onDataFlow);
     on<DeploymentVerificationSseReceived>(_onSseReceived);
     on<DeploymentVerificationSseFailed>(_onSseFailed);
+    if (loadHistory) add(const DeploymentVerificationHistoryRequested());
+  }
+
+  Future<void> _onHistory(
+    DeploymentVerificationHistoryRequested event,
+    Emitter<DeploymentVerificationState> emit,
+  ) async {
+    final generation = ++_historyGeneration;
+    emit(state.copyWith(isLoadingHistory: true, clearHistoryError: true));
+    try {
+      final history = await _api.listDataFlowVerifications(twinId);
+      if (generation != _historyGeneration) return;
+      emit(
+        state.copyWith(
+          isLoadingHistory: false,
+          verificationHistory: history.verifications,
+          latestDataFlowRecord: history.verifications.firstOrNull,
+          clearLatestDataFlowRecord: history.verifications.isEmpty,
+        ),
+      );
+    } catch (error) {
+      if (generation != _historyGeneration) return;
+      emit(
+        state.copyWith(
+          isLoadingHistory: false,
+          historyError: ApiErrorHandler.extractMessage(error),
+        ),
+      );
+    }
   }
 
   Future<void> _onInfrastructure(
@@ -67,6 +99,7 @@ class DeploymentVerificationBloc
     DeploymentVerificationDataFlowRequested event,
     Emitter<DeploymentVerificationState> emit,
   ) async {
+    if (state.isRunningDataFlow) return;
     final payload = _parsePayload(event.payloadText);
     if (payload == null) {
       emit(
@@ -89,25 +122,35 @@ class DeploymentVerificationBloc
     }
 
     await _cancelSse();
+    _historyGeneration += 1;
     emit(
       state.copyWith(
         isRunningDataFlow: true,
+        isLoadingHistory: false,
         clearDataFlowError: true,
         dataFlowLogs: const [],
-        clearDataFlowSummary: true,
+        clearTerminalEvidence: true,
+        clearActiveVerificationId: true,
       ),
     );
 
     try {
-      final result = await _api.verifyDataFlow(twinId, payload);
-      final sseUrl = result['sse_url']?.toString();
-      if (sseUrl == null || sseUrl.isEmpty) {
-        throw StateError('Backend did not return SSE URL');
+      final session = await _api.verifyDataFlow(twinId, payload);
+      emit(state.copyWith(activeVerificationId: session.verificationId));
+      if (session.status != TelemetryVerificationStatus.running) {
+        await _refreshRecord(
+          session.verificationId,
+          emit,
+          streamError: session.status == TelemetryVerificationStatus.notRun
+              ? 'Live telemetry verification was not run.'
+              : null,
+        );
+        return;
       }
 
       _logStreamClient = _logStreamClientFactory();
       _sseSubscription = _logStreamClient!
-          .streamDeploymentLogs(sseUrl)
+          .streamDeploymentLogs(session.sseUrl)
           .listen(
             (event) => add(DeploymentVerificationSseReceived(event)),
             onError: (error) => add(DeploymentVerificationSseFailed(error)),
@@ -142,14 +185,34 @@ class DeploymentVerificationBloc
           isRunningDataFlow: !(sse.isComplete || sse.isError),
         ),
       );
-      if (sse.isComplete || sse.isError) await _cancelSse();
+      if (sse.isComplete || sse.isError) {
+        await _cancelSse();
+        await _refreshActiveRecord(
+          emit,
+          streamError: sse.isError ? 'Telemetry verification failed.' : null,
+        );
+      }
       return;
     }
 
-    final summary = _summaryFromPayload(parsed);
-    if (summary != null) {
+    if (sse.isComplete) {
+      TelemetryVerificationEvidence? terminalEvidence;
+      String? contractError;
+      try {
+        terminalEvidence = TelemetryVerificationEvidence.fromJson(parsed);
+      } catch (error) {
+        contractError = ApiErrorHandler.extractMessage(error);
+      }
       await _cancelSse();
-      emit(state.copyWith(isRunningDataFlow: false, dataFlowSummary: summary));
+      emit(
+        state.copyWith(
+          isRunningDataFlow: false,
+          terminalEvidence: terminalEvidence,
+          dataFlowError: contractError,
+          clearDataFlowError: contractError == null,
+        ),
+      );
+      await _refreshActiveRecord(emit, streamError: contractError);
       return;
     }
 
@@ -160,7 +223,10 @@ class DeploymentVerificationBloc
 
     if (sse.isComplete || sse.isError) {
       await _cancelSse();
-      emit(state.copyWith(isRunningDataFlow: false));
+      await _refreshActiveRecord(
+        emit,
+        streamError: sse.isError ? 'Telemetry verification failed.' : null,
+      );
     }
   }
 
@@ -169,12 +235,71 @@ class DeploymentVerificationBloc
     Emitter<DeploymentVerificationState> emit,
   ) async {
     await _cancelSse();
-    emit(
-      state.copyWith(
-        isRunningDataFlow: false,
-        dataFlowError: 'SSE connection lost: ${event.error}',
-      ),
+    await _refreshActiveRecord(
+      emit,
+      streamError:
+          'Telemetry verification stream was interrupted. Persisted evidence was reloaded.',
     );
+  }
+
+  Future<void> _refreshActiveRecord(
+    Emitter<DeploymentVerificationState> emit, {
+    String? streamError,
+  }) async {
+    final verificationId = state.activeVerificationId;
+    if (verificationId == null) {
+      emit(
+        state.copyWith(
+          isRunningDataFlow: false,
+          dataFlowError: streamError ?? 'Telemetry verification ID is missing.',
+        ),
+      );
+      return;
+    }
+    await _refreshRecord(verificationId, emit, streamError: streamError);
+  }
+
+  Future<void> _refreshRecord(
+    String verificationId,
+    Emitter<DeploymentVerificationState> emit, {
+    String? streamError,
+  }) async {
+    try {
+      final record = await _api.getDataFlowVerification(twinId, verificationId);
+      final history = [
+        record,
+        ...state.verificationHistory.where((item) => item.id != record.id),
+      ];
+      emit(
+        state.copyWith(
+          isRunningDataFlow: false,
+          latestDataFlowRecord: record,
+          verificationHistory: List.unmodifiable(history.take(25)),
+          clearActiveVerificationId: true,
+          dataFlowError: _recordError(record) ?? streamError,
+          clearDataFlowError:
+              _recordError(record) == null && streamError == null,
+        ),
+      );
+    } catch (error) {
+      emit(
+        state.copyWith(
+          isRunningDataFlow: false,
+          clearActiveVerificationId: true,
+          dataFlowError: streamError ?? ApiErrorHandler.extractMessage(error),
+        ),
+      );
+    }
+  }
+
+  String? _recordError(TelemetryVerificationRecord record) {
+    return switch (record.status) {
+      TelemetryVerificationStatus.pass => null,
+      TelemetryVerificationStatus.running =>
+        'Telemetry verification is still running; reload persisted evidence later.',
+      TelemetryVerificationStatus.fail || TelemetryVerificationStatus.notRun =>
+        record.errorMessage ?? 'Telemetry verification did not pass.',
+    };
   }
 
   Map<String, dynamic>? _parsePayload(String payloadText) {
@@ -197,11 +322,6 @@ class DeploymentVerificationBloc
       return null;
     }
     return null;
-  }
-
-  DataFlowVerificationSummary? _summaryFromPayload(Map<String, dynamic> data) {
-    if (!data.containsKey('pass_count')) return null;
-    return DataFlowVerificationSummary.fromJson(data);
   }
 
   DataFlowLogEntry? _logFromPayload(Map<String, dynamic> data) {

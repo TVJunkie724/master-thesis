@@ -43,6 +43,7 @@ void main() {
                 twinId: 'twin-1',
                 api: api,
                 logStreamClientFactory: () => sse,
+                loadHistory: false,
               ),
               child: const DeploymentVerificationCard(),
             ),

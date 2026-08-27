@@ -11,6 +11,7 @@ import '../models/dashboard_stats.dart';
 import '../models/deployment_operations.dart';
 import '../models/deployment_access.dart';
 import '../models/deployment_readiness.dart';
+import '../models/deployment_verification.dart';
 import '../models/deployer_config.dart';
 import '../models/optimizer_config.dart';
 import '../models/pricing_candidate_review.dart';
@@ -304,9 +305,19 @@ abstract interface class DeploymentLifecycleApi {
 abstract interface class VerificationApi {
   Future<Map<String, dynamic>> verifyInfrastructure(String twinId);
 
-  Future<Map<String, dynamic>> verifyDataFlow(
+  Future<TelemetryVerificationStart> verifyDataFlow(
     String twinId,
     Map<String, dynamic> payload,
+  );
+
+  Future<TelemetryVerificationHistory> listDataFlowVerifications(
+    String twinId, {
+    int limit = 25,
+  });
+
+  Future<TelemetryVerificationRecord> getDataFlowVerification(
+    String twinId,
+    String verificationId,
   );
 }
 

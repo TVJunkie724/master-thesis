@@ -14,6 +14,7 @@ import '../models/dashboard_stats.dart';
 import '../models/deployment_access.dart';
 import '../models/deployment_operations.dart';
 import '../models/deployment_readiness.dart';
+import '../models/deployment_verification.dart';
 import '../models/deployer_config.dart';
 import '../models/optimizer_config.dart';
 import '../models/pricing_candidate_review.dart';
@@ -43,6 +44,8 @@ class DemoManagementApi implements ManagementApi {
   final Map<String, TwinExtensionBinding> _extensionBindings = {};
   final Map<String, ResolvedTwinArchitectureRead> _resolvedArchitectures = {};
   final Map<String, TwinArchitectureSelection> _architectureSelections = {};
+  final Map<String, List<TelemetryVerificationRecord>> _telemetryVerifications =
+      {};
 
   DemoManagementApi({
     required this.store,
@@ -1934,7 +1937,7 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<Map<String, dynamic>> verifyDataFlow(
+  Future<TelemetryVerificationStart> verifyDataFlow(
     String twinId,
     Map<String, dynamic> payload,
   ) async {
@@ -1947,10 +1950,62 @@ class DemoManagementApi implements ManagementApi {
       );
     }
     final sessionId = store.nextId('demo-verification-session');
-    return {
-      'session_id': sessionId,
-      'sse_url': '/demo/verification/$twinId/$sessionId',
-    };
+    final verificationId = store.nextId('demo-verification');
+    final now = store.clock().toUtc();
+    final record = TelemetryVerificationRecord(
+      id: verificationId,
+      twinId: twinId,
+      sessionId: sessionId,
+      deviceId: payload['iotDeviceId'].toString(),
+      status: TelemetryVerificationStatus.notRun,
+      errorCode: 'DEMO_NOT_RUN',
+      errorMessage: 'Live telemetry verification is unavailable in demo mode.',
+      requestedAt: now,
+      completedAt: now,
+    );
+    _telemetryVerifications.putIfAbsent(twinId, () => []).insert(0, record);
+    return TelemetryVerificationStart(
+      schemaVersion: TelemetryVerificationStart.supportedSchemaVersion,
+      verificationId: verificationId,
+      sessionId: sessionId,
+      sseUrl: '/demo/verification/$twinId/$sessionId',
+      statusUrl: '/twins/$twinId/verify/dataflow/$verificationId',
+      status: TelemetryVerificationStatus.notRun,
+    );
+  }
+
+  @override
+  Future<TelemetryVerificationHistory> listDataFlowVerifications(
+    String twinId, {
+    int limit = 25,
+  }) async {
+    store.twin(twinId);
+    if (limit < 1 || limit > 25) {
+      throw const DemoApiException(
+        'DEMO_VERIFICATION_LIMIT_INVALID',
+        'Telemetry verification history limit must be between 1 and 25.',
+      );
+    }
+    final records = _telemetryVerifications[twinId] ?? const [];
+    return TelemetryVerificationHistory(
+      schemaVersion: TelemetryVerificationHistory.supportedSchemaVersion,
+      verifications: List.unmodifiable(records.take(limit)),
+    );
+  }
+
+  @override
+  Future<TelemetryVerificationRecord> getDataFlowVerification(
+    String twinId,
+    String verificationId,
+  ) async {
+    store.twin(twinId);
+    for (final record in _telemetryVerifications[twinId] ?? const []) {
+      if (record.id == verificationId) return record;
+    }
+    throw const DemoApiException(
+      'DEMO_VERIFICATION_NOT_FOUND',
+      'Telemetry verification evidence does not exist.',
+    );
   }
 
   @override

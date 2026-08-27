@@ -597,8 +597,15 @@ void main() {
       expect(
         (await api.verifyDataFlow('demo-configured', {
           'iotDeviceId': 'meter-001',
-        }))['sse_url'],
+        })).sseUrl,
         startsWith('/demo/verification/'),
+      );
+      final verificationHistory = await api.listDataFlowVerifications(
+        'demo-configured',
+      );
+      expect(
+        verificationHistory.verifications.single.status.apiValue,
+        'not_run',
       );
       expect(
         api.getSseUrl('/demo/path', lastEventId: 4),
