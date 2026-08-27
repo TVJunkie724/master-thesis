@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 
 import '../core/result.dart';
@@ -24,6 +25,7 @@ import '../models/resolved_deployment_specification.dart';
 import '../models/resolved_twin_architecture.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
+import '../models/twin_transfer.dart';
 import '../models/user_function_extension.dart';
 import '../models/user.dart';
 import '../models/wizard_config_requests.dart';
@@ -574,6 +576,56 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
+  Future<CloudConnection> importCloudConnection(
+    CloudConnectionImportRequest request,
+  ) async {
+    await _pause();
+    final now = store.clock().toIso8601String();
+    final id = store.nextId('demo-${request.provider.apiValue}-connection');
+    final cloudScope = switch (request.provider) {
+      CloudProvider.aws => {
+        if (request.accountId != null) 'account_id': request.accountId,
+      },
+      CloudProvider.azure => {'subscription_id': request.targetScopeId},
+      CloudProvider.gcp => {'project_id': request.targetScopeId},
+    };
+    final payloadSummary = switch (request.provider) {
+      CloudProvider.aws => {
+        'region': request.region,
+        'credential_source': 'aws_csv',
+      },
+      CloudProvider.azure => {
+        'region': request.region,
+        'credential_source': 'azure_service_principal_json',
+      },
+      CloudProvider.gcp => {
+        'region': request.region,
+        'credential_source': 'gcp_service_account_json',
+      },
+    };
+    final value = <String, dynamic>{
+      'id': id,
+      'provider': request.provider.apiValue,
+      'purpose': CloudConnectionPurpose.deployment.apiValue,
+      'scope': 'user',
+      'is_default_for_pricing': false,
+      'display_name': request.displayName,
+      'auth_type': _defaultAuthType(request.provider),
+      'cloud_scope': cloudScope,
+      'payload_fingerprint': '$id-import-fingerprint',
+      'payload_summary': payloadSummary,
+      'validation_status': 'untested',
+      'validation_message': null,
+      'last_validated_at': null,
+      'last_used_at': null,
+      'created_at': now,
+      'updated_at': now,
+    };
+    store.addCloudConnection(value);
+    return CloudConnection.fromJson(value);
+  }
+
+  @override
   Future<CloudConnection> updateCloudConnection(
     String id, {
     String? displayName,
@@ -719,6 +771,105 @@ class DemoManagementApi implements ManagementApi {
       'gcp_cloud_connection_id': null,
     });
     return Twin.fromJson(twin);
+  }
+
+  @override
+  Future<Twin> duplicateTwin(
+    String twinId,
+    TwinDuplicateRequest request,
+  ) async {
+    await _pause();
+    store.twin(twinId);
+    final created = await createTwin(request.name);
+    final sourceConfig = store.twinConfig(twinId);
+    if (sourceConfig != null) {
+      store.setTwinConfig(created.id, {
+        ...sourceConfig,
+        'highest_step_reached': 0,
+        'aws_validated': false,
+        'azure_validated': false,
+        'gcp_validated': false,
+      });
+    }
+    final sourceOptimizer = store.optimizerConfig(twinId);
+    if (sourceOptimizer?['params'] is Map) {
+      store.setOptimizerConfig(created.id, {
+        'params': _copyMap(sourceOptimizer!['params'] as Map),
+      });
+    }
+    final sourceDeployer = store.deployerConfig(twinId);
+    if (sourceDeployer != null) {
+      store.setDeployerConfig(created.id, sourceDeployer);
+    }
+    return Twin.fromJson(store.twin(created.id));
+  }
+
+  @override
+  Future<Twin> importTwin(TwinImportRequest request) async {
+    await _pause();
+    final definition = _decodePortableTwinDefinition(request.bytes);
+    final created = await createTwin(request.newName);
+    final providerSettings = definition['provider_settings'];
+    store.setTwinConfig(created.id, {
+      'highest_step_reached': 0,
+      'debug_mode': definition['debug_mode'] == true,
+      if (providerSettings is Map) ...{
+        'aws_region': providerSettings['aws_region'],
+        'aws_sso_region': providerSettings['aws_sso_region'],
+        'azure_region': providerSettings['azure_region'],
+        'azure_region_iothub': providerSettings['azure_region_iothub'],
+        'azure_region_digital_twin':
+            providerSettings['azure_region_digital_twin'],
+        'gcp_project_id': providerSettings['gcp_project_id'],
+        'gcp_region': providerSettings['gcp_region'],
+      },
+      'aws_cloud_connection_id': null,
+      'azure_cloud_connection_id': null,
+      'gcp_cloud_connection_id': null,
+      'aws_validated': false,
+      'azure_validated': false,
+      'gcp_validated': false,
+    });
+    if (definition['optimizer_params'] case final Map params) {
+      store.setOptimizerConfig(created.id, {'params': _copyMap(params)});
+    }
+    if (definition['deployer'] case final Map deployer) {
+      store.setDeployerConfig(created.id, _copyMap(deployer));
+    }
+    return Twin.fromJson(store.twin(created.id));
+  }
+
+  @override
+  Future<PortableTwinDownload> exportTwin(String twinId) async {
+    await _pause();
+    final twin = store.twin(twinId);
+    final config = store.twinConfig(twinId) ?? const <String, dynamic>{};
+    final optimizer = store.optimizerConfig(twinId);
+    final definition = <String, dynamic>{
+      'schema_version': 'twin-definition.v1',
+      'source_name': twin['name'],
+      'debug_mode': config['debug_mode'] == true,
+      'provider_settings': {
+        'aws_region': config['aws_region'] ?? 'eu-central-1',
+        'aws_sso_region': config['aws_sso_region'],
+        'azure_region': config['azure_region'] ?? 'westeurope',
+        'azure_region_iothub': config['azure_region_iothub'],
+        'azure_region_digital_twin': config['azure_region_digital_twin'],
+        'gcp_project_id': config['gcp_project_id'],
+        'gcp_region': config['gcp_region'] ?? 'europe-west1',
+      },
+      'optimizer_params': optimizer?['params'],
+      'deployer': store.deployerConfig(twinId),
+    };
+    final safeName = twin['name'].toString().trim().replaceAll(
+      RegExp(r'[^A-Za-z0-9._-]+'),
+      '-',
+    );
+    return PortableTwinDownload(
+      filename: '${safeName.isEmpty ? 'twin' : safeName}.twin.zip',
+      mediaType: PortableTwinDownload.mediaTypeZip,
+      bytes: _encodePortableTwinDefinition(definition),
+    );
   }
 
   @override
@@ -2804,6 +2955,62 @@ class DemoManagementApi implements ManagementApi {
 
   static Map<String, dynamic> _copyMap(Map<dynamic, dynamic> value) {
     return Map<String, dynamic>.from(jsonDecode(jsonEncode(value)) as Map);
+  }
+}
+
+Uint8List _encodePortableTwinDefinition(Map<String, dynamic> definition) {
+  final definitionBytes = Uint8List.fromList(
+    utf8.encode(jsonEncode(definition)),
+  );
+  final digest = 'sha256:${sha256.convert(definitionBytes)}';
+  final manifestBytes = Uint8List.fromList(
+    utf8.encode(
+      jsonEncode({
+        'schema_version': 'twin2multicloud-portable.v1',
+        'files': {'twin-definition.json': digest},
+      }),
+    ),
+  );
+  final archive = Archive()
+    ..addFile(ArchiveFile.bytes('manifest.json', manifestBytes))
+    ..addFile(ArchiveFile.bytes('twin-definition.json', definitionBytes));
+  return ZipEncoder().encodeBytes(archive, modified: DateTime.utc(2026));
+}
+
+Map<String, dynamic> _decodePortableTwinDefinition(Uint8List bytes) {
+  try {
+    final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+    final names = archive.map((file) => file.name).toSet();
+    if (archive.length != 2 ||
+        !names.containsAll(const {'manifest.json', 'twin-definition.json'})) {
+      throw const FormatException('Portable Twin archive members are invalid.');
+    }
+    final manifestBytes = archive.find('manifest.json')?.readBytes();
+    final definitionBytes = archive.find('twin-definition.json')?.readBytes();
+    if (manifestBytes == null || definitionBytes == null) {
+      throw const FormatException('Portable Twin archive is incomplete.');
+    }
+    final manifestValue = jsonDecode(utf8.decode(manifestBytes));
+    final definitionValue = jsonDecode(utf8.decode(definitionBytes));
+    if (manifestValue is! Map ||
+        manifestValue['schema_version'] != 'twin2multicloud-portable.v1' ||
+        manifestValue['files'] is! Map ||
+        (manifestValue['files'] as Map)['twin-definition.json'] !=
+            'sha256:${sha256.convert(definitionBytes)}' ||
+        definitionValue is! Map ||
+        definitionValue['schema_version'] != 'twin-definition.v1' ||
+        definitionValue['source_name'] is! String ||
+        definitionValue['provider_settings'] is! Map) {
+      throw const FormatException('Portable Twin archive contract is invalid.');
+    }
+    return Map<String, dynamic>.from(definitionValue);
+  } on DemoApiException {
+    rethrow;
+  } catch (_) {
+    throw const DemoApiException(
+      'DEMO_TWIN_ARCHIVE_INVALID',
+      'Portable Twin archive contract is invalid.',
+    );
   }
 }
 

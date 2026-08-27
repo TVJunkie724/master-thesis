@@ -21,6 +21,7 @@ import '../models/resolved_deployment_specification.dart';
 import '../models/resolved_twin_architecture.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
+import '../models/twin_transfer.dart';
 import '../models/user_function_extension.dart';
 import '../models/user.dart';
 import '../models/wizard_config_requests.dart';
@@ -210,6 +211,25 @@ class ApiService implements ManagementApi {
       data: request.toJson(),
     );
     return CloudConnection.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<CloudConnection> importCloudConnection(
+    CloudConnectionImportRequest request,
+  ) async {
+    final response = await _dio.post(
+      '/cloud-connections/import',
+      data: FormData.fromMap({
+        'metadata': request.metadataJson,
+        'file': MultipartFile.fromBytes(
+          request.bytes,
+          filename: request.filename,
+        ),
+      }),
+    );
+    return CloudConnection.fromJson(
+      _contractMap(response.data, 'cloud connection import'),
+    );
   }
 
   @override
@@ -456,6 +476,62 @@ class ApiService implements ManagementApi {
   Future<Twin> createTwin(String name) async {
     final response = await _dio.post('/twins/', data: {'name': name});
     return Twin.fromJson(_contractMap(response.data, 'twin'));
+  }
+
+  @override
+  Future<Twin> duplicateTwin(
+    String twinId,
+    TwinDuplicateRequest request,
+  ) async {
+    final id = _managementPathSegment(twinId, 'Twin ID');
+    final response = await _dio.post(
+      '/twins/$id/duplicate',
+      data: request.toJson(),
+    );
+    return Twin.fromJson(_contractMap(response.data, 'duplicated twin'));
+  }
+
+  @override
+  Future<Twin> importTwin(TwinImportRequest request) async {
+    final response = await _dio.post(
+      '/twins/import',
+      data: FormData.fromMap({
+        'new_name': request.newName,
+        'archive': MultipartFile.fromBytes(
+          request.bytes,
+          filename: request.filename,
+        ),
+      }),
+    );
+    return Twin.fromJson(_contractMap(response.data, 'imported twin'));
+  }
+
+  @override
+  Future<PortableTwinDownload> exportTwin(String twinId) async {
+    final id = _managementPathSegment(twinId, 'Twin ID');
+    final response = await _dio.get(
+      '/twins/$id/export',
+      options: Options(
+        responseType: ResponseType.bytes,
+        receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+    final bytes = switch (response.data) {
+      Uint8List value => value,
+      List<int> value => Uint8List.fromList(value),
+      _ => throw const FormatException(
+        'Invalid portable Twin contract: response must be binary.',
+      ),
+    };
+    return PortableTwinDownload(
+      filename: _attachmentFilename(
+        response.headers.value('content-disposition'),
+      ),
+      mediaType:
+          response.headers.value(Headers.contentTypeHeader) ??
+          PortableTwinDownload.mediaTypeZip,
+      bytes: bytes,
+    );
   }
 
   @override

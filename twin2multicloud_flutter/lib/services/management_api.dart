@@ -21,6 +21,7 @@ import '../models/resolved_deployment_specification.dart';
 import '../models/resolved_twin_architecture.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
+import '../models/twin_transfer.dart';
 import '../models/user_function_extension.dart';
 import '../models/wizard_config_requests.dart';
 
@@ -61,6 +62,10 @@ abstract interface class CloudAccessApi {
     CloudConnectionCreateRequest request,
   );
 
+  Future<CloudConnection> importCloudConnection(
+    CloudConnectionImportRequest request,
+  );
+
   Future<CloudConnection> updateCloudConnection(
     String id, {
     String? displayName,
@@ -81,6 +86,12 @@ abstract interface class TwinApi {
   Future<Twin> getTwin(String twinId);
 
   Future<Twin> createTwin(String name);
+
+  Future<Twin> duplicateTwin(String twinId, TwinDuplicateRequest request);
+
+  Future<Twin> importTwin(TwinImportRequest request);
+
+  Future<PortableTwinDownload> exportTwin(String twinId);
 
   Future<Twin> updateTwin(String twinId, {String? name, String? state});
 

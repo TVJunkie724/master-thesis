@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 
@@ -121,6 +124,57 @@ void main() {
       expect(result.valid, false);
       expect(result.optimizer?['valid'], true);
       expect(result.deployer?['message'], 'missing permission');
+    });
+  });
+
+  group('CloudConnectionImportRequest', () {
+    test('emits deployment-only Azure metadata without file contents', () {
+      final request = CloudConnectionImportRequest(
+        provider: CloudProvider.azure,
+        displayName: 'Azure thesis',
+        region: 'westeurope',
+        targetScopeId: 'subscription-1',
+        regionIotHub: 'westeurope',
+        regionDigitalTwin: 'westeurope',
+        filename: 'service-principal.json',
+        bytes: Uint8List.fromList(utf8.encode('{"clientSecret":"hidden"}')),
+      );
+
+      expect(jsonDecode(request.metadataJson), {
+        'provider': 'azure',
+        'purpose': 'deployment',
+        'display_name': 'Azure thesis',
+        'region': 'westeurope',
+        'target_scope_id': 'subscription-1',
+        'region_iothub': 'westeurope',
+        'region_digital_twin': 'westeurope',
+      });
+      expect(request.toString(), isNot(contains('clientSecret')));
+    });
+
+    test('rejects provider-mismatched metadata and file extensions', () {
+      expect(
+        () => CloudConnectionImportRequest(
+          provider: CloudProvider.aws,
+          displayName: 'AWS thesis',
+          region: 'eu-central-1',
+          targetScopeId: 'foreign',
+          filename: 'credentials.csv',
+          bytes: Uint8List.fromList([1]),
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => CloudConnectionImportRequest(
+          provider: CloudProvider.gcp,
+          displayName: 'GCP thesis',
+          region: 'europe-west1',
+          targetScopeId: 'project-1',
+          filename: 'credentials.csv',
+          bytes: Uint8List.fromList([1]),
+        ),
+        throwsArgumentError,
+      );
     });
   });
 }

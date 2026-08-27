@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:equatable/equatable.dart';
 
 enum CloudProvider {
@@ -186,6 +189,102 @@ class CloudConnectionCreateRequest extends Equatable {
   ];
 }
 
+class CloudConnectionImportRequest extends Equatable {
+  static const maxFileBytes = 128 * 1024;
+
+  final CloudProvider provider;
+  final String displayName;
+  final String region;
+  final String? targetScopeId;
+  final String? accountId;
+  final String? ssoRegion;
+  final String? regionIotHub;
+  final String? regionDigitalTwin;
+  final String filename;
+  final Uint8List _bytes;
+
+  CloudConnectionImportRequest({
+    required this.provider,
+    required String displayName,
+    required String region,
+    String? targetScopeId,
+    String? accountId,
+    String? ssoRegion,
+    String? regionIotHub,
+    String? regionDigitalTwin,
+    required String filename,
+    required Uint8List bytes,
+  }) : displayName = _requiredBounded(displayName, 'displayName', 120),
+       region = _requiredBounded(region, 'region', 80),
+       targetScopeId = _optionalBounded(targetScopeId, 'targetScopeId', 256),
+       accountId = _optionalBounded(accountId, 'accountId', 12),
+       ssoRegion = _optionalBounded(ssoRegion, 'ssoRegion', 80),
+       regionIotHub = _optionalBounded(regionIotHub, 'regionIotHub', 80),
+       regionDigitalTwin = _optionalBounded(
+         regionDigitalTwin,
+         'regionDigitalTwin',
+         80,
+       ),
+       filename = _importFilename(provider, filename),
+       _bytes = _importBytes(bytes) {
+    _validateProviderMetadata();
+  }
+
+  Uint8List get bytes => Uint8List.fromList(_bytes);
+
+  String get metadataJson => jsonEncode({
+    'provider': provider.apiValue,
+    'purpose': CloudConnectionPurpose.deployment.apiValue,
+    'display_name': displayName,
+    'region': region,
+    if (targetScopeId != null) 'target_scope_id': targetScopeId,
+    if (accountId != null) 'account_id': accountId,
+    if (ssoRegion != null) 'sso_region': ssoRegion,
+    if (regionIotHub != null) 'region_iothub': regionIotHub,
+    if (regionDigitalTwin != null) 'region_digital_twin': regionDigitalTwin,
+  });
+
+  void _validateProviderMetadata() {
+    if ({CloudProvider.azure, CloudProvider.gcp}.contains(provider) &&
+        targetScopeId == null) {
+      throw ArgumentError(
+        'targetScopeId is required for Azure and GCP imports.',
+      );
+    }
+    if (provider == CloudProvider.aws) {
+      if (accountId != null && !RegExp(r'^\d{12}$').hasMatch(accountId!)) {
+        throw ArgumentError('accountId must be a twelve-digit AWS account ID.');
+      }
+      if (targetScopeId != null ||
+          regionIotHub != null ||
+          regionDigitalTwin != null) {
+        throw ArgumentError('AWS import metadata contains foreign fields.');
+      }
+      return;
+    }
+    if (accountId != null || ssoRegion != null) {
+      throw ArgumentError('AWS metadata is valid only for AWS imports.');
+    }
+    if (provider != CloudProvider.azure &&
+        (regionIotHub != null || regionDigitalTwin != null)) {
+      throw ArgumentError('Azure region overrides require Azure.');
+    }
+  }
+
+  @override
+  List<Object?> get props => [
+    provider,
+    displayName,
+    region,
+    targetScopeId,
+    accountId,
+    ssoRegion,
+    regionIotHub,
+    regionDigitalTwin,
+    filename,
+  ];
+}
+
 class CloudConnectionValidationResult extends Equatable {
   final String id;
   final CloudProvider provider;
@@ -246,4 +345,43 @@ Map<String, dynamic>? _nullableMapFromJson(dynamic value) {
 DateTime? _dateTimeOrNull(dynamic value) {
   if (value == null) return null;
   return DateTime.tryParse(value.toString());
+}
+
+String _requiredBounded(String value, String field, int maximum) {
+  final normalized = value.trim();
+  if (normalized.isEmpty || normalized.length > maximum) {
+    throw ArgumentError(
+      '$field must contain between 1 and $maximum characters.',
+    );
+  }
+  return normalized;
+}
+
+String? _optionalBounded(String? value, String field, int maximum) {
+  if (value == null) return null;
+  return _requiredBounded(value, field, maximum);
+}
+
+String _importFilename(CloudProvider provider, String value) {
+  final normalized = value.trim();
+  final expected = provider == CloudProvider.aws ? '.csv' : '.json';
+  final safe = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
+  if (normalized.contains('..') ||
+      !safe.hasMatch(normalized) ||
+      !normalized.toLowerCase().endsWith(expected)) {
+    throw ArgumentError(
+      '${provider.label} credential import requires a safe $expected filename.',
+    );
+  }
+  return normalized;
+}
+
+Uint8List _importBytes(Uint8List value) {
+  if (value.isEmpty ||
+      value.length > CloudConnectionImportRequest.maxFileBytes) {
+    throw ArgumentError(
+      'Credential file size is outside the supported boundary.',
+    );
+  }
+  return Uint8List.fromList(value);
 }

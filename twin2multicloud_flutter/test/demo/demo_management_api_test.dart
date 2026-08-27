@@ -9,6 +9,7 @@ import 'package:twin2multicloud_flutter/models/deployment_access.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/pricing_refresh_run.dart';
 import 'package:twin2multicloud_flutter/models/resolved_deployment_specification.dart';
+import 'package:twin2multicloud_flutter/models/twin_transfer.dart';
 import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
 
 void main() {
@@ -116,6 +117,26 @@ void main() {
       expect(inventory.pricingFor('azure')?.scope, 'public');
       expect(inventory.providers['gcp']?.deployment, hasLength(1));
     });
+
+    test('imports one redacted deployment connection', () async {
+      final created = await api.importCloudConnection(
+        CloudConnectionImportRequest(
+          provider: CloudProvider.aws,
+          displayName: 'Imported AWS admin',
+          region: 'eu-central-1',
+          accountId: '999999999999',
+          filename: 'credentials.csv',
+          bytes: Uint8List.fromList([1, 2, 3]),
+        ),
+      );
+
+      expect(created.purpose, CloudConnectionPurpose.deployment);
+      expect(created.payloadSummary['credential_source'], 'aws_csv');
+      expect(
+        store.cloudConnection(created.id).toString(),
+        isNot(contains('1, 2, 3')),
+      );
+    });
   });
 
   group('twin lifecycle and configuration', () {
@@ -167,6 +188,36 @@ void main() {
           'cloud_connections': {'aws': 'demo-aws-pricing'},
         }),
         throwsDemoCode('DEMO_CONNECTION_BINDING_INVALID'),
+      );
+    });
+
+    test('duplicates and round-trips a portable Twin archive', () async {
+      final duplicate = await api.duplicateTwin(
+        'demo-configured',
+        TwinDuplicateRequest(name: 'Configured copy'),
+      );
+      final duplicateConfig = await api.getTwinConfig(duplicate.id);
+      expect(duplicate.state, 'draft');
+      expect(duplicateConfig.highestStepReached, 0);
+      expect(
+        duplicateConfig.provider(CloudProvider.aws).cloudConnectionId,
+        'demo-aws-deployment',
+      );
+
+      final archive = await api.exportTwin('demo-configured');
+      final imported = await api.importTwin(
+        TwinImportRequest(
+          newName: 'Portable import',
+          filename: archive.filename,
+          bytes: archive.bytes,
+        ),
+      );
+      final importedConfig = await api.getTwinConfig(imported.id);
+      expect(imported.state, 'draft');
+      expect(importedConfig.highestStepReached, 0);
+      expect(
+        importedConfig.provider(CloudProvider.aws).cloudConnectionId,
+        isNull,
       );
     });
   });
