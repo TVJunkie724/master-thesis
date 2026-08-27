@@ -10,7 +10,6 @@ import '../models/calc_params.dart';
 import '../models/authentication.dart';
 import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
-import '../models/dashboard_stats.dart';
 import '../models/deployment_access.dart';
 import '../models/deployment_operations.dart';
 import '../models/deployment_readiness.dart';
@@ -703,25 +702,6 @@ class DemoManagementApi implements ManagementApi {
   Future<List<Twin>> getTwins() async {
     await _pause();
     return store.twins.map(Twin.fromJson).toList(growable: false);
-  }
-
-  @override
-  Future<DashboardStats> getDashboardStats() async {
-    await _pause();
-    final twins = store.twins.map(Twin.fromJson).toList(growable: false);
-    var monthlyCost = 0.0;
-    for (final twin in twins.where((item) => item.isDeployed)) {
-      final result = store.optimizerConfig(twin.id)?['result'];
-      if (result is Map && result['totalCost'] is num) {
-        monthlyCost += (result['totalCost'] as num).toDouble();
-      }
-    }
-    return DashboardStats(
-      deployedCount: twins.where((item) => item.isDeployed).length,
-      draftCount: twins.where((item) => item.isDraft).length,
-      totalTwins: twins.length,
-      estimatedMonthlyCost: monthlyCost,
-    );
   }
 
   @override

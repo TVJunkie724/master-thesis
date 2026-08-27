@@ -7,7 +7,6 @@ import '../models/calc_params.dart';
 import '../models/authentication.dart';
 import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
-import '../models/dashboard_stats.dart';
 import '../models/deployment_access.dart';
 import '../models/deployment_operations.dart';
 import '../models/deployment_readiness.dart';
@@ -448,14 +447,6 @@ class ApiService implements ManagementApi {
       data.indexed.map(
         (entry) => Twin.fromJson(_contractMap(entry.$2, 'twins[${entry.$1}]')),
       ),
-    );
-  }
-
-  @override
-  Future<DashboardStats> getDashboardStats() async {
-    final response = await _dio.get('/dashboard/stats');
-    return DashboardStats.fromJson(
-      Map<String, dynamic>.from(response.data as Map),
     );
   }
 

@@ -144,7 +144,7 @@ void main() {
       final created = await api.createTwin('Session Twin');
       final id = created.id;
 
-      expect((await api.getDashboardStats()).totalTwins, 4);
+      expect(await api.getTwins(), hasLength(4));
       expect(
         (await api.updateTwin(id, name: 'Renamed Twin')).name,
         'Renamed Twin',

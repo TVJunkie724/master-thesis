@@ -7,7 +7,6 @@ import '../models/user.dart';
 import '../models/calc_params.dart';
 import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
-import '../models/dashboard_stats.dart';
 import '../models/deployment_operations.dart';
 import '../models/deployment_access.dart';
 import '../models/deployment_readiness.dart';
@@ -81,8 +80,6 @@ abstract interface class CloudAccessApi {
 
 abstract interface class TwinApi {
   Future<List<Twin>> getTwins();
-
-  Future<DashboardStats> getDashboardStats();
 
   Future<Twin> getTwin(String twinId);
 

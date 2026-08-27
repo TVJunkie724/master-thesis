@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,12 +6,13 @@ import 'package:intl/intl.dart';
 import '../providers/twins_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/auth_provider.dart';
+import '../models/twin_transfer.dart';
+import '../theme/spacing.dart';
 import '../utils/api_error_handler.dart';
+import '../utils/file_download_utils.dart';
 import '../utils/twin_state_utils.dart';
-import '../widgets/stat_card.dart';
 import '../widgets/branded_app_bar.dart';
 import '../widgets/selectable_scaffold.dart';
-import '../widgets/pricing/pricing_health_row.dart';
 import '../models/twin.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -50,11 +52,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return twins.where((t) => t.state == _selectedStateFilter).toList();
   }
 
-  /// Invalidate all dashboard-related providers to force a fresh fetch.
+  /// Invalidate the research inventory to force a fresh fetch.
   void _refreshDashboard(WidgetRef ref) {
     ref.invalidate(twinsProvider);
-    ref.invalidate(dashboardStatsProvider);
-    ref.invalidate(pricingHealthProvider);
   }
 
   @override
@@ -132,21 +132,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       body: SingleChildScrollView(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1200),
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.maxContentWidthLarge,
+            ),
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(AppSpacing.lg),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Stat cards row
-                  _buildStatsRow(ref),
-                  const SizedBox(height: 16),
-                  _buildPricingHealthRow(context, ref),
-                  const SizedBox(height: 24),
-                  // Twins section - wrapped in Card
                   Container(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(
+                        AppSpacing.borderRadiusLg,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(
@@ -155,7 +153,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 ? 0.2
                                 : 0.06,
                           ),
-                          blurRadius: 12,
+                          blurRadius: AppSpacing.borderRadiusLg,
                           spreadRadius: 1,
                           offset: const Offset(0, 0),
                         ),
@@ -164,7 +162,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     child: Card(
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.borderRadiusLg,
+                        ),
                         side: BorderSide(
                           color: Theme.of(context).brightness == Brightness.dark
                               ? Colors.white.withValues(alpha: 0.1)
@@ -173,33 +173,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(AppSpacing.lg),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             // Twins list header
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'My Digital Twins',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.headlineSmall,
-                                ),
-                                FilledButton.icon(
-                                  onPressed: () => context.go('/wizard'),
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('New Twin'),
-                                ),
-                              ],
+                            _ResearchInventoryHeader(
+                              isBusy: ref.watch(twinCommandProvider).isLoading,
+                              onCreate: () => context.go('/wizard'),
+                              onImport: () => _handleImport(context, ref),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: AppSpacing.md),
 
                             // State filter chips
                             _buildStateFilterChips(),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppSpacing.md),
 
                             // Twins table
                             twinsAsync.when(
@@ -270,6 +259,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ('draft', 'Draft'),
       ('configured', 'Configured'),
       ('deployed', 'Deployed'),
+      ('destroyed', 'Destroyed'),
       ('error', 'Error'),
     ];
 
@@ -298,76 +288,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           side: BorderSide(color: color.withAlpha(100)),
         );
       }).toList(),
-    );
-  }
-
-  Widget _buildStatsRow(WidgetRef ref) {
-    final statsAsync = ref.watch(dashboardStatsProvider);
-
-    return statsAsync.when(
-      data: (stats) {
-        final deployed = stats.deployedCount;
-        final draft = stats.draftCount;
-        final total = stats.totalTwins;
-        final cost = stats.estimatedMonthlyCost;
-
-        // Format cost
-        final costStr = cost > 0 ? '\$${cost.toStringAsFixed(0)}/mo' : '—';
-
-        return Row(
-          children: [
-            StatCard(
-              title: 'Deployed',
-              value: deployed.toString(),
-              icon: Icons.cloud_done,
-              color: Colors.green,
-            ),
-            StatCard(
-              title: 'Est. Cost',
-              value: costStr,
-              icon: Icons.attach_money,
-              color: Colors.amber,
-              tooltip:
-                  'Static estimate based on optimizer calculations.\nNot live cloud billing data.',
-            ),
-            StatCard(
-              title: 'Total Twins',
-              value: total.toString(),
-              icon: Icons.cloud_queue,
-            ),
-            StatCard(
-              title: 'Draft',
-              value: draft.toString(),
-              icon: Icons.edit_note,
-              color: Colors.orange,
-            ),
-          ],
-        );
-      },
-      loading: () => const Row(
-        children: [
-          StatCard(title: 'Deployed', value: '—', icon: Icons.cloud_done),
-          StatCard(title: 'Est. Cost', value: '—', icon: Icons.attach_money),
-          StatCard(title: 'Total Twins', value: '—', icon: Icons.cloud_queue),
-          StatCard(title: 'Draft', value: '—', icon: Icons.edit_note),
-        ],
-      ),
-      error: (_, _) => const Row(
-        children: [
-          StatCard(title: 'Deployed', value: '?', icon: Icons.cloud_done),
-          StatCard(title: 'Est. Cost', value: '?', icon: Icons.attach_money),
-          StatCard(title: 'Total Twins', value: '?', icon: Icons.cloud_queue),
-          StatCard(title: 'Draft', value: '?', icon: Icons.edit_note),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPricingHealthRow(BuildContext context, WidgetRef ref) {
-    return PricingHealthRow(
-      pricingHealth: ref.watch(pricingHealthProvider),
-      onOpenReview: () => context.go('/pricing-review'),
-      onRetry: () => ref.invalidate(pricingHealthProvider),
     );
   }
 
@@ -578,24 +498,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             children: [
               if (twin.state != 'draft')
                 IconButton(
-                  icon: const Icon(Icons.visibility, size: 20),
-                  onPressed: () => context.go('/twins/${twin.id}/overview'),
-                  tooltip: 'View',
+                  icon: const Icon(Icons.open_in_new, size: 20),
+                  onPressed: () => _openTwin(context, twin),
+                  tooltip: 'Open',
+                ),
+              if (twin.state == 'draft')
+                IconButton(
+                  icon: const Icon(Icons.open_in_new, size: 20),
+                  onPressed: () => _openTwin(context, twin),
+                  tooltip: 'Open',
                 ),
               IconButton(
-                icon: Icon(
-                  Icons.edit,
-                  size: 20,
-                  color: TwinStateUtils.canEdit(twin.state)
-                      ? null
-                      : Colors.grey.shade400,
-                ),
-                onPressed: TwinStateUtils.canEdit(twin.state)
-                    ? () => context.go('/wizard/${twin.id}')
-                    : null,
-                tooltip: TwinStateUtils.canEdit(twin.state)
-                    ? 'Edit'
-                    : 'Cannot edit deployed twin',
+                icon: const Icon(Icons.copy_outlined, size: 20),
+                onPressed: ref.watch(twinCommandProvider).isLoading
+                    ? null
+                    : () => _handleDuplicate(context, ref, twin),
+                tooltip: 'Duplicate',
+              ),
+              IconButton(
+                icon: const Icon(Icons.download_outlined, size: 20),
+                onPressed: ref.watch(twinCommandProvider).isLoading
+                    ? null
+                    : () => _handleExport(context, ref, twin),
+                tooltip: 'Export',
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 20),
@@ -609,6 +534,153 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _openTwin(BuildContext context, Twin twin) {
+    context.go(
+      twin.state == 'draft'
+          ? '/wizard/${twin.id}'
+          : '/twins/${twin.id}/overview',
+    );
+  }
+
+  Future<void> _handleDuplicate(
+    BuildContext context,
+    WidgetRef ref,
+    Twin twin,
+  ) async {
+    final name = await _requestTwinName(
+      context,
+      title: 'Duplicate Twin',
+      actionLabel: 'Duplicate',
+      initialName: '${twin.name} copy',
+    );
+    if (name == null || !context.mounted) return;
+
+    try {
+      final duplicate = await ref
+          .read(twinCommandProvider.notifier)
+          .duplicateTwin(twin.id, TwinDuplicateRequest(name: name));
+      if (duplicate != null && context.mounted) {
+        context.go('/wizard/${duplicate.id}');
+      }
+    } catch (error) {
+      if (context.mounted) _showError(context, 'Duplicate failed', error);
+    }
+  }
+
+  Future<void> _handleImport(BuildContext context, WidgetRef ref) async {
+    final name = await _requestTwinName(
+      context,
+      title: 'Import portable Twin',
+      actionLabel: 'Select archive',
+    );
+    if (name == null || !context.mounted) return;
+
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['zip'],
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty || !context.mounted) return;
+      final file = result.files.single;
+      final bytes = file.bytes;
+      if (bytes == null) {
+        throw const FormatException('The selected archive could not be read.');
+      }
+      final imported = await ref
+          .read(twinCommandProvider.notifier)
+          .importTwin(
+            TwinImportRequest(newName: name, filename: file.name, bytes: bytes),
+          );
+      if (imported != null && context.mounted) {
+        context.go('/wizard/${imported.id}');
+      }
+    } catch (error) {
+      if (context.mounted) _showError(context, 'Import failed', error);
+    }
+  }
+
+  Future<void> _handleExport(
+    BuildContext context,
+    WidgetRef ref,
+    Twin twin,
+  ) async {
+    try {
+      final download = await ref
+          .read(twinCommandProvider.notifier)
+          .exportTwin(twin.id);
+      if (download == null) return;
+      final result = await saveBinaryFile(
+        bytes: download.bytes,
+        suggestedName: download.filename,
+        mimeType: download.mediaType,
+      );
+      if (!context.mounted || result.cancelled) return;
+      if (result.success) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(result.message!)));
+      } else if (result.error != null) {
+        _showError(context, 'Export failed', result.error!);
+      }
+    } catch (error) {
+      if (context.mounted) _showError(context, 'Export failed', error);
+    }
+  }
+
+  Future<String?> _requestTwinName(
+    BuildContext context, {
+    required String title,
+    required String actionLabel,
+    String initialName = '',
+  }) async {
+    final controller = TextEditingController(text: initialName);
+    final formKey = GlobalKey<FormState>();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            maxLength: 120,
+            decoration: const InputDecoration(labelText: 'Twin name'),
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'Enter a Twin name.'
+                : null,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() == true) {
+                Navigator.pop(dialogContext, controller.text.trim());
+              }
+            },
+            child: Text(actionLabel),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result;
+  }
+
+  void _showError(BuildContext context, String prefix, Object error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$prefix: ${ApiErrorHandler.extractMessage(error)}'),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      ),
     );
   }
 
@@ -642,5 +714,63 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   String _formatDate(DateTime? date) {
     if (date == null) return '—';
     return DateFormat('MMM d, yyyy').format(date);
+  }
+}
+
+class _ResearchInventoryHeader extends StatelessWidget {
+  final bool isBusy;
+  final VoidCallback onCreate;
+  final VoidCallback onImport;
+
+  const _ResearchInventoryHeader({
+    required this.isBusy,
+    required this.onCreate,
+    required this.onImport,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final title = Text(
+      'Digital Twin research inventory',
+      style: Theme.of(context).textTheme.headlineSmall,
+    );
+    final actions = Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      children: [
+        OutlinedButton.icon(
+          onPressed: isBusy ? null : onImport,
+          icon: const Icon(Icons.upload_file_outlined),
+          label: const Text('Import Twin'),
+        ),
+        FilledButton.icon(
+          onPressed: isBusy ? null : onCreate,
+          icon: const Icon(Icons.add),
+          label: const Text('New Twin'),
+        ),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth <
+            AppSpacing.resolvedDeploymentWideBreakpoint) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              title,
+              const SizedBox(height: AppSpacing.sm),
+              actions,
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: title),
+            const SizedBox(width: AppSpacing.md),
+            actions,
+          ],
+        );
+      },
+    );
   }
 }
