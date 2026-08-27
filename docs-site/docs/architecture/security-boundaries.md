@@ -1,62 +1,33 @@
-# Security And Trust Boundaries
+# Security and trust boundaries
 
-## Credential Categories
+Twin2MultiCloud is a single-user research PoC. It does not claim production
+authentication, role management, multi-tenancy or a complete provider
+credential lifecycle.
 
-| Category | Lifetime | Storage | Purpose |
-|---|---|---|---|
-| Management API JWT key | long-lived runtime secret | read-only Docker secret | sign application access tokens |
-| Management API encryption key | long-lived runtime secret | read-only Docker secret | encrypt CloudConnection payloads |
-| OAuth/SAML provider secret/key | long-lived runtime secret | deployment secret/config boundary | authenticate the Management API to an external IdP |
-| login state/poll verifier | one short transaction | database digest; opaque value held by browser/client | correlate and consume an external login once |
-| application access token | short-lived session | Flutter process memory plus revocable DB session ID | authorize Management API calls |
-| PoC provider administrator credential | reusable for the supervised experiment | encrypted CloudConnection payload | validate pricing access and deploy a twin in an isolated thesis environment |
-| pricing CloudConnection | reusable user default | encrypted database payload | refresh provider pricing |
-| local credential overlay | development compatibility | ignored read-only files | supervised checks and sample seeding |
+## Secret classes
 
-Runtime signing/encryption keys never grant cloud access. Cloud credentials are never
-valid substitutes for application runtime secrets.
+| Secret | Owner | Runtime use |
+|---|---|---|
+| Management signing/encryption keys | local operator | local session and encrypted CloudConnection storage |
+| provider deployment administrator credential | operator | identity probe, graph readiness, confirmed preparation and deployment |
+| Twin-scoped runtime identity | deployed infrastructure | only the graph edge or component that requires it |
+| service-local Viewer secret, when applicable | deployed visualization service | one-time access handoff, never deployment authority |
 
-## Implemented Controls
+Cloud credential values are write-only. APIs return IDs, labels, provider
+account metadata and validation state, never the stored secret. Secrets must be
+absent from logs, SSE events, archives, errors, Terraform evidence and research
+artifacts.
 
-- CloudConnections are owner-scoped and encrypted with Fernet-compatible key material.
-- API responses expose metadata, not decrypted payloads.
-- provider credentials enter only through write-only CloudConnection requests;
-  responses, logs, traces, metrics, and Flutter state exclude secret values;
-- secret redaction is applied to downstream validation messages and logs;
-- bound connections cannot be silently deleted into dangling references;
-- credential operations are rate limited by operation class and authenticated user;
-- production requires shared Redis-compatible limiter storage and fails closed on outage;
-- credential security events are append-only, owner-scoped, and exclude secret values;
-- production transport enforces HTTPS as reported only by trusted proxy networks;
-- production CORS accepts only explicit HTTPS origins;
-- upload/archive boundaries enforce limits, traversal protection, and secret-safe file listing;
-- operation workspaces reject symlinks and synchronize only allowlisted outputs.
-- external login transactions persist only digests for browser state and poll
-  verifiers; Google PKCE verifiers are encrypted at rest;
-- JWT issuer/audience/time claims are validated and every token is backed by a
-  revocable server-side session;
-- provider subjects, not email addresses, are identity keys and implicit account
-  linking is forbidden;
-- authentication endpoints have their own fail-closed distributed limiter and
-  secret-free audit events.
+## Mutation boundary
 
-## Authentication Status
+Readiness is non-mutating. Supported account preparation is graph-derived,
+digest-bound, idempotent and requires explicit confirmation. Billing, quota,
+organization policy, tenant consent and provider-side credential revocation
+remain manual operator responsibilities.
 
-Development authentication is an explicit non-production capability controlled by
-`DEV_AUTH_ENABLED` and `DEV_AUTH_TOKEN`; it is not inferred from generic debug mode.
+Deploy and Destroy are durable, idempotent operations. A reconnect resumes
+recorded progress rather than issuing another provider command. Each live run
+requires separate supervision, a cost boundary and cleanup evidence.
 
-Google OAuth and UIBK SAML share a durable browser-transaction and session-exchange
-boundary. The UIBK production path is **externally gated** by institutional SAML
-registration, metadata, certificates, and approved callback values. The API exposes
-that fact through provider capabilities; production never falls back to development
-authentication.
-
-## Known Operational Limits
-
-- `ENCRYPTION_KEY` rotation requires an explicit transactional re-encryption process;
-- SQLite is suitable for the local single-node deployment but not a horizontal multi-replica database;
-- final provider least-privilege claims require supervised live-cloud evidence;
-- live-cloud E2E tests can create cost and are never part of the safe default suite.
-
-See [Cloud Setup](../cloud-setup/index.md) and
-[Known Limitations and Verification Status](../runtime/known-limitations.md).
+The repository document `docs/plans/2026-08-26_poc_credentials.md` defines the
+detailed provider-specific boundary.

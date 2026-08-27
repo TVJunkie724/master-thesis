@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This note documents the planned dataflow for evidence-backed multi-cloud cost
+This note documents the retained dataflow for evidence-backed multi-cloud cost
 calculation in Twin2MultiCloud. It is intended as thesis input and architecture
 reference, not as a low-level implementation plan.
 
@@ -22,7 +22,7 @@ Business Intent
 Workload Contract
         |
         v
-Optimization Profile
+Fixed Cost Runtime
         |
         v
 Validated Optimization Bundle

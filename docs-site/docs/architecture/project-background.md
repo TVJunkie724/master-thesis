@@ -1,62 +1,22 @@
-# Project Background
+# Project background
 
-Twin2MultiCloud combines and extends earlier Digital Twin research and bachelor-project artifacts into one integrated platform.
+Twin2MultiCloud integrates two predecessor research artifacts: a layer-based
+cloud-cost model and a cloud deployment implementation. The thesis contribution
+is the method that makes their assumptions explicit and connects typed intent,
+functional admissibility, cost evidence, deployment and verification across
+AWS, Azure and Google Cloud.
 
-## Origins
+The current PoC adds a Management API and Flutter workflow, a standalone
+Six-layer Eventing contract, frozen pricing evidence, deterministic deployment
+resolution and a supervised evaluation design. It does not claim that the
+predecessor systems or the resulting prototype are production-ready.
 
-The project is based on two important inputs:
+Five-layer v1 is retained only as an offline comparison baseline. The evaluated
+runtime uses `six-layer-eventing@1` because Eventing has independent placement,
+delivery behavior, trust, verification and cost consequences that must be
+observable in the research evidence.
 
-- **Twin2Clouds / EDTconf 2025 paper artifact**: the original cost-modeling tool and formulas from [Twin2Clouds: Cost-Aware Digital Twin Engineering and Deployment Across Federated Clouds](../references/EDT_25__CloudDT_engineering.pdf).
-- **Cloud Deployer bachelor project**: the deployment-oriented codebase for provisioning Digital Twin infrastructure across cloud providers.
-
-The current platform adds the missing orchestration layer between these worlds: a
-Management API and Flutter UI that turn cost optimization and infrastructure
-deployment into one workflow.
-
-## Original Optimizer
-
-The original optimizer was a client-side web application for comparing Digital Twin costs across cloud providers.
-
-Important differences to the current platform:
-
-- the original optimizer was browser-only,
-- it had no Management API, user model, deployment state, or deployment integration,
-- it used static/local pricing data in early versions,
-- it focused on cost calculation rather than lifecycle management,
-- its layer numbering differed from the current unified platform in places.
-
-The current `2-twin2clouds` service keeps the optimizer role but moves it behind an API and connects it to the Management API.
-
-## Original Deployer
-
-The Deployer started as a cloud-infrastructure project focused on provisioning provider resources and user functions.
-
-Important differences to the current platform:
-
-- the current Deployer is treated as the execution engine, not the owner of user lifecycle state,
-- Terraform-first deployment is the canonical path,
-- provider-specific implementation is behind `src/providers/*`,
-- the Management API owns user/twin state and calls the Deployer through service contracts,
-- deployment templates and runtime upload folders are being separated.
-
-## Current Integrated Platform
-
-The integrated target workflow is:
-
-```text
-Flutter UI
-  -> Management API
-    -> Twin2Clouds Optimizer
-    -> Cloud Deployer
-```
-
-The integrated system connects cost modeling, user-facing configuration, persistent
-twin lifecycle state, and executable multi-cloud infrastructure deployment.
-
-## Documentation Goal
-
-This documentation supports users, operators, and developers with setup, workflows,
-service boundaries, cloud configuration, API contracts, implementation details, and
-the technical evolution from the source projects. Research analysis and thesis
-synthesis are maintained separately under `docs/research/` and
-`twin2multicloud-latex/`.
+Primary research sources are stored under `docs/research/`; the EDTconf paper
+artifact and predecessor references are listed under References. Historical
+implementation evolution remains available through Git rather than in the
+active user documentation.

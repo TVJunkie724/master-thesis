@@ -52,7 +52,6 @@ FORBIDDEN_PATH_PATTERNS = {
 LEGACY_BACKLOG_FILES = [
     "TODOS.md",
     "integration_todo.md",
-    "docs/future-work.md",
     "2-twin2clouds/TODOs.md",
     "3-cloud-deployer/TODOs.md",
     "twin2multicloud_backend/docs/TODO_infrastructure_deployment.md",
@@ -68,6 +67,11 @@ SERVICE_HTML_DOC_PATTERNS = [
     "2-twin2clouds/docs/*.html",
     "3-cloud-deployer/docs/*.html",
 ]
+
+ALLOWED_SERVICE_HTML_DOCS = {
+    "2-twin2clouds/docs/docs-overview.html",
+    "2-twin2clouds/docs/docs-formulas.html",
+}
 
 
 def rel(path: Path) -> str:
@@ -130,14 +134,16 @@ def scan_service_html_docs() -> list[Finding]:
     for pattern in SERVICE_HTML_DOC_PATTERNS:
         for relative in paths:
             if matches(relative, pattern):
+                if relative in ALLOWED_SERVICE_HTML_DOCS:
+                    continue
                 findings.append(
                     Finding(
                         severity="warning",
                         category="service-html-doc",
                         path=relative,
                         message=(
-                            "Service-local HTML documentation should be migrated "
-                            "or archived after docs-site becomes canonical."
+                            "Superseded service-local HTML documentation remains "
+                            "outside the canonical docs-site."
                         ),
                     )
                 )

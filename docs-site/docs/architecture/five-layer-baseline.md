@@ -9,7 +9,7 @@ lastUpdated: "2026-08-26"
 
 `five-layer-baseline@1` is retained only inside the Optimizer so the original
 Twin2Clouds calculation space can be reproduced. It is not an active runtime
-profile and is not exposed through Management, Deployer, Terraform, or Flutter.
+contract and is not exposed through Management, Deployer, Terraform, or Flutter.
 
 The historical model contains five scientific responsibilities:
 
@@ -23,7 +23,7 @@ Its frozen limitations remain part of the historical result: incomplete GCP
 L4/L5 realization, legacy feature inputs, and the original edge decisions. No
 new runtime work should extend this model.
 
-The standalone `six-layer-eventing@1` profile owns the current PoC service
+The standalone `six-layer-eventing@1` contract owns the current PoC service
 bundles, mandatory domain behavior, provider mappings, workload, costs, and
 deployment path. It does not inherit from this baseline.
 

@@ -3,7 +3,7 @@
 ## Purpose
 
 This note captures the external context behind the Twin2MultiCloud pricing
-roadmap. It is intended as thesis input, not as an implementation plan.
+model. It is thesis input, not an implementation plan or maintenance roadmap.
 
 The core question is whether an evidence-backed pricing catalog, explicit
 pricing model classifications, source classifications, calculation contracts,
@@ -86,5 +86,5 @@ Out of scope for the current thesis implementation:
 - complete provider billing coverage
 - live deployment E2E as part of pricing validation
 
-This keeps the architecture enterprise-grade and explainable without turning the
+This keeps the architecture structured and explainable without turning the
 thesis into a general-purpose billing platform.
