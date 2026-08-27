@@ -52,23 +52,6 @@
         "title": "AWSCredentialsRequest",
         "type": "object"
       },
-      "AssetExtractionResult": {
-        "description": "Extracted binary assets (GLB files for 3D visualization).",
-        "properties": {
-          "scene_glb": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FileExtractionResult"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "title": "AssetExtractionResult",
-        "type": "object"
-      },
       "AzureCredentialsCheckResponse": {
         "description": "Response schema for Azure credential validation.",
         "properties": {
@@ -208,21 +191,6 @@
         "title": "Body_buildFunctionZip",
         "type": "object"
       },
-      "Body_extractProjectZip": {
-        "properties": {
-          "file": {
-            "contentMediaType": "application/octet-stream",
-            "description": "Project ZIP file to extract",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_extractProjectZip",
-        "type": "object"
-      },
       "Body_inspectDeploymentRequirements": {
         "properties": {
           "file": {
@@ -343,21 +311,6 @@
           "devices_file"
         ],
         "title": "Body_validatePayloadsWithDevices",
-        "type": "object"
-      },
-      "Body_validateProjectZip": {
-        "properties": {
-          "file": {
-            "contentMediaType": "application/octet-stream",
-            "description": "Project zip file to validate",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_validateProjectZip",
         "type": "object"
       },
       "Body_validateSceneConfig": {
@@ -841,78 +794,6 @@
         "title": "DeploymentAccessCredentialResult",
         "type": "object"
       },
-      "FileExtractionResult": {
-        "description": "Result of extracting a single file from the ZIP.",
-        "properties": {
-          "content": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Content"
-          },
-          "exists": {
-            "title": "Exists",
-            "type": "boolean"
-          },
-          "is_binary": {
-            "default": false,
-            "title": "Is Binary",
-            "type": "boolean"
-          },
-          "validation_error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Validation Error"
-          }
-        },
-        "required": [
-          "exists"
-        ],
-        "title": "FileExtractionResult",
-        "type": "object"
-      },
-      "FunctionExtractionResult": {
-        "description": "Extracted function code from processor/action/feedback directories.",
-        "properties": {
-          "event_actions": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/FileExtractionResult"
-            },
-            "title": "Event Actions",
-            "type": "object"
-          },
-          "event_feedback": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FileExtractionResult"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "processors": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/FileExtractionResult"
-            },
-            "title": "Processors",
-            "type": "object"
-          }
-        },
-        "title": "FunctionExtractionResult",
-        "type": "object"
-      },
       "GCPCredentialsCheckResponse": {
         "description": "Response schema for GCP credential validation.",
         "properties": {
@@ -1327,47 +1208,6 @@
         ],
         "title": "ValidationError",
         "type": "object"
-      },
-      "ZipExtractionResponse": {
-        "description": "Full response from /validate/zip/extract endpoint.",
-        "properties": {
-          "assets": {
-            "$ref": "#/components/schemas/AssetExtractionResult"
-          },
-          "files": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/FileExtractionResult"
-            },
-            "title": "Files",
-            "type": "object"
-          },
-          "functions": {
-            "$ref": "#/components/schemas/FunctionExtractionResult"
-          },
-          "success": {
-            "title": "Success",
-            "type": "boolean"
-          },
-          "validation_errors": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Validation Errors",
-            "type": "array"
-          },
-          "warnings": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Warnings",
-            "type": "array"
-          }
-        },
-        "required": [
-          "success"
-        ],
-        "title": "ZipExtractionResponse",
-        "type": "object"
       }
     }
   },
@@ -1380,7 +1220,7 @@
   "paths": {
     "/": {
       "get": {
-        "description": "**Purpose:** Check API status and active project.\\n\\n**When to call:** For health checks and debugging.",
+        "description": "**Purpose:** Check API status.\\n\\n**When to call:** For health checks and debugging.",
         "operationId": "getApiHealth",
         "responses": {
           "200": {
@@ -4321,189 +4161,19 @@
           "Validation"
         ]
       }
-    },
-    "/validate/zip": {
-      "post": {
-        "description": "**Purpose:** Validates a project zip file without extracting, checking structure and security.\\n\\n**When to call:** Before uploading a project to verify it meets all requirements.\\n\\n**Checks performed:** Zip integrity, Zip Slip path traversal, required files, schema validation.",
-        "operationId": "validateProjectZip",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_validateProjectZip"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Project zip is valid"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Bad Request - The request is invalid for this operation"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error. Check logs."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
-          }
-        },
-        "summary": "Validate project zip file",
-        "tags": [
-          "Validation"
-        ]
-      }
-    },
-    "/validate/zip/extract": {
-      "post": {
-        "description": "Validates a bounded project ZIP and returns configuration, function, and scene fields for wizard auto-population. Credential files are never returned.",
-        "operationId": "extractProjectZip",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "validation_context",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Validation Context"
-            }
-          },
-          {
-            "description": "Deprecated; credential content cannot be returned",
-            "in": "query",
-            "name": "include_credentials",
-            "required": false,
-            "schema": {
-              "default": false,
-              "description": "Deprecated; credential content cannot be returned",
-              "title": "Include Credentials",
-              "type": "boolean"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_extractProjectZip"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZipExtractionResponse"
-                }
-              }
-            },
-            "description": "Extraction completed with aggregated validation results"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Bad Request - The request is invalid for this operation"
-          },
-          "413": {
-            "description": "Compressed or expanded archive limit exceeded"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The request body failed validation."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Validation Error - The request body failed schema validation"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error. Check logs."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
-          }
-        },
-        "summary": "Validate and extract non-secret project fields",
-        "tags": [
-          "Validation"
-        ]
-      }
     }
   },
   "tags": [
     {
-      "description": "Project lifecycle management: upload, configure, validate, delete. Includes config retrieval, simulator download, and AWS TwinMaker cleanup.",
+      "description": "Bounded Twin deployment workspaces and operation packages.",
       "name": "Projects"
     },
     {
-      "description": "Infrastructure deployment and status. Deploy/destroy cloud resources across all 5 layers (L1-L5) with Terraform. Check deployment status.",
+      "description": "Infrastructure deployment and status for the closed-world six-layer-eventing@1 profile.",
       "name": "Infrastructure"
     },
     {
-      "description": "Pre-deployment validation endpoints. Validate project zip structure, config files, function code, state machines, and simulator payloads.",
+      "description": "Validate typed configuration, function code, state machines, simulator payloads, and staged deployment requirements.",
       "name": "Validation"
     },
     {

@@ -4,7 +4,6 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from src.api.dependencies import ProviderEnum
-from src.api.validation_archive import router as archive_validation_router
 from src.api.validation_artifacts import router as artifact_validation_router
 from src.api.validation_complete import (
     DeployerCompleteValidation,
@@ -12,7 +11,6 @@ from src.api.validation_complete import (
     ValidationError,
     router as complete_validation_router,
 )
-from src.api.validation_extract import router as extraction_router
 from src.api.validation_payloads import router as payload_validation_router
 from src.api.validation_requirements import router as requirements_validation_router
 from src.api.validation_twin import router as twin_validation_router
@@ -26,12 +24,10 @@ class FunctionCodeValidationRequest(BaseModel):
 
 
 router = APIRouter()
-router.include_router(archive_validation_router)
 router.include_router(artifact_validation_router)
 router.include_router(payload_validation_router)
 router.include_router(requirements_validation_router)
 router.include_router(twin_validation_router)
-router.include_router(extraction_router)
 router.include_router(complete_validation_router)
 
 __all__ = [

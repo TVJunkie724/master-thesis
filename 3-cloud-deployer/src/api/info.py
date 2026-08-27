@@ -15,7 +15,7 @@ router = APIRouter()
     tags=["Projects"],
     summary="API health check",
     description=(
-        "**Purpose:** Check API status and active project.\\n\\n"
+        "**Purpose:** Check API status.\\n\\n"
         "**When to call:** For health checks and debugging."
     )
 )
@@ -23,6 +23,6 @@ def read_root():
     """
     API health check endpoint.
     
-    Returns API status and currently active project.
+    Returns the API status without mutable global project state.
     """
-    return {"status": "API is running", "active_project": None}
+    return {"status": "API is running"}
