@@ -1,5 +1,5 @@
-from datetime import datetime
 import re
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -83,6 +83,38 @@ class CloudConnectionCreate(BaseModel):
             raise ValueError(
                 "Only pricing Cloud Connections may be selected as pricing default"
             )
+        return self
+
+
+class CloudConnectionImportMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider: CloudProvider
+    purpose: CloudConnectionPurpose = "deployment"
+    display_name: str = Field(min_length=1, max_length=120)
+    region: str = Field(min_length=1, max_length=80)
+    target_scope_id: str | None = Field(default=None, min_length=1, max_length=256)
+    account_id: str | None = Field(default=None, pattern=r"^\d{12}$")
+    sso_region: str | None = Field(default=None, min_length=1, max_length=80)
+    region_iothub: str | None = Field(default=None, min_length=1, max_length=80)
+    region_digital_twin: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=80,
+    )
+
+    @model_validator(mode="after")
+    def validate_target_scope(self):
+        if self.provider in {"azure", "gcp"} and not self.target_scope_id:
+            raise ValueError(
+                "target_scope_id is required for Azure subscriptions and GCP projects"
+            )
+        if self.provider != "aws" and (self.account_id or self.sso_region):
+            raise ValueError("AWS import metadata is only valid for AWS")
+        if self.provider != "azure" and (
+            self.region_iothub or self.region_digital_twin
+        ):
+            raise ValueError("Azure region overrides are only valid for Azure")
         return self
 
 

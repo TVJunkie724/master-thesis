@@ -1,18 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
 from src.api.routes.error_models import ERROR_RESPONSES
+from src.api.upload_limits import UploadLimitExceeded, read_upload_bounded
 from src.models.database import get_db
 from src.models.user import User
 from src.schemas.cloud_connection import (
     CloudConnectionCreate,
+    CloudConnectionImportMetadata,
     CloudConnectionPreflightResponse,
     CloudConnectionResponse,
     CloudConnectionUpdate,
     CloudConnectionValidationResponse,
 )
 from src.services.cloud_connection_service import CloudConnectionService
+from src.services.cloud_connection_import_service import parse_cloud_connection_import
 from src.services.cloud_credential_validation_service import (
     build_preflight_result,
     perform_dual_validation,
@@ -90,6 +94,61 @@ async def create_cloud_connection(
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post(
+    "/import",
+    response_model=CloudConnectionResponse,
+    operation_id="importCloudConnection",
+    summary="Import one allowlisted provider credential file",
+    description=(
+        "Accepts one AWS credential CSV, Azure Service Principal JSON, or GCP "
+        "Service Account JSON. The original file is never retained."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        413: {"description": "Credential file exceeds 128 KiB"},
+    },
+)
+async def import_cloud_connection(
+    metadata: str = Form(..., max_length=4_096),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.WRITE,
+            CredentialSecurityAction.CONNECTION_CREATE,
+        )
+    ),
+):
+    try:
+        parsed_metadata = CloudConnectionImportMetadata.model_validate_json(metadata)
+        suffix = (file.filename or "").lower().rsplit(".", 1)[-1]
+        expected_suffix = "csv" if parsed_metadata.provider == "aws" else "json"
+        if suffix != expected_suffix:
+            raise ValueError(
+                f"{parsed_metadata.provider.upper()} credential import requires .{expected_suffix}"
+            )
+        content = await read_upload_bounded(file, max_bytes=128 * 1024)
+        request = parse_cloud_connection_import(parsed_metadata, content)
+        return CloudConnectionService(db).create_connection(
+            current_user.id,
+            request,
+            _audit(
+                current_user,
+                CredentialSecurityAction.CONNECTION_CREATE,
+                request.provider,
+                request.purpose,
+                200,
+            ),
+        )
+    except UploadLimitExceeded as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except (PydanticValidationError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except CloudConnectionConflict as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
 
 @router.get(
