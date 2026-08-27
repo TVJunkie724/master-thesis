@@ -183,9 +183,10 @@ deployment concerns.
 
 ## Current implementation checkpoint
 
-As of 2026-08-27, the standalone contract, graph boundary, credential services,
+As of 2026-08-28, the standalone contract, graph boundary, credential services,
 immutable interchange, durable operations, access handoff, cost-only Optimizer,
 frozen pricing snapshots, and narrowed Flutter/Management contracts are
-implemented and pass their offline suites. The bounded Flutter confirmation and
-repair surface, live prerequisite probes, and the nine supervised Small
+implemented and pass the complete credential-free container gate. The bounded
+Flutter confirmation and repair surface is implemented and covered by the
+frontend suite. Live prerequisite probes and the nine supervised Small
 scenarios remain open and are not claimed complete.
