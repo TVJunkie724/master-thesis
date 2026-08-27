@@ -1,7 +1,7 @@
 """Typed Deployer API client."""
 
-import json
 import io
+import json
 import re
 import zipfile
 from collections.abc import AsyncIterator
@@ -15,9 +15,9 @@ from src.clients.base import ExternalServiceClient
 from src.config import settings
 from src.services.errors import ExternalServiceError
 
-
 MAX_SIMULATOR_ARCHIVE_BYTES = 32 * 1024 * 1024
 MAX_PROJECT_EXTRACTION_RESPONSE_BYTES = 192 * 1024 * 1024
+MAX_REQUIREMENTS_RESPONSE_BYTES = 2 * 1024 * 1024
 _SAFE_SIMULATOR_FILENAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,191}\.zip$")
 _SAFE_OPERATION_TOKEN = re.compile(r"^[A-Za-z0-9_-]{32,128}$")
 _SIMULATOR_CREDENTIAL_CLASSES = {
@@ -243,6 +243,27 @@ class DeployerClient(ExternalServiceClient):
             expected_project_name=project_name,
         )
 
+    async def inspect_deployment_requirements(
+        self,
+        project_name: str,
+        content: bytes,
+    ) -> dict[str, Any]:
+        """Resolve the package graph without staging or provider mutation."""
+
+        response = await self._request_bounded_response(
+            "POST",
+            "/validate/deployment-requirements",
+            max_bytes=MAX_REQUIREMENTS_RESPONSE_BYTES,
+            size_error_detail="Deployer requirement inspection response is too large.",
+            params={"project_name": project_name},
+            files={"file": (f"{project_name}.zip", content, "application/zip")},
+            timeout=httpx.Timeout(connect=30.0, read=60.0, write=60.0, pool=30.0),
+        )
+        return _validate_requirements_inspection_response(
+            self._json_object(response),
+            expected_project_name=project_name,
+        )
+
     async def extract_project_zip(
         self,
         content: bytes,
@@ -313,6 +334,17 @@ def _validate_operation_package_response(
             "Deployer API returned invalid operation package warnings",
             public_detail="Deployer returned an invalid operation package contract.",
         )
+    if not isinstance(graph_evidence, dict) or not _graph_evidence_is_valid(
+        graph_evidence
+    ):
+        raise ExternalServiceError(
+            "Deployer API omitted validated deployment graph evidence",
+            public_detail="Deployer returned an invalid operation package contract.",
+        )
+    return payload
+
+
+def _graph_evidence_is_valid(graph_evidence: object) -> bool:
     required_graph_fields = {
         "graph_schema_version",
         "graph_id",
@@ -336,7 +368,7 @@ def _validate_operation_package_response(
         "stage_ids",
     }
     digest_pattern = re.compile(r"^sha256:[0-9a-f]{64}$")
-    if (
+    return not (
         not isinstance(graph_evidence, dict)
         or set(graph_evidence) != required_graph_fields
         or graph_evidence.get("graph_schema_version") != "resolved-deployment-graph.v1"
@@ -392,12 +424,99 @@ def _validate_operation_package_response(
         )
         or graph_evidence.get("stage_ids")
         != ["package", "preplan", "terraform", "postapply"]
+    )
+
+
+def _validate_requirements_inspection_response(
+    payload: dict[str, Any],
+    *,
+    expected_project_name: str,
+) -> dict[str, Any]:
+    """Fail closed on non-canonical or unbound graph requirement evidence."""
+
+    if set(payload) != {"project_name", "warnings", "graph_evidence", "requirements"}:
+        raise _invalid_requirements_response()
+    if payload.get("project_name") != expected_project_name:
+        raise _invalid_requirements_response()
+    warnings = payload.get("warnings")
+    if (
+        not isinstance(warnings, list)
+        or len(warnings) > 100
+        or not all(isinstance(item, str) and len(item) <= 2_000 for item in warnings)
     ):
-        raise ExternalServiceError(
-            "Deployer API omitted validated deployment graph evidence",
-            public_detail="Deployer returned an invalid operation package contract.",
-        )
+        raise _invalid_requirements_response()
+    graph_evidence = payload.get("graph_evidence")
+    if not isinstance(graph_evidence, dict) or not _graph_evidence_is_valid(
+        graph_evidence
+    ):
+        raise _invalid_requirements_response()
+    requirements = payload.get("requirements")
+    if (
+        not isinstance(requirements, list)
+        or len(requirements) != graph_evidence["requirement_count"]
+        or not requirements
+        or not all(_graph_requirement_is_valid(item) for item in requirements)
+        or [item["requirement_id"] for item in requirements]
+        != sorted(item["requirement_id"] for item in requirements)
+        or sorted({item["provider"] for item in requirements})
+        != graph_evidence["required_providers"]
+        or sorted({item["requirement_type"] for item in requirements})
+        != graph_evidence["requirement_types"]
+    ):
+        raise _invalid_requirements_response()
     return payload
+
+
+def _graph_requirement_is_valid(value: object) -> bool:
+    if not isinstance(value, dict) or set(value) != {
+        "requirement_id",
+        "requirement_type",
+        "provider",
+        "capability_id",
+        "scope",
+        "preparation_mode",
+        "mandatory",
+        "source_node_ids",
+        "source_edge_ids",
+        "region",
+        "attributes",
+    }:
+        return False
+    bounded_strings = ("requirement_id", "requirement_type", "capability_id", "scope")
+    if not all(
+        isinstance(value.get(field), str) and 0 < len(value[field]) <= 300
+        for field in bounded_strings
+    ):
+        return False
+    if value.get("provider") not in {"aws", "azure", "gcp"}:
+        return False
+    if value.get("preparation_mode") not in {
+        "none",
+        "confirmed_account",
+        "manual_external",
+        "terraform",
+    }:
+        return False
+    if value.get("mandatory") is not True:
+        return False
+    if not isinstance(value.get("region"), str) or len(value["region"]) > 100:
+        return False
+    if not isinstance(value.get("attributes"), dict):
+        return False
+    return all(
+        isinstance(value.get(field), list)
+        and len(value[field]) <= 512
+        and value[field] == sorted(set(value[field]))
+        and all(isinstance(item, str) and 0 < len(item) <= 300 for item in value[field])
+        for field in ("source_node_ids", "source_edge_ids")
+    )
+
+
+def _invalid_requirements_response() -> ExternalServiceError:
+    return ExternalServiceError(
+        "Deployer API returned invalid deployment requirements",
+        public_detail="Deployer returned an invalid requirement inspection contract.",
+    )
 
 
 def _bounded_graph_count(value: object, minimum: int, maximum: int) -> bool:

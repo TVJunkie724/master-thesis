@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
 import io
 import zipfile
+from datetime import datetime, timezone
 
 import httpx
 import pytest
@@ -66,6 +66,52 @@ def _graph_evidence() -> dict[str, object]:
         ],
         "required_providers": ["aws", "azure"],
         "stage_ids": ["package", "preplan", "terraform", "postapply"],
+    }
+
+
+def _graph_requirements() -> list[dict[str, object]]:
+    return [
+        {
+            "requirement_id": "requirement.provider-scope.aws.aws-target-scope",
+            "requirement_type": "provider_scope",
+            "provider": "aws",
+            "capability_id": "aws.target-scope",
+            "scope": "account",
+            "preparation_mode": "none",
+            "mandatory": True,
+            "source_node_ids": ["node.aws"],
+            "source_edge_ids": [],
+            "region": "",
+            "attributes": {"target_type": "account"},
+        },
+        {
+            "requirement_id": "requirement.region.azure.azure-region-westeurope",
+            "requirement_type": "region",
+            "provider": "azure",
+            "capability_id": "azure.region.westeurope",
+            "scope": "region",
+            "preparation_mode": "none",
+            "mandatory": True,
+            "source_node_ids": ["node.azure"],
+            "source_edge_ids": [],
+            "region": "westeurope",
+            "attributes": {},
+        },
+    ]
+
+
+def _requirements_inspection() -> dict[str, object]:
+    evidence = _graph_evidence()
+    evidence.update(
+        requirement_count=2,
+        requirement_types=["provider_scope", "region"],
+        required_providers=["aws", "azure"],
+    )
+    return {
+        "project_name": "factory",
+        "warnings": [],
+        "graph_evidence": evidence,
+        "requirements": _graph_requirements(),
     }
 
 
@@ -506,6 +552,51 @@ async def test_stage_operation_package_accepts_profile_owned_graph_cardinality()
     result = await client.stage_operation_package("factory", b"zip")
 
     assert result["graph_evidence"]["edge_count"] == 27
+
+
+@pytest.mark.asyncio
+async def test_inspect_deployment_requirements_sends_pure_validation_request():
+    seen = {}
+    payload = _requirements_inspection()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(
+            method=request.method,
+            url=str(request.url),
+            content_type=request.headers["content-type"],
+        )
+        return httpx.Response(200, json=payload)
+
+    result = await _client_with_handler(handler).inspect_deployment_requirements(
+        "factory",
+        b"zip",
+    )
+
+    assert result == payload
+    assert seen["method"] == "POST"
+    assert seen["url"] == (
+        "http://deployer.test/validate/deployment-requirements?project_name=factory"
+    )
+    assert seen["content_type"].startswith("multipart/form-data")
+
+
+@pytest.mark.asyncio
+async def test_inspect_deployment_requirements_rejects_unbound_evidence():
+    payload = _requirements_inspection()
+    payload["graph_evidence"]["requirements_digest"] = "invalid"
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    with pytest.raises(ExternalServiceError) as exc_info:
+        await _client_with_handler(handler).inspect_deployment_requirements(
+            "factory",
+            b"zip",
+        )
+
+    assert exc_info.value.public_detail == (
+        "Deployer returned an invalid requirement inspection contract."
+    )
 
 
 @pytest.mark.asyncio
