@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-import json
-import logging
 from typing import Any, cast
 
 from sqlalchemy.orm import Session
 
+from src.clients.deployer_client import DeployerClient
 from src.models.cloud_connection import CloudConnection
 from src.repositories.deployment_preflight_repository import (
     DeploymentPreflightRepository,
@@ -35,7 +36,6 @@ from src.services.credential_resolution_service import CredentialResolutionServi
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import EntityNotFoundError, ValidationError
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -43,6 +43,7 @@ PreflightValidator = Callable[
     [str, dict[str, Any], dict[str, Any]],
     Awaitable[dict[str, Any]],
 ]
+GraphRequirementsResolver = Callable[[Any, str], Awaitable[dict[str, Any]]]
 
 
 @dataclass(frozen=True, repr=False)
@@ -63,6 +64,7 @@ class DeploymentReadinessService:
         db: Session,
         *,
         validator: PreflightValidator | None = None,
+        requirements_resolver: GraphRequirementsResolver | None = None,
         clock: Callable[[], datetime] = datetime.utcnow,
         max_age: timedelta = timedelta(hours=24),
     ) -> None:
@@ -71,6 +73,9 @@ class DeploymentReadinessService:
         self._connection_service = CloudConnectionService(db)
         self._cache_repository = DeploymentPreflightRepository(db)
         self._validator = validator or perform_dual_validation
+        self._requirements_resolver = (
+            requirements_resolver or self._resolve_graph_requirements
+        )
         self._clock = clock
         if max_age <= timedelta(0):
             raise ValueError("max_age must be greater than zero")
@@ -83,6 +88,17 @@ class DeploymentReadinessService:
         providers = [
             self._cached_provider(twin, user_id, provider) for provider in required
         ]
+        if not self._provider_evidence_is_coherent(providers):
+            providers = [
+                self._provider_failure(
+                    provider,
+                    code="PREFLIGHT_GRAPH_EVIDENCE_INCONSISTENT",
+                    message="Cached provider checks do not share one deployment graph.",
+                    action="Run deployment preflight again.",
+                    status="stale",
+                )
+                for provider in required
+            ]
         return DeploymentReadinessResponse(
             twin_id=twin.id,
             ready=self._aggregate_ready(required, providers, issues),
@@ -90,6 +106,12 @@ class DeploymentReadinessService:
             required_providers=required,
             providers=providers,
             checked_at=self._aggregate_checked_at(providers),
+            graph_digest=self._aggregate_evidence_digest(
+                providers, "graph_digest"
+            ),
+            requirements_digest=self._aggregate_evidence_digest(
+                providers, "requirements_digest"
+            ),
             issues=issues,
         )
 
@@ -171,6 +193,59 @@ class DeploymentReadinessService:
                 )
                 self._cache_repository.delete(twin.id, provider)
 
+        inspection = None
+        if not issues and not blocked and len(candidates) == len(required):
+            try:
+                inspection = await self._requirements_resolver(twin, user_id)
+                self._validate_requirement_inspection(inspection, twin, required)
+            except Exception as exc:  # noqa: BLE001 - fail-closed service boundary
+                logger.warning(
+                    "Deployment graph inspection failed for twin %s: %s",
+                    twin_id,
+                    type(exc).__name__,
+                )
+                inspection = None
+                issues.append(
+                    DeploymentReadinessCheck(
+                        component="architecture",
+                        status="failed",
+                        code="DEPLOYMENT_GRAPH_INSPECTION_FAILED",
+                        message=(
+                            "The exact deployment prerequisites could not be resolved."
+                        ),
+                        action=(
+                            "Review the selected optimization result and retry preflight."
+                        ),
+                    )
+                )
+
+        if inspection is None:
+            for provider in required:
+                self._cache_repository.delete(twin.id, provider)
+            self._db.commit()
+            providers = [
+                blocked.get(provider)
+                or self._provider_failure(
+                    provider,
+                    code="GRAPH_REQUIREMENTS_UNAVAILABLE",
+                    message="Provider checks require an exact resolved deployment graph.",
+                    action="Resolve the blocking configuration and run preflight again.",
+                    status="not_checked",
+                )
+                for provider in required
+            ]
+            return DeploymentPreflightResponse(
+                twin_id=twin_id,
+                ready=False,
+                summary=self._aggregate_summary(required, providers, issues),
+                required_providers=required,
+                providers=providers,
+                checked_at=self._aggregate_checked_at(providers),
+                issues=issues,
+            )
+
+        graph_evidence = inspection["graph_evidence"]
+        requirements = inspection["requirements"]
         raw_results = await asyncio.gather(
             *(self._validate_candidate(candidate) for candidate in candidates),
         )
@@ -188,7 +263,7 @@ class DeploymentReadinessService:
             if failure is not None or not self._candidate_is_current(
                 candidate,
                 current_connection,
-            ):
+            ) or not self._architecture_is_current(current_twin, graph_evidence):
                 refreshed[candidate.provider] = self._provider_failure(
                     candidate.provider,
                     code="CONNECTION_CHANGED_DURING_PREFLIGHT",
@@ -204,6 +279,8 @@ class DeploymentReadinessService:
                 candidate,
                 raw_result,
                 checked_at,
+                graph_digest=graph_evidence["graph_digest"],
+                requirements_digest=graph_evidence["requirements_digest"],
             )
             refreshed[candidate.provider] = provider_result
             self._cache_repository.upsert(
@@ -211,10 +288,22 @@ class DeploymentReadinessService:
                 provider=candidate.provider,
                 cloud_connection_id=candidate.connection_id,
                 connection_payload_fingerprint=candidate.payload_fingerprint,
+                architecture_digest=graph_evidence["architecture_digest"],
+                graph_digest=graph_evidence["graph_digest"],
+                requirements_digest=graph_evidence["requirements_digest"],
                 ready=provider_result.ready,
                 summary=provider_result.summary,
                 checks_json=json.dumps(
                     [check.model_dump(mode="json") for check in provider_result.checks],
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+                requirements_json=json.dumps(
+                    [
+                        item
+                        for item in requirements
+                        if item.get("provider") == candidate.provider
+                    ],
                     sort_keys=True,
                     separators=(",", ":"),
                 ),
@@ -241,6 +330,12 @@ class DeploymentReadinessService:
             required_providers=required,
             providers=providers,
             checked_at=self._aggregate_checked_at(providers),
+            graph_digest=self._aggregate_evidence_digest(
+                providers, "graph_digest"
+            ),
+            requirements_digest=self._aggregate_evidence_digest(
+                providers, "requirements_digest"
+            ),
             issues=issues,
         )
 
@@ -254,7 +349,7 @@ class DeploymentReadinessService:
                 candidate.optimizer_credentials,
                 candidate.deployer_credentials,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - provider adapter boundary
             logger.warning(
                 "Deployment preflight validator failed for provider %s: %s",
                 candidate.provider,
@@ -277,6 +372,78 @@ class DeploymentReadinessService:
             candidate.optimizer_credentials,
             candidate.deployer_credentials,
         )
+
+    async def _resolve_graph_requirements(
+        self,
+        twin,
+        user_id: str,
+    ) -> dict[str, Any]:
+        """Build the exact package and resolve its graph without staging it."""
+
+        from src.services.deployment_service import build_project_zip, get_resource_name
+
+        archive = build_project_zip(twin, user_id)
+        archive.seek(0)
+        return await DeployerClient().inspect_deployment_requirements(
+            get_resource_name(twin),
+            archive.read(),
+        )
+
+    def _validate_requirement_inspection(
+        self,
+        inspection: object,
+        twin,
+        required: list[CloudProvider],
+    ) -> None:
+        if not isinstance(inspection, dict):
+            raise TypeError("Requirement inspection must be an object")
+        evidence = inspection.get("graph_evidence")
+        requirements = inspection.get("requirements")
+        if not isinstance(evidence, dict) or not isinstance(requirements, list):
+            raise TypeError("Requirement inspection is incomplete")
+        for field in (
+            "architecture_digest",
+            "graph_digest",
+            "requirements_digest",
+        ):
+            value = evidence.get(field)
+            if (
+                not isinstance(value, str)
+                or not value.startswith("sha256:")
+                or len(value) != 71
+            ):
+                raise ValueError(f"Invalid graph evidence field: {field}")
+        if evidence.get("required_providers") != list(required):
+            raise ValueError("Resolved graph provider set differs from the architecture")
+        if not requirements or any(
+            not isinstance(item, dict)
+            or item.get("provider") not in required
+            or not isinstance(item.get("requirement_id"), str)
+            for item in requirements
+        ):
+            raise ValueError("Resolved graph requirements are invalid")
+        current_architecture_digest = self._current_architecture_digest(twin)
+        if (
+            current_architecture_digest is not None
+            and evidence["architecture_digest"] != current_architecture_digest
+        ):
+            raise ValueError("Resolved graph does not match the selected architecture")
+
+    @staticmethod
+    def _current_architecture_digest(twin) -> str | None:
+        selected = [
+            run
+            for run in tuple(getattr(twin, "cost_calculation_runs", None) or ())
+            if getattr(run, "selected_for_deployment_at", None) is not None
+        ]
+        if len(selected) != 1:
+            return None
+        value = getattr(selected[0], "resolved_architecture_digest", None)
+        return value if isinstance(value, str) and value else None
+
+    def _architecture_is_current(self, twin, evidence: dict[str, Any]) -> bool:
+        current = self._current_architecture_digest(twin)
+        return current is None or current == evidence.get("architecture_digest")
 
     def _cached_provider(
         self,
@@ -304,7 +471,7 @@ class DeploymentReadinessService:
                 connection=connection,
                 status="not_checked",
             )
-        if not self._cache_is_current(cache, connection):
+        if not self._cache_is_current(cache, connection, twin):
             return self._provider_failure(
                 provider,
                 code="PREFLIGHT_CACHE_STALE",
@@ -315,7 +482,8 @@ class DeploymentReadinessService:
                 checked_at=cache.checked_at,
             )
         checks = self._parse_cached_checks(cache.checks_json)
-        if checks is None:
+        requirements = self._parse_cached_requirements(cache.requirements_json, provider)
+        if checks is None or requirements is None:
             return self._provider_failure(
                 provider,
                 code="PREFLIGHT_CACHE_INVALID",
@@ -338,6 +506,8 @@ class DeploymentReadinessService:
                 max_length=2_000,
             ),
             checked_at=cache.checked_at,
+            graph_digest=cache.graph_digest,
+            requirements_digest=cache.requirements_digest,
             checks=checks,
         )
 
@@ -346,6 +516,9 @@ class DeploymentReadinessService:
         candidate: _ProviderCandidate,
         validation_result: dict[str, Any],
         checked_at: datetime,
+        *,
+        graph_digest: str,
+        requirements_digest: str,
     ) -> ProviderDeploymentReadiness:
         raw = build_preflight_result(
             candidate.provider,
@@ -364,6 +537,8 @@ class DeploymentReadinessService:
             status="ready" if ready else "review_required",
             summary=summary,
             checked_at=checked_at,
+            graph_digest=graph_digest,
+            requirements_digest=requirements_digest,
             checks=checks,
         )
 
@@ -423,11 +598,19 @@ class DeploymentReadinessService:
             and connection.payload_fingerprint == candidate.payload_fingerprint
         )
 
-    def _cache_is_current(self, cache, connection) -> bool:
+    def _cache_is_current(self, cache, connection, twin) -> bool:
         cache_age = self._clock() - cache.checked_at
+        current_architecture_digest = self._current_architecture_digest(twin)
         return bool(
             cache.cloud_connection_id == connection.id
             and cache.connection_payload_fingerprint == connection.payload_fingerprint
+            and isinstance(cache.graph_digest, str)
+            and isinstance(cache.requirements_digest, str)
+            and isinstance(cache.architecture_digest, str)
+            and (
+                current_architecture_digest is None
+                or cache.architecture_digest == current_architecture_digest
+            )
             and timedelta(0) <= cache_age <= self._max_age
         )
 
@@ -438,6 +621,26 @@ class DeploymentReadinessService:
             if not isinstance(values, list) or len(values) > 32:
                 return None
             return [DeploymentReadinessCheck.model_validate(value) for value in values]
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return None
+
+    @staticmethod
+    def _parse_cached_requirements(raw: str, provider: str) -> list[dict] | None:
+        try:
+            values = json.loads(raw)
+            if (
+                not isinstance(values, list)
+                or not values
+                or len(values) > 4096
+                or any(
+                    not isinstance(value, dict)
+                    or value.get("provider") != provider
+                    or not isinstance(value.get("requirement_id"), str)
+                    for value in values
+                )
+            ):
+                return None
+            return values
         except (TypeError, ValueError, json.JSONDecodeError):
             return None
 
@@ -576,3 +779,31 @@ class DeploymentReadinessService:
             provider.checked_at for provider in providers if provider.checked_at
         ]
         return min(timestamps) if timestamps else None
+
+    @staticmethod
+    def _provider_evidence_is_coherent(
+        providers: list[ProviderDeploymentReadiness],
+    ) -> bool:
+        return all(
+            len(
+                {
+                    getattr(provider, field)
+                    for provider in providers
+                    if getattr(provider, field) is not None
+                }
+            )
+            <= 1
+            for field in ("graph_digest", "requirements_digest")
+        )
+
+    @staticmethod
+    def _aggregate_evidence_digest(
+        providers: list[ProviderDeploymentReadiness],
+        field: str,
+    ) -> str | None:
+        values = {
+            getattr(provider, field)
+            for provider in providers
+            if getattr(provider, field) is not None
+        }
+        return next(iter(values)) if len(values) == 1 else None

@@ -7,7 +7,6 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
-
 CloudProvider = Literal["aws", "azure", "gcp"]
 CheckStatus = Literal["passed", "failed"]
 ProviderReadinessStatus = Literal[
@@ -17,6 +16,10 @@ ProviderReadinessStatus = Literal[
     "stale",
 ]
 SafePermission = Annotated[str, Field(min_length=1, max_length=300)]
+ContentDigest = Annotated[
+    str,
+    Field(pattern=r"^sha256:[0-9a-f]{64}$"),
+]
 
 
 class DeploymentReadinessCheck(BaseModel):
@@ -38,6 +41,8 @@ class ProviderDeploymentReadiness(BaseModel):
     status: ProviderReadinessStatus
     summary: str = Field(min_length=1, max_length=2_000)
     checked_at: datetime | None = None
+    graph_digest: ContentDigest | None = None
+    requirements_digest: ContentDigest | None = None
     checks: list[DeploymentReadinessCheck] = Field(min_length=1, max_length=32)
 
     @model_validator(mode="after")
@@ -46,6 +51,10 @@ class ProviderDeploymentReadiness(BaseModel):
             raise ValueError("ready and status must be consistent")
         if self.ready and (self.connection_id is None or self.checked_at is None):
             raise ValueError("ready providers require a connection and checked_at")
+        if self.ready and (
+            self.graph_digest is None or self.requirements_digest is None
+        ):
+            raise ValueError("ready providers require graph-bound evidence")
         if self.ready != all(check.status == "passed" for check in self.checks):
             raise ValueError("ready and checks must be consistent")
         return self
@@ -59,6 +68,8 @@ class DeploymentReadinessResponse(BaseModel):
     required_providers: list[CloudProvider] = Field(max_length=3)
     providers: list[ProviderDeploymentReadiness] = Field(max_length=3)
     checked_at: datetime | None = None
+    graph_digest: ContentDigest | None = None
+    requirements_digest: ContentDigest | None = None
     issues: list[DeploymentReadinessCheck] = Field(default_factory=list, max_length=16)
 
     @model_validator(mode="after")
@@ -75,6 +86,8 @@ class DeploymentPreflightResponse(BaseModel):
     required_providers: list[CloudProvider] = Field(max_length=3)
     providers: list[ProviderDeploymentReadiness] = Field(max_length=3)
     checked_at: datetime | None = None
+    graph_digest: ContentDigest | None = None
+    requirements_digest: ContentDigest | None = None
     issues: list[DeploymentReadinessCheck] = Field(default_factory=list, max_length=16)
 
     @model_validator(mode="after")
@@ -101,3 +114,23 @@ def _validate_aggregate_consistency(
         raise ValueError("aggregate readiness is inconsistent")
     if response.ready and response.checked_at is None:
         raise ValueError("ready responses require checked_at")
+    provider_graph_digests = {
+        provider.graph_digest for provider in response.providers if provider.graph_digest
+    }
+    provider_requirements_digests = {
+        provider.requirements_digest
+        for provider in response.providers
+        if provider.requirements_digest
+    }
+    if len(provider_graph_digests) > 1 or len(provider_requirements_digests) > 1:
+        raise ValueError("providers must share one requirement inspection")
+    if response.graph_digest != next(iter(provider_graph_digests), None):
+        raise ValueError("aggregate graph digest is inconsistent")
+    if response.requirements_digest != next(
+        iter(provider_requirements_digests), None
+    ):
+        raise ValueError("aggregate requirements digest is inconsistent")
+    if response.ready and (
+        response.graph_digest is None or response.requirements_digest is None
+    ):
+        raise ValueError("ready responses require graph-bound evidence")

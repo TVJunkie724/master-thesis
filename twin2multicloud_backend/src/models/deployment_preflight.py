@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import uuid
+from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
@@ -41,9 +41,13 @@ class DeploymentPreflightCache(Base):
     provider = Column(String, nullable=False, index=True)
     cloud_connection_id = Column(String, nullable=False, index=True)
     connection_payload_fingerprint = Column(String, nullable=False)
+    architecture_digest = Column(String(71), nullable=True)
+    graph_digest = Column(String(71), nullable=True)
+    requirements_digest = Column(String(71), nullable=True)
     ready = Column(Boolean, nullable=False, default=False)
     summary = Column(String, nullable=False)
     checks_json = Column(Text, nullable=False, default="[]")
+    requirements_json = Column(Text, nullable=False, default="[]")
     checked_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(

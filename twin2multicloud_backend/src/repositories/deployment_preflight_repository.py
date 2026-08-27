@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
@@ -34,21 +34,29 @@ class DeploymentPreflightRepository:
         provider: str,
         cloud_connection_id: str,
         connection_payload_fingerprint: str,
+        architecture_digest: str,
+        graph_digest: str,
+        requirements_digest: str,
         ready: bool,
         summary: str,
         checks_json: str,
+        requirements_json: str,
         checked_at: datetime,
     ) -> DeploymentPreflightCache:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         values = {
             "id": str(uuid.uuid4()),
             "twin_id": twin_id,
             "provider": provider,
             "cloud_connection_id": cloud_connection_id,
             "connection_payload_fingerprint": connection_payload_fingerprint,
+            "architecture_digest": architecture_digest,
+            "graph_digest": graph_digest,
+            "requirements_digest": requirements_digest,
             "ready": ready,
             "summary": summary,
             "checks_json": checks_json,
+            "requirements_json": requirements_json,
             "checked_at": checked_at,
             "created_at": now,
             "updated_at": now,

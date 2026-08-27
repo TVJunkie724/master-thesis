@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from dataclasses import dataclass
-from importlib import import_module
 import logging
 import os
 import sqlite3
-from typing import Iterator
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
+from importlib import import_module
 
 from migrations.ensure_current_schema_columns import resolve_sqlite_path
-
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +86,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "029_drop_fixed_optimizer_projection",
         "migrations.drop_fixed_optimizer_projection",
     ),
+    Migration(
+        "030_graph_bound_deployment_preflight",
+        "migrations.bind_preflight_to_graph_requirements",
+    ),
 )
 
 
@@ -107,7 +110,7 @@ def run_migrations(database_url: str) -> list[str]:
             if migration.migration_id in applied:
                 continue
             logger.info("Applying database migration %s", migration.migration_id)
-            migrate = getattr(import_module(migration.module), "migrate")
+            migrate = import_module(migration.module).migrate
             migrate()
             _record_migration(database_path, migration.migration_id)
             completed.append(migration.migration_id)

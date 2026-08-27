@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 import json
+from datetime import datetime, timedelta
 
 import pytest
 from pydantic import ValidationError as PydanticValidationError
@@ -20,7 +20,6 @@ from src.services.credential_resolution_service import CredentialResolutionServi
 from src.services.deployment_readiness_service import DeploymentReadinessService
 from src.services.service_errors import EntityNotFoundError, ValidationError
 
-
 _AWS_SECRET = "aws-secret-value-for-redaction"
 _AZURE_SECRET = "azure-secret-value-for-redaction"
 _GCP_SECRET = "gcp-private-key-value-for-redaction"
@@ -34,6 +33,32 @@ def _selected_architecture_provider_projection(monkeypatch):
         CredentialResolutionService,
         "required_providers_from_architecture",
         staticmethod(lambda twin: set(_EXPECTED_PROVIDERS.get(twin.id, set()))),
+    )
+
+    async def resolve_requirements(_self, twin, _user_id):
+        providers = sorted(_EXPECTED_PROVIDERS.get(twin.id, set()))
+        requirements = [
+            {
+                "requirement_id": f"requirement.provider-scope.{provider}",
+                "requirement_type": "provider_scope",
+                "provider": provider,
+            }
+            for provider in providers
+        ]
+        return {
+            "graph_evidence": {
+                "architecture_digest": "sha256:" + "1" * 64,
+                "graph_digest": "sha256:" + "2" * 64,
+                "requirements_digest": "sha256:" + "3" * 64,
+                "required_providers": providers,
+            },
+            "requirements": requirements,
+        }
+
+    monkeypatch.setattr(
+        DeploymentReadinessService,
+        "_resolve_graph_requirements",
+        resolve_requirements,
     )
 
 
@@ -174,6 +199,8 @@ def test_readiness_contract_rejects_inconsistent_or_empty_provider_evidence():
                 "status": "ready",
                 "summary": "Ready",
                 "checked_at": "2026-07-14T09:00:00Z",
+                "graph_digest": "sha256:" + "2" * 64,
+                "requirements_digest": "sha256:" + "3" * 64,
                 "checks": [
                     {
                         "component": "deployer",
@@ -187,6 +214,8 @@ def test_readiness_contract_rejects_inconsistent_or_empty_provider_evidence():
             }
         ],
         "checked_at": "2026-07-14T09:00:00Z",
+        "graph_digest": "sha256:" + "2" * 64,
+        "requirements_digest": "sha256:" + "3" * 64,
         "issues": [],
     }
     assert DeploymentReadinessResponse.model_validate(base).ready is True
@@ -316,7 +345,7 @@ async def test_missing_and_wrong_purpose_connections_fail_closed(db_session):
 async def test_cache_expires_after_ttl_or_connection_fingerprint_change(db_session):
     user = _create_user(db_session)
     twin, connections = _create_twin(db_session, user, ("aws",))
-    checked_at = datetime(2026, 7, 14, 9, 0, 0)
+    checked_at = datetime(2026, 7, 14, 9, 0, 0)  # noqa: DTZ001 - SQLite is naive
     service = DeploymentReadinessService(
         db_session,
         validator=_successful_validator,
