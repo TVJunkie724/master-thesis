@@ -19,7 +19,7 @@ from src.config import settings
 from src.models.architecture_profile import ArchitectureAuditEvent
 from src.models.cost_calculation import CostCalculationResultItem, CostCalculationRun
 from src.models.optimizer_config import OptimizerConfiguration
-from src.models.user_function_extension import TwinExtensionBinding
+from src.models.user_function_extension import TwinUserFunction
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.optimizer_calculation import OptimizerCalculationParams
 from src.schemas.pricing_catalog import PricingCatalogContext
@@ -57,9 +57,6 @@ from src.services.six_layer_cost_ledger_service import (
     validate_six_layer_cost_ledger,
 )
 from src.services.twin_immutability import is_twin_definition_immutable
-from src.services.user_function_extension_service import (
-    runtime as extension_contract,
-)
 
 SUCCESS = "succeeded"
 FAILED = "failed"
@@ -529,55 +526,32 @@ class CostCalculationRunService:
             (item["slot_id"], item["slot_version"]): item
             for item in profile["extension_slots"]
         }
-        bindings = (
-            self.db.query(TwinExtensionBinding)
+        functions = (
+            self.db.query(TwinUserFunction)
             .filter(
-                TwinExtensionBinding.twin_id == twin_id,
-                TwinExtensionBinding.user_id == user_id,
-                TwinExtensionBinding.active.is_(True),
+                TwinUserFunction.twin_id == twin_id,
             )
             .all()
         )
-        active = {
-            (item.slot_id, item.slot_version): item for item in bindings if item.active
-        }
-        if set(active) != set(slots):
+        current = {(item.slot_id, item.slot_version): item for item in functions}
+        if set(current) != set(slots):
             raise ArchitectureDomainError(
                 "ARCH_EXTENSION_BINDING_INVALID",
-                "Every selected architecture extension slot requires one "
-                "current binding.",
+                "Every selected architecture extension slot requires one current "
+                "validated Twin function.",
                 http_status=422,
             )
         projected_bindings = []
-        for identity in sorted(active):
-            binding = active[identity]
-            artifact = binding.artifact
-            expected_binding_digest = extension_contract.binding_digest(
-                twin_id=binding.twin_id,
-                slot_id=binding.slot_id,
-                slot_version=binding.slot_version,
-                artifact_id=binding.artifact_id,
-                artifact_digest=(
-                    artifact.artifact_digest if artifact is not None else ""
-                ),
-            )
-            if (
-                artifact is None
-                or artifact.user_id != user_id
-                or artifact.artifact_state != "valid"
-                or (artifact.slot_id, artifact.slot_version) != identity
-                or not hmac.compare_digest(
-                    binding.binding_digest,
-                    expected_binding_digest,
-                )
-            ):
+        for identity in sorted(current):
+            user_function = current[identity]
+            if (user_function.slot_id, user_function.slot_version) != identity:
                 raise ArchitectureDomainError(
                     "ARCH_EXTENSION_BINDING_INVALID",
-                    "An architecture extension binding is not valid.",
+                    "A Twin function does not match its reviewed extension slot.",
                     http_status=422,
                 )
             try:
-                configuration = json.loads(artifact.configuration_json)
+                configuration = json.loads(user_function.configuration_json)
             except json.JSONDecodeError as exc:
                 raise ArchitectureDomainError(
                     "ARCH_EXTENSION_BINDING_INVALID",
@@ -592,10 +566,10 @@ class CostCalculationRunService:
             )
             projected_bindings.append(
                 {
-                    "slotId": binding.slot_id,
-                    "slotVersion": binding.slot_version,
-                    "artifactId": binding.artifact_id,
-                    "artifactDigest": artifact.artifact_digest,
+                    "slotId": user_function.slot_id,
+                    "slotVersion": user_function.slot_version,
+                    "artifactId": user_function.id,
+                    "artifactDigest": user_function.artifact_digest,
                     "configurationDigest": configuration_digest,
                 }
             )

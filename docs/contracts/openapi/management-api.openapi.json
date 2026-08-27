@@ -529,28 +529,6 @@
         "title": "AzureCredentials",
         "type": "object"
       },
-      "Body_createUserFunctionArtifact": {
-        "properties": {
-          "metadata": {
-            "contentMediaType": "application/octet-stream",
-            "description": "UTF-8 JSON client metadata",
-            "title": "Metadata",
-            "type": "string"
-          },
-          "source_archive": {
-            "contentMediaType": "application/octet-stream",
-            "description": "Source ZIP",
-            "title": "Source Archive",
-            "type": "string"
-          }
-        },
-        "required": [
-          "metadata",
-          "source_archive"
-        ],
-        "title": "Body_createUserFunctionArtifact",
-        "type": "object"
-      },
       "Body_importCloudConnection": {
         "properties": {
           "file": {
@@ -569,28 +547,6 @@
           "file"
         ],
         "title": "Body_importCloudConnection",
-        "type": "object"
-      },
-      "Body_importLegacyUserFunctionArtifact": {
-        "properties": {
-          "metadata": {
-            "contentMediaType": "application/octet-stream",
-            "description": "UTF-8 JSON client metadata",
-            "title": "Metadata",
-            "type": "string"
-          },
-          "source_archive": {
-            "contentMediaType": "application/octet-stream",
-            "description": "Reviewed replacement ZIP",
-            "title": "Source Archive",
-            "type": "string"
-          }
-        },
-        "required": [
-          "metadata",
-          "source_archive"
-        ],
-        "title": "Body_importLegacyUserFunctionArtifact",
         "type": "object"
       },
       "Body_importPortableDigitalTwin": {
@@ -613,6 +569,28 @@
           "archive"
         ],
         "title": "Body_importPortableDigitalTwin",
+        "type": "object"
+      },
+      "Body_saveTwinUserFunction": {
+        "properties": {
+          "metadata": {
+            "contentMediaType": "application/octet-stream",
+            "description": "UTF-8 JSON function metadata",
+            "title": "Metadata",
+            "type": "string"
+          },
+          "source_archive": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Bounded source ZIP",
+            "title": "Source Archive",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "source_archive"
+        ],
+        "title": "Body_saveTwinUserFunction",
         "type": "object"
       },
       "Body_uploadProjectZip": {
@@ -645,17 +623,17 @@
         "title": "Body_uploadSceneGlb",
         "type": "object"
       },
-      "Body_validateUserFunctionArtifact": {
+      "Body_validateTwinUserFunction": {
         "properties": {
           "metadata": {
             "contentMediaType": "application/octet-stream",
-            "description": "UTF-8 JSON client metadata",
+            "description": "UTF-8 JSON function metadata",
             "title": "Metadata",
             "type": "string"
           },
           "source_archive": {
             "contentMediaType": "application/octet-stream",
-            "description": "Source ZIP",
+            "description": "Bounded source ZIP",
             "title": "Source Archive",
             "type": "string"
           }
@@ -664,7 +642,7 @@
           "metadata",
           "source_archive"
         ],
-        "title": "Body_validateUserFunctionArtifact",
+        "title": "Body_validateTwinUserFunction",
         "type": "object"
       },
       "BoundCloudConnectionSummary": {
@@ -8196,143 +8174,6 @@
         "title": "TwinDuplicateRequest",
         "type": "object"
       },
-      "TwinExtensionBindingListResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/TwinExtensionBindingResponse"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "schema_version": {
-            "const": "twin-extension-binding-list.v1",
-            "default": "twin-extension-binding-list.v1",
-            "title": "Schema Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "items"
-        ],
-        "title": "TwinExtensionBindingListResponse",
-        "type": "object"
-      },
-      "TwinExtensionBindingResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "active": {
-            "title": "Active",
-            "type": "boolean"
-          },
-          "artifact_digest": {
-            "title": "Artifact Digest",
-            "type": "string"
-          },
-          "artifact_id": {
-            "title": "Artifact Id",
-            "type": "string"
-          },
-          "binding_digest": {
-            "title": "Binding Digest",
-            "type": "string"
-          },
-          "binding_id": {
-            "title": "Binding Id",
-            "type": "string"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "revision": {
-            "title": "Revision",
-            "type": "integer"
-          },
-          "schema_version": {
-            "const": "twin-extension-binding.v1",
-            "default": "twin-extension-binding.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "slot_id": {
-            "title": "Slot Id",
-            "type": "string"
-          },
-          "slot_version": {
-            "title": "Slot Version",
-            "type": "string"
-          },
-          "twin_id": {
-            "title": "Twin Id",
-            "type": "string"
-          },
-          "unbound_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Unbound At"
-          }
-        },
-        "required": [
-          "binding_id",
-          "twin_id",
-          "slot_id",
-          "slot_version",
-          "artifact_id",
-          "artifact_digest",
-          "binding_digest",
-          "active",
-          "revision",
-          "created_at",
-          "unbound_at"
-        ],
-        "title": "TwinExtensionBindingResponse",
-        "type": "object"
-      },
-      "TwinExtensionBindingUpdate": {
-        "additionalProperties": false,
-        "properties": {
-          "artifact_id": {
-            "maxLength": 36,
-            "minLength": 36,
-            "title": "Artifact Id",
-            "type": "string"
-          },
-          "expected_revision": {
-            "anyOf": [
-              {
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expected Revision"
-          },
-          "slot_version": {
-            "maxLength": 10,
-            "pattern": "^[1-9][0-9]*$",
-            "title": "Slot Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "artifact_id",
-          "slot_version"
-        ],
-        "title": "TwinExtensionBindingUpdate",
-        "type": "object"
-      },
       "TwinResponse": {
         "properties": {
           "created_at": {
@@ -8436,61 +8277,34 @@
         "title": "TwinUpdate",
         "type": "object"
       },
-      "UserFunctionArtifactListResponse": {
+      "TwinUserFunctionListResponse": {
         "additionalProperties": false,
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/UserFunctionArtifactResponse"
+              "$ref": "#/components/schemas/TwinUserFunctionResponse"
             },
             "title": "Items",
             "type": "array"
           },
-          "limit": {
-            "title": "Limit",
-            "type": "integer"
-          },
-          "offset": {
-            "title": "Offset",
-            "type": "integer"
-          },
           "schema_version": {
-            "const": "user-function-artifact-list.v1",
-            "default": "user-function-artifact-list.v1",
+            "const": "twin-user-function-list.v1",
+            "default": "twin-user-function-list.v1",
             "title": "Schema Version",
             "type": "string"
-          },
-          "total": {
-            "title": "Total",
-            "type": "integer"
           }
         },
         "required": [
-          "items",
-          "total",
-          "limit",
-          "offset"
+          "items"
         ],
-        "title": "UserFunctionArtifactListResponse",
+        "title": "TwinUserFunctionListResponse",
         "type": "object"
       },
-      "UserFunctionArtifactResponse": {
+      "TwinUserFunctionResponse": {
         "additionalProperties": false,
         "properties": {
           "artifact_digest": {
             "title": "Artifact Digest",
-            "type": "string"
-          },
-          "artifact_id": {
-            "title": "Artifact Id",
-            "type": "string"
-          },
-          "artifact_state": {
-            "enum": [
-              "valid",
-              "legacy_unvalidated"
-            ],
-            "title": "Artifact State",
             "type": "string"
           },
           "configuration": {
@@ -8510,15 +8324,24 @@
             "title": "Declared Capabilities",
             "type": "array"
           },
-          "dependency_count": {
-            "title": "Dependency Count",
-            "type": "integer"
+          "dependencies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "function_id": {
+            "title": "Function Id",
+            "type": "string"
           },
           "runtime_id": {
             "title": "Runtime Id",
             "type": "string"
           },
           "schema_version": {
+            "const": "twin-user-function.v1",
+            "default": "twin-user-function.v1",
             "title": "Schema Version",
             "type": "string"
           },
@@ -8537,22 +8360,23 @@
             "title": "Source Files",
             "type": "array"
           },
+          "twin_id": {
+            "title": "Twin Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
           "validator_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Validator Version"
+            "title": "Validator Version",
+            "type": "string"
           }
         },
         "required": [
-          "schema_version",
-          "artifact_id",
-          "artifact_state",
+          "function_id",
+          "twin_id",
           "artifact_digest",
           "slot_id",
           "slot_version",
@@ -8561,10 +8385,11 @@
           "declared_capabilities",
           "validator_version",
           "source_files",
-          "dependency_count",
-          "created_at"
+          "dependencies",
+          "created_at",
+          "updated_at"
         ],
-        "title": "UserFunctionArtifactResponse",
+        "title": "TwinUserFunctionResponse",
         "type": "object"
       },
       "UserFunctionValidationResponse": {
@@ -8866,9 +8691,9 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List reviewed user-function extension slots",
+        "summary": "List the fixed reviewed user-function slots",
         "tags": [
-          "user-function-extensions"
+          "twin-user-functions"
         ]
       }
     },
@@ -13179,226 +13004,6 @@
         ]
       }
     },
-    "/twins/{twin_id}/extension-bindings": {
-      "get": {
-        "operationId": "listTwinExtensionBindings",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "twin_id",
-            "required": true,
-            "schema": {
-              "title": "Twin Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TwinExtensionBindingListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List active owner-scoped Twin extension bindings",
-        "tags": [
-          "user-function-extensions"
-        ]
-      }
-    },
-    "/twins/{twin_id}/extension-bindings/{slot_id}": {
-      "delete": {
-        "operationId": "unbindTwinExtensionArtifact",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "twin_id",
-            "required": true,
-            "schema": {
-              "title": "Twin Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "slot_id",
-            "required": true,
-            "schema": {
-              "title": "Slot Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "slot_version",
-            "required": true,
-            "schema": {
-              "pattern": "^[1-9][0-9]*$",
-              "title": "Slot Version",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "expected_revision",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Expected Revision"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Deactivate one Twin extension binding without deleting history",
-        "tags": [
-          "user-function-extensions"
-        ]
-      },
-      "put": {
-        "operationId": "bindTwinExtensionArtifact",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "twin_id",
-            "required": true,
-            "schema": {
-              "title": "Twin Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "slot_id",
-            "required": true,
-            "schema": {
-              "title": "Slot Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TwinExtensionBindingUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TwinExtensionBindingResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Bind one validated immutable artifact to a reviewed slot",
-        "tags": [
-          "user-function-extensions"
-        ]
-      }
-    },
     "/twins/{twin_id}/log-trace/start": {
       "post": {
         "description": "Sends or simulates a traceable IoT test message for a deployed twin and returns trace metadata plus the optional SSE session contract.",
@@ -14834,6 +14439,286 @@
         ]
       }
     },
+    "/twins/{twin_id}/user-functions": {
+      "get": {
+        "operationId": "listTwinUserFunctions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwinUserFunctionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List the current validated functions of one Twin",
+        "tags": [
+          "twin-user-functions"
+        ]
+      }
+    },
+    "/twins/{twin_id}/user-functions/{slot_id}": {
+      "delete": {
+        "operationId": "deleteTwinUserFunction",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "slot_id",
+            "required": true,
+            "schema": {
+              "title": "Slot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "slot_version",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]*$",
+              "title": "Slot Version",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove the current function from one mutable Twin slot",
+        "tags": [
+          "twin-user-functions"
+        ]
+      },
+      "put": {
+        "operationId": "saveTwinUserFunction",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "slot_id",
+            "required": true,
+            "schema": {
+              "title": "Slot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_saveTwinUserFunction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwinUserFunctionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate and save the current source for one Twin function slot",
+        "tags": [
+          "twin-user-functions"
+        ]
+      }
+    },
+    "/twins/{twin_id}/user-functions/{slot_id}/validate": {
+      "post": {
+        "operationId": "validateTwinUserFunction",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "slot_id",
+            "required": true,
+            "schema": {
+              "title": "Slot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validateTwinUserFunction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserFunctionValidationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate bounded Twin function source without persisting it",
+        "tags": [
+          "twin-user-functions"
+        ]
+      }
+    },
     "/twins/{twin_id}/verify/dataflow": {
       "get": {
         "description": "Returns bounded, newest-first Six-layer telemetry evidence.",
@@ -15265,378 +15150,6 @@
         "summary": "Verify deployed infrastructure",
         "tags": [
           "twins"
-        ]
-      }
-    },
-    "/user-function-artifacts": {
-      "get": {
-        "operationId": "listUserFunctionArtifacts",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 50,
-              "maximum": 100,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "offset",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "minimum": 0,
-              "title": "Offset",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserFunctionArtifactListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List owner-scoped immutable artifacts without source text",
-        "tags": [
-          "user-function-extensions"
-        ]
-      },
-      "post": {
-        "operationId": "createUserFunctionArtifact",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_createUserFunctionArtifact"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserFunctionArtifactResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Validate and create one immutable user-function artifact",
-        "tags": [
-          "user-function-extensions"
-        ]
-      }
-    },
-    "/user-function-artifacts/validate": {
-      "post": {
-        "operationId": "validateUserFunctionArtifact",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_validateUserFunctionArtifact"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserFunctionValidationResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Validate a user-function artifact without persisting it",
-        "tags": [
-          "user-function-extensions"
-        ]
-      }
-    },
-    "/user-function-artifacts/{artifact_id}": {
-      "get": {
-        "operationId": "getUserFunctionArtifact",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "artifact_id",
-            "required": true,
-            "schema": {
-              "title": "Artifact Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserFunctionArtifactResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get owner-scoped artifact metadata without source text",
-        "tags": [
-          "user-function-extensions"
-        ]
-      }
-    },
-    "/user-function-artifacts/{artifact_id}/source": {
-      "get": {
-        "operationId": "downloadUserFunctionArtifactSource",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "artifact_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Artifact Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Download owner-only deterministic source ZIP",
-        "tags": [
-          "user-function-extensions"
-        ]
-      }
-    },
-    "/user-function-artifacts/{legacy_artifact_id}/import": {
-      "post": {
-        "operationId": "importLegacyUserFunctionArtifact",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "legacy_artifact_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Legacy Artifact Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_importLegacyUserFunctionArtifact"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserFunctionArtifactResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Explicitly validate a replacement for one owner-scoped legacy artifact",
-        "tags": [
-          "user-function-extensions"
         ]
       }
     }

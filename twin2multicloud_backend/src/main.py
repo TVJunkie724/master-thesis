@@ -36,10 +36,6 @@ from src.security.rate_limit import (
 )
 from src.security.request_context import RequestContextMiddleware, current_request_id
 from src.security.transport import ProductionTransportMiddleware
-from src.security.user_function_rate_limit import (
-    UserFunctionRateLimitExceeded,
-    UserFunctionSecurityControlUnavailable,
-)
 from src.services.architecture_errors import ArchitectureDomainError
 from src.services.credential_security_audit_service import CredentialAuditWriteFailed
 from src.services.deployment_stream_service import start_reaper
@@ -130,41 +126,6 @@ async def credential_security_unavailable_handler(
         content={
             "error_code": "SECURITY_CONTROL_UNAVAILABLE",
             "message": "A required credential security control is unavailable.",
-            "fix_suggestion": "Retry after the service operator restores the security control.",
-            "http_status": 503,
-            "request_id": current_request_id(),
-        },
-    )
-
-
-@app.exception_handler(UserFunctionRateLimitExceeded)
-async def user_function_rate_limit_handler(
-    _request: Request,
-    exc: UserFunctionRateLimitExceeded,
-) -> JSONResponse:
-    return JSONResponse(
-        status_code=429,
-        headers=exc.headers,
-        content={
-            "error_code": "RATE_LIMITED",
-            "message": "Too many user-function source downloads were requested.",
-            "fix_suggestion": "Wait for the Retry-After interval before retrying.",
-            "http_status": 429,
-            "request_id": current_request_id(),
-        },
-    )
-
-
-@app.exception_handler(UserFunctionSecurityControlUnavailable)
-async def user_function_security_unavailable_handler(
-    _request: Request,
-    _exc: UserFunctionSecurityControlUnavailable,
-) -> JSONResponse:
-    return JSONResponse(
-        status_code=503,
-        content={
-            "error_code": "SECURITY_CONTROL_UNAVAILABLE",
-            "message": "A required user-function security control is unavailable.",
             "fix_suggestion": "Retry after the service operator restores the security control.",
             "http_status": 503,
             "request_id": current_request_id(),

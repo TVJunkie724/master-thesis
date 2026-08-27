@@ -17,10 +17,7 @@ from src.models.cost_calculation import CostCalculationRun
 from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin
 from src.models.user import User
-from src.models.user_function_extension import (
-    TwinExtensionBinding,
-    UserFunctionArtifact,
-)
+from src.models.user_function_extension import TwinUserFunction
 from src.services.architecture_contract_service import (
     calculate_digest,
     calculate_resolution_id,
@@ -30,9 +27,6 @@ from src.services.architecture_profile_service import ArchitectureProfileService
 from src.services.resolved_architecture_service import (
     ARCHITECTURE_METRICS,
     ResolvedArchitectureService,
-)
-from src.services.user_function_extension_service import (
-    runtime as extension_contract,
 )
 from tests.architecture_test_data import (
     RUN_ID,
@@ -64,41 +58,19 @@ def _state(db_session):
         )
     )
     extension = architecture["extension_bindings"][0]
-    artifact = UserFunctionArtifact(
+    user_function = TwinUserFunction(
         id=extension["artifact_id"],
-        user_id=user.id,
-        schema_version="user-function-artifact.v1",
-        artifact_state="valid",
+        twin_id=twin.id,
         artifact_digest=extension["artifact_digest"],
         slot_id=extension["slot_id"],
         slot_version=extension["slot_version"],
         runtime_id="python311",
+        manifest_json="{}",
         configuration_json="{}",
         declared_capabilities_json="[]",
         validator_version="user-function-validator.v1",
-        created_by=user.id,
     )
-    db_session.add(artifact)
-    db_session.flush()
-    db_session.add(
-        TwinExtensionBinding(
-            id="resolved-binding",
-            user_id=user.id,
-            twin_id=twin.id,
-            slot_id=extension["slot_id"],
-            slot_version=extension["slot_version"],
-            artifact_id=artifact.id,
-            binding_digest=extension_contract.binding_digest(
-                twin_id=twin.id,
-                slot_id=extension["slot_id"],
-                slot_version=extension["slot_version"],
-                artifact_id=artifact.id,
-                artifact_digest=artifact.artifact_digest,
-            ),
-            active=True,
-            revision=1,
-        )
-    )
+    db_session.add(user_function)
     db_session.flush()
 
     calculation = result["calculationResult"]
@@ -257,8 +229,8 @@ def test_cross_resolution_edge_reference_is_rejected(db_session):
 
 def test_stale_extension_binding_is_rejected(db_session):
     _user, _twin, _config, run, architecture = _state(db_session)
-    binding = db_session.query(TwinExtensionBinding).one()
-    binding.active = False
+    user_function = db_session.query(TwinUserFunction).one()
+    user_function.artifact_digest = "sha256:" + "0" * 64
 
     with pytest.raises(ArchitectureDomainError) as rejected:
         ResolvedArchitectureService(db_session).persist(

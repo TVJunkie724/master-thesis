@@ -55,8 +55,6 @@ class Settings(BaseSettings):
 
     # Sensitive immutable source reads share the production credential limiter
     # storage while retaining a separate actor namespace and quota.
-    USER_FUNCTION_RATE_LIMIT_ENABLED: bool = True
-    USER_FUNCTION_SOURCE_DOWNLOAD_RATE_LIMIT: str = "5/minute"
 
     # TLS is terminated by the deployment edge. Forwarded scheme information
     # is accepted only from these direct peer networks.
@@ -163,17 +161,6 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "CREDENTIAL_RATE_LIMIT_STORAGE_URI must use redis:// or rediss:// in production"
                 )
-            if not self.USER_FUNCTION_RATE_LIMIT_ENABLED:
-                raise ValueError(
-                    "USER_FUNCTION_RATE_LIMIT_ENABLED must be true in production"
-                )
-            if not self.user_function_rate_limit_storage_uri.startswith(
-                ("redis://", "rediss://")
-            ):
-                raise ValueError(
-                    "User-function rate-limit storage must use redis:// or rediss:// "
-                    "in production"
-                )
 
         if self.REQUIRE_HTTPS is None:
             self.REQUIRE_HTTPS = self.APP_ENV == AppEnvironment.PRODUCTION
@@ -183,7 +170,6 @@ class Settings(BaseSettings):
         for field_name in (
             "CREDENTIAL_WRITE_RATE_LIMIT",
             "CREDENTIAL_VALIDATION_RATE_LIMIT",
-            "USER_FUNCTION_SOURCE_DOWNLOAD_RATE_LIMIT",
         ):
             if (
                 re.fullmatch(
@@ -235,10 +221,6 @@ class Settings(BaseSettings):
         return tuple(
             value.strip() for value in self.CORS_ORIGINS.split(",") if value.strip()
         )
-
-    @property
-    def user_function_rate_limit_storage_uri(self) -> str:
-        return self.CREDENTIAL_RATE_LIMIT_STORAGE_URI
 
 
 settings = Settings()

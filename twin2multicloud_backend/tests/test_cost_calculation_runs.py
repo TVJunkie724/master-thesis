@@ -10,10 +10,7 @@ from src.models.architecture_profile import ResolvedTwinArchitectureRecord
 from src.models.cost_calculation import CostCalculationResultItem, CostCalculationRun
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
-from src.models.user_function_extension import (
-    TwinExtensionBinding,
-    UserFunctionArtifact,
-)
+from src.models.user_function_extension import TwinUserFunction
 from src.schemas.optimizer_calculation import (
     SIX_LAYER_WORKLOAD_ROOT,
     OptimizerCalculationParams,
@@ -35,9 +32,6 @@ from src.services.errors import (
     OptimizerContractError,
 )
 from src.services.resolved_deployment_specification_service import calculate_digest
-from src.services.user_function_extension_service import (
-    runtime as extension_contract,
-)
 from tests.pricing_catalog_test_data import catalog_reference
 from tests.test_six_layer_cost_ledger_service import _fixture
 
@@ -181,41 +175,19 @@ def _twin_state(db_session):
             user_id=user.id,
         )
     )
-    artifact = UserFunctionArtifact(
+    user_function = TwinUserFunction(
         id=extension["artifact_id"],
-        user_id=user.id,
-        schema_version="user-function-artifact.v1",
-        artifact_state="valid",
+        twin_id=twin.id,
         artifact_digest=extension["artifact_digest"],
         slot_id=extension["slot_id"],
         slot_version=extension["slot_version"],
         runtime_id="python311",
+        manifest_json="{}",
         configuration_json="{}",
         declared_capabilities_json="[]",
         validator_version="user-function-validator.v1",
-        created_by=user.id,
     )
-    db_session.add(artifact)
-    db_session.flush()
-    db_session.add(
-        TwinExtensionBinding(
-            id="six-layer-run-binding",
-            user_id=user.id,
-            twin_id=twin.id,
-            slot_id=extension["slot_id"],
-            slot_version=extension["slot_version"],
-            artifact_id=artifact.id,
-            binding_digest=extension_contract.binding_digest(
-                twin_id=twin.id,
-                slot_id=extension["slot_id"],
-                slot_version=extension["slot_version"],
-                artifact_id=artifact.id,
-                artifact_digest=artifact.artifact_digest,
-            ),
-            active=True,
-            revision=1,
-        )
-    )
+    db_session.add(user_function)
     db_session.commit()
     return user, twin
 

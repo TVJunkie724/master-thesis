@@ -19,11 +19,9 @@ from src.models.twin import DigitalTwin, TwinState
 from src.models.twin_config import TwinConfiguration
 from src.models.user import User
 from src.models.user_function_extension import (
-    TwinExtensionBinding,
-    UserFunctionArtifact,
-    UserFunctionArtifactDependency,
-    UserFunctionArtifactFile,
-    UserFunctionAuditEvent,
+    TwinUserFunction,
+    TwinUserFunctionDependency,
+    TwinUserFunctionFile,
 )
 
 __all__ = [
@@ -46,11 +44,9 @@ __all__ = [
     "CostCalculationRun",
     "CostCalculationResultItem",
     "CredentialSecurityEvent",
-    "UserFunctionArtifact",
-    "UserFunctionArtifactFile",
-    "UserFunctionArtifactDependency",
-    "TwinExtensionBinding",
-    "UserFunctionAuditEvent",
+    "TwinUserFunction",
+    "TwinUserFunctionFile",
+    "TwinUserFunctionDependency",
     "TwinArchitectureSelection",
     "ResolvedTwinArchitectureRecord",
     "ResolvedArchitectureComponentAssignment",

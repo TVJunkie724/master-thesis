@@ -983,7 +983,7 @@ def _materialize_deployment_files(
         )
     )
     if dc:
-        extension_files = _materialize_extension_bindings(twin)
+        extension_files = _materialize_twin_user_functions(twin)
         has_validated_extensions = bool(extension_files)
         if _has_legacy_user_functions(dc) and not has_validated_extensions:
             _raise_package_error(
@@ -1015,33 +1015,29 @@ def _materialize_deployment_files(
             )
         files.extend(extension_files)
     else:
-        files.extend(_materialize_extension_bindings(twin))
+        files.extend(_materialize_twin_user_functions(twin))
     return tuple(files)
 
 
-def _materialize_extension_bindings(twin) -> tuple[DeploymentPackageFile, ...]:
-    """Materialize active validated extension bindings without source rewrites."""
+def _materialize_twin_user_functions(twin) -> tuple[DeploymentPackageFile, ...]:
+    """Materialize the current validated sources owned by one Twin."""
     from src.services.user_function_extension_service import (  # noqa: PLC0415
         ExtensionContractError,
         runtime,
     )
 
-    bindings = sorted(
-        (
-            binding
-            for binding in (getattr(twin, "extension_bindings", None) or ())
-            if bool(getattr(binding, "active", False))
-        ),
-        key=lambda binding: (binding.slot_id, binding.slot_version),
+    user_functions = sorted(
+        (getattr(twin, "user_functions", None) or ()),
+        key=lambda item: (item.slot_id, item.slot_version),
     )
-    if not bindings:
+    if not user_functions:
         return ()
 
     files: list[DeploymentPackageFile] = []
     index_bindings: list[dict[str, str]] = []
     identities: set[tuple[str, str]] = set()
-    for binding in bindings:
-        identity = (binding.slot_id, binding.slot_version)
+    for user_function in user_functions:
+        identity = (user_function.slot_id, user_function.slot_version)
         if identity in identities:
             _raise_package_error(
                 "extension_bindings",
@@ -1049,14 +1045,9 @@ def _materialize_extension_bindings(twin) -> tuple[DeploymentPackageFile, ...]:
                 "The Twin contains duplicate active extension bindings.",
             )
         identities.add(identity)
-        artifact = binding.artifact
         if (
-            artifact is None
-            or artifact.user_id != getattr(twin, "user_id", None)
-            or binding.user_id != getattr(twin, "user_id", None)
-            or binding.twin_id != getattr(twin, "id", None)
-            or artifact.artifact_state != "valid"
-            or not artifact.manifest_json
+            user_function.twin_id != getattr(twin, "id", None)
+            or not user_function.manifest_json
         ):
             _raise_package_error(
                 "extension_bindings",
@@ -1065,19 +1056,19 @@ def _materialize_extension_bindings(twin) -> tuple[DeploymentPackageFile, ...]:
             )
         try:
             manifest = runtime.load_json_bytes(
-                artifact.manifest_json.encode("utf-8"),
+                user_function.manifest_json.encode("utf-8"),
                 field="extension manifest",
             )
             source_files = {
-                item.relative_path: item.content_text for item in artifact.files
+                item.relative_path: item.content_text for item in user_function.files
             }
             runtime.validate_artifact_manifest(manifest, files=source_files)
             expected_binding_digest = runtime.binding_digest(
-                twin_id=binding.twin_id,
-                slot_id=binding.slot_id,
-                slot_version=binding.slot_version,
-                artifact_id=artifact.id,
-                artifact_digest=artifact.artifact_digest,
+                twin_id=user_function.twin_id,
+                slot_id=user_function.slot_id,
+                slot_version=user_function.slot_version,
+                artifact_id=user_function.id,
+                artifact_digest=user_function.artifact_digest,
             )
         except ExtensionContractError as exc:
             _raise_package_error(
@@ -1086,11 +1077,10 @@ def _materialize_extension_bindings(twin) -> tuple[DeploymentPackageFile, ...]:
                 "An active extension artifact failed contract validation.",
             )
         if (
-            manifest["artifact_id"] != artifact.id
-            or manifest["artifact_digest"] != artifact.artifact_digest
-            or manifest["slot_id"] != binding.slot_id
-            or manifest["slot_version"] != binding.slot_version
-            or binding.binding_digest != expected_binding_digest
+            manifest["artifact_id"] != user_function.id
+            or manifest["artifact_digest"] != user_function.artifact_digest
+            or manifest["slot_id"] != user_function.slot_id
+            or manifest["slot_version"] != user_function.slot_version
         ):
             _raise_package_error(
                 "extension_bindings",
@@ -1098,7 +1088,7 @@ def _materialize_extension_bindings(twin) -> tuple[DeploymentPackageFile, ...]:
                 "An active extension binding does not match its immutable artifact.",
             )
 
-        artifact_root = f".twin2multicloud/extensions/artifacts/{artifact.id}"
+        artifact_root = f".twin2multicloud/extensions/artifacts/{user_function.id}"
         manifest_path = f"{artifact_root}/manifest.json"
         source_root = f"{artifact_root}/source"
         files.append(
@@ -1116,11 +1106,11 @@ def _materialize_extension_bindings(twin) -> tuple[DeploymentPackageFile, ...]:
         )
         index_bindings.append(
             {
-                "slot_id": binding.slot_id,
-                "slot_version": binding.slot_version,
-                "artifact_id": artifact.id,
-                "artifact_digest": artifact.artifact_digest,
-                "binding_digest": binding.binding_digest,
+                "slot_id": user_function.slot_id,
+                "slot_version": user_function.slot_version,
+                "artifact_id": user_function.id,
+                "artifact_digest": user_function.artifact_digest,
+                "binding_digest": expected_binding_digest,
                 "manifest_path": manifest_path,
                 "source_root": source_root,
             }

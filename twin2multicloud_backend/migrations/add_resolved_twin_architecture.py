@@ -555,22 +555,17 @@ def _extensions_match(
     row: dict[str, Any],
     architecture: dict[str, Any],
 ) -> bool:
-    if not _table_exists(connection, "twin_extension_bindings"):
+    if not _table_exists(connection, "twin_user_functions"):
         return not architecture["extension_bindings"]
     active = connection.execute(
         """
-        SELECT binding.slot_id, binding.slot_version, binding.artifact_id,
-               artifact.artifact_digest, artifact.configuration_json,
-               artifact.validator_version, artifact.artifact_state
-        FROM twin_extension_bindings binding
-        JOIN user_function_artifacts artifact
-          ON artifact.id = binding.artifact_id
-        WHERE binding.twin_id = ?
-          AND binding.user_id = ?
-          AND binding.active = 1
-        ORDER BY binding.slot_id, binding.slot_version, binding.artifact_id
+        SELECT slot_id, slot_version, id, artifact_digest,
+               configuration_json, validator_version
+        FROM twin_user_functions
+        WHERE twin_id = ?
+        ORDER BY slot_id, slot_version, id
         """,
-        (row["twin_id"], row["user_id"]),
+        (row["twin_id"],),
     ).fetchall()
     expected = {
         (item["slot_id"], item["slot_version"], item["artifact_id"]): item
@@ -585,7 +580,6 @@ def _extensions_match(
         artifact_digest,
         configuration_json,
         validator_version,
-        artifact_state,
     ) in active:
         item = expected[(slot_id, slot_version, artifact_id)]
         try:
@@ -597,8 +591,7 @@ def _extensions_match(
             + hashlib.sha256(canonical_json(configuration).encode("utf-8")).hexdigest()
         )
         if (
-            artifact_state != "valid"
-            or artifact_digest != item["artifact_digest"]
+            artifact_digest != item["artifact_digest"]
             or validator_version != item["validation_contract_version"]
             or configuration_digest != item["configuration_digest"]
         ):

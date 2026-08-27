@@ -20,7 +20,7 @@ from src.models.architecture_profile import (
     ResolvedTwinArchitectureRecord,
 )
 from src.models.cost_calculation import CostCalculationRun
-from src.models.user_function_extension import TwinExtensionBinding
+from src.models.user_function_extension import TwinUserFunction
 from src.repositories.architecture_repository import ArchitectureRepository
 from src.schemas.architecture_profile import ResolvedArchitectureReadResponse
 from src.security.request_context import current_request_id
@@ -37,9 +37,6 @@ from src.services.architecture_profile_service import (
     ArchitectureProfileService,
     _catalog_documents,
     _provider_documents,
-)
-from src.services.user_function_extension_service import (
-    runtime as extension_contract,
 )
 
 
@@ -609,58 +606,38 @@ class ResolvedArchitectureService:
         run: CostCalculationRun,
         architecture: Mapping[str, Any],
     ) -> None:
-        queried_bindings = (
-            self.db.query(TwinExtensionBinding)
+        current_functions = (
+            self.db.query(TwinUserFunction)
             .filter(
-                TwinExtensionBinding.twin_id == run.twin_id,
-                TwinExtensionBinding.user_id == run.user_id,
-                TwinExtensionBinding.active.is_(True),
+                TwinUserFunction.twin_id == run.twin_id,
             )
             .all()
         )
-        active = [binding for binding in queried_bindings if binding.active]
-        active_by_identity = {
-            (item.slot_id, item.slot_version, item.artifact_id): item for item in active
+        current_by_identity = {
+            (item.slot_id, item.slot_version, item.id): item
+            for item in current_functions
         }
         resolved = architecture["extension_bindings"]
         resolved_identities = {
             (item["slot_id"], item["slot_version"], item["artifact_id"])
             for item in resolved
         }
-        if resolved_identities != set(active_by_identity):
+        if resolved_identities != set(current_by_identity):
             raise architecture_error(
                 "ARCH_RESOLUTION_REFERENCE_MISMATCH",
                 "The resolution extension binding set is not current.",
             )
         for item in resolved:
-            binding = active_by_identity[
+            user_function = current_by_identity[
                 (item["slot_id"], item["slot_version"], item["artifact_id"])
             ]
-            artifact = binding.artifact
-            expected_binding_digest = extension_contract.binding_digest(
-                twin_id=binding.twin_id,
-                slot_id=binding.slot_id,
-                slot_version=binding.slot_version,
-                artifact_id=binding.artifact_id,
-                artifact_digest=(
-                    artifact.artifact_digest if artifact is not None else ""
-                ),
-            )
-            if (
-                artifact is None
-                or artifact.artifact_state != "valid"
-                or artifact.artifact_digest != item["artifact_digest"]
-                or not hmac.compare_digest(
-                    binding.binding_digest,
-                    expected_binding_digest,
-                )
-            ):
+            if user_function.artifact_digest != item["artifact_digest"]:
                 raise architecture_error(
                     "ARCH_RESOLUTION_REFERENCE_MISMATCH",
                     "The resolution contains an unresolved extension binding.",
                 )
             try:
-                configuration = json.loads(artifact.configuration_json)
+                configuration = json.loads(user_function.configuration_json)
             except json.JSONDecodeError as exc:
                 raise architecture_error(
                     "ARCH_RESOLUTION_REFERENCE_MISMATCH",

@@ -58,10 +58,6 @@ MIGRATIONS: tuple[Migration, ...] = (
         "migrations.add_resolved_deployment_specification",
     ),
     Migration(
-        "021_user_function_extension_contract",
-        "migrations.add_user_function_extension_contract",
-    ),
-    Migration(
         "022_resolved_twin_architecture",
         "migrations.add_resolved_twin_architecture",
     ),
@@ -100,6 +96,10 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "034_cleanup_evidence",
         "migrations.add_cleanup_evidence",
+    ),
+    Migration(
+        "035_twin_user_functions",
+        "migrations.add_twin_user_functions",
     ),
 )
 

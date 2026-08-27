@@ -1,11 +1,11 @@
-"""Public Management API models for immutable user-function extensions."""
+"""Public models for bounded, Twin-owned user functions."""
 
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 class ExtensionSlotResponse(BaseModel):
@@ -32,34 +32,30 @@ class ExtensionSlotListResponse(BaseModel):
     slots: list[ExtensionSlotResponse]
 
 
-class UserFunctionArtifactResponse(BaseModel):
+class TwinUserFunctionResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: str
-    artifact_id: str
-    artifact_state: Literal["valid", "legacy_unvalidated"]
+    schema_version: Literal["twin-user-function.v1"] = "twin-user-function.v1"
+    function_id: str
+    twin_id: str
     artifact_digest: str
     slot_id: str
     slot_version: str
     runtime_id: str
     configuration: dict[str, Any]
     declared_capabilities: list[str]
-    validator_version: str | None
+    validator_version: str
     source_files: list[str]
-    dependency_count: int
+    dependencies: list[str]
     created_at: datetime
+    updated_at: datetime
 
 
-class UserFunctionArtifactListResponse(BaseModel):
+class TwinUserFunctionListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: Literal["user-function-artifact-list.v1"] = (
-        "user-function-artifact-list.v1"
-    )
-    items: list[UserFunctionArtifactResponse]
-    total: int
-    limit: int
-    offset: int
+    schema_version: Literal["twin-user-function-list.v1"] = "twin-user-function-list.v1"
+    items: list[TwinUserFunctionResponse]
 
 
 class UserFunctionValidationResponse(BaseModel):
@@ -76,39 +72,3 @@ class UserFunctionValidationResponse(BaseModel):
     source_files: list[str]
     dependencies: list[str]
     checks: list[str]
-
-
-class TwinExtensionBindingUpdate(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    artifact_id: str = Field(min_length=36, max_length=36)
-    slot_version: str = Field(pattern="^[1-9][0-9]*$", max_length=10)
-    expected_revision: int | None = Field(default=None, ge=1)
-
-
-class TwinExtensionBindingResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    schema_version: Literal["twin-extension-binding.v1"] = (
-        "twin-extension-binding.v1"
-    )
-    binding_id: str
-    twin_id: str
-    slot_id: str
-    slot_version: str
-    artifact_id: str
-    artifact_digest: str
-    binding_digest: str
-    active: bool
-    revision: int
-    created_at: datetime
-    unbound_at: datetime | None
-
-
-class TwinExtensionBindingListResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    schema_version: Literal["twin-extension-binding-list.v1"] = (
-        "twin-extension-binding-list.v1"
-    )
-    items: list[TwinExtensionBindingResponse]
