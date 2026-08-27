@@ -39,6 +39,15 @@ def test_management_json_contracts_have_response_models():
         ("/auth/me", "patch"): "#/components/schemas/CurrentUserResponse",
         ("/auth/providers", "get"): "#/components/schemas/AuthProvidersResponse",
         ("/health", "get"): "#/components/schemas/HealthResponse",
+        ("/twins/import", "post"): "#/components/schemas/TwinResponse",
+        (
+            "/twins/{twin_id}/duplicate",
+            "post",
+        ): "#/components/schemas/TwinResponse",
+        (
+            "/twins/{twin_id}/configure",
+            "post",
+        ): "#/components/schemas/TwinResponse",
         (
             "/twins/{twin_id}/deployment-access",
             "get",
@@ -125,6 +134,8 @@ def test_twin_routes_keep_openapi_summaries_and_descriptions():
         ("/twins/{twin_id}", "get"),
         ("/twins/{twin_id}", "put"),
         ("/twins/{twin_id}", "delete"),
+        ("/twins/import", "post"),
+        ("/twins/{twin_id}/duplicate", "post"),
         ("/twins/{twin_id}/configure", "post"),
         ("/twins/{twin_id}/deploy", "post"),
         ("/twins/{twin_id}/destroy", "post"),

@@ -129,6 +129,49 @@ class TestTwinsRoutes:
         assert response.status_code == 200
         assert len(response.json()) == 2
 
+    def test_duplicate_creates_a_new_draft_and_keeps_source(
+        self,
+        authenticated_client,
+    ):
+        client, headers = authenticated_client
+        source_id = create_test_twin(client, headers)
+
+        response = client.post(
+            f"/twins/{source_id}/duplicate",
+            json={"name": "Copied Twin"},
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        assert response.json()["id"] != source_id
+        assert response.json()["state"] == "draft"
+        assert response.json()["name"] == "Copied Twin"
+        assert client.get(f"/twins/{source_id}", headers=headers).status_code == 200
+
+    def test_export_then_import_creates_shareable_draft(self, authenticated_client):
+        client, headers = authenticated_client
+        source_id = create_test_twin(client, headers)
+        exported = client.get(f"/twins/{source_id}/export", headers=headers)
+
+        assert exported.status_code == 200
+        assert "filename=" in exported.headers["content-disposition"]
+        response = client.post(
+            "/twins/import",
+            data={"new_name": "Imported Twin"},
+            files={
+                "archive": (
+                    "shared.twin.zip",
+                    exported.content,
+                    "application/zip",
+                )
+            },
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        assert response.json()["name"] == "Imported Twin"
+        assert response.json()["state"] == "draft"
+
     # ============================================================
     # Edge Case Tests
     # ============================================================

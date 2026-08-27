@@ -57,7 +57,13 @@ class TwinLifecycleService:
         self.db = db
         self.twin_repository = twin_repository
 
-    def create_twin(self, name: str, user_id: str) -> DigitalTwin:
+    def create_twin(
+        self,
+        name: str,
+        user_id: str,
+        *,
+        commit: bool = True,
+    ) -> DigitalTwin:
         """Create a draft twin after enforcing the per-user active-name rule."""
         self._require_dependencies()
         existing = self.twin_repository.find_active_by_name(user_id, name)
@@ -91,11 +97,15 @@ class TwinLifecycleService:
                     correlation_id=current_request_id(),
                 )
             )
-            self.db.commit()
+            if commit:
+                self.db.commit()
+            else:
+                self.db.flush()
         except Exception:
             self.db.rollback()
             raise
-        self.twin_repository.refresh(twin)
+        if commit:
+            self.twin_repository.refresh(twin)
         return twin
 
     async def update_twin(

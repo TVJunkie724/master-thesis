@@ -725,8 +725,12 @@ async def download_simulator(
 @router.get(
     "/{twin_id}/export",
     operation_id="exportTwinConfiguration",
-    summary="Export redacted twin configuration",
-    description="Downloads a ZIP archive containing the twin configuration and generated deployer inputs with credentials redacted.",
+    summary="Export a portable Twin definition",
+    description=(
+        "Downloads a strict .twin.zip archive containing only portable authored inputs and "
+        "the optional scene. Credentials, Cloud Connection IDs, derived optimizer results, "
+        "operations, and deployment history are excluded."
+    ),
     responses={
         200: {"description": "ZIP file", "content": {"application/zip": {}}},
         401: ERROR_RESPONSES[401],
@@ -748,5 +752,10 @@ async def export_twin_configuration(
     return StreamingResponse(
         archive.content,
         media_type=archive.media_type,
-        headers={"Content-Disposition": f'attachment; filename="{archive.filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{archive.filename}"',
+            "Cache-Control": "no-store",
+            "Pragma": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
