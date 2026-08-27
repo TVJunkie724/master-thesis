@@ -50,16 +50,6 @@ class CloudAccessBloc extends Bloc<CloudAccessEvent, CloudAccessState> {
     Emitter<CloudAccessState> emit,
   ) async {
     if (state.isCreating) return;
-    if (event.request.purpose != CloudConnectionPurpose.deployment) {
-      emit(
-        state.copyWith(
-          feedback: CloudAccessFeedback.error(
-            'Only deployment administrator connections are supported.',
-          ),
-        ),
-      );
-      return;
-    }
     emit(state.copyWith(isCreating: true, clearFeedback: true));
     try {
       await _api.createCloudConnection(event.request);

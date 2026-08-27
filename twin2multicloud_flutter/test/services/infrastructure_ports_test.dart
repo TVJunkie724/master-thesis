@@ -11,7 +11,6 @@ void main() {
     expect(adapter, isA<ManagementApi>());
     expect(adapter, isA<TwinApi>());
     expect(adapter, isA<CloudAccessApi>());
-    expect(adapter, isA<PricingApi>());
     expect(adapter, isA<OptimizationApi>());
     expect(adapter, isA<DeploymentConfigurationApi>());
     expect(adapter, isA<DeploymentLifecycleApi>());

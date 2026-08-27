@@ -7,7 +7,6 @@ import 'package:twin2multicloud_flutter/demo/demo_management_api.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/deployment_access.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
-import 'package:twin2multicloud_flutter/models/pricing_refresh_run.dart';
 import 'package:twin2multicloud_flutter/models/resolved_deployment_specification.dart';
 import 'package:twin2multicloud_flutter/models/twin_transfer.dart';
 import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
@@ -55,23 +54,19 @@ void main() {
       final created = await api.createCloudConnection(
         const CloudConnectionCreateRequest(
           provider: CloudProvider.aws,
-          purpose: CloudConnectionPurpose.pricing,
-          displayName: 'Secondary AWS reader',
+          displayName: 'Secondary AWS admin',
           cloudScope: {'account_id': '999999999999'},
           credentials: {
             'access_key_id': 'AKIADEMO',
             'secret_access_key': secret,
           },
-          isDefaultForPricing: true,
         ),
       );
 
-      expect(created.isDefaultForPricing, isTrue);
+      expect(created.purpose, CloudConnectionPurpose.deployment);
       expect(
-        (await api.listCloudConnections(
-          provider: CloudProvider.aws,
-        )).where((item) => item.isDefaultForPricing),
-        hasLength(1),
+        await api.listCloudConnections(provider: CloudProvider.aws),
+        hasLength(2),
       );
       expect(
         store.cloudConnection(created.id).toString(),
@@ -80,18 +75,10 @@ void main() {
 
       final validated = await api.validateCloudConnection(created.id);
       expect(validated.valid, isTrue);
-      expect(
-        (await api.updateCloudConnection(
-          created.id,
-          displayName: 'Renamed AWS reader',
-        )).displayName,
-        'Renamed AWS reader',
-      );
-
       await api.deleteCloudConnection(created.id);
       expect(
         await api.listCloudConnections(provider: CloudProvider.aws),
-        hasLength(2),
+        hasLength(1),
       );
       await expectLater(
         api.deleteCloudConnection('demo-aws-deployment'),
@@ -107,15 +94,6 @@ void main() {
         ),
         throwsDemoCode('DEMO_CONNECTION_CREDENTIALS_REQUIRED'),
       );
-    });
-
-    test('derives purpose-separated access inventory', () async {
-      final inventory = await api.getCloudAccessInventory();
-
-      expect(inventory.schemaVersion, 'cloud-access-inventory.v1');
-      expect(inventory.pricingFor('aws')?.connectionId, 'demo-aws-pricing');
-      expect(inventory.pricingFor('azure')?.scope, 'public');
-      expect(inventory.providers['gcp']?.deployment, hasLength(1));
     });
 
     test('imports one redacted deployment connection', () async {
@@ -185,7 +163,7 @@ void main() {
       );
       await expectLater(
         api.updateTwinConfig('demo-draft', {
-          'cloud_connections': {'aws': 'demo-aws-pricing'},
+          'cloud_connections': {'aws': 'demo-azure-deployment'},
         }),
         throwsDemoCode('DEMO_CONNECTION_BINDING_INVALID'),
       );
@@ -222,48 +200,8 @@ void main() {
     });
   });
 
-  group('pricing and optimization', () {
-    test('refreshes each provider and exposes review evidence', () async {
-      final aws = await api.startPricingRefresh('aws');
-      final azure = await api.startPricingRefresh('azure');
-      final gcp = await api.startPricingRefresh('gcp');
-
-      expect(aws.credentialSummary.connectionId, 'demo-aws-pricing');
-      expect(aws.awsTwinMakerContext, isNotNull);
-      expect(
-        aws.awsTwinMakerContext!.currentPlan.mode,
-        AwsTwinMakerPricingPlanMode.standard,
-      );
-      expect(aws.awsTwinMakerContext!.verifiedAccountId, '123456789012');
-      expect(azure.credentialSummary.scope, 'public');
-      expect(gcp.credentialSummary.connectionId, 'demo-gcp-pricing');
-      final reports = await api.listPricingCandidateReports(
-        'gcp',
-        gcp.refreshRunId,
-      );
-      expect(reports.reports, hasLength(1));
-      expect(reports.reports.single.refreshRunId, gcp.refreshRunId);
-      final report = reports.reports.single;
-      final trace = await api.getPricingCandidateTrace(report.reportId);
-      expect(trace.sanitization.secretFree, isTrue);
-
-      final decision = await api.createPricingReviewDecision(
-        report.reportId,
-        'select_alternative',
-        candidateId: report.candidates.last.candidateId,
-        rationale: 'Selected during the demo.',
-      );
-      expect(decision.decision, 'select_alternative');
-      await expectLater(
-        api.createPricingReviewDecision(report.reportId, 'approve'),
-        throwsDemoCode('DEMO_PRICING_CANDIDATE_REQUIRED'),
-      );
-    });
-
-    test('supports health, catalog-bound calculation, and persistence', () async {
-      expect((await api.getPricingHealth()).providers, hasLength(3));
-      expect((await api.getPricingStatusResult()).isSuccess, isTrue);
-      expect((await api.getRegionsStatus())['providers'], hasLength(3));
+  group('optimization', () {
+    test('supports catalog-bound calculation and persistence', () async {
       final seeded = await api.getOptimizerConfig('demo-configured');
       expect(
         seeded?.pricingCatalogContext

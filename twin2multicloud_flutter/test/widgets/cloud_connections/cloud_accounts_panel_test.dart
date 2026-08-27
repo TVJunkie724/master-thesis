@@ -117,7 +117,7 @@ void main() {
 
     await tester.tap(find.text('Enter manually').first);
     await tester.pumpAndSettle();
-    expect(find.text('New AWS Deployment access'), findsOneWidget);
+    expect(find.text('New AWS administrator access'), findsOneWidget);
     await tester.tap(find.text('Cancel').last);
     await tester.pumpAndSettle();
 

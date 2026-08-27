@@ -7,7 +7,6 @@ import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/config/runtime_composition.dart';
 import 'package:twin2multicloud_flutter/providers/runtime_providers.dart';
 import 'package:twin2multicloud_flutter/screens/dashboard_screen.dart';
-import 'package:twin2multicloud_flutter/screens/pricing_review/pricing_review_screen.dart';
 import 'package:twin2multicloud_flutter/screens/settings_screen.dart';
 import 'package:twin2multicloud_flutter/screens/twin_overview/twin_overview_screen.dart';
 import 'package:twin2multicloud_flutter/screens/wizard/wizard_screen.dart';
@@ -18,7 +17,6 @@ void main() {
   final routes = <String, Type>{
     '/dashboard': DashboardScreen,
     '/settings': SettingsScreen,
-    '/pricing-review': PricingReviewScreen,
     '/wizard': WizardScreen,
     '/wizard/demo-configured': WizardScreen,
     '/twins/demo-deployed/overview': TwinOverviewScreen,

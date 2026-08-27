@@ -5,7 +5,6 @@ import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
-const _providers = {'aws', 'azure', 'gcp'};
 const _serverOwnedOptimizerFields = {
   'calculationRunId',
   'providerPricingCatalogs',
@@ -109,35 +108,6 @@ void main() {
       if (deployer != null) {
         expect(deployer.processorContents, isA<Map<String, String>>());
         expect(deployer.eventActionContents, isA<Map<String, String>>());
-      }
-    });
-
-    testWidgets('decodes the complete cloud access inventory', (tester) async {
-      final inventory = await _readOrFail(
-        '/cloud-access',
-        _api.getCloudAccessInventory,
-      );
-
-      expect(inventory.schemaVersion, 'cloud-access-inventory.v1');
-      expect(inventory.providers.keys.toSet(), _providers);
-      for (final provider in _providers) {
-        final entry = inventory.providers[provider];
-        expect(entry, isNotNull, reason: 'Missing $provider inventory');
-        expect(entry!.provider, provider);
-        expect(entry.pricing.provider, provider);
-        expect(entry.pricing.purpose, 'pricing');
-        expect(entry.pricing.scope, anyOf('public', 'user'));
-        expect(entry.pricing.status, isNotEmpty);
-        expect(entry.pricing.identityLabel, isNotEmpty);
-        for (final option in [
-          entry.pricing,
-          ...entry.pricingOptions,
-          ...entry.deployment,
-        ]) {
-          expect(option.provider, provider);
-          expect(option.identityLabel, isNotEmpty);
-          expect(option.status, isNotEmpty);
-        }
       }
     });
 
@@ -256,34 +226,10 @@ void main() {
       }
     });
 
-    testWidgets('decodes all provider pricing health states', (tester) async {
-      final health = await _readOrFail(
-        '/optimizer/pricing-health',
-        _api.getPricingHealth,
-      );
-
-      expect(health.schemaVersion, 'pricing-health.v1');
-      expect(health.providers.keys.toSet(), _providers);
-      for (final provider in _providers) {
-        final state = health.provider(provider);
-        expect(state, isNotNull, reason: 'Missing $provider pricing health');
-        expect(state!.provider, provider);
-        expect(state.state, isNotEmpty);
-        expect(state.severity, isNotEmpty);
-        expect(state.calculationSource, isNotEmpty);
-        expect(state.pricingFreshness, isNotEmpty);
-        expect(state.sourceLabel, isNotEmpty);
-        expect(state.primaryMessage, isNotEmpty);
-        expect(state.credentialSummary.provider, provider);
-        expect(state.credentialSummary.purpose, 'pricing');
-        expect(state.credentialSummary.status, isNotEmpty);
-      }
-    });
-
     testWidgets('rejects missing authentication on protected inventory', (
       tester,
     ) async {
-      final response = await _statusOnlyRequest('/cloud-access');
+      final response = await _statusOnlyRequest('/cloud-connections/');
       expect(response, anyOf(401, 403));
     });
 

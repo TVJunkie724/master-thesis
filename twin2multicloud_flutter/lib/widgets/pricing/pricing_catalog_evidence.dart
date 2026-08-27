@@ -166,7 +166,7 @@ class _PricingCatalogReferenceRow extends StatelessWidget {
                   );
                   final evidence = _CatalogEvidence(reference: reference);
                   if (constraints.maxWidth <
-                      AppSpacing.pricingReviewCardBreakpoint) {
+                      AppSpacing.evidenceCardBreakpoint) {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

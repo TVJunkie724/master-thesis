@@ -5,7 +5,6 @@ import '../models/architecture_profile.dart';
 import '../models/authentication.dart';
 import '../models/user.dart';
 import '../models/calc_params.dart';
-import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/deployment_operations.dart';
 import '../models/deployment_access.dart';
@@ -13,9 +12,6 @@ import '../models/deployment_readiness.dart';
 import '../models/deployment_verification.dart';
 import '../models/deployer_config.dart';
 import '../models/optimizer_config.dart';
-import '../models/pricing_candidate_review.dart';
-import '../models/pricing_health.dart';
-import '../models/pricing_refresh_run.dart';
 import '../models/provider_capability.dart';
 import '../models/resolved_deployment_specification.dart';
 import '../models/resolved_twin_architecture.dart';
@@ -56,8 +52,6 @@ abstract interface class UserPreferencesApi {
 abstract interface class CloudAccessApi {
   Future<List<CloudConnection>> listCloudConnections({CloudProvider? provider});
 
-  Future<CloudAccessInventory> getCloudAccessInventory();
-
   Future<CloudConnection> createCloudConnection(
     CloudConnectionCreateRequest request,
   );
@@ -65,13 +59,6 @@ abstract interface class CloudAccessApi {
   Future<CloudConnection> importCloudConnection(
     CloudConnectionImportRequest request,
   );
-
-  Future<CloudConnection> updateCloudConnection(
-    String id, {
-    String? displayName,
-    Map<String, dynamic>? cloudScope,
-    bool? isDefaultForPricing,
-  });
 
   Future<void> deleteCloudConnection(String id);
 
@@ -108,36 +95,6 @@ abstract interface class TwinApi {
   );
 
   Future<Result<TwinConfigData>> getTwinConfigResult(String twinId);
-}
-
-abstract interface class PricingApi {
-  Future<Map<String, dynamic>> getPricingStatus();
-
-  Future<PricingHealthResponse> getPricingHealth();
-
-  Future<PricingRefreshRun> startPricingRefresh(
-    String provider, {
-    String? connectionId,
-    bool force = true,
-  });
-
-  Future<PricingCandidateReportList> listPricingCandidateReports(
-    String provider,
-    String refreshRunId,
-  );
-
-  Future<PricingTrace> getPricingCandidateTrace(String reportId);
-
-  Future<PricingReviewDecision> createPricingReviewDecision(
-    String reportId,
-    String decision, {
-    String? candidateId,
-    String? rationale,
-  });
-
-  Future<Map<String, dynamic>> getRegionsStatus();
-
-  Future<Result<Map<String, dynamic>>> getPricingStatusResult();
 }
 
 abstract interface class PlatformCapabilityApi {
@@ -313,7 +270,6 @@ abstract interface class ManagementApi
         UserPreferencesApi,
         CloudAccessApi,
         TwinApi,
-        PricingApi,
         PlatformCapabilityApi,
         OptimizationApi,
         ArchitectureApi,

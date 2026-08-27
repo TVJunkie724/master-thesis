@@ -5,7 +5,6 @@ import '../core/result.dart';
 import '../models/architecture_profile.dart';
 import '../models/calc_params.dart';
 import '../models/authentication.dart';
-import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/deployment_access.dart';
 import '../models/deployment_operations.dart';
@@ -13,9 +12,6 @@ import '../models/deployment_readiness.dart';
 import '../models/deployment_verification.dart';
 import '../models/deployer_config.dart';
 import '../models/optimizer_config.dart';
-import '../models/pricing_candidate_review.dart';
-import '../models/pricing_health.dart';
-import '../models/pricing_refresh_run.dart';
 import '../models/provider_capability.dart';
 import '../models/resolved_deployment_specification.dart';
 import '../models/resolved_twin_architecture.dart';
@@ -195,14 +191,6 @@ class ApiService implements ManagementApi {
   }
 
   @override
-  Future<CloudAccessInventory> getCloudAccessInventory() async {
-    final response = await _dio.get('/cloud-access');
-    return CloudAccessInventory.fromJson(
-      Map<String, dynamic>.from(response.data as Map),
-    );
-  }
-
-  @override
   Future<CloudConnection> createCloudConnection(
     CloudConnectionCreateRequest request,
   ) async {
@@ -230,25 +218,6 @@ class ApiService implements ManagementApi {
     return CloudConnection.fromJson(
       _contractMap(response.data, 'cloud connection import'),
     );
-  }
-
-  @override
-  Future<CloudConnection> updateCloudConnection(
-    String id, {
-    String? displayName,
-    Map<String, dynamic>? cloudScope,
-    bool? isDefaultForPricing,
-  }) async {
-    final response = await _dio.patch(
-      '/cloud-connections/$id',
-      data: {
-        if (displayName != null) 'display_name': displayName,
-        if (cloudScope != null) 'cloud_scope': cloudScope,
-        if (isDefaultForPricing != null)
-          'is_default_for_pricing': isDefaultForPricing,
-      },
-    );
-    return CloudConnection.fromJson(response.data as Map<String, dynamic>);
   }
 
   @override
@@ -562,94 +531,6 @@ class ApiService implements ManagementApi {
     TwinConfigUpdateRequest request,
   ) {
     return updateTwinConfig(twinId, request.toJson());
-  }
-
-  // ============================================================
-  // Optimizer Endpoints (Step 2)
-  // ============================================================
-
-  /// Get pricing data freshness status for all providers
-  @override
-  Future<Map<String, dynamic>> getPricingStatus() async {
-    final response = await _dio.get('/optimizer/pricing-status');
-    return response.data;
-  }
-
-  @override
-  Future<PricingHealthResponse> getPricingHealth() async {
-    final response = await _dio.get('/optimizer/pricing-health');
-    return PricingHealthResponse.fromJson(
-      Map<String, dynamic>.from(response.data as Map),
-    );
-  }
-
-  @override
-  Future<PricingRefreshRun> startPricingRefresh(
-    String provider, {
-    String? connectionId,
-    bool force = true,
-  }) async {
-    final response = await _dio.post(
-      '/optimizer/pricing-refresh/${provider.toLowerCase()}',
-      data: {'pricing_connection_id': connectionId, 'force': force},
-      options: Options(receiveTimeout: const Duration(minutes: 20)),
-    );
-    return PricingRefreshRun.fromJson(
-      Map<String, dynamic>.from(response.data as Map),
-    );
-  }
-
-  @override
-  Future<PricingCandidateReportList> listPricingCandidateReports(
-    String provider,
-    String refreshRunId,
-  ) async {
-    final response = await _dio.get(
-      '/optimizer/pricing-review/${provider.toLowerCase()}/candidate-reports',
-      queryParameters: {'refresh_run_id': refreshRunId},
-    );
-    return PricingCandidateReportList.fromJson(
-      Map<String, dynamic>.from(response.data as Map),
-    );
-  }
-
-  @override
-  Future<PricingTrace> getPricingCandidateTrace(String reportId) async {
-    final response = await _dio.get(
-      '/optimizer/pricing-review/candidate-reports/$reportId/trace',
-    );
-    return PricingTrace.fromJson(
-      Map<String, dynamic>.from(response.data as Map),
-    );
-  }
-
-  @override
-  Future<PricingReviewDecision> createPricingReviewDecision(
-    String reportId,
-    String decision, {
-    String? candidateId,
-    String? rationale,
-  }) async {
-    final response = await _dio.post(
-      '/optimizer/pricing-review/decisions',
-      data: {
-        'report_id': reportId,
-        'decision': decision,
-        if (candidateId != null) 'selected_candidate_id': candidateId,
-        if (rationale != null && rationale.trim().isNotEmpty)
-          'rationale': rationale.trim(),
-      },
-    );
-    return PricingReviewDecision.fromJson(
-      Map<String, dynamic>.from(response.data as Map),
-    );
-  }
-
-  /// Get regions data freshness status for all providers
-  @override
-  Future<Map<String, dynamic>> getRegionsStatus() async {
-    final response = await _dio.get('/optimizer/regions-status');
-    return response.data;
   }
 
   @override
@@ -988,23 +869,6 @@ class ApiService implements ManagementApi {
   // ============================================================
   // Result-Returning Methods (Type-Safe Error Handling)
   // ============================================================
-
-  /// Get pricing status with structured error handling.
-  @override
-  Future<Result<Map<String, dynamic>>> getPricingStatusResult() async {
-    try {
-      final data = await getPricingStatus();
-      return Success(data);
-    } on DioException catch (e) {
-      return Failure(AppException.fromDioError(e));
-    } catch (e) {
-      return Failure(
-        AppException(
-          'Failed to load pricing status: ${ApiErrorHandler.extractMessage(e)}',
-        ),
-      );
-    }
-  }
 
   /// Get twin config with structured error handling.
   @override

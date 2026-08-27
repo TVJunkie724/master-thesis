@@ -7,13 +7,8 @@ import 'provider_payload_form.dart';
 
 class CloudConnectionCreateDialog extends StatefulWidget {
   final CloudProvider provider;
-  final CloudConnectionPurpose purpose;
 
-  const CloudConnectionCreateDialog({
-    super.key,
-    required this.provider,
-    this.purpose = CloudConnectionPurpose.deployment,
-  });
+  const CloudConnectionCreateDialog({super.key, required this.provider});
 
   @override
   State<CloudConnectionCreateDialog> createState() =>
@@ -37,7 +32,7 @@ class _CloudConnectionCreateDialogState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
-      title: Text('New ${widget.provider.label} ${widget.purpose.label}'),
+      title: Text('New ${widget.provider.label} administrator access'),
       content: ConstrainedBox(
         constraints: const BoxConstraints(
           maxWidth: AppSpacing.maxContentWidthMedium,
@@ -106,7 +101,6 @@ class _CloudConnectionCreateDialogState
     Navigator.of(context).pop(
       CloudConnectionCreateRequest(
         provider: widget.provider,
-        purpose: widget.purpose,
         displayName: displayName,
         credentials: payloadForm.credentials(),
       ),

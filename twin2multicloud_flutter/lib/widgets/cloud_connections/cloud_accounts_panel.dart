@@ -138,10 +138,7 @@ class CloudAccountsPanel extends StatelessWidget {
   ) async {
     final request = await showDialog<CloudConnectionCreateRequest>(
       context: context,
-      builder: (context) => CloudConnectionCreateDialog(
-        provider: provider,
-        purpose: CloudConnectionPurpose.deployment,
-      ),
+      builder: (context) => CloudConnectionCreateDialog(provider: provider),
     );
     if (request != null) onCreate(request);
   }

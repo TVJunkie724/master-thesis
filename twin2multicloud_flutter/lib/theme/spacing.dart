@@ -80,9 +80,6 @@ abstract class AppSpacing {
   /// Provider accent strip width
   static const double providerAccentWidth = 4;
 
-  /// Provider pricing row accent strip height
-  static const double providerAccentHeight = 40;
-
   /// Deployment verification terminal log viewport height
   static const double terminalLogHeight = 220;
 
@@ -95,8 +92,8 @@ abstract class AppSpacing {
   /// Deployment verification payload editor max lines
   static const int payloadEditorMaxLines = 6;
 
-  /// Pricing review card layout breakpoint
-  static const double pricingReviewCardBreakpoint = 900;
+  /// Evidence cards stack below this width.
+  static const double evidenceCardBreakpoint = 900;
 
   /// Twin Overview sections stack below this width.
   static const double twinOverviewCompactBreakpoint = 900;

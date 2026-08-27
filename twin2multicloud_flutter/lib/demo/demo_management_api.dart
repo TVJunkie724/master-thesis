@@ -8,7 +8,6 @@ import '../core/result.dart';
 import '../models/architecture_profile.dart';
 import '../models/calc_params.dart';
 import '../models/authentication.dart';
-import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
 import '../models/deployment_access.dart';
 import '../models/deployment_operations.dart';
@@ -16,10 +15,7 @@ import '../models/deployment_readiness.dart';
 import '../models/deployment_verification.dart';
 import '../models/deployer_config.dart';
 import '../models/optimizer_config.dart';
-import '../models/pricing_candidate_review.dart';
 import '../models/pricing_catalog.dart';
-import '../models/pricing_health.dart';
-import '../models/pricing_refresh_run.dart';
 import '../models/provider_capability.dart';
 import '../models/resolved_deployment_specification.dart';
 import '../models/resolved_twin_architecture.dart';
@@ -37,7 +33,6 @@ class DemoManagementApi implements ManagementApi {
   final DemoFixtureStore store;
   final Duration latency;
   String? _token = 'demo-token';
-  final List<Map<String, dynamic>> _decisions = [];
   final Map<String, Map<String, dynamic>> _deploymentReadinessCache = {};
   final List<UserFunctionArtifact> _extensionArtifacts = [];
   final Map<String, TwinExtensionBinding> _extensionBindings = {};
@@ -397,41 +392,6 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<CloudAccessInventory> getCloudAccessInventory() async {
-    await _pause();
-    final connections = store.cloudConnections;
-    final providers = <String, dynamic>{};
-    for (final provider in CloudProvider.values) {
-      final providerConnections = connections
-          .where((item) => item['provider'] == provider.apiValue)
-          .toList(growable: false);
-      final pricing = providerConnections
-          .where((item) => item['purpose'] == 'pricing')
-          .toList(growable: false);
-      final deployment = providerConnections
-          .where((item) => item['purpose'] == 'deployment')
-          .toList(growable: false);
-      final selectedPricing = pricing.isEmpty
-          ? _missingOrPublicPricingEntry(provider)
-          : _accessEntry(
-              pricing.firstWhere(
-                (item) => item['is_default_for_pricing'] == true,
-                orElse: () => pricing.first,
-              ),
-            );
-      providers[provider.apiValue] = {
-        'provider': provider.apiValue,
-        'pricing': selectedPricing,
-        'pricing_options': pricing.map(_accessEntry).toList(),
-        'deployment': deployment.map(_accessEntry).toList(),
-      };
-    }
-    return CloudAccessInventory.fromJson({
-      'schema_version': 'cloud-access-inventory.v1',
-      'providers': providers,
-    });
-  }
-
   @override
   Future<CloudConnection> createCloudConnection(
     CloudConnectionCreateRequest request,
@@ -457,32 +417,12 @@ class DemoManagementApi implements ManagementApi {
     }
     final now = store.clock().toIso8601String();
     final id = store.nextId('demo-${request.provider.apiValue}-connection');
-    if (request.isDefaultForPricing &&
-        request.purpose != CloudConnectionPurpose.pricing) {
-      throw const DemoApiException(
-        'DEMO_CONNECTION_DEFAULT_INVALID',
-        'Only pricing connections can be the default pricing connection.',
-      );
-    }
-    if (request.isDefaultForPricing) {
-      for (final connection in store.cloudConnections.where(
-        (item) =>
-            item['provider'] == request.provider.apiValue &&
-            item['purpose'] == 'pricing' &&
-            item['is_default_for_pricing'] == true,
-      )) {
-        store.updateCloudConnection(connection['id'].toString(), {
-          'is_default_for_pricing': false,
-        });
-      }
-    }
     final payloadSummary = _payloadSummary(request);
     final value = <String, dynamic>{
       'id': id,
       'provider': request.provider.apiValue,
-      'purpose': request.purpose.apiValue,
+      'purpose': CloudConnectionPurpose.deployment.apiValue,
       'scope': 'user',
-      'is_default_for_pricing': request.isDefaultForPricing,
       'display_name': request.displayName.trim(),
       'auth_type': request.authType ?? _defaultAuthType(request.provider),
       'cloud_scope': request.cloudScope,
@@ -532,7 +472,6 @@ class DemoManagementApi implements ManagementApi {
       'provider': request.provider.apiValue,
       'purpose': CloudConnectionPurpose.deployment.apiValue,
       'scope': 'user',
-      'is_default_for_pricing': false,
       'display_name': request.displayName,
       'auth_type': _defaultAuthType(request.provider),
       'cloud_scope': cloudScope,
@@ -547,48 +486,6 @@ class DemoManagementApi implements ManagementApi {
     };
     store.addCloudConnection(value);
     return CloudConnection.fromJson(value);
-  }
-
-  @override
-  Future<CloudConnection> updateCloudConnection(
-    String id, {
-    String? displayName,
-    Map<String, dynamic>? cloudScope,
-    bool? isDefaultForPricing,
-  }) async {
-    await _pause();
-    final current = store.cloudConnection(id);
-    if (displayName != null && displayName.trim().isEmpty) {
-      throw const DemoApiException(
-        'DEMO_CONNECTION_NAME_REQUIRED',
-        'Cloud connection display name is required.',
-      );
-    }
-    if (isDefaultForPricing == true && current['purpose'] != 'pricing') {
-      throw const DemoApiException(
-        'DEMO_CONNECTION_DEFAULT_INVALID',
-        'Only pricing connections can be the default pricing connection.',
-      );
-    }
-    if (isDefaultForPricing == true) {
-      for (final connection in store.cloudConnections.where(
-        (item) =>
-            item['provider'] == current['provider'] &&
-            item['purpose'] == 'pricing' &&
-            item['id'] != id,
-      )) {
-        store.updateCloudConnection(connection['id'].toString(), {
-          'is_default_for_pricing': false,
-        });
-      }
-    }
-    store.updateCloudConnection(id, {
-      if (displayName != null) 'display_name': displayName.trim(),
-      if (cloudScope != null) 'cloud_scope': cloudScope,
-      if (isDefaultForPricing != null)
-        'is_default_for_pricing': isDefaultForPricing,
-    });
-    return CloudConnection.fromJson(store.cloudConnection(id));
   }
 
   @override
@@ -615,7 +512,10 @@ class DemoManagementApi implements ManagementApi {
       'valid': true,
       'validation_status': 'valid',
       'message': 'Demo permission checks completed successfully.',
-      'optimizer': {'valid': true, 'message': 'Pricing access is ready.'},
+      'optimizer': {
+        'valid': true,
+        'message': 'Frozen pricing evidence is available to the optimizer.',
+      },
       'deployer': {'valid': true, 'message': 'Deployment access is ready.'},
     });
   }
@@ -868,236 +768,6 @@ class DemoManagementApi implements ManagementApi {
     TwinConfigUpdateRequest request,
   ) {
     return updateTwinConfig(twinId, request.toJson());
-  }
-
-  @override
-  Future<Map<String, dynamic>> getPricingStatus() async {
-    await _pause();
-    final health = store.pricingHealth;
-    return {
-      'schema_version': health['schema_version'],
-      'providers': (health['providers'] as Map).map(
-        (key, value) => MapEntry(key.toString(), {
-          'status': (value as Map)['state'],
-          'updated_at': value['last_fetched_at'],
-        }),
-      ),
-    };
-  }
-
-  @override
-  Future<PricingHealthResponse> getPricingHealth() async {
-    await _pause();
-    return PricingHealthResponse.fromJson(store.pricingHealth);
-  }
-
-  @override
-  Future<PricingRefreshRun> startPricingRefresh(
-    String provider, {
-    String? connectionId,
-    bool force = true,
-  }) async {
-    await _pause();
-    final normalized = _provider(provider);
-    Map<String, dynamic>? connection;
-    if (normalized != 'azure') {
-      if (connectionId != null) {
-        connection = store.cloudConnection(connectionId);
-      } else {
-        final candidates = store.cloudConnections.where(
-          (item) =>
-              item['provider'] == normalized &&
-              item['purpose'] == 'pricing' &&
-              item['is_default_for_pricing'] == true,
-        );
-        connection = candidates.isEmpty ? null : candidates.first;
-      }
-      if (connection == null ||
-          connection['provider'] != normalized ||
-          connection['purpose'] != 'pricing') {
-        throw DemoApiException(
-          'DEMO_PRICING_ACCESS_MISSING',
-          '${normalized.toUpperCase()} pricing access is not configured.',
-        );
-      }
-    }
-    final now = store.clock();
-    final runId = store.nextId('demo-run-$normalized');
-    final activeReference = _demoPricingCatalogReference(normalized, now);
-    final hasReview = store
-        .pricingReports(normalized)
-        .any((report) => report['review_state'] == 'review_required');
-    store.updatePricingHealth(normalized, {
-      'state': hasReview ? 'review_required' : 'fresh',
-      'severity': hasReview ? 'warning' : 'success',
-      'review_required': hasReview,
-      'can_calculate': true,
-      'calculation_source': hasReview ? 'last_known_good' : 'latest_verified',
-      'pricing_freshness': 'fresh',
-      'age': 'just now',
-      'last_fetched_at': now.toIso8601String(),
-      'primary_message': hasReview
-          ? 'Pricing refresh completed and requires review.'
-          : 'Pricing refresh completed successfully.',
-    });
-    return PricingRefreshRun.fromJson({
-      'schema_version': 'pricing-refresh-run.v1',
-      'refresh_run_id': runId,
-      'provider': normalized,
-      'status': 'succeeded',
-      'credential_summary': connection == null
-          ? {
-              'connection_id': null,
-              'identity_label': 'Azure Retail Prices API',
-              'scope': 'public',
-            }
-          : {
-              'connection_id': connection['id'],
-              'identity_label': connection['display_name'],
-              'scope': 'user',
-              'provider_account_id':
-                  (connection['payload_summary'] as Map?)?['account_id'],
-              'provider_project_id':
-                  (connection['payload_summary'] as Map?)?['project_id'],
-              'provider_subscription_id':
-                  (connection['payload_summary'] as Map?)?['subscription_id'],
-            },
-      'force': force,
-      'sse_url': '/demo/pricing/$normalized/$runId',
-      'result_summary': {
-        'schemaVersion': 'pricing-catalog-refresh-result.v2',
-        'status': 'published',
-        'activeCalculationReference': activeReference,
-        if (normalized == 'aws')
-          'accountPricingContext': {
-            'schema_version': 'aws-twinmaker-account-pricing-context.v1',
-            'provider': 'aws',
-            'service': 'iot_twinmaker',
-            'region':
-                (connection?['cloud_scope'] as Map?)?['region'] ??
-                'eu-central-1',
-            'verified_account_id':
-                (connection?['payload_summary'] as Map?)?['account_id'],
-            'catalog_snapshot_digest': activeReference['contentDigest'],
-            'observed_at': now.toIso8601String(),
-            'current_plan': {
-              'mode': 'STANDARD',
-              'billable_entity_count': 42,
-              'effective_at': null,
-              'updated_at': now.toIso8601String(),
-              'update_reason': null,
-              'bundle': null,
-            },
-            'pending_plan': null,
-            'management_binding': {
-              'schema_version': 'aws-twinmaker-management-binding.v1',
-              'pricing_connection_id': connection?['id'],
-              'connection_fingerprint':
-                  'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
-              'verified_account_id':
-                  (connection?['payload_summary'] as Map?)?['account_id'],
-              'configured_account_id':
-                  (connection?['payload_summary'] as Map?)?['account_id'],
-            },
-          },
-      },
-      'created_at': now.toIso8601String(),
-      'started_at': now.toIso8601String(),
-      'completed_at': now.toIso8601String(),
-    });
-  }
-
-  @override
-  Future<PricingCandidateReportList> listPricingCandidateReports(
-    String provider,
-    String refreshRunId,
-  ) async {
-    await _pause();
-    final normalized = _provider(provider);
-    final reports = store
-        .pricingReports(normalized)
-        .map((report) {
-          return {...report, 'refresh_run_id': refreshRunId};
-        })
-        .toList(growable: false);
-    return PricingCandidateReportList.fromJson({
-      'schema_version': 'pricing-candidate-report-list.v1',
-      'provider': normalized,
-      'refresh_run_id': refreshRunId,
-      'reports': reports,
-    });
-  }
-
-  @override
-  Future<PricingTrace> getPricingCandidateTrace(String reportId) async {
-    await _pause();
-    final trace = store.pricingTrace(reportId);
-    if (trace == null) {
-      throw DemoApiException(
-        'DEMO_PRICING_TRACE_NOT_FOUND',
-        'Pricing trace "$reportId" does not exist.',
-      );
-    }
-    return PricingTrace.fromJson(trace);
-  }
-
-  @override
-  Future<PricingReviewDecision> createPricingReviewDecision(
-    String reportId,
-    String decision, {
-    String? candidateId,
-    String? rationale,
-  }) async {
-    await _pause();
-    final report = _findPricingReport(reportId);
-    final allowedDecisions = {'approve', 'select_alternative', 'defer'};
-    if (!allowedDecisions.contains(decision)) {
-      throw DemoApiException(
-        'DEMO_PRICING_DECISION_INVALID',
-        'Pricing review decision "$decision" is unsupported.',
-      );
-    }
-    if (decision != 'defer' && candidateId == null) {
-      throw const DemoApiException(
-        'DEMO_PRICING_CANDIDATE_REQUIRED',
-        'A selected pricing candidate is required for this decision.',
-      );
-    }
-    if (candidateId != null) {
-      final candidates = report['candidates'] as List? ?? const [];
-      if (!candidates.any(
-        (item) => item is Map && item['candidate_id'] == candidateId,
-      )) {
-        throw DemoApiException(
-          'DEMO_PRICING_CANDIDATE_NOT_FOUND',
-          'Pricing candidate "$candidateId" does not exist.',
-        );
-      }
-    }
-    final value = <String, dynamic>{
-      'schema_version': 'pricing-review-decision.v1',
-      'decision_id': store.nextId('demo-decision'),
-      'report_id': reportId,
-      'provider': report['provider'],
-      'intent_id': report['intent_id'],
-      'decision': decision,
-      'selected_candidate_id': candidateId,
-      'rationale': rationale,
-      'created_at': store.clock().toIso8601String(),
-    };
-    _decisions.add(value);
-    return PricingReviewDecision.fromJson(value);
-  }
-
-  @override
-  Future<Map<String, dynamic>> getRegionsStatus() async {
-    await _pause();
-    return {
-      'providers': {
-        for (final provider in CloudProvider.values)
-          provider.apiValue: {'status': 'fresh', 'regions': 3},
-      },
-    };
   }
 
   @override
@@ -1466,15 +1136,6 @@ class DemoManagementApi implements ManagementApi {
         'scene_glb': {'exists': false, 'saved': false},
       },
     };
-  }
-
-  @override
-  Future<Result<Map<String, dynamic>>> getPricingStatusResult() async {
-    try {
-      return Success(await getPricingStatus());
-    } on DemoApiException catch (error) {
-      return Failure(AppException(error.message, code: error.code));
-    }
   }
 
   @override
@@ -2491,66 +2152,6 @@ class DemoManagementApi implements ManagementApi {
         '${hex.substring(20, 32)}';
   }
 
-  Map<String, dynamic> _accessEntry(Map<String, dynamic> connection) {
-    final id = connection['id'].toString();
-    final summary = connection['payload_summary'] as Map? ?? const {};
-    final scope = connection['cloud_scope'] as Map? ?? const {};
-    final bound = store.twinsBoundToConnection(id);
-    final validationStatus = connection['validation_status']?.toString();
-    return {
-      'connection_id': id,
-      'provider': connection['provider'],
-      'purpose': connection['purpose'],
-      'scope': connection['scope'] ?? 'user',
-      'identity_label': connection['display_name'],
-      'status': switch (validationStatus) {
-        'valid' => 'active',
-        'invalid' => 'needs_validation',
-        _ => 'needs_validation',
-      },
-      'provider_account_id': summary['account_id'] ?? scope['account_id'],
-      'provider_project_id': summary['project_id'] ?? scope['project_id'],
-      'provider_subscription_id':
-          summary['subscription_id'] ?? scope['subscription_id'],
-      'is_default_for_pricing': connection['is_default_for_pricing'] == true,
-      'last_validated_at': connection['last_validated_at'],
-      'last_used_at': connection['last_used_at'],
-      'bound_twin_count': bound.length,
-      'bound_twin_labels': bound.map((item) => item['name']).toList(),
-      'actions': ['validate', 'edit', 'delete'],
-      'primary_message': connection['validation_message'],
-    };
-  }
-
-  Map<String, dynamic> _missingOrPublicPricingEntry(CloudProvider provider) {
-    if (provider == CloudProvider.azure) {
-      return {
-        'connection_id': null,
-        'provider': 'azure',
-        'purpose': 'pricing',
-        'scope': 'public',
-        'identity_label': 'Azure Retail Prices API',
-        'status': 'active',
-        'bound_twin_count': 0,
-        'bound_twin_labels': <String>[],
-        'actions': ['refresh'],
-        'primary_message': 'Public catalog access requires no credentials.',
-      };
-    }
-    return {
-      'connection_id': null,
-      'provider': provider.apiValue,
-      'purpose': 'pricing',
-      'scope': 'user',
-      'identity_label': '${provider.label} pricing access missing',
-      'status': 'missing',
-      'bound_twin_count': 0,
-      'bound_twin_labels': <String>[],
-      'actions': ['create'],
-      'primary_message': 'Create pricing access to refresh this provider.',
-    };
-  }
-
   Map<String, dynamic> _payloadSummary(CloudConnectionCreateRequest request) {
     return switch (request.provider) {
       CloudProvider.aws => {
@@ -2574,18 +2175,6 @@ class DemoManagementApi implements ManagementApi {
       CloudProvider.azure => 'service_principal',
       CloudProvider.gcp => 'service_account_key',
     };
-  }
-
-  Map<String, dynamic> _findPricingReport(String reportId) {
-    for (final provider in CloudProvider.values) {
-      for (final report in store.pricingReports(provider.apiValue)) {
-        if (report['report_id'] == reportId) return report;
-      }
-    }
-    throw DemoApiException(
-      'DEMO_PRICING_REPORT_NOT_FOUND',
-      'Pricing report "$reportId" does not exist.',
-    );
   }
 
   Map<String, dynamic> _jsonValidation(String content) {

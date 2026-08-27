@@ -160,7 +160,7 @@ class _TransferRouteRow extends StatelessWidget {
                 context,
               ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
             );
-            if (constraints.maxWidth < AppSpacing.pricingReviewCardBreakpoint) {
+            if (constraints.maxWidth < AppSpacing.evidenceCardBreakpoint) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

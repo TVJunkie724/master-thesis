@@ -26,15 +26,12 @@ class DemoFixtureStore {
     'optimizer_configs',
     'optimizer_runs',
     'deployer_configs',
-    'pricing_health',
-    'pricing_reports',
-    'pricing_traces',
     'deployment_outputs',
     'deployment_logs',
     'verification',
   };
   static const _providers = {'aws', 'azure', 'gcp'};
-  static const _purposes = {'pricing', 'deployment'};
+  static const _purposes = {'deployment'};
   static const _twinStates = {
     'draft',
     'configured',
@@ -140,8 +137,6 @@ class DemoFixtureStore {
   List<Map<String, dynamic>> get cloudConnections =>
       _copyMapList(_list('cloud_connections'));
 
-  Map<String, dynamic> get pricingHealth => _copyMap(_map('pricing_health'));
-
   Map<String, dynamic> sixLayerProfile() => _sixLayerContract('profile');
 
   Map<String, dynamic> architectureProfile(
@@ -230,15 +225,6 @@ class DemoFixtureStore {
   void setVerification(String twinId, Map<String, dynamic> value) {
     twin(twinId);
     _map('verification')[twinId] = _copyMap(value);
-  }
-
-  List<Map<String, dynamic>> pricingReports(String provider) {
-    final value = _map('pricing_reports')[provider.toLowerCase()];
-    return value is List ? _copyMapList(value) : const [];
-  }
-
-  Map<String, dynamic>? pricingTrace(String reportId) {
-    return _copyNullableMap(_map('pricing_traces')[reportId]);
   }
 
   String nextId(String prefix) {
@@ -433,30 +419,6 @@ class DemoFixtureStore {
     );
   }
 
-  List<Map<String, dynamic>> twinsBoundToConnection(String connectionId) {
-    final boundIds = <String>{};
-    for (final entry in _map('twin_configs').entries) {
-      final config = entry.value;
-      if (config is Map && config.values.contains(connectionId)) {
-        boundIds.add(entry.key);
-      }
-    }
-    return twins
-        .where((twin) => boundIds.contains(twin['id']))
-        .toList(growable: false);
-  }
-
-  void updatePricingHealth(String provider, Map<String, dynamic> values) {
-    final providers = _map('pricing_health')['providers'];
-    if (providers is! Map || providers[provider] is! Map) {
-      throw DemoApiException(
-        'DEMO_PRICING_PROVIDER_NOT_FOUND',
-        'Pricing provider "$provider" does not exist.',
-      );
-    }
-    (providers[provider] as Map).addAll(_copyMap(values));
-  }
-
   static void _validate(Map<String, dynamic> root) {
     if (root['schema_version'] != supportedSchemaVersion) {
       throw DemoApiException(
@@ -579,51 +541,6 @@ class DemoFixtureStore {
             'Twin configuration references unknown connection "$id".',
           );
         }
-      }
-    }
-
-    final reportIds = <String>{};
-    final reportCollections = root['pricing_reports'] as Map;
-    for (final entry in reportCollections.entries) {
-      if (!_providers.contains(entry.key)) {
-        throw DemoApiException(
-          'DEMO_FIXTURE_PROVIDER_INVALID',
-          'Pricing reports contain unknown provider "${entry.key}".',
-        );
-      }
-      if (entry.value is! List) {
-        throw const DemoApiException(
-          'DEMO_FIXTURE_COLLECTION_INVALID',
-          'Pricing reports must be provider-keyed lists.',
-        );
-      }
-      for (final report in (entry.value as List).whereType<Map>()) {
-        final id = report['report_id']?.toString() ?? '';
-        if (id.isEmpty || !reportIds.add(id)) {
-          throw DemoApiException(
-            'DEMO_FIXTURE_REPORT_ID_INVALID',
-            'Pricing report ID "$id" is empty or duplicated.',
-          );
-        }
-        final candidateIds = <String>{};
-        for (final candidate in (report['candidates'] as List? ?? const [])) {
-          if (candidate is! Map) continue;
-          final candidateId = candidate['candidate_id']?.toString() ?? '';
-          if (candidateId.isEmpty || !candidateIds.add(candidateId)) {
-            throw DemoApiException(
-              'DEMO_FIXTURE_CANDIDATE_ID_INVALID',
-              'Pricing candidate ID "$candidateId" is empty or duplicated.',
-            );
-          }
-        }
-      }
-    }
-    for (final id in (root['pricing_traces'] as Map).keys) {
-      if (!reportIds.contains(id.toString())) {
-        throw DemoApiException(
-          'DEMO_FIXTURE_DANGLING_REPORT_REFERENCE',
-          'Pricing trace references unknown report "$id".',
-        );
       }
     }
   }

@@ -10,9 +10,8 @@ void main() {
       final connection = CloudConnection.fromJson({
         'id': 'connection-aws',
         'provider': 'aws',
-        'purpose': 'pricing',
+        'purpose': 'deployment',
         'scope': 'user',
-        'is_default_for_pricing': true,
         'display_name': 'AWS thesis dev',
         'auth_type': 'access_key',
         'cloud_scope': {'region': 'eu-central-1'},
@@ -31,8 +30,7 @@ void main() {
 
       expect(connection.id, 'connection-aws');
       expect(connection.provider, CloudProvider.aws);
-      expect(connection.purpose, CloudConnectionPurpose.pricing);
-      expect(connection.isDefaultForPricing, true);
+      expect(connection.purpose, CloudConnectionPurpose.deployment);
       expect(connection.lastUsedAt, DateTime.parse('2026-05-01T11:00:00Z'));
       expect(connection.displayName, 'AWS thesis dev');
       expect(connection.payloadSummary['region'], 'eu-central-1');
@@ -59,23 +57,6 @@ void main() {
       expect(json['aws'], isA<Map<String, dynamic>>());
       expect(json.containsKey('azure'), false);
       expect(json.containsKey('gcp'), false);
-    });
-
-    test('pricing create request emits explicit purpose and default', () {
-      const request = CloudConnectionCreateRequest(
-        provider: CloudProvider.aws,
-        purpose: CloudConnectionPurpose.pricing,
-        displayName: 'AWS pricing',
-        isDefaultForPricing: true,
-        credentials: {
-          'access_key_id': 'AKIA12345678901234',
-          'secret_access_key': 'secretsecretsecret',
-          'region': 'eu-central-1',
-        },
-      );
-
-      expect(request.toJson()['purpose'], 'pricing');
-      expect(request.toJson()['is_default_for_pricing'], true);
     });
 
     test('rejects unknown explicit purpose instead of misclassifying it', () {

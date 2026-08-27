@@ -44,47 +44,10 @@
   ],
   "cloud_connections": [
     {
-      "id": "demo-aws-pricing",
-      "provider": "aws",
-      "purpose": "pricing",
-      "scope": "user",
-      "is_default_for_pricing": true,
-      "display_name": "AWS Pricing Reader",
-      "auth_type": "access_key",
-      "cloud_scope": {"region": "eu-central-1"},
-      "payload_fingerprint": "demo-aws-pricing-fingerprint",
-      "payload_summary": {"account_id": "123456789012"},
-      "validation_status": "valid",
-      "validation_message": "Least-privilege pricing access verified.",
-      "last_validated_at": "2026-07-12T07:30:00Z",
-      "last_used_at": "2026-07-12T08:30:00Z",
-      "created_at": "2026-06-01T08:00:00Z",
-      "updated_at": "2026-07-12T08:30:00Z"
-    },
-    {
-      "id": "demo-gcp-pricing",
-      "provider": "gcp",
-      "purpose": "pricing",
-      "scope": "user",
-      "is_default_for_pricing": true,
-      "display_name": "GCP Billing Catalog Reader",
-      "auth_type": "service_account_key",
-      "cloud_scope": {"project_id": "twin2multicloud-demo"},
-      "payload_fingerprint": "demo-gcp-pricing-fingerprint",
-      "payload_summary": {"project_id": "twin2multicloud-demo"},
-      "validation_status": "valid",
-      "validation_message": "Billing catalog access verified.",
-      "last_validated_at": "2026-07-12T07:35:00Z",
-      "last_used_at": "2026-07-12T08:35:00Z",
-      "created_at": "2026-06-01T08:00:00Z",
-      "updated_at": "2026-07-12T08:35:00Z"
-    },
-    {
       "id": "demo-aws-deployment",
       "provider": "aws",
       "purpose": "deployment",
       "scope": "user",
-      "is_default_for_pricing": false,
       "display_name": "AWS Thesis Deployment",
       "auth_type": "access_key",
       "cloud_scope": {"region": "eu-central-1"},
@@ -102,7 +65,6 @@
       "provider": "azure",
       "purpose": "deployment",
       "scope": "user",
-      "is_default_for_pricing": false,
       "display_name": "Azure Thesis Subscription",
       "auth_type": "service_principal",
       "cloud_scope": {"subscription_id": "00000000-0000-0000-0000-000000000001"},
@@ -120,7 +82,6 @@
       "provider": "gcp",
       "purpose": "deployment",
       "scope": "user",
-      "is_default_for_pricing": false,
       "display_name": "GCP Thesis Project",
       "auth_type": "service_account_key",
       "cloud_scope": {"project_id": "twin2multicloud-demo"},
@@ -280,29 +241,11 @@
       "user_config_validated": true
     }
   },
-  "pricing_health": {
-    "schema_version": "pricing-health.v1",
-    "providers": {
-      "aws": {"provider": "aws", "state": "fresh", "severity": "success", "review_required": false, "can_calculate": true, "calculation_source": "latest_verified", "pricing_freshness": "fresh", "age": "2 hours", "last_fetched_at": "2026-07-12T08:30:00Z", "source_label": "AWS account 123456789012", "credential_summary": {"connection_id": "demo-aws-pricing", "provider": "aws", "purpose": "pricing", "scope": "user", "identity_label": "AWS Pricing Reader", "status": "active", "provider_account_id": "123456789012"}, "primary_message": "Verified AWS pricing is ready.", "actions": ["refresh"]},
-      "azure": {"provider": "azure", "state": "fresh", "severity": "success", "review_required": false, "can_calculate": true, "calculation_source": "latest_verified", "pricing_freshness": "fresh", "age": "2 hours", "last_fetched_at": "2026-07-12T08:30:00Z", "source_label": "Azure Retail Prices API", "credential_summary": {"connection_id": null, "provider": "azure", "purpose": "pricing", "scope": "public", "identity_label": "Azure Retail Prices API", "status": "active"}, "primary_message": "Verified Azure pricing is ready.", "actions": ["refresh"]},
-      "gcp": {"provider": "gcp", "state": "review_required", "severity": "warning", "review_required": true, "can_calculate": true, "calculation_source": "last_known_good", "pricing_freshness": "fresh", "age": "2 hours", "last_fetched_at": "2026-07-12T08:35:00Z", "source_label": "GCP project twin2multicloud-demo", "credential_summary": {"connection_id": "demo-gcp-pricing", "provider": "gcp", "purpose": "pricing", "scope": "user", "identity_label": "GCP Billing Catalog Reader", "status": "active", "provider_project_id": "twin2multicloud-demo"}, "primary_message": "One GCP pricing intent needs review.", "actions": ["open_pricing_review", "refresh"]}
-    }
-  },
-  "pricing_reports": {
-    "aws": [{"schema_version": "pricing-candidate-report.v1", "report_id": "demo-report-aws", "provider": "aws", "refresh_run_id": "demo-run-aws", "intent_id": "aws.iot.message_ingest", "expected_model": "tiered", "expected_unit": "message", "deterministic_selection": {"candidate_id": "demo-candidate-aws-primary", "selectable": true, "confidence_label": "exact"}, "ai_suggestion": {"enabled": false, "candidate_id": null, "rationale": "AI review is disabled in the offline demo."}, "candidates": [{"candidate_id": "demo-candidate-aws-primary", "source_type": "provider_api", "field_path": "aws.iot.message", "service": "AWS IoT Core", "field": "message_tier_1", "value": 1.0, "currency": "USD", "unit": "million messages", "source_label": "AWS Price List API", "evidence_status": "selected", "selected_row": {"description": "Messages up to 1 billion per month", "region": "EU (Frankfurt)"}}, {"candidate_id": "demo-candidate-aws-secondary", "source_type": "provider_api", "field_path": "aws.iot.message", "service": "AWS IoT Core", "field": "message_tier_2", "value": 0.8, "currency": "USD", "unit": "million messages", "source_label": "AWS Price List API", "evidence_status": "alternative", "selected_row": {"description": "Messages above 1 billion per month", "region": "EU (Frankfurt)"}}], "rejected_candidates": [], "review_state": "ready", "source_status": "quality_metadata", "created_at": "2026-07-12T08:30:00Z"}],
-    "azure": [{"schema_version": "pricing-candidate-report.v1", "report_id": "demo-report-azure", "provider": "azure", "refresh_run_id": "demo-run-azure", "intent_id": "azure.functions.executions", "expected_model": "consumption", "expected_unit": "million executions", "deterministic_selection": {"candidate_id": "demo-candidate-azure-primary", "selectable": true, "confidence_label": "exact"}, "ai_suggestion": {"enabled": false, "candidate_id": null, "rationale": "AI review is disabled in the offline demo."}, "candidates": [{"candidate_id": "demo-candidate-azure-primary", "source_type": "provider_api", "field_path": "azure.functions.executions", "service": "Azure Functions", "field": "executions", "value": 0.2, "currency": "USD", "unit": "million executions", "source_label": "Azure Retail Prices API", "evidence_status": "selected", "selected_row": {"skuName": "Consumption", "meterName": "Executions"}}], "rejected_candidates": [], "review_state": "ready", "source_status": "quality_metadata", "created_at": "2026-07-12T08:30:00Z"}],
-    "gcp": [{"schema_version": "pricing-candidate-report.v1", "report_id": "demo-report-gcp", "provider": "gcp", "refresh_run_id": "demo-run-gcp", "intent_id": "gcp.storage.standard", "expected_model": "storage", "expected_unit": "GiBy.mo", "deterministic_selection": {"candidate_id": "demo-candidate-gcp-primary", "selectable": true, "confidence_label": "close"}, "ai_suggestion": {"enabled": true, "candidate_id": "demo-candidate-gcp-primary", "rationale": "The SKU description and region match the requested Standard storage intent."}, "candidates": [{"candidate_id": "demo-candidate-gcp-primary", "source_type": "provider_api", "field_path": "gcp.storage.standard", "service": "Cloud Storage", "field": "standard_storage", "value": 0.02, "currency": "USD", "unit": "GiBy.mo", "source_label": "Cloud Billing Catalog API", "evidence_status": "selected", "selected_row": {"description": "Standard Storage Europe Multi-region", "serviceRegions": ["europe"]}}, {"candidate_id": "demo-candidate-gcp-secondary", "source_type": "provider_api", "field_path": "gcp.storage.standard", "service": "Cloud Storage", "field": "standard_storage_single_region", "value": 0.023, "currency": "USD", "unit": "GiBy.mo", "source_label": "Cloud Billing Catalog API", "evidence_status": "alternative", "selected_row": {"description": "Standard Storage Frankfurt", "serviceRegions": ["europe-west3"]}}], "rejected_candidates": [{"candidate_id": "demo-candidate-gcp-rejected", "reasons": ["storage class mismatch"], "selected_row": {"description": "Archive Storage"}}], "review_state": "review_required", "source_status": "quality_metadata", "source_warning": "Two region-compatible rows remain.", "created_at": "2026-07-12T08:35:00Z"}]
-  },
-  "pricing_traces": {
-    "demo-report-aws": {"schema_version": "pricing-trace.v1", "report_id": "demo-report-aws", "provider": "aws", "intent": {"intent_id": "aws.iot.message_ingest", "unit": "million messages"}, "query_scope": {"region": "eu-central-1"}, "selected_candidate": {"candidate_id": "demo-candidate-aws-primary"}, "close_candidates": [{"candidate_id": "demo-candidate-aws-secondary"}], "rejected_candidates": [], "hard_checks": [{"check": "unit", "status": "passed"}, {"check": "region", "status": "passed"}], "normalization": {"factor": 1000000}, "formula_ref": "tiered_message_cost", "sanitization": {"bounded": true, "secret_free": true, "omitted_raw_rows": 42}},
-    "demo-report-azure": {"schema_version": "pricing-trace.v1", "report_id": "demo-report-azure", "provider": "azure", "intent": {"intent_id": "azure.functions.executions", "unit": "million executions"}, "query_scope": {"region": "westeurope"}, "selected_candidate": {"candidate_id": "demo-candidate-azure-primary"}, "close_candidates": [], "rejected_candidates": [], "hard_checks": [{"check": "sku", "status": "passed"}], "normalization": {"factor": 1000000}, "formula_ref": "execution_cost", "sanitization": {"bounded": true, "secret_free": true, "omitted_raw_rows": 18}},
-    "demo-report-gcp": {"schema_version": "pricing-trace.v1", "report_id": "demo-report-gcp", "provider": "gcp", "intent": {"intent_id": "gcp.storage.standard", "unit": "GiBy.mo"}, "query_scope": {"region": "europe"}, "selected_candidate": {"candidate_id": "demo-candidate-gcp-primary"}, "close_candidates": [{"candidate_id": "demo-candidate-gcp-secondary"}], "rejected_candidates": [{"candidate_id": "demo-candidate-gcp-rejected", "reason": "storage class mismatch"}], "hard_checks": [{"check": "unit", "status": "passed"}, {"check": "storage_class", "status": "passed"}], "normalization": {"factor": 1.0}, "formula_ref": "storage_gib_month", "sanitization": {"bounded": true, "secret_free": true, "omitted_raw_rows": 126}}
-  },
   "deployment_outputs": {
     "demo-deployed": {"outputs": {"iot_endpoint": "https://demo.iot.local", "dashboard_url": "https://demo.dashboard.local", "storage_bucket": "demo-production-line"}, "deployed_at": "2026-07-12T10:00:00Z"}
   },
   "deployment_logs": {
-    "demo-deployed": [{"id": 1, "session_id": "demo-session-deployed", "level": "info", "message": "Validated deployment manifest.", "timestamp": "2026-07-12T09:58:00Z"}, {"id": 2, "session_id": "demo-session-deployed", "level": "info", "message": "Provisioned all five architecture layers.", "timestamp": "2026-07-12T10:00:00Z"}]
+    "demo-deployed": [{"id": 1, "session_id": "demo-session-deployed", "level": "info", "message": "Validated deployment manifest.", "timestamp": "2026-07-12T09:58:00Z"}, {"id": 2, "session_id": "demo-session-deployed", "level": "info", "message": "Provisioned the canonical six-layer architecture.", "timestamp": "2026-07-12T10:00:00Z"}]
   },
   "verification": {
     "demo-deployed": {"infrastructure": {"checks": [{"layer": "L1", "name": "IoT endpoint", "provider": "aws", "status": "pass", "detail": "Endpoint is reachable."}, {"layer": "L2", "name": "Processing workflow", "provider": "azure", "status": "pass", "detail": "Workflow is active."}, {"layer": "L3", "name": "Storage bucket", "provider": "gcp", "status": "pass", "detail": "Bucket policy is valid."}], "summary": {"pass_count": 3, "fail_count": 0, "skip_count": 0, "total": 3, "healthy": true}}, "dataflow": {"pass_count": 3, "fail_count": 0, "skip_count": 0, "total": 3, "healthy": true}}

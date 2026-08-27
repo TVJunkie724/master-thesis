@@ -136,7 +136,6 @@ Map<String, dynamic> _connectionJson() => {
   'provider': 'gcp',
   'purpose': 'deployment',
   'scope': 'user',
-  'is_default_for_pricing': false,
   'display_name': 'GCP thesis',
   'auth_type': 'service_account',
   'cloud_scope': {'project_id': 'project-1'},

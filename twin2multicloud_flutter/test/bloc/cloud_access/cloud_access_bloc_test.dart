@@ -84,25 +84,6 @@ void main() {
     await bloc.close();
   });
 
-  test('rejects pricing creation before API I/O', () async {
-    final bloc = CloudAccessBloc(api);
-    bloc.add(
-      const CloudAccessCreateRequested(
-        CloudConnectionCreateRequest(
-          provider: CloudProvider.aws,
-          purpose: CloudConnectionPurpose.pricing,
-          displayName: 'Pricing',
-          credentials: {'access_key_id': 'x'},
-        ),
-      ),
-    );
-    await bloc.stream.firstWhere((state) => state.feedback != null);
-
-    expect(bloc.state.feedback?.isError, isTrue);
-    verifyNever(() => api.createCloudConnection(any()));
-    await bloc.close();
-  });
-
   test('imports once while busy and reloads deployment connections', () async {
     final completion = Completer<CloudConnection>();
     when(
@@ -167,7 +148,6 @@ void main() {
 CloudConnectionCreateRequest _createRequest() =>
     const CloudConnectionCreateRequest(
       provider: CloudProvider.aws,
-      purpose: CloudConnectionPurpose.deployment,
       displayName: 'AWS Administrator',
       credentials: {
         'access_key_id': 'TEST_ACCESS_KEY',
