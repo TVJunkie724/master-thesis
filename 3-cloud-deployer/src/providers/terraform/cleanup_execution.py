@@ -6,12 +6,13 @@ import multiprocessing
 from queue import Empty
 
 from src.api.deployment_trace import sanitize_deployment_message
+from src.providers.cleanup_observability import ProviderCleanupReport
 from src.providers.cleanup_registry import CleanupRequest, cleanup_provider_resources
 
 
 def _cleanup_worker(request: CleanupRequest, result_queue) -> None:
     try:
-        cleanup_provider_resources(request)
+        report = cleanup_provider_resources(request)
     except BaseException as exc:  # Process boundary must report every failure.
         result_queue.put(
             (
@@ -21,10 +22,13 @@ def _cleanup_worker(request: CleanupRequest, result_queue) -> None:
             )
         )
     else:
-        result_queue.put((True, "", ""))
+        result_queue.put((True, report, "", ""))
 
 
-def run_cleanup_attempt(request: CleanupRequest, timeout_seconds: int) -> None:
+def run_cleanup_attempt(
+    request: CleanupRequest,
+    timeout_seconds: int,
+) -> ProviderCleanupReport:
     """Execute one cleanup attempt and terminate it when its deadline expires."""
     context = multiprocessing.get_context("spawn")
     result_queue = context.Queue(maxsize=1)
@@ -47,9 +51,14 @@ def run_cleanup_attempt(request: CleanupRequest, timeout_seconds: int) -> None:
                 f"{request.provider} cleanup exceeded {timeout_seconds} seconds"
             )
 
-        success, error_type, message = result_queue.get(timeout=2)
-        if not success:
-            raise RuntimeError(f"{error_type}: {message}")
+        result = result_queue.get(timeout=2)
+        if result[0]:
+            _, report, _, _ = result
+            if not isinstance(report, ProviderCleanupReport):
+                raise RuntimeError("Cleanup process returned an invalid report")
+            return report
+        _, error_type, message = result
+        raise RuntimeError(f"{error_type}: {message}")
     except Empty as exc:
         raise RuntimeError(
             f"{request.provider} cleanup process exited without a result "

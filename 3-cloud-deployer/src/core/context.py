@@ -220,6 +220,9 @@ class DeploymentContext:
         None
     )
 
+    # Closed, secret-free evidence populated by the canonical destroy lifecycle.
+    destroy_cleanup_evidence: Optional[Dict[str, Any]] = None
+
     # Currently active layer (for logging context)
     active_layer: Optional[int | str] = None
 

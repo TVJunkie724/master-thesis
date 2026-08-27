@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import logging
 from typing import Any
 
-from src.providers.cleanup_observability import CleanupRun
+from src.providers.cleanup_observability import CleanupRun, ProviderCleanupReport
 from src.providers.cleanup_registry import resource_name_owned_by_prefix
 
 logger = logging.getLogger(__name__)
@@ -93,6 +93,7 @@ def _delete_or_log(
     *,
     dry_run_message: str = "Would delete",
 ) -> None:
+    context.run.record_discovery(step)
     logger.info("  Found orphan: %s", resource)
     if context.dry_run:
         logger.info("    [DRY RUN] %s", dry_run_message)
@@ -111,7 +112,10 @@ def _cleanup_log_analytics(context: _AzureCleanupContext) -> None:
 
     client = LogAnalyticsManagementClient(context.credential, context.subscription_id)
     for workspace in client.workspaces.list():
-        if workspace.name.startswith(f"{context.prefix}-") and "-logs-" in workspace.name:
+        if (
+            workspace.name.startswith(f"{context.prefix}-")
+            and "-logs-" in workspace.name
+        ):
             _delete_or_log(
                 context,
                 "Log Analytics",
@@ -132,7 +136,10 @@ def _cleanup_application_insights(context: _AzureCleanupContext) -> None:
         context.subscription_id,
     )
     for component in client.components.list():
-        if component.name.startswith(f"{context.prefix}-") and "-insights-" in component.name:
+        if (
+            component.name.startswith(f"{context.prefix}-")
+            and "-insights-" in component.name
+        ):
             _delete_or_log(
                 context,
                 "Application Insights",
@@ -152,6 +159,10 @@ def _cleanup_subscription_diagnostics(context: _AzureCleanupContext) -> None:
         context.prefix,
         dry_run=context.dry_run,
     )
+    context.run.record_discovery(
+        "Diagnostic Settings",
+        count=int(result.get("found", 0)),
+    )
     if result.get("errors"):
         raise RuntimeError(
             f"Diagnostic settings cleanup reported {result['errors']} errors"
@@ -166,11 +177,16 @@ def _cleanup_resource_diagnostics(context: _AzureCleanupContext) -> None:
         if not _owned(resource_group.name, context):
             continue
         resources = list(
-            context.resource_client.resources.list_by_resource_group(resource_group.name)
+            context.resource_client.resources.list_by_resource_group(
+                resource_group.name
+            )
         )
         targets = [(resource.id, resource.name) for resource in resources]
         targets.extend(
-            (f"{resource.id}/blobServices/default", f"{resource.name}/blobServices/default")
+            (
+                f"{resource.id}/blobServices/default",
+                f"{resource.name}/blobServices/default",
+            )
             for resource in resources
             if resource.type == "Microsoft.Storage/storageAccounts"
         )
@@ -187,9 +203,11 @@ def _cleanup_resource_diagnostics(context: _AzureCleanupContext) -> None:
                     context,
                     "Diagnostic Settings",
                     f"{resource_name}/{setting_name}",
-                    lambda resource_id=resource_id, setting_name=setting_name: helper.delete(
-                        resource_id,
-                        setting_name,
+                    lambda resource_id=resource_id, setting_name=setting_name: (
+                        helper.delete(
+                            resource_id,
+                            setting_name,
+                        )
                     ),
                 )
 
@@ -234,11 +252,13 @@ def _cleanup_cosmos_role_assignments(context: _AzureCleanupContext) -> None:
                 context,
                 "CosmosDB SQL Roles",
                 f"{account.name}/{assignment.name}",
-                lambda assignment=assignment, account=account: client.sql_resources.begin_delete_sql_role_assignment(
-                    assignment.name,
-                    _resource_group(account.id),
-                    account.name,
-                ).result(timeout=120),
+                lambda assignment=assignment, account=account: (
+                    client.sql_resources.begin_delete_sql_role_assignment(
+                        assignment.name,
+                        _resource_group(account.id),
+                        account.name,
+                    ).result(timeout=120)
+                ),
             )
 
 
@@ -388,9 +408,11 @@ def _cleanup_resource_groups(context: _AzureCleanupContext) -> None:
                 context,
                 "Resource Groups",
                 resource_group.name,
-                lambda resource_group=resource_group: context.resource_client.resource_groups.begin_delete(
-                    resource_group.name
-                ).result(timeout=600),
+                lambda resource_group=resource_group: (
+                    context.resource_client.resource_groups.begin_delete(
+                        resource_group.name
+                    ).result(timeout=600)
+                ),
                 dry_run_message="Would delete resource group and all contents",
             )
 
@@ -420,7 +442,7 @@ def cleanup_azure_resources(
     cleanup_entra_user: bool = False,
     platform_user_email: str = "",
     dry_run: bool = False,
-) -> None:
+) -> ProviderCleanupReport:
     """Clean Azure resources and raise one typed aggregate for incomplete work."""
     from azure.identity import ClientSecretCredential
     from azure.mgmt.resource.resources import ResourceManagementClient
@@ -452,7 +474,7 @@ def cleanup_azure_resources(
         run.attempt(label, "inventory", lambda step=step: step(context))
 
     if cleanup_entra_user and platform_user_email:
-        run.attempt(
+        identity_found = run.attempt(
             "Entra ID",
             platform_user_email,
             lambda: _cleanup_entra_user(
@@ -460,7 +482,11 @@ def cleanup_azure_resources(
                 platform_user_email,
                 dry_run=dry_run,
             ),
+            default=False,
         )
+        if identity_found:
+            run.record_discovery("Entra ID")
 
     run.raise_if_failed()
     logger.info("[Azure SDK] Fallback cleanup complete")
+    return run.report()

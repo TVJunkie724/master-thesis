@@ -25,6 +25,16 @@ def _workspace_context(runtime_context):
     yield runtime_context, SimpleNamespace(workspace_path=runtime_context.project_path)
 
 
+def _destroy_strategy() -> MagicMock:
+    strategy = MagicMock()
+    strategy.destroy_all.return_value = SimpleNamespace(
+        terraform_success=True,
+        sdk_fallback_results={},
+        cleanup_evidence={"status": "complete"},
+    )
+    return strategy
+
+
 def test_deploy_all_runs_strategy_against_runtime_workspace_context():
     source_context = _context()
     runtime_context = _context(Path("/tmp/workspace/factory"))
@@ -33,8 +43,14 @@ def test_deploy_all_runs_strategy_against_runtime_workspace_context():
     strategy.deploy_all.return_value = {"ok": {"value": True}}
 
     with (
-        patch.object(deployer, "deployment_workspace", return_value=_workspace_context(runtime_context)) as mock_workspace,
-        patch.object(deployer, "create_terraform_strategy", return_value=strategy) as mock_strategy,
+        patch.object(
+            deployer,
+            "deployment_workspace",
+            return_value=_workspace_context(runtime_context),
+        ) as mock_workspace,
+        patch.object(
+            deployer, "create_terraform_strategy", return_value=strategy
+        ) as mock_strategy,
     ):
         result = deployer.deploy_all(source_context, "aws")
 
@@ -48,10 +64,14 @@ def test_deploy_all_runs_strategy_against_runtime_workspace_context():
 def test_destroy_all_runs_canonical_strategy_once_against_runtime_workspace_context():
     source_context = _context()
     runtime_context = _context(Path("/tmp/workspace/factory"))
-    strategy = MagicMock()
+    strategy = _destroy_strategy()
 
     with (
-        patch.object(deployer, "deployment_workspace", return_value=_workspace_context(runtime_context)) as mock_workspace,
+        patch.object(
+            deployer,
+            "deployment_workspace",
+            return_value=_workspace_context(runtime_context),
+        ) as mock_workspace,
         patch.object(deployer, "create_terraform_strategy", return_value=strategy),
     ):
         deployer.destroy_all(source_context, "aws")
@@ -68,10 +88,18 @@ def test_deploy_all_terraform_uses_workspace_with_explicit_terraform_dir():
     strategy.deploy_all.return_value = {"ok": {"value": True}}
 
     with (
-        patch.object(deployer, "deployment_workspace", return_value=_workspace_context(runtime_context)),
-        patch.object(deployer, "create_terraform_strategy", return_value=strategy) as mock_strategy,
+        patch.object(
+            deployer,
+            "deployment_workspace",
+            return_value=_workspace_context(runtime_context),
+        ),
+        patch.object(
+            deployer, "create_terraform_strategy", return_value=strategy
+        ) as mock_strategy,
     ):
-        result = deployer.deploy_all_terraform(source_context, terraform_dir="/app/src/terraform")
+        result = deployer.deploy_all_terraform(
+            source_context, terraform_dir="/app/src/terraform"
+        )
 
     assert result == {"ok": {"value": True}}
     mock_strategy.assert_called_once_with(
@@ -89,10 +117,18 @@ def test_destroy_all_terraform_uses_workspace_with_explicit_terraform_dir():
     strategy = MagicMock()
 
     with (
-        patch.object(deployer, "deployment_workspace", return_value=_workspace_context(runtime_context)),
-        patch.object(deployer, "create_terraform_strategy", return_value=strategy) as mock_strategy,
+        patch.object(
+            deployer,
+            "deployment_workspace",
+            return_value=_workspace_context(runtime_context),
+        ),
+        patch.object(
+            deployer, "create_terraform_strategy", return_value=strategy
+        ) as mock_strategy,
     ):
-        deployer.destroy_all_terraform(source_context, terraform_dir="/app/src/terraform")
+        deployer.destroy_all_terraform(
+            source_context, terraform_dir="/app/src/terraform"
+        )
 
     mock_strategy.assert_called_once_with(
         runtime_context,
@@ -115,12 +151,18 @@ def test_deploy_all_passes_operation_context_to_workspace_boundary():
     strategy.deploy_all.return_value = {"ok": {"value": True}}
 
     with (
-        patch.object(deployer, "deployment_workspace", return_value=_workspace_context(runtime_context)) as mock_workspace,
+        patch.object(
+            deployer,
+            "deployment_workspace",
+            return_value=_workspace_context(runtime_context),
+        ) as mock_workspace,
         patch.object(deployer, "create_terraform_strategy", return_value=strategy),
     ):
         deployer.deploy_all(source_context, "aws", operation_context=operation_context)
 
-    mock_workspace.assert_called_once_with(source_context, operation_context=operation_context)
+    mock_workspace.assert_called_once_with(
+        source_context, operation_context=operation_context
+    )
 
 
 def test_destroy_all_passes_operation_context_to_workspace_boundary():
@@ -132,10 +174,14 @@ def test_destroy_all_passes_operation_context_to_workspace_boundary():
         provider="aws",
         operation_id="op-123",
     )
-    strategy = MagicMock()
+    strategy = _destroy_strategy()
 
     with (
-        patch.object(deployer, "deployment_workspace", return_value=_workspace_context(runtime_context)),
+        patch.object(
+            deployer,
+            "deployment_workspace",
+            return_value=_workspace_context(runtime_context),
+        ),
         patch.object(deployer, "create_terraform_strategy", return_value=strategy),
     ):
         deployer.destroy_all(source_context, "aws", operation_context=operation_context)
@@ -161,12 +207,20 @@ def test_deploy_all_stream_sets_outputs_from_runtime_workspace_strategy():
     async def collect():
         return [
             line
-            async for line in deployer.deploy_all_stream(source_context, output_sink=output_sink)
+            async for line in deployer.deploy_all_stream(
+                source_context, output_sink=output_sink
+            )
         ]
 
     with (
-        patch.object(deployer, "deployment_workspace", return_value=_workspace_context(runtime_context)),
-        patch.object(deployer, "create_terraform_strategy", return_value=strategy) as mock_strategy,
+        patch.object(
+            deployer,
+            "deployment_workspace",
+            return_value=_workspace_context(runtime_context),
+        ),
+        patch.object(
+            deployer, "create_terraform_strategy", return_value=strategy
+        ) as mock_strategy,
     ):
         lines = asyncio.run(collect())
 
@@ -195,8 +249,14 @@ def test_destroy_all_stream_runs_against_runtime_workspace_context():
         return [line async for line in deployer.destroy_all_stream(source_context)]
 
     with (
-        patch.object(deployer, "deployment_workspace", return_value=_workspace_context(runtime_context)),
-        patch.object(deployer, "create_terraform_strategy", return_value=strategy) as mock_strategy,
+        patch.object(
+            deployer,
+            "deployment_workspace",
+            return_value=_workspace_context(runtime_context),
+        ),
+        patch.object(
+            deployer, "create_terraform_strategy", return_value=strategy
+        ) as mock_strategy,
     ):
         lines = asyncio.run(collect())
 

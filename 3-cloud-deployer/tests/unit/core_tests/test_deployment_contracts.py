@@ -29,7 +29,34 @@ def test_deployment_result_serializes_stable_shape():
 
 
 def test_destroy_result_serializes_stable_shape():
-    result = DestroyResult(project_name="factory-twin", provider="gcp", operation_id="op-123")
+    cleanup_evidence = {
+        "schema_version": "cleanup-evidence.v1",
+        "status": "complete",
+        "terraform": {
+            "destroy_status": "completed",
+            "observed_before_resource_count": 3,
+            "post_destroy_inventory": "empty",
+            "residual_resource_count": 0,
+        },
+        "providers": [
+            {
+                "provider": "gcp",
+                "cleanup_status": "completed",
+                "discovered_during_cleanup_count": 1,
+                "discovered_resource_kinds": ["Cloud Functions"],
+                "post_destroy_inventory": "empty",
+                "residual_resource_count": 0,
+            }
+        ],
+        "retained_shared_prerequisites": [],
+        "residual_failures": [],
+    }
+    result = DestroyResult(
+        project_name="factory-twin",
+        provider="gcp",
+        operation_id="op-123",
+        cleanup_evidence=cleanup_evidence,
+    )
 
     assert result.model_dump(mode="json") == {
         "message": "Core and IoT services destroyed successfully",
@@ -38,11 +65,14 @@ def test_destroy_result_serializes_stable_shape():
         "project_name": "factory-twin",
         "provider": "gcp",
         "operation_id": "op-123",
+        "cleanup_evidence": cleanup_evidence,
     }
 
 
 def test_log_stream_event_serializes_as_sse_data_event():
-    event = DeploymentStreamEvent.log(DeploymentOperation.deploy, "terraform init", operation_id="op-123")
+    event = DeploymentStreamEvent.log(
+        DeploymentOperation.deploy, "terraform init", operation_id="op-123"
+    )
 
     assert event.to_sse() == (
         'data: {"event":"log","operation":"deploy","message":"terraform init","operation_id":"op-123"}\n\n'

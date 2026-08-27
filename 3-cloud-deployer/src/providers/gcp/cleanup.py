@@ -8,7 +8,7 @@ import logging
 import time
 from typing import Any
 
-from src.providers.cleanup_observability import CleanupRun
+from src.providers.cleanup_observability import CleanupRun, ProviderCleanupReport
 from src.providers.cleanup_registry import resource_name_owned_by_prefix
 
 logger = logging.getLogger(__name__)
@@ -55,17 +55,23 @@ def _delete_all_bucket_objects(
     while True:
         if time.monotonic() >= deadline:
             raise TimeoutError("Cloud Storage bucket drain exceeded its deadline")
-        response = storage_client.objects().list(
-            bucket=bucket_name,
-            versions=True,
-        ).execute()
+        response = (
+            storage_client.objects()
+            .list(
+                bucket=bucket_name,
+                versions=True,
+            )
+            .execute()
+        )
         objects = response.get("items", [])
         if not objects:
             return
         fingerprint = tuple(
             (item.get("name"), item.get("generation")) for item in objects
         )
-        stalled_passes = stalled_passes + 1 if fingerprint == previous_fingerprint else 0
+        stalled_passes = (
+            stalled_passes + 1 if fingerprint == previous_fingerprint else 0
+        )
         if stalled_passes >= max_stalled_passes:
             raise RuntimeError("Cloud Storage bucket drain made no progress")
         previous_fingerprint = fingerprint
@@ -100,6 +106,7 @@ def _delete_or_log(
     *,
     dry_run_message: str = "Would delete",
 ) -> None:
+    context.run.record_discovery(step)
     logger.info("  Found orphan: %s", resource)
     if context.dry_run:
         logger.info("    [DRY RUN] %s", dry_run_message)
@@ -277,6 +284,12 @@ def _cleanup_custom_roles(context: _GcpCleanupContext) -> None:
         role_id = role["name"].rsplit("/", 1)[-1]
         if not _owned(role_id, context):
             continue
+        if role.get("deleted", False):
+            logger.info(
+                "  Owned custom role is already soft-deleted; provider retention applies"
+            )
+            continue
+        context.run.record_discovery("Custom IAM Roles")
         logger.info("  Found orphan: %s", role_id)
         if context.dry_run:
             logger.info("    [DRY RUN] Would delete if active")
@@ -345,7 +358,7 @@ def cleanup_gcp_resources(
     credentials: dict,
     prefix: str,
     dry_run: bool = False,
-) -> None:
+) -> ProviderCleanupReport:
     """Clean GCP resources and raise one typed aggregate for incomplete work."""
     from src.utils.gcp_utils import parse_gcp_service_account
 
@@ -385,3 +398,4 @@ def cleanup_gcp_resources(
 
     run.raise_if_failed()
     logger.info("[GCP SDK] Fallback cleanup complete")
+    return run.report()

@@ -10,6 +10,7 @@ from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from src.cleanup_evidence import validate_cleanup_evidence
 from src.deployment_access import validate_deployment_access_evidence
 from src.api.deployment_trace import (
     DeploymentErrorCategory,
@@ -78,6 +79,12 @@ class DestroyResult(BaseModel):
     project_name: str
     provider: str
     operation_id: str
+    cleanup_evidence: dict[str, Any]
+
+    @field_validator("cleanup_evidence")
+    @classmethod
+    def validate_cleanup(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return validate_cleanup_evidence(value)
 
 
 class DeploymentAccessCredentialResult(BaseModel):
@@ -100,6 +107,7 @@ class DeploymentStreamEvent(BaseModel):
     message: str | None = None
     outputs: dict[str, Any] | None = None
     deployment_access_evidence: dict[str, Any] | None = None
+    cleanup_evidence: dict[str, Any] | None = None
     error: str | None = None
     error_code: str | None = None
     operation_id: str | None = None
@@ -113,6 +121,11 @@ class DeploymentStreamEvent(BaseModel):
         if value is not None:
             validate_deployment_access_evidence(value)
         return value
+
+    @field_validator("cleanup_evidence")
+    @classmethod
+    def validate_cleanup(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        return validate_cleanup_evidence(value) if value is not None else None
 
     @classmethod
     def log(
@@ -134,6 +147,7 @@ class DeploymentStreamEvent(BaseModel):
         operation: DeploymentOperation,
         outputs: dict[str, Any] | None = None,
         deployment_access_evidence: dict[str, Any] | None = None,
+        cleanup_evidence: dict[str, Any] | None = None,
         operation_id: str | None = None,
     ) -> "DeploymentStreamEvent":
         return cls(
@@ -142,6 +156,7 @@ class DeploymentStreamEvent(BaseModel):
             success=True,
             outputs=sanitize_terraform_outputs(outputs),
             deployment_access_evidence=deployment_access_evidence,
+            cleanup_evidence=cleanup_evidence,
             operation_id=operation_id,
         )
 
@@ -153,6 +168,7 @@ class DeploymentStreamEvent(BaseModel):
         *,
         error_code: str | None = None,
         operation_id: str | None = None,
+        cleanup_evidence: dict[str, Any] | None = None,
     ) -> "DeploymentStreamEvent":
         return cls(
             event=DeploymentEventType.error,
@@ -161,11 +177,14 @@ class DeploymentStreamEvent(BaseModel):
             error=sanitize_deployment_message(error),
             error_code=error_code,
             operation_id=operation_id,
+            cleanup_evidence=cleanup_evidence,
             error_category=classify_deployment_error(error),
         )
 
     def to_sse(self) -> str:
         """Serialize this event to Server-Sent Events wire format."""
-        event_prefix = "" if self.event == DeploymentEventType.log else f"event: {self.event}\n"
+        event_prefix = (
+            "" if self.event == DeploymentEventType.log else f"event: {self.event}\n"
+        )
         payload = self.model_dump_json(exclude_none=True)
         return f"{event_prefix}data: {payload}\n\n"

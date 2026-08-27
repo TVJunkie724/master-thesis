@@ -268,7 +268,7 @@ def destroy_all(
                 )
             operation_context = operation_context.with_provider(request.provider)
 
-            core_deployer.destroy_all(
+            cleanup_evidence = core_deployer.destroy_all(
                 context,
                 request.provider,
                 operation_context=operation_context,
@@ -278,6 +278,7 @@ def destroy_all(
             project_name=request.project_name,
             provider=request.provider,
             operation_id=operation_context.operation_id,
+            cleanup_evidence=cleanup_evidence,
         ).model_dump(mode="json")
     except HTTPException as e:
         _raise_structured_http_error(e, operation_context)
@@ -457,9 +458,11 @@ async def destroy_stream(
 
         async def generate():
             scope_closed = False
+            output_sink: dict = {}
             try:
                 async for line in core_deployer.destroy_all_stream(
                     context,
+                    output_sink=output_sink,
                     operation_context=stream_context,
                 ):
                     yield DeploymentStreamEvent.log(
@@ -471,10 +474,24 @@ async def destroy_stream(
                     package_scope.__exit__(None, None, None)
                 finally:
                     scope_closed = True
-                yield DeploymentStreamEvent.complete(
-                    DeploymentOperation.destroy,
-                    operation_id=stream_context.operation_id,
-                ).to_sse()
+                cleanup_evidence = output_sink.get("cleanup_evidence")
+                if (
+                    isinstance(cleanup_evidence, dict)
+                    and cleanup_evidence.get("status") == "complete"
+                ):
+                    yield DeploymentStreamEvent.complete(
+                        DeploymentOperation.destroy,
+                        cleanup_evidence=cleanup_evidence,
+                        operation_id=stream_context.operation_id,
+                    ).to_sse()
+                else:
+                    yield DeploymentStreamEvent.failure(
+                        DeploymentOperation.destroy,
+                        "Destroy completed with residual cleanup evidence",
+                        error_code="DESTROY_CLEANUP_INCOMPLETE",
+                        cleanup_evidence=cleanup_evidence,
+                        operation_id=stream_context.operation_id,
+                    ).to_sse()
             except BaseException as e:
                 if not scope_closed:
                     try:

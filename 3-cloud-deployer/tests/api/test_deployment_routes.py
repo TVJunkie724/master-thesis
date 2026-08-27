@@ -25,6 +25,46 @@ from src.deployment_specification.errors import DeploymentSpecificationError
 
 
 OPERATION_TOKEN = "test-operation-token"
+CLEANUP_EVIDENCE = {
+    "schema_version": "cleanup-evidence.v1",
+    "status": "complete",
+    "terraform": {
+        "destroy_status": "completed",
+        "observed_before_resource_count": 5,
+        "post_destroy_inventory": "empty",
+        "residual_resource_count": 0,
+    },
+    "providers": [
+        {
+            "provider": "aws",
+            "cleanup_status": "completed",
+            "discovered_during_cleanup_count": 2,
+            "discovered_resource_kinds": ["Lambda", "S3"],
+            "post_destroy_inventory": "empty",
+            "residual_resource_count": 0,
+        }
+    ],
+    "retained_shared_prerequisites": [],
+    "residual_failures": [],
+}
+INCOMPLETE_CLEANUP_EVIDENCE = {
+    **CLEANUP_EVIDENCE,
+    "status": "incomplete",
+    "providers": [
+        {
+            **CLEANUP_EVIDENCE["providers"][0],
+            "post_destroy_inventory": "residual",
+            "residual_resource_count": 1,
+        }
+    ],
+    "residual_failures": [
+        {
+            "scope": "provider_inventory",
+            "provider": "aws",
+            "reason": "resources_remain",
+        }
+    ],
+}
 client = TestClient(rest_api.app)
 
 
@@ -266,7 +306,11 @@ def test_destroy_route_invokes_canonical_facade_with_hard_response_shape():
         patch.object(
             deployment, "create_context", return_value=context
         ) as mock_create_context,
-        patch.object(deployment.core_deployer, "destroy_all") as mock_destroy_all,
+        patch.object(
+            deployment.core_deployer,
+            "destroy_all",
+            return_value=CLEANUP_EVIDENCE,
+        ) as mock_destroy_all,
     ):
         response = deployment.destroy_all(
             OPERATION_TOKEN, provider="aws", project_name="test_api_project"
@@ -298,6 +342,7 @@ def test_destroy_route_invokes_canonical_facade_with_hard_response_shape():
         "operation": "destroy",
         "project_name": "test_api_project",
         "provider": "aws",
+        "cleanup_evidence": CLEANUP_EVIDENCE,
     }
 
 
@@ -320,11 +365,15 @@ async def _fake_deploy_stream(
         output_sink["outputs"] = {"output": {"value": "ok"}}
 
 
-async def _fake_destroy_stream(context, strategy=None, operation_context=None):
+async def _fake_destroy_stream(
+    context, strategy=None, output_sink=None, operation_context=None
+):
     assert context is not None
     assert strategy is None
     assert operation_context is not None
     yield "terraform destroy"
+    if output_sink is not None:
+        output_sink["cleanup_evidence"] = CLEANUP_EVIDENCE
 
 
 async def _fake_failing_deploy_stream(
@@ -336,9 +385,18 @@ async def _fake_failing_deploy_stream(
     )
 
 
-async def _fake_failing_destroy_stream(context, strategy=None, operation_context=None):
+async def _fake_failing_destroy_stream(
+    context, strategy=None, output_sink=None, operation_context=None
+):
     yield "terraform destroy"
     raise RuntimeError("client_secret=super-secret")
+
+
+async def _fake_incomplete_destroy_stream(
+    context, strategy=None, output_sink=None, operation_context=None
+):
+    yield "post-destroy inventory"
+    output_sink["cleanup_evidence"] = INCOMPLETE_CLEANUP_EVIDENCE
 
 
 async def _fake_secret_deploy_stream(
@@ -533,10 +591,9 @@ def test_destroy_stream_uses_canonical_facade_and_preserves_event_shape():
         'data: {"event":"log","operation":"destroy","message":"terraform destroy","operation_id":"'
         in body
     )
-    assert (
-        'event: complete\ndata: {"event":"complete","operation":"destroy","success":true,"operation_id":"'
-        in body
-    )
+    assert 'event: complete\ndata: {"event":"complete"' in body
+    assert '"success":true' in body
+    assert '"schema_version":"cleanup-evidence.v1"' in body
 
 
 def test_destroy_stream_failure_uses_typed_safe_error_event():
@@ -569,6 +626,40 @@ def test_destroy_stream_failure_uses_typed_safe_error_event():
     assert '"error_code":"DESTRUCTION_ERROR"' in body
     assert '"operation_id":"' in body
     assert "super-secret" not in body
+
+
+def test_destroy_stream_returns_first_class_residual_evidence():
+    context = MagicMock(name="deployment_context")
+    context.project_path = Path("/projects/test_api_project")
+
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_provider", return_value="aws"),
+        patch.object(
+            deployment,
+            "get_project_storage",
+            return_value=_project_storage_for("/projects/test_api_project"),
+        ),
+        patch.object(deployment, "validate_project_directory"),
+        patch.object(deployment, "create_context", return_value=context),
+        patch.object(
+            deployment.core_deployer,
+            "destroy_all_stream",
+            new=_fake_incomplete_destroy_stream,
+        ),
+    ):
+        response = asyncio.run(
+            deployment.destroy_stream(
+                OPERATION_TOKEN,
+                provider="aws",
+                project_name="test_api_project",
+            )
+        )
+        body = asyncio.run(_collect_stream(response))
+
+    assert '"error_code":"DESTROY_CLEANUP_INCOMPLETE"' in body
+    assert '"schema_version":"cleanup-evidence.v1"' in body
+    assert '"reason":"resources_remain"' in body
 
 
 def test_google_provider_alias_is_normalized_to_gcp_in_deploy_response():

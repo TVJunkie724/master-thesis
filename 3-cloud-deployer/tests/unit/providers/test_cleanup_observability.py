@@ -38,6 +38,18 @@ def test_cleanup_run_aggregates_sanitized_failures_and_continues(caplog):
     assert "super-secret-value" not in caplog.text
 
 
+def test_cleanup_run_reports_counts_and_kinds_without_resource_names():
+    run = CleanupRun("AWS", logging.getLogger("test.cleanup.report"))
+
+    run.record_discovery("S3")
+    run.record_discovery("Lambda", count=2)
+
+    report = run.report()
+    assert report.provider == "aws"
+    assert report.discovered_resource_count == 3
+    assert report.discovered_resource_kinds == ("Lambda", "S3")
+
+
 def test_registry_propagates_typed_provider_cleanup_failure(monkeypatch):
     failure = ProviderCleanupError(
         "AWS",

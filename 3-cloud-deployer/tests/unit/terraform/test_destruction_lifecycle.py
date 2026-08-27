@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.providers.cleanup_registry import CleanupRequest, resource_name_owned_by_prefix
+from src.providers.cleanup_observability import ProviderCleanupReport
 from src.providers.terraform.cleanup_execution import run_cleanup_attempt
 from src.providers.terraform.deployer_strategy import TerraformDeployerStrategy
 
@@ -184,9 +185,7 @@ def test_cleanup_retry_is_bounded_and_redacts_errors(tmp_path, caplog):
         caplog.at_level("WARNING"),
         patch(
             "src.providers.terraform.destruction_lifecycle.run_cleanup_attempt",
-            side_effect=RuntimeError(
-                "aws_secret_access_key=super-secret"
-            ),
+            side_effect=RuntimeError("aws_secret_access_key=super-secret"),
         ) as attempt,
         patch("src.providers.terraform.destruction_lifecycle.time.sleep"),
     ):
@@ -215,3 +214,77 @@ def test_cleanup_process_boundary_propagates_provider_errors():
 
     with pytest.raises(RuntimeError, match="Unsupported cleanup provider"):
         run_cleanup_attempt(request, timeout_seconds=10)
+
+
+def test_state_inventory_counts_nested_module_resources(tmp_path):
+    strategy = _strategy(tmp_path)
+
+    assert (
+        strategy._state_resource_count(
+            {
+                "values": {
+                    "root_module": {
+                        "resources": [{"address": "root"}],
+                        "child_modules": [
+                            {
+                                "resources": [{"address": "child.one"}],
+                                "child_modules": [
+                                    {"resources": [{"address": "child.two"}]}
+                                ],
+                            }
+                        ],
+                    }
+                }
+            }
+        )
+        == 3
+    )
+
+
+def test_cleanup_evidence_separates_retained_prerequisites_and_residuals(tmp_path):
+    strategy = _strategy(tmp_path)
+    strategy._cleanup_reports = {
+        "azure": ProviderCleanupReport("azure", 4, ("Digital Twins",))
+    }
+    requirement = SimpleNamespace(
+        provider="azure",
+        requirement_type="resource_provider",
+        preparation_mode="confirmed_account",
+        capability_id="Microsoft.DigitalTwins",
+        scope="subscription",
+    )
+    context = SimpleNamespace(
+        resolved_deployment_graph=SimpleNamespace(requirements=(requirement,))
+    )
+
+    evidence = strategy._build_cleanup_evidence(
+        context=context,
+        terraform_success=True,
+        dry_run=False,
+        state_before_count=7,
+        state_after=("empty", 0),
+        cleanup_results={"azure": True},
+        inventory_results={
+            "azure": ProviderCleanupReport("azure", 1, ("Resource Groups",))
+        },
+    )
+
+    assert evidence["status"] == "incomplete"
+    assert evidence["providers"][0]["discovered_during_cleanup_count"] == 4
+    assert evidence["providers"][0]["residual_resource_count"] == 1
+    assert evidence["retained_shared_prerequisites"] == [
+        {
+            "provider": "azure",
+            "requirement_type": "resource_provider",
+            "capability_id": "Microsoft.DigitalTwins",
+            "scope": "subscription",
+            "reason": "persistent_account_prerequisite",
+        }
+    ]
+    assert evidence["residual_failures"] == [
+        {
+            "scope": "provider_inventory",
+            "provider": "azure",
+            "reason": "resources_remain",
+        }
+    ]

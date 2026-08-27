@@ -9,6 +9,16 @@ from typing import TypeVar
 
 from src.api.deployment_trace import sanitize_deployment_message
 
+
+@dataclass(frozen=True)
+class ProviderCleanupReport:
+    """Secret-free inventory summary returned across the process boundary."""
+
+    provider: str
+    discovered_resource_count: int
+    discovered_resource_kinds: tuple[str, ...]
+
+
 @dataclass(frozen=True)
 class CleanupFailure:
     """One sanitized provider cleanup failure."""
@@ -45,10 +55,27 @@ class CleanupRun:
         self.provider = provider
         self.logger = provider_logger
         self._failures: list[CleanupFailure] = []
+        self._discovered_resource_kinds: list[str] = []
 
     @property
     def failures(self) -> tuple[CleanupFailure, ...]:
         return tuple(self._failures)
+
+    def record_discovery(self, resource_kind: str, *, count: int = 1) -> None:
+        """Record owned resources without retaining provider resource names."""
+        if count < 0:
+            raise ValueError("Discovery count must not be negative")
+        self._discovered_resource_kinds.extend([resource_kind] * count)
+
+    def report(self) -> ProviderCleanupReport:
+        """Return a bounded, secret-free summary of this provider scan."""
+        return ProviderCleanupReport(
+            provider=self.provider.casefold(),
+            discovered_resource_count=len(self._discovered_resource_kinds),
+            discovered_resource_kinds=tuple(
+                sorted(set(self._discovered_resource_kinds))
+            ),
+        )
 
     def attempt(
         self,
