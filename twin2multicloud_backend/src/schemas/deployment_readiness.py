@@ -20,6 +20,33 @@ ContentDigest = Annotated[
     str,
     Field(pattern=r"^sha256:[0-9a-f]{64}$"),
 ]
+RequirementReadinessStatus = Literal[
+    "ready",
+    "preparable",
+    "manual_action",
+    "replace_connection",
+    "transient",
+    "unsupported",
+]
+
+
+class DeploymentRequirementReadiness(BaseModel):
+    requirement_id: str = Field(min_length=1, max_length=300)
+    requirement_type: str = Field(min_length=1, max_length=80)
+    provider: CloudProvider
+    capability_id: str = Field(min_length=1, max_length=300)
+    preparation_mode: Literal[
+        "none",
+        "confirmed_account",
+        "manual_external",
+        "terraform",
+    ]
+    mandatory: bool = True
+    status: RequirementReadinessStatus
+    message: str = Field(min_length=1, max_length=2_000)
+    action: str = Field(min_length=1, max_length=2_000)
+    source_node_ids: list[str] = Field(default_factory=list, max_length=512)
+    source_edge_ids: list[str] = Field(default_factory=list, max_length=512)
 
 
 class DeploymentReadinessCheck(BaseModel):
@@ -44,6 +71,10 @@ class ProviderDeploymentReadiness(BaseModel):
     graph_digest: ContentDigest | None = None
     requirements_digest: ContentDigest | None = None
     checks: list[DeploymentReadinessCheck] = Field(min_length=1, max_length=32)
+    requirements: list[DeploymentRequirementReadiness] = Field(
+        default_factory=list,
+        max_length=4096,
+    )
 
     @model_validator(mode="after")
     def validate_consistency(self) -> Self:
@@ -55,7 +86,19 @@ class ProviderDeploymentReadiness(BaseModel):
             self.graph_digest is None or self.requirements_digest is None
         ):
             raise ValueError("ready providers require graph-bound evidence")
-        if self.ready != all(check.status == "passed" for check in self.checks):
+        if self.ready and (
+            not self.requirements
+            or any(item.status != "ready" for item in self.requirements)
+        ):
+            raise ValueError("ready providers require ready graph requirements")
+        if any(item.provider != self.provider for item in self.requirements):
+            raise ValueError("provider requirements must share provider ownership")
+        expected_ready = (
+            all(check.status == "passed" for check in self.checks)
+            and bool(self.requirements)
+            and all(item.status == "ready" for item in self.requirements)
+        )
+        if self.ready != expected_ready:
             raise ValueError("ready and checks must be consistent")
         return self
 

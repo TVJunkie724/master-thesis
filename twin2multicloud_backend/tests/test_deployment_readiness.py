@@ -201,6 +201,21 @@ def test_readiness_contract_rejects_inconsistent_or_empty_provider_evidence():
                 "checked_at": "2026-07-14T09:00:00Z",
                 "graph_digest": "sha256:" + "2" * 64,
                 "requirements_digest": "sha256:" + "3" * 64,
+                "requirements": [
+                    {
+                        "requirement_id": "requirement.provider-scope.aws",
+                        "requirement_type": "provider_scope",
+                        "provider": "aws",
+                        "capability_id": "aws.target-scope",
+                        "preparation_mode": "none",
+                        "mandatory": True,
+                        "status": "ready",
+                        "message": "Account scope is ready.",
+                        "action": "No action required.",
+                        "source_node_ids": ["node.aws"],
+                        "source_edge_ids": [],
+                    }
+                ],
                 "checks": [
                     {
                         "component": "deployer",
@@ -281,6 +296,108 @@ async def test_three_provider_preflight_is_deterministic_cached_and_secret_free(
     for secret in (_AWS_SECRET, _AZURE_SECRET, _GCP_SECRET):
         assert secret not in serialized
         assert secret not in persisted
+
+
+@pytest.mark.asyncio
+async def test_graph_api_requirement_is_preparable_when_provider_reports_it_missing(
+    db_session,
+):
+    user = _create_user(db_session)
+    twin, _ = _create_twin(db_session, user, ("gcp",))
+
+    async def requirements_resolver(_twin, _user_id):
+        return {
+            "graph_evidence": {
+                "architecture_digest": "sha256:" + "1" * 64,
+                "graph_digest": "sha256:" + "2" * 64,
+                "requirements_digest": "sha256:" + "3" * 64,
+                "required_providers": ["gcp"],
+            },
+            "requirements": [
+                {
+                    "requirement_id": "requirement.api.gcp.run",
+                    "requirement_type": "api",
+                    "provider": "gcp",
+                    "capability_id": "run.googleapis.com",
+                    "preparation_mode": "confirmed_account",
+                    "mandatory": True,
+                    "source_node_ids": ["node.processing"],
+                    "source_edge_ids": [],
+                }
+            ],
+        }
+
+    async def validator(_provider, _optimizer, _deployer):
+        return {
+            "optimizer": {"valid": True, "message": "Pricing access passed."},
+            "deployer": {
+                "valid": False,
+                "message": "GCP deployment preflight failed",
+                "checks": [
+                    {
+                        "name": "enabled_apis",
+                        "status": "failed",
+                        "code": "MISSING_APIS",
+                        "message": "A required API is disabled.",
+                        "action": "Enable the API.",
+                        "apis": ["run.googleapis.com"],
+                    }
+                ],
+            },
+        }
+
+    response = await DeploymentReadinessService(
+        db_session,
+        validator=validator,
+        requirements_resolver=requirements_resolver,
+    ).run_preflight(twin.id, user.id)
+
+    requirement = response.providers[0].requirements[0]
+    assert response.ready is False
+    assert requirement.status == "preparable"
+    assert requirement.capability_id == "run.googleapis.com"
+    assert requirement.source_node_ids == ["node.processing"]
+
+
+@pytest.mark.asyncio
+async def test_unautomated_graph_prerequisite_remains_explicit_manual_action(
+    db_session,
+):
+    user = _create_user(db_session)
+    twin, _ = _create_twin(db_session, user, ("azure",))
+
+    async def requirements_resolver(_twin, _user_id):
+        return {
+            "graph_evidence": {
+                "architecture_digest": "sha256:" + "1" * 64,
+                "graph_digest": "sha256:" + "2" * 64,
+                "requirements_digest": "sha256:" + "3" * 64,
+                "required_providers": ["azure"],
+            },
+            "requirements": [
+                {
+                    "requirement_id": "requirement.access.azure.graph",
+                    "requirement_type": "access_prerequisite",
+                    "provider": "azure",
+                    "capability_id": "azure.microsoft-graph.authority",
+                    "preparation_mode": "manual_external",
+                    "mandatory": True,
+                    "source_node_ids": ["node.twin-state"],
+                    "source_edge_ids": [],
+                }
+            ],
+        }
+
+    response = await DeploymentReadinessService(
+        db_session,
+        validator=_successful_validator,
+        requirements_resolver=requirements_resolver,
+    ).run_preflight(twin.id, user.id)
+
+    requirement = response.providers[0].requirements[0]
+    assert response.ready is False
+    assert requirement.status == "manual_action"
+    assert "Microsoft Graph" in requirement.action
 
 
 @pytest.mark.asyncio

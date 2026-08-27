@@ -23,6 +23,7 @@ from src.schemas.deployment_readiness import (
     DeploymentPreflightResponse,
     DeploymentReadinessCheck,
     DeploymentReadinessResponse,
+    DeploymentRequirementReadiness,
     ProviderDeploymentReadiness,
     ProviderReadinessStatus,
 )
@@ -279,6 +280,11 @@ class DeploymentReadinessService:
                 candidate,
                 raw_result,
                 checked_at,
+                provider_requirements=[
+                    item
+                    for item in requirements
+                    if item.get("provider") == candidate.provider
+                ],
                 graph_digest=graph_evidence["graph_digest"],
                 requirements_digest=graph_evidence["requirements_digest"],
             )
@@ -300,9 +306,8 @@ class DeploymentReadinessService:
                 ),
                 requirements_json=json.dumps(
                     [
-                        item
-                        for item in requirements
-                        if item.get("provider") == candidate.provider
+                        item.model_dump(mode="json")
+                        for item in provider_result.requirements
                     ],
                     sort_keys=True,
                     separators=(",", ":"),
@@ -482,7 +487,10 @@ class DeploymentReadinessService:
                 checked_at=cache.checked_at,
             )
         checks = self._parse_cached_checks(cache.checks_json)
-        requirements = self._parse_cached_requirements(cache.requirements_json, provider)
+        requirements = self._parse_cached_requirements(
+            cache.requirements_json,
+            provider,
+        )
         if checks is None or requirements is None:
             return self._provider_failure(
                 provider,
@@ -509,6 +517,7 @@ class DeploymentReadinessService:
             graph_digest=cache.graph_digest,
             requirements_digest=cache.requirements_digest,
             checks=checks,
+            requirements=requirements,
         )
 
     def _provider_from_validation(
@@ -517,6 +526,7 @@ class DeploymentReadinessService:
         validation_result: dict[str, Any],
         checked_at: datetime,
         *,
+        provider_requirements: list[dict[str, Any]],
         graph_digest: str,
         requirements_digest: str,
     ) -> ProviderDeploymentReadiness:
@@ -525,9 +535,19 @@ class DeploymentReadinessService:
             validation_result,
         )
         checks = [self._safe_check(check) for check in raw.get("checks", [])[:32]]
-        ready = bool(raw.get("ready"))
+        requirement_results = [
+            self._project_requirement_readiness(requirement, checks)
+            for requirement in provider_requirements
+        ]
+        ready = bool(raw.get("ready")) and bool(requirement_results) and all(
+            item.status == "ready" for item in requirement_results
+        )
         summary = redact_secret_like_text(
-            str(raw.get("summary") or "Provider preflight failed"),
+            (
+                "All graph-derived provider requirements are ready."
+                if ready
+                else str(raw.get("summary") or "Provider preflight failed")
+            ),
         )[:2_000]
         return ProviderDeploymentReadiness(
             provider=candidate.provider,
@@ -540,7 +560,178 @@ class DeploymentReadinessService:
             graph_digest=graph_digest,
             requirements_digest=requirements_digest,
             checks=checks,
+            requirements=requirement_results,
         )
+
+    def _project_requirement_readiness(
+        self,
+        requirement: dict[str, Any],
+        checks: list[DeploymentReadinessCheck],
+    ) -> DeploymentRequirementReadiness:
+        capability = self._safe_text(
+            requirement.get("capability_id"),
+            fallback="unknown-capability",
+            max_length=300,
+        )
+        requirement_type = self._safe_text(
+            requirement.get("requirement_type"),
+            fallback="unknown",
+            max_length=80,
+        )
+        preparation_mode = requirement.get("preparation_mode")
+        if preparation_mode not in {
+            "none",
+            "confirmed_account",
+            "manual_external",
+            "terraform",
+        }:
+            preparation_mode = "none"
+        failed = [check for check in checks if check.status == "failed"]
+        relevant = self._relevant_requirement_failure(
+            requirement_type,
+            capability,
+            failed,
+        )
+
+        if preparation_mode == "terraform" or requirement_type == "verification_probe":
+            status = "ready"
+            message = "The immutable deployment graph contains this Terraform-managed contract."
+            action = "No account preparation is required before apply."
+        elif preparation_mode == "manual_external":
+            status = "manual_action"
+            message = "This provider prerequisite cannot be changed safely by the PoC."
+            action = self._manual_requirement_action(capability)
+        elif capability == "aws.outbound-identity-federation":
+            status = "manual_action"
+            message = "AWS outbound identity federation needs an account-level review."
+            action = (
+                "Review the account identity settings and confirm completion before retrying."
+            )
+        elif relevant is None and not failed:
+            status = "ready"
+            message = "The non-mutating provider check passed for this requirement."
+            action = "No action required."
+        elif preparation_mode == "confirmed_account" and requirement_type in {
+            "api",
+            "resource_provider",
+        }:
+            status = "preparable"
+            message = (
+                relevant.message
+                if relevant is not None
+                else "The account prerequisite needs confirmed preparation."
+            )
+            action = "Review and confirm the bounded provider preparation action."
+        else:
+            failure = relevant or (failed[0] if failed else None)
+            status = self._failure_requirement_status(failure)
+            message = (
+                failure.message
+                if failure is not None
+                else "The requirement could not be verified safely."
+            )
+            action = (
+                failure.action
+                if failure is not None
+                else "Review the provider prerequisite and run preflight again."
+            )
+
+        return DeploymentRequirementReadiness(
+            requirement_id=self._safe_text(
+                requirement.get("requirement_id"),
+                fallback=f"requirement.{requirement_type}.{capability}",
+                max_length=300,
+            ),
+            requirement_type=requirement_type,
+            provider=requirement.get("provider"),
+            capability_id=capability,
+            preparation_mode=preparation_mode,
+            mandatory=bool(requirement.get("mandatory", True)),
+            status=status,
+            message=self._safe_text(message, fallback="Requirement needs review.", max_length=2_000),
+            action=self._safe_text(action, fallback="Review and retry.", max_length=2_000),
+            source_node_ids=self._safe_requirement_sources(
+                requirement.get("source_node_ids")
+            ),
+            source_edge_ids=self._safe_requirement_sources(
+                requirement.get("source_edge_ids")
+            ),
+        )
+
+    @staticmethod
+    def _relevant_requirement_failure(
+        requirement_type: str,
+        capability: str,
+        failures: list[DeploymentReadinessCheck],
+    ) -> DeploymentReadinessCheck | None:
+        for failure in failures:
+            if capability in failure.permissions:
+                return failure
+            if requirement_type == "region" and failure.code == "REGION_NOT_SUPPORTED":
+                return failure
+            if requirement_type == "permission" and failure.code in {
+                "MISSING_PERMISSIONS",
+                "SELF_CHECK_PERMISSION_MISSING",
+                "ROLE_ASSIGNMENT_CHECK_UNAVAILABLE",
+                "PERMISSION_CHECK_FAILED",
+            }:
+                return failure
+            if requirement_type == "provider_scope" and failure.code in {
+                "ACCOUNT_NOT_ACTIVE",
+                "BILLING_NOT_ENABLED",
+                "PROJECT_ACCESS_DENIED",
+                "PROJECT_NOT_ACTIVE",
+                "PROJECT_NOT_FOUND",
+                "SUBSCRIPTION_NOT_ENABLED",
+            }:
+                return failure
+        return None
+
+    @staticmethod
+    def _failure_requirement_status(
+        failure: DeploymentReadinessCheck | None,
+    ) -> str:
+        if failure is None:
+            return "unsupported"
+        if failure.code in {"DOWNSTREAM_SERVICE_UNAVAILABLE", "DOWNSTREAM_API_ERROR"}:
+            return "transient"
+        if failure.code in {
+            "MISSING_PERMISSIONS",
+            "SELF_CHECK_PERMISSION_MISSING",
+            "ROLE_ASSIGNMENT_CHECK_UNAVAILABLE",
+            "PERMISSION_CHECK_FAILED",
+            "PROJECT_ACCESS_DENIED",
+            "PROJECT_NOT_FOUND",
+            "CREDENTIAL_EXPIRED",
+        }:
+            return "replace_connection"
+        if failure.code in {
+            "ACCOUNT_NOT_ACTIVE",
+            "BILLING_NOT_ENABLED",
+            "PROJECT_NOT_ACTIVE",
+            "SUBSCRIPTION_NOT_ENABLED",
+            "REGION_NOT_SUPPORTED",
+        }:
+            return "manual_action"
+        return "unsupported"
+
+    @staticmethod
+    def _manual_requirement_action(capability: str) -> str:
+        if ".quota." in capability:
+            return "Review the named regional quota and request capacity if required."
+        if capability == "aws.iam-identity-center.primary-region":
+            return "Open IAM Identity Center in its primary Region and verify access."
+        if capability == "azure.microsoft-graph.authority":
+            return "Grant the required Microsoft Graph application consent and retry."
+        if capability.startswith("gcp.iap."):
+            return "Complete the project IAP OAuth configuration and retry."
+        return "Complete this provider-console prerequisite and retry."
+
+    @staticmethod
+    def _safe_requirement_sources(value: Any) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        return [str(item)[:300] for item in value[:512] if str(item).strip()]
 
     def _resolve_bound_connection(
         self,
@@ -625,7 +816,10 @@ class DeploymentReadinessService:
             return None
 
     @staticmethod
-    def _parse_cached_requirements(raw: str, provider: str) -> list[dict] | None:
+    def _parse_cached_requirements(
+        raw: str,
+        provider: str,
+    ) -> list[DeploymentRequirementReadiness] | None:
         try:
             values = json.loads(raw)
             if (
@@ -640,7 +834,10 @@ class DeploymentReadinessService:
                 )
             ):
                 return None
-            return values
+            return [
+                DeploymentRequirementReadiness.model_validate(value)
+                for value in values
+            ]
         except (TypeError, ValueError, json.JSONDecodeError):
             return None
 
