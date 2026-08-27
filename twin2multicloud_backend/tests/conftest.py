@@ -163,7 +163,6 @@ def sample_calc_params():
         "twinStateMaterializationsPerSecond": 0.1,
         "twinGraphUpdatesPerSecond": 0.01,
         "eventingScenarioId": "eventing-small-v1",
-        "optimizationProfileId": "cost-minimization-v2",
         "currency": "USD",
     }
 

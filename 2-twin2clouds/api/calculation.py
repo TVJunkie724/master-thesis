@@ -200,7 +200,6 @@ class SixLayerCalcParams(BaseModel):
         "eventing-large-v1",
     ]
     currency: Literal["USD", "EUR"] = "USD"
-    optimizationProfileId: Literal["cost-minimization-v2"] = "cost-minimization-v2"
     providerPricingCatalogs: PricingCatalogContext
     providerPricingContexts: ProviderPricingContexts = Field(
         default_factory=ProviderPricingContexts
@@ -212,7 +211,6 @@ class SixLayerCalcParams(BaseModel):
         return self.model_dump(
             exclude={
                 "calculationRunId",
-                "optimizationProfileId",
                 "providerPricingCatalogs",
                 "providerPricingContexts",
                 "architectureProfile",
@@ -554,7 +552,7 @@ def _six_layer_http_result(
         "totalCost": float(optimized.cost_evaluation.monthly_total),
         "totalCostExact": str(optimized.cost_evaluation.monthly_total),
         "currency": optimized.cost_evaluation.currency,
-        "optimization_profile_id": params.optimizationProfileId,
+        "optimization_profile_id": "cost-minimization-v2",
         "result_schema_version": "cost-result.v2",
         "optimizationProfile": {
             "enabled": True,

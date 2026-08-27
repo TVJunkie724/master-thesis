@@ -23,7 +23,6 @@ def _valid_route_params(_sample_calc_params: dict) -> dict:
                 SIX_LAYER_WORKLOAD_ROOT / "fixtures" / "valid" / "core-small.json"
             ).read_text(encoding="utf-8")
         ),
-        "optimizationProfileId": "cost-minimization-v2",
     }
 
 

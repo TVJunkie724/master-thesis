@@ -1147,7 +1147,7 @@ def _build_deployment_specification(
             "component_catalog_ref": dict(component_catalog_ref),
             "workload_ref": {
                 "id": "six-layer-workload",
-                "version": "2",
+                "version": "1",
                 "digest": workload_contract_digest,
             },
             "eventing_scenario_ref": dict(resolved_workload.eventing_scenario_ref),

@@ -75,7 +75,7 @@ def test_update_params_persists_current_contract_defaults(
     params = {
         key: value
         for key, value in sample_calc_params.items()
-        if key not in {"optimizationProfileId", "currency"}
+        if key != "currency"
     }
 
     response = _service(db_session).update_params(
@@ -84,7 +84,7 @@ def test_update_params_persists_current_contract_defaults(
         OptimizerParamsUpdate(params=params),
     )
 
-    assert response.params["optimizationProfileId"] == "cost-minimization-v2"
+    assert "optimizationProfileId" not in response.params
     assert response.params["currency"] == "USD"
 
 

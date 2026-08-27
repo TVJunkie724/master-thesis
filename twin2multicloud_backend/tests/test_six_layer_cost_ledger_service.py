@@ -50,7 +50,6 @@ def _fixture(size: str = "small", *, currency: str = "USD"):
             / "core-small.json"
         ).read_text(encoding="utf-8")
     )
-    params["optimizationProfileId"] = "cost-minimization-v2"
     params["currency"] = currency
     specification["currency"] = currency
     architecture["cost_summary"]["currency"] = currency

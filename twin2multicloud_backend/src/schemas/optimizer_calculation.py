@@ -58,11 +58,10 @@ class OptimizerCalculationParams(BaseModel):
         "eventing-large-v1",
     ]
     currency: Literal["USD", "EUR"] = "USD"
-    optimizationProfileId: Literal["cost-minimization-v2"] = "cost-minimization-v2"
 
     @model_validator(mode="after")
     def validate_frozen_scenario(self) -> "OptimizerCalculationParams":
-        payload = self.model_dump(exclude={"optimizationProfileId", "currency"})
+        payload = self.model_dump(exclude={"currency"})
         scenarios = [
             {key: value for key, value in scenario.items() if key != "currency"}
             for scenario in _six_layer_scenarios()

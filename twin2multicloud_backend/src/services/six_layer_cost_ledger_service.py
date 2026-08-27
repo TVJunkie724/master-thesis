@@ -278,11 +278,7 @@ def _resolved_workload(
     persisted_params: Mapping[str, Any],
 ) -> tuple[str, dict[str, Any], dict[str, str]]:
     _registry, fixtures, eventing = _sources()
-    workload = {
-        key: value
-        for key, value in persisted_params.items()
-        if key != "optimizationProfileId"
-    }
+    workload = dict(persisted_params)
     scenario_identity = {
         key: value for key, value in workload.items() if key != "currency"
     }

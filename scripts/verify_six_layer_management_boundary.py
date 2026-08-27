@@ -118,7 +118,7 @@ def _optimize_cross_eventing(
         / "contracts"
         / "generated"
         / "six-layer-workload"
-        / "v2"
+        / "v1"
         / "fixtures"
         / "valid"
         / "core-small.json"
@@ -292,7 +292,7 @@ def _persist(optimized, workload: dict, registry, context: PricingCatalogContext
             optimizer_config=config,
             status="failed",
             params_json=json.dumps(
-                {**workload, "optimizationProfileId": "cost-minimization-v2"},
+                workload,
                 sort_keys=True,
                 separators=(",", ":"),
             ),

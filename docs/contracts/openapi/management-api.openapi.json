@@ -5286,12 +5286,6 @@
             "title": "Numberofdevices",
             "type": "integer"
           },
-          "optimizationProfileId": {
-            "const": "cost-minimization-v2",
-            "default": "cost-minimization-v2",
-            "title": "Optimizationprofileid",
-            "type": "string"
-          },
           "schemaVersion": {
             "const": "six-layer-workload.v1",
             "title": "Schemaversion",

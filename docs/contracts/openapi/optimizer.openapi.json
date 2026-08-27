@@ -1524,12 +1524,6 @@
             "title": "Numberofdevices",
             "type": "integer"
           },
-          "optimizationProfileId": {
-            "const": "cost-minimization-v2",
-            "default": "cost-minimization-v2",
-            "title": "Optimizationprofileid",
-            "type": "string"
-          },
           "providerPricingCatalogs": {
             "$ref": "#/components/schemas/PricingCatalogContext"
           },

@@ -76,7 +76,6 @@ def test_run_params_accept_only_frozen_scenarios_and_supported_currency():
     mutated["numberOfDevices"] = 101
 
     assert parsed.schemaVersion == "six-layer-workload.v1"
-    assert parsed.optimizationProfileId == "cost-minimization-v2"
     assert euro.currency == "EUR"
     with pytest.raises(ValueError, match="immutable Small, Medium, or Large"):
         OptimizerCalculationParams.model_validate(mutated)
@@ -168,9 +167,7 @@ def test_openapi_reuses_closed_workload_for_all_write_paths(authenticated_client
     assert component["properties"]["schemaVersion"]["const"] == (
         "six-layer-workload.v1"
     )
-    assert component["properties"]["optimizationProfileId"]["const"] == (
-        "cost-minimization-v2"
-    )
+    assert "optimizationProfileId" not in component["properties"]
     assert "architectureProfile" not in component["properties"]
     assert "extensionBindings" not in component["properties"]
     assert "integrateErrorHandling" not in component["properties"]

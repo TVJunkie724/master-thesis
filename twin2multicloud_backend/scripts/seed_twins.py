@@ -47,7 +47,6 @@ SIX_LAYER_SMALL_WORKLOAD = {
     "twinGraphUpdatesPerSecond": 0.01,
     "eventingScenarioId": "eventing-small-v1",
     "currency": "USD",
-    "optimizationProfileId": "cost-minimization-v2",
 }
 
 

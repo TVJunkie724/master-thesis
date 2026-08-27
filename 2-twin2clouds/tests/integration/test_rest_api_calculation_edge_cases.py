@@ -65,7 +65,6 @@ def _six_layer_payload() -> dict:
     return {
         "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
         **workload,
-        "optimizationProfileId": "cost-minimization-v2",
         "providerPricingCatalogs": _catalog_context().to_http_dict(),
         "providerPricingContexts": {
             "awsTwinMaker": {
