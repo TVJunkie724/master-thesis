@@ -7,12 +7,12 @@ the public ``/twins`` paths used by Flutter.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -25,15 +25,11 @@ from src.models.database import get_db
 from src.models.twin import TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
-from src.schemas.management_contracts import (
-    OperationSessionResponse,
-    RedeployReadinessResponse,
-)
-from src.schemas.deployment_logs import DeploymentLogPageResponse
 from src.schemas.deployment_access import (
     DeploymentAccessCredential,
     DeploymentAccessSnapshot,
 )
+from src.schemas.deployment_logs import DeploymentLogPageResponse
 from src.schemas.deployment_operations import (
     DeploymentHistoryResponse,
     DeploymentOutputsResponse,
@@ -41,13 +37,19 @@ from src.schemas.deployment_operations import (
 )
 from src.schemas.deployment_readiness import (
     DeploymentPreflightResponse,
+    DeploymentPreparationRequest,
+    DeploymentPreparationResponse,
     DeploymentReadinessResponse,
 )
-from src.services.deployment_log_read_service import DeploymentLogReadService
+from src.schemas.management_contracts import (
+    OperationSessionResponse,
+    RedeployReadinessResponse,
+)
+from src.services.architecture_projection_service import required_providers
 from src.services.deployment_access_service import DeploymentAccessService
+from src.services.deployment_log_read_service import DeploymentLogReadService
 from src.services.deployment_orchestrator import DeploymentOrchestrator
 from src.services.deployment_readiness_service import DeploymentReadinessService
-from src.services.architecture_projection_service import required_providers
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import (
@@ -350,6 +352,43 @@ async def run_deployment_preflight(
         _raise_service_http_error(exc)
 
 
+@router.post(
+    "/{twin_id}/deployment-preparation",
+    response_model=DeploymentPreparationResponse,
+    operation_id="prepareDigitalTwinDeploymentAccount",
+    summary="Confirm and apply graph-derived account preparation",
+    description=(
+        "Applies only the reviewed Azure resource-provider and GCP API actions, "
+        "records explicit manual confirmations, and reruns non-mutating preflight."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        502: {"description": "Deployer account preparation failed"},
+        503: {"description": "Deployer unavailable"},
+    },
+)
+async def prepare_deployment_account(
+    twin_id: str,
+    request: DeploymentPreparationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return await _deployment_readiness_service(db).prepare_account(
+            twin_id,
+            current_user.id,
+            request,
+        )
+    except (EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
+    except ExternalServiceUnavailable as exc:
+        raise HTTPException(status_code=503, detail=exc.public_detail) from exc
+    except ExternalServiceError as exc:
+        raise HTTPException(status_code=502, detail=exc.public_detail) from exc
+
+
 @router.get(
     "/{twin_id}/deployment-status",
     response_model=DeploymentStatusResponse,
@@ -473,8 +512,8 @@ async def start_log_trace(
         )
 
     if TEST_MODE:
-        from src.services.deployment_stream_service import create_session
         from src.api.routes.test_endpoints import _run_test_log_trace_stream
+        from src.services.deployment_stream_service import create_session
 
         providers = sorted(required_providers(twin)) or ["aws"]
 

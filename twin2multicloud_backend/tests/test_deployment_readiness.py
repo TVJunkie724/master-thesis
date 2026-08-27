@@ -14,7 +14,10 @@ from src.models.twin import DigitalTwin, TwinState
 from src.models.twin_config import TwinConfiguration
 from src.models.user import User
 from src.schemas.cloud_connection import CloudConnectionCreate
-from src.schemas.deployment_readiness import DeploymentReadinessResponse
+from src.schemas.deployment_readiness import (
+    DeploymentPreparationRequest,
+    DeploymentReadinessResponse,
+)
 from src.services.cloud_connection_service import CloudConnectionService
 from src.services.credential_resolution_service import CredentialResolutionService
 from src.services.deployment_readiness_service import DeploymentReadinessService
@@ -53,6 +56,14 @@ def _selected_architecture_provider_projection(monkeypatch):
                 "required_providers": providers,
             },
             "requirements": requirements,
+            "preparation_plan": {
+                "schema_version": "graph-account-preparation.v1",
+                "graph_digest": "sha256:" + "2" * 64,
+                "requirements_digest": "sha256:" + "3" * 64,
+                "plan_digest": "sha256:" + "4" * 64,
+                "actions": [],
+                "manual_requirements": [],
+            },
         }
 
     monkeypatch.setattr(
@@ -325,6 +336,26 @@ async def test_graph_api_requirement_is_preparable_when_provider_reports_it_miss
                     "source_edge_ids": [],
                 }
             ],
+            "preparation_plan": {
+                "schema_version": "graph-account-preparation.v1",
+                "graph_digest": "sha256:" + "2" * 64,
+                "requirements_digest": "sha256:" + "3" * 64,
+                "plan_digest": "sha256:" + "4" * 64,
+                "actions": [
+                    {
+                        "action_id": "prepare.gcp.enable_project_api.run.googleapis.com",
+                        "provider": "gcp",
+                        "action_type": "enable_project_api",
+                        "capability_id": "run.googleapis.com",
+                        "scope": "project",
+                        "requirement_ids": ["requirement.api.gcp.run"],
+                        "reason": "Required by the graph.",
+                        "persistent_after_destroy": True,
+                        "destructive": False,
+                    }
+                ],
+                "manual_requirements": [],
+            },
         }
 
     async def validator(_provider, _optimizer, _deployer):
@@ -360,6 +391,103 @@ async def test_graph_api_requirement_is_preparable_when_provider_reports_it_miss
 
 
 @pytest.mark.asyncio
+async def test_confirmed_preparation_records_evidence_and_reruns_readiness(db_session):
+    user = _create_user(db_session)
+    twin, _ = _create_twin(db_session, user, ("gcp",))
+    plan_digest = "sha256:" + "4" * 64
+    requirements_digest = "sha256:" + "3" * 64
+    calls = []
+
+    async def requirements_resolver(_twin, _user_id):
+        return {
+            "graph_evidence": {
+                "architecture_digest": "sha256:" + "1" * 64,
+                "graph_digest": "sha256:" + "2" * 64,
+                "requirements_digest": requirements_digest,
+                "required_providers": ["gcp"],
+            },
+            "requirements": [
+                {
+                    "requirement_id": "requirement.api.gcp.run",
+                    "requirement_type": "api",
+                    "provider": "gcp",
+                    "capability_id": "run.googleapis.com",
+                    "scope": "project",
+                    "preparation_mode": "confirmed_account",
+                    "mandatory": True,
+                    "source_node_ids": ["node.processing"],
+                    "source_edge_ids": [],
+                }
+            ],
+            "preparation_plan": {
+                "schema_version": "graph-account-preparation.v1",
+                "graph_digest": "sha256:" + "2" * 64,
+                "requirements_digest": requirements_digest,
+                "plan_digest": plan_digest,
+                "actions": [
+                    {
+                        "action_id": "prepare.gcp.enable_project_api.run.googleapis.com",
+                        "provider": "gcp",
+                        "action_type": "enable_project_api",
+                        "capability_id": "run.googleapis.com",
+                        "scope": "project",
+                        "requirement_ids": ["requirement.api.gcp.run"],
+                        "reason": "Required by the graph.",
+                        "persistent_after_destroy": True,
+                        "destructive": False,
+                    }
+                ],
+                "manual_requirements": [],
+            },
+        }
+
+    async def prepare(_twin, _user_id, reviewed_digest):
+        calls.append(reviewed_digest)
+        return {
+            "project_name": "factory",
+            "plan_digest": plan_digest,
+            "requirements_digest": requirements_digest,
+            "status": "ready",
+            "completed_actions": [
+                {
+                    "action_id": "prepare.gcp.enable_project_api.run.googleapis.com",
+                    "provider": "gcp",
+                    "capability_id": "run.googleapis.com",
+                    "status": "ready",
+                    "message": "API enabled.",
+                }
+            ],
+            "failed_actions": [],
+            "remaining_actions": [],
+            "retry_safe": True,
+        }
+
+    service = DeploymentReadinessService(
+        db_session,
+        validator=_successful_validator,
+        requirements_resolver=requirements_resolver,
+        account_preparer=prepare,
+    )
+    initial = await service.run_preflight(twin.id, user.id)
+    assert initial.providers[0].requirements[0].status == "preparable"
+
+    result = await service.prepare_account(
+        twin.id,
+        user.id,
+        DeploymentPreparationRequest(
+            plan_digest=plan_digest,
+            requirements_digest=requirements_digest,
+            confirmed=True,
+        ),
+    )
+
+    assert calls == [plan_digest]
+    assert result.status == "ready"
+    assert result.readiness.ready is True
+    assert result.readiness.providers[0].requirements[0].status == "ready"
+
+
+@pytest.mark.asyncio
 async def test_unautomated_graph_prerequisite_remains_explicit_manual_action(
     db_session,
 ):
@@ -386,18 +514,50 @@ async def test_unautomated_graph_prerequisite_remains_explicit_manual_action(
                     "source_edge_ids": [],
                 }
             ],
+            "preparation_plan": {
+                "schema_version": "graph-account-preparation.v1",
+                "graph_digest": "sha256:" + "2" * 64,
+                "requirements_digest": "sha256:" + "3" * 64,
+                "plan_digest": "sha256:" + "4" * 64,
+                "actions": [],
+                "manual_requirements": [
+                    {
+                        "requirement_id": "requirement.access.azure.graph",
+                        "provider": "azure",
+                        "capability_id": "azure.microsoft-graph.authority",
+                        "reason": "Manual consent is required.",
+                    }
+                ],
+            },
         }
 
-    response = await DeploymentReadinessService(
+    service = DeploymentReadinessService(
         db_session,
         validator=_successful_validator,
         requirements_resolver=requirements_resolver,
-    ).run_preflight(twin.id, user.id)
+    )
+    response = await service.run_preflight(twin.id, user.id)
 
     requirement = response.providers[0].requirements[0]
     assert response.ready is False
     assert requirement.status == "manual_action"
     assert "Microsoft Graph" in requirement.action
+
+    prepared = await service.prepare_account(
+        twin.id,
+        user.id,
+        DeploymentPreparationRequest(
+            plan_digest="sha256:" + "4" * 64,
+            requirements_digest="sha256:" + "3" * 64,
+            confirmed=True,
+            manual_requirement_ids=["requirement.access.azure.graph"],
+        ),
+    )
+    assert prepared.status == "ready"
+    assert prepared.readiness.ready is True
+    assert prepared.acknowledged_manual_requirement_ids == [
+        "requirement.access.azure.graph"
+    ]
 
 
 @pytest.mark.asyncio
@@ -598,3 +758,72 @@ def test_preflight_route_delegates_to_owner_scoped_service(
     assert response.status_code == 200
     assert response.json()["schema_version"] == "deployment-preflight.v1"
     assert calls == [(test_twin.id, test_twin.user_id)]
+
+
+def test_preparation_route_requires_typed_confirmation_and_delegates(
+    auth_client,
+    test_twin,
+    monkeypatch,
+):
+    calls = []
+    plan_digest = "sha256:" + "4" * 64
+    requirements_digest = "sha256:" + "3" * 64
+
+    class FakeReadinessService:
+        async def prepare_account(self, twin_id, user_id, request):
+            calls.append((twin_id, user_id, request))
+            return {
+                "schema_version": "deployment-preparation.v1",
+                "twin_id": twin_id,
+                "plan_digest": plan_digest,
+                "requirements_digest": requirements_digest,
+                "status": "manual_action",
+                "completed_actions": [],
+                "failed_actions": [],
+                "remaining_action_ids": [],
+                "acknowledged_manual_requirement_ids": [],
+                "pending_manual_requirement_ids": ["requirement.manual.aws"],
+                "retry_safe": True,
+                "readiness": {
+                    "schema_version": "deployment-preflight.v1",
+                    "twin_id": twin_id,
+                    "ready": False,
+                    "summary": "One provider needs review.",
+                    "required_providers": [],
+                    "providers": [],
+                    "checked_at": None,
+                    "graph_digest": None,
+                    "requirements_digest": None,
+                    "preparation_plan": None,
+                    "issues": [
+                        {
+                            "component": "architecture",
+                            "status": "failed",
+                            "code": "MANUAL_ACTION_REQUIRED",
+                            "message": "Manual action remains.",
+                            "action": "Confirm it.",
+                            "permissions": [],
+                        }
+                    ],
+                },
+            }
+
+    monkeypatch.setattr(
+        "src.api.routes.twin_operations._deployment_readiness_service",
+        lambda _db: FakeReadinessService(),
+    )
+
+    response = auth_client.post(
+        f"/twins/{test_twin.id}/deployment-preparation",
+        json={
+            "plan_digest": plan_digest,
+            "requirements_digest": requirements_digest,
+            "confirmed": True,
+            "manual_requirement_ids": [],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["schema_version"] == "deployment-preparation.v1"
+    assert calls[0][0:2] == (test_twin.id, test_twin.user_id)
+    assert calls[0][2].confirmed is True

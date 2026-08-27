@@ -112,6 +112,14 @@ def _requirements_inspection() -> dict[str, object]:
         "warnings": [],
         "graph_evidence": evidence,
         "requirements": _graph_requirements(),
+        "preparation_plan": {
+            "schema_version": "graph-account-preparation.v1",
+            "graph_digest": evidence["graph_digest"],
+            "requirements_digest": evidence["requirements_digest"],
+            "plan_digest": "sha256:" + "7" * 64,
+            "actions": [],
+            "manual_requirements": [],
+        },
     }
 
 
@@ -597,6 +605,51 @@ async def test_inspect_deployment_requirements_rejects_unbound_evidence():
     assert exc_info.value.public_detail == (
         "Deployer returned an invalid requirement inspection contract."
     )
+
+
+@pytest.mark.asyncio
+async def test_prepare_deployment_account_sends_confirmed_digest_bound_package():
+    seen = {}
+    plan_digest = "sha256:" + "7" * 64
+    payload = {
+        "project_name": "factory",
+        "plan_digest": plan_digest,
+        "requirements_digest": "sha256:" + "6" * 64,
+        "status": "ready",
+        "completed_actions": [
+            {
+                "action_id": "prepare.gcp.enable.run",
+                "provider": "gcp",
+                "capability_id": "run.googleapis.com",
+                "status": "ready",
+                "message": "API enabled.",
+            }
+        ],
+        "failed_actions": [],
+        "remaining_actions": [],
+        "retry_safe": True,
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        body = request.read()
+        seen.update(method=request.method, url=str(request.url), body=body)
+        return httpx.Response(200, json=payload)
+
+    result = await _client_with_handler(handler).prepare_deployment_account(
+        "factory",
+        b"zip",
+        expected_plan_digest=plan_digest,
+    )
+
+    assert result == payload
+    assert seen["method"] == "POST"
+    assert seen["url"] == (
+        "http://deployer.test/infrastructure/account-preparation?project_name=factory"
+    )
+    assert b"expected_plan_digest" in seen["body"]
+    assert plan_digest.encode() in seen["body"]
+    assert b"confirmed" in seen["body"]
+    assert b"true" in seen["body"]
 
 
 @pytest.mark.asyncio

@@ -41,6 +41,9 @@ class DeploymentPreflightRepository:
         summary: str,
         checks_json: str,
         requirements_json: str,
+        preparation_plan_json: str,
+        completed_preparation_actions_json: str,
+        manual_acknowledgements_json: str,
         checked_at: datetime,
     ) -> DeploymentPreflightCache:
         now = datetime.now(timezone.utc)
@@ -57,6 +60,9 @@ class DeploymentPreflightRepository:
             "summary": summary,
             "checks_json": checks_json,
             "requirements_json": requirements_json,
+            "preparation_plan_json": preparation_plan_json,
+            "completed_preparation_actions_json": completed_preparation_actions_json,
+            "manual_acknowledgements_json": manual_acknowledgements_json,
             "checked_at": checked_at,
             "created_at": now,
             "updated_at": now,

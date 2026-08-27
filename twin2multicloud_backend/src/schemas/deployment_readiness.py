@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 CloudProvider = Literal["aws", "azure", "gcp"]
 CheckStatus = Literal["passed", "failed"]
@@ -47,6 +47,46 @@ class DeploymentRequirementReadiness(BaseModel):
     action: str = Field(min_length=1, max_length=2_000)
     source_node_ids: list[str] = Field(default_factory=list, max_length=512)
     source_edge_ids: list[str] = Field(default_factory=list, max_length=512)
+
+
+class AccountPreparationAction(BaseModel):
+    action_id: str = Field(min_length=1, max_length=500)
+    provider: Literal["azure", "gcp"]
+    action_type: Literal["register_resource_provider", "enable_project_api"]
+    capability_id: str = Field(min_length=1, max_length=300)
+    scope: str = Field(min_length=1, max_length=80)
+    requirement_ids: list[str] = Field(min_length=1, max_length=64)
+    reason: str = Field(min_length=1, max_length=2_000)
+    persistent_after_destroy: Literal[True]
+    destructive: Literal[False]
+
+
+class ManualPreparationRequirement(BaseModel):
+    requirement_id: str = Field(min_length=1, max_length=300)
+    provider: CloudProvider
+    capability_id: str = Field(min_length=1, max_length=300)
+    reason: str = Field(min_length=1, max_length=2_000)
+
+
+class DeploymentPreparationPlan(BaseModel):
+    schema_version: Literal["graph-account-preparation.v1"]
+    graph_digest: ContentDigest
+    requirements_digest: ContentDigest
+    plan_digest: ContentDigest
+    actions: list[AccountPreparationAction] = Field(max_length=4096)
+    manual_requirements: list[ManualPreparationRequirement] = Field(max_length=4096)
+
+    @model_validator(mode="after")
+    def validate_ordering(self) -> Self:
+        if [item.action_id for item in self.actions] != sorted(
+            item.action_id for item in self.actions
+        ):
+            raise ValueError("preparation actions must be sorted")
+        if [item.requirement_id for item in self.manual_requirements] != sorted(
+            item.requirement_id for item in self.manual_requirements
+        ):
+            raise ValueError("manual requirements must be sorted")
+        return self
 
 
 class DeploymentReadinessCheck(BaseModel):
@@ -113,6 +153,7 @@ class DeploymentReadinessResponse(BaseModel):
     checked_at: datetime | None = None
     graph_digest: ContentDigest | None = None
     requirements_digest: ContentDigest | None = None
+    preparation_plan: DeploymentPreparationPlan | None = None
     issues: list[DeploymentReadinessCheck] = Field(default_factory=list, max_length=16)
 
     @model_validator(mode="after")
@@ -131,12 +172,51 @@ class DeploymentPreflightResponse(BaseModel):
     checked_at: datetime | None = None
     graph_digest: ContentDigest | None = None
     requirements_digest: ContentDigest | None = None
+    preparation_plan: DeploymentPreparationPlan | None = None
     issues: list[DeploymentReadinessCheck] = Field(default_factory=list, max_length=16)
 
     @model_validator(mode="after")
     def validate_consistency(self) -> Self:
         _validate_aggregate_consistency(self)
         return self
+
+
+class DeploymentPreparationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    plan_digest: ContentDigest
+    requirements_digest: ContentDigest
+    confirmed: Literal[True]
+    manual_requirement_ids: list[str] = Field(default_factory=list, max_length=4096)
+
+    @model_validator(mode="after")
+    def validate_manual_ids(self) -> Self:
+        if self.manual_requirement_ids != sorted(set(self.manual_requirement_ids)):
+            raise ValueError("manual requirement confirmations must be sorted and unique")
+        return self
+
+
+class PreparationActionResult(BaseModel):
+    action_id: str = Field(min_length=1, max_length=500)
+    provider: CloudProvider
+    capability_id: str = Field(min_length=1, max_length=300)
+    status: Literal["ready", "failed"]
+    message: str = Field(min_length=1, max_length=2_000)
+
+
+class DeploymentPreparationResponse(BaseModel):
+    schema_version: Literal["deployment-preparation.v1"] = "deployment-preparation.v1"
+    twin_id: str = Field(min_length=1, max_length=160)
+    plan_digest: ContentDigest
+    requirements_digest: ContentDigest
+    status: Literal["ready", "partial", "failed", "manual_action"]
+    completed_actions: list[PreparationActionResult] = Field(max_length=4096)
+    failed_actions: list[PreparationActionResult] = Field(max_length=4096)
+    remaining_action_ids: list[str] = Field(max_length=4096)
+    acknowledged_manual_requirement_ids: list[str] = Field(max_length=4096)
+    pending_manual_requirement_ids: list[str] = Field(max_length=4096)
+    retry_safe: Literal[True]
+    readiness: DeploymentPreflightResponse
 
 
 def _validate_aggregate_consistency(

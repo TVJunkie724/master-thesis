@@ -40,5 +40,8 @@ def test_graph_bound_preflight_migration_is_idempotent(tmp_path, monkeypatch):
         "graph_digest",
         "requirements_digest",
         "requirements_json",
+        "preparation_plan_json",
+        "completed_preparation_actions_json",
+        "manual_acknowledgements_json",
     } <= set(columns)
     assert columns["requirements_json"][4] == "'[]'"

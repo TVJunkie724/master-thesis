@@ -264,6 +264,34 @@ class DeployerClient(ExternalServiceClient):
             expected_project_name=project_name,
         )
 
+    async def prepare_deployment_account(
+        self,
+        project_name: str,
+        content: bytes,
+        *,
+        expected_plan_digest: str,
+    ) -> dict[str, Any]:
+        """Apply one explicitly confirmed, digest-bound account preparation plan."""
+
+        response = await self._request_bounded_response(
+            "POST",
+            "/infrastructure/account-preparation",
+            max_bytes=MAX_REQUIREMENTS_RESPONSE_BYTES,
+            size_error_detail="Deployer account preparation response is too large.",
+            params={"project_name": project_name},
+            data={
+                "expected_plan_digest": expected_plan_digest,
+                "confirmed": "true",
+            },
+            files={"file": (f"{project_name}.zip", content, "application/zip")},
+            timeout=httpx.Timeout(connect=30.0, read=300.0, write=60.0, pool=30.0),
+        )
+        return _validate_account_preparation_response(
+            self._json_object(response),
+            expected_project_name=project_name,
+            expected_plan_digest=expected_plan_digest,
+        )
+
     async def extract_project_zip(
         self,
         content: bytes,
@@ -434,7 +462,13 @@ def _validate_requirements_inspection_response(
 ) -> dict[str, Any]:
     """Fail closed on non-canonical or unbound graph requirement evidence."""
 
-    if set(payload) != {"project_name", "warnings", "graph_evidence", "requirements"}:
+    if set(payload) != {
+        "project_name",
+        "warnings",
+        "graph_evidence",
+        "requirements",
+        "preparation_plan",
+    }:
         raise _invalid_requirements_response()
     if payload.get("project_name") != expected_project_name:
         raise _invalid_requirements_response()
@@ -464,7 +498,137 @@ def _validate_requirements_inspection_response(
         != graph_evidence["requirement_types"]
     ):
         raise _invalid_requirements_response()
+    if not _account_preparation_plan_is_valid(
+        payload.get("preparation_plan"),
+        graph_evidence,
+    ):
+        raise _invalid_requirements_response()
     return payload
+
+
+def _account_preparation_plan_is_valid(
+    value: object,
+    graph_evidence: dict[str, Any],
+) -> bool:
+    if not isinstance(value, dict) or set(value) != {
+        "schema_version",
+        "graph_digest",
+        "requirements_digest",
+        "plan_digest",
+        "actions",
+        "manual_requirements",
+    }:
+        return False
+    digest_pattern = re.compile(r"^sha256:[0-9a-f]{64}$")
+    if (
+        value.get("schema_version") != "graph-account-preparation.v1"
+        or value.get("graph_digest") != graph_evidence["graph_digest"]
+        or value.get("requirements_digest") != graph_evidence["requirements_digest"]
+        or not isinstance(value.get("plan_digest"), str)
+        or digest_pattern.fullmatch(value["plan_digest"]) is None
+    ):
+        return False
+    actions = value.get("actions")
+    manual = value.get("manual_requirements")
+    return (
+        isinstance(actions, list)
+        and len(actions) <= 4096
+        and all(_preparation_action_is_valid(item) for item in actions)
+        and [item["action_id"] for item in actions]
+        == sorted(item["action_id"] for item in actions)
+        and isinstance(manual, list)
+        and len(manual) <= 4096
+        and all(_manual_requirement_is_valid(item) for item in manual)
+        and [item["requirement_id"] for item in manual]
+        == sorted(item["requirement_id"] for item in manual)
+    )
+
+
+def _preparation_action_is_valid(value: object) -> bool:
+    return bool(
+        isinstance(value, dict)
+        and set(value)
+        == {
+            "action_id",
+            "provider",
+            "action_type",
+            "capability_id",
+            "scope",
+            "requirement_ids",
+            "reason",
+            "persistent_after_destroy",
+            "destructive",
+        }
+        and value.get("provider") in {"azure", "gcp"}
+        and value.get("action_type")
+        in {"register_resource_provider", "enable_project_api"}
+        and all(
+            isinstance(value.get(field), str) and 0 < len(value[field]) <= 2_000
+            for field in ("action_id", "capability_id", "scope", "reason")
+        )
+        and isinstance(value.get("requirement_ids"), list)
+        and value["requirement_ids"]
+        and all(isinstance(item, str) for item in value["requirement_ids"])
+        and value.get("persistent_after_destroy") is True
+        and value.get("destructive") is False
+    )
+
+
+def _manual_requirement_is_valid(value: object) -> bool:
+    return bool(
+        isinstance(value, dict)
+        and set(value) == {"requirement_id", "provider", "capability_id", "reason"}
+        and value.get("provider") in {"aws", "azure", "gcp"}
+        and all(
+            isinstance(value.get(field), str) and 0 < len(value[field]) <= 2_000
+            for field in ("requirement_id", "capability_id", "reason")
+        )
+    )
+
+
+def _validate_account_preparation_response(
+    payload: dict[str, Any],
+    *,
+    expected_project_name: str,
+    expected_plan_digest: str,
+) -> dict[str, Any]:
+    if set(payload) != {
+        "project_name",
+        "plan_digest",
+        "requirements_digest",
+        "status",
+        "completed_actions",
+        "failed_actions",
+        "remaining_actions",
+        "retry_safe",
+    }:
+        raise _invalid_preparation_response()
+    digest_pattern = re.compile(r"^sha256:[0-9a-f]{64}$")
+    if (
+        payload.get("project_name") != expected_project_name
+        or payload.get("plan_digest") != expected_plan_digest
+        or not isinstance(payload.get("requirements_digest"), str)
+        or digest_pattern.fullmatch(payload["requirements_digest"]) is None
+        or payload.get("status") not in {"ready", "partial", "failed"}
+        or payload.get("retry_safe") is not True
+    ):
+        raise _invalid_preparation_response()
+    for field in ("completed_actions", "failed_actions", "remaining_actions"):
+        values = payload.get(field)
+        if not isinstance(values, list) or len(values) > 4096:
+            raise _invalid_preparation_response()
+    if payload["status"] == "ready" and (
+        payload["failed_actions"] or payload["remaining_actions"]
+    ):
+        raise _invalid_preparation_response()
+    return payload
+
+
+def _invalid_preparation_response() -> ExternalServiceError:
+    return ExternalServiceError(
+        "Deployer API returned invalid account preparation evidence",
+        public_detail="Deployer returned an invalid account preparation contract.",
+    )
 
 
 def _graph_requirement_is_valid(value: object) -> bool:

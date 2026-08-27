@@ -21,6 +21,9 @@ from src.repositories.twin_repository import TwinRepository
 from src.schemas.deployment_readiness import (
     CloudProvider,
     DeploymentPreflightResponse,
+    DeploymentPreparationPlan,
+    DeploymentPreparationRequest,
+    DeploymentPreparationResponse,
     DeploymentReadinessCheck,
     DeploymentReadinessResponse,
     DeploymentRequirementReadiness,
@@ -45,6 +48,7 @@ PreflightValidator = Callable[
     Awaitable[dict[str, Any]],
 ]
 GraphRequirementsResolver = Callable[[Any, str], Awaitable[dict[str, Any]]]
+AccountPreparer = Callable[[Any, str, str], Awaitable[dict[str, Any]]]
 
 
 @dataclass(frozen=True, repr=False)
@@ -66,6 +70,7 @@ class DeploymentReadinessService:
         *,
         validator: PreflightValidator | None = None,
         requirements_resolver: GraphRequirementsResolver | None = None,
+        account_preparer: AccountPreparer | None = None,
         clock: Callable[[], datetime] = datetime.utcnow,
         max_age: timedelta = timedelta(hours=24),
     ) -> None:
@@ -77,6 +82,7 @@ class DeploymentReadinessService:
         self._requirements_resolver = (
             requirements_resolver or self._resolve_graph_requirements
         )
+        self._account_preparer = account_preparer or self._prepare_account
         self._clock = clock
         if max_age <= timedelta(0):
             raise ValueError("max_age must be greater than zero")
@@ -100,6 +106,7 @@ class DeploymentReadinessService:
                 )
                 for provider in required
             ]
+        preparation_plan = self._cached_preparation_plan(twin.id, required)
         return DeploymentReadinessResponse(
             twin_id=twin.id,
             ready=self._aggregate_ready(required, providers, issues),
@@ -113,6 +120,7 @@ class DeploymentReadinessService:
             requirements_digest=self._aggregate_evidence_digest(
                 providers, "requirements_digest"
             ),
+            preparation_plan=preparation_plan,
             issues=issues,
         )
 
@@ -247,6 +255,9 @@ class DeploymentReadinessService:
 
         graph_evidence = inspection["graph_evidence"]
         requirements = inspection["requirements"]
+        preparation_plan = DeploymentPreparationPlan.model_validate(
+            inspection["preparation_plan"]
+        )
         raw_results = await asyncio.gather(
             *(self._validate_candidate(candidate) for candidate in candidates),
         )
@@ -285,6 +296,19 @@ class DeploymentReadinessService:
                     for item in requirements
                     if item.get("provider") == candidate.provider
                 ],
+                preparation_plan=preparation_plan,
+                completed_action_ids=self._current_preparation_ids(
+                    twin_id,
+                    candidate.provider,
+                    preparation_plan,
+                    field="completed_preparation_actions_json",
+                ),
+                manual_acknowledgement_ids=self._current_preparation_ids(
+                    twin_id,
+                    candidate.provider,
+                    preparation_plan,
+                    field="manual_acknowledgements_json",
+                ),
                 graph_digest=graph_evidence["graph_digest"],
                 requirements_digest=graph_evidence["requirements_digest"],
             )
@@ -310,6 +334,29 @@ class DeploymentReadinessService:
                         for item in provider_result.requirements
                     ],
                     sort_keys=True,
+                    separators=(",", ":"),
+                ),
+                preparation_plan_json=preparation_plan.model_dump_json(),
+                completed_preparation_actions_json=json.dumps(
+                    sorted(
+                        self._current_preparation_ids(
+                            twin_id,
+                            candidate.provider,
+                            preparation_plan,
+                            field="completed_preparation_actions_json",
+                        )
+                    ),
+                    separators=(",", ":"),
+                ),
+                manual_acknowledgements_json=json.dumps(
+                    sorted(
+                        self._current_preparation_ids(
+                            twin_id,
+                            candidate.provider,
+                            preparation_plan,
+                            field="manual_acknowledgements_json",
+                        )
+                    ),
                     separators=(",", ":"),
                 ),
                 checked_at=checked_at,
@@ -341,7 +388,91 @@ class DeploymentReadinessService:
             requirements_digest=self._aggregate_evidence_digest(
                 providers, "requirements_digest"
             ),
+            preparation_plan=preparation_plan,
             issues=issues,
+        )
+
+    async def prepare_account(
+        self,
+        twin_id: str,
+        user_id: str,
+        request: DeploymentPreparationRequest,
+    ) -> DeploymentPreparationResponse:
+        """Apply reviewed account actions, record evidence, and rerun readiness."""
+
+        twin = self._require_twin(twin_id, user_id)
+        cached = self.get_cached(twin_id, user_id)
+        plan = cached.preparation_plan
+        if plan is None:
+            raise ValidationError(
+                "Deployment preflight must resolve an account preparation plan.",
+                detail={"code": "PREPARATION_PLAN_REQUIRED"},
+            )
+        if (
+            request.plan_digest != plan.plan_digest
+            or request.requirements_digest != plan.requirements_digest
+        ):
+            raise ValidationError(
+                "The reviewed account preparation plan is stale.",
+                detail={"code": "PREPARATION_PLAN_STALE"},
+            )
+        allowed_manual = {
+            item.requirement_id for item in plan.manual_requirements
+        }
+        requested_manual = set(request.manual_requirement_ids)
+        if not requested_manual.issubset(allowed_manual):
+            raise ValidationError(
+                "Manual confirmation contains an unknown graph requirement.",
+                detail={"code": "MANUAL_REQUIREMENT_UNKNOWN"},
+            )
+
+        raw = (
+            await self._account_preparer(twin, user_id, plan.plan_digest)
+            if plan.actions
+            else {
+                "project_name": "not-required",
+                "plan_digest": plan.plan_digest,
+                "requirements_digest": plan.requirements_digest,
+                "status": "ready",
+                "completed_actions": [],
+                "failed_actions": [],
+                "remaining_actions": [],
+                "retry_safe": True,
+            }
+        )
+        completed, failed, remaining_ids = self._validate_preparation_result(raw, plan)
+        self._record_preparation_evidence(
+            twin_id,
+            plan,
+            providers=cached.required_providers,
+            completed_action_ids={item["action_id"] for item in completed},
+            manual_requirement_ids=requested_manual,
+        )
+        refreshed = await self.run_preflight(twin_id, user_id)
+        acknowledged = self._aggregate_recorded_preparation_ids(
+            twin_id,
+            refreshed.required_providers,
+            field="manual_acknowledgements_json",
+        )
+        pending_manual = sorted(allowed_manual - acknowledged)
+        if failed:
+            status = "partial" if completed else "failed"
+        elif pending_manual:
+            status = "manual_action"
+        else:
+            status = "ready" if refreshed.ready else "partial"
+        return DeploymentPreparationResponse(
+            twin_id=twin_id,
+            plan_digest=plan.plan_digest,
+            requirements_digest=plan.requirements_digest,
+            status=status,
+            completed_actions=completed,
+            failed_actions=failed,
+            remaining_action_ids=remaining_ids,
+            acknowledged_manual_requirement_ids=sorted(acknowledged),
+            pending_manual_requirement_ids=pending_manual,
+            retry_safe=True,
+            readiness=refreshed,
         )
 
     async def _validate_candidate(
@@ -393,6 +524,152 @@ class DeploymentReadinessService:
             get_resource_name(twin),
             archive.read(),
         )
+
+    async def _prepare_account(
+        self,
+        twin,
+        user_id: str,
+        plan_digest: str,
+    ) -> dict[str, Any]:
+        from src.services.deployment_service import build_project_zip, get_resource_name
+
+        archive = build_project_zip(twin, user_id)
+        archive.seek(0)
+        return await DeployerClient().prepare_deployment_account(
+            get_resource_name(twin),
+            archive.read(),
+            expected_plan_digest=plan_digest,
+        )
+
+    @staticmethod
+    def _validate_preparation_result(
+        raw: object,
+        plan: DeploymentPreparationPlan,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+        if not isinstance(raw, dict):
+            raise TypeError("Account preparation result must be an object")
+        if (
+            raw.get("plan_digest") != plan.plan_digest
+            or raw.get("requirements_digest") != plan.requirements_digest
+            or raw.get("retry_safe") is not True
+        ):
+            raise ValidationError(
+                "Deployer returned stale account preparation evidence.",
+                detail={"code": "PREPARATION_EVIDENCE_INVALID"},
+            )
+        allowed = {action.action_id for action in plan.actions}
+
+        def results(field: str, expected_status: str) -> list[dict[str, Any]]:
+            values = raw.get(field)
+            if not isinstance(values, list):
+                raise TypeError(f"{field} must be a list")
+            normalized = []
+            for value in values:
+                if (
+                    not isinstance(value, dict)
+                    or value.get("action_id") not in allowed
+                    or value.get("status") != expected_status
+                ):
+                    raise ValidationError(
+                        "Deployer returned unknown account preparation evidence.",
+                        detail={"code": "PREPARATION_EVIDENCE_INVALID"},
+                    )
+                normalized.append(value)
+            return normalized
+
+        completed = results("completed_actions", "ready")
+        failed = results("failed_actions", "failed")
+        completed_ids = {item["action_id"] for item in completed}
+        failed_ids = {item["action_id"] for item in failed}
+        if completed_ids & failed_ids:
+            raise ValidationError(
+                "Account preparation evidence is contradictory.",
+                detail={"code": "PREPARATION_EVIDENCE_INVALID"},
+            )
+        remaining = raw.get("remaining_actions")
+        if not isinstance(remaining, list) or any(
+            not isinstance(item, dict) or item.get("action_id") not in allowed
+            for item in remaining
+        ):
+            raise ValidationError(
+                "Account preparation remaining actions are invalid.",
+                detail={"code": "PREPARATION_EVIDENCE_INVALID"},
+            )
+        remaining_ids = sorted({item["action_id"] for item in remaining})
+        if set(remaining_ids) != failed_ids:
+            raise ValidationError(
+                "Account preparation retry evidence is inconsistent.",
+                detail={"code": "PREPARATION_EVIDENCE_INVALID"},
+            )
+        return completed, failed, remaining_ids
+
+    def _record_preparation_evidence(
+        self,
+        twin_id: str,
+        plan: DeploymentPreparationPlan,
+        *,
+        providers: list[CloudProvider],
+        completed_action_ids: set[str],
+        manual_requirement_ids: set[str],
+    ) -> None:
+        for provider in providers:
+            cache = self._cache_repository.get(twin_id, provider)
+            if cache is None or cache.requirements_digest != plan.requirements_digest:
+                raise ValidationError(
+                    "Account preparation cache is stale.",
+                    detail={"code": "PREPARATION_PLAN_STALE"},
+                )
+            existing_actions = self._current_preparation_ids(
+                twin_id,
+                provider,
+                plan,
+                field="completed_preparation_actions_json",
+            )
+            existing_manual = self._current_preparation_ids(
+                twin_id,
+                provider,
+                plan,
+                field="manual_acknowledgements_json",
+            )
+            provider_actions = {
+                action.action_id
+                for action in plan.actions
+                if action.provider == provider
+            }
+            provider_manual = {
+                item.requirement_id
+                for item in plan.manual_requirements
+                if item.provider == provider
+            }
+            cache.completed_preparation_actions_json = json.dumps(
+                sorted(existing_actions | (completed_action_ids & provider_actions)),
+                separators=(",", ":"),
+            )
+            cache.manual_acknowledgements_json = json.dumps(
+                sorted(existing_manual | (manual_requirement_ids & provider_manual)),
+                separators=(",", ":"),
+            )
+        self._db.commit()
+
+    def _aggregate_recorded_preparation_ids(
+        self,
+        twin_id: str,
+        providers: list[CloudProvider],
+        *,
+        field: str,
+    ) -> set[str]:
+        values: set[str] = set()
+        for provider in providers:
+            cache = self._cache_repository.get(twin_id, provider)
+            if cache is None:
+                continue
+            try:
+                items = json.loads(getattr(cache, field))
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if isinstance(items, list):
+                values.update(item for item in items if isinstance(item, str))
+        return values
 
     def _validate_requirement_inspection(
         self,
@@ -527,6 +804,9 @@ class DeploymentReadinessService:
         checked_at: datetime,
         *,
         provider_requirements: list[dict[str, Any]],
+        preparation_plan: DeploymentPreparationPlan,
+        completed_action_ids: set[str],
+        manual_acknowledgement_ids: set[str],
         graph_digest: str,
         requirements_digest: str,
     ) -> ProviderDeploymentReadiness:
@@ -537,6 +817,15 @@ class DeploymentReadinessService:
         checks = [self._safe_check(check) for check in raw.get("checks", [])[:32]]
         requirement_results = [
             self._project_requirement_readiness(requirement, checks)
+            if not (
+                self._requirement_is_prepared(
+                    requirement,
+                    preparation_plan,
+                    completed_action_ids,
+                    manual_acknowledgement_ids,
+                )
+            )
+            else self._prepared_requirement_readiness(requirement)
             for requirement in provider_requirements
         ]
         ready = bool(raw.get("ready")) and bool(requirement_results) and all(
@@ -607,10 +896,6 @@ class DeploymentReadinessService:
             action = (
                 "Review the account identity settings and confirm completion before retrying."
             )
-        elif relevant is None and not failed:
-            status = "ready"
-            message = "The non-mutating provider check passed for this requirement."
-            action = "No action required."
         elif preparation_mode == "confirmed_account" and requirement_type in {
             "api",
             "resource_provider",
@@ -619,9 +904,13 @@ class DeploymentReadinessService:
             message = (
                 relevant.message
                 if relevant is not None
-                else "The account prerequisite needs confirmed preparation."
+                else "This persistent account prerequisite awaits explicit confirmation."
             )
             action = "Review and confirm the bounded provider preparation action."
+        elif relevant is None and not failed:
+            status = "ready"
+            message = "The non-mutating provider check passed for this requirement."
+            action = "No action required."
         else:
             failure = relevant or (failed[0] if failed else None)
             status = self._failure_requirement_status(failure)
@@ -656,6 +945,35 @@ class DeploymentReadinessService:
             source_edge_ids=self._safe_requirement_sources(
                 requirement.get("source_edge_ids")
             ),
+        )
+
+    def _prepared_requirement_readiness(
+        self,
+        requirement: dict[str, Any],
+    ) -> DeploymentRequirementReadiness:
+        value = self._project_requirement_readiness(requirement, [])
+        return value.model_copy(
+            update={
+                "status": "ready",
+                "message": "Digest-bound preparation evidence is recorded.",
+                "action": "No action required.",
+            }
+        )
+
+    @staticmethod
+    def _requirement_is_prepared(
+        requirement: dict[str, Any],
+        plan: DeploymentPreparationPlan,
+        completed_action_ids: set[str],
+        manual_acknowledgement_ids: set[str],
+    ) -> bool:
+        requirement_id = requirement.get("requirement_id")
+        if requirement_id in manual_acknowledgement_ids:
+            return True
+        return any(
+            requirement_id in action.requirement_ids
+            and action.action_id in completed_action_ids
+            for action in plan.actions
         )
 
     @staticmethod
@@ -804,6 +1122,62 @@ class DeploymentReadinessService:
             )
             and timedelta(0) <= cache_age <= self._max_age
         )
+
+    def _current_preparation_ids(
+        self,
+        twin_id: str,
+        provider: str,
+        plan: DeploymentPreparationPlan,
+        *,
+        field: str,
+    ) -> set[str]:
+        cache = self._cache_repository.get(twin_id, provider)
+        if cache is None or cache.requirements_digest != plan.requirements_digest:
+            return set()
+        try:
+            cached_plan = DeploymentPreparationPlan.model_validate_json(
+                cache.preparation_plan_json
+            )
+            values = json.loads(getattr(cache, field))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return set()
+        if cached_plan.plan_digest != plan.plan_digest or not isinstance(values, list):
+            return set()
+        allowed = (
+            {action.action_id for action in plan.actions}
+            if field == "completed_preparation_actions_json"
+            else {
+                requirement.requirement_id
+                for requirement in plan.manual_requirements
+            }
+        )
+        return {
+            value
+            for value in values
+            if isinstance(value, str) and value in allowed
+        }
+
+    def _cached_preparation_plan(
+        self,
+        twin_id: str,
+        required: list[CloudProvider],
+    ) -> DeploymentPreparationPlan | None:
+        plans: list[DeploymentPreparationPlan] = []
+        for provider in required:
+            cache = self._cache_repository.get(twin_id, provider)
+            if cache is None:
+                return None
+            try:
+                plans.append(
+                    DeploymentPreparationPlan.model_validate_json(
+                        cache.preparation_plan_json
+                    )
+                )
+            except (TypeError, ValueError):
+                return None
+        if not plans or len({plan.plan_digest for plan in plans}) != 1:
+            return None
+        return plans[0]
 
     @staticmethod
     def _parse_cached_checks(raw: str) -> list[DeploymentReadinessCheck] | None:

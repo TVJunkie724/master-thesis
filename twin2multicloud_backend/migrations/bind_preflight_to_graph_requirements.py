@@ -24,6 +24,9 @@ def migrate(database_url: str | None = None) -> list[str]:
             "graph_digest": "VARCHAR(71)",
             "requirements_digest": "VARCHAR(71)",
             "requirements_json": "TEXT NOT NULL DEFAULT '[]'",
+            "preparation_plan_json": "TEXT NOT NULL DEFAULT '{}'",
+            "completed_preparation_actions_json": "TEXT NOT NULL DEFAULT '[]'",
+            "manual_acknowledgements_json": "TEXT NOT NULL DEFAULT '[]'",
         }
         for name, declaration in columns.items():
             if name in existing:

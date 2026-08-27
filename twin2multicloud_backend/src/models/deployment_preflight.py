@@ -48,6 +48,9 @@ class DeploymentPreflightCache(Base):
     summary = Column(String, nullable=False)
     checks_json = Column(Text, nullable=False, default="[]")
     requirements_json = Column(Text, nullable=False, default="[]")
+    preparation_plan_json = Column(Text, nullable=False, default="{}")
+    completed_preparation_actions_json = Column(Text, nullable=False, default="[]")
+    manual_acknowledgements_json = Column(Text, nullable=False, default="[]")
     checked_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
