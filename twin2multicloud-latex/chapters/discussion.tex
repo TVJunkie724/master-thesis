@@ -1,172 +1,159 @@
 \chapter{\label{chap:discussion}Discussion}
 
-% ============================================================================
-% PURPOSE: Reflect on the work. Be honest about what works, what doesn't,
-% and what was learned. This is where the "engineering wisdom" shines.
-% TARGET: ~8-12 pages
-% ============================================================================
+% This chapter must be completed from the frozen offline evidence and the
+% supervised live records. It must not convert mocked success into provider
+% evidence or generalize beyond the reviewed Small scenarios.
 
-\section{Challenges Encountered}
-% Discuss the most significant technical challenges faced during development.
-% These should feel authentic and specific (not generic "it was hard").
+\section{Answer to RQ1: Operationalization}
 
-\subsection{The SDK-to-Terraform Migration}
-% When extending the original AWS SDK deployer to support Azure and GCP,
-% the imperative approach collapsed under the weight of cross-provider
-% resource dependencies. Manually ordering 50+ resource creation calls
-% across three providers was untenable.
-%
-% The decision to switch to Terraform was not immediate; it came after
-% attempting the SDK extension and encountering cascading race conditions.
-% This experience validated the "fail-fast, refactor-properly" approach
-% described in Chapter~\ref{chap:legacyAnalysis}.
-%
-% Trade-off: Terraform abstracts away fine-grained control. Some operations
-% (e.g., Azure Function Keys, SDK-specific cleanup) still require SDK
-% fallback code (the \_run\_sdk\_cleanup pattern in deployer.py).
+The implemented method operationalizes the theoretical model through a chain
+of versioned and digest-linked boundaries: immutable workload, provider
+capability profiles, pricing evidence, cost ledger, Resolved Twin Architecture,
+Resolved Deployment Specification, Deployment Manifest, graph-derived
+readiness, durable operation, telemetry verification, and cleanup evidence.
+This demonstrates the engineering path from a theoretical cost assignment to
+an executable and inspectable deployment decision.
 
-\subsection{Cross-Cloud Pricing Incomparability}
-% Cloud providers intentionally use different units and pricing structures.
-% Example: AWS IoT Core charges per message (tiered), while GCP Pub/Sub
-% charges per data volume. Comparing "messages" to "bytes" required
-% normalization assumptions (average message size).
-%
-% This challenge directly motivated the Factory + Protocol architecture
-% for price fetchers: each fetcher encapsulates provider-specific
-% normalization logic behind a common interface.
+The final answer must distinguish three levels of evidence:
 
-\subsection{Terraform State Management in Containers}
-% Terraform stores state locally by default. In a containerized environment:
-% - State files must persist across container restarts (volume mounts)
-% - Concurrent deployments of different twins must not conflict (state isolation)
-% - Failed deployments leave partial state that must be recoverable
-%
-% Solution: per-project state files stored in the project upload directory.
+\begin{enumerate}
+    \item deterministic contract and integration evidence;
+    \item provider readiness, identity, and image-probe evidence; and
+    \item supervised Apply, telemetry, Destroy, inventory, and observed-cost
+    evidence.
+\end{enumerate}
 
-\subsection{Cross-Cloud Networking}
-% Moving data between providers (e.g., AWS Lambda → GCP Cloud Function)
-% requires public endpoints, authentication tokens, and firewall rules.
-% This is the most operationally fragile part of the system.
-%
-% The current webhook-based approach works but adds latency.
-% Future work could explore dedicated cross-cloud VPN tunnels or
-% event broker intermediaries.
+Any provider blocker found during the live phase remains part of the answer. It
+identifies an operationalization boundary and must not be replaced by an
+offline fixture.
 
-\section{Comparison: Legacy vs. Unified Platform}
-% PURPOSE: This section serves as the BOOKEND to Chapter~\ref{chap:legacyAnalysis}.
-% The Legacy Analysis chapter sets up the problems; this section confirms they were solved.
-% Keep prose brief (1-2 pages) — the table does the heavy lifting.
-%
-% Historical quantitative audit material remains available in Git history.
-%
-% Optimizer evolution:
-% - Language: Vanilla JavaScript (2,160 lines) → Python 3 + FastAPI (~3,000+ lines)
-% - Providers: AWS + Azure (2) → AWS + Azure + GCP (3)
-% - Input parameters: 12 → 26
-% - Cost formulas: inline per-function → 6 abstracted formulas (CM, CE, CA, CS, CU, CT)
-% - Component calculators: ~14 flat functions → 25 typed classes with Protocol pattern
-% - Pricing: static pricing.json (115 lines) → live API fetching + 7-day cache
-% - Storage path: Dijkstra graph (6 nodes) → independent per-tier cheapest selection
-% - Output: HTML template literals → JSON API responses + SSE streaming
-% - Validation: manual DOM parseInt/parseFloat → Pydantic model_validator
-%
-% Deployer evolution:
-% - Interface: CLI REPL (3 commands) → REST API (10 routers)
-% - Providers: AWS only → AWS + Azure + GCP
-% - IaC: none (imperative boto3) → Terraform (31 .tf files) + SDK post-deploy
-% - State: none (API existence checks) → Terraform .tfstate + JSON project state
-% - Client arch: 12 global boto3 clients → per-provider client factories with DI
-% - Deployer files: 49 files (1 class per resource) → per-provider layer strategies
-% - Lambda functions: 11 → 68
-% - Credentials: plaintext JSON → Fernet-encrypted, per-user+twin keys
-% - Lines: ~4,332 → ~15,000+
-% - Tests: none → unit tests + E2E test suite
-%
-% \begin{table}[h]
-% \centering
-% \caption{Comparison of legacy prototypes and the unified Twin2MultiCloud platform.}
-% \label{tab:legacy-vs-current}
-% \begin{tabular}{|l|l|l|}
-% \hline
-% Aspect & Legacy (2 Prototypes) & Twin2MultiCloud \\
-% \hline
-% Cloud Providers & AWS only (Deployer), AWS+Azure (Optimizer) & AWS, Azure, GCP \\
-% Configuration & Manual JSON editing / DOM sliders & Wizard UI with Pydantic validation \\
-% Deployment & CLI REPL, fire-and-forget & Managed lifecycle with state tracking \\
-% Cost Optimization & Static pricing.json (115 lines) & Live API fetching + 7-day cache \\
-% Architecture & Procedural scripts (JS + Python) & Microservices + IaC (Terraform) \\
-% Design Patterns & None (1 ABC in deployer) & Protocol, Strategy, Factory, Registry, DI \\
-% Test Coverage & None & Unit tests + E2E suites \\
-% Feedback & print() / DOM injection & Real-time SSE deployment logs \\
-% Credentials & Plaintext JSON file & Fernet-encrypted, per-user+twin keys \\
-% Total Lines & ~6,500 (2,160 + 4,332) & ~18,000+ \\
-% \hline
-% \end{tabular}
-% \end{table}
-%
-% After the table, add 1–2 paragraphs reflecting on the most significant
-% evolutionary shifts. Keep brief: use one-sentence cross-references to
-% Ch 4 sections (e.g., "The migration from imperative SDK calls to Terraform
-% is described in Section~\ref{sec:refactoring-deployer}") rather than
-% re-narrating the transformation story.
+\section{Answer to RQ2: Functional Comparability}
 
-\section{Design Pattern Effectiveness}
-% Reflect on which patterns provided the most value and why.
-%
-% Most impactful patterns:
-% - Strategy + Protocol: Enabled multi-cloud without modifying existing code
-% - Registry + Auto-Registration: Made "pluggable providers" possible
-% - Dependency Injection (Context): Eliminated hidden global state bugs
-% - Result Type (Flutter): Caught API error handling bugs at compile time
-%
-% Patterns that added complexity without proportional benefit:
-% - [Identify any patterns that felt over-engineered in hindsight]
-%
-% Patterns that emerged organically vs. planned from the start:
-% - The iterative discovery cycle meant some patterns (e.g., Exception
-%   Hierarchy) were added reactively after debugging sessions revealed
-%   the need for better error context.
+The comparison unit is a curated provider service bundle rather than a product
+name. AWS, Azure, and GCP may satisfy one logical responsibility through
+different combinations of managed services, hosted software, adapters,
+identity mechanisms, and operations. A candidate enters the cost comparison
+only when all mandatory components and edges resolve to explicit deployment,
+verification, cleanup, and pricing ownership.
 
-\section{Simplifications and Trade-offs}
-% Be transparent about where production-readiness was sacrificed for scope.
-%
-% Critical simplification (from the thesis proposal):
-% "Many production-ready design decisions were intentionally simplified to
-% keep the thesis scope manageable (e.g., using direct HTTP calls between
-% cloud functions instead of an event handler for the data flow, or choosing
-% cheaper service workarounds since the optimizer currently only calculates
-% cost optimization)."
-%
-% Specific trade-offs:
-% - Direct HTTP webhooks instead of message queue (reduces resilience)
-% - SQLite instead of PostgreSQL (limits concurrent access)
-% - Single-region deployment (no multi-region redundancy)
-% - No authentication between microservices (trusts Docker network)
+The final discussion should evaluate where the shared contract provides a
+meaningful comparison and where provider-specific semantics remain. In
+particular, it should discuss delivery and replay behavior, the hosted GCP Twin
+and Grafana bundles, workload-identity differences, regional availability,
+quota behavior, and the limits of treating a curated implementation as
+representative of an entire provider.
 
-\section{Limitations}
-% Acknowledge what the system does NOT do:
-% - Only three cloud providers (no Oracle, IBM, Alibaba)
-% - No real-time cost monitoring during twin operation (only pre-deployment)
-% - No auto-scaling or adaptive reconfiguration
-% - Limited to the services defined in the 5-Layer Architecture
-% - No support for complex twin topologies (e.g., hierarchical twins)
-% - Pricing data becomes stale between refreshes
-% - No user study was conducted to validate UI/UX effectiveness
+\section{Answer to RQ3: Cost Effect}
+
+The quantitative answer must use the frozen workload and price evidence and
+report estimated monthly cost rather than observed billing unless provider
+billing data is separately reconciled. For each baseline and multi-cloud
+candidate, the discussion should report:
+
+\begin{itemize}
+    \item the exact component assignment and admissibility result;
+    \item total estimated monthly cost and difference from each provider-local
+    baseline;
+    \item component, transfer, bridge, and shared-pool contributions;
+    \item price, workload, tier, and region sensitivity; and
+    \item the difference between the estimate and any observed short-lived
+    evaluation cost.
+\end{itemize}
+
+No conclusion about a cost advantage should be written until the final
+calculation digests and the supervised evidence records have been frozen.
+
+\subsection{RQ3.1: Baseline Control}
+
+The three provider-local baselines and every selected multi-cloud candidate
+must use the same Small workload, Six-layer profile, currency, pricing policy,
+regions, and functional requirements. This paired design isolates provider
+allocation from changes in scenario semantics. The nine live cases cover all
+three local providers and every directed AWS/Azure/GCP pair without claiming
+to enumerate every valid component permutation.
+
+\subsection{RQ3.2: Explicit Eventing Responsibility}
+
+The explicit Eventing responsibility should be assessed in three dimensions:
+functional behavior, topology, and cost. The discussion must trace ordering,
+delivery, retry, replay, terminal-failure handling, and directed bridge
+identity, then attribute the corresponding Eventing and bridge costs. This
+does not claim that Eventing universally improves a Digital Twin; it evaluates
+one bounded, versioned contract and workload family.
+
+\section{Architecture and Pattern Trade-offs}
+
+The retained Strategy and provider-profile patterns demonstrate that cost
+scoring and provider implementations can be extended without exposing inactive
+objectives or runtime plugins. Only the cost strategy and the three reviewed
+provider profiles are executable. This is a deliberate compromise: the code
+keeps clear seams, while the PoC avoids promising a generic optimization or
+architecture framework.
+
+The immutable Twin lifecycle similarly trades operational flexibility for
+traceability. Duplicate, Import, Deploy, Destroy, and post-Destroy Re-deploy
+are sufficient for the evaluation. In-place Terraform updates, migrations,
+rollbacks, and continuous re-optimization would require new evidence and state
+contracts and are therefore outside scope.
+
+Durable SSE replay adds implementation complexity but protects a meaningful
+safety property: reconnecting the UI cannot duplicate a cost-incurring Apply
+or Destroy. In contrast, application OAuth, SAML, RBAC, and multi-tenancy would
+not strengthen the research answers and were removed from the runtime path.
+
+\section{Simplifications and Limitations}
+
+The principal limitations are:
+
+\begin{itemize}
+    \item one local owner profile and no production authentication or
+    multi-tenancy;
+    \item one executable Six-layer profile, three regions, and one curated
+    provider bundle per responsibility;
+    \item monetary cost as the only optimization objective;
+    \item frozen pricing snapshots rather than continuous price management or
+    billing reconciliation;
+    \item immutable deployed Twins and no in-place infrastructure update;
+    \item bounded Python user functions rather than arbitrary executable
+    deployment projects;
+    \item provider account creation, billing recovery, quota approval,
+    organization policy, and broad consent remain external;
+    \item no embedded dashboard administration or general operations console;
+    and
+    \item nine supervised Small scenarios rather than exhaustive architecture,
+    region, workload, concurrency, or failure-injection coverage.
+\end{itemize}
 
 \section{Threats to Validity}
-% Discuss factors that might affect generalizability of results.
 
 \subsection{Internal Validity}
-% - Test environment (Docker) vs. production differences
-% - Network conditions during E2E tests may not represent real-world usage
-% - Cost calculations depend on pricing data accuracy at the time of testing
 
-\subsection{External Validity}
-% - Limited number of twin configurations tested
-% - The 5-Layer Architecture may not fit all DT use cases
-% - Provider service availability varies by region
+Implementation defects, transient provider failures, stale readiness results,
+and incomplete cleanup can affect a live run. Immutable digests, one active
+scenario, explicit confirmations, operation replay, immediate Destroy, and
+post-Destroy inventory reduce these risks. They do not eliminate them. Every
+deviation must remain attached to its scenario record.
 
 \subsection{Construct Validity}
-% - Are cost predictions meaningful for long-term deployments?
-% - Does deployment time measure what we intend (provisioning performance)?
-% - Is test pass rate a sufficient quality metric?
+
+Functional completeness is defined by the chosen contract. It cannot prove
+that differently composed provider bundles are equivalent for every Digital
+Twin use case. Likewise, estimated cost depends on normalized workload and
+pricing assumptions. Sensitivity analysis and explicit exclusions are needed
+to avoid turning a modeling decision into a universal claim.
+
+\subsection{External Validity}
+
+The results are limited to AWS, Azure, and GCP, the selected regions and
+service versions, the Small evaluation workload, and the fixed Six-layer
+contract. They do not automatically generalize to other providers, regions,
+Digital Twin topologies, production load, concurrent users, or long-running
+operations.
+
+\subsection{Conclusion Validity}
+
+Small cost differences may be dominated by pricing drift, minimum billing
+units, short-lived provisioning effects, or unmodeled operational effort. The
+final conclusion must therefore report absolute and relative differences,
+sensitivity, observed deviations, and uncertainty rather than relying only on
+the identity of the cheapest candidate.

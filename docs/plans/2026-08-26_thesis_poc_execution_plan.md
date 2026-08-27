@@ -41,7 +41,7 @@ and the
 | 7 | Implemented on host | active documentation and repository-wide offline gate; identical container replay pending an available Docker daemon |
 | 8 | Pending supervision | real principals, provider readiness, identity and image probes |
 | 9 | Pending supervision | nine cost-controlled Small deployments |
-| 10 | Pending live evidence | RQ analysis, limitations, final thesis evidence and cleanup |
+| 10 | In progress; results pending live evidence | chapter structure, RQ framing, limitations, and repository cleanup aligned; empirical answers remain pending |
 
 No row in this table upgrades offline fixtures or mocks to live-cloud evidence.
 

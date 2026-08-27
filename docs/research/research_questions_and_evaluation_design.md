@@ -8,10 +8,10 @@ between the implementation and the thesis evaluation.
 
 The question set was accepted as the working direction during the architecture
 discussion on 2026-07-17. The implementation scope and bounded evaluation
-scenarios are now frozen, and Phase 8.10 evidence maps to the questions. It is
-not yet final thesis prose: supervisor review and the deliberate LaTeX
-synthesis still precede replacement of the commented scaffold in
-`twin2multicloud-latex/chapters/introduction.tex`.
+scenarios are now frozen, and Phase 8.10 evidence maps to the questions. The
+LaTeX introduction, architecture, evaluation, discussion, and conclusion now
+use this framing. Supervisor review and empirical completion from the
+supervised live evidence remain pending.
 
 This note is deliberately separate from the published user and developer
 documentation. Product documentation explains the implemented system. This
@@ -688,9 +688,9 @@ Before these questions become final thesis text:
 - [x] Define the bounded Small/Medium/Large evaluation scenarios.
 - [x] Generate and reproduce the deterministic Phase 8.10 offline evidence.
 - [ ] Define any additional sensitivity variables beyond the frozen evaluation.
-- [ ] Align chapter structure and contribution wording with the approved RQs.
+- [x] Align chapter structure and contribution wording with the approved RQs.
 - [ ] Review the RQs with the thesis supervisor.
-- [ ] Replace the outdated commented RQs in `introduction.tex`.
+- [x] Replace the outdated commented RQs in `introduction.tex`.
 - [ ] Add stable bibliography keys to the LaTeX bibliography.
 - [ ] Execute the deferred manual UI audit.
 - [ ] Execute supervised live-cloud end-to-end evaluation only after the

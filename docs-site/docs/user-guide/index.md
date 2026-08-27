@@ -3,7 +3,7 @@
 The supported research workflow is:
 
 ```text
-sign in
+load the configured local owner profile
   -> create/import/duplicate a Twin draft
   -> configure typed scenario and bounded functions
   -> calculate and review cost-only Six-layer evidence
@@ -13,6 +13,10 @@ sign in
   -> verify telemetry and open L4/L5 access links
   -> confirm Destroy and inspect cleanup evidence
 ```
+
+There is no interactive sign-in route in the thesis PoC. Application startup
+loads the configured local owner profile; provider CloudConnections remain
+separate deployment authority.
 
 Start with [Dashboard and Twins](dashboard-and-twins.md), then continue through
 [Configuration Workspace](configuration-workspace.md),

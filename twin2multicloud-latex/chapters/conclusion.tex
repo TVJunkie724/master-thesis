@@ -1,26 +1,68 @@
 \chapter{\label{chap:conclusion}Conclusion and Future Work}
 
-% Wrap up the thesis. Summarize what was achieved and point to future directions.
-
 \section{Summary of Contributions}
-% Restate your main contributions (refer back to Chapter 1):
-% - Designed and implemented Twin2MultiCloud, an end-to-end platform
-% - Integrated cost optimization with automated multi-cloud deployment
-% - Operationalized the standalone Six-layer Eventing contract across all
-%   three providers with immutable cost and deployment evidence
-% - Report only the supervised Small deployment outcomes actually captured by
-%   the approved nine-scenario evaluation protocol
-% - Enabled deployment across AWS, Azure, and GCP with a unified interface
-% Include key quantitative results (e.g., "achieved X% cost accuracy")
-%
-% SOURCE: docs/future-work.md — consolidated list of future work items
+
+This thesis develops Twin2MultiCloud as a bounded research proof of concept for
+operationalizing a layered, cost-aware Digital Twin model across AWS, Azure,
+and Google Cloud. The central contribution is the traceable connection between
+typed workload intent, functionally admissible provider bundles, evidence-based
+cost calculation, an exact deployment specification, supervised
+infrastructure provisioning, runtime verification, and cleanup.
+
+The implementation contributes a standalone Six-layer Eventing contract, a
+functional-completeness gate, frozen pricing and formula evidence, a cost-only
+selection strategy, digest-linked RTA/RDS/Manifest contracts, graph-derived
+credential readiness, immutable Twin lifecycle, durable deployment operations,
+and a unified Management API and Flutter workflow. The predecessor optimizer
+and Deployer are retained as architectural lineage, while obsolete product
+features are not part of the executable research boundary.
+
+% Complete the following paragraph only after the supervised evidence is
+% frozen: summarize the RQ1 operationalization result, RQ2 comparability
+% boundaries, RQ3/RQ3.1 cost differences, RQ3.2 Eventing effect, provider
+% blockers, observed-vs-estimated cost, and residual cleanup result. Cite the
+% exact scenario and digest records; do not insert offline fixtures as live
+% outcomes.
+
 \section{Future Directions}
 \label{sec:future-work}
-% Outline potential future work:
-% - Additional cloud providers (Oracle Cloud, IBM Cloud)
-% - Real-time cost monitoring during twin operation
-% - Machine learning-based cost prediction
-% - Support for more complex twin topologies
-% - User study to evaluate UI/UX
-% - Integration with AASX-Server for asset modeling
-% - Production-ready deployment (Kubernetes, security hardening)
+
+The following extensions are research topics rather than a product roadmap.
+
+\subsection{Additional Optimization Objectives}
+
+The internal scoring seam could support future latency, sustainability,
+resilience, or policy studies. Each objective would require comparable metrics,
+measurement provenance, normalization, trade-off semantics, and an independent
+evaluation. Merely adding disabled objectives or weighted configuration fields
+would not demonstrate the capability.
+
+\subsection{Alternative Architecture Contracts}
+
+The PoC executes only \texttt{six-layer-eventing@1}. Alternative Digital Twin
+decompositions could be compared through separately versioned contracts,
+admissibility rules, and evaluation matrices. They should not inherit
+implicitly from the present profile or appear as unvalidated runtime choices.
+
+\subsection{Least-Privilege Credential Lifecycle}
+
+A production-oriented study could derive reduced deployment principals from
+the resolved graph, rotate and revoke them, integrate organization policy, and
+formally verify permissions. This would require a dedicated threat model,
+provider-specific recovery procedures, and clear operational ownership beyond
+the administrator CloudConnections used for isolated thesis accounts.
+
+\subsection{Mutable Deployment Semantics}
+
+Supporting in-place changes would require optimizer invalidation, Terraform
+replacement analysis, state migration, rollback, partial-failure recovery,
+identity rotation, and a new evidence model. These properties should be
+evaluated together rather than represented as an unrestricted Edit action.
+
+\subsection{Broader Empirical Evidence}
+
+Future evaluations could study concurrent deployments, Medium and Large
+workloads, long-running delivery and replay behavior, reconciliation against
+provider bills, regional variation, additional provider bundles, and
+organization-scale account boundaries. These questions are not answered by
+the nine supervised Small scenarios of this thesis.
