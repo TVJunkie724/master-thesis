@@ -42,7 +42,7 @@ class ThemeNotifier extends Notifier<ThemeMode> {
     }
   }
 
-  /// Hydrate theme from user object after login (from API)
+  /// Hydrate theme from the local owner profile returned by the API.
   void hydrateFromUser(String? themePreference) {
     if (themePreference != null) {
       state = themePreference == 'light' ? ThemeMode.light : ThemeMode.dark;

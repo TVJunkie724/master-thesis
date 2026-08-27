@@ -12,7 +12,6 @@ class User(Base):
     email = Column(String, unique=True, nullable=False, index=True)
     name = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    last_login_at = Column(DateTime, nullable=True)
     theme_preference = Column(String, nullable=True, default="dark")  # "light" | "dark"
 
     # Relationships
