@@ -315,13 +315,11 @@ class CloudConnectionService:
             }
 
         if request.provider == "gcp" and request.gcp:
-            payload = {
+            return {
                 "gcp_project_id": request.gcp.project_id,
-                "gcp_billing_account": request.gcp.billing_account,
                 "gcp_region": request.gcp.region,
                 "gcp_credentials_file": request.gcp.service_account_json,
             }
-            return {key: value for key, value in payload.items() if value is not None}
 
         raise ValueError(f"Unsupported cloud connection provider: {request.provider}")
 
@@ -345,7 +343,6 @@ class CloudConnectionService:
         if provider == "gcp":
             return {
                 "project_id": payload.get("gcp_project_id"),
-                "billing_account_configured": bool(payload.get("gcp_billing_account")),
                 "service_account_configured": bool(payload.get("gcp_credentials_file")),
                 "service_account_email": self._gcp_service_account_email(payload),
                 "region": payload.get("gcp_region"),

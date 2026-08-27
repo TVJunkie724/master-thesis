@@ -1001,8 +1001,7 @@ def _hash_credentials(creds: dict) -> str:
     identity_fields = {
         "aws": ["aws_access_key_id", "aws_region"],
         "azure": ["azure_subscription_id", "azure_tenant_id", "azure_region", "azure_region_iothub", "azure_region_digital_twin"],
-        # GCP: project_id for private accounts, billing_account for org accounts
-        "gcp": ["gcp_project_id", "gcp_billing_account", "gcp_region"]
+        "gcp": ["gcp_project_id", "gcp_region"]
     }
     
     hash_input = ""

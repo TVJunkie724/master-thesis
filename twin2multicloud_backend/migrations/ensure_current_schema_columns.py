@@ -25,7 +25,6 @@ ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("azure_region_iothub", "VARCHAR"),
         ("azure_region_digital_twin", "VARCHAR"),
         ("gcp_project_id", "VARCHAR"),
-        ("gcp_billing_account", "VARCHAR"),
         ("gcp_region", "VARCHAR DEFAULT 'europe-west1'"),
         ("gcp_service_account_json", "TEXT"),
     ],

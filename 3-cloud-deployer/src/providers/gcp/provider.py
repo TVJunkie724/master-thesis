@@ -90,8 +90,7 @@ class GCPProvider(BaseProvider):
         
         Args:
             credentials: GCP credentials dictionary containing:
-                - gcp_project_id: Existing project ID (private accounts) OR
-                - gcp_billing_account: Billing account for auto-created project (org accounts)
+                - gcp_project_id: Existing billing-enabled deployment project ID
                 - gcp_region: GCP region (REQUIRED)
             twin_name: Digital twin name for resource naming
         
@@ -100,14 +99,14 @@ class GCPProvider(BaseProvider):
         """
         from .naming import GCPNaming
         
-        # Validate required credential
-        if "gcp_region" not in credentials:
-            raise ValueError("Missing required credential: gcp_region")
+        # Validate required credentials
+        for field in ("gcp_project_id", "gcp_region"):
+            if not credentials.get(field):
+                raise ValueError(f"Missing required credential: {field}")
         
         # Store configuration
-        # Dual-mode: use provided project_id or auto-generate
         self._twin_name = twin_name
-        self._project_id = credentials.get("gcp_project_id") or f"{twin_name}-project"
+        self._project_id = credentials["gcp_project_id"]
         self._region = credentials["gcp_region"]
         
         # Initialize naming helper

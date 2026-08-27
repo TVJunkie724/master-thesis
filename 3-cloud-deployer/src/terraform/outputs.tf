@@ -496,7 +496,7 @@ output "aws_grafana_sso_warning" {
 # ==============================================================================
 
 output "gcp_project_id" {
-  description = "GCP Project ID (provided or auto-created)"
+  description = "Existing GCP project selected for deployment"
   value       = local.deploy_gcp ? local.gcp_project_id : null
 }
 

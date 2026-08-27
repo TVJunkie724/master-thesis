@@ -298,7 +298,6 @@ Map<String, dynamic> _twinConfigJson({
     'gcp_credential_source': null,
     'gcp_cloud_connection_id': null,
     'gcp_project_id': null,
-    'gcp_billing_account_configured': false,
     'gcp_region': null,
     'configured_providers': awsConfigured ? ['aws'] : <String>[],
     'credential_sources': {

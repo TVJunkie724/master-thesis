@@ -284,7 +284,7 @@ resource "terraform_data" "gcp_six_layer_foundation_guard" {
   lifecycle {
     precondition {
       condition     = local.gcp_project_id != ""
-      error_message = "GCP Six-layer requires an existing project or organization billing account."
+      error_message = "GCP Six-layer requires an existing billing-enabled project ID."
     }
     precondition {
       condition     = var.gcp_region != ""

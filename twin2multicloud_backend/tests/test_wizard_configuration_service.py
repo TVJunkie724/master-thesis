@@ -70,7 +70,6 @@ def test_twin_config_update_rejects_direct_per_twin_credentials(db_session):
                 {
                     "gcp": {
                         "project_id": "my-project-12345",
-                        "billing_account": "012345-6789AB-CDEF01",
                         "region": "europe-west1",
                     }
                 }

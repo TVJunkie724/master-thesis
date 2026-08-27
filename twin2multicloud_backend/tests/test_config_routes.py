@@ -453,7 +453,6 @@ class TestConfigRoutes:
         client.get(f"/twins/{twin_id}/config/", headers=headers)
         config = db_session.query(TwinConfiguration).filter_by(twin_id=twin_id).one()
         config.gcp_project_id = sample_gcp_credentials["project_id"]
-        config.gcp_billing_account = encrypt(sample_gcp_credentials["billing_account"], "dev-user-id", twin_id)
         config.gcp_service_account_json = encrypt(sample_gcp_credentials["service_account_json"], "dev-user-id", twin_id)
         config.gcp_region = sample_gcp_credentials["region"]
         db_session.commit()
@@ -469,12 +468,10 @@ class TestConfigRoutes:
         assert data["gcp_configured"] is False
         assert data["gcp_validated"] is False
         assert data["gcp_project_id"] is None
-        assert data["gcp_billing_account_configured"] is False
 
         config = db_session.query(TwinConfiguration).filter_by(twin_id=twin_id).one()
         assert config.gcp_cloud_connection_id is None
         assert config.gcp_project_id is None
-        assert config.gcp_billing_account is None
         assert config.gcp_service_account_json is None
         assert config.gcp_region == "europe-west1"
 
@@ -491,7 +488,6 @@ class TestConfigRoutes:
             json={
                 "gcp": {
                     "project_id": "my-project-12345",
-                    "billing_account": "012345-6789AB-CDEF01",
                     "region": "europe-west1",
                 }
             },
@@ -715,9 +711,9 @@ class TestConfigRoutes:
             json={
                 "provider": "gcp",
                 "display_name": "GCP Dev",
-                "cloud_scope": {"billing_account": "012345-6789AB-CDEF01"},
+                "cloud_scope": {"project_id": "deployment-target"},
                 "gcp": {
-                    "billing_account": "012345-6789AB-CDEF01",
+                    "project_id": "deployment-target",
                     "region": "europe-west1",
                     "service_account_json": json.dumps(service_account),
                 },
@@ -753,8 +749,8 @@ class TestConfigRoutes:
         assert response.status_code == 200
         assert response.json()["valid"] is True
         assert seen["provider"] == "gcp"
-        assert seen["optimizer_creds"]["gcp_project_id"] == "service-account-project"
-        assert seen["deployer_creds"]["gcp_project_id"] == "service-account-project"
+        assert seen["optimizer_creds"]["gcp_project_id"] == "deployment-target"
+        assert seen["deployer_creds"]["gcp_project_id"] == "deployment-target"
         assert "placeholder-project" not in str(seen)
 
     def test_validate_dual_gcp_plaintext_uses_resolver_without_placeholder(
@@ -792,7 +788,7 @@ class TestConfigRoutes:
             json={
                 "provider": "gcp",
                 "gcp": {
-                    "billing_account": "012345-6789AB-CDEF01",
+                    "project_id": "deployment-target",
                     "region": "europe-west1",
                     "service_account_json": json.dumps(service_account),
                 },
@@ -803,8 +799,8 @@ class TestConfigRoutes:
         assert response.status_code == 200
         assert response.json()["valid"] is True
         assert seen["provider"] == "gcp"
-        assert seen["optimizer_creds"]["gcp_project_id"] == "service-account-project"
-        assert seen["deployer_creds"]["gcp_project_id"] == "service-account-project"
+        assert seen["optimizer_creds"]["gcp_project_id"] == "deployment-target"
+        assert seen["deployer_creds"]["gcp_project_id"] == "deployment-target"
         assert "placeholder-project" not in str(seen)
 
     def test_validate_inline_gcp_plaintext_missing_service_account_returns_structured_error(

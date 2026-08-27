@@ -29,7 +29,6 @@ def _gcp_request():
         "cloud_scope": {"project_id": "demo-project"},
         "gcp": {
             "project_id": "demo-project",
-            "billing_account": "012345-6789AB-CDEF01",
             "region": "europe-west1",
             "service_account_json": json.dumps(
                 {
@@ -200,25 +199,20 @@ def test_cloud_connection_payload_is_user_scoped(authenticated_client, db_sessio
     )
 
 
-def test_gcp_optimizer_credentials_extract_project_from_service_account(
-    authenticated_client, db_session
+def test_gcp_cloud_connection_requires_explicit_deployment_project(
+    authenticated_client,
 ):
     client, headers = authenticated_client
-    user = db_session.query(User).first()
     payload = _gcp_request()
     payload["gcp"].pop("project_id")
     service_account = json.loads(payload["gcp"]["service_account_json"])
     service_account["project_id"] = "service-account-project"
     payload["gcp"]["service_account_json"] = json.dumps(service_account)
 
-    created = client.post("/cloud-connections/", json=payload, headers=headers).json()
-    connection = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
-    service = CloudConnectionService(db_session)
+    response = client.post("/cloud-connections/", json=payload, headers=headers)
 
-    optimizer_payload = service.build_optimizer_credentials(connection, user.id)
-
-    assert optimizer_payload["gcp_project_id"] == "service-account-project"
-    assert "placeholder-project" not in str(optimizer_payload)
+    assert response.status_code == 422
+    assert "project_id" in response.text
 
 
 @pytest.mark.asyncio

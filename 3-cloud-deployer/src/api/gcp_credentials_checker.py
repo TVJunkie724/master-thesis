@@ -614,14 +614,12 @@ def _check_billing_enabled(project_id: str, credentials=None) -> dict:
         }
 
 
-def _resolve_gcp_validation_project_id(
-    credentials: dict, service_account_project_id: str
-) -> tuple[str, str]:
-    """Resolve the project that credential preflight can safely validate."""
+def _resolve_gcp_validation_project_id(credentials: dict) -> str:
+    """Return the explicit existing project selected for deployment."""
     explicit_project_id = credentials.get("gcp_project_id", "")
     if isinstance(explicit_project_id, str) and explicit_project_id.strip():
-        return explicit_project_id.strip(), "existing_project"
-    return service_account_project_id, "service_account_project"
+        return explicit_project_id.strip()
+    raise ValueError("Missing required credential: gcp_project_id")
 
 
 def check_gcp_credentials(credentials: dict) -> dict:
@@ -629,8 +627,8 @@ def check_gcp_credentials(credentials: dict) -> dict:
     Main entry point. Validates GCP credentials against required permissions.
 
     Args:
-        credentials: Dict with gcp_credentials_file, gcp_region, and either
-                     gcp_project_id (private) or gcp_billing_account (org)
+        credentials: Dict with gcp_credentials_file, gcp_region, and the
+                     existing billing-enabled gcp_project_id
 
     Returns:
         Dict with status, caller_identity, and permission results
@@ -660,24 +658,10 @@ def check_gcp_credentials(credentials: dict) -> dict:
         result["message"] = "Missing required credential: gcp_region"
         return result
 
-    # Dual-mode validation: either gcp_project_id OR gcp_billing_account required
-    has_project_id = (
-        credentials.get("gcp_project_id", "").strip()
-        if credentials.get("gcp_project_id")
-        else ""
-    )
-    has_billing_account = (
-        credentials.get("gcp_billing_account", "").strip()
-        if credentials.get("gcp_billing_account")
-        else ""
-    )
-
-    if not has_project_id and not has_billing_account:
-        result["message"] = (
-            "GCP requires either 'gcp_project_id' (for private accounts with existing project) "
-            "or 'gcp_billing_account' (for organization accounts with auto-project creation). "
-            "Please provide at least one."
-        )
+    try:
+        project_id = _resolve_gcp_validation_project_id(credentials)
+    except ValueError as exc:
+        result["message"] = str(exc)
         return result
 
     try:
@@ -698,16 +682,9 @@ def check_gcp_credentials(credentials: dict) -> dict:
             result["message"] = redact_sensitive(exc)
             return result
 
-        # Use the explicit deployment target in private account mode. In
-        # If the final project is not available yet, the service-account project
-        # is used as the validation target for the preconfigured PoC credential.
-        project_id, validation_mode = _resolve_gcp_validation_project_id(
-            credentials,
-            service_account_project_id=sa_info["project_id"],
-        )
         result["validation_project"] = {
             "project_id": project_id,
-            "mode": validation_mode,
+            "mode": "existing_project",
             "service_account_project_id": sa_info["project_id"],
         }
 

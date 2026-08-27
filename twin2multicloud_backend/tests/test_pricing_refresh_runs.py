@@ -69,7 +69,6 @@ def _gcp_request(display_name="GCP Pricing"):
         "cloud_scope": {"project_id": "demo-project", "region": "europe-west1"},
         "gcp": {
             "project_id": "demo-project",
-            "billing_account": "012345-6789AB-CDEF01",
             "region": "europe-west1",
             "service_account_json": json.dumps(
                 {
@@ -299,7 +298,6 @@ def test_start_gcp_pricing_refresh_maps_service_account_payload(
     assert call["provider"] == "gcp"
     assert call["credentials"]["gcp_service_account_json"]
     assert call["credentials"]["gcp_project_id"] == "demo-project"
-    assert call["credentials"]["gcp_billing_account"] == "012345-6789AB-CDEF01"
     assert "gcp_credentials_file" not in call["credentials"]
     assert "TEST_PRIVATE_KEY" not in response.text
     db_session.refresh(connection)

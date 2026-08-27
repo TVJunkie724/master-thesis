@@ -1156,13 +1156,11 @@ variable "azure_layer_access_principal_label" {
 # GCP Credentials (from config_credentials.json)
 # ==============================================================================
 
-# GCP supports two modes:
-# 1. Private Account Mode: Provide gcp_project_id to use an existing project
-# 2. Organization Account Mode: Provide gcp_billing_account to auto-create a new project
-# At least one of these must be provided. If gcp_project_id is provided, it takes precedence.
+# The PoC deploys into an existing billing-enabled GCP project. Project and
+# billing-account creation remain outside Terraform ownership.
 
 variable "gcp_project_id" {
-  description = "GCP Project ID for existing project (for private accounts without organization)"
+  description = "Existing billing-enabled GCP deployment project ID"
   type        = string
   default     = ""
 }
@@ -1254,13 +1252,6 @@ variable "gcp_grafana_source_cidrs" {
     ])
     error_message = "gcp_grafana_source_cidrs must contain valid bounded CIDRs and must not contain a wildcard route."
   }
-}
-
-variable "gcp_billing_account" {
-  description = "GCP Billing Account ID for project creation (for organization accounts)"
-  type        = string
-  default     = ""
-  sensitive   = true
 }
 
 # ==============================================================================

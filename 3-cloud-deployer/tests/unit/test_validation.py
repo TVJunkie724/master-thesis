@@ -91,7 +91,7 @@ class TestValidation(unittest.TestCase):
                 "azure_region_digital_twin": "x",
             },
             "gcp": {
-                "gcp_billing_account": "x",
+                "gcp_project_id": "x",
                 "gcp_credentials_file": "x",
                 "gcp_region": "x",
             },

@@ -4861,27 +4861,10 @@
       "GCPCredentials": {
         "additionalProperties": false,
         "properties": {
-          "billing_account": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Billing Account"
-          },
           "project_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Project Id"
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
           },
           "region": {
             "default": "europe-west1",
@@ -4900,6 +4883,9 @@
             "title": "Service Account Json"
           }
         },
+        "required": [
+          "project_id"
+        ],
         "title": "GCPCredentials",
         "type": "object"
       },
@@ -8879,11 +8865,6 @@
           },
           "debug_mode": {
             "title": "Debug Mode",
-            "type": "boolean"
-          },
-          "gcp_billing_account_configured": {
-            "default": false,
-            "title": "Gcp Billing Account Configured",
             "type": "boolean"
           },
           "gcp_cloud_connection_id": {

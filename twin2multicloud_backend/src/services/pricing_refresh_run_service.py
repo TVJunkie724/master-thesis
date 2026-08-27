@@ -281,7 +281,6 @@ class PricingRefreshRunService:
             for key, value in {
                 "gcp_service_account_json": payload.get("gcp_credentials_file"),
                 "gcp_project_id": payload.get("gcp_project_id"),
-                "gcp_billing_account": payload.get("gcp_billing_account"),
                 "gcp_region": payload.get("gcp_region"),
             }.items()
             if value

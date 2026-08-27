@@ -94,7 +94,6 @@ class TwinProviderConfig extends Equatable {
   final String? secondaryRegion;
   final String? tertiaryRegion;
   final String? projectId;
-  final bool billingAccountConfigured;
 
   const TwinProviderConfig({
     required this.provider,
@@ -107,7 +106,6 @@ class TwinProviderConfig extends Equatable {
     this.secondaryRegion,
     this.tertiaryRegion,
     this.projectId,
-    this.billingAccountConfigured = false,
   });
 
   bool get usesCloudConnection =>
@@ -126,7 +124,6 @@ class TwinProviderConfig extends Equatable {
     secondaryRegion,
     tertiaryRegion,
     projectId,
-    billingAccountConfigured,
   ];
 }
 
@@ -272,8 +269,5 @@ TwinProviderConfig _providerConfig(
     projectId: provider == CloudProvider.gcp
         ? JsonContract.optionalString(json, 'gcp_project_id')
         : null,
-    billingAccountConfigured: provider == CloudProvider.gcp
-        ? JsonContract.requiredBool(json, 'gcp_billing_account_configured')
-        : false,
   );
 }

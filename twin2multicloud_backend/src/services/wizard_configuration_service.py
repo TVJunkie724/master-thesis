@@ -253,10 +253,7 @@ class WizardConfigurationService:
                 "azure_client_secret",
                 "azure_tenant_id",
             ],
-            "gcp": [
-                "gcp_billing_account",
-                "gcp_service_account_json",
-            ],
+            "gcp": ["gcp_service_account_json"],
         }
         for field in legacy_fields[provider]:
             setattr(config, field, None)

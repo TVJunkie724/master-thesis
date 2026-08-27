@@ -110,7 +110,6 @@ class OptimizerPricingStreamService:
         payload = {
             "gcp_service_account_json": optimizer_payload.get("gcp_credentials_file"),
             "gcp_project_id": optimizer_payload.get("gcp_project_id"),
-            "gcp_billing_account": optimizer_payload.get("gcp_billing_account"),
             "gcp_region": optimizer_payload.get("gcp_region"),
         }
         return {key: value for key, value in payload.items() if value}

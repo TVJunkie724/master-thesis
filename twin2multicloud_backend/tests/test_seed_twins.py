@@ -39,7 +39,6 @@ def _write_seed_files(tmp_path, *, include_gcp_service_account=True):
                 },
                 "gcp": {
                     "gcp_project_id": "seed-project",
-                    "gcp_billing_account": "000000-111111-222222",
                     "gcp_region": "europe-west1",
                 },
             }
@@ -101,7 +100,6 @@ async def test_seed_twins_use_cloud_connections_without_legacy_secret_duplicatio
         assert config.azure_client_id is None
         assert config.azure_client_secret is None
         assert config.azure_tenant_id is None
-        assert config.gcp_billing_account is None
         assert config.gcp_service_account_json is None
 
     for twin in twins:

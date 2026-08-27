@@ -51,7 +51,7 @@ class CredentialsHelper {
         'client_secret',
         'tenant_id',
       ],
-      CloudProvider.gcp: ['billing_account', 'service_account_json'],
+      CloudProvider.gcp: ['service_account_json'],
     };
     for (final field in secretFields[config.provider] ?? const []) {
       result.putIfAbsent(field, () => '••••••••');

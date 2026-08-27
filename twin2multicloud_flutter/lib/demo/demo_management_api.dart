@@ -2069,12 +2069,10 @@ class DemoManagementApi implements ManagementApi {
         final summary = connection?['payload_summary'] is Map
             ? Map<String, dynamic>.from(connection!['payload_summary'] as Map)
             : const <String, dynamic>{};
-        response
-          ..['gcp_project_id'] =
-              raw['gcp_project_id'] ??
-              scope['project_id'] ??
-              summary['project_id']
-          ..['gcp_billing_account_configured'] = false;
+        response['gcp_project_id'] =
+            raw['gcp_project_id'] ??
+            scope['project_id'] ??
+            summary['project_id'];
       }
     }
     response

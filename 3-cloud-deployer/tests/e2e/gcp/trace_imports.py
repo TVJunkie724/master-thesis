@@ -87,7 +87,7 @@ if creds_path.exists():
     gcp_creds = all_creds.get("gcp", {})
     
     has_creds_file = gcp_creds.get("gcp_credentials_file")
-    has_project = gcp_creds.get("gcp_project_id") or gcp_creds.get("gcp_billing_account")
+    has_project = gcp_creds.get("gcp_project_id")
     
     print(f"has_creds_file: {has_creds_file}")
     print(f"has_project: {has_project}")

@@ -63,9 +63,6 @@ abstract final class TypedApiFixtures {
                 ? 'westeurope'
                 : null,
             projectId: provider == CloudProvider.gcp ? 'test-project' : null,
-            billingAccountConfigured:
-                provider == CloudProvider.gcp &&
-                configuredProviders.contains(provider),
           ),
       }),
       highestStepReached: highestStepReached,

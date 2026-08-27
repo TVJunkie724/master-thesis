@@ -610,7 +610,7 @@ def gcp_credentials(template_project_path):
         
         # Check for credentials file or project_id
         has_creds_file = gcp_creds.get("gcp_credentials_file")
-        has_project = gcp_creds.get("gcp_project_id") or gcp_creds.get("gcp_billing_account")
+        has_project = gcp_creds.get("gcp_project_id")
         
         if has_creds_file and has_project:
             print("[GCP E2E] Using credentials from config_credentials.json")
@@ -938,4 +938,3 @@ def multicloud_e2e_project_path(template_project_path, multicloud_e2e_test_id):
     
     # NOTE: No cleanup - keep project for state persistence
     print(f"\n[MULTICLOUD E2E] Project retained at: {project_path}")
-

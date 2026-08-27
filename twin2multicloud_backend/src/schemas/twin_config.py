@@ -1,7 +1,7 @@
 import json
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 
 from src.schemas.optimizer_calculation import OptimizerCalculationParams
@@ -41,18 +41,9 @@ class AzureCredentials(BaseModel):
 class GCPCredentials(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    project_id: Optional[str] = None  # At least one of project_id or billing_account
-    billing_account: Optional[str] = None  # NEW - for auto-create project
+    project_id: str = Field(..., min_length=1)
     service_account_json: Optional[str] = None  # Service account JSON content
-    region: str = Field(default="europe-west1")  # NEW
-
-    @model_validator(mode="after")
-    def check_project_or_billing(self):
-        if not self.project_id and not self.billing_account:
-            raise ValueError(
-                "At least one of project_id or billing_account is required"
-            )
-        return self
+    region: str = Field(default="europe-west1")
 
 
 class TwinConfigCreate(BaseModel):
@@ -109,8 +100,7 @@ class TwinConfigResponse(BaseModel):
     gcp_credential_source: Optional[CredentialSource] = None
     gcp_cloud_connection_id: Optional[str] = None
     gcp_project_id: Optional[str] = None
-    gcp_billing_account_configured: bool = False  # NEW - never expose actual value
-    gcp_region: Optional[str] = None  # NEW
+    gcp_region: Optional[str] = None
     configured_providers: list[str] = Field(default_factory=list)
     credential_sources: dict[str, Optional[CredentialSource]] = Field(
         default_factory=dict
@@ -176,8 +166,7 @@ class TwinConfigResponse(BaseModel):
             gcp_credential_source=gcp_source,
             gcp_cloud_connection_id=getattr(config, "gcp_cloud_connection_id", None),
             gcp_project_id=config.gcp_project_id,
-            gcp_billing_account_configured=False,
-            gcp_region=getattr(config, "gcp_region", None),  # NEW
+            gcp_region=getattr(config, "gcp_region", None),
             configured_providers=configured_providers,
             credential_sources={
                 "aws": aws_source,

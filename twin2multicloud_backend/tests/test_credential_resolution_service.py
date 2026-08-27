@@ -33,7 +33,6 @@ def _configuration(**overrides):
         "gcp_cloud_connection_id": None,
         "gcp_cloud_connection": None,
         "gcp_project_id": None,
-        "gcp_billing_account": None,
         "gcp_region": "europe-west1",
         "gcp_service_account_json": None,
     }
@@ -92,6 +91,7 @@ def test_gcp_deployment_credentials_use_service_account_file_boundary():
         "private_key": "-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----\n",
     }
     payload = {
+        "gcp_project_id": "deployment-target",
         "gcp_region": "europe-west1",
         "gcp_credentials_file": json.dumps(service_account),
     }
@@ -107,7 +107,7 @@ def test_gcp_deployment_credentials_use_service_account_file_boundary():
     )
 
     assert resolved.config_credentials["gcp"] == {
-        "gcp_project_id": "service-account-project",
+        "gcp_project_id": "deployment-target",
         "gcp_region": "europe-west1",
         "gcp_credentials_file": "gcp_credentials.json",
     }
@@ -217,7 +217,7 @@ def test_plaintext_azure_credentials_use_canonical_region_fallbacks():
     )
 
 
-def test_plaintext_gcp_credentials_extract_project_from_service_account():
+def test_plaintext_gcp_credentials_keep_explicit_deployment_project():
     service_account = {
         "type": "service_account",
         "project_id": "service-account-project",
@@ -225,8 +225,7 @@ def test_plaintext_gcp_credentials_extract_project_from_service_account():
         "private_key": "-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----\n",
     }
     credentials = SimpleNamespace(
-        project_id=None,
-        billing_account="012345-6789AB-CDEF01",
+        project_id="deployment-target",
         service_account_json=json.dumps(service_account),
         region="europe-west1",
     )
@@ -235,15 +234,12 @@ def test_plaintext_gcp_credentials_extract_project_from_service_account():
         "gcp", credentials
     )
 
-    assert resolved.optimizer_payload["gcp_project_id"] == "service-account-project"
-    assert (
-        resolved.deployer_validation_payload["gcp_project_id"]
-        == "service-account-project"
-    )
+    assert resolved.optimizer_payload["gcp_project_id"] == "deployment-target"
+    assert resolved.deployer_validation_payload["gcp_project_id"] == "deployment-target"
     assert "private_key" not in str(resolved.deployer_config_payload)
 
 
-def test_plaintext_google_alias_credentials_extract_project_from_service_account():
+def test_plaintext_google_alias_credentials_keep_explicit_project():
     service_account = {
         "type": "service_account",
         "project_id": "alias-project",
@@ -251,8 +247,7 @@ def test_plaintext_google_alias_credentials_extract_project_from_service_account
         "private_key": "-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----\n",
     }
     credentials = SimpleNamespace(
-        project_id=None,
-        billing_account=None,
+        project_id="alias-deployment-target",
         service_account_json=json.dumps(service_account),
         region="europe-west1",
     )
@@ -262,13 +257,12 @@ def test_plaintext_google_alias_credentials_extract_project_from_service_account
     )
 
     assert resolved.provider == "gcp"
-    assert resolved.optimizer_payload["gcp_project_id"] == "alias-project"
+    assert resolved.optimizer_payload["gcp_project_id"] == "alias-deployment-target"
 
 
 def test_plaintext_gcp_credentials_require_service_account_json():
     credentials = SimpleNamespace(
         project_id="demo-project",
-        billing_account=None,
         service_account_json=None,
         region="europe-west1",
     )

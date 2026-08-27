@@ -243,12 +243,7 @@ class ProviderPayloadFormState extends State<ProviderPayloadForm> {
         ),
       ],
       CloudProvider.gcp => const [
-        ProviderPayloadField('project_id', 'Project ID', required: false),
-        ProviderPayloadField(
-          'billing_account',
-          'Billing Account',
-          required: false,
-        ),
+        ProviderPayloadField('project_id', 'Existing project ID'),
         ProviderPayloadField('region', 'Region', initial: 'europe-west1'),
       ],
     };

@@ -964,36 +964,19 @@
         "type": "object"
       },
       "GCPCredentialsRequest": {
+        "additionalProperties": false,
         "description": "Request body for GCP credential validation.",
         "properties": {
-          "gcp_billing_account": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "GCP Billing Account ID for auto-project creation (org accounts)",
-            "title": "Gcp Billing Account"
-          },
           "gcp_credentials_file": {
             "description": "Path to Service Account JSON key file",
             "title": "Gcp Credentials File",
             "type": "string"
           },
           "gcp_project_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "GCP Project ID for existing project (private accounts)",
-            "title": "Gcp Project Id"
+            "description": "Existing billing-enabled GCP deployment project ID",
+            "minLength": 1,
+            "title": "Gcp Project Id",
+            "type": "string"
           },
           "gcp_region": {
             "description": "GCP Region (e.g., 'europe-west1')",
@@ -1002,6 +985,7 @@
           }
         },
         "required": [
+          "gcp_project_id",
           "gcp_credentials_file",
           "gcp_region"
         ],

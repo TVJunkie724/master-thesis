@@ -106,9 +106,7 @@ provider "aws" {
 
 # Google Cloud Provider (for multi-cloud deployments)
 provider "google" {
-  project = local.deploy_gcp ? (
-    var.gcp_project_id != "" ? var.gcp_project_id : "${var.digital_twin_name}-project"
-  ) : "placeholder-not-used"
+  project = local.deploy_gcp ? var.gcp_project_id : "placeholder-not-used"
   region = var.gcp_region != "" ? var.gcp_region : "us-central1"
   # Use dummy credentials when none provided to prevent Application Default Credentials
   # lookup (which fails in containers without gcloud CLI).

@@ -63,7 +63,6 @@ def test_export_twin_redacts_credentials_and_preserves_config_shape(db_session):
             azure_client_secret="AZ-CLIENT-SECRET-IN-DB",
             azure_region="westeurope",
             gcp_project_id="public-project-id",
-            gcp_billing_account="GCP-BILLING-SECRET-IN-DB",
             gcp_service_account_json='{"private_key": "GCP-PRIVATE-KEY-IN-DB"}',
             gcp_region="europe-west1",
         )

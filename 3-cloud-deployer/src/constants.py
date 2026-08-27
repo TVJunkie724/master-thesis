@@ -74,9 +74,7 @@ REQUIRED_CREDENTIALS_FIELDS = {
         "azure_region_iothub",
         "azure_region_digital_twin",
     ],
-    # GCP: credentials_file and region are always required
-    # Either gcp_project_id (private) OR gcp_billing_account (org) must be provided - validated in code
-    "gcp": ["gcp_credentials_file", "gcp_region"],
+    "gcp": ["gcp_project_id", "gcp_credentials_file", "gcp_region"],
 }
 
 # ==========================================

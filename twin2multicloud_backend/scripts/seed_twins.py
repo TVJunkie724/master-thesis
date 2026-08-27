@@ -91,7 +91,6 @@ def _build_gcp_payload(credentials: dict, service_account: str | None) -> dict |
         return None
     payload = {
         "gcp_project_id": credentials.get("gcp_project_id", ""),
-        "gcp_billing_account": credentials.get("gcp_billing_account", ""),
         "gcp_region": credentials.get("gcp_region", "europe-west1"),
         "gcp_credentials_file": service_account,
     }
@@ -110,7 +109,6 @@ def _cloud_scope(provider: str, payload: dict) -> dict:
         }
     return {
         "project_id": payload.get("gcp_project_id"),
-        "billing_account_configured": bool(payload.get("gcp_billing_account")),
         "region": payload.get("gcp_region"),
     }
 

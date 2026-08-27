@@ -895,36 +895,16 @@ def _load_credentials(project_dir: Path) -> dict:
         # SSO region - may be different from main region (e.g., us-east-1 while resources are in eu-central-1)
         tfvars["aws_sso_region"] = aws.get("aws_sso_region", "")
 
-    # GCP credentials - support dual-mode: project_id (private) OR billing_account (org)
+    # GCP credentials target an existing billing-enabled project.
     if "gcp" in creds:
         gcp = creds["gcp"]
 
-        # gcp_region is always required
-        if "gcp_region" not in gcp:
-            raise ConfigurationError("Missing required GCP credential: gcp_region")
-
-        # Dual-mode validation: either gcp_project_id OR gcp_billing_account required
-        has_project_id = "gcp_project_id" in gcp and gcp["gcp_project_id"].strip()
-        has_billing_account = (
-            "gcp_billing_account" in gcp and gcp["gcp_billing_account"].strip()
-        )
-
-        if not has_project_id and not has_billing_account:
-            raise ConfigurationError(
-                "GCP requires either 'gcp_project_id' (for private accounts with existing project) "
-                "or 'gcp_billing_account' (for organization accounts with auto-project creation). "
-                "Please provide at least one."
-            )
+        for field in ("gcp_project_id", "gcp_region"):
+            if not str(gcp.get(field, "")).strip():
+                raise ConfigurationError(f"Missing required GCP credential: {field}")
 
         tfvars["gcp_region"] = gcp["gcp_region"]
-
-        # Private account mode: use existing project
-        if has_project_id:
-            tfvars["gcp_project_id"] = gcp["gcp_project_id"].strip()
-
-        # Organization account mode: auto-create project
-        if has_billing_account:
-            tfvars["gcp_billing_account"] = gcp["gcp_billing_account"].strip()
+        tfvars["gcp_project_id"] = gcp["gcp_project_id"].strip()
 
         # GCP credentials file - resolve relative paths, then read if exists
         creds_file_raw = gcp.get("gcp_credentials_file", "")

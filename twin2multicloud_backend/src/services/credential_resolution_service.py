@@ -199,13 +199,11 @@ class CredentialResolutionService:
             }
 
         if provider == "gcp":
-            payload = {
+            return {
                 "gcp_project_id": credentials.project_id,
-                "gcp_billing_account": credentials.billing_account,
                 "gcp_region": credentials.region,
                 "gcp_credentials_file": credentials.service_account_json,
             }
-            return {key: value for key, value in payload.items() if value is not None}
 
         raise CredentialResolutionFailed(
             "Cannot resolve deployment credentials",
@@ -222,16 +220,11 @@ class CredentialResolutionService:
     ) -> dict[str, Any]:
         provider = cls._normalize_provider(provider)
         if provider == "gcp":
-            project_id = payload.get(
-                "gcp_project_id"
-            ) or cls._gcp_project_id_from_service_account(payload)
             result = {
                 "gcp_credentials_file": payload.get("gcp_credentials_file"),
-                "gcp_project_id": project_id,
+                "gcp_project_id": payload.get("gcp_project_id"),
                 "gcp_region": payload.get("gcp_region"),
             }
-            if payload.get("gcp_billing_account"):
-                result["gcp_billing_account"] = payload.get("gcp_billing_account")
             return {key: value for key, value in result.items() if value}
         return payload.copy()
 
@@ -255,16 +248,11 @@ class CredentialResolutionService:
 
         service_account_raw = payload.get("gcp_credentials_file")
         service_account_json = cls._parse_gcp_service_account(service_account_raw)
-        project_id = payload.get(
-            "gcp_project_id"
-        ) or cls._gcp_project_id_from_service_account(payload)
         deployer_payload = {
-            "gcp_project_id": project_id,
+            "gcp_project_id": payload.get("gcp_project_id"),
             "gcp_region": payload.get("gcp_region") or "europe-west1",
             "gcp_credentials_file": "gcp_credentials.json",
         }
-        if payload.get("gcp_billing_account"):
-            deployer_payload["gcp_billing_account"] = payload["gcp_billing_account"]
         return {
             key: value for key, value in deployer_payload.items() if value
         }, service_account_json
@@ -417,7 +405,6 @@ class CredentialResolutionService:
                 getattr(config, field, None)
                 for field in (
                     "gcp_project_id",
-                    "gcp_billing_account",
                     "gcp_service_account_json",
                 )
             )
@@ -425,9 +412,6 @@ class CredentialResolutionService:
                 return None
             return {
                 "gcp_project_id": config.gcp_project_id,
-                "gcp_billing_account": self._decrypt_optional(
-                    config.gcp_billing_account, user_id, twin_id
-                ),
                 "gcp_region": config.gcp_region,
                 "gcp_credentials_file": self._decrypt_optional(
                     config.gcp_service_account_json, user_id, twin_id
@@ -486,15 +470,9 @@ class CredentialResolutionService:
                 "azure_region_iothub",
                 "azure_region_digital_twin",
             ),
-            "gcp": ("gcp_credentials_file", "gcp_region"),
+            "gcp": ("gcp_project_id", "gcp_credentials_file", "gcp_region"),
         }[provider]
         missing = [field for field in required if not payload.get(field)]
-        if provider == "gcp" and not (
-            payload.get("gcp_project_id")
-            or payload.get("gcp_billing_account")
-            or cls._gcp_project_id_from_service_account(payload)
-        ):
-            missing.append("gcp_project_id_or_billing_account")
         return [
             cls._error(
                 provider,
@@ -517,18 +495,6 @@ class CredentialResolutionService:
         if not provider or not isinstance(provider, str):
             return ""
         return normalize_optional_provider_id(provider) or ""
-
-    @classmethod
-    def _gcp_project_id_from_service_account(
-        cls, payload: dict[str, Any]
-    ) -> str | None:
-        service_account = cls._parse_gcp_service_account(
-            payload.get("gcp_credentials_file"), allow_missing=True
-        )
-        if not service_account:
-            return None
-        project_id = service_account.get("project_id")
-        return project_id if isinstance(project_id, str) and project_id else None
 
     @staticmethod
     def _parse_gcp_service_account(

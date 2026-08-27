@@ -12,7 +12,7 @@ Categories:
 import os
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 
 from src.api.credentials_checker import (
@@ -92,13 +92,12 @@ class AzureCredentialsRequest(BaseModel):
 class GCPCredentialsRequest(BaseModel):
     """Request body for GCP credential validation."""
 
-    # Dual-mode: either project_id (private account) OR billing_account (org account) required
-    gcp_project_id: Optional[str] = Field(
-        None, description="GCP Project ID for existing project (private accounts)"
-    )
-    gcp_billing_account: Optional[str] = Field(
-        None,
-        description="GCP Billing Account ID for auto-project creation (org accounts)",
+    model_config = ConfigDict(extra="forbid")
+
+    gcp_project_id: str = Field(
+        ...,
+        min_length=1,
+        description="Existing billing-enabled GCP deployment project ID",
     )
     gcp_credentials_file: str = Field(
         ..., description="Path to Service Account JSON key file"

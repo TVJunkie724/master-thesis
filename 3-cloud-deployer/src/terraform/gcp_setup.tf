@@ -4,14 +4,12 @@
 # Resources are created conditionally based on whether any layer uses GCP.
 #
 # Resources Created:
-# - GCP Project: Resource container (only for org accounts with billing_account)
 # - Service Account for function deployment
 # - Enabled APIs for required services
 # - Cloud Storage bucket for function source code
 #
-# Supports two modes:
-# - Private Account Mode: Uses existing project via gcp_project_id
-# - Organization Account Mode: Creates new project via gcp_billing_account
+# The PoC always deploys into an existing billing-enabled project selected via
+# gcp_project_id. Project creation and billing-account management are external.
 
 # ==============================================================================
 # Locals for GCP
@@ -24,17 +22,7 @@ locals {
     managed-by   = "terraform"
   }
 
-  # Dual-mode detection: private account (existing project) vs org account (auto-create)
-  gcp_use_existing_project = var.gcp_project_id != ""
-
-  # Generated project ID (for org account mode)
-  gcp_generated_project_id = "${var.digital_twin_name}-project"
-
-  # Unified project ID - used by all other GCP resources
-  # Uses existing project if provided, otherwise uses the auto-created one
-  gcp_project_id = local.gcp_use_existing_project ? var.gcp_project_id : (
-    local.deploy_gcp && !local.gcp_use_existing_project ? google_project.main[0].project_id : ""
-  )
+  gcp_project_id = var.gcp_project_id
 
   # GCP-specific layer checks
   gcp_l1_enabled         = var.layer_1_provider == "google" && !local.six_layer_enabled
@@ -70,9 +58,6 @@ locals {
   # ===========================================================================
   # GCP Resource Names - Single Source of Truth
   # ===========================================================================
-
-  # Project
-  gcp_project_name = "${var.digital_twin_name}-project"
 
   # Service Account
   gcp_functions_sa_id      = "${var.digital_twin_name}-functions-sa"
@@ -217,20 +202,6 @@ resource "terraform_data" "gcp_deployment_specification_guard" {
       error_message = "GCP L5 is unsupported by the canonical Deployer capability contract."
     }
   }
-}
-
-# ==============================================================================
-# GCP Project (Resource Container - only for Organization Account Mode)
-# ==============================================================================
-
-# Only create project in org account mode (when billing_account provided but no project_id)
-resource "google_project" "main" {
-  count           = local.deploy_gcp && !local.gcp_use_existing_project ? 1 : 0
-  name            = local.gcp_project_name
-  project_id      = local.gcp_generated_project_id
-  billing_account = var.gcp_billing_account
-
-  labels = local.gcp_common_labels
 }
 
 # ==============================================================================

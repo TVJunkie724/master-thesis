@@ -57,7 +57,6 @@ def test_credential_request_accepts_management_api_gcp_context_fields():
     request = CredentialRequest(
         gcp_service_account_json='{"type":"service_account"}',
         gcp_project_id="thesis-demo",
-        gcp_billing_account="012345-6789AB-CDEF01",
         gcp_region="europe-west1",
     )
 
@@ -68,9 +67,8 @@ def test_credential_request_accepts_management_api_gcp_context_fields():
             "aws_region": None,
             "aws_configured_account_id": None,
             "azure_region": "westeurope",
-            "gcp_service_account_json": '{"type":"service_account"}',
+        "gcp_service_account_json": '{"type":"service_account"}',
         "gcp_project_id": "thesis-demo",
-        "gcp_billing_account": "012345-6789AB-CDEF01",
         "gcp_region": "europe-west1",
     }
 
@@ -147,7 +145,6 @@ def test_fetch_pricing_with_credentials_preserves_gcp_context_fields(mock_refres
         json={
             "gcp_service_account_json": '{"type":"service_account"}',
             "gcp_project_id": "thesis-demo",
-            "gcp_billing_account": "012345-6789AB-CDEF01",
             "gcp_region": "europe-west1",
         },
     )
@@ -161,9 +158,8 @@ def test_fetch_pricing_with_credentials_preserves_gcp_context_fields(mock_refres
             "aws_region": None,
             "aws_configured_account_id": None,
             "azure_region": "westeurope",
-            "gcp_service_account_json": '{"type":"service_account"}',
+        "gcp_service_account_json": '{"type":"service_account"}',
         "gcp_project_id": "thesis-demo",
-        "gcp_billing_account": "012345-6789AB-CDEF01",
         "gcp_region": "europe-west1",
     }
 
@@ -253,7 +249,6 @@ def test_stream_fetch_pricing_preserves_gcp_context_fields(mock_refresh):
         json={
             "gcp_service_account_json": '{"type":"service_account"}',
             "gcp_project_id": "thesis-demo",
-            "gcp_billing_account": "012345-6789AB-CDEF01",
             "gcp_region": "europe-west1",
         },
     ) as response:
@@ -263,7 +258,6 @@ def test_stream_fetch_pricing_preserves_gcp_context_fields(mock_refresh):
     assert "complete" in body
     assert mock_refresh.call_args.args[0] == "gcp"
     assert mock_refresh.call_args.args[1]["gcp_project_id"] == "thesis-demo"
-    assert mock_refresh.call_args.args[1]["gcp_billing_account"] == "012345-6789AB-CDEF01"
 
 
 @patch(

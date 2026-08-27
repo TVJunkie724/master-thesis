@@ -418,17 +418,6 @@
             "default": "westeurope",
             "title": "Azure Region"
           },
-          "gcp_billing_account": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Gcp Billing Account"
-          },
           "gcp_project_id": {
             "anyOf": [
               {

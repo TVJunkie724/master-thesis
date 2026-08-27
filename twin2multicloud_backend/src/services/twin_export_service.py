@@ -170,8 +170,6 @@ class TwinExportService:
                 "gcp_project_id": config.gcp_project_id,
                 "gcp_region": config.gcp_region or "europe-west1",
             }
-            if config.gcp_billing_account:
-                result["gcp"]["gcp_billing_account"] = REDACTED
             if config.gcp_service_account_json:
                 result["gcp"]["gcp_credentials_file"] = None
                 result["gcp"]["gcp_service_account_json"] = REDACTED

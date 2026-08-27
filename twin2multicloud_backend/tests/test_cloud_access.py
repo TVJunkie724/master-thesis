@@ -32,7 +32,6 @@ def _gcp_request(display_name="GCP Deployment"):
         "cloud_scope": {"project_id": "demo-project", "region": "europe-west1"},
         "gcp": {
             "project_id": "demo-project",
-            "billing_account": "012345-6789AB-CDEF01",
             "region": "europe-west1",
             "service_account_json": json.dumps(
                 {

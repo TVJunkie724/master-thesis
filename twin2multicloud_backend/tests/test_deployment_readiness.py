@@ -72,7 +72,6 @@ def _connection_request(
     elif provider == "gcp":
         common["gcp"] = {
             "project_id": "readiness-project",
-            "billing_account": "012345-6789AB-CDEF01",
             "region": "europe-west1",
             "service_account_json": json.dumps(
                 {

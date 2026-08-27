@@ -254,7 +254,7 @@ async def test_validate_stored_rejects_missing_config(db_session):
 
 
 @pytest.mark.asyncio
-async def test_validate_inline_gcp_dual_uses_placeholder_project_for_optimizer(db_session):
+async def test_validate_inline_gcp_dual_uses_explicit_project_for_both_services(db_session):
     calls = []
 
     async def optimizer(provider, credentials):
@@ -273,7 +273,7 @@ async def test_validate_inline_gcp_dual_uses_placeholder_project_for_optimizer(d
         InlineValidationRequest(
             provider="gcp",
             gcp=GCPCredentials(
-                billing_account="billing-account",
+                project_id="deployment-project",
                 service_account_json='{"private_key": "GCP-PRIVATE-KEY"}',
                 region="europe-west1",
             ),
@@ -281,8 +281,8 @@ async def test_validate_inline_gcp_dual_uses_placeholder_project_for_optimizer(d
     )
 
     assert result["valid"] is True
-    assert "gcp_project_id" not in calls[0][2]
-    assert calls[1][2]["gcp_billing_account"] == "billing-account"
+    assert calls[0][2]["gcp_project_id"] == "deployment-project"
+    assert calls[1][2]["gcp_project_id"] == "deployment-project"
 
 
 def test_redact_validation_helpers_handle_nested_payloads():

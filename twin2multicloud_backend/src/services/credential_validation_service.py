@@ -173,13 +173,10 @@ class CredentialValidationService:
                 "azure_region_iothub": config.azure_region_iothub or azure_region,
                 "azure_region_digital_twin": config.azure_region_digital_twin or azure_region,
             }
-        if not config.gcp_project_id and not config.gcp_billing_account:
+        if not config.gcp_project_id:
             return None
         return {
             "gcp_project_id": config.gcp_project_id,
-            "gcp_billing_account": decrypt(config.gcp_billing_account, user_id, twin_id)
-            if config.gcp_billing_account
-            else None,
             "gcp_region": config.gcp_region,
             "gcp_credentials_file": decrypt(config.gcp_service_account_json, user_id, twin_id)
             if config.gcp_service_account_json
@@ -229,7 +226,6 @@ class CredentialValidationService:
         if provider == "gcp" and request.gcp:
             return {
                 "gcp_project_id": request.gcp.project_id,
-                "gcp_billing_account": request.gcp.billing_account,
                 "gcp_region": request.gcp.region,
                 "gcp_credentials_file": request.gcp.service_account_json,
             }
@@ -292,7 +288,7 @@ class CredentialValidationService:
         messages = {
             "aws": "AWS credentials not configured",
             "azure": "Azure credentials not configured",
-            "gcp": "GCP credentials not configured (need project_id or billing_account)",
+            "gcp": "GCP credentials not configured (project_id is required)",
         }
         return CredentialValidationResult(provider=provider, valid=False, message=messages[provider])
 

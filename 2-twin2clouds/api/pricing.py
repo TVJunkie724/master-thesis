@@ -699,7 +699,6 @@ class CredentialRequest(BaseModel):
     # GCP
     gcp_service_account_json: Optional[str] = None
     gcp_project_id: Optional[str] = None
-    gcp_billing_account: Optional[str] = None
     gcp_region: Optional[str] = "europe-west1"
 
     @model_validator(mode="after")

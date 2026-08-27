@@ -237,7 +237,7 @@ class TestGCPPermissionsFromBody:
         }
         
         response = client.post("/permissions/verify/gcp", json={
-            "gcp_billing_account": "billing-123",
+            "gcp_project_id": "deployment-target",
             "gcp_credentials_file": "/path/to/creds.json",
             "gcp_region": "europe-west1"
         })
@@ -245,8 +245,8 @@ class TestGCPPermissionsFromBody:
         assert response.status_code == 200
 
     @patch("src.api.gcp_credentials_checker.check_gcp_credentials")
-    def test_gcp_check_without_billing_account(self, mock_check):
-        """Valid: Missing gcp_billing_account is OK (it's optional)."""
+    def test_gcp_check_missing_project_id(self, mock_check):
+        """Invalid: The existing deployment project is required."""
         mock_check.return_value = {
             "status": "valid",
             "project_access": {},
@@ -259,13 +259,13 @@ class TestGCPPermissionsFromBody:
             "gcp_region": "europe-west1"
         })
         
-        # gcp_billing_account is optional, so this should succeed
-        assert response.status_code == 200
+        assert response.status_code == 422
+        mock_check.assert_not_called()
 
     def test_gcp_check_missing_credentials_file(self):
         """Invalid: Missing gcp_credentials_file returns 422."""
         response = client.post("/permissions/verify/gcp", json={
-            "gcp_billing_account": "billing-123",
+            "gcp_project_id": "deployment-target",
             "gcp_region": "europe-west1"
         })
         
@@ -274,10 +274,20 @@ class TestGCPPermissionsFromBody:
     def test_gcp_check_missing_region(self):
         """Invalid: Missing gcp_region returns 422."""
         response = client.post("/permissions/verify/gcp", json={
-            "gcp_billing_account": "billing-123",
+            "gcp_project_id": "deployment-target",
             "gcp_credentials_file": "/path/to/creds.json"
         })
         
+        assert response.status_code == 422
+
+    def test_gcp_check_rejects_removed_billing_account_input(self):
+        response = client.post("/permissions/verify/gcp", json={
+            "gcp_project_id": "deployment-target",
+            "gcp_billing_account": "removed-input",
+            "gcp_credentials_file": "/path/to/creds.json",
+            "gcp_region": "europe-west1",
+        })
+
         assert response.status_code == 422
 
     @patch("src.api.gcp_credentials_checker.check_gcp_credentials")
@@ -292,7 +302,6 @@ class TestGCPPermissionsFromBody:
         
         response = client.post("/permissions/verify/gcp", json={
             "gcp_project_id": "my-existing-project",
-            "gcp_billing_account": "billing-123",
             "gcp_credentials_file": "/path/to/creds.json",
             "gcp_region": "europe-west1"
         })
@@ -367,7 +376,7 @@ class TestCredentialResponseFormats:
         }
         
         response = client.post("/permissions/verify/gcp", json={
-            "gcp_billing_account": "billing-123",
+            "gcp_project_id": "deployment-target",
             "gcp_credentials_file": "/path/to/creds.json",
             "gcp_region": "europe-west1"
         })
