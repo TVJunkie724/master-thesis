@@ -53,9 +53,18 @@ def _graph_evidence() -> dict[str, object]:
         "catalog_digest": "sha256:" + ("3" * 64),
         "specification_digest": "sha256:" + ("4" * 64),
         "package_selection_digest": "sha256:" + ("5" * 64),
+        "requirements_digest": "sha256:" + ("6" * 64),
         "node_count": 7,
         "edge_count": 6,
         "binding_count": 21,
+        "requirement_count": 18,
+        "requirement_types": [
+            "control_plane",
+            "permission",
+            "provider_scope",
+            "region",
+        ],
+        "required_providers": ["aws", "azure"],
         "stage_ids": ["package", "preplan", "terraform", "postapply"],
     }
 

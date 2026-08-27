@@ -326,9 +326,13 @@ def _validate_operation_package_response(
         "catalog_digest",
         "specification_digest",
         "package_selection_digest",
+        "requirements_digest",
         "node_count",
         "edge_count",
         "binding_count",
+        "requirement_count",
+        "requirement_types",
+        "required_providers",
         "stage_ids",
     }
     digest_pattern = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -345,6 +349,7 @@ def _validate_operation_package_response(
                 "catalog_digest",
                 "specification_digest",
                 "package_selection_digest",
+                "requirements_digest",
             )
         )
         or not isinstance(graph_evidence.get("calculation_run_id"), str)
@@ -363,6 +368,28 @@ def _validate_operation_package_response(
         or not _bounded_graph_count(graph_evidence.get("node_count"), 1, 256)
         or not _bounded_graph_count(graph_evidence.get("edge_count"), 0, 512)
         or not _bounded_graph_count(graph_evidence.get("binding_count"), 1, 2048)
+        or not _bounded_graph_count(graph_evidence.get("requirement_count"), 1, 4096)
+        or not _bounded_string_list(
+            graph_evidence.get("requirement_types"),
+            allowed={
+                "account_capability",
+                "access_prerequisite",
+                "api",
+                "control_plane",
+                "permission",
+                "provider_scope",
+                "quota",
+                "region",
+                "resource_provider",
+                "runtime_identity",
+                "verification_probe",
+                "workload_identity",
+            },
+        )
+        or not _bounded_string_list(
+            graph_evidence.get("required_providers"),
+            allowed={"aws", "azure", "gcp"},
+        )
         or graph_evidence.get("stage_ids")
         != ["package", "preplan", "terraform", "postapply"]
     ):
@@ -380,6 +407,17 @@ def _bounded_graph_count(value: object, minimum: int, maximum: int) -> bool:
         not isinstance(value, bool)
         and isinstance(value, int)
         and minimum <= value <= maximum
+    )
+
+
+def _bounded_string_list(value: object, *, allowed: set[str]) -> bool:
+    """Validate a deterministic non-empty subset without accepting duplicates."""
+
+    return (
+        isinstance(value, list)
+        and bool(value)
+        and value == sorted(set(value))
+        and all(isinstance(item, str) and item in allowed for item in value)
     )
 
 
