@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from contextlib import redirect_stderr, redirect_stdout
 import io
 import os
-from pathlib import Path
 import stat
 import subprocess
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
 from unittest.mock import patch
 
 from scripts import verify_resolved_deployment_drift as verification
@@ -27,7 +27,10 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "scripts/sync_six_layer_workload_contract.py",
             "scripts/sync_user_function_extension_contracts.py",
             "scripts/materialize_live_evaluation_candidate.py",
+            "scripts/manage_live_evaluation_evidence.py",
             "scripts/validate_live_evaluation_plan.py",
+            "scripts/tests/test_manage_live_evaluation_evidence.py",
+            "scripts/tests/test_validate_live_evaluation_plan.py",
             "scripts/verify_six_layer_management_boundary.py",
         )
 
@@ -48,9 +51,11 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         )
 
         for environment in unsafe_environments:
-            with self.subTest(environment=environment):
-                with self.assertRaises(verification.VerificationConfigurationError):
-                    verification.validate_safety(environment)
+            with (
+                self.subTest(environment=environment),
+                self.assertRaises(verification.VerificationConfigurationError),
+            ):
+                verification.validate_safety(environment)
 
     def test_sanitized_environment_removes_provider_credentials(self) -> None:
         environment = {
@@ -137,7 +142,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             rendered,
         )
         self.assertIn(
-            "scripts.tests.test_user_function_extension_contract_sync",
+            "scripts/tests/test_user_function_extension_contract_sync.py",
             rendered,
         )
         self.assertIn(
@@ -146,7 +151,15 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         )
         self.assertIn("scripts/validate_live_evaluation_plan.py", rendered)
         self.assertIn(
-            "scripts.tests.test_deployment_access_contract_sync",
+            "scripts/tests/test_deployment_access_contract_sync.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/tests/test_manage_live_evaluation_evidence.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/tests/test_validate_live_evaluation_plan.py",
             rendered,
         )
         self.assertIn(
