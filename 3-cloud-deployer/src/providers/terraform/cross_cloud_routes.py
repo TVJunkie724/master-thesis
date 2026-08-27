@@ -5,18 +5,11 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
 
+from src.architecture_profiles.requirements import IDENTITY_EXCHANGE_BY_PAIR
+
 if TYPE_CHECKING:
     from src.architecture_profiles import ResolvedDeploymentGraph
 
-
-IDENTITY_EXCHANGE_BY_PAIR = {
-    ("aws", "azure"): "aws_oidc_to_entra_federated_credential",
-    ("aws", "gcp"): "aws_subject_token_to_gcp_workload_identity_federation",
-    ("azure", "aws"): "entra_managed_identity_oidc_to_assume_role_with_web_identity",
-    ("azure", "gcp"): "entra_managed_identity_oidc_to_gcp_workload_identity_federation",
-    ("gcp", "aws"): "google_service_account_oidc_to_assume_role_with_web_identity",
-    ("gcp", "azure"): "google_service_account_oidc_to_entra_federated_credential",
-}
 
 _STORAGE_EDGE_IDS = frozenset(
     {
@@ -41,15 +34,9 @@ _PAYLOAD_CONTRACT_BY_EDGE = {
 }
 
 _EVENT_CHANNELS_BY_EDGE: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
-    "edge.ingestion-to-processing": (
-        ("telemetry", ("telemetry.received.v1",)),
-    ),
-    "edge.ingestion-to-hot-storage": (
-        ("control", ("device.command.outcome.v1",)),
-    ),
-    "edge.processing-to-ingestion": (
-        ("control", ("device.command.requested.v1",)),
-    ),
+    "edge.ingestion-to-processing": (("telemetry", ("telemetry.received.v1",)),),
+    "edge.ingestion-to-hot-storage": (("control", ("device.command.outcome.v1",)),),
+    "edge.processing-to-ingestion": (("control", ("device.command.requested.v1",)),),
     "edge.processing-to-hot-storage": (
         ("telemetry", ("telemetry.processed.v1",)),
         (
@@ -101,9 +88,7 @@ _EVENT_CHANNELS_BY_EDGE: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
             ),
         ),
     ),
-    "edge.eventing-to-ingestion": (
-        ("control", ("device.command.requested.v1",)),
-    ),
+    "edge.eventing-to-ingestion": (("control", ("device.command.requested.v1",)),),
     "edge.eventing-to-hot-storage": (
         ("telemetry", ("telemetry.processed.v1",)),
         (

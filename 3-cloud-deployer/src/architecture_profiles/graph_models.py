@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Mapping
 
@@ -196,6 +196,38 @@ class GraphStage:
 
 
 @dataclass(frozen=True, slots=True)
+class GraphRequirement:
+    """One provider prerequisite derived from graph nodes or directed edges."""
+
+    requirement_id: str
+    requirement_type: str
+    provider: str
+    capability_id: str
+    scope: str
+    preparation_mode: str
+    mandatory: bool
+    source_node_ids: tuple[str, ...]
+    source_edge_ids: tuple[str, ...]
+    region: str = ""
+    attributes: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+    def to_contract(self) -> dict[str, Any]:
+        return {
+            "requirement_id": self.requirement_id,
+            "requirement_type": self.requirement_type,
+            "provider": self.provider,
+            "capability_id": self.capability_id,
+            "scope": self.scope,
+            "preparation_mode": self.preparation_mode,
+            "mandatory": self.mandatory,
+            "source_node_ids": list(self.source_node_ids),
+            "source_edge_ids": list(self.source_edge_ids),
+            "region": self.region,
+            "attributes": plain_value(self.attributes),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class ResolvedDeploymentGraph:
     graph_schema_version: str
     graph_id: str
@@ -208,6 +240,8 @@ class ResolvedDeploymentGraph:
     edges: tuple[GraphEdge, ...]
     bindings: tuple[GraphBinding, ...]
     stages: tuple[GraphStage, ...]
+    requirements: tuple[GraphRequirement, ...]
+    requirements_digest: str
     compatibility: Mapping[str, str]
     content_digest: str
 
@@ -224,6 +258,10 @@ class ResolvedDeploymentGraph:
             "edges": [edge.to_contract() for edge in self.edges],
             "bindings": [binding.to_contract() for binding in self.bindings],
             "stages": [stage.to_contract() for stage in self.stages],
+            "requirements": [
+                requirement.to_contract() for requirement in self.requirements
+            ],
+            "requirements_digest": self.requirements_digest,
             "compatibility": plain_value(self.compatibility),
         }
         if include_digest:

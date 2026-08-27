@@ -8,36 +8,48 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from src.api.deployment_trace import sanitize_deployment_message
-from src.core.secure_files import atomic_write_private_bytes
 from src.core.config_loader import load_credentials, load_providers_config
-from src.providers.terraform.deployment_lifecycle import DeploymentLifecycleMixin
-from src.providers.terraform.destruction_lifecycle import (
-    DestructionLifecycleMixin,
-    DestroyResult,
-)
-from src.providers.terraform.provider_runtime import (
-    initialize_providers,
-    prepare_shared_identity_capabilities,
-    run_post_deployment,
-)
-from src.providers.terraform.gcp_six_layer_image_publisher import (
-    GcpSixLayerImagePublisher,
-    gcp_six_layer_container_deployment,
-    image_requests as gcp_six_layer_image_requests,
-    image_tfvars as gcp_six_layer_image_tfvars,
-    placeholder_image_tfvars,
-)
+from src.core.secure_files import atomic_write_private_bytes
 from src.providers.terraform.aws_six_layer_image_publisher import (
     AwsSixLayerImagePublisher,
     aws_six_layer_container_deployment,
+)
+from src.providers.terraform.aws_six_layer_image_publisher import (
     image_requests as aws_six_layer_image_requests,
+)
+from src.providers.terraform.aws_six_layer_image_publisher import (
     image_tfvars as aws_six_layer_image_tfvars,
 )
 from src.providers.terraform.azure_six_layer_image_publisher import (
     AzureSixLayerImagePublisher,
     azure_six_layer_container_deployment,
+)
+from src.providers.terraform.azure_six_layer_image_publisher import (
     image_requests as azure_six_layer_image_requests,
+)
+from src.providers.terraform.azure_six_layer_image_publisher import (
     image_tfvars as azure_six_layer_image_tfvars,
+)
+from src.providers.terraform.deployment_lifecycle import DeploymentLifecycleMixin
+from src.providers.terraform.destruction_lifecycle import (
+    DestroyResult,
+    DestructionLifecycleMixin,
+)
+from src.providers.terraform.gcp_six_layer_image_publisher import (
+    GcpSixLayerImagePublisher,
+    gcp_six_layer_container_deployment,
+    placeholder_image_tfvars,
+)
+from src.providers.terraform.gcp_six_layer_image_publisher import (
+    image_requests as gcp_six_layer_image_requests,
+)
+from src.providers.terraform.gcp_six_layer_image_publisher import (
+    image_tfvars as gcp_six_layer_image_tfvars,
+)
+from src.providers.terraform.provider_runtime import (
+    initialize_providers,
+    prepare_shared_identity_capabilities,
+    run_post_deployment,
 )
 from src.terraform_runner import TerraformRunner
 from src.tfvars_generator import ConfigurationError, generate_tfvars
@@ -229,16 +241,19 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
         )
 
     def _validate_credentials(self) -> None:
-        providers = self._load_providers_config()
         credentials = self._load_credentials()
-        used_clouds = {
-            "gcp" if cloud == "google" else cloud
-            for key, cloud in providers.items()
-            if key.startswith("layer_")
-            and key.endswith("_provider")
-            and isinstance(cloud, str)
-            and cloud
-        }
+        graph = getattr(self, "_resolved_deployment_graph", None)
+        if graph is None:
+            raise ConfigurationError(
+                "Credential validation requires the resolved deployment graph"
+            )
+        used_clouds = {node.provider for node in graph.nodes}
+        unsupported = sorted(used_clouds - {"aws", "azure", "gcp"})
+        if unsupported:
+            raise ConfigurationError(
+                "Resolved deployment graph contains unsupported providers: "
+                + ", ".join(unsupported)
+            )
 
         if "azure" in used_clouds:
             from src.api.azure_credentials_checker import check_azure_credentials
@@ -310,17 +325,6 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
             self.project_path,
             self._load_providers_config(),
             self._terraform_outputs or {},
-        )
-
-    @staticmethod
-    def _uses_provider(providers_config: dict, cloud: str) -> bool:
-        aliases = {cloud}
-        if cloud == "gcp":
-            aliases.add("google")
-        return any(
-            value in aliases
-            for key, value in providers_config.items()
-            if key.startswith("layer_") and key.endswith("_provider")
         )
 
     def get_outputs(self) -> dict:

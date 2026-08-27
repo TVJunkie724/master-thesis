@@ -9,9 +9,9 @@ from typing import Any
 from src.deployment_specification.errors import DeploymentSpecificationError
 from src.deployment_specification.models import ValidatedDeploymentManifest
 
+from . import contracts
 from .binding_resolver import resolve_node_bindings
 from .catalog import DeploymentComponentCatalog
-from . import contracts
 from .graph_evidence import content_digest
 from .graph_models import (
     GraphBinding,
@@ -21,8 +21,8 @@ from .graph_models import (
     frozen_mapping,
 )
 from .registry import ArchitectureProfileRegistry
+from .requirements import resolve_graph_requirements
 from .stage_planner import STAGES, plan_stages
-
 
 GRAPH_SCHEMA_VERSION = "resolved-deployment-graph.v1"
 
@@ -468,6 +468,10 @@ def resolve_deployment_graph(
         bindings,
         topological_node_ids,
     )
+    requirements = resolve_graph_requirements(node_tuple, edge_tuple)
+    requirements_digest = content_digest(
+        [requirement.to_contract() for requirement in requirements]
+    )
     catalog_ref = {
         "id": registry.catalog["catalog_id"],
         "version": registry.catalog["catalog_version"],
@@ -504,6 +508,8 @@ def resolve_deployment_graph(
         "edges": [edge.to_contract() for edge in edge_tuple],
         "bindings": [binding.to_contract() for binding in bindings],
         "stages": [stage.to_contract() for stage in stages],
+        "requirements": [requirement.to_contract() for requirement in requirements],
+        "requirements_digest": requirements_digest,
         "compatibility": dict(manifest.manifest["compatibility"]),
     }
     return ResolvedDeploymentGraph(
@@ -518,6 +524,8 @@ def resolve_deployment_graph(
         edges=edge_tuple,
         bindings=bindings,
         stages=stages,
+        requirements=requirements,
+        requirements_digest=requirements_digest,
         compatibility=frozen_mapping(manifest.manifest["compatibility"]),
         content_digest=content_digest(without_digest),
     )

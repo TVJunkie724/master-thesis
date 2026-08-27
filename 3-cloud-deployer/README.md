@@ -39,6 +39,7 @@ Flutter
 | Reusable cloud credentials | Encrypted Management API CloudConnections |
 | Deployment intent | Versioned `DeploymentManifest` |
 | Deployable service settings | Profile-matched frozen `ResolvedDeploymentSpecification v1/v2` |
+| Provider prerequisites and verification probes | Immutable `ResolvedDeploymentGraph` requirements |
 | Read-only project template | `templates/digital-twin/` |
 | Durable secret-free project definition | `upload/<project>/` |
 | Credential-bearing operation package | Private temporary package store |
@@ -63,7 +64,11 @@ every registered component, edge, port, package, and dimension, and rejects
 legacy, incomplete, stale, or contradictory packages before runtime side
 effects. Only dimensions classified as `deployable_selection` may become
 Terraform variables; usage tiers, account-level state, and formula assumptions
-remain evidence only.
+remain evidence only. Provider scopes, regions, control planes, permissions,
+quotas, runtime identities, access prerequisites, and verification probes are
+projected from the same graph nodes and directed edges. Their digest is part of
+the graph contract, so stale readiness or deployment evidence cannot remain
+valid after an architecture change.
 
 ## Runtime Architecture
 
