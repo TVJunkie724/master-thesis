@@ -102,6 +102,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "033_telemetry_verifications",
         "migrations.add_telemetry_verifications",
     ),
+    Migration(
+        "034_cleanup_evidence",
+        "migrations.add_cleanup_evidence",
+    ),
 )
 
 

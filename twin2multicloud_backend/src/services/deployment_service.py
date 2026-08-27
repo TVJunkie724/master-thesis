@@ -27,6 +27,7 @@ from pydantic import ValidationError as PydanticValidationError
 from src.clients.deployer_client import DeployerClient
 from src.config import settings
 from src.repositories.deployment_repository import DeploymentRepository
+from src.schemas.cleanup_evidence import validate_cleanup_evidence
 from src.schemas.optimizer_calculation import OptimizerCalculationParams
 from src.services.architecture_contract_service import (
     calculate_digest as calculate_architecture_digest,
@@ -121,6 +122,7 @@ class DeployerStreamResult:
     message: str | None = None
     outputs: dict[str, Any] | None = None
     deployment_access_evidence: dict[str, Any] | None = None
+    cleanup_evidence: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -264,6 +266,8 @@ def _parse_deployer_sse_data(
         payload = json.loads(raw_data)
     except json.JSONDecodeError:
         if event_type in {"complete", "error"}:
+            if operation_type == "destroy" and event_type == "complete":
+                raise ValueError("Successful destroy requires typed cleanup evidence")
             return None, DeployerStreamResult(
                 success=event_type == "complete",
                 message=_redact_deployment_message(raw_data),
@@ -278,7 +282,29 @@ def _parse_deployer_sse_data(
 
     payload_event = payload.get("event") or event_type
     if payload_event in {"complete", "error"}:
-        success = bool(payload.get("success", payload_event == "complete"))
+        raw_success = payload.get("success", payload_event == "complete")
+        if not isinstance(raw_success, bool):
+            raise ValueError("Deployer terminal success flag is invalid")
+        success = raw_success
+        raw_cleanup_evidence = payload.get("cleanup_evidence")
+        cleanup_evidence = None
+        if raw_cleanup_evidence is not None:
+            if operation_type != "destroy":
+                raise ValueError(
+                    "Cleanup evidence is valid only for destroy operations"
+                )
+            try:
+                cleanup_evidence = validate_cleanup_evidence(raw_cleanup_evidence)
+            except (PydanticValidationError, ValueError) as exc:
+                raise ValueError(
+                    "Deployer cleanup evidence failed contract validation"
+                ) from exc
+            if success != (cleanup_evidence["status"] == "complete"):
+                raise ValueError(
+                    "Destroy terminal status disagrees with cleanup evidence"
+                )
+        elif operation_type == "destroy" and success:
+            raise ValueError("Successful destroy requires cleanup evidence")
         message = (
             payload.get("message")
             or payload.get("error")
@@ -295,6 +321,7 @@ def _parse_deployer_sse_data(
             message=_redact_deployment_message(message),
             outputs=payload.get("outputs") or {},
             deployment_access_evidence=payload.get("deployment_access_evidence"),
+            cleanup_evidence=cleanup_evidence,
         )
 
     message = payload.get("message") if payload.get("event") == "log" else None
@@ -643,6 +670,11 @@ async def run_real_destroy_stream(
                 if destroy_success:
                     repository.mark_success(
                         deployment,
+                        cleanup_evidence=(
+                            terminal_result.cleanup_evidence
+                            if terminal_result
+                            else None
+                        ),
                         operation_id=terminal_result.operation_id
                         if terminal_result
                         else None,
@@ -651,6 +683,11 @@ async def run_real_destroy_stream(
                     repository.mark_failed(
                         deployment,
                         error_message=error_message,
+                        cleanup_evidence=(
+                            terminal_result.cleanup_evidence
+                            if terminal_result
+                            else None
+                        ),
                         operation_id=terminal_result.operation_id
                         if terminal_result
                         else None,
@@ -667,6 +704,11 @@ async def run_real_destroy_stream(
         session.on_complete(
             success=destroy_success,
             message=error_message,
+            outputs=(
+                {"cleanup_evidence": terminal_result.cleanup_evidence}
+                if terminal_result and terminal_result.cleanup_evidence
+                else None
+            ),
             operation_id=terminal_result.operation_id if terminal_result else None,
             error_code=None
             if destroy_success
@@ -699,6 +741,11 @@ async def run_real_destroy_stream(
                 if destroy_success:
                     repository.mark_success(
                         deployment,
+                        cleanup_evidence=(
+                            terminal_result.cleanup_evidence
+                            if terminal_result
+                            else None
+                        ),
                         operation_id=terminal_result.operation_id
                         if terminal_result
                         else None,
@@ -707,6 +754,11 @@ async def run_real_destroy_stream(
                     repository.mark_failed(
                         deployment,
                         error_message=safe_error,
+                        cleanup_evidence=(
+                            terminal_result.cleanup_evidence
+                            if terminal_result
+                            else None
+                        ),
                         operation_id=terminal_result.operation_id
                         if terminal_result
                         else None,
@@ -725,6 +777,11 @@ async def run_real_destroy_stream(
         session.on_complete(
             success=destroy_success,
             message=safe_error if not destroy_success else "Destruction complete",
+            outputs=(
+                {"cleanup_evidence": terminal_result.cleanup_evidence}
+                if terminal_result and terminal_result.cleanup_evidence
+                else None
+            ),
             operation_id=terminal_result.operation_id if terminal_result else None,
             error_code=None
             if destroy_success

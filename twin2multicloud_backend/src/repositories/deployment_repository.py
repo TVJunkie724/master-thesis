@@ -218,6 +218,7 @@ class DeploymentRepository:
         deployment: Deployment,
         terraform_outputs: dict[str, Any] | None = None,
         deployment_access_evidence: dict[str, Any] | None = None,
+        cleanup_evidence: dict[str, Any] | None = None,
         completed_at: datetime | None = None,
         operation_id: str | None = None,
     ) -> Deployment:
@@ -226,6 +227,7 @@ class DeploymentRepository:
             deployment.operation_id = operation_id
         deployment.terraform_outputs = terraform_outputs
         deployment.deployment_access_evidence = deployment_access_evidence
+        deployment.cleanup_evidence = cleanup_evidence
         deployment.error_code = None
         deployment.error_message = None
         if deployment.graph_digest:
@@ -238,6 +240,7 @@ class DeploymentRepository:
         deployment: Deployment,
         error_message: str,
         terraform_outputs: dict[str, Any] | None = None,
+        cleanup_evidence: dict[str, Any] | None = None,
         completed_at: datetime | None = None,
         operation_id: str | None = None,
         error_code: str | None = None,
@@ -248,5 +251,6 @@ class DeploymentRepository:
         deployment.error_code = error_code
         deployment.error_message = error_message
         deployment.terraform_outputs = terraform_outputs
+        deployment.cleanup_evidence = cleanup_evidence
         deployment.completed_at = completed_at or datetime.now(timezone.utc)
         return deployment

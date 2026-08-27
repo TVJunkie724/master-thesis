@@ -7,6 +7,10 @@ from src.models.twin import DigitalTwin
 from src.models.user import User
 from src.repositories.deployment_repository import DeploymentRepository
 from src.services.errors import DeploymentPackageBuildFailed
+from tests.cleanup_evidence_test_data import (
+    complete_cleanup_evidence,
+    incomplete_cleanup_evidence,
+)
 
 
 def _create_twin(db) -> DigitalTwin:
@@ -252,9 +256,11 @@ def test_mark_success_records_outputs_and_clears_error(db):
     deployment.error_message = "old error"
     deployment.error_code = "OLD_ERROR"
 
+    cleanup_evidence = complete_cleanup_evidence()
     repository.mark_success(
         deployment,
         terraform_outputs={"endpoint": {"value": "ok"}},
+        cleanup_evidence=cleanup_evidence,
         operation_id="op-success",
     )
     db.commit()
@@ -263,6 +269,7 @@ def test_mark_success_records_outputs_and_clears_error(db):
     assert deployment.status == "success"
     assert deployment.operation_id == "op-success"
     assert deployment.terraform_outputs == {"endpoint": {"value": "ok"}}
+    assert deployment.cleanup_evidence == cleanup_evidence
     assert deployment.error_code is None
     assert deployment.error_message is None
     assert deployment.completed_at is not None
@@ -273,10 +280,12 @@ def test_mark_failed_records_error_and_optional_outputs(db):
     repository = DeploymentRepository(db)
     deployment = repository.create_running(twin.id, "session-failed", "deploy")
 
+    cleanup_evidence = incomplete_cleanup_evidence()
     repository.mark_failed(
         deployment,
         error_message="terraform failed",
         terraform_outputs={"partial": True},
+        cleanup_evidence=cleanup_evidence,
         operation_id="op-failed",
         error_code="TERRAFORM_ERROR",
     )
@@ -288,4 +297,5 @@ def test_mark_failed_records_error_and_optional_outputs(db):
     assert deployment.error_code == "TERRAFORM_ERROR"
     assert deployment.error_message == "terraform failed"
     assert deployment.terraform_outputs == {"partial": True}
+    assert deployment.cleanup_evidence == cleanup_evidence
     assert deployment.completed_at is not None

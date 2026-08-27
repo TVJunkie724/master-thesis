@@ -83,6 +83,7 @@ def deployment_summary(
         status=cast(DeploymentOperationStatus, deployment.status),
         error_code=deployment.error_code,
         error_message=deployment.error_message,
+        cleanup_evidence=deployment.cleanup_evidence,
         started_at=deployment.started_at,
         completed_at=deployment.completed_at,
     )

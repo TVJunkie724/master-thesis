@@ -8,8 +8,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.services.credential_resolution_service import DeploymentCredentials
 from src.schemas.optimizer_calculation import SIX_LAYER_WORKLOAD_ROOT
+from src.services.credential_resolution_service import DeploymentCredentials
 from src.services.deployment_service import (
     _architecture_provider_ids,
     _build_deployment_manifest,
@@ -17,15 +17,93 @@ from src.services.deployment_service import (
     _build_providers_config,
     _component_catalog_ref,
     _manifest_version_for_contracts,
+    _parse_deployer_sse_data,
     _validate_architecture_specification_path,
     _validate_six_layer_deployment_regions,
 )
 from src.services.errors import DeploymentPackageBuildFailed
 from tests.architecture_test_data import calculation_result_and_contracts
+from tests.cleanup_evidence_test_data import (
+    complete_cleanup_evidence,
+    incomplete_cleanup_evidence,
+)
 
 
 def _contracts():
     return calculation_result_and_contracts()[1:]
+
+
+def test_destroy_terminal_requires_and_accepts_complete_cleanup_evidence():
+    evidence = complete_cleanup_evidence()
+    _log, result = _parse_deployer_sse_data(
+        json.dumps(
+            {
+                "event": "complete",
+                "operation": "destroy",
+                "success": True,
+                "cleanup_evidence": evidence,
+            }
+        ),
+        "complete",
+        "destroy",
+    )
+
+    assert result is not None
+    assert result.success is True
+    assert result.cleanup_evidence == evidence
+
+
+def test_destroy_error_preserves_incomplete_cleanup_evidence():
+    evidence = incomplete_cleanup_evidence()
+    _log, result = _parse_deployer_sse_data(
+        json.dumps(
+            {
+                "event": "error",
+                "operation": "destroy",
+                "success": False,
+                "error_code": "DESTROY_CLEANUP_INCOMPLETE",
+                "cleanup_evidence": evidence,
+            }
+        ),
+        "error",
+        "destroy",
+    )
+
+    assert result is not None
+    assert result.success is False
+    assert result.cleanup_evidence == evidence
+
+
+def test_successful_destroy_without_cleanup_evidence_is_rejected():
+    with pytest.raises(ValueError, match="requires cleanup evidence"):
+        _parse_deployer_sse_data(
+            '{"event":"complete","success":true}',
+            "complete",
+            "destroy",
+        )
+
+
+def test_invalid_cleanup_evidence_error_does_not_echo_payload_values():
+    with pytest.raises(ValueError) as exc_info:
+        _parse_deployer_sse_data(
+            json.dumps(
+                {
+                    "event": "error",
+                    "success": False,
+                    "cleanup_evidence": {
+                        **incomplete_cleanup_evidence(),
+                        "unexpected": "must-not-leak",
+                    },
+                }
+            ),
+            "error",
+            "destroy",
+        )
+
+    assert str(exc_info.value) == (
+        "Deployer cleanup evidence failed contract validation"
+    )
+    assert "must-not-leak" not in str(exc_info.value)
 
 
 def test_six_layer_contract_pair_produces_manifest_v4_without_secrets():

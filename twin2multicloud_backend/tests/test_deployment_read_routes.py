@@ -7,6 +7,7 @@ from src.models.deployment import Deployment
 from src.models.twin import TwinState
 from src.services.service_errors import ValidationError
 from src.services.simulator_service import SimulatorDownload
+from tests.cleanup_evidence_test_data import incomplete_cleanup_evidence
 
 
 def test_deployment_status_route_returns_current_twin_state(auth_client, test_twin):
@@ -66,12 +67,14 @@ def test_deployments_route_returns_limited_history(auth_client, db, test_twin):
         status="success",
         started_at=datetime.utcnow() - timedelta(minutes=2),
     )
+    cleanup_evidence = incomplete_cleanup_evidence()
     second = Deployment(
         twin_id=test_twin.id,
         session_id="route-second",
         operation_type="destroy",
         status="running",
         started_at=datetime.utcnow(),
+        cleanup_evidence=cleanup_evidence,
     )
     db.add_all([first, second])
     db.commit()
@@ -82,6 +85,7 @@ def test_deployments_route_returns_limited_history(auth_client, db, test_twin):
     assert [item["session_id"] for item in response.json()["deployments"]] == [
         "route-second"
     ]
+    assert response.json()["deployments"][0]["cleanup_evidence"] == cleanup_evidence
 
 
 def test_deployment_command_route_delegates_to_orchestrator(
