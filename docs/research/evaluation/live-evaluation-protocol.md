@@ -50,6 +50,19 @@ The output contains the exact candidate, cost ledger, RTA and RDS and is marked
 live evidence. The strict public workload model rejects an
 `evaluationCandidateId`; only the repository evaluation utility can bind it.
 
+The complete nine-scenario handoff is materialized into a new, non-overwriting
+directory with:
+
+```bash
+python scripts/materialize_live_evaluation_candidate.py --all \
+  --output-dir /tmp/six-layer-live-candidates
+```
+
+The directory contains one digest-bound candidate file per checked scenario
+and `candidate-pack-manifest.json`, including the calculated monthly totals
+used for the separate budget review. The totals are estimates, not approved
+Apply caps, and materialization still performs no provider or Deployer call.
+
 ## Cost-efficient order
 
 For each required provider and directed route:

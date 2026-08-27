@@ -10,9 +10,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import sys
-from typing import Any, Mapping
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,20 +21,20 @@ OPTIMIZER_ROOT = ROOT / "2-twin2clouds"
 if str(OPTIMIZER_ROOT) not in sys.path:
     sys.path.insert(0, str(OPTIMIZER_ROOT))
 
-from backend.architecture_profiles.candidate_factory import (  # noqa: E402
+from backend.architecture_profiles.candidate_factory import (
     SIX_LAYER_COMPONENTS,
 )
-from backend.architecture_profiles.registry import (  # noqa: E402
+from backend.architecture_profiles.registry import (
     ArchitectureProfileRegistry,
 )
-from backend.architecture_profiles.six_layer_optimizer import (  # noqa: E402
+from backend.architecture_profiles.six_layer_optimizer import (
     optimize_six_layer_eventing_v1,
 )
-from backend.pricing_catalog_models import PricingCatalogContext  # noqa: E402
-from backend.pricing_catalog_repository import (  # noqa: E402
+from backend.pricing_catalog_models import PricingCatalogContext
+from backend.pricing_catalog_repository import (
     get_pricing_catalog_repository,
 )
-from backend.pricing_catalog_resolver import PricingCatalogResolver  # noqa: E402
+from backend.pricing_catalog_resolver import PricingCatalogResolver
 
 PLAN_PATH = ROOT / "docs/research/evaluation/small-scenario-matrix.json"
 ARTIFACT_PATH = (
@@ -202,17 +203,87 @@ def materialize(scenario_id: str) -> dict[str, Any]:
     return evidence
 
 
+def materialize_plan(output_dir: Path) -> dict[str, Any]:
+    """Materialize the complete checked matrix into one immutable handoff pack."""
+
+    if output_dir.exists():
+        raise FileExistsError(
+            f"Evaluation output directory already exists: {output_dir}"
+        )
+    output_dir.mkdir(parents=True)
+    plan = _read(PLAN_PATH)
+    candidates: list[dict[str, str]] = []
+    for scenario in plan["scenarios"]:
+        scenario_id = str(scenario["scenario_id"])
+        evidence = materialize(scenario_id)
+        filename = f"{scenario_id}.candidate.json"
+        (output_dir / filename).write_text(
+            json.dumps(evidence, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        candidates.append(
+            {
+                "scenario_id": scenario_id,
+                "candidate_id": str(evidence["candidate_id"]),
+                "candidate_file": filename,
+                "candidate_evidence_digest": str(evidence["evidence_digest"]),
+                "currency": str(evidence["cost_evaluation"]["currency"]),
+                "monthly_total": str(evidence["cost_evaluation"]["monthly_total"]),
+            }
+        )
+    manifest = {
+        "schema_version": "six-layer-evaluation-candidate-pack.v1",
+        "evidence_status": "offline_planned_candidates",
+        "plan_digest": _digest(plan),
+        "scenario_count": len(candidates),
+        "candidates": candidates,
+    }
+    manifest["manifest_digest"] = _digest(manifest)
+    (output_dir / "candidate-pack-manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return manifest
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Materialize one exact planned evaluation candidate offline."
+        description="Materialize exact planned evaluation candidates offline."
     )
-    parser.add_argument("scenario_id")
+    parser.add_argument("scenario_id", nargs="?")
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="all_scenarios",
+        help="Materialize all nine checked scenarios into a new directory.",
+    )
     parser.add_argument(
         "--output",
         type=Path,
-        help="Optional JSON output path; stdout is used when omitted.",
+        help="Single-scenario JSON output path; stdout is used when omitted.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        help="Required new output directory for --all.",
     )
     arguments = parser.parse_args()
+    if arguments.all_scenarios:
+        if arguments.scenario_id is not None or arguments.output is not None:
+            parser.error("--all cannot be combined with scenario_id or --output")
+        if arguments.output_dir is None:
+            parser.error("--all requires --output-dir")
+        manifest = materialize_plan(arguments.output_dir)
+        print(
+            "evaluation-candidate-pack: "
+            f"{manifest['scenario_count']} scenarios -> {arguments.output_dir} "
+            f"({manifest['manifest_digest']})"
+        )
+        return 0
+    if arguments.scenario_id is None:
+        parser.error("scenario_id is required unless --all is used")
+    if arguments.output_dir is not None:
+        parser.error("--output-dir is valid only with --all")
     evidence = materialize(arguments.scenario_id)
     rendered = json.dumps(evidence, indent=2, sort_keys=True) + "\n"
     if arguments.output is None:
