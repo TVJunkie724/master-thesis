@@ -927,8 +927,6 @@ def check_aws_credentials(credentials: dict) -> dict:
             result["self_check_help"] = {
                 "principal_type": principal_type,
                 "required_permissions": needed_permissions,
-                "policy_json_url": "/docs/references/aws_deployer_policy.json",
-                "docs_url": "/docs/docs-credentials-setup.html#aws-setup",
                 "hint": f"Your IAM {principal_type} needs permissions to read its own attached policies.",
             }
             return result

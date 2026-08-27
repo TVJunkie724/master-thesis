@@ -394,7 +394,8 @@ class TestCheckAWSCredentials:
         assert "self_check_help" in result
         assert result["self_check_help"]["principal_type"] == "user"
         assert "iam:ListUserPolicies" in result["self_check_help"]["required_permissions"]
-        assert "docs_url" in result["self_check_help"]
+        assert "docs_url" not in result["self_check_help"]
+        assert "policy_json_url" not in result["self_check_help"]
 
     @patch("src.api.credentials_checker.boto3.Session")
     def test_assumed_role_self_check_failure(self, mock_session):
