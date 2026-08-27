@@ -152,6 +152,26 @@ def test_azure_preflight_keeps_expiring_secret_as_warning(mock_check):
     assert data["checks"][1]["status"] == "warning"
 
 
+def test_azure_preflight_reports_graph_consent_as_explicit_authority_failure():
+    data = build_provider_preflight(
+        "azure",
+        {
+            "status": "valid",
+            "message": "Azure subscription permissions are ready.",
+            "microsoft_graph_authority": {
+                "status": "consent_required",
+                "message": "Tenant admin consent is missing.",
+            },
+        },
+    )
+
+    assert data.ready is False
+    assert [check.code for check in data.checks] == [
+        "AZURE_READY",
+        "MICROSOFT_GRAPH_CONSENT_REQUIRED",
+    ]
+
+
 @patch("src.api.credentials.check_azure_credentials")
 def test_azure_preflight_maps_missing_actions(mock_check):
     mock_check.return_value = {

@@ -814,7 +814,10 @@ class DeploymentReadinessService:
             candidate.provider,
             validation_result,
         )
-        checks = [self._safe_check(check) for check in raw.get("checks", [])[:32]]
+        checks = self._checks_for_graph(
+            [self._safe_check(check) for check in raw.get("checks", [])[:32]],
+            provider_requirements,
+        )
         requirement_results = [
             self._project_requirement_readiness(requirement, checks)
             if not (
@@ -828,8 +831,11 @@ class DeploymentReadinessService:
             else self._prepared_requirement_readiness(requirement)
             for requirement in provider_requirements
         ]
-        ready = bool(raw.get("ready")) and bool(requirement_results) and all(
-            item.status == "ready" for item in requirement_results
+        ready = (
+            bool(checks)
+            and all(check.status == "passed" for check in checks)
+            and bool(requirement_results)
+            and all(item.status == "ready" for item in requirement_results)
         )
         summary = redact_secret_like_text(
             (
@@ -851,6 +857,32 @@ class DeploymentReadinessService:
             checks=checks,
             requirements=requirement_results,
         )
+
+    @staticmethod
+    def _checks_for_graph(
+        checks: list[DeploymentReadinessCheck],
+        requirements: list[dict[str, Any]],
+    ) -> list[DeploymentReadinessCheck]:
+        """Discard optional authority checks that the resolved graph does not use."""
+        capabilities = {
+            str(requirement.get("capability_id") or "") for requirement in requirements
+        }
+        optional_authorities = {
+            "IDENTITY_CENTER_PRIMARY_REGION_READY": "aws.iam-identity-center.primary-region",
+            "IDENTITY_CENTER_PRIMARY_REGION_NOT_FOUND": "aws.iam-identity-center.primary-region",
+            "IDENTITY_CENTER_INSPECTION_DENIED": "aws.iam-identity-center.primary-region",
+            "IDENTITY_CENTER_CHECK_FAILED": "aws.iam-identity-center.primary-region",
+            "MICROSOFT_GRAPH_AUTHORITY_READY": "azure.microsoft-graph.authority",
+            "MICROSOFT_GRAPH_CONSENT_REQUIRED": "azure.microsoft-graph.authority",
+            "MICROSOFT_GRAPH_CHECK_FAILED": "azure.microsoft-graph.authority",
+            "MICROSOFT_GRAPH_CHECK_UNSUPPORTED": "azure.microsoft-graph.authority",
+        }
+        return [
+            check
+            for check in checks
+            if optional_authorities.get(check.code) is None
+            or optional_authorities[check.code] in capabilities
+        ]
 
     def _project_requirement_readiness(
         self,
@@ -1020,6 +1052,12 @@ class DeploymentReadinessService:
                 "IDENTITY_CENTER_CHECK_FAILED",
             }:
                 return failure
+            if capability == "azure.microsoft-graph.authority" and failure.code in {
+                "MICROSOFT_GRAPH_CONSENT_REQUIRED",
+                "MICROSOFT_GRAPH_CHECK_FAILED",
+                "MICROSOFT_GRAPH_CHECK_UNSUPPORTED",
+            }:
+                return failure
         return None
 
     @staticmethod
@@ -1047,6 +1085,7 @@ class DeploymentReadinessService:
             "DOWNSTREAM_SERVICE_UNAVAILABLE",
             "DOWNSTREAM_API_ERROR",
             "IDENTITY_CENTER_CHECK_FAILED",
+            "MICROSOFT_GRAPH_CHECK_FAILED",
         }:
             return "transient"
         if failure.code in {
@@ -1058,6 +1097,7 @@ class DeploymentReadinessService:
             "PROJECT_NOT_FOUND",
             "CREDENTIAL_EXPIRED",
             "IDENTITY_CENTER_INSPECTION_DENIED",
+            "MICROSOFT_GRAPH_CONSENT_REQUIRED",
         }:
             return "replace_connection"
         if failure.code in {
@@ -1070,6 +1110,8 @@ class DeploymentReadinessService:
             "IDENTITY_CENTER_PRIMARY_REGION_NOT_FOUND",
         }:
             return "manual_action"
+        if failure.code == "MICROSOFT_GRAPH_CHECK_UNSUPPORTED":
+            return "unsupported"
         return "unsupported"
 
     @staticmethod

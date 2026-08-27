@@ -211,6 +211,49 @@ def _azure_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
 
     checks.extend(_region_checks(result.get("region_validation"), "azure_region"))
 
+    graph_authority = _safe_dict(result.get("microsoft_graph_authority"))
+    graph_status = graph_authority.get("status")
+    if graph_status == "ready":
+        checks.append(
+            _passed(
+                "microsoft_graph_authority",
+                "MICROSOFT_GRAPH_AUTHORITY_READY",
+                graph_authority.get("message")
+                or "Microsoft Graph application authority is available.",
+            )
+        )
+    elif graph_status == "consent_required":
+        checks.append(
+            _failed(
+                "microsoft_graph_authority",
+                "MICROSOFT_GRAPH_CONSENT_REQUIRED",
+                graph_authority.get("message")
+                or "Microsoft Graph tenant admin consent is missing.",
+                "Grant tenant admin consent for Application.Read.All, then rerun preflight.",
+                permissions=["Microsoft Graph: Application.Read.All"],
+            )
+        )
+    elif graph_status in {"transient", "check_failed"}:
+        checks.append(
+            _failed(
+                "microsoft_graph_authority",
+                "MICROSOFT_GRAPH_CHECK_FAILED",
+                graph_authority.get("message")
+                or "Microsoft Graph authority could not be verified.",
+                "Retry the read-only Microsoft Graph authority check.",
+            )
+        )
+    elif graph_status == "unsupported":
+        checks.append(
+            _failed(
+                "microsoft_graph_authority",
+                "MICROSOFT_GRAPH_CHECK_UNSUPPORTED",
+                graph_authority.get("message")
+                or "Microsoft Graph authority inspection is unavailable.",
+                "Install the supported Deployer dependencies and rerun preflight.",
+            )
+        )
+
     expiration = _safe_dict(result.get("sp_credential_expiration"))
     if expiration.get("status") == "expired":
         checks.append(

@@ -243,6 +243,28 @@ class TestAzureRoleAssignmentFiltering:
 class TestAzureSPExpiration:
     """Tests for Azure Service Principal credential expiration checking."""
 
+    @patch("requests.get")
+    @patch("azure.identity.ClientSecretCredential")
+    def test_graph_consent_denial_is_separate_from_credential_expiration(
+        self,
+        mock_credential_type,
+        mock_get,
+    ):
+        from src.api.azure_credentials_checker import _check_sp_credential_expiration
+
+        mock_credential_type.return_value.get_token.return_value = Mock(token="token")
+        mock_get.return_value.status_code = 403
+
+        result = _check_sp_credential_expiration(
+            tenant_id="tenant-123",
+            client_id="client-123",
+            client_secret="secret-123",
+        )
+
+        assert result["status"] == "skipped"
+        assert result["graph_authority"]["status"] == "consent_required"
+        assert "secret-123" not in str(result)
+
     @patch('src.api.azure_credentials_checker._check_sp_credential_expiration')
     @patch('src.api.azure_credentials_checker._get_caller_identity')
     @patch('src.api.azure_credentials_checker._create_credential')

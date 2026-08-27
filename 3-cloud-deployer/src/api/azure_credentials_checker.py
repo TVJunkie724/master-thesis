@@ -333,6 +333,10 @@ def _check_sp_credential_expiration(
             if "expired" in error_text or "invalid" in error_text:
                 return {
                     "status": "expired",
+                    "graph_authority": {
+                        "status": "authentication_failed",
+                        "message": "Microsoft Graph authentication failed with the supplied client credential.",
+                    },
                     "message": (
                         "Azure Service Principal credentials appear to be expired or invalid.\n"
                         "  • Client secret may have expired\n"
@@ -342,6 +346,10 @@ def _check_sp_credential_expiration(
             # For other errors, skip the check gracefully
             return {
                 "status": "skipped",
+                "graph_authority": {
+                    "status": "check_failed",
+                    "message": "Microsoft Graph token acquisition could not be verified.",
+                },
                 "reason": f"Could not retrieve Graph token: {redact_sensitive(exc)}",
             }
 
@@ -353,16 +361,28 @@ def _check_sp_credential_expiration(
             url = f"https://graph.microsoft.com/v1.0/applications?$filter=appId eq '{client_id}'&$select=passwordCredentials,keyCredentials"
             response = requests.get(url, headers=headers, timeout=10)
 
-            if response.status_code == 403:
-                # No permission to read - skip gracefully
+            if response.status_code in {401, 403}:
                 return {
                     "status": "skipped",
-                    "reason": "Service Principal lacks permission to read its own application registration (Application.Read.All required)",
+                    "graph_authority": {
+                        "status": "consent_required",
+                        "message": (
+                            "Microsoft Graph denied application inspection; tenant admin consent "
+                            "for Application.Read.All is required."
+                        ),
+                    },
+                    "reason": "Microsoft Graph application authority is not granted.",
                 }
 
             if response.status_code != 200:
                 return {
                     "status": "skipped",
+                    "graph_authority": {
+                        "status": "transient"
+                        if response.status_code >= 500
+                        else "check_failed",
+                        "message": f"Microsoft Graph returned HTTP {response.status_code}.",
+                    },
                     "reason": f"Graph API returned status {response.status_code}",
                 }
 
@@ -372,6 +392,10 @@ def _check_sp_credential_expiration(
             if not applications:
                 return {
                     "status": "skipped",
+                    "graph_authority": {
+                        "status": "ready",
+                        "message": "Microsoft Graph application-read authority was verified.",
+                    },
                     "reason": "Application not found in Graph API",
                 }
 
@@ -405,6 +429,10 @@ def _check_sp_credential_expiration(
             if nearest_expiration is None:
                 return {
                     "status": "skipped",
+                    "graph_authority": {
+                        "status": "ready",
+                        "message": "Microsoft Graph application-read authority was verified.",
+                    },
                     "reason": "No credential expiration dates found",
                 }
 
@@ -413,6 +441,10 @@ def _check_sp_credential_expiration(
             if days_until_expiration < 0:
                 return {
                     "status": "expired",
+                    "graph_authority": {
+                        "status": "ready",
+                        "message": "Microsoft Graph application-read authority was verified.",
+                    },
                     "expiration_date": nearest_expiration.isoformat(),
                     "message": (
                         f"Azure Service Principal credentials expired {abs(days_until_expiration)} days ago.\n"
@@ -422,6 +454,10 @@ def _check_sp_credential_expiration(
             elif days_until_expiration <= 30:
                 return {
                     "status": "expiring_soon",
+                    "graph_authority": {
+                        "status": "ready",
+                        "message": "Microsoft Graph application-read authority was verified.",
+                    },
                     "expiration_date": nearest_expiration.isoformat(),
                     "days_until_expiration": days_until_expiration,
                     "message": f"Azure Service Principal credentials expire in {days_until_expiration} days. Consider rotating soon.",
@@ -429,6 +465,10 @@ def _check_sp_credential_expiration(
             else:
                 return {
                     "status": "valid",
+                    "graph_authority": {
+                        "status": "ready",
+                        "message": "Microsoft Graph application-read authority was verified.",
+                    },
                     "expiration_date": nearest_expiration.isoformat(),
                     "days_until_expiration": days_until_expiration,
                     "message": f"Credentials valid for {days_until_expiration} more days.",
@@ -437,14 +477,29 @@ def _check_sp_credential_expiration(
         except requests.exceptions.RequestException as exc:
             return {
                 "status": "skipped",
+                "graph_authority": {
+                    "status": "transient",
+                    "message": "Microsoft Graph could not be reached for the authority check.",
+                },
                 "reason": f"Graph API request failed: {redact_sensitive(exc)}",
             }
 
     except ImportError:
-        return {"status": "skipped", "reason": "requests library not installed"}
+        return {
+            "status": "skipped",
+            "graph_authority": {
+                "status": "unsupported",
+                "message": "Microsoft Graph inspection dependencies are unavailable.",
+            },
+            "reason": "requests library not installed",
+        }
     except Exception as exc:
         return {
             "status": "skipped",
+            "graph_authority": {
+                "status": "check_failed",
+                "message": "Microsoft Graph authority inspection failed unexpectedly.",
+            },
             "reason": f"Unexpected error: {redact_sensitive(exc)}",
         }
 
@@ -795,6 +850,7 @@ def check_azure_credentials(credentials: dict) -> dict:
         "message": "",
         "caller_identity": None,
         "region_validation": None,
+        "microsoft_graph_authority": None,
         "can_list_roles": False,
         "by_layer": {},
         "summary": {
@@ -868,7 +924,18 @@ def check_azure_credentials(credentials: dict) -> dict:
             client_id=credentials["azure_client_id"],
             client_secret=credentials["azure_client_secret"],
         )
-        result["sp_credential_expiration"] = sp_expiration
+        result["microsoft_graph_authority"] = sp_expiration.get(
+            "graph_authority",
+            {
+                "status": "not_checked",
+                "message": "Microsoft Graph authority was not inspected.",
+            },
+        )
+        result["sp_credential_expiration"] = {
+            key: value
+            for key, value in sp_expiration.items()
+            if key != "graph_authority"
+        }
 
         if sp_expiration.get("status") == "expired":
             result["status"] = "invalid"

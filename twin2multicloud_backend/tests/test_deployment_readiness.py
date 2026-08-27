@@ -589,6 +589,64 @@ def test_identity_center_authority_check_resolves_manual_graph_requirement(db_se
     assert projected.action == "No action required."
 
 
+def test_microsoft_graph_authority_check_resolves_manual_graph_requirement(db_session):
+    requirement = {
+        "requirement_id": "requirement.access.azure.graph",
+        "requirement_type": "access_prerequisite",
+        "provider": "azure",
+        "capability_id": "azure.microsoft-graph.authority",
+        "preparation_mode": "manual_external",
+        "mandatory": True,
+        "source_node_ids": ["node.twin-state"],
+        "source_edge_ids": [],
+    }
+    check = DeploymentReadinessCheck(
+        component="deployer.microsoft_graph_authority",
+        status="passed",
+        code="MICROSOFT_GRAPH_AUTHORITY_READY",
+        message="Microsoft Graph authority verified.",
+        action="No action required.",
+    )
+
+    projected = DeploymentReadinessService(db_session)._project_requirement_readiness(
+        requirement,
+        [check],
+    )
+
+    assert projected.status == "ready"
+
+
+def test_optional_authority_checks_are_filtered_by_resolved_graph():
+    checks = [
+        DeploymentReadinessCheck(
+            component="deployer.microsoft_graph_authority",
+            status="failed",
+            code="MICROSOFT_GRAPH_CONSENT_REQUIRED",
+            message="Consent missing.",
+            action="Grant consent.",
+        ),
+        DeploymentReadinessCheck(
+            component="deployer.credentials",
+            status="passed",
+            code="AZURE_READY",
+            message="Subscription ready.",
+            action="No action required.",
+        ),
+    ]
+
+    filtered = DeploymentReadinessService._checks_for_graph(
+        checks,
+        [
+            {
+                "capability_id": "credential.azure.owner",
+                "provider": "azure",
+            }
+        ],
+    )
+
+    assert [check.code for check in filtered] == ["AZURE_READY"]
+
+
 @pytest.mark.asyncio
 async def test_secret_echo_from_validator_is_redacted_in_response_and_cache(db_session):
     user = _create_user(db_session)
