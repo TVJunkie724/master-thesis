@@ -6,7 +6,6 @@ one candidate silently when multiple provider rows match a pricing intent.
 """
 from typing import Any
 
-
 REGISTRY_SCHEMA_VERSION = "pricing-intent-registry.v1"
 MAPPING_SCHEMA_VERSION = "pricing-intent-mapping.v1"
 
@@ -39,7 +38,6 @@ CANONICAL_PRICING_INTENTS = (
     "digital_twin.api_call",
     "digital_twin.query",
     "digital_twin.query_unit",
-    "digital_twin.account_bundle_month",
     "grafana.editor_user_month",
     "grafana.viewer_user_month",
 )

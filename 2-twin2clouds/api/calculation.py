@@ -2,22 +2,28 @@
 Calculation API endpoints.
 
 This module provides the core cost optimization endpoint for Digital Twin deployments.
-It calculates the optimal complete cloud-provider path across all 5 architectural
-layers based on exact pricing catalogs, route costs, and user-defined scenario
-parameters.
+It calculates the optimal complete cloud-provider path across the fixed
+Six-layer architecture based on exact pricing catalogs and a typed workload.
 """
 
-from datetime import datetime
 import re
 from time import perf_counter
-from typing import Annotated, Literal, Union
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from api.error_models import ERROR_RESPONSES
 from backend.architecture_profiles import (
     ArchitectureProfileRegistry,
     build_resolution_context,
+)
+from backend.architecture_profiles.activation import (
+    architecture_profile_resolution_enabled,
+)
+from backend.architecture_profiles.diagnostics import (
+    ArchitectureResolutionError,
 )
 from backend.architecture_profiles.six_layer_optimizer import (
     SixLayerEventingV1OptimizationResult,
@@ -26,125 +32,21 @@ from backend.architecture_profiles.six_layer_optimizer import (
 from backend.architecture_profiles.six_layer_workload import (
     resolve_six_layer_workload,
 )
-from backend.architecture_profiles.activation import (
-    architecture_profile_resolution_enabled,
-)
-from backend.architecture_profiles.diagnostics import (
-    ArchitectureResolutionError,
-)
-from backend.logger import logger
 from backend.calculation_v2.transfer_pricing import TransferPricingContractError
-from backend.utils import print_stack_trace
+from backend.logger import logger
 from backend.pricing_catalog_models import PricingCatalogContext
 from backend.pricing_catalog_repository import (
     PricingCatalogNotFoundError,
     PricingCatalogRegionMismatchError,
-    PricingCatalogStaleError,
     PricingCatalogStorageError,
     PricingCatalogTamperedError,
-    PricingCatalogUnreviewedError,
     get_pricing_catalog_repository,
 )
 from backend.pricing_catalog_resolver import PricingCatalogResolver
-from api.error_models import ERROR_RESPONSES
+from backend.utils import print_stack_trace
 
 router = APIRouter(tags=["Calculation"])
 _SAFE_CORRELATION_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
-
-
-AwsTwinMakerBundleName = Annotated[
-    str,
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=128),
-]
-
-
-class AwsTwinMakerBundle(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    tier: Literal["TIER_1", "TIER_2", "TIER_3", "TIER_4"]
-    names: list[AwsTwinMakerBundleName] = Field(
-        default_factory=list,
-        max_length=20,
-    )
-
-
-class AwsTwinMakerPlan(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    mode: Literal["BASIC", "STANDARD", "TIERED_BUNDLE"]
-    billableEntityCount: int = Field(ge=0)
-    effectiveAt: datetime | None = None
-    updatedAt: datetime | None = None
-    updateReason: str | None = Field(default=None, max_length=500)
-    bundle: AwsTwinMakerBundle | None = None
-
-    @model_validator(mode="after")
-    def validate_bundle_contract(self):
-        if self.mode == "TIERED_BUNDLE" and self.bundle is None:
-            raise ValueError("Tiered Bundle plans require bundle metadata")
-        if self.mode != "TIERED_BUNDLE" and self.bundle is not None:
-            raise ValueError("Only Tiered Bundle plans may contain bundle metadata")
-        for field_name in ("effectiveAt", "updatedAt"):
-            value = getattr(self, field_name)
-            if value is not None and value.tzinfo is None:
-                raise ValueError(f"{field_name} must be timezone-aware")
-        return self
-
-
-class AwsTwinMakerPricingContextAvailable(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    schemaVersion: Literal["aws-twinmaker-account-pricing-context.v1"]
-    status: Literal["available"]
-    sourceRefreshRunId: str = Field(min_length=1, max_length=128)
-    connectionFingerprint: str = Field(
-        pattern=r"^sha256:[0-9a-f]{64}$",
-    )
-    providerAccountId: str = Field(pattern=r"^\d{12}$")
-    pricingRegion: str = Field(
-        pattern=r"^[a-z]{2}(?:-gov)?-[a-z0-9-]+-\d+$",
-    )
-    catalogSnapshotDigest: str = Field(
-        pattern=r"^sha256:[0-9a-f]{64}$",
-    )
-    observedAt: datetime
-    currentPlan: AwsTwinMakerPlan
-    pendingPlan: AwsTwinMakerPlan | None = None
-
-    @model_validator(mode="after")
-    def validate_observation_timestamp(self):
-        if self.observedAt.tzinfo is None:
-            raise ValueError("observedAt must be timezone-aware")
-        return self
-
-
-class AwsTwinMakerPricingContextUnavailable(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    status: Literal["unavailable"] = "unavailable"
-    reasonCode: str = Field(
-        default="AWS_TWINMAKER_PLAN_UNOBSERVED",
-        min_length=1,
-        max_length=120,
-        pattern=r"^[A-Z][A-Z0-9_]*$",
-    )
-
-
-AwsTwinMakerPricingContext = Annotated[
-    Union[
-        AwsTwinMakerPricingContextAvailable,
-        AwsTwinMakerPricingContextUnavailable,
-    ],
-    Field(discriminator="status"),
-]
-
-
-class ProviderPricingContexts(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    awsTwinMaker: AwsTwinMakerPricingContext = Field(
-        default_factory=AwsTwinMakerPricingContextUnavailable
-    )
 
 
 class ArchitectureProfileRequestRef(BaseModel):
@@ -201,9 +103,6 @@ class SixLayerCalcParams(BaseModel):
     ]
     currency: Literal["USD", "EUR"] = "USD"
     providerPricingCatalogs: PricingCatalogContext
-    providerPricingContexts: ProviderPricingContexts = Field(
-        default_factory=ProviderPricingContexts
-    )
     architectureProfile: ArchitectureProfileRequestRef
     extensionBindings: list[ExtensionBindingRequestRef] = Field(max_length=64)
 
@@ -212,7 +111,6 @@ class SixLayerCalcParams(BaseModel):
             exclude={
                 "calculationRunId",
                 "providerPricingCatalogs",
-                "providerPricingContexts",
                 "architectureProfile",
                 "extensionBindings",
             }
@@ -361,7 +259,7 @@ def calc(params: CalculationParams, request: Request):
             get_pricing_catalog_repository()
         ).resolve_context(
             params.providerPricingCatalogs,
-            require_fresh=True,
+            require_fresh=False,
         )
         result = _calculate_six_layer(
             params,
@@ -378,24 +276,9 @@ def calc(params: CalculationParams, request: Request):
             architecture_log_emitted = True
 
         return {"result": result}
-    except PricingCatalogStaleError as e:
-        log_architecture_failure(e.code)
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "error_code": e.code,
-                "message": str(e),
-                "fix_suggestion": (
-                    "Refresh the affected provider-region pricing catalog and "
-                    "retry with its newly published exact reference."
-                ),
-                "http_status": 409,
-            },
-        ) from e
     except (
         PricingCatalogNotFoundError,
         PricingCatalogRegionMismatchError,
-        PricingCatalogUnreviewedError,
     ) as e:
         log_architecture_failure(e.code)
         raise HTTPException(
@@ -404,8 +287,8 @@ def calc(params: CalculationParams, request: Request):
                 "error_code": e.code,
                 "message": str(e),
                 "fix_suggestion": (
-                    "Select exactly one published, reviewed catalog for AWS, "
-                    "Azure, and GCP before calculating."
+                    "Use the three exact references from the repository-pinned "
+                    "thesis pricing baseline."
                 ),
                 "http_status": 409,
             },
@@ -419,8 +302,8 @@ def calc(params: CalculationParams, request: Request):
                 "error_code": e.code,
                 "message": "Pricing catalog storage failed integrity validation.",
                 "fix_suggestion": (
-                    "Restore the durable pricing catalog volume from reviewed "
-                    "baselines or a verified backup before retrying."
+                    "Restore the versioned thesis pricing baseline from Git and "
+                    "verify its recorded SHA-256 digests."
                 ),
                 "http_status": 500,
             },
@@ -542,10 +425,6 @@ def _six_layer_http_result(
     ]
     if "Eventing" in calculation_result:
         cheapest_path.append(f"Eventing_{calculation_result['Eventing']}")
-    provider_pricing_contexts = params.providerPricingContexts.model_dump(mode="json")
-    aws_twinmaker = provider_pricing_contexts["awsTwinMaker"]
-    if calculation_result["L4"] == "AWS" and aws_twinmaker["status"] == "available":
-        aws_twinmaker["status"] = "compatible"
     return {
         "calculationResult": calculation_result,
         "cheapestPath": cheapest_path,
@@ -574,7 +453,6 @@ def _six_layer_http_result(
             "rejectedByErrorCode": dict(optimized.rejected_by_error_code),
             "winningCandidateId": optimized.winning_candidate_id,
         },
-        "providerPricingContexts": provider_pricing_contexts,
         "costLedger": dict(optimized.cost_ledger),
         "resolvedTwinArchitecture": dict(optimized.resolved_architecture),
         "resolvedDeploymentSpecification": dict(optimized.deployment_specification),

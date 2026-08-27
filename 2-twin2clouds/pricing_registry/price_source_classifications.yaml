@@ -433,36 +433,6 @@ classifications:
     publishable: true
     verification_status: passed
     failure_reason: ''
-  aws.digital_twin_account_bundle_month.source.v1:
-    id: aws.digital_twin_account_bundle_month.source.v1
-    provider: aws
-    layer: digital_twin
-    service: AWSIoTTwinMaker
-    field: digital_twin.account_bundle_month
-    pricing_model_classification_id: aws.digital_twin_account_bundle_month.model.v1
-    source_type: derived_from_provider_api
-    allowed_source_types:
-    - derived_from_provider_api
-    expected_build_path: derived_from_provider_api
-    derived_from:
-    - AWS Price List API exact regional TwinMaker tier rows
-    - AWS IoT TwinMaker pricing documentation entity boundaries
-    required_evidence_refs:
-    - aws.digital_twin.account_bundle_month.mapping:2026.07.17
-    normalization_rule_refs:
-    - per_account_bundle_month
-    region_scope: regional
-    currency: USD
-    effective_date: '2026-07-17'
-    retrieved_at: '2026-07-17T00:00:00+00:00'
-    reviewed_at: '2026-07-17'
-    source_url: https://aws.amazon.com/iot-twinmaker/pricing/
-    api_request_id: aws-pricing-api:digital_twin.account_bundle_month
-    catalog_sku_id: exact-four-tier-region-evidence
-    review_status: verified
-    publishable: true
-    verification_status: passed
-    failure_reason: ''
   aws.grafana_editor_user_month.source.v1:
     id: aws.grafana_editor_user_month.source.v1
     provider: aws

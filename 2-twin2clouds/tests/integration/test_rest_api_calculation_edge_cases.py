@@ -24,7 +24,6 @@ from backend.pricing_catalog_repository import get_pricing_catalog_repository
 from backend.pricing_catalog_resolver import ResolvedPricingCatalogs
 from rest_api import app
 
-
 client = TestClient(app)
 
 
@@ -66,27 +65,6 @@ def _six_layer_payload() -> dict:
         "calculationRunId": "018f0f5e-7b5e-7b2d-9f0b-7f66c2a88a01",
         **workload,
         "providerPricingCatalogs": _catalog_context().to_http_dict(),
-        "providerPricingContexts": {
-            "awsTwinMaker": {
-                "schemaVersion": "aws-twinmaker-account-pricing-context.v1",
-                "status": "available",
-                "sourceRefreshRunId": "aws-refresh-v2",
-                "connectionFingerprint": "sha256:" + ("a" * 64),
-                "providerAccountId": "123456789012",
-                "pricingRegion": "eu-central-1",
-                "catalogSnapshotDigest": "sha256:" + ("b" * 64),
-                "observedAt": "2026-08-04T12:00:00Z",
-                "currentPlan": {
-                    "mode": "STANDARD",
-                    "billableEntityCount": 100,
-                    "effectiveAt": None,
-                    "updatedAt": None,
-                    "updateReason": None,
-                    "bundle": None,
-                },
-                "pendingPlan": None,
-            }
-        },
         "architectureProfile": {
             "profileId": registry.profile["profile_id"],
             "profileVersion": registry.profile["profile_version"],
@@ -242,7 +220,6 @@ def test_six_layer_http_projection_uses_the_actual_winning_candidate():
     assert result["calculationResult"]["L4"] == "AWS"
     assert result["calculationResult"]["Eventing"] == "Azure"
     assert result["totalCostExact"] == "12.5"
-    assert result["providerPricingContexts"]["awsTwinMaker"]["status"] == ("compatible")
     assert result["costLedger"]["schema_version"] == "six-layer-cost-ledger.v1"
     assert (
         result["architectureResolutionDiagnostics"]["winningCandidateId"]

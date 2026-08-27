@@ -14,11 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from api import (
     calculation,
     capabilities,
-    credentials,
-    file_status,
     pricing,
-    pricing_registry,
-    regions,
     validation,
 )
 from backend.architecture_profiles import (
@@ -71,20 +67,9 @@ app = FastAPI(
     ),
     openapi_tags=[
         {"name": "Calculation", "description": "Endpoints related to cloud cost calculation."},
-        {"name": "Pricing", "description": "Endpoints for fetching cloud service pricing data."},
         {
-            "name": "Pricing Registry",
-            "description": "Read-only endpoints for pricing intents, mappings, normalization rules, and service models.",
-        },
-        {"name": "Regions", "description": "Endpoints for fetching cloud regions."},
-        {"name": "File Status", "description": "Endpoints for checking the age of data files."},
-        {"name": "Permissions - Upload", "description": "Verify cloud credentials from request body."},
-        {
-            "name": "Permissions - Project",
-            "description": (
-                "Debug/local-cloud only. Verify cloud credentials from mounted project config "
-                "when ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true."
-            ),
+            "name": "Pricing Evidence",
+            "description": "Read-only access to the pinned thesis price snapshots.",
         },
         {"name": "Validation", "description": "Endpoints for validating optimizer configuration."},
         {"name": "Capabilities", "description": "Provider-layer calculation capability contracts."},
@@ -137,9 +122,5 @@ def serve_ui():
 
 app.include_router(calculation.router)
 app.include_router(pricing.router)
-app.include_router(pricing_registry.router)
-app.include_router(regions.router)
-app.include_router(file_status.router)
-app.include_router(credentials.router)
 app.include_router(validation.router)
 app.include_router(capabilities.router)

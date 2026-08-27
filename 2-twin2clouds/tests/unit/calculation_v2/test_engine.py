@@ -7,18 +7,17 @@ Integration tests for the new calculation engine.
 
 import copy
 import json
-from datetime import datetime, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
+
 from tests.unit.pricing.transfer_fixtures import (
     canonical_transfer_catalog,
     pricing_catalog_context_for,
 )
 
 DIGEST = "sha256:" + ("a" * 64)
-FINGERPRINT = "sha256:" + ("b" * 64)
 
 
 class TestEngineIntegration:
@@ -50,27 +49,6 @@ class TestEngineIntegration:
             "apiCallsPerDashboardRefresh": 1,
             "allowGcpSelfHostedL4": False,
             "allowGcpSelfHostedL5": False,
-            "providerPricingContexts": {
-                "awsTwinMaker": {
-                    "schemaVersion": "aws-twinmaker-account-pricing-context.v1",
-                    "status": "available",
-                    "sourceRefreshRunId": "refresh-run-1",
-                    "connectionFingerprint": FINGERPRINT,
-                    "providerAccountId": "123456789012",
-                    "pricingRegion": "eu-central-1",
-                    "catalogSnapshotDigest": DIGEST,
-                    "observedAt": datetime.now(timezone.utc).isoformat(),
-                    "currentPlan": {
-                        "mode": "STANDARD",
-                        "billableEntityCount": 1,
-                        "effectiveAt": None,
-                        "updatedAt": None,
-                        "updateReason": None,
-                        "bundle": None,
-                    },
-                    "pendingPlan": None,
-                }
-            },
         }
 
     @pytest.fixture
@@ -376,7 +354,7 @@ class TestEngineIntegration:
             assert result[layer]["cost"] == 0.0
             assert result[layer]["unsupportedReason"]
 
-    def test_missing_twinmaker_context_excludes_aws_l4_candidate(
+    def test_aws_l4_uses_pinned_standard_pricing(
         self,
         sample_params,
         sample_pricing,
@@ -386,8 +364,6 @@ class TestEngineIntegration:
             calculate_cheapest_costs,
         )
 
-        sample_params.pop("providerPricingContexts")
-
         aws = calculate_aws_costs(sample_params, sample_pricing)
         result = calculate_cheapest_costs(
             sample_params,
@@ -395,11 +371,9 @@ class TestEngineIntegration:
             pricing_catalog_context=pricing_catalog_context_for(sample_pricing),
         )
 
-        assert aws["L4"]["supported"] is False
-        assert aws["L4"]["unsupportedReason"] == ("AWS_TWINMAKER_PLAN_UNOBSERVED")
-        assert aws["providerPricingContext"]["status"] == "unavailable"
-        assert result["calculationResult"]["L4"] == "Azure"
-        assert all(item != "L4_AWS" for item in result["cheapestPath"])
+        assert aws["L4"]["supported"] is True
+        assert "providerPricingContext" not in aws
+        assert result["calculationResult"]["L4"] in {"AWS", "Azure"}
 
     def test_calculate_cheapest_costs(self, sample_params, sample_pricing):
         """Test full calculation returns expected structure."""
@@ -660,11 +634,12 @@ class TestEngineIntegration:
         sample_params,
         sample_pricing,
     ):
-        from backend.calculation_v2.engine import calculate_cheapest_costs
         from tests.unit.architecture_profiles.test_candidate_resolution import (
             _context,
             _registry,
         )
+
+        from backend.calculation_v2.engine import calculate_cheapest_costs
 
         result = calculate_cheapest_costs(
             sample_params,
@@ -735,11 +710,12 @@ class TestEngineIntegration:
         sample_params,
         sample_pricing,
     ):
-        from backend.calculation_v2.engine import calculate_cheapest_costs
         from tests.unit.architecture_profiles.test_candidate_resolution import (
             _context,
             _registry,
         )
+
+        from backend.calculation_v2.engine import calculate_cheapest_costs
 
         catalog_context = pricing_catalog_context_for(sample_pricing)
         usd = calculate_cheapest_costs(
@@ -774,11 +750,12 @@ class TestEngineIntegration:
         sample_params,
         sample_pricing,
     ):
-        from backend.calculation_v2.engine import calculate_cheapest_costs
         from tests.unit.architecture_profiles.test_candidate_resolution import (
             _context,
             _registry,
         )
+
+        from backend.calculation_v2.engine import calculate_cheapest_costs
 
         def scale_price_fields(node, factor):
             for key, value in node.items():
@@ -885,6 +862,11 @@ class TestEngineIntegration:
         sample_pricing,
         monkeypatch,
     ):
+        from tests.unit.architecture_profiles.test_candidate_resolution import (
+            _context,
+            _registry,
+        )
+
         from backend.architecture_profiles.diagnostics import (
             ArchitectureResolutionError,
         )
@@ -892,10 +874,6 @@ class TestEngineIntegration:
             ResolvedTwinArchitectureBuilder,
         )
         from backend.calculation_v2.engine import calculate_cheapest_costs
-        from tests.unit.architecture_profiles.test_candidate_resolution import (
-            _context,
-            _registry,
-        )
 
         original = ResolvedTwinArchitectureBuilder.build
 
@@ -932,15 +910,16 @@ class TestEngineIntegration:
         sample_params,
         sample_pricing,
     ):
-        from backend.architecture_profiles.diagnostics import (
-            ArchitectureResolutionError,
-        )
-        from backend.calculation_v2.engine import calculate_cheapest_costs
         from tests.unit.architecture_profiles.test_candidate_resolution import (
             _catalog_context_with_mutation,
             _context,
             _registry,
         )
+
+        from backend.architecture_profiles.diagnostics import (
+            ArchitectureResolutionError,
+        )
+        from backend.calculation_v2.engine import calculate_cheapest_costs
 
         def remove_edge_formulas(catalog):
             for edge in catalog["edge_implementations"]:

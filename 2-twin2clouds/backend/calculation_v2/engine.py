@@ -352,11 +352,6 @@ def calculate_aws_costs(
         queries_per_month=derived["queries_per_month"],
         api_calls_per_month=derived["queries_per_month"],
         pricing=pricing,
-        account_pricing_context=(
-            params.get("providerPricingContexts", {}).get("awsTwinMaker")
-            if isinstance(params.get("providerPricingContexts"), Mapping)
-            else None
-        ),
     )
 
     # L5: Visualization
@@ -380,11 +375,6 @@ def calculate_aws_costs(
         "L4": _layer_result_payload(l4),
         "L5": _layer_result_payload(l5),
         "totalMessagesPerMonth": derived["total_messages_per_month"],
-        "providerPricingContext": (
-            l4.details_as_dict().get("pricingContext")
-            if isinstance(l4.details, Mapping)
-            else None
-        ),
     }
 
 
@@ -957,9 +947,6 @@ def calculate_cheapest_costs(
         "awsCosts": aws_costs,
         "azureCosts": azure_costs,
         "gcpCosts": gcp_costs,
-        "providerPricingContexts": {
-            "awsTwinMaker": aws_costs.get("providerPricingContext"),
-        },
         "transferCosts": transfer_costs,
         "transferPricingContext": build_transfer_pricing_context(winner),
         "transitionRuntimeCosts": transition_runtime_costs,

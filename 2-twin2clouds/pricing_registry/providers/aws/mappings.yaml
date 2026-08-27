@@ -95,14 +95,6 @@ mappings:
     normalization_rule: per_query
     expected_cardinality: one_per_region
     match: {service_code: AWSIoTTwinMaker, usage_type_suffix: IoTTwinMaker-Queries}
-  - intent_id: digital_twin.account_bundle_month
-    review_status: reviewed
-    normalization_rule: per_account_bundle_month
-    expected_cardinality: one_or_more_per_region
-    selection_mode: tier_series
-    match:
-      service_code: AWSIoTTwinMaker
-      usage_type_suffix_pattern: IoTTwinMaker-BaseTier{1..4}-{Entities|Queries|UnifiedDataAccess}
   - intent_id: grafana.editor_user_month
     review_status: draft
     normalization_rule: per_user_month
