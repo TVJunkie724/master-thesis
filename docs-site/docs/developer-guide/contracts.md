@@ -47,8 +47,8 @@ Representative synchronization commands include:
 
 ```bash
 python scripts/sync_six_layer_contracts.py --sync --check
-python scripts/sync_resolved_deployment_contract.py --sync --check
-python scripts/sync_deployment_manifest_contract.py --sync --check
+python scripts/sync_six_layer_workload_contract.py --sync --check
+python scripts/sync_user_function_extension_contracts.py --sync --check
 python scripts/sync_deployment_access_contracts.py --sync --check
 ```
 

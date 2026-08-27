@@ -26,19 +26,19 @@
   ],
   "artifact_byte_digests": {
     "docs/research/evidence/phase_08_service_bundles/boundary-route-matrix.json": "sha256:5f040b94df9f1d002eb1a39c40f8798b9865d072d7cb5be5ca7cb198e55fdf23",
-    "docs/research/evidence/phase_08_service_bundles/capacity-matrix.json": "sha256:c5aa3891f3e89cd8c63752334c344b27f724a79d8ab3ec6e90b0764dfb80e31d",
+    "docs/research/evidence/phase_08_service_bundles/capacity-matrix.json": "sha256:d04f85064b701f614dd5b1af544aea78a355515b0a9a558185ca341d178afdee",
     "docs/research/evidence/phase_08_service_bundles/common-functional-contract.json": "sha256:113c76ef298b20391cf07e9f033514189248fbf8043d30baf262246274ab62d6",
     "docs/research/evidence/phase_08_service_bundles/complete-provider-bundles.json": "sha256:3ad5e2db348609896645cc15abf16cf316b53d9a4b64ed61ddd659f236752dfb",
     "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json": "sha256:ec3b3fb61974446b51cb3c708a520de204f12dee453abafe818f103bffd5096e",
     "docs/research/evidence/phase_08_service_bundles/pricing-ownership-matrix.json": "sha256:a25799ee9a15a409036222cab676c2c1e9fada0873d53f59ba83d7942a3324ec",
     "docs/research/evidence/phase_08_service_bundles/source-ledger.json": "sha256:f62f5b78545f752a0254b5fedbde9ce852ccaa8148ef86b85588f2e3462b9163",
-    "docs/research/evidence/phase_08_service_bundles/workload-scenarios.json": "sha256:a1475ab2561b49650907349bf8e92db15e56551ad18ce7fd4cceb40cfb45f476"
+    "docs/research/evidence/phase_08_service_bundles/workload-scenarios.json": "sha256:ed5912010862a654759ec92625350449a74a2bee674eca340c9f52f52a06eddb"
   },
   "immutable_input_byte_digests": {
-    "docs/research/evidence/phase_08_eventing/decision.json": "sha256:84050a44ff3387dc64ed5518b6ae45a77316f043e2c24c9076df2ed9f9d567b4",
+    "docs/research/evidence/phase_08_eventing/decision.json": "sha256:3f74c8325b85581f119cb7f66acd3d2187c1d6ef96f2d442863c08d3f05dabc7",
     "docs/research/evidence/phase_08_eventing/source-ledger.json": "sha256:c64311e931f32213b366a2bdbe0d85da59972a94b666b39bb60ae5e2c0c7b0ee"
   },
-  "package_digest": "sha256:18bf6d92031c7345eb20ba3ebd076457f271e9fed7ea93a2bbdd7a4ebc816078",
+  "package_digest": "sha256:45ea441400fd75d65c667c95da36bc232f189308d2b2bfb96a6a985fc0de8dea",
   "reviews": [
     {
       "review_id": "six-layer-architecture",

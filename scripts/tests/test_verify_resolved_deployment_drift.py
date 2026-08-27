@@ -23,10 +23,8 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         required_paths = (
             "contracts/six-layer-workload/**",
             "contracts/user-function-extension/**",
-            "scripts/generate_deployment_manifest_fixtures.py",
             "scripts/sync_six_layer_contracts.py",
             "scripts/sync_six_layer_workload_contract.py",
-            "scripts/sync_six_layer_eventing_contracts.py",
             "scripts/sync_user_function_extension_contracts.py",
             "scripts/verify_six_layer_management_boundary.py",
         )
@@ -128,10 +126,6 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         )
         self.assertNotIn("sync_architecture_profile_contracts.py", rendered)
         self.assertIn(
-            "-p no:cacheprovider scripts/tests/test_deployment_manifest_contract_sync.py",
-            rendered,
-        )
-        self.assertIn(
             "scripts/sync_user_function_extension_contracts.py --check",
             rendered,
         )
@@ -163,7 +157,6 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "scripts/phase_08_service_bundles/freeze_decision.py",
             rendered,
         )
-        self.assertIn("-p no:cacheprovider", rendered)
         self.assertIn("tests/test_deployment_drift_matrix.py", rendered)
         self.assertIn(
             "tests/unit/terraform/test_build_all_packages.py",

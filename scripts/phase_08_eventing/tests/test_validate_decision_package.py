@@ -47,7 +47,7 @@ class DecisionPackageValidationTest(unittest.TestCase):
         )
 
         self.assertIn(
-            "new target already exists: scripts/sync_deployment_manifest_contract.py",
+            "new target already exists: contracts/deployment-manifest/v4/schema.json",
             errors,
         )
 

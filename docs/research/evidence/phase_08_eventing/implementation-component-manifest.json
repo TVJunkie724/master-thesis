@@ -2689,20 +2689,6 @@
       "purpose": "Synchronize and validate the standalone Six-layer profile and Eventing catalog."
     },
     {
-      "path": "scripts/sync_resolved_deployment_contract.py",
-      "operation": "modify",
-      "slice": "shared",
-      "owner": "contracts",
-      "purpose": "Synchronize the Six-layer RDS v2 contract."
-    },
-    {
-      "path": "scripts/sync_deployment_manifest_contract.py",
-      "operation": "new",
-      "slice": "shared",
-      "owner": "contracts",
-      "purpose": "Synchronize the Six-layer DeploymentManifest v4 contract."
-    },
-    {
       "path": "2-twin2clouds/backend/architecture_profiles/candidate_factory.py",
       "operation": "modify",
       "slice": "shared",

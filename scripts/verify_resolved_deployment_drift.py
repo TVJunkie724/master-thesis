@@ -216,24 +216,17 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                 "sh",
                 "-lc",
                 (
-                    "python scripts/sync_resolved_deployment_contract.py --check "
-                    "&& python scripts/sync_deployment_manifest_contract.py --check "
-                    "&& python scripts/sync_user_function_extension_contracts.py --check "
+                    "python scripts/sync_user_function_extension_contracts.py --check "
                     "&& python scripts/sync_deployment_access_contracts.py --check "
                     "&& python scripts/sync_six_layer_workload_contract.py --check "
                     "&& python scripts/sync_six_layer_contracts.py --check "
-                    "&& python scripts/sync_six_layer_eventing_contracts.py --check "
                     "&& python -m unittest "
-                    "scripts.tests.test_resolved_deployment_contract_sync "
                     "scripts.tests.test_user_function_extension_contract_sync "
                     "scripts.tests.test_deployment_access_contract_sync "
                     "scripts.tests.test_six_layer_workload_contract "
                     "scripts.tests.test_six_layer_contracts "
-                    "scripts.tests.test_six_layer_eventing_contracts "
                     "scripts.tests.test_verify_resolved_deployment_drift "
-                    "scripts.tests.test_thesis_entrypoint "
-                    "&& python -m pytest -q -p no:cacheprovider "
-                    "scripts/tests/test_deployment_manifest_contract_sync.py"
+                    "scripts.tests.test_thesis_entrypoint"
                 ),
                 root_mount=True,
             ),
@@ -247,8 +240,6 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                 "-lc",
                 (
                     "cd /app "
-                    "&& python /workspace/scripts/"
-                    "generate_deployment_manifest_fixtures.py --check "
                     "&& python -m pytest -q "
                     "tests/unit/calculation_v2/"
                     "test_deployment_drift_matrix.py "

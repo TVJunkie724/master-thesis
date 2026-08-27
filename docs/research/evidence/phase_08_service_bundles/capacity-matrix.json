@@ -3,7 +3,7 @@
   "schema_version": "1.0.0",
   "package_id": "phase-08-complete-service-bundles@1",
   "artifact_id": "capacity-matrix",
-  "input_digest": "sha256:c6562a4546bddbcbd6486a15d1b3768b477070a445658a1ab199bf60b0c3a7f4",
+  "input_digest": "sha256:0b039670302c57e7e7413e4cc01d51f4c24adbe9815570f38f16308022df3edc",
   "formula_contract": {
     "firestore_timestamp_shards": "next_power_of_two(max(1, ceil(peak_raw_writes_per_second / 400)))",
     "reader_max_concurrent_requests": "max(2, ceil(aggregate_query_rate_per_second * 10 * 1.25))",

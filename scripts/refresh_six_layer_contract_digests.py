@@ -6,8 +6,9 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
-from pathlib import Path
+import re
 import sys
+from pathlib import Path
 from types import ModuleType
 from typing import Any
 
@@ -55,6 +56,9 @@ DEPLOYMENT_MANIFEST_PATH = (
 )
 PRICING_BASELINE_PATH = (
     ROOT / "2-twin2clouds" / "json" / "pricing_catalog_baselines" / "baseline.json"
+)
+OPTIMIZER_ORCHESTRATOR_PATH = (
+    ROOT / "2-twin2clouds" / "backend" / "architecture_profiles" / "six_layer_optimizer.py"
 )
 PROVIDERS = ("aws", "azure", "gcp")
 
@@ -140,6 +144,23 @@ def _artifact_source_digest(repository_source_path: str) -> str:
     return f"sha256:{digest.hexdigest()}"
 
 
+def _replace_python_digest_constant(
+    path: Path,
+    constant_name: str,
+    digest: str,
+) -> None:
+    source = path.read_text(encoding="utf-8")
+    pattern = re.compile(
+        rf'({re.escape(constant_name)}\s*=\s*\(\s*\n\s*")[^"]+("\s*\n\))'
+    )
+    updated, replacements = pattern.subn(rf"\g<1>{digest}\g<2>", source)
+    if replacements != 1:
+        raise RuntimeError(
+            f"Expected one {constant_name} runtime pin in {path}, found {replacements}"
+        )
+    path.write_text(updated, encoding="utf-8")
+
+
 def main() -> int:
     profile = _read(PROFILE_PATH)
     bundle = dict(profile["optimization_bundle"])
@@ -208,6 +229,11 @@ def main() -> int:
     }
     manifest_digest = _refresh_document(manifest)
     _write(MANIFEST_PATH, manifest)
+    _replace_python_digest_constant(
+        OPTIMIZER_ORCHESTRATOR_PATH,
+        "EVENTING_MANIFEST_DIGEST",
+        manifest_digest,
+    )
 
     capacity_registry = _read(CAPACITY_REGISTRY_PATH)
     capacity_registry["content_digest"] = ""
