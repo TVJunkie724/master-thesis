@@ -26,7 +26,6 @@ def _payload(service: str, *, availability: str = "available") -> dict:
                     {
                         "layer": layer,
                         "availability": availability,
-                        "roadmap": "planned" if unavailable else "none",
                         "reason_code": "TEST_UNAVAILABLE" if unavailable else None,
                         "reason": "Capability unavailable for this test." if unavailable else None,
                         "verification_level": (

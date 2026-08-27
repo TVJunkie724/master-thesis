@@ -24,7 +24,7 @@ def test_registry_contains_complete_provider_layer_matrix():
     )
 
 
-def test_profile_neutral_gcp_l4_and_l5_remain_planned_but_unavailable():
+def test_profile_neutral_gcp_l4_and_l5_remain_unsupported():
     gcp = next(
         item for item in get_provider_capabilities().providers if item.provider == "gcp"
     )
@@ -32,7 +32,6 @@ def test_profile_neutral_gcp_l4_and_l5_remain_planned_but_unavailable():
     for layer_id in ("l4", "l5"):
         capability = next(item for item in gcp.layers if item.layer == layer_id)
         assert capability.availability is CapabilityAvailability.UNSUPPORTED
-        assert capability.roadmap.value == "planned"
         assert capability.reason_code == "DEPLOYMENT_PATH_NOT_IMPLEMENTED"
 
 

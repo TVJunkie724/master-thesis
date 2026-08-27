@@ -238,6 +238,46 @@
         "title": "Body_importProjectZip",
         "type": "object"
       },
+      "Body_inspectDeploymentRequirements": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Generated deployment package",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_inspectDeploymentRequirements",
+        "type": "object"
+      },
+      "Body_prepareDeploymentAccountPrerequisites": {
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "expected_plan_digest": {
+            "title": "Expected Plan Digest",
+            "type": "string"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Generated deployment package",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_plan_digest",
+          "confirmed",
+          "file"
+        ],
+        "title": "Body_prepareDeploymentAccountPrerequisites",
+        "type": "object"
+      },
       "Body_stageDeploymentOperationPackage": {
         "properties": {
           "file": {
@@ -410,14 +450,6 @@
         "title": "CapabilityAvailability",
         "type": "string"
       },
-      "CapabilityRoadmap": {
-        "enum": [
-          "none",
-          "planned"
-        ],
-        "title": "CapabilityRoadmap",
-        "type": "string"
-      },
       "CapabilityVerificationLevel": {
         "enum": [
           "not_verified",
@@ -530,7 +562,7 @@
       },
       "DeployerArchitectureProfileRef": {
         "additionalProperties": false,
-        "description": "Pinned architecture profile used to select profile-specific validation.",
+        "description": "Pinned identity of the canonical architecture contract.",
         "properties": {
           "digest": {
             "maxLength": 71,
@@ -1113,10 +1145,6 @@
             ],
             "title": "Reason Code"
           },
-          "roadmap": {
-            "$ref": "#/components/schemas/CapabilityRoadmap",
-            "default": "none"
-          },
           "verification_level": {
             "$ref": "#/components/schemas/CapabilityVerificationLevel"
           }
@@ -1408,7 +1436,7 @@
     },
     "/dataflow/verify": {
       "post": {
-        "description": "Sends one bounded test message and streams phase results for message delivery, hot storage, digital-twin readiness, and event flow.",
+        "description": "Sends one bounded test message and streams phase results for message delivery, hot storage, and trace-correlated digital-twin projection.",
         "operationId": "verifyDataFlow",
         "parameters": [
           {
@@ -1730,42 +1758,33 @@
         ]
       }
     },
-    "/infrastructure/cooldown-check": {
-      "get": {
-        "description": "Check if redeployment is allowed (GCP Firestore 5-min cooldown).\n\n**Zero cloud costs:** Pure calculation with hardcoded 5-min limit. No cloud API calls.\n\nArgs:\n    destroyed_at: ISO timestamp from Management API\n    uses_gcp_firestore: Whether deployment uses GCP as L3-Hot provider\n\nReturns:\n    ready: True if deployment can proceed\n    remaining_seconds: Seconds until ready (0 if ready)",
-        "operationId": "check_cooldown_infrastructure_cooldown_check_get",
+    "/infrastructure/account-preparation": {
+      "post": {
+        "description": "Apply only Azure RP and GCP API actions bound to the reviewed digest.",
+        "operationId": "prepareDeploymentAccountPrerequisites",
         "parameters": [
           {
-            "description": "ISO timestamp of last destroy",
             "in": "query",
-            "name": "destroyed_at",
-            "required": false,
+            "name": "project_name",
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "ISO timestamp of last destroy",
-              "title": "Destroyed At"
-            }
-          },
-          {
-            "description": "Whether deployment uses GCP Firestore",
-            "in": "query",
-            "name": "uses_gcp_firestore",
-            "required": false,
-            "schema": {
-              "default": true,
-              "description": "Whether deployment uses GCP Firestore",
-              "title": "Uses Gcp Firestore",
-              "type": "boolean"
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Project Name",
+              "type": "string"
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_prepareDeploymentAccountPrerequisites"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -1773,7 +1792,33 @@
                 "schema": {}
               }
             },
-            "description": "Cooldown status returned"
+            "description": "Preparation completed or returned partial evidence"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
           },
           "422": {
             "content": {
@@ -1784,9 +1829,22 @@
               }
             },
             "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error. Check logs."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
           }
         },
-        "summary": "Check GCP Firestore deployment cooldown",
+        "summary": "Apply the confirmed graph-derived account preparation plan",
         "tags": [
           "Infrastructure"
         ]
@@ -4610,6 +4668,98 @@
           }
         },
         "summary": "Validate complete deployer configuration",
+        "tags": [
+          "Validation"
+        ]
+      }
+    },
+    "/validate/deployment-requirements": {
+      "post": {
+        "description": "Return only digest-bound graph evidence and secret-free requirements.",
+        "operationId": "inspectDeploymentRequirements",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_inspectDeploymentRequirements"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Graph requirements resolved"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error. Check logs."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Resolve exact deployment prerequisites without cloud mutation",
         "tags": [
           "Validation"
         ]

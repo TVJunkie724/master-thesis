@@ -904,14 +904,6 @@
         "title": "CapabilityAvailability",
         "type": "string"
       },
-      "CapabilityRoadmap": {
-        "enum": [
-          "none",
-          "planned"
-        ],
-        "title": "CapabilityRoadmap",
-        "type": "string"
-      },
       "CapabilitySource": {
         "additionalProperties": false,
         "properties": {
@@ -940,16 +932,12 @@
             ],
             "title": "Reason Code"
           },
-          "roadmap": {
-            "$ref": "#/components/schemas/CapabilityRoadmap"
-          },
           "verification_level": {
             "$ref": "#/components/schemas/CapabilityVerificationLevel"
           }
         },
         "required": [
           "availability",
-          "roadmap",
           "reason_code",
           "reason",
           "verification_level"
@@ -5496,9 +5484,6 @@
             "title": "Restriction Source",
             "type": "string"
           },
-          "roadmap": {
-            "$ref": "#/components/schemas/CapabilityRoadmap"
-          },
           "selectable": {
             "title": "Selectable",
             "type": "boolean"
@@ -5517,7 +5502,6 @@
         "required": [
           "layer",
           "availability",
-          "roadmap",
           "reason_code",
           "reason",
           "selectable",

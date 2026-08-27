@@ -2272,13 +2272,9 @@ class DemoManagementApi implements ManagementApi {
   }
 
   Map<String, dynamic> _demoProviderCapabilities() {
-    Map<String, dynamic> source({
-      required bool available,
-      required bool planned,
-    }) {
+    Map<String, dynamic> source({required bool available}) {
       return {
         'availability': available ? 'available' : 'unsupported',
-        'roadmap': planned ? 'planned' : 'none',
         'reason_code': available ? null : 'DEPLOYMENT_PATH_NOT_IMPLEMENTED',
         'reason': available
             ? null
@@ -2317,9 +2313,6 @@ class DemoManagementApi implements ManagementApi {
                       provider == 'gcp' && {'l4', 'l5'}.contains(layer)
                       ? 'unsupported'
                       : 'available',
-                  'roadmap': provider == 'gcp' && {'l4', 'l5'}.contains(layer)
-                      ? 'planned'
-                      : 'none',
                   'reason_code':
                       provider == 'gcp' && {'l4', 'l5'}.contains(layer)
                       ? 'DEPLOYMENT_PATH_NOT_IMPLEMENTED'
@@ -2342,14 +2335,10 @@ class DemoManagementApi implements ManagementApi {
                     'optimizer': source(
                       available:
                           !(provider == 'gcp' && {'l4', 'l5'}.contains(layer)),
-                      planned:
-                          provider == 'gcp' && {'l4', 'l5'}.contains(layer),
                     ),
                     'deployer': source(
                       available:
                           !(provider == 'gcp' && {'l4', 'l5'}.contains(layer)),
-                      planned:
-                          provider == 'gcp' && {'l4', 'l5'}.contains(layer),
                     ),
                   },
                 },

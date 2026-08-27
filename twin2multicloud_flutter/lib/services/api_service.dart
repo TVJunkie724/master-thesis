@@ -409,7 +409,7 @@ class ApiService implements ManagementApi {
     }
     if (data.length > 32) {
       throw const FormatException(
-        'Invalid API contract: architecture profile catalog is too large.',
+        'Invalid API contract: twin inventory is too large.',
       );
     }
     return List<Twin>.unmodifiable(

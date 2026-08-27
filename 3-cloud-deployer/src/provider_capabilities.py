@@ -40,11 +40,6 @@ class CapabilityAvailability(str, Enum):
     UNSUPPORTED = "unsupported"
 
 
-class CapabilityRoadmap(str, Enum):
-    NONE = "none"
-    PLANNED = "planned"
-
-
 class CapabilityVerificationLevel(str, Enum):
     NOT_VERIFIED = "not_verified"
     CONTRACT_TESTED = "contract_tested"
@@ -56,7 +51,6 @@ class ProviderLayerCapability(BaseModel):
 
     layer: LayerId
     availability: CapabilityAvailability
-    roadmap: CapabilityRoadmap = CapabilityRoadmap.NONE
     reason_code: str | None = None
     reason: str | None = None
     verification_level: CapabilityVerificationLevel
@@ -68,8 +62,6 @@ class ProviderLayerCapability(BaseModel):
         if self.availability is CapabilityAvailability.AVAILABLE:
             if has_reason or has_code:
                 raise ValueError("Available capabilities cannot declare a reason")
-            if self.roadmap is not CapabilityRoadmap.NONE:
-                raise ValueError("Available capabilities cannot be marked planned")
         elif not has_reason or not has_code:
             raise ValueError(
                 "Unavailable capabilities require a reason code and reason"
@@ -158,7 +150,6 @@ def _build_provider(provider: ProviderId) -> ProviderCapability:
                 ProviderLayerCapability(
                     layer=layer,
                     availability=CapabilityAvailability.UNSUPPORTED,
-                    roadmap=CapabilityRoadmap.PLANNED,
                     reason_code=reason_code,
                     reason=reason,
                     verification_level=CapabilityVerificationLevel.NOT_VERIFIED,

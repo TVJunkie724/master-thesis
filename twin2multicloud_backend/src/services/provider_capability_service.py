@@ -11,7 +11,6 @@ from src.clients.optimizer_client import OptimizerClient
 from src.schemas.provider_capability import (
     PLATFORM_CAPABILITY_SCHEMA_VERSION,
     CapabilityAvailability,
-    CapabilityRoadmap,
     CapabilitySource,
     CapabilitySourceHealth,
     CapabilitySources,
@@ -141,12 +140,6 @@ def _aggregate_layer(
         ("deployer",): "restricted_by_deployer",
         ("optimizer", "deployer"): "restricted_by_both",
     }[tuple(restricted_sources)]
-    roadmap = (
-        CapabilityRoadmap.PLANNED
-        if availability is not CapabilityAvailability.AVAILABLE
-        and CapabilityRoadmap.PLANNED in {optimizer.roadmap, deployer.roadmap}
-        else CapabilityRoadmap.NONE
-    )
     verification_level = min(
         (optimizer.verification_level, deployer.verification_level),
         key=_VERIFICATION_RANK.__getitem__,
@@ -159,7 +152,6 @@ def _aggregate_layer(
     return PlatformLayerCapability(
         layer=optimizer.layer,
         availability=availability,
-        roadmap=roadmap,
         reason_code=reason_code,
         reason=reason,
         selectable=availability is CapabilityAvailability.AVAILABLE,
@@ -216,7 +208,6 @@ def _aggregate_reason(
 def _source(capability: ServiceLayerCapability) -> CapabilitySource:
     return CapabilitySource(
         availability=capability.availability,
-        roadmap=capability.roadmap,
         reason_code=capability.reason_code,
         reason=capability.reason,
         verification_level=capability.verification_level,

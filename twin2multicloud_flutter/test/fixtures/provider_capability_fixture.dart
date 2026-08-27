@@ -1,7 +1,6 @@
 Map<String, dynamic> platformProviderCapabilitiesJson() {
   Map<String, dynamic> source(bool available) => {
     'availability': available ? 'available' : 'unsupported',
-    'roadmap': available ? 'none' : 'planned',
     'reason_code': available ? null : 'DEPLOYMENT_PATH_NOT_IMPLEMENTED',
     'reason': available ? null : 'Capability is not implemented.',
     'verification_level': available ? 'contract_tested' : 'not_verified',
@@ -50,7 +49,6 @@ Map<String, dynamic> _platformLayer(
   return {
     'layer': layer,
     'availability': available ? 'available' : 'unsupported',
-    'roadmap': available ? 'none' : 'planned',
     'reason_code': available ? null : 'DEPLOYMENT_PATH_NOT_IMPLEMENTED',
     'reason': available
         ? null

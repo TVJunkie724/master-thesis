@@ -13,7 +13,7 @@ MAX_FUNCTIONS = 1_000
 
 
 class DeployerArchitectureProfileRef(BaseModel):
-    """Pinned architecture profile used to select profile-specific validation."""
+    """Pinned identity of the canonical architecture contract."""
 
     model_config = ConfigDict(extra="forbid")
 
