@@ -261,9 +261,9 @@ The remaining boundary is deliberately visible:
 - a manual acknowledgement records the supervised operator decision but is not
   substituted for a provider probe where a non-mutating probe exists;
 - provider-console links are not yet a structured cross-provider contract; and
-- Flutter currently exposes connection selection and provider preflight, but
-  the exact preparation-plan confirmation and repair actions still require the
-  bounded Phase 6 UI closure.
+- Flutter exposes the digest-bound plan, warns about persistent account-level
+  changes, confirms only the listed automatic actions, records individually
+  selected manual acknowledgements, and renders the returned readiness result.
 
 No live provider behavior is inferred from these offline contracts. Real
 permissions, regional availability, quotas, API registration, partial-failure
@@ -286,11 +286,11 @@ supervised PoC. It does not evaluate an identity-provisioning product.
 
 ## 15. Implementation dependency
 
-The standalone Six-layer graph is now the cross-service source of truth, and
-the Management/Deployer readiness and account-preparation contracts are
-implemented and covered offline. Completion still requires the bounded Flutter
-confirmation/repair surface and supervised provider validation. This section
-must not be read as live-cloud readiness evidence.
+The standalone Six-layer graph is now the cross-service source of truth. The
+Management/Deployer readiness and account-preparation contracts and their
+bounded Flutter confirmation/repair surface are implemented and covered
+offline. Completion still requires supervised provider validation. This
+section must not be read as live-cloud readiness evidence.
 
 ## 16. Provider references for implementation review
 

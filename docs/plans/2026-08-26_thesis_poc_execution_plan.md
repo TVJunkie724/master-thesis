@@ -30,9 +30,9 @@ The canonical scope is defined by:
 | Phase | Status on 2026-08-27 | Evidence boundary |
 |---|---|---|
 | 0–2 | Implemented offline | standalone contracts, cost-only path, graph-derived deployment evidence |
-| 3 | Backend/Deployer implemented; Flutter closure pending | connection selection and preflight exist; preparation confirmation and repair UI remain |
+| 3 | Implemented offline | connection selection, graph-bound preflight, confirmed preparation, manual acknowledgement, and retry-safe repair |
 | 4–5 | Implemented offline | bounded Twin interchange, durable operations, access and verification contracts |
-| 6 | In progress | removed product surfaces; bounded readiness/repair presentation remains |
+| 6 | Implemented offline | product surfaces removed; bounded readiness and repair presentation connected to the existing overview |
 | 7 | In progress | active documentation and repository-wide offline gate |
 | 8 | Pending supervision | real principals, provider readiness, identity and image probes |
 | 9 | Pending supervision | nine cost-controlled Small deployments |

@@ -11,8 +11,8 @@ than four routes:
 
 1. Twin scenario and typed bounded configuration;
 2. cost result, exclusions, assumptions, trace, and immutable review;
-3. deployment CloudConnection selection and readiness, with the bounded
-   preparation/repair presentation still being closed;
+3. deployment CloudConnection selection, graph-bound readiness, and bounded
+   preparation/repair confirmation;
 4. Deploy/Destroy operation progress, access handoff, verification, and
    cleanup evidence.
 
@@ -32,9 +32,10 @@ mutable concern has one state owner.
 CloudConnection entry/import is write-only. Flutter retains only the returned
 label, provider, scope, auth kind, and validation/readiness state. Users may
 select among multiple named deployment connections. The current overview can
-run and display provider preflight checks. It does not yet expose the complete
-digest-bound preparation plan, confirmation, typed manual requirement list, or
-preparation retry response; those are the remaining bounded UI closure.
+run and display provider preflight checks, show the digest-bound preparation
+plan, confirm its listed non-destructive account actions, acknowledge completed
+external steps individually, and render the retry-safe preparation result.
+Unselected external steps remain pending.
 
 ## Deployment behavior
 

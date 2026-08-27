@@ -24,8 +24,10 @@ as portable Twin artifacts.
 
 Readiness may reveal missing permissions or external provider prerequisites.
 The Management/Deployer preparation contract is bounded and confirmation-
-gated, but its complete Flutter confirmation and repair surface is still open.
-Do not invoke live preparation by bypassing that UI boundary.
+gated. After preflight, review the exact automatic account actions, acknowledge
+only external steps already completed, and confirm preparation. The overview
+then renders the retry-safe result and the newly probed readiness. Do not invoke
+live preparation by bypassing that UI boundary.
 
 Twin2MultiCloud does not create, minimize, rotate, or revoke the provider
 administrator. Revoke it directly with the provider after the experiment.
