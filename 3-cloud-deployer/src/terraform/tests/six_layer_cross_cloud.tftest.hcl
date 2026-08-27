@@ -1,7 +1,3 @@
-variable "project_path" {
-  type = string
-}
-
 mock_provider "archive" {}
 mock_provider "azapi" {}
 mock_provider "aws" {}

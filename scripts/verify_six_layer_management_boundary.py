@@ -33,15 +33,13 @@ from backend.architecture_profiles.six_layer_optimizer import (  # noqa: E402
     optimize_six_layer_eventing_v1,
 )
 import src.models  # noqa: E402,F401
-from src.models.architecture_profile import TwinArchitectureSelection  # noqa: E402
 from src.models.cost_calculation import CostCalculationRun  # noqa: E402
 from src.models.database import Base  # noqa: E402
 from src.models.optimizer_config import OptimizerConfiguration  # noqa: E402
 from src.models.twin import DigitalTwin  # noqa: E402
 from src.models.user import User  # noqa: E402
 from src.models.user_function_extension import (  # noqa: E402
-    TwinExtensionBinding,
-    UserFunctionArtifact,
+    TwinUserFunction,
 )
 from src.schemas.architecture_profile import (  # noqa: E402
     ResolvedTwinArchitectureContractV2,
@@ -53,8 +51,8 @@ from src.schemas.pricing_catalog import (  # noqa: E402
 from src.services.cost_calculation_run_service import (  # noqa: E402
     CostCalculationRunService,
 )
-from src.services.user_function_extension_service import (  # noqa: E402
-    runtime as extension_contract,
+from src.services.architecture_profile_service import (  # noqa: E402
+    ArchitectureProfileService,
 )
 
 
@@ -195,55 +193,41 @@ def _persist(optimized, workload: dict, registry, context: PricingCatalogContext
         session.add_all([user, twin, config])
         session.flush()
         session.add(
-            TwinArchitectureSelection(
+            ArchitectureProfileService.build_default_selection(
                 twin_id=TWIN_ID,
                 user_id=USER_ID,
-                profile_id="six-layer-eventing",
-                profile_version="1",
-                profile_digest=registry.profile["content_digest"],
-                revision=1,
-                selected_by_user_id=USER_ID,
             )
         )
-        artifact = UserFunctionArtifact(
+        artifact = TwinUserFunction(
             id=ARTIFACT_ID,
-            user_id=USER_ID,
-            schema_version="user-function-artifact.v1",
-            artifact_state="valid",
+            twin_id=TWIN_ID,
             artifact_digest="sha256:" + ("1" * 64),
             slot_id="processor.telemetry",
             slot_version="1",
             runtime_id="python311",
+            manifest_json="{}",
             configuration_json="{}",
             declared_capabilities_json="[]",
             validator_version="user-function-validator.v1",
-            created_by=USER_ID,
         )
         session.add(artifact)
-        session.flush()
-        session.add(
-            TwinExtensionBinding(
-                id="phase-8-six-layer-binding",
-                user_id=USER_ID,
-                twin_id=TWIN_ID,
-                slot_id="processor.telemetry",
-                slot_version="1",
-                artifact_id=ARTIFACT_ID,
-                binding_digest=extension_contract.binding_digest(
-                    twin_id=TWIN_ID,
-                    slot_id="processor.telemetry",
-                    slot_version="1",
-                    artifact_id=ARTIFACT_ID,
-                    artifact_digest=artifact.artifact_digest,
-                ),
-                active=True,
-                revision=1,
-            )
-        )
         session.flush()
 
         architecture = dict(optimized.resolved_architecture)
         specification = dict(optimized.deployment_specification)
+        profile = ArchitectureProfileService.get_definition(
+            "six-layer-eventing",
+            "1",
+        )
+        bundle = profile["optimization_bundle"]
+        calculation_model = (
+            f"{bundle['calculation_strategy_id']}@"
+            f"{bundle['calculation_strategy_version']}"
+        )
+        pricing_registry_version = (
+            f"{bundle['pricing_registry_id']}@"
+            f"{bundle['pricing_registry_versions'][0]}"
+        )
         assignment = {
             item["logical_component_id"]: item["provider"]
             for item in architecture["component_assignments"]
@@ -268,17 +252,17 @@ def _persist(optimized, workload: dict, registry, context: PricingCatalogContext
             "totalCost": float(total),
             "totalCostExact": total,
             "currency": "USD",
-            "optimization_profile_id": "cost-minimization-v2",
+            "optimization_profile_id": bundle["optimization_strategy_id"],
             "result_schema_version": "cost-result.v2",
             "optimizationProfile": {
                 "enabled": True,
-                "profile_version": "2",
-                "scoring_strategy_id": "profile-local-min-total-cost-v2",
-                "calculation_model_ids": ["profile-resolution-v2@2"],
-                "pricing_registry_version": "phase-08-complete-service-pricing@1",
+                "profile_version": bundle["optimization_strategy_version"],
+                "scoring_strategy_id": bundle["scoring_strategy_id"],
+                "calculation_model_ids": [calculation_model],
+                "pricing_registry_version": pricing_registry_version,
             },
             "evidenceReferences": {
-                "pricing_registry": "phase-08-complete-service-pricing@1"
+                "pricing_registry": pricing_registry_version
             },
             "costLedger": dict(optimized.cost_ledger),
             "resolvedTwinArchitecture": architecture,
@@ -298,10 +282,11 @@ def _persist(optimized, workload: dict, registry, context: PricingCatalogContext
             ),
             total_monthly_cost=float(total),
             currency="USD",
-            optimization_profile_id="cost-minimization-v2",
-            optimization_profile_version="2",
-            scoring_strategy_id="profile-local-min-total-cost-v2",
-            calculation_model_version="profile-resolution-v2@2",
+            optimization_profile_id=bundle["optimization_strategy_id"],
+            optimization_profile_version=bundle["optimization_strategy_version"],
+            scoring_strategy_id=bundle["scoring_strategy_id"],
+            calculation_model_version=calculation_model,
+            pricing_registry_version=pricing_registry_version,
             pricing_catalog_context_json=context.canonical_json(),
         )
         persisted = CostCalculationRunService(session).persist_successful_run(

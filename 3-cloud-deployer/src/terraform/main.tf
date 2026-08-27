@@ -107,7 +107,7 @@ provider "aws" {
 # Google Cloud Provider (for multi-cloud deployments)
 provider "google" {
   project = local.deploy_gcp ? var.gcp_project_id : "placeholder-not-used"
-  region = var.gcp_region != "" ? var.gcp_region : "us-central1"
+  region  = var.gcp_region != "" ? var.gcp_region : "us-central1"
   # Use dummy credentials when none provided to prevent Application Default Credentials
   # lookup (which fails in containers without gcloud CLI).
   credentials = var.gcp_credentials_json != "" ? var.gcp_credentials_json : "{\"type\":\"service_account\",\"project_id\":\"placeholder\",\"private_key_id\":\"\",\"private_key\":\"\",\"client_email\":\"placeholder@placeholder.iam.gserviceaccount.com\",\"client_id\":\"\",\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\",\"token_uri\":\"https://oauth2.googleapis.com/token\"}"
@@ -170,7 +170,7 @@ locals {
     var.event_layer_provider
   ], "azure")
 
-  azure_v1_enabled = false
+  azure_v1_enabled        = false
   azure_six_layer_enabled = local.deploy_azure && local.six_layer_enabled
 
   deploy_aws = contains([

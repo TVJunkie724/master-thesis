@@ -744,10 +744,10 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME                         = "python"
-    WEBSITE_RUN_FROM_PACKAGE                         = "1"
-    ARCHITECTURE_PROFILE                             = "${var.architecture_profile_id}@${var.architecture_profile_version}"
-    DEPLOYMENT_ID                                    = local.deployment_suffix
+    FUNCTIONS_WORKER_RUNTIME                                = "python"
+    WEBSITE_RUN_FROM_PACKAGE                                = "1"
+    ARCHITECTURE_PROFILE                                    = "${var.architecture_profile_id}@${var.architecture_profile_version}"
+    DEPLOYMENT_ID                                           = local.deployment_suffix
     SIX_LAYER_DOMAIN_QUEUE_NAME                             = try(azurerm_servicebus_queue.azure_azure_service_bus_standard[0].name, "")
     SIX_LAYER_DOMAIN_TOPIC_NAME                             = try(azurerm_servicebus_topic.azure_azure_service_bus_standard[0].name, "")
     SIX_LAYER_SERVICE_BUS__fullyQualifiedNamespace          = try("${azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].name}.servicebus.windows.net", "disabled.servicebus.windows.net")
@@ -785,11 +785,11 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
     SIX_LAYER_EVENTING_CONTROL_TOPIC_NAME                   = try(azurerm_servicebus_topic.domain_control[0].name, "")
     SIX_LAYER_EVENTING_BRIDGE_CONTROL_SUBSCRIPTION_NAME     = try(azurerm_servicebus_subscription.event_bridge_control[0].name, "disabled")
     SIX_LAYER_EVENT_LAYER_PROVIDER                          = var.event_layer_provider
-    BRIDGE_ROUTES_JSON                               = jsonencode(values(local.azure_six_layer_outbound_event_routes))
-    BRIDGE_DESTINATIONS_JSON                         = jsonencode(local.azure_six_layer_bridge_destinations)
-    BRIDGE_IDENTITIES_JSON                           = jsonencode(local.azure_six_layer_bridge_identities)
-    BRIDGE_SOURCE_IDENTITY_JSON                      = jsonencode({ managed_identity_client_id = azurerm_user_assigned_identity.main[0].client_id })
-    BRIDGE_FAILURE_DESTINATION_JSON                  = jsonencode(local.azure_six_layer_bridge_failure_destination)
+    BRIDGE_ROUTES_JSON                                      = jsonencode(values(local.azure_six_layer_outbound_event_routes))
+    BRIDGE_DESTINATIONS_JSON                                = jsonencode(local.azure_six_layer_bridge_destinations)
+    BRIDGE_IDENTITIES_JSON                                  = jsonencode(local.azure_six_layer_bridge_identities)
+    BRIDGE_SOURCE_IDENTITY_JSON                             = jsonencode({ managed_identity_client_id = azurerm_user_assigned_identity.main[0].client_id })
+    BRIDGE_FAILURE_DESTINATION_JSON                         = jsonencode(local.azure_six_layer_bridge_failure_destination)
     SIX_LAYER_L2_PROVIDER                                   = var.layer_2_provider
     SIX_LAYER_L1_PROVIDER                                   = var.layer_1_provider
     SIX_LAYER_HOT_PROVIDER                                  = var.layer_3_hot_provider
@@ -856,10 +856,10 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME                         = "python"
-    WEBSITE_RUN_FROM_PACKAGE                         = "1"
-    ARCHITECTURE_PROFILE                             = "${var.architecture_profile_id}@${var.architecture_profile_version}"
-    DEPLOYMENT_ID                                    = local.deployment_suffix
+    FUNCTIONS_WORKER_RUNTIME                                = "python"
+    WEBSITE_RUN_FROM_PACKAGE                                = "1"
+    ARCHITECTURE_PROFILE                                    = "${var.architecture_profile_id}@${var.architecture_profile_version}"
+    DEPLOYMENT_ID                                           = local.deployment_suffix
     SIX_LAYER_DOMAIN_CONSUMER_ENABLED                       = tostring(local.azure_six_layer_embedded_event_enabled)
     SIX_LAYER_IOT_PROCESSOR_ENABLED                         = "false"
     SIX_LAYER_REMOTE_TELEMETRY_ENABLED                      = "false"
@@ -992,9 +992,9 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_extension_acti
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME    = "python"
-    WEBSITE_RUN_FROM_PACKAGE    = "1"
-    ARCHITECTURE_PROFILE        = "${var.architecture_profile_id}@${var.architecture_profile_version}"
+    FUNCTIONS_WORKER_RUNTIME           = "python"
+    WEBSITE_RUN_FROM_PACKAGE           = "1"
+    ARCHITECTURE_PROFILE               = "${var.architecture_profile_id}@${var.architecture_profile_version}"
     SIX_LAYER_ACTION_ENDPOINT_ENABLED  = "true"
     SIX_LAYER_DOMAIN_CONSUMER_ENABLED  = "false"
     SIX_LAYER_IOT_PROCESSOR_ENABLED    = "false"
@@ -1181,15 +1181,15 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME = "python"
-    WEBSITE_RUN_FROM_PACKAGE = "1"
-    ARCHITECTURE_PROFILE     = "${var.architecture_profile_id}@${var.architecture_profile_version}"
-    DEPLOYMENT_ID            = local.deployment_suffix
-    SIX_LAYER_RAW_HISTORY_ENABLED   = "true"
-    SIX_LAYER_COSMOS_ENDPOINT       = azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint
-    SIX_LAYER_COSMOS_DATABASE       = azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name
-    SIX_LAYER_COSMOS_CONTAINER      = azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name
-    SIX_LAYER_CURSOR_HMAC_KEY       = random_password.azure_six_layer_raw_history_cursor_hmac[0].result
+    FUNCTIONS_WORKER_RUNTIME      = "python"
+    WEBSITE_RUN_FROM_PACKAGE      = "1"
+    ARCHITECTURE_PROFILE          = "${var.architecture_profile_id}@${var.architecture_profile_version}"
+    DEPLOYMENT_ID                 = local.deployment_suffix
+    SIX_LAYER_RAW_HISTORY_ENABLED = "true"
+    SIX_LAYER_COSMOS_ENDPOINT     = azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint
+    SIX_LAYER_COSMOS_DATABASE     = azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name
+    SIX_LAYER_COSMOS_CONTAINER    = azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name
+    SIX_LAYER_CURSOR_HMAC_KEY     = random_password.azure_six_layer_raw_history_cursor_hmac[0].result
   }
 
   tags = local.azure_six_layer_tags

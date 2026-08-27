@@ -120,7 +120,11 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             ],
         )
         self.assertIn(
-            "tests/unit/calculation_v2/test_deployment_drift_matrix.py",
+            "tests/unit/architecture_profiles/test_six_layer_optimizer.py",
+            rendered,
+        )
+        self.assertIn(
+            "tests/unit/architecture_profiles/test_contracts.py",
             rendered,
         )
         self.assertIn(
@@ -158,14 +162,25 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             rendered,
         )
         self.assertIn(
-            "scripts/phase_08_service_bundles/freeze_decision.py",
+            "scripts/phase_08_service_bundles/freeze_decision.py --check",
             rendered,
         )
-        self.assertIn("tests/test_deployment_drift_matrix.py", rendered)
+        self.assertIn("tests/test_resolved_architecture_service.py", rendered)
         self.assertIn(
             "tests/unit/terraform/test_build_all_packages.py",
             rendered,
         )
+        self.assertIn(
+            "tests/unit/architecture_profiles/test_graph_requirements.py",
+            rendered,
+        )
+        for provider in ("aws", "azure", "gcp"):
+            with self.subTest(provider=provider):
+                self.assertIn(
+                    "tests/unit/terraform/"
+                    f"test_{provider}_deployment_specification_contract.py",
+                    rendered,
+                )
         self.assertIn(
             "tests/unit/terraform/test_graph_compatibility_projection.py",
             rendered,

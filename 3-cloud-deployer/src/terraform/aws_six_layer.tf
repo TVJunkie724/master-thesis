@@ -125,7 +125,7 @@ locals {
   )
 
   aws_six_layer_runtime_package = "${var.project_path}/.build/aws/six-layer-domain.zip"
-  aws_six_layer_name = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 32)
+  aws_six_layer_name            = substr(replace(lower(var.digital_twin_name), "_", "-"), 0, 32)
   aws_six_layer_processor_extensions = local.aws_six_layer_l2_enabled ? {
     for package in var.validated_extension_packages : package.artifact_id => package
     if package.slot_id == "processor.telemetry" && package.slot_version == "1"
