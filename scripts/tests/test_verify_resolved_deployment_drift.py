@@ -28,8 +28,10 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "scripts/sync_user_function_extension_contracts.py",
             "scripts/materialize_live_evaluation_candidate.py",
             "scripts/manage_live_evaluation_evidence.py",
+            "scripts/manage_live_evaluation_metrics.py",
             "scripts/validate_live_evaluation_plan.py",
             "scripts/tests/test_manage_live_evaluation_evidence.py",
+            "scripts/tests/test_manage_live_evaluation_metrics.py",
             "scripts/tests/test_validate_live_evaluation_plan.py",
             "scripts/verify_six_layer_management_boundary.py",
         )
@@ -156,6 +158,10 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         )
         self.assertIn(
             "scripts/tests/test_manage_live_evaluation_evidence.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/tests/test_manage_live_evaluation_metrics.py",
             rendered,
         )
         self.assertIn(

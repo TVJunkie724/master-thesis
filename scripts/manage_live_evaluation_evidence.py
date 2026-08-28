@@ -19,6 +19,14 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
+try:
+    from scripts.manage_live_evaluation_metrics import (
+        LiveMetricsError,
+        validate_metrics,
+    )
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from manage_live_evaluation_metrics import LiveMetricsError, validate_metrics
+
 ROOT = Path(__file__).resolve().parents[1]
 PLAN_PATH = ROOT / "docs/research/evaluation/small-scenario-matrix.json"
 SCHEMA_PATH = (
@@ -33,6 +41,7 @@ REQUIRED_SCENARIO_ARTIFACTS = frozenset(
         "replay",
         "access",
         "telemetry",
+        "evaluation_metrics",
         "destroy_operation",
         "cleanup",
         "provider_cost",
@@ -489,6 +498,11 @@ def _validate_scenario_claims(record: Mapping[str, Any]) -> None:
                 )
             if scenario["blocker_code"] is not None:
                 raise LiveEvidenceError("Completed scenario cannot contain a blocker")
+            if kinds.count("evaluation_metrics") != 1:
+                raise LiveEvidenceError(
+                    f"{scenario['scenario_id']}: completed evidence requires exactly "
+                    "one evaluation_metrics artifact"
+                )
         elif scenario["status"] == "blocked":
             if scenario["blocker_code"] is None or not scenario["artifacts"]:
                 raise LiveEvidenceError("Blocked scenario requires evidence and a code")
@@ -596,6 +610,34 @@ def validate_record(
             evidence_root=evidence_root,
             label=scenario["scenario_id"],
         )
+        for artifact in scenario["artifacts"]:
+            if artifact["kind"] != "evaluation_metrics":
+                continue
+            relative = _safe_relative_path(
+                artifact["path"],
+                label=f"{scenario['scenario_id']} metrics path",
+            )
+            metrics_path = _resolve_under(
+                evidence_root,
+                relative,
+                label=f"{scenario['scenario_id']} metrics file",
+            )
+            metrics_record = _read(metrics_path)
+            try:
+                validate_metrics(metrics_record)
+            except LiveMetricsError as exc:
+                raise LiveEvidenceError(
+                    f"{scenario['scenario_id']}: invalid evaluation metrics: {exc}"
+                ) from exc
+            if (
+                metrics_record["scenario_id"] != scenario["scenario_id"]
+                or metrics_record["subject_id"] != scenario["scenario_id"]
+                or metrics_record["candidate_evidence_digest"]
+                != scenario["candidate_evidence_digest"]
+            ):
+                raise LiveEvidenceError(
+                    f"{scenario['scenario_id']}: metrics binding drifted"
+                )
     _validate_state(record, plan=plan)
     return {
         "status": record["status"],

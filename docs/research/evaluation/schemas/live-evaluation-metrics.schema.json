@@ -1,0 +1,447 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/research/live-evaluation-metrics.v1.schema.json",
+  "title": "Twin2MultiCloud live-evaluation measurements",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_status",
+    "run_id",
+    "run_kind",
+    "subject_id",
+    "scenario_id",
+    "candidate_evidence_digest",
+    "architecture_contract",
+    "source_revision",
+    "workload_digest",
+    "simulator_digest",
+    "provider_scope",
+    "started_at",
+    "completed_at",
+    "clock",
+    "protocol",
+    "lifecycle",
+    "message_samples",
+    "resources",
+    "cost",
+    "cleanup",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "live-evaluation-metrics.v1"},
+    "evidence_status": {"const": "live_observation"},
+    "run_id": {"$ref": "#/$defs/label"},
+    "run_kind": {
+      "enum": ["component_probe", "provider_local", "directed_multicloud"]
+    },
+    "subject_id": {"$ref": "#/$defs/label"},
+    "scenario_id": {
+      "oneOf": [
+        {"type": "string", "pattern": "^small-(?:local|focus)-[a-z-]+$"},
+        {"type": "null"}
+      ]
+    },
+    "candidate_evidence_digest": {"$ref": "#/$defs/nullableDigest"},
+    "architecture_contract": {"const": "six-layer-eventing@1"},
+    "source_revision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,64}$"
+    },
+    "workload_digest": {"$ref": "#/$defs/digest"},
+    "simulator_digest": {"$ref": "#/$defs/digest"},
+    "provider_scope": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/provider"}
+    },
+    "started_at": {"$ref": "#/$defs/timestamp"},
+    "completed_at": {"$ref": "#/$defs/timestamp"},
+    "clock": {"$ref": "#/$defs/clock"},
+    "protocol": {"$ref": "#/$defs/protocol"},
+    "lifecycle": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "items": {"$ref": "#/$defs/lifecycleMeasurement"}
+    },
+    "message_samples": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": {"$ref": "#/$defs/messageSample"}
+    },
+    "resources": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {"$ref": "#/$defs/resourceObservation"}
+    },
+    "cost": {"$ref": "#/$defs/costObservation"},
+    "cleanup": {"$ref": "#/$defs/cleanupObservation"},
+    "limitations": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "nullableDigest": {
+      "oneOf": [
+        {"$ref": "#/$defs/digest"},
+        {"type": "null"}
+      ]
+    },
+    "provider": {"enum": ["aws", "azure", "gcp"]},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "nullableTimestamp": {
+      "oneOf": [
+        {"$ref": "#/$defs/timestamp"},
+        {"type": "null"}
+      ]
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@ -]*$"
+    },
+    "nullableLabel": {
+      "oneOf": [
+        {"$ref": "#/$defs/label"},
+        {"type": "null"}
+      ]
+    },
+    "clock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "synchronized",
+        "method",
+        "checked_at",
+        "max_observed_skew_ms"
+      ],
+      "properties": {
+        "synchronized": {"const": true},
+        "method": {"$ref": "#/$defs/label"},
+        "checked_at": {"$ref": "#/$defs/timestamp"},
+        "max_observed_skew_ms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10000
+        }
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "warmup_messages_per_direction",
+        "measured_messages_per_direction",
+        "payload_bytes",
+        "cadence_ms",
+        "cold_start_observed",
+        "directions",
+        "expected_paths",
+        "notes"
+      ],
+      "properties": {
+        "warmup_messages_per_direction": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "measured_messages_per_direction": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000
+        },
+        "payload_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "cadence_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600000
+        },
+        "cold_start_observed": {"type": "boolean"},
+        "directions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/messageDirection"}
+        },
+        "expected_paths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/expectedPath"}
+        },
+        "notes": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        }
+      }
+    },
+    "messageDirection": {"enum": ["telemetry", "command_outcome"]},
+    "stageId": {
+      "enum": [
+        "simulator_sent",
+        "l1_accepted",
+        "event_layer_durable",
+        "l2_started",
+        "l2_completed",
+        "l3_hot_persisted",
+        "l3_cool_persisted",
+        "l3_archive_persisted",
+        "l4_queryable",
+        "l5_queryable",
+        "command_issued",
+        "event_layer_command_durable",
+        "l1_command_published",
+        "simulator_command_received",
+        "simulator_outcome_sent",
+        "outcome_event_durable",
+        "outcome_persisted",
+        "outcome_queryable"
+      ]
+    },
+    "expectedPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direction", "stage_ids"],
+      "properties": {
+        "direction": {"$ref": "#/$defs/messageDirection"},
+        "stage_ids": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/stageId"}
+        }
+      }
+    },
+    "lifecycleMeasurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phase",
+        "provider",
+        "status",
+        "started_at",
+        "completed_at",
+        "duration_ms"
+      ],
+      "properties": {
+        "phase": {
+          "enum": [
+            "terraform_plan",
+            "terraform_apply",
+            "infrastructure_ready",
+            "l1_l3_eventing_ready",
+            "l4_ready",
+            "l5_ready",
+            "terraform_destroy",
+            "inventory_reconciliation"
+          ]
+        },
+        "provider": {
+          "oneOf": [
+            {"$ref": "#/$defs/provider"},
+            {"type": "null"}
+          ]
+        },
+        "status": {"enum": ["completed", "failed", "skipped"]},
+        "started_at": {"$ref": "#/$defs/nullableTimestamp"},
+        "completed_at": {"$ref": "#/$defs/nullableTimestamp"},
+        "duration_ms": {
+          "oneOf": [
+            {"type": "number", "minimum": 0},
+            {"type": "null"}
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "completed"}}},
+          "then": {
+            "properties": {
+              "started_at": {"$ref": "#/$defs/timestamp"},
+              "completed_at": {"$ref": "#/$defs/timestamp"},
+              "duration_ms": {"type": "number", "minimum": 0}
+            }
+          }
+        }
+      ]
+    },
+    "messageStage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage_id",
+        "provider",
+        "layer",
+        "observed_at",
+        "clock_source",
+        "event_id"
+      ],
+      "properties": {
+        "stage_id": {"$ref": "#/$defs/stageId"},
+        "provider": {
+          "oneOf": [
+            {"$ref": "#/$defs/provider"},
+            {"type": "null"}
+          ]
+        },
+        "layer": {
+          "enum": [
+            "simulator",
+            "L1",
+            "LE",
+            "L2",
+            "L3-hot",
+            "L3-cool",
+            "L3-archive",
+            "L4",
+            "L5"
+          ]
+        },
+        "observed_at": {"$ref": "#/$defs/timestamp"},
+        "clock_source": {"enum": ["simulator", "application", "provider"]},
+        "event_id": {"$ref": "#/$defs/nullableLabel"}
+      }
+    },
+    "messageSample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trace_id",
+        "sequence",
+        "sample_set",
+        "direction",
+        "payload_bytes",
+        "status",
+        "stages",
+        "retry_count",
+        "duplicate_count",
+        "ordering_ok",
+        "dlq_observed",
+        "failure_code"
+      ],
+      "properties": {
+        "trace_id": {"$ref": "#/$defs/label"},
+        "sequence": {"type": "integer", "minimum": 1},
+        "sample_set": {"enum": ["warmup", "measured"]},
+        "direction": {"$ref": "#/$defs/messageDirection"},
+        "payload_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "status": {"enum": ["succeeded", "failed", "timeout"]},
+        "stages": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": {"$ref": "#/$defs/messageStage"}
+        },
+        "retry_count": {"type": "integer", "minimum": 0},
+        "duplicate_count": {"type": "integer", "minimum": 0},
+        "ordering_ok": {"type": "boolean"},
+        "dlq_observed": {"type": "boolean"},
+        "failure_code": {"$ref": "#/$defs/nullableLabel"}
+      }
+    },
+    "resourceObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "region", "layer", "service", "sku", "count"],
+      "properties": {
+        "provider": {"$ref": "#/$defs/provider"},
+        "region": {"$ref": "#/$defs/label"},
+        "layer": {
+          "enum": ["L1", "LE", "L2", "L3-hot", "L3-cool", "L3-archive", "L4", "L5", "shared"]
+        },
+        "service": {"$ref": "#/$defs/label"},
+        "sku": {"$ref": "#/$defs/nullableLabel"},
+        "count": {"type": "integer", "minimum": 1}
+      }
+    },
+    "costObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "budget_cap_usd",
+        "estimated_monthly_total_usd",
+        "observed_incremental_cost_usd",
+        "observation_started_at",
+        "observation_completed_at",
+        "source_artifact_path"
+      ],
+      "properties": {
+        "currency": {"const": "USD"},
+        "budget_cap_usd": {
+          "oneOf": [
+            {"type": "number", "exclusiveMinimum": 0},
+            {"type": "null"}
+          ]
+        },
+        "estimated_monthly_total_usd": {
+          "oneOf": [
+            {"type": "string", "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"},
+            {"type": "null"}
+          ]
+        },
+        "observed_incremental_cost_usd": {
+          "oneOf": [
+            {"type": "number", "minimum": 0},
+            {"type": "null"}
+          ]
+        },
+        "observation_started_at": {"$ref": "#/$defs/nullableTimestamp"},
+        "observation_completed_at": {"$ref": "#/$defs/nullableTimestamp"},
+        "source_artifact_path": {"$ref": "#/$defs/nullableLabel"}
+      }
+    },
+    "cleanupObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "completed_at",
+        "inventory_clean",
+        "residual_count",
+        "residual_types"
+      ],
+      "properties": {
+        "completed_at": {"$ref": "#/$defs/nullableTimestamp"},
+        "inventory_clean": {
+          "oneOf": [
+            {"type": "boolean"},
+            {"type": "null"}
+          ]
+        },
+        "residual_count": {"type": "integer", "minimum": 0},
+        "residual_types": {
+          "type": "array",
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/label"}
+        }
+      }
+    }
+  }
+}

@@ -19,6 +19,7 @@ TERMINAL_ARTIFACTS = (
     "replay",
     "access",
     "telemetry",
+    "evaluation_metrics",
     "destroy_operation",
     "cleanup",
     "provider_cost",
@@ -102,6 +103,116 @@ def _reference(root: Path, relative: str, value: object) -> dict[str, str]:
     return {"path": relative, "digest": evidence._file_digest(path)}
 
 
+def _metrics_record(scenario: dict) -> dict:
+    scenario_id = scenario["scenario_id"]
+    if scenario_id.startswith("small-local-"):
+        providers = [scenario_id.removeprefix("small-local-")]
+        run_kind = "provider_local"
+    else:
+        direction = scenario_id.removeprefix("small-focus-")
+        source, destination = direction.split("-to-")
+        providers = [source, destination]
+        run_kind = "directed_multicloud"
+    source = providers[0]
+    return {
+        "schema_version": "live-evaluation-metrics.v1",
+        "evidence_status": "live_observation",
+        "run_id": f"run-{scenario_id}",
+        "run_kind": run_kind,
+        "subject_id": scenario_id,
+        "scenario_id": scenario_id,
+        "candidate_evidence_digest": scenario["candidate_evidence_digest"],
+        "architecture_contract": "six-layer-eventing@1",
+        "source_revision": "abcdef1",
+        "workload_digest": "sha256:" + "a" * 64,
+        "simulator_digest": "sha256:" + "b" * 64,
+        "provider_scope": providers,
+        "started_at": "2026-08-28T12:00:00Z",
+        "completed_at": "2026-08-28T12:30:00Z",
+        "clock": {
+            "synchronized": True,
+            "method": "test-clock",
+            "checked_at": "2026-08-28T12:00:00Z",
+            "max_observed_skew_ms": 1,
+        },
+        "protocol": {
+            "warmup_messages_per_direction": 0,
+            "measured_messages_per_direction": 1,
+            "payload_bytes": 256,
+            "cadence_ms": 1000,
+            "cold_start_observed": False,
+            "directions": ["telemetry"],
+            "expected_paths": [
+                {
+                    "direction": "telemetry",
+                    "stage_ids": ["simulator_sent", "l1_accepted"],
+                }
+            ],
+            "notes": ["Synthetic unit-test fixture."],
+        },
+        "lifecycle": [
+            {
+                "phase": "terraform_apply",
+                "provider": source,
+                "status": "completed",
+                "started_at": "2026-08-28T12:00:00Z",
+                "completed_at": "2026-08-28T12:00:01Z",
+                "duration_ms": 1000,
+            }
+        ],
+        "message_samples": [
+            {
+                "trace_id": f"trace-{scenario_id}",
+                "sequence": 1,
+                "sample_set": "measured",
+                "direction": "telemetry",
+                "payload_bytes": 256,
+                "status": "succeeded",
+                "stages": [
+                    {
+                        "stage_id": "simulator_sent",
+                        "provider": None,
+                        "layer": "simulator",
+                        "observed_at": "2026-08-28T12:00:02Z",
+                        "clock_source": "simulator",
+                        "event_id": f"event-{scenario_id}",
+                    },
+                    {
+                        "stage_id": "l1_accepted",
+                        "provider": source,
+                        "layer": "L1",
+                        "observed_at": "2026-08-28T12:00:02.100Z",
+                        "clock_source": "provider",
+                        "event_id": f"event-{scenario_id}",
+                    },
+                ],
+                "retry_count": 0,
+                "duplicate_count": 0,
+                "ordering_ok": True,
+                "dlq_observed": False,
+                "failure_code": None,
+            }
+        ],
+        "resources": [],
+        "cost": {
+            "currency": "USD",
+            "budget_cap_usd": scenario["budget_cap_usd"],
+            "estimated_monthly_total_usd": scenario["estimated_monthly_total_usd"],
+            "observed_incremental_cost_usd": None,
+            "observation_started_at": None,
+            "observation_completed_at": None,
+            "source_artifact_path": None,
+        },
+        "cleanup": {
+            "completed_at": "2026-08-28T12:29:00Z",
+            "inventory_clean": True,
+            "residual_count": 0,
+            "residual_types": [],
+        },
+        "limitations": ["Synthetic unit-test fixture."],
+    }
+
+
 def _completed_record(
     tmp_path: Path,
 ) -> tuple[dict, Path, Path, Path]:
@@ -156,27 +267,34 @@ def _completed_record(
         )
     for scenario in record["scenarios"]:
         scenario_id = scenario["scenario_id"]
+        artifacts = []
+        for kind in TERMINAL_ARTIFACTS:
+            value = (
+                _metrics_record(scenario)
+                if kind == "evaluation_metrics"
+                else {
+                    "scenario_id": scenario_id,
+                    "kind": kind,
+                    "status": "observed",
+                }
+            )
+            artifacts.append(
+                {
+                    "kind": kind,
+                    **_reference(
+                        evidence_root,
+                        f"{scenario_id}/{kind}.json",
+                        value,
+                    ),
+                }
+            )
         scenario.update(
             {
                 "budget_reviewed": True,
                 "status": "completed",
                 "started_at": TIMESTAMP,
                 "completed_at": "2026-08-28T12:30:00Z",
-                "artifacts": [
-                    {
-                        "kind": kind,
-                        **_reference(
-                            evidence_root,
-                            f"{scenario_id}/{kind}.json",
-                            {
-                                "scenario_id": scenario_id,
-                                "kind": kind,
-                                "status": "observed",
-                            },
-                        ),
-                    }
-                    for kind in TERMINAL_ARTIFACTS
-                ],
+                "artifacts": artifacts,
             }
         )
     return record, pack_dir, plan_path, evidence_root
@@ -251,6 +369,58 @@ def test_referenced_evidence_digest_drift_is_rejected(tmp_path: Path) -> None:
     _write_json(evidence_root / reference["path"], {"status": "tampered"})
 
     with pytest.raises(evidence.LiveEvidenceError, match="evidence digest"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_metrics_must_bind_to_exact_scenario_candidate(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    scenario = record["scenarios"][0]
+    artifact = next(
+        item for item in scenario["artifacts"] if item["kind"] == "evaluation_metrics"
+    )
+    path = evidence_root / artifact["path"]
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["candidate_evidence_digest"] = "sha256:" + "f" * 64
+    _write_json(path, value)
+    artifact["digest"] = evidence._file_digest(path)
+
+    with pytest.raises(evidence.LiveEvidenceError, match="metrics binding drifted"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_completed_scenario_requires_exactly_one_metrics_artifact(
+    tmp_path: Path,
+) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    scenario = record["scenarios"][0]
+    metrics_artifact = next(
+        item for item in scenario["artifacts"] if item["kind"] == "evaluation_metrics"
+    )
+    metrics_value = json.loads(
+        (evidence_root / metrics_artifact["path"]).read_text(encoding="utf-8")
+    )
+    scenario["artifacts"].append(
+        {
+            "kind": "evaluation_metrics",
+            **_reference(
+                evidence_root,
+                f"{scenario['scenario_id']}/evaluation-metrics-copy.json",
+                metrics_value,
+            ),
+        }
+    )
+
+    with pytest.raises(evidence.LiveEvidenceError, match="exactly one"):
         evidence.validate_record(
             record,
             candidate_pack_dir=pack_dir,

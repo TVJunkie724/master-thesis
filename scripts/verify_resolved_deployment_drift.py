@@ -221,6 +221,7 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                     "scripts/tests/test_six_layer_workload_contract.py "
                     "scripts/tests/test_six_layer_contracts.py "
                     "scripts/tests/test_manage_live_evaluation_evidence.py "
+                    "scripts/tests/test_manage_live_evaluation_metrics.py "
                     "scripts/tests/test_validate_live_evaluation_plan.py "
                     "scripts/tests/test_verify_resolved_deployment_drift.py "
                     "scripts/tests/test_thesis_entrypoint.py"

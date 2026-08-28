@@ -171,6 +171,7 @@
             "replay",
             "access",
             "telemetry",
+            "evaluation_metrics",
             "destroy_operation",
             "cleanup",
             "provider_cost",

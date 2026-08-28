@@ -120,6 +120,33 @@ For each required provider and directed route:
 No scenario may be left active merely to speed up the next one. Shared account
 capabilities are recorded separately from Twin-owned resources.
 
+### Component probes before complete scenarios
+
+Component probes and final scenarios are different datasets. A component probe
+may validate L1-L3 plus Eventing, L4, or L5 in isolation and uses
+`run_kind: component_probe`. It cannot satisfy, replace, or be relabelled as one
+of the nine final scenario records. Provider-local and directed multi-cloud
+final runs use `run_kind: provider_local` and `run_kind: directed_multicloud`
+respectively and bind to the exact candidate evidence digest.
+
+The expensive L4/L5 bundles are not provisioned merely to debug L1-L3. The
+recommended order is:
+
+1. provider and image prerequisites;
+2. L1-L3 plus Eventing component behavior;
+3. isolated L4 readiness and Twin queryability;
+4. isolated L5 access/readiness;
+5. one provider-local Small scenario; and
+6. only then the remaining approved provider-local and directed multi-cloud
+   Small scenarios.
+
+GCP-L1 has an additional architecture gate. Its previous three-replica
+`e2-standard-8` broker allocation is theoretical capacity evidence, not an
+approved Small live size. A non-HA Small plan and component probe must establish
+the broker size before a GCP-L1 final scenario can be approved. The capability
+decision (bidirectional MQTT through BifroMQ with Pub/Sub durability) remains
+separate from this open capacity decision.
+
 ## Evidence record
 
 Each executed scenario must produce a secret-free evidence directory with:
@@ -130,11 +157,87 @@ Each executed scenario must produce a secret-free evidence directory with:
 - Terraform plan/apply timestamps and terminal status;
 - reconnect/replay observation;
 - access-surface readiness and telemetry trace result;
+- one validated `live-evaluation-metrics.v1` measurement document;
 - Destroy result, provider inventory, and residual classification; and
 - budget cap, observed cost, deviations, and limitations.
 
 An unresolved provider blocker is a valid result. Offline or mocked success is
 never substituted for missing live evidence.
+
+## Structured measurement protocol
+
+Functional verification and descriptive measurement are separate. One
+successful message proves that a path is reachable; it does not establish a
+latency distribution. Unless a reviewed run record states otherwise, each
+required direction therefore uses five warm-up messages followed by 50
+measured messages with the same payload and cadence.
+
+Every trace carries one correlation identifier. The simulator, application,
+and provider observations record timestamps for the applicable path stops:
+
+```text
+telemetry:
+simulator_sent
+  -> l1_accepted
+  -> event_layer_durable
+  -> l2_started/l2_completed
+  -> l3_hot_persisted
+  -> l4_queryable
+  -> l5_queryable (when L5 is in probe scope)
+
+command/outcome:
+command_issued
+  -> event_layer_command_durable
+  -> l1_command_published
+  -> simulator_command_received
+  -> simulator_outcome_sent
+  -> outcome_event_durable
+  -> outcome_persisted/outcome_queryable
+```
+
+The exact expected path is declared per metrics document so a component probe
+does not pretend to cover absent downstream stages. A successful sample must
+contain that complete ordered path. Failed and timed-out samples retain their
+partial path and a typed failure code.
+
+The clock source and maximum observed skew are recorded before measurement.
+The result reports:
+
+- end-to-end mean, p50, p95, and maximum latency;
+- consecutive-stage mean, p50, p95, and maximum latency;
+- success, failure, timeout, retry, duplicate, ordering, and DLQ observations;
+- Terraform plan, Apply, readiness, L4/L5 readiness, Destroy, and inventory
+  reconciliation durations;
+- deployed provider resources and SKUs;
+- approved budget, calculated monthly estimate, and later observed incremental
+  provider cost; and
+- cleanup residuals and explicit limitations.
+
+Latency is an evaluation metric only. It does not re-enter the Optimizer as an
+objective or weighted score.
+
+The schema is
+`schemas/live-evaluation-metrics.schema.json`. Validate one or more recorded
+runs without cloud access:
+
+```bash
+python scripts/manage_live_evaluation_metrics.py validate \
+  --record /tmp/six-layer-live-evidence/<run>/evaluation-metrics.json
+```
+
+Generate deterministic CSV tables and dependency-free SVG charts into a new,
+non-overwriting directory:
+
+```bash
+python scripts/manage_live_evaluation_metrics.py summarize \
+  --record /tmp/six-layer-live-evidence/<run>/evaluation-metrics.json \
+  --output-dir /tmp/six-layer-live-evaluation-summary
+```
+
+The generated `run-summary.csv`, `stage-latency.csv`, `lifecycle.csv`,
+`resources.csv`, `end-to-end-latency-p95.svg`, and `lifecycle-duration.svg`
+remain derived artifacts. The digest-bound JSON measurement document is the
+primary evidence.
 
 ### Existing evidence sources
 
@@ -150,6 +253,7 @@ Twin workflow; there is no second product-like evaluation orchestrator:
 | Apply/Destroy correlation and replay | deployment history, bounded persisted logs, and the owner-scoped SSE stream with `Last-Event-ID` |
 | L4/L5 access | secret-free `deployment-access` response; any one-time credential value is excluded |
 | Telemetry roundtrip | persisted data-flow verification record |
+| Timing, reliability, resources and measurement protocol | one schema- and semantics-validated `live-evaluation-metrics.v1` document; component and final runs remain distinct |
 | Cleanup and residuals | terminal Destroy operation and its typed `cleanup-evidence.v1` output |
 | Observed cost | separately exported provider billing evidence after Destroy |
 

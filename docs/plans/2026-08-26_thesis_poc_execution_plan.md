@@ -356,6 +356,11 @@ full Twin and stop on the first unresolved provider blocker.
 - build or pull the pinned runtime images independently;
 - execute minimal identity exchanges for AWS→Azure, AWS→GCP, Azure→AWS,
   Azure→GCP, GCP→AWS, and GCP→Azure; and
+- run separately budgeted component probes for L1-L3 plus Eventing before any
+  expensive L4/L5 bundle, followed by isolated L4 and L5 readiness probes;
+- use the GCP L1-L3 component probe to select and document a non-HA Small
+  broker size instead of treating the theoretical three-replica allocation as
+  live-ready; and
 - immediately remove probe resources and record residual state.
 
 ### Exit criteria
@@ -364,6 +369,9 @@ full Twin and stop on the first unresolved provider blocker.
   blocker;
 - all six directed federation paths have provider evidence independent of a
   full deployment; and
+- component-probe metrics remain separate from the nine final scenario
+  datasets, and the GCP-L1 Small capacity decision is closed before a final
+  scenario uses it; and
 - no full Small environment has been left running while a prerequisite is
   unresolved.
 
@@ -401,6 +409,9 @@ budget cap and candidate trace has been reviewed.
 - Terraform plan/apply identifiers and timestamps;
 - operation reconnect/replay evidence;
 - L4/L5 access and telemetry roundtrip result;
+- one digest-bound `live-evaluation-metrics.v1` document containing the
+  declared path, warm-up and measured simulator samples, stage timestamps,
+  lifecycle duration, resources, reliability observations, and cost fields;
 - Destroy and residual-resource result; and
 - observed cost, functional deviation, and classified limitation.
 
@@ -420,6 +431,10 @@ budget cap and candidate trace has been reviewed.
 - Answer RQ3/RQ3.1 from paired provider-local and selected multi-cloud costs.
 - Answer RQ3.2 from Eventing topology, directed route behavior, and explicit
   Eventing cost attribution.
+- Compare provider-local and directed multi-cloud deployment/readiness time,
+  end-to-end and stage latency, command/outcome behavior, reliability, resource
+  count, Destroy time, and observed cost without turning latency into an
+  Optimizer objective.
 - Add sensitivity analysis for workload, transfer, region, price snapshot, and
   the hosted GCP device boundary.
 - Separate implementation defects, provider blockers, model limitations,
