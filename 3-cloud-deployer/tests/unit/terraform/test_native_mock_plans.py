@@ -8,6 +8,8 @@ from pathlib import Path
 import shutil
 import subprocess
 
+import pytest
+
 from src.providers.terraform.package_builders.aws_six_layer import (
     build_aws_six_layer_domain_app,
 )
@@ -26,6 +28,12 @@ CREDENTIAL_ENV_PREFIXES = (
     "AZURE_",
     "CLOUDSDK_",
     "GOOGLE_",
+)
+
+
+pytestmark = pytest.mark.skipif(
+    shutil.which("terraform") is None,
+    reason="Terraform CLI is required for credential-free native mock plans",
 )
 
 

@@ -7,11 +7,10 @@ import argparse
 import hashlib
 import importlib.util
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from types import ModuleType
 from typing import Any
-
 
 ROOT = Path(__file__).resolve().parents[1]
 ARCH_ROOT = ROOT / "contracts" / "architecture-profiles"
@@ -38,6 +37,15 @@ MANIFEST_PATH = (
 )
 WORKLOAD_DIGEST = "sha256:51745c9efac65afd11fdd10c0a74b60c4443d0ba65a97a1647b736eadc01b7f5"
 PROVIDERS = ("aws", "azure", "gcp")
+LOGICAL_COMPONENT_PROVIDER_KEYS = {
+    "component.ingestion": "layer_1_provider",
+    "component.processing": "layer_2_provider",
+    "component.hot-storage": "layer_3_hot_provider",
+    "component.cool-storage": "layer_3_cold_provider",
+    "component.archive-storage": "layer_3_archive_provider",
+    "component.twin-state": "layer_4_provider",
+    "component.visualization": "layer_5_provider",
+}
 
 
 def _load_runtime() -> ModuleType:
@@ -57,7 +65,7 @@ RUNTIME = _load_runtime()
 def _read(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
-        raise RuntimeError(f"Expected JSON object: {path}")
+        raise TypeError(f"Expected JSON object: {path}")
     return value
 
 
@@ -226,6 +234,14 @@ def main() -> int:
     manifest["resolved_twin_architecture_digest"] = rta["content_digest"]
     manifest["resolved_deployment_specification"] = rds
     manifest["resolved_deployment_specification_digest"] = rds["digest"]
+    manifest["calculation_run_id"] = rta["calculation_run_id"]
+    manifest["providers"] = {
+        LOGICAL_COMPONENT_PROVIDER_KEYS[assignment["logical_component_id"]]: assignment[
+            "provider"
+        ]
+        for assignment in rta["component_assignments"]
+        if assignment["logical_component_id"] in LOGICAL_COMPONENT_PROVIDER_KEYS
+    }
     _write(MANIFEST_PATH, manifest)
 
     print(

@@ -355,7 +355,7 @@ def test_six_layer_operation_package_drives_real_graph_packages_and_tfvars(
             )["built_packages"]
         }
         assert tfvars["layer_1_provider"] == "aws"
-        assert tfvars["layer_5_provider"] == "aws"
+        assert tfvars["layer_5_provider"] == "azure"
         assert tfvars["event_layer_provider"] == "azure"
         assert tfvars["architecture_profile_id"] == "six-layer-eventing"
         assert tfvars["architecture_profile_version"] == "1"

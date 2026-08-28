@@ -208,12 +208,12 @@ def test_six_layer_event_owner_is_resolved_from_the_graph():
     graph = _resolve_offline_v4("six-layer-aws-azure-eventing-small.json")
     providers = {
         "layer_1_provider": "aws",
-        "layer_2_provider": "aws",
-        "layer_3_hot_provider": "aws",
+        "layer_2_provider": "azure",
+        "layer_3_hot_provider": "azure",
         "layer_3_cold_provider": "azure",
         "layer_3_archive_provider": "azure",
         "layer_4_provider": "azure",
-        "layer_5_provider": "aws",
+        "layer_5_provider": "azure",
     }
 
     with patch(

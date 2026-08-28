@@ -140,8 +140,8 @@ def test_six_layer_graph_translates_only_declared_terraform_symbols():
     assert inputs.values["architecture_profile_id"] == "six-layer-eventing"
     assert inputs.values["architecture_profile_version"] == "1"
     assert inputs.values["layer_1_provider"] == "aws"
-    assert inputs.values["layer_5_provider"] == "aws"
-    assert _aws_six_layer_storage_mover_selected(graph) is True
+    assert inputs.values["layer_5_provider"] == "azure"
+    assert _aws_six_layer_storage_mover_selected(graph) is False
 
 
 def test_six_layer_graph_materializes_event_node_and_directed_bridges():
@@ -165,7 +165,13 @@ def test_six_layer_graph_materializes_event_node_and_directed_bridges():
         "edge.eventing-to-ingestion",
         "edge.eventing-to-hot-storage",
     }
-    assert {edge.mechanism for edge in event_edges} == {"cross_provider_adapter"}
+    assert {edge.logical_edge_id: edge.mechanism for edge in event_edges} == {
+        "edge.ingestion-to-eventing": "cross_provider_adapter",
+        "edge.eventing-to-processing": "provider_native_trigger",
+        "edge.processing-to-eventing": "provider_native_trigger",
+        "edge.eventing-to-ingestion": "cross_provider_adapter",
+        "edge.eventing-to-hot-storage": "provider_native_trigger",
+    }
 
 
 def test_topological_order_collapses_only_allowlisted_feedback_cycle():

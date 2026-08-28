@@ -29,9 +29,9 @@
       ],
       "provider": "azure",
       "provider_implementation_profile_ref": {
-        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc",
         "id": "provider-profile.azure.six-layer-eventing-v1",
-        "version": "1"
+        "version": "1",
+        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
       },
       "region": "westeurope",
       "required": true,
@@ -61,9 +61,9 @@
       ],
       "provider": "azure",
       "provider_implementation_profile_ref": {
-        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc",
         "id": "provider-profile.azure.six-layer-eventing-v1",
-        "version": "1"
+        "version": "1",
+        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
       },
       "region": "westeurope",
       "required": true,
@@ -124,9 +124,9 @@
       ],
       "provider": "azure",
       "provider_implementation_profile_ref": {
-        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc",
         "id": "provider-profile.azure.six-layer-eventing-v1",
-        "version": "1"
+        "version": "1",
+        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
       },
       "region": "westeurope",
       "required": true,
@@ -158,9 +158,9 @@
       ],
       "provider": "azure",
       "provider_implementation_profile_ref": {
-        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc",
         "id": "provider-profile.azure.six-layer-eventing-v1",
-        "version": "1"
+        "version": "1",
+        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
       },
       "region": "westeurope",
       "required": true,
@@ -197,9 +197,9 @@
       ],
       "provider": "aws",
       "provider_implementation_profile_ref": {
-        "digest": "sha256:58f79913882b00c964e7cea7f3216326b6016e8e760bd05fd9e5faecfd2ed91e",
         "id": "provider-profile.aws.six-layer-eventing-v1",
-        "version": "1"
+        "version": "1",
+        "digest": "sha256:58f79913882b00c964e7cea7f3216326b6016e8e760bd05fd9e5faecfd2ed91e"
       },
       "region": "eu-central-1",
       "required": true,
@@ -232,9 +232,9 @@
       ],
       "provider": "azure",
       "provider_implementation_profile_ref": {
-        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc",
         "id": "provider-profile.azure.six-layer-eventing-v1",
-        "version": "1"
+        "version": "1",
+        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
       },
       "region": "westeurope",
       "required": true,
@@ -265,9 +265,9 @@
       ],
       "provider": "azure",
       "provider_implementation_profile_ref": {
-        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc",
         "id": "provider-profile.azure.six-layer-eventing-v1",
-        "version": "1"
+        "version": "1",
+        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
       },
       "region": "westeurope",
       "required": true,
@@ -299,9 +299,9 @@
       ],
       "provider": "azure",
       "provider_implementation_profile_ref": {
-        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc",
         "id": "provider-profile.azure.six-layer-eventing-v1",
-        "version": "1"
+        "version": "1",
+        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
       },
       "region": "westeurope",
       "required": true,
@@ -309,7 +309,7 @@
       "service_id": "azure.visualization.v2"
     }
   ],
-  "content_digest": "sha256:37ad7fec57c826e4a67de170c94c82600ef842eaf2a194692357cefa85529fde",
+  "content_digest": "sha256:0c6f1c580cab1e38fd272d5a2eb039d2310973eca3312c7522fb7035b885d760",
   "cost_summary": {
     "component_totals": [
       {
@@ -414,7 +414,7 @@
   },
   "deployment_specification_ref": {
     "calculation_run_id": "d6934ac4-76eb-5ad6-8dae-9a599e3c34e4",
-    "digest": "sha256:26d112bd90944d610000d9658206e57bb09426ba8cd7de77df662907391f1054",
+    "digest": "sha256:8d85b139def86f99127eef16ac5cff0320975b0e9dee7f85be0bf8fe0b2a2457",
     "schema_version": "resolved-deployment-specification.v2"
   },
   "extension_bindings": [
@@ -486,7 +486,7 @@
       "capability.visualization"
     ],
     "status": "complete",
-    "validation_digest": "sha256:3ed96e2047b7317e7edef2f6adb57e4c90ed5ee24b4e5f81a3c6245f3b808423",
+    "validation_digest": "sha256:3e34ccfa3ea037edf8a337d6f732c71daa74d169e596eba05ac5191f94c12280",
     "validator_version": "2"
   },
   "optimization_bundle_ref": {
@@ -518,16 +518,16 @@
   ],
   "provider_profile_refs": [
     {
-      "digest": "sha256:58f79913882b00c964e7cea7f3216326b6016e8e760bd05fd9e5faecfd2ed91e",
       "id": "provider-profile.aws.six-layer-eventing-v1",
-      "provider": "aws",
-      "version": "1"
+      "version": "1",
+      "digest": "sha256:58f79913882b00c964e7cea7f3216326b6016e8e760bd05fd9e5faecfd2ed91e",
+      "provider": "aws"
     },
     {
-      "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc",
       "id": "provider-profile.azure.six-layer-eventing-v1",
-      "provider": "azure",
-      "version": "1"
+      "version": "1",
+      "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc",
+      "provider": "azure"
     }
   ],
   "resolution_id": "afe75d85-f9a7-5278-8ae0-a7522b8ea8a7",

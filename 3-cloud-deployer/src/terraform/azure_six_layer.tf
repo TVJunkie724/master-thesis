@@ -1391,6 +1391,13 @@ resource "azurerm_monitor_diagnostic_setting" "azure_azure_monitor" {
 
 # Catalog-owned, secret-free browser handoff. The Function key used by Grafana
 # is created and inserted into secureJsonData by the bounded post-apply step.
+output "azure_component_processing_output" {
+  value = local.azure_six_layer_l2_enabled ? {
+    function_name = azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].name
+    workflow_id   = azurerm_logic_app_workflow.azure_azure_logic_apps_consumption[0].id
+  } : null
+}
+
 output "azure_component_hot_storage_output" {
   value = local.azure_six_layer_hot_enabled ? {
     endpoint            = azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint

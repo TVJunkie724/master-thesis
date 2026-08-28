@@ -1467,7 +1467,10 @@
           "azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption",
           "azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter",
           "azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace",
-          "azurerm_logic_app_action_custom.azure_azure_logic_apps_consumption",
+          "azurerm_logic_app_action_custom.azure_six_layer_notification_complete",
+          "azurerm_logic_app_action_custom.azure_six_layer_notification_deliver",
+          "azurerm_logic_app_action_custom.azure_six_layer_notification_normalize",
+          "azurerm_logic_app_action_custom.azure_six_layer_notification_prepare",
           "azurerm_logic_app_trigger_http_request.azure_azure_logic_apps_consumption",
           "azurerm_logic_app_workflow.azure_azure_logic_apps_consumption",
           "azurerm_monitor_diagnostic_setting.azure_azure_monitor",
@@ -11209,5 +11212,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:69efb7cfbb2c40d3e4e3288e2feee211acc580034e499cde4c8179cd35ad2d33"
+  "content_digest": "sha256:0cb4ce88ffedf6148d5272c0c025ace57ad86a9f712275b3e2013411c3106e19"
 }
