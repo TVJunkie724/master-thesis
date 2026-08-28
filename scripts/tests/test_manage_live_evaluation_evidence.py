@@ -105,6 +105,9 @@ def _reference(root: Path, relative: str, value: object) -> dict[str, str]:
 
 def _metrics_record(scenario: dict) -> dict:
     scenario_id = scenario["scenario_id"]
+    trace_id = "TRACE-" + "".join(
+        character for character in scenario_id.upper() if character.isalnum()
+    )
     if scenario_id.startswith("small-local-"):
         providers = [scenario_id.removeprefix("small-local-")]
         run_kind = "provider_local"
@@ -162,7 +165,7 @@ def _metrics_record(scenario: dict) -> dict:
         ],
         "message_samples": [
             {
-                "trace_id": f"trace-{scenario_id}",
+                "trace_id": trace_id,
                 "sequence": 1,
                 "sample_set": "measured",
                 "direction": "telemetry",
