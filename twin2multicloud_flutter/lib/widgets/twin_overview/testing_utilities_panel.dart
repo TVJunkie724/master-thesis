@@ -275,6 +275,8 @@ String _traceStatus(TraceViewState trace) => switch (trace.phase) {
   TraceViewPhase.starting => 'Starting the provider trace.',
   TraceViewPhase.streaming => 'Collecting provider logs.',
   TraceViewPhase.completed => 'Trace completed (${trace.totalLogs ?? 0} logs).',
+  TraceViewPhase.partial =>
+    'Trace completed with missing evidence (${trace.totalLogs ?? 0} logs).',
   TraceViewPhase.failed => trace.message ?? 'Trace failed.',
   TraceViewPhase.cancelled => 'Trace cancelled.',
 };

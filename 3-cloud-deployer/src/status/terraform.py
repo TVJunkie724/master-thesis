@@ -17,6 +17,7 @@ def _empty_state(status: str, *, error: str | None = None) -> dict[str, Any]:
     result = {
         "status": status,
         "l1": {"deployed": False, "resources": []},
+        "eventing": {"deployed": False, "resources": []},
         "l2": {"deployed": False, "resources": []},
         "l3": {
             "hot": {"deployed": False, "resources": []},
@@ -103,6 +104,14 @@ def check_terraform_state(
         "iothub",
         "iot_core",
     )
+    eventing = _matching(
+        resources,
+        ".eventing",
+        "event_runtime",
+        "domain_events",
+        "event_telemetry",
+        "event_control",
+    )
     l2 = _matching(
         resources,
         "l2_",
@@ -119,6 +128,7 @@ def check_terraform_state(
     return {
         "status": "deployed",
         "l1": {"deployed": bool(l1), "resources": l1},
+        "eventing": {"deployed": bool(eventing), "resources": eventing},
         "l2": {"deployed": bool(l2), "resources": l2},
         "l3": {
             "hot": {"deployed": bool(hot), "resources": hot},

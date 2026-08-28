@@ -1483,6 +1483,63 @@ void main() {
       },
     );
 
+    test(
+      'renders the real Deployer checkpoint summary on trace completion',
+      () async {
+        when(() => api.startLogTrace('test-id')).thenAnswer(
+          (_) async => LogTraceStartResult(
+            traceId: 'TRACE-1',
+            sentAt: DateTime.utc(2026, 7, 14, 12),
+            l1Provider: 'aws',
+            providers: const ['aws', 'azure'],
+            message: 'Trace started.',
+            sseUrl: '/twins/test-id/log-trace/stream/TRACE-1',
+          ),
+        );
+        final bloc = _buildBloc(api, streams: streams);
+        bloc.emit(_loaded(twinState: 'deployed'));
+
+        bloc.add(const TwinOverviewStartLogTrace());
+        await pumpEventQueue(times: 20);
+        streams.clients.single.controller.add(
+          const SseLogEvent(
+            id: 1,
+            type: 'done',
+            message: 'Trace complete',
+            data: {
+              'status': 'partial',
+              'total_logs': 4,
+              'expected_checkpoints': [
+                'l1_accepted',
+                'event_layer_durable',
+                'l2_started',
+                'l2_completed',
+                'l3_hot_persisted',
+              ],
+              'observed_checkpoints': [
+                'l1_accepted',
+                'event_layer_durable',
+                'l2_started',
+                'l2_completed',
+              ],
+              'missing_checkpoints': ['l3_hot_persisted'],
+            },
+          ),
+        );
+        await pumpEventQueue(times: 20);
+
+        final trace = (bloc.state as TwinOverviewLoaded).trace;
+        expect(trace.phase, TraceViewPhase.partial);
+        expect(trace.totalLogs, 4);
+        expect(trace.diagnostics, contains('Checkpoints observed: 4/5.'));
+        expect(
+          trace.diagnostics,
+          contains('Missing checkpoints: l3_hot_persisted.'),
+        );
+        await bloc.close();
+      },
+    );
+
     blocTest<TwinOverviewBloc, TwinOverviewState>(
       'reports a rate-limited trace start without retaining stale metadata',
       seed: () => _loaded(

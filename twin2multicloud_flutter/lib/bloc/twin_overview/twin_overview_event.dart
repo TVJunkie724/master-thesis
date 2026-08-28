@@ -148,11 +148,16 @@ class TwinOverviewLogTraceUpdate extends TwinOverviewEvent {
 class TwinOverviewLogTraceComplete extends TwinOverviewEvent {
   final int? totalLogs;
   final String? traceId;
+  final String? status;
 
-  const TwinOverviewLogTraceComplete({this.totalLogs, this.traceId});
+  const TwinOverviewLogTraceComplete({
+    this.totalLogs,
+    this.traceId,
+    this.status,
+  });
 
   @override
-  List<Object?> get props => [totalLogs, traceId];
+  List<Object?> get props => [totalLogs, traceId, status];
 }
 
 /// Log trace error occurred

@@ -147,6 +147,47 @@ the broker size before a GCP-L1 final scenario can be approved. The capability
 decision (bidirectional MQTT through BifroMQ with Pub/Sub durability) remains
 separate from this open capacity decision.
 
+### Minimal PoC diagnostics
+
+The application reuses provider-native logs; it does not introduce a separate
+monitoring platform. A `TRACE-*` or `VERIFY-*` message may emit the payload-free
+`diagnostic-checkpoint.v1` record at a bounded set of stages. Ordinary Twin
+traffic does not emit these records, and a checkpoint contains identifiers,
+stage, provider, component, status, and timestamp only—never telemetry or
+credential payloads.
+
+For the inexpensive component trace, the active graph requires this forward
+path:
+
+```text
+l1_accepted
+  -> event_layer_durable
+  -> l2_started
+  -> l2_completed
+  -> l3_hot_persisted
+```
+
+CloudWatch log groups, every active Azure Log Analytics workspace, and the GCP
+Cloud Functions, Cloud Run, worker-pool, and GKE log resource types are queried
+read-only for the correlation identifier. The trace completes early when the
+full path is observed. A timeout, unavailable provider query, or missing stage
+produces a `partial` result with the exact missing checkpoints; the UI must not
+turn this into an unqualified success.
+
+The same record vocabulary includes L4/L5 queryability and the command/outcome
+path for later supervised probes. Those stages are not claimed by the cheap
+L1-L3 trace. L4/L5 access checks, persisted data-flow verification, command
+receipt, and provider inventory remain separate evidence sources in the live
+protocol.
+
+Infrastructure diagnosis stays similarly bounded: Terraform state classifies
+L1, the independent Event Layer, L2, L3, L4, and L5; provider SDK checks cover
+the resources that cannot be established honestly from state alone. Existing
+stable error codes, operation IDs, persisted deployment logs, SSE replay, and
+cleanup evidence provide the failure context. Continuous alerting, dashboards,
+log retention beyond the short PoC window, and automatic incident remediation
+remain outside scope.
+
 ## Evidence record
 
 Each executed scenario must produce a secret-free evidence directory with:

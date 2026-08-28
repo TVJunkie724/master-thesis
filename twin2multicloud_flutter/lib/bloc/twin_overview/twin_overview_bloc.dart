@@ -964,17 +964,32 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     }
 
     _cancelLogTraceSseSubscription();
+    final isPartial = event.status == 'partial';
+    final isFailed = event.status == 'failed';
+    final terminalLabel = isFailed
+        ? 'Trace failed'
+        : isPartial
+        ? 'Trace partial'
+        : 'Trace complete';
 
     emit(
       currentState.copyWith(
         trace: currentState.trace.copyWith(
-          phase: TraceViewPhase.completed,
+          phase: isFailed
+              ? TraceViewPhase.failed
+              : isPartial
+              ? TraceViewPhase.partial
+              : TraceViewPhase.completed,
           totalLogs: event.totalLogs ?? 0,
           diagnostics: [
             ...currentState.trace.diagnostics,
-            'Trace complete. Total logs: ${event.totalLogs ?? 0}',
+            '$terminalLabel. Total logs: ${event.totalLogs ?? 0}',
           ],
-          message: 'Trace completed.',
+          message: isFailed
+              ? 'Trace failed.'
+              : isPartial
+              ? 'Trace completed with missing evidence.'
+              : 'Trace completed.',
         ),
       ),
     );
@@ -1050,12 +1065,33 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
             }
 
             if (event.type == 'done') {
-              final data = event.data?['data'];
-              final logCount = data is Map ? data['log_count'] as int? : null;
+              final data = _parseLogData(event);
+              final logCount = data?['total_logs'] as int?;
+              final status = data?['status'] as String?;
+              final expected = _stringList(data?['expected_checkpoints']);
+              final observed = _stringList(data?['observed_checkpoints']);
+              final missing = _stringList(data?['missing_checkpoints']);
+              if (expected.isNotEmpty) {
+                add(
+                  TwinOverviewLogTraceUpdate(
+                    'Checkpoints observed: ${observed.length}/${expected.length}.',
+                    traceId: traceId,
+                  ),
+                );
+              }
+              if (missing.isNotEmpty) {
+                add(
+                  TwinOverviewLogTraceUpdate(
+                    'Missing checkpoints: ${missing.join(', ')}.',
+                    traceId: traceId,
+                  ),
+                );
+              }
               add(
                 TwinOverviewLogTraceComplete(
                   totalLogs: logCount,
                   traceId: traceId,
+                  status: status,
                 ),
               );
               return;
@@ -1136,8 +1172,13 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     } else if (innerDataRaw is Map<String, dynamic>) {
       return innerDataRaw;
     }
-    return null;
+    // Real Deployer trace events are forwarded without a management wrapper.
+    return outerData;
   }
+
+  List<String> _stringList(Object? value) => value is List
+      ? value.whereType<String>().toList(growable: false)
+      : const <String>[];
 
   /// Format log trace event with aligned columns
   /// Output: [HH:MM:SS] L1 AWS   │ function         │ message

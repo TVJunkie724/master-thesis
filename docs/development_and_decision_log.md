@@ -215,12 +215,35 @@ predecessor mappings with the selected AWS, Azure, and GCP bundles. Any later
 service change must update that trace before the provider bundle is refrozen;
 offline bundle selection and live validation remain explicitly distinct.
 
+## D-14 — Bounded provider-native diagnostics
+
+**Decision:** Diagnose the Six-layer PoC through existing provider logs,
+payload-free trace checkpoints, graph-scoped expected stages, structured
+infrastructure checks, durable operation logs, and cleanup evidence. Do not add
+a monitoring dashboard, alert manager, or autonomous remediation subsystem.
+
+**Rationale:** The thesis needs enough evidence to locate a failed architecture
+hop and to distinguish configuration, provider-query, runtime, and cleanup
+problems. A second observability product would add cost and implementation
+scope without answering another research question. Provider-native log sources
+plus one strict checkpoint contract make the forward L1/Event/L2/L3 path
+observable while keeping L4/L5 and command/outcome verification as explicit,
+separately budgeted probes.
+
+**Consequence:** Only `TRACE-*` and `VERIFY-*` flows emit checkpoint records;
+they never contain telemetry or credentials. A trace is complete only when all
+expected forward checkpoints are observed and is otherwise reported as
+partial. The independent Event Layer is included in Terraform-state
+verification. Live correctness remains pending until supervised component and
+final scenarios produce provider evidence.
+
 ## Current implementation checkpoint
 
 As of 2026-08-28, the standalone contract, graph boundary, credential services,
 immutable interchange, durable operations, access handoff, cost-only Optimizer,
 frozen pricing snapshots, and narrowed Flutter/Management contracts are
 implemented and pass the complete credential-free container gate. The bounded
-Flutter confirmation and repair surface is implemented and covered by the
-frontend suite. Live prerequisite probes and the nine supervised Small
-scenarios remain open and are not claimed complete.
+Flutter confirmation and repair surface and the provider-native diagnostic
+checkpoint path are implemented and covered by offline tests. Live prerequisite
+probes and the nine supervised Small scenarios remain open and are not claimed
+complete.

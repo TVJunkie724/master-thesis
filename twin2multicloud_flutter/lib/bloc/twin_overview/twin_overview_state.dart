@@ -188,7 +188,15 @@ class DeploymentReadinessViewState extends Equatable {
   List<Object?> get props => [phase, snapshot, errorMessage];
 }
 
-enum TraceViewPhase { idle, starting, streaming, completed, failed, cancelled }
+enum TraceViewPhase {
+  idle,
+  starting,
+  streaming,
+  completed,
+  partial,
+  failed,
+  cancelled,
+}
 
 class TraceViewState extends Equatable {
   static const maxDiagnosticEntries = 500;

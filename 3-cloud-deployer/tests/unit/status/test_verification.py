@@ -7,6 +7,7 @@ def _config():
     return SimpleNamespace(
         providers={
             "layer_1_provider": "aws",
+            "event_layer_provider": "azure",
             "layer_2_provider": "azure",
             "layer_3_hot_provider": "gcp",
             "layer_3_cold_provider": "azure",
@@ -23,8 +24,9 @@ def _state(status="deployed"):
     resource = ["resource"] if deployed else []
     return {
         "status": status,
-        "total_resources": 8 if deployed else 0,
+        "total_resources": 9 if deployed else 0,
         "l1": {"deployed": deployed, "resources": resource},
+        "eventing": {"deployed": deployed, "resources": resource},
         "l2": {"deployed": deployed, "resources": resource},
         "l3": {
             key: {"deployed": deployed, "resources": resource}
@@ -68,6 +70,7 @@ def test_verification_combines_independent_evidence(monkeypatch):
     assert result["summary"]["fail_count"] == 0
     by_name = {check["name"]: check for check in result["checks"]}
     assert by_name["IoT infrastructure"]["status"] == "pass"
+    assert by_name["Event Layer infrastructure"]["status"] == "pass"
     assert by_name["Digital twin resources"]["status"] == "pass"
     assert by_name["Visualization infrastructure"]["status"] == "skip"
 
