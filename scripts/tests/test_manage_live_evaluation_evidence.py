@@ -133,19 +133,47 @@ def _lifecycle(provider: str) -> list[dict]:
     ]
 
 
+def _scenario_providers(scenario_id: str) -> list[str]:
+    if scenario_id.startswith("small-local-"):
+        return [scenario_id.removeprefix("small-local-")]
+    direction = scenario_id.removeprefix("small-focus-")
+    source, destination = direction.split("-to-")
+    return [source, destination]
+
+
+def _cleanup_record(scenario_id: str) -> dict:
+    return {
+        "schema_version": "cleanup-evidence.v1",
+        "status": "complete",
+        "terraform": {
+            "destroy_status": "completed",
+            "observed_before_resource_count": 4,
+            "post_destroy_inventory": "empty",
+            "residual_resource_count": 0,
+        },
+        "providers": [
+            {
+                "provider": provider,
+                "cleanup_status": "completed",
+                "discovered_during_cleanup_count": 0,
+                "discovered_resource_kinds": [],
+                "post_destroy_inventory": "empty",
+                "residual_resource_count": 0,
+            }
+            for provider in _scenario_providers(scenario_id)
+        ],
+        "retained_shared_prerequisites": [],
+        "residual_failures": [],
+    }
+
+
 def _metrics_record(scenario: dict) -> dict:
     scenario_id = scenario["scenario_id"]
     trace_id = "TRACE-" + "".join(
         character for character in scenario_id.upper() if character.isalnum()
     )
-    if scenario_id.startswith("small-local-"):
-        providers = [scenario_id.removeprefix("small-local-")]
-        run_kind = "provider_local"
-    else:
-        direction = scenario_id.removeprefix("small-focus-")
-        source, destination = direction.split("-to-")
-        providers = [source, destination]
-        run_kind = "directed_multicloud"
+    providers = _scenario_providers(scenario_id)
+    run_kind = "provider_local" if len(providers) == 1 else "directed_multicloud"
     source = providers[0]
     return {
         "schema_version": "live-evaluation-metrics.v1",
@@ -222,10 +250,10 @@ def _metrics_record(scenario: dict) -> dict:
             "currency": "USD",
             "budget_cap_usd": scenario["budget_cap_usd"],
             "estimated_monthly_total_usd": scenario["estimated_monthly_total_usd"],
-            "observed_incremental_cost_usd": None,
-            "observation_started_at": None,
-            "observation_completed_at": None,
-            "source_artifact_path": None,
+            "observed_incremental_cost_usd": 0.25,
+            "observation_started_at": "2026-08-28T12:31:00Z",
+            "observation_completed_at": "2026-08-28T13:00:00Z",
+            "source_artifact_path": f"{scenario_id}/provider_cost.json",
         },
         "cleanup": {
             "completed_at": "2026-08-28T12:29:01Z",
@@ -296,6 +324,8 @@ def _completed_record(
             value = (
                 _metrics_record(scenario)
                 if kind == "evaluation_metrics"
+                else _cleanup_record(scenario_id)
+                if kind == "cleanup"
                 else {
                     "scenario_id": scenario_id,
                     "kind": kind,
@@ -432,6 +462,26 @@ def test_referenced_evidence_digest_drift_is_rejected(tmp_path: Path) -> None:
         )
 
 
+def test_referenced_evidence_rejects_secret_bearing_fields(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    artifact = next(
+        item
+        for item in record["scenarios"][0]["artifacts"]
+        if item["kind"] == "readiness"
+    )
+    path = evidence_root / artifact["path"]
+    _write_json(path, {"client_secret": "must-not-enter-thesis-evidence"})
+    artifact["digest"] = evidence._file_digest(path)
+
+    with pytest.raises(evidence.LiveEvidenceError, match="sensitive field"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
 def test_metrics_must_bind_to_exact_scenario_candidate(tmp_path: Path) -> None:
     record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
     scenario = record["scenarios"][0]
@@ -445,6 +495,55 @@ def test_metrics_must_bind_to_exact_scenario_candidate(tmp_path: Path) -> None:
     artifact["digest"] = evidence._file_digest(path)
 
     with pytest.raises(evidence.LiveEvidenceError, match="metrics binding drifted"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_completed_metrics_cost_is_bound_to_indexed_export(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    scenario = record["scenarios"][0]
+    artifact = next(
+        item for item in scenario["artifacts"] if item["kind"] == "evaluation_metrics"
+    )
+    path = evidence_root / artifact["path"]
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["cost"]["source_artifact_path"] = f"{scenario['scenario_id']}/telemetry.json"
+    _write_json(path, value)
+    artifact["digest"] = evidence._file_digest(path)
+
+    with pytest.raises(evidence.LiveEvidenceError, match="indexed cost artifact"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_completed_scenario_requires_clean_typed_cleanup(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    scenario = record["scenarios"][0]
+    artifact = next(
+        item for item in scenario["artifacts"] if item["kind"] == "cleanup"
+    )
+    path = evidence_root / artifact["path"]
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["status"] = "incomplete"
+    value["residual_failures"] = [
+        {
+            "scope": "provider_inventory",
+            "provider": "aws",
+            "reason": "resources_remain",
+        }
+    ]
+    _write_json(path, value)
+    artifact["digest"] = evidence._file_digest(path)
+
+    with pytest.raises(evidence.LiveEvidenceError, match="clean terminal inventory"):
         evidence.validate_record(
             record,
             candidate_pack_dir=pack_dir,

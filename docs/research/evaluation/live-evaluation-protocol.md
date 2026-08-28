@@ -129,7 +129,11 @@ scenario cannot validate without readiness, Terraform plan, Apply, replay,
 access, telemetry, Destroy, cleanup, and provider-cost artifacts. A blocker is
 valid only when it is explicit and evidence-backed; an Apply followed by a
 blocker still requires Destroy and cleanup evidence. This index references the
-normal application outputs and does not execute an operation itself.
+normal application outputs and does not execute an operation itself. A
+completed scenario has exactly one artifact of every required kind. Its cleanup
+artifact must be a clean `cleanup-evidence.v1` record covering the exact
+candidate providers, and its observed-cost value must name the one indexed
+provider-cost export.
 
 ## Cost-efficient order
 
@@ -151,37 +155,43 @@ capabilities are recorded separately from Twin-owned resources.
 
 ### Component probes before complete scenarios
 
-Component probes and final scenarios are different datasets. A component probe
-may validate L1-L3 plus Eventing and uses
-`run_kind: component_probe`. It cannot satisfy, replace, or be relabelled as one
-of the nine final scenario records. Provider-local and directed multi-cloud
-final runs use `run_kind: provider_local` and `run_kind: directed_multicloud`
-respectively and bind to the exact candidate evidence digest.
+Component probes and final scenarios are different measurement datasets, not
+different public deployment modes. A component record uses
+`run_kind: component_probe`; it cannot satisfy, replace, or be relabelled as
+one of the nine final scenario records. Provider-local and directed multi-cloud
+final records use `run_kind: provider_local` and
+`run_kind: directed_multicloud` and bind to the exact candidate evidence
+digest.
 
-The expensive L4/L5 bundles are not provisioned merely to debug L1-L3. The
-recommended order is:
+The Deployer intentionally exposes one atomic graph-bound Apply/Destroy path.
+Adding a generic layer-targeted Apply or maintaining provider-specific
+Terraform target lists would enlarge the PoC and weaken cleanup guarantees.
+The first provider-local deployment for each provider therefore supplies both
+an early component dataset and, only if it passes, the final scenario dataset;
+it does not create the infrastructure twice. The supervised order is:
 
-1. provider and image prerequisites;
-2. the mandatory GCP L1-L3 plus Eventing component behavior and 1+1 capacity
-   gate;
-3. read-only L4/L5 account and regional readiness for all providers;
-4. one provider-local Small scenario that supplies the first live L4/L5
-   evidence; and
-5. only then the remaining approved provider-local and directed multi-cloud
-   Small scenarios.
+1. provider, image, account, and regional prerequisites;
+2. Apply the approved provider-local Small candidate;
+3. immediately verify L1-L3 plus Eventing and record the component dataset;
+4. on a missing checkpoint, stop and Destroy without exercising L4/L5;
+5. otherwise verify L4 queryability, then L5 access as separate gates;
+6. only then run the complete simulator protocol and record the final dataset;
+7. Destroy, reconcile inventory, and proceed to the next provider-local or
+   directed scenario only when cleanup is clean.
 
-AWS and Azure L1-L3 behavior remains covered by offline contracts and their
-provider-local final scenario. Separate full AWS/Azure component deployments
-or isolated cost-incurring L4/L5 deployments would duplicate evidence without
-answering another research question.
+This ordering cannot avoid creating L4/L5 during the atomic Apply, but it
+minimizes their billable lifetime when a cheaper upstream gate fails and avoids
+three additional deployments. The later six directed scenarios reuse the same
+gate order without adding separate component records unless diagnosing a
+blocker.
 
-GCP-L1 has an additional evaluation gate. Its previous three-replica
+GCP-L1 retains an additional observed-capacity gate. Its previous three-replica
 `e2-standard-8` Small broker allocation has been replaced offline by one
-non-HA `e2-standard-4` broker node plus one `e2-standard-2` adapter node. A
-reviewed plan and component probe must validate that 1+1 allocation before a
-GCP-L1 final scenario can be started. The capability decision (bidirectional
-MQTT through BifroMQ with Pub/Sub durability) remains separate from the still
-open observed-capacity evidence.
+non-HA `e2-standard-4` broker node plus one `e2-standard-2` adapter node. The
+early L1-L3/Eventing stage of the GCP provider-local run must validate that 1+1
+allocation before L4/L5 and the final simulator protocol continue. The
+capability decision (bidirectional MQTT through BifroMQ with Pub/Sub
+durability) remains separate from the still open observed-capacity evidence.
 
 ### Minimal PoC diagnostics
 
@@ -313,6 +323,13 @@ The result reports:
   provider cost; and
 - cleanup residuals and explicit limitations.
 
+The evidence validator accepts only bounded UTF-8 JSON, JSONL, CSV, log, or
+text artifacts (maximum 8 MiB each). Besides path and digest validation, it
+rejects sensitive JSON/CSV fields and recognizable private keys, access keys,
+tokens, and connection secrets. Credential files, binary archives, raw
+Terraform state, and one-time access values must never be copied into the
+evaluation directory.
+
 Latency is an evaluation metric only. It does not re-enter the Optimizer as an
 objective or weighted score.
 
@@ -381,7 +398,7 @@ Twin workflow; there is no second product-like evaluation orchestrator:
 | Telemetry roundtrip | persisted data-flow verification record |
 | Timing, reliability, resources and measurement protocol | one schema- and semantics-validated `live-evaluation-metrics.v1` document; component and final runs remain distinct |
 | Cleanup and residuals | terminal Destroy operation and its typed `cleanup-evidence.v1` output |
-| Observed cost | separately exported provider billing evidence after Destroy; provider-dependent delay does not postpone cleanup or keep a scenario active |
+| Observed cost | one indexed provider billing export whose path is bound from the metrics document after Destroy; provider-dependent delay does not postpone cleanup or keep a scenario active |
 
 Apply and Destroy are initiated only from their distinct confirmed UI actions
 during the supervised run. The API operation and stream IDs are retained as

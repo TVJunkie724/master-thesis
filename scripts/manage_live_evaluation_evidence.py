@@ -10,8 +10,10 @@ workflow.
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
+import re
 from collections.abc import Mapping, Sequence
 from itertools import permutations
 from pathlib import Path, PurePosixPath
@@ -33,6 +35,44 @@ SCHEMA_PATH = (
     ROOT / "docs/research/evaluation/schemas" / "live-evaluation-evidence.schema.json"
 )
 PROVIDERS = ("aws", "azure", "gcp")
+MAX_EVIDENCE_FILE_BYTES = 8 * 1024 * 1024
+EVIDENCE_SUFFIXES = frozenset({".json", ".jsonl", ".csv", ".log", ".txt"})
+SENSITIVE_FIELD_NAMES = frozenset(
+    {
+        "password",
+        "passphrase",
+        "secret",
+        "clientsecret",
+        "azureclientsecret",
+        "secretaccesskey",
+        "awssecretaccesskey",
+        "accesskeyid",
+        "awsaccesskeyid",
+        "sessiontoken",
+        "awssessiontoken",
+        "accesstoken",
+        "refreshtoken",
+        "idtoken",
+        "privatekey",
+        "privatekeyid",
+        "gcpcredentialsfile",
+        "authorization",
+        "cookie",
+        "setcookie",
+    }
+)
+SECRET_VALUE_PATTERNS = (
+    re.compile(r"-----BEGIN (?:RSA |EC )?PRIVATE KEY-----"),
+    re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"),
+    re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b"),
+    re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b"),
+    re.compile(r"(?i)\bAccountKey\s*=\s*[^;\s]{8,}"),
+)
+SENSITIVE_TEXT_FIELD_PATTERN = re.compile(
+    r"(?i)\b(?:client[_ -]?secret|secret[_ -]?access[_ -]?key|"
+    r"access[_ -]?token|refresh[_ -]?token|session[_ -]?token|"
+    r"private[_ -]?key|password|authorization|set-cookie)\b\s*[:=,]"
+)
 CANDIDATE_COMPONENT_ORDER = (
     "component.ingestion",
     "component.processing",
@@ -141,6 +181,75 @@ def _resolve_under(root: Path, relative: PurePosixPath, *, label: str) -> Path:
     if not resolved.is_file():
         raise LiveEvidenceError(f"{label} is not a file: {relative.as_posix()}")
     return resolved
+
+
+def _normalized_field(value: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", value.lower())
+
+
+def _contains_sensitive_field(value: object) -> bool:
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            normalized = _normalized_field(str(key))
+            if (
+                normalized in SENSITIVE_FIELD_NAMES
+                or normalized.endswith(("password", "clientsecret", "privatekey"))
+            ):
+                return True
+            if _contains_sensitive_field(nested):
+                return True
+    elif isinstance(value, list):
+        return any(_contains_sensitive_field(item) for item in value)
+    return False
+
+
+def _validate_secret_free_evidence(path: Path, *, label: str) -> None:
+    if path.suffix.lower() not in EVIDENCE_SUFFIXES:
+        raise LiveEvidenceError(
+            f"{label} uses an unsupported, non-inspectable evidence format"
+        )
+    try:
+        size = path.stat().st_size
+        if size > MAX_EVIDENCE_FILE_BYTES:
+            raise LiveEvidenceError(
+                f"{label} exceeds the bounded evidence-file size"
+            )
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise LiveEvidenceError(f"{label} must be UTF-8 text evidence") from exc
+    except OSError as exc:
+        raise LiveEvidenceError(f"Cannot inspect {label}") from exc
+
+    if any(pattern.search(text) for pattern in SECRET_VALUE_PATTERNS) or (
+        SENSITIVE_TEXT_FIELD_PATTERN.search(text)
+    ):
+        raise LiveEvidenceError(f"{label} contains credential-like material")
+
+    suffix = path.suffix.lower()
+    if suffix == ".json":
+        try:
+            parsed: object = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise LiveEvidenceError(f"{label} is not valid JSON evidence") from exc
+        if _contains_sensitive_field(parsed):
+            raise LiveEvidenceError(f"{label} contains a sensitive field")
+    elif suffix == ".jsonl":
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if not line.strip():
+                continue
+            try:
+                parsed = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise LiveEvidenceError(
+                    f"{label} contains invalid JSONL at line {line_number}"
+                ) from exc
+            if _contains_sensitive_field(parsed):
+                raise LiveEvidenceError(f"{label} contains a sensitive field")
+    elif suffix == ".csv":
+        reader = csv.reader(text.splitlines())
+        header = next(reader, [])
+        if any(_normalized_field(field) in SENSITIVE_FIELD_NAMES for field in header):
+            raise LiveEvidenceError(f"{label} contains a sensitive CSV field")
 
 
 def _scenario_ids(plan: Mapping[str, Any]) -> list[str]:
@@ -361,6 +470,7 @@ def _validate_evidence_refs(
             raise LiveEvidenceError(f"{label} contains a duplicate evidence path")
         seen.add(rendered)
         path = _resolve_under(evidence_root, relative, label=f"{label} evidence file")
+        _validate_secret_free_evidence(path, label=f"{label} evidence file")
         if _file_digest(path) != reference.get("digest"):
             raise LiveEvidenceError(f"{label} evidence digest is invalid: {rendered}")
 
@@ -534,10 +644,13 @@ def _validate_scenario_claims(record: Mapping[str, Any]) -> None:
                 )
             if scenario["blocker_code"] is not None:
                 raise LiveEvidenceError("Completed scenario cannot contain a blocker")
-            if kinds.count("evaluation_metrics") != 1:
+            ambiguous = sorted(
+                kind for kind in REQUIRED_SCENARIO_ARTIFACTS if kinds.count(kind) != 1
+            )
+            if ambiguous:
                 raise LiveEvidenceError(
                     f"{scenario['scenario_id']}: completed evidence requires exactly "
-                    "one evaluation_metrics artifact"
+                    f"one artifact for each required kind; invalid={ambiguous}"
                 )
         elif scenario["status"] == "blocked":
             if scenario["blocker_code"] is None or not scenario["artifacts"]:
@@ -637,6 +750,82 @@ def _validate_metrics_candidate_placement(
                 )
 
 
+def _validate_cleanup_artifact(
+    cleanup: Mapping[str, Any],
+    *,
+    scenario_id: str,
+    provider_scope: set[str],
+    completed: bool,
+) -> None:
+    if cleanup.get("schema_version") != "cleanup-evidence.v1":
+        raise LiveEvidenceError(f"{scenario_id}: cleanup evidence version is invalid")
+    terraform = cleanup.get("terraform")
+    providers = cleanup.get("providers")
+    residuals = cleanup.get("residual_failures")
+    if (
+        not isinstance(terraform, dict)
+        or not isinstance(providers, list)
+        or not providers
+        or any(not isinstance(item, dict) for item in providers)
+        or not isinstance(residuals, list)
+    ):
+        raise LiveEvidenceError(f"{scenario_id}: cleanup evidence is incomplete")
+    observed_providers = {
+        item.get("provider") for item in providers if isinstance(item, dict)
+    }
+    if observed_providers != provider_scope:
+        raise LiveEvidenceError(
+            f"{scenario_id}: cleanup provider inventory does not match placement"
+        )
+    if completed and (
+        cleanup.get("status") != "complete"
+        or terraform.get("destroy_status") != "completed"
+        or terraform.get("post_destroy_inventory") != "empty"
+        or terraform.get("residual_resource_count") != 0
+        or residuals
+        or any(
+            item.get("cleanup_status") != "completed"
+            or item.get("post_destroy_inventory") != "empty"
+            or item.get("residual_resource_count") != 0
+            for item in providers
+        )
+    ):
+        raise LiveEvidenceError(
+            f"{scenario_id}: completed scenario requires clean terminal inventory"
+        )
+
+
+def _validate_metrics_cost_binding(
+    metrics_record: Mapping[str, Any],
+    scenario: Mapping[str, Any],
+) -> None:
+    scenario_id = scenario["scenario_id"]
+    cost = metrics_record["cost"]
+    if (
+        cost["budget_cap_usd"] != scenario["budget_cap_usd"]
+        or cost["estimated_monthly_total_usd"]
+        != scenario["estimated_monthly_total_usd"]
+    ):
+        raise LiveEvidenceError(f"{scenario_id}: metrics cost binding drifted")
+    provider_cost_paths = {
+        artifact["path"]
+        for artifact in scenario["artifacts"]
+        if artifact["kind"] == "provider_cost"
+    }
+    source_path = cost["source_artifact_path"]
+    if source_path is not None and source_path not in provider_cost_paths:
+        raise LiveEvidenceError(
+            f"{scenario_id}: observed cost source is not the indexed cost artifact"
+        )
+    if scenario["status"] == "completed" and (
+        cost["observed_incremental_cost_usd"] is None
+        or len(provider_cost_paths) != 1
+    ):
+        raise LiveEvidenceError(
+            f"{scenario_id}: completed evidence requires one reconciled cost artifact"
+        )
+
+
 def validate_record(
     record: Mapping[str, Any],
     *,
@@ -679,6 +868,28 @@ def validate_record(
             evidence_root=evidence_root,
             label=scenario["scenario_id"],
         )
+        candidate = candidates[scenario["scenario_id"]]
+        provider_scope = set(candidate["assignments"].values())
+        for artifact in scenario["artifacts"]:
+            if artifact["kind"] != "cleanup":
+                continue
+            cleanup_relative = _safe_relative_path(
+                artifact["path"],
+                label=f"{scenario['scenario_id']} cleanup path",
+            )
+            cleanup_record = _read(
+                _resolve_under(
+                    evidence_root,
+                    cleanup_relative,
+                    label=f"{scenario['scenario_id']} cleanup file",
+                )
+            )
+            _validate_cleanup_artifact(
+                cleanup_record,
+                scenario_id=scenario["scenario_id"],
+                provider_scope=provider_scope,
+                completed=scenario["status"] == "completed",
+            )
         for artifact in scenario["artifacts"]:
             if artifact["kind"] != "evaluation_metrics":
                 continue
@@ -709,9 +920,10 @@ def validate_record(
                 )
             _validate_metrics_candidate_placement(
                 metrics_record,
-                candidates[scenario["scenario_id"]],
+                candidate,
                 scenario_id=scenario["scenario_id"],
             )
+            _validate_metrics_cost_binding(metrics_record, scenario)
     _validate_state(record, plan=plan)
     return {
         "status": record["status"],
