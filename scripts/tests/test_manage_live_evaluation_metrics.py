@@ -114,12 +114,52 @@ def _record() -> dict:
         },
         "lifecycle": [
             {
-                "phase": "terraform_apply",
+                "phase": "terraform_plan",
                 "provider": "aws",
                 "status": "completed",
                 "started_at": _at(0),
+                "completed_at": _at(100),
+                "duration_ms": 100,
+            },
+            {
+                "phase": "terraform_apply",
+                "provider": "aws",
+                "status": "completed",
+                "started_at": _at(100),
                 "completed_at": _at(1000),
-                "duration_ms": 1000,
+                "duration_ms": 900,
+            },
+            {
+                "phase": "infrastructure_ready",
+                "provider": "aws",
+                "status": "completed",
+                "started_at": _at(1000),
+                "completed_at": _at(1100),
+                "duration_ms": 100,
+            },
+            {
+                "phase": "l1_l3_eventing_ready",
+                "provider": "aws",
+                "status": "completed",
+                "started_at": _at(1100),
+                "completed_at": _at(1200),
+                "duration_ms": 100,
+            },
+            {
+                "phase": "l4_ready",
+                "provider": "aws",
+                "status": "completed",
+                "started_at": _at(1200),
+                "completed_at": _at(1300),
+                "duration_ms": 100,
+            },
+            {
+                "phase": "l5_ready",
+                "provider": "aws",
+                "status": "completed",
+                "started_at": _at(1300),
+                "completed_at": _at(1400),
+                "duration_ms": 100,
             },
             {
                 "phase": "terraform_destroy",
@@ -128,6 +168,14 @@ def _record() -> dict:
                 "started_at": _at(8000),
                 "completed_at": _at(9000),
                 "duration_ms": 1000,
+            },
+            {
+                "phase": "inventory_reconciliation",
+                "provider": "aws",
+                "status": "completed",
+                "started_at": _at(9000),
+                "completed_at": _at(9100),
+                "duration_ms": 100,
             },
         ],
         "message_samples": [
@@ -155,7 +203,7 @@ def _record() -> dict:
             "source_artifact_path": None,
         },
         "cleanup": {
-            "completed_at": _at(9000),
+            "completed_at": _at(9100),
             "inventory_clean": True,
             "residual_count": 0,
             "residual_types": [],
@@ -199,6 +247,66 @@ def test_component_probe_cannot_claim_final_scenario() -> None:
         metrics.validate_metrics(record)
 
 
+def test_run_cannot_exceed_cost_guardrail() -> None:
+    record = _record()
+    record["completed_at"] = _at(61 * 60 * 1000)
+
+    with pytest.raises(metrics.LiveMetricsError, match="60-minute"):
+        metrics.validate_metrics(record)
+
+
+def test_final_run_requires_complete_lifecycle_coverage() -> None:
+    record = _record()
+    record["lifecycle"] = [
+        phase for phase in record["lifecycle"] if phase["phase"] != "l4_ready"
+    ]
+
+    with pytest.raises(metrics.LiveMetricsError, match="Lifecycle coverage"):
+        metrics.validate_metrics(record)
+
+
+def test_successful_trace_preserves_one_event_id() -> None:
+    record = _record()
+    record["message_samples"][1]["stages"][-1]["event_id"] = "event-drifted"
+
+    with pytest.raises(metrics.LiveMetricsError, match="one event ID"):
+        metrics.validate_metrics(record)
+
+
+def test_observed_cost_is_atomic_but_may_arrive_after_cleanup() -> None:
+    record = _record()
+    record["cost"]["observed_incremental_cost_usd"] = 1.25
+
+    with pytest.raises(metrics.LiveMetricsError, match="requires value, interval"):
+        metrics.validate_metrics(record)
+
+    record["cost"].update(
+        {
+            "observation_started_at": _at(0),
+            "observation_completed_at": _at(20_000),
+            "source_artifact_path": "cost/aws-run-001.csv",
+        }
+    )
+    assert metrics.validate_metrics(record)["run_id"] == record["run_id"]
+
+
+def test_metric_collection_rejects_incomparable_final_runs() -> None:
+    first = _record()
+    second = _record()
+    second["run_id"] = "run-small-local-aws-002"
+    second["scenario_id"] = "small-local-aws-repeat"
+    second["subject_id"] = "small-local-aws-repeat"
+    second["source_revision"] = "deadbeef1234567"
+
+    with pytest.raises(metrics.LiveMetricsError, match="not comparable"):
+        metrics.validate_metric_collection([first, second])
+
+
+def test_complete_matrix_gate_reports_missing_scenarios() -> None:
+    with pytest.raises(metrics.LiveMetricsError, match="nine-scenario matrix"):
+        metrics.validate_metric_collection([_record()], require_complete_matrix=True)
+
+
 def test_summary_creates_csv_tables_and_svg_charts(tmp_path: Path) -> None:
     record = _record()
     output_dir = tmp_path / "summary"
@@ -210,6 +318,7 @@ def test_summary_creates_csv_tables_and_svg_charts(tmp_path: Path) -> None:
         "stage-latency.csv",
         "lifecycle.csv",
         "resources.csv",
+        "cost-observations.csv",
         "end-to-end-latency-p95.svg",
         "lifecycle-duration.svg",
     }
@@ -218,6 +327,7 @@ def test_summary_creates_csv_tables_and_svg_charts(tmp_path: Path) -> None:
         rows = list(csv.DictReader(stream))
     assert rows[0]["measured_messages"] == "2"
     assert rows[0]["success_rate"] == "1.000"
+    assert rows[0]["retries"] == "0"
     assert float(rows[0]["p95_ms"]) > 80
     assert "Measured end-to-end latency" in (
         output_dir / "end-to-end-latency-p95.svg"

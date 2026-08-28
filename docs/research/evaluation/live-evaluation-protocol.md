@@ -99,6 +99,11 @@ the hook again. The resulting calculation run is selected and processed by the
 same preflight, Apply, replay, access, verification, Destroy, and cleanup path
 as a normal cost-selected run.
 
+Final metrics are accepted into the evidence index only when their provider
+scope equals the exact candidate placement and every checkpoint provider
+matches the candidate's component assignment. This prevents measurements from
+a different deployment from being attached to a valid candidate digest.
+
 Create the non-overwriting, not-started evidence index beside the future
 evidence files:
 
@@ -247,8 +252,9 @@ latency distribution. Unless a reviewed run record states otherwise, each
 required direction therefore uses five warm-up messages followed by 50
 measured messages with the same payload and cadence.
 
-Every trace carries one correlation identifier. The simulator, application,
-and provider observations record timestamps for the applicable path stops:
+Every successful trace carries one non-null event identifier unchanged across
+all primary stops. The simulator, application, and provider observations record
+timestamps for the applicable path stops:
 
 ```text
 telemetry:
@@ -286,7 +292,15 @@ When the same command trace contains provider-delivery outcome checkpoints,
 the metrics record retains them as `auxiliary_stages`. They do not alter the
 ordered command-receipt path or its latency calculation.
 
-The clock source and maximum observed skew are recorded before measurement.
+The clock source and maximum observed skew are checked within the recorded run
+window. Unsynchronized clocks invalidate the measurement. Every metrics record
+is also bounded to the plan's 60-minute maximum runtime and must contain Plan,
+Apply, Destroy, and inventory-reconciliation measurements. A component probe
+adds at least the readiness phase it actually exercises; a final scenario
+records infrastructure, L1-L3/eventing, L4, and L5 readiness, including honest
+failed or skipped states. Terminal cleanup evidence is mandatory even when a
+functional phase fails.
+
 The result reports:
 
 - end-to-end mean, p50, p95, and maximum latency;
@@ -320,10 +334,19 @@ python scripts/manage_live_evaluation_metrics.py summarize \
   --output-dir /tmp/six-layer-live-evaluation-summary
 ```
 
+For the final thesis comparison, pass all nine final metrics files as repeated
+`--record` arguments and add `--require-complete-matrix`. The batch gate rejects
+duplicate runs or scenarios, missing or unexpected matrix entries, and mixed
+architecture contracts, source revisions, workload/simulator digests, or
+measurement protocols. Component probes may be summarized separately and do
+not count as final matrix evidence.
+
 The generated `run-summary.csv`, `stage-latency.csv`, `lifecycle.csv`,
-`resources.csv`, `end-to-end-latency-p95.svg`, and `lifecycle-duration.svg`
-remain derived artifacts. The digest-bound JSON measurement document is the
-primary evidence.
+`resources.csv`, `cost-observations.csv`, `end-to-end-latency-p95.svg`, and
+`lifecycle-duration.svg` remain derived artifacts. The digest-bound JSON
+measurement document is the primary evidence. A delayed provider-cost export
+is either recorded atomically with value, interval, and source path, or left
+entirely pending; it never delays Destroy or cleanup.
 
 Assemble the primary metrics document from one reviewed metadata template, one
 explicit sample plan, and one or more copied provider/simulator checkpoint logs:

@@ -57,6 +57,22 @@ REQUIRED_SCENARIO_ARTIFACTS = frozenset(
         "provider_cost",
     }
 )
+METRIC_STAGE_COMPONENT = {
+    "l1_accepted": "component.ingestion",
+    "event_layer_durable": "component.eventing",
+    "l2_started": "component.processing",
+    "l2_completed": "component.processing",
+    "l3_hot_persisted": "component.hot-storage",
+    "l3_cool_persisted": "component.cool-storage",
+    "l3_archive_persisted": "component.archive-storage",
+    "l4_queryable": "component.twin-state",
+    "command_issued": "component.processing",
+    "event_layer_command_durable": "component.eventing",
+    "l1_command_published": "component.ingestion",
+    "outcome_event_durable": "component.eventing",
+    "outcome_persisted": "component.hot-storage",
+    "outcome_queryable": "component.twin-state",
+}
 
 
 class LiveEvidenceError(RuntimeError):
@@ -588,6 +604,39 @@ def _validate_state(record: Mapping[str, Any], *, plan: Mapping[str, Any]) -> No
         raise LiveEvidenceError("Non-final evidence cannot claim completion time")
 
 
+def _validate_metrics_candidate_placement(
+    metrics_record: Mapping[str, Any],
+    candidate: Mapping[str, Any],
+    *,
+    scenario_id: str,
+) -> None:
+    assignments = candidate["assignments"]
+    expected_scope = set(assignments.values())
+    if set(metrics_record["provider_scope"]) != expected_scope:
+        raise LiveEvidenceError(
+            f"{scenario_id}: metrics provider scope does not match candidate placement"
+        )
+    for sample in metrics_record["message_samples"]:
+        for stage in [*sample["stages"], *sample.get("auxiliary_stages", [])]:
+            stage_id = stage["stage_id"]
+            if stage_id in {"simulator_sent", "simulator_command_received"}:
+                if stage["provider"] is not None:
+                    raise LiveEvidenceError(
+                        f"{scenario_id}: simulator checkpoint claims a cloud provider"
+                    )
+                continue
+            component = METRIC_STAGE_COMPONENT.get(stage_id)
+            if component is None:
+                raise LiveEvidenceError(
+                    f"{scenario_id}: metrics stage has no placement binding: {stage_id}"
+                )
+            if stage["provider"] != assignments[component]:
+                raise LiveEvidenceError(
+                    f"{scenario_id}: metrics stage {stage_id} does not match "
+                    "candidate placement"
+                )
+
+
 def validate_record(
     record: Mapping[str, Any],
     *,
@@ -658,6 +707,11 @@ def validate_record(
                 raise LiveEvidenceError(
                     f"{scenario['scenario_id']}: metrics binding drifted"
                 )
+            _validate_metrics_candidate_placement(
+                metrics_record,
+                candidates[scenario["scenario_id"]],
+                scenario_id=scenario["scenario_id"],
+            )
     _validate_state(record, plan=plan)
     return {
         "status": record["status"],

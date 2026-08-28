@@ -107,6 +107,32 @@ def _reference(root: Path, relative: str, value: object) -> dict[str, str]:
     return {"path": relative, "digest": evidence._file_digest(path)}
 
 
+def _lifecycle(provider: str) -> list[dict]:
+    phases = (
+        ("terraform_plan", "12:00:00Z", "12:00:01Z"),
+        ("terraform_apply", "12:00:01Z", "12:00:02Z"),
+        ("infrastructure_ready", "12:00:02Z", "12:00:03Z"),
+        ("l1_l3_eventing_ready", "12:00:03Z", "12:00:04Z"),
+        ("l4_ready", "12:00:04Z", "12:00:05Z"),
+        ("l5_ready", "12:00:05Z", "12:00:06Z"),
+        ("terraform_destroy", "12:28:00Z", "12:29:00Z"),
+        ("inventory_reconciliation", "12:29:00Z", "12:29:01Z"),
+    )
+    return [
+        {
+            "phase": phase,
+            "provider": provider,
+            "status": "completed",
+            "started_at": f"2026-08-28T{started_at}",
+            "completed_at": f"2026-08-28T{completed_at}",
+            "duration_ms": (
+                60000 if phase == "terraform_destroy" else 1000
+            ),
+        }
+        for phase, started_at, completed_at in phases
+    ]
+
+
 def _metrics_record(scenario: dict) -> dict:
     scenario_id = scenario["scenario_id"]
     trace_id = "TRACE-" + "".join(
@@ -157,16 +183,7 @@ def _metrics_record(scenario: dict) -> dict:
             ],
             "notes": ["Synthetic unit-test fixture."],
         },
-        "lifecycle": [
-            {
-                "phase": "terraform_apply",
-                "provider": source,
-                "status": "completed",
-                "started_at": "2026-08-28T12:00:00Z",
-                "completed_at": "2026-08-28T12:00:01Z",
-                "duration_ms": 1000,
-            }
-        ],
+        "lifecycle": _lifecycle(source),
         "message_samples": [
             {
                 "trace_id": trace_id,
@@ -211,7 +228,7 @@ def _metrics_record(scenario: dict) -> dict:
             "source_artifact_path": None,
         },
         "cleanup": {
-            "completed_at": "2026-08-28T12:29:00Z",
+            "completed_at": "2026-08-28T12:29:01Z",
             "inventory_clean": True,
             "residual_count": 0,
             "residual_types": [],
@@ -428,6 +445,56 @@ def test_metrics_must_bind_to_exact_scenario_candidate(tmp_path: Path) -> None:
     artifact["digest"] = evidence._file_digest(path)
 
     with pytest.raises(evidence.LiveEvidenceError, match="metrics binding drifted"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_metrics_provider_scope_is_bound_to_candidate_placement(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    scenario = next(
+        item
+        for item in record["scenarios"]
+        if item["scenario_id"] == "small-focus-aws-to-azure"
+    )
+    artifact = next(
+        item for item in scenario["artifacts"] if item["kind"] == "evaluation_metrics"
+    )
+    path = evidence_root / artifact["path"]
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["provider_scope"].append("gcp")
+    _write_json(path, value)
+    artifact["digest"] = evidence._file_digest(path)
+
+    with pytest.raises(evidence.LiveEvidenceError, match="provider scope"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_metrics_stage_is_bound_to_candidate_component_provider(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    scenario = next(
+        item
+        for item in record["scenarios"]
+        if item["scenario_id"] == "small-focus-aws-to-azure"
+    )
+    artifact = next(
+        item for item in scenario["artifacts"] if item["kind"] == "evaluation_metrics"
+    )
+    path = evidence_root / artifact["path"]
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["message_samples"][0]["stages"][1]["provider"] = "azure"
+    _write_json(path, value)
+    artifact["digest"] = evidence._file_digest(path)
+
+    with pytest.raises(evidence.LiveEvidenceError, match="candidate placement"):
         evidence.validate_record(
             record,
             candidate_pack_dir=pack_dir,

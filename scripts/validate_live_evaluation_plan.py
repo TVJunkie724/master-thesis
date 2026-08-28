@@ -32,9 +32,11 @@ def _read(path: Path) -> dict[str, Any]:
 def validate(
     *,
     required_state: str = "planned",
-    plan_path: Path = PLAN_PATH,
-    profile_path: Path = PROFILE_PATH,
+    plan_path: Path | None = None,
+    profile_path: Path | None = None,
 ) -> dict[str, Any]:
+    plan_path = PLAN_PATH if plan_path is None else plan_path
+    profile_path = PROFILE_PATH if profile_path is None else profile_path
     plan = _read(plan_path)
     profile = _read(profile_path)
     scenarios = plan.get("scenarios")

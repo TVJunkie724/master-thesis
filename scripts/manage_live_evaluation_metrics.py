@@ -29,6 +29,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = (
     ROOT / "docs/research/evaluation/schemas" / "live-evaluation-metrics.schema.json"
 )
+PLAN_PATH = ROOT / "docs/research/evaluation/small-scenario-matrix.json"
+MAXIMUM_RUNTIME_MINUTES = 60
 CHECKPOINT_PREFIX = "T2MC_CHECKPOINT "
 TRACE_ID_PATTERN = re.compile(r"^(?:TRACE|VERIFY)-[A-Z0-9]{8,48}$")
 SAFE_TEXT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,159}$")
@@ -116,6 +118,22 @@ SAMPLE_PLAN_KEYS = frozenset(
         "ordering_ok",
         "dlq_observed",
         "failure_code",
+    }
+)
+BASE_LIFECYCLE_PHASES = frozenset(
+    {
+        "terraform_plan",
+        "terraform_apply",
+        "terraform_destroy",
+        "inventory_reconciliation",
+    }
+)
+READINESS_PHASES = frozenset(
+    {
+        "infrastructure_ready",
+        "l1_l3_eventing_ready",
+        "l4_ready",
+        "l5_ready",
     }
 )
 
@@ -277,7 +295,11 @@ def assemble_metrics(
             stages.append(
                 {
                     "stage_id": stage,
-                    "provider": checkpoint["provider"],
+                    "provider": (
+                        None
+                        if STAGE_LAYERS[stage] == "simulator"
+                        else checkpoint["provider"]
+                    ),
                     "layer": STAGE_LAYERS[stage],
                     "observed_at": checkpoint["observed_at"],
                     "clock_source": _clock_source(checkpoint),
@@ -289,7 +311,11 @@ def assemble_metrics(
             sample["auxiliary_stages"] = [
                 {
                     "stage_id": stage,
-                    "provider": checkpoint["provider"],
+                    "provider": (
+                        None
+                        if STAGE_LAYERS[stage] == "simulator"
+                        else checkpoint["provider"]
+                    ),
                     "layer": STAGE_LAYERS[stage],
                     "observed_at": checkpoint["observed_at"],
                     "clock_source": _clock_source(checkpoint),
@@ -401,17 +427,50 @@ def _validate_run_binding(record: Mapping[str, Any]) -> None:
 
 
 def _validate_time_bounds(record: Mapping[str, Any]) -> None:
-    if _timestamp(record["completed_at"]) < _timestamp(record["started_at"]):
+    run_started = _timestamp(record["started_at"])
+    run_completed = _timestamp(record["completed_at"])
+    if run_completed < run_started:
         raise LiveMetricsError("Run completion precedes its start")
+    if (run_completed - run_started).total_seconds() > MAXIMUM_RUNTIME_MINUTES * 60:
+        raise LiveMetricsError(
+            f"Run exceeds the {MAXIMUM_RUNTIME_MINUTES}-minute cost guardrail"
+        )
+    checked_at = _timestamp(record["clock"]["checked_at"])
+    if not record["clock"]["synchronized"]:
+        raise LiveMetricsError("Live measurements require synchronized clocks")
+    if checked_at < run_started or checked_at > run_completed:
+        raise LiveMetricsError("Clock check lies outside the run window")
+
     observed_phases: set[tuple[str, str | None]] = set()
+    observed_phase_names: set[str] = set()
     tolerance_ms = max(5.0, float(record["clock"]["max_observed_skew_ms"]))
     for measurement in record["lifecycle"]:
         identity = (measurement["phase"], measurement["provider"])
         if identity in observed_phases:
             raise LiveMetricsError(f"Duplicate lifecycle measurement: {identity}")
         observed_phases.add(identity)
-        if measurement["status"] != "completed":
+        observed_phase_names.add(measurement["phase"])
+        timing = (
+            measurement["started_at"],
+            measurement["completed_at"],
+            measurement["duration_ms"],
+        )
+        if measurement["status"] == "skipped":
+            if any(value is not None for value in timing):
+                raise LiveMetricsError(
+                    f"Skipped lifecycle phase {measurement['phase']} cannot claim timing"
+                )
             continue
+        if any(value is None for value in timing):
+            raise LiveMetricsError(
+                f"Observed lifecycle phase {measurement['phase']} requires complete timing"
+            )
+        phase_started = _timestamp(measurement["started_at"])
+        phase_completed = _timestamp(measurement["completed_at"])
+        if phase_started < run_started or phase_completed > run_completed:
+            raise LiveMetricsError(
+                f"Lifecycle phase {measurement['phase']} lies outside the run window"
+            )
         calculated = _duration_ms(
             measurement["started_at"], measurement["completed_at"]
         )
@@ -423,6 +482,28 @@ def _validate_time_bounds(record: Mapping[str, Any]) -> None:
             raise LiveMetricsError(
                 f"Lifecycle duration drifted for {measurement['phase']}"
             )
+
+    required_phases = set(BASE_LIFECYCLE_PHASES)
+    if record["run_kind"] == "component_probe":
+        if not observed_phase_names & READINESS_PHASES:
+            raise LiveMetricsError(
+                "Component probes require at least one explicit readiness phase"
+            )
+    else:
+        required_phases.update(READINESS_PHASES)
+    missing_phases = required_phases - observed_phase_names
+    if missing_phases:
+        raise LiveMetricsError(
+            "Lifecycle coverage is incomplete: " + ", ".join(sorted(missing_phases))
+        )
+    if any(
+        measurement["phase"] in {"terraform_destroy", "inventory_reconciliation"}
+        and measurement["status"] == "skipped"
+        for measurement in record["lifecycle"]
+    ):
+        raise LiveMetricsError(
+            "Destroy and inventory reconciliation must be attempted, not skipped"
+        )
 
 
 def _expected_paths(record: Mapping[str, Any]) -> dict[str, list[str]]:
@@ -534,6 +615,11 @@ def _validate_samples(record: Mapping[str, Any]) -> None:
                 raise LiveMetricsError(
                     f"Successful trace {trace_id} does not match its expected path"
                 )
+            event_ids = {stage["event_id"] for stage in stages}
+            if None in event_ids or len(event_ids) != 1:
+                raise LiveMetricsError(
+                    f"Successful trace {trace_id} does not preserve one event ID"
+                )
         elif sample["failure_code"] is None:
             raise LiveMetricsError(
                 f"Failed or timed-out trace {trace_id} requires a failure code"
@@ -550,12 +636,51 @@ def _validate_samples(record: Mapping[str, Any]) -> None:
 
 def _validate_cleanup(record: Mapping[str, Any]) -> None:
     cleanup = record["cleanup"]
+    if cleanup["completed_at"] is None or cleanup["inventory_clean"] is None:
+        raise LiveMetricsError("A live run requires terminal cleanup evidence")
+    cleanup_completed = _timestamp(cleanup["completed_at"])
+    if not (
+        _timestamp(record["started_at"])
+        <= cleanup_completed
+        <= _timestamp(record["completed_at"])
+    ):
+        raise LiveMetricsError("Cleanup completion lies outside the run window")
     if cleanup["inventory_clean"] is True and (
         cleanup["residual_count"] != 0 or cleanup["residual_types"]
     ):
         raise LiveMetricsError("Clean inventory cannot contain residual resources")
+    if cleanup["inventory_clean"] is False and cleanup["residual_count"] == 0:
+        raise LiveMetricsError("Unclean inventory must identify residual resources")
     if cleanup["residual_count"] != len(cleanup["residual_types"]):
         raise LiveMetricsError("Residual count and residual type list disagree")
+
+
+def _validate_cost(record: Mapping[str, Any]) -> None:
+    cost = record["cost"]
+    if cost["budget_cap_usd"] is None:
+        raise LiveMetricsError("A live run requires an approved budget cap")
+    if (
+        record["run_kind"] != "component_probe"
+        and cost["estimated_monthly_total_usd"] is None
+    ):
+        raise LiveMetricsError("Final scenario metrics require the optimizer cost estimate")
+
+    observed_fields = (
+        cost["observed_incremental_cost_usd"],
+        cost["observation_started_at"],
+        cost["observation_completed_at"],
+        cost["source_artifact_path"],
+    )
+    if any(value is not None for value in observed_fields) and any(
+        value is None for value in observed_fields
+    ):
+        raise LiveMetricsError(
+            "Observed cost requires value, interval, and source artifact together"
+        )
+    if cost["observation_started_at"] is not None and _timestamp(
+        cost["observation_completed_at"]
+    ) < _timestamp(cost["observation_started_at"]):
+        raise LiveMetricsError("Cost observation completion precedes its start")
 
 
 def validate_metrics(record: Mapping[str, Any]) -> dict[str, Any]:
@@ -566,6 +691,7 @@ def validate_metrics(record: Mapping[str, Any]) -> dict[str, Any]:
     _validate_time_bounds(record)
     _validate_samples(record)
     _validate_cleanup(record)
+    _validate_cost(record)
     measured = [
         sample
         for sample in record["message_samples"]
@@ -583,6 +709,79 @@ def load_metrics(path: Path) -> dict[str, Any]:
     record = _read(path)
     validate_metrics(record)
     return record
+
+
+def validate_metric_collection(
+    records: Sequence[Mapping[str, Any]], *, require_complete_matrix: bool = False
+) -> None:
+    """Reject ambiguous or methodologically incomparable result batches."""
+
+    run_ids: set[str] = set()
+    scenario_ids: set[str] = set()
+    final_records: list[Mapping[str, Any]] = []
+    for record in records:
+        validate_metrics(record)
+        run_id = record["run_id"]
+        if run_id in run_ids:
+            raise LiveMetricsError(f"Duplicate run_id in metric collection: {run_id}")
+        run_ids.add(run_id)
+        if record["run_kind"] == "component_probe":
+            continue
+        scenario_id = record["scenario_id"]
+        if scenario_id in scenario_ids:
+            raise LiveMetricsError(
+                f"Duplicate final scenario in metric collection: {scenario_id}"
+            )
+        scenario_ids.add(scenario_id)
+        final_records.append(record)
+
+    if final_records:
+        reference = final_records[0]
+        reference_protocol = {
+            key: value
+            for key, value in reference["protocol"].items()
+            if key != "notes"
+        }
+        for record in final_records[1:]:
+            comparable_values = (
+                record["architecture_contract"],
+                record["source_revision"],
+                record["workload_digest"],
+                record["simulator_digest"],
+                {
+                    key: value
+                    for key, value in record["protocol"].items()
+                    if key != "notes"
+                },
+            )
+            reference_values = (
+                reference["architecture_contract"],
+                reference["source_revision"],
+                reference["workload_digest"],
+                reference["simulator_digest"],
+                reference_protocol,
+            )
+            if comparable_values != reference_values:
+                raise LiveMetricsError(
+                    "Final scenario metrics are not comparable across revision, "
+                    "fixtures, or protocol"
+                )
+
+    if require_complete_matrix:
+        plan = _read(PLAN_PATH)
+        expected = {scenario["scenario_id"] for scenario in plan["scenarios"]}
+        if scenario_ids != expected:
+            missing = sorted(expected - scenario_ids)
+            unexpected = sorted(scenario_ids - expected)
+            detail = []
+            if missing:
+                detail.append("missing=" + ",".join(missing))
+            if unexpected:
+                detail.append("unexpected=" + ",".join(unexpected))
+            raise LiveMetricsError(
+                "Final metric collection does not cover the exact nine-scenario "
+                "matrix (" + "; ".join(detail) + ")"
+            )
 
 
 def _sample_duration(sample: Mapping[str, Any]) -> float:
@@ -638,6 +837,16 @@ def _summary_rows(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
                     ),
                     "timeouts": sum(
                         sample["status"] == "timeout" for sample in measured
+                    ),
+                    "retries": sum(sample["retry_count"] for sample in measured),
+                    "duplicates": sum(
+                        sample["duplicate_count"] for sample in measured
+                    ),
+                    "ordering_failures": sum(
+                        not sample["ordering_ok"] for sample in measured
+                    ),
+                    "dlq_observations": sum(
+                        sample["dlq_observed"] for sample in measured
                     ),
                     "success_rate": _rounded(successes / total if total else None),
                     "mean_ms": _rounded(
@@ -725,6 +934,36 @@ def _resource_rows(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]
     ]
 
 
+def _cost_rows(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    rows = []
+    for record in records:
+        cost = record["cost"]
+        observed = cost["observed_incremental_cost_usd"]
+        budget = cost["budget_cap_usd"]
+        rows.append(
+            {
+                "run_id": record["run_id"],
+                "subject_id": record["subject_id"],
+                "scenario_id": record["scenario_id"] or "",
+                "currency": cost["currency"],
+                "budget_cap_usd": _rounded(budget),
+                "estimated_monthly_total_usd": (
+                    cost["estimated_monthly_total_usd"] or ""
+                ),
+                "observed_incremental_cost_usd": _rounded(observed),
+                "within_budget_cap": (
+                    ""
+                    if observed is None
+                    else str(observed <= budget).lower()
+                ),
+                "observation_started_at": cost["observation_started_at"] or "",
+                "observation_completed_at": cost["observation_completed_at"] or "",
+                "source_artifact_path": cost["source_artifact_path"] or "",
+            }
+        )
+    return rows
+
+
 def _write_csv(
     path: Path, rows: Sequence[Mapping[str, Any]], fields: Sequence[str]
 ) -> None:
@@ -770,7 +1009,15 @@ def _write_bar_chart(
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def summarize_metrics(records: Sequence[Mapping[str, Any]], output_dir: Path) -> None:
+def summarize_metrics(
+    records: Sequence[Mapping[str, Any]],
+    output_dir: Path,
+    *,
+    require_complete_matrix: bool = False,
+) -> None:
+    validate_metric_collection(
+        records, require_complete_matrix=require_complete_matrix
+    )
     if output_dir.exists():
         raise LiveMetricsError(f"Summary output already exists: {output_dir}")
     output_dir.mkdir(parents=True)
@@ -778,6 +1025,7 @@ def summarize_metrics(records: Sequence[Mapping[str, Any]], output_dir: Path) ->
     stage_rows = _stage_rows(records)
     lifecycle_rows = _lifecycle_rows(records)
     resource_rows = _resource_rows(records)
+    cost_rows = _cost_rows(records)
     _write_csv(
         output_dir / "run-summary.csv",
         summary_rows,
@@ -792,6 +1040,10 @@ def summarize_metrics(records: Sequence[Mapping[str, Any]], output_dir: Path) ->
             "successes",
             "failures",
             "timeouts",
+            "retries",
+            "duplicates",
+            "ordering_failures",
+            "dlq_observations",
             "success_rate",
             "mean_ms",
             "p50_ms",
@@ -834,6 +1086,23 @@ def summarize_metrics(records: Sequence[Mapping[str, Any]], output_dir: Path) ->
             "count",
         ),
     )
+    _write_csv(
+        output_dir / "cost-observations.csv",
+        cost_rows,
+        (
+            "run_id",
+            "subject_id",
+            "scenario_id",
+            "currency",
+            "budget_cap_usd",
+            "estimated_monthly_total_usd",
+            "observed_incremental_cost_usd",
+            "within_budget_cap",
+            "observation_started_at",
+            "observation_completed_at",
+            "source_artifact_path",
+        ),
+    )
     latency_bars = [
         (f"{row['subject_id']} / {row['direction']}", float(row["p95_ms"]))
         for row in summary_rows
@@ -870,6 +1139,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     summarize.add_argument("--record", type=Path, action="append", required=True)
     summarize.add_argument("--output-dir", type=Path, required=True)
+    summarize.add_argument(
+        "--require-complete-matrix",
+        action="store_true",
+        help="Require the exact three local and six directed final scenarios.",
+    )
     collect = subparsers.add_parser(
         "collect",
         help="Assemble a validated metrics record from checkpoint logs.",
@@ -899,7 +1173,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     records = [load_metrics(path) for path in arguments.record]
     if arguments.command == "summarize":
-        summarize_metrics(records, arguments.output_dir)
+        summarize_metrics(
+            records,
+            arguments.output_dir,
+            require_complete_matrix=arguments.require_complete_matrix,
+        )
         print(
             "live-evaluation-metrics: summarized "
             f"{len(records)} run(s) into {arguments.output_dir}"
