@@ -636,14 +636,17 @@ scenario ID and workload digest. Inline custom Eventing
 values require a later contract version and are not mislabeled as frozen v1
 evidence.
 
-The Eventing bridge and storage-transition job are separate evaluated
-components. The supervised Small set contains three provider-local baselines
-and six multi-cloud cases, one for every directed AWS/Azure/GCP provider pair.
-The six focus edges jointly exercise the cross-cloud-capable
-`canonical-domain-event.v1`, `storage_transition.v1`, and
-`twin_projection.v1` contracts. The three provider-local baselines exercise
-`raw_history_query.v1`; `L3-hot != L5` remains an explicit negative offline
-candidate. The cases do not enumerate every valid assignment. Incidental
+The Eventing bridge and provider-local storage-transition job are separate
+evaluated components. The supervised Small set contains three provider-local
+baselines and six multi-cloud cases, one for every directed AWS/Azure/GCP
+provider pair. The six focus edges jointly exercise the cross-cloud-capable
+`canonical-domain-event.v1` and `twin_projection.v1` contracts. The three
+provider-local baselines exercise `storage_transition.v1` and
+`raw_history_query.v1`; splitting L3 hot, cool, archive, or L5 across providers
+remains an explicit negative offline candidate. This bounded choice avoids
+claiming a cross-cloud migration path that cannot be observed within the
+short-lived PoC evaluation window. The cases do not enumerate every valid
+assignment. Incidental
 additional edges are recorded from the resolved graph but do not create
 redundant scenarios. The checked assignments live in
 `evaluation/small-scenario-matrix.json`; their safe execution order and

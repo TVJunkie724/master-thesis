@@ -14,7 +14,7 @@ def test_live_evaluation_plan_covers_the_bounded_matrix() -> None:
     assert result["local_provider_count"] == 3
     assert result["directed_pair_count"] == 6
     assert result["edge_contract_count"] == 4
-    assert result["cross_cloud_edge_contract_count"] == 3
+    assert result["cross_cloud_edge_contract_count"] == 2
     assert len(result["missing_budget_caps"]) == 9
 
 
@@ -35,11 +35,11 @@ def test_live_evaluation_cannot_be_enabled_without_reviewed_budgets(
         evaluation.validate()
 
 
-def test_live_evaluation_rejects_non_materializable_visualization_split(
+def test_live_evaluation_rejects_non_materializable_storage_split(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     plan = evaluation._read(evaluation.PLAN_PATH)
-    plan["scenarios"][3]["assignments"]["component.visualization"] = "gcp"
+    plan["scenarios"][3]["assignments"]["component.cool-storage"] = "gcp"
     original_read = evaluation._read
 
     def read_with_invalid_plan(path):

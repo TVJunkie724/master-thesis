@@ -1211,17 +1211,22 @@ def _check_resolved(
         assignment["logical_component_id"]: assignment
         for assignment in document["component_assignments"]
     }
-    hot_assignment = by_component.get("component.hot-storage")
-    visualization_assignment = by_component.get("component.visualization")
-    if (
-        hot_assignment is not None
-        and visualization_assignment is not None
-        and hot_assignment["provider"] != visualization_assignment["provider"]
-    ):
+    storage_bundle = [
+        by_component.get(component_id)
+        for component_id in (
+            "component.hot-storage",
+            "component.cool-storage",
+            "component.archive-storage",
+            "component.visualization",
+        )
+    ]
+    if all(storage_bundle) and len(
+        {assignment["provider"] for assignment in storage_bundle}
+    ) != 1:
         _fail(
             "ARCH_BUNDLE_INCOMPATIBLE",
             "component_assignments",
-            "Six-layer requires provider-local L3 hot and L5",
+            "Six-layer PoC requires provider-local L3 storage and L5",
         )
     expected_components = {item["component_id"] for item in profile["components"]}
     if set(by_component) != expected_components:

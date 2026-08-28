@@ -57,7 +57,7 @@ Changes use the following classification:
 | SE-01 | Eventing was implicit in functions, triggers, and broad `event_bus` labels | Independent non-linear Event Layer with explicit provider bundles, routes, retry/DLQ, replay, monitoring, identities, and cost ownership | added/replaced | Makes Eventing observable for RQ3.2 and prevents hidden integration cost | offline-verified; live pending |
 | SE-02 | `AWSEvents`, Azure Event Grid, and Cloud Pub/Sub appeared as comparable one-service mappings | AWS uses Kinesis/SNS/SQS/Lambda/S3 failure storage; Azure uses Event Hubs/Service Bus/Functions; GCP uses separated Pub/Sub topics and Cloud Run event services | replaced/refined | Product-name equivalence did not prove common durability, ordering, fan-out, retry, or command behavior | offline-verified; live pending |
 | SE-03 | `AWSDataTransfer`, Azure Bandwidth, and GCP Compute Engine acted mainly as broad transfer/pricing labels | Directed source-owned bridges, short-lived destination identity, durable destination acceptance, and exactly-once cost attribution per edge | replaced | Turns cross-cloud transfer into an executable, auditable contract rather than an unowned charge | offline-verified; live pending |
-| SE-04 | Cool/archive storage named the destination service but did not close every cross-cloud transition | Provider schedulers plus finite source-owned storage movers write directly to destination object storage | added | Lifecycle policy alone cannot implement every cross-provider transition with the same evidence and identity boundary | offline-verified; live pending |
+| SE-04 | Cool/archive storage named the destination service while cross-cloud transition behavior remained incomplete | Provider-local schedulers plus finite storage movers operate one co-located L3 bundle | refined | Keeps storage retention reproducible without claiming a cross-cloud migration workflow outside the short PoC evaluation window | offline-verified; live pending |
 | SE-05 | API Gateway/API Management/GCP API Gateway were broad data-access mappings | Bounded authenticated service-local reader endpoints: AWS Lambda Function URL, Azure Function endpoint, and GCP Cloud Run endpoint | removed/absorbed | Avoids three additional gateway products when one typed PoC read contract is sufficient | offline-verified; live pending |
 
 ## AWS service evolution
@@ -72,7 +72,7 @@ Changes use the following classification:
 | L4 Twin | IoT TwinMaker | IoT TwinMaker Standard | retained/refined | Keeps the native semantic Twin surface and fixes the priced edition |
 | L5 visualization | Amazon Grafana | Amazon Managed Grafana 12, Lambda raw-history reader, and Marcus Olsson JSON datasource | refined | Closes the actual authenticated read path instead of pricing only a dashboard service |
 | Event Layer | `AWSEvents`/provider-native triggers | Kinesis Data Streams, SNS FIFO, SQS FIFO, Lambda event worker, S3 failure store, and CloudWatch | replaced/added | Separates telemetry streaming, control fan-out, durable work, terminal failure ownership, and observability |
-| Storage transitions | EventBridge scheduler label plus storage services | EventBridge Scheduler and an ECS Fargate finite storage mover | refined/added | Gives cross-cloud cool/archive movement an executable source owner |
+| Storage transitions | EventBridge scheduler label plus storage services | EventBridge Scheduler and an ECS Fargate finite provider-local storage mover | refined/added | Makes the bounded L3 lifecycle explicit without a cross-cloud migration claim |
 | Data access | Amazon API Gateway | Authenticated Lambda Function URL for the bounded raw-history reader | removed/absorbed | Removes a product surface not required by the common read contract |
 
 ## Azure service evolution
@@ -87,7 +87,7 @@ Changes use the following classification:
 | L4 Twin | Azure Digital Twins | Azure Digital Twins | retained | Keeps the native semantic graph/twin service |
 | L5 visualization | Azure Grafana Service | Azure Managed Grafana 12 Standard, Functions Flex raw-history reader, and Marcus Olsson JSON datasource | refined | Closes the real datasource path and seat/capacity cost |
 | Event Layer | Event Grid/provider-native triggers | Event Hubs, Service Bus Standard, Functions Flex event workers, Azure Monitor, and shared Log Analytics | replaced/added | Uses different services for retained streams, durable queues, workers, and operations rather than forcing one Event Grid abstraction |
-| Storage transitions | No dedicated scheduler in the broad mapping | Scheduled Azure Container Apps storage job | added | Provides finite source-owned cross-cloud transitions without a permanent worker |
+| Storage transitions | No dedicated scheduler in the broad mapping | Scheduled Azure Container Apps provider-local storage job | added | Provides a finite transition path without a permanent worker |
 | Data access | Azure API Management | Authenticated Azure Function endpoint for the bounded raw-history reader | removed/absorbed | Avoids an API-management product not required by the PoC read surface |
 
 ## GCP service evolution
@@ -102,7 +102,7 @@ Changes use the following classification:
 | L4 Twin | Compute Engine | Cloud Run Twin API/materializer, bounded Firestore Twin data, IAP-protected Cloud Run explorer, and direct IAP access | replaced | Supplies a bounded semantic Twin surface without claiming a native GCP equivalent to TwinMaker or Azure Digital Twins |
 | L5 visualization | Compute Engine | Grafana OSS 12 on GKE, persistent disk, Cloud Run raw-history reader, Infinity datasource, and TLS load balancer | replaced/refined | Turns an unspecified VM into a reproducible, inspectable visualization bundle |
 | Event Layer | Cloud Pub/Sub | Separated Event-Layer Pub/Sub topics, Cloud Run event service/adapter or fixed Large worker pool, Logging, and Monitoring | refined/added | Retains Pub/Sub durability while separating Event-Layer resources from L1 and exposing compute/operations costs |
-| Storage transitions | No dedicated scheduler in the broad mapping | Cloud Scheduler and a finite Cloud Run storage job | added | Provides explicit source-owned transition execution |
+| Storage transitions | No dedicated scheduler in the broad mapping | Cloud Scheduler and a finite provider-local Cloud Run storage job | added | Provides explicit bounded transition execution |
 | Data access | GCP API Gateway | Authenticated Cloud Run reader endpoint | removed/absorbed | Keeps one typed service-local PoC read surface without a gateway product |
 
 ## Open and bounded decisions

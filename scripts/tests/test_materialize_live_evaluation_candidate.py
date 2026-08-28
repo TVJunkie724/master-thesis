@@ -23,8 +23,8 @@ def test_candidate_ids_match_the_checked_evaluation_matrix() -> None:
         "small-focus-azure-to-aws": ("azure|aws|aws|aws|aws|aws|aws|azure"),
         "small-focus-aws-to-gcp": "aws|aws|aws|aws|aws|gcp|aws|aws",
         "small-focus-gcp-to-aws": "gcp|gcp|gcp|gcp|gcp|gcp|gcp|aws",
-        "small-focus-azure-to-gcp": ("azure|azure|azure|gcp|gcp|azure|azure|azure"),
-        "small-focus-gcp-to-azure": ("gcp|gcp|gcp|gcp|azure|gcp|gcp|gcp"),
+        "small-focus-azure-to-gcp": ("azure|gcp|gcp|gcp|gcp|gcp|gcp|gcp"),
+        "small-focus-gcp-to-azure": ("gcp|gcp|gcp|gcp|gcp|azure|gcp|gcp"),
     }
 
 

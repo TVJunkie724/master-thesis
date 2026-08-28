@@ -836,11 +836,12 @@ boundary, not every implementation method:
 - if user-code isolation is required, that internal L2 interaction needs an
   explicit activity or work-queue contract, but it remains an implementation
   detail of L2;
-- L3 hot-to-cold and cold-to-archive transitions may use provider-native
-  lifecycle policies where these satisfy the shared contract; and
-- cross-cloud storage movement, L4 state updates, alerts, and feedback are
-  explicit edges because they cross responsibility, provider, trust, or
-  delivery boundaries.
+- L3 hot-to-cold and cold-to-archive transitions use one provider-local storage
+  bundle in the executable PoC and may use provider-native lifecycle policies
+  where these satisfy the shared contract; and
+- cross-cloud storage movement remains a theoretical extension. Cross-cloud L4
+  state updates, alerts, and feedback are explicit edges because they cross
+  responsibility, provider, trust, or delivery boundaries.
 
 This prevents the Eventing profile from replacing one over-segmented function
 chain with an equally rigid and more expensive chain of topics.

@@ -229,7 +229,7 @@ def _placement_rds(
     return assignment, specification
 
 
-def test_six_layer_strategy_enumerates_only_colocated_l3_hot_l5_candidates():
+def test_six_layer_strategy_enumerates_only_colocated_l3_storage_l5_candidates():
     registry = _registry()
     context = build_resolution_context(
         registry=registry,
@@ -244,10 +244,17 @@ def test_six_layer_strategy_enumerates_only_colocated_l3_hot_l5_candidates():
     strategy = SixLayerEventingV1CandidateStrategy(context.profile)
     candidates = strategy.enumerate_candidates(context)
 
-    assert len(candidates) == 128
+    assert len(candidates) == 32
     assert all(
-        candidate.component("component.hot-storage").provider
-        == candidate.component("component.visualization").provider
+        len(
+            {
+                candidate.component("component.hot-storage").provider,
+                candidate.component("component.cool-storage").provider,
+                candidate.component("component.archive-storage").provider,
+                candidate.component("component.visualization").provider,
+            }
+        )
+        == 1
         for candidate in candidates
     )
     assert {

@@ -756,14 +756,18 @@ def _validate_v2_component_selections(
             "resolved_deployment_specification.component_selections",
             "Phase 8 profile must cover every logical component",
         )
-    if (
-        provider_by_logical["component.hot-storage"]
-        != provider_by_logical["component.visualization"]
-    ):
+    if len(
+        {
+            provider_by_logical["component.hot-storage"],
+            provider_by_logical["component.cool-storage"],
+            provider_by_logical["component.archive-storage"],
+            provider_by_logical["component.visualization"],
+        }
+    ) != 1:
         _fail(
             "DEPLOYMENT_SPECIFICATION_PROVIDER_MISMATCH",
             "resolved_deployment_specification.component_selections",
-            "Phase 8 profiles require L3 hot and L5 provider co-location",
+            "Six-layer PoC requires provider-local L3 storage and L5",
         )
 
     binding_sources: set[str] = set()

@@ -170,10 +170,20 @@ def enumerate_component_candidates(
 
     candidates = []
     for selected in product(*option_matrix):
-        if profile_ref == ("six-layer-eventing", "1") and next(
-            option.provider for option in selected if option.layer_key == "L3_hot"
-        ) != next(option.provider for option in selected if option.layer_key == "L5"):
-            continue
+        if profile_ref == ("six-layer-eventing", "1"):
+            provider_by_layer = {option.layer_key: option.provider for option in selected}
+            # The thesis PoC deploys L3 as one provider-local storage bundle.
+            # Cross-provider storage migration remains a future extension; only
+            # Eventing and Twin projection are executable cross-cloud boundaries.
+            if len(
+                {
+                    provider_by_layer["L3_hot"],
+                    provider_by_layer["L3_cool"],
+                    provider_by_layer["L3_archive"],
+                    provider_by_layer["L5"],
+                }
+            ) != 1:
+                continue
         candidate_id = "|".join(option.provider for option in selected)
         candidates.append(
             ArchitectureCandidate(

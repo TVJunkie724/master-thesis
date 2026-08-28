@@ -356,9 +356,9 @@ full Twin and stop on the first unresolved provider blocker.
 - build or pull the pinned runtime images independently;
 - execute minimal identity exchanges for AWS→Azure, AWS→GCP, Azure→AWS,
   Azure→GCP, GCP→AWS, and GCP→Azure; and
-- run separately budgeted component probes for L1-L3 plus Eventing before any
-  expensive L4/L5 bundle, followed by isolated L4 and L5 readiness probes;
-- use the GCP L1-L3 component probe to validate the offline-selected non-HA
+- use one separately budgeted GCP L1-L3 plus Eventing component probe before
+  any expensive L4/L5 bundle and read-only L4/L5 readiness for all providers;
+- use that GCP component probe to validate the offline-selected non-HA
   1+1 Small broker/adapter allocation instead of treating it as live-proven;
   and
 - immediately remove probe resources and record residual state.
@@ -369,7 +369,7 @@ full Twin and stop on the first unresolved provider blocker.
   blocker;
 - all six directed federation paths have provider evidence independent of a
   full deployment; and
-- component-probe metrics remain separate from the nine final scenario
+- GCP component-probe metrics remain separate from the nine final scenario
   datasets, and the GCP-L1 Small allocation has component-probe evidence before
   a final scenario uses it; and
 - no full Small environment has been left running while a prerequisite is
@@ -381,7 +381,9 @@ full Twin and stop on the first unresolved provider blocker.
 
 - three provider-local scenarios: AWS, Azure, and GCP;
 - six multi-cloud scenarios covering each directed provider pair exactly once
-  on a required cross-cloud Eventing or Twin-projection boundary.
+  on a required cross-cloud Eventing or Twin-projection boundary. L3 hot, cool,
+  archive, and L5 remain one provider-local PoC bundle; cross-cloud storage
+  migration is not part of the executable profile.
 
 The concrete assignments and their primary edge focus are frozen in
 `docs/research/evaluation/small-scenario-matrix.json`. The checked matrix shows
@@ -397,7 +399,8 @@ budget cap and candidate trace has been reviewed.
 - reviewed plan and maximum expected cost before Apply;
 - maximum runtime and automatic alert/timer outside the deployment;
 - immediate telemetry verification followed by Destroy;
-- post-Destroy provider inventory and residual-cost check; and
+- post-Destroy provider inventory and residual-cost check, with observed billing
+  attached later when the provider export is available; and
 - a stop condition after any unexplained residual resource, quota surprise, or
   cost deviation.
 
@@ -420,7 +423,8 @@ budget cap and candidate trace has been reviewed.
 - all nine scenarios have complete comparable evidence, or an honest provider
   blocker is documented without substituting mocked success;
 - each provider-local baseline and each directed pair is covered; and
-- cleanup and actual cost are reconciled before the next scenario.
+- cleanup is reconciled before the next scenario; delayed provider billing is
+  reconciled before final analysis rather than blocking a cleaned run sequence.
 
 ## 14. Phase 10 — thesis analysis and final repository cleanup
 

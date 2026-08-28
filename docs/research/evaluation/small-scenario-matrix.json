@@ -148,17 +148,17 @@
       "focus": {
         "source_provider": "azure",
         "destination_provider": "gcp",
-        "edge_id": "edge.hot-to-cool-storage"
+        "edge_id": "edge.ingestion-to-eventing"
       },
       "assignments": {
         "component.ingestion": "azure",
-        "component.eventing": "azure",
-        "component.processing": "azure",
-        "component.hot-storage": "azure",
+        "component.eventing": "gcp",
+        "component.processing": "gcp",
+        "component.hot-storage": "gcp",
         "component.cool-storage": "gcp",
         "component.archive-storage": "gcp",
-        "component.twin-state": "azure",
-        "component.visualization": "azure"
+        "component.twin-state": "gcp",
+        "component.visualization": "gcp"
       },
       "budget_cap_usd": null
     },
@@ -168,7 +168,7 @@
       "focus": {
         "source_provider": "gcp",
         "destination_provider": "azure",
-        "edge_id": "edge.cool-to-archive-storage"
+        "edge_id": "edge.hot-storage-to-twin-state"
       },
       "assignments": {
         "component.ingestion": "gcp",
@@ -176,8 +176,8 @@
         "component.processing": "gcp",
         "component.hot-storage": "gcp",
         "component.cool-storage": "gcp",
-        "component.archive-storage": "azure",
-        "component.twin-state": "gcp",
+        "component.archive-storage": "gcp",
+        "component.twin-state": "azure",
         "component.visualization": "gcp"
       },
       "budget_cap_usd": null

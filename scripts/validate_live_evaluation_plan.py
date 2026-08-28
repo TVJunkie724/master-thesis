@@ -16,6 +16,10 @@ PROFILE_PATH = (
     / "six-layer-eventing/1/profile.json"
 )
 PROVIDERS = {"aws", "azure", "gcp"}
+EXECUTABLE_CROSS_CLOUD_CONTRACTS = {
+    "canonical-domain-event.v1",
+    "twin_projection.v1",
+}
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -60,12 +64,16 @@ def validate(*, required_state: str = "planned") -> dict[str, Any]:
             raise RuntimeError(f"{scenario_id}: component coverage is incomplete")
         if set(assignments.values()) - PROVIDERS:
             raise RuntimeError(f"{scenario_id}: unsupported provider assignment")
-        if (
-            assignments["component.hot-storage"]
-            != assignments["component.visualization"]
-        ):
+        if len(
+            {
+                assignments["component.hot-storage"],
+                assignments["component.cool-storage"],
+                assignments["component.archive-storage"],
+                assignments["component.visualization"],
+            }
+        ) != 1:
             raise RuntimeError(
-                f"{scenario_id}: hot storage and visualization must be co-located"
+                f"{scenario_id}: L3 storage and visualization must be co-located"
             )
         covered_contracts.update(edge["edge_contract_id"] for edge in edges.values())
 
@@ -105,8 +113,7 @@ def validate(*, required_state: str = "planned") -> dict[str, Any]:
         raise RuntimeError("Provider-local baseline coverage is incomplete")
     if directed_pairs != set(permutations(PROVIDERS, 2)):
         raise RuntimeError("Directed provider-pair coverage is incomplete")
-    cross_cloud_contracts = required_contracts - {"raw_history_query.v1"}
-    if focused_contracts != cross_cloud_contracts:
+    if focused_contracts != EXECUTABLE_CROSS_CLOUD_CONTRACTS:
         raise RuntimeError(
             "Focus cases do not cover every cross-cloud edge-contract class"
         )

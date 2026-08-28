@@ -11,13 +11,12 @@ test suite. The canonical scenario input is
 
 The matrix contains three provider-local baselines and six directed
 multi-cloud focus cases. Every AWS/Azure/GCP direction is the primary focus of
-one case. The focus edges cover the three contracts that permit cross-cloud
-placement: canonical domain events, storage transitions, and Twin projection.
-The provider-local baselines verify raw-history queries on AWS, Azure, and GCP;
-the optimizer's mandatory hot-storage/visualization co-location is checked
-offline as a negative cross-cloud case. Incidental reverse or additional
-cross-cloud edges remain part of the recorded graph but do not create extra
-scenarios.
+one case. The focus edges use the two contracts implemented as cross-cloud PoC
+boundaries: canonical domain events and Twin projection. Hot, cool, archive,
+and visualization form one provider-local storage/read bundle; the two storage
+transitions and raw-history query remain versioned contracts but are not
+cross-cloud deployment choices. Incidental reverse or additional cross-cloud
+edges remain part of the recorded graph but do not create extra scenarios.
 
 ## Execution boundary
 
@@ -114,8 +113,8 @@ For each required provider and directed route:
 5. deploy exactly one scenario;
 6. verify operation replay, access handoff, and one telemetry roundtrip;
 7. destroy immediately; and
-8. reconcile provider inventory and observed cost before starting the next
-   scenario.
+8. reconcile provider inventory before starting the next scenario and attach
+   observed provider cost when the provider billing export becomes available.
 
 No scenario may be left active merely to speed up the next one. Shared account
 capabilities are recorded separately from Twin-owned resources.
@@ -123,7 +122,7 @@ capabilities are recorded separately from Twin-owned resources.
 ### Component probes before complete scenarios
 
 Component probes and final scenarios are different datasets. A component probe
-may validate L1-L3 plus Eventing, L4, or L5 in isolation and uses
+may validate L1-L3 plus Eventing and uses
 `run_kind: component_probe`. It cannot satisfy, replace, or be relabelled as one
 of the nine final scenario records. Provider-local and directed multi-cloud
 final runs use `run_kind: provider_local` and `run_kind: directed_multicloud`
@@ -133,12 +132,18 @@ The expensive L4/L5 bundles are not provisioned merely to debug L1-L3. The
 recommended order is:
 
 1. provider and image prerequisites;
-2. L1-L3 plus Eventing component behavior;
-3. isolated L4 readiness and Twin queryability;
-4. isolated L5 access/readiness;
-5. one provider-local Small scenario; and
-6. only then the remaining approved provider-local and directed multi-cloud
+2. the mandatory GCP L1-L3 plus Eventing component behavior and 1+1 capacity
+   gate;
+3. read-only L4/L5 account and regional readiness for all providers;
+4. one provider-local Small scenario that supplies the first live L4/L5
+   evidence; and
+5. only then the remaining approved provider-local and directed multi-cloud
    Small scenarios.
+
+AWS and Azure L1-L3 behavior remains covered by offline contracts and their
+provider-local final scenario. Separate full AWS/Azure component deployments
+or isolated cost-incurring L4/L5 deployments would duplicate evidence without
+answering another research question.
 
 GCP-L1 has an additional architecture gate. Its previous three-replica
 `e2-standard-8` Small broker allocation has been replaced offline by one
@@ -328,7 +333,7 @@ Twin workflow; there is no second product-like evaluation orchestrator:
 | Telemetry roundtrip | persisted data-flow verification record |
 | Timing, reliability, resources and measurement protocol | one schema- and semantics-validated `live-evaluation-metrics.v1` document; component and final runs remain distinct |
 | Cleanup and residuals | terminal Destroy operation and its typed `cleanup-evidence.v1` output |
-| Observed cost | separately exported provider billing evidence after Destroy |
+| Observed cost | separately exported provider billing evidence after Destroy; provider-dependent delay does not postpone cleanup or keep a scenario active |
 
 Apply and Destroy are initiated only from their distinct confirmed UI actions
 during the supervised run. The API operation and stream IDs are retained as

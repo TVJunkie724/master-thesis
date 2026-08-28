@@ -424,11 +424,13 @@ routes. Four edge contracts define the data semantics:
     \item \texttt{raw\_history\_query.v1} for bounded visualization reads.
 \end{itemize}
 
-Raw-history queries remain provider-local because the profile requires hot
-storage and visualization to be co-located. This constraint is enforced during
-candidate enumeration. The other three contracts have explicit directed
+Raw-history queries and both storage transitions remain provider-local because
+the executable PoC requires hot, cool, archive, and visualization to form one
+co-located bundle. This constraint is enforced during candidate enumeration.
+Canonical domain events and Twin projections have explicit directed
 AWS/Azure/GCP route implementations with source-owned transfer, bridge,
-identity, retry, and cost attribution.
+identity, retry, and cost attribution. Cross-cloud storage migration remains
+future work rather than an unverified deployment claim.
 
 Cross-provider authentication uses workload identities and narrowly scoped
 trust rather than embedding long-lived administrator credentials in runtime

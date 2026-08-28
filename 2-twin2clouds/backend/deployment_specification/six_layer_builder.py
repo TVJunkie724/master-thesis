@@ -671,11 +671,17 @@ def _selected_groups(
             "assignment",
             "Architecture assignment must cover every logical component",
         )
-    if assignment["component.hot-storage"] != assignment["component.visualization"]:
+    storage_bundle = {
+        assignment["component.hot-storage"],
+        assignment["component.cool-storage"],
+        assignment["component.archive-storage"],
+        assignment["component.visualization"],
+    }
+    if len(storage_bundle) != 1:
         raise ArchitectureResolutionError(
             "ARCH_FUNCTIONAL_INCOMPLETE",
             "assignment",
-            "Six-layer requires provider-local L3 hot and L5",
+            "Six-layer PoC requires provider-local L3 storage and L5",
         )
     bundle_index = {item["provider"]: item for item in registry["provider_bundles"]}
     selected: list[tuple[str, str, str]] = []

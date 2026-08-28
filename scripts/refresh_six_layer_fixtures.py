@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import importlib.util
 import json
@@ -127,6 +128,16 @@ def _replace_refs(
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--candidate",
+        type=Path,
+        help=(
+            "Optional digest-bound evaluation candidate whose RTA and RDS "
+            "replace the canonical fixtures before references are refreshed."
+        ),
+    )
+    arguments = parser.parse_args()
     profile = _read(
         DEFINITIONS / "profiles" / "six-layer-eventing" / "1" / "profile.json"
     )
@@ -148,6 +159,20 @@ def main() -> int:
         )
         for provider in PROVIDERS
     }
+
+    if arguments.candidate is not None:
+        candidate = _read(arguments.candidate)
+        if (
+            candidate.get("schema_version") != "six-layer-evaluation-candidate.v1"
+            or candidate.get("evidence_status") != "offline_planned_candidate"
+        ):
+            raise RuntimeError("Fixture candidate is not a planned evaluation candidate")
+        candidate_rta = candidate.get("resolved_twin_architecture")
+        candidate_rds = candidate.get("resolved_deployment_specification")
+        if not isinstance(candidate_rta, dict) or not isinstance(candidate_rds, dict):
+            raise RuntimeError("Fixture candidate does not contain RTA and RDS objects")
+        _write(RTA_PATH, candidate_rta)
+        _write(RDS_PATH, candidate_rds)
 
     rds = _replace_refs(
         _read(RDS_PATH), profile=profile, catalog=catalog, providers=providers
