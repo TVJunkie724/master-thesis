@@ -34,7 +34,8 @@ def test_provider_query_set_is_deduplicated(monkeypatch):
                         "layer_3_hot_provider": "gcp",
                     }
                 },
-            )()
+            )(),
+            "resolved_deployment_graph": None,
         },
     )()
     monkeypatch.setattr(
