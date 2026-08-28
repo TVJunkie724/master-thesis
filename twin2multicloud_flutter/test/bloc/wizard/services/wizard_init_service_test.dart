@@ -144,12 +144,12 @@ void main() {
         final optimization = TypedApiFixtures.optimization(
           cheapestPath: const [
             'L1_AWS',
-            'L2_AWS',
-            'L3_hot_AWS',
+            'L2_AZURE',
+            'L3_hot_AZURE',
             'L3_cool_AZURE',
             'L3_archive_AZURE',
             'L4_AZURE',
-            'L5_AWS',
+            'L5_AZURE',
           ],
         );
         final data = TwinEditData(
@@ -181,12 +181,12 @@ void main() {
             optimization: TypedApiFixtures.optimization(
               cheapestPath: const [
                 'L1_AWS',
-                'L2_AWS',
-                'L3_hot_AWS',
+                'L2_AZURE',
+                'L3_hot_AZURE',
                 'L3_cool_AZURE',
                 'L3_archive_AZURE',
                 'L4_AZURE',
-                'L5_AWS',
+                'L5_AZURE',
               ],
             ),
           ),

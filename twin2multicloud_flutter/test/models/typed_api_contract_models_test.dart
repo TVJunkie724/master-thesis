@@ -206,8 +206,8 @@ void main() {
               as Map<String, dynamic>;
       final runId = architecture['calculation_run_id'].toString();
       final payload = <String, dynamic>{
-        'totalCost': 166.6660612595,
-        'totalCostExact': '166.6660612595',
+        'totalCost': 196.07170186,
+        'totalCostExact': '196.07170186',
         'currency': 'USD',
         'resolvedTwinArchitecture': architecture,
         'resolvedDeploymentSpecification': specification,
@@ -219,7 +219,7 @@ void main() {
         'twin_id': 'twin-v2',
         'status': 'succeeded',
         'result_summary': payload,
-        'total_monthly_cost': 166.6660612595,
+        'total_monthly_cost': 196.07170186,
         'currency': 'USD',
         'deployment_compatibility_status': 'ready',
         'deployment_specification_digest': specification['digest'],
