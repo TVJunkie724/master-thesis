@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import asyncio
+import json
 from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
@@ -7,8 +8,12 @@ from types import SimpleNamespace
 import pytest
 
 from src.log_tracing.registry import TraceNotFound, TraceRegistry
-from src.log_tracing.fetchers import ProviderFetchResult
-from src.log_tracing.service import LogTraceService
+from src.log_tracing.fetchers import LogEntry, ProviderFetchResult
+from src.log_tracing.service import (
+    FORWARD_TRACE_CHECKPOINTS,
+    LogTraceService,
+    expected_trace_checkpoints,
+)
 
 
 def _service():
@@ -94,6 +99,32 @@ def test_provider_query_normalizes_legacy_google_alias():
     ) == {"gcp"}
 
 
+def test_provider_query_includes_all_layers_and_resolved_event_provider():
+    from src.log_tracing.service import providers_to_query
+
+    graph = SimpleNamespace(
+        nodes=(SimpleNamespace(provider="azure"), SimpleNamespace(provider="aws"))
+    )
+
+    assert providers_to_query(
+        {
+            "layer_1_provider": "aws",
+            "layer_2_provider": "aws",
+            "layer_3_hot_provider": "aws",
+            "layer_4_provider": "gcp",
+            "layer_5_provider": "gcp",
+        },
+        graph,
+    ) == {"aws", "azure", "gcp"}
+
+
+def test_expected_checkpoints_are_scoped_to_active_six_layer_profile():
+    graph = SimpleNamespace(profile_ref={"id": "six-layer-eventing", "version": "1"})
+
+    assert expected_trace_checkpoints(graph) == FORWARD_TRACE_CHECKPOINTS
+    assert expected_trace_checkpoints(None) == ()
+
+
 def test_provider_query_has_hard_timeout(monkeypatch):
     service = _service()
 
@@ -138,3 +169,61 @@ def test_stream_configuration_failure_still_emits_done(monkeypatch):
     events = asyncio.run(collect())
     assert [event["event"] for event in events] == ["error", "done"]
     assert "must-not-leak" not in str(events)
+
+
+def test_stream_completes_when_all_forward_checkpoints_are_observed(monkeypatch):
+    service = LogTraceService(
+        TraceRegistry(
+            cooldown=timedelta(seconds=30),
+            lifetime=timedelta(seconds=120),
+        ),
+        timeout_seconds=1,
+        poll_interval_seconds=1,
+    )
+    now = datetime.now(timezone.utc)
+    trace_id = "TRACE-1234ABCD"
+    service.registry.reserve("factory", now)
+    service.registry.issue("factory", trace_id, now)
+    graph = SimpleNamespace(
+        profile_ref={"id": "six-layer-eventing", "version": "1"},
+        nodes=(SimpleNamespace(provider="aws"),),
+    )
+    bundle = SimpleNamespace(
+        config=SimpleNamespace(providers={"layer_1_provider": "aws"}),
+        credentials={},
+        project_path=Path("/tmp/factory"),
+        resolved_deployment_graph=graph,
+    )
+    monkeypatch.setattr(
+        "src.log_tracing.service.ProjectConfigLoader.load_bundle",
+        lambda self, name: bundle,
+    )
+    monkeypatch.setattr(
+        "src.log_tracing.service.load_terraform_outputs",
+        lambda name: {},
+    )
+    entries = [
+        LogEntry(
+            timestamp=now.isoformat(),
+            message=f"checkpoint {stage}",
+            layer="EVENT" if stage == "event_layer_durable" else "L1",
+            provider="aws",
+            checkpoint={"trace_id": trace_id, "stage": stage},
+        )
+        for stage in FORWARD_TRACE_CHECKPOINTS
+    ]
+    monkeypatch.setattr(
+        service,
+        "_fetch_provider",
+        lambda *args: ProviderFetchResult("aws", entries=entries),
+    )
+
+    async def collect():
+        return [event async for event in service.stream(trace_id, "factory")]
+
+    events = asyncio.run(collect())
+    done = json.loads(events[-1]["data"])
+    assert done["status"] == "completed"
+    assert done["checkpoint_count"] == len(FORWARD_TRACE_CHECKPOINTS)
+    assert done["missing_checkpoints"] == []
+    assert done["expected_checkpoints"] == list(FORWARD_TRACE_CHECKPOINTS)

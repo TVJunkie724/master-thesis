@@ -8,9 +8,11 @@ consumer, while low-rate control remains on the same authenticated HTTP path.
 from __future__ import annotations
 
 import base64
+from datetime import datetime, timezone
 import json
 import logging
 import os
+import re
 from typing import Any, Mapping
 
 from flask import Flask, jsonify, request
@@ -72,6 +74,7 @@ PROCESSED_ROLES = {
 }
 MAX_EVENT_BYTES = 96 * 1024
 MAX_RESPONSE_BYTES = 4096
+DIAGNOSTIC_TRACE_PATTERN = re.compile(r"^(?:TRACE|VERIFY)-[A-Z0-9]{8,48}$")
 
 
 class DeliveryError(ValueError):
@@ -86,6 +89,48 @@ def _canonical_bytes(value: Mapping[str, Any]) -> bytes:
         separators=(",", ":"),
         sort_keys=True,
     ).encode("utf-8")
+
+
+def _diagnostic_checkpoint(event: Mapping[str, Any]) -> None:
+    payload = event.get("payload")
+    candidates = (
+        event.get("trace_id"),
+        event.get("source_sequence"),
+        payload.get("trace_id") if isinstance(payload, Mapping) else None,
+        payload.get("source_sequence") if isinstance(payload, Mapping) else None,
+    )
+    trace_id = next(
+        (
+            value
+            for value in candidates
+            if isinstance(value, str) and DIAGNOSTIC_TRACE_PATTERN.fullmatch(value)
+        ),
+        None,
+    )
+    if trace_id is None:
+        return
+    event_type = str(event.get("event_type") or "unknown")
+    stage = {
+        "device.command.requested.v1": "event_layer_command_durable",
+        "device.command.outcome.v1": "outcome_event_durable",
+    }.get(event_type, "event_layer_durable")
+    checkpoint = {
+        "schema_version": "diagnostic-checkpoint.v1",
+        "trace_id": trace_id,
+        "stage": stage,
+        "provider": "gcp",
+        "component": "eventing",
+        "status": "passed",
+        "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "event_id": str(event.get("event_id") or trace_id),
+        "event_type": event_type,
+    }
+    LOGGER.info(
+        "T2MC_CHECKPOINT %s",
+        json.dumps(
+            checkpoint, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+        ),
+    )
 
 
 def _required_environment(name: str, *, maximum_bytes: int = 128 * 1024) -> str:
@@ -190,6 +235,7 @@ def _target_role(event: Mapping[str, Any], role: str) -> str:
 
 
 def _deliver(event: Mapping[str, Any], role: str) -> None:
+    _diagnostic_checkpoint(event)
     if role in {"audit", "realtime-visualization"}:
         # These Large-only consumers demonstrate independent fan-out without
         # adding another product subsystem to the thesis PoC.

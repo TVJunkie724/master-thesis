@@ -22,9 +22,13 @@ def _spec(tmp_path):
     )
 
 
-def test_sender_passes_telemetry_over_stdin_not_process_arguments(tmp_path, monkeypatch):
+def test_sender_passes_telemetry_over_stdin_not_process_arguments(
+    tmp_path, monkeypatch
+):
     captured = {}
-    monkeypatch.setattr(sender, "resolve_simulator_session", lambda **kwargs: _spec(tmp_path))
+    monkeypatch.setattr(
+        sender, "resolve_simulator_session", lambda **kwargs: _spec(tmp_path)
+    )
 
     def run(command, **kwargs):
         captured["command"] = command
@@ -42,6 +46,8 @@ def test_sender_passes_telemetry_over_stdin_not_process_arguments(tmp_path, monk
     assert captured["command"][-1] == "--payload-stdin"
     assert "temperature" not in " ".join(captured["command"])
     assert '"temperature":21' in captured["input"]
+    assert '"trace_id":"TRACE-ABCDEF12"' in captured["input"]
+    assert '"source_sequence":"TRACE-ABCDEF12"' in captured["input"]
     assert captured["cwd"] == Path(tmp_path)
 
 
@@ -63,9 +69,13 @@ def test_sender_rejects_invalid_trace_without_starting_process(monkeypatch):
     assert called is False
 
 
-def test_sender_rejects_oversized_payload_before_starting_process(tmp_path, monkeypatch):
+def test_sender_rejects_oversized_payload_before_starting_process(
+    tmp_path, monkeypatch
+):
     called = False
-    monkeypatch.setattr(sender, "resolve_simulator_session", lambda **kwargs: _spec(tmp_path))
+    monkeypatch.setattr(
+        sender, "resolve_simulator_session", lambda **kwargs: _spec(tmp_path)
+    )
 
     def run(*args, **kwargs):
         nonlocal called

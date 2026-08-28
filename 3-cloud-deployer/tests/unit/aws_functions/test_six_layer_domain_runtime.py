@@ -11,6 +11,8 @@ from unittest.mock import Mock
 
 import pytest
 
+from src.log_tracing.checkpoints import parse_checkpoint_message
+
 SOURCE = (
     Path(__file__).resolve().parents[3]
     / "src"
@@ -44,6 +46,22 @@ def _six_layer_module():
 
 def test_six_layer_runtime_has_its_own_profile_identity():
     assert _six_layer_module().PROFILE == "six-layer-eventing@1"
+
+
+def test_diagnostic_checkpoint_accepts_trace_id_from_ingress_payload(capsys):
+    runtime = _six_layer_module()
+    event = {
+        "event_id": "event-1",
+        "event_type": "telemetry.received.v1",
+        "payload": {"trace_id": "TRACE-1234ABCD", "value": 42},
+    }
+
+    runtime._diagnostic_checkpoint("l1_accepted", event, "event-adapter")
+
+    checkpoint = parse_checkpoint_message(capsys.readouterr().out.strip())
+    assert checkpoint is not None
+    assert checkpoint["stage"] == "l1_accepted"
+    assert "payload" not in checkpoint
 
 
 class _Queue:

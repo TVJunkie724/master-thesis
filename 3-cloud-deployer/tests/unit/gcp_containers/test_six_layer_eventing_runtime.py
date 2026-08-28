@@ -10,6 +10,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from src.log_tracing.checkpoints import parse_checkpoint_message
+
 
 SOURCE = (
     Path(__file__).resolve().parents[3]
@@ -66,6 +68,21 @@ def test_push_decodes_canonical_event_and_rejects_role_channel_mismatch():
     runtime._validate_channel(event, "telemetry-processor")
     with pytest.raises(runtime.DeliveryError, match="EVENT_CHANNEL_MISMATCH"):
         runtime._validate_channel(event, "historical-persistence")
+
+
+def test_diagnostic_checkpoint_is_payload_free_and_parseable(caplog):
+    runtime = _load()
+    event = _event()
+    event["payload"]["trace_id"] = "TRACE-1234ABCD"
+
+    with caplog.at_level("INFO"):
+        runtime._diagnostic_checkpoint(event)
+
+    checkpoint = parse_checkpoint_message(caplog.records[-1].message)
+    assert checkpoint is not None
+    assert checkpoint["trace_id"] == "TRACE-1234ABCD"
+    assert checkpoint["stage"] == "event_layer_durable"
+    assert "payload" not in checkpoint
 
 
 def test_delivery_uses_short_lived_id_token_and_closed_ack(monkeypatch):

@@ -11,9 +11,11 @@ S3 event-source destination.
 from __future__ import annotations
 
 import base64
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
+import re
 from typing import Any, Mapping
 import uuid
 
@@ -52,6 +54,7 @@ REQUIRED_FIELDS = {
     "producer",
     "payload",
 }
+DIAGNOSTIC_TRACE_PATTERN = re.compile(r"^(?:TRACE|VERIFY)-[A-Z0-9]{8,48}$")
 
 
 class DeliveryError(ValueError):
@@ -73,6 +76,48 @@ def _canonical_bytes(value: Mapping[str, Any]) -> bytes:
         separators=(",", ":"),
         sort_keys=True,
     ).encode("utf-8")
+
+
+def _diagnostic_checkpoint(event: Mapping[str, Any]) -> None:
+    payload = event.get("payload")
+    candidates = (
+        event.get("trace_id"),
+        event.get("source_sequence"),
+        payload.get("trace_id") if isinstance(payload, Mapping) else None,
+        payload.get("source_sequence") if isinstance(payload, Mapping) else None,
+    )
+    trace_id = next(
+        (
+            value
+            for value in candidates
+            if isinstance(value, str) and DIAGNOSTIC_TRACE_PATTERN.fullmatch(value)
+        ),
+        None,
+    )
+    if trace_id is None:
+        return
+    event_type = str(event.get("event_type") or "unknown")
+    stage = {
+        CONTROL_EVENT: "event_layer_command_durable",
+        COMMAND_OUTCOME_EVENT: "outcome_event_durable",
+    }.get(event_type, "event_layer_durable")
+    checkpoint = {
+        "schema_version": "diagnostic-checkpoint.v1",
+        "trace_id": trace_id,
+        "stage": stage,
+        "provider": "aws",
+        "component": "eventing",
+        "status": "passed",
+        "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "event_id": str(event.get("event_id") or trace_id),
+        "event_type": event_type,
+    }
+    print(
+        "T2MC_CHECKPOINT "
+        + json.dumps(
+            checkpoint, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+        )
+    )
 
 
 def _required_environment(name: str) -> str:
@@ -277,6 +322,7 @@ def lambda_handler(event: Mapping[str, Any], _context: object) -> dict[str, Any]
             record_id, source, attempt, payload = _decode_record(raw_record)
             _validate_event(payload)
             validated = True
+            _diagnostic_checkpoint(payload)
             role = _required_environment("CONSUMER_ROLE")
             event_type = str(payload["event_type"])
             if source == "aws:kinesis" and (

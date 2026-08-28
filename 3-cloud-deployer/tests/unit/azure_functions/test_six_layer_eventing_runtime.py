@@ -8,6 +8,8 @@ from unittest.mock import Mock
 
 import pytest
 
+from src.log_tracing.checkpoints import parse_checkpoint_message
+
 
 SOURCE = (
     Path(__file__).resolve().parents[3]
@@ -67,6 +69,20 @@ def test_received_batch_uses_canonical_same_cloud_delivery(monkeypatch):
         _event("telemetry.received.v1"),
         "telemetry-processor",
     )
+
+
+def test_diagnostic_checkpoint_is_payload_free_and_parseable(caplog):
+    event = _event("telemetry.received.v1")
+    event["payload"]["trace_id"] = "TRACE-1234ABCD"
+
+    with caplog.at_level("INFO"):
+        runtime._diagnostic_checkpoint(event)
+
+    checkpoint = parse_checkpoint_message(caplog.records[-1].message)
+    assert checkpoint is not None
+    assert checkpoint["trace_id"] == "TRACE-1234ABCD"
+    assert checkpoint["stage"] == "event_layer_durable"
+    assert "payload" not in checkpoint
 
 
 def test_processed_batch_names_independent_consumer(monkeypatch):

@@ -49,7 +49,10 @@ def get_providers_to_query(project_name: str) -> set[str]:
     from src.core.config_loader import ProjectConfigLoader
 
     bundle = ProjectConfigLoader().load_bundle(project_name)
-    return providers_to_query(bundle.config.providers)
+    return providers_to_query(
+        bundle.config.providers,
+        bundle.resolved_deployment_graph,
+    )
 
 
 def _require_project(project_name: str) -> None:

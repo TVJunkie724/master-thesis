@@ -8,6 +8,8 @@ from unittest.mock import Mock
 
 import pytest
 
+from src.log_tracing.checkpoints import parse_checkpoint_message
+
 
 SOURCE = (
     Path(__file__).resolve().parents[3]
@@ -88,6 +90,19 @@ def test_kinesis_telemetry_acknowledges_only_async_lambda_acceptance(
         "batchItemFailures": [],
     }
     assert lambda_client.invoke.call_args.kwargs["InvocationType"] == "Event"
+
+
+def test_diagnostic_checkpoint_is_payload_free_and_parseable(capsys):
+    event = _event("telemetry.received.v1")
+    event["payload"]["trace_id"] = "TRACE-1234ABCD"
+
+    runtime._diagnostic_checkpoint(event)
+
+    checkpoint = parse_checkpoint_message(capsys.readouterr().out.strip())
+    assert checkpoint is not None
+    assert checkpoint["trace_id"] == "TRACE-1234ABCD"
+    assert checkpoint["stage"] == "event_layer_durable"
+    assert "payload" not in checkpoint
 
 
 def test_processed_stream_delivery_names_the_independent_consumer(monkeypatch):

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from src.core.observability import redact_sensitive
+from src.log_tracing.checkpoints import parse_checkpoint_message
 from src.utils.gcp_utils import parse_gcp_service_account
 
 
@@ -18,6 +19,7 @@ class LogEntry:
     layer: str
     provider: str
     function: str = ""
+    checkpoint: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -29,11 +31,13 @@ class ProviderFetchResult:
 
 def _layer(resource_name: str) -> str:
     normalized = resource_name.lower()
+    if "event" in normalized or "bridge" in normalized:
+        return "EVENT"
     if "l0" in normalized or "ingestion" in normalized:
         return "L0"
     if "l1" in normalized or "dispatcher" in normalized:
         return "L1"
-    if any(value in normalized for value in ("l2", "persister", "processor", "event")):
+    if any(value in normalized for value in ("l2", "persister", "processor")):
         return "L2"
     if any(value in normalized for value in ("l3", "hot", "cold", "archive")):
         return "L3"
@@ -90,19 +94,21 @@ def fetch_aws_logs(
                 limit=50,
             )
             function_name = log_group.rsplit("/", 1)[-1]
-            entries.extend(
-                LogEntry(
-                    timestamp=datetime.fromtimestamp(
-                        event["timestamp"] / 1000,
-                        tz=timezone.utc,
-                    ).isoformat(),
-                    message=redact_sensitive(event.get("message", "").strip()),
-                    layer=layer_name,
-                    provider="aws",
-                    function=function_name,
+            for event in response.get("events", []):
+                message = redact_sensitive(event.get("message", "").strip())
+                entries.append(
+                    LogEntry(
+                        timestamp=datetime.fromtimestamp(
+                            event["timestamp"] / 1000,
+                            tz=timezone.utc,
+                        ).isoformat(),
+                        message=message,
+                        layer=layer_name,
+                        provider="aws",
+                        function=function_name,
+                        checkpoint=parse_checkpoint_message(message),
+                    )
                 )
-                for event in response.get("events", [])
-            )
         except Exception as exc:
             failures.append(f"{log_group}: {redact_sensitive(exc)}")
     return ProviderFetchResult(
@@ -113,13 +119,25 @@ def fetch_aws_logs(
 
 
 def fetch_azure_logs(
-    workspace_id: str,
+    workspace_ids: str | dict[str, str],
     trace_id: str,
     credentials: dict,
     started_at: datetime,
     *,
     query_timeout_seconds: float = 15,
 ) -> ProviderFetchResult:
+    single_workspace = isinstance(workspace_ids, str)
+    normalized_workspaces = (
+        {"primary": workspace_ids}
+        if isinstance(workspace_ids, str)
+        else {
+            str(name): str(workspace_id)
+            for name, workspace_id in workspace_ids.items()
+            if isinstance(workspace_id, str) and workspace_id
+        }
+    )
+    if not normalized_workspaces:
+        return ProviderFetchResult("azure", error="Workspace ID not available")
     try:
         from azure.identity import ClientSecretCredential
         from azure.monitor.query import LogsQueryClient
@@ -136,34 +154,55 @@ def fetch_azure_logs(
             "| project TimeGenerated, Message, OperationName "
             "| order by TimeGenerated asc | take 100"
         )
-        response = client.query_workspace(
-            workspace_id,
-            query,
-            timespan=(started_at, datetime.now(timezone.utc)),
-            server_timeout=max(1, int(query_timeout_seconds)),
-        )
-        tables = getattr(response, "tables", None)
-        partial_error = None
-        if tables is None:
-            tables = getattr(response, "partial_data", [])
-            partial_error = getattr(response, "partial_error", None)
-        entries = [
-            LogEntry(
-                timestamp=(
-                    row[0].isoformat() if hasattr(row[0], "isoformat") else str(row[0])
-                ),
-                message=redact_sensitive(row[1]),
-                layer=_layer(str(row[2]) if len(row) > 2 else ""),
-                provider="azure",
-                function=str(row[2]) if len(row) > 2 else "",
-            )
-            for table in tables
-            for row in table.rows
-        ]
+        entries: list[LogEntry] = []
+        failures: list[str] = []
+        for workspace_name, workspace_id in sorted(normalized_workspaces.items()):
+            try:
+                response = client.query_workspace(
+                    workspace_id,
+                    query,
+                    timespan=(started_at, datetime.now(timezone.utc)),
+                    server_timeout=max(1, int(query_timeout_seconds)),
+                )
+                tables = getattr(response, "tables", None)
+                partial_error = None
+                if tables is None:
+                    tables = getattr(response, "partial_data", [])
+                    partial_error = getattr(response, "partial_error", None)
+                for table in tables:
+                    for row in table.rows:
+                        message = redact_sensitive(row[1])
+                        operation = str(row[2]) if len(row) > 2 else workspace_name
+                        entries.append(
+                            LogEntry(
+                                timestamp=(
+                                    row[0].isoformat()
+                                    if hasattr(row[0], "isoformat")
+                                    else str(row[0])
+                                ),
+                                message=message,
+                                layer=_layer(operation),
+                                provider="azure",
+                                function=operation,
+                                checkpoint=parse_checkpoint_message(message),
+                            )
+                        )
+                if partial_error:
+                    failures.append(
+                        redact_sensitive(partial_error)
+                        if single_workspace
+                        else f"{workspace_name}: {redact_sensitive(partial_error)}"
+                    )
+            except Exception as exc:
+                failures.append(
+                    redact_sensitive(exc)
+                    if single_workspace
+                    else f"{workspace_name}: {redact_sensitive(exc)}"
+                )
         return ProviderFetchResult(
             "azure",
             entries=entries,
-            error=redact_sensitive(partial_error) if partial_error else None,
+            error="; ".join(failures) or None,
         )
     except Exception as exc:
         return ProviderFetchResult("azure", error=redact_sensitive(exc))
@@ -196,7 +235,9 @@ def fetch_gcp_logs(
         cutoff = started_at - timedelta(seconds=30)
         filter_value = (
             '(resource.type="cloud_function" OR '
-            'resource.type="cloud_run_revision") '
+            'resource.type="cloud_run_revision" OR '
+            'resource.type="cloud_run_workerpool" OR '
+            'resource.type="k8s_container") '
             f'AND (textPayload:"{trace_id}" OR jsonPayload.message:"{trace_id}") '
             f'AND timestamp >= "{cutoff.isoformat()}"'
         )
@@ -207,16 +248,28 @@ def fetch_gcp_logs(
             timeout=max(1, query_timeout_seconds),
         ):
             payload: Any = entry.payload
-            message = payload.get("message", payload) if isinstance(payload, dict) else payload
+            message = (
+                payload.get("message", payload)
+                if isinstance(payload, dict)
+                else payload
+            )
             labels = entry.resource.labels if entry.resource else {}
-            resource_name = labels.get("function_name") or labels.get("service_name") or ""
+            resource_name = (
+                labels.get("function_name")
+                or labels.get("service_name")
+                or labels.get("worker_pool_name")
+                or labels.get("container_name")
+                or str(getattr(entry, "log_name", "")).rsplit("/", 1)[-1]
+            )
+            safe_message = redact_sensitive(message or "")
             entries.append(
                 LogEntry(
                     timestamp=entry.timestamp.isoformat() if entry.timestamp else "",
-                    message=redact_sensitive(message or ""),
+                    message=safe_message,
                     layer=_layer(resource_name),
                     provider="gcp",
                     function=resource_name,
+                    checkpoint=parse_checkpoint_message(safe_message),
                 )
             )
         return ProviderFetchResult("gcp", entries=entries)

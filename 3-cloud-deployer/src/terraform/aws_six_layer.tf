@@ -161,6 +161,35 @@ resource "aws_cloudwatch_log_group" "aws_aws_cloudwatch" {
   tags              = local.aws_six_layer_tags
 }
 
+# Lambda creates its default log groups lazily. Manage the active Six-layer
+# groups explicitly so a short-lived PoC run has deterministic retention,
+# trace discovery, and Terraform-owned cleanup.
+locals {
+  aws_six_layer_lambda_log_group_names = merge(
+    local.aws_six_layer_event_enabled ? {
+      "L1-event-adapter" = "${local.aws_six_layer_name}-six-event-adapter"
+    } : {},
+    local.aws_six_layer_l2_enabled ? {
+      "L2-processor"           = "${local.aws_six_layer_name}-six-processor"
+      "L2-processor-extension" = "${local.aws_six_layer_name}-six-processor-extension"
+      "L2-action-extension"    = "${local.aws_six_layer_name}-six-poc-action"
+    } : {},
+    local.aws_six_layer_domain_consumer_enabled ? {
+      "DOMAIN-consumer" = "${local.aws_six_layer_name}-six-domain-consumer"
+    } : {},
+    local.aws_six_layer_l5_enabled ? {
+      "L5-raw-history-reader" = "${local.aws_six_layer_name}-six-layer-raw-history-reader"
+    } : {},
+  )
+}
+
+resource "aws_cloudwatch_log_group" "aws_six_layer_lambda" {
+  for_each          = local.aws_six_layer_lambda_log_group_names
+  name              = "/aws/lambda/${each.value}"
+  retention_in_days = var.log_retention_days
+  tags              = local.aws_six_layer_tags
+}
+
 resource "aws_sqs_queue" "aws_aws_sqs_fifo" {
   count                       = local.aws_six_layer_embedded_event_enabled ? 1 : 0
   name                        = "${local.aws_six_layer_name}-embedded-events.fifo"
@@ -386,6 +415,8 @@ resource "aws_lambda_function" "aws_aws_lambda_event_adapter" {
     }
   }
   tags = local.aws_six_layer_tags
+
+  depends_on = [aws_cloudwatch_log_group.aws_six_layer_lambda]
 }
 
 resource "aws_iot_thing" "aws_aws_iot_core" {
@@ -481,6 +512,8 @@ resource "aws_lambda_function" "aws_aws_lambda" {
     }
   }
   tags = local.aws_six_layer_tags
+
+  depends_on = [aws_cloudwatch_log_group.aws_six_layer_lambda]
 }
 
 resource "aws_iam_role" "aws_six_layer_extension_action" {
@@ -547,6 +580,7 @@ resource "aws_lambda_function" "aws_six_layer_processor_extension" {
     terraform_data.aws_six_layer_processor_extension_guard,
     terraform_data.validated_extension_package,
     aws_iam_role_policy_attachment.aws_six_layer_processor_extension_logs,
+    aws_cloudwatch_log_group.aws_six_layer_lambda,
   ]
 }
 
@@ -575,7 +609,10 @@ resource "aws_lambda_function" "aws_six_layer_extension_action" {
   }
   tags = local.aws_six_layer_tags
 
-  depends_on = [aws_iam_role_policy_attachment.aws_six_layer_extension_action_logs]
+  depends_on = [
+    aws_iam_role_policy_attachment.aws_six_layer_extension_action_logs,
+    aws_cloudwatch_log_group.aws_six_layer_lambda,
+  ]
 }
 
 resource "aws_lambda_event_source_mapping" "aws_six_layer_embedded_events" {
@@ -631,6 +668,8 @@ resource "aws_lambda_function" "aws_six_layer_domain_consumer" {
     }
   }
   tags = local.aws_six_layer_tags
+
+  depends_on = [aws_cloudwatch_log_group.aws_six_layer_lambda]
 }
 
 resource "aws_lambda_event_source_mapping" "aws_six_layer_remote_telemetry" {
@@ -1380,6 +1419,8 @@ resource "aws_lambda_function" "aws_aws_lambda_raw_history_reader" {
     }
   }
   tags = local.aws_six_layer_tags
+
+  depends_on = [aws_cloudwatch_log_group.aws_six_layer_lambda]
 }
 
 # The URL is transport-public but never application-anonymous. Stage 3 creates

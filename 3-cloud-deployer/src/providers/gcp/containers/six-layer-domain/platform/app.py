@@ -10,6 +10,7 @@ import html
 import json
 import logging
 import os
+import re
 import time
 from typing import Any, Mapping
 from urllib.parse import quote
@@ -32,6 +33,46 @@ app = Flask(__name__)
 _firestore_client: firestore.Client | None = None
 _publisher_client: pubsub_v1.PublisherClient | None = None
 _executions_client: executions_v1.ExecutionsClient | None = None
+DIAGNOSTIC_TRACE_PATTERN = re.compile(r"^(?:TRACE|VERIFY)-[A-Z0-9]{8,48}$")
+
+
+def _diagnostic_checkpoint(
+    stage: str, event: Mapping[str, Any], component: str
+) -> None:
+    payload = event.get("payload")
+    candidates = (
+        event.get("trace_id"),
+        event.get("source_sequence"),
+        payload.get("trace_id") if isinstance(payload, Mapping) else None,
+        payload.get("source_sequence") if isinstance(payload, Mapping) else None,
+    )
+    trace_id = next(
+        (
+            value
+            for value in candidates
+            if isinstance(value, str) and DIAGNOSTIC_TRACE_PATTERN.fullmatch(value)
+        ),
+        None,
+    )
+    if trace_id is None:
+        return
+    checkpoint = {
+        "schema_version": "diagnostic-checkpoint.v1",
+        "trace_id": trace_id,
+        "stage": stage,
+        "provider": "gcp",
+        "component": component,
+        "status": "passed",
+        "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "event_id": str(event.get("event_id") or trace_id),
+        "event_type": str(event.get("event_type") or core.EVENT_TELEMETRY_RECEIVED),
+    }
+    LOGGER.info(
+        "T2MC_CHECKPOINT %s",
+        json.dumps(
+            checkpoint, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+        ),
+    )
 
 
 def _database() -> firestore.Client:
@@ -257,7 +298,9 @@ def _store_outcome(event: Mapping[str, Any]) -> bool:
         transaction.create(reference, document)
         return True
 
-    return write(transaction)
+    created = write(transaction)
+    _diagnostic_checkpoint("outcome_persisted", event, "hot-storage")
+    return created
 
 
 def _materialize_twin_projection(event: Mapping[str, Any]) -> bool:
@@ -458,6 +501,7 @@ def _ingress(value: Mapping[str, Any]) -> dict[str, Any]:
         ),
         event,
     )
+    _diagnostic_checkpoint("l1_accepted", event, "event-adapter")
     return {"schema_version": "event-adapter-result.v1", "accepted": 1}
 
 
@@ -465,6 +509,7 @@ def _process(value: Mapping[str, Any]) -> dict[str, Any]:
     received = _decode_pubsub_push(value)
     if received["event_type"] != core.EVENT_TELEMETRY_RECEIVED:
         raise core.ContractError("UNEXPECTED_PROCESSOR_EVENT")
+    _diagnostic_checkpoint("l2_started", received, "processor")
     processed = core.build_processed_event(
         received,
         _invoke_processor_extension(received),
@@ -491,6 +536,7 @@ def _process(value: Mapping[str, Any]) -> dict[str, Any]:
         matches = core.build_rule_matches(processed, _configured_rules())
         for matched in matches:
             _publish(_domain_output_topic(), matched)
+    _diagnostic_checkpoint("l2_completed", processed, "processor")
     return {
         "schema_version": "processor-result.v1",
         "accepted": 1,
@@ -503,6 +549,7 @@ def _persistence(value: Mapping[str, Any]) -> dict[str, Any]:
     if processed["event_type"] != core.EVENT_TELEMETRY_PROCESSED:
         raise core.ContractError("UNEXPECTED_HOT_STORAGE_EVENT")
     created = _persist(processed)
+    _diagnostic_checkpoint("l3_hot_persisted", processed, "hot-storage")
     projection = _project_processed(processed)
     return {
         "schema_version": "persistence-result.v1",
@@ -1001,6 +1048,7 @@ def _domain(value: Mapping[str, Any]) -> dict[str, Any]:
             ),
             event,
         )
+        _diagnostic_checkpoint("l1_command_published", event, "device-command-adapter")
         handled = True
     elif kind in core.OUTCOME_EVENT_TYPES:
         if os.environ.get("HOT_PROVIDER") == "google":
@@ -1132,7 +1180,9 @@ def _consume_eventing_delivery(role: str, value: Mapping[str, Any]) -> None:
             event,
             _invoke_processor_extension(event),
         )
+        _diagnostic_checkpoint("l2_started", event, "processor")
         _publish(os.environ.get("PROCESSED_TOPIC", ""), processed)
+        _diagnostic_checkpoint("l2_completed", processed, "processor")
     elif role == "historical-persistence":
         if (
             event["event_type"] != core.EVENT_TELEMETRY_PROCESSED
@@ -1140,6 +1190,7 @@ def _consume_eventing_delivery(role: str, value: Mapping[str, Any]) -> None:
         ):
             raise core.ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _persist(event)
+        _diagnostic_checkpoint("l3_hot_persisted", event, "hot-storage")
     elif role == "twin-state-update":
         if (
             event["event_type"] != core.EVENT_TELEMETRY_PROCESSED

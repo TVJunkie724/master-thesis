@@ -703,10 +703,22 @@ output "gcp_archive_writer_url" {
 # ==============================================================================
 
 output "aws_cloudwatch_log_groups" {
-  description = "Map of AWS CloudWatch Log Group names by function"
-  value = var.enable_aws_logging ? {
-    for key, log_group in aws_cloudwatch_log_group.lambda : key => log_group.name
-  } : {}
+  description = "Map of active AWS CloudWatch Log Group names by diagnostic responsibility"
+  value = merge(
+    var.enable_aws_logging ? {
+      for key, log_group in aws_cloudwatch_log_group.lambda : key => log_group.name
+    } : {},
+    { for key, log_group in aws_cloudwatch_log_group.aws_six_layer_lambda : key => log_group.name },
+    local.aws_event_enabled ? {
+      "EVENT" = aws_cloudwatch_log_group.eventing[0].name
+    } : {},
+    local.aws_six_layer_bridge_enabled ? {
+      "BRIDGE" = aws_cloudwatch_log_group.aws_six_layer_bridge[0].name
+    } : {},
+    local.aws_six_layer_storage_mover_enabled ? {
+      "L3-storage-mover" = aws_cloudwatch_log_group.aws_aws_cloudwatch[0].name
+    } : {},
+  )
 }
 
 output "aws_cloudwatch_log_group_iot" {
@@ -715,11 +727,34 @@ output "aws_cloudwatch_log_group_iot" {
 }
 
 output "azure_log_analytics_workspace_id" {
-  description = "Azure Log Analytics Workspace ID (GUID for API queries)"
-  value       = try(azurerm_log_analytics_workspace.main[0].workspace_id, null)
+  description = "Primary Azure Log Analytics Workspace ID (GUID for API queries)"
+  value = try(
+    azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace[0].workspace_id,
+    azurerm_log_analytics_workspace.main[0].workspace_id,
+    null,
+  )
 }
 
 output "azure_log_analytics_workspace_name" {
-  description = "Azure Log Analytics Workspace resource name"
-  value       = try(azurerm_log_analytics_workspace.main[0].name, null)
+  description = "Primary Azure Log Analytics Workspace resource name"
+  value = try(
+    azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace[0].name,
+    azurerm_log_analytics_workspace.main[0].name,
+    null,
+  )
+}
+
+output "azure_log_analytics_workspace_ids" {
+  description = "Active Azure Log Analytics workspaces by diagnostic responsibility"
+  value = merge(
+    local.azure_v1_enabled && var.enable_azure_logging ? {
+      "legacy" = azurerm_log_analytics_workspace.main[0].workspace_id
+    } : {},
+    local.azure_six_layer_enabled ? {
+      "six-layer" = azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace[0].workspace_id
+    } : {},
+    local.azure_event_enabled ? {
+      "eventing" = azurerm_log_analytics_workspace.eventing[0].workspace_id
+    } : {},
+  )
 }

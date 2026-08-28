@@ -24,20 +24,44 @@ from src.log_tracing.registry import TraceRegistry
 from src.runtime_outputs import load_terraform_outputs
 
 
+FORWARD_TRACE_CHECKPOINTS = (
+    "l1_accepted",
+    "event_layer_durable",
+    "l2_started",
+    "l2_completed",
+    "l3_hot_persisted",
+)
+
+
 def generate_trace_id() -> str:
     return f"TRACE-{uuid.uuid4().hex[:8].upper()}"
 
 
-def providers_to_query(providers: dict) -> set[str]:
-    return {
+def providers_to_query(providers: dict, resolved_graph=None) -> set[str]:
+    """Return every provider participating in the active deployment graph."""
+    selected = {
         normalized
-        for provider in (
-            providers.get("layer_1_provider"),
-            providers.get("layer_2_provider"),
-            providers.get("layer_3_hot_provider"),
-        )
+        for key, provider in providers.items()
+        if key == "event_layer_provider" or key.startswith("layer_")
+        if isinstance(provider, str)
         if (normalized := normalize_provider_name(provider)) and normalized != "none"
     }
+    for node in getattr(resolved_graph, "nodes", ()) or ():
+        normalized = normalize_provider_name(getattr(node, "provider", None))
+        if normalized and normalized != "none":
+            selected.add(normalized)
+    return selected
+
+
+def expected_trace_checkpoints(resolved_graph) -> tuple[str, ...]:
+    """Return the bounded forward-path evidence required by the active PoC profile."""
+    profile_ref = getattr(resolved_graph, "profile_ref", {}) or {}
+    if (
+        profile_ref.get("id") == "six-layer-eventing"
+        and str(profile_ref.get("version")) == "1"
+    ):
+        return FORWARD_TRACE_CHECKPOINTS
+    return ()
 
 
 class LogTraceService:
@@ -94,7 +118,12 @@ class LogTraceService:
             "trace_id": trace_id,
             "sent_at": now.isoformat().replace("+00:00", "Z"),
             "l1_provider": provider,
-            "providers": sorted(providers_to_query(bundle.config.providers)),
+            "providers": sorted(
+                providers_to_query(
+                    bundle.config.providers,
+                    getattr(bundle, "resolved_deployment_graph", None),
+                )
+            ),
             "message": f"Test message sent to {provider} IoT endpoint",
         }
 
@@ -113,6 +142,9 @@ class LogTraceService:
         seen: set[tuple] = set()
         reported_provider_errors: set[str] = set()
         had_provider_errors = False
+        expected_checkpoints: tuple[str, ...] = ()
+        observed_checkpoints: set[str] = set()
+        checkpoint_count = 0
         total_logs = 0
         try:
             try:
@@ -153,7 +185,12 @@ class LogTraceService:
                 )
                 return
 
-            providers = providers_to_query(bundle.config.providers)
+            resolved_graph = getattr(bundle, "resolved_deployment_graph", None)
+            providers = providers_to_query(
+                bundle.config.providers,
+                resolved_graph,
+            )
+            expected_checkpoints = expected_trace_checkpoints(resolved_graph)
             deadline = started_monotonic + self.timeout_seconds
             first_iteration = True
             while first_iteration or time.monotonic() < deadline:
@@ -203,9 +240,20 @@ class LogTraceService:
                         continue
                     seen.add(key)
                     total_logs += 1
+                    if (
+                        entry.checkpoint
+                        and entry.checkpoint.get("trace_id") == trace_id
+                    ):
+                        observed_checkpoints.add(str(entry.checkpoint["stage"]))
+                        checkpoint_count += 1
                     payload = asdict(entry)
                     payload["prefix"] = f"[{entry.layer}-{entry.provider.upper()}]"
                     yield self._event("log", payload)
+
+                if expected_checkpoints and set(expected_checkpoints).issubset(
+                    observed_checkpoints
+                ):
+                    break
 
                 now = time.monotonic()
                 if now - last_heartbeat >= self.heartbeat_seconds:
@@ -218,12 +266,25 @@ class LogTraceService:
                 if remaining > 0:
                     await asyncio.sleep(min(self.poll_interval_seconds, remaining))
 
+            missing_checkpoints = [
+                stage
+                for stage in expected_checkpoints
+                if stage not in observed_checkpoints
+            ]
             yield self._event(
                 "done",
                 {
                     "message": "Trace complete",
-                    "status": "partial" if had_provider_errors else "completed",
+                    "status": (
+                        "partial"
+                        if had_provider_errors or missing_checkpoints
+                        else "completed"
+                    ),
                     "total_logs": total_logs,
+                    "checkpoint_count": checkpoint_count,
+                    "expected_checkpoints": list(expected_checkpoints),
+                    "observed_checkpoints": sorted(observed_checkpoints),
+                    "missing_checkpoints": missing_checkpoints,
                     "duration_seconds": round(time.monotonic() - started_monotonic, 1),
                 },
             )
@@ -296,11 +357,13 @@ class LogTraceService:
                 query_timeout_seconds=query_timeout,
             )
         if provider == "azure":
-            workspace_id = outputs.get("azure_log_analytics_workspace_id")
-            if not workspace_id:
+            workspace_ids = outputs.get(
+                "azure_log_analytics_workspace_ids"
+            ) or outputs.get("azure_log_analytics_workspace_id")
+            if not workspace_ids:
                 return ProviderFetchResult("azure", error="Workspace ID not available")
             return fetch_azure_logs(
-                workspace_id,
+                workspace_ids,
                 trace_id,
                 credentials.get("azure", {}),
                 started_at,

@@ -72,6 +72,7 @@ DOMAIN_EVENT_TYPES = {
     *OUTCOME_EVENTS,
 }
 CONDITION_PATTERN = re.compile(r"^\s*(\S+)\s*(<=|>=|==|!=|<|>)\s*(\S+)\s*$")
+DIAGNOSTIC_TRACE_PATTERN = re.compile(r"^(?:TRACE|VERIFY)-[A-Z0-9]{8,48}$")
 
 
 class ContractError(ValueError):
@@ -100,6 +101,44 @@ def _six_layer_eventing() -> bool:
 
 def _canonical_json(value: Mapping[str, Any]) -> str:
     return json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+
+
+def _diagnostic_trace_id(event: Mapping[str, Any]) -> str | None:
+    body = event.get("payload")
+    candidates = (
+        event.get("trace_id"),
+        event.get("source_sequence"),
+        body.get("trace_id") if isinstance(body, Mapping) else None,
+        body.get("source_sequence") if isinstance(body, Mapping) else None,
+    )
+    return next(
+        (
+            value
+            for value in candidates
+            if isinstance(value, str) and DIAGNOSTIC_TRACE_PATTERN.fullmatch(value)
+        ),
+        None,
+    )
+
+
+def _diagnostic_checkpoint(
+    stage: str, event: Mapping[str, Any], component: str
+) -> None:
+    trace_id = _diagnostic_trace_id(event)
+    if trace_id is None:
+        return
+    checkpoint = {
+        "schema_version": "diagnostic-checkpoint.v1",
+        "trace_id": trace_id,
+        "stage": stage,
+        "provider": "aws",
+        "component": component,
+        "status": "passed",
+        "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "event_id": str(event.get("event_id") or trace_id),
+        "event_type": str(event.get("event_type") or EVENT_TELEMETRY_RECEIVED),
+    }
+    print(f"T2MC_CHECKPOINT {_canonical_json(checkpoint)}")
 
 
 def _required_text(value: Any, *, code: str, maximum: int = 256) -> str:
@@ -402,6 +441,7 @@ def event_adapter(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
                 _put_eventing_stream(payload)
             else:
                 _put_stream(payload)
+            _diagnostic_checkpoint("l1_accepted", payload, "event-adapter")
             accepted += 1
         return {"schema_version": "event-adapter-result.v1", "accepted": accepted}
     except Exception as exc:
@@ -643,6 +683,7 @@ def _write_outcome(event: Mapping[str, Any]) -> None:
 def _store_outcome(event: Mapping[str, Any]) -> None:
     if os.environ.get("HOT_PROVIDER") == "aws":
         _write_outcome(event)
+        _diagnostic_checkpoint("outcome_persisted", event, "hot-storage")
     else:
         _publish_control(event)
 
@@ -876,6 +917,7 @@ def processor(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
             if _event_type(payload) != EVENT_TELEMETRY_RECEIVED:
                 raise ContractError("UNEXPECTED_PROCESSOR_EVENT")
             source = _canonical_received_event(payload)
+            _diagnostic_checkpoint("l2_started", source, "processor")
             processed = _processed_event(
                 source,
                 _invoke_processor_extension(source),
@@ -888,6 +930,7 @@ def processor(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
             else:
                 _put_stream(processed)
                 _evaluate_rules(processed)
+            _diagnostic_checkpoint("l2_completed", processed, "processor")
             accepted += 1
         except Exception:
             if isinstance(event.get("Records"), list):
@@ -903,6 +946,7 @@ def processor(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
 
 def _persist_and_project(event: Mapping[str, Any]) -> None:
     _write_raw_and_rollup(event)
+    _diagnostic_checkpoint("l3_hot_persisted", event, "hot-storage")
     _project_twin(event)
 
 
@@ -1102,6 +1146,8 @@ def _deliver_device_command(event: Mapping[str, Any]) -> None:
             break
         except ClientError:
             continue
+    if accepted:
+        _diagnostic_checkpoint("l1_command_published", event, "device-command-adapter")
     outcome = _derive_event(
         event,
         event_type=EVENT_COMMAND_OUTCOME,
@@ -1209,6 +1255,7 @@ def _consume_eventing_delivery(role: str, payload: Mapping[str, Any]) -> None:
         if os.environ.get("HOT_PROVIDER") != "aws":
             raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _write_raw_and_rollup(payload)
+        _diagnostic_checkpoint("l3_hot_persisted", payload, "hot-storage")
     elif role == "twin-state-update":
         if os.environ.get("HOT_PROVIDER") != "aws":
             raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")

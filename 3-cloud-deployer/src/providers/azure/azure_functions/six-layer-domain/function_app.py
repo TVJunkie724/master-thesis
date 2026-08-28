@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 import json
 import logging
 import os
+import re
 import time
 from typing import Any, Iterable, Mapping
 from urllib.error import HTTPError, URLError
@@ -60,6 +61,7 @@ from core import (
 
 
 app = func.FunctionApp()
+DIAGNOSTIC_TRACE_PATTERN = re.compile(r"^(?:TRACE|VERIFY)-[A-Z0-9]{8,48}$")
 REMOTE_TELEMETRY_ENABLED = (
     os.getenv("SIX_LAYER_REMOTE_TELEMETRY_ENABLED", "false").strip().lower() == "true"
 )
@@ -140,6 +142,45 @@ def _service_bus_client():
 
 def _six_layer_eventing() -> bool:
     return os.getenv("ARCHITECTURE_PROFILE") == "six-layer-eventing@1"
+
+
+def _diagnostic_checkpoint(
+    stage: str, event: Mapping[str, Any], component: str
+) -> None:
+    payload = event.get("payload")
+    candidates = (
+        event.get("trace_id"),
+        event.get("source_sequence"),
+        payload.get("trace_id") if isinstance(payload, Mapping) else None,
+        payload.get("source_sequence") if isinstance(payload, Mapping) else None,
+    )
+    trace_id = next(
+        (
+            value
+            for value in candidates
+            if isinstance(value, str) and DIAGNOSTIC_TRACE_PATTERN.fullmatch(value)
+        ),
+        None,
+    )
+    if trace_id is None:
+        return
+    checkpoint = {
+        "schema_version": "diagnostic-checkpoint.v1",
+        "trace_id": trace_id,
+        "stage": stage,
+        "provider": "azure",
+        "component": component,
+        "status": "passed",
+        "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "event_id": str(event.get("event_id") or trace_id),
+        "event_type": str(event.get("event_type") or "telemetry.received.v1"),
+    }
+    logging.info(
+        "T2MC_CHECKPOINT %s",
+        json.dumps(
+            checkpoint, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+        ),
+    )
 
 
 def _enqueue(event: Mapping[str, Any]) -> None:
@@ -410,6 +451,7 @@ def _project_twin(processed: Mapping[str, Any]) -> None:
 
 
 def _process_received(event: Mapping[str, Any]) -> None:
+    _diagnostic_checkpoint("l2_started", event, "processor")
     processed = build_processed_event(event, _invoke_processor_extension(event))
     if _six_layer_eventing():
         _publish_eventing_stream(processed)
@@ -418,6 +460,7 @@ def _process_received(event: Mapping[str, Any]) -> None:
     else:
         _publish_telemetry(processed)
         _evaluate_rules(processed)
+    _diagnostic_checkpoint("l2_completed", processed, "processor")
 
 
 def _action_name(action: Mapping[str, Any]) -> str:
@@ -564,6 +607,8 @@ def _send_device_command(event: Mapping[str, Any]) -> bool:
 
 def _deliver_device_command(event: Mapping[str, Any]) -> None:
     accepted = _send_device_command(event)
+    if accepted:
+        _diagnostic_checkpoint("l1_command_published", event, "device-command-adapter")
     _emit_outcome(
         derive_event(
             event,
@@ -612,6 +657,7 @@ def _consume(event: dict) -> None:
         handled = False
         if os.getenv("SIX_LAYER_HOT_PROVIDER") == "azure":
             _persist_processed(validated)
+            _diagnostic_checkpoint("l3_hot_persisted", validated, "hot-storage")
             handled = True
         if _six_layer_eventing() and os.getenv("SIX_LAYER_L2_PROVIDER") == "azure":
             _evaluate_rules(validated)
@@ -692,6 +738,7 @@ def _consume_eventing_delivery(role: str, event: Mapping[str, Any]) -> None:
         if os.getenv("SIX_LAYER_HOT_PROVIDER") != "azure":
             raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
         _write_raw_and_rollup(validated)
+        _diagnostic_checkpoint("l3_hot_persisted", validated, "hot-storage")
     elif role == "twin-state-update":
         if os.getenv("SIX_LAYER_HOT_PROVIDER") != "azure":
             raise ContractError("EVENTING_CONSUMER_PROVIDER_MISMATCH")
@@ -930,6 +977,7 @@ def _store_outcome(event: Mapping[str, Any], *, stored_at=None) -> None:
         )
         if existing.get("payload_digest") != document["payload_digest"]:
             raise ContractError("IDEMPOTENCY_CONFLICT", 409) from None
+    _diagnostic_checkpoint("outcome_persisted", event, "hot-storage")
 
 
 def _emit_outcome(event: Mapping[str, Any]) -> None:
@@ -1296,6 +1344,7 @@ if IOT_PROCESSOR_ENABLED:
                     _enqueue(event)
                 else:
                     _publish_telemetry(event)
+                _diagnostic_checkpoint("l1_accepted", event, "event-adapter")
         except ContractError as exc:
             raise RuntimeError(exc.code) from None
 
