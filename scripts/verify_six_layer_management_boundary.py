@@ -178,6 +178,7 @@ def _optimize_cross_eventing(
         cost_ledger_resolver=force_cross_eventing,
         providers=providers,
         registry=registry,
+        resolution_status="publishable",
     )
     return optimized, workload, registry
 

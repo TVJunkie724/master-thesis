@@ -66,7 +66,7 @@ def _state(db_session):
         slot_version=extension["slot_version"],
         runtime_id="python311",
         manifest_json="{}",
-        configuration_json="{}",
+        configuration_json='{"scale_factor":1}',
         declared_capabilities_json="[]",
         validator_version="user-function-validator.v1",
     )
