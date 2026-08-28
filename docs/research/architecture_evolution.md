@@ -147,11 +147,14 @@ separate adapter node keeps protocol integration and broker scheduling
 independently diagnosable at modest PoC scale.
 
 This is an offline-verified deployment decision, not a capacity measurement.
-One supervised GCP L1-L3 component probe must still establish readiness,
-resource count, message latency, success rate, cleanup, and observed cost. The
-bundle preserves authentication, telemetry, command receipt correlation, and
-Pub/Sub durability but deliberately does not claim HA. Medium and Large remain
-theoretical unless separately authorized and executed.
+The early L1-L3/Eventing stage of the first supervised GCP provider-local
+deployment must still establish readiness, resource count, message latency,
+success rate, cleanup, and observed cost before that run continues to L4, L5,
+and the final simulator protocol. Its component document is a separate dataset
+from the same atomic deployment, not a partial-Apply mode. The bundle preserves
+authentication, telemetry, command receipt correlation, and Pub/Sub durability
+but deliberately does not claim HA. Medium and Large remain theoretical unless
+separately authorized and executed.
 
 ## Measurement-driven validation
 

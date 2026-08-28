@@ -3,7 +3,7 @@ title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
 lastUpdated: "2026-08-28"
-version: "1.3"
+version: "1.4"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -228,7 +228,7 @@ problems. A second observability product would add cost and implementation
 scope without answering another research question. Provider-native log sources
 plus one strict checkpoint contract make the forward L1/Event/L2/L3 path
 observable while keeping L4/L5 and command/outcome verification as explicit,
-separately budgeted probes.
+separately measured gates.
 
 **Consequence:** Only `TRACE-*` and `VERIFY-*` flows emit checkpoint records;
 they never contain telemetry or credentials. A trace is complete only when all
@@ -236,6 +236,26 @@ expected forward checkpoints are observed and is otherwise reported as
 partial. The independent Event Layer is included in Terraform-state
 verification. Live correctness remains pending until supervised component and
 final scenarios produce provider evidence.
+
+## D-15 — Atomic deployment with staged live verification
+
+**Decision:** Keep one graph-bound Apply/Destroy lifecycle and stage functional
+verification inside it: L1-L3/Eventing first, then L4, then L5, and finally the
+complete simulator protocol. The first provider-local run per provider may
+produce a separate component metrics document from the same deployment, but it
+does not introduce a partial-deployment API.
+
+**Rationale:** Provider-specific Terraform target lists or a second reduced
+architecture would add another executable topology, weaken cleanup guarantees,
+and repeat expensive infrastructure. Early checkpoints still permit immediate
+Destroy when an upstream layer fails, limiting L4/L5 lifetime without claiming
+that they were absent from the atomic Apply.
+
+**Consequence:** Component measurements never replace one of the nine final
+scenario records. GCP's early stage additionally validates the selected Small
+1+1 broker/adapter allocation. Every final comparison is accepted only when
+the exact matrix, revision, workload, simulator, protocol, candidate placement,
+cost export, and terminal cleanup evidence remain bound and comparable.
 
 ## Current implementation checkpoint
 

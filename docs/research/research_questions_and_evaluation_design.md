@@ -497,6 +497,27 @@ A scenario result is thesis-evaluable only when:
 Failure of a gate must produce an explicit non-publishable or unsupported result
 rather than a misleading numeric optimum.
 
+### Supervised Live-Evidence Mapping
+
+The live evaluation is bounded to three provider-local Small baselines and six
+directed multi-cloud Small focus cases. It is not an exhaustive permutation
+test. All final records must share one architecture contract, source revision,
+workload digest, simulator digest, and measurement protocol. The first
+provider-local run per provider verifies L1-L3/Eventing before L4, L5, and the
+complete simulator protocol inside the same atomic deployment; a failed early
+gate triggers immediate Destroy rather than a second partial-deployment mode.
+
+| Research question | Named supervised evidence |
+|---|---|
+| RQ1 | graph-bound readiness/preparation, Plan/Apply/replay, staged verification, deployment duration, Destroy, and exact provider inventory |
+| RQ2 | candidate-to-provider placement binding, required path checkpoints, functional result, and explicitly classified provider deviations |
+| RQ3 / RQ3.1 | three single-cloud and six directed estimated totals, transfer attribution, reviewed run cap, and separately reconciled observed incremental cost |
+| RQ3.2 | Event-Layer durability checkpoint, directed identity/bridge evidence, command/outcome behavior, topology delta, and Eventing cost ownership |
+
+Component metrics remain supporting diagnostic evidence and cannot replace any
+of the nine final records. The complete operational protocol and schemas are
+maintained in `evaluation/live-evaluation-protocol.md`.
+
 ## Architecture Extensibility Implication
 
 The current refactoring retains bounded extension points for:
@@ -601,6 +622,8 @@ rule/action declarations determine whether a particular event invokes them.
 - Pricing evidence may drift between providers or collection times.
 - Unsupported deployment paths may appear economically attractive unless
   capability gates are enforced.
+- Mixed code revisions, fixtures, simulator builds, clocks, or message
+  protocols would make deployment-time and latency comparisons invalid.
 
 ### External Validity
 
@@ -616,6 +639,9 @@ rule/action declarations determine whether a particular event invokes them.
 - Results must include sensitivity and assumptions.
 - Eventing benefits include functionality and operability, not only monetary
   cost.
+- The bounded message sample and one supervised run per final scenario support
+  descriptive PoC comparison, not production performance or availability
+  inference.
 
 ## Complete-Service Evaluation Rule
 

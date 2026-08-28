@@ -357,12 +357,8 @@ deployment; Medium/Large capacity remains fail-closed.
 - enable only the reviewed confirmed provider prerequisites;
 - build or pull the pinned runtime images independently;
 - execute minimal identity exchanges for AWS→Azure, AWS→GCP, Azure→AWS,
-  Azure→GCP, GCP→AWS, and GCP→Azure; and
-- use one separately budgeted GCP L1-L3 plus Eventing component probe before
-  any expensive L4/L5 bundle and read-only L4/L5 readiness for all providers;
-- use that GCP component probe to validate the offline-selected non-HA
-  1+1 Small broker/adapter allocation instead of treating it as live-proven;
-  and
+  Azure→GCP, GCP→AWS, and GCP→Azure;
+- perform read-only L4/L5 account and regional readiness for all providers; and
 - immediately remove probe resources and record residual state.
 
 ### Exit criteria
@@ -370,10 +366,7 @@ deployment; Medium/Large capacity remains fail-closed.
 - every live prerequisite is ready or has an explicit, thesis-reportable
   blocker;
 - all six directed federation paths have provider evidence independent of a
-  full deployment; and
-- GCP component-probe metrics remain separate from the nine final scenario
-  datasets, and the GCP-L1 Small allocation has component-probe evidence before
-  a final scenario uses it; and
+  full deployment;
 - no full Small environment has been left running while a prerequisite is
   unresolved.
 
@@ -403,7 +396,14 @@ budget cap and candidate trace has been reviewed.
 - one scenario active at a time by default;
 - reviewed plan and maximum expected cost before Apply;
 - maximum runtime and automatic alert/timer outside the deployment;
-- immediate telemetry verification followed by Destroy;
+- in the first provider-local run per provider, immediate L1-L3/Eventing
+  verification before L4, L5, and the complete simulator protocol; a failed
+  upstream gate triggers immediate Destroy;
+- no generic partial-Apply mode or provider-specific Terraform target lists;
+  the early component and final datasets reuse one atomic graph deployment;
+- GCP's early component gate additionally validates the selected non-HA 1+1
+  Small broker/adapter allocation before the final GCP dataset continues;
+- successful final telemetry verification followed by Destroy;
 - post-Destroy provider inventory and residual-cost check, with observed billing
   attached later when the provider export is available; and
 - a stop condition after any unexplained residual resource, quota surprise, or
@@ -416,6 +416,8 @@ budget cap and candidate trace has been reviewed.
 - readiness and preparation record;
 - Terraform plan/apply identifiers and timestamps;
 - operation reconnect/replay evidence;
+- for each first provider-local run, a separate component metrics document that
+  cannot substitute for final scenario evidence;
 - L4/L5 access and telemetry roundtrip result;
 - one digest-bound `live-evaluation-metrics.v1` document containing the
   declared path, warm-up and measured simulator samples, stage timestamps,

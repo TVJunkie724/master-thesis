@@ -113,8 +113,10 @@ maturity:
 - GCP L1's BifroMQ-plus-Pub/Sub capability is the current functional decision.
   Small is fixed offline to one non-HA `e2-standard-4` broker node and one
   `e2-standard-2` adapter node; this is not a production-availability claim.
-- The selected Small GCP L1 bundle remains live-unvalidated until one supervised
-  component probe records readiness, latency, cleanup, and observed cost.
+- The selected Small GCP L1 bundle remains live-unvalidated until the early
+  component stage of the first GCP provider-local deployment records readiness,
+  latency, cleanup, and observed cost. This is a separate dataset from the same
+  atomic deployment, not a partial-Apply mode.
 - GCP L4 and L5 are bounded provider-hosted PoC implementations, not claims of
   managed-service equivalence or production availability.
 - Medium and Large allocations remain theoretical unless separately executed
