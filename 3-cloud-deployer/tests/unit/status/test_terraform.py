@@ -14,8 +14,8 @@ def test_state_classification_exposes_the_independent_event_layer(monkeypatch):
                 [
                     "aws_iot_thing.aws_aws_iot_core[0]",
                     "aws_lambda_function.event_runtime[0]",
-                    "aws_kinesis_stream.domain_events[\"received\"]",
-                    "aws_lambda_function.aws_six_layer_processor_extension[0]",
+                    "aws_kinesis_stream.domain_telemetry[\"received\"]",
+                    "aws_sfn_state_machine.aws_aws_step_functions_standard[0]",
                 ]
             ),
         ),
@@ -27,6 +27,6 @@ def test_state_classification_exposes_the_independent_event_layer(monkeypatch):
     assert result["eventing"]["deployed"] is True
     assert result["eventing"]["resources"] == [
         "aws_lambda_function.event_runtime[0]",
-        'aws_kinesis_stream.domain_events["received"]',
+        'aws_kinesis_stream.domain_telemetry["received"]',
     ]
     assert result["l2"]["deployed"] is True

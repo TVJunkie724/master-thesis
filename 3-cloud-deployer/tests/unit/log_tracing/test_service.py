@@ -11,6 +11,7 @@ from src.log_tracing.registry import TraceNotFound, TraceRegistry
 from src.log_tracing.fetchers import LogEntry, ProviderFetchResult
 from src.log_tracing.service import (
     FORWARD_TRACE_CHECKPOINTS,
+    TRACE_QUERY_LOOKBACK,
     LogTraceService,
     expected_trace_checkpoints,
 )
@@ -147,6 +148,37 @@ def test_provider_query_has_hard_timeout(monkeypatch):
 
     result = asyncio.run(exercise())
     assert result.error == "Provider query timed out"
+
+
+def test_stream_queries_from_trace_issue_time_with_consistent_lookback(monkeypatch):
+    service = _service()
+    issued_at = datetime.now(timezone.utc)
+    trace_id = "TRACE-1234ABCD"
+    service.registry.reserve("factory", issued_at)
+    service.registry.issue("factory", trace_id, issued_at)
+    monkeypatch.setattr(
+        "src.log_tracing.service.ProjectConfigLoader.load_bundle",
+        lambda self, name: _bundle(),
+    )
+    monkeypatch.setattr(
+        "src.log_tracing.service.load_terraform_outputs",
+        lambda name: {},
+    )
+    observed = []
+
+    def fetch(provider, trace, started_at, *args):
+        observed.append(started_at)
+        return ProviderFetchResult(provider)
+
+    monkeypatch.setattr(service, "_fetch_provider", fetch)
+
+    async def collect():
+        return [event async for event in service.stream(trace_id, "factory")]
+
+    asyncio.run(collect())
+
+    assert observed
+    assert set(observed) == {issued_at - TRACE_QUERY_LOOKBACK}
 
 
 def test_stream_configuration_failure_still_emits_done(monkeypatch):

@@ -110,7 +110,11 @@ async def start_log_trace(
     operation_id="streamLogTrace",
     summary="Stream trace-correlated logs from configured providers",
     responses={
-        200: {"description": "SSE stream with log, error, heartbeat, and done events"},
+        200: {
+            "description": (
+                "SSE stream with log, warning, terminal error, heartbeat, and done events"
+            )
+        },
         403: {"description": "Trace belongs to another project"},
         404: ERROR_RESPONSES[404],
         410: {"description": "Trace expired"},

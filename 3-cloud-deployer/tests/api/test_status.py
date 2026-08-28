@@ -327,11 +327,11 @@ def test_state_resources_are_classified_by_canonical_addresses(monkeypatch):
         returncode=0,
         stdout="\n".join(
             [
-                "aws_iot_thing.l1_device[0]",
-                "aws_lambda_function.l2_persister[0]",
-                "aws_dynamodb_table.l3_hot[0]",
-                "aws_glacier_vault.l3_archive[0]",
-                "aws_iottwinmaker_workspace.l4_workspace[0]",
+                "aws_iot_thing.aws_aws_iot_core[0]",
+                "aws_sfn_state_machine.aws_aws_step_functions_standard[0]",
+                "aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0]",
+                "aws_s3_bucket_lifecycle_configuration.aws_aws_s3_glacier_deep_archive[0]",
+                "awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0]",
             ]
         ),
         stderr="",
@@ -350,3 +350,33 @@ def test_state_resources_are_classified_by_canonical_addresses(monkeypatch):
     assert result["l3"]["hot"]["deployed"] is True
     assert result["l3"]["cold"]["deployed"] is False
     assert result["l4"]["deployed"] is True
+
+
+def test_state_resources_do_not_false_pass_on_similar_names(monkeypatch):
+    completed = SimpleNamespace(
+        returncode=0,
+        stdout="\n".join(
+            [
+                "aws_dynamodb_table.unrelated_cache[0]",
+                "aws_lambda_function.processor_debug_tool[0]",
+                "google_firestore_database.unrelated_metadata[0]",
+                "azurerm_cosmosdb_account.unrelated_account[0]",
+            ]
+        ),
+        stderr="",
+    )
+    monkeypatch.setattr(
+        terraform_status,
+        "run_terraform_status_command",
+        lambda *args: completed,
+    )
+
+    result = terraform_status.check_terraform_state("factory")
+
+    assert result["status"] == "deployed"
+    assert result["l1"]["deployed"] is False
+    assert result["eventing"]["deployed"] is False
+    assert result["l2"]["deployed"] is False
+    assert result["l3"]["hot"]["deployed"] is False
+    assert result["l4"]["deployed"] is False
+    assert result["l5"]["deployed"] is False

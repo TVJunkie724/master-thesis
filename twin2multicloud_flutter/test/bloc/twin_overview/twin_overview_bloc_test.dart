@@ -1540,6 +1540,40 @@ void main() {
       },
     );
 
+    test('keeps tracing after a recoverable provider warning', () async {
+      when(() => api.startLogTrace('test-id')).thenAnswer(
+        (_) async => LogTraceStartResult(
+          traceId: 'TRACE-1',
+          sentAt: DateTime.utc(2026, 7, 14, 12),
+          l1Provider: 'aws',
+          providers: const ['aws', 'azure'],
+          message: 'Trace started.',
+          sseUrl: '/twins/test-id/log-trace/stream/TRACE-1',
+        ),
+      );
+      final bloc = _buildBloc(api, streams: streams);
+      bloc.emit(_loaded(twinState: 'deployed'));
+
+      bloc.add(const TwinOverviewStartLogTrace());
+      await pumpEventQueue(times: 20);
+      streams.clients.single.controller.add(
+        const SseLogEvent(
+          id: 1,
+          type: 'warning',
+          message: 'Provider log query unavailable',
+        ),
+      );
+      await pumpEventQueue(times: 20);
+
+      final trace = (bloc.state as TwinOverviewLoaded).trace;
+      expect(trace.phase, TraceViewPhase.streaming);
+      expect(
+        trace.diagnostics,
+        contains('Warning: Provider log query unavailable'),
+      );
+      await bloc.close();
+    });
+
     blocTest<TwinOverviewBloc, TwinOverviewState>(
       'reports a rate-limited trace start without retaining stale metadata',
       seed: () => _loaded(

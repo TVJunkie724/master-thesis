@@ -128,6 +128,7 @@ def test_provider_failure_produces_partial_terminal_status(monkeypatch):
 
     events = asyncio.run(collect())
     done = json.loads(events[-1]["data"])
-    assert any(event["event"] == "error" for event in events)
+    assert any(event["event"] == "warning" for event in events)
+    assert not any(event["event"] == "error" for event in events)
     assert "must-not-leak" not in json.dumps(events)
     assert done["status"] == "partial"

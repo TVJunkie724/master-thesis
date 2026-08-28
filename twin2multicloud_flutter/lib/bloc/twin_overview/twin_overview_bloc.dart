@@ -1102,6 +1102,16 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
               return;
             }
 
+            if (event.isWarning) {
+              add(
+                TwinOverviewLogTraceUpdate(
+                  'Warning: ${event.message}',
+                  traceId: traceId,
+                ),
+              );
+              return;
+            }
+
             // Regular log event - format with aligned columns
             if (event.type == 'log') {
               add(

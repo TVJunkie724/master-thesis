@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -232,14 +232,13 @@ def fetch_gcp_logs(
             project=project_id,
             credentials=parsed_credentials,
         )
-        cutoff = started_at - timedelta(seconds=30)
         filter_value = (
             '(resource.type="cloud_function" OR '
             'resource.type="cloud_run_revision" OR '
             'resource.type="cloud_run_workerpool" OR '
             'resource.type="k8s_container") '
             f'AND (textPayload:"{trace_id}" OR jsonPayload.message:"{trace_id}") '
-            f'AND timestamp >= "{cutoff.isoformat()}"'
+            f'AND timestamp >= "{started_at.isoformat()}"'
         )
         entries = []
         for entry in client.list_entries(

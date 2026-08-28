@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import time
 import uuid
@@ -20,7 +20,7 @@ from src.log_tracing.fetchers import (
     fetch_azure_logs,
     fetch_gcp_logs,
 )
-from src.log_tracing.registry import TraceRegistry
+from src.log_tracing.registry import TraceRecord, TraceRegistry
 from src.runtime_outputs import load_terraform_outputs
 
 
@@ -31,6 +31,8 @@ FORWARD_TRACE_CHECKPOINTS = (
     "l2_completed",
     "l3_hot_persisted",
 )
+
+TRACE_QUERY_LOOKBACK = timedelta(seconds=5)
 
 
 def generate_trace_id() -> str:
@@ -127,8 +129,12 @@ class LogTraceService:
             "message": f"Test message sent to {provider} IoT endpoint",
         }
 
-    def validate(self, trace_id: str, project_name: str) -> None:
-        self.registry.validate(trace_id, project_name, datetime.now(timezone.utc))
+    def validate(self, trace_id: str, project_name: str) -> TraceRecord:
+        return self.registry.validate(
+            trace_id,
+            project_name,
+            datetime.now(timezone.utc),
+        )
 
     async def stream(
         self,
@@ -136,7 +142,8 @@ class LogTraceService:
         project_name: str,
         project_path: Path | None = None,
     ):
-        started_at = datetime.now(timezone.utc)
+        trace_record = self.validate(trace_id, project_name)
+        query_started_at = trace_record.issued_at - TRACE_QUERY_LOOKBACK
         started_monotonic = time.monotonic()
         last_heartbeat = started_monotonic
         seen: set[tuple] = set()
@@ -201,7 +208,7 @@ class LogTraceService:
                         self._fetch_with_timeout(
                             provider,
                             trace_id,
-                            started_at,
+                            query_started_at,
                             bundle.credentials,
                             outputs,
                             bundle.project_path,
@@ -222,7 +229,7 @@ class LogTraceService:
                             result.error,
                         )
                         yield self._event(
-                            "error",
+                            "warning",
                             {
                                 "provider": result.provider,
                                 "message": "Provider log query unavailable",

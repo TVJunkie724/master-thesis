@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import tempfile
 from typing import Any
 
@@ -11,6 +12,20 @@ from src.core.observability import redact_sensitive
 from src.core.paths import resolve_project_context_path
 from src.terraform_runner import TerraformRunner
 from src.tfvars_generator import generate_tfvars
+from src.architecture_profiles.catalog import DeploymentComponentCatalog
+
+
+_STATUS_BY_LOGICAL_COMPONENT = {
+    "component.ingestion": "l1",
+    "component.eventing": "eventing",
+    "component.processing": "l2",
+    "component.hot-storage": "hot",
+    "component.cool-storage": "cold",
+    "component.archive-storage": "archive",
+    "component.twin-state": "l4",
+    "component.visualization": "l5",
+}
+_INSTANCE_SELECTOR = re.compile(r"\[[^\]]+\]")
 
 
 def _empty_state(status: str, *, error: str | None = None) -> dict[str, Any]:
@@ -59,12 +74,43 @@ def run_terraform_status_command(
     raise ValueError("Unsupported Terraform status command")
 
 
-def _matching(resources: list[str], *tokens: str) -> list[str]:
-    return [
-        resource
-        for resource in resources
-        if any(token in resource.lower() for token in tokens)
-    ]
+def _canonical_state_address(resource: str) -> str:
+    """Remove only Terraform instance and module addressing syntax."""
+    normalized = _INSTANCE_SELECTOR.sub("", resource.strip())
+    segments = normalized.split(".")
+    while len(segments) >= 4 and segments[0] == "module":
+        segments = segments[2:]
+    return ".".join(segments)
+
+
+def _exclusive_resource_ownership() -> dict[str, str]:
+    """Map exact contract addresses that prove one logical responsibility."""
+    owners: dict[str, set[str]] = {}
+    for component in DeploymentComponentCatalog().components.values():
+        status_keys = {
+            _STATUS_BY_LOGICAL_COMPONENT[logical_id]
+            for logical_id in component["logical_component_ids"]
+            if logical_id in _STATUS_BY_LOGICAL_COMPONENT
+        }
+        for address in component["terraform_binding"]["resource_addresses"]:
+            owners.setdefault(str(address), set()).update(status_keys)
+    return {
+        address: next(iter(status_keys))
+        for address, status_keys in owners.items()
+        if len(status_keys) == 1
+    }
+
+
+_RESOURCE_OWNERSHIP = _exclusive_resource_ownership()
+
+
+def _classify_resources(resources: list[str]) -> dict[str, list[str]]:
+    classified = {key: [] for key in _STATUS_BY_LOGICAL_COMPONENT.values()}
+    for resource in resources:
+        status_key = _RESOURCE_OWNERSHIP.get(_canonical_state_address(resource))
+        if status_key is not None:
+            classified[status_key].append(resource)
+    return classified
 
 
 def check_terraform_state(
@@ -95,36 +141,15 @@ def check_terraform_state(
     if not resources:
         return _empty_state("not_deployed")
 
-    l1 = _matching(
-        resources,
-        "l1_",
-        ".l1",
-        "dispatcher",
-        "iot_hub",
-        "iothub",
-        "iot_core",
-    )
-    eventing = _matching(
-        resources,
-        ".eventing",
-        "event_runtime",
-        "domain_events",
-        "event_telemetry",
-        "event_control",
-    )
-    l2 = _matching(
-        resources,
-        "l2_",
-        ".l2",
-        "persister",
-        "processor",
-        "event_checker",
-    )
-    hot = _matching(resources, "l3_hot", "hot_", "dynamodb", "cosmos", "firestore")
-    cold = _matching(resources, "l3_cold", "cold_", "timestream")
-    archive = _matching(resources, "l3_archive", "archive_", "glacier")
-    l4 = _matching(resources, "l4_", "twinmaker", "digital_twin")
-    l5 = _matching(resources, "l5_", "grafana")
+    classified = _classify_resources(resources)
+    l1 = classified["l1"]
+    eventing = classified["eventing"]
+    l2 = classified["l2"]
+    hot = classified["hot"]
+    cold = classified["cold"]
+    archive = classified["archive"]
+    l4 = classified["l4"]
+    l5 = classified["l5"]
     return {
         "status": "deployed",
         "l1": {"deployed": bool(l1), "resources": l1},
