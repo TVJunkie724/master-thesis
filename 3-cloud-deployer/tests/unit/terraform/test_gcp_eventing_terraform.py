@@ -91,3 +91,26 @@ def test_gcp_large_bridge_uses_pull_workers_only_for_telemetry_sources():
     assert 'name  = "BRIDGE_SUBSCRIPTION"' in bridge
     assert "from phase8_eventing.gcp.runtime import run_worker; run_worker()" in bridge
     assert 'role         = "roles/pubsub.subscriber"' in bridge
+
+
+def test_gcp_l1_uses_the_resolved_small_medium_and_large_node_profiles():
+    foundation = _source("gcp_six_layer.tf")
+    edge = _source("gcp_six_layer_l1.tf")
+
+    assert (
+        '"dimension.gcp.apache.bifromq-4.0.0-incubating-on-gke-standard.'
+        'resource_count"' in foundation
+    )
+    assert 'local.gcp_six_layer_bifromq_broker_nodes == 12' in foundation
+    assert 'local.gcp_six_layer_bifromq_broker_nodes == 3' in foundation
+    assert 'local.gcp_six_layer_bifromq_integration_nodes == 4' in foundation
+    assert 'local.gcp_six_layer_bifromq_integration_nodes == 1' in foundation
+    assert (
+        'local.gcp_six_layer_large_scenario ? "e2-standard-8" : '
+        '"e2-standard-4"' in foundation
+    )
+    assert (
+        'local.gcp_six_layer_large_scenario ? '
+        '"e2-standard-8" : "e2-standard-2"' in foundation
+    )
+    assert "replicas = local.gcp_six_layer_adapter_replicas" in edge

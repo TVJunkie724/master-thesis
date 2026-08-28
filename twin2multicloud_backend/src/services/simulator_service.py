@@ -43,7 +43,7 @@ _SAFE_FILENAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,191}\.zip$")
 _PROVIDER_CREDENTIAL_CLASSES = {
     "aws": "aws_iot_device_certificate",
     "azure": "azure_iot_hub_device_identity",
-    "gcp": "gcp_pubsub_topic_publisher",
+    "gcp": "gcp_mqtt_deployment_credential",
 }
 logger = logging.getLogger(__name__)
 

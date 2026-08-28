@@ -74,6 +74,8 @@ def initialize_config(project_name=None, device_id=None, config_path=None):
 
     config["endpoint"] = config_data["endpoint"]
     config["topic"] = config_data["topic"]
+    config["command_target_id"] = config_data["command_target_id"]
+    config["command_topic_filter"] = config_data["command_topic_filter"]
     config["device_id"] = config_data["device_id"]
     
     config["cert_path"] = resolve(config_data["cert_path"])

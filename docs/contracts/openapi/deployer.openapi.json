@@ -2376,7 +2376,7 @@
                 "schema": {}
               }
             },
-            "description": "SSE stream with log, error, heartbeat, and done events"
+            "description": "SSE stream with log, warning, terminal error, heartbeat, and done events"
           },
           "403": {
             "description": "Trace belongs to another project"
@@ -3191,7 +3191,7 @@
     },
     "/projects/{project_name}/simulator/{provider}/download": {
       "get": {
-        "description": "**Purpose:** Download a self-contained IoT device simulator for local/Docker use.\n\n**Package contents:**\n- config.json, payloads.json\n- src/: Simulator Python code\n- certificates/ or service_account.json (provider-specific)\n- Dockerfile & docker-compose.yml\n- README.md with setup instructions",
+        "description": "**Purpose:** Download a self-contained IoT device simulator for local/Docker use.\n\n**Package contents:**\n- config.json, payloads.json\n- src/: Simulator Python code\n- provider-specific device credentials and public trust material\n- Dockerfile & docker-compose.yml\n- README.md with setup instructions",
         "operationId": "downloadSimulatorPackage",
         "parameters": [
           {

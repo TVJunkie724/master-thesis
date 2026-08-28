@@ -62,6 +62,15 @@ def test_runtime_has_six_layer_profile_identity():
     assert core.PROFILE == "six-layer-eventing@1"
 
 
+def test_diagnostic_trace_id_is_preserved_for_device_command_delivery():
+    event = {
+        **_processed_event(),
+        "source_sequence": "TRACE-AZURE001",
+    }
+
+    assert runtime._diagnostic_trace_id(event) == "TRACE-AZURE001"
+
+
 def test_remote_event_layer_uses_azure_source_outboxes(monkeypatch):
     telemetry: list[dict[str, object]] = []
     control: list[dict[str, object]] = []

@@ -85,18 +85,18 @@ locals {
     tonumber(lookup(
       var.resolved_component_dimensions,
       "dimension.gcp.apache.bifromq-4.0.0-incubating-on-gke-standard.resource_count",
-      "3",
-    )) > 3
+      "1",
+    )) == 12
   )
   gcp_six_layer_bifromq_broker_nodes = tonumber(lookup(
     var.resolved_component_dimensions,
     "dimension.gcp.apache.bifromq-4.0.0-incubating-on-gke-standard.resource_count",
-    local.gcp_six_layer_large_scenario ? "12" : "3",
+    local.gcp_six_layer_large_scenario ? "12" : "1",
   ))
   gcp_six_layer_bifromq_integration_nodes = tonumber(lookup(
     var.resolved_component_dimensions,
     "dimension.gcp.gcp.ordered-mqtt-pubsub-adapter.node_count",
-    local.gcp_six_layer_large_scenario ? "4" : "0",
+    local.gcp_six_layer_large_scenario ? "4" : "1",
   ))
   gcp_six_layer_gke_zone             = "${var.gcp_region}-b"
   gcp_six_layer_grafana_machine_type = local.gcp_six_layer_large_scenario ? "e2-standard-8" : "e2-standard-4"
@@ -342,14 +342,17 @@ resource "terraform_data" "gcp_six_layer_foundation_guard" {
       condition = (
         !local.gcp_six_layer_l1_enabled ||
         (
+          local.gcp_six_layer_bifromq_broker_nodes == 1 &&
+          local.gcp_six_layer_bifromq_integration_nodes == 1
+          ) || (
           local.gcp_six_layer_bifromq_broker_nodes == 3 &&
-          local.gcp_six_layer_bifromq_integration_nodes == 0
+          local.gcp_six_layer_bifromq_integration_nodes == 1
           ) || (
           local.gcp_six_layer_bifromq_broker_nodes == 12 &&
           local.gcp_six_layer_bifromq_integration_nodes == 4
         )
       )
-      error_message = "GCP Six-layer requires the reviewed 3/0 Small-Medium or 12/4 Large BifroMQ broker/integration node allocation."
+      error_message = "GCP Six-layer requires the PoC 1/1 Small, 3/1 Medium, or reviewed 12/4 Large BifroMQ broker/integration allocation."
     }
   }
 }
@@ -434,8 +437,9 @@ resource "google_storage_bucket" "gcp_six_layer_cloud_build_sources" {
 
 # L1 owns the shared Standard cluster when BifroMQ is selected. The default
 # pool is retained only for L5's one general-workload node; otherwise it is
-# removed. BifroMQ broker and Large-only integration capacity are explicit
-# fixed-count pools, matching the frozen 3/3/12 + 0/0/4 allocation.
+# removed. Small deliberately uses one non-HA broker node and one integration
+# node; Medium retains three brokers with one integration node, and Large keeps
+# the reviewed 12/4 theoretical allocation.
 resource "google_container_cluster" "gcp_apache_bifromq_4_0_0_incubating_on_gke_standard" {
   count    = local.gcp_six_layer_l1_enabled ? 1 : 0
   project  = local.gcp_project_id
@@ -498,9 +502,9 @@ resource "google_container_node_pool" "gcp_apache_bifromq_4_0_0_incubating_on_gk
   }
 
   node_config {
-    machine_type = "e2-standard-8"
+    machine_type = local.gcp_six_layer_large_scenario ? "e2-standard-8" : "e2-standard-4"
     disk_type    = "pd-balanced"
-    disk_size_gb = 100
+    disk_size_gb = local.gcp_six_layer_large_scenario ? 100 : 50
     oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
     labels = merge(local.gcp_six_layer_labels, {
       workload = "bifromq-broker"
@@ -535,9 +539,9 @@ resource "google_container_node_pool" "gcp_gcp_ordered_mqtt_pubsub_adapter" {
   }
 
   node_config {
-    machine_type = "e2-standard-8"
+    machine_type = local.gcp_six_layer_large_scenario ? "e2-standard-8" : "e2-standard-2"
     disk_type    = "pd-balanced"
-    disk_size_gb = 100
+    disk_size_gb = local.gcp_six_layer_large_scenario ? 100 : 30
     oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
     labels = merge(local.gcp_six_layer_labels, {
       workload = "bifromq-integration"

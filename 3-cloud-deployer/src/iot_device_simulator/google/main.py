@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GCP IoT Device Simulator - Main entry point.
+GCP Six-layer MQTT Device Simulator - Main entry point.
 
 Usage:
     python main.py --project <project_name>
@@ -46,22 +46,23 @@ def get_config_path(project_name: str, device_id: str = None) -> str:
 def print_menu():
     """Display the interactive menu."""
     print("\n" + "=" * 50)
-    print("GCP IoT Device Simulator")
+    print("GCP Six-layer MQTT Device Simulator")
     print("=" * 50)
     print("1. Send next payload from payloads.json")
     print("2. Send all payloads")
     print("3. Show current configuration")
-    print("4. Exit")
+    print("4. Wait for one device command")
+    print("5. Exit")
     print("=" * 50)
 
 
 def show_config():
     """Display current configuration."""
     print("\nCurrent Configuration:")
-    print(f"  Project ID: {globals.config.project_id}")
-    print(f"  Topic Name: {globals.config.topic_name}")
+    print(f"  MQTT Endpoint: {globals.config.endpoint}:{globals.config.port}")
     print(f"  Device ID: {globals.config.device_id}")
-    print(f"  Service Account Key: {globals.config.service_account_key_path}")
+    print(f"  Telemetry Topic: {globals.config.telemetry_topic}")
+    print(f"  Command Topic: {globals.config.command_topic}")
     print(f"  Payload Path: {globals.config.payload_path}")
 
 
@@ -90,7 +91,10 @@ def interactive_mode():
             send_all_payloads()
         elif choice == "3":
             show_config()
-        elif choice == "4" or choice.lower() == "exit":
+        elif choice == "4":
+            if not transmission.listen_for_command():
+                print("No command received before the bounded timeout.")
+        elif choice == "5" or choice.lower() == "exit":
             print("Exiting...")
             break
         else:

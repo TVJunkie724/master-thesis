@@ -78,7 +78,7 @@ def _canonical_bytes(value: Mapping[str, Any]) -> bytes:
     ).encode("utf-8")
 
 
-def _diagnostic_checkpoint(event: Mapping[str, Any]) -> None:
+def _diagnostic_trace_id(event: Mapping[str, Any]) -> str | None:
     payload = event.get("payload")
     candidates = (
         event.get("trace_id"),
@@ -86,7 +86,7 @@ def _diagnostic_checkpoint(event: Mapping[str, Any]) -> None:
         payload.get("trace_id") if isinstance(payload, Mapping) else None,
         payload.get("source_sequence") if isinstance(payload, Mapping) else None,
     )
-    trace_id = next(
+    return next(
         (
             value
             for value in candidates
@@ -94,6 +94,10 @@ def _diagnostic_checkpoint(event: Mapping[str, Any]) -> None:
         ),
         None,
     )
+
+
+def _diagnostic_checkpoint(event: Mapping[str, Any]) -> None:
+    trace_id = _diagnostic_trace_id(event)
     if trace_id is None:
         return
     event_type = str(event.get("event_type") or "unknown")
@@ -255,13 +259,20 @@ def _deliver_control(event: Mapping[str, Any]) -> bool:
     device_id = payload.get("device_id") or event.get("source_id")
     if not isinstance(device_id, str) or not device_id:
         raise DeliveryError("INVALID_COMMAND_DEVICE")
+    thing_prefix = _required_environment("IOT_THING_PREFIX")
     response = _client("iot-jobs-data").start_command_execution(
         targetArn=(
             f"arn:aws:iot:{_required_environment('AWS_REGION')}:"
-            f"{_required_environment('AWS_ACCOUNT_ID')}:thing/{device_id}"
+            f"{_required_environment('AWS_ACCOUNT_ID')}:"
+            f"thing/{thing_prefix}-{device_id}"
         ),
         commandArn=_required_environment("DEVICE_COMMAND_ARN"),
-        parameters={"message": {"S": str(payload.get("message") or "Rule matched")}},
+        parameters={
+            "message": {"S": str(payload.get("message") or "Rule matched")},
+            "trace_id": {
+                "S": _diagnostic_trace_id(event) or str(event["event_id"])
+            },
+        },
         executionTimeoutSeconds=300,
         clientToken=str(event["event_id"])[:64],
     )

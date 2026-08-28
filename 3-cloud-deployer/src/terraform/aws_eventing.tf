@@ -363,6 +363,7 @@ resource "aws_lambda_function" "event_runtime" {
       CONTROL_FAILURE_QUEUE_URL = aws_sqs_queue.event_control_dlq[0].url
       CONTROL_TOPIC_ARN         = aws_sns_topic.domain_control[0].arn
       DEVICE_COMMAND_ARN        = try(awscc_iot_command.aws_aws_iot_commands[0].command_arn, "")
+      IOT_THING_PREFIX          = var.digital_twin_name
       IOT_COMMANDS_ENDPOINT     = try(data.aws_iot_endpoint.main[0].endpoint_address, "")
       MAX_RECEIVE_COUNT         = tostring(var.aws_event_max_receive_count)
       PROCESSING_FUNCTION_NAME  = local.aws_event_l2_local ? aws_lambda_function.aws_aws_lambda[0].function_name : ""

@@ -41,6 +41,7 @@ python src/main.py
 
 ## Commands
 - `send` - Send next payload (auto-routes to correct device)
+- `listen` - Wait up to five minutes for one IoT Hub cloud-to-device command
 - `help` - Show commands
 - `exit` - Exit
 

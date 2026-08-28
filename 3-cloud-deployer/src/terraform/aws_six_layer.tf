@@ -457,12 +457,19 @@ resource "awscc_iot_command" "aws_aws_iot_commands" {
   display_name = "${var.digital_twin_name} PoC device command"
   namespace    = "AWS-IoT"
   payload_template = jsonencode({
-    message = "$${aws:iot:commandexecution::parameter:message}"
+    message  = "$${aws:iot:commandexecution::parameter:message}"
+    trace_id = "$${aws:iot:commandexecution::parameter:trace_id}"
   })
-  mandatory_parameters = [{
-    name = "message"
-    type = "STRING"
-  }]
+  mandatory_parameters = [
+    {
+      name = "message"
+      type = "STRING"
+    },
+    {
+      name = "trace_id"
+      type = "STRING"
+    }
+  ]
 }
 
 # -----------------------------------------------------------------------------
@@ -506,6 +513,7 @@ resource "aws_lambda_function" "aws_aws_lambda" {
       ACTION_FUNCTION_NAME              = try(aws_lambda_function.aws_six_layer_extension_action[0].function_name, "")
       NOTIFICATION_STATE_MACHINE_ARN    = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.aws_six_layer_name}-six-event-workflow"
       DEVICE_COMMAND_ARN                = try(awscc_iot_command.aws_aws_iot_commands[0].command_arn, "")
+      IOT_THING_PREFIX                  = var.digital_twin_name
       IOT_COMMANDS_ENDPOINT             = try(data.aws_iot_endpoint.main[0].endpoint_address, "")
       AWS_ACCOUNT_ID                    = data.aws_caller_identity.current[0].account_id
       EVENT_LAYER_PROVIDER              = var.event_layer_provider
@@ -662,6 +670,7 @@ resource "aws_lambda_function" "aws_six_layer_domain_consumer" {
       ACTION_FUNCTION_NAME              = try(aws_lambda_function.aws_six_layer_extension_action[0].function_name, "")
       NOTIFICATION_STATE_MACHINE_ARN    = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.aws_six_layer_name}-six-event-workflow"
       DEVICE_COMMAND_ARN                = try(awscc_iot_command.aws_aws_iot_commands[0].command_arn, "")
+      IOT_THING_PREFIX                  = var.digital_twin_name
       IOT_COMMANDS_ENDPOINT             = try(data.aws_iot_endpoint.main[0].endpoint_address, "")
       AWS_ACCOUNT_ID                    = data.aws_caller_identity.current[0].account_id
       EVENT_LAYER_PROVIDER              = var.event_layer_provider

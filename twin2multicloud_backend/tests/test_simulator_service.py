@@ -69,7 +69,7 @@ def _archive(provider: str = "gcp") -> DeployerSimulatorArchive:
     classes = {
         "aws": "aws_iot_device_certificate",
         "azure": "azure_iot_hub_device_identity",
-        "gcp": "gcp_pubsub_topic_publisher",
+        "gcp": "gcp_mqtt_deployment_credential",
     }
     return DeployerSimulatorArchive(
         content=_zip_bytes(),
@@ -261,7 +261,7 @@ async def test_download_rejects_mismatched_credential_class_metadata(db_session)
             content=archive.content,
             filename=archive.filename,
             provider=archive.provider,
-            credential_class="gcp_pubsub_topic_publisher",
+            credential_class="gcp_mqtt_deployment_credential",
         )
 
     with pytest.raises(DownstreamServiceError, match="credential metadata"):

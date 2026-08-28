@@ -4,12 +4,10 @@ services:
   gcp-iot-simulator:
     build: .
     container_name: gcp-iot-simulator-{{device_id}}
-    environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/service_account.json
     volumes:
       - ./config.json:/app/config.json:ro
       - ./payloads.json:/app/payloads.json:ro
-      - ./service_account.json:/app/service_account.json:ro
+      - ./server-ca.pem:/app/server-ca.pem:ro
     restart: unless-stopped
     stdin_open: true
     tty: true

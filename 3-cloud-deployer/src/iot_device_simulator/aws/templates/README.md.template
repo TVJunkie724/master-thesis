@@ -41,6 +41,7 @@ python src/main.py
 
 ## Commands
 - `send` - Send next payload (auto-routes to correct device)
+- `listen` - Wait up to five minutes for one AWS IoT Command and acknowledge it
 - `help` - Show commands
 - `exit` - Exit
 

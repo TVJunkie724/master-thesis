@@ -44,7 +44,12 @@ def _active_phase8_profile(context: "DeploymentContext") -> str:
 
 
 def _simulator_iot_policy(
-    *, region: str, account_id: str, device_id: str, topic: str
+    *,
+    region: str,
+    account_id: str,
+    device_id: str,
+    topic: str,
+    command_target_id: str,
 ) -> dict:
     """Return the exact runtime permissions needed by one simulator device."""
     return {
@@ -61,6 +66,33 @@ def _simulator_iot_policy(
                 "Effect": "Allow",
                 "Action": "iot:Publish",
                 "Resource": f"arn:aws:iot:{region}:{account_id}:topic/{topic}",
+            },
+            {
+                "Sid": "SubscribeToDeviceCommands",
+                "Effect": "Allow",
+                "Action": "iot:Subscribe",
+                "Resource": (
+                    f"arn:aws:iot:{region}:{account_id}:topicfilter/"
+                    f"$aws/commands/things/{command_target_id}/executions/*/request/json"
+                ),
+            },
+            {
+                "Sid": "ReceiveDeviceCommands",
+                "Effect": "Allow",
+                "Action": "iot:Receive",
+                "Resource": (
+                    f"arn:aws:iot:{region}:{account_id}:topic/"
+                    f"$aws/commands/things/{command_target_id}/executions/*/request/json"
+                ),
+            },
+            {
+                "Sid": "AcknowledgeDeviceCommands",
+                "Effect": "Allow",
+                "Action": "iot:Publish",
+                "Resource": (
+                    f"arn:aws:iot:{region}:{account_id}:topic/"
+                    f"$aws/commands/things/{command_target_id}/executions/*/response/json"
+                ),
             },
         ],
     }
@@ -600,6 +632,7 @@ def _register_iot_device(
                 account_id=account_id,
                 device_id=device_id,
                 topic=topic,
+                command_target_id=thing_name,
             ),
         )
         iot.attach_thing_principal(thingName=thing_name, principal=certificate_arn)
@@ -673,6 +706,11 @@ def _generate_aws_simulator_config(
     config_data = {
         "endpoint": iot_endpoint,
         "topic": f"dt/{digital_twin_name}/{device_id}/telemetry",
+        "command_target_id": f"{digital_twin_name}-{device_id}",
+        "command_topic_filter": (
+            f"$aws/commands/things/{digital_twin_name}-{device_id}/"
+            "executions/+/request/json"
+        ),
         "device_id": device_id,
         "cert_path": f"../../../iot_devices_auth/{device_id}/certificate.pem.crt",
         "key_path": f"../../../iot_devices_auth/{device_id}/private.pem.key",
@@ -685,7 +723,7 @@ def _generate_aws_simulator_config(
         "payload_path": "../../payloads.json",
         "credential_class": "aws_iot_device_certificate",
         "credential_contract_version": 1,
-        "permission_scope": "exact_client_and_telemetry_topic",
+        "permission_scope": "exact_client_telemetry_and_command_topics",
     }
     target = (
         project_path

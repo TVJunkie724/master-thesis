@@ -1,147 +1,208 @@
-"""
-GCP IoT Device Simulator - Message transmission via Pub/Sub.
+"""GCP Six-layer device transmission through the authenticated BifroMQ edge."""
 
-Note: GCP uses Pub/Sub, not MQTT (GCP IoT Core deprecated Jan 2023).
-Uses service account credentials for authentication.
-"""
+from __future__ import annotations
+
+from datetime import datetime, timezone
 import json
 import os
-from datetime import datetime, timezone
+import re
+import threading
 
 from . import globals
 
-# Lazy import to avoid issues in development environments without the SDK
-pubsub_v1 = None
-service_account = None
 
 payload_index = 0
+_COMMAND_TOPIC = re.compile(
+    r"^devices/(?P<device_id>[A-Za-z0-9][A-Za-z0-9._-]{0,127})/commands$"
+)
+_TRACE_ID = re.compile(r"^(?:TRACE|VERIFY)-[A-Z0-9]{8,48}$")
+
+
+def _trace_id(value: dict | None) -> str | None:
+    if not isinstance(value, dict):
+        return None
+    candidates = (value.get("trace_id"), value.get("source_sequence"))
+    return next(
+        (
+            candidate
+            for candidate in candidates
+            if isinstance(candidate, str) and _TRACE_ID.fullmatch(candidate)
+        ),
+        None,
+    )
+
+
+def _checkpoint(stage: str, trace_id: str | None, event_id: str | None) -> None:
+    if trace_id is None:
+        return
+    print(
+        "T2MC_CHECKPOINT "
+        + json.dumps(
+            {
+                "schema_version": "diagnostic-checkpoint.v1",
+                "trace_id": trace_id,
+                "stage": stage,
+                "provider": "gcp",
+                "component": "simulator",
+                "status": "passed",
+                "observed_at": datetime.now(timezone.utc).isoformat().replace(
+                    "+00:00", "Z"
+                ),
+                "event_id": event_id or trace_id,
+                "event_type": "device.command.requested.v1"
+                if stage == "simulator_command_received"
+                else "telemetry.received.v1",
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    )
+
+
+def _resolved_config(config_data: dict, config_dir: str) -> dict:
+    def resolve(path: str) -> str:
+        return (
+            path
+            if os.path.isabs(path)
+            else os.path.normpath(os.path.join(config_dir, path))
+        )
+
+    return {
+        "endpoint": config_data["endpoint"],
+        "port": int(config_data.get("port", 8883)),
+        "device_id": config_data["device_id"],
+        "digital_twin_name": config_data.get("digital_twin_name", ""),
+        "username": config_data["username"],
+        "password": config_data["password"],
+        "telemetry_topic": config_data["telemetry_topic"],
+        "command_topic": config_data["command_topic"],
+        "server_ca_path": resolve(
+            config_data.get("server_ca_path", "server-ca.pem")
+        ),
+        "payload_path": resolve(config_data.get("payload_path", "../payloads.json")),
+    }
 
 
 def load_config_for_device(device_id: str) -> dict:
-    """
-    Load device-specific config for standalone multi-device mode.
-    
-    Resolves either integrated generated configs or standalone package configs.
-    Unknown device identities fail closed instead of reusing default credentials.
-    """
-    if not device_id:
-        return {
-            "project_id": globals.config.project_id,
-            "topic_name": globals.config.topic_name,
-            "device_id": globals.config.device_id,
-            "service_account_key_path": globals.config.service_account_key_path,
-            "payload_path": globals.config.payload_path
-        }
-    
+    """Load exact per-device MQTT metadata; unknown identities fail closed."""
     device_config_path = globals.get_device_config_path(device_id)
-    if os.path.exists(device_config_path):
-        with open(device_config_path, 'r') as f:
-            config_data = json.load(f)
-        
-        # Resolve paths relative to device config directory
-        config_dir = os.path.dirname(device_config_path)
-        def resolve(path):
-            if os.path.isabs(path):
-                return path
-            return os.path.normpath(os.path.join(config_dir, path))
-        
-        return {
-            "project_id": config_data["project_id"],
-            "topic_name": config_data["topic_name"],
-            "device_id": config_data["device_id"],
-            "service_account_key_path": resolve(config_data.get("service_account_key_path", "../service_account.json")),
-            "payload_path": resolve(config_data.get("payload_path", "../payloads.json"))
-        }
-    
-    raise ValueError(f"No simulator configuration found for device '{device_id}'")
+    if not os.path.exists(device_config_path):
+        raise ValueError(f"No simulator configuration found for device '{device_id}'")
+    with open(device_config_path, encoding="utf-8") as handle:
+        return _resolved_config(json.load(handle), os.path.dirname(device_config_path))
 
 
-def _get_publisher(config=None):
-    """
-    Get a Pub/Sub publisher client.
-    
-    Args:
-        config: Optional config dict. If None, uses globals.config.
-    
-    Returns:
-        Configured PublisherClient instance.
-    """
-    global pubsub_v1, service_account
-    
-    if pubsub_v1 is None:
-        from google.cloud import pubsub_v1 as ps
-        from google.oauth2 import service_account as sa
-        pubsub_v1 = ps
-        service_account = sa
-    
-    # Get service account key path from config or globals
-    if config:
-        sa_key_path = config["service_account_key_path"]
-    else:
-        sa_key_path = globals.config.service_account_key_path
-    
-    credentials = service_account.Credentials.from_service_account_file(sa_key_path)
-    return pubsub_v1.PublisherClient(credentials=credentials)
+def _active_config(payload: dict | None = None) -> dict:
+    current = {
+        "endpoint": globals.config.endpoint,
+        "port": globals.config.port,
+        "device_id": globals.config.device_id,
+        "digital_twin_name": globals.config.digital_twin_name,
+        "username": globals.config.username,
+        "password": globals.config.password,
+        "telemetry_topic": globals.config.telemetry_topic,
+        "command_topic": globals.config.command_topic,
+        "server_ca_path": globals.config.server_ca_path,
+        "payload_path": globals.config.payload_path,
+    }
+    requested = payload.get("iotDeviceId") if payload else None
+    if requested and requested != current["device_id"]:
+        return load_config_for_device(requested)
+    return current
 
 
-def send_mqtt(payload: dict, device_config=None):
-    """
-    Send a single payload to GCP Pub/Sub topic.
-    
-    Args:
-        payload: Dictionary containing the telemetry data.
-        device_config: Optional device-specific config. If None, auto-detects based on iotDeviceId.
-    """
-    # Get config - either device-specific or global
-    if device_config is None:
-        payload_device_id = payload.get("iotDeviceId")
-        if payload_device_id and payload_device_id != globals.config.device_id:
-            device_config = load_config_for_device(payload_device_id)
-    
-    if device_config:
-        device_id = device_config["device_id"]
-        project_id = device_config["project_id"]
-        topic_name = device_config["topic_name"]
-    else:
-        device_id = globals.config.device_id
-        project_id = globals.config.project_id
-        topic_name = globals.config.topic_name
-        device_config = None  # Will use globals in _get_publisher
-    
-    # Info message about device routing
-    payload_device_id = payload.get("iotDeviceId")
-    if payload_device_id and payload_device_id != device_id:
-        print(f"INFO: Routing payload for '{payload_device_id}' via device '{device_id}'")
+def _client(device_config: dict, *, suffix: str):
+    import paho.mqtt.client as mqtt
 
-    publisher = _get_publisher(device_config)
-    topic_path = publisher.topic_path(project_id, topic_name)
-    
-    # Publish message
-    message_data = json.dumps(payload).encode('utf-8')
-    future = publisher.publish(topic_path, message_data)
-    message_id = future.result()  # Wait for publish to complete
-    
-    print(f"Message sent! Topic: {topic_path}, Message ID: {message_id}, Payload: {payload}")
+    client = mqtt.Client(
+        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+        client_id=f"twin2multicloud-{device_config['device_id']}-{suffix}",
+        clean_session=True,
+        protocol=mqtt.MQTTv311,
+    )
+    client.username_pw_set(device_config["username"], device_config["password"])
+    client.tls_set(ca_certs=device_config["server_ca_path"])
+    return client
 
 
-def send():
-    """
-    Send the next payload from the payloads.json file.
-    
-    Cycles through payloads sequentially, adding timestamps if missing.
-    """
+def send_mqtt(payload: dict, device_config: dict | None = None) -> None:
+    """Publish one QoS-1 telemetry payload through the deployed MQTT edge."""
+    device_config = device_config or _active_config(payload)
+    device_id = device_config["device_id"]
+    supplied = payload.get("iotDeviceId") or payload.get("device_id")
+    if supplied not in {None, device_id}:
+        raise ValueError("Payload device identity does not match MQTT credentials")
+    payload["iotDeviceId"] = device_id
+    client = _client(device_config, suffix="telemetry")
+    try:
+        client.connect(device_config["endpoint"], device_config["port"], keepalive=60)
+        client.loop_start()
+        publication = client.publish(
+            device_config["telemetry_topic"],
+            json.dumps(payload, separators=(",", ":"), sort_keys=True),
+            qos=1,
+            retain=False,
+        )
+        publication.wait_for_publish(timeout=15)
+        if not publication.is_published():
+            raise RuntimeError("MQTT telemetry publish did not complete")
+        _checkpoint("simulator_sent", _trace_id(payload), payload.get("event_id"))
+    finally:
+        client.loop_stop()
+        client.disconnect()
+    print(
+        f"Message sent! Device: {device_id}, "
+        f"Topic: {device_config['telemetry_topic']}"
+    )
+
+
+def listen_for_command(timeout_seconds: float = 300) -> bool:
+    """Wait for one command and emit bounded local receipt evidence."""
+    device_config = _active_config()
+    received = threading.Event()
+    client = _client(device_config, suffix="commands")
+
+    def on_connect(active_client, _userdata, _flags, reason_code, _properties=None):
+        if reason_code == 0:
+            active_client.subscribe(device_config["command_topic"], qos=1)
+
+    def on_message(_client, _userdata, message):
+        matched = _COMMAND_TOPIC.fullmatch(message.topic)
+        if matched is None or matched.group("device_id") != device_config["device_id"]:
+            return
+        value = json.loads(message.payload.decode("utf-8"))
+        event_id = value.get("event_id") if isinstance(value, dict) else None
+        _checkpoint(
+            "simulator_command_received",
+            _trace_id(value),
+            event_id,
+        )
+        received.set()
+
+    client.on_connect = on_connect
+    client.on_message = on_message
+    try:
+        client.connect(device_config["endpoint"], device_config["port"], keepalive=60)
+        client.loop_start()
+        return received.wait(timeout_seconds)
+    finally:
+        client.loop_stop()
+        client.disconnect()
+
+
+def send() -> None:
     global payload_index
-
-    with open(globals.config.payload_path, "r", encoding="utf-8") as f:
-        payloads = json.load(f)
-
+    with open(globals.config.payload_path, encoding="utf-8") as handle:
+        payloads = json.load(handle)
+    if not payloads:
+        print("No payloads found in payloads.json")
+        return
     if payload_index >= len(payloads):
         payload_index = 0
-
-    payload = payloads[payload_index]
+    payload = payloads[payload_index].copy()
     payload_index += 1
-
-    if "time" not in payload or payload["time"] == "":
-        payload["time"] = datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
-
+    if not payload.get("time"):
+        payload["time"] = datetime.now(timezone.utc).isoformat(
+            timespec="milliseconds"
+        ).replace("+00:00", "Z")
     send_mqtt(payload)

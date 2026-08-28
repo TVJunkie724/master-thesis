@@ -129,7 +129,7 @@ async def simulator_stream(
         "**Package contents:**\n"
         "- config.json, payloads.json\n"
         "- src/: Simulator Python code\n"
-        "- certificates/ or service_account.json (provider-specific)\n"
+        "- provider-specific device credentials and public trust material\n"
         "- Dockerfile & docker-compose.yml\n"
         "- README.md with setup instructions"
     ),
@@ -151,8 +151,7 @@ async def download_simulator_package(
     - config.json: Simulator configuration
     - payloads.json: IoT device payloads
     - src/: Simulator source code
-    - certificates/: Device certificates (AWS only)
-    - service_account.json: Service account key (GCP only)
+    - provider-specific device credentials and public trust material
     - Dockerfile & docker-compose.yml: Container setup
     - README.md: Usage instructions
     """

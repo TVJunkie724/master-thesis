@@ -295,6 +295,43 @@ def test_single_cloud_selects_exact_event_bundle_and_no_bridge(provider, size):
         )
 
 
+@pytest.mark.parametrize(
+    ("size", "broker_nodes", "adapter_nodes"),
+    (("small", 1, 1), ("medium", 3, 1), ("large", 12, 4)),
+)
+def test_gcp_event_edge_dimensions_match_the_selected_runtime_profile(
+    size, broker_nodes, adapter_nodes
+):
+    specification = _rds("gcp", size)
+    selections = specification["component_selections"]
+    broker = next(
+        item
+        for item in selections
+        if "bifromq" in item["implementation_component_id"]
+    )
+    adapter = next(
+        item
+        for item in selections
+        if item["implementation_component_id"]
+        == "gcp.ordered-mqtt-pubsub-adapter"
+    )
+
+    def dimensions(selection):
+        return {
+            item["dimension_id"].rsplit(".", 1)[-1]: item["value"]
+            for item in selection["dimensions"]
+        }
+
+    broker_dimensions = dimensions(broker)
+    adapter_dimensions = dimensions(adapter)
+    assert broker_dimensions["resource_count"] == broker_nodes
+    assert broker_dimensions["node_count"] == broker_nodes
+    assert broker_dimensions["node_hours"] == broker_nodes * 730
+    assert adapter_dimensions["resource_count"] == 1
+    assert adapter_dimensions["node_count"] == adapter_nodes
+    assert adapter_dimensions["node_hours"] == adapter_nodes * 730
+
+
 @pytest.mark.parametrize("provider", ("aws", "azure", "gcp"))
 def test_real_single_cloud_optimizer_prices_complete_profile(provider):
     pricing, evidence = _pricing()

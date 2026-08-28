@@ -165,6 +165,7 @@ def test_control_delivery_uses_local_iot_command_target(monkeypatch):
     sns_client.publish.return_value = {"MessageId": "outcome-1"}
     monkeypatch.setenv("AWS_REGION", "eu-central-1")
     monkeypatch.setenv("AWS_ACCOUNT_ID", "123456789012")
+    monkeypatch.setenv("IOT_THING_PREFIX", "twin-one")
     monkeypatch.setenv(
         "DEVICE_COMMAND_ARN", "arn:aws:iot:eu-central-1:123456789012:command/poc"
     )
@@ -176,16 +177,15 @@ def test_control_delivery_uses_local_iot_command_target(monkeypatch):
         lambda service: sns_client if service == "sns" else iot_client,
     )
 
-    result = runtime.lambda_handler(
-        _sqs(_event("device.command.requested.v1")),
-        None,
-    )
+    event = _event("device.command.requested.v1")
+    event["source_sequence"] = "TRACE-AWSCMD01"
+    result = runtime.lambda_handler(_sqs(event), None)
 
     assert result["accepted"] == 1
     assert result["batchItemFailures"] == []
-    assert iot_client.start_command_execution.call_args.kwargs["targetArn"].endswith(
-        ":thing/device-1"
-    )
+    command = iot_client.start_command_execution.call_args.kwargs
+    assert command["targetArn"].endswith(":thing/twin-one-device-1")
+    assert command["parameters"]["trace_id"] == {"S": "TRACE-AWSCMD01"}
     outcome = json.loads(sns_client.publish.call_args.kwargs["Message"])
     assert outcome["event_type"] == "device.command.outcome.v1"
     assert outcome["payload"]["execution_id"] == "accepted"
@@ -216,6 +216,7 @@ def test_exhausted_sqs_delivery_is_acknowledged_only_after_control_dlq_write(
     sqs_client.send_message.return_value = {"MessageId": "failure-1"}
     monkeypatch.setenv("AWS_REGION", "eu-central-1")
     monkeypatch.setenv("AWS_ACCOUNT_ID", "123456789012")
+    monkeypatch.setenv("IOT_THING_PREFIX", "twin-one")
     monkeypatch.setenv(
         "DEVICE_COMMAND_ARN", "arn:aws:iot:eu-central-1:123456789012:command/poc"
     )

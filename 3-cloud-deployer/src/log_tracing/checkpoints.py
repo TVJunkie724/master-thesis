@@ -11,16 +11,21 @@ from typing import Any, Mapping
 CHECKPOINT_PREFIX = "T2MC_CHECKPOINT "
 CHECKPOINT_STAGES = frozenset(
     {
+        "simulator_sent",
         "l1_accepted",
         "event_layer_durable",
         "l2_started",
         "l2_completed",
         "l3_hot_persisted",
+        "l3_cool_persisted",
+        "l3_archive_persisted",
         "l4_queryable",
         "l5_queryable",
         "command_issued",
         "event_layer_command_durable",
         "l1_command_published",
+        "simulator_command_received",
+        "simulator_outcome_sent",
         "outcome_event_durable",
         "outcome_persisted",
         "outcome_queryable",

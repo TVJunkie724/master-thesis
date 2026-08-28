@@ -1045,6 +1045,7 @@ def test_sns_command_request_uses_iot_commands_and_persists_outcome(monkeypatch)
     dynamo = _Dynamo()
     monkeypatch.setenv("DEVICE_COMMAND_ARN", "arn:aws:iot:eu:test:command/cool-down")
     monkeypatch.setenv("AWS_ACCOUNT_ID", "123456789012")
+    monkeypatch.setenv("IOT_THING_PREFIX", "factory")
     monkeypatch.setenv("AWS_REGION", "eu-central-1")
     monkeypatch.setenv("HOT_PROVIDER", "aws")
     monkeypatch.setenv("RAW_TABLE_NAME", "raw")
@@ -1075,9 +1076,14 @@ def test_sns_command_request_uses_iot_commands_and_persists_outcome(monkeypatch)
 
     assert result["accepted"] == 1
     execution = commands.executions[0]
-    assert execution["targetArn"].endswith(":thing/device-1")
-    assert execution["parameters"] == {"message": {"S": "cool-down"}}
+    assert execution["targetArn"].endswith(":thing/factory-device-1")
+    assert execution["parameters"] == {
+        "message": {"S": "cool-down"},
+        "trace_id": {"S": request["event_id"]},
+    }
     assert dynamo.puts[0]["Item"]["event_type"]["S"] == "device.command.outcome.v1"
+    stored = json.loads(dynamo.puts[0]["Item"]["payload_json"]["S"])
+    assert stored["payload"]["execution_id"] == "execution-1"
 
 
 def test_step_function_callback_persists_typed_workflow_outcome(monkeypatch):

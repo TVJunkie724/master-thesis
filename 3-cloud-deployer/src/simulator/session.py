@@ -37,9 +37,9 @@ _MODULES = {
     "google": "src.iot_device_simulator.google.main",
 }
 _COMMANDS = {
-    "aws": frozenset({"send", "help", "exit"}),
-    "azure": frozenset({"send", "help", "exit"}),
-    "google": frozenset({"1", "2", "3", "4", "exit"}),
+    "aws": frozenset({"send", "listen", "help", "exit"}),
+    "azure": frozenset({"send", "listen", "help", "exit"}),
+    "google": frozenset({"1", "2", "3", "4", "5", "exit"}),
 }
 
 
@@ -171,9 +171,11 @@ def _validate_config(config_path: Path, device_id: str, provider: str) -> None:
         raise SimulatorSessionInvalid("Simulator config path is not a regular file.")
     if config_path.stat().st_size > MAX_CONFIG_BYTES:
         raise SimulatorSessionInvalid("Simulator config exceeds its size limit.")
-    if provider == "azure" and stat.S_IMODE(config_path.stat().st_mode) & 0o077:
+    if provider in {"azure", "google"} and (
+        stat.S_IMODE(config_path.stat().st_mode) & 0o077
+    ):
         raise SimulatorSessionInvalid(
-            "Azure simulator config permissions are too broad."
+            "Simulator config permissions are too broad."
         )
     try:
         config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -344,7 +346,7 @@ class SimulatorSessionRunner:
                 continue
             process.stdin.write(f"{command}\n".encode())
             await process.stdin.drain()
-            if command in {"exit", "4"}:
+            if command in {"exit", "5"}:
                 return
 
     async def _wait_for_exit(self) -> None:

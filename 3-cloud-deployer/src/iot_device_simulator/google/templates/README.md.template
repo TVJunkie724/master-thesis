@@ -6,14 +6,14 @@
 
 ## Multi-Device Support
 
-This simulator automatically routes each payload to the correct device credentials
+This simulator automatically routes each payload to the correct MQTT device config
 based on the `iotDeviceId` field in your payloads.
 
 ### How it works:
 1. Your `payloads.json` contains payloads with `iotDeviceId` fields
 2. When you run `send`, the simulator reads the next payload
 3. It looks up the matching config in `configs/{iotDeviceId}/`
-4. Uses that device's service account to publish to Pub/Sub
+4. Publishes through the authenticated TLS BifroMQ edge selected for GCP L1
 
 ### Example payloads.json:
 ```json
@@ -43,7 +43,8 @@ python -m src.main
 - `1` - Send next payload (auto-routes to correct device)
 - `2` - Send all payloads
 - `3` - Show the active configuration
-- `4` or `exit` - Exit
+- `4` - Wait for one cloud-to-device command and print receipt evidence
+- `5` or `exit` - Exit
 
 ## File Structure
 ```
@@ -54,12 +55,12 @@ python -m src.main
 │   └── device-2/
 │       └── ...
 ├── payloads.json         # Your IoT payloads
-├── service_account.json  # GCP service account key
+├── server-ca.pem         # Public deployment-scoped MQTT server certificate
 └── src/                  # Simulator code
 ```
 
 ## Security Warning
 
-⚠️ **IMPORTANT:** This package contains a GCP service account key file.
+⚠️ **IMPORTANT:** The config files contain a deployment-scoped MQTT password.
 - Never commit to version control
 - Keep secure and rotate regularly

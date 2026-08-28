@@ -15,11 +15,59 @@ else:  # Standalone package executes this module directly.
     import globals
 import os
 import json
+import re
+import threading
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 from datetime import datetime, timezone
 
 
 payload_index = 0
+_COMMAND_TOPIC = re.compile(
+    r"^\$aws/commands/things/(?P<target>[A-Za-z0-9._:-]{1,128})/"
+    r"executions/(?P<execution>[A-Za-z0-9._:-]{1,128})/request/json$"
+)
+_TRACE_ID = re.compile(r"^(?:TRACE|VERIFY)-[A-Z0-9]{8,48}$")
+
+
+def _trace_id(value):
+    if not isinstance(value, dict):
+        return None
+    candidates = (value.get("trace_id"), value.get("source_sequence"))
+    return next(
+        (
+            candidate
+            for candidate in candidates
+            if isinstance(candidate, str) and _TRACE_ID.fullmatch(candidate)
+        ),
+        None,
+    )
+
+
+def _checkpoint(stage, trace_id, event_id):
+    if trace_id is None:
+        return
+    print(
+        "T2MC_CHECKPOINT "
+        + json.dumps(
+            {
+                "schema_version": "diagnostic-checkpoint.v1",
+                "trace_id": trace_id,
+                "stage": stage,
+                "provider": "aws",
+                "component": "simulator",
+                "status": "passed",
+                "observed_at": datetime.now(timezone.utc).isoformat().replace(
+                    "+00:00", "Z"
+                ),
+                "event_id": event_id or trace_id,
+                "event_type": "device.command.requested.v1"
+                if stage == "simulator_command_received"
+                else "telemetry.received.v1",
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    )
 
 
 def load_config_for_device(device_id: str) -> dict:
@@ -47,6 +95,8 @@ def load_config_for_device(device_id: str) -> dict:
         return {
             "endpoint": config_data["endpoint"],
             "topic": config_data["topic"],
+            "command_target_id": config_data["command_target_id"],
+            "command_topic_filter": config_data["command_topic_filter"],
             "device_id": config_data["device_id"],
             "cert_path": resolve(config_data["cert_path"]),
             "key_path": resolve(config_data["key_path"]),
@@ -89,7 +139,65 @@ def send_mqtt(payload, device_config=None):
     client.publish(topic, json.dumps(payload), 1)
     client.disconnect()
 
-    print(f"Message sent! Topic: {topic}, Payload: {payload}")
+    _checkpoint("simulator_sent", _trace_id(payload), payload.get("event_id"))
+    print(f"Message sent! Device: {iot_device_id}, Topic: {topic}")
+
+
+def listen_for_command(timeout_seconds=300):
+    """Wait for one AWS IoT Command, acknowledge it, and emit receipt evidence."""
+    device_config = globals.config
+    received = threading.Event()
+    client = AWSIoTMQTTClient(device_config["device_id"])
+    client.configureEndpoint(device_config["endpoint"], 8883)
+    client.configureCredentials(
+        device_config["root_ca_path"],
+        device_config["key_path"],
+        device_config["cert_path"],
+    )
+
+    def on_command(active_client, _userdata, message):
+        matched = _COMMAND_TOPIC.fullmatch(message.topic)
+        if matched is None or matched.group("target") != device_config["command_target_id"]:
+            return
+        execution_id = matched.group("execution")
+        try:
+            value = json.loads(message.payload.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            value = {}
+        _checkpoint(
+            "simulator_command_received",
+            _trace_id(value),
+            execution_id,
+        )
+        response_topic = (
+            f"$aws/commands/things/{device_config['command_target_id']}/"
+            f"executions/{execution_id}/response/json"
+        )
+        active_client.publish(
+            response_topic,
+            json.dumps(
+                {
+                    "deviceId": device_config["command_target_id"],
+                    "executionId": execution_id,
+                    "status": "SUCCEEDED",
+                    "statusReason": {
+                        "reasonCode": "SIMULATOR_RECEIVED",
+                        "reasonDescription": "PoC simulator received the command",
+                    },
+                    "result": {"receipt": {"s": "simulator received command"}},
+                },
+                separators=(",", ":"),
+            ),
+            1,
+        )
+        received.set()
+
+    client.connect()
+    try:
+        client.subscribe(device_config["command_topic_filter"], 1, on_command)
+        return received.wait(timeout_seconds)
+    finally:
+        client.disconnect()
 
 
 def send():

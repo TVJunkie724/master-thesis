@@ -1127,22 +1127,30 @@ def _deliver_device_command(event: Mapping[str, Any]) -> None:
     command_arn = os.environ.get("DEVICE_COMMAND_ARN", "")
     account_id = os.environ.get("AWS_ACCOUNT_ID", "")
     region = os.environ.get("AWS_REGION", "")
-    if not command_arn or not account_id or not region:
+    thing_prefix = os.environ.get("IOT_THING_PREFIX", "")
+    if not command_arn or not account_id or not region or not thing_prefix:
         raise ContractError("DEVICE_COMMAND_ADAPTER_NOT_CONFIGURED", 503)
     device_id = _partition_key(event)
+    thing_name = f"{thing_prefix}-{device_id}"
     accepted = False
+    execution_id = None
     for _ in range(3):
         try:
-            _client("iot-jobs-data").start_command_execution(
-                targetArn=f"arn:aws:iot:{region}:{account_id}:thing/{device_id}",
+            response = _client("iot-jobs-data").start_command_execution(
+                targetArn=f"arn:aws:iot:{region}:{account_id}:thing/{thing_name}",
                 commandArn=command_arn,
                 parameters={
-                    "message": {"S": str(body.get("message") or "Rule matched")}
+                    "message": {"S": str(body.get("message") or "Rule matched")},
+                    "trace_id": {
+                        "S": _diagnostic_trace_id(event) or _event_id(event)
+                    },
                 },
                 executionTimeoutSeconds=300,
                 clientToken=_event_id(event)[:64],
             )
-            accepted = True
+            value = response.get("executionId")
+            execution_id = value if isinstance(value, str) and value else None
+            accepted = execution_id is not None
             break
         except ClientError:
             continue
@@ -1155,6 +1163,7 @@ def _deliver_device_command(event: Mapping[str, Any]) -> None:
         body={
             "device_id": device_id,
             "invocation_id": _event_id(event),
+            "execution_id": execution_id,
             "status": "ACCEPTED" if accepted else "FAILED",
         },
     )

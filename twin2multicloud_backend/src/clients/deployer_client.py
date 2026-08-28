@@ -21,7 +21,7 @@ _SAFE_OPERATION_TOKEN = re.compile(r"^[A-Za-z0-9_-]{32,128}$")
 _SIMULATOR_CREDENTIAL_CLASSES = {
     "aws": "aws_iot_device_certificate",
     "azure": "azure_iot_hub_device_identity",
-    "gcp": "gcp_pubsub_topic_publisher",
+    "gcp": "gcp_mqtt_deployment_credential",
 }
 
 

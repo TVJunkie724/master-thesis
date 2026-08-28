@@ -144,9 +144,7 @@ def _six_layer_eventing() -> bool:
     return os.getenv("ARCHITECTURE_PROFILE") == "six-layer-eventing@1"
 
 
-def _diagnostic_checkpoint(
-    stage: str, event: Mapping[str, Any], component: str
-) -> None:
+def _diagnostic_trace_id(event: Mapping[str, Any]) -> str | None:
     payload = event.get("payload")
     candidates = (
         event.get("trace_id"),
@@ -154,7 +152,7 @@ def _diagnostic_checkpoint(
         payload.get("trace_id") if isinstance(payload, Mapping) else None,
         payload.get("source_sequence") if isinstance(payload, Mapping) else None,
     )
-    trace_id = next(
+    return next(
         (
             value
             for value in candidates
@@ -162,6 +160,12 @@ def _diagnostic_checkpoint(
         ),
         None,
     )
+
+
+def _diagnostic_checkpoint(
+    stage: str, event: Mapping[str, Any], component: str
+) -> None:
+    trace_id = _diagnostic_trace_id(event)
     if trace_id is None:
         return
     checkpoint = {
@@ -583,7 +587,11 @@ def _send_device_command(event: Mapping[str, Any]) -> bool:
         f"https://{hostname}/devices/{quote(device_id, safe='')}/messages/deviceBound"
         "?api-version=2021-04-12"
     )
-    payload = str(body.get("message") or "Rule matched").encode("utf-8")
+    command = {"message": str(body.get("message") or "Rule matched")}
+    trace_id = _diagnostic_trace_id(event)
+    if trace_id is not None:
+        command["trace_id"] = trace_id
+    payload = canonical_json(command).encode("utf-8")
     for _ in range(3):
         try:
             token = _credential().get_token("https://iothubs.azure.net/.default")
@@ -592,7 +600,7 @@ def _send_device_command(event: Mapping[str, Any]) -> bool:
                 data=payload,
                 headers={
                     "authorization": f"Bearer {token.token}",
-                    "content-type": "text/plain; charset=utf-8",
+                    "content-type": "application/json; charset=utf-8",
                     "iothub-messageid": event_id(event),
                 },
                 method="POST",

@@ -241,7 +241,7 @@ resource "kubernetes_deployment_v1" "gcp_apache_bifromq_4_0_0_incubating_on_gke_
 
           env {
             name  = "MEM_LIMIT"
-            value = "25769803776"
+            value = local.gcp_six_layer_large_scenario ? "25769803776" : "4294967296"
           }
           env {
             name  = "EXTRA_JVM_OPTS"
@@ -265,13 +265,19 @@ resource "kubernetes_deployment_v1" "gcp_apache_bifromq_4_0_0_incubating_on_gke_
           }
 
           resources {
-            requests = {
+            requests = local.gcp_six_layer_large_scenario ? {
               cpu    = "6"
               memory = "24Gi"
+              } : {
+              cpu    = "1"
+              memory = "2Gi"
             }
-            limits = {
+            limits = local.gcp_six_layer_large_scenario ? {
               cpu    = "7"
               memory = "25Gi"
+              } : {
+              cpu    = "3"
+              memory = "6Gi"
             }
           }
 
@@ -370,6 +376,46 @@ resource "kubernetes_service_v1" "gcp_gcp_external_load_balancer" {
 
   depends_on = [
     kubernetes_deployment_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard,
+  ]
+}
+
+# The downloadable simulator follows the same MQTT edge as real devices. The
+# generated config is sensitive because it contains the deployment-scoped
+# broker password; only the public PoC server certificate is stored separately.
+resource "local_file" "gcp_six_layer_simulator_server_ca" {
+  count = local.gcp_six_layer_l1_enabled ? 1 : 0
+
+  filename        = "${var.project_path}/iot_device_simulator/google/_runtime/server-ca.pem"
+  content         = tls_self_signed_cert.gcp_six_layer_mqtt[0].cert_pem
+  file_permission = "0644"
+}
+
+resource "local_sensitive_file" "gcp_six_layer_simulator_config" {
+  for_each = local.gcp_six_layer_l1_enabled ? {
+    for device in var.iot_devices : device.id => device
+  } : {}
+
+  filename = "${var.project_path}/iot_device_simulator/google/${each.key}/config_generated.json"
+  content = jsonencode({
+    endpoint                    = google_compute_address.gcp_six_layer_mqtt[0].address
+    port                        = 8883
+    device_id                   = each.key
+    digital_twin_name           = var.digital_twin_name
+    username                    = random_password.gcp_six_layer_mqtt_device_username[0].result
+    password                    = random_password.gcp_six_layer_mqtt_device_password[0].result
+    telemetry_topic             = "devices/${each.key}/telemetry"
+    command_topic               = "devices/${each.key}/commands"
+    server_ca_path              = "../../_runtime/server-ca.pem"
+    payload_path                = "../../payloads.json"
+    credential_class            = "gcp_mqtt_deployment_credential"
+    credential_contract_version = 1
+    permission_scope            = "deployment_device_telemetry_and_command_topics"
+  })
+  file_permission = "0600"
+
+  depends_on = [
+    kubernetes_service_v1.gcp_gcp_external_load_balancer,
+    local_file.gcp_six_layer_simulator_server_ca,
   ]
 }
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import binascii
 import io
+import ipaddress
 import json
 import re
 import stat
@@ -32,7 +33,7 @@ _PUBLIC_PROVIDER = {"aws": "aws", "azure": "azure", "google": "gcp"}
 _CREDENTIAL_CLASS = {
     "aws": "aws_iot_device_certificate",
     "azure": "azure_iot_hub_device_identity",
-    "google": "gcp_pubsub_topic_publisher",
+    "google": "gcp_mqtt_deployment_credential",
 }
 _SOURCE_FILES = ("main.py", "transmission.py", "globals.py")
 _TEMPLATE_FILES = {
@@ -207,7 +208,11 @@ class SimulatorPackageService:
         for device_dir in device_dirs:
             self._validate_safe_name(device_dir.name, "device ID")
             config_path = device_dir / "config_generated.json"
-            loader = self._load_sensitive_json_file if provider == "azure" else self._load_json_file
+            loader = (
+                self._load_sensitive_json_file
+                if provider in {"azure", "google"}
+                else self._load_json_file
+            )
             config = loader(
                 config_path,
                 max_bytes=MAX_CREDENTIAL_FILE_BYTES,
@@ -233,7 +238,9 @@ class SimulatorPackageService:
             )
         if provider == "aws":
             self._validate_credential_contract(config, provider, device_id)
-            if config.get("permission_scope") != "exact_client_and_telemetry_topic":
+            if config.get("permission_scope") != (
+                "exact_client_telemetry_and_command_topics"
+            ):
                 raise SimulatorPackageInvalid(
                     f"AWS simulator permission scope is not proven for '{device_id}'."
                 )
@@ -243,21 +250,57 @@ class SimulatorPackageService:
                 raise SimulatorPackageInvalid(f"Invalid AWS IoT endpoint for '{device_id}'.")
             if not re.fullmatch(rf"dt/[A-Za-z0-9._-]+/{re.escape(device_id)}/telemetry", topic):
                 raise SimulatorPackageInvalid(f"Invalid AWS telemetry topic for '{device_id}'.")
+            command_target_id = self._required_string(
+                config, "command_target_id", device_id
+            )
+            command_topic_filter = self._required_string(
+                config, "command_topic_filter", device_id
+            )
+            if command_topic_filter != (
+                f"$aws/commands/things/{command_target_id}/executions/+/request/json"
+            ) or not command_target_id.endswith(f"-{device_id}"):
+                raise SimulatorPackageInvalid(
+                    f"Invalid AWS command topic for '{device_id}'."
+                )
         elif provider == "azure":
             self._validate_credential_contract(config, provider, device_id)
             connection_string = self._required_string(config, "connection_string", device_id)
             self._validate_azure_connection_string(connection_string, device_id)
         else:
-            self._required_string(config, "project_id", device_id)
-            self._required_string(config, "topic_name", device_id)
-            expected_email = self._required_string(
-                config,
-                "simulator_service_account_email",
-                device_id,
-            )
-            if not expected_email.endswith(".iam.gserviceaccount.com"):
+            endpoint = self._required_string(config, "endpoint", device_id)
+            try:
+                address = ipaddress.ip_address(endpoint)
+            except ValueError as exc:
                 raise SimulatorPackageInvalid(
-                    f"Invalid GCP simulator service account for '{device_id}'."
+                    f"Invalid GCP MQTT endpoint for '{device_id}'."
+                ) from exc
+            if address.version != 4:
+                raise SimulatorPackageInvalid(
+                    f"Invalid GCP MQTT endpoint for '{device_id}'."
+                )
+            if config.get("port") != 8883:
+                raise SimulatorPackageInvalid(
+                    f"Invalid GCP MQTT port for '{device_id}'."
+                )
+            self._required_string(config, "username", device_id)
+            self._required_string(config, "password", device_id)
+            telemetry_topic = self._required_string(
+                config, "telemetry_topic", device_id
+            )
+            command_topic = self._required_string(config, "command_topic", device_id)
+            if telemetry_topic != f"devices/{device_id}/telemetry":
+                raise SimulatorPackageInvalid(
+                    f"Invalid GCP telemetry topic for '{device_id}'."
+                )
+            if command_topic != f"devices/{device_id}/commands":
+                raise SimulatorPackageInvalid(
+                    f"Invalid GCP command topic for '{device_id}'."
+                )
+            if config.get("permission_scope") != (
+                "deployment_device_telemetry_and_command_topics"
+            ):
+                raise SimulatorPackageInvalid(
+                    f"GCP simulator permission scope is not proven for '{device_id}'."
                 )
             self._validate_credential_contract(config, provider, device_id)
 
@@ -324,28 +367,17 @@ class SimulatorPackageService:
         )
         self._assert_directory_entries(
             runtime_dir,
-            {"service_account.json"},
+            {"server-ca.pem"},
             "GCP simulator runtime credentials",
         )
-        key = self._load_sensitive_json_file(
-            runtime_dir / "service_account.json",
+        server_ca = self._read_regular_file(
+            runtime_dir / "server-ca.pem",
             max_bytes=MAX_CREDENTIAL_FILE_BYTES,
-            description="GCP simulator service account key",
+            description="GCP simulator server certificate",
         )
-        if not isinstance(key, dict):
-            raise SimulatorPackageInvalid("GCP simulator service account key must be a JSON object.")
-        expected_projects = {str(config["project_id"]) for config in device_configs.values()}
-        expected_emails = {
-            str(config["simulator_service_account_email"])
-            for config in device_configs.values()
-        }
-        if len(expected_projects) != 1 or key.get("project_id") not in expected_projects:
-            raise SimulatorPackageInvalid("GCP simulator key project does not match device configs.")
-        if len(expected_emails) != 1 or key.get("client_email") not in expected_emails:
-            raise SimulatorPackageInvalid("GCP simulator key identity does not match device configs.")
-        if key.get("type") != "service_account" or "PRIVATE KEY" not in str(key.get("private_key", "")):
-            raise SimulatorPackageInvalid("GCP simulator service account key is invalid.")
-        return [("service_account.json", self._canonical_json(key))]
+        if b"BEGIN CERTIFICATE" not in server_ca:
+            raise SimulatorPackageInvalid("GCP MQTT server certificate is invalid.")
+        return [("server-ca.pem", server_ca)]
 
     def _archive_config(
         self,
@@ -360,6 +392,8 @@ class SimulatorPackageService:
             return {
                 "endpoint": config["endpoint"],
                 "topic": config["topic"],
+                "command_target_id": config["command_target_id"],
+                "command_topic_filter": config["command_topic_filter"],
                 "device_id": device_id,
                 "cert_path": f"{credential_prefix}{device_id + '/' if root else ''}certificate.pem.crt",
                 "key_path": f"{credential_prefix}{device_id + '/' if root else ''}private.pem.key",
@@ -378,15 +412,17 @@ class SimulatorPackageService:
                 "credential_contract_version": 1,
             }
         return {
-            "project_id": config["project_id"],
-            "topic_name": config["topic_name"],
+            "endpoint": config["endpoint"],
+            "port": config["port"],
             "device_id": device_id,
             "digital_twin_name": config.get("digital_twin_name", ""),
-            "service_account_key_path": "service_account.json"
-            if root
-            else "../../service_account.json",
+            "username": config["username"],
+            "password": config["password"],
+            "telemetry_topic": config["telemetry_topic"],
+            "command_topic": config["command_topic"],
+            "server_ca_path": "server-ca.pem" if root else "../../server-ca.pem",
             "payload_path": "payloads.json" if root else "../../payloads.json",
-            "simulator_service_account_email": config["simulator_service_account_email"],
+            "permission_scope": config["permission_scope"],
             "credential_class": _CREDENTIAL_CLASS[provider],
             "credential_contract_version": 1,
         }
@@ -406,8 +442,8 @@ class SimulatorPackageService:
             "device_ids": ", ".join(configs),
             "device_count": len(configs),
             "endpoint": first_config.get("endpoint", ""),
-            "project_id": first_config.get("project_id", ""),
-            "topic_name": first_config.get("topic_name", ""),
+            "project_id": "",
+            "topic_name": first_config.get("telemetry_topic", ""),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 

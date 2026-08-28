@@ -433,7 +433,7 @@ def _dimension_value(
         count = (
             gcp_event_worker_count
             if component_id == "gcp.cloud-run-worker-pool-fixed-large"
-            else {"small": 3, "medium": 3, "large": 12}[resolved.size]
+            else {"small": 1, "medium": 3, "large": 12}[resolved.size]
             if "bifromq" in component_id
             else 1
         )
@@ -543,16 +543,16 @@ def _dimension_value(
         "editor_seats": int(workload["monthlyEditorSeats"]),
         "viewer_seats": int(workload["monthlyViewerSeats"]),
         "node_count": (
-            {"small": 3, "medium": 3, "large": 12}[resolved.size]
+            {"small": 1, "medium": 3, "large": 12}[resolved.size]
             if "bifromq" in component_id
-            else {"small": 0, "medium": 0, "large": 4}[resolved.size]
+            else {"small": 1, "medium": 1, "large": 4}[resolved.size]
             if component_id == "gcp.ordered-mqtt-pubsub-adapter"
             else 1
         ),
         "node_hours": (
-            {"small": 2190, "medium": 2190, "large": 8760}[resolved.size]
+            {"small": 730, "medium": 2190, "large": 8760}[resolved.size]
             if "bifromq" in component_id
-            else {"small": 0, "medium": 0, "large": 2920}[resolved.size]
+            else {"small": 730, "medium": 730, "large": 2920}[resolved.size]
             if component_id == "gcp.ordered-mqtt-pubsub-adapter"
             else 730
         ),

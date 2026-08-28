@@ -30,7 +30,7 @@ def _archive(provider: str, project: str) -> DeployerSimulatorArchive:
     classes = {
         "aws": "aws_iot_device_certificate",
         "azure": "azure_iot_hub_device_identity",
-        "gcp": "gcp_pubsub_topic_publisher",
+        "gcp": "gcp_mqtt_deployment_credential",
     }
     return DeployerSimulatorArchive(
         content=_zip_bytes(),
