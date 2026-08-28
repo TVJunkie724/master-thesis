@@ -7,6 +7,7 @@ documentation and does not define a product backlog.
 Current sources:
 
 - [Research questions and evaluation design](research_questions_and_evaluation_design.md)
+- [Architecture evolution and decision trace](architecture_evolution.md)
 - [Related work: multi-cloud cost comparability and Eventing](related_work_multicloud_cost_comparability_eventing.md)
 - [Digital Twin architecture and Eventing](digital_twin_architecture_and_eventing_layer.md)
 - [Five-layer offline baseline decision](five_layer_baseline_target_decision.md)

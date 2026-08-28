@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-08-27"
-version: "1.1"
+lastUpdated: "2026-08-28"
+version: "1.2"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -14,6 +14,8 @@ This log records decisions that affect interpretation of the thesis PoC. It is
 not a product backlog and does not promise future functionality. Git preserves
 the detailed implementation history; the active execution state is maintained
 in `docs/plans/2026-08-26_thesis_poc_execution_plan.md`.
+The predecessor-to-target rationale, alternatives, and evidence maturity are
+maintained in `docs/research/architecture_evolution.md`.
 
 ## Decision principles
 
@@ -180,6 +182,23 @@ are removed. The login page remains compiled but dormant and unrouted so a
 future authentication adapter can reuse the presentation boundary. Cloud
 workload identity and provider-owned access login remain separate Six-layer
 deployment concerns.
+
+## D-12 — Explicit architecture-evolution trace
+
+**Decision:** Every material departure from the predecessor architecture is
+recorded with its baseline, trigger, alternatives, rationale, RQ link,
+consequence, evidence level, and status before the new behavior is treated as
+the thesis target.
+
+**Rationale:** The final code alone cannot show whether a design was inherited,
+reasoned offline, changed after a blocker, or empirically validated. The thesis
+must explain the evolution without presenting implementation history as
+scientific evidence.
+
+**Consequence:** `docs/research/architecture_evolution.md` is the durable delta
+record. Open choices remain marked open, particularly the Small GCP-L1 broker
+sizing. Git retains superseded implementation detail, while active documents
+describe only the accepted target and explicit future-work concepts.
 
 ## Current implementation checkpoint
 

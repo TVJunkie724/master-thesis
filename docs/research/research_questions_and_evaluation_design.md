@@ -74,7 +74,7 @@ longer represent the strongest scientific framing.
 | Earlier focus | Assessment | Disposition |
 |---|---|---|
 | Configuration-driven platform | Central, but too broad | Retain and sharpen as RQ1 |
-| Prototype refactoring and integration | Important engineering method and contribution | Describe in method, architecture evolution, and contributions |
+| Prototype refactoring and integration | Important engineering method and contribution | Describe in method, the explicit architecture-evolution trace, and contributions |
 | Deployment failures | Relevant evaluation evidence and lessons learned | Treat as supporting evidence for RQ1 and Discussion |
 | Functional equivalence | Missing | Add as RQ2 |
 | Cost effect under equivalent functionality | Only implicit | Add as RQ3 |
@@ -571,7 +571,7 @@ rule/action declarations determine whether a particular event invokes them.
 | Introduction | Problem, objective, final RQ wording, contributions |
 | Background | Digital Twins, cloud pricing, multi-cloud, service composition, event-driven architecture |
 | Related Work | Position the four literature streams and research gap |
-| Predecessor Analysis | Explain inherited models, prototypes, assumptions, and debt |
+| Predecessor Analysis | Explain inherited models, prototypes, assumptions, and debt using the architecture-evolution baseline |
 | Method | Functional gate, provider profiles, evidence model, scenarios, and comparison protocol |
 | System Architecture | Answer the design part of RQ1 and show extension boundaries |
 | Evaluation | RQ3.1 baseline, RQ3 multi-cloud result, and RQ3.2 Eventing experiment |
