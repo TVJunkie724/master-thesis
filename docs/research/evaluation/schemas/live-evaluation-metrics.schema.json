@@ -196,7 +196,7 @@
         }
       }
     },
-    "messageDirection": {"enum": ["telemetry", "command_outcome"]},
+    "messageDirection": {"enum": ["telemetry", "command_receipt"]},
     "stageId": {
       "enum": [
         "simulator_sent",
@@ -208,12 +208,10 @@
         "l3_cool_persisted",
         "l3_archive_persisted",
         "l4_queryable",
-        "l5_queryable",
         "command_issued",
         "event_layer_command_durable",
         "l1_command_published",
         "simulator_command_received",
-        "simulator_outcome_sent",
         "outcome_event_durable",
         "outcome_persisted",
         "outcome_queryable"
@@ -315,8 +313,7 @@
             "L3-hot",
             "L3-cool",
             "L3-archive",
-            "L4",
-            "L5"
+            "L4"
           ]
         },
         "observed_at": {"$ref": "#/$defs/timestamp"},
@@ -342,7 +339,10 @@
         "failure_code"
       ],
       "properties": {
-        "trace_id": {"$ref": "#/$defs/label"},
+        "trace_id": {
+          "type": "string",
+          "pattern": "^(?:TRACE|VERIFY)-[A-Z0-9]{8,48}$"
+        },
         "sequence": {"type": "integer", "minimum": 1},
         "sample_set": {"enum": ["warmup", "measured"]},
         "direction": {"$ref": "#/$defs/messageDirection"},
@@ -356,6 +356,11 @@
           "type": "array",
           "minItems": 1,
           "maxItems": 20,
+          "items": {"$ref": "#/$defs/messageStage"}
+        },
+        "auxiliary_stages": {
+          "type": "array",
+          "maxItems": 10,
           "items": {"$ref": "#/$defs/messageStage"}
         },
         "retry_count": {"type": "integer", "minimum": 0},

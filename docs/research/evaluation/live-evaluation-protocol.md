@@ -141,11 +141,12 @@ recommended order is:
    Small scenarios.
 
 GCP-L1 has an additional architecture gate. Its previous three-replica
-`e2-standard-8` broker allocation is theoretical capacity evidence, not an
-approved Small live size. A non-HA Small plan and component probe must establish
-the broker size before a GCP-L1 final scenario can be approved. The capability
-decision (bidirectional MQTT through BifroMQ with Pub/Sub durability) remains
-separate from this open capacity decision.
+`e2-standard-8` Small broker allocation has been replaced offline by one
+non-HA `e2-standard-4` broker node plus one `e2-standard-2` adapter node. A
+reviewed plan and component probe must validate that 1+1 allocation before a
+GCP-L1 final scenario can be approved. The capability decision (bidirectional
+MQTT through BifroMQ with Pub/Sub durability) remains separate from the still
+open live-capacity evidence.
 
 ### Minimal PoC diagnostics
 
@@ -174,11 +175,14 @@ full path is observed. A timeout, unavailable provider query, or missing stage
 produces a `partial` result with the exact missing checkpoints; the UI must not
 turn this into an unqualified success.
 
-The same record vocabulary includes L4/L5 queryability and the command/outcome
+The same record vocabulary includes L4 queryability and the command/receipt
 path for later supervised probes. Those stages are not claimed by the cheap
-L1-L3 trace. L4/L5 access checks, persisted data-flow verification, command
-receipt, and provider inventory remain separate evidence sources in the live
-protocol.
+L1-L3 trace. L5 is intentionally a supervised access observation: the operator
+opens the returned provider URL, authenticates through the declared access
+mode, and confirms that the fixed dashboard can query the test point or show a
+typed no-data state. Twin2MultiCloud does not administer that dashboard. L4
+data-flow verification, L5 access evidence, command receipt, and provider
+inventory remain separate evidence sources in the live protocol.
 
 Infrastructure diagnosis stays similarly bounded: Terraform state classifies
 L1, the independent Event Layer, L2, L3, L4, and L5; provider SDK checks cover
@@ -224,14 +228,15 @@ simulator_sent
   -> l2_started/l2_completed
   -> l3_hot_persisted
   -> l4_queryable
-  -> l5_queryable (when L5 is in probe scope)
 
-command/outcome:
+command/receipt:
 command_issued
   -> event_layer_command_durable
   -> l1_command_published
   -> simulator_command_received
-  -> simulator_outcome_sent
+
+provider delivery outcome (separate durable evidence, not device execution):
+command_issued
   -> outcome_event_durable
   -> outcome_persisted/outcome_queryable
 ```
@@ -240,6 +245,16 @@ The exact expected path is declared per metrics document so a component probe
 does not pretend to cover absent downstream stages. A successful sample must
 contain that complete ordered path. Failed and timed-out samples retain their
 partial path and a typed failure code.
+
+The `command_receipt` measurement ends at `simulator_command_received`. The
+persisted provider-delivery outcome proves accepted/failed handoff separately
+and is not presented as a portable arbitrary device-action result. AWS
+additionally records its native IoT Command terminal response; Azure and GCP
+are compared at the common receipt boundary.
+
+When the same command trace contains provider-delivery outcome checkpoints,
+the metrics record retains them as `auxiliary_stages`. They do not alter the
+ordered command-receipt path or its latency calculation.
 
 The clock source and maximum observed skew are recorded before measurement.
 The result reports:
@@ -280,6 +295,23 @@ The generated `run-summary.csv`, `stage-latency.csv`, `lifecycle.csv`,
 remain derived artifacts. The digest-bound JSON measurement document is the
 primary evidence.
 
+Assemble the primary metrics document from one reviewed metadata template, one
+explicit sample plan, and one or more copied provider/simulator checkpoint logs:
+
+```bash
+python scripts/manage_live_evaluation_metrics.py collect \
+  --template /tmp/six-layer-live-evidence/<run>/metrics-template.json \
+  --sample-plan /tmp/six-layer-live-evidence/<run>/sample-plan.json \
+  --checkpoint-log /tmp/six-layer-live-evidence/<run>/checkpoints.jsonl \
+  --output /tmp/six-layer-live-evidence/<run>/evaluation-metrics.json
+```
+
+The collector is offline, refuses to overwrite output, rejects unplanned traces
+and duplicate or unexpected stages, accepts plain and provider-wrapped JSON log
+records, and validates direction, provider scope, clocks, stage/layer mappings,
+and run-time bounds before writing. It does not query a cloud or start a
+simulator.
+
 ### Existing evidence sources
 
 The supervised operator collects the evidence from the normal owner-scoped
@@ -292,7 +324,7 @@ Twin workflow; there is no second product-like evaluation orchestrator:
 | Graph-derived readiness | `deployment-preflight` response and cached `deployment-readiness` response |
 | Reviewed account changes | digest-bound `deployment-preparation` request and response |
 | Apply/Destroy correlation and replay | deployment history, bounded persisted logs, and the owner-scoped SSE stream with `Last-Event-ID` |
-| L4/L5 access | secret-free `deployment-access` response; any one-time credential value is excluded |
+| L4/L5 access | secret-free `deployment-access` response plus supervised L5 open/query observation; any one-time credential value is excluded |
 | Telemetry roundtrip | persisted data-flow verification record |
 | Timing, reliability, resources and measurement protocol | one schema- and semantics-validated `live-evaluation-metrics.v1` document; component and final runs remain distinct |
 | Cleanup and residuals | terminal Destroy operation and its typed `cleanup-evidence.v1` output |

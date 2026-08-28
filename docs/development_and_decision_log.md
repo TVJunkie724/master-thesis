@@ -244,6 +244,8 @@ immutable interchange, durable operations, access handoff, cost-only Optimizer,
 frozen pricing snapshots, and narrowed Flutter/Management contracts are
 implemented and pass the complete credential-free container gate. The bounded
 Flutter confirmation and repair surface and the provider-native diagnostic
-checkpoint path are implemented and covered by offline tests. Live prerequisite
-probes and the nine supervised Small scenarios remain open and are not claimed
-complete.
+checkpoint path are implemented and covered by offline tests. GCP Small L1 is
+fixed to a non-HA 1+1 broker/adapter allocation, and all three device simulators
+expose bounded telemetry-send and actual command-receipt checkpoints. Live
+prerequisite probes and the nine supervised Small scenarios remain open and are
+not claimed complete.

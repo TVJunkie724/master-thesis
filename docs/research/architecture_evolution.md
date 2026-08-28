@@ -62,9 +62,9 @@ rewrite an unresolved choice into an established fact.
 |---|---|---|---|---|---|
 | AE-01 | Five scientific responsibilities with Eventing hidden in processing or provider glue | Five original responsibilities plus an independent, non-linear Event Layer | Make routing, buffering, retry/DLQ, replay, trust boundaries, bridges, and their costs observable | RQ1, RQ2, RQ3.2 | offline-verified; live pending |
 | AE-02 | Architecture composition could be interpreted as selectable or inherited profiles | One standalone, hashed `six-layer-eventing@1` deployment contract; Five-layer v1 is an Optimizer-only offline baseline | Reproducibility and a bounded PoC instead of a topology/profile product | RQ1, RQ3.2 | offline-verified |
-| AE-03 | Device feedback was represented by optional historical input behavior | Authenticated telemetry plus correlated cloud-to-device command and device-outcome behavior is part of the functional gate | Preserve an actuating Digital Twin path and compare providers by function rather than layer label | RQ2 | offline-verified; live pending |
-| AE-04 | GCP device connectivity was not closed by a current, directly comparable managed IoT boundary | BifroMQ provides the MQTT device boundary and Pub/Sub owns durable backend command/event delivery | Preserve bidirectional MQTT semantics without pretending Pub/Sub is a device broker | RQ1, RQ2, RQ3 | capability accepted; live sizing open |
-| AE-05 | Theoretical GCP broker capacity used a three-replica GKE allocation, including for Small | The Small live bundle must be measured and explicitly sized as a non-HA PoC before execution; Medium and Large remain theoretical | Three `e2-standard-8` broker nodes are not justified by the 100-device Small workload | RQ2, RQ3 | proposed; blocks GCP-L1 live approval |
+| AE-03 | Device feedback was represented by optional historical input behavior | Authenticated telemetry plus correlated cloud-to-device command delivery, actual simulator receipt, and a persisted provider-delivery outcome are part of the functional gate | Preserve an actuating Digital Twin path and compare providers by function without claiming a common device-execution protocol | RQ2 | offline-verified; live pending |
+| AE-04 | GCP device connectivity was not closed by a current, directly comparable managed IoT boundary | BifroMQ provides the MQTT device boundary and Pub/Sub owns durable backend command/event delivery | Preserve bidirectional MQTT semantics without pretending Pub/Sub is a device broker | RQ1, RQ2, RQ3 | capability offline-verified; live pending |
+| AE-05 | Theoretical GCP broker capacity used a three-replica `e2-standard-8` allocation, including for Small | Small uses one non-HA `e2-standard-4` broker node and one `e2-standard-2` adapter node; Medium 3+1 and Large 12+4 remain theoretical | The earlier HA-derived allocation is not justified by the 100-device Small workload | RQ2, RQ3 | offline-verified sizing; live pending |
 | AE-06 | Several potential optimization objectives and public profile choices existed in the implementation surface | Monetary cost is the only active objective behind one small scoring-strategy boundary | Answer RQ3 reproducibly without claiming a generic optimization framework | RQ3, RQ3.1 | offline-verified |
 | AE-07 | Mutable deployments implied update, migration, rollback, and replacement semantics | Draft Twins are editable; deployed Twins are immutable; duplicate/import creates an independent draft | Bound lifecycle and cost risk to what the RQs require | RQ1 | offline-verified; live pending |
 | AE-08 | External application login and identity-provider integrations expanded the product surface | One local owner profile retains data ownership; external login UI remains dormant behind an adapter boundary | Preserve user-scoped credentials without building an authentication product | RQ1 | offline-verified |
@@ -103,24 +103,28 @@ later establish deployability and functional behavior.
 
 Historical inputs exposed device feedback as optional behavior. The active
 functional comparison requires more than one-way telemetry: a command must be
-issued from the cloud side, reach the simulated device, produce a correlated
-outcome, and become durably queryable. Without this decision the evaluation
-would compare telemetry pipelines rather than an actuating Digital Twin path.
+issued from the cloud side, be accepted by the provider-specific delivery
+boundary, and be observed by the simulated device. Without this decision the
+evaluation would compare telemetry pipelines rather than an actuating Digital
+Twin path.
 
 ### Decision and alternatives
 
-Authenticated telemetry and a correlated command/outcome roundtrip are part of
-the common gate for all three providers. A telemetry-only HTTP-to-event-service
-path remains a technically simpler alternative, but is rejected while RQ2
-claims bidirectional functional comparability.
+Authenticated telemetry, a correlated provider-delivery outcome, and actual
+simulator command receipt are part of the common gate for all three providers.
+AWS additionally reports the native terminal IoT Command status. A common
+arbitrary device-action result protocol is not claimed: Azure and GCP provide
+the comparable receipt checkpoint only. A telemetry-only HTTP-to-event-service
+path remains technically simpler, but is rejected while RQ2 claims
+bidirectional functional comparability.
 
 ### Consequence and evidence
 
 AWS and Azure can use their provider IoT boundaries. GCP requires a device-side
 MQTT adapter in front of Pub/Sub. This decision justifies the broker capability;
-it does not justify production-grade HA or the current Small node size. The
-simulator must record both forward telemetry and reverse command/outcome traces
-in the live metrics evidence.
+it does not justify production-grade HA. The simulator records forward
+telemetry and reverse command receipt checkpoints in the live metrics evidence;
+the provider-delivery outcome remains separate durable application evidence.
 
 ## AE-04 and AE-05 — GCP L1 capability versus live sizing
 
@@ -133,23 +137,21 @@ separate:
   from HA and large-capacity reasoning, not from the `core-small` workload of
   100 devices, a two-minute interval, and 0.25 KB messages.
 
-Before any GCP-L1 live authorization, an offline decision must compare at
-least:
+The selected Small bundle is one Standard GKE cluster with one non-HA
+`e2-standard-4` broker node and one isolated `e2-standard-2` integration node.
+Keeping the earlier three-node broker allocation was rejected as unjustified
+for the Small workload. A dedicated broker VM was rejected because it would add
+a second hosting/deployment model, while direct Pub/Sub device ingress was
+rejected as functionally weaker because it removes the MQTT command path. The
+separate adapter node keeps protocol integration and broker scheduling
+independently diagnosable at modest PoC scale.
 
-1. a modest non-HA BifroMQ deployment in the GKE cluster already needed by the
-   GCP visualization bundle;
-2. a small dedicated broker VM; and
-3. the telemetry-only managed-ingress alternative, documented as functionally
-   weaker because it removes the MQTT command path.
-
-Only the selected Small bundle is then deployed in one supervised component
-probe; the rejected alternatives do not create additional cost-incurring runs.
-
-The selected Small bundle must preserve authentication, telemetry,
-command/outcome correlation, and Pub/Sub durability. It must not claim HA. The
-decision records provision time, resource count, measured message latency,
-success rate, cleanup, and observed cost. Medium and Large remain theoretical
-capacity discussions unless separately authorized and executed.
+This is an offline-verified deployment decision, not a capacity measurement.
+One supervised GCP L1-L3 component probe must still establish readiness,
+resource count, message latency, success rate, cleanup, and observed cost. The
+bundle preserves authentication, telemetry, command receipt correlation, and
+Pub/Sub durability but deliberately does not claim HA. Medium and Large remain
+theoretical unless separately authorized and executed.
 
 ## Measurement-driven validation
 
@@ -167,8 +169,11 @@ for the relevant stops:
 telemetry:
 simulator -> L1 -> durable Event Layer -> L2 -> L3 -> L4 -> L5/access
 
-command/outcome:
-L4 command -> durable Event Layer -> L1 -> simulator -> outcome -> L3/L4
+command/receipt:
+command request -> durable Event Layer -> L1 -> simulator receipt
+
+provider delivery outcome:
+command request -> delivery accepted/failed -> durable Event Layer -> L3/L4
 ```
 
 The evaluation reports end-to-end and consecutive-stage latency, success,

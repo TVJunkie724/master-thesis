@@ -13,6 +13,7 @@ import argparse
 import csv
 import json
 import math
+import re
 import statistics
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
@@ -28,10 +29,309 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = (
     ROOT / "docs/research/evaluation/schemas" / "live-evaluation-metrics.schema.json"
 )
+CHECKPOINT_PREFIX = "T2MC_CHECKPOINT "
+TRACE_ID_PATTERN = re.compile(r"^(?:TRACE|VERIFY)-[A-Z0-9]{8,48}$")
+SAFE_TEXT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,159}$")
+CHECKPOINT_KEYS = frozenset(
+    {
+        "schema_version",
+        "trace_id",
+        "stage",
+        "provider",
+        "component",
+        "status",
+        "observed_at",
+        "event_id",
+        "event_type",
+        "error_code",
+    }
+)
+STAGE_LAYERS = {
+    "simulator_sent": "simulator",
+    "l1_accepted": "L1",
+    "event_layer_durable": "LE",
+    "l2_started": "L2",
+    "l2_completed": "L2",
+    "l3_hot_persisted": "L3-hot",
+    "l3_cool_persisted": "L3-cool",
+    "l3_archive_persisted": "L3-archive",
+    "l4_queryable": "L4",
+    "command_issued": "L2",
+    "event_layer_command_durable": "LE",
+    "l1_command_published": "L1",
+    "simulator_command_received": "simulator",
+    "outcome_event_durable": "LE",
+    "outcome_persisted": "L3-hot",
+    "outcome_queryable": "L4",
+}
+STAGE_CLOCK_SOURCES = {
+    stage: (
+        "simulator"
+        if layer == "simulator"
+        else "application"
+        if layer == "L4"
+        else "provider"
+    )
+    for stage, layer in STAGE_LAYERS.items()
+}
+STAGE_DIRECTIONS = {
+    "telemetry": frozenset(
+        {
+            "simulator_sent",
+            "l1_accepted",
+            "event_layer_durable",
+            "l2_started",
+            "l2_completed",
+            "l3_hot_persisted",
+            "l3_cool_persisted",
+            "l3_archive_persisted",
+            "l4_queryable",
+        }
+    ),
+    "command_receipt": frozenset(
+        {
+            "command_issued",
+            "event_layer_command_durable",
+            "l1_command_published",
+            "simulator_command_received",
+        }
+    ),
+}
+AUXILIARY_STAGES = {
+    "telemetry": frozenset(),
+    "command_receipt": frozenset(
+        {"outcome_event_durable", "outcome_persisted", "outcome_queryable"}
+    ),
+}
+SAMPLE_PLAN_KEYS = frozenset(
+    {
+        "trace_id",
+        "sequence",
+        "sample_set",
+        "direction",
+        "payload_bytes",
+        "status",
+        "retry_count",
+        "duplicate_count",
+        "ordering_ok",
+        "dlq_observed",
+        "failure_code",
+    }
+)
 
 
 class LiveMetricsError(RuntimeError):
     """Raised when live-evaluation measurements are invalid or inconsistent."""
+
+
+def _checkpoint_message(line: str) -> str:
+    stripped = line.strip()
+    if not stripped.startswith("{"):
+        return line
+    try:
+        wrapped = json.loads(stripped)
+    except json.JSONDecodeError:
+        return line
+    if not isinstance(wrapped, Mapping):
+        return line
+    message = wrapped.get("message") or wrapped.get("msg")
+    return message if isinstance(message, str) else line
+
+
+def _checkpoint_payload(line: str) -> dict[str, Any] | None:
+    message = _checkpoint_message(line)
+    marker = message.find(CHECKPOINT_PREFIX)
+    if marker < 0:
+        return None
+    rendered = message[marker + len(CHECKPOINT_PREFIX) :].strip()
+    try:
+        value = json.loads(rendered)
+    except json.JSONDecodeError as exc:
+        raise LiveMetricsError("Checkpoint log contains invalid JSON") from exc
+    if not isinstance(value, dict) or not set(value).issubset(CHECKPOINT_KEYS):
+        raise LiveMetricsError("Checkpoint contains unknown or invalid fields")
+    required = {
+        "schema_version",
+        "trace_id",
+        "stage",
+        "provider",
+        "component",
+        "status",
+        "observed_at",
+    }
+    if not required.issubset(value):
+        raise LiveMetricsError("Checkpoint is missing required fields")
+    trace_id = value["trace_id"]
+    if (
+        value["schema_version"] != "diagnostic-checkpoint.v1"
+        or not isinstance(trace_id, str)
+        or TRACE_ID_PATTERN.fullmatch(trace_id) is None
+        or value["stage"] not in STAGE_LAYERS
+        or value["provider"] not in {"aws", "azure", "gcp"}
+        or value["status"] not in {"passed", "failed"}
+        or not isinstance(value["component"], str)
+        or SAFE_TEXT_PATTERN.fullmatch(value["component"]) is None
+    ):
+        raise LiveMetricsError("Checkpoint violates the diagnostic contract")
+    for key in ("event_id", "event_type", "error_code"):
+        candidate = value.get(key)
+        if candidate is not None and (
+            not isinstance(candidate, str)
+            or SAFE_TEXT_PATTERN.fullmatch(candidate) is None
+        ):
+            raise LiveMetricsError("Checkpoint violates the diagnostic contract")
+    _timestamp(str(value["observed_at"]))
+    return value
+
+
+def _load_checkpoints(paths: Sequence[Path]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for path in paths:
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError as exc:
+            raise LiveMetricsError(f"Cannot read checkpoint log: {path}") from exc
+        for line in lines:
+            checkpoint = _checkpoint_payload(line)
+            if checkpoint is not None:
+                grouped[str(checkpoint["trace_id"])].append(checkpoint)
+    if not grouped:
+        raise LiveMetricsError("Checkpoint logs contain no diagnostic records")
+    return grouped
+
+
+def _clock_source(checkpoint: Mapping[str, Any]) -> str:
+    return STAGE_CLOCK_SOURCES[str(checkpoint["stage"])]
+
+
+def assemble_metrics(
+    template: Mapping[str, Any],
+    sample_plan: Mapping[str, Any],
+    checkpoints: Mapping[str, Sequence[Mapping[str, Any]]],
+) -> dict[str, Any]:
+    """Assemble one metrics document from a reviewed template and checkpoints."""
+
+    if sample_plan.get("schema_version") != "live-evaluation-sample-plan.v1":
+        raise LiveMetricsError("Unsupported live-evaluation sample plan")
+    planned = sample_plan.get("samples")
+    if not isinstance(planned, list) or not planned:
+        raise LiveMetricsError("Sample plan must contain samples")
+    record = dict(template)
+    existing_samples = record.get("message_samples")
+    if existing_samples is not None and existing_samples != []:
+        raise LiveMetricsError("Metrics template must not contain observations")
+    expected_paths = {
+        path["direction"]: path["stage_ids"]
+        for path in record.get("protocol", {}).get("expected_paths", [])
+    }
+    planned_trace_ids: set[str] = set()
+    samples: list[dict[str, Any]] = []
+    for item in planned:
+        if not isinstance(item, dict) or set(item) != SAMPLE_PLAN_KEYS:
+            raise LiveMetricsError("Sample plan entry has unexpected fields")
+        trace_id = item.get("trace_id")
+        direction = item.get("direction")
+        if (
+            not isinstance(trace_id, str)
+            or TRACE_ID_PATTERN.fullmatch(trace_id) is None
+            or trace_id in planned_trace_ids
+        ):
+            raise LiveMetricsError(
+                "Sample plan trace IDs must be unique diagnostic identifiers"
+            )
+        if direction not in expected_paths:
+            raise LiveMetricsError(f"Sample direction has no expected path: {direction}")
+        planned_trace_ids.add(trace_id)
+        observed = list(checkpoints.get(trace_id, ()))
+        if not observed:
+            raise LiveMetricsError(f"No checkpoints found for sample: {trace_id}")
+        by_stage: dict[str, Mapping[str, Any]] = {}
+        auxiliary_by_stage: dict[str, Mapping[str, Any]] = {}
+        for checkpoint in observed:
+            stage = str(checkpoint["stage"])
+            if stage in expected_paths[direction]:
+                target = by_stage
+            elif stage in AUXILIARY_STAGES[direction]:
+                target = auxiliary_by_stage
+            else:
+                raise LiveMetricsError(
+                    f"Unexpected stage {stage} for sample {trace_id}"
+                )
+            if stage in target:
+                raise LiveMetricsError(
+                    f"Duplicate stage {stage} for sample {trace_id}"
+                )
+            target[stage] = checkpoint
+        if item["status"] == "succeeded" and any(
+            checkpoint["status"] == "failed" for checkpoint in observed
+        ):
+            raise LiveMetricsError(
+                f"Successful sample contains a failed checkpoint: {trace_id}"
+            )
+        stages = []
+        for stage in expected_paths[direction]:
+            checkpoint = by_stage.get(stage)
+            if checkpoint is None:
+                continue
+            event_id = checkpoint.get("event_id")
+            stages.append(
+                {
+                    "stage_id": stage,
+                    "provider": checkpoint["provider"],
+                    "layer": STAGE_LAYERS[stage],
+                    "observed_at": checkpoint["observed_at"],
+                    "clock_source": _clock_source(checkpoint),
+                    "event_id": event_id if isinstance(event_id, str) else None,
+                }
+            )
+        sample = {**item, "stages": stages}
+        if auxiliary_by_stage:
+            sample["auxiliary_stages"] = [
+                {
+                    "stage_id": stage,
+                    "provider": checkpoint["provider"],
+                    "layer": STAGE_LAYERS[stage],
+                    "observed_at": checkpoint["observed_at"],
+                    "clock_source": _clock_source(checkpoint),
+                    "event_id": checkpoint.get("event_id"),
+                }
+                for stage, checkpoint in sorted(
+                    auxiliary_by_stage.items(),
+                    key=lambda item: _timestamp(str(item[1]["observed_at"])),
+                )
+            ]
+        samples.append(sample)
+    unknown = set(checkpoints) - planned_trace_ids
+    if unknown:
+        raise LiveMetricsError(
+            "Checkpoint logs contain unplanned traces: " + ", ".join(sorted(unknown))
+        )
+    record["message_samples"] = samples
+    validate_metrics(record)
+    return record
+
+
+def collect_metrics(
+    template_path: Path,
+    sample_plan_path: Path,
+    checkpoint_paths: Sequence[Path],
+    output_path: Path,
+) -> dict[str, Any]:
+    """Create one non-overwriting metrics record without any cloud access."""
+
+    if output_path.exists():
+        raise LiveMetricsError(f"Metrics output already exists: {output_path}")
+    record = assemble_metrics(
+        _read(template_path),
+        _read(sample_plan_path),
+        _load_checkpoints(checkpoint_paths),
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(record, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return record
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -131,6 +431,10 @@ def _expected_paths(record: Mapping[str, Any]) -> dict[str, list[str]]:
         direction = path["direction"]
         if direction in paths:
             raise LiveMetricsError(f"Duplicate expected path: {direction}")
+        if any(stage not in STAGE_DIRECTIONS[direction] for stage in path["stage_ids"]):
+            raise LiveMetricsError(
+                f"Expected path contains a stage outside {direction}"
+            )
         paths[direction] = path["stage_ids"]
     directions = record["protocol"]["directions"]
     if set(paths) != set(directions):
@@ -149,6 +453,9 @@ def _validate_samples(record: Mapping[str, Any]) -> None:
     trace_ids: set[str] = set()
     sequence_ids: set[tuple[str, str, int]] = set()
     skew_ms = float(record["clock"]["max_observed_skew_ms"])
+    run_started = _timestamp(record["started_at"])
+    run_completed = _timestamp(record["completed_at"])
+    provider_scope = set(record["provider_scope"])
 
     for sample in record["message_samples"]:
         trace_id = sample["trace_id"]
@@ -171,6 +478,47 @@ def _validate_samples(record: Mapping[str, Any]) -> None:
         stage_ids = [stage["stage_id"] for stage in stages]
         if len(set(stage_ids)) != len(stage_ids):
             raise LiveMetricsError(f"Duplicate stage in trace {trace_id}")
+        auxiliary_stages = sample.get("auxiliary_stages", [])
+        auxiliary_ids = [stage["stage_id"] for stage in auxiliary_stages]
+        if len(set(auxiliary_ids)) != len(auxiliary_ids):
+            raise LiveMetricsError(f"Duplicate auxiliary stage in trace {trace_id}")
+        if set(stage_ids) & set(auxiliary_ids):
+            raise LiveMetricsError(
+                f"Trace {trace_id} repeats a primary stage as auxiliary evidence"
+            )
+        stage_bindings = [
+            (stage, STAGE_DIRECTIONS[sample["direction"]]) for stage in stages
+        ] + [
+            (stage, AUXILIARY_STAGES[sample["direction"]])
+            for stage in auxiliary_stages
+        ]
+        for stage, allowed_stages in stage_bindings:
+            stage_id = stage["stage_id"]
+            if stage_id not in allowed_stages:
+                raise LiveMetricsError(
+                    f"Trace {trace_id} contains a stage outside its direction"
+                )
+            if stage["layer"] != STAGE_LAYERS[stage_id]:
+                raise LiveMetricsError(
+                    f"Trace {trace_id} contains an invalid stage-layer mapping"
+                )
+            if stage["clock_source"] != STAGE_CLOCK_SOURCES[stage_id]:
+                raise LiveMetricsError(
+                    f"Trace {trace_id} contains an invalid stage clock source"
+                )
+            provider = stage["provider"]
+            if provider is not None and provider not in provider_scope:
+                raise LiveMetricsError(
+                    f"Trace {trace_id} contains a provider outside the run scope"
+                )
+            observed_at = _timestamp(stage["observed_at"])
+            if (
+                (observed_at - run_started).total_seconds() * 1000 < -skew_ms
+                or (observed_at - run_completed).total_seconds() * 1000 > skew_ms
+            ):
+                raise LiveMetricsError(
+                    f"Trace {trace_id} contains a stage outside the run window"
+                )
         for previous, current in pairwise(stages):
             delta_ms = _duration_ms(previous["observed_at"], current["observed_at"])
             if delta_ms < -skew_ms:
@@ -522,11 +870,33 @@ def _parser() -> argparse.ArgumentParser:
     )
     summarize.add_argument("--record", type=Path, action="append", required=True)
     summarize.add_argument("--output-dir", type=Path, required=True)
+    collect = subparsers.add_parser(
+        "collect",
+        help="Assemble a validated metrics record from checkpoint logs.",
+    )
+    collect.add_argument("--template", type=Path, required=True)
+    collect.add_argument("--sample-plan", type=Path, required=True)
+    collect.add_argument(
+        "--checkpoint-log", type=Path, action="append", required=True
+    )
+    collect.add_argument("--output", type=Path, required=True)
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = _parser().parse_args(argv)
+    if arguments.command == "collect":
+        record = collect_metrics(
+            arguments.template,
+            arguments.sample_plan,
+            arguments.checkpoint_log,
+            arguments.output,
+        )
+        print(
+            "live-evaluation-metrics: collected "
+            f"{len(record['message_samples'])} sample(s) into {arguments.output}"
+        )
+        return 0
     records = [load_metrics(path) for path in arguments.record]
     if arguments.command == "summarize":
         summarize_metrics(records, arguments.output_dir)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -19,8 +20,9 @@ def _at(offset_ms: int) -> str:
 
 
 def _sample(sequence: int, sample_set: str, start_ms: int) -> dict:
+    trace_prefix = "WARM" if sample_set == "warmup" else "MEAS"
     return {
-        "trace_id": f"trace-{sample_set}-{sequence}",
+        "trace_id": f"TRACE-{trace_prefix}{sequence:04d}",
         "sequence": sequence,
         "sample_set": sample_set,
         "direction": "telemetry",
@@ -228,3 +230,128 @@ def test_summary_does_not_overwrite_existing_directory(tmp_path: Path) -> None:
 
     with pytest.raises(metrics.LiveMetricsError, match="already exists"):
         metrics.summarize_metrics([_record()], output_dir)
+
+
+def _collection_inputs() -> tuple[dict, dict, dict[str, list[dict]]]:
+    record = _record()
+    observed_samples = record.pop("message_samples")
+    plan = {
+        "schema_version": "live-evaluation-sample-plan.v1",
+        "samples": [
+            {key: value for key, value in sample.items() if key != "stages"}
+            for sample in observed_samples
+        ],
+    }
+    checkpoints: dict[str, list[dict]] = {}
+    for sample in observed_samples:
+        checkpoints[sample["trace_id"]] = [
+            {
+                "schema_version": "diagnostic-checkpoint.v1",
+                "trace_id": sample["trace_id"],
+                "stage": stage["stage_id"],
+                "provider": stage["provider"] or "aws",
+                "component": (
+                    "simulator"
+                    if stage["stage_id"] == "simulator_sent"
+                    else "data-flow-verification"
+                    if stage["stage_id"] == "l4_queryable"
+                    else "runtime"
+                ),
+                "status": "passed",
+                "observed_at": stage["observed_at"],
+                "event_id": stage["event_id"],
+                "event_type": "telemetry.received.v1",
+            }
+            for stage in sample["stages"]
+        ]
+    return record, plan, checkpoints
+
+
+def test_checkpoint_collection_assembles_schema_valid_metrics() -> None:
+    template, plan, checkpoints = _collection_inputs()
+
+    record = metrics.assemble_metrics(template, plan, checkpoints)
+
+    assert len(record["message_samples"]) == 3
+    assert record["message_samples"][0]["stages"][0]["clock_source"] == "simulator"
+    assert record["message_samples"][0]["stages"][-1]["clock_source"] == "application"
+
+
+def test_checkpoint_collection_writes_once_and_rejects_duplicate_stage(
+    tmp_path: Path,
+) -> None:
+    template, plan, checkpoints = _collection_inputs()
+    template_path = tmp_path / "template.json"
+    plan_path = tmp_path / "sample-plan.json"
+    log_path = tmp_path / "checkpoints.jsonl"
+    output_path = tmp_path / "evaluation-metrics.json"
+    template_path.write_text(json.dumps(template), encoding="utf-8")
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+    log_path.write_text(
+        "\n".join(
+            metrics.CHECKPOINT_PREFIX + json.dumps(checkpoint)
+            for values in checkpoints.values()
+            for checkpoint in values
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    metrics.collect_metrics(template_path, plan_path, [log_path], output_path)
+    assert metrics.load_metrics(output_path)["run_id"] == template["run_id"]
+    with pytest.raises(metrics.LiveMetricsError, match="already exists"):
+        metrics.collect_metrics(template_path, plan_path, [log_path], output_path)
+
+    trace_id = next(iter(checkpoints))
+    checkpoints[trace_id].append(dict(checkpoints[trace_id][0]))
+    with pytest.raises(metrics.LiveMetricsError, match="Duplicate stage"):
+        metrics.assemble_metrics(template, plan, checkpoints)
+
+
+def test_checkpoint_parser_accepts_structured_provider_log_envelope() -> None:
+    _template, _plan, checkpoints = _collection_inputs()
+    checkpoint = next(iter(checkpoints.values()))[0]
+    line = json.dumps(
+        {"severity": "INFO", "message": metrics.CHECKPOINT_PREFIX + json.dumps(checkpoint)}
+    )
+
+    assert metrics._checkpoint_payload(line) == checkpoint
+
+
+def test_command_receipt_is_a_distinct_valid_measurement_direction() -> None:
+    record = _record()
+    record["protocol"]["directions"] = ["command_receipt"]
+    expected_path = [
+        "command_issued",
+        "event_layer_command_durable",
+        "l1_command_published",
+        "simulator_command_received",
+    ]
+    record["protocol"]["expected_paths"] = [
+        {"direction": "command_receipt", "stage_ids": expected_path}
+    ]
+    for sample in record["message_samples"]:
+        sample["direction"] = "command_receipt"
+        sample["stages"] = [
+            {
+                "stage_id": stage_id,
+                "provider": "aws",
+                "layer": metrics.STAGE_LAYERS[stage_id],
+                "observed_at": _at(1000 + index * 10 + sample["sequence"]),
+                "clock_source": metrics.STAGE_CLOCK_SOURCES[stage_id],
+                "event_id": f"command-{sample['sample_set']}-{sample['sequence']}",
+            }
+            for index, stage_id in enumerate(expected_path)
+        ]
+        sample["auxiliary_stages"] = [
+            {
+                "stage_id": "outcome_persisted",
+                "provider": "aws",
+                "layer": "L3-hot",
+                "observed_at": _at(1050 + sample["sequence"]),
+                "clock_source": "provider",
+                "event_id": f"outcome-{sample['sample_set']}-{sample['sequence']}",
+            }
+        ]
+
+    assert metrics.validate_metrics(record)["measured_sample_count"] == 2

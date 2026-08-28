@@ -358,9 +358,9 @@ full Twin and stop on the first unresolved provider blocker.
   Azure→GCP, GCP→AWS, and GCP→Azure; and
 - run separately budgeted component probes for L1-L3 plus Eventing before any
   expensive L4/L5 bundle, followed by isolated L4 and L5 readiness probes;
-- use the GCP L1-L3 component probe to select and document a non-HA Small
-  broker size instead of treating the theoretical three-replica allocation as
-  live-ready; and
+- use the GCP L1-L3 component probe to validate the offline-selected non-HA
+  1+1 Small broker/adapter allocation instead of treating it as live-proven;
+  and
 - immediately remove probe resources and record residual state.
 
 ### Exit criteria
@@ -370,8 +370,8 @@ full Twin and stop on the first unresolved provider blocker.
 - all six directed federation paths have provider evidence independent of a
   full deployment; and
 - component-probe metrics remain separate from the nine final scenario
-  datasets, and the GCP-L1 Small capacity decision is closed before a final
-  scenario uses it; and
+  datasets, and the GCP-L1 Small allocation has component-probe evidence before
+  a final scenario uses it; and
 - no full Small environment has been left running while a prerequisite is
   unresolved.
 
