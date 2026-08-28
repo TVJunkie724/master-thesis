@@ -7104,6 +7104,67 @@
         "title": "SceneGlbUploadResponse",
         "type": "object"
       },
+      "SupervisedEvaluationRunCreate": {
+        "additionalProperties": false,
+        "description": "Operator-authorized exact candidate for the bounded thesis matrix.",
+        "properties": {
+          "candidate_evidence_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Candidate Evidence Digest",
+            "type": "string"
+          },
+          "candidate_id": {
+            "pattern": "^(aws|azure|gcp)(\\|(aws|azure|gcp)){7}$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "candidate_pack_manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Candidate Pack Manifest Digest",
+            "type": "string"
+          },
+          "confirmation": {
+            "const": "MATERIALIZE SUPERVISED EVALUATION CANDIDATE",
+            "title": "Confirmation",
+            "type": "string"
+          },
+          "params": {
+            "$ref": "#/components/schemas/OptimizerCalculationParams"
+          },
+          "plan_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Plan Digest",
+            "type": "string"
+          },
+          "pricing_evidence_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pricing Evidence Version"
+          },
+          "scenario_id": {
+            "pattern": "^small-(local-(aws|azure|gcp)|focus-(aws|azure|gcp)-to-(aws|azure|gcp))$",
+            "title": "Scenario Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "params",
+          "scenario_id",
+          "candidate_id",
+          "candidate_evidence_digest",
+          "plan_digest",
+          "candidate_pack_manifest_digest",
+          "confirmation"
+        ],
+        "title": "SupervisedEvaluationRunCreate",
+        "type": "object"
+      },
       "TelemetryPhaseEvidence": {
         "additionalProperties": false,
         "description": "One allowlisted, secret-free successful phase observation.",
@@ -13515,6 +13576,129 @@
           }
         },
         "summary": "Run optimizer calculation and persist typed history",
+        "tags": [
+          "optimizer-runs"
+        ]
+      }
+    },
+    "/twins/{twin_id}/optimizer-runs/supervised-evaluation": {
+      "post": {
+        "description": "Operator-only thesis evaluation hook. Disabled by default and not used by the normal UI or optimizer-run endpoint. The resulting run enters the same selection, preflight, Apply, replay, and Destroy lifecycle.",
+        "operationId": "materializeSupervisedEvaluationRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupervisedEvaluationRunCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostCalculationRunDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "INVALID_CREDENTIALS",
+                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
+                  "http_status": 401,
+                  "message": "Cloud provider credentials are invalid or expired"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized - Authentication credentials are missing or invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "RESOURCE_NOT_FOUND",
+                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
+                  "http_status": 404,
+                  "message": "Project 'my-project' not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found - The requested resource does not exist"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "CONFLICT",
+                  "fix_suggestion": "Check the current state of the resource before performing this action",
+                  "http_status": 409,
+                  "message": "Resource already exists or state transition not allowed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict - The request conflicts with current resource state"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "502": {
+            "description": "Optimizer contract or service error"
+          },
+          "503": {
+            "description": "Optimizer unavailable"
+          }
+        },
+        "summary": "Materialize one digest-bound supervised Small candidate",
         "tags": [
           "optimizer-runs"
         ]

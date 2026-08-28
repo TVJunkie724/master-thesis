@@ -1100,14 +1100,21 @@ def _build_deployment_specification(
             }
         )
     capacity = _scenario_capacity(registry, resolved_workload.size)
+    # Small is the only live thesis scenario. Its published sizing bounds are
+    # admitted here; account, quota, and runtime behavior are then checked by
+    # the graph-derived preflight and the supervised E2E protocol. Requiring
+    # post-deployment observations before the first Small deployment would
+    # create an impossible bootstrap cycle. Medium/Large remain evaluation-only
+    # until their explicit capacity gates have been demonstrated.
     live_blockers = []
-    for provider in selected_providers:
-        live_blockers.extend(
-            f"gate.live-capacity.{provider}.{gate.replace('_', '-')}"
-            for gate in capacity["provider_admission"][provider]["live_gates"]
-        )
-    if assignment["component.twin-state"] == "aws":
-        live_blockers.append("gate.live-pricing.aws.twinmaker-account-plan")
+    if resolved_workload.size != "small":
+        for provider in selected_providers:
+            live_blockers.extend(
+                f"gate.live-capacity.{provider}.{gate.replace('_', '-')}"
+                for gate in capacity["provider_admission"][provider]["live_gates"]
+            )
+        if assignment["component.twin-state"] == "aws":
+            live_blockers.append("gate.live-pricing.aws.twinmaker-account-plan")
     if resolved_workload.size == "large" and gcp_event_worker_count > 0:
         live_blockers.append("gate.live-capacity.gcp.cloud-run-worker-pool-preview")
     missing_azure_large_measurement = uses_azure_large_autoscale and (

@@ -21,6 +21,28 @@ class CostCalculationRunCreate(BaseModel):
     pricing_evidence_version: Optional[str] = None
 
 
+class SupervisedEvaluationRunCreate(BaseModel):
+    """Operator-authorized exact candidate for the bounded thesis matrix."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    params: OptimizerCalculationParams
+    scenario_id: str = Field(
+        pattern=(
+            r"^small-(local-(aws|azure|gcp)|"
+            r"focus-(aws|azure|gcp)-to-(aws|azure|gcp))$"
+        )
+    )
+    candidate_id: str = Field(
+        pattern=r"^(aws|azure|gcp)(\|(aws|azure|gcp)){7}$"
+    )
+    candidate_evidence_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    plan_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    candidate_pack_manifest_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    confirmation: Literal["MATERIALIZE SUPERVISED EVALUATION CANDIDATE"]
+    pricing_evidence_version: Optional[str] = None
+
+
 class CostCalculationResultItemResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

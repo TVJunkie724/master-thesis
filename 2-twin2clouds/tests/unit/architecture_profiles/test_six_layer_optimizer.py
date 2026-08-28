@@ -371,6 +371,44 @@ def test_real_single_cloud_optimizer_prices_complete_profile(provider):
     }
 
 
+def test_small_is_publishable_while_medium_live_capacity_remains_fail_closed():
+    pricing, evidence = _pricing()
+    registry = _registry()
+    small = optimize_six_layer_eventing_v1(
+        calculation_run_id=RUN_ID,
+        architecture_profile=_profile_ref(registry),
+        extension_bindings=_extension_bindings(),
+        workload=_workload("small"),
+        pricing_evidence_refs={"aws": evidence["aws"]},
+        pricing_by_provider={"aws": pricing["aws"]},
+        providers=("aws",),
+        registry=registry,
+        resolution_status="publishable",
+    )
+
+    assert small.resolved_architecture["resolution_status"] == "publishable"
+    assert small.deployment_specification["readiness"] == {
+        "status": "deployment_ready",
+        "blocking_gate_ids": [],
+    }
+
+    with pytest.raises(
+        ArchitectureResolutionError,
+        match="No fully costed Six-layer candidate",
+    ):
+        optimize_six_layer_eventing_v1(
+            calculation_run_id=RUN_ID,
+            architecture_profile=_profile_ref(registry),
+            extension_bindings=_extension_bindings(),
+            workload=_workload("medium"),
+            pricing_evidence_refs={"aws": evidence["aws"]},
+            pricing_by_provider={"aws": pricing["aws"]},
+            providers=("aws",),
+            registry=registry,
+            resolution_status="publishable",
+        )
+
+
 def test_optimizer_rejects_cheapest_candidate_when_resolution_is_not_materializable():
     pricing, evidence = _pricing()
     registry = _registry()
@@ -425,12 +463,18 @@ def test_evaluation_hook_materializes_an_admissible_costed_candidate_without_cal
         pricing_evidence_refs=evidence,
         pricing_by_provider=pricing,
         registry=registry,
+        resolution_status="publishable",
         evaluation_candidate_id=candidate_id,
     )
 
     assert result.selection_kind == "evaluation_candidate"
     assert result.selected_candidate_id == candidate_id
     assert result.cost_evaluation.monthly_total > 0
+    assert result.resolved_architecture["resolution_status"] == "publishable"
+    assert result.deployment_specification["readiness"] == {
+        "status": "deployment_ready",
+        "blocking_gate_ids": [],
+    }
     with pytest.raises(RuntimeError, match="not the cost winner"):
         _ = result.winning_candidate_id
 

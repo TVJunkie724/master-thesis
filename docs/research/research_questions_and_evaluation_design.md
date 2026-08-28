@@ -199,8 +199,11 @@ contract-bounded candidates deterministically, rejects incomplete component or
 edge mappings with stable reason codes, and ranks only admissible candidates.
 The selected candidate produces the cost trace, deployment specification, and
 immutable resolved architecture consumed by the independent Deployer graph
-gate. This is offline method evidence; real provider capacity and behavior
-remain supervised live gates.
+gate. This is offline method evidence. For the only live thesis workload,
+Small, published sizing bounds admit the candidate while provider account,
+quota, and configuration checks remain pre-Apply gates; runtime capacity and
+behavior are measured during the supervised run. Medium/Large remain
+non-publishable until their explicit live-capacity gates are satisfied.
 
 #### Required Evidence
 
@@ -527,8 +530,9 @@ six-layer-eventing@1
 The active contract makes the standalone Six-layer architecture data-driven
 and iterable. The frozen Phase 8 evidence covers its behavior, exact provider
 bundles, cross-cloud bridge, and implementation blueprint. It is the fixed
-normal calculation path, while supervised live-capacity gates remain
-fail-closed. It must not become a general architecture editor or arbitrary
+normal calculation path. Small is the bounded deployable PoC workload;
+Medium/Large live-capacity gates remain fail-closed. It must not become a
+general architecture editor or arbitrary
 topology engine. The contract owns one admissibility gate, candidate set, and
 optimization run. The historical Five-layer reproduction is reported
 separately and never merged into the active ranking.

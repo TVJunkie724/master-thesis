@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     OPTIMIZER_URL: str = "http://master-thesis-2twin2clouds-1:8000"
     DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES: int = Field(default=1440, gt=0)
     ARCHITECTURE_PROFILE_RESOLUTION_ENABLED: bool = True
+    # Explicit operator-only research hook. The normal optimizer endpoint and
+    # Flutter UI never expose candidate overrides.
+    SUPERVISED_EVALUATION_ENABLED: bool = False
 
     # GLB File Storage (for scene.glb uploads)
     UPLOAD_DIR: str = "./uploads"

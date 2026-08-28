@@ -103,6 +103,8 @@ def _optimized(assignments: dict[str, str], *, total: str = "1.5"):
             "component_costs": [],
             "route_costs": [],
         },
+        selected_candidate_id="candidate.fixture",
+        selection_kind="cost_winner",
         winning_candidate_id="candidate.fixture",
         enumerated_candidate_count=1,
         costed_candidate_count=1,
@@ -192,9 +194,7 @@ def test_six_layer_api_dispatches_exact_standalone_profile(
         "six-layer-eventing"
     )
     assert optimize.call_args.kwargs["architecture_profile"]["profileVersion"] == "1"
-    assert optimize.call_args.kwargs["resolution_status"] == (
-        "offline_contract_fixture"
-    )
+    assert optimize.call_args.kwargs["resolution_status"] == "publishable"
 
 
 def test_six_layer_http_projection_uses_the_actual_winning_candidate():
@@ -228,8 +228,33 @@ def test_six_layer_http_projection_uses_the_actual_winning_candidate():
     )
 
 
+def test_six_layer_http_projection_does_not_label_evaluation_candidate_as_winner():
+    params = SixLayerCalcParams.model_validate(
+        {
+            **_six_layer_payload(),
+            "evaluationScenarioId": "small-focus-aws-to-azure",
+            "evaluationCandidateId": "aws|azure|azure|azure|azure|azure|azure|azure",
+            "evaluationCandidateEvidenceDigest": "sha256:" + ("3" * 64),
+            "evaluationPlanDigest": "sha256:" + ("4" * 64),
+            "evaluationCandidatePackManifestDigest": "sha256:" + ("5" * 64),
+        }
+    )
+    optimized = _optimized(_all_aws_assignments())
+    optimized.selection_kind = "evaluation_candidate"
+    optimized.selected_candidate_id = (
+        "aws|azure|azure|azure|azure|azure|azure|azure"
+    )
+
+    result = _six_layer_http_result(params, optimized)
+    diagnostics = result["architectureResolutionDiagnostics"]
+
+    assert diagnostics["selectionKind"] == "evaluation_candidate"
+    assert diagnostics["selectedCandidateId"] == optimized.selected_candidate_id
+    assert "winningCandidateId" not in diagnostics
+
+
 @patch("api.calculation.optimize_six_layer_eventing_v1")
-def test_six_layer_unsupervised_api_path_requests_offline_evidence(optimize):
+def test_six_layer_unsupervised_small_api_path_requests_publishable_result(optimize):
     params = SixLayerCalcParams.model_validate(_six_layer_payload())
     captured = {}
 
@@ -242,8 +267,9 @@ def test_six_layer_unsupervised_api_path_requests_offline_evidence(optimize):
     with pytest.raises(RuntimeError, match="captured optimizer boundary"):
         _calculate_six_layer(params, resolved_catalogs=_resolved_catalogs({}))
 
-    assert captured["resolution_status"] == "offline_contract_fixture"
+    assert captured["resolution_status"] == "publishable"
     assert "satisfied_live_gate_ids" not in captured
+    assert captured["evaluation_candidate_id"] is None
     assert {
         provider: {
             "id": reference["id"],
@@ -259,3 +285,66 @@ def test_six_layer_unsupervised_api_path_requests_offline_evidence(optimize):
         }
         for provider, catalog in _catalog_context().catalogs.items()
     }
+
+
+@patch("api.calculation.optimize_six_layer_eventing_v1")
+def test_six_layer_medium_api_path_remains_evaluation_only(optimize):
+    payload = _six_layer_payload()
+    workload = json.loads(
+        (
+            SIX_LAYER_WORKLOAD_ROOT / "fixtures" / "valid" / "core-medium.json"
+        ).read_text(encoding="utf-8")
+    )
+    params = SixLayerCalcParams.model_validate(
+        {
+            **payload,
+            **workload,
+        }
+    )
+    optimize.side_effect = RuntimeError("captured optimizer boundary")
+
+    with pytest.raises(RuntimeError, match="captured optimizer boundary"):
+        _calculate_six_layer(params, resolved_catalogs=_resolved_catalogs({}))
+
+    assert optimize.call_args.kwargs["resolution_status"] == (
+        "offline_contract_fixture"
+    )
+
+
+def test_supervised_candidate_requires_digest_and_small_workload():
+    candidate_id = "aws|azure|azure|azure|azure|azure|azure|azure"
+    digest = "sha256:" + ("3" * 64)
+    parsed = SixLayerCalcParams.model_validate(
+        {
+            **_six_layer_payload(),
+            "evaluationCandidateId": candidate_id,
+            "evaluationScenarioId": "small-focus-aws-to-azure",
+            "evaluationCandidateEvidenceDigest": digest,
+            "evaluationPlanDigest": "sha256:" + ("4" * 64),
+            "evaluationCandidatePackManifestDigest": "sha256:" + ("5" * 64),
+        }
+    )
+    assert parsed.evaluationCandidateId == candidate_id
+
+    with pytest.raises(ValueError, match="must be supplied together"):
+        SixLayerCalcParams.model_validate(
+            {**_six_layer_payload(), "evaluationCandidateId": candidate_id}
+        )
+
+    workload = json.loads(
+        (
+            SIX_LAYER_WORKLOAD_ROOT / "fixtures" / "valid" / "core-medium.json"
+        ).read_text(encoding="utf-8")
+    )
+    with pytest.raises(ValueError, match="limited to the Small scenario"):
+        SixLayerCalcParams.model_validate(
+            {
+                **_six_layer_payload(),
+                **workload,
+                "evaluationCandidateId": candidate_id,
+                "evaluationScenarioId": "small-focus-aws-to-azure",
+                "evaluationCandidateEvidenceDigest": digest,
+                "evaluationPlanDigest": "sha256:" + ("4" * 64),
+                "evaluationCandidatePackManifestDigest": "sha256:" + ("5" * 64),
+            }
+        )

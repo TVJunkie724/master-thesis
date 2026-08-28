@@ -28,7 +28,6 @@ from src.services.cost_calculation_run_service import (
     _validate_profile_workload_pair,
 )
 from src.services.errors import (
-    CostCalculationRunSelectionError,
     OptimizerContractError,
 )
 from src.services.resolved_deployment_specification_service import calculate_digest
@@ -57,10 +56,15 @@ class FakeSixLayerOptimizerClient:
             {"provider": provider, "digest": evidence[provider]}
             for provider in providers
         ]
+        specification["readiness"] = {
+            "status": "deployment_ready",
+            "blocking_gate_ids": [],
+        }
 
         specification["digest"] = calculate_digest(specification)
 
         architecture["calculation_run_id"] = run_id
+        architecture["resolution_status"] = "publishable"
         architecture["deployment_specification_ref"] = {
             "schema_version": specification["schema_version"],
             "calculation_run_id": run_id,
@@ -132,6 +136,18 @@ class FakeSixLayerOptimizerClient:
             "resolvedTwinArchitecture": architecture,
             "resolvedDeploymentSpecification": specification,
         }
+        if "evaluationCandidateId" in params:
+            result["supervisedEvaluation"] = {
+                "scenarioId": params["evaluationScenarioId"],
+                "candidateId": params["evaluationCandidateId"],
+                "candidateEvidenceDigest": params[
+                    "evaluationCandidateEvidenceDigest"
+                ],
+                "planDigest": params["evaluationPlanDigest"],
+                "candidatePackManifestDigest": params[
+                    "evaluationCandidatePackManifestDigest"
+                ],
+            }
         return {"result": result}
 
     async def get_pricing_catalog_baseline(self, provider):
@@ -233,13 +249,85 @@ async def test_run_persists_complete_six_layer_evaluation_evidence(db_session):
     assert len(run.result_items) > 0
     assert optimizer.calls[0]["architectureProfile"]["profileVersion"] == "1"
 
-    with pytest.raises(CostCalculationRunSelectionError) as rejected:
-        await _service(db_session, optimizer).select_for_deployment(
+    selected = await _service(db_session, optimizer).select_for_deployment(
+        twin.id,
+        user.id,
+        run.id,
+    )
+    assert selected.selected_for_deployment_at is not None
+
+
+@pytest.mark.asyncio
+async def test_supervised_candidate_is_disabled_by_default(db_session, monkeypatch):
+    user, twin = _twin_state(db_session)
+    optimizer = FakeSixLayerOptimizerClient()
+    monkeypatch.setattr(
+        "src.services.cost_calculation_run_service.settings.SUPERVISED_EVALUATION_ENABLED",
+        False,
+    )
+
+    with pytest.raises(ArchitectureDomainError) as rejected:
+        await _service(db_session, optimizer).create_run(
             twin.id,
             user.id,
-            run.id,
+            _params(),
+            supervised_evaluation={
+                "scenario_id": "small-focus-aws-to-azure",
+                "candidate_id": "aws|azure|azure|azure|azure|azure|azure|azure",
+                "candidate_evidence_digest": "sha256:" + ("3" * 64),
+                "plan_digest": "sha256:" + ("4" * 64),
+                "candidate_pack_manifest_digest": "sha256:" + ("5" * 64),
+            },
         )
-    assert rejected.value.error_code == "DEPLOYMENT_CAPACITY_EVIDENCE_PENDING"
+
+    assert rejected.value.code == "ARCH_SELECTION_FORBIDDEN"
+    assert optimizer.calls == []
+
+
+@pytest.mark.asyncio
+async def test_supervised_candidate_uses_normal_persist_and_selection_path(
+    db_session,
+    monkeypatch,
+):
+    user, twin = _twin_state(db_session)
+    optimizer = FakeSixLayerOptimizerClient()
+    monkeypatch.setattr(
+        "src.services.cost_calculation_run_service.settings.SUPERVISED_EVALUATION_ENABLED",
+        True,
+    )
+    admission = {
+        "scenario_id": "small-focus-aws-to-azure",
+        "candidate_id": "aws|azure|azure|azure|azure|azure|azure|azure",
+        "candidate_evidence_digest": "sha256:" + ("3" * 64),
+        "plan_digest": "sha256:" + ("4" * 64),
+        "candidate_pack_manifest_digest": "sha256:" + ("5" * 64),
+    }
+
+    run = await _service(db_session, optimizer).create_run(
+        twin.id,
+        user.id,
+        _params(),
+        supervised_evaluation=admission,
+    )
+    persisted = json.loads(run.result_summary_json)
+
+    assert optimizer.calls[0]["evaluationScenarioId"] == admission["scenario_id"]
+    assert optimizer.calls[0]["evaluationCandidateId"] == admission["candidate_id"]
+    assert persisted["supervisedEvaluation"] == {
+        "scenarioId": admission["scenario_id"],
+        "candidateId": admission["candidate_id"],
+        "candidateEvidenceDigest": admission["candidate_evidence_digest"],
+        "planDigest": admission["plan_digest"],
+        "candidatePackManifestDigest": admission[
+            "candidate_pack_manifest_digest"
+        ],
+    }
+    selected = await _service(db_session, optimizer).select_for_deployment(
+        twin.id,
+        user.id,
+        run.id,
+    )
+    assert selected.selected_for_deployment_at is not None
 
 
 @pytest.mark.asyncio

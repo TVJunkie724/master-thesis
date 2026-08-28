@@ -1278,7 +1278,7 @@ terminates MQTT in both directions, a persistent QoS 1 ordered-shared adapter
 publishes accepted telemetry to Pub/Sub, and Pub/Sub remains the durable cloud
 backbone for commands and correlated outcomes. Reconnect ordering degradation,
 the selected image's 64-KiB capacity, and node/failure behavior remain explicit
-live-readiness gates.
+supervised Small-run evaluation obligations.
 
 Phase 8.9 has since implemented and frozen the standalone offline Six-layer v1
 profile after the complete-service, Deployer, Flutter, and cross-stack gates.
@@ -1289,7 +1289,10 @@ provider sign-in remain supervised-live gates. General topology optimization
 remains a separate future research direction.
 
 The frozen standalone profile is evaluated with functional and theoretical-
-capacity gates before cost. Its method, bounded interpretation, and evidence
+capacity gates before cost. Published Small sizing bounds permit the first
+deployment after graph-derived account preflight; observed runtime capacity is
+then evidence produced by, rather than a prerequisite to, that run.
+Medium/Large capacity remains fail-closed. Its method, bounded interpretation, and evidence
 index are documented in the
 [`phase_08_eventing`](evidence/phase_08_eventing/README.md) and
 [`phase_08_service_bundles`](evidence/phase_08_service_bundles/README.md)

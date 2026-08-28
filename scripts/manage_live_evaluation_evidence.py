@@ -33,6 +33,16 @@ SCHEMA_PATH = (
     ROOT / "docs/research/evaluation/schemas" / "live-evaluation-evidence.schema.json"
 )
 PROVIDERS = ("aws", "azure", "gcp")
+CANDIDATE_COMPONENT_ORDER = (
+    "component.ingestion",
+    "component.processing",
+    "component.hot-storage",
+    "component.cool-storage",
+    "component.archive-storage",
+    "component.twin-state",
+    "component.visualization",
+    "component.eventing",
+)
 REQUIRED_SCENARIO_ARTIFACTS = frozenset(
     {
         "readiness",
@@ -171,6 +181,7 @@ def load_candidate_pack(
     if not isinstance(entries, list) or len(entries) != 9:
         raise LiveEvidenceError("Candidate-pack manifest entries are incomplete")
     expected_ids = _scenario_ids(plan)
+    plan_scenarios = {item["scenario_id"]: item for item in plan["scenarios"]}
     if [entry.get("scenario_id") for entry in entries] != expected_ids:
         raise LiveEvidenceError("Candidate-pack scenario order or coverage drifted")
 
@@ -204,6 +215,15 @@ def load_candidate_pack(
             raise LiveEvidenceError(f"{scenario_id}: manifest digest binding drifted")
         if candidate.get("candidate_id") != entry.get("candidate_id"):
             raise LiveEvidenceError(f"{scenario_id}: candidate ID binding drifted")
+        expected_assignments = plan_scenarios[scenario_id]["assignments"]
+        if candidate.get("assignments") != expected_assignments:
+            raise LiveEvidenceError(f"{scenario_id}: candidate assignments drifted")
+        expected_candidate_id = "|".join(
+            expected_assignments[component_id]
+            for component_id in CANDIDATE_COMPONENT_ORDER
+        )
+        if candidate.get("candidate_id") != expected_candidate_id:
+            raise LiveEvidenceError(f"{scenario_id}: candidate ID is not canonical")
         cost = candidate.get("cost_evaluation")
         if (
             not isinstance(cost, dict)

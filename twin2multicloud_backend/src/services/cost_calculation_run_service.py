@@ -118,6 +118,7 @@ class CostCalculationRunService:
         params: OptimizerCalculationParams,
         *,
         pricing_evidence_version: str | None = None,
+        supervised_evaluation: Mapping[str, str] | None = None,
     ) -> CostCalculationRun:
         twin = self.twin_repository.get_with_configs_for_user(twin_id, user_id)
         if not twin:
@@ -148,6 +149,31 @@ class CostCalculationRunService:
 
         optimizer_params = params.to_optimizer_payload()
         persisted_params = params.to_persisted_payload()
+        if supervised_evaluation is not None:
+            if not settings.SUPERVISED_EVALUATION_ENABLED:
+                raise architecture_error(
+                    "ARCH_SELECTION_FORBIDDEN",
+                    "Supervised evaluation candidate materialization is disabled.",
+                )
+            if params.eventingScenarioId != "eventing-small-v1":
+                raise architecture_error(
+                    "ARCH_WORKLOAD_INCOMPATIBLE",
+                    "Only the immutable Small workload may be materialized for live evaluation.",
+                    field="params.eventingScenarioId",
+                )
+            optimizer_params.update(
+                {
+                    "evaluationCandidateId": supervised_evaluation["candidate_id"],
+                    "evaluationScenarioId": supervised_evaluation["scenario_id"],
+                    "evaluationCandidateEvidenceDigest": supervised_evaluation[
+                        "candidate_evidence_digest"
+                    ],
+                    "evaluationPlanDigest": supervised_evaluation["plan_digest"],
+                    "evaluationCandidatePackManifestDigest": (
+                        supervised_evaluation["candidate_pack_manifest_digest"]
+                    ),
+                }
+            )
         run_id = str(uuid.uuid4())
         optimizer_params["calculationRunId"] = run_id
         catalog_context = await self.pricing_catalog_contexts.resolve()
@@ -188,6 +214,11 @@ class CostCalculationRunService:
 
         try:
             result = self._extract_optimizer_result(optimizer_payload)
+            if supervised_evaluation is not None:
+                self._validate_supervised_evaluation_result(
+                    result,
+                    supervised_evaluation,
+                )
             contract = self._validate_optimizer_result(result)
             _validate_optimizer_pricing_catalog_context(result, catalog_context)
             cheapest_path = self._extract_cheapest_path(result)
@@ -353,6 +384,32 @@ class CostCalculationRunService:
 
         self.db.refresh(run)
         return run
+
+    @staticmethod
+    def _validate_supervised_evaluation_result(
+        result: Mapping[str, Any],
+        admission: Mapping[str, str],
+    ) -> None:
+        evidence = result.get("supervisedEvaluation")
+        expected = {
+            "scenarioId": admission["scenario_id"],
+            "candidateId": admission["candidate_id"],
+            "candidateEvidenceDigest": admission["candidate_evidence_digest"],
+            "planDigest": admission["plan_digest"],
+            "candidatePackManifestDigest": admission[
+                "candidate_pack_manifest_digest"
+            ],
+        }
+        if evidence != expected:
+            raise OptimizerContractError(
+                "Optimizer supervised-evaluation binding is invalid",
+                [
+                    {
+                        "field": "supervisedEvaluation",
+                        "message": "Candidate identity or evidence digest differs",
+                    }
+                ],
+            )
 
     def persist_successful_run(
         self,

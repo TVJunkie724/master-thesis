@@ -29,9 +29,14 @@ def _read(path: Path) -> dict[str, Any]:
     return value
 
 
-def validate(*, required_state: str = "planned") -> dict[str, Any]:
-    plan = _read(PLAN_PATH)
-    profile = _read(PROFILE_PATH)
+def validate(
+    *,
+    required_state: str = "planned",
+    plan_path: Path = PLAN_PATH,
+    profile_path: Path = PROFILE_PATH,
+) -> dict[str, Any]:
+    plan = _read(plan_path)
+    profile = _read(profile_path)
     scenarios = plan.get("scenarios")
     if not isinstance(scenarios, list) or len(scenarios) != 9:
         raise RuntimeError("Live evaluation must contain exactly nine scenarios")

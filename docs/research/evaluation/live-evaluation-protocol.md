@@ -44,9 +44,14 @@ record `status: approved_for_supervised_execution` and
 the same validator with `--require-state ready`. This transition validates the
 plan only; it never replaces the distinct Apply and Destroy confirmations.
 
-The normal application continues to deploy only the cost-selected candidate.
-Explicit candidate selection is evaluation-only and must not become a public
-profile or provider-override feature.
+The normal application continues to deploy only the cost-selected Small
+candidate. Small uses the published static sizing bounds and becomes
+deployable only after the independent graph-derived account preflight;
+Medium/Large calculations remain evaluation-only until their explicit live
+capacity gates are demonstrated. Runtime capacity observations for Small are
+evaluation outputs, not impossible preconditions to the first deployment.
+Explicit candidate selection remains an operator-only evaluation hook and
+must not become a public profile or provider-override feature.
 
 Before any live authorization, one planned candidate can be reproduced from
 the pinned catalogs without provider access:
@@ -58,8 +63,9 @@ python scripts/materialize_live_evaluation_candidate.py \
 
 The output contains the exact candidate, cost ledger, RTA and RDS and is marked
 `offline_planned_candidate`. It is an input to budget review, not deployment or
-live evidence. The strict public workload model rejects an
-`evaluationCandidateId`; only the repository evaluation utility can bind it.
+live evidence. The strict public workload model rejects candidate overrides;
+only the disabled-by-default Management evaluation endpoint can pass the
+repository-validated internal binding to the Optimizer.
 
 The complete nine-scenario handoff is materialized into a new, non-overwriting
 directory with:
@@ -73,6 +79,25 @@ The directory contains one digest-bound candidate file per checked scenario
 and `candidate-pack-manifest.json`, including the calculated monthly totals
 used for the separate budget review. The totals are estimates, not approved
 Apply caps, and materialization still performs no provider or Deployer call.
+
+After the tracked matrix is approved, all nine budget caps are set, and the
+candidate pack has been regenerated against that exact plan digest, build one
+non-overwriting Management request offline:
+
+```bash
+python scripts/build_supervised_evaluation_request.py \
+  --candidate-pack /tmp/six-layer-live-candidates \
+  --scenario-id small-focus-aws-to-azure \
+  --output /tmp/small-focus-aws-to-azure.request.json
+```
+
+The command validates the ready plan and candidate pack and performs no HTTP
+or cloud call. During the supervised session, the operator temporarily enables
+`SUPERVISED_EVALUATION_ENABLED`, posts that body to the owner-scoped
+`/twins/{twin_id}/optimizer-runs/supervised-evaluation` endpoint, then disables
+the hook again. The resulting calculation run is selected and processed by the
+same preflight, Apply, replay, access, verification, Destroy, and cleanup path
+as a normal cost-selected run.
 
 Create the non-overwriting, not-started evidence index beside the future
 evidence files:
@@ -145,13 +170,13 @@ provider-local final scenario. Separate full AWS/Azure component deployments
 or isolated cost-incurring L4/L5 deployments would duplicate evidence without
 answering another research question.
 
-GCP-L1 has an additional architecture gate. Its previous three-replica
+GCP-L1 has an additional evaluation gate. Its previous three-replica
 `e2-standard-8` Small broker allocation has been replaced offline by one
 non-HA `e2-standard-4` broker node plus one `e2-standard-2` adapter node. A
 reviewed plan and component probe must validate that 1+1 allocation before a
-GCP-L1 final scenario can be approved. The capability decision (bidirectional
+GCP-L1 final scenario can be started. The capability decision (bidirectional
 MQTT through BifroMQ with Pub/Sub durability) remains separate from the still
-open live-capacity evidence.
+open observed-capacity evidence.
 
 ### Minimal PoC diagnostics
 

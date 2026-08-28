@@ -22,6 +22,11 @@ development-auth settings and internal Optimizer/Deployer URLs. Credential
 rate limits and redaction remain useful safety controls even though production
 identity federation is outside scope.
 
+`SUPERVISED_EVALUATION_ENABLED` defaults to `false`. It enables only the
+digest-bound exact-candidate handoff used by the approved nine-scenario thesis
+matrix; the normal Flutter and optimizer-run paths never expose provider
+overrides.
+
 Cloud credential values belong only in encrypted CloudConnections or a
 deliberately enabled ignored local secret overlay. They must never be compiled
 into Flutter or committed as configuration.

@@ -342,7 +342,9 @@ The UI audit decides whether existing screens should be combined or removed.
 ## 12. Phase 8 — low-cost live prerequisite gates
 
 These checks are supervised and separately authorized. They are run before a
-full Twin and stop on the first unresolved provider blocker.
+full Twin and stop on the first unresolved provider blocker. They do not turn
+post-deployment Small runtime observations into a prerequisite for the first
+deployment; Medium/Large capacity remains fail-closed.
 
 ### Checks
 
@@ -388,7 +390,10 @@ full Twin and stop on the first unresolved provider blocker.
 The concrete assignments and their primary edge focus are frozen in
 `docs/research/evaluation/small-scenario-matrix.json`. The checked matrix shows
 which architecture edge, edge-contract class, and provider direction each
-scenario covers. Redundant permutations are not added without a specific RQ
+scenario evaluates. Exact non-winning candidates are admitted only through the
+disabled-by-default, digest-bound supervised Management endpoint; after
+materialization they use the normal selection and deployment lifecycle.
+Redundant permutations are not added without a specific RQ
 or risk justification. The matrix remains non-executable until every numerical
 budget cap and candidate trace has been reviewed.
 

@@ -105,6 +105,29 @@ class SixLayerCalcParams(BaseModel):
     providerPricingCatalogs: PricingCatalogContext
     architectureProfile: ArchitectureProfileRequestRef
     extensionBindings: list[ExtensionBindingRequestRef] = Field(max_length=64)
+    evaluationCandidateId: str | None = Field(
+        default=None,
+        pattern=r"^(aws|azure|gcp)(\|(aws|azure|gcp)){7}$",
+    )
+    evaluationScenarioId: str | None = Field(
+        default=None,
+        pattern=(
+            r"^small-(local-(aws|azure|gcp)|"
+            r"focus-(aws|azure|gcp)-to-(aws|azure|gcp))$"
+        ),
+    )
+    evaluationCandidateEvidenceDigest: str | None = Field(
+        default=None,
+        pattern=r"^sha256:[0-9a-f]{64}$",
+    )
+    evaluationPlanDigest: str | None = Field(
+        default=None,
+        pattern=r"^sha256:[0-9a-f]{64}$",
+    )
+    evaluationCandidatePackManifestDigest: str | None = Field(
+        default=None,
+        pattern=r"^sha256:[0-9a-f]{64}$",
+    )
 
     def workload_payload(self) -> dict[str, object]:
         return self.model_dump(
@@ -113,12 +136,34 @@ class SixLayerCalcParams(BaseModel):
                 "providerPricingCatalogs",
                 "architectureProfile",
                 "extensionBindings",
+                "evaluationCandidateId",
+                "evaluationScenarioId",
+                "evaluationCandidateEvidenceDigest",
+                "evaluationPlanDigest",
+                "evaluationCandidatePackManifestDigest",
             }
         )
 
     @model_validator(mode="after")
     def validate_frozen_scenario(self) -> "SixLayerCalcParams":
         resolve_six_layer_workload(self.workload_payload())
+        admission_values = (
+            self.evaluationCandidateId,
+            self.evaluationScenarioId,
+            self.evaluationCandidateEvidenceDigest,
+            self.evaluationPlanDigest,
+            self.evaluationCandidatePackManifestDigest,
+        )
+        if any(value is not None for value in admission_values) and not all(
+            value is not None for value in admission_values
+        ):
+            raise ValueError(
+                "Evaluation scenario, candidate, and evidence digest must be supplied together"
+            )
+        if self.evaluationCandidateId and self.eventingScenarioId != "eventing-small-v1":
+            raise ValueError(
+                "Supervised candidate materialization is limited to the Small scenario"
+            )
         return self
 
 
@@ -149,10 +194,10 @@ CalculationParams = SixLayerCalcParams
         "**The fixed Six-layer responsibilities:**\n"
         "- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n"
         "- **L2 (Processing):** Data processing, event detection, notifications\n"
-        "- **L3 (Storage):** Hot/Cool/Archive storage tiers - each can be on different providers\n"
+        "- **L3 (Storage):** Provider-local Hot/Cool/Archive storage bundle\n"
         "- **L4 (Management):** Digital Twin state and bounded relationship management\n"
-        "- **L5 (Visualization):** Dashboards and user interfaces\n\n"
-        "- **L6 (Eventing):** Independently assigned event routing between processing and consumers\n\n"
+        "- **L5 (Visualization):** Co-located bounded raw-history access and dashboard\n\n"
+        "- **LE (Eventing):** Independently assigned event routing between processing and consumers\n\n"
         "**Important:** This is a calculation-only endpoint. It does not deploy any resources. "
         "Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure."
     ),
@@ -171,41 +216,41 @@ CalculationParams = SixLayerCalcParams
                                 "L1": "GCP",
                                 "L2": "AWS",
                                 "L3": {
-                                    "Hot": "AWS",
-                                    "Cool": "GCP",
-                                    "Archive": "AWS",
+                                    "Hot": "Azure",
+                                    "Cool": "Azure",
+                                    "Archive": "Azure",
                                 },
-                                "L4": "Azure",
+                                "L4": "GCP",
                                 "L5": "Azure",
+                                "Eventing": "AWS",
                             },
                             "cheapestPath": [
                                 "L1_GCP",
                                 "L2_AWS",
-                                "L3_hot_AWS",
-                                "L3_cool_GCP",
-                                "L3_archive_AWS",
-                                "L4_Azure",
+                                "L3_hot_Azure",
+                                "L3_cool_Azure",
+                                "L3_archive_Azure",
+                                "L4_GCP",
                                 "L5_Azure",
+                                "Eventing_AWS",
                             ],
-                            "transferPricingContext": {
-                                "schemaVersion": "complete-path-transfer-pricing.v1",
-                                "currency": "USD",
-                                "routes": [],
-                                "pools": [],
-                            },
-                            "optimizationDiagnostics": {
-                                "schemaVersion": "complete-path-optimization.v1",
-                                "enumeratedPathCount": 972,
-                                "evaluatedPathCount": 972,
-                                "rejectedPathCount": 0,
-                                "winningCandidateId": (
-                                    "gcp|aws|aws|gcp|aws|azure|azure"
+                            "architectureResolutionDiagnostics": {
+                                "schemaVersion": "architecture-resolution-diagnostics.v2",
+                                "enumeratedCandidateCount": 243,
+                                "admissibleCandidateCount": 243,
+                                "rejectedCandidateCount": 0,
+                                "selectionKind": "cost_winner",
+                                "selectedCandidateId": (
+                                    "gcp|aws|azure|azure|azure|gcp|azure|aws"
                                 ),
-                                "scoreUnit": "USD/month",
+                                "winningCandidateId": (
+                                    "gcp|aws|azure|azure|azure|gcp|azure|aws"
+                                ),
                             },
                             "totalCost": 85.50,
-                            "optimization_profile_id": "cost_minimization_v1",
-                            "result_schema_version": "cost-result.v1",
+                            "totalCostExact": "85.50",
+                            "optimization_profile_id": "cost-minimization-v2",
+                            "result_schema_version": "cost-result.v2",
                             "currency": "USD",
                         }
                     }
@@ -377,6 +422,8 @@ def _calculate_six_layer(
             "architectureProfile",
             "Only the Six-layer Eventing v1 profile is executable",
         )
+    supervised_candidate = params.evaluationCandidateId
+    deployable_small = params.eventingScenarioId == "eventing-small-v1"
     optimized = optimize_six_layer_eventing_v1(
         calculation_run_id=str(params.calculationRunId),
         architecture_profile=params.architectureProfile.model_dump(),
@@ -384,9 +431,23 @@ def _calculate_six_layer(
         workload=params.workload_payload(),
         pricing_evidence_refs=references,
         pricing_by_provider=resolved_catalogs.detached_pricing(),
-        resolution_status="offline_contract_fixture",
+        resolution_status=(
+            "publishable" if deployable_small else "offline_contract_fixture"
+        ),
+        evaluation_candidate_id=supervised_candidate,
     )
-    return _six_layer_http_result(params, optimized)
+    result = _six_layer_http_result(params, optimized)
+    if supervised_candidate is not None:
+        result["supervisedEvaluation"] = {
+            "scenarioId": params.evaluationScenarioId,
+            "candidateId": supervised_candidate,
+            "candidateEvidenceDigest": params.evaluationCandidateEvidenceDigest,
+            "planDigest": params.evaluationPlanDigest,
+            "candidatePackManifestDigest": (
+                params.evaluationCandidatePackManifestDigest
+            ),
+        }
+    return result
 
 
 def _six_layer_http_result(
@@ -424,6 +485,19 @@ def _six_layer_http_result(
     ]
     if "Eventing" in calculation_result:
         cheapest_path.append(f"Eventing_{calculation_result['Eventing']}")
+    diagnostics = {
+        "schemaVersion": "architecture-resolution-diagnostics.v2",
+        "enumeratedCandidateCount": optimized.enumerated_candidate_count,
+        "admissibleCandidateCount": optimized.costed_candidate_count,
+        "rejectedCandidateCount": (
+            optimized.enumerated_candidate_count - optimized.costed_candidate_count
+        ),
+        "rejectedByErrorCode": dict(optimized.rejected_by_error_code),
+        "selectedCandidateId": optimized.selected_candidate_id,
+        "selectionKind": optimized.selection_kind,
+    }
+    if optimized.selection_kind == "cost_winner":
+        diagnostics["winningCandidateId"] = optimized.winning_candidate_id
     return {
         "calculationResult": calculation_result,
         "cheapestPath": cheapest_path,
@@ -442,16 +516,7 @@ def _six_layer_http_result(
         "evidenceReferences": {
             "pricing_registry": "phase-08-complete-service-pricing@1"
         },
-        "architectureResolutionDiagnostics": {
-            "schemaVersion": "architecture-resolution-diagnostics.v2",
-            "enumeratedCandidateCount": optimized.enumerated_candidate_count,
-            "admissibleCandidateCount": optimized.costed_candidate_count,
-            "rejectedCandidateCount": (
-                optimized.enumerated_candidate_count - optimized.costed_candidate_count
-            ),
-            "rejectedByErrorCode": dict(optimized.rejected_by_error_code),
-            "winningCandidateId": optimized.winning_candidate_id,
-        },
+        "architectureResolutionDiagnostics": diagnostics,
         "costLedger": dict(optimized.cost_ledger),
         "resolvedTwinArchitecture": dict(optimized.resolved_architecture),
         "resolvedDeploymentSpecification": dict(optimized.deployment_specification),
@@ -507,7 +572,7 @@ def _log_architecture_resolution_success(
         "profile_digest=%s bundle_id=%s bundle_version=%s "
         "bundle_digest=%s enumerated_candidate_count=%s "
         "admissible_candidate_count=%s rejected_candidate_count=%s "
-        "winner_candidate_id=%s duration_ms=%.3f",
+        "selected_candidate_id=%s duration_ms=%.3f",
         context.calculation_run_id,
         correlation_id,
         context.profile_ref.profile_id,
@@ -519,7 +584,10 @@ def _log_architecture_resolution_success(
         safe_diagnostics.get("enumeratedCandidateCount", 0),
         safe_diagnostics.get("admissibleCandidateCount", 0),
         safe_diagnostics.get("rejectedCandidateCount", 0),
-        safe_diagnostics.get("winningCandidateId", "unavailable"),
+        safe_diagnostics.get(
+            "selectedCandidateId",
+            safe_diagnostics.get("winningCandidateId", "unavailable"),
+        ),
         (perf_counter() - started_at) * 1000,
     )
 

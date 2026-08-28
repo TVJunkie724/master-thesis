@@ -170,6 +170,20 @@ def test_openapi_reuses_closed_workload_for_all_write_paths(authenticated_client
     assert "extensionBindings" not in component["properties"]
     assert "integrateErrorHandling" not in component["properties"]
 
+    evaluation_path = schema["paths"][
+        "/twins/{twin_id}/optimizer-runs/supervised-evaluation"
+    ]["post"]
+    assert _references_component(
+        schema,
+        evaluation_path,
+        "SupervisedEvaluationRunCreate",
+    )
+    admission = schema["components"]["schemas"]["SupervisedEvaluationRunCreate"]
+    assert admission["additionalProperties"] is False
+    assert admission["properties"]["confirmation"]["const"] == (
+        "MATERIALIZE SUPERVISED EVALUATION CANDIDATE"
+    )
+
 
 def test_openapi_exposes_only_rds_v2_as_read_only_contract(authenticated_client):
     client, headers = authenticated_client

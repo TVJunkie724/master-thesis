@@ -626,6 +626,66 @@
             "title": "Devicesendingintervalinminutes",
             "type": "number"
           },
+          "evaluationCandidateEvidenceDigest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluationcandidateevidencedigest"
+          },
+          "evaluationCandidateId": {
+            "anyOf": [
+              {
+                "pattern": "^(aws|azure|gcp)(\\|(aws|azure|gcp)){7}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluationcandidateid"
+          },
+          "evaluationCandidatePackManifestDigest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluationcandidatepackmanifestdigest"
+          },
+          "evaluationPlanDigest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluationplandigest"
+          },
+          "evaluationScenarioId": {
+            "anyOf": [
+              {
+                "pattern": "^small-(local-(aws|azure|gcp)|focus-(aws|azure|gcp)-to-(aws|azure|gcp))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluationscenarioid"
+          },
           "eventingScenarioId": {
             "enum": [
               "eventing-small-v1",
@@ -803,7 +863,7 @@
   "paths": {
     "/calculate": {
       "put": {
-        "description": "**Purpose:** Computes the most cost-effective distribution of Digital Twin services across AWS, Azure, and GCP based on your scenario parameters and the pinned thesis pricing catalogs.\n\n**When to use this endpoint:**\n- Before deploying a new Digital Twin to determine the cheapest provider configuration\n- When comparing costs across different scenario configurations\n- To understand cost breakdown by architectural layer\n\n**How it works:**\n1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n2. Resolves the exact reviewed provider-region catalogs supplied in `providerPricingCatalogs`\n3. Enumerates every executable assignment inside the Six-layer v1 profile\n4. Prices its reviewed direct, tiering, Twin-projection, and Cross-Cloud routes\n5. Scores complete layer and route totals and returns the deterministic winner\n6. Returns detailed cost, route, billing-pool, and immutable evidence context\n\n**The fixed Six-layer responsibilities:**\n- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n- **L2 (Processing):** Data processing, event detection, notifications\n- **L3 (Storage):** Hot/Cool/Archive storage tiers - each can be on different providers\n- **L4 (Management):** Digital Twin state and bounded relationship management\n- **L5 (Visualization):** Dashboards and user interfaces\n\n- **L6 (Eventing):** Independently assigned event routing between processing and consumers\n\n**Important:** This is a calculation-only endpoint. It does not deploy any resources. Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure.",
+        "description": "**Purpose:** Computes the most cost-effective distribution of Digital Twin services across AWS, Azure, and GCP based on your scenario parameters and the pinned thesis pricing catalogs.\n\n**When to use this endpoint:**\n- Before deploying a new Digital Twin to determine the cheapest provider configuration\n- When comparing costs across different scenario configurations\n- To understand cost breakdown by architectural layer\n\n**How it works:**\n1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n2. Resolves the exact reviewed provider-region catalogs supplied in `providerPricingCatalogs`\n3. Enumerates every executable assignment inside the Six-layer v1 profile\n4. Prices its reviewed direct, tiering, Twin-projection, and Cross-Cloud routes\n5. Scores complete layer and route totals and returns the deterministic winner\n6. Returns detailed cost, route, billing-pool, and immutable evidence context\n\n**The fixed Six-layer responsibilities:**\n- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n- **L2 (Processing):** Data processing, event detection, notifications\n- **L3 (Storage):** Provider-local Hot/Cool/Archive storage bundle\n- **L4 (Management):** Digital Twin state and bounded relationship management\n- **L5 (Visualization):** Co-located bounded raw-history access and dashboard\n\n- **LE (Eventing):** Independently assigned event routing between processing and consumers\n\n**Important:** This is a calculation-only endpoint. It does not deploy any resources. Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure.",
         "operationId": "calculateOptimalCloudDistribution",
         "requestBody": {
           "content": {
@@ -821,44 +881,42 @@
               "application/json": {
                 "example": {
                   "result": {
+                    "architectureResolutionDiagnostics": {
+                      "admissibleCandidateCount": 243,
+                      "enumeratedCandidateCount": 243,
+                      "rejectedCandidateCount": 0,
+                      "schemaVersion": "architecture-resolution-diagnostics.v2",
+                      "selectedCandidateId": "gcp|aws|azure|azure|azure|gcp|azure|aws",
+                      "selectionKind": "cost_winner",
+                      "winningCandidateId": "gcp|aws|azure|azure|azure|gcp|azure|aws"
+                    },
                     "calculationResult": {
+                      "Eventing": "AWS",
                       "L1": "GCP",
                       "L2": "AWS",
                       "L3": {
-                        "Archive": "AWS",
-                        "Cool": "GCP",
-                        "Hot": "AWS"
+                        "Archive": "Azure",
+                        "Cool": "Azure",
+                        "Hot": "Azure"
                       },
-                      "L4": "Azure",
+                      "L4": "GCP",
                       "L5": "Azure"
                     },
                     "cheapestPath": [
                       "L1_GCP",
                       "L2_AWS",
-                      "L3_hot_AWS",
-                      "L3_cool_GCP",
-                      "L3_archive_AWS",
-                      "L4_Azure",
-                      "L5_Azure"
+                      "L3_hot_Azure",
+                      "L3_cool_Azure",
+                      "L3_archive_Azure",
+                      "L4_GCP",
+                      "L5_Azure",
+                      "Eventing_AWS"
                     ],
                     "currency": "USD",
-                    "optimizationDiagnostics": {
-                      "enumeratedPathCount": 972,
-                      "evaluatedPathCount": 972,
-                      "rejectedPathCount": 0,
-                      "schemaVersion": "complete-path-optimization.v1",
-                      "scoreUnit": "USD/month",
-                      "winningCandidateId": "gcp|aws|aws|gcp|aws|azure|azure"
-                    },
-                    "optimization_profile_id": "cost_minimization_v1",
-                    "result_schema_version": "cost-result.v1",
+                    "optimization_profile_id": "cost-minimization-v2",
+                    "result_schema_version": "cost-result.v2",
                     "totalCost": 85.5,
-                    "transferPricingContext": {
-                      "currency": "USD",
-                      "pools": [],
-                      "routes": [],
-                      "schemaVersion": "complete-path-transfer-pricing.v1"
-                    }
+                    "totalCostExact": "85.50"
                   }
                 },
                 "schema": {}

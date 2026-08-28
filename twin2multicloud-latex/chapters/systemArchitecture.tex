@@ -177,10 +177,11 @@ are rejected. The response returns the monetary winner, exact monthly total,
 cost ledger, RTA, RDS, pricing references, and bounded rejection diagnostics.
 
 The normal API offers no objective selection, strategy registry, weighted
-score, or manual component assignment. A repository-only evaluation utility
-can reproduce an already enumerated candidate for the supervised evaluation;
-that selector is rejected by the public request model and is never used by the
-normal application workflow.
+score, or manual component assignment. A repository utility reproduces and
+digest-binds an already enumerated candidate. Only a disabled-by-default,
+owner-scoped Management endpoint may pass that internal selector during a
+supervised evaluation; the public calculation model and normal application
+workflow cannot author it.
 
 \subsection{Calculation Pipeline}
 \label{sec:calc-pipeline}
@@ -384,8 +385,11 @@ The supported journey is:
 
 This workflow has no application login step and no manual layer override. The
 six directed placements used by the thesis evaluation are materialized only by
-the repository evaluation utility; the normal UI continues to deploy the
-cost-selected candidate.
+the digest-bound, disabled-by-default supervised evaluation handoff; the normal
+UI continues to deploy the cost-selected candidate. Both paths subsequently
+use the same selection, graph-derived preflight, Apply, replay, verification,
+Destroy, and cleanup lifecycle. Only the Small workload is live-deployable;
+Medium and Large retain explicit capacity blockers.
 
 \section{Runtime Data Flow}
 \label{sec:layer-data-flow}

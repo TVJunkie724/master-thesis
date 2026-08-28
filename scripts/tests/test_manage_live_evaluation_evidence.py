@@ -56,7 +56,11 @@ def _candidate_pack(tmp_path: Path, plan: dict) -> tuple[Path, Path]:
             "schema_version": "six-layer-evaluation-candidate.v1",
             "evidence_status": "offline_planned_candidate",
             "scenario_id": scenario_id,
-            "candidate_id": "|".join(scenario["assignments"].values()),
+            "candidate_id": "|".join(
+                scenario["assignments"][component_id]
+                for component_id in evidence.CANDIDATE_COMPONENT_ORDER
+            ),
+            "assignments": scenario["assignments"],
             "plan_digest": plan_digest,
             "cost_evaluation": {
                 "currency": "USD",
@@ -337,6 +341,37 @@ def test_candidate_pack_digest_drift_is_rejected(tmp_path: Path) -> None:
             evidence_root=tmp_path,
             plan_path=plan_path,
         )
+
+
+def test_redigested_candidate_cannot_drift_from_plan_assignments(tmp_path: Path) -> None:
+    pack_dir, plan_path = _candidate_pack(tmp_path, _read_plan())
+    candidate_path = pack_dir / "small-local-aws.candidate.json"
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    candidate["assignments"]["component.eventing"] = "azure"
+    candidate["evidence_digest"] = evidence._document_digest(
+        {
+            key: value
+            for key, value in candidate.items()
+            if key != "evidence_digest"
+        }
+    )
+    _write_json(candidate_path, candidate)
+    manifest_path = pack_dir / "candidate-pack-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["candidates"][0]["candidate_evidence_digest"] = candidate[
+        "evidence_digest"
+    ]
+    manifest["manifest_digest"] = evidence._document_digest(
+        {
+            key: value
+            for key, value in manifest.items()
+            if key != "manifest_digest"
+        }
+    )
+    _write_json(manifest_path, manifest)
+
+    with pytest.raises(evidence.LiveEvidenceError, match="assignments drifted"):
+        evidence.load_candidate_pack(pack_dir, plan_path=plan_path)
 
 
 def test_completed_record_requires_all_digest_verified_artifacts(

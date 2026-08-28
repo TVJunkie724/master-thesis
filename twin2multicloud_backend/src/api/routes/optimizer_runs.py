@@ -17,10 +17,12 @@ from src.schemas.cost_calculation import (
     CostCalculationRunSelectResponse,
     CostCalculationRunSummaryResponse,
     PricingEvidenceDetailResponse,
+    SupervisedEvaluationRunCreate,
 )
 from src.schemas.resolved_deployment_specification import (
     ResolvedDeploymentSpecificationDocument,
 )
+from src.services.architecture_errors import ArchitectureDomainError
 from src.services.cost_calculation_run_service import (
     CostCalculationRunService,
     _json_loads,
@@ -118,6 +120,76 @@ async def create_optimizer_run(
         raise HTTPException(
             status_code=409,
             detail=_error_detail(exc.error_code, exc.message),
+        )
+
+
+@router.post(
+    "/supervised-evaluation",
+    response_model=CostCalculationRunDetailResponse,
+    operation_id="materializeSupervisedEvaluationRun",
+    summary="Materialize one digest-bound supervised Small candidate",
+    description=(
+        "Operator-only thesis evaluation hook. Disabled by default and not used "
+        "by the normal UI or optimizer-run endpoint. The resulting run enters "
+        "the same selection, preflight, Apply, replay, and Destroy lifecycle."
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        409: ERROR_RESPONSES[409],
+        502: {"description": "Optimizer contract or service error"},
+        503: {"description": "Optimizer unavailable"},
+    },
+)
+async def materialize_supervised_evaluation_run(
+    twin_id: str,
+    request: SupervisedEvaluationRunCreate,
+    service: CostCalculationRunService = Depends(get_cost_calculation_run_service),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        run = await service.create_run(
+            twin_id,
+            current_user.id,
+            request.params,
+            pricing_evidence_version=request.pricing_evidence_version,
+            supervised_evaluation={
+                "scenario_id": request.scenario_id,
+                "candidate_id": request.candidate_id,
+                "candidate_evidence_digest": request.candidate_evidence_digest,
+                "plan_digest": request.plan_digest,
+                "candidate_pack_manifest_digest": (
+                    request.candidate_pack_manifest_digest
+                ),
+            },
+        )
+        return _run_detail_response(run)
+    except TwinNotFound as exc:
+        raise HTTPException(status_code=404, detail=exc.message)
+    except ExternalServiceUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail=_error_detail(
+                "OPTIMIZER_UNAVAILABLE", "Optimizer service is unavailable."
+            ),
+        )
+    except ExternalServiceError as exc:
+        raise HTTPException(
+            status_code=409 if exc.error_code else 502,
+            detail=_error_detail(
+                exc.error_code or "OPTIMIZER_ERROR",
+                "Optimizer rejected the supervised evaluation candidate.",
+            ),
+        )
+    except OptimizerContractError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=_error_detail("OPTIMIZER_CONTRACT_INVALID", exc.message, exc.errors),
+        )
+    except ArchitectureDomainError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=_error_detail(exc.code, exc.message),
         )
 
 
