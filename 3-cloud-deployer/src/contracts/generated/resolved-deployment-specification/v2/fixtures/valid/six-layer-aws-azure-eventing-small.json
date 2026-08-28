@@ -15,7 +15,7 @@
     "component_catalog_ref": {
       "id": "six-layer-eventing-component-catalog",
       "version": "1",
-      "digest": "sha256:d8074f2fa714430470c409f253d542fcfeefeb28cd5e84c023fa605cfbdad4a9"
+      "digest": "sha256:18f9344983a7606850f5e51fbec5e3495693885011f4fd20365534c149343ff9"
     },
     "workload_ref": {
       "id": "six-layer-workload",
@@ -2050,5 +2050,5 @@
       "compatibility_version": "1"
     }
   ],
-  "digest": "sha256:9d83171c105a2994f4cab761866121a3e95e3dc59e1d9e65ea4573b558d38b5b"
+  "digest": "sha256:c2e7cfbab171ed53d3a976012311a7625bb66b16675c66f4ca792fd978f60198"
 }
