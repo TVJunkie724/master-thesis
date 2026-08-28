@@ -3,7 +3,7 @@ title: "Architecture Evolution and Decision Trace"
 description: "Traceable evolution from the predecessor architecture to the evaluated Twin2MultiCloud thesis PoC."
 tags: [thesis, architecture, decisions, traceability, evaluation]
 lastUpdated: "2026-08-28"
-version: "1.0"
+version: "1.1"
 ---
 
 # Architecture evolution and decision trace
@@ -19,6 +19,9 @@ evidence. It complements the
 [`development_and_decision_log.md`](../development_and_decision_log.md): that
 log states the durable target decisions, while this document explains the
 change from the predecessor baseline and the alternatives that were rejected.
+Provider-by-provider service additions, replacements, and refinements are
+tracked separately in
+[`service_selection_evolution.md`](service_selection_evolution.md).
 
 Every material architecture change is recorded before it is implemented or
 re-sized. A decision may be supported at four different evidence levels:
@@ -66,6 +69,7 @@ rewrite an unresolved choice into an established fact.
 | AE-07 | Mutable deployments implied update, migration, rollback, and replacement semantics | Draft Twins are editable; deployed Twins are immutable; duplicate/import creates an independent draft | Bound lifecycle and cost risk to what the RQs require | RQ1 | offline-verified; live pending |
 | AE-08 | External application login and identity-provider integrations expanded the product surface | One local owner profile retains data ownership; external login UI remains dormant behind an adapter boundary | Preserve user-scoped credentials without building an authentication product | RQ1 | offline-verified |
 | AE-09 | Broad deployment testing could enumerate many redundant layer permutations | Three provider-local and six directed multi-cloud Small scenarios, preceded by component and identity probes | Cover every provider direction while controlling cost and separating partial from final evidence | RQ1, RQ2, RQ3.1 | planned; live pending |
+| AE-10 | Broad provider service labels appeared comparable by layer position | One evidence-backed provider bundle per responsibility, including explicit support services, access paths, and cost owners | Functional equivalence cannot be inferred from product names; service changes must remain thesis-traceable | RQ1, RQ2, RQ3 | offline-verified; live pending |
 
 ## AE-01 — Explicit non-linear Event Layer
 

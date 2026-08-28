@@ -439,6 +439,9 @@ budget cap and candidate trace has been reviewed.
   the hosted GCP device boundary.
 - Separate implementation defects, provider blockers, model limitations,
   threats to validity, and future product work.
+- Synthesize every material provider-service change from the predecessor
+  mapping to the evaluated bundle, including protocol, durability, access,
+  pricing, credential, and deployment consequences.
 - Reconcile final docs and remove completed implementation-only plans and
   handoffs while retaining the target concept, method, decisions, and evidence.
 

@@ -336,14 +336,17 @@ The active repository retains:
 - one development and decision log explaining important design rationale;
 - one architecture-evolution trace separating inherited, reasoned,
   offline-verified, and live-validated changes;
+- one provider-service evolution register for material service, tier, hosting,
+  access-path, and support-component changes;
 - focused future-work concepts without delivery promises; and
 - minimal current component and operating documentation.
 
 The durable rationale is recorded in
 `docs/development_and_decision_log.md`; predecessor-to-target deltas and open
 architecture decisions are recorded in
-`docs/research/architecture_evolution.md`. Superseded plans, handoffs, and
-product roadmaps remain recoverable from Git history rather than being
+`docs/research/architecture_evolution.md`; service-level changes are recorded
+in `docs/research/service_selection_evolution.md`. Superseded plans, handoffs,
+and product roadmaps remain recoverable from Git history rather than being
 presented as active project state.
 
 Implementation handoffs, superseded phase plans, duplicate TODO lists, product

@@ -3,7 +3,7 @@ title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
 lastUpdated: "2026-08-28"
-version: "1.2"
+version: "1.3"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -199,6 +199,21 @@ scientific evidence.
 record. Open choices remain marked open, particularly the Small GCP-L1 broker
 sizing. Git retains superseded implementation detail, while active documents
 describe only the accepted target and explicit future-work concepts.
+
+## D-13 — Provider service-selection trace
+
+**Decision:** Changes to provider services, tiers, hosting models, access
+surfaces, and support components are recorded separately from changes to the
+logical layer model.
+
+**Rationale:** Retaining a layer name does not mean the architecture stayed the
+same. A service replacement can change protocols, durability, identities,
+deployment risk, and cost formulas and therefore affect RQ1-RQ3.
+
+**Consequence:** `docs/research/service_selection_evolution.md` compares the
+predecessor mappings with the selected AWS, Azure, and GCP bundles. Any later
+service change must update that trace before the provider bundle is refrozen;
+offline bundle selection and live validation remain explicitly distinct.
 
 ## Current implementation checkpoint
 
