@@ -206,7 +206,7 @@ def _register_azure_resource_provider(
     credentials: dict[str, Any],
 ) -> dict[str, Any]:
     from azure.identity import ClientSecretCredential
-    from azure.mgmt.resource import ResourceManagementClient
+    from azure.mgmt.resource.resources import ResourceManagementClient
 
     credential = ClientSecretCredential(
         tenant_id=credentials["azure_tenant_id"],

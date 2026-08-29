@@ -8,6 +8,7 @@ import pytest
 
 from src.account_preparation import (
     _enable_gcp_api,
+    _register_azure_resource_provider,
     build_account_preparation_plan,
     execute_account_preparation,
 )
@@ -207,3 +208,95 @@ def test_gcp_api_preparation_is_idempotent(monkeypatch):
     assert result == {
         "message": "cloudresourcemanager.googleapis.com is already enabled."
     }
+
+
+def test_azure_resource_provider_preparation_registers_missing_namespace(
+    monkeypatch,
+):
+    calls = []
+
+    class Providers:
+        def get(self, namespace):
+            calls.append(("get", namespace))
+            return SimpleNamespace(registration_state="NotRegistered")
+
+        def register(self, namespace):
+            calls.append(("register", namespace))
+            return SimpleNamespace(registration_state="Registering")
+
+    class ResourceManagementClient:
+        def __init__(self, credential, subscription_id):
+            calls.append(("client", credential, subscription_id))
+            self.providers = Providers()
+
+    credential = object()
+    monkeypatch.setattr(
+        "azure.identity.ClientSecretCredential",
+        lambda **_kwargs: credential,
+    )
+    monkeypatch.setattr(
+        "azure.mgmt.resource.resources.ResourceManagementClient",
+        ResourceManagementClient,
+    )
+
+    result = _register_azure_resource_provider(
+        "Microsoft.Resources",
+        {
+            "azure_tenant_id": "tenant",
+            "azure_client_id": "client",
+            "azure_client_secret": "secret",
+            "azure_subscription_id": "subscription",
+        },
+    )
+
+    assert calls == [
+        ("client", credential, "subscription"),
+        ("get", "Microsoft.Resources"),
+        ("register", "Microsoft.Resources"),
+    ]
+    assert result == {
+        "message": "Microsoft.Resources registration state: Registering."
+    }
+
+
+def test_azure_resource_provider_preparation_is_idempotent(monkeypatch):
+    calls = []
+
+    class Providers:
+        def get(self, namespace):
+            calls.append(("get", namespace))
+            return SimpleNamespace(registration_state="Registered")
+
+        def register(self, namespace):  # pragma: no cover - safety guard
+            raise AssertionError(f"Unexpected registration: {namespace}")
+
+    class ResourceManagementClient:
+        def __init__(self, credential, subscription_id):
+            calls.append(("client", credential, subscription_id))
+            self.providers = Providers()
+
+    credential = object()
+    monkeypatch.setattr(
+        "azure.identity.ClientSecretCredential",
+        lambda **_kwargs: credential,
+    )
+    monkeypatch.setattr(
+        "azure.mgmt.resource.resources.ResourceManagementClient",
+        ResourceManagementClient,
+    )
+
+    result = _register_azure_resource_provider(
+        "Microsoft.Resources",
+        {
+            "azure_tenant_id": "tenant",
+            "azure_client_id": "client",
+            "azure_client_secret": "secret",
+            "azure_subscription_id": "subscription",
+        },
+    )
+
+    assert calls == [
+        ("client", credential, "subscription"),
+        ("get", "Microsoft.Resources"),
+    ]
+    assert result == {"message": "Microsoft.Resources is already registered."}
