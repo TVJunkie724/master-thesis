@@ -80,6 +80,16 @@ _GCP_APIS = {
     "kubernetes_": "container.googleapis.com",
 }
 
+_GCP_BASELINE_APIS = (
+    "logging.googleapis.com",
+    "monitoring.googleapis.com",
+)
+
+_GCP_INBOUND_IDENTITY_APIS = (
+    "iamcredentials.googleapis.com",
+    "sts.googleapis.com",
+)
+
 _QUOTA_CONTROL_PLANES = {
     "aws": {"grafana", "iottwinmaker", "kinesis"},
     "azure": {
@@ -280,6 +290,7 @@ def resolve_graph_requirements(
             for api in (
                 "serviceusage.googleapis.com",
                 "cloudresourcemanager.googleapis.com",
+                *_GCP_BASELINE_APIS,
             ):
                 add(
                     "api",
@@ -416,6 +427,16 @@ def resolve_graph_requirements(
             source_edges=(edge.graph_edge_id,),
             attributes={"destination_provider": destination_provider},
         )
+        if destination_provider == "gcp":
+            for api in _GCP_INBOUND_IDENTITY_APIS:
+                add(
+                    "api",
+                    "gcp",
+                    api,
+                    scope="project",
+                    preparation_mode="confirmed_account",
+                    source_edges=(edge.graph_edge_id,),
+                )
         if (source_provider, destination_provider) == ("aws", "azure"):
             add(
                 "account_capability",

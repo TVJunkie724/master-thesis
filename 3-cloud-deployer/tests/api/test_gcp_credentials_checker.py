@@ -9,6 +9,26 @@ from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
 
 
+def test_required_apis_match_the_six_layer_runtime():
+    from src.api.gcp_credentials_checker import REQUIRED_GCP_APIS
+
+    required = {
+        api
+        for group in REQUIRED_GCP_APIS.values()
+        for api in group["apis"]
+    }
+
+    assert "cloudfunctions.googleapis.com" not in required
+    assert "eventarc.googleapis.com" not in required
+    assert {
+        "artifactregistry.googleapis.com",
+        "cloudbuild.googleapis.com",
+        "monitoring.googleapis.com",
+        "sts.googleapis.com",
+        "iamcredentials.googleapis.com",
+    } <= required
+
+
 # Helper to create mock SA parse return value (tuple format)
 def _make_mock_parse_return(
     project_id="test-project", client_email="sa@test.iam.gserviceaccount.com"

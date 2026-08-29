@@ -204,11 +204,39 @@ def test_gcp_apis_are_selected_from_exact_graph_resource_types():
 
     assert apis == {
         "cloudresourcemanager.googleapis.com",
+        "logging.googleapis.com",
+        "monitoring.googleapis.com",
         "pubsub.googleapis.com",
         "run.googleapis.com",
         "serviceusage.googleapis.com",
     }
     assert "container.googleapis.com" not in apis
+
+
+@pytest.mark.parametrize("source", ["aws", "azure"])
+def test_inbound_gcp_route_derives_token_exchange_apis(source):
+    requirements = resolve_graph_requirements(
+        (_node("source", source), _node("destination", "gcp")),
+        (_edge("source", "destination"),),
+    )
+
+    inbound_apis = {
+        requirement.capability_id: requirement
+        for requirement in requirements
+        if requirement.provider == "gcp"
+        and requirement.requirement_type == "api"
+        and requirement.capability_id
+        in {"iamcredentials.googleapis.com", "sts.googleapis.com"}
+    }
+
+    assert set(inbound_apis) == {
+        "iamcredentials.googleapis.com",
+        "sts.googleapis.com",
+    }
+    assert all(
+        requirement.source_edge_ids == ("graph.edge.eventing",)
+        for requirement in inbound_apis.values()
+    )
 
 
 def test_aws_to_azure_adds_only_the_reviewed_shared_account_capability():

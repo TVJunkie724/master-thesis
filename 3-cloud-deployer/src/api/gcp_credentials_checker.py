@@ -28,37 +28,45 @@ from src.core.observability import redact_sensitive
 # ==========================================
 
 REQUIRED_GCP_APIS = {
-    "setup": {
-        "description": "Project Services, IAM, Cloud Storage",
+    "foundation": {
+        "description": "Project services, IAM, storage, and observability",
         "apis": [
+            "serviceusage.googleapis.com",
             "cloudresourcemanager.googleapis.com",
             "iam.googleapis.com",
             "storage.googleapis.com",
+            "logging.googleapis.com",
+            "monitoring.googleapis.com",
+        ],
+    },
+    "eventing": {
+        "description": "Six-layer event transport and container delivery",
+        "apis": [
+            "pubsub.googleapis.com",
+            "run.googleapis.com",
+            "artifactregistry.googleapis.com",
+            "cloudbuild.googleapis.com",
         ],
     },
     "layer_1": {
-        "description": "Pub/Sub, Eventarc",
-        "apis": [
-            "pubsub.googleapis.com",
-            "eventarc.googleapis.com",
-        ],
+        "description": "GKE ingestion runtime",
+        "apis": ["compute.googleapis.com", "container.googleapis.com"],
     },
     "layer_2": {
-        "description": "Cloud Functions, Cloud Run, Cloud Build, Workflows",
-        "apis": [
-            "cloudfunctions.googleapis.com",
-            "run.googleapis.com",
-            "cloudbuild.googleapis.com",
-            "workflows.googleapis.com",
-        ],
+        "description": "Workflow processing",
+        "apis": ["workflows.googleapis.com"],
     },
     "layer_3": {
-        "description": "Firestore, Cloud Storage, Cloud Scheduler",
-        "apis": [
-            "firestore.googleapis.com",
-            "storage.googleapis.com",
-            "cloudscheduler.googleapis.com",
-        ],
+        "description": "Firestore lifecycle storage",
+        "apis": ["firestore.googleapis.com", "cloudscheduler.googleapis.com"],
+    },
+    "layer_4": {
+        "description": "Twin-state browser access",
+        "apis": ["iap.googleapis.com"],
+    },
+    "cross_cloud": {
+        "description": "Inbound workload identity federation",
+        "apis": ["sts.googleapis.com", "iamcredentials.googleapis.com"],
     },
 }
 
